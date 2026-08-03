@@ -123,6 +123,27 @@ covers into their own neighbours.
 Verify, don't tune by eye: `checkmesh.py` reports coplanar overlaps with their true intersection
 area, plus parallel faces within a few millimetres. `build.sh` runs it and fails on either.
 
+## The atlas rebuilds to a different file every time
+
+`build.sh` is **not** byte-reproducible, and this is not a bug to chase. Blender's glTF
+exporter does not emit triangles in a stable order, so rebuilding from unchanged sources
+produces a GLB with identical positions, normals and UVs and a **permuted index buffer** —
+a few hundred differing bytes, same size, same geometry.
+
+So `git status` showing the atlas as modified after a build means nothing on its own, and a
+byte comparison cannot answer the question you actually have. Ask it properly:
+
+```bash
+./tools/model/checkmesh.py <new.glb> --compare <old.glb>
+```
+
+which compares the surface itself — every triangle canonicalised and sorted — and tells you
+whether an edit to `pantsir.py` moved anything. If it reports *same geometry*, **revert the
+atlas** rather than committing several hundred bytes of noise into a binary file.
+
+This was diagnosed by rebuilding three times and getting three hashes; only the turret differed,
+and only in `INDICES`. Do not re-derive it.
+
 ## Four more traps, all already hit
 
 - **Blender is a Windows binary.** A WSL path passed to `--python` gets mangled. Always

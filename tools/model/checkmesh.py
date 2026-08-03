@@ -14,6 +14,7 @@ direction, with overlapping extents, is a candidate.
 
     ./tools/model/checkmesh.py src/AirDefence/Meshes/AirDefence_MeshAtlas.glb
     ./tools/model/checkmesh.py <atlas.glb> --mesh AirDefence_Subpart_Chassis
+    ./tools/model/checkmesh.py <a.glb> --compare <b.glb>    # same model, or genuinely changed?
 
 Exits non-zero if it finds conflicting coplanar area above the reporting threshold.
 """
@@ -349,15 +350,91 @@ def analyse(gltf, binary, mesh):
     return conflicts
 
 
+def fingerprint(gltf, binary, mesh):
+    """A canonical, order-independent description of one mesh's surface.
+
+    Every triangle becomes ((position, normal, uv) x3), rotated so its lowest-sorting corner
+    comes first — which preserves winding while removing the arbitrary choice of starting
+    vertex — and the triangles are then sorted. Two fingerprints compare equal exactly when the
+    two meshes describe the same surface, whatever order the exporter happened to emit it in.
+    """
+    out = []
+    for prim in mesh["primitives"]:
+        if prim.get("mode", 4) != 4:
+            continue
+        attrs = prim["attributes"]
+        pos = read_accessor(gltf, binary, attrs["POSITION"])
+        nrm = read_accessor(gltf, binary, attrs["NORMAL"]) if "NORMAL" in attrs else None
+        uvs = read_accessor(gltf, binary, attrs["TEXCOORD_0"]) if "TEXCOORD_0" in attrs else None
+        idx = list(read_accessor(gltf, binary, prim["indices"])
+                   if "indices" in prim else range(len(pos)))
+
+        for i in range(0, len(idx) - 2, 3):
+            tri = tuple((pos[v], nrm[v] if nrm else None, uvs[v] if uvs else None)
+                        for v in idx[i:i + 3])
+            start = tri.index(min(tri))
+            out.append(tri[start:] + tri[:start])
+    out.sort()
+    return out
+
+
+def compare(path_a, path_b):
+    """Reports whether two atlases describe the same geometry.
+
+    Blender's glTF exporter does not emit triangles in a stable order, so rebuilding the model
+    from unchanged sources produces a *different file* — same positions, normals and UVs, only
+    the index buffer permuted. Byte comparison therefore says "changed" on every rebuild and is
+    useless for answering the question you actually have, which is whether an edit to
+    pantsir.py moved anything. This compares the surface instead.
+    """
+    ga, ba = read_glb(path_a)
+    gb, bb = read_glb(path_b)
+
+    by_name_a = {m.get("name", "?"): m for m in ga["meshes"]}
+    by_name_b = {m.get("name", "?"): m for m in gb["meshes"]}
+
+    changed = 0
+    for name in sorted(set(by_name_a) | set(by_name_b)):
+        if name not in by_name_a or name not in by_name_b:
+            side = "only in " + (path_a if name in by_name_a else path_b)
+            print(f"  {name:<34} {side}")
+            changed += 1
+            continue
+
+        fa = fingerprint(ga, ba, by_name_a[name])
+        fb = fingerprint(gb, bb, by_name_b[name])
+        if fa == fb:
+            print(f"  {name:<34} identical ({len(fa)} triangles)")
+        else:
+            moved = sum(1 for x, y in zip(fa, fb) if x != y)
+            note = (f"{len(fa)} vs {len(fb)} triangles" if len(fa) != len(fb)
+                    else f"{moved} triangle(s) differ")
+            print(f"  {name:<34} CHANGED — {note}")
+            changed += 1
+
+    print()
+    if changed:
+        print(f"{changed} mesh(es) genuinely differ")
+        return 1
+    print("same geometry — the files differ only in triangle order, which is expected")
+    return 0
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    only = None
+    only = other = None
     if "--mesh" in sys.argv:
         only = sys.argv[sys.argv.index("--mesh") + 1]
         args = [a for a in args if a != only]
+    if "--compare" in sys.argv:
+        other = sys.argv[sys.argv.index("--compare") + 1]
+        args = [a for a in args if a != other]
     if not args:
         print(__doc__.strip().splitlines()[-3].strip(), file=sys.stderr)
         return 2
+
+    if other:
+        return compare(args[0], other)
 
     gltf, binary = read_glb(args[0])
     total = 0
