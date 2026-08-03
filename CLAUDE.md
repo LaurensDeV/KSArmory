@@ -55,7 +55,11 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
   `dotnet` commands fail. In an interactive shell, `source tools/env.sh` once.
 
 - `Import/` holds the game's assemblies and is **gitignored**. Repopulate with
-  `./tools/sync-import.sh`. Nothing builds without it.
+  `./tools/sync-import.sh`. Nothing builds without it — though the build also finds a game
+  install or a `ksa-game-assemblies` checkout on its own, see `Directory.Build.props`.
+- **When KSA updates, four things have to move together**, not just `Import/`. See
+  [After a KSA update](#after-a-ksa-update); getting it wrong makes CI build the mod against a
+  different game from the one you are testing on, silently.
 - **The game is launchable from WSL** — interop is enabled, so `tools/run.sh` starts
   `StarMap.exe` directly. StarMap lives at `/mnt/c/Users/devoo/StarMap` and reads
   `./StarMapConfig.json` **relative to its own directory**, so it must be launched from there.
@@ -77,7 +81,9 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
 ./tools/run.sh --attach                    # follow a game that's already running
 ./tools/setup-starmap.sh                   # one-off: install StarMap and write its config
-./tools/sync-import.sh                     # refresh Import/ after a KSA update
+./tools/check-assemblies.sh                 # do local and CI agree on the game build?
+./tools/sync-import.sh                     # refresh Import/ -- NOT the whole story after a
+                                           #   KSA update; see "After a KSA update" below
 
 source tools/env.sh                        # then bare dotnet works in this shell
 cd tools/apidump && dotnet run -- ../../Import members KSA.Vehicle   # inspect the game API
@@ -279,6 +285,10 @@ The dance, in order:
 ```
 
 Do the private repo *before* pushing here, or CI fails on the lock it cannot satisfy yet.
+
+The build number is written down in three places, so update all three: `ksa-assemblies.lock`,
+`current/KSA_BUILD` in the private repo, and the **KSA build** line under Environment above. The
+lock is the one that is actually enforced; the other two are for humans reading.
 
 CI is split the same way the source is:
 
