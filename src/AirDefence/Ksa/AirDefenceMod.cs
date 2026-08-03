@@ -63,57 +63,7 @@ public sealed class AirDefenceMod
             _lastSimSpeed = speed;
         }
 
-        try
-        {
-            // Every frame, before the clock gate. This reads where the world is, and the whole
-            // overlay is drawn against it — leaving it inside the gated step froze the drawing's
-            // frame of reference whenever the simulation did not advance.
-            _battery.SampleWorld();
-
-            // The pause guard: no simulated time, no step, so nothing fires into a frozen world.
-            if (!KsaWorld.IsPaused && double.IsFinite(dtPlayer) && dtPlayer > 0.0)
-            {
-                // Simulated seconds elapsed over THIS frame, READ from the engine rather than
-                // estimated from the frame time.
-                //
-                // The drawn offset advances the platform across the stepping interval to meet the
-                // round, so that interval has to be the one the platform sample actually moved
-                // over. dtPlayer alone ignores warp, so rounds crawled while the world raced.
-                // dtPlayer * SimulationSpeed corrects for warp but is still a guess at what the
-                // engine did, and a probe measured the error directly: the assumed step
-                // missed the real one by up to 0.9 ms, which against ~29.8 km/s of ecliptic
-                // motion is 27 m of misplacement, alternating sign frame to frame. Worst at 0.1x
-                // and 2x, and worst of all on the frame the speed changes - where the engine
-                // applies one step at the old rate while the estimate has already switched to the
-                // new one. That is the jump.
-                //
-                // GetLastSimStep().DeltaTime is not an approximation of that interval, it is that
-                // interval: measured against the platform's own displacement over its own
-                // velocity - two independent readings off the same vehicle - it agreed to four
-                // decimal places on every frame sampled, at every speed from 0.01x to 4x.
-                //
-                // An earlier attempt at this was reverted for causing jitter. That jitter was the
-                // drawn offset's own phase error, fixed separately in Interceptor.Update - see
-                // the offset note in CLAUDE.md - and it was never about the step at all.
-                double dtSim = KsaWorld.SimStepSeconds;
-
-                // Fall back to the estimate only if the engine has nothing to report - a load,
-                // or a frame before the first step. Better a slightly wrong step than none.
-                if (!double.IsFinite(dtSim) || dtSim <= 0.0)
-                    dtSim = dtPlayer * KsaWorld.SimulationSpeed;
-                _battery.Update(Math.Min(dtSim, Interceptor.MaxFaithfulStep));
-            }
-
-            // Outside the clock gate on purpose. Placing the round bodies is drawing, not
-            // simulating, and it has to happen on every rendered frame or the rounds sit still
-            // through any frame that advanced no simulated time while the world moved past
-            // them. Cheap, and it only reads state.
-            _battery.SyncRoundBodies();
-        }
-        catch (Exception e)
-        {
-            Fault("frame update", e);
-        }
+        // Nothing here: the simulation runs in OnAfterGui, alongside the drawing it feeds.
     }
 
     /// <summary>
@@ -132,6 +82,28 @@ public sealed class AirDefenceMod
 
         try
         {
+            // Simulate here, immediately before drawing, rather than in the frame hook.
+            //
+            // KSA's order within a frame is: reset gizmos -> draw UI (this hook) -> render ->
+            // postfix on OnFrame. So a simulation step in the frame hook lands AFTER this pass,
+            // and every draw necessarily used an offset produced one frame earlier while
+            // anchoring it to the platform's position now. A round is drawn as
+            // `AnchorEgo + OffsetFromPlatform`, so that one-frame gap put it exactly one step of
+            // the platform's ecliptic motion downrange - measured at 0.999 steps along the
+            // orbital direction with 0.4 m across it, on all 221 samples taken. About 600 m at
+            // 1x, and the same shift at launch as at the intercept, because a rigid drag moves
+            // the whole flight equally.
+            //
+            // Correcting it at draw time cannot work: the drag is the platform's motion over one
+            // step, so any correction carries a dt that changes frame to frame, and it comes
+            // straight back as the `v * dstep` jitter fixed in Interceptor.Update. Tried, and it
+            // reintroduced exactly that.
+            //
+            // Stepping here removes the gap instead of compensating for it. The offset and the
+            // anchor are then produced in the same pass, so they share an epoch by construction
+            // and there is no dt anywhere in the placement.
+            if (KsaWorld.InFlight) StepSimulation(dt);
+
             _ui.Draw();
 
             if (KsaWorld.InFlight) Visuals.Draw(_battery, _config);
@@ -141,6 +113,59 @@ public sealed class AirDefenceMod
             Fault("gui", e);
         }
     }
+
+    /// <summary>
+    /// One simulation step, run from the GUI hook so it shares an epoch with the draw.
+    /// </summary>
+    private void StepSimulation(double dtPlayer)
+    {
+        if (_battery is null) return;
+
+        // Every frame, before the clock gate. This reads where the world is, and the whole
+        // overlay is drawn against it — leaving it inside the gated step froze the drawing's
+        // frame of reference whenever the simulation did not advance.
+        _battery.SampleWorld();
+
+        // The pause guard: no simulated time, no step, so nothing fires into a frozen world.
+        if (!KsaWorld.IsPaused && double.IsFinite(dtPlayer) && dtPlayer > 0.0)
+        {
+            // Simulated seconds elapsed over THIS frame, READ from the engine rather than
+            // estimated from the frame time.
+            //
+            // The drawn offset advances the platform across the stepping interval to meet the
+            // round, so that interval has to be the one the platform sample actually moved
+            // over. dtPlayer alone ignores warp, so rounds crawled while the world raced.
+            // dtPlayer * SimulationSpeed corrects for warp but is still a guess at what the
+            // engine did, and a probe measured the error directly: the assumed step
+            // missed the real one by up to 0.9 ms, which against ~29.8 km/s of ecliptic
+            // motion is 27 m of misplacement, alternating sign frame to frame. Worst at 0.1x
+            // and 2x, and worst of all on the frame the speed changes - where the engine
+            // applies one step at the old rate while the estimate has already switched to the
+            // new one. That is the jump.
+            //
+            // GetLastSimStep().DeltaTime is not an approximation of that interval, it is that
+            // interval: measured against the platform's own displacement over its own
+            // velocity - two independent readings off the same vehicle - it agreed to four
+            // decimal places on every frame sampled, at every speed from 0.01x to 4x.
+            //
+            // An earlier attempt at this was reverted for causing jitter. That jitter was the
+            // drawn offset's own phase error, fixed separately in Interceptor.Update - see
+            // the offset note in CLAUDE.md - and it was never about the step at all.
+            double dtSim = KsaWorld.SimStepSeconds;
+
+            // Fall back to the estimate only if the engine has nothing to report - a load,
+            // or a frame before the first step. Better a slightly wrong step than none.
+            if (!double.IsFinite(dtSim) || dtSim <= 0.0)
+                dtSim = dtPlayer * KsaWorld.SimulationSpeed;
+            _battery.Update(Math.Min(dtSim, Interceptor.MaxFaithfulStep));
+        }
+
+        // Outside the clock gate on purpose. Placing the round bodies is drawing, not
+        // simulating, and it has to happen on every rendered frame or the rounds sit still
+        // through any frame that advanced no simulated time while the world moved past
+        // them. Cheap, and it only reads state.
+        _battery.SyncRoundBodies();
+}
 
     [StarMapUnload]
     public void Unload()

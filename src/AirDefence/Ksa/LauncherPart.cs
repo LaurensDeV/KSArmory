@@ -344,7 +344,13 @@ internal static class LauncherPart
             // Converting the round's absolute platform offset instead measures from the
             // platform's analytic orbit position, while a subpart is placed against the
             // vehicle's physics origin - and those two are metres apart on a landed craft.
-            position = launchAnchorPartFrame + asmb2Part * (ecl2Asmb * travelEcl);
+            // Both frames, and they are the same frame: asmb2Part measured 0.0 m of difference
+            // over travels out to 7.4 km, so the launcher part is unrotated relative to the
+            // vehicle assembly. Kept explicit because PositionParentAsmb *is* the assembly frame,
+            // so the conversion is only a no-op for as long as that holds.
+            double3 travelPart = asmb2Part * (ecl2Asmb * travelEcl);
+
+            position = launchAnchorPartFrame + travelPart;
             if (!Vec.IsFinite(position)) return false;
 
             rotation = FireGeometry.RotationFromNose(asmb2Part * (ecl2Asmb * directionEcl));

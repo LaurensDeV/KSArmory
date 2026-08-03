@@ -267,8 +267,31 @@ internal sealed class DefenceBattery(Config config)
         Radar.Scan(Platform, Boresight, dt);
         AttributeRoundsToTracks();
         UpdateTurret(dt);
-        UpdateFireControl(dt);
+
+        // Rounds before fire control, so a round fired this frame is NOT integrated until the
+        // next one.
+        //
+        // A round is created from the platform sample this update was handed, and everything
+        // drawn from it is a difference against that sample: TravelSinceLaunch is
+        // `OffsetFromPlatform - LaunchOffset`, and both terms are `roundPosition - platformSample`.
+        // That cancels the platform's ~29.8 km/s of ecliptic motion only while the sample advances
+        // alongside the round. Integrate a brand new round in its own launch frame and the sample
+        // stands still for one step, so the round's *ecliptic* displacement lands in travel
+        // instead of its local one - and because travel is a difference from launch, the error is
+        // permanent rather than transient.
+        //
+        // Measured in game: travel reading 658.78 m at an age of 0.04 s on a round doing 124 m/s,
+        // against 29800 * 0.022 = 656 m for one frame of ecliptic motion. The round bodies left
+        // the tube that far out and stayed that far out for the whole flight, which is why the
+        // launch point and the impact point were displaced by the same amount. The gizmo tracers
+        // were unaffected, because they draw from the offset directly and never difference it
+        // against launch - so for several rounds of testing the two renderers disagreed about
+        // where the same round was.
+        //
+        // Firing after this call costs the new round one frame before it moves, which is correct
+        // anyway: it is still in the tube on the frame the trigger is pulled.
         UpdateRounds(dt);
+        UpdateFireControl(dt);
         TrimEvents();
 
         if (_config.DiagnosticDump)
