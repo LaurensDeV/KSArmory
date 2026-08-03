@@ -37,6 +37,15 @@ Scope is optional but useful; prefer the area touched — `turret`, `rounds`, `r
 `model`, `ci`. Keep the subject in the imperative and under ~72 characters, and use the body to
 say *why* when the reason is not obvious from the diff.
 
+**Pick the type by asking whether a player would notice, not by how much work it was.** The
+scope is not consulted: `feat(tools)` on a developer script is still a `feat`, so it bumps the
+*mod's* minor version and publishes an archive identical to the previous one but for the
+version string. That has already happened twice — 0.1.1, 0.2.0 and 0.3.0 differ only in
+`<Version>`, and anyone who upgraded got nothing. Developer tooling is `chore`, `ci`, `test` or
+`refactor`. The commit-msg hook warns when a `feat`/`fix`/`perf` commit touches nothing under
+`src/AirDefence/`; it only warns, because a packaging fix in `tools/package.sh` genuinely
+changes what ships without touching `src/` and no mechanical rule gets that right.
+
 Split unrelated work into separate commits rather than one large one: the changelog is generated
 from these, so a commit that does three things describes none of them well.
 

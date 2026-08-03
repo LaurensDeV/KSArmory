@@ -51,6 +51,36 @@ check() {
     echo "✓ $header"
 }
 
+# Warns when a commit will cut a release that changes nothing a player installs.
+#
+# `feat` means "feature" to semantic-release whatever the scope says, so `feat(tools)` on a
+# developer script bumps the *mod's* minor version and publishes an archive identical to the
+# last one but for the version string. That happened twice in one day: 0.1.1, 0.2.0 and 0.3.0
+# differ only in <Version>, and anyone who upgraded got nothing.
+#
+# A warning rather than a rule, and scope is deliberately not used to decide. A packaging fix in
+# tools/package.sh changes the artifact without touching src/ at all, so any mechanical rule
+# gets that backwards. The author knows which it is; this only asks the question.
+advise_release_impact() {
+    local header="$1"
+    local type="${header%%[(:!]*}"
+
+    case "$type" in feat|fix|perf) ;; *) return 0 ;; esac
+
+    # Staged contents, which is what this commit will contain.
+    local touched
+    touched="$(git diff --cached --name-only 2>/dev/null || true)"
+    [[ -n "$touched" ]] || return 0
+    printf '%s\n' "$touched" | grep -q '^src/AirDefence/' && return 0
+
+    local bump="patch"; [[ "$type" == feat ]] && bump="minor"
+    echo >&2
+    echo "note: this cuts a $bump release, but nothing under src/AirDefence/ changed." >&2
+    echo "      The published archive will differ from the last only by its version number." >&2
+    echo "      If this is developer tooling, chore/ci/test/refactor cut no release." >&2
+    echo "      If it changes what gets packaged, ignore this — that is the exception." >&2
+}
+
 mode="${1:-}"
 case "$mode" in
     --range)
@@ -82,7 +112,11 @@ case "$mode" in
     *)
         [[ -f "$mode" ]] || { echo "no such file: $mode" >&2; exit 2; }
         # First line only, and ignore the comment block git appends to the template.
-        check "$(grep -v '^#' "$mode" | sed '/^$/d' | head -1)" "$(basename "$mode")"
+        subject="$(grep -v '^#' "$mode" | sed '/^$/d' | head -1)"
+        check "$subject" "$(basename "$mode")"
+        # Only in hook mode: the staged set is this commit's contents, and the author is still
+        # here to act on it. In --range mode the commit already exists and the advice is noise.
+        (( fail )) || advise_release_impact "$subject"
         ;;
 esac
 
