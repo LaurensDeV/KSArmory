@@ -131,9 +131,9 @@ internal static class TestTarget
 
             // Placement goes through Orbit.StateVectors, so a bad orbit silently drops the
             // vehicle at the frame origin instead of erroring. Log the inputs.
-            Log.Info($"  spawn posCci = {posCci.X:E3},{posCci.Y:E3},{posCci.Z:E3}  |r| = {Vec.Len(posCci) / 1000.0:F1} km");
-            Log.Info($"  spawn velCci = {velCci.X:E3},{velCci.Y:E3},{velCci.Z:E3}  |v| = {Vec.Len(velCci):F1} m/s");
-            Log.Info($"  parent Mu    = {parent.Mu:E4}");
+            Log.Debug($"  spawn posCci = {posCci.X:E3},{posCci.Y:E3},{posCci.Z:E3}  |r| = {Vec.Len(posCci) / 1000.0:F1} km");
+            Log.Debug($"  spawn velCci = {velCci.X:E3},{velCci.Y:E3},{velCci.Z:E3}  |v| = {Vec.Len(velCci):F1} m/s");
+            Log.Debug($"  parent Mu    = {parent.Mu:E4}");
 
             if (parent.Mu <= 0.0)
             {
@@ -148,7 +148,7 @@ internal static class TestTarget
                 velCci,
                 new byte4(255, 80, 80, 255));
 
-            Log.Info($"  orbit: pe = {orbit.Periapsis / 1000.0:F1} km, ap = {orbit.Apoapsis / 1000.0:F1} km, " +
+            Log.Debug($"  orbit: pe = {orbit.Periapsis / 1000.0:F1} km, ap = {orbit.Apoapsis / 1000.0:F1} km, " +
                      $"ecc = {orbit.Eccentricity:F4}");
 
             PartTree clone = BuildDroneParts(platform, craftName);
@@ -188,7 +188,7 @@ internal static class TestTarget
             try
             {
                 double actualRangeKm = Vec.Len(KsaWorld.PositionEcl(drone) - originEcl) / 1000.0;
-                Log.Info($"  placed at {actualRangeKm:F1} km from the battery (intended {Vec.Len(spawnEcl - originEcl) / 1000.0:F1} km)");
+                Log.Debug($"  placed at {actualRangeKm:F1} km from the battery (intended {Vec.Len(spawnEcl - originEcl) / 1000.0:F1} km)");
             }
             catch (Exception e)
             {

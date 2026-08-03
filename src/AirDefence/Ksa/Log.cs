@@ -19,6 +19,43 @@ internal static class Log
     private static bool _resolved;
     private static bool _fileBroken;
 
+    /// <summary>How much detail reaches the log.</summary>
+    public enum Level
+    {
+        /// <summary>Developer detail: spawn maths, per-object dumps, geometry read-backs.</summary>
+        Debug,
+
+        /// <summary>What the battery did. The default for a release build.</summary>
+        Info,
+
+        /// <summary>Only things that went wrong.</summary>
+        Warn,
+        Error,
+        Off,
+    }
+
+    /// <summary>
+    /// The threshold. Debug builds keep everything; release builds start at
+    /// <see cref="Level.Info"/>, because the developer detail is measured in hundreds of lines
+    /// per engagement and buries the handful that matter.
+    ///
+    /// Raised or lowered at runtime from the panel, so a user chasing a bug can turn the
+    /// detail back on without a special build.
+    /// </summary>
+#if DEBUG
+    public static Level Threshold { get; set; } = Level.Debug;
+#else
+    public static Level Threshold { get; set; } = Level.Info;
+#endif
+
+    /// <summary>True when this build was compiled with debug symbols and assertions.</summary>
+    public static bool IsDebugBuild =>
+#if DEBUG
+        true;
+#else
+        false;
+#endif
+
     /// <summary>Full path of the log file, or null if no writable location was found.</summary>
     public static string? FilePath
     {
@@ -29,16 +66,31 @@ internal static class Log
         }
     }
 
-    public static void Info(string message) => Write("INFO ", message);
+    /// <summary>
+    /// Developer detail. Takes a delegate rather than a string so that the interpolation cost
+    /// is not paid when the line is going to be discarded — most of these are inside loops over
+    /// every vehicle in the scene.
+    /// </summary>
+    public static void Debug(Func<string> message)
+    {
+        if (Threshold > Level.Debug) return;
+        Write(Level.Debug, "DEBUG", message());
+    }
 
-    public static void Warn(string message) => Write("WARN ", message);
+    public static void Debug(string message) => Write(Level.Debug, "DEBUG", message);
+
+    public static void Info(string message) => Write(Level.Info, "INFO ", message);
+
+    public static void Warn(string message) => Write(Level.Warn, "WARN ", message);
 
     public static void Error(string message, Exception? e = null) =>
-        Write("ERROR", e is null ? message : $"{message}: {e}");
+        Write(Level.Error, "ERROR", e is null ? message : $"{message}: {e}");
 
-    private static void Write(string level, string message)
+    private static void Write(Level level, string tag, string message)
     {
-        string line = $"{DateTime.Now:HH:mm:ss.fff} {level} {message}";
+        if (level < Threshold) return;
+
+        string line = $"{DateTime.Now:HH:mm:ss.fff} {tag} {message}";
 
         Console.WriteLine($"{Prefix} {line}");
 
@@ -89,13 +141,45 @@ internal static class Log
         }
     }
 
+    /// <summary>
+    /// Where the log might go, best first. KSA runs on Linux as well as Windows and puts its
+    /// user data in a different place on each, so this tries the plausible locations rather
+    /// than assuming one — and only ever uses a directory that already exists, so a wrong guess
+    /// costs nothing but a failed <c>Directory.Exists</c>.
+    ///
+    /// The temp directory is the last resort and always works, which is why the mod can say
+    /// where it is logging on startup rather than silently going quiet.
+    /// </summary>
     private static IEnumerable<string> CandidateDirectories()
     {
-        // Alongside KittenSpaceAgency.log, which is where anyone would look first.
+        const string game = "Kitten Space Agency";
+
+        // Windows, and Wine or Proton, which map Documents into the prefix the same way.
         string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         if (!string.IsNullOrEmpty(documents))
         {
-            yield return Path.Combine(documents, "My Games", "Kitten Space Agency", "Logs");
+            yield return Path.Combine(documents, "My Games", game, "Logs");
+        }
+
+        // Linux. XDG_DATA_HOME when set, otherwise the default it stands for.
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string xdgData = Environment.GetEnvironmentVariable("XDG_DATA_HOME") ?? "";
+        if (string.IsNullOrEmpty(xdgData) && !string.IsNullOrEmpty(home))
+        {
+            xdgData = Path.Combine(home, ".local", "share");
+        }
+
+        if (!string.IsNullOrEmpty(xdgData))
+        {
+            yield return Path.Combine(xdgData, game, "Logs");
+            yield return Path.Combine(xdgData, game);
+        }
+
+        if (!string.IsNullOrEmpty(home))
+        {
+            yield return Path.Combine(home, ".config", game, "Logs");
+            // Some Linux ports keep the Windows-style layout under $HOME regardless.
+            yield return Path.Combine(home, "My Games", game, "Logs");
         }
 
         yield return Path.GetTempPath();

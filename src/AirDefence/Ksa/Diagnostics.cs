@@ -30,12 +30,12 @@ internal static class Diagnostics
     {
         try
         {
-            Log.Info("---- diagnostic dump ----");
+            Log.Debug("---- diagnostic dump ----");
             DumpPlatform(battery);
             DumpRendering(battery);
             DumpVehicles(battery, config);
             DumpRadar(battery);
-            Log.Info("---- end dump ----");
+            Log.Debug("---- end dump ----");
         }
         catch (Exception e)
         {
@@ -47,19 +47,19 @@ internal static class Diagnostics
     {
         if (battery.Platform is not { } platform)
         {
-            Log.Info("platform: NONE (no controlled vehicle)");
+            Log.Debug("platform: NONE (no controlled vehicle)");
             return;
         }
 
         double3 pos = KsaWorld.PositionEcl(platform);
         double3 vel = KsaWorld.VelocityEcl(platform);
 
-        Log.Info($"platform: '{KsaWorld.DisplayName(platform)}' launcher={(battery.Launcher is null ? "none" : "fitted")} " +
+        Log.Debug($"platform: '{KsaWorld.DisplayName(platform)}' launcher={(battery.Launcher is null ? "none" : "fitted")} " +
                  $"operational={battery.IsOperational} ammo={battery.Ammo}");
-        Log.Info($"  posEcl  = {Fmt(pos)}  |pos| = {Vec.Len(pos):E3}");
-        Log.Info($"  velEcl  = {Fmt(vel)}  speed = {Vec.Len(vel):F1} m/s");
-        Log.Info($"  bore    = {Fmt(battery.Boresight)}  (local up)");
-        Log.Info($"  mount   = {Fmt(battery.MountEcl)}  offset from hull = {Vec.Len(battery.MountEcl - pos):F2} m");
+        Log.Debug($"  posEcl  = {Fmt(pos)}  |pos| = {Vec.Len(pos):E3}");
+        Log.Debug($"  velEcl  = {Fmt(vel)}  speed = {Vec.Len(vel):F1} m/s");
+        Log.Debug($"  bore    = {Fmt(battery.Boresight)}  (local up)");
+        Log.Debug($"  mount   = {Fmt(battery.MountEcl)}  offset from hull = {Vec.Len(battery.MountEcl - pos):F2} m");
 
         try
         {
@@ -67,7 +67,7 @@ internal static class Diagnostics
             {
                 string parentName = parent is IObjectId oid ? oid.Id : parent.GetType().Name;
                 double alt = parent is IPosition pp ? Vec.Len(pos - pp.GetPositionEcl()) : double.NaN;
-                Log.Info($"  parent  = {parentName}  distance from centre = {alt / 1000.0:F1} km");
+                Log.Debug($"  parent  = {parentName}  distance from centre = {alt / 1000.0:F1} km");
             }
             else
             {
@@ -87,7 +87,7 @@ internal static class Diagnostics
     private static void DumpRendering(DefenceBattery battery)
     {
         bool hasRenderer = Program.GizmosRenderer is not null;
-        Log.Info($"render: GizmosRenderer={(hasRenderer ? "ok" : "NULL")}");
+        Log.Debug($"render: GizmosRenderer={(hasRenderer ? "ok" : "NULL")}");
 
         Camera? camera = null;
         try { camera = Program.GetMainCamera(); }
@@ -111,10 +111,10 @@ internal static class Diagnostics
                 double3 naiveEgo = camera.EclToEgo(plat.GetPositionEcl());
                 double gap = Vec.Len(engineEgo - naiveEgo);
 
-                Log.Info($"  platformEgo(engine) = {Fmt(engineEgo)}");
-                Log.Info($"  platformEgo(naive)  = {Fmt(naiveEgo)}");
-                Log.Info($"  anchor error        = {gap:F2} m");
-                Log.Info($"  renderCam==mainCam  = {ReferenceEquals(Program.GetRenderCamera(), Program.GetMainCamera())}");
+                Log.Debug($"  platformEgo(engine) = {Fmt(engineEgo)}");
+                Log.Debug($"  platformEgo(naive)  = {Fmt(naiveEgo)}");
+                Log.Debug($"  anchor error        = {gap:F2} m");
+                Log.Debug($"  renderCam==mainCam  = {ReferenceEquals(Program.GetRenderCamera(), Program.GetMainCamera())}");
 
                 // GetPositionEgo only takes its exact, physics-based path when the camera is
                 // following this vehicle (or one sharing its bubble). Otherwise it falls back
@@ -127,8 +127,8 @@ internal static class Diagnostics
                     IObjectId oid => $"{following.GetType().Name} '{oid.Id}'",
                     _ => following.GetType().Name,
                 };
-                Log.Info($"  camera following    = {followName}  (is our platform: {ReferenceEquals(following, plat)})");
-                Log.Info($"  bubbleLeader        = {(plat.BubbleLeader is null ? "null" : KsaWorld.DisplayName(plat.BubbleLeader))}");
+                Log.Debug($"  camera following    = {followName}  (is our platform: {ReferenceEquals(following, plat)})");
+                Log.Debug($"  bubbleLeader        = {(plat.BubbleLeader is null ? "null" : KsaWorld.DisplayName(plat.BubbleLeader))}");
             }
             catch (Exception e)
             {
@@ -143,8 +143,8 @@ internal static class Diagnostics
 
             // Ego is camera-relative, so this length is the distance from the eye to the
             // launcher. Wildly large means the frames are not lining up.
-            Log.Info($"  camPosEcl = {Fmt(camEcl)}");
-            Log.Info($"  mountEgo  = {Fmt(mountEgo)}  |ego| = {Vec.Len(mountEgo):F1} m from camera");
+            Log.Debug($"  camPosEcl = {Fmt(camEcl)}");
+            Log.Debug($"  mountEgo  = {Fmt(mountEgo)}  |ego| = {Vec.Len(mountEgo):F1} m from camera");
 
             if (Vec.Len(mountEgo) > 1e7)
             {
@@ -168,19 +168,19 @@ internal static class Diagnostics
         int inFrame;
         try { inFrame = Program.VehiclesInFrame.Length; } catch { inFrame = -1; }
 
-        Log.Info($"vehicles: {Scratch.Count} from CurrentSystem.All  (Program.VehiclesInFrame reports {inFrame})");
+        Log.Debug($"vehicles: {Scratch.Count} from CurrentSystem.All  (Program.VehiclesInFrame reports {inFrame})");
 
         if (battery.Platform is not { } platform) return;
 
         double3 origin = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
-        double coneCos = Math.Cos(config.ConeHalfAngleRad);
+        double coneCos = Math.Cos(config.Sensor.ConeHalfAngleRad);
 
         foreach (Vehicle v in Scratch)
         {
             string name = KsaWorld.DisplayName(v);
 
-            if (ReferenceEquals(v, platform)) { Log.Info($"  '{name}': self"); continue; }
+            if (ReferenceEquals(v, platform)) { Log.Debug($"  '{name}': self"); continue; }
 
             double3 r = KsaWorld.PositionEcl(v) - origin;
             double3 rel = KsaWorld.VelocityEcl(v) - originVel;
@@ -189,31 +189,31 @@ internal static class Diagnostics
             double cos = Vec.Dot(Vec.Unit(r), battery.Boresight);
             double offAxisDeg = double.RadiansToDegrees(Math.Acos(Math.Clamp(cos, -1.0, 1.0)));
 
-            double tCa = Vec.TimeOfClosestApproach(r, rel, config.ThreatHorizonSeconds);
+            double tCa = Vec.TimeOfClosestApproach(r, rel, config.Sensor.ThreatHorizonSeconds);
             double cpa = Vec.Len(r + rel * tCa);
 
             string verdict =
                 config.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle) ? "SKIP: is controlled vehicle"
-                : range > config.RadarRange ? $"REJECT: out of range ({range / 1000.0:F1} > {config.RadarRange / 1000.0:F1} km)"
-                : cos < coneCos ? $"REJECT: outside cone ({offAxisDeg:F0} deg > {config.RadarConeDeg:F0})"
-                : relSpeed < config.MinTargetSpeed ? $"REJECT: too slow ({relSpeed:F1} < {config.MinTargetSpeed:F0} m/s)"
-                : cpa <= config.ThreatRadius || range <= config.ThreatRadius ? "TRACK: threat"
-                : $"TRACK: not a threat (cpa {cpa:F0} m > {config.ThreatRadius:F0})";
+                : range > config.Sensor.Range ? $"REJECT: out of range ({range / 1000.0:F1} > {config.Sensor.Range / 1000.0:F1} km)"
+                : cos < coneCos ? $"REJECT: outside cone ({offAxisDeg:F0} deg > {config.Sensor.ConeDeg:F0})"
+                : relSpeed < config.Sensor.MinTargetSpeed ? $"REJECT: too slow ({relSpeed:F1} < {config.Sensor.MinTargetSpeed:F0} m/s)"
+                : cpa <= config.Sensor.ThreatRadius || range <= config.Sensor.ThreatRadius ? "TRACK: threat"
+                : $"TRACK: not a threat (cpa {cpa:F0} m > {config.Sensor.ThreatRadius:F0})";
 
-            Log.Info($"  '{name}': range {range / 1000.0:F2} km, off-axis {offAxisDeg:F0} deg, " +
+            Log.Debug($"  '{name}': range {range / 1000.0:F2} km, off-axis {offAxisDeg:F0} deg, " +
                      $"rel speed {relSpeed:F0} m/s, cpa {cpa:F0} m in {tCa:F0}s -> {verdict}");
         }
     }
 
     private static void DumpRadar(DefenceBattery battery)
     {
-        Log.Info($"radar: {battery.Radar.Tracks.Count} track(s), " +
+        Log.Debug($"radar: {battery.Radar.Tracks.Count} track(s), " +
                  $"locked={(battery.Radar.Locked is null ? "none" : KsaWorld.DisplayName(battery.Radar.Locked.Vehicle))}, " +
                  $"firingSolution={battery.Radar.HasFiringSolution}, roundsInFlight={battery.Rounds.Count}");
 
         foreach (Interceptor round in battery.Rounds)
         {
-            Log.Info($"  round {round.Tube}: age {round.Age:F1}s, speed {round.Speed:F0} m/s, lock={round.HasLock}");
+            Log.Debug($"  round {round.Tube}: age {round.Age:F1}s, speed {round.Speed:F0} m/s, lock={round.HasLock}");
         }
     }
 
