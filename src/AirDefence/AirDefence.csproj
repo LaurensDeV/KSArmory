@@ -51,18 +51,20 @@
     of the mod output - shipping a second copy would be loaded into a different
     AssemblyLoadContext and the type identities would not match the running game's.
 
-    Populate ../../Import with tools/sync-import.sh.
+    $(KsaDllDir) is resolved by Directory.Build.props at the repository root: an explicit
+    KSA_DLL_DIR, then Import/, then a sibling ksa-game-assemblies checkout, then the game
+    install. Populate Import/ with tools/sync-import.sh, or let one of the other tiers answer.
   -->
   <ItemGroup>
-    <Reference Include="..\..\Import\KSA.dll" Private="false" />
-    <Reference Include="..\..\Import\StarMap.API.dll" Private="false" />
-    <Reference Include="..\..\Import\Brutal.Core.Numerics.dll" Private="false" />
-    <Reference Include="..\..\Import\Brutal.Core.Common.dll" Private="false" />
-    <Reference Include="..\..\Import\Brutal.Core.Strings.dll" Private="false" />
-    <Reference Include="..\..\Import\Brutal.ImGui.dll" Private="false" />
-    <Reference Include="..\..\Import\Brutal.ImGui.Abstractions.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)KSA.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)StarMap.API.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.Core.Numerics.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.Core.Common.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.Core.Strings.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.ImGui.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.ImGui.Abstractions.dll" Private="false" />
     <!-- Needed to compile against Vehicle's mass-properties signatures (Symmetric3x3). -->
-    <Reference Include="..\..\Import\BepuUtilities.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)BepuUtilities.dll" Private="false" />
   </ItemGroup>
 
 </Project>

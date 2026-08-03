@@ -1,0 +1,31 @@
+<Project>
+
+  <!--
+    Where the KSA assemblies the mod compiles against come from.
+
+    They are RocketWerkz's copyrighted game files and cannot be committed here, so this resolves
+    a folder rather than keeping copies. First match wins, and every tier works on any host OS:
+
+      1. KSA_DLL_DIR, as a property or an environment variable. This is what CI uses, pointing
+         at a checkout of the private ksa-game-assemblies repository.
+      2. Import/, populated by tools/sync-import.sh. The long-standing local arrangement.
+      3. A ksa-game-assemblies checkout sitting next to this repository - clone both and go,
+         with nothing to configure.
+      4. The game install itself, per OS.
+
+    The references are guarded on the folder existing. Without it the game-facing half simply
+    does not compile, rather than failing with forty "type or namespace not found" errors that
+    say nothing about the real problem - see the check at the bottom of this file.
+  -->
+  <PropertyGroup>
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND '$(KSA_DLL_DIR)' != ''">$([MSBuild]::EnsureTrailingSlash('$(KSA_DLL_DIR)'))</KsaDllDir>
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(MSBuildThisFileDirectory)Import/KSA.dll')">$(MSBuildThisFileDirectory)Import/</KsaDllDir>
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(MSBuildThisFileDirectory)../ksa-game-assemblies/current/dll/KSA.dll')">$(MSBuildThisFileDirectory)../ksa-game-assemblies/current/dll/</KsaDllDir>
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND '$(OS)' == 'Windows_NT'">C:\Program Files\Kitten Space Agency\</KsaDllDir>
+    <KsaDllDir Condition="'$(KsaDllDir)' == ''">/mnt/c/Program Files/Kitten Space Agency/</KsaDllDir>
+
+    <HaveKsaAssemblies>false</HaveKsaAssemblies>
+    <HaveKsaAssemblies Condition="Exists('$(KsaDllDir)KSA.dll')">true</HaveKsaAssemblies>
+  </PropertyGroup>
+
+</Project>

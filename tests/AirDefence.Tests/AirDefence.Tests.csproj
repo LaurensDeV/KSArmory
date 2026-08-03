@@ -31,8 +31,8 @@
 
   <!-- double3 lives here. Runtime assets included: the tests actually execute this. -->
   <ItemGroup>
-    <Reference Include="..\..\Import\Brutal.Core.Numerics.dll" />
-    <Reference Include="..\..\Import\Brutal.Core.Common.dll" />
+    <Reference Include="$(KsaDllDir)Brutal.Core.Numerics.dll" />
+    <Reference Include="$(KsaDllDir)Brutal.Core.Common.dll" />
   </ItemGroup>
 
 </Project>
