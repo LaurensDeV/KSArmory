@@ -65,25 +65,26 @@ public sealed class AirDefenceMod
 
         try
         {
-            switch (SimClock.Classify(KsaWorld.SimStepSeconds, KsaWorld.IsPaused, out double dt))
+            // Every frame, before the clock gate. This reads where the world is, and the whole
+            // overlay is drawn against it — leaving it inside the gated step froze the drawing's
+            // frame of reference whenever the simulation did not advance.
+            _battery.SampleWorld();
+
+            // Step on the PLAYER frame delta, as the original did.
+            //
+            // Not KSA's simulation step. The drawn offset advances the platform across one
+            // interval to meet the round, and that interval has to be the one the platform
+            // sample actually moved over - which is the frame. Stepping on the simulation delta
+            // while sampling per frame makes the two disagree by a fraction of a millisecond,
+            // and at 29.8 km/s that is tens of metres of jitter, every frame. Confirmed by
+            // bisect: the build before this changed draws dead centre.
+            //
+            // The pause guard is kept, because that half of the simulation-clock work was right
+            // and is cheap: no simulated time, no step, so nothing fires into a frozen world.
+            // Timewarp scaling is knowingly given up for now - it is the lesser of the two.
+            if (!KsaWorld.IsPaused && double.IsFinite(dtPlayer) && dtPlayer > 0.0)
             {
-                case SimClock.State.Run:
-                    _battery.Update(dt);
-                    break;
-
-                case SimClock.State.Skipped:
-                    // More simulated time passed than can be integrated, or the clock was
-                    // replaced. Anything in flight is meaningless now.
-                    _battery.AbandonFlight("simulation time jumped");
-                    break;
-
-                case SimClock.State.Idle:
-                    // Counted, not ignored. If KSA ever renders frames that advance no
-                    // simulated time, that is invisible from inside the game and changes how
-                    // everything here behaves — so the panel reports it rather than leaving it
-                    // to be guessed at. Paused frames are excluded; those are meant to be idle.
-                    if (!KsaWorld.IsPaused) _battery.FramesWithoutSimStep++;
-                    break;
+                _battery.Update(Math.Min(dtPlayer, Interceptor.MaxFaithfulStep));
             }
 
             // Outside the clock gate on purpose. Placing the round bodies is drawing, not

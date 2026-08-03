@@ -13,6 +13,12 @@ namespace AirDefence;
 /// </summary>
 public sealed class Config
 {
+    // NOTE: armed, auto-engaging, verbose and willing to shoot at the craft you are flying, all
+    // by default. That is a testing posture, not a shipping one - set for a debugging session so
+    // the panel does not have to be reconfigured on every launch. Restore the safe defaults
+    // (Armed = false, AutoEngage = false, VerboseLog = false, ProtectControlledVehicle = true)
+    // before this goes anywhere near a release.
+
     /// <summary>
     /// The weapon system the panel is showing. Set by the battery when it resolves its
     /// launcher; the profiles are shared instances, so edits apply to every launcher of that
@@ -33,13 +39,13 @@ public sealed class Config
     // ---- Engagement policy ----------------------------------------------
 
     /// <summary>Engage without asking.</summary>
-    public bool AutoEngage;
+    public bool AutoEngage = true;
 
     /// <summary>Master arm. Nothing launches while this is false.</summary>
-    public bool Armed;
+    public bool Armed = true;
 
     /// <summary>Never fire on the vehicle the player is flying.</summary>
-    public bool ProtectControlledVehicle = true;
+    public bool ProtectControlledVehicle;
 
     /// <summary>Rounds committed to a single target before re-evaluating.</summary>
     public int RoundsPerTarget = 2;
@@ -89,7 +95,7 @@ public sealed class Config
     /// This turns it back on without needing a different build, which is what you want from
     /// someone reporting a bug.
     /// </summary>
-    public bool VerboseLog;
+    public bool VerboseLog = true;
 
     // ---- Visuals --------------------------------------------------------
 

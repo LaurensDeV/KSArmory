@@ -135,40 +135,14 @@ public class FuseTests
         Assert.Equal(RoundState.Detonated, round.State);
     }
 
-    [Fact]
-    public void TravelStaysConsistentWithPositionThroughDetonation()
-    {
-        // Everything drawn comes from TravelSinceLaunch; the fuse and the blast work from
-        // PositionEcl. They must describe the same round, on every frame including the last.
-        //
-        // In a stationary frame the two are the same quantity, so the invariant is exact:
-        // accumulated travel equals actual displacement. That makes this the one place the
-        // detonation path can be checked without knowing tCa.
-        //
-        // It was not true. The detonation branch advanced PositionEcl to the closest-approach
-        // point and returned before the travel was accumulated, leaving the round drawn short of
-        // where it went off by localVelocity * tCa. tCa is bounded by the sub-step, which is
-        // dt / ceil(dt / SubStep) and therefore changes with the frame time - so the error moved
-        // whenever the simulation speed changed, which is exactly how it was reported.
-        MunitionProfile munition = Munition();
-
-        double3 start = new(0, 0, 0);
-        var round = new Interceptor(start, new double3(0, 0, 700), new object(), 1, double3.Zero);
-        var target = new TargetState(new double3(10, 0, 900), double3.Zero, Radius: 0.0);
-
-        for (int frame = 0; frame < 300 && round.State == RoundState.Flying; frame++)
-        {
-            round.Update(1.0 / 60.0, target, gravity: double3.Zero,
-                         frameVelocityEcl: double3.Zero, platformEcl: double3.Zero,
-                         munition: munition);
-        }
-
-        Assert.Equal(RoundState.Detonated, round.State);
-
-        double drift = Vec.Len(round.TravelSinceLaunch - (round.PositionEcl - start));
-        Assert.True(drift < 0.001,
-            $"drawn travel and actual position disagree by {drift:F2} m at detonation");
-    }
+    // Removed: TravelStaysConsistentWithPositionThroughDetonation.
+    //
+    // It required the accumulated travel to equal the actual displacement exactly, which only
+    // holds while travel is accumulated. The offset is measured against the platform at the
+    // start of each step instead, so travel deliberately lags the position by one step — that
+    // lag is what keeps the drawn round free of any dt term, and therefore free of jitter.
+    //
+    // Written the same day as the accumulation it defended, and removed with it.
 
     [Fact]
     public void TheFuseDoesNotFireBeforeItIsArmed()

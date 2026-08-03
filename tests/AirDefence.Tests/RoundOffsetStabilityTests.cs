@@ -139,46 +139,16 @@ public class RoundOffsetStabilityTests
             + "that is ecliptic motion leaking in, not the round flying");
     }
 
-    [Fact]
-    public void TheDrawnOffsetDoesNotDependOnWhenThePlatformWasSampled()
-    {
-        // The property that ends this whole class of bug, and the only one that discriminates.
-        //
-        // Whether the platform position handed to Update is from the start of the step or the
-        // end of it is a question about KSA's frame ordering that took four attempts and three
-        // broken builds to not answer. Every test in this file assumes one of the two, so none
-        // of them can catch a version that assumes the other — which is how a 500 m displacement
-        // and two zigzags each got in front of a player.
-        //
-        // Accumulating travel through the local frame makes the question irrelevant: the drawn
-        // offset is the launch point plus an integral of local velocity, and the platform
-        // position passed each frame does not enter into it. So feed one round a platform
-        // position that is wrong by half a kilometre every frame, and nothing should move.
-        MunitionProfile munition = Munition();
-        double3 up = new(1, 0, 0);
-        double3 velocity = OrbitalVelocity + up * 300.0;
-
-        var honest = new Interceptor(PlatformStart + up * 3.0, velocity, null!, 1, PlatformStart);
-        var misled = new Interceptor(PlatformStart + up * 3.0, velocity, null!, 1, PlatformStart);
-
-        double3 platform = PlatformStart;
-        for (int frame = 0; frame < 60; frame++)
-        {
-            double dt = frame % 2 == 0 ? 0.016 : 0.020;
-
-            honest.Update(dt, null, double3.Zero, OrbitalVelocity, platform, munition);
-
-            // A whole step of ecliptic motion out, alternating - the exact error every previous
-            // arrangement of this could be wrong by.
-            double3 wrong = platform + OrbitalVelocity * (frame % 2 == 0 ? dt : -dt);
-            misled.Update(dt, null, double3.Zero, OrbitalVelocity, wrong, munition);
-
-            platform += OrbitalVelocity * dt;
-        }
-
-        double difference = Vec.Len(honest.OffsetFromPlatform - misled.OffsetFromPlatform);
-        Assert.Equal(0.0, difference, 6);
-    }
+    // Removed: TheDrawnOffsetDoesNotDependOnWhenThePlatformWasSampled.
+    //
+    // It asserted that the drawn offset must be independent of which instant the platform was
+    // sampled at, which is true only of an accumulated offset. The offset is derived from the
+    // round's own position instead, and deliberately *is* paired with a platform sample — that
+    // pairing is what DrawAnchor exists to reconcile, and the build that draws dead centre in
+    // game is the one that does it this way.
+    //
+    // The test was written the same day as the accumulation it was defending, and both were
+    // wrong. Keeping it would have forced the design the game rejects.
 
     [Fact]
     public void TravelSinceLaunchStartsAtZeroAndGrowsSmoothly()

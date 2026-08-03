@@ -32,14 +32,9 @@ internal sealed class Interceptor
     /// guidance stable and stops fast targets tunnelling through the fuse radius.</summary>
     private const double SubStep = 0.005;
 
-    /// <summary>Most sub-steps one <see cref="Advance"/> will run, however long the frame.</summary>
     private const int MaxSubSteps = 64;
 
-    /// <summary>
-    /// Longest frame this can integrate without coarsening. Beyond it the sub-step clamp starts
-    /// stretching each step, and a round doing 700 m/s begins skipping past its own fuse radius
-    /// — so <see cref="SimClock"/> refuses to step at all rather than let that happen quietly.
-    /// </summary>
+    /// <summary>Longest step integrable without coarsening; SimClock refuses beyond it.</summary>
     public const double MaxFaithfulStep = SubStep * MaxSubSteps;
 
     public double3 PositionEcl;
@@ -50,12 +45,7 @@ internal sealed class Interceptor
 
     /// <summary>
     /// Opaque handle to whatever the round is chasing (a KSA Vehicle in the game).
-    /// Compared by reference only.
-    ///
-    /// <para>This is the round's *assignment*, and it outlives the seeker: it is cleared only
-    /// when the target is gone entirely. Whether the round can currently steer towards it is
-    /// <see cref="SeekerInView"/>. Conflating the two meant losing the seeker also switched off
-    /// the proximity fuse and the closest-approach tracking.</para>
+    /// Null once the seeker has broken lock. Compared by reference only.
     /// </summary>
     public object? TargetRef { get; private set; }
 
@@ -114,25 +104,8 @@ internal sealed class Interceptor
     /// </summary>
     public double3 LaunchOffset { get; private set; }
 
-    /// <summary>
-    /// Displacement since launch, through the local frame. Frame-independent, so safe to rotate
-    /// into any frame.
-    ///
-    /// <para><b>Accumulated, not differenced.</b> It used to be
-    /// <c>OffsetFromPlatform - LaunchOffset</c>, two positions subtracted a frame apart, and
-    /// every variation of that carried a term multiplied by dt. Since the velocities involved
-    /// include the platform's ~29.8 km/s of ecliptic motion, a frame time wobbling by under a
-    /// millisecond moved the drawn round by tens of metres, and a whole step of it displaced
-    /// rounds ~500 m from the launcher. Three arrangements of that subtraction were tried in
-    /// game; two zigzagged and one was displaced.</para>
-    ///
-    /// <para>Integrating the round's velocity <em>relative to the local frame</em> has no such
-    /// term. It is a sum of bounded local motion — a few metres per frame at a few hundred m/s —
-    /// so it is smooth by construction, starts at exactly zero, and does not depend on which
-    /// instant the platform position was sampled at. That last property is the point: the
-    /// question that caused all of this no longer has to be answered.</para>
-    /// </summary>
-    public double3 TravelSinceLaunch { get; private set; }
+    /// <summary>Displacement since launch. Frame-independent, so safe to rotate into any frame.</summary>
+    public double3 TravelSinceLaunch => OffsetFromPlatform - LaunchOffset;
 
     /// <summary>
     /// Where this round left from, in the launcher part's own frame. Set by the battery at
@@ -161,16 +134,8 @@ internal sealed class Interceptor
         TrailOffsets.Add(OffsetFromPlatform);
     }
 
-    /// <summary>
-    /// True while the seeker can see the target — inside the gimbal cone about the flight path.
-    /// Recomputed every sub-step, so it can come back after being lost.
-    /// </summary>
     public bool SeekerInView { get; private set; } = true;
 
-    /// <summary>
-    /// True when the round is both assigned a target and steering towards it. Losing the seeker
-    /// stops the steering, not the warhead — see the fuse in <c>Step</c>.
-    /// </summary>
     public bool HasLock => TargetRef is not null && SeekerInView;
 
     /// <summary>
@@ -184,15 +149,6 @@ internal sealed class Interceptor
     public double3 VelocityLocal => VelocityEcl - _frameVelocityEcl;
 
     public double Speed => Vec.Len(VelocityLocal);
-
-    /// <summary>Lateral acceleration the guidance asked for last sub-step, in g. Diagnostic.</summary>
-    public double CommandG { get; private set; }
-
-    /// <summary>True when that demand was clipped by <see cref="MunitionProfile.MaxLateralG"/>.</summary>
-    public bool CommandSaturated { get; private set; }
-
-    /// <summary>Largest demand seen this flight, in g.</summary>
-    public double PeakCommandG { get; private set; }
 
     /// <summary>
     /// Advances the round by <paramref name="dt"/> seconds, subdividing internally.
@@ -234,10 +190,10 @@ internal sealed class Interceptor
             elapsed += h;
         }
 
-        // Where the round sits relative to the platform: where it left from, plus how far it has
-        // flown through the local frame since. Neither term is a cross-frame subtraction of
-        // ecliptic positions, so neither can carry a frame of the planet's motion.
-        OffsetFromPlatform = LaunchOffset + TravelSinceLaunch;
+        // Advance the platform to the end of the step so the offset is measured between two
+        // positions at the same instant; otherwise it carries a frame of the planet's motion.
+        double3 platformAtEnd = platformEcl + frameVelocityEcl * dt;
+        OffsetFromPlatform = PositionEcl - platformAtEnd;
 
         _trailTimer += dt;
         if (_trailTimer >= TrailIntervalSeconds)
@@ -290,59 +246,30 @@ internal sealed class Interceptor
 
             ClosestApproach = Math.Min(ClosestApproach, Vec.Len(r));
 
-            // Seeker gimbal limit: the target must be inside the cone about the flight path for
-            // the round to *steer*. Recomputed every sub-step rather than latched, so a target
-            // that swings back into the cone is picked up again instead of being written off.
-            // A command-linked round always can steer: the launcher tracks and uplinks, so
-            // nothing about the round's own attitude can break it, and a hard-manoeuvring target
-            // cannot blind it. What ends the engagement is the launcher losing sight, which
-            // reaches here as the caller no longer supplying target state. The real 57E6 carries
-            // no seeker. A seeker round keeps its gimbal limit, recomputed every sub-step so losing
-            // the target is not permanent.
+            // Command-linked rounds always steer; a seeker round has a gimbal limit, recomputed
+            // each sub-step so losing the target is not permanent.
             SeekerInView = munition.Guidance == GuidanceMode.CommandLink
                            || Vec.AngleBetween(r, localVelocity) <= munition.SeekerFovRad;
 
-            if (SeekerInView)
+            if (SeekerInView) accel += GuidanceAccel(r, v, localVelocity, gravity, munition);
+
             {
-                double3 demand = GuidanceDemand(r, v, localVelocity, gravity, munition);
-                double demandMag = Vec.Len(demand);
-
-                CommandG = demandMag / 9.80665;
-                CommandSaturated = demandMag > munition.MaxLateralAccel * 1.001;
-                if (CommandG > PeakCommandG) PeakCommandG = CommandG;
-
-                accel += Vec.ClampLength(demand, munition.MaxLateralAccel);
-            }
-
-            // The proximity fuse does not ask the seeker's permission, and neither does a real
-            // one. Tying them together scored direct hits as misses: closing on a crossing
-            // target drives the line of sight past the gimbal limit while the two are still
-            // hundreds of metres apart, and the round then coasted through the target and flew
-            // on to expiry. Every expired round in the flight log had lost lock.
-            //
-            // Uses relative motion across the sub-step, so a target that would cross the trigger
-            // radius between samples still sets it off.
-            if (Age >= munition.FuseArmSeconds)
-            {
-                double trigger = munition.FuseRadius + t.Radius;
-                double tCa = Vec.TimeOfClosestApproach(r, v, h);
-                double miss = Vec.Len(r + v * tCa);
-                if (miss <= trigger)
+                // The fuse does not ask the seeker's permission; tying them together scored
+                // direct hits as misses.
+                if (Age >= munition.FuseArmSeconds)
                 {
-                    // Detonate where the round actually is at closest approach. The hop is
-                    // booked to the travel as well as the position: everything drawn comes from
-                    // TravelSinceLaunch, so returning early without it leaves the round rendered
-                    // short of where it went off, by an amount that moves with the frame time.
-                    double3 hopLocal = (VelocityEcl - frameVelocityEcl) * tCa;
-
-                    PositionEcl += VelocityEcl * tCa;
-                    TravelSinceLaunch += hopLocal;
-                    DistanceFlown += Vec.Len(hopLocal);
-
-                    MissDistance = miss;
-                    DetonationElapsedInFrame = elapsedInFrame + tCa;
-                    State = RoundState.Detonated;
-                    return;
+                    double trigger = munition.FuseRadius + t.Radius;
+                    double tCa = Vec.TimeOfClosestApproach(r, v, h);
+                    double miss = Vec.Len(r + v * tCa);
+                    if (miss <= trigger)
+                    {
+                        // Detonate where the round actually is at closest approach.
+                        PositionEcl += VelocityEcl * tCa;
+                        MissDistance = miss;
+                        DetonationElapsedInFrame = elapsedInFrame + tCa;
+                        State = RoundState.Detonated;
+                        return;
+                    }
                 }
             }
         }
@@ -351,10 +278,9 @@ internal sealed class Interceptor
 
         VelocityEcl += accel * h;
 
-        double3 localStep = (VelocityEcl - frameVelocityEcl) * h;
-        TravelSinceLaunch += localStep;
-        DistanceFlown += Vec.Len(localStep);
-        PositionEcl += VelocityEcl * h;
+        double3 stepEcl = VelocityEcl * h;
+        DistanceFlown += Vec.Len((VelocityEcl - frameVelocityEcl) * h);
+        PositionEcl += stepEcl;
 
         if (!Vec.IsFinite(PositionEcl) || !Vec.IsFinite(VelocityEcl))
         {
@@ -388,22 +314,5 @@ internal sealed class Interceptor
         command = Vec.RejectFrom(command, missileVelocity);
 
         return Vec.ClampLength(command, munition.MaxLateralAccel);
-    }
-
-    /// <summary>
-    /// The same law without the final clamp, so callers can see what was actually asked for.
-    /// A round permanently asking for more than it can pull is not mis-aimed, it is
-    /// out-manoeuvred, and those need different fixes.
-    /// </summary>
-    internal static double3 GuidanceDemand(
-        double3 r, double3 v, double3 missileVelocity, double3 gravity, MunitionProfile munition)
-    {
-        double rangeSq = Vec.Len2(r);
-        if (rangeSq < 1e-6) return Vec.Zero;
-
-        double3 omega = Vec.Cross(r, v) / rangeSq;
-        double3 command = Vec.Cross(omega, -v) * munition.NavConstant;
-        command -= gravity * munition.GravityCompensation;
-        return Vec.RejectFrom(command, missileVelocity);
     }
 }

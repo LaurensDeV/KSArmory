@@ -81,6 +81,10 @@ internal sealed class DefenceBattery(Config config)
     private LauncherProfile _profile => _config.Launcher;
     private MunitionProfile _munition => _config.Munition;
 
+    /// <summary>How far the platform moved between the last two frames (m, Ecl).</summary>
+    public double3 PlatformStepEcl { get; private set; }
+
+    private bool _hasPlatformSample;
     private bool _loggedSubParts;
     private double _spinPhase;
     private readonly List<Part> _missileBodies = [];
@@ -154,10 +158,27 @@ internal sealed class DefenceBattery(Config config)
         Announce(v is null ? "platform released, following control" : $"platform pinned to {KsaWorld.DisplayName(v)}");
     }
 
-    public void Update(double dt)
+    /// <summary>
+    /// Re-reads where the world is. <b>Must run every rendered frame, not every simulation
+    /// step.</b>
+    ///
+    /// <para>This sets <see cref="PlatformEcl"/>, <see cref="Boresight"/> and
+    /// <see cref="MountEcl"/> — the frame of reference the entire overlay is drawn against.
+    /// <c>Visuals</c> hands <see cref="PlatformEcl"/> to <c>KsaWorld.BeginDraw</c> as the
+    /// anchor's Ecl half, and <see cref="DrawAnchor"/> pairs it with an Ego position sampled
+    /// fresh every frame. If this half goes stale while that half does not, the pair no longer
+    /// describes one instant and the whole overlay slides off the craft and jitters.</para>
+    ///
+    /// <para>That is exactly what happened when stepping moved onto the simulation clock:
+    /// <c>Update</c> had always run once per frame, so the invariant held by accident rather
+    /// than by design. Gating it on the clock left the overlay's reference frozen on any frame
+    /// the simulation did not advance. Confirmed by bisect — the commit before that change
+    /// draws dead centre.</para>
+    ///
+    /// <para>Sampling only: it reads the world and resolves parts, and advances nothing.</para>
+    /// </summary>
+    public void SampleWorld()
     {
-        _clock += dt;
-
         ResolvePlatform();
         if (Platform is null)
         {
@@ -179,7 +200,12 @@ internal sealed class DefenceBattery(Config config)
             _lastPlatform = Platform;
         }
 
-        PlatformEcl = KsaWorld.PositionEcl(Platform);
+        // The platform's movement since the last frame, measured rather than derived. This is
+        // what advances it to the round's instant when offsets are taken - see Interceptor.
+        double3 sampled = KsaWorld.PositionEcl(Platform);
+        PlatformStepEcl = _hasPlatformSample ? sampled - PlatformEcl : Vec.Zero;
+        _hasPlatformSample = true;
+        PlatformEcl = sampled;
         Boresight = KsaWorld.LocalUp(Platform);
         // Whichever registered weapon system is fitted, if any. Selecting it points the
         // config's profiles at that system, so everything downstream - drives, guidance, the
@@ -216,6 +242,22 @@ internal sealed class DefenceBattery(Config config)
             if (TurretPart is null) Log.Warn("turret subpart not found - the turret will not slew");
             if (_missileBodies.Count == 0) Log.Warn("no round bodies - rounds will draw as tracers only");
         }
+
+    }
+
+    /// <summary>
+    /// Advances the battery by <paramref name="dt"/> simulated seconds.
+    ///
+    /// <para>Separate from <see cref="SampleWorld"/> on purpose: this is gated on the simulation
+    /// clock, so it does not run while paused or on a frame that advanced no time, whereas the
+    /// world sample must run regardless. See <see cref="SampleWorld"/> for what conflating the
+    /// two cost.</para>
+    /// </summary>
+    public void Update(double dt)
+    {
+        if (Platform is null) return;
+
+        _clock += dt;
 
         Radar.Scan(Platform, Boresight, dt);
         AttributeRoundsToTracks();
@@ -514,8 +556,7 @@ internal sealed class DefenceBattery(Config config)
                     $"localspeed {Vec.Len(r.VelocityLocal):F0} m/s age {r.Age:F2}s " +
                     $"tgt {(tgtRange < 0 ? "gone" : $"{tgtRange:F0} m")} " +
                     $"link {(r.SeekerInView ? "on" : "OFF")} " +
-                    $"cmd {r.CommandG:F0}g{(r.CommandSaturated ? " SAT" : "")} " +
-                    $"peak {r.PeakCommandG:F0}g drift {drift:F1} m");
+                    $"drift {drift:F1} m");
             }
         }
 
@@ -630,7 +671,8 @@ internal sealed class DefenceBattery(Config config)
 
             // The platform's velocity defines the local frame: it carries the parent body's
             // orbital and rotational motion, which is not airspeed and not a heading.
-            round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl, _munition);
+            round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl,
+                         _munition);
 
             switch (round.State)
             {
