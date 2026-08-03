@@ -1,3 +1,9 @@
+## [0.4.3](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.2...v0.4.3) (2026-08-03)
+
+### Fixes
+
+* **rounds:** stop extrapolating the platform a frame past where it is ([b422d39](https://github.com/LaurensDeV/KSA-AirDefence/commit/b422d3974f8f1a033a96a91aed3d3e60f09477de))
+
 ## [0.4.2](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.1...v0.4.2) (2026-08-03)
 
 ### Fixes
