@@ -1,3 +1,9 @@
+## [0.5.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.5.0...v0.5.1) (2026-08-03)
+
+### Fixes
+
+* **draw:** step on the frame delta the platform sample moved over ([05dc512](https://github.com/LaurensDeV/KSA-AirDefence/commit/05dc512a33f7639cb827262bef1220ac0acc080f))
+
 ## [0.5.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.4...v0.5.0) (2026-08-03)
 
 ### Features
