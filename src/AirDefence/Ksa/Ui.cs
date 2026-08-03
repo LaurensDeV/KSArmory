@@ -116,6 +116,8 @@ internal sealed class Ui(Config config, DefenceBattery battery)
                 : $"Warp {warp:F0}x");
         }
 
+        DrawSlowMotion();
+
         // Should stay at zero. If it does not, the render rate is outrunning the simulation
         // clock and that is worth knowing, because it explains stuttering round bodies.
         if (_battery.FramesWithoutSimStep > 0)
@@ -152,6 +154,31 @@ internal sealed class Ui(Config config, DefenceBattery battery)
     /// <summary>The weapon system the panel is tuning. See Config.Select.</summary>
     private LauncherProfile _profile => _config.Launcher;
     private MunitionProfile _munition => _config.Munition;
+
+    /// <summary>Speeds worth a button. KSA's own roller stops at 0.1x; these go two decades below.</summary>
+    private static readonly (string Label, double Speed)[] SlowMotionSpeeds =
+    [
+        ("0.01x", 0.01), ("0.05x", 0.05), ("0.1x", 0.1), ("0.25x", 0.25), ("1x", 1.0),
+    ];
+
+    /// <summary>
+    /// Slow motion, well below what the game's speed control reaches.
+    ///
+    /// <para>An engagement is over in a couple of seconds of real time and the interesting part —
+    /// the round leaving the tube, the endgame turn, the fuse — happens far faster than it can be
+    /// watched. Nothing in KSA stops the simulation running at a hundredth of real time; its
+    /// roller is simply built in tenths.</para>
+    /// </summary>
+    private void DrawSlowMotion()
+    {
+        ImGui.Text($"Sim speed: {KsaWorld.SimulationSpeed:0.###}x");
+
+        foreach ((string label, double speed) in SlowMotionSpeeds)
+        {
+            ImGui.SameLine();
+            if (ImGui.Button(label)) KsaWorld.SetSimulationSpeed(speed);
+        }
+    }
 
     private void DrawTurretLine()
     {
