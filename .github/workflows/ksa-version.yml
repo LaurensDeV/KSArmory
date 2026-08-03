@@ -6,14 +6,15 @@ name: KSA version watch
 # This is the only check that can notice an update *before* it is installed. Everything else
 # compares assemblies, which means already having the new ones — by which point you have
 # probably noticed anyway. KSA is pre-release and its API moves between builds, so knowing
-# early is worth a weekly request.
+# early is worth a request a day. One HTTP GET against a public endpoint is not a load anyone
+# will notice, and the deduplication below means a build that stays put stays quiet.
 #
 # Deliberately opens an issue rather than failing: nothing is broken when the game updates, it
 # just means there is work to do, and a red cross on an unrelated commit says that badly.
 
 on:
   schedule:
-    - cron: "17 7 * * 1"    # Mondays, a few minutes off the hour so as not to pile onto :00
+    - cron: "17 7 * * *"    # daily, a few minutes off the hour so as not to pile onto :00
   workflow_dispatch:
 
 permissions:
@@ -56,8 +57,8 @@ jobs:
         run: |
           title="KSA $PUBLISHED is out (pinned to $PINNED)"
 
-          # The schedule fires weekly; without this it would file the same issue every Monday
-          # until someone acted on it.
+          # The schedule fires daily, so without this it would file the same issue every
+          # morning until someone acted on it. This is what makes a daily cadence tolerable.
           if gh issue list --state open --search "$title in:title" --json title \
               -q '.[].title' | grep -Fxq "$title"; then
             echo "already tracked: $title"

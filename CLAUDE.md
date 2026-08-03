@@ -292,7 +292,7 @@ nothing local changed.
 - **Before the update is installed** — RocketWerkz publish the current build at
   `http://ksa-master1.rocketwerkz.com:8082/version`, which returns
   `{"Version": "...", "Url": "..."}`. `./tools/check-ksa-version.sh` compares it to the lock,
-  and the `ksa-version.yml` workflow does the same weekly and **opens an issue** when they
+  and the `ksa-version.yml` workflow does the same daily and **opens an issue** when they
   diverge. It opens an issue rather than failing: nothing is broken when the game moves, there
   is just work to do, and a red cross on an unrelated commit says that badly.
 - **After it is installed** — `./tools/build.sh` checks the install against the lock on every
