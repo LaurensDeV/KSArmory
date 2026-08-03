@@ -6,6 +6,11 @@ pods of six, on an 8×8 chassis the mod generates from a Blender script.
 
 ## Read this first
 
+**`docs/FRAMES-AND-EPOCHS.md` is the one to read before touching rounds, drawing or timing.**
+Every hard bug this mod has had is a frame or epoch mismatch multiplied by 29.8 km/s of ecliptic
+motion, and that file has the engine's actual contract, the rules that follow from it, and how to
+tell the four failure shapes apart. It cost a full night and eight wrong theories.
+
 **`docs/KSA-MODDING-NOTES.md` is the distilled result of reverse-engineering the game.** It has
 the runtime, the loader contract, the type signatures, the reference frames and the gotchas.
 Read it before touching anything KSA-facing — it will save you an hour of decompiling.

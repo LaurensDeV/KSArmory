@@ -28,11 +28,79 @@ internal static class KsaWorld
     /// </summary>
     public static double SimStepSeconds => Universe.GetLastSimStep().DeltaTime;
 
+    private static SimTime _integratedThrough;
+    private static bool _hasIntegrated;
+
+    /// <summary>
+    /// The simulated seconds to integrate now, or zero if the engine has applied no new step
+    /// since the last call. <b>Consuming</b> — call once per update and use the result.
+    ///
+    /// <para><see cref="SimStepSeconds"/> reports the <em>last</em> step, not "a step has happened
+    /// since you last asked". Ask twice without the engine stepping in between and it answers the
+    /// same step twice, and integrating it twice puts real, permanent motion into the round that
+    /// the world never made.</para>
+    ///
+    /// <para>That is not hypothetical: pause, select 0.05x, pause again, repeat — and the round
+    /// walks further off with every cycle. Accumulation is the tell. A mismatched epoch produces
+    /// a fixed offset; only re-integrating a consumed step compounds, because it lands in
+    /// <c>PositionEcl</c>, which is integrated rather than derived.</para>
+    ///
+    /// <para>Deduplicated on the step's own end time rather than by differencing a clock, which
+    /// keeps the property <see cref="SimClock"/> exists to protect: the value returned is still
+    /// the step the engine actually applied, so it cannot be a phase out from the world. It just
+    /// cannot now be applied twice.</para>
+    /// </summary>
+    public static double ConsumeSimStep()
+    {
+        SimStep step = Universe.GetLastSimStep();
+
+        if (_hasIntegrated && step.NextTime.Equals(_integratedThrough)) return 0.0;
+
+        _integratedThrough = step.NextTime;
+        _hasIntegrated = true;
+        return step.DeltaTime;
+    }
+
+    /// <summary>Forgets which step was last integrated. For unload and scene changes.</summary>
+    public static void ResetSimStepTracking() => _hasIntegrated = false;
+
     /// <summary>True while the simulation is stopped. KSA defines this as speed exactly zero.</summary>
     public static bool IsPaused => Universe.IsPaused();
 
     /// <summary>Current timewarp factor; 1.0 is real time, 0.0 is paused. Display only.</summary>
     public static double SimulationSpeed => Universe.SimulationSpeed;
+
+    /// <summary>
+    /// Slowest speed worth offering. Below this KSA names the speed "paused" — its SimSpeed
+    /// constructor calls anything under 1e-4 paused — and a world that runs while every label
+    /// says it is stopped is worse than one that will not go slower.
+    ///
+    /// <para>It is only the *name*: Universe.IsPaused() tests the speed against exactly zero, so
+    /// the world really would keep running. That mismatch is the trap, not a limit.</para>
+    /// </summary>
+    public const double SlowestSimSpeed = 0.001;
+
+    /// <summary>
+    /// Sets the world's simulation speed, including values slower than the in-game controls
+    /// reach. KSA's own roller works in tenths, so 0.1x is as slow as it will go; nothing in
+    /// the engine enforces that.
+    ///
+    /// <para><c>SetSimulationSpeed</c> only rejects speeds above <c>SimSpeed.MaxSpeed</c> — there
+    /// is no floor — and it assigns the field directly rather than queuing an input event, so a
+    /// value set here holds until something else changes it.</para>
+    ///
+    /// <para>Everything this mod does is already keyed to simulated time, so a slow world needs
+    /// no special handling: <see cref="SimTimeSeconds"/> simply advances slowly and the battery,
+    /// the drives and the rounds all scale with it.</para>
+    /// </summary>
+    /// <returns>False if the value was not finite or not positive; the speed is left alone.</returns>
+    public static bool SetSimulationSpeed(double speed)
+    {
+        if (!double.IsFinite(speed) || speed <= 0.0) return false;
+
+        Universe.SetSimulationSpeed(new SimSpeed(Math.Max(speed, SlowestSimSpeed)));
+        return true;
+    }
 
     /// <summary>True once the vehicle has been destroyed or unloaded out from under us.</summary>
     public static bool IsAlive(Vehicle? v) => v is { IsDisposed: false };
@@ -234,6 +302,7 @@ internal static class KsaWorld
 
             if (!_anchor.IsValid) return false;
 
+
             _anchored = true;
             return true;
         }
@@ -242,6 +311,7 @@ internal static class KsaWorld
             return false;
         }
     }
+
 
     /// <summary>
     /// The anchor's position in the render frame, straight from the engine. Drawing here uses

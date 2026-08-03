@@ -126,8 +126,26 @@ public sealed class AirDefenceMod
         // frame of reference whenever the simulation did not advance.
         _battery.SampleWorld();
 
-        // The pause guard: no simulated time, no step, so nothing fires into a frozen world.
-        if (!KsaWorld.IsPaused && double.IsFinite(dtPlayer) && dtPlayer > 0.0)
+        // Gate on the step the engine actually applied, NOT on the pause flag.
+        //
+        // Universe.IsPaused() is `simulationSpeed == 0.0`, which is a statement about the speed
+        // setting, not about whether the world moved this frame. On the frame the speed drops to
+        // zero the engine still applies one real step: the platform sample advances and, with the
+        // old guard, the round did not. The drawn offset is `P - Q`, so the whole of that step
+        // landed in it - and because it is a difference of integrated positions, it stayed there.
+        //
+        // Measured, one line per pause, each within ~20 ms of a `0.00x -> 0.05x` transition:
+        //
+        //   offset moved 29.38 m | round could only fly 0.34 m | platform moved 29.56 m
+        //   step consumed 0.9902 ms | platform implies 0.9902 ms
+        //
+        // The offset moved by exactly the platform's displacement, which is the signature of Q
+        // advancing while P stood still. Pause and resume repeatedly and the round walks away a
+        // step at a time - reported from play as "every single time it teleports further".
+        //
+        // ConsumeSimStep already answers the real question - did the engine advance the world
+        // since we last integrated - and returns zero when it did not. So it is a strictly better
+        // guard than the pause flag, and it cannot disagree with what the engine did.
         {
             // Simulated seconds elapsed over THIS frame, READ from the engine rather than
             // estimated from the frame time.
@@ -151,13 +169,32 @@ public sealed class AirDefenceMod
             // An earlier attempt at this was reverted for causing jitter. That jitter was the
             // drawn offset's own phase error, fixed separately in Interceptor.Update - see
             // the offset note in CLAUDE.md - and it was never about the step at all.
-            double dtSim = KsaWorld.SimStepSeconds;
+            // Consumed, not peeked: the engine answers with the LAST step, so asking again
+            // without it having stepped returns the same one - and integrating it a second time
+            // adds motion the world never made. See KsaWorld.ConsumeSimStep.
+            double dtSim = KsaWorld.ConsumeSimStep();
 
-            // Fall back to the estimate only if the engine has nothing to report - a load,
-            // or a frame before the first step. Better a slightly wrong step than none.
-            if (!double.IsFinite(dtSim) || dtSim <= 0.0)
-                dtSim = dtPlayer * KsaWorld.SimulationSpeed;
-            _battery.Update(Math.Min(dtSim, Interceptor.MaxFaithfulStep));
+            // No step reported, no step taken. Do NOT substitute an estimate here.
+            //
+            // This used to fall back to dtPlayer * SimulationSpeed "so a frame is never wasted",
+            // and that is precisely backwards: the engine reports nothing exactly when it
+            // advanced nothing, so the fallback integrated the round across an interval the world
+            // did not move over. The round's position then gains v * dtEstimate while the
+            // platform sample gains zero, and the whole of that difference lands in the drawn
+            // offset - a full step of ecliptic motion, from a frame that never happened.
+            //
+            // Reported from play: pause, select 0.05x, pause again, and the round sits ~20 m to
+            // one side. 29800 m/s * (22 ms * 0.05) = 33 m, which is this mechanism at that speed,
+            // on the resume frame - the engine has not yet applied a step at the new rate while
+            // the estimate has already switched to it.
+            //
+            // Skipping costs one frame of round motion - under a metre at 0.05x - and nothing
+            // here accumulates, so the next frame with a real step recovers it exactly.
+            // Zero means the world did not move, which covers a genuine pause as well as any
+            // frame the engine chose not to step. Nothing fires into a frozen world because
+            // nothing is stepped at all.
+            if (double.IsFinite(dtSim) && dtSim > 0.0)
+                _battery.Update(Math.Min(dtSim, Interceptor.MaxFaithfulStep));
         }
 
         // Outside the clock gate on purpose. Placing the round bodies is drawing, not
@@ -171,6 +208,7 @@ public sealed class AirDefenceMod
     public void Unload()
     {
         _battery?.Reset();
+        KsaWorld.ResetSimStepTracking();
         _battery = null;
         _ui = null;
         Log.Info("unloaded");

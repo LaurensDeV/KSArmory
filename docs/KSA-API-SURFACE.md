@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-44 types and 119 members across 4 assemblies.
+53 types and 139 members across 4 assemblies.
 
 ## Brutal.Core.Numerics
 
@@ -47,6 +47,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.float2
 
 *referenced as a type only*
+
+### Brutal.Numerics.float3
+
+- `float X`
+- `float Y`
+- `float Z`
 
 ### Brutal.Numerics.float4
 
@@ -94,6 +100,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 GetPositionEcl()`
 - `Brutal.Numerics.double3 GetVelocityEcl()`
+- `KSA.OrbitView OrbitView`
 - `double get_MeanRadius()`
 - `string get_Id()`
 - `void UpdatePerFrameData()`
@@ -108,6 +115,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.CelestialSystem
 
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
+
+### KSA.Control
+
+*referenced as a type only*
 
 ### KSA.DefaultVehicleSaves
 
@@ -148,6 +159,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 GetVelocityEcl()`
 
+### KSA.KittenEva
+
+- `void .ctor(KSA.CelestialSystem, string, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
+
 ### KSA.LookupCollection`1
 
 *referenced as a type only*
@@ -156,12 +171,28 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `string get_Id()`
 
+### KSA.ModuleList
+
+- `bool HasAny<1>()`
+
+### KSA.Module`1
+
+*referenced as a type only*
+
+### KSA.Module`1+List
+
+*referenced as a type only*
+
 ### KSA.Orbit
 
 - `KSA.Orbit CreateFromStateCci(KSA.IParentBody, KSA.SimTime, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.byte4)`
 - `double get_Apoapsis()`
 - `double get_Eccentricity()`
 - `double get_Periapsis()`
+
+### KSA.OrbitView
+
+- `double DistancePower`
 
 ### KSA.Part
 
@@ -183,9 +214,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.PartTree
 
+- `KSA.ModuleList Modules`
 - `KSA.Part get_Root()`
 - `KSA.PartTree DeepCopy()`
+- `List<KSA.Control> Controls`
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
+- `int get_Count()`
+- `void RecomputeAllDerivedData()`
 
 ### KSA.Program
 
@@ -196,13 +231,18 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Viewport get_MainViewport()`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
 
+### KSA.SimSpeed
+
+- `void .ctor(double)`
+
 ### KSA.SimStep
 
+- `KSA.SimTime get_NextTime()`
 - `double get_DeltaTime()`
 
 ### KSA.SimTime
 
-*referenced as a type only*
+- `bool Equals(KSA.SimTime)`
 
 ### KSA.Transform3D
 
@@ -216,19 +256,23 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsPaused()`
 - `double get_SimulationSpeed()`
 - `void DestroyVehicleFromEvent(KSA.Vehicle, KSA.VehicleDestructionEvent)`
+- `void SetSimulationSpeed(KSA.SimSpeed)`
 
 ### KSA.Vehicle
 
 - `Brutal.Numerics.double4x4 GetMatrixAsmb2Ego(Brutal.Numerics.double3)`
 - `Brutal.Numerics.doubleQuat get_Asmb2Ego()`
 - `Brutal.Numerics.doubleQuat get_Body2Cce()`
+- `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
 - `KSA.IParentBody get_Parent()`
 - `KSA.PartTree get_Parts()`
 - `KSA.Vehicle CreateVehicle(KSA.CelestialSystem, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 - `KSA.Vehicle get_BubbleLeader()`
 - `KSA.VehicleUpdateTask UpdateTask`
+- `bool get_IsControllable()`
 - `bool get_IsDisposed()`
 - `void AddToTask(KSA.VehicleUpdateTask)`
+- `void UpdateAfterPartTreeModification()`
 
 ### KSA.VehicleDestructionCause
 
@@ -244,6 +288,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.VehicleSave
 
 - `KSA.PartTree Load(KSA.Viewport)`
+- `KSA.VehicleSaveData VehicleSaveData`
+
+### KSA.VehicleSaveData
+
+- `string Character`
 
 ### KSA.VehicleUpdateTask
 
