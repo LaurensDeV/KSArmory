@@ -162,6 +162,15 @@ jobs:
         if: env.HAVE_KEY == 'true'
         run: ./tools/validate-parts.py --offline
 
+      # docs/KSA-API-SURFACE.md is what the upgrade-ksa skill diffs the game against, so it is
+      # only worth anything if it matches the code. It is generated from the compiled assembly's
+      # metadata, so this catches a new KSA dependency added without regenerating it.
+      - name: KSA API surface is current
+        if: env.HAVE_KEY == 'true'
+        env:
+          KSA_DLL_DIR: ${{ github.workspace }}/.ksa-assemblies/current/dll
+        run: ./tools/api-surface.sh --check
+
       - name: Package
         if: env.HAVE_KEY == 'true'
         env:
