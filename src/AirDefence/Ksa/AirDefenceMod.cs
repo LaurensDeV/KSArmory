@@ -36,7 +36,7 @@ public sealed class AirDefenceMod
     {
         _battery = new DefenceBattery(_config);
         _ui = new Ui(_config, _battery);
-        Log.Info($"ready - {Config.TubeCount} tubes, safe. Open the 'Air Defence' panel to arm.");
+        Log.Info($"ready - {Arsenal.PantsirS1.TubeCount} tubes, safe. Open the 'Air Defence' panel to arm.");
     }
 
     /// <summary>

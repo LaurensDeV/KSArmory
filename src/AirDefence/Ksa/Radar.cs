@@ -11,6 +11,12 @@ namespace AirDefence;
 internal sealed class Radar(Config config)
 {
     private readonly Config _config = config;
+
+    /// <summary>
+    /// What this set can see. Read through the config each time rather than captured, so that
+    /// re-selecting the weapon system — or tuning it from the panel — takes effect immediately.
+    /// </summary>
+    private SensorProfile _sensor => _config.Sensor;
     private readonly List<Vehicle> _scratch = [];
 
     /// <summary>Live tracks, highest priority first. Rebuilt every scan.</summary>
@@ -37,8 +43,8 @@ internal sealed class Radar(Config config)
 
         double3 originEcl = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
-        double coneCos = Math.Cos(_config.ConeHalfAngleRad);
-        double rangeSq = (double)_config.RadarRange * _config.RadarRange;
+        double coneCos = Math.Cos(_sensor.ConeHalfAngleRad);
+        double rangeSq = (double)_sensor.Range * _sensor.Range;
 
         KsaWorld.CollectVehicles(_scratch);
 
@@ -59,12 +65,12 @@ internal sealed class Radar(Config config)
             double3 v = targetVel - originVel;
 
             double relSpeed = Vec.Len(v);
-            if (relSpeed < _config.MinTargetSpeed) continue;
+            if (relSpeed < _sensor.MinTargetSpeed) continue;
 
             double range = Math.Sqrt(rangeSquared);
 
             // Closest point of approach against the battery, assuming both hold course.
-            double tCa = Vec.TimeOfClosestApproach(r, v, _config.ThreatHorizonSeconds);
+            double tCa = Vec.TimeOfClosestApproach(r, v, _sensor.ThreatHorizonSeconds);
             double cpa = Vec.Len(r + v * tCa);
 
             double held = _dwell.GetValueOrDefault(candidate) + dt;
@@ -82,7 +88,7 @@ internal sealed class Radar(Config config)
             };
 
             // A threat either will pass close enough to matter, or is already inside the bubble.
-            track.IsThreat = cpa <= _config.ThreatRadius || range <= _config.ThreatRadius;
+            track.IsThreat = cpa <= _sensor.ThreatRadius || range <= _sensor.ThreatRadius;
 
             Tracks.Add(track);
         }
@@ -115,7 +121,7 @@ internal sealed class Radar(Config config)
 
     /// <summary>True when the locked contact has been held long enough to shoot at.</summary>
     public bool HasFiringSolution =>
-        Locked is not null && Locked.IsThreat && Locked.HeldSeconds >= _config.LockSeconds;
+        Locked is not null && Locked.IsThreat && Locked.HeldSeconds >= _sensor.LockSeconds;
 
     public void Reset()
     {

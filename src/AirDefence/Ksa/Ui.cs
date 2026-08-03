@@ -85,13 +85,13 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         else ImGui.TextColored(Green, "MASTER ARM: SAFE");
 
         ImGui.SameLine();
-        ImGui.Text($"   Rounds: {_battery.Ammo}/{Config.TubeCount}");
+        ImGui.Text($"   Rounds: {_battery.Ammo}/{_profile.TubeCount}");
 
         if (_battery.ReloadRemaining > 0.0)
         {
             ImGui.Text($"Reloading: {_battery.ReloadRemaining:F1}s");
             ImGui.ProgressBar(
-                (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _config.ReloadSeconds)));
+                (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
         }
 
         DrawTurretLine();
@@ -120,6 +120,10 @@ internal sealed class Ui(Config config, DefenceBattery battery)
     /// the drive gives up for the session and this is where that gets said, rather than the
     /// turret just silently never moving.
     /// </summary>
+    /// <summary>The weapon system the panel is tuning. See Config.Select.</summary>
+    private LauncherProfile _profile => _config.Launcher;
+    private MunitionProfile _munition => _config.Munition;
+
     private void DrawTurretLine()
     {
         if (_battery.Launcher is null) return;
@@ -211,10 +215,10 @@ internal sealed class Ui(Config config, DefenceBattery battery)
 
         // Spawning beyond radar range is the easiest way to see nothing happen at all.
         float spawnRange = _spawnSpeed * _spawnSeconds;
-        if (spawnRange > _config.RadarRange)
+        if (spawnRange > _config.Sensor.Range)
         {
             ImGui.TextColored(Amber,
-                $"spawns {spawnRange / 1000f:F1} km out - beyond {_config.RadarRange / 1000f:F1} km radar range");
+                $"spawns {spawnRange / 1000f:F1} km out - beyond {_config.Sensor.Range / 1000f:F1} km radar range");
             ImGui.TextDisabled("  it will be invisible until it closes to range");
         }
         else
@@ -259,6 +263,13 @@ internal sealed class Ui(Config config, DefenceBattery battery)
 
         // Writes the battery's whole world view to AirDefence.log, including why each nearby
         // vehicle was or was not tracked. Far more useful than staring at an empty screen.
+        if (ImGui.Checkbox("Verbose log", ref _config.VerboseLog))
+        {
+            Log.Threshold = _config.VerboseLog ? Log.Level.Debug : Log.Level.Info;
+            Log.Info(_config.VerboseLog ? "verbose logging on" : "verbose logging off");
+        }
+        ImGui.TextDisabled("  developer detail; off in release builds");
+
         if (ImGui.Button("Write diagnostic dump"))
         {
             Diagnostics.Dump(_battery, _config);
@@ -319,21 +330,21 @@ internal sealed class Ui(Config config, DefenceBattery battery)
     {
         if (!ImGui.TreeNode("Radar")) { DrawGuidanceNode(); return; }
 
-        ImGui.SliderFloat("Range (m)", ref _config.RadarRange, 500f, 40000f);
-        ImGui.SliderFloat("Cone half-angle (deg)", ref _config.RadarConeDeg, 5f, 180f);
-        ImGui.SliderFloat("Threat radius (m)", ref _config.ThreatRadius, 100f, 10000f);
-        ImGui.SliderFloat("Threat horizon (s)", ref _config.ThreatHorizonSeconds, 5f, 120f);
-        ImGui.SliderFloat("Lock time (s)", ref _config.LockSeconds, 0f, 5f);
-        ImGui.SliderFloat("Min target speed (m/s)", ref _config.MinTargetSpeed, 0f, 200f);
+        ImGui.SliderFloat("Range (m)", ref _config.Sensor.Range, 500f, 40000f);
+        ImGui.SliderFloat("Cone half-angle (deg)", ref _config.Sensor.ConeDeg, 5f, 180f);
+        ImGui.SliderFloat("Threat radius (m)", ref _config.Sensor.ThreatRadius, 100f, 10000f);
+        ImGui.SliderFloat("Threat horizon (s)", ref _config.Sensor.ThreatHorizonSeconds, 5f, 120f);
+        ImGui.SliderFloat("Lock time (s)", ref _config.Sensor.LockSeconds, 0f, 5f);
+        ImGui.SliderFloat("Min target speed (m/s)", ref _config.Sensor.MinTargetSpeed, 0f, 200f);
         ImGui.TreePop();
 
         if (ImGui.TreeNode("Turret"))
         {
             ImGui.Checkbox("Track with turret", ref _config.TurretTracking);
-            ImGui.SliderFloat("Traverse rate (deg/s)", ref _config.TurretSlewRateDeg, 5f, 180f);
-            ImGui.SliderFloat("Elevation rate (deg/s)", ref _config.TurretElevRateDeg, 5f, 120f);
-            ImGui.SliderFloat("Settle before firing (s)", ref _config.TurretSettleSeconds, 0f, 2f);
-            ImGui.Checkbox("Eject along the tube", ref _config.LaunchAlongTube);
+            ImGui.SliderFloat("Traverse rate (deg/s)", ref _profile.SlewRateDeg, 5f, 180f);
+            ImGui.SliderFloat("Elevation rate (deg/s)", ref _profile.ElevationRateDeg, 5f, 120f);
+            ImGui.SliderFloat("Settle before firing (s)", ref _profile.SettleSeconds, 0f, 2f);
+            ImGui.Checkbox("Eject along the tube", ref _profile.LaunchAlongTube);
             ImGui.TextDisabled("  off: slew to the target on launch, plus loft");
 
             ImGui.Separator();
@@ -345,7 +356,7 @@ internal sealed class Ui(Config config, DefenceBattery battery)
             ImGui.TextDisabled("  Elevation applies to spin as well as manual aim.");
 
             ImGui.Separator();
-            ImGui.SliderFloat("Search array (rpm)", ref _config.SearchRadarRpm, 0f, 60f);
+            ImGui.SliderFloat("Search array (rpm)", ref _profile.SearchRadarRpm, 0f, 60f);
             ImGui.Checkbox("Stop the search array", ref _config.SearchRadarStopped);
             ImGui.TreePop();
         }
@@ -357,26 +368,26 @@ internal sealed class Ui(Config config, DefenceBattery battery)
     {
         if (ImGui.TreeNode("Guidance"))
         {
-            ImGui.SliderFloat("Nav constant N", ref _config.NavConstant, 1f, 8f);
-            ImGui.SliderFloat("Max lateral (g)", ref _config.MaxLateralG, 5f, 80f);
-            ImGui.SliderFloat("Seeker FOV (deg)", ref _config.SeekerFovDeg, 10f, 90f);
-            ImGui.SliderFloat("Gravity compensation", ref _config.GravityCompensation, 0f, 1.5f);
-            ImGui.SliderFloat("Boost accel (m/s2)", ref _config.BoostAccel, 0f, 800f);
-            ImGui.SliderFloat("Boost time (s)", ref _config.BoostSeconds, 0f, 10f);
-            ImGui.SliderFloat("Launch speed (m/s)", ref _config.LaunchSpeed, 5f, 300f);
-            ImGui.SliderFloat("Max flight time (s)", ref _config.MaxFlightSeconds, 3f, 90f);
+            ImGui.SliderFloat("Nav constant N", ref _munition.NavConstant, 1f, 8f);
+            ImGui.SliderFloat("Max lateral (g)", ref _munition.MaxLateralG, 5f, 80f);
+            ImGui.SliderFloat("Seeker FOV (deg)", ref _munition.SeekerFovDeg, 10f, 90f);
+            ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
+            ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
+            ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
+            ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
+            ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 90f);
             ImGui.TreePop();
         }
 
         if (ImGui.TreeNode("Warhead"))
         {
-            ImGui.SliderFloat("Fuse radius (m)", ref _config.FuseRadius, 2f, 200f);
-            ImGui.SliderFloat("Fuse arm delay (s)", ref _config.FuseArmSeconds, 0f, 5f);
-            ImGui.SliderFloat("Lethal radius (m)", ref _config.LethalRadius, 2f, 300f);
-            ImGui.SliderFloat("Blast radius (m)", ref _config.BlastRadius, 5f, 600f);
-            ImGui.SliderInt("Rounds per target", ref _config.RoundsPerTarget, 1, Config.TubeCount);
-            ImGui.SliderFloat("Salvo spacing (s)", ref _config.SalvoSpacing, 0.05f, 3f);
-            ImGui.SliderFloat("Reload time (s)", ref _config.ReloadSeconds, 0f, 60f);
+            ImGui.SliderFloat("Fuse radius (m)", ref _munition.FuseRadius, 2f, 200f);
+            ImGui.SliderFloat("Fuse arm delay (s)", ref _munition.FuseArmSeconds, 0f, 5f);
+            ImGui.SliderFloat("Lethal radius (m)", ref _munition.LethalRadius, 2f, 300f);
+            ImGui.SliderFloat("Blast radius (m)", ref _munition.BlastRadius, 5f, 600f);
+            ImGui.SliderInt("Rounds per target", ref _config.RoundsPerTarget, 1, _profile.TubeCount);
+            ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
+            ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);
             ImGui.TreePop();
         }
 

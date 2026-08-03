@@ -19,7 +19,8 @@ public class FrameRegressionTests
     /// <summary>Roughly Earth's orbital velocity — the magnitude that caused every one of these.</summary>
     private static readonly double3 SolarFrame = new(29800, 0, 0);
 
-    private static Config Vacuum() => new() { DragK = 0f };
+    private static MunitionProfile Vacuum() =>
+        new() { Name = "test", DisplayName = "test", DragK = 0f };
 
     private static Interceptor Round(double3 velocity, double3 platformEcl = default) =>
         new(new double3(0, 0, 0), velocity, TargetHandle, tube: 1, platformEcl);
@@ -32,7 +33,7 @@ public class FrameRegressionTests
     [Fact]
     public void OffsetFromPlatform_IsUnaffectedByFrameVelocity()
     {
-        Config config = Vacuum();
+        MunitionProfile munition = Vacuum();
         const double dt = 1.0 / 60.0;
 
         var still = Round(new double3(100, 0, 0));
@@ -47,8 +48,8 @@ public class FrameRegressionTests
 
         for (int i = 0; i < 10; i++)
         {
-            still.Update(dt, target, NoGravity, frameVelocityEcl: default, platformEcl: default, config);
-            carried.Update(dt, carriedTarget, NoGravity, SolarFrame, platform, config);
+            still.Update(dt, target, NoGravity, frameVelocityEcl: default, platformEcl: default, munition);
+            carried.Update(dt, carriedTarget, NoGravity, SolarFrame, platform, munition);
             platform += SolarFrame * dt;
         }
 
@@ -65,7 +66,7 @@ public class FrameRegressionTests
     [Fact]
     public void TrailPoints_DoNotSmearWithFrameVelocity()
     {
-        Config config = Vacuum();
+        MunitionProfile munition = Vacuum();
         const double dt = 1.0 / 60.0;
 
         var round = Round(new double3(200, 0, 0) + SolarFrame);
@@ -74,7 +75,7 @@ public class FrameRegressionTests
         double3 platform = new(0, 0, 0);
         for (int i = 0; i < 120; i++)
         {
-            round.Update(dt, target, NoGravity, SolarFrame, platform, config);
+            round.Update(dt, target, NoGravity, SolarFrame, platform, munition);
             platform += SolarFrame * dt;
         }
 
@@ -98,16 +99,16 @@ public class FrameRegressionTests
     [Fact]
     public void DetonationElapsed_LiesWithinTheUpdateStep()
     {
-        Config config = Vacuum();
+        MunitionProfile munition = Vacuum();
         const double dt = 1.0 / 30.0;
 
         var round = Round(new double3(500, 0, 0) + SolarFrame);
 
         // Target close enough ahead that the fuse trips during this step.
         var target = new TargetState(new double3(20, 0, 0), SolarFrame, 1.0);
-        config.FuseArmSeconds = 0f;
+        munition.FuseArmSeconds = 0f;
 
-        round.Update(dt, target, NoGravity, SolarFrame, platformEcl: default, config);
+        round.Update(dt, target, NoGravity, SolarFrame, platformEcl: default, munition);
 
         Assert.Equal(RoundState.Detonated, round.State);
         Assert.InRange(round.DetonationElapsedInFrame, 0.0, dt);
@@ -120,13 +121,13 @@ public class FrameRegressionTests
     [Fact]
     public void Seeker_KeepsLock_WhenTheFrameIsFastMoving()
     {
-        Config config = Vacuum();
+        MunitionProfile munition = Vacuum();
 
         // Round flying +X locally; target dead ahead. Trivially inside any sane seeker cone.
         var round = Round(new double3(400, 0, 0) + SolarFrame);
         var target = new TargetState(new double3(3000, 0, 0), SolarFrame, 5.0);
 
-        round.Update(1.0 / 60.0, target, NoGravity, SolarFrame, platformEcl: default, config);
+        round.Update(1.0 / 60.0, target, NoGravity, SolarFrame, platformEcl: default, munition);
 
         Assert.True(round.HasLock,
             "seeker broke lock immediately - it is measuring against absolute velocity again");
@@ -139,7 +140,7 @@ public class FrameRegressionTests
     [Fact]
     public void Drag_ActsOnAirspeed_NotAbsoluteSpeed()
     {
-        var config = new Config { DragK = 4.0e-5f, BoostSeconds = 0f, BoostAccel = 0f };
+        var munition = new MunitionProfile { Name = "test", DisplayName = "test", DragK = 4.0e-5f, BoostSeconds = 0f, BoostAccel = 0f };
         const double dt = 1.0 / 60.0;
 
         var round = Round(new double3(600, 0, 0) + SolarFrame);
@@ -148,7 +149,7 @@ public class FrameRegressionTests
         double3 platform = new(0, 0, 0);
         for (int i = 0; i < 60; i++)
         {
-            round.Update(dt, target, NoGravity, SolarFrame, platform, config);
+            round.Update(dt, target, NoGravity, SolarFrame, platform, munition);
             platform += SolarFrame * dt;
         }
 
@@ -164,9 +165,9 @@ public class FrameRegressionTests
     [Fact]
     public void DistanceFlown_MeasuresLocalMotion()
     {
-        Config config = Vacuum();
-        config.BoostSeconds = 0f;
-        config.BoostAccel = 0f;
+        MunitionProfile munition = Vacuum();
+        munition.BoostSeconds = 0f;
+        munition.BoostAccel = 0f;
 
         const double dt = 1.0 / 60.0;
         var round = Round(new double3(300, 0, 0) + SolarFrame);
@@ -175,7 +176,7 @@ public class FrameRegressionTests
         double3 platform = new(0, 0, 0);
         for (int i = 0; i < 60; i++)
         {
-            round.Update(dt, target, NoGravity, SolarFrame, platform, config);
+            round.Update(dt, target, NoGravity, SolarFrame, platform, munition);
             platform += SolarFrame * dt;
         }
 
@@ -193,31 +194,31 @@ public class FrameRegressionTests
     [InlineData(1e7, 1e7, 1e7)]    // absurdly distant
     public void Guidance_NeverProducesNonFiniteCommands(double rx, double ry, double rz)
     {
-        Config config = Vacuum();
+        MunitionProfile munition = Vacuum();
 
         double3 command = Interceptor.GuidanceAccel(
             new double3(rx, ry, rz),
             new double3(-300, 40, 0),
             new double3(500, 0, 0),
             NoGravity,
-            config);
+            munition);
 
         Assert.True(Vec.IsFinite(command), $"guidance returned {command} for r=({rx},{ry},{rz})");
-        Assert.True(Vec.Len(command) <= config.MaxLateralAccel + 1e-6);
+        Assert.True(Vec.Len(command) <= munition.MaxLateralAccel + 1e-6);
     }
 
     /// <summary>A round with no target must coast and expire cleanly, never NaN.</summary>
     [Fact]
     public void LostTarget_InAFastFrame_StaysFinite()
     {
-        Config config = Vacuum();
-        config.MaxFlightSeconds = 2f;
+        MunitionProfile munition = Vacuum();
+        munition.MaxFlightSeconds = 2f;
 
         var round = Round(new double3(300, 0, 0) + SolarFrame);
 
         while (round.State == RoundState.Flying)
         {
-            round.Update(1.0 / 60.0, target: null, NoGravity, SolarFrame, platformEcl: default, config);
+            round.Update(1.0 / 60.0, target: null, NoGravity, SolarFrame, platformEcl: default, munition);
         }
 
         Assert.Equal(RoundState.Expired, round.State);

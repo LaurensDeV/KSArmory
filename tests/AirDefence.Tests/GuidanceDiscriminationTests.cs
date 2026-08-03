@@ -16,11 +16,11 @@ public class GuidanceDiscriminationTests
     /// <summary>The same crossing engagement as the interception test, parameterised by N.</summary>
     private static (RoundState State, double Closest) FlyCrossingEngagement(float navConstant)
     {
-        var config = new Config { DragK = 0f, NavConstant = navConstant };
+        var munition = new MunitionProfile { Name = "test", DisplayName = "test", DragK = 0f, NavConstant = navConstant };
 
         var round = new Interceptor(
             new double3(0, 0, 0),
-            new double3(config.LaunchSpeed, 0, 0),
+            new double3(munition.LaunchSpeed, 0, 0),
             TargetHandle,
             tube: 1,
             platformEcl: default);
@@ -38,7 +38,7 @@ public class GuidanceDiscriminationTests
         {
             double3 targetPos = targetStart + targetVel * t;
             closest = Math.Min(closest, Vec.Len(targetPos - round.PositionEcl));
-            round.Update(dt, new TargetState(targetPos, targetVel, 5.0), NoGravity, frameVelocityEcl: default, platformEcl: default, config);
+            round.Update(dt, new TargetState(targetPos, targetVel, 5.0), NoGravity, frameVelocityEcl: default, platformEcl: default, munition);
             t += dt;
         }
 

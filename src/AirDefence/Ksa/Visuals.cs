@@ -33,7 +33,7 @@ internal static class Visuals
         if (config.DrawRadarVolume) DrawSearchVolume(origin, battery.Boresight, config);
         if (config.DrawTracks) DrawTracks(battery, origin, config);
         if (config.DrawMissiles) DrawRounds(battery, config);
-        if (battery.Launcher is not null && config.DrawMissiles) DrawLoadedTubes(battery, origin);
+        if (battery.Launcher is not null && config.DrawMissiles) DrawLoadedTubes(battery, config, origin);
         if (config.DrawRadarVolume) DrawTurretFacing(battery);
     }
 
@@ -46,8 +46,8 @@ internal static class Visuals
         // all radiating from one point, converging at the horizon. Draw a scaled-down shape
         // near the craft instead - it shows the *direction and angle* the radar covers, which
         // is what you actually want to see. The range readout lives in the panel.
-        double range = Math.Min(config.RadarRange, config.ConeDisplayMetres);
-        double half = config.ConeHalfAngleRad;
+        double range = Math.Min(config.Sensor.Range, config.ConeDisplayMetres);
+        double half = config.Sensor.ConeHalfAngleRad;
 
         double3 axisEnd = origin + boresight * range;
         KsaWorld.DrawLineEcl(origin, axisEnd, ConeColour);
@@ -110,9 +110,10 @@ internal static class Visuals
     /// Marks which tubes still hold a round. Rounds are fired in tube order, so the first
     /// <c>TubeCount - Ammo</c> tubes are the spent ones.
     /// </summary>
-    private static void DrawLoadedTubes(DefenceBattery battery, double3 origin)
+    private static void DrawLoadedTubes(DefenceBattery battery, Config config, double3 origin)
     {
-        int spent = Config.TubeCount - battery.Ammo;
+        LauncherProfile profile = config.Launcher;
+        int spent = profile.TubeCount - battery.Ammo;
 
         // Prefer the part's own transform so the markers sit on the actual tubes rather than on
         // a correctly-sized ring at an arbitrary rotation.
@@ -121,13 +122,13 @@ internal static class Visuals
         // trunnion, and only the pods carry the elevation. Passing the turret here looks right
         // and very nearly is - the markers still follow the traverse, so they track left and
         // right correctly and simply refuse to go up and down.
-        Span<double3> muzzles = stackalloc double3[Config.TubeCount];
+        Span<double3> muzzles = stackalloc double3[profile.TubeCount];
         bool exact = battery.Platform is { } platform
                      && battery.PodsPart is { } pods
                      && KsaWorld.HasAnchor
-                     && LauncherPart.TryGetTubeMuzzlesEgo(platform, pods, KsaWorld.AnchorEgo, muzzles);
+                     && LauncherPart.TryGetTubeMuzzlesEgo(platform, pods, profile, KsaWorld.AnchorEgo, muzzles);
 
-        for (int tube = 0; tube < Config.TubeCount; tube++)
+        for (int tube = 0; tube < profile.TubeCount; tube++)
         {
             float4 colour = tube < spent ? SpentTubeColour : LoadedTubeColour;
 
@@ -135,7 +136,7 @@ internal static class Visuals
             {
                 KsaWorld.DrawSphereEgo(muzzles[tube], 0.16f, colour);
             }
-            else if (KsaWorld.TryEclToEgo(LauncherPart.MuzzleEcl(origin, battery.Boresight, tube), out double3 ego))
+            else if (KsaWorld.TryEclToEgo(LauncherPart.MuzzleEcl(profile, origin, battery.Boresight, tube), out double3 ego))
             {
                 KsaWorld.DrawSphereEgo(ego, 0.16f, colour);
             }

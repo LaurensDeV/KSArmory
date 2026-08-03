@@ -34,7 +34,7 @@ internal sealed class DefenceBattery(Config config)
     public Radar Radar { get; } = new(config);
 
     /// <summary>Rounds left in the launcher.</summary>
-    public int Ammo { get; private set; } = Config.TubeCount;
+    public int Ammo { get; private set; }
 
     public IReadOnlyList<Interceptor> Rounds => _rounds;
 
@@ -70,6 +70,16 @@ internal sealed class DefenceBattery(Config config)
     /// turns it off for the session.
     /// </summary>
     public bool TurretDriveWorks { get; private set; } = true;
+
+    /// <summary>
+    /// The weapon system this battery is running, and what it fires.
+    ///
+    /// Read through the config rather than captured at construction: the battery does not know
+    /// which launcher it has until it finds the part, and the panel can retune the profile
+    /// while an engagement is under way.
+    /// </summary>
+    private LauncherProfile _profile => _config.Launcher;
+    private MunitionProfile _munition => _config.Munition;
 
     private bool _loggedSubParts;
     private double _spinPhase;
@@ -117,7 +127,7 @@ internal sealed class DefenceBattery(Config config)
         {
             if (!_config.TurretTracking || _config.TurretManual || _config.TurretSpin) return true;
             if (PodsPart is null || !TurretDriveWorks) return true;
-            return Turret.IsLaid(_config.TurretSettleSeconds);
+            return Turret.IsLaid(_profile.SettleSeconds);
         }
     }
 
@@ -155,10 +165,28 @@ internal sealed class DefenceBattery(Config config)
 
         PlatformEcl = KsaWorld.PositionEcl(Platform);
         Boresight = KsaWorld.LocalUp(Platform);
-        Launcher = LauncherPart.Find(Platform);
-        TurretPart = Launcher is null ? null : LauncherPart.FindTurret(Launcher);
-        PodsPart = Launcher is null ? null : LauncherPart.FindPods(Launcher);
-        RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher);
+        // Whichever registered weapon system is fitted, if any. Selecting it points the
+        // config's profiles at that system, so everything downstream - drives, guidance, the
+        // panel - follows without knowing which launcher this is.
+        if (LauncherPart.Find(Platform) is var (part, profile))
+        {
+            bool changed = !ReferenceEquals(profile, _config.Launcher) || Launcher is null;
+            Launcher = part;
+            _config.Select(profile);
+            profile.ConfigureTurret(Turret);
+
+            // A different weapon system carries a different number of rounds, so the magazine
+            // is sized when one is first recognised rather than at construction.
+            if (changed) Ammo = profile.TubeCount;
+        }
+        else
+        {
+            Launcher = null;
+        }
+
+        TurretPart = Launcher is null ? null : LauncherPart.FindTurret(Launcher, _profile);
+        PodsPart = Launcher is null ? null : LauncherPart.FindPods(Launcher, _profile);
+        RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher, _profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
         // Say what the launcher is actually made of, once. If the turret is never found, this
@@ -166,9 +194,9 @@ internal sealed class DefenceBattery(Config config)
         if (Launcher is not null && !_loggedSubParts)
         {
             _loggedSubParts = true;
-            LauncherPart.FindMissiles(Launcher, _missileBodies);
+            LauncherPart.FindMissiles(Launcher, _munition, _missileBodies);
             Log.Info($"launcher subparts: {LauncherPart.DescribeSubParts(Launcher)}");
-            Log.Info($"round bodies found: {_missileBodies.Count} (need {Config.TubeCount})");
+            Log.Debug($"round bodies found: {_missileBodies.Count} (need {_profile.TubeCount})");
             if (TurretPart is null) Log.Warn("turret subpart not found - the turret will not slew");
             if (_missileBodies.Count == 0) Log.Warn("no round bodies - rounds will draw as tracers only");
         }
@@ -264,14 +292,14 @@ internal sealed class DefenceBattery(Config config)
         if (_salvoTimer > 0.0) _salvoTimer = Math.Max(0.0, _salvoTimer - dt);
 
         // Reload cycle.
-        if (Ammo == 0 && _config.ReloadSeconds > 0f)
+        if (Ammo == 0 && _profile.ReloadSeconds > 0f)
         {
-            if (_reloadTimer <= 0.0) _reloadTimer = _config.ReloadSeconds;
+            if (_reloadTimer <= 0.0) _reloadTimer = _profile.ReloadSeconds;
             _reloadTimer -= dt;
             if (_reloadTimer <= 0.0)
             {
                 _reloadTimer = 0.0;
-                Ammo = Config.TubeCount;
+                Ammo = _profile.TubeCount;
                 Announce("launcher reloaded");
             }
             return;
@@ -311,7 +339,7 @@ internal sealed class DefenceBattery(Config config)
             // be answered from across the launchpad.
             // Elevation still comes from the manual slider, so the two can be driven together:
             // spinning while pitching is the quickest way to see both axes composing properly.
-            _spinPhase = Turret.WrapPi(_spinPhase + _config.TurretSlewRateRad * dt);
+            _spinPhase = Turret.WrapPi(_spinPhase + _profile.SlewRateRad * dt);
             Turret.Point(_spinPhase, double.DegreesToRadians(_config.TurretManualElevationDeg));
         }
         else if (_config.TurretManual)
@@ -338,7 +366,7 @@ internal sealed class DefenceBattery(Config config)
             }
         }
 
-        Turret.Update(dt, _config.TurretSlewRateRad, _config.TurretElevRateRad);
+        Turret.Update(dt, _profile.SlewRateRad, _profile.ElevationRateRad);
 
         if (!TurretDriveWorks) return;
 
@@ -349,7 +377,7 @@ internal sealed class DefenceBattery(Config config)
 
         if (TurretDriveWorks && PodsPart is not null)
         {
-            TurretDriveWorks = LauncherPart.TryApplyPodAim(PodsPart, Turret.BearingRad, Turret.ElevationRad);
+            TurretDriveWorks = LauncherPart.TryApplyPodAim(PodsPart, _profile, Turret.BearingRad, Turret.ElevationRad);
         }
 
         // The search array turns regardless of what the battery is doing - it is looking, not
@@ -359,9 +387,9 @@ internal sealed class DefenceBattery(Config config)
             if (!_config.SearchRadarStopped)
             {
                 RadarSpinRad = Turret.WrapPi(
-                    RadarSpinRad + _config.SearchRadarRpm * (Math.Tau / 60.0) * dt);
+                    RadarSpinRad + _profile.SearchRadarRpm * (Math.Tau / 60.0) * dt);
             }
-            TurretDriveWorks = LauncherPart.TryApplyRadarSpin(RadarPart, Turret.BearingRad, RadarSpinRad);
+            TurretDriveWorks = LauncherPart.TryApplyRadarSpin(RadarPart, _profile, Turret.BearingRad, RadarSpinRad);
         }
 
         if (!TurretDriveWorks) Announce("turret drive rejected by the engine; holding position");
@@ -382,7 +410,7 @@ internal sealed class DefenceBattery(Config config)
         if (Platform is not { } platform || Launcher is not { } launcher) return;
         if (_missileBodies.Count == 0 || !RoundBodiesWork) return;
 
-        Span<bool> flying = stackalloc bool[Config.TubeCount];
+        Span<bool> flying = stackalloc bool[_profile.TubeCount];
 
         foreach (Interceptor round in _rounds)
         {
@@ -404,7 +432,7 @@ internal sealed class DefenceBattery(Config config)
             flying[index] = true;
         }
 
-        for (int i = 0; i < _missileBodies.Count && i < Config.TubeCount; i++)
+        for (int i = 0; i < _missileBodies.Count && i < _profile.TubeCount; i++)
         {
             if (!flying[i]) LauncherPart.HideMissile(_missileBodies[i]);
         }
@@ -435,7 +463,7 @@ internal sealed class DefenceBattery(Config config)
         if (!KsaWorld.IsAlive(track.Vehicle)) { Announce("refused: target gone"); return false; }
         if (!IsLaid) { Announce("refused: launcher still slewing"); return false; }
 
-        int tube = Config.TubeCount - Ammo;
+        int tube = _profile.TubeCount - Ammo;
 
         double3 platformVel = KsaWorld.VelocityEcl(Platform);
 
@@ -446,15 +474,16 @@ internal sealed class DefenceBattery(Config config)
         double3 launchAnchorPartFrame = Vec.Zero;
         double3 tubeMouth = Vec.Zero;
         bool fromTube = Launcher is not null && PodsPart is { } pods
-                        && LauncherPart.TryGetTubeMuzzleEcl(Platform, Launcher, pods, tube,
+                        && LauncherPart.TryGetTubeMuzzleEcl(Platform, Launcher, pods, _profile, tube,
                                                             PlatformEcl, out tubeMouth)
-                        && LauncherPart.TryGetTubeMuzzlePartFrame(pods, tube, out launchAnchorPartFrame);
+                        && LauncherPart.TryGetTubeMuzzlePartFrame(pods, _profile, tube,
+                                                                  out launchAnchorPartFrame);
 
         double3 launchPos = fromTube
             ? tubeMouth
             : Launcher is not null
-                ? LauncherPart.MuzzleEcl(MountEcl, Boresight, tube)
-                : MountEcl + Boresight * _config.MuzzleOffset;
+                ? LauncherPart.MuzzleEcl(_profile, MountEcl, Boresight, tube)
+                : MountEcl + Boresight * _profile.MuzzleOffset;
 
         // Leave along the tube. That is what a tube launcher does, and it is only possible now
         // that the pods genuinely aim: the round emerges pointing where the launcher is
@@ -465,20 +494,20 @@ internal sealed class DefenceBattery(Config config)
         // low in the sky outside the seeker cone immediately - but against a laid launcher it
         // sends the round off at a visibly different angle to the tube it just came out of.
         double3 tubeAxis = Vec.Zero;
-        bool alongTube = fromTube && _config.LaunchAlongTube
-                         && LauncherPart.TryGetTubeAxisEcl(Platform, Launcher!, PodsPart!, out tubeAxis);
+        bool alongTube = fromTube && _profile.LaunchAlongTube
+                         && LauncherPart.TryGetTubeAxisEcl(Platform, Launcher!, PodsPart!, _profile, out tubeAxis);
 
         double3 launchDir = FireGeometry.LaunchDirection(
-            alongTube, tubeAxis, launchPos, track.PositionEcl, Boresight, _config.LaunchLoft);
+            alongTube, tubeAxis, launchPos, track.PositionEcl, Boresight, _profile.LaunchLoft);
 
-        double3 launchVel = platformVel + launchDir * _config.LaunchSpeed;
+        double3 launchVel = platformVel + launchDir * _munition.LaunchSpeed;
 
         _rounds.Add(new Interceptor(launchPos, launchVel, track.Vehicle, tube + 1, PlatformEcl)
         {
             LaunchAnchorPartFrame = launchAnchorPartFrame,
         });
         Ammo--;
-        _salvoTimer = _config.SalvoSpacing;
+        _salvoTimer = _profile.SalvoSpacing;
 
         Announce($"round {tube + 1} away at {KsaWorld.DisplayName(track.Vehicle)} ({track.Range / 1000.0:F1} km)");
         return true;
@@ -493,7 +522,7 @@ internal sealed class DefenceBattery(Config config)
 
     public void Reload()
     {
-        Ammo = Config.TubeCount;
+        Ammo = _profile.TubeCount;
         _reloadTimer = 0.0;
         Announce("launcher reloaded by hand");
     }
@@ -519,7 +548,7 @@ internal sealed class DefenceBattery(Config config)
 
             // The platform's velocity defines the local frame: it carries the parent body's
             // orbital and rotational motion, which is not airspeed and not a heading.
-            round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl, _config);
+            round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl, _munition);
 
             switch (round.State)
             {
@@ -576,7 +605,7 @@ internal sealed class DefenceBattery(Config config)
         // Trust that number rather than re-deriving it.
         if (round.TargetRef is Vehicle intended && KsaWorld.IsAlive(intended))
         {
-            double lethalRange = _config.LethalRadius + KsaWorld.MeanRadius(intended);
+            double lethalRange = _munition.LethalRadius + KsaWorld.MeanRadius(intended);
             if (round.MissDistance <= lethalRange)
             {
                 // Say why a lethal hit did not kill. Taking control of the target makes it
@@ -607,11 +636,11 @@ internal sealed class DefenceBattery(Config config)
             double3 posAtBurst = KsaWorld.PositionEcl(v) + KsaWorld.VelocityEcl(v) * elapsed;
             double dist = Vec.Len(posAtBurst - burst) - KsaWorld.MeanRadius(v);
 
-            if (dist <= _config.LethalRadius)
+            if (dist <= _munition.LethalRadius)
             {
                 _pendingKills.Add(v);
             }
-            else if (dist <= _config.BlastRadius)
+            else if (dist <= _munition.BlastRadius)
             {
                 Announce($"near miss on {KsaWorld.DisplayName(v)} at {dist:F0} m");
             }
@@ -655,7 +684,7 @@ internal sealed class DefenceBattery(Config config)
         _pendingKills.Clear();
         _events.Clear();
         Radar.Reset();
-        Ammo = Config.TubeCount;
+        Ammo = _profile.TubeCount;
         _salvoTimer = 0.0;
         _reloadTimer = 0.0;
         PlatformPinned = false;

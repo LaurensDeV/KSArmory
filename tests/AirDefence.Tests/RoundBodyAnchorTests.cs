@@ -17,12 +17,8 @@ namespace AirDefence.Tests;
 /// </summary>
 public class RoundBodyAnchorTests
 {
-    private static Config Vacuum() => new()
-    {
-        DragK = 0f,
-        BoostSeconds = 0f,
-        GravityCompensation = 0f,
-    };
+    private static MunitionProfile Vacuum() =>
+        new() { Name = "test", DisplayName = "test", DragK = 0f, BoostSeconds = 0f, GravityCompensation = 0f };
 
     private static Interceptor Launch(double3 platformEcl, double3 launchDirection)
     {
@@ -47,7 +43,7 @@ public class RoundBodyAnchorTests
         // Two identical engagements whose platforms sit at wildly different absolute positions -
         // which is what "analytic orbit position" versus "physics origin" amounts to. The
         // *travel* must come out identical; the raw offsets must not.
-        var config = Vacuum();
+        var munition = Vacuum();
         double3 near = new(0, 0, 0);
         double3 far = new(1.496e11, -2.7e10, 3.3e9);
 
@@ -56,8 +52,8 @@ public class RoundBodyAnchorTests
 
         for (int step = 0; step < 60; step++)
         {
-            a.Update(1.0 / 60.0, null, Vec.Zero, Vec.Zero, near, config);
-            b.Update(1.0 / 60.0, null, Vec.Zero, Vec.Zero, far, config);
+            a.Update(1.0 / 60.0, null, Vec.Zero, Vec.Zero, near, munition);
+            b.Update(1.0 / 60.0, null, Vec.Zero, Vec.Zero, far, munition);
         }
 
         Assert.True(Vec.Len(a.TravelSinceLaunch) > 50.0, "the round should have gone somewhere");
@@ -81,7 +77,7 @@ public class RoundBodyAnchorTests
     {
         // Orienting a body off VelocityEcl points every round along the platform's ~29.8 km/s
         // of ecliptic motion, i.e. all of them the same way regardless of where they are going.
-        var config = Vacuum();
+        var munition = Vacuum();
         double3 frame = new(0, 29_800, 0);
         double3 platform = new(1.496e11, 0, 0);
 
@@ -92,7 +88,7 @@ public class RoundBodyAnchorTests
             tube: 1,
             platformEcl: platform);
 
-        round.Update(1.0 / 60.0, null, Vec.Zero, frame, platform, config);
+        round.Update(1.0 / 60.0, null, Vec.Zero, frame, platform, munition);
 
         // The airspeed vector is what the body points along, and it is nearly straight up.
         Assert.True(Vec.AngleBetween(new double3(0, 0, 1), round.VelocityLocal) < 0.05);

@@ -165,7 +165,7 @@ internal sealed class Interceptor
     /// </param>
     public void Update(
         double dt, TargetState? target, double3 gravity,
-        double3 frameVelocityEcl, double3 platformEcl, Config config)
+        double3 frameVelocityEcl, double3 platformEcl, MunitionProfile munition)
     {
         if (State != RoundState.Flying) return;
 
@@ -179,7 +179,7 @@ internal sealed class Interceptor
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
-            Step(h, elapsed, target, gravity, frameVelocityEcl, config);
+            Step(h, elapsed, target, gravity, frameVelocityEcl, munition);
             elapsed += h;
         }
 
@@ -199,11 +199,11 @@ internal sealed class Interceptor
 
     private void Step(
         double h, double elapsedInFrame, TargetState? target,
-        double3 gravity, double3 frameVelocityEcl, Config config)
+        double3 gravity, double3 frameVelocityEcl, MunitionProfile munition)
     {
         Age += h;
 
-        if (Age > config.MaxFlightSeconds)
+        if (Age > munition.MaxFlightSeconds)
         {
             State = RoundState.Expired;
             return;
@@ -217,17 +217,17 @@ internal sealed class Interceptor
         double3 accel = gravity;
 
         // Boost motor: axial thrust along the flight path.
-        if (Age <= config.BoostSeconds)
+        if (Age <= munition.BoostSeconds)
         {
             double3 axis = Vec.Unit(localVelocity);
-            if (!axis.Equals(Vec.Zero)) accel += axis * config.BoostAccel;
+            if (!axis.Equals(Vec.Zero)) accel += axis * munition.BoostAccel;
         }
 
         // Quadratic drag on airspeed, so a coasting round bleeds speed instead of holding it.
         double airspeed = Vec.Len(localVelocity);
-        if (config.DragK > 0f && airspeed > 1e-6)
+        if (munition.DragK > 0f && airspeed > 1e-6)
         {
-            accel -= localVelocity * (config.DragK * airspeed);
+            accel -= localVelocity * (munition.DragK * airspeed);
         }
 
         if (TargetRef is not null && target is { } t)
@@ -240,19 +240,19 @@ internal sealed class Interceptor
             ClosestApproach = Math.Min(ClosestApproach, Vec.Len(r));
 
             // Seeker gimbal limit: the target must stay inside the cone about the flight path.
-            if (Vec.AngleBetween(r, localVelocity) > config.SeekerFovRad)
+            if (Vec.AngleBetween(r, localVelocity) > munition.SeekerFovRad)
             {
                 TargetRef = null;
             }
             else
             {
-                accel += GuidanceAccel(r, v, localVelocity, gravity, config);
+                accel += GuidanceAccel(r, v, localVelocity, gravity, munition);
 
                 // Fuse uses relative motion across the sub-step, so a target that would cross
                 // the trigger radius between samples still sets it off.
-                if (Age >= config.FuseArmSeconds)
+                if (Age >= munition.FuseArmSeconds)
                 {
-                    double trigger = config.FuseRadius + t.Radius;
+                    double trigger = munition.FuseRadius + t.Radius;
                     double tCa = Vec.TimeOfClosestApproach(r, v, h);
                     double miss = Vec.Len(r + v * tCa);
                     if (miss <= trigger)
@@ -295,18 +295,18 @@ internal sealed class Interceptor
     /// not add axial thrust - and clipped to the structural limit.
     /// </summary>
     internal static double3 GuidanceAccel(
-        double3 r, double3 v, double3 missileVelocity, double3 gravity, Config config)
+        double3 r, double3 v, double3 missileVelocity, double3 gravity, MunitionProfile munition)
     {
         double rangeSq = Vec.Len2(r);
         if (rangeSq < 1e-6) return Vec.Zero;
 
         double3 omega = Vec.Cross(r, v) / rangeSq;
         double3 closingVelocity = -v;
-        double3 command = Vec.Cross(omega, closingVelocity) * config.NavConstant;
+        double3 command = Vec.Cross(omega, closingVelocity) * munition.NavConstant;
 
-        command -= gravity * config.GravityCompensation;
+        command -= gravity * munition.GravityCompensation;
         command = Vec.RejectFrom(command, missileVelocity);
 
-        return Vec.ClampLength(command, config.MaxLateralAccel);
+        return Vec.ClampLength(command, munition.MaxLateralAccel);
     }
 }
