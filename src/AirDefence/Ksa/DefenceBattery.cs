@@ -105,6 +105,12 @@ internal sealed class DefenceBattery(Config config)
     /// </summary>
     public int FramesWithoutSimStep { get; set; }
 
+    /// <summary>Trace one frame in this many, so a debug log stays readable at 60 fps.</summary>
+    private const int BodyTraceEveryFrames = 15;
+
+    private int _bodyFrame;
+    private bool _warnedDuplicateTube;
+
     /// <summary>Where rounds actually leave from: the launcher part, or the hull without one.</summary>
     public double3 MountEcl { get; private set; }
 
@@ -426,12 +432,37 @@ internal sealed class DefenceBattery(Config config)
         if (Platform is not { } platform || Launcher is not { } launcher) return;
         if (_missileBodies.Count == 0 || !RoundBodiesWork) return;
 
+        // Switched off by the operator: hide every body so the tracers are what is seen, rather
+        // than leaving twelve missiles frozen wherever they were last written.
+        if (!_config.UseRoundBodies)
+        {
+            for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
+            return;
+        }
+
         Span<bool> flying = stackalloc bool[_profile.TubeCount];
+
+        _bodyFrame++;
+        bool trace = Log.Threshold <= Log.Level.Debug && _bodyFrame % BodyTraceEveryFrames == 0;
 
         foreach (Interceptor round in _rounds)
         {
             int index = round.Tube - 1;
             if (index < 0 || index >= _missileBodies.Count) continue;
+
+            // Two rounds sharing one body would write it twice a frame and it would appear to
+            // flip between their positions - a hard, fast zigzag. Tube numbers are meant to be
+            // unique among rounds in the air, so if this ever fires it is the explanation.
+            if (flying[index])
+            {
+                if (!_warnedDuplicateTube)
+                {
+                    _warnedDuplicateTube = true;
+                    Log.Warn($"two rounds share tube {round.Tube}; their body will flicker between them");
+                    Announce($"tube {round.Tube} double-booked - see the log");
+                }
+                continue;
+            }
 
             // Point it along the flight path, falling back to straight up for a round that has
             // somehow stopped - better than the undefined direction of a zero vector.
@@ -446,6 +477,19 @@ internal sealed class DefenceBattery(Config config)
                 return;
             }
             flying[index] = true;
+
+            // Everything the placement depends on, so a zigzag can be attributed rather than
+            // guessed at: if travel is smooth but the drawn position is not, the fault is in the
+            // frame conversion or in the engine; if travel itself jumps, it is the simulation.
+            if (trace)
+            {
+                Interceptor r = round;
+                Log.Debug(() =>
+                    $"body t{r.Tube}: travel {Vec.Len(r.TravelSinceLaunch):F1} m " +
+                    $"({r.TravelSinceLaunch.X:F1},{r.TravelSinceLaunch.Y:F1},{r.TravelSinceLaunch.Z:F1}) " +
+                    $"anchor ({r.LaunchAnchorPartFrame.X:F2},{r.LaunchAnchorPartFrame.Y:F2},{r.LaunchAnchorPartFrame.Z:F2}) " +
+                    $"localspeed {Vec.Len(r.VelocityLocal):F0} m/s age {r.Age:F2}s");
+            }
         }
 
         for (int i = 0; i < _missileBodies.Count && i < _profile.TubeCount; i++)
@@ -707,6 +751,7 @@ internal sealed class DefenceBattery(Config config)
         _pendingKills.Clear();
         Radar.Reset();
         _salvoTimer = 0.0;
+        _warnedDuplicateTube = false;
 
         // Hide the round bodies that were riding those interceptors, or they freeze mid-air.
         for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);

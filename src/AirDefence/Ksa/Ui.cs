@@ -432,6 +432,9 @@ internal sealed class Ui(Config config, DefenceBattery battery)
             ImGui.TextDisabled("  where a threat will pass if it holds course");
             ImGui.Checkbox("Rounds", ref _config.DrawMissiles);
             ImGui.Checkbox("Round tracer spheres", ref _config.DrawRoundMarkers);
+            // Bodies and tracers are placed by entirely separate paths, so toggling this while
+            // watching a round in flight says which of the two is misbehaving.
+            ImGui.Checkbox("Round bodies (off = tracers only)", ref _config.UseRoundBodies);
             ImGui.TextDisabled(_battery.RoundBodyCount > 0 && _battery.RoundBodiesWork
                 ? "  rounds have real bodies; the tracer hides them up close"
                 : "  no round bodies available - tracers are all there is");

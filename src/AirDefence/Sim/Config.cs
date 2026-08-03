@@ -115,6 +115,17 @@ public sealed class Config
     public bool DrawRoundMarkers;
 
     /// <summary>
+    /// Place a real subpart body on each round in flight.
+    ///
+    /// <para>On by default — the bodies are the whole point of modelling the round. Turn it off
+    /// to fall back to tracer spheres, which are drawn by a completely separate path: the
+    /// bodies go through a subpart transform in the vehicle's frame, the tracers through the
+    /// gizmo anchor in Ecl. If the rounds misbehave with bodies on and fly cleanly with them
+    /// off, the fault is in the transform path and not in the simulation.</para>
+    /// </summary>
+    public bool UseRoundBodies = true;
+
+    /// <summary>
     /// Draw a marker at each threat's predicted closest point of approach — where it will pass
     /// the battery if it holds course. Off by default: with a 40 s horizon the marker can sit
     /// kilometres from anything visible, which reads as a stray dot rather than a prediction.
