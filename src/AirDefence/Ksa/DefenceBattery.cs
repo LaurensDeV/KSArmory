@@ -90,6 +90,18 @@ internal sealed class DefenceBattery(Config config)
     private readonly List<Part> _missileBodies = [];
     private readonly List<Part> _finBodies = [];
 
+    /// <summary>
+    /// Which tubes still hold a round. Authoritative, rather than derived from the ammo count.
+    ///
+    /// <para><c>TubeCount - Ammo</c> was a guess at which tube to fire next, and it is only
+    /// right while a magazine empties monotonically. A reload restarts it at zero while earlier
+    /// rounds are still in the air, so two rounds end up claiming the same tube - and since a
+    /// round's body subpart is chosen by tube number, one body then flips between two rounds
+    /// every frame and the rest of the salvo appears not to leave at all. The
+    /// "two rounds share tube N" warning was added to catch exactly this and duly did.</para>
+    /// </summary>
+    private bool[] _tubeLoaded = [];
+
     /// <summary>The fin set belonging to a tube, or null if the launcher carries none.</summary>
     private Part? FinsFor(int index) => index >= 0 && index < _finBodies.Count ? _finBodies[index] : null;
 
@@ -181,6 +193,7 @@ internal sealed class DefenceBattery(Config config)
     ///
     /// <para>Sampling only: it reads the world and resolves parts, and advances nothing.</para>
     /// </summary>
+
     public void SampleWorld()
     {
         ResolvePlatform();
@@ -223,7 +236,12 @@ internal sealed class DefenceBattery(Config config)
 
             // A different weapon system carries a different number of rounds, so the magazine
             // is sized when one is first recognised rather than at construction.
-            if (changed) Ammo = profile.TubeCount;
+            if (changed)
+            {
+                _tubeLoaded = new bool[profile.TubeCount];
+                Array.Fill(_tubeLoaded, true);
+                Ammo = profile.TubeCount;
+            }
         }
         else
         {
@@ -384,6 +402,7 @@ internal sealed class DefenceBattery(Config config)
             if (_reloadTimer <= 0.0)
             {
                 _reloadTimer = 0.0;
+                RefillTubes();
                 Ammo = _profile.TubeCount;
                 Announce("launcher reloaded");
             }
@@ -553,6 +572,33 @@ internal sealed class DefenceBattery(Config config)
             }
             flying[index] = true;
 
+            // The two renderers, differenced directly. No theory in between.
+            //
+            // The gizmo puts the round at `AnchorEgo + OffsetFromPlatform`, and that path is
+            // measured exact: 0.000 m against the target at every speed. The body is a subpart at
+            // `bodyPos` in the vehicle-assembly frame, so its offset from the same anchor is
+            // `Asmb2Ego * bodyPos` - Asmb2Ego carries assembly to world, and for a *direction*
+            // Ego and Ecl are identical because Ego is a pure translation of Ecl.
+            //
+            // Those two must agree. Whatever this prints is the body's error, in metres, with the
+            // correct path as the reference rather than a target that is itself moving.
+            //
+            // Reported as a fraction of travel as well: a rotation error grows with distance from
+            // the tube, a translation error does not. That distinguishes the planet turning under
+            // an inertially-measured vector from a fixed anchor mistake, and they need different
+            // fixes.
+            if (_bodyFrame % 30 == 0 && Vec.Len(round.TravelSinceLaunch) > 50.0)
+            {
+                double3 bodyOffsetEcl = platform.Asmb2Ego * bodyPos;
+                double3 gap = bodyOffsetEcl - round.OffsetFromPlatform;
+                double travelled = Vec.Len(round.TravelSinceLaunch);
+
+                Log.Info($"body t{round.Tube}: gizmo-vs-body {Vec.Len(gap):F1} m "
+                         + $"({Vec.Len(gap) / travelled * 100.0:F2}% of {travelled:F0} m travelled) "
+                         + $"| gap ({gap.X:F1},{gap.Y:F1},{gap.Z:F1})");
+            }
+
+
             // Fins ride the body's own transform and open over the first fraction of a second.
             if (FinsFor(index) is { } finSet)
             {
@@ -638,7 +684,8 @@ internal sealed class DefenceBattery(Config config)
         if (!KsaWorld.IsAlive(track.Vehicle)) { Announce("refused: target gone"); return false; }
         if (!IsLaid) { Announce("refused: launcher still slewing"); return false; }
 
-        int tube = _profile.TubeCount - Ammo;
+        int tube = NextFreeTube();
+        if (tube < 0) { Announce("refused: no free tube"); return false; }
 
         double3 platformVel = KsaWorld.VelocityEcl(Platform);
 
@@ -686,6 +733,7 @@ internal sealed class DefenceBattery(Config config)
         {
             LaunchAnchorPartFrame = launchAnchorPartFrame,
         });
+        if (tube < _tubeLoaded.Length) _tubeLoaded[tube] = false;
         Ammo--;
         _salvoTimer = _profile.SalvoSpacing;
 
@@ -700,8 +748,36 @@ internal sealed class DefenceBattery(Config config)
         return Fire(Radar.Locked);
     }
 
+    /// <summary>The lowest tube that is both loaded and not already occupied by a round in the
+    /// air. Returns -1 when there is none.</summary>
+    private int NextFreeTube()
+    {
+        for (int i = 0; i < _tubeLoaded.Length; i++)
+        {
+            if (!_tubeLoaded[i]) continue;
+
+            // A reload refills a tube whose previous round is still flying. Firing it again
+            // would hand two rounds the same body.
+            bool occupied = false;
+            for (int r = 0; r < _rounds.Count; r++)
+            {
+                if (_rounds[r].Tube == i + 1) { occupied = true; break; }
+            }
+
+            if (!occupied) return i;
+        }
+        return -1;
+    }
+
+    private void RefillTubes()
+    {
+        if (_tubeLoaded.Length != _profile.TubeCount) _tubeLoaded = new bool[_profile.TubeCount];
+        Array.Fill(_tubeLoaded, true);
+    }
+
     public void Reload()
     {
+        RefillTubes();
         Ammo = _profile.TubeCount;
         _reloadTimer = 0.0;
         Announce("launcher reloaded by hand");
@@ -714,6 +790,7 @@ internal sealed class DefenceBattery(Config config)
         _rounds.Clear();
         if (n > 0) Announce($"{n} round(s) safed");
     }
+
 
     private void UpdateRounds(double dt)
     {
@@ -730,6 +807,7 @@ internal sealed class DefenceBattery(Config config)
             // orbital and rotational motion, which is not airspeed and not a heading.
             round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl,
                          _munition);
+
 
             switch (round.State)
             {
@@ -949,6 +1027,7 @@ internal sealed class DefenceBattery(Config config)
         _pendingKills.Clear();
         _events.Clear();
         Radar.Reset();
+        RefillTubes();
         Ammo = _profile.TubeCount;
         _salvoTimer = 0.0;
         _reloadTimer = 0.0;
