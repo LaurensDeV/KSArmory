@@ -84,7 +84,21 @@ public sealed class AirDefenceMod
             // Timewarp scaling is knowingly given up for now - it is the lesser of the two.
             if (!KsaWorld.IsPaused && double.IsFinite(dtPlayer) && dtPlayer > 0.0)
             {
-                _battery.Update(Math.Min(dtPlayer, Interceptor.MaxFaithfulStep));
+                // Simulated seconds elapsed over THIS frame: the wall-clock delta scaled by the
+                // warp factor.
+                //
+                // The interval matters more than the number. The drawn offset advances the
+                // platform across the stepping interval to meet the round, so that interval must
+                // be the one the platform sample actually moved over - which is this frame.
+                // dtPlayer alone is that interval but ignores warp, so rounds crawled while the
+                // world raced. The engine's own applied step accounts for warp but spans a
+                // different interval, and that mismatch times ~29.8 km/s of ecliptic motion is
+                // the jitter this cost an evening.
+                //
+                // dtPlayer * SimulationSpeed is both at once: this frame's interval, expressed
+                // in simulated seconds. Identical to the confirmed-good build at 1x.
+                double dtSim = dtPlayer * KsaWorld.SimulationSpeed;
+                _battery.Update(Math.Min(dtSim, Interceptor.MaxFaithfulStep));
             }
 
             // Outside the clock gate on purpose. Placing the round bodies is drawing, not
