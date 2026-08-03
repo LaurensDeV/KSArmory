@@ -34,29 +34,65 @@ if [[ -z "$TARGET" ]]; then
 fi
 [[ -d "$TARGET/.git" ]] || { echo "error: $TARGET is not a git checkout" >&2; exit 1; }
 
-# Kept in step with the <Reference> entries in the two csproj files. A name added there and
-# forgotten here shows up as a CI-only build failure, so the check below catches it.
-ASSEMBLIES=(
-    KSA
-    Brutal.Core.Numerics
-    Brutal.Core.Common
-    Brutal.Core.Strings
-    Brutal.ImGui
-    Brutal.ImGui.Abstractions
-    BepuUtilities
-    StarMap.API
-)
+# What to mirror.
+#
+# The default is every RocketWerkz first-party assembly plus the loader and the third-party
+# libraries the game ships, so the private repository is a general KSA SDK mirror that *any*
+# mod can build against - not just this one. That is ~44 assemblies and under 10 MB; the
+# alternative, mirroring only what this mod's csproj references, meant the next mod started by
+# discovering its assemblies were missing.
+#
+# Deliberately excluded: the .NET runtime (System.*, Microsoft.*), which every SDK already has.
+# That is what keeps this at 10 MB instead of 45.
+#
+# --subset restores the old minimal behaviour: only what this repository's projects reference.
+# Smaller, and a defensible position on holding less of someone else's copyrighted code, but
+# only useful for this one mod.
+SUBSET=0
+[[ "${2:-}" == "--subset" ]] && SUBSET=1
 
 referenced="$(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
     "$REPO_ROOT"/src/AirDefence/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)"
+
+# Game-shipped third-party. Taken from the install rather than NuGet on purpose: the game is
+# pre-release and binds to the exact build it ships, so a NuGet package of the same nominal
+# version is not guaranteed to be the same assembly.
+EXTRAS=(BepuUtilities BepuPhysics MathNet.Numerics MemoryPack.Core
+        CommunityToolkit.HighPerformance Tomlet 0Harmony)
+
+ASSEMBLIES=()
+if (( SUBSET )); then
+    mapfile -t ASSEMBLIES <<< "$referenced"
+else
+    while IFS= read -r path; do
+        name="$(basename "$path" .dll)"
+        case "$name" in
+            KSA*|Brutal.*|Planet.*) ASSEMBLIES+=("$name") ;;
+        esac
+    done < <(find "$KSA_DIR" -maxdepth 1 -name '*.dll' 2>/dev/null | sort)
+
+    for name in "${EXTRAS[@]}"; do
+        [[ -f "$KSA_DIR/$name.dll" ]] && ASSEMBLIES+=("$name")
+    done
+
+    # The loader ships separately from the game.
+    while IFS= read -r path; do
+        ASSEMBLIES+=("$(basename "$path" .dll)")
+    done < <(find "${STARMAP_DIR:-/nonexistent}" -maxdepth 1 -name 'StarMap.*.dll' 2>/dev/null | sort)
+fi
+
+[[ ${#ASSEMBLIES[@]} -gt 0 ]] || { echo "error: nothing to mirror; is $KSA_DIR a KSA install?" >&2; exit 1; }
+
+# Whatever the mode, this repository's own references must all be covered - otherwise the next
+# CI run fails on an assembly nobody noticed was absent.
 missing=""
 while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     printf '%s\n' "${ASSEMBLIES[@]}" | grep -qx "$name" || missing+=" $name"
 done <<< "$referenced"
 if [[ -n "$missing" ]]; then
-    echo "error: referenced but not in this script's list:$missing" >&2
-    echo "       add them to ASSEMBLIES and re-run" >&2
+    echo "error: this repository references assemblies the mirror would not contain:$missing" >&2
+    echo "       add them to EXTRAS and re-run" >&2
     exit 1
 fi
 
