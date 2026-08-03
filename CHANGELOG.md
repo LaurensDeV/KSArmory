@@ -1,3 +1,10 @@
+## [0.5.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.4...v0.5.0) (2026-08-03)
+
+### Features
+
+* **radar:** engage only what the round can actually reach ([585b318](https://github.com/LaurensDeV/KSA-AirDefence/commit/585b3182c7656de19562f93080c8b94205423bef))
+* **rounds:** fly the 57E6 as the command-guided weapon it is ([9060854](https://github.com/LaurensDeV/KSA-AirDefence/commit/9060854d260ddaab5f7739e447782c5381b21867))
+
 ## [0.4.4](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.3...v0.4.4) (2026-08-03)
 
 ### Fixes
