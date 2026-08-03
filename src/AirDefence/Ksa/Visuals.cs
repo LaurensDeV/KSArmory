@@ -1,4 +1,5 @@
 using Brutal.Numerics;
+using KSA;
 
 namespace AirDefence;
 
@@ -12,6 +13,8 @@ internal static class Visuals
     private static readonly float4 TrackColour = new(1.0f, 0.78f, 0.2f, 0.9f);
     private static readonly float4 ThreatColour = new(1.0f, 0.32f, 0.2f, 1.0f);
     private static readonly float4 LockColour = new(1.0f, 0.1f, 0.1f, 1.0f);
+    private static int _drawTrace;
+
     private static readonly float4 RoundColour = new(1.0f, 0.95f, 0.6f, 1.0f);
     private static readonly float4 TrailColour = new(0.8f, 0.8f, 0.85f, 0.45f);
     private static readonly float4 LoadedTubeColour = new(0.45f, 1.0f, 0.5f, 0.9f);
@@ -179,6 +182,23 @@ internal static class Visuals
             // Rounds are stored as platform-relative offsets, so they draw straight off the
             // anchor with no absolute-position arithmetic to go stale.
             double3 roundEgo = KsaWorld.AnchorEgo + round.OffsetFromPlatform;
+
+            // What is actually on screen, measured where it is actually drawn.
+            //
+            // The same comparison made in Detonate is a frame stale: that runs in the frame
+            // hook, while the draw anchor is established here in the GUI hook, so it carried a
+            // whole step of ecliptic motion - ~660 m - and reported it as a rendering error.
+            // Here the anchor and the target's draw position come from the same pass, so a
+            // difference is real. It should be the miss distance, not hundreds of metres.
+            if (Log.Threshold <= Log.Level.Debug && ++_drawTrace % 30 == 0
+                && round.TargetRef is Vehicle drawn && KsaWorld.IsAlive(drawn)
+                && KsaWorld.TryVehicleEgo(drawn, out double3 targetEgo))
+            {
+                Interceptor r = round;
+                double onScreen = Vec.Len(roundEgo - targetEgo);
+                Log.Debug(() => $"draw t{r.Tube}: on-screen separation {onScreen:F1} m, " +
+                                $"offset |{Vec.Len(r.OffsetFromPlatform):F0}| m, anchored={KsaWorld.HasAnchor}");
+            }
 
             if (!haveBodies || config.DrawRoundMarkers)
             {

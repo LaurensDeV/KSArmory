@@ -16,6 +16,7 @@ public sealed class AirDefenceMod
 {
     private const int FaultLimit = 10;
 
+    private double _lastSimSpeed = 1.0;
     private readonly Config _config = new();
     private DefenceBattery? _battery;
     private Ui? _ui;
@@ -50,6 +51,17 @@ public sealed class AirDefenceMod
     {
         if (_disabled || _battery is null) return;
         if (!KsaWorld.InFlight) return;
+
+        // Sim speed and pause state change what everything else in the log means, and they
+        // change because someone moved a slider - so record them rather than inferring them
+        // later from frozen timestamps, which is a mistake already made once.
+        double speed = KsaWorld.SimulationSpeed;
+        if (Math.Abs(speed - _lastSimSpeed) > 1e-9)
+        {
+            Log.Info($"simulation speed {_lastSimSpeed:F2}x -> {speed:F2}x"
+                     + (KsaWorld.IsPaused ? " (paused)" : ""));
+            _lastSimSpeed = speed;
+        }
 
         try
         {
