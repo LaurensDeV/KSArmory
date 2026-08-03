@@ -8,6 +8,23 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+
+    <!-- Stamped into the assembly and used to name the release archive. -->
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <!--
+    Release ships no debug information at all: no .pdb beside the DLL, and no embedded
+    sequence points. A mod is a single file dropped into someone's game folder, and a stack
+    trace with line numbers is worth nothing to them without the matching source.
+
+    Debug keeps everything, and Log defaults to its Debug threshold there - see Ksa/Log.cs.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <Optimize>true</Optimize>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
