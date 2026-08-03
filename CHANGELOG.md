@@ -1,3 +1,13 @@
+## [0.3.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.3.0...v0.3.1) (2026-08-03)
+
+### Fixes
+
+* **sim:** step on simulation time, not wall-clock player time ([21f07e7](https://github.com/LaurensDeV/KSA-AirDefence/commit/21f07e71af994846b8fd603e12bed3e88555ed92))
+
+### Internal
+
+* **radar:** move threat ranking into Sim/ so it can be tested ([5876c61](https://github.com/LaurensDeV/KSA-AirDefence/commit/5876c6119af7ad61400f52efda76244b79becb18))
+
 ## [0.3.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.2.0...v0.3.0) (2026-08-03)
 
 ### Features
