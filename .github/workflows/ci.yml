@@ -134,6 +134,13 @@ jobs:
           echo "::notice::KSA_ASSEMBLIES_KEY is not set, so the mod cannot be compiled here."
           echo "The tooling job still ran. See CLAUDE.md for why the assemblies are not public."
 
+      - name: Assemblies match the lock
+        # Guards against CI compiling against a different KSA build from the developer who
+        # wrote the code. ksa-assemblies.lock records the expected digests; a KSA update that
+        # refreshed one side and not the other fails here instead of silently.
+        if: env.HAVE_KEY == 'true'
+        run: ./tools/check-assemblies.sh .ksa-assemblies/current/dll
+
       - uses: actions/setup-dotnet@v4
         if: env.HAVE_KEY == 'true'
         with:

@@ -1,0 +1,12 @@
+# KSA assemblies this repository is known to build against.
+# Regenerate with ./tools/check-assemblies.sh <dir> --update after a KSA update,
+# and refresh the private ksa-game-assemblies repo to match - see CLAUDE.md.
+build 2026.8.3.5117
+e0a1528ded4ef8efcb8002b99704cb8614b7db840d2cb39b5e45eda52d63bc68  BepuUtilities.dll
+f0274391f32ae48817ec0d9506b2e76eb42fc513e8a59bbbb9d282340f8a2fc6  Brutal.Core.Common.dll
+fba275c0c5abd9ef05bdcb99dc2df4ef80950ffda36526d862321e9673fbe7c3  Brutal.Core.Numerics.dll
+5e2a63d8ed40adb2073e1da2b2075902ff1e483ab85108eb02e6316aadc52db8  Brutal.Core.Strings.dll
+d960736d08e0170349261740ac5afe7e87e4cb723825a48161f1adc06d6853bb  Brutal.ImGui.dll
+f8fe6f25a2edb577d4d7d6a0dca9829766e6fc72c44853a8ef58425f0638f6ca  Brutal.ImGui.Abstractions.dll
+5a3ebd348969cc3590eefeb952d3d34f6e766a19bb0b5a50eccaa167781d3d3f  KSA.dll
+e8e321f5ef60d1f1ce53598616148a779f863879f7b9b303be4512895f27c956  StarMap.API.dll

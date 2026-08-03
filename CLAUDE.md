@@ -256,6 +256,30 @@ references something it does not know to copy.
 sets), then `Import/`, then a sibling `ksa-game-assemblies` checkout, then the game install. So
 nothing local changed.
 
+### After a KSA update
+
+The assemblies now exist in two places that drift apart silently: your `Import/`, and the
+private repo CI compiles against. Update one and not the other and CI is building the mod
+against a different game from the one you are testing against — which surfaces as behaviour
+nobody can reproduce, not as an error.
+
+`ksa-assemblies.lock` records the expected SHA-256 of each referenced assembly plus the game
+build. It holds hashes and names only, so it is safe in a public repository. Both CI jobs check
+the assemblies against it and fail if they disagree, and `sync-import.sh` reports the same thing
+locally the moment you refresh.
+
+The dance, in order:
+
+```bash
+./tools/sync-import.sh                              # refresh Import/; it will report the drift
+./tools/sync-assemblies.sh ../ksa-game-assemblies   # refresh the private repo
+#   commit and push there
+./tools/check-assemblies.sh --update                # record the new digests
+#   edit the `build` line in ksa-assemblies.lock, commit it here
+```
+
+Do the private repo *before* pushing here, or CI fails on the lock it cannot satisfy yet.
+
 CI is split the same way the source is:
 
 - **`tooling` (hosted, always runs)** — everything that does not need the game, which is more

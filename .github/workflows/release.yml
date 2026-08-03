@@ -92,6 +92,10 @@ jobs:
           echo "::warning::KSA_ASSEMBLIES_KEY is not set; the release has no binary attached."
           echo "Run ./tools/publish-release.sh from a machine with KSA to add one."
 
+      - name: Assemblies match the lock
+        if: env.HAVE_KEY == 'true'
+        run: ./tools/check-assemblies.sh .ksa-assemblies/current/dll
+
       - uses: actions/setup-dotnet@v4
         if: env.HAVE_KEY == 'true'
         with:

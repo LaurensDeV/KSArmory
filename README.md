@@ -335,6 +335,11 @@ and will save you an evening with a decompiler.
 The wrapper scripts exist because bare `dotnet` picks up the system SDK and cannot target
 `net10.0`. `source tools/env.sh` once if you want `dotnet` to work directly in your shell.
 
+After a KSA update the assemblies CI builds against have to be refreshed too, or it silently
+compiles the mod against a different game from the one you are testing on. `ksa-assemblies.lock`
+records which build is expected and both CI and `sync-import.sh` check it — see the "After a KSA
+update" section of [`CLAUDE.md`](CLAUDE.md) for the four commands.
+
 ### Commit messages
 
 Releases are automatic, so commit messages are the input to versioning. Use

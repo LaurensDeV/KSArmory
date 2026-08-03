@@ -44,3 +44,13 @@ elif [[ ! -f "$IMPORT_DIR/StarMap.API.dll" ]]; then
 fi
 
 echo "done: $(find "$IMPORT_DIR" -name '*.dll' | wc -l) assemblies in Import/"
+
+# Right after a KSA update is the moment this drifts: Import/ is now the new game, while CI is
+# still compiling against the old assemblies in the private repo. Say so here rather than
+# leaving it to be discovered as behaviour nobody can reproduce.
+echo
+if ! "$REPO_ROOT/tools/check-assemblies.sh" "$IMPORT_DIR" 2>&1; then
+    echo
+    echo "warning: the game assemblies changed. CI is still on the old ones until you" >&2
+    echo "         refresh the private repo - the steps are printed above." >&2
+fi
