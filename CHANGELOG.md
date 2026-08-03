@@ -1,3 +1,9 @@
+## [0.5.2](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.5.1...v0.5.2) (2026-08-03)
+
+### Fixes
+
+* **sim:** step on this frame's interval, expressed in simulated seconds ([b6ad885](https://github.com/LaurensDeV/KSA-AirDefence/commit/b6ad885d5ba77fb568cb76d8b41e47ab54fc12be))
+
 ## [0.5.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.5.0...v0.5.1) (2026-08-03)
 
 ### Fixes
