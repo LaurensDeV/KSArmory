@@ -14,19 +14,42 @@ CONFIG="${1:-Release}"
 # shellcheck source=env.sh
 source "$REPO_ROOT/tools/env.sh"
 
-# StarMap reads mods from the user's My Games folder as well as the install directory.
-MODS_DIR="${KSA_MODS_DIR:-/mnt/c/Users/$(whoami)/Documents/My Games/Kitten Space Agency/mods}"
+# Where StarMap reads mods from. KSA runs on Linux as well as Windows and keeps its user data
+# in a different place on each, so look in all the plausible ones rather than assuming.
+# KSA_MODS_DIR overrides everything.
+find_user_dir() {
+    local candidates=()
 
-# Fall back to scanning for the folder if the username does not match the Windows one.
-if [[ ! -d "$(dirname "$MODS_DIR")" ]]; then
-    FOUND="$(find /mnt/c/Users -maxdepth 4 -type d -path '*My Games/Kitten Space Agency' 2>/dev/null | head -1)"
-    if [[ -n "$FOUND" ]]; then
-        MODS_DIR="$FOUND/mods"
-    else
-        echo "error: could not locate the KSA user folder." >&2
-        echo "       set KSA_MODS_DIR to <My Games>/Kitten Space Agency/mods and retry" >&2
-        exit 1
+    # Windows, reached from WSL. The Windows username often differs from the Linux one.
+    if [[ -d /mnt/c/Users ]]; then
+        candidates+=("/mnt/c/Users/$(whoami)/Documents/My Games/Kitten Space Agency")
+        while IFS= read -r dir; do
+            candidates+=("$dir")
+        done < <(find /mnt/c/Users -maxdepth 4 -type d -path '*My Games/Kitten Space Agency' 2>/dev/null)
     fi
+
+    # Native Linux.
+    candidates+=(
+        "${XDG_DATA_HOME:-$HOME/.local/share}/Kitten Space Agency"
+        "$HOME/.config/Kitten Space Agency"
+        "$HOME/My Games/Kitten Space Agency"
+        "$HOME/Documents/My Games/Kitten Space Agency"
+    )
+
+    for dir in "${candidates[@]}"; do
+        [[ -d "$dir" ]] && { printf '%s\n' "$dir"; return 0; }
+    done
+    return 1
+}
+
+if [[ -n "${KSA_MODS_DIR:-}" ]]; then
+    MODS_DIR="$KSA_MODS_DIR"
+elif USER_DIR="$(find_user_dir)"; then
+    MODS_DIR="$USER_DIR/mods"
+else
+    echo "error: could not locate the KSA user folder on this machine." >&2
+    echo "       set KSA_MODS_DIR to <user dir>/Kitten Space Agency/mods and retry" >&2
+    exit 1
 fi
 
 TARGET="$MODS_DIR/AirDefence"
