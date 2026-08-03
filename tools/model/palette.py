@@ -81,9 +81,8 @@ def uv_centre(col, row):
     return ((col + 0.5) / GRID, (row + 0.5) / GRID)
 
 
-def main():
-    TEXTURES.mkdir(parents=True, exist_ok=True)
-
+def build():
+    """Renders the three textures and the swatch table, without touching disk."""
     diffuse = Image.new("RGB", (SIZE, SIZE), (255, 0, 255))   # magenta = a UV that missed
     pbr = Image.new("RGB", (SIZE, SIZE), (255, 255, 0))
     normal = Image.new("RGB", (SIZE, SIZE), (128, 128, 255))
@@ -96,9 +95,50 @@ def main():
         u, v = uv_centre(col, row)
         table[name] = {"uv": [u, v], "rgb": list(rgb), "roughness": rough, "metalness": metal}
 
-    diffuse.save(TEXTURES / "AirDefence_Diffuse.png")
-    pbr.save(TEXTURES / "AirDefence_PBR.png")
-    normal.save(TEXTURES / "AirDefence_Normal.png")
+    return {"AirDefence_Diffuse.png": diffuse,
+            "AirDefence_PBR.png": pbr,
+            "AirDefence_Normal.png": normal}, table
+
+
+def check():
+    """Verifies the committed textures still match what this script generates.
+
+    Compares decoded pixels, not file bytes. PNG encoders differ between Pillow versions, so a
+    byte comparison fails on a machine with a different Pillow even though the images are
+    identical - which as a CI gate is pure noise.
+    """
+    images, _ = build()
+    problems = 0
+
+    for name, image in images.items():
+        path = TEXTURES / name
+        if not path.is_file():
+            print(f"  MISSING {path}", file=sys.stderr)
+            problems += 1
+            continue
+        with Image.open(path) as committed:
+            if committed.convert("RGB").tobytes() != image.tobytes():
+                print(f"  STALE {name}: does not match palette.py", file=sys.stderr)
+                problems += 1
+            else:
+                print(f"  ok {name}")
+
+    if problems:
+        print("\nrerun ./tools/model/palette.py and commit the result", file=sys.stderr)
+        return 1
+    print("textures match the palette definition")
+    return 0
+
+
+def main():
+    if "--check" in sys.argv:
+        return check()
+
+    TEXTURES.mkdir(parents=True, exist_ok=True)
+
+    images, table = build()
+    for name, image in images.items():
+        image.save(TEXTURES / name)
 
     PALETTE_JSON.write_text(json.dumps({"grid": GRID, "swatches": table}, indent=2) + "\n")
 

@@ -96,11 +96,11 @@ jobs:
         run: ./tools/model/checkmesh.py src/AirDefence/Meshes/AirDefence_MeshAtlas.glb
 
       - name: Textures are reproducible
-        # palette.py is deterministic; if the committed PNGs do not match what it generates,
-        # someone edited them by hand and the next model build will silently revert it.
-        run: |
-          ./tools/model/palette.py
-          git diff --exit-code -- src/AirDefence/Textures
+        # If the committed PNGs do not match what palette.py generates, someone edited them by
+        # hand and the next model build will silently revert it. Compares pixels rather than
+        # file bytes: PNG encoders differ between Pillow versions, and a byte comparison would
+        # fail here purely because the runner's Pillow is not the author's.
+        run: ./tools/model/palette.py --check
 
       - name: No game assemblies committed
         run: |
