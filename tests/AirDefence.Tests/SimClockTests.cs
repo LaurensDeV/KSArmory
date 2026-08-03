@@ -3,163 +3,108 @@ using Xunit;
 namespace AirDefence.Tests;
 
 /// <summary>
-/// The frame clock, which is what stops the battery firing into a paused game.
+/// What the battery does with the simulation step KSA reports.
 ///
-/// <para>Both behaviours pinned here were reported from play: firing while the simulation was
-/// paused, and tracking falling apart under timewarp. The cause was the same in both — the mod
-/// stepped on StarMap's player-time delta, which is wall-clock and therefore keeps running when
-/// the world is frozen and stays at 1x when the world is warped.</para>
+/// <para>Two behaviours here came from play. The battery fired while the game was paused, and
+/// tracking fell apart when the simulation speed changed — both because the mod stepped on
+/// StarMap's player-time delta, which is wall-clock and so keeps running through a pause and
+/// stays at 1× under warp.</para>
+///
+/// <para>The third came from a flight log: rounds zigzagging laterally with the vertical axis
+/// clean. Reading the step KSA applied, rather than differencing a clock around it, is what
+/// removes the phase error behind that — see <see cref="SimClock"/>.</para>
 /// </summary>
 public class SimClockTests
 {
-    private static SimClock Clock() => new();
-
-    [Fact]
-    public void TheFirstSampleOnlyEstablishesAReference()
-    {
-        // Whatever the clock already read, the first frame cannot know how much of it elapsed
-        // while we were not looking.
-        SimClock c = Clock();
-        Assert.Equal(SimClock.State.Priming, c.Advance(12345.0, paused: false, out double dt));
-        Assert.Equal(0.0, dt);
-    }
-
     [Fact]
     public void APausedGameAdvancesNothing()
     {
-        SimClock c = Clock();
-        c.Advance(100.0, paused: false, out _);
-
-        // Simulated time does not move while paused, so this is what the clock really sees.
-        Assert.Equal(SimClock.State.Idle, c.Advance(100.0, paused: true, out double dt));
+        Assert.Equal(SimClock.State.Idle, SimClock.Classify(0.0, paused: true, out double dt));
         Assert.Equal(0.0, dt);
     }
 
     [Fact]
-    public void APausedGameAdvancesNothingEvenIfTheClockMoves()
+    public void APausedGameAdvancesNothingEvenIfAStepIsReported()
     {
-        // Belt and braces. If some future build let simulated time creep while paused, the mod
-        // must still not accumulate dwell and fire - which is exactly the bug that was seen.
-        SimClock c = Clock();
-        c.Advance(100.0, paused: false, out _);
-
-        Assert.Equal(SimClock.State.Idle, c.Advance(100.05, paused: true, out double dt));
+        // Belt and braces. If a future build ever reported a step while paused, the mod must
+        // still not accumulate dwell and fire - which is exactly the bug that was seen.
+        Assert.Equal(SimClock.State.Idle, SimClock.Classify(0.05, paused: true, out double dt));
         Assert.Equal(0.0, dt);
     }
 
     [Fact]
-    public void RealTimePassingGivesTheSimulatedDelta()
+    public void AnOrdinaryStepRuns()
     {
-        SimClock c = Clock();
-        c.Advance(100.0, paused: false, out _);
-
-        Assert.Equal(SimClock.State.Run, c.Advance(100.016, paused: false, out double dt));
+        Assert.Equal(SimClock.State.Run, SimClock.Classify(0.016, paused: false, out double dt));
         Assert.Equal(0.016, dt, 9);
+    }
+
+    [Fact]
+    public void TheStepIsPassedThroughExactly()
+    {
+        // The whole point of reading the applied step is that it is not adjusted, rounded or
+        // re-derived on the way through. Whatever KSA moved the world by is what the round
+        // integrates over, or the difference reappears multiplied by 29.8 km/s.
+        foreach (double step in new[] { 0.0011, 0.016, 0.0167, 0.019993, 0.2 })
+        {
+            Assert.Equal(SimClock.State.Run, SimClock.Classify(step, paused: false, out double dt));
+            Assert.Equal(step, dt, 12);
+        }
     }
 
     [Fact]
     public void ModestTimewarpStillRuns()
     {
-        // 10x warp at 60 fps is ~0.167 s of simulated time per frame, well inside what the
-        // interceptor can integrate. This must keep working, not stand down.
-        SimClock c = Clock();
-        c.Advance(0.0, paused: false, out _);
-
-        Assert.Equal(SimClock.State.Run, c.Advance(0.167, paused: false, out double dt));
+        // 10x warp at 60 fps is ~0.167 s per step, well inside what the interceptor can
+        // integrate. This must keep working, not stand down.
+        Assert.Equal(SimClock.State.Run, SimClock.Classify(0.167, paused: false, out double dt));
         Assert.Equal(0.167, dt, 9);
     }
 
     [Fact]
     public void AStepTooLargeToIntegrateStandsDownRatherThanCoarsening()
     {
-        SimClock c = Clock();
-        c.Advance(0.0, paused: false, out _);
-
         // Past Interceptor.MaxFaithfulStep a round at 700 m/s starts stepping over its own fuse
         // radius. Refusing is the honest answer.
         Assert.Equal(SimClock.State.Skipped,
-            c.Advance(Interceptor.MaxFaithfulStep + 0.001, paused: false, out double dt));
+            SimClock.Classify(Interceptor.MaxFaithfulStep + 0.001, paused: false, out double dt));
         Assert.Equal(0.0, dt);
     }
 
     [Fact]
     public void TheBudgetIsExactlyWhatTheInterceptorCanIntegrate()
     {
-        // Tied to the interceptor's own sub-step budget rather than a number picked here, so
-        // the two cannot drift apart.
-        SimClock c = Clock();
-        c.Advance(0.0, paused: false, out _);
-
+        // Tied to the interceptor's own sub-step budget rather than a number picked here, so the
+        // two cannot drift apart.
         Assert.Equal(SimClock.State.Run,
-            c.Advance(Interceptor.MaxFaithfulStep, paused: false, out double dt));
+            SimClock.Classify(Interceptor.MaxFaithfulStep, paused: false, out double dt));
         Assert.Equal(Interceptor.MaxFaithfulStep, dt, 9);
     }
 
     [Fact]
-    public void AClockThatGoesBackwardsIsADiscontinuity()
+    public void AZeroOrNegativeStepDoesNothing()
     {
-        // Loading a save replaces the session clock. Nothing in flight relates to the new world.
-        SimClock c = Clock();
-        c.Advance(5000.0, paused: false, out _);
-
-        Assert.Equal(SimClock.State.Skipped, c.Advance(12.0, paused: false, out double dt));
+        Assert.Equal(SimClock.State.Idle, SimClock.Classify(0.0, paused: false, out _));
+        Assert.Equal(SimClock.State.Idle, SimClock.Classify(-0.016, paused: false, out double dt));
         Assert.Equal(0.0, dt);
     }
 
     [Fact]
-    public void ADiscontinuityStillLeavesTheClockUsable()
+    public void ANonFiniteStepDoesNothing()
     {
-        // After standing down it must resynchronise on the new timeline rather than reporting a
-        // second huge delta forever.
-        SimClock c = Clock();
-        c.Advance(5000.0, paused: false, out _);
-        c.Advance(12.0, paused: false, out _);            // backwards: Skipped
-
-        Assert.Equal(SimClock.State.Run, c.Advance(12.016, paused: false, out double dt));
-        Assert.Equal(0.016, dt, 9);
+        Assert.Equal(SimClock.State.Idle, SimClock.Classify(double.NaN, paused: false, out _));
+        Assert.Equal(SimClock.State.Idle, SimClock.Classify(double.PositiveInfinity, paused: false, out _));
     }
 
     [Fact]
-    public void ANonFiniteClockIsRefusedAndThenRecovers()
+    public void ThereIsNoStateToGetWrongAcrossASceneChange()
     {
-        SimClock c = Clock();
-        c.Advance(100.0, paused: false, out _);
-
-        Assert.Equal(SimClock.State.Skipped, c.Advance(double.NaN, paused: false, out _));
-
-        // Having dropped its reference, the next good sample primes rather than differencing
-        // against NaN.
-        Assert.Equal(SimClock.State.Priming, c.Advance(200.0, paused: false, out _));
-        Assert.Equal(SimClock.State.Run, c.Advance(200.02, paused: false, out double dt));
-        Assert.Equal(0.02, dt, 9);
-    }
-
-    [Fact]
-    public void ResetMakesTheNextSamplePrimeAgain()
-    {
-        // Leaving flight uses this, so re-entering does not report the whole time away as one
-        // enormous frame.
-        SimClock c = Clock();
-        c.Advance(100.0, paused: false, out _);
-        c.Reset();
-
-        Assert.Equal(SimClock.State.Priming, c.Advance(9000.0, paused: false, out _));
-        Assert.Equal(SimClock.State.Run, c.Advance(9000.01, paused: false, out double dt));
-        Assert.Equal(0.01, dt, 9);
-    }
-
-    [Fact]
-    public void APauseThenResumeDoesNotDeliverTheTimeSpentPaused()
-    {
-        // The reported symptom in full: pause, wait, resume. Simulated time did not move, so
-        // there is nothing to deliver and nothing to fire with.
-        SimClock c = Clock();
-        c.Advance(500.0, paused: false, out _);
-
-        for (int frame = 0; frame < 120; frame++)
-            Assert.Equal(SimClock.State.Idle, c.Advance(500.0, paused: true, out _));
-
-        Assert.Equal(SimClock.State.Run, c.Advance(500.016, paused: false, out double dt));
+        // Stateless by design. The previous version held a reference sample and needed priming,
+        // a reset on leaving flight, and a rule for the clock going backwards on load - three
+        // ways to be wrong that differencing created and that reading the applied step removes.
+        Assert.Equal(SimClock.State.Run, SimClock.Classify(0.016, paused: false, out _));
+        Assert.Equal(SimClock.State.Idle, SimClock.Classify(0.0, paused: true, out _));
+        Assert.Equal(SimClock.State.Run, SimClock.Classify(0.016, paused: false, out double dt));
         Assert.Equal(0.016, dt, 9);
     }
 }

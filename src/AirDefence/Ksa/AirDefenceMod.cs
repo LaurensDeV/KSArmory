@@ -16,7 +16,6 @@ public sealed class AirDefenceMod
 {
     private const int FaultLimit = 10;
 
-    private readonly SimClock _clock = new();
     private readonly Config _config = new();
     private DefenceBattery? _battery;
     private Ui? _ui;
@@ -50,17 +49,11 @@ public sealed class AirDefenceMod
     public void OnAfterFrame(double currentPlayerTime, double dtPlayer)
     {
         if (_disabled || _battery is null) return;
-        if (!KsaWorld.InFlight)
-        {
-            // Out of flight the clock belongs to a world we are not simulating; drop the
-            // reference so re-entering primes afresh instead of reporting a vast delta.
-            _clock.Reset();
-            return;
-        }
+        if (!KsaWorld.InFlight) return;
 
         try
         {
-            switch (_clock.Advance(KsaWorld.SimTimeSeconds, KsaWorld.IsPaused, out double dt))
+            switch (SimClock.Classify(KsaWorld.SimStepSeconds, KsaWorld.IsPaused, out double dt))
             {
                 case SimClock.State.Run:
                     _battery.Update(dt);
@@ -72,7 +65,6 @@ public sealed class AirDefenceMod
                     _battery.AbandonFlight("simulation time jumped");
                     break;
 
-                case SimClock.State.Priming:
                 case SimClock.State.Idle:
                     // Counted, not ignored. If KSA ever renders frames that advance no
                     // simulated time, that is invisible from inside the game and changes how

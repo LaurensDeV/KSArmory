@@ -18,11 +18,15 @@ internal static class KsaWorld
     public static bool InFlight => Program.ControlledVehicle is { IsDisposed: false };
 
     /// <summary>
-    /// Elapsed simulated seconds. This — not the player-time delta StarMap hands the frame hook
-    /// — is what the battery steps on, so that a paused game advances nothing and a warped one
-    /// advances by however much the world actually moved. See <see cref="SimClock"/>.
+    /// The simulated seconds KSA's last step actually advanced the world by.
+    ///
+    /// <para>This — not the player-time delta StarMap hands the frame hook, and not a
+    /// difference of clock samples — is what the battery steps on. A paused game reports zero
+    /// and a warped one reports the real span, and because it is the step the engine applied
+    /// rather than one measured around it, it cannot be a step out of phase with the world.
+    /// See <see cref="SimClock"/> for why that distinction is worth tens of metres.</para>
     /// </summary>
-    public static double SimTimeSeconds => Universe.GetElapsedSimTime().Seconds();
+    public static double SimStepSeconds => Universe.GetLastSimStep().DeltaTime;
 
     /// <summary>True while the simulation is stopped. KSA defines this as speed exactly zero.</summary>
     public static bool IsPaused => Universe.IsPaused();
