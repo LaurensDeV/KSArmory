@@ -49,6 +49,23 @@ changes what ships without touching `src/` and no mechanical rule gets that righ
 Split unrelated work into separate commits rather than one large one: the changelog is generated
 from these, so a commit that does three things describes none of them well.
 
+**Do not commit a behaviour fix as a fix until it has been verified in game.** Compiling, passing
+the 106 tests, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
+the gap between the maths and what KSA actually does, and that gap is only visible in flight. The
+round-body zigzag cost three such commits: a sim-step-gating change and an offset-extrapolation
+change, both shipped as fixes for a cause not yet diagnosed, and neither was it. The answer was in
+a log the whole time.
+
+So: **ship the diagnostic, not the guess.** Instrumentation that will find a cause is worth
+committing — say that is what it is. A speculative fix labelled as a fix buries the real cause and
+makes the history lie about what was wrong. If something is unverified, write that in the commit
+message and leave the decision to the user.
+
+And a regression test only counts **if it fails against the old code**. Check that it does, every
+time. One written for the zigzag passed against both implementations — it advanced the platform by
+exactly the `v*dt` it passed in, so the error cancelled — which looked like proof and was worth
+nothing.
+
 **This is enforced.** `tools/check-commit-msg.sh` runs both as a local `commit-msg` hook
 (`./tools/install-hooks.sh`, using `core.hooksPath` so hooks arrive with a pull) and as a CI job
 over every commit in a push or PR. One script drives both, so they cannot drift apart. It skips
