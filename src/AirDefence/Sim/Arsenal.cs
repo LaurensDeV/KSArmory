@@ -38,6 +38,7 @@ public static class Arsenal
         Name = "57E6",
         DisplayName = "57E6 two-stage SAM",
         BodyMarker = "Missile",
+        FinMarker = "Fins",
     };
 
     // ---- Sensors --------------------------------------------------------

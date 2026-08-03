@@ -42,8 +42,9 @@ import math
 import os
 import sys
 
+import bmesh
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Euler, Matrix, Vector
 
 # ---------------------------------------------------------------------------
 # Arguments
@@ -160,7 +161,8 @@ _jitter = random.Random(0x9A5D)
 UV_PER_METRE = 0.012
 SWATCH_REACH = 0.08
 
-_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "missile": []}
+_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "missile": [],
+            "fins": []}
 _group = "chassis"
 
 
@@ -241,6 +243,69 @@ def box(size, loc, rot=(0.0, 0.0, 0.0), swatch="hull"):
     ob = bpy.context.object
     ob.scale = Vector(tuple(
         size[axis] + 2 * (SKIN + _jitter.random() * JITTER) for axis in range(3)))
+    return _finish(ob, swatch)
+
+
+def fin(chord, span_len, thick, loc, roll, swatch="missile", taper=0.42, sweep=0.55):
+    """A clipped delta fin: long root chord, shorter tip, swept leading edge.
+
+    Real control surfaces are not slabs. A rectangular fin reads as a placeholder from any angle
+    that shows its planform, and on a round this small the planform is most of what you see.
+
+    Built vertex by vertex rather than from a scaled cube, because the taper and the sweep are
+    the whole point and neither survives a uniform scale. Local axes match how the fins are
+    placed: X is the chord along the body, Y the thickness, Z the span outward. `taper` is the
+    tip chord as a fraction of the root, and `sweep` how far the tip's leading edge sits aft as a
+    fraction of the root chord.
+
+    Goes through _finish like everything else, so it gets the same swatch projection - a face
+    with no UV area produces a zero-length tangent and NaN shading, which is invisible in
+    Blender and sparkles in game.
+    """
+    half_c, half_s, half_t = chord / 2.0, span_len / 2.0, thick / 2.0
+    tip_c = chord * taper
+    tip_le = half_c - chord * sweep
+
+    # Root inboard at -Z, tip outboard at +Z; leading edge is +X.
+    profile = ((half_c, -half_s), (-half_c, -half_s),          # root: leading, trailing
+               (tip_le - tip_c, half_s), (tip_le, half_s))     # tip:  trailing, leading
+
+    verts = [(x, y, z) for y in (-half_t, half_t) for (x, z) in profile]
+    faces = [(0, 1, 2, 3), (7, 6, 5, 4),                       # the two flat sides
+             (0, 3, 7, 4), (1, 0, 4, 5), (2, 1, 5, 6), (3, 2, 6, 7)]
+
+    mesh = bpy.data.meshes.new("fin")
+    mesh.from_pydata(verts, [], faces)
+    mesh.validate()
+
+    # Make every face point outwards.
+    #
+    # from_pydata takes the winding it is given and asks no questions, so a face listed the wrong
+    # way round keeps an inward normal. Backface culling then shows straight through it and the
+    # fin reads as hollow from whichever side got it wrong - while looking perfectly solid from
+    # the other, which is what makes it easy to miss. The add-primitive operators never have this
+    # problem, so nothing else in this file needs it.
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
+
+    ob = bpy.data.objects.new("fin", mesh)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.location = Vector(loc)
+    ob.rotation_euler = Euler((roll, 0.0, 0.0))
+
+    # Select it, and only it, before handing over.
+    #
+    # _finish calls transform_apply, which acts on the *selection* rather than on the active
+    # object alone. The add-primitive operators leave their new object as the sole selection, so
+    # everything built through box() and cyl() satisfies that by accident. An object created
+    # with bpy.data.objects.new is not selected at all, so the apply would land on whatever was
+    # selected beforehand and leave this fin's rotation and offset unbaked - which is exactly
+    # how the fins came out sitting off the body axis.
+    bpy.ops.object.select_all(action="DESELECT")
+    ob.select_set(True)
     return _finish(ob, swatch)
 
 
@@ -533,6 +598,7 @@ def build_missile():
     mod flies each one by writing its transform, so the rounds are real geometry instead of
     tracer gizmos. A round not in the air is scaled to nothing.
     """
+    global _group
     half = MISSILE_LEN / 2
     joint = -half + BOOSTER_LEN            # where the booster hands over to the sustainer
 
@@ -550,17 +616,34 @@ def build_missile():
         "missile", verts=14)
     cone(MISSILE_R, MISSILE_R * 0.22, 0.34, (half - 0.16, 0.0, 0.0), axis_x(), "array", verts=14)
 
+    # Fins are built into their own group, not the body.
+    #
+    # They fold. A real 57E6 stows with its fins flat against the casing so the round fits the
+    # tube, and they snap out once it is clear. The mod animates that by scaling this group
+    # radially - Part.Scale is per-axis and applies about the part's own origin, verified in
+    # game before any of this was modelled - so the fins collapse onto the body axis at a scale
+    # of nearly zero and flick out to full span after launch.
+    #
+    # That works only because this group shares the missile's origin exactly: the collapse is
+    # towards the origin, which has to be the body axis. Do not recentre it.
+    _group = "fins"
+
     # Four delta fins at the stage joint, and four small ones at the tail. Each is placed at
     # its rolled position rather than rotated about the missile axis after the fact - a box
     # turns about its own origin, so it has to be put where that roll leaves it.
     for index in range(4):
         roll = index * math.pi / 2
-        for span, chord, thick, at, radius, swatch in (
-                (0.30, 0.62, 0.022, joint + 0.24, BOOSTER_R + 0.15, "missile"),
-                (0.11, 0.24, 0.020, -half + 0.14, BOOSTER_R + 0.055, "black"),
-                (0.08, 0.18, 0.018, half - 0.62, MISSILE_R + 0.04, "missile")):
+        # span, chord, thickness, station, radius, swatch, taper, sweep.
+        #
+        # The main wing carries most of the planform, so it gets the strongest taper and sweep.
+        # The tail surfaces are stubbier: short-span control fins are close to straight-edged on
+        # the real round, so they taper less and barely sweep at all.
+        for span_len, chord, thick, at, radius, swatch, taper, sweep in (
+                (0.30, 0.62, 0.022, joint + 0.24, BOOSTER_R + 0.15, "missile", 0.38, 0.58),
+                (0.11, 0.24, 0.020, -half + 0.14, BOOSTER_R + 0.055, "black", 0.62, 0.30),
+                (0.08, 0.18, 0.018, half - 0.62, MISSILE_R + 0.04, "missile", 0.62, 0.28)):
             loc = (at, -radius * math.sin(roll), radius * math.cos(roll))
-            box((chord, thick, span), loc, (roll, 0.0, 0.0), swatch)
+            fin(chord, span_len, thick, loc, roll, swatch, taper, sweep)
 
 
 def build_search_array():
@@ -648,6 +731,7 @@ def export(path):
     pods = join_group("pods", recentre=POD_PIVOT)
     radar = join_group("radar", recentre=RADAR_PIVOT)
     missile = join_group("missile")
+    fins = join_group("fins")
 
     # KSA looks these up by Id out of the atlas; *_VM is the editor's preview variant, and
     # Core ships one for every subpart. Ours are the same geometry - the part is low-poly
@@ -656,7 +740,8 @@ def export(path):
                       (turret, "AirDefence_Subpart_Turret"),
                       (pods, "AirDefence_Subpart_Pods"),
                       (radar, "AirDefence_Subpart_Radar"),
-                      (missile, "AirDefence_Subpart_Missile")):
+                      (missile, "AirDefence_Subpart_Missile"),
+                      (fins, "AirDefence_Subpart_Fins")):
         preview = ob.copy()
         preview.data = ob.data.copy()
         preview.name = preview.data.name = ident + "_VM"
@@ -734,28 +819,40 @@ def render_previews(out_dir):
     scene.collection.objects.link(cam)
     scene.camera = cam
 
-    def show_only(group):
+    def show_only(*groups):
+        """Renders only the named groups, or everything when given none."""
+        wanted = set(groups)
         for name, objs in _objects.items():
             for ob in objs:
-                ob.hide_render = group is not None and name != group
+                ob.hide_render = bool(wanted) and name not in wanted
 
     # The round is modelled at the origin, which on the vehicle is between the front wheels.
     # Leave it out of the vehicle shots, then give it one of its own.
     for name, (loc, look) in VIEWS.items():
-        show_only(None)
-        for ob in _objects["missile"]:
+        show_only()
+        for ob in _objects["missile"] + _objects["fins"]:
             ob.hide_render = True
         look_at(cam, loc, look)
         scene.render.filepath = os.path.join(out_dir, f"preview_{name}.png")
         bpy.ops.render.render(write_still=True)
         print("RENDER", scene.render.filepath)
 
-    show_only("missile")
+    # Body and fins together: they are separate subparts but one object to the eye, and the fin
+    # planform is most of what the round's silhouette is.
+    show_only("missile", "fins")
     look_at(cam, (1.1, -7.4, 3.4), (0.0, 0.0, 0.0))
     scene.render.filepath = os.path.join(out_dir, "preview_missile.png")
     bpy.ops.render.render(write_still=True)
     print("RENDER", scene.render.filepath)
-    show_only(None)
+
+    # Straight down the round's own axis. The only view that shows whether the fins sit
+    # symmetrically about the body - a side view cannot, and the fins are placed by rolling one
+    # shape about that axis, so an error there is invisible from anywhere else.
+    look_at(cam, (6.0, 0.0, 0.0), (0.0, 0.0, 0.0))
+    scene.render.filepath = os.path.join(out_dir, "preview_missile_axial.png")
+    bpy.ops.render.render(write_still=True)
+    print("RENDER", scene.render.filepath)
+    show_only()
 
 
 # ---------------------------------------------------------------------------

@@ -75,6 +75,25 @@
     </MeshView>
   </SubPart>
 
+    <!--
+      The round's fins, a template of their own so the mod can scale them independently of the
+      body: flat against the casing while stowed in the tube, flicked out to full span once the
+      round is away. Modelled about the same origin as the body, so the two share a transform.
+
+      This template must exist even though nothing instances it directly - the SubPart entries
+      further down name it with InstanceOf, and without it the game throws
+      "PartTemplate is null for 'AirDefence_Subpart_Fins'" and takes the session with it.
+    -->
+    <SubPart Id="AirDefence_Subpart_Fins">
+      <PartModel Id="AirDefence_Subpart_Fins_Model">
+        <Mesh Id="AirDefence_Subpart_Fins" />
+        <Material Id="AirDefence_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Id="AirDefence_Subpart_Fins_VM" />
+      </MeshView>
+    </SubPart>
+
   <!-- Double-sided hexagonal search array. Turns continuously on its own turntable. -->
   <SubPart Id="AirDefence_Subpart_Radar">
     <PartModel Id="AirDefence_Subpart_Radar_Model">
@@ -215,6 +234,83 @@
       </Transform>
     </SubPart>
     <SubPart Id="AirDefence_Launcher_Missile11" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+
+
+    <!-- Fin sets, one per round. Modelled about the same origin as the round body so they can
+         share its transform, and scaled radially by the mod: flat against the casing while
+         stowed in the tube, flicked out to full span once the round is clear. -->
+    <SubPart Id="AirDefence_Launcher_Fins00" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins01" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins02" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins03" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins04" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins05" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins06" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins07" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins08" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins09" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins10" InstanceOf="AirDefence_Subpart_Fins">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Fins11" InstanceOf="AirDefence_Subpart_Fins">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />

@@ -151,6 +151,20 @@ internal sealed class Interceptor
     public double Speed => Vec.Len(VelocityLocal);
 
     /// <summary>
+    /// How far the fins have deployed, 0 stowed to 1 at full span.
+    ///
+    /// <para>Drawn by scaling the fin subpart radially — the body axis is left alone — so the
+    /// fins lie flat against the casing inside the tube and flick out once the round is away.
+    /// Pure presentation: the flight model has no notion of fins, and this changes nothing
+    /// about how the round flies.</para>
+    /// </summary>
+    public double FinDeployment(MunitionProfile munition)
+    {
+        if (munition.FinDeploySeconds <= 0f) return 1.0;
+        return Math.Clamp(Age / munition.FinDeploySeconds, 0.0, 1.0);
+    }
+
+    /// <summary>
     /// Advances the round by <paramref name="dt"/> seconds, subdividing internally.
     /// </summary>
     /// <param name="target">
