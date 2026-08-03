@@ -180,7 +180,14 @@ GitHub Release. No version number is ever edited by hand.
 
 Building the archive still needs the game, so that half runs on a self-hosted runner and
 attaches the file to the release. Without one you get versioning, changelogs and releases —
-just no attached binary. Build and upload it yourself:
+just no attached binary. Attach it from a machine that has KSA:
+
+```bash
+./tools/publish-release.sh            # build and attach to the release for the current version
+./tools/publish-release.sh v0.2.0     # ...or a specific tag
+```
+
+Or build the archive alone:
 
 ```bash
 ./tools/package.sh                     # dist/AirDefence-<version>.zip

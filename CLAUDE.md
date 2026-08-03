@@ -288,7 +288,10 @@ Three things that will bite:
   worth avoiding until it is meant.
 
 **Releases** are `./tools/package.sh`, locally or from the release workflow — the archive is
-identical either way.
+identical either way. `./tools/publish-release.sh` does both halves from a machine with KSA:
+build, then attach to the release semantic-release created. That is the standing workaround for
+having no self-hosted runner, and it refuses rather than guessing if the tag or the release does
+not exist.
 
 **One archive covers Windows and Linux.** The mod is a portable `net10.0` assembly: no
 `RuntimeIdentifier`, no P/Invoke, no Windows-only API. There is nothing to build twice, and
