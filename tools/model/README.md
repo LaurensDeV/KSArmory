@@ -144,6 +144,28 @@ atlas** rather than committing several hundred bytes of noise into a binary file
 This was diagnosed by rebuilding three times and getting three hashes; only the turret differed,
 and only in `INDICES`. Do not re-derive it.
 
+## Three traps that only bite hand-built meshes
+
+Everything in `pantsir.py` used to come from `bpy.ops.mesh.primitive_*_add`. Those operators do
+three things for you that are invisible until you build a mesh yourself with
+`bpy.data.objects.new` and `from_pydata`, as `fin()` does:
+
+- **They leave the new object as the sole selection.** `_finish` calls `transform_apply`, which
+  acts on the *selection*, not on the active object. An unselected object never gets its
+  rotation and offset baked, so the geometry comes out correctly shaped and in the wrong place —
+  the fins sat off the body axis. Select it, and only it, before calling `_finish`.
+- **They give faces a consistent outward winding.** `from_pydata` takes whatever order you list
+  and asks no questions. An inward-facing face is culled in game and the part reads as *hollow*
+  from one side while looking solid from the other. Run `bmesh.ops.recalc_face_normals`.
+- **They inflate nothing.** `box()` adds SKIN plus jitter to keep coplanar faces apart;
+  `fin()` and `cyl()` do not, so anything built with them needs its own clearance by hand.
+
+**Neither of the first two shows up in a preview render.** Blender does not backface-cull by
+default, so a hollow face looks solid, and a side view cannot show a radial placement error at
+all — the fins are placed by rolling one shape about the body axis, so an error there is only
+visible looking straight down it. `preview_missile_axial.png` exists for that, and `show_only`
+takes several groups so the body and its fins render together rather than as a fin-less stick.
+
 ## Four more traps, all already hit
 
 - **Blender is a Windows binary.** A WSL path passed to `--python` gets mangled. Always
