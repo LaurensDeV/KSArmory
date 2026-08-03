@@ -1,0 +1,13 @@
+# Game assemblies. Copied from the KSA install by tools/sync-import.sh; not redistributable.
+Import/
+
+# Build output
+bin/
+obj/
+*.user
+
+# Editors
+.vs/
+.idea/
+.vscode/
+screenshots/

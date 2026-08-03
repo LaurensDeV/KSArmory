@@ -1,0 +1,213 @@
+{
+  "grid": 4,
+  "swatches": {
+    "hull": {
+      "uv": [
+        0.125,
+        0.125
+      ],
+      "rgb": [
+        78,
+        88,
+        62
+      ],
+      "roughness": 0.82,
+      "metalness": 0.0
+    },
+    "hull_dark": {
+      "uv": [
+        0.375,
+        0.125
+      ],
+      "rgb": [
+        52,
+        60,
+        42
+      ],
+      "roughness": 0.85,
+      "metalness": 0.0
+    },
+    "deck": {
+      "uv": [
+        0.625,
+        0.125
+      ],
+      "rgb": [
+        64,
+        72,
+        52
+      ],
+      "roughness": 0.88,
+      "metalness": 0.0
+    },
+    "rubber": {
+      "uv": [
+        0.875,
+        0.125
+      ],
+      "rgb": [
+        26,
+        26,
+        28
+      ],
+      "roughness": 0.95,
+      "metalness": 0.0
+    },
+    "tube": {
+      "uv": [
+        0.125,
+        0.375
+      ],
+      "rgb": [
+        96,
+        104,
+        80
+      ],
+      "roughness": 0.8,
+      "metalness": 0.0
+    },
+    "tube_cap": {
+      "uv": [
+        0.375,
+        0.375
+      ],
+      "rgb": [
+        172,
+        170,
+        160
+      ],
+      "roughness": 0.7,
+      "metalness": 0.0
+    },
+    "metal": {
+      "uv": [
+        0.625,
+        0.375
+      ],
+      "rgb": [
+        150,
+        152,
+        155
+      ],
+      "roughness": 0.35,
+      "metalness": 1.0
+    },
+    "steel_dark": {
+      "uv": [
+        0.875,
+        0.375
+      ],
+      "rgb": [
+        80,
+        82,
+        86
+      ],
+      "roughness": 0.45,
+      "metalness": 1.0
+    },
+    "radar": {
+      "uv": [
+        0.125,
+        0.625
+      ],
+      "rgb": [
+        196,
+        196,
+        190
+      ],
+      "roughness": 0.65,
+      "metalness": 0.0
+    },
+    "array": {
+      "uv": [
+        0.375,
+        0.625
+      ],
+      "rgb": [
+        118,
+        126,
+        132
+      ],
+      "roughness": 0.45,
+      "metalness": 0.15
+    },
+    "glass": {
+      "uv": [
+        0.625,
+        0.625
+      ],
+      "rgb": [
+        30,
+        42,
+        52
+      ],
+      "roughness": 0.12,
+      "metalness": 0.0
+    },
+    "detail": {
+      "uv": [
+        0.875,
+        0.625
+      ],
+      "rgb": [
+        110,
+        116,
+        96
+      ],
+      "roughness": 0.8,
+      "metalness": 0.0
+    },
+    "warn": {
+      "uv": [
+        0.125,
+        0.875
+      ],
+      "rgb": [
+        176,
+        58,
+        42
+      ],
+      "roughness": 0.78,
+      "metalness": 0.0
+    },
+    "black": {
+      "uv": [
+        0.375,
+        0.875
+      ],
+      "rgb": [
+        12,
+        12,
+        14
+      ],
+      "roughness": 0.9,
+      "metalness": 0.0
+    },
+    "bronze": {
+      "uv": [
+        0.625,
+        0.875
+      ],
+      "rgb": [
+        148,
+        94,
+        44
+      ],
+      "roughness": 0.55,
+      "metalness": 0.7
+    },
+    "missile": {
+      "uv": [
+        0.875,
+        0.875
+      ],
+      "rgb": [
+        190,
+        193,
+        196
+      ],
+      "roughness": 0.4,
+      "metalness": 0.2
+    }
+  }
+}

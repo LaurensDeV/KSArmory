@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>AirDefence.Tests</RootNamespace>
+    <!-- Sources are linked rather than project-referenced so the tests never load KSA.dll. -->
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <!--
+    The guidance, fuse and vector code is deliberately free of KSA types, so it can be
+    linked straight in and exercised headlessly on any platform.
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\src\AirDefence\Vec.cs" Link="Linked\Vec.cs" />
+    <Compile Include="..\..\src\AirDefence\Config.cs" Link="Linked\Config.cs" />
+    <Compile Include="..\..\src\AirDefence\Interceptor.cs" Link="Linked\Interceptor.cs" />
+    <Compile Include="..\..\src\AirDefence\DrawAnchor.cs" Link="Linked\DrawAnchor.cs" />
+    <Compile Include="..\..\src\AirDefence\Turret.cs" Link="Linked\Turret.cs" />
+    <Compile Include="..\..\src\AirDefence\FireGeometry.cs" Link="Linked\FireGeometry.cs" />
+  </ItemGroup>
+
+  <!-- double3 lives here. Runtime assets included: the tests actually execute this. -->
+  <ItemGroup>
+    <Reference Include="..\..\Import\Brutal.Core.Numerics.dll" />
+    <Reference Include="..\..\Import\Brutal.Core.Common.dll" />
+  </ItemGroup>
+
+</Project>

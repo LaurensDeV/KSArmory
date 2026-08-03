@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Simulation definition of the Pantsir-S1 point-defence launcher.
+
+  Deliberately inert as far as KSA is concerned: mass, colliders and an attach node, nothing
+  more. All the behaviour lives in the C# mod, which looks for a part with this Id on the
+  vehicle and mounts the battery there. That split avoids having to register a custom module
+  type into the engine's internal update lists, which is not reachable without patching.
+
+  Collider boxes are axis-aligned in part space: X up, Y along the vehicle, Z across it. The
+  hull box starts at X = 0 so the vehicle rests on its wheels rather than sinking to its
+  chassis rails.
+-->
+<Assets>
+
+  <PartGameData Id="AirDefence_Prefab_Launcher6" DisplayName="Pantsir-S1 Point Defence System">
+    <EditorTag Value="Structural" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="3" />
+
+    <!-- Attaches by its underside to the top or side of a stack. -->
+    <Connector Id="_adConnectorAft">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!--
+      Makes the launcher a command source in its own right, so it can be the root of a
+      vehicle and launched on its own as a self-contained air-defence site. Without this a
+      craft consisting only of the launcher has nothing to control it and KSA will not fly it.
+      It still surface-attaches to a larger craft exactly as before.
+    -->
+    <Control />
+
+    <!-- Onboard cell, so the unit is not dead weight when detached from a host craft. -->
+    <Battery>
+      <MaximumCapacity J="2000" />
+    </Battery>
+
+    <!-- Combat weight of a real Pantsir-S1 on its KAMAZ-6560: about thirty tonnes. -->
+    <SolidSphereMass>
+      <Mass Kg="30000" />
+      <Radius M="2.00" />
+    </SolidSphereMass>
+
+    <Collider Id="AirDefence_Collider">
+      <!-- Chassis and running gear, resting on the ground plane at X = 0. -->
+      <Box Id="AirDefence_HullCollider">
+        <LocationAsmb X="1.03" Y="0.05" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="2.06" />
+        <LengthY M="7.98" />
+        <LengthZ M="2.96" />
+      </Box>
+      <!-- Cab. -->
+      <Box Id="AirDefence_CabCollider">
+        <LocationAsmb X="2.55" Y="2.77" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="1.00" />
+        <LengthY M="2.18" />
+        <LengthZ M="2.60" />
+      </Box>
+      <!-- Turret body. -->
+      <Box Id="AirDefence_TurretCollider">
+        <LocationAsmb X="2.75" Y="-1.42" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="1.40" />
+        <LengthY M="3.20" />
+        <LengthZ M="2.50" />
+      </Box>
+      <!-- Elevated missile pods and the search radar above them. -->
+      <Box Id="AirDefence_PodCollider">
+        <LocationAsmb X="4.30" Y="-0.90" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="2.70" />
+        <LengthY M="2.60" />
+        <LengthZ M="2.90" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+</Assets>

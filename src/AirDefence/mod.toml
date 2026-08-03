@@ -1,0 +1,14 @@
+# KSA reads this as a content mod, StarMap reads it as a code mod. One folder does both.
+
+name = "AirDefence"
+
+# Part definitions. These sit at the mod root, next to Meshes/ and Textures/, mirroring the
+# layout of Content/Core - the relative paths inside them then resolve the same way whether the
+# loader reads them against the mod root or against the XML file's own directory.
+assets = [
+    "AirDefenceAssets.xml",
+    "AirDefenceGameData.xml",
+]
+
+[StarMap]
+EntryAssembly = "AirDefence"

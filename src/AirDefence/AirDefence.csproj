@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AirDefence</RootNamespace>
+    <!-- StarMap loads "<EntryAssembly>.dll" from mod.toml, so this name must match it. -->
+    <AssemblyName>AirDefence</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="mod.toml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- Part definitions, listed in mod.toml's assets array. -->
+    <None Update="AirDefence*.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- The launcher's art. Regenerate with tools/model/build.sh; both are committed so a
+         plain build does not need Blender. -->
+    <None Update="Meshes\**\*.glb">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Textures\**\*.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!--
+    Game and loader assemblies are compile-time only. They are already loaded in the KSA
+    process, so Private=false keeps them (and everything KSA.dll drags in transitively) out
+    of the mod output - shipping a second copy would be loaded into a different
+    AssemblyLoadContext and the type identities would not match the running game's.
+
+    Populate ../../Import with tools/sync-import.sh.
+  -->
+  <ItemGroup>
+    <Reference Include="..\..\Import\KSA.dll" Private="false" />
+    <Reference Include="..\..\Import\StarMap.API.dll" Private="false" />
+    <Reference Include="..\..\Import\Brutal.Core.Numerics.dll" Private="false" />
+    <Reference Include="..\..\Import\Brutal.Core.Common.dll" Private="false" />
+    <Reference Include="..\..\Import\Brutal.Core.Strings.dll" Private="false" />
+    <Reference Include="..\..\Import\Brutal.ImGui.dll" Private="false" />
+    <Reference Include="..\..\Import\Brutal.ImGui.Abstractions.dll" Private="false" />
+    <!-- Needed to compile against Vehicle's mass-properties signatures (Symmetric3x3). -->
+    <Reference Include="..\..\Import\BepuUtilities.dll" Private="false" />
+  </ItemGroup>
+
+</Project>

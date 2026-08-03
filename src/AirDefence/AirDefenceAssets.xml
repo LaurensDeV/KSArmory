@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Visual definition of the Pantsir-S1 point-defence launcher.
+
+  The mod ships its own art: a mesh atlas and a small palette texture set, built by
+  tools/model/build.sh. The structure below mirrors Core's own asset files exactly - atlas,
+  material, subparts, part - because that is the known-good shape for a KSA content mod.
+
+  This file lives at the mod root rather than in a subfolder on purpose. <MeshAtlas Path> and
+  the texture paths are relative, and it is not documented whether they resolve against the
+  mod root or against this file's own directory. With the XML at the root both readings give
+  the same answer, so the question never has to be settled.
+
+  Geometry, from tools/meshinfo.py on the exported atlas:
+    AirDefence_Subpart_Chassis   3.100 x 8.030 x 3.220   centre (+1.550, +0.075, 0)
+    AirDefence_Subpart_Turret    3.618 x 4.334 x 3.215   centre (+3.829, -0.993, 0)
+
+  Both meshes carry their final part-space coordinates - no <Transform> here. X is the part's
+  forward axis and the battery's boresight, so it is the vehicle's *up*; +Y is the direction
+  it drives and +Z is its right side. The origin sits on the ground between the wheels.
+
+  Chassis and turret are separate subparts so the turret can later be split into a part of its
+  own and slewed onto the locked track. See the Pantsir brief in CLAUDE.md.
+-->
+<Assets>
+
+  <MeshAtlas Path="Meshes/AirDefence_MeshAtlas.glb" />
+
+  <!--
+    One material for the whole vehicle. Every face is UV-mapped to the centre of a flat swatch
+    in a 4x4 palette, so surface variety comes from UVs rather than from painted texels - see
+    tools/model/palette.py. AoRoughMetal is R=occlusion, G=roughness, B=metalness, matching the
+    element name, the glTF ORM convention, and Core's own default_pbr.png of (255, 180, 0).
+  -->
+  <PbrMaterial Id="AirDefence_Material">
+    <Diffuse Path="Textures/AirDefence_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/AirDefence_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/AirDefence_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
+  <SubPart Id="AirDefence_Subpart_Chassis">
+    <PartModel Id="AirDefence_Subpart_Chassis_Model">
+      <Mesh Id="AirDefence_Subpart_Chassis" />
+      <Material Id="AirDefence_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="AirDefence_Subpart_Chassis_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- Turret: twin 30 mm cannon, tracking array, search radar, trunnions. Traverses. -->
+  <SubPart Id="AirDefence_Subpart_Turret">
+    <PartModel Id="AirDefence_Subpart_Turret_Model">
+      <Mesh Id="AirDefence_Subpart_Turret" />
+      <Material Id="AirDefence_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="AirDefence_Subpart_Turret_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    The round itself, instanced once per tube. These are hidden (scaled to nothing) until the
+    mod puts one in the air, at which point it writes the body's position and orientation every
+    frame from the round it is simulating. Twelve of them so a full salvo can be in flight.
+  -->
+  <SubPart Id="AirDefence_Subpart_Missile">
+    <PartModel Id="AirDefence_Subpart_Missile_Model">
+      <Mesh Id="AirDefence_Subpart_Missile" />
+      <Material Id="AirDefence_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="AirDefence_Subpart_Missile_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- Double-sided hexagonal search array. Turns continuously on its own turntable. -->
+  <SubPart Id="AirDefence_Subpart_Radar">
+    <PartModel Id="AirDefence_Subpart_Radar_Model">
+      <Mesh Id="AirDefence_Subpart_Radar" />
+      <Material Id="AirDefence_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="AirDefence_Subpart_Radar_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- Twelve missile containers in two pods. Elevates on the turret's trunnions. -->
+  <SubPart Id="AirDefence_Subpart_Pods">
+    <PartModel Id="AirDefence_Subpart_Pods_Model">
+      <Mesh Id="AirDefence_Subpart_Pods" />
+      <Material Id="AirDefence_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="AirDefence_Subpart_Pods_VM" />
+    </MeshView>
+  </SubPart>
+
+  <Part Id="AirDefence_Prefab_Launcher6">
+
+    <SubPart Id="AirDefence_Launcher_Chassis" InstanceOf="AirDefence_Subpart_Chassis" />
+
+    <!--
+      The turret mesh is exported centred on its slew axis, so this puts it back on the deck.
+      KSA rotates a subpart about its own origin; without that recentring, writing the turret's
+      Asmb2ParentAsmb each frame would swing it around the chassis rather than spin it in place.
+      Keep this in step with TURRET_PIVOT in tools/model/pantsir.py.
+    -->
+    <SubPart Id="AirDefence_Launcher_Turret" InstanceOf="AirDefence_Subpart_Turret">
+      <Transform>
+        <Position X="0.00000" Y="-1.42000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Missile pods, on the turret's trunnions. A sibling of the turret rather than a child of
+      it - SubParts are placed against the Part and do not nest - so the mod composes traverse
+      and elevation itself and rewrites this position every frame as the turret swings. The
+      value here is only the rest pose, with the turret facing forward.
+      Keep in step with POD_PIVOT in tools/model/pantsir.py.
+    -->
+    <SubPart Id="AirDefence_Launcher_Pods" InstanceOf="AirDefence_Subpart_Pods">
+      <Transform>
+        <Position X="2.62000" Y="-2.05000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Search array. Turns continuously about its own vertical axis while riding the turret,
+      so like the pods it gets both its rotation and its position rewritten every frame.
+      Keep in step with RADAR_PIVOT in tools/model/pantsir.py.
+    -->
+    <SubPart Id="AirDefence_Launcher_Radar" InstanceOf="AirDefence_Subpart_Radar">
+      <Transform>
+        <Position X="4.05000" Y="-2.52000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Underside attach node, at the ground plane and facing down. -->
+    <Connector Id="_adConnectorAft">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
+      </Transform>
+    </Connector>
+
+
+    <!-- Twelve rounds, parked below the vehicle and shrunk away until fired. -->
+    <SubPart Id="AirDefence_Launcher_Missile00" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile01" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile02" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile03" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile04" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile05" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile06" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile07" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile08" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile09" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile10" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="AirDefence_Launcher_Missile11" InstanceOf="AirDefence_Subpart_Missile">
+      <Transform>
+        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+</Assets>
