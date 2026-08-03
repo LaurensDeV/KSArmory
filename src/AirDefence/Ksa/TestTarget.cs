@@ -151,17 +151,10 @@ internal static class TestTarget
             Log.Debug($"  orbit: pe = {orbit.Periapsis / 1000.0:F1} km, ap = {orbit.Apoapsis / 1000.0:F1} km, " +
                      $"ecc = {orbit.Eccentricity:F4}");
 
-            PartTree clone = BuildDroneParts(platform, craftName);
+            DroneBlueprint blueprint = BuildDroneParts(platform, craftName);
 
             string id = $"AD Test Drone {++_counter}";
-            Vehicle drone = Vehicle.CreateVehicle(
-                system,
-                platform.Body2Cce,
-                bodyRates: new double3(0, 0, 0),
-                parent,
-                id,
-                clone.Root,
-                orbit);
+            Vehicle drone = CreateDroneVehicle(blueprint, system, platform, parent, id, orbit);
 
             // Constructing the Vehicle is not enough to put it in the world. KSA's own runtime
             // spawn path (Vehicle.Split) attaches it to the parent's orbiter tree and to a
@@ -177,6 +170,68 @@ internal static class TestTarget
             else
             {
                 Log.Warn("test target: platform has no update task, drone will not be simulated");
+            }
+
+            // Work out how big it is.
+            //
+            // Vehicle.MeanRadius is BoundingSphereRadiusBody, which only ever gets set by
+            // UpdateCollisionGeometry, which is private and reachable only through this call.
+            // A vehicle assembled here and never handed through it keeps a radius of zero - and
+            // the camera scales its zoom by MeanRadius, so a spawned drone could not be zoomed
+            // in or out at all. It also feeds the flight plan's impact clearance margin.
+            //
+            // KSA's own runtime spawn path reaches this the same way, after the part tree is
+            // attached; ours has to say so explicitly.
+            try
+            {
+                // Rebuild the part tree's derived data, then the vehicle's, in that order: the
+                // second reads the SubstanceStores and inert mass properties the first rebuilds.
+                //
+                // Between them they are what a tree assembled from a save has never been through.
+                // UpdateAfterPartTreeModification reaches UpdateCollisionGeometry, which is
+                // private and is the only thing that sets the bounding sphere - and the camera
+                // scales its zoom by MeanRadius, so without it a drone has a radius of zero.
+                //
+                // Neither has anything to do with whether the drone can be *controlled*. That was
+                // the first theory and measurement disproved it: RecomputeAllDerivedData rebuilds
+                // substance stores, static mass, motor stacks and seats, and never touches
+                // Controls. The real cause is a class, not a cache - see CreateDroneVehicle.
+                drone.Parts.RecomputeAllDerivedData();
+                drone.UpdateAfterPartTreeModification();
+            }
+            catch (Exception e)
+            {
+                Log.Warn($"test target: could not compute drone bounds ({e.GetType().Name}); "
+                         + "the camera will not zoom on it");
+            }
+
+            // What the camera needs, measured rather than assumed.
+            //
+            // Zoom scales by MeanRadius and is stored per craft in OrbitView.DistancePower. A
+            // spawned drone that cannot be zoomed has one of the two wrong, and guessing which
+            // has already cost a build.
+            try
+            {
+                double radius = drone.MeanRadius;
+                var view = drone.OrbitView;
+                // INFO, not DEBUG: it fires once per spawn, and it is the number that decides
+                // whether the camera can frame the thing at all.
+                Log.Info($"  drone     {Describe(drone)}");
+
+                // Against craft that already zoom correctly. A number on its own says nothing;
+                // the same number beside a working one says everything, and the vehicles already
+                // in the scene are exactly that reference.
+                var scratch = new List<Vehicle>();
+                KsaWorld.CollectVehicles(scratch);
+                foreach (Vehicle other in scratch)
+                {
+                    if (ReferenceEquals(other, drone)) continue;
+                    Log.Info($"  reference {Describe(other)}");
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warn($"  could not read drone camera data: {e.GetType().Name}");
             }
 
             // Populate the per-frame cache now rather than waiting a frame, so the read-back
@@ -222,7 +277,114 @@ internal static class TestTarget
     /// and being a clone it shares the guards that protect the player's craft. A stock vessel is
     /// an obviously separate thing. Falls back to the clone if the library craft will not load.
     /// </summary>
-    private static PartTree BuildDroneParts(Vehicle platform, string? craftName)
+    /// <summary>
+    /// Everything about a vehicle that plausibly bears on whether the camera can frame it.
+    ///
+    /// <para>Written as one function used for both the spawned drone and the craft already in
+    /// the scene, so the two are described identically and the difference is the only thing that
+    /// stands out. A stock Hunter zooms and a clone of it does not, with the same MeanRadius, so
+    /// whatever is responsible is one of the other fields.</para>
+    /// </summary>
+    private static string Describe(Vehicle v)
+    {
+        try
+        {
+            string extents = "?";
+            try
+            {
+                float3 e = v.BoundingBoxHalfExtentsAsmb;
+                extents = $"{e.X:F2}x{e.Y:F2}x{e.Z:F2}";
+            }
+            catch { }
+
+            return $"'{KsaWorld.DisplayName(v)}': radius {v.MeanRadius:F2} "
+                   + $"halfExtents {extents} "
+                   + $"zoomPow {v.OrbitView?.DistancePower ?? double.NaN:F2} "
+                   + $"parts {v.Parts?.Count ?? -1} "
+                   + $"bubble {(v.BubbleLeader is null ? "none" : "yes")} "
+                   + $"task {(v.UpdateTask is null ? "none" : "yes")} "
+                   + $"controllable {v.IsControllable} "
+                   + $"hasControlModule {HasControlModule(v)} controls {ControlCount(v)}";
+        }
+        catch (Exception e)
+        {
+            return $"'{KsaWorld.DisplayName(v)}': could not describe ({e.GetType().Name})";
+        }
+    }
+
+    /// <summary>Whether the tree carries a Control module at all, listed or not.</summary>
+    private static string HasControlModule(Vehicle v)
+    {
+        try { return v.Parts?.Modules.HasAny<Control>().ToString() ?? "?"; } catch { return "?"; }
+    }
+
+    /// <summary>
+    /// Control modules the tree has, which is exactly what Vehicle.IsControllable tests.
+    ///
+    /// <para>Zero modules and zero controls means the save's parts arrived without their modules
+    /// at all. Modules present but no controls means they exist and the hot-path list was never
+    /// built. Those need different fixes, and the difference is invisible from IsControllable
+    /// alone - which is why the first attempt at this rebuilt the list and changed nothing.</para>
+    /// </summary>
+    private static int ControlCount(Vehicle v)
+    {
+        try { return v.Parts?.Controls.NumModules ?? -1; } catch { return -1; }
+    }
+
+    /// <summary>
+    /// A drone's part tree, plus the character it belongs to if the save names one.
+    ///
+    /// <para>The character is empty for craft. It is the only thing that distinguishes a kitten
+    /// save from a vehicle save, and it cannot be recovered from the part tree.</para>
+    /// </summary>
+    private readonly record struct DroneBlueprint(PartTree Parts, string Character);
+
+    /// <summary>
+    /// Builds the drone in whichever class KSA itself would have used for this save.
+    ///
+    /// <para><b>Kittens are not craft.</b> <c>KittenEva</c> is a <c>Vehicle</c> subclass that
+    /// overrides <c>IsControllable</c> to a constant true, and the stock Hunter, Banjo and
+    /// Polaris are all instances of it. Measured in game, they carry <em>no control module at
+    /// all</em> — which is exactly what the base <c>Vehicle.IsControllable</c> requires. So a
+    /// Hunter rebuilt through <c>Vehicle.CreateVehicle</c> is a plain vehicle wearing a kitten's
+    /// part tree: it matches the stock one in every measurable respect — same radius, same half
+    /// extents, same zoom power, same part count, same zero control modules — and can never be
+    /// controlled or zoomed, because the property that would have said otherwise belongs to a
+    /// class it is not an instance of.</para>
+    ///
+    /// <para>That is why rebuilding the part tree's caches changed nothing, twice. There was
+    /// never anything wrong with the part tree.</para>
+    ///
+    /// <para>KSA chooses between the two the same way, on whether the save names a character —
+    /// see <c>VehicleTemplate</c>, which branches on <c>Character != null</c>.</para>
+    /// </summary>
+    private static Vehicle CreateDroneVehicle(
+        DroneBlueprint blueprint, CelestialSystem system, Vehicle platform,
+        IParentBody parent, string id, Orbit orbit)
+    {
+        if (!string.IsNullOrEmpty(blueprint.Character))
+        {
+            try
+            {
+                return new KittenEva(system, blueprint.Character, platform.Body2Cce,
+                                     bodyRates: new double3(0, 0, 0), parent, id,
+                                     blueprint.Parts.Root, orbit);
+            }
+            catch (Exception e)
+            {
+                // The id is resolved through ModLibrary, so a renamed or unloaded character
+                // throws here. A plain vehicle is still a perfectly good thing to shoot at; it
+                // just cannot be flown, which is what the warning is for.
+                Log.Warn($"test target: '{blueprint.Character}' is not a loadable character "
+                         + $"({e.GetType().Name}); spawning a plain vehicle, which cannot be flown");
+            }
+        }
+
+        return Vehicle.CreateVehicle(system, platform.Body2Cce, bodyRates: new double3(0, 0, 0),
+                                     parent, id, blueprint.Parts.Root, orbit);
+    }
+
+    private static DroneBlueprint BuildDroneParts(Vehicle platform, string? craftName)
     {
         if (!string.IsNullOrEmpty(craftName))
         {
@@ -235,7 +397,7 @@ internal static class TestTarget
                 if (save is not null)
                 {
                     PartTree? tree = save.Load(Program.MainViewport);
-                    if (tree is not null) return tree;
+                    if (tree is not null) return new DroneBlueprint(tree, save.VehicleSaveData.Character);
                 }
                 Log.Warn($"test target: stock craft '{craftName}' not found, cloning the platform instead");
             }
@@ -245,7 +407,7 @@ internal static class TestTarget
             }
         }
 
-        return platform.Parts.DeepCopy();
+        return new DroneBlueprint(platform.Parts.DeepCopy(), string.Empty);
     }
 
     /// <summary>
