@@ -1,3 +1,9 @@
+## [0.3.2](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.3.1...v0.3.2) (2026-08-03)
+
+### Fixes
+
+* **rounds:** place round bodies every frame, not every simulation step ([609d783](https://github.com/LaurensDeV/KSA-AirDefence/commit/609d783846ba6763740f7666a58ffe4e6da1c554))
+
 ## [0.3.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.3.0...v0.3.1) (2026-08-03)
 
 ### Fixes
