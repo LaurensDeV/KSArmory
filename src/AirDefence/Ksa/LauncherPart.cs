@@ -75,6 +75,30 @@ internal static class LauncherPart
     /// Collects the round subparts, in declaration order, so tube N maps to the same body every
     /// time. There is one per tube, which is what lets a whole salvo be in the air at once.
     /// </summary>
+    /// <summary>Collects this round's fin subparts, in tube order. Empty if it has none.</summary>
+    public static void FindFins(Part launcher, MunitionProfile munition, List<Part> into)
+    {
+        into.Clear();
+        if (munition.FinMarker is not { } marker) return;
+
+        try
+        {
+            ReadOnlySpan<Part> subParts = launcher.SubParts;
+            for (int i = 0; i < subParts.Length; i++)
+            {
+                if (subParts[i] is { } sub && sub.Id is { } id
+                    && id.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                {
+                    into.Add(sub);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"fin subparts: {e.Message}");
+        }
+    }
+
     public static void FindMissiles(Part launcher, MunitionProfile munition, List<Part> into)
     {
         into.Clear();
@@ -128,6 +152,70 @@ internal static class LauncherPart
     /// In the pods' own frame the tubes lie at the elevation they were modelled at; the pods'
     /// transform then carries that through the launcher's current elevation and traverse.
     /// </summary>
+    /// <summary>Direction the tubes point, in the launcher part's own frame.</summary>
+    public static bool TryGetTubeAxisPartFrame(Part pods, LauncherProfile profile, out double3 axis)
+    {
+        axis = Vec.Zero;
+        try
+        {
+            double3 tubeAxisPodFrame = new(Math.Sin(profile.PodReferenceElevationRad),
+                                           Math.Cos(profile.PodReferenceElevationRad), 0.0);
+            axis = Vec.Unit(pods.Asmb2ParentAsmb * tubeAxisPodFrame);
+            return Vec.IsFinite(axis) && !axis.Equals(Vec.Zero);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where a round's <em>centre</em> sits when seated in its tube, in the part frame.
+    ///
+    /// <para>The body mesh is modelled about its centre, so placing it at the tube mouth leaves
+    /// half of it sticking out. Backing off half a body length puts the nose at the mouth and
+    /// the rest inside — which is where a loaded round belongs, and gives a launch something to
+    /// emerge from.</para>
+    /// </summary>
+    public static bool TryGetSeatedPartFrame(Part pods, LauncherProfile profile, int tubeIndex,
+                                             double bodyLength, out double3 seated)
+    {
+        seated = Vec.Zero;
+        if (!TryGetTubeMuzzlePartFrame(pods, profile, tubeIndex, out double3 muzzle)) return false;
+        if (!TryGetTubeAxisPartFrame(pods, profile, out double3 axis)) return false;
+
+        seated = muzzle - axis * (bodyLength * 0.5);
+        return Vec.IsFinite(seated);
+    }
+
+    /// <summary>Places a loaded round in its tube, at rest, with its fins stowed.</summary>
+    public static bool TrySeatMissile(Part pods, LauncherProfile profile, Part missile, Part? fins,
+                                      int tubeIndex, MunitionProfile munition)
+    {
+        try
+        {
+            if (!TryGetSeatedPartFrame(pods, profile, tubeIndex, munition.BodyLength, out double3 seated)) return false;
+            if (!TryGetTubeAxisPartFrame(pods, profile, out double3 axis)) return false;
+
+            doubleQuat rotation = FireGeometry.RotationFromNose(axis);
+
+            missile.PositionParentAsmb = seated;
+            missile.PositionParentAsmbSafe = seated;
+            missile.Asmb2ParentAsmb = rotation;
+            missile.Asmb2ParentAsmbSafe = rotation;
+            missile.Scale = Shown;
+            missile.ResetCachedPosMatrixValues();
+
+            // Stowed: flat against the casing, so the round clears the bore.
+            if (fins is not null) TryPlaceFins(fins, seated, rotation, 0.0, munition);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static bool TryGetTubeAxisEcl(Vehicle platform, Part launcher, Part pods, LauncherProfile profile, out double3 axisEcl)
     {
         axisEcl = Vec.Zero;
@@ -168,6 +256,40 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// Places a fin set on its round, at the given deployment.
+    ///
+    /// <para>Same position and rotation as the body — the two meshes share an origin — with the
+    /// span carried entirely by a radial scale. Scaling per axis about the part's own origin was
+    /// verified in game before the fins were modelled this way: a round squashed to 15% across
+    /// stayed the same length and did not move.</para>
+    /// </summary>
+    public static bool TryPlaceFins(Part fins, double3 position, doubleQuat rotation,
+                                    double deployment, MunitionProfile munition)
+    {
+        try
+        {
+            double span = munition.FinStowedScale
+                          + (1.0 - munition.FinStowedScale) * Math.Clamp(deployment, 0.0, 1.0);
+
+            // X is along the body, so length is untouched; Y and Z carry the span.
+            var scale = new double3(1.0, span, span);
+            if (!Vec.IsFinite(position) || !double.IsFinite(span)) return false;
+
+            fins.PositionParentAsmb = position;
+            fins.PositionParentAsmbSafe = position;
+            fins.Asmb2ParentAsmb = rotation;
+            fins.Asmb2ParentAsmbSafe = rotation;
+            fins.Scale = scale;
+            fins.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Shrinks a round out of sight. Used for tubes that are loaded or already spent.</summary>
     public static void HideMissile(Part missile)
     {
@@ -198,7 +320,21 @@ internal static class LauncherPart
     public static bool TryPlaceMissile(
         Vehicle platform, Part launcher, Part missile,
         double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl)
+        => TryPlaceMissile(platform, launcher, missile, launchAnchorPartFrame, travelEcl,
+                           directionEcl, out _, out _);
+
+    /// <summary>
+    /// As above, and reports the transform it used so a fin set can be hung on the same one -
+    /// the two meshes share an origin, so they must share a placement exactly or the fins swim.
+    /// </summary>
+    public static bool TryPlaceMissile(
+        Vehicle platform, Part launcher, Part missile,
+        double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl,
+        out double3 position, out doubleQuat rotation)
     {
+        position = Vec.Zero;
+        rotation = doubleQuat.Identity;
+
         try
         {
             doubleQuat ecl2Asmb = doubleQuat.Conjugate(platform.Asmb2Ego);
@@ -208,10 +344,10 @@ internal static class LauncherPart
             // Converting the round's absolute platform offset instead measures from the
             // platform's analytic orbit position, while a subpart is placed against the
             // vehicle's physics origin - and those two are metres apart on a landed craft.
-            double3 position = launchAnchorPartFrame + asmb2Part * (ecl2Asmb * travelEcl);
+            position = launchAnchorPartFrame + asmb2Part * (ecl2Asmb * travelEcl);
             if (!Vec.IsFinite(position)) return false;
 
-            doubleQuat rotation = FireGeometry.RotationFromNose(asmb2Part * (ecl2Asmb * directionEcl));
+            rotation = FireGeometry.RotationFromNose(asmb2Part * (ecl2Asmb * directionEcl));
 
             missile.PositionParentAsmb = position;
             missile.PositionParentAsmbSafe = position;

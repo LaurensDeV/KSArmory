@@ -88,6 +88,10 @@ internal sealed class DefenceBattery(Config config)
     private bool _loggedSubParts;
     private double _spinPhase;
     private readonly List<Part> _missileBodies = [];
+    private readonly List<Part> _finBodies = [];
+
+    /// <summary>The fin set belonging to a tube, or null if the launcher carries none.</summary>
+    private Part? FinsFor(int index) => index >= 0 && index < _finBodies.Count ? _finBodies[index] : null;
 
     /// <summary>
     /// False once KSA has refused to place a round body. Unlike the turret, these travel
@@ -237,8 +241,9 @@ internal sealed class DefenceBattery(Config config)
         {
             _loggedSubParts = true;
             LauncherPart.FindMissiles(Launcher, _munition, _missileBodies);
+            LauncherPart.FindFins(Launcher, _munition, _finBodies);
             Log.Info($"launcher subparts: {LauncherPart.DescribeSubParts(Launcher)}");
-            Log.Debug($"round bodies found: {_missileBodies.Count} (need {_profile.TubeCount})");
+            Log.Debug($"round bodies found: {_missileBodies.Count}, fin sets {_finBodies.Count} (need {_profile.TubeCount})");
             if (TurretPart is null) Log.Warn("turret subpart not found - the turret will not slew");
             if (_missileBodies.Count == 0) Log.Warn("no round bodies - rounds will draw as tracers only");
         }
@@ -517,13 +522,20 @@ internal sealed class DefenceBattery(Config config)
 
             if (!LauncherPart.TryPlaceMissile(platform, launcher, _missileBodies[index],
                                               round.LaunchAnchorPartFrame, round.TravelSinceLaunch,
-                                              heading))
+                                              heading, out double3 bodyPos, out doubleQuat bodyRot))
             {
                 RoundBodiesWork = false;
                 Announce("round bodies rejected by the engine; falling back to tracers");
                 return;
             }
             flying[index] = true;
+
+            // Fins ride the body's own transform and open over the first fraction of a second.
+            if (FinsFor(index) is { } finSet)
+            {
+                LauncherPart.TryPlaceFins(finSet, bodyPos, bodyRot,
+                                          round.FinDeployment(_munition), _munition);
+            }
 
             // Everything the placement depends on, so a zigzag can be attributed rather than
             // guessed at: if travel is smooth but the drawn position is not, the fault is in the
@@ -560,9 +572,26 @@ internal sealed class DefenceBattery(Config config)
             }
         }
 
+        // Tubes that are neither in the air nor already fired still have a round in them, so
+        // show it seated rather than scaling it away. Rounds now visibly wait in their tubes and
+        // leave from inside one, instead of appearing already half clear of the mouth.
+        //
+        // Fired tubes are the first TubeCount - Ammo, matching the numbering Fire uses.
+        int spent = _profile.TubeCount - Ammo;
+
         for (int i = 0; i < _missileBodies.Count && i < _profile.TubeCount; i++)
         {
-            if (!flying[i]) LauncherPart.HideMissile(_missileBodies[i]);
+            if (flying[i]) continue;
+
+            if (i >= spent && PodsPart is { } loadedPods
+                && LauncherPart.TrySeatMissile(loadedPods, _profile, _missileBodies[i],
+                                            FinsFor(i), i, _munition))
+            {
+                continue;
+            }
+
+            LauncherPart.HideMissile(_missileBodies[i]);
+            if (FinsFor(i) is { } spentFins) LauncherPart.HideMissile(spentFins);
         }
     }
 
@@ -599,8 +628,13 @@ internal sealed class DefenceBattery(Config config)
         bool fromTube = Launcher is not null && PodsPart is { } pods
                         && LauncherPart.TryGetTubeMuzzleEcl(Platform, Launcher, pods, _profile, tube,
                                                             PlatformEcl, out tubeMouth)
-                        && LauncherPart.TryGetTubeMuzzlePartFrame(pods, _profile, tube,
-                                                                  out launchAnchorPartFrame);
+                        // Seated, not at the mouth: the body mesh is modelled about its centre,
+                        // so anchoring at the mouth starts the round half out of the tube. From
+                        // the seated point it emerges as it accelerates, which is what a tube
+                        // launch looks like.
+                        && LauncherPart.TryGetSeatedPartFrame(pods, _profile, tube,
+                                                              _munition.BodyLength,
+                                                              out launchAnchorPartFrame);
 
         double3 launchPos = fromTube
             ? tubeMouth

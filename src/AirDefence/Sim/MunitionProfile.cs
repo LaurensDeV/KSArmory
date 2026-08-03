@@ -43,8 +43,32 @@ public sealed class MunitionProfile
     /// </summary>
     public string? BodyMarker { get; init; }
 
+    /// <summary>
+    /// Subpart marker for this round's fin set, matched the same way as <see cref="BodyMarker"/>.
+    /// Null means the round has no separate fins, and nothing is animated.
+    /// </summary>
+    public string? FinMarker { get; init; }
+
     // ---- Boost ----------------------------------------------------------
     /// <summary>Speed the round leaves the rail at, relative to the platform (m/s).</summary>
+    /// <summary>
+    /// Length of the round's body mesh (m). The mesh is modelled about its centre — see
+    /// build_missile in tools/model/pantsir.py — so a round placed at a tube mouth sits half
+    /// out of it. This is what lets the mod seat it properly instead.
+    /// </summary>
+    public float BodyLength = 3.10f;
+
+    /// <summary>
+    /// Seconds the fins take to snap from stowed to full span after launch.
+    ///
+    /// <para>Real folding fins deploy in a fraction of a second under spring or gas pressure —
+    /// this is a flick, not a hinge easing open.</para>
+    /// </summary>
+    public float FinDeploySeconds = 0.18f;
+
+    /// <summary>Fin span while stowed, as a fraction of full. Small enough to clear the bore.</summary>
+    public float FinStowedScale = 0.06f;
+
     public float LaunchSpeed = 45f;
 
     /// <summary>Seconds of powered flight after launch.</summary>
