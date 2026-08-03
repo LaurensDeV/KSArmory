@@ -55,10 +55,19 @@ internal sealed class Interceptor
     public double MissDistance { get; private set; }
 
     /// <summary>
-    /// How far into the current frame the round detonated (s). Positions elsewhere in the world
-    /// are sampled at the frame start, so anything comparing against <see cref="PositionEcl"/>
-    /// must advance them by this much first — in the ecliptic frame that gap is thousands of
-    /// metres, enough for a blast to find nothing at all.
+    /// When the round detonated, relative to the world sample this update was given (s).
+    /// <b>Negative</b>, between <c>-dt</c> and zero.
+    ///
+    /// <para>KSA refreshes vehicle Ecl state once per frame to the state at the <em>end</em> of
+    /// the step being integrated, so a burst — which happens somewhere inside that step — is
+    /// always at or before the sampled instant. Anything comparing a world position against
+    /// <see cref="PositionEcl"/> therefore advances it by this much, which moves it
+    /// <em>backward</em>.</para>
+    ///
+    /// <para>The sign matters: in the ecliptic frame the gap is hundreds of metres per frame, so
+    /// getting it the wrong way round doubles the error rather than cancelling it, and a blast
+    /// finds nothing at all. This used to be measured from the frame start on the assumption that
+    /// samples arrived there; the engine source says otherwise.</para>
     /// </summary>
     public double DetonationElapsedInFrame { get; private set; }
 
@@ -226,7 +235,7 @@ internal sealed class Interceptor
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
-            Step(h, elapsed, target, gravity, frameVelocityEcl, munition);
+            Step(h, elapsed, dt, target, gravity, frameVelocityEcl, munition);
             elapsed += h;
         }
 
@@ -264,8 +273,13 @@ internal sealed class Interceptor
         }
     }
 
+    /// <param name="frameSeconds">
+    /// The full step this sub-step belongs to. The target sample is one whole <c>frameSeconds</c>
+    /// ahead of the round's pre-step position, so it has to be back-dated by exactly this much —
+    /// see the note at the extrapolation below.
+    /// </param>
     private void Step(
-        double h, double elapsedInFrame, TargetState? target,
+        double h, double elapsedInFrame, double frameSeconds, TargetState? target,
         double3 gravity, double3 frameVelocityEcl, MunitionProfile munition)
     {
         Age += h;
@@ -299,8 +313,35 @@ internal sealed class Interceptor
 
         if (target is { } t)
         {
-            // Extrapolate the frame-sampled target to this sub-step.
-            double3 targetPos = t.PositionEcl + t.VelocityEcl * elapsedInFrame;
+            // Back-date the target sample to the round's own epoch, then extrapolate to this
+            // sub-step.
+            //
+            // KSA writes every vehicle's Ecl state once per frame, at the top of OnFrame, to the
+            // state at GetLastSimStep().NextTime - the END of the step this update is about to
+            // integrate the round across. The platform sample is used that way and is correct.
+            // The target sample was not: it was extrapolated FORWARD from an end-of-step value
+            // while being differenced against the round's PRE-step position, so every line of
+            // sight carried a constant
+            //
+            //     r = r_true + targetVelocityEcl * frameSeconds
+            //
+            // and proportional navigation, doing its job perfectly, flew a clean intercept on a
+            // ghost displaced by one frame of the planet's ~29.8 km/s of ecliptic motion.
+            //
+            // That is 450-680 m, not the 10-15 m the log used to report. MissDistance could never
+            // show it: it is a threshold crossing with a one-sub-step horizon, so it is bounded by
+            // the fuse radius whatever the round actually does. Confirmed three ways - headlessly,
+            // where the miss vector came out 0.96-0.999 aligned with the ecliptic carrier and
+            // back-dating collapsed the true closest approach onto MissDistance at every step
+            // size; from a flight log, where fitting the same-instant `tgt` trace gave a closest
+            // approach of 679 m against |V_ecl| * dt = 676 m; and by predicting the outcome of the
+            // endgame sub-step experiment that had already been run and reverted - a whole-frame
+            // bias cannot be helped by subdividing the frame, it only converges harder on the
+            // same wrong point.
+            //
+            // Subtracting frameSeconds puts the target back at the instant the round is actually
+            // at, which is what makes the common ecliptic motion cancel.
+            double3 targetPos = t.PositionEcl + t.VelocityEcl * (elapsedInFrame - frameSeconds);
             double3 r = targetPos - PositionEcl;
             double3 v = t.VelocityEcl - VelocityEcl;
 
@@ -326,7 +367,13 @@ internal sealed class Interceptor
                         // Detonate where the round actually is at closest approach.
                         PositionEcl += VelocityEcl * tCa;
                         MissDistance = miss;
-                        DetonationElapsedInFrame = elapsedInFrame + tCa;
+                        // Reported on the same epoch as the geometry that produced it. The
+                        // battery advances the world forward by this much to place the burst
+                        // (DefenceBattery.Detonate and the blast sweep), so it has to be measured
+                        // from the target's back-dated instant too. Correcting the extrapolation
+                        // above without correcting this leaves the blast wrong by V*frameSeconds
+                        // in the opposite direction - the two are one change, not two.
+                        DetonationElapsedInFrame = elapsedInFrame + tCa - frameSeconds;
                         State = RoundState.Detonated;
                         return;
                     }

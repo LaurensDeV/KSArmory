@@ -111,14 +111,34 @@ public class FrameRegressionTests
 
         var round = Round(new double3(500, 0, 0) + SolarFrame);
 
-        // Target close enough ahead that the fuse trips during this step.
-        var target = new TargetState(new double3(20, 0, 0), SolarFrame, 1.0);
+        // Target close enough ahead that the fuse trips during this step — expressed the way KSA
+        // actually hands it over.
+        //
+        // Vehicle Ecl state is refreshed once per frame at the top of OnFrame, to the state at the
+        // END of the step the round is about to be integrated across, so a sample means "where the
+        // target will be at the end of this step", not "where it is now". Interceptor back-dates
+        // it by the step to line it up with the round's own epoch.
+        //
+        // Writing the sample as the start-of-step position instead is what the old code assumed,
+        // and it left every line of sight carrying a whole frame of the planet's 29.8 km/s. So the
+        // + SolarFrame * dt here is not padding to make a test pass: it is the convention, and
+        // omitting it re-creates the bug inside the test.
+        var target = new TargetState(new double3(20, 0, 0) + SolarFrame * dt, SolarFrame, 1.0);
         munition.FuseArmSeconds = 0f;
 
         round.Update(dt, target, NoGravity, SolarFrame, platformEcl: default, munition);
 
         Assert.Equal(RoundState.Detonated, round.State);
-        Assert.InRange(round.DetonationElapsedInFrame, 0.0, dt);
+
+        // Negative, and that is the point: the value is measured against the world sample, which
+        // is the END of the step. A burst can only happen at or before that instant, so the
+        // caller advances the world BACKWARD by this much. The old assertion of [0, dt] encoded
+        // the assumption that samples arrive at the start of the step, which the engine source
+        // disproves (Universe refreshes vehicle Ecl state at the top of OnFrame to
+        // GetLastSimStep().NextTime).
+        //
+        // What must still hold is that it names an instant inside the step just integrated.
+        Assert.InRange(round.DetonationElapsedInFrame, -dt, 0.0);
     }
 
     /// <summary>
