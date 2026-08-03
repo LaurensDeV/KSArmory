@@ -50,7 +50,12 @@ internal sealed class Interceptor
 
     /// <summary>
     /// Opaque handle to whatever the round is chasing (a KSA Vehicle in the game).
-    /// Null once the seeker has broken lock. Compared by reference only.
+    /// Compared by reference only.
+    ///
+    /// <para>This is the round's *assignment*, and it outlives the seeker: it is cleared only
+    /// when the target is gone entirely. Whether the round can currently steer towards it is
+    /// <see cref="SeekerInView"/>. Conflating the two meant losing the seeker also switched off
+    /// the proximity fuse and the closest-approach tracking.</para>
     /// </summary>
     public object? TargetRef { get; private set; }
 
@@ -139,7 +144,17 @@ internal sealed class Interceptor
         TrailOffsets.Add(OffsetFromPlatform);
     }
 
-    public bool HasLock => TargetRef is not null;
+    /// <summary>
+    /// True while the seeker can see the target — inside the gimbal cone about the flight path.
+    /// Recomputed every sub-step, so it can come back after being lost.
+    /// </summary>
+    public bool SeekerInView { get; private set; } = true;
+
+    /// <summary>
+    /// True when the round is both assigned a target and steering towards it. Losing the seeker
+    /// stops the steering, not the warhead — see the fuse in <c>Step</c>.
+    /// </summary>
+    public bool HasLock => TargetRef is not null && SeekerInView;
 
     /// <summary>
     /// Velocity relative to the moving frame — the round's airspeed vector, and the direction
@@ -240,7 +255,7 @@ internal sealed class Interceptor
             accel -= localVelocity * (munition.DragK * airspeed);
         }
 
-        if (TargetRef is not null && target is { } t)
+        if (target is { } t)
         {
             // Extrapolate the frame-sampled target to this sub-step.
             double3 targetPos = t.PositionEcl + t.VelocityEcl * elapsedInFrame;
@@ -249,31 +264,34 @@ internal sealed class Interceptor
 
             ClosestApproach = Math.Min(ClosestApproach, Vec.Len(r));
 
-            // Seeker gimbal limit: the target must stay inside the cone about the flight path.
-            if (Vec.AngleBetween(r, localVelocity) > munition.SeekerFovRad)
-            {
-                TargetRef = null;
-            }
-            else
-            {
-                accel += GuidanceAccel(r, v, localVelocity, gravity, munition);
+            // Seeker gimbal limit: the target must be inside the cone about the flight path for
+            // the round to *steer*. Recomputed every sub-step rather than latched, so a target
+            // that swings back into the cone is picked up again instead of being written off.
+            SeekerInView = Vec.AngleBetween(r, localVelocity) <= munition.SeekerFovRad;
 
-                // Fuse uses relative motion across the sub-step, so a target that would cross
-                // the trigger radius between samples still sets it off.
-                if (Age >= munition.FuseArmSeconds)
+            if (SeekerInView) accel += GuidanceAccel(r, v, localVelocity, gravity, munition);
+
+            // The proximity fuse does not ask the seeker's permission, and neither does a real
+            // one. Tying them together scored direct hits as misses: closing on a crossing
+            // target drives the line of sight past the gimbal limit while the two are still
+            // hundreds of metres apart, and the round then coasted through the target and flew
+            // on to expiry. Every expired round in the flight log had lost lock.
+            //
+            // Uses relative motion across the sub-step, so a target that would cross the trigger
+            // radius between samples still sets it off.
+            if (Age >= munition.FuseArmSeconds)
+            {
+                double trigger = munition.FuseRadius + t.Radius;
+                double tCa = Vec.TimeOfClosestApproach(r, v, h);
+                double miss = Vec.Len(r + v * tCa);
+                if (miss <= trigger)
                 {
-                    double trigger = munition.FuseRadius + t.Radius;
-                    double tCa = Vec.TimeOfClosestApproach(r, v, h);
-                    double miss = Vec.Len(r + v * tCa);
-                    if (miss <= trigger)
-                    {
-                        // Detonate where the round actually is at closest approach.
-                        PositionEcl += VelocityEcl * tCa;
-                        MissDistance = miss;
-                        DetonationElapsedInFrame = elapsedInFrame + tCa;
-                        State = RoundState.Detonated;
-                        return;
-                    }
+                    // Detonate where the round actually is at closest approach.
+                    PositionEcl += VelocityEcl * tCa;
+                    MissDistance = miss;
+                    DetonationElapsedInFrame = elapsedInFrame + tCa;
+                    State = RoundState.Detonated;
+                    return;
                 }
             }
         }
