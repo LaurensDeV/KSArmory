@@ -1,3 +1,13 @@
+## [0.4.2](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.1...v0.4.2) (2026-08-03)
+
+### Fixes
+
+* **rounds:** fuse on proximity, not on the seeker holding the target ([5b9e68e](https://github.com/LaurensDeV/KSA-AirDefence/commit/5b9e68e3a1ddc5c9f1256846318564885377bf7f))
+
+### Documentation
+
+* do not commit a behaviour fix until it is verified in game ([28b2d14](https://github.com/LaurensDeV/KSA-AirDefence/commit/28b2d1474d5efe6bdc2fa05726aab7cc85cc3c0f))
+
 ## [0.4.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.0...v0.4.1) (2026-08-03)
 
 ### Fixes
