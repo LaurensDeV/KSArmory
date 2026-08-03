@@ -1,3 +1,9 @@
+## [0.4.4](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.3...v0.4.4) (2026-08-03)
+
+### Fixes
+
+* **rounds:** accumulate travel rather than difference ecliptic positions ([c17735c](https://github.com/LaurensDeV/KSA-AirDefence/commit/c17735c3e1fc0b37d62a9c7980f4ae9ba4cc6aa7))
+
 ## [0.4.3](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.2...v0.4.3) (2026-08-03)
 
 ### Fixes
