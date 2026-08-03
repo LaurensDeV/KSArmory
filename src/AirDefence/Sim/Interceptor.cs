@@ -194,6 +194,32 @@ internal sealed class Interceptor
 
         _frameVelocityEcl = frameVelocityEcl;
 
+        // Measured BEFORE the round is integrated, against the platform sampled at the start of
+        // this same frame. Both are therefore at the same instant already, and the expression
+        // contains no dt at all - which is the whole point, because it is dt that jitters.
+        //
+        // Measured in game, over frames that visibly jumped:
+        //
+        //     platform moved 639.09 m | v * current step 621.85 m | v * previous step 639.1 m
+        //
+        // The platform's displacement between two samples matches the step reported at the
+        // EARLIER frame, not the current one - the step and the sample are one frame out of
+        // phase. Extrapolating the platform forward by `frameVelocityEcl * dt` therefore
+        // re-projects it by a dt that no longer describes the interval it is meant to, and every
+        // wobble in the frame time comes out multiplied by ~29.8 km/s of ecliptic motion. A
+        // 0.6 ms wobble is 17 m; changing the sim speed swings the step by 17 ms, which is 500 m
+        // in a single frame. That is the jump.
+        //
+        // Without the dt term the difference between consecutive frames is
+        //
+        //     (v + local) * dt  -  v * dt   =   local * dt
+        //
+        // the round flying and nothing else, whatever dt does. The cancellation needs the
+        // platform to have moved by exactly `v * dt` over the interval we integrated across, and
+        // the measurement above is what establishes that it does.
+        //
+        // Costs one frame of visual lag, which is imperceptible and, unlike the alternatives,
+        // constant. See CLAUDE.md, which documented this form before the code drifted off it.
         int steps = Math.Clamp((int)Math.Ceiling(dt / SubStep), 1, MaxSubSteps);
         double h = dt / steps;
         double elapsed = 0.0;
@@ -204,10 +230,30 @@ internal sealed class Interceptor
             elapsed += h;
         }
 
-        // Advance the platform to the end of the step so the offset is measured between two
-        // positions at the same instant; otherwise it carries a frame of the planet's motion.
-        double3 platformAtEnd = platformEcl + frameVelocityEcl * dt;
-        OffsetFromPlatform = PositionEcl - platformAtEnd;
+        // Measured AFTER the step, against the platform sampled this same frame, with no
+        // extrapolation whatsoever.
+        //
+        // Write the update index as k: the platform sample is Q(k), and the round integrates from
+        // P(k-1) to P(k). Measured in game over thousands of frames, to within 5 m on all but two
+        // of them:
+        //
+        //     ( P(k) - P(k-1) ) - ( Q(k) - Q(k-1) )  =  localVelocity * dt
+        //
+        // So P(k) and Q(k) advance in lockstep, and P(k) - Q(k) therefore changes by exactly the
+        // round's own flight each frame. That is the whole requirement, and it is the reason this
+        // form cannot jitter.
+        //
+        // Both forms tried before pair mismatched instants and both leak the same term:
+        //
+        //   P(k-1) - Q(k)                     the round's motion at frame k-1 against the
+        //                                     platform's at frame k
+        //   P(k) - ( Q(k) + v*dt )            re-projects Q by a dt that has already changed
+        //
+        // Each differences to `local*dt - v*dstep`, and at ~29.8 km/s a 1 ms wobble in the step
+        // is 30 m while a speed change swinging it 17 ms is 500 m - in a single frame. Measured
+        // side by side in flight they agreed to 0.6 m, which is what proved they share a cause
+        // rather than being alternatives.
+        OffsetFromPlatform = PositionEcl - platformEcl;
 
         _trailTimer += dt;
         if (_trailTimer >= TrailIntervalSeconds)

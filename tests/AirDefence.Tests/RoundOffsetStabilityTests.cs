@@ -50,13 +50,16 @@ public class RoundOffsetStabilityTests
 
         foreach (double dt in frameTimes)
         {
+            // The platform sample for this frame, advanced BEFORE the update that uses it - the
+            // phase measured in the game's frame hook. See the note in OffsetPhaseTests.
+            platform += OrbitalVelocity * dt;
+
             // No target and no gravity: the round's motion in the local frame is a clean climb,
             // so any wobble in the reported offset comes from the bookkeeping, not the physics.
             round.Update(dt, target: null, gravity: double3.Zero,
                          frameVelocityEcl: OrbitalVelocity, platformEcl: platform,
                          munition: munition);
 
-            platform += OrbitalVelocity * dt;
             offsets.Add(round.OffsetFromPlatform);
         }
 
@@ -123,8 +126,14 @@ public class RoundOffsetStabilityTests
         Interceptor shortFrame = Fresh();
         Interceptor longFrame = Fresh();
 
-        shortFrame.Update(0.016, null, double3.Zero, OrbitalVelocity, PlatformStart, munition);
-        longFrame.Update(0.020, null, double3.Zero, OrbitalVelocity, PlatformStart, munition);
+        // Each is given the platform sample belonging to ITS OWN frame - the platform has moved
+        // by v * dt by the time an update of length dt runs. Handing both the same sample is the
+        // fiction that made the older forms look dt-independent: it holds the platform still
+        // while the round flies, so the ecliptic motion has nothing to cancel against.
+        shortFrame.Update(0.016, null, double3.Zero, OrbitalVelocity,
+                          PlatformStart + OrbitalVelocity * 0.016, munition);
+        longFrame.Update(0.020, null, double3.Zero, OrbitalVelocity,
+                         PlatformStart + OrbitalVelocity * 0.020, munition);
 
         // A longer frame does mean the round genuinely flew further, so the two are not expected
         // to match exactly: at ~300 m/s of local speed, 4 ms is 1.2 m of real travel. What must
@@ -174,8 +183,8 @@ public class RoundOffsetStabilityTests
         double previous = 0.0;
         foreach (double dt in frameTimes)
         {
-            round.Update(dt, null, double3.Zero, OrbitalVelocity, platform, munition);
             platform += OrbitalVelocity * dt;
+            round.Update(dt, null, double3.Zero, OrbitalVelocity, platform, munition);
 
             double travelled = Vec.Len(round.TravelSinceLaunch);
             Assert.True(travelled >= previous - 1e-6,

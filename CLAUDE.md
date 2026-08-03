@@ -488,28 +488,49 @@ target's seat re-homed the battery onto the target — which then could not be s
 the kill path refuses to destroy its own platform. Four confirmed 22 m hits looked like misses.
 `PinPlatform` is now only an override for choosing between multiple launcher-equipped craft.
 
-**A round's drawn offset is measured at the *start* of the step, before the round moves.** The
-platform position handed to `Interceptor.Update` is the one from the start of the step, and the
-round has not been integrated yet, so the two are already at the same instant. The offset
-therefore contains no `dt` at all — which is what makes it impossible for it to jitter.
+**A round's drawn offset is `PositionEcl − platformEcl`, measured *after* the step against the
+platform sample from the *same* frame, with no extrapolation.** Write the update index as `k`,
+the platform sample as `Q(k)` and the round's position after its step as `P(k)`. A probe in the
+frame hook, where both are produced, measured over thousands of frames:
 
-Both other ways have shipped, and both are wrong:
+```
+( P(k) − P(k−1) ) − ( Q(k) − Q(k−1) )  ==  localVelocity * dt(k)      violated on 2 frames
+```
+
+So `P(k)` and `Q(k)` advance in lockstep, and `P(k) − Q(k)` therefore changes by exactly the
+round's own flight each frame. That is the entire requirement, and it is why this form cannot
+jitter.
+
+**The phase is the whole story, and it is not what it looks like.** The platform sample arriving
+at update `k` has already moved by `v * dt(k)` — the step *that same* update is given, not the
+previous one. That follows from what `Universe.GetLastSimStep()` means: at frame `k` it reports
+the step the engine has just finished applying, which is precisely the interval the sample moved
+across.
+
+Three forms have shipped. Two pair mismatched instants, and both leak the same term:
 
 | | Symptom |
 | --- | --- |
-| `PositionEcl(end) − platformEcl` | a whole frame of ecliptic motion left in, ~500 m — rounds draw far from the launcher |
-| `PositionEcl(end) − (platformEcl + frameVel*dt)` | right place, but scaled by a frame time that changes every frame: ~20 m of lateral zigzag per 0.67 ms of jitter |
+| `P(k−1) − Q(k)` — measured before the step | the round's motion at frame `k−1` against the platform's at frame `k` |
+| `P(k) − (Q(k) + frameVel*dt)` — extrapolated | re-projects `Q` by a `dt` that has already changed |
+| **`P(k) − Q(k)` — after the step, no extrapolation** | **correct; confirmed in game** |
 
-Measuring at the start costs one frame of visual lag, which is imperceptible and, unlike either
-of those, constant.
+Each of the first two differences to `local*dt − v*dstep`. At ~29.8 km/s a 1 ms wobble in the
+step is 30 m, and changing simulation speed swings the step by ~17 ms, which is **500 m in a
+single frame** — measured at 507.37 m. Run side by side in flight the two agreed to 0.6 m, which
+is what proved they share a cause rather than being alternatives.
 
-**`RoundOffsetStabilityTests` and `FrameRegressionTests` hand `Update` the start-of-step platform
-position and advance it afterwards. That ordering is correct — do not "fix" it.** Five of those
-tests go red on the first row of that table, and they were red when the second row was replaced
-by it. Editing the tests to match a theory rather than trusting them is what put a 500 m
-displacement in front of a player. `TheDrawnOffsetDoesNotDependOnTheFrameTime` pins the property
-directly, without a simulated flight, because over successive frames the error telescopes and
-cancels — which is why every flight-based test in that file passed while the game zigzagged.
+**The tests encoded the opposite phase for months.** `RoundOffsetStabilityTests` and
+`FrameRegressionTests` used to advance the platform *after* the update, i.e. `Q(k+1) − Q(k) ==
+v*dt(k)`. With a constant step that is indistinguishable; it only separates when the step
+changes. That is why the whole suite passed against both broken forms — it advanced the platform
+by exactly the `v*dt` it passed in, so the error cancelled — and why an earlier version of this
+file insisted the ordering was correct and must not be "fixed". It was wrong, and it cost six
+wrong theories. They now advance the platform *before* the update, and all eight offset tests
+were checked to fail against both predecessors.
+
+`OffsetPhaseTests` holds the measurement and varies the step the way changing simulation speed
+does, which is the case a constant-step test cannot see.
 
 **The draw anchor uses two different instants on purpose.** `DrawAnchor.Ego` is sampled this
 frame; `DrawAnchor.Ecl` is the platform position the geometry was measured against, one update

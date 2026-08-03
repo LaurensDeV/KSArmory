@@ -70,34 +70,37 @@ public sealed class AirDefenceMod
             // frame of reference whenever the simulation did not advance.
             _battery.SampleWorld();
 
-            // Step on the PLAYER frame delta, as the original did.
-            //
-            // Not KSA's simulation step. The drawn offset advances the platform across one
-            // interval to meet the round, and that interval has to be the one the platform
-            // sample actually moved over - which is the frame. Stepping on the simulation delta
-            // while sampling per frame makes the two disagree by a fraction of a millisecond,
-            // and at 29.8 km/s that is tens of metres of jitter, every frame. Confirmed by
-            // bisect: the build before this changed draws dead centre.
-            //
-            // The pause guard is kept, because that half of the simulation-clock work was right
-            // and is cheap: no simulated time, no step, so nothing fires into a frozen world.
-            // Timewarp scaling is knowingly given up for now - it is the lesser of the two.
+            // The pause guard: no simulated time, no step, so nothing fires into a frozen world.
             if (!KsaWorld.IsPaused && double.IsFinite(dtPlayer) && dtPlayer > 0.0)
             {
-                // Simulated seconds elapsed over THIS frame: the wall-clock delta scaled by the
-                // warp factor.
+                // Simulated seconds elapsed over THIS frame, READ from the engine rather than
+                // estimated from the frame time.
                 //
-                // The interval matters more than the number. The drawn offset advances the
-                // platform across the stepping interval to meet the round, so that interval must
-                // be the one the platform sample actually moved over - which is this frame.
-                // dtPlayer alone is that interval but ignores warp, so rounds crawled while the
-                // world raced. The engine's own applied step accounts for warp but spans a
-                // different interval, and that mismatch times ~29.8 km/s of ecliptic motion is
-                // the jitter this cost an evening.
+                // The drawn offset advances the platform across the stepping interval to meet the
+                // round, so that interval has to be the one the platform sample actually moved
+                // over. dtPlayer alone ignores warp, so rounds crawled while the world raced.
+                // dtPlayer * SimulationSpeed corrects for warp but is still a guess at what the
+                // engine did, and a probe measured the error directly: the assumed step
+                // missed the real one by up to 0.9 ms, which against ~29.8 km/s of ecliptic
+                // motion is 27 m of misplacement, alternating sign frame to frame. Worst at 0.1x
+                // and 2x, and worst of all on the frame the speed changes - where the engine
+                // applies one step at the old rate while the estimate has already switched to the
+                // new one. That is the jump.
                 //
-                // dtPlayer * SimulationSpeed is both at once: this frame's interval, expressed
-                // in simulated seconds. Identical to the confirmed-good build at 1x.
-                double dtSim = dtPlayer * KsaWorld.SimulationSpeed;
+                // GetLastSimStep().DeltaTime is not an approximation of that interval, it is that
+                // interval: measured against the platform's own displacement over its own
+                // velocity - two independent readings off the same vehicle - it agreed to four
+                // decimal places on every frame sampled, at every speed from 0.01x to 4x.
+                //
+                // An earlier attempt at this was reverted for causing jitter. That jitter was the
+                // drawn offset's own phase error, fixed separately in Interceptor.Update - see
+                // the offset note in CLAUDE.md - and it was never about the step at all.
+                double dtSim = KsaWorld.SimStepSeconds;
+
+                // Fall back to the estimate only if the engine has nothing to report - a load,
+                // or a frame before the first step. Better a slightly wrong step than none.
+                if (!double.IsFinite(dtSim) || dtSim <= 0.0)
+                    dtSim = dtPlayer * KsaWorld.SimulationSpeed;
                 _battery.Update(Math.Min(dtSim, Interceptor.MaxFaithfulStep));
             }
 

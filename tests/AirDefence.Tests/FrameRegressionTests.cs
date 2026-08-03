@@ -48,9 +48,16 @@ public class FrameRegressionTests
 
         for (int i = 0; i < 10; i++)
         {
+            // Advanced BEFORE the update that uses it. Measured in the game's own frame hook, the
+            // platform sample arriving at update k has already moved by v * dt(k) - the step that
+            // same update is given, not the previous one. Advancing it afterwards instead encodes
+            // the opposite phase, and passes against two implementations that visibly threw the
+            // round hundreds of metres sideways whenever the frame time moved. See
+            // OffsetPhaseTests for the measurement.
+            platform += SolarFrame * dt;
+
             still.Update(dt, target, NoGravity, frameVelocityEcl: default, platformEcl: default, munition);
             carried.Update(dt, carriedTarget, NoGravity, SolarFrame, platform, munition);
-            platform += SolarFrame * dt;
         }
 
         double drift = Vec.Len(still.OffsetFromPlatform - carried.OffsetFromPlatform);
