@@ -13,6 +13,38 @@ Read it before touching anything KSA-facing — it will save you an hour of deco
 KSA has **no official code-modding API**. Everything is community tooling against a pre-release
 game, so the API moves between builds.
 
+## Committing
+
+**Every commit message must be a [Conventional Commit](https://www.conventionalcommits.org/).**
+This is not a style preference — semantic-release parses these to decide the next version, so a
+message that does not parse silently produces no release and never appears in the changelog.
+
+```
+feat(turret): elevate the pods on their trunnions
+fix(rounds): anchor bodies to the tube they left, not the orbit position
+docs: write an install guide
+refactor(sim): split launch geometry out of LauncherPart
+```
+
+| Type | Version effect |
+| --- | --- |
+| `fix`, `perf`, `build`, `revert` | patch |
+| `feat` | minor |
+| `!` after the type, or a `BREAKING CHANGE:` footer | **major** — see the 1.0.0 note below before using this |
+| `docs`, `refactor`, `test`, `chore`, `ci`, `style` | no release (`docs` and `refactor` still reach the changelog) |
+
+Scope is optional but useful; prefer the area touched — `turret`, `rounds`, `radar`, `sim`,
+`model`, `ci`. Keep the subject in the imperative and under ~72 characters, and use the body to
+say *why* when the reason is not obvious from the diff.
+
+Split unrelated work into separate commits rather than one large one: the changelog is generated
+from these, so a commit that does three things describes none of them well.
+
+**This is enforced.** `tools/check-commit-msg.sh` runs both as a local `commit-msg` hook
+(`./tools/install-hooks.sh`, using `core.hooksPath` so hooks arrive with a pull) and as a CI job
+over every commit in a push or PR. One script drives both, so they cannot drift apart. It skips
+merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):` commit.
+
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
@@ -39,6 +71,8 @@ game, so the API moves between builds.
 ./tools/test.sh                            # guidance + fuse tests, no game needed
 ./tools/validate-parts.py                  # check part XML + launch geometry -- run after editing either
 ./tools/model/build.sh                     # rebuild the Pantsir mesh and textures (needs Blender)
+./tools/check-boundary.sh                  # Sim/ must not reference KSA types
+./tools/package.sh                         # release zip into dist/ -- no symbols, no game DLLs
 ./tools/deploy.sh                          # build and install into the KSA mods folder
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
 ./tools/run.sh --attach                    # follow a game that's already running
@@ -52,17 +86,30 @@ cd tools/apidump && dotnet run -- ../../Import members KSA.Vehicle   # inspect t
 
 ## Layout
 
+**The source is split by whether it touches KSA.** `Sim/` cannot; `Ksa/` does. That is not a
+convention to remember — the test project links `Sim/**` wholesale and references no KSA
+assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a new file under
+`Sim/` is tested the moment it exists, with no build plumbing to add.
+
 | Path | What |
 | --- | --- |
-| `src/AirDefence/AirDefenceMod.cs` | StarMap entry point and frame hooks |
-| `src/AirDefence/KsaWorld.cs` | most KSA contact is funnelled here — keep it that way |
-| `src/AirDefence/DefenceBattery.cs` | fire control, salvo logic, warhead effects |
-| `src/AirDefence/Radar.cs` | cone search, CPA threat model, lock |
-| `src/AirDefence/LauncherPart.cs` | finds the launcher part, resolves muzzle positions |
-| `src/AirDefence/Interceptor.cs` | round physics, proportional navigation, fuse — KSA-free |
-| `src/AirDefence/Turret.cs` | rate-limited azimuth drive — KSA-free |
-| `src/AirDefence/Vec.cs`, `Config.cs` | vector helpers, tunables — KSA-free |
-| `src/AirDefence/Ui.cs`, `Visuals.cs` | ImGui panel, gizmo rendering |
+| **`src/AirDefence/Sim/`** | **no KSA types, linked into the tests wholesale** |
+| `Sim/Arsenal.cs` | **the registry — add a weapon system here** |
+| `Sim/LauncherProfile.cs` | one launch platform: part Id, tube geometry, drives |
+| `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
+| `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
+| `Sim/Config.cs` | the player's settings only — policy and display |
+| `Sim/Interceptor.cs` | round physics, proportional navigation, fuse |
+| `Sim/Turret.cs` | rate-limited traverse and elevation drives |
+| `Sim/FireGeometry.cs` | launch direction and round-body orientation |
+| `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
+| **`src/AirDefence/Ksa/`** | **everything that binds to the game** |
+| `Ksa/AirDefenceMod.cs` | StarMap entry point and frame hooks |
+| `Ksa/KsaWorld.cs` | most KSA contact is funnelled here — keep it that way |
+| `Ksa/DefenceBattery.cs` | fire control, salvo logic, warhead effects, drives |
+| `Ksa/Radar.cs` | cone search, CPA threat model, lock |
+| `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
+| `Ksa/Ui.cs`, `Ksa/Visuals.cs` | ImGui panel, gizmo rendering |
 | `src/AirDefence/AirDefence*.xml` | the launcher part — at the mod root, mirroring Core |
 | `src/AirDefence/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
 | `src/AirDefence/mod.toml` | serves as both the content-mod and StarMap manifest |
@@ -166,6 +213,102 @@ faces lean toward each other far enough for those planes to overlap.
 Still fixed: **boresight is local "up"**, not the launcher's facing — the radar sweeps a
 hemisphere regardless of where the tubes are aimed, and the spinning array is cosmetic.
 
+## Adding a weapon system
+
+The mod is built around three profile types and a registry, so a new launcher, round or sensor
+is **data plus art**, not new logic. Nothing in `Sim/` or `Ksa/` names the Pantsir.
+
+1. **Model it.** Copy `tools/model/pantsir.py`, keep the group/pivot conventions, and export
+   into the same atlas. Run `tools/model/checkmesh.py` — it fails the build on the two defects
+   that only show up in game.
+2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
+   `AirDefenceAssets.xml`, and a `<PartGameData>` with its colliders and mass.
+3. **Register it.** One `LauncherProfile` in `Sim/Arsenal.cs`, naming the munition and sensor it
+   uses, with the geometry `build.sh` prints. Add a `MunitionProfile` too if the round differs.
+4. **Nothing else.** `LauncherPart.Find` matches against every registered part Id, and the
+   battery selects whichever profile it finds. `ArsenalTests` checks the registry hangs
+   together; `validate-parts.py` checks the geometry still matches the mesh.
+
+A launcher that does not train is the same `LauncherProfile` with `TurretMarker` left null —
+the drives are skipped and `IsLaid` stays true, so fire control cannot deadlock waiting for
+something that will never move. `ArsenalTests.AFixedLauncherIsJustAProfileWithNothingThatMoves`
+pins that shape.
+
+**What is deliberately *not* general yet:** one battery per craft (the first launcher found
+wins), and `Config` holds a single active profile set, so the panel tunes one system at a time.
+Both are straightforward to widen — the profiles are already per-system — but neither is
+speculatively built.
+
+## CI and releases
+
+**A GitHub-hosted runner cannot build this mod.** It needs KSA's own assemblies — `KSA.dll`,
+`Brutal.Core.Numerics.dll` and friends — which are not redistributable, so `Import/` is
+gitignored and there is no legitimate way for a hosted runner to obtain them. The C# tests need
+them too: they reference `Brutal.Core.Numerics` for `double3`. Do not try to work around this by
+committing the assemblies.
+
+So CI is split the same way the source is:
+
+- **`tooling` (hosted, always runs)** — everything that does not need the game, which is more
+  than it sounds. `checkmesh.py` on the committed atlas catches the two defect classes that are
+  invisible outside the game; `check-boundary.sh` guards the Sim/Ksa split textually;
+  `palette.py` is re-run and the textures diffed, so hand-edited PNGs are caught before the next
+  model build silently reverts them. Plus shellcheck, XML well-formedness and a check that no
+  `.dll` is tracked.
+- **`build` (self-hosted, opt-in)** — the real build, the 74 tests, `validate-parts.py` and the
+  package. Gated on the repository variable `KSA_SELF_HOSTED` being `true`, so it skips cleanly
+  rather than sitting pending forever when no such runner exists.
+
+shellcheck runs at `-S warning`. At the default level it flags every `source tools/env.sh` as
+unfollowable, which it is, and CI would fail on nothing.
+
+**Versioning is automatic and commit messages are the input.** semantic-release runs on every
+push to `main`, reads the Conventional Commits since the last tag, and cuts the release: version,
+`CHANGELOG.md`, the `<Version>` in the csproj (via `tools/set-version.sh`), the tag and the
+GitHub Release. **Never edit a version by hand** — it will be overwritten. `feat` is a minor,
+`fix`/`perf`/`build`/`revert` a patch, `!` or a `BREAKING CHANGE:` footer a major; `docs`,
+`chore`, `ci`, `test`, `style` and `refactor` cut no release. A commit that does not parse is
+treated as no release, so a stray `wip` cannot publish anything.
+
+That workflow is in two jobs for the same reason CI is: deciding the version needs only git and
+runs hosted, while building the archive needs KSA and runs on the gated self-hosted runner,
+attaching the file to the release the first job made. The release commit carries `[skip ci]` so
+it does not retrigger CI.
+
+Three things that will bite:
+
+- **Branch protection on `main`** blocks the release commit unless the token can bypass it.
+- **A shallow checkout** makes semantic-release believe every push is a first release — hence
+  `fetch-depth: 0`.
+- **The first ever release is 1.0.0 unless a tag says otherwise.** semantic-release reads "no
+  tags" as "no releases", and the `<Version>` in the csproj has no bearing on it — confirmed by
+  dry run, which announced 1.0.0 with the project file saying 0.1.0. The project is pre-1.0, so
+  a `v0.1.0` tag has to exist before the first automated run anchors it. Promotion to 1.0.0 is
+  then a deliberate `git tag -a v1.0.0`; a `BREAKING CHANGE:` footer would also do it, which is
+  worth avoiding until it is meant.
+
+**Releases** are `./tools/package.sh`, locally or from the release workflow — the archive is
+identical either way.
+
+**One archive covers Windows and Linux.** The mod is a portable `net10.0` assembly: no
+`RuntimeIdentifier`, no P/Invoke, no Windows-only API. There is nothing to build twice, and
+adding a per-platform build would produce two identical files. What *does* differ by platform:
+
+- **Case sensitivity.** A mismatched filename loads on Windows and fails on Linux. The hosted CI
+  job runs `validate-parts.py --offline` for exactly this — on Linux, where case matters — and
+  it compares against the real directory listing rather than trusting `is_file()`.
+- **Where KSA's user directory is.** `Log.cs` tries Documents, `XDG_DATA_HOME`, `~/.local/share`
+  and `~/.config` in turn, only ever using one that already exists, and falls back to temp.
+  `deploy.sh` searches the same set.
+- **The loader.** StarMap ships `StarMap.exe` plus a portable `StarMap.dll`, so `dotnet
+  StarMap.dll` is the Linux equivalent. *Not verified here* — this machine is WSL and runs the
+  Windows build. Release builds carry **no debug symbols** (`DebugType=none` in the csproj)
+and the log starts at `INFO` rather than `DEBUG`, because the developer detail runs to hundreds
+of lines per engagement. `Log.Threshold` and the panel's **Verbose log** tick box put it back
+without needing a different build, which is what you want from a bug report. The packaging
+script refuses to ship a `.pdb` or any DLL that is not ours — that is the last gate before an
+archive leaves the machine.
+
 ## Design decisions worth not re-litigating
 
 **Rounds are simulated by this mod, not by KSA's vehicle physics.** They are drawn with
@@ -184,12 +327,16 @@ only at draw time. `Ego` is a pure translation of `Ecl`, so this is exact — se
 targets *passing by* engageable and not just ones flying straight at the battery. This was an
 explicit requirement.
 
-**`Interceptor.cs`, `Vec.cs`, `Config.cs`, `DrawAnchor.cs`, `Turret.cs` and `FireGeometry.cs`
-must stay free of KSA types.** The test project links those files directly so guidance,
-anchoring, the turret drive and launch geometry can be exercised on Linux with no game present.
-Adding a `using KSA;` to any of them breaks the tests. When something KSA-facing turns out to
-have testable maths inside it, split the maths out rather than leaving it untestable —
-`FireGeometry` came out of `LauncherPart` exactly that way.
+**`Sim/` must stay free of KSA types**, and this enforces itself — see the Layout note. When
+something KSA-facing turns out to have testable maths inside it, move the maths into `Sim/`
+rather than leaving it unverifiable; `FireGeometry` came out of `LauncherPart` exactly that way,
+and the launch-angle bug was only testable afterwards.
+
+**Weapon performance lives on profiles, not in `Config`.** `Config` is the *player's* settings:
+armed, auto-engage, what to draw. Range, guidance, fuse and launcher geometry belong to a
+weapon system and vary per system, so they sit on `SensorProfile`, `MunitionProfile` and
+`LauncherProfile`. The panel edits whichever profiles `Config.Select` last pointed at, so live
+tuning still works — it just tunes that system rather than the whole mod.
 
 **Rounds are drawn as real subparts, anchored to the tube they left.** Twelve `Missile`
 subparts, scaled to nothing until fired, with their transform written each frame. Two rules,
@@ -256,8 +403,7 @@ reachable without patching.
 
 **Launch and slew geometry live in the Blender script, not in the C#.**
 `tools/model/pantsir.py` places the containers and writes `muzzles.json`;
-`LauncherPart.TubeOffsetsPodFrame`, `MuzzleForwardOffset`, `TubeRingRadius`, `PodPivotFromTurret`,
-`TurretPivotInPart` and `PodReferenceElevationRad` are all pasted from what it prints.
+the `LauncherProfile` in `Sim/Arsenal.cs` is pasted from what it prints.
 `validate-parts.py` **fails if any of them disagree** — this is the third piece of geometry in
 the repo duplicated across a boundary, and the first two both drifted. Change the pods, rerun
 `tools/model/build.sh`, paste the block. If the tube count changes, `Config.TubeCount` changes
