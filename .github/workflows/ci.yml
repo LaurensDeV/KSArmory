@@ -1,0 +1,140 @@
+name: CI
+
+# Why this looks the way it does
+# ------------------------------
+# Building this mod needs KSA's own assemblies (KSA.dll, Brutal.Core.Numerics.dll and friends).
+# They are not redistributable, so Import/ is gitignored and a GitHub-hosted runner has no way
+# to obtain them. The C# tests need them too - they reference Brutal.Core.Numerics for double3.
+#
+# So the hosted job runs everything that does *not* need the game, which is more than it sounds:
+# the mesh checks catch two whole classes of defect that are invisible outside the game, and the
+# boundary check guards the Sim/Ksa split. The full build and the 74 tests run on a self-hosted
+# runner with KSA installed, enabled by setting the repository variable KSA_SELF_HOSTED to true.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  commits:
+    name: Commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Conventional Commits
+        # The same script the local commit-msg hook runs, so CI and the hook cannot disagree
+        # about what is legal. A message semantic-release cannot parse produces no release and
+        # never reaches the changelog, and does so silently — hence checking it here too.
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          elif [[ "${{ github.event.before }}" =~ ^0+$ || -z "${{ github.event.before }}" ]]; then
+            # New branch, or a manual run: there is no meaningful "before", so check the tip.
+            range="${{ github.sha }}~1..${{ github.sha }}"
+          else
+            range="${{ github.event.before }}..${{ github.sha }}"
+          fi
+          echo "checking $range"
+          ./tools/check-commit-msg.sh --range "$range"
+
+  tooling:
+    name: Tooling and assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: pip install --quiet pillow
+
+      - name: Python tooling compiles
+        run: python -m compileall -q tools
+
+      - name: Shell tooling is sane
+        # -S warning on purpose: at info level shellcheck flags every `source tools/env.sh`
+        # as unfollowable, which it is, and that would fail the build on nothing.
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning tools/*.sh tools/model/*.sh
+
+      - name: Sim/ is free of KSA types
+        run: ./tools/check-boundary.sh
+
+      - name: Part XML is well formed
+        run: |
+          python - <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          from pathlib import Path
+          for path in sorted(Path("src/AirDefence").glob("AirDefence*.xml")):
+              ET.parse(path)
+              print(f"  {path} ok")
+          PY
+
+      - name: Asset paths resolve, case-exactly
+        # Runs on Linux on purpose. KSA runs on Linux too, and Linux filesystems are
+        # case-sensitive — so a `Textures/airdefence_diffuse.png` typo would load fine on a
+        # Windows machine and leave the part untextured on someone else's. Catching that needs
+        # a case-sensitive filesystem, which is exactly what this runner is.
+        run: ./tools/validate-parts.py --offline
+
+      - name: Mesh has no z-fighting or degenerate UVs
+        # The two defects that only show up in game, and never in a Blender preview.
+        run: ./tools/model/checkmesh.py src/AirDefence/Meshes/AirDefence_MeshAtlas.glb
+
+      - name: Textures are reproducible
+        # palette.py is deterministic; if the committed PNGs do not match what it generates,
+        # someone edited them by hand and the next model build will silently revert it.
+        run: |
+          ./tools/model/palette.py
+          git diff --exit-code -- src/AirDefence/Textures
+
+      - name: No game assemblies committed
+        run: |
+          if git ls-files | grep -E '\.(dll|pdb)$'; then
+            echo "::error::game assemblies must not be committed - see .gitignore"
+            exit 1
+          fi
+          echo "no binaries tracked"
+
+  build:
+    name: Build and test
+    # Needs a machine with KSA installed and Import/ populated. Set the repository variable
+    # KSA_SELF_HOSTED to 'true' once such a runner is registered; until then this is skipped
+    # rather than left pending forever.
+    if: ${{ vars.KSA_SELF_HOSTED == 'true' }}
+    runs-on: [self-hosted, ksa]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refresh game assemblies
+        run: ./tools/sync-import.sh
+
+      - name: Build
+        run: ./tools/build.sh
+
+      - name: Test
+        run: ./tools/test.sh
+
+      - name: Validate parts and launch geometry
+        run: ./tools/validate-parts.py
+
+      - name: Package
+        run: ./tools/package.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AirDefence-mod
+          path: dist/*.zip
+          if-no-files-found: error

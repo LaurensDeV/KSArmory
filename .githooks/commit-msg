@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#
+# Rejects a commit message that semantic-release would not understand.
+#
+# Enable with:  ./tools/install-hooks.sh
+# Bypass once:  git commit --no-verify
+#
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+exec "$REPO_ROOT/tools/check-commit-msg.sh" "$1"

@@ -1,0 +1,110 @@
+name: Release
+
+# Versioning is automatic: semantic-release reads the Conventional Commits since the last tag,
+# works out whether that is a patch, minor or major, and cuts the release. Nobody edits a
+# version number by hand.
+#
+# It runs in two halves for the same reason CI does. Deciding the version, writing the
+# changelog, tagging and creating the GitHub Release need nothing but git, so they run on a
+# hosted runner. Building the archive needs KSA's assemblies, which are not redistributable, so
+# it runs on a self-hosted runner and attaches the file to the release the first half made.
+#
+# Without a self-hosted runner you still get versioning, changelogs and releases — just no
+# attached binary. Build that locally with ./tools/package.sh and upload it.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  version:
+    name: Version and changelog
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.semantic.outputs.new_release_published }}
+      version: ${{ steps.semantic.outputs.new_release_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # semantic-release needs the whole history to find the last release and everything
+          # since it. A shallow clone silently produces a first release every time.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: semantic-release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          semantic_version: 24
+          extra_plugins: |
+            @semantic-release/changelog@6
+            @semantic-release/exec@6
+            @semantic-release/git@10
+            conventional-changelog-conventionalcommits@8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          if [[ "${{ steps.semantic.outputs.new_release_published }}" == "true" ]]; then
+            echo "released ${{ steps.semantic.outputs.new_release_version }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "no release: nothing since the last tag warrants one" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  artifact:
+    name: Build and attach the mod
+    needs: version
+    # Only when there is something to attach it to, and only where KSA exists. Set the
+    # repository variable KSA_SELF_HOSTED to 'true' once such a runner is registered.
+    if: ${{ needs.version.outputs.published == 'true' && vars.KSA_SELF_HOSTED == 'true' }}
+    runs-on: [self-hosted, ksa]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tag semantic-release just pushed, so the archive matches the release exactly
+          # rather than whatever main has drifted to since.
+          ref: v${{ needs.version.outputs.version }}
+
+      - name: Refresh game assemblies
+        run: ./tools/sync-import.sh
+
+      # A release that fails its own checks is not a release.
+      - name: Test
+        run: ./tools/test.sh
+
+      - name: Validate parts and launch geometry
+        run: ./tools/validate-parts.py
+
+      - name: Check the mesh
+        run: ./tools/model/checkmesh.py src/AirDefence/Meshes/AirDefence_MeshAtlas.glb
+
+      - name: Package
+        run: ./tools/package.sh --version "${{ needs.version.outputs.version }}"
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          files: dist/AirDefence-${{ needs.version.outputs.version }}.zip
+          append_body: true
+          body: |
+
+            ---
+
+            Drop the `AirDefence` folder into
+            `Documents/My Games/Kitten Space Agency/mods/`, register it in `manifest.toml`, and
+            launch with **StarMap.exe**. See the README for the full install guide.
+
+            Release build: no debug symbols, log starts at INFO. Tick **Verbose log** in the
+            panel if you are reporting a bug.
