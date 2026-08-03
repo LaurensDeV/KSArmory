@@ -76,6 +76,22 @@ internal static class ThreatModel
     }
 
     /// <summary>
+    /// Whether a contact is physically within the sensor's reach — range and cone only.
+    ///
+    /// <para>Deliberately excludes the threat and policy filters that <see cref="TryAssess"/>
+    /// applies. A command-linked round needs to know whether the launcher can still *see* its
+    /// target, which is a question about the radar. Whether the operator wants to shoot at it
+    /// is a separate question, and answering them with the same test meant that declining to
+    /// engage a contact also cut the uplink to rounds already flying at it.</para>
+    /// </summary>
+    public static bool InSensorVolume(double3 r, double3 boresight, SensorProfile sensor)
+    {
+        double rangeSquared = Vec.Len2(r);
+        if (rangeSquared > (double)sensor.Range * sensor.Range || rangeSquared < 1.0) return false;
+        return Vec.Dot(Vec.Unit(r), boresight) >= Math.Cos(sensor.ConeHalfAngleRad);
+    }
+
+    /// <summary>
     /// Orders tracks so the most immediate threat comes first. Stable ordering is not required
     /// and not promised; ties between equal priorities may fall either way.
     /// </summary>
@@ -112,6 +128,18 @@ internal static class ThreatModel
             if (tracks[i].IsThreat) return i;
         return -1;
     }
+
+    /// <summary>
+    /// Whether the target is inside the weapon's reach — not merely detected.
+    ///
+    /// <para>A search radar sees far further than the round flies: 36 km against 20 km for the
+    /// Pantsir. Firing at everything detected wastes the magazine on contacts that expire
+    /// short, which is exactly what happened to every long crossing shot. There is a floor as
+    /// well as a ceiling: inside about a kilometre the round is still boosting and cannot be
+    /// brought round.</para>
+    /// </summary>
+    public static bool InEngagementEnvelope(TrackState track, SensorProfile sensor)
+        => track.Range >= sensor.MinEngagementRange && track.Range <= sensor.MaxEngagementRange;
 
     /// <summary>
     /// Whether another round may be committed to this track.

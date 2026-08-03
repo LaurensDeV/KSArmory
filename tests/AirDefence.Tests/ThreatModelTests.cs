@@ -167,6 +167,37 @@ public class ThreatModelTests
         Assert.Equal(plain.TimeToClosestApproach, shifted.TimeToClosestApproach, 9);
     }
 
+    [Fact]
+    public void SensorVolumeIgnoresThePolicyThatTheThreatTestApplies()
+    {
+        // These answer different questions and must not be conflated. InSensorVolume asks
+        // whether the radar can physically see a contact; TryAssess also decides whether it is
+        // worth engaging. A command-linked round's uplink depends on the first only.
+        //
+        // Conflating them meant that declining to engage the vehicle the player is flying also
+        // cut the uplink to rounds already in the air at it - a safety rule turning into a
+        // guaranteed miss.
+        SensorProfile s = Sensor();
+        double3 r = new(4000, 0, 0);                 // in range, on boresight
+
+        Assert.True(ThreatModel.InSensorVolume(r, Up, s));
+
+        // Too slow to be classified a threat, but still plainly visible.
+        Assert.False(ThreatModel.TryAssess(r, new double3(1, 0, 0), Up, s, out _));
+        Assert.True(ThreatModel.InSensorVolume(r, Up, s));
+    }
+
+    [Fact]
+    public void SensorVolumeStillRespectsRangeAndCone()
+    {
+        SensorProfile s = Sensor();
+        s.ConeDeg = 30f;
+
+        Assert.False(ThreatModel.InSensorVolume(new double3(99000, 0, 0), Up, s));
+        double3 wide = new(1000 * Math.Cos(Math.PI / 3), 1000 * Math.Sin(Math.PI / 3), 0);
+        Assert.False(ThreatModel.InSensorVolume(wide, Up, s));
+    }
+
     // ---------------------------------------------------------------------------------------
     // Ranking a contested list — CHECKLIST.md 7.2
     // ---------------------------------------------------------------------------------------

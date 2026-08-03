@@ -331,6 +331,11 @@ internal sealed class DefenceBattery(Config config)
         Track target = Radar.Locked!;
         if (!ThreatModel.HasSalvoCapacity(target, _config.RoundsPerTarget)) return;
 
+        // Detection reaches 36 km; the round reaches 20 km. Without this the battery empties
+        // itself at contacts it cannot possibly catch, which is what every 8.7 km crossing shot
+        // that expired at 22 s was doing.
+        if (!ThreatModel.InEngagementEnvelope(target, _config.Sensor)) return;
+
         Fire(target);
     }
 
@@ -484,11 +489,33 @@ internal sealed class DefenceBattery(Config config)
             if (trace)
             {
                 Interceptor r = round;
+
+                // Range to the target and whether the seeker can still see it. Without these a
+                // miss in the log is just a number at the end; with them the flight shows where
+                // it stopped converging, and whether the seeker had dropped it by then.
+                double tgtRange = -1.0;
+                if (r.TargetRef is Vehicle tv && KsaWorld.IsAlive(tv))
+                    tgtRange = Vec.Len(KsaWorld.PositionEcl(tv) - r.PositionEcl);
+
+                // The drawn offset against the true one. OffsetFromPlatform is accumulated from
+                // local velocity; PositionEcl - PlatformEcl is the same quantity taken directly.
+                // They should agree. At detonation they have been seen 800 m apart while the
+                // fuse and the blast agreed to the decimal, so the round is killing the target
+                // and being rendered somewhere else entirely. This shows where that opens up.
+                double drift = Vec.Len(r.OffsetFromPlatform - (r.PositionEcl - PlatformEcl));
+
                 Log.Debug(() =>
-                    $"body t{r.Tube}: travel {Vec.Len(r.TravelSinceLaunch):F1} m " +
+                    $"body t{r.Tube}: [sim {KsaWorld.SimulationSpeed:F2}x " +
+                    $"step {KsaWorld.SimStepSeconds * 1000.0:F1}ms " +
+                    $"{(KsaWorld.IsPaused ? "PAUSED" : "running")}] " +
+                    $"travel {Vec.Len(r.TravelSinceLaunch):F1} m " +
                     $"({r.TravelSinceLaunch.X:F1},{r.TravelSinceLaunch.Y:F1},{r.TravelSinceLaunch.Z:F1}) " +
                     $"anchor ({r.LaunchAnchorPartFrame.X:F2},{r.LaunchAnchorPartFrame.Y:F2},{r.LaunchAnchorPartFrame.Z:F2}) " +
-                    $"localspeed {Vec.Len(r.VelocityLocal):F0} m/s age {r.Age:F2}s");
+                    $"localspeed {Vec.Len(r.VelocityLocal):F0} m/s age {r.Age:F2}s " +
+                    $"tgt {(tgtRange < 0 ? "gone" : $"{tgtRange:F0} m")} " +
+                    $"link {(r.SeekerInView ? "on" : "OFF")} " +
+                    $"cmd {r.CommandG:F0}g{(r.CommandSaturated ? " SAT" : "")} " +
+                    $"peak {r.PeakCommandG:F0}g drift {drift:F1} m");
             }
         }
 
@@ -631,9 +658,25 @@ internal sealed class DefenceBattery(Config config)
     /// Reads the round's target out of the world once per frame. Returns null when the target
     /// is gone, which breaks the round's lock and leaves it coasting.
     /// </summary>
-    private static TargetState? SampleTarget(Interceptor round)
+    private TargetState? SampleTarget(Interceptor round)
     {
         if (round.TargetRef is not Vehicle target || !KsaWorld.IsAlive(target)) return null;
+
+        // A command-linked round is steered from here, so it is only guided while the launcher
+        // can still *see* what it is shooting at. Losing sight breaks the uplink and the round
+        // coasts - the realistic failure mode for this weapon, and the one that replaces a
+        // seeker being blinded. The fuse still works; see Interceptor.Step.
+        //
+        // Sight, not the track list. The track list has the operator's policy applied to it -
+        // notably ProtectControlledVehicle - so testing against it meant that taking the
+        // target's seat cut the uplink to every round already flying at it, turning a
+        // deliberate safety rule into a guaranteed miss. The policy belongs at the kill, where
+        // Detonate already declines and says why.
+        if (_munition.Guidance == GuidanceMode.CommandLink && Platform is not null)
+        {
+            double3 toTarget = KsaWorld.PositionEcl(target) - PlatformEcl;
+            if (!ThreatModel.InSensorVolume(toTarget, Boresight, _config.Sensor)) return null;
+        }
 
         return new TargetState(
             KsaWorld.PositionEcl(target),
@@ -650,6 +693,47 @@ internal sealed class DefenceBattery(Config config)
     {
         double3 burst = round.PositionEcl;
         Announce($"round {round.Tube} detonated, miss distance {round.MissDistance:F0} m");
+
+        // Three measurements of the same event, because "the burst went off beside the drone"
+        // needs a number to be actionable.
+        //
+        //   fuse    - what the fuse decided, between sub-steps. The kill is judged on this.
+        //   atBurst - the same separation recomputed with the target advanced to the burst
+        //             instant, exactly as the splash path below does it. Should match the fuse.
+        //   drawn   - what the player sees: both positions as they are rendered, relative to the
+        //             platform. The round from its accumulated local travel, the target from its
+        //             frame-sampled position. If this is the one that disagrees, the simulation
+        //             is right and the drawing is wrong.
+        //
+        // An earlier version of this line compared the round advanced into the frame against a
+        // target sampled at the frame start, and reported a 73 m gap that was nothing but the
+        // ecliptic velocity times 2.8 ms. Comparing across instants is the mistake this whole
+        // file exists to avoid; do not reintroduce it here.
+        if (round.TargetRef is Vehicle logTarget && KsaWorld.IsAlive(logTarget))
+        {
+            double intoFrame = round.DetonationElapsedInFrame;
+            double3 targetEcl = KsaWorld.PositionEcl(logTarget);
+            double3 targetVel = KsaWorld.VelocityEcl(logTarget);
+
+            double atBurst = Vec.Len(targetEcl + targetVel * intoFrame - burst);
+            double drawn = Vec.Len(round.OffsetFromPlatform - (targetEcl - PlatformEcl));
+
+            // The separation as *rendered*. Everything above is the analytic frame the simulation
+            // works in; KSA draws a vehicle at its physics position, which is not the same place.
+            // KsaWorld.TryVehicleEgo says so outright: deriving a draw position from
+            // GetPositionEcl "visibly misses the craft". If this number is large while fuse and
+            // atBurst agree, the round is killing the target and being painted somewhere else -
+            // which is exactly what has been reported.
+            double onScreen = -1.0;
+            if (KsaWorld.HasAnchor && KsaWorld.TryVehicleEgo(logTarget, out double3 targetEgo))
+                onScreen = Vec.Len(KsaWorld.AnchorEgo + round.OffsetFromPlatform - targetEgo);
+
+            Log.Debug(() =>
+                $"  detonation: fuse {round.MissDistance:F1} m, atBurst {atBurst:F1} m, " +
+                $"onScreen {(onScreen < 0 ? "n/a" : $"{onScreen:F1} m")}, " +
+                $"drawn {drawn:F1} m; {intoFrame * 1000.0:F1}ms into the frame; " +
+                $"sim {KsaWorld.SimulationSpeed:F2}x step {KsaWorld.SimStepSeconds * 1000.0:F1}ms");
+        }
 
         // The round advanced through this frame's sub-steps; every vehicle's cached position is
         // from the frame start. Comparing the two directly puts the target kilometres away in
