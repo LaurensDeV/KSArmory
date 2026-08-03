@@ -11,3 +11,10 @@ obj/
 .idea/
 .vscode/
 screenshots/
+
+# Release archives
+dist/
+
+# Python bytecode, from tools/ and CI
+__pycache__/
+*.pyc
