@@ -1,3 +1,9 @@
+## [0.4.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.0...v0.4.1) (2026-08-03)
+
+### Fixes
+
+* **sim:** step on the delta KSA applied, not one measured around it ([80023e4](https://github.com/LaurensDeV/KSA-AirDefence/commit/80023e492418a38b128eb10bf6981b4664386a19))
+
 ## [0.4.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.3.2...v0.4.0) (2026-08-03)
 
 ### Features
