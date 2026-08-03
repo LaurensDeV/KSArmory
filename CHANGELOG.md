@@ -1,3 +1,15 @@
+## [0.6.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.5.2...v0.6.0) (2026-08-03)
+
+### Features
+
+* **model:** fold clipped-delta fins out after launch ([4c2062d](https://github.com/LaurensDeV/KSA-AirDefence/commit/4c2062dfc22733355bde035bc39c1b3606649983))
+* **rounds:** seat loaded rounds in their tubes ([01678fa](https://github.com/LaurensDeV/KSA-AirDefence/commit/01678fa21e7de101f27a8b37c6716544bd0faf83))
+* **ui:** put the tube markers behind a debug toggle ([19b7940](https://github.com/LaurensDeV/KSA-AirDefence/commit/19b794012ba24f77cea41307c73d6ccaab1db00f))
+
+### Documentation
+
+* **model:** record the three traps that only bite hand-built meshes ([980a285](https://github.com/LaurensDeV/KSA-AirDefence/commit/980a285d9f0e64753b03dd30d771bb9a8395960f))
+
 ## [0.5.2](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.5.1...v0.5.2) (2026-08-03)
 
 ### Fixes
