@@ -83,6 +83,10 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/setup-starmap.sh                   # one-off: install StarMap and write its config
 ./tools/check-assemblies.sh --game         # has the installed game moved past the lock?
 ./tools/check-ksa-version.sh               # has RocketWerkz published a newer build?
+./tools/api-surface.sh                     # record the KSA API this mod binds to
+./tools/api-surface.sh --check             # ...and fail if the record is stale
+./tools/decompile-assemblies.sh ../ksa-game-assemblies   # refresh the decompiled corpus
+./tools/ksa-api-diff.sh ../ksa-game-assemblies           # which KSA changes hit this mod?
 ./tools/sync-import.sh                     # refresh Import/ -- NOT the whole story after a
                                            #   KSA update; see "After a KSA update" below
 
@@ -122,10 +126,13 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/AirDefence/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/AirDefence.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
+| `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 115 members an upgrade has to preserve |
+| `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
 | `tools/model/` | headless Blender scripts that generate the Pantsir |
-| `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb` |
+| `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 
 ## 3D model pipeline (Blender, headless)
@@ -160,6 +167,12 @@ each already cost time. Three worth repeating here:
   each other, and does nothing for two boxes whose outer faces both sit on the same constant.
   `cyl()` does not inflate at all, and radius alone will not save a coaxial pair: use a
   different facet count or a `cone()`.
+
+**The atlas is not byte-reproducible.** Blender's exporter does not emit triangles in a stable
+order, so a rebuild from unchanged sources gives a different file — same positions, normals and
+UVs, permuted index buffer. `git status` showing it modified after a build therefore means
+nothing. Ask `./tools/model/checkmesh.py <new> --compare <old>`, which compares the surface
+rather than the bytes, and **revert the atlas** if it says the geometry is unchanged.
 
 **Neither shows up in Blender's preview render**, so a clean preview proves nothing.
 `./tools/model/checkmesh.py <atlas.glb>` catches both and exits non-zero — run it after any
@@ -294,17 +307,34 @@ build. It holds hashes and names only, so it is safe in a public repository. Bot
 the assemblies against it and fail if they disagree, and `sync-import.sh` reports the same thing
 locally the moment you refresh.
 
-The dance, in order:
+The dance, in order — **or just run the `upgrade-ksa` skill, which is this written out with the
+reasoning attached**:
 
 ```bash
-./tools/sync-import.sh                              # refresh Import/; it will report the drift
-./tools/sync-assemblies.sh ../ksa-game-assemblies   # refresh the private repo
-#   commit and push there
+./tools/sync-import.sh                                    # refresh Import/; it reports the drift
+./tools/sync-assemblies.sh      ../ksa-game-assemblies    # the mirror's DLLs
+./tools/decompile-assemblies.sh ../ksa-game-assemblies    # the mirror's sources
+#   set current/KSA_BUILD, commit BOTH together, push there
+./tools/ksa-api-diff.sh ../ksa-game-assemblies      # what actually broke — read this
 ./tools/check-assemblies.sh --update                # record the new digests
+./tools/api-surface.sh                              # the surface moves if the fixes did
 #   edit the `build` line in ksa-assemblies.lock, commit it here
 ```
 
 Do the private repo *before* pushing here, or CI fails on the lock it cannot satisfy yet.
+
+**The compiler only finds half of it.** A renamed member is a build error you fix in seconds. A
+member that keeps its name and signature and changes its *meaning* — a different reference
+frame, different units, a reordered enum — compiles clean and is wrong in flight. This
+repository has shipped that bug three times from its own code, and a KSA update can reintroduce
+any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
+650,000 lines to the files defining the 43 types this mod actually uses.
+
+**The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
+first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
+so any KSA mod can build against it. `sync-assemblies.sh --subset` restores the old minimal set.
+Per-mod pinning still comes from that mod's own `ksa-assemblies.lock`, which covers only what it
+references, so the drift check stays exact without the mirror being narrow.
 
 The build number is written down in three places, so update all three: `ksa-assemblies.lock`,
 `current/KSA_BUILD` in the private repo, and the **KSA build** line under Environment above. The

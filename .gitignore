@@ -12,6 +12,10 @@ obj/
 .vscode/
 screenshots/
 
+# Per-machine Claude Code permissions. The skills under .claude/skills/ are shared and tracked;
+# this one is local state and differs per checkout.
+.claude/settings.local.json
+
 # Release archives
 dist/
 
