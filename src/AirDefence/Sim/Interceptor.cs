@@ -208,10 +208,21 @@ internal sealed class Interceptor
             elapsed += h;
         }
 
-        // Advance the platform to the end of the step so the offset is measured between two
-        // positions at the same instant; otherwise it carries a frame of the planet's motion.
-        double3 platformAtEnd = platformEcl + frameVelocityEcl * dt;
-        OffsetFromPlatform = PositionEcl - platformAtEnd;
+        // Both ends are already at the same instant, so no extrapolation. The mod's frame hook
+        // is a *postfix*: KSA has advanced the world before it runs, so platformEcl is the
+        // platform at the end of the step, and the round has just been integrated to the end of
+        // that same step.
+        //
+        // Advancing the platform by frameVelocityEcl * dt "to line them up" therefore pushed it
+        // a whole frame too far — ~500 m of ecliptic motion, scaled by a frame time that changes
+        // every frame. In flight that was a hard lateral zigzag: a fixed horizontal vector added
+        // and subtracted frame to frame, ~20 m at 0.67 ms of jitter, with the vertical axis left
+        // clean because the orbital velocity barely projects onto local up.
+        //
+        // Two earlier attempts at this file's tests missed it by advancing the platform *after*
+        // calling Update — handing over the start-of-step position, against which the
+        // extrapolation is exactly right and cancels. The ordering is the whole bug.
+        OffsetFromPlatform = PositionEcl - platformEcl;
 
         _trailTimer += dt;
         if (_trailTimer >= TrailIntervalSeconds)

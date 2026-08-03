@@ -488,6 +488,23 @@ target's seat re-homed the battery onto the target — which then could not be s
 the kill path refuses to destroy its own platform. Four confirmed 22 m hits looked like misses.
 `PinPlatform` is now only an override for choosing between multiple launcher-equipped craft.
 
+**The frame hook is a postfix, so the world has already moved when it runs.** KSA advances the
+simulation during `OnFrame`; `OnAfterFrame` lands after that. So `KsaWorld.PositionEcl(platform)`
+is the platform at the **end** of the step just applied, and the round — stepped by that same
+`GetLastSimStep().DeltaTime` — arrives at the same instant. They are already aligned, and
+**nothing needs extrapolating to line them up**.
+
+`Interceptor.Update` used to do exactly that, advancing the platform by `frameVelocityEcl * dt`
+before differencing. That pushed it a whole frame too far: ~500 m of ecliptic motion, scaled by a
+frame time that changes every frame. In flight it was a hard lateral zigzag, ~20 m at 0.67 ms of
+jitter, with the vertical axis clean because the orbital velocity barely projects onto local up.
+It survived three wrong diagnoses because **every test in the file advanced the platform *after*
+calling `Update`** — handing over the start-of-step position, against which the extrapolation is
+correct and cancels perfectly. The tests passed; the game zigzagged. `RoundOffsetStabilityTests`
+and `FrameRegressionTests` now advance the platform first, and the invariants are unchanged.
+
+If a test hands `Update` a platform position, it must be the one from **after** the world moved.
+
 **The draw anchor uses two different instants on purpose.** `DrawAnchor.Ego` is sampled this
 frame; `DrawAnchor.Ecl` is the platform position the geometry was measured against, one update
 earlier. The difference between them *is* the frame's ecliptic motion (~500 m at 60 fps), and
