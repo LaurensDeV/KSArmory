@@ -1,3 +1,13 @@
+## [0.4.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.3.2...v0.4.0) (2026-08-03)
+
+### Features
+
+* **rounds:** add a round-body toggle and placement tracing ([0735022](https://github.com/LaurensDeV/KSA-AirDefence/commit/0735022262b1f6edd1f1ca4b2879797d7ab49510))
+
+### Fixes
+
+* **build:** silence the two nullable warnings in TestTarget ([a2bcb04](https://github.com/LaurensDeV/KSA-AirDefence/commit/a2bcb041214327742ec95425152d1fcc85c122d1))
+
 ## [0.3.2](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.3.1...v0.3.2) (2026-08-03)
 
 ### Fixes
