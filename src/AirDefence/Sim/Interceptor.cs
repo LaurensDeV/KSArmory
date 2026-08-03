@@ -114,8 +114,25 @@ internal sealed class Interceptor
     /// </summary>
     public double3 LaunchOffset { get; private set; }
 
-    /// <summary>Displacement since launch. Frame-independent, so safe to rotate into any frame.</summary>
-    public double3 TravelSinceLaunch => OffsetFromPlatform - LaunchOffset;
+    /// <summary>
+    /// Displacement since launch, through the local frame. Frame-independent, so safe to rotate
+    /// into any frame.
+    ///
+    /// <para><b>Accumulated, not differenced.</b> It used to be
+    /// <c>OffsetFromPlatform - LaunchOffset</c>, two positions subtracted a frame apart, and
+    /// every variation of that carried a term multiplied by dt. Since the velocities involved
+    /// include the platform's ~29.8 km/s of ecliptic motion, a frame time wobbling by under a
+    /// millisecond moved the drawn round by tens of metres, and a whole step of it displaced
+    /// rounds ~500 m from the launcher. Three arrangements of that subtraction were tried in
+    /// game; two zigzagged and one was displaced.</para>
+    ///
+    /// <para>Integrating the round's velocity <em>relative to the local frame</em> has no such
+    /// term. It is a sum of bounded local motion — a few metres per frame at a few hundred m/s —
+    /// so it is smooth by construction, starts at exactly zero, and does not depend on which
+    /// instant the platform position was sampled at. That last property is the point: the
+    /// question that caused all of this no longer has to be answered.</para>
+    /// </summary>
+    public double3 TravelSinceLaunch { get; private set; }
 
     /// <summary>
     /// Where this round left from, in the launcher part's own frame. Set by the battery at
@@ -208,21 +225,10 @@ internal sealed class Interceptor
             elapsed += h;
         }
 
-        // Both ends are already at the same instant, so no extrapolation. The mod's frame hook
-        // is a *postfix*: KSA has advanced the world before it runs, so platformEcl is the
-        // platform at the end of the step, and the round has just been integrated to the end of
-        // that same step.
-        //
-        // Advancing the platform by frameVelocityEcl * dt "to line them up" therefore pushed it
-        // a whole frame too far — ~500 m of ecliptic motion, scaled by a frame time that changes
-        // every frame. In flight that was a hard lateral zigzag: a fixed horizontal vector added
-        // and subtracted frame to frame, ~20 m at 0.67 ms of jitter, with the vertical axis left
-        // clean because the orbital velocity barely projects onto local up.
-        //
-        // Two earlier attempts at this file's tests missed it by advancing the platform *after*
-        // calling Update — handing over the start-of-step position, against which the
-        // extrapolation is exactly right and cancels. The ordering is the whole bug.
-        OffsetFromPlatform = PositionEcl - platformEcl;
+        // Where the round sits relative to the platform: where it left from, plus how far it has
+        // flown through the local frame since. Neither term is a cross-frame subtraction of
+        // ecliptic positions, so neither can carry a frame of the planet's motion.
+        OffsetFromPlatform = LaunchOffset + TravelSinceLaunch;
 
         _trailTimer += dt;
         if (_trailTimer >= TrailIntervalSeconds)
@@ -311,9 +317,10 @@ internal sealed class Interceptor
 
         VelocityEcl += accel * h;
 
-        double3 stepEcl = VelocityEcl * h;
-        DistanceFlown += Vec.Len((VelocityEcl - frameVelocityEcl) * h);
-        PositionEcl += stepEcl;
+        double3 localStep = (VelocityEcl - frameVelocityEcl) * h;
+        TravelSinceLaunch += localStep;
+        DistanceFlown += Vec.Len(localStep);
+        PositionEcl += VelocityEcl * h;
 
         if (!Vec.IsFinite(PositionEcl) || !Vec.IsFinite(VelocityEcl))
         {

@@ -44,19 +44,13 @@ public class FrameRegressionTests
 
         // The platform is re-read every update in the game, so it advances with the frame.
         // Holding it still here would be a fiction, and would make the invariant untestable.
-        //
-        // It advances *before* the update, not after: the mod's frame hook is a postfix, so KSA
-        // has already stepped the world when it runs and GetPositionEcl returns the platform at
-        // the end of that step. Advancing after was a fiction of its own - it handed over the
-        // start-of-step position, which made an extrapolation inside Update look correct and
-        // hid a frame of ecliptic motion leaking into every drawn round.
         double3 platform = new(0, 0, 0);
 
         for (int i = 0; i < 10; i++)
         {
-            platform += SolarFrame * dt;
             still.Update(dt, target, NoGravity, frameVelocityEcl: default, platformEcl: default, munition);
             carried.Update(dt, carriedTarget, NoGravity, SolarFrame, platform, munition);
+            platform += SolarFrame * dt;
         }
 
         double drift = Vec.Len(still.OffsetFromPlatform - carried.OffsetFromPlatform);

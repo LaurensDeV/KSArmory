@@ -52,13 +52,11 @@ public class RoundOffsetStabilityTests
         {
             // No target and no gravity: the round's motion in the local frame is a clean climb,
             // so any wobble in the reported offset comes from the bookkeeping, not the physics.
-            // Postfix ordering: KSA moves the world, then the hook runs.
-            platform += OrbitalVelocity * dt;
-
             round.Update(dt, target: null, gravity: double3.Zero,
                          frameVelocityEcl: OrbitalVelocity, platformEcl: platform,
                          munition: munition);
 
+            platform += OrbitalVelocity * dt;
             offsets.Add(round.OffsetFromPlatform);
         }
 
@@ -101,49 +99,85 @@ public class RoundOffsetStabilityTests
     }
 
     [Fact]
-    public void TheOffsetIsSmoothWhenTheWorldMovesBeforeTheHookRuns()
+    public void TheDrawnOffsetDoesNotDependOnTheFrameTime()
     {
-        // The ordering, stated explicitly, because getting it wrong hid a shipped bug.
+        // The property that makes a zigzag impossible, stated directly rather than inferred from
+        // a simulated flight.
         //
-        // The mod's frame hook is a *postfix*: KSA has already advanced the world by the time it
-        // runs, so Vehicle.GetPositionEcl returns the platform at the END of the step, and the
-        // round is integrated to that same instant. The two are already aligned and nothing
-        // needs extrapolating.
+        // Two rounds in identical states, told the same platform position, stepped by different
+        // frame times. Whatever else differs afterwards, the offset the renderer uses must not:
+        // it is a statement about where the round is relative to the platform *now*, and now is
+        // the same for both.
         //
-        // Every test in this file used to advance the platform *after* calling Update, handing
-        // over the start-of-step position. Against that ordering an extrapolation to the end of
-        // the step is exactly right and cancels perfectly - so the tests passed while the game
-        // zigzagged. Under the real ordering the same extrapolation is a whole frame of ecliptic
-        // motion, ~500 m, scaled by a frame time that changes every frame.
+        // Any version that measures the offset after stepping fails this, because it then has to
+        // reconcile a round at the end of the step with a platform at the start - and every way
+        // of doing that multiplies dt by a ~29.8 km/s ecliptic velocity. A 4 ms difference is
+        // 119 m. That is the zigzag, and no simulated flight in this file caught it, because
+        // over successive frames the error telescopes and cancels.
         MunitionProfile munition = Munition();
-        double3 platform = PlatformStart;
         double3 up = new(1, 0, 0);
+        double3 velocity = OrbitalVelocity + up * 300.0;
 
-        var round = new Interceptor(
-            positionEcl: platform + up * 3.0,
-            velocityEcl: OrbitalVelocity + up * munition.LaunchSpeed,
-            target: null!, tube: 1, platformEcl: platform);
+        Interceptor Fresh() => new(PlatformStart + up * 500.0, velocity, null!, 1, PlatformStart);
 
-        var offsets = new List<double3>();
+        Interceptor shortFrame = Fresh();
+        Interceptor longFrame = Fresh();
 
-        for (int frame = 0; frame < 120; frame++)
+        shortFrame.Update(0.016, null, double3.Zero, OrbitalVelocity, PlatformStart, munition);
+        longFrame.Update(0.020, null, double3.Zero, OrbitalVelocity, PlatformStart, munition);
+
+        // A longer frame does mean the round genuinely flew further, so the two are not expected
+        // to match exactly: at ~300 m/s of local speed, 4 ms is 1.2 m of real travel. What must
+        // not appear is the *ecliptic* scale. The same 4 ms against 29.8 km/s is 119 m, and any
+        // expression that subtracts ecliptic positions a frame apart leaks exactly that.
+        //
+        // So the threshold sits deliberately between the two: loose enough for real local
+        // motion, an order of magnitude below anything carrying the platform's orbital velocity.
+        double difference = Vec.Len(shortFrame.OffsetFromPlatform - longFrame.OffsetFromPlatform);
+        Assert.True(difference < 10.0,
+            $"a 4 ms difference in frame time moved the drawn offset by {difference:F1} m — "
+            + "that is ecliptic motion leaking in, not the round flying");
+    }
+
+    [Fact]
+    public void TheDrawnOffsetDoesNotDependOnWhenThePlatformWasSampled()
+    {
+        // The property that ends this whole class of bug, and the only one that discriminates.
+        //
+        // Whether the platform position handed to Update is from the start of the step or the
+        // end of it is a question about KSA's frame ordering that took four attempts and three
+        // broken builds to not answer. Every test in this file assumes one of the two, so none
+        // of them can catch a version that assumes the other — which is how a 500 m displacement
+        // and two zigzags each got in front of a player.
+        //
+        // Accumulating travel through the local frame makes the question irrelevant: the drawn
+        // offset is the launch point plus an integral of local velocity, and the platform
+        // position passed each frame does not enter into it. So feed one round a platform
+        // position that is wrong by half a kilometre every frame, and nothing should move.
+        MunitionProfile munition = Munition();
+        double3 up = new(1, 0, 0);
+        double3 velocity = OrbitalVelocity + up * 300.0;
+
+        var honest = new Interceptor(PlatformStart + up * 3.0, velocity, null!, 1, PlatformStart);
+        var misled = new Interceptor(PlatformStart + up * 3.0, velocity, null!, 1, PlatformStart);
+
+        double3 platform = PlatformStart;
+        for (int frame = 0; frame < 60; frame++)
         {
             double dt = frame % 2 == 0 ? 0.016 : 0.020;
 
-            platform += OrbitalVelocity * dt;    // KSA advances the world...
-            round.Update(dt, null, double3.Zero, OrbitalVelocity, platform, munition);  // ...then we run
+            honest.Update(dt, null, double3.Zero, OrbitalVelocity, platform, munition);
 
-            offsets.Add(round.OffsetFromPlatform);
+            // A whole step of ecliptic motion out, alternating - the exact error every previous
+            // arrangement of this could be wrong by.
+            double3 wrong = platform + OrbitalVelocity * (frame % 2 == 0 ? dt : -dt);
+            misled.Update(dt, null, double3.Zero, OrbitalVelocity, wrong, munition);
+
+            platform += OrbitalVelocity * dt;
         }
 
-        // The round climbs at a few hundred m/s, so consecutive offsets differ by a few metres.
-        // 29800 m/s times a 4 ms swing is ~119 m, and that is the zigzag.
-        for (int i = 1; i < offsets.Count; i++)
-        {
-            double step = Vec.Len(offsets[i] - offsets[i - 1]);
-            Assert.True(step < 30.0,
-                $"frame {i}: offset moved {step:F0} m; a frame of ecliptic motion is leaking in");
-        }
+        double difference = Vec.Len(honest.OffsetFromPlatform - misled.OffsetFromPlatform);
+        Assert.Equal(0.0, difference, 6);
     }
 
     [Fact]
@@ -170,8 +204,8 @@ public class RoundOffsetStabilityTests
         double previous = 0.0;
         foreach (double dt in frameTimes)
         {
-            platform += OrbitalVelocity * dt;
             round.Update(dt, null, double3.Zero, OrbitalVelocity, platform, munition);
+            platform += OrbitalVelocity * dt;
 
             double travelled = Vec.Len(round.TravelSinceLaunch);
             Assert.True(travelled >= previous - 1e-6,
