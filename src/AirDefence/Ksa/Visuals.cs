@@ -36,7 +36,7 @@ internal static class Visuals
         if (config.DrawRadarVolume) DrawSearchVolume(origin, battery.Boresight, config);
         if (config.DrawTracks) DrawTracks(battery, origin, config);
         if (config.DrawMissiles) DrawRounds(battery, config);
-        if (battery.Launcher is not null && config.DrawMissiles) DrawLoadedTubes(battery, config, origin);
+        if (battery.Launcher is not null && config.DrawTubeMarkers) DrawLoadedTubes(battery, config, origin);
         if (config.DrawRadarVolume) DrawTurretFacing(battery);
     }
 

@@ -435,6 +435,7 @@ internal sealed class Ui(Config config, DefenceBattery battery)
             // Bodies and tracers are placed by entirely separate paths, so toggling this while
             // watching a round in flight says which of the two is misbehaving.
             ImGui.Checkbox("Round bodies (off = tracers only)", ref _config.UseRoundBodies);
+            ImGui.Checkbox("Tube markers (debug)", ref _config.DrawTubeMarkers);
             ImGui.TextDisabled(_battery.RoundBodyCount > 0 && _battery.RoundBodiesWork
                 ? "  rounds have real bodies; the tracer hides them up close"
                 : "  no round bodies available - tracers are all there is");

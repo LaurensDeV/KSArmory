@@ -13,11 +13,6 @@ namespace AirDefence;
 /// </summary>
 public sealed class Config
 {
-    // NOTE: armed, auto-engaging, verbose and willing to shoot at the craft you are flying, all
-    // by default. That is a testing posture, not a shipping one - set for a debugging session so
-    // the panel does not have to be reconfigured on every launch. Restore the safe defaults
-    // (Armed = false, AutoEngage = false, VerboseLog = false, ProtectControlledVehicle = true)
-    // before this goes anywhere near a release.
 
     /// <summary>
     /// The weapon system the panel is showing. Set by the battery when it resolves its
@@ -39,13 +34,13 @@ public sealed class Config
     // ---- Engagement policy ----------------------------------------------
 
     /// <summary>Engage without asking.</summary>
-    public bool AutoEngage = true;
+    public bool AutoEngage;
 
     /// <summary>Master arm. Nothing launches while this is false.</summary>
-    public bool Armed = true;
+    public bool Armed;
 
     /// <summary>Never fire on the vehicle the player is flying.</summary>
-    public bool ProtectControlledVehicle;
+    public bool ProtectControlledVehicle = true;
 
     /// <summary>Rounds committed to a single target before re-evaluating.</summary>
     public int RoundsPerTarget = 2;
@@ -95,7 +90,7 @@ public sealed class Config
     /// This turns it back on without needing a different build, which is what you want from
     /// someone reporting a bug.
     /// </summary>
-    public bool VerboseLog = true;
+    public bool VerboseLog;
 
     // ---- Visuals --------------------------------------------------------
 
@@ -119,6 +114,15 @@ public sealed class Config
     /// looks wrong.
     /// </summary>
     public bool DrawRoundMarkers;
+
+    /// <summary>
+    /// Draw a marker on each tube, green for loaded and grey for spent.
+    ///
+    /// <para>Off by default. It was a diagnostic for whether the tube offsets tracked the pods
+    /// through traverse and elevation, which they now demonstrably do — and with rounds sitting
+    /// visibly in their tubes it is redundant as well as untidy.</para>
+    /// </summary>
+    public bool DrawTubeMarkers;
 
     /// <summary>
     /// Place a real subpart body on each round in flight.
