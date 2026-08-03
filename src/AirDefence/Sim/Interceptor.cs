@@ -32,6 +32,16 @@ internal sealed class Interceptor
     /// guidance stable and stops fast targets tunnelling through the fuse radius.</summary>
     private const double SubStep = 0.005;
 
+    /// <summary>Most sub-steps one <see cref="Advance"/> will run, however long the frame.</summary>
+    private const int MaxSubSteps = 64;
+
+    /// <summary>
+    /// Longest frame this can integrate without coarsening. Beyond it the sub-step clamp starts
+    /// stretching each step, and a round doing 700 m/s begins skipping past its own fuse radius
+    /// — so <see cref="SimClock"/> refuses to step at all rather than let that happen quietly.
+    /// </summary>
+    public const double MaxFaithfulStep = SubStep * MaxSubSteps;
+
     public double3 PositionEcl;
     public double3 VelocityEcl;
 
@@ -173,7 +183,7 @@ internal sealed class Interceptor
 
         _frameVelocityEcl = frameVelocityEcl;
 
-        int steps = Math.Clamp((int)Math.Ceiling(dt / SubStep), 1, 64);
+        int steps = Math.Clamp((int)Math.Ceiling(dt / SubStep), 1, MaxSubSteps);
         double h = dt / steps;
         double elapsed = 0.0;
 

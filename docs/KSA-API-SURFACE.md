@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-43 types and 115 members across 4 assemblies.
+43 types and 118 members across 4 assemblies.
 
 ## Brutal.Core.Numerics
 
@@ -198,7 +198,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.SimTime
 
-*referenced as a type only*
+- `double Seconds()`
 
 ### KSA.Transform3D
 
@@ -208,6 +208,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.CelestialSystem get_CurrentSystem()`
 - `KSA.SimTime GetElapsedSimTime()`
+- `bool IsPaused()`
+- `double get_SimulationSpeed()`
 - `void DestroyVehicleFromEvent(KSA.Vehicle, KSA.VehicleDestructionEvent)`
 
 ### KSA.Vehicle

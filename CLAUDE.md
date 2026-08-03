@@ -478,6 +478,22 @@ differencing against the older reference is what cancels it. **Collapsing them i
 looks like a tidy-up and puts the entire overlay beside the craft.** That has now happened
 twice. `DrawAnchorTests` fails if it happens again — read `DrawAnchor.cs` before touching it.
 
+**The battery runs on simulated time, never on player time.** StarMap's frame hook hands you
+`currentPlayerTime` and a player-time delta, and both are deliberately ignored. Player time is
+wall-clock, which is wrong twice over and both were seen in game: it keeps running while the
+game is **paused**, so the radar accumulated dwell, matured a firing solution and launched into
+a frozen world; and it ignores **timewarp**, so at 10× the world moved ten times further per
+frame than the rounds did and tracking fell apart. `KsaWorld.SimTimeSeconds` differenced by
+`Sim/SimClock.cs` is the fix, and it is `Universe.GetElapsedSimTime()` plus `Universe.IsPaused()`.
+
+`SimClock` also refuses steps it cannot integrate. `Interceptor` subdivides internally but
+clamps at 64 sub-steps, so beyond `Interceptor.MaxFaithfulStep` (0.32 s) a round at 700 m/s
+starts stepping over its own fuse radius. Past that — heavy warp, or a load that replaced the
+clock — the battery calls `AbandonFlight` and drops what is in the air rather than pretending.
+Clamping the delta instead, which is what the old code did with `Math.Min(dt, 0.1)`, silently
+discards time and makes the mismatch worse. `SimClockTests` pins both behaviours, and both were
+checked by reintroducing the bug.
+
 **Kills are binary.** KSA exposes no partial-damage model, only
 `Universe.DestroyVehicleFromEvent`. `LethalRadius` destroys; between lethal and `BlastRadius`
 the mod logs a near miss and the target survives.

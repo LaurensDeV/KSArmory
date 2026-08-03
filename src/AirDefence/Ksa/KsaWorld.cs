@@ -17,6 +17,19 @@ internal static class KsaWorld
 
     public static bool InFlight => Program.ControlledVehicle is { IsDisposed: false };
 
+    /// <summary>
+    /// Elapsed simulated seconds. This — not the player-time delta StarMap hands the frame hook
+    /// — is what the battery steps on, so that a paused game advances nothing and a warped one
+    /// advances by however much the world actually moved. See <see cref="SimClock"/>.
+    /// </summary>
+    public static double SimTimeSeconds => Universe.GetElapsedSimTime().Seconds();
+
+    /// <summary>True while the simulation is stopped. KSA defines this as speed exactly zero.</summary>
+    public static bool IsPaused => Universe.IsPaused();
+
+    /// <summary>Current timewarp factor; 1.0 is real time, 0.0 is paused. Display only.</summary>
+    public static double SimulationSpeed => Universe.SimulationSpeed;
+
     /// <summary>True once the vehicle has been destroyed or unloaded out from under us.</summary>
     public static bool IsAlive(Vehicle? v) => v is { IsDisposed: false };
 

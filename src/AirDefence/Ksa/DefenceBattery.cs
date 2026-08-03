@@ -673,6 +673,32 @@ internal sealed class DefenceBattery(Config config)
         if (_events.Count > keep) _events.RemoveRange(0, _events.Count - keep);
     }
 
+    /// <summary>
+    /// Drops everything in flight and forgets what the radar was holding, without touching the
+    /// platform, the magazine or the player's settings.
+    ///
+    /// <para>Called when more simulated time passed than can be integrated — heavy timewarp, or
+    /// a load that replaced the clock. Rounds mid-flight relate to a world that no longer
+    /// exists, and stepping them by a huge delta would fly them through their targets. Tracking
+    /// is cleared too so dwell restarts rather than granting an instant firing solution off
+    /// time that was never simulated.</para>
+    /// </summary>
+    public void AbandonFlight(string why)
+    {
+        bool hadRounds = _rounds.Count > 0;
+
+        _rounds.Clear();
+        _pendingKills.Clear();
+        Radar.Reset();
+        _salvoTimer = 0.0;
+
+        // Hide the round bodies that were riding those interceptors, or they freeze mid-air.
+        for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
+
+        if (hadRounds) Announce($"rounds abandoned: {why}");
+        else Log.Debug(() => $"tracking reset: {why}");
+    }
+
     public void Reset()
     {
         _rounds.Clear();

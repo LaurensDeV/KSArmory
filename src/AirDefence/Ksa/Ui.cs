@@ -14,6 +14,13 @@ internal sealed class Ui(Config config, DefenceBattery battery)
     private static readonly float4 Amber = new(1.0f, 0.78f, 0.25f, 1f);
     private static readonly float4 Grey = new(0.65f, 0.65f, 0.7f, 1f);
 
+    /// <summary>
+    /// Warp above which a frame carries more simulated time than the interceptor can integrate,
+    /// so the battery stands rounds down. Indicative only: the real limit is per frame, so a
+    /// lower frame rate reaches it sooner. Assumes 60 fps.
+    /// </summary>
+    private const double MaxTrackableWarp = Interceptor.MaxFaithfulStep * 60.0;
+
     private readonly Config _config = config;
     private readonly DefenceBattery _battery = battery;
 
@@ -92,6 +99,21 @@ internal sealed class Ui(Config config, DefenceBattery battery)
             ImGui.Text($"Reloading: {_battery.ReloadRemaining:F1}s");
             ImGui.ProgressBar(
                 (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
+        }
+
+        // The battery runs on simulated time, so a paused or heavily warped game is not a fault
+        // but it does explain a silent battery. Saying so beats the report this came from,
+        // which was "tracking is completely messed up".
+        if (KsaWorld.IsPaused)
+        {
+            ImGui.Text("Paused - the battery is stopped with the world");
+        }
+        else if (KsaWorld.SimulationSpeed > 1.0)
+        {
+            double warp = KsaWorld.SimulationSpeed;
+            ImGui.Text(warp > MaxTrackableWarp
+                ? $"Warp {warp:F0}x - too fast to guide; rounds stand down"
+                : $"Warp {warp:F0}x");
         }
 
         DrawTurretLine();

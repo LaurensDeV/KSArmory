@@ -470,7 +470,21 @@ when a target dies mid-engagement. Run them still — expect fewer surprises.
 
 - [ ] A round fired at a low target passes through terrain rather than hitting it. Expected —
       rounds only test against their target — but confirm it does not throw.
-- [ ] Timewarp during flight: rounds may behave oddly; a crash would not be acceptable.
+- [x] **Timewarp during flight: confirmed broken, and fixed.** Reported from play as tracking
+      being "completely messed up" by changing simulation speed, and as the battery still
+      firing while **paused**. One cause: the mod stepped on StarMap's *player-time* delta,
+      which is wall-clock — it runs through a pause and stays at 1× under warp. It now steps on
+      `Universe.GetElapsedSimTime()` via `Sim/SimClock.cs`.
+
+### 7.5b Retest after the time-source fix
+
+- [ ] Pause mid-engagement: rounds hold position, no launches, no dwell accrued. Resume and the
+      engagement continues rather than jumping.
+- [ ] 2×–10× warp with rounds in flight: they still guide and still intercept.
+- [ ] Above ~20× (0.32 s of sim time in one frame): the panel says *rounds stand down*, the
+      rounds vanish, and nothing throws. Dropping them is intended, not a failure.
+- [ ] Warp up and back down repeatedly: the battery recovers each time and re-acquires.
+- [ ] Load a save while rounds are in flight: they are abandoned, not flown into the new world.
 
 ---
 

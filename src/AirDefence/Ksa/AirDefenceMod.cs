@@ -16,9 +16,7 @@ public sealed class AirDefenceMod
 {
     private const int FaultLimit = 10;
 
-    /// <summary>Frames longer than this are treated as a hitch and stepped at this length.</summary>
-    private const double MaxStep = 0.1;
-
+    private readonly SimClock _clock = new();
     private readonly Config _config = new();
     private DefenceBattery? _battery;
     private Ui? _ui;
@@ -40,19 +38,44 @@ public sealed class AirDefenceMod
     }
 
     /// <summary>
-    /// Simulation tick. StarMap passes the player-time clock and the frame delta; we use the
-    /// delta and clamp it so a stall cannot teleport rounds through their targets.
+    /// Simulation tick.
+    ///
+    /// <para>StarMap passes a <em>player-time</em> clock and delta, and those are deliberately
+    /// ignored. Player time is wall-clock: it runs through a pause, so the battery used to
+    /// mature a lock and fire into a frozen world, and it ignores timewarp, so under warp the
+    /// world moved many seconds while rounds moved one frame. Both were seen in game. The
+    /// simulation clock is the one that matches what the world did.</para>
     /// </summary>
     [StarMapAfterOnFrame]
     public void OnAfterFrame(double currentPlayerTime, double dtPlayer)
     {
         if (_disabled || _battery is null) return;
-        if (!double.IsFinite(dtPlayer) || dtPlayer <= 0.0) return;
-        if (!KsaWorld.InFlight) return;
+        if (!KsaWorld.InFlight)
+        {
+            // Out of flight the clock belongs to a world we are not simulating; drop the
+            // reference so re-entering primes afresh instead of reporting a vast delta.
+            _clock.Reset();
+            return;
+        }
 
         try
         {
-            _battery.Update(Math.Min(dtPlayer, MaxStep));
+            switch (_clock.Advance(KsaWorld.SimTimeSeconds, KsaWorld.IsPaused, out double dt))
+            {
+                case SimClock.State.Run:
+                    _battery.Update(dt);
+                    break;
+
+                case SimClock.State.Skipped:
+                    // More simulated time passed than can be integrated, or the clock was
+                    // replaced. Anything in flight is meaningless now.
+                    _battery.AbandonFlight("simulation time jumped");
+                    break;
+
+                case SimClock.State.Priming:
+                case SimClock.State.Idle:
+                    break;
+            }
         }
         catch (Exception e)
         {
