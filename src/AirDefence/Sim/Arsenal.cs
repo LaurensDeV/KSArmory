@@ -19,6 +19,20 @@ public static class Arsenal
     // ---- Munitions ------------------------------------------------------
 
     /// <summary>57E6: the Pantsir's two-stage round. Boosts hard, then coasts on the sustainer.</summary>
+    /// <summary>
+    /// The 57E6, as flown by the real Pantsir-S1.
+    ///
+    /// <para>The defaults on <see cref="MunitionProfile"/> are this round, so the figures live
+    /// there. What matters here is which of them are real and which are ours: peak speed
+    /// (~1300 m/s), boost duration (~2.4 s), reach (20 km) and the command-link guidance are
+    /// taken from the actual weapon. The fuse and blast radii are gameplay numbers — a 20 kg
+    /// continuous-rod warhead has a much smaller lethal envelope than 20 m, but KSA exposes
+    /// only binary destruction, so a realistic radius would read as the round doing nothing.</para>
+    ///
+    /// <para>The 57E6 carries <b>no seeker</b>. The vehicle tracks and uplinks steering commands,
+    /// which is why a hard-manoeuvring target cannot blind it — the engagement ends when the
+    /// launcher loses the track, not when the round loses sight of anything.</para>
+    /// </summary>
     public static readonly MunitionProfile Missile57E6 = new()
     {
         Name = "57E6",
@@ -28,6 +42,14 @@ public static class Arsenal
 
     // ---- Sensors --------------------------------------------------------
 
+    /// <summary>
+    /// The 1RS1-1E search set, with the engagement envelope of the system it feeds.
+    ///
+    /// <para>Detection reaches much further than the round flies — 36 km against 20 km — so the
+    /// envelope is a separate limit rather than a consequence of detection range. Without it the
+    /// battery fires at everything it can see and the rounds expire short, which is precisely
+    /// what every long crossing shot did.</para>
+    /// </summary>
     public static readonly SensorProfile SearchRadar1Rs1 = new()
     {
         Name = "1RS1",

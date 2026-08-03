@@ -185,6 +185,15 @@ internal sealed class Interceptor
 
     public double Speed => Vec.Len(VelocityLocal);
 
+    /// <summary>Lateral acceleration the guidance asked for last sub-step, in g. Diagnostic.</summary>
+    public double CommandG { get; private set; }
+
+    /// <summary>True when that demand was clipped by <see cref="MunitionProfile.MaxLateralG"/>.</summary>
+    public bool CommandSaturated { get; private set; }
+
+    /// <summary>Largest demand seen this flight, in g.</summary>
+    public double PeakCommandG { get; private set; }
+
     /// <summary>
     /// Advances the round by <paramref name="dt"/> seconds, subdividing internally.
     /// </summary>
@@ -284,9 +293,26 @@ internal sealed class Interceptor
             // Seeker gimbal limit: the target must be inside the cone about the flight path for
             // the round to *steer*. Recomputed every sub-step rather than latched, so a target
             // that swings back into the cone is picked up again instead of being written off.
-            SeekerInView = Vec.AngleBetween(r, localVelocity) <= munition.SeekerFovRad;
+            // A command-linked round always can steer: the launcher tracks and uplinks, so
+            // nothing about the round's own attitude can break it, and a hard-manoeuvring target
+            // cannot blind it. What ends the engagement is the launcher losing sight, which
+            // reaches here as the caller no longer supplying target state. The real 57E6 carries
+            // no seeker. A seeker round keeps its gimbal limit, recomputed every sub-step so losing
+            // the target is not permanent.
+            SeekerInView = munition.Guidance == GuidanceMode.CommandLink
+                           || Vec.AngleBetween(r, localVelocity) <= munition.SeekerFovRad;
 
-            if (SeekerInView) accel += GuidanceAccel(r, v, localVelocity, gravity, munition);
+            if (SeekerInView)
+            {
+                double3 demand = GuidanceDemand(r, v, localVelocity, gravity, munition);
+                double demandMag = Vec.Len(demand);
+
+                CommandG = demandMag / 9.80665;
+                CommandSaturated = demandMag > munition.MaxLateralAccel * 1.001;
+                if (CommandG > PeakCommandG) PeakCommandG = CommandG;
+
+                accel += Vec.ClampLength(demand, munition.MaxLateralAccel);
+            }
 
             // The proximity fuse does not ask the seeker's permission, and neither does a real
             // one. Tying them together scored direct hits as misses: closing on a crossing
@@ -303,8 +329,16 @@ internal sealed class Interceptor
                 double miss = Vec.Len(r + v * tCa);
                 if (miss <= trigger)
                 {
-                    // Detonate where the round actually is at closest approach.
+                    // Detonate where the round actually is at closest approach. The hop is
+                    // booked to the travel as well as the position: everything drawn comes from
+                    // TravelSinceLaunch, so returning early without it leaves the round rendered
+                    // short of where it went off, by an amount that moves with the frame time.
+                    double3 hopLocal = (VelocityEcl - frameVelocityEcl) * tCa;
+
                     PositionEcl += VelocityEcl * tCa;
+                    TravelSinceLaunch += hopLocal;
+                    DistanceFlown += Vec.Len(hopLocal);
+
                     MissDistance = miss;
                     DetonationElapsedInFrame = elapsedInFrame + tCa;
                     State = RoundState.Detonated;
@@ -354,5 +388,22 @@ internal sealed class Interceptor
         command = Vec.RejectFrom(command, missileVelocity);
 
         return Vec.ClampLength(command, munition.MaxLateralAccel);
+    }
+
+    /// <summary>
+    /// The same law without the final clamp, so callers can see what was actually asked for.
+    /// A round permanently asking for more than it can pull is not mis-aimed, it is
+    /// out-manoeuvred, and those need different fixes.
+    /// </summary>
+    internal static double3 GuidanceDemand(
+        double3 r, double3 v, double3 missileVelocity, double3 gravity, MunitionProfile munition)
+    {
+        double rangeSq = Vec.Len2(r);
+        if (rangeSq < 1e-6) return Vec.Zero;
+
+        double3 omega = Vec.Cross(r, v) / rangeSq;
+        double3 command = Vec.Cross(omega, -v) * munition.NavConstant;
+        command -= gravity * munition.GravityCompensation;
+        return Vec.RejectFrom(command, missileVelocity);
     }
 }

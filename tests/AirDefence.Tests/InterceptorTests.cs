@@ -200,6 +200,7 @@ public class InterceptorTests
     public void Seeker_BreaksLock_WhenTargetLeavesItsFieldOfView()
     {
         MunitionProfile munition = Vacuum();
+        munition.Guidance = GuidanceMode.Seeker;   // the default round is command-linked
         munition.SeekerFovDeg = 20f;
 
         // Round flying +X; target sits hard abeam on +Y, well outside a 20 degree seeker.

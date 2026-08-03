@@ -1,5 +1,23 @@
 namespace AirDefence;
 
+/// <summary>How a round is told where to go.</summary>
+public enum GuidanceMode
+{
+    /// <summary>
+    /// The round finds the target itself, within a gimbal limit about its own flight path.
+    /// Losing the target inside that cone stops it steering.
+    /// </summary>
+    Seeker,
+
+    /// <summary>
+    /// The launcher tracks the target and uplinks steering commands — the round carries no
+    /// seeker. It therefore cannot be blinded by a hard-manoeuvring target, and its gimbal
+    /// limit is irrelevant; what breaks the engagement is the *launcher* losing the track.
+    /// This is how the 57E6 and most short-range point-defence rounds actually work.
+    /// </summary>
+    CommandLink,
+}
+
 /// <summary>
 /// Everything that makes one round behave differently from another: how it burns, how it
 /// steers, how far it can see, and what it does when it gets there.
@@ -27,45 +45,51 @@ public sealed class MunitionProfile
 
     // ---- Boost ----------------------------------------------------------
     /// <summary>Speed the round leaves the rail at, relative to the platform (m/s).</summary>
-    public float LaunchSpeed = 60f;
+    public float LaunchSpeed = 45f;
 
     /// <summary>Seconds of powered flight after launch.</summary>
-    public float BoostSeconds = 2.2f;
+    public float BoostSeconds = 2.4f;
 
     /// <summary>Axial acceleration during boost (m/s^2).</summary>
-    public float BoostAccel = 260f;
+    public float BoostAccel = 520f;
 
     /// <summary>Round self-destructs this long after launch.</summary>
-    public float MaxFlightSeconds = 22f;
+    public float MaxFlightSeconds = 30f;
 
     // ---- Guidance -------------------------------------------------------
     /// <summary>Proportional-navigation constant. 3-5 is the classic range.</summary>
     public float NavConstant = 4f;
 
     /// <summary>Lateral acceleration limit (g). Airframes cap out; ours does too.</summary>
-    public float MaxLateralG = 30f;
+    public float MaxLateralG = 35f;
 
     /// <summary>Seeker gimbal limit, half-angle off the round's velocity vector (degrees).</summary>
+    /// <summary>
+    /// How the round is steered. <see cref="GuidanceMode.CommandLink"/> ignores
+    /// <see cref="SeekerFovDeg"/> entirely.
+    /// </summary>
+    public GuidanceMode Guidance = GuidanceMode.CommandLink;
+
     public float SeekerFovDeg = 55f;
 
     /// <summary>Fraction of local gravity the autopilot compensates for.</summary>
     public float GravityCompensation = 1f;
 
     /// <summary>Quadratic drag coefficient, k in a = -k*|v|*v. Zero for vacuum-like flight.</summary>
-    public float DragK = 4.0e-5f;
+    public float DragK = 3.0e-5f;
 
     // ---- Warhead --------------------------------------------------------
     /// <summary>Proximity fuse trigger radius (m).</summary>
-    public float FuseRadius = 22f;
+    public float FuseRadius = 15f;
 
     /// <summary>Fuse stays safe for this long after launch, so we never kill the platform.</summary>
     public float FuseArmSeconds = 0.6f;
 
     /// <summary>Radius inside which a detonation is unconditionally lethal (m).</summary>
-    public float LethalRadius = 30f;
+    public float LethalRadius = 20f;
 
     /// <summary>Radius at which blast effect falls to zero (m).</summary>
-    public float BlastRadius = 90f;
+    public float BlastRadius = 60f;
 
     public float SeekerFovRad => float.DegreesToRadians(SeekerFovDeg);
     public double MaxLateralAccel => MaxLateralG * 9.80665;
