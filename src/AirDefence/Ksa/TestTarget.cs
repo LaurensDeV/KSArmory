@@ -228,10 +228,13 @@ internal static class TestTarget
         {
             try
             {
-                VehicleSave save = DefaultVehicleSaves.FindSave(craftName);
+                // Both are genuinely nullable in KSA - FindSave returns VehicleSave? and Load
+                // returns PartTree? - so declaring them non-null was the warning, not the
+                // checks below, which were already right.
+                VehicleSave? save = DefaultVehicleSaves.FindSave(craftName);
                 if (save is not null)
                 {
-                    PartTree tree = save.Load(Program.MainViewport);
+                    PartTree? tree = save.Load(Program.MainViewport);
                     if (tree is not null) return tree;
                 }
                 Log.Warn($"test target: stock craft '{craftName}' not found, cloning the platform instead");
