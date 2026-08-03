@@ -1,0 +1,87 @@
+name: KSA version watch
+
+# Asks RocketWerkz's master server whether KSA has moved past the build this repository is
+# pinned to, and opens an issue when it has.
+#
+# This is the only check that can notice an update *before* it is installed. Everything else
+# compares assemblies, which means already having the new ones — by which point you have
+# probably noticed anyway. KSA is pre-release and its API moves between builds, so knowing
+# early is worth a weekly request.
+#
+# Deliberately opens an issue rather than failing: nothing is broken when the game updates, it
+# just means there is work to do, and a red cross on an unrelated commit says that badly.
+
+on:
+  schedule:
+    - cron: "17 7 * * 1"    # Mondays, a few minutes off the hour so as not to pile onto :00
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Compare with the pinned build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the published version
+        id: check
+        run: |
+          if output="$(./tools/check-ksa-version.sh 2>&1)"; then
+            echo "up to date"
+            echo "$output" >> "$GITHUB_STEP_SUMMARY"
+            echo "moved=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "moved=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "published=$(grep -oP '(?<=published: ).*' <<< "$output")"
+              echo "pinned=$(grep -oP '(?<=pinned: {4}).*' <<< "$output")"
+            } >> "$GITHUB_OUTPUT"
+            {
+              echo '```'
+              echo "$output"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Open an issue
+        if: steps.check.outputs.moved == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISHED: ${{ steps.check.outputs.published }}
+          PINNED: ${{ steps.check.outputs.pinned }}
+        run: |
+          title="KSA $PUBLISHED is out (pinned to $PINNED)"
+
+          # The schedule fires weekly; without this it would file the same issue every Monday
+          # until someone acted on it.
+          if gh issue list --state open --search "$title in:title" --json title \
+              -q '.[].title' | grep -Fxq "$title"; then
+            echo "already tracked: $title"
+            exit 0
+          fi
+
+          gh issue create --title "$title" --body "$(cat <<EOF
+          The master server reports KSA **$PUBLISHED**. This repository is built and tested
+          against **$PINNED**.
+
+          KSA is pre-release and has no official modding API, so the surface this mod compiles
+          against genuinely moves between builds. Nothing is broken until we move — CI keeps
+          building against the pinned assemblies — but the mod is untested on the new one.
+
+          To move, from a machine with the update installed:
+
+          \`\`\`bash
+          ./tools/sync-import.sh                              # refresh Import/
+          ./tools/sync-assemblies.sh ../ksa-game-assemblies   # refresh the private repo, then push there
+          ./tools/check-assemblies.sh --update                # record the new digests
+          # set 'build $PUBLISHED' in ksa-assemblies.lock, and CLAUDE.md's Environment line
+          ./tools/test.sh && ./tools/validate-parts.py
+          \`\`\`
+
+          See *After a KSA update* in CLAUDE.md. Opened automatically by \`ksa-version.yml\`.
+          EOF
+          )"

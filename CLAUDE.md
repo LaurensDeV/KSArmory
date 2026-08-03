@@ -81,7 +81,8 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
 ./tools/run.sh --attach                    # follow a game that's already running
 ./tools/setup-starmap.sh                   # one-off: install StarMap and write its config
-./tools/check-assemblies.sh --game         # has KSA updated since the lock was written?
+./tools/check-assemblies.sh --game         # has the installed game moved past the lock?
+./tools/check-ksa-version.sh               # has RocketWerkz published a newer build?
 ./tools/sync-import.sh                     # refresh Import/ -- NOT the whole story after a
                                            #   KSA update; see "After a KSA update" below
 
@@ -264,9 +265,19 @@ nothing local changed.
 
 ### After a KSA update
 
-**You will be told when this happens.** `./tools/build.sh` checks the installed game against the
-lock on every build and is silent unless it has moved, so the first build after a KSA update
-says so. `./tools/check-assemblies.sh --game` asks the same question on demand.
+**You will be told when this happens**, twice over:
+
+- **Before the update is installed** — RocketWerkz publish the current build at
+  `http://ksa-master1.rocketwerkz.com:8082/version`, which returns
+  `{"Version": "...", "Url": "..."}`. `./tools/check-ksa-version.sh` compares it to the lock,
+  and the `ksa-version.yml` workflow does the same weekly and **opens an issue** when they
+  diverge. It opens an issue rather than failing: nothing is broken when the game moves, there
+  is just work to do, and a red cross on an unrelated commit says that badly.
+- **After it is installed** — `./tools/build.sh` checks the install against the lock on every
+  build, silent unless it has moved. `./tools/check-assemblies.sh --game` asks on demand.
+
+The version check is deliberately *not* wired into `build.sh`: a network call on every build is
+slow, breaks offline, and would be the first thing anyone disabled.
 
 That check deliberately looks at the *install*, not at whatever the build resolved: `Import/` is
 a copy, so it still matches the lock after a game update and would report all-clear. It also
