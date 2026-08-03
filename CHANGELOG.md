@@ -1,3 +1,15 @@
+## [0.3.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.2.0...v0.3.0) (2026-08-03)
+
+### Features
+
+* **tools:** mirror and decompile the whole KSA SDK ([4bf7ed7](https://github.com/LaurensDeV/KSA-AirDefence/commit/4bf7ed7811fa2e05a6dfabe30342149ce11a63fa))
+* **tools:** narrow a KSA update to the changes that touch this mod ([cd3fe6b](https://github.com/LaurensDeV/KSA-AirDefence/commit/cd3fe6b21d23783d6cddf8c887fd24aabce14c83))
+* **tools:** record the KSA API surface this mod binds to ([e5f9c87](https://github.com/LaurensDeV/KSA-AirDefence/commit/e5f9c87d653d72753d85ecabc9b9d9a836ce0117))
+
+### Documentation
+
+* add an upgrade-ksa skill and record the new workflow ([1142ca4](https://github.com/LaurensDeV/KSA-AirDefence/commit/1142ca49cbf0363aa539a73adc15b3af1a53df75))
+
 ## [0.2.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.1.1...v0.2.0) (2026-08-03)
 
 ### Features
