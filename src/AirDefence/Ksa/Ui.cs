@@ -116,6 +116,13 @@ internal sealed class Ui(Config config, DefenceBattery battery)
                 : $"Warp {warp:F0}x");
         }
 
+        // Should stay at zero. If it does not, the render rate is outrunning the simulation
+        // clock and that is worth knowing, because it explains stuttering round bodies.
+        if (_battery.FramesWithoutSimStep > 0)
+        {
+            ImGui.TextColored(Amber, $"Frames with no sim step: {_battery.FramesWithoutSimStep}");
+        }
+
         DrawTurretLine();
 
         var locked = _battery.Radar.Locked;

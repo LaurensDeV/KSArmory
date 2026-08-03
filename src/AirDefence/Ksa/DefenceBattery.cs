@@ -95,6 +95,16 @@ internal sealed class DefenceBattery(Config config)
     /// <summary>How many round bodies the launcher actually carries. Zero means tracers only.</summary>
     public int RoundBodyCount => _missileBodies.Count;
 
+    /// <summary>
+    /// Frames rendered, while unpaused, that advanced no simulated time.
+    ///
+    /// <para>Diagnostic for round bodies appearing to stutter or teleport. If this climbs, the
+    /// render rate is outrunning the simulation clock, and anything positioned only on a
+    /// simulation step will visibly lag the world. Expected to stay at zero: KSA derives its
+    /// step from the frame delta, so every frame should advance the clock.</para>
+    /// </summary>
+    public int FramesWithoutSimStep { get; set; }
+
     /// <summary>Where rounds actually leave from: the launcher part, or the hull without one.</summary>
     public double3 MountEcl { get; private set; }
 
@@ -206,7 +216,6 @@ internal sealed class DefenceBattery(Config config)
         UpdateTurret(dt);
         UpdateFireControl(dt);
         UpdateRounds(dt);
-        UpdateRoundBodies();
         TrimEvents();
 
         if (_config.DiagnosticDump)
@@ -405,7 +414,14 @@ internal sealed class DefenceBattery(Config config)
     ///
     /// <para>Rounds are indexed from one, so tube N is body N-1.</para>
     /// </summary>
-    private void UpdateRoundBodies()
+    /// <para><b>Called every rendered frame, not every simulation step.</b> Writing a subpart
+    /// transform is a drawing job, and the two cadences are not the same: the battery only
+    /// steps when simulated time advances, so leaving this inside <see cref="Update"/> meant
+    /// that any frame KSA rendered without advancing the clock left the bodies where they were
+    /// while the camera and the world moved on. Rounds then hold still and jump, which is what
+    /// "teleporting" looks like. Placement reads state and changes none, so running it more
+    /// often than the simulation is free and correct.</para>
+    public void SyncRoundBodies()
     {
         if (Platform is not { } platform || Launcher is not { } launcher) return;
         if (_missileBodies.Count == 0 || !RoundBodiesWork) return;

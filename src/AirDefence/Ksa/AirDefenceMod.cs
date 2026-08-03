@@ -74,8 +74,19 @@ public sealed class AirDefenceMod
 
                 case SimClock.State.Priming:
                 case SimClock.State.Idle:
+                    // Counted, not ignored. If KSA ever renders frames that advance no
+                    // simulated time, that is invisible from inside the game and changes how
+                    // everything here behaves — so the panel reports it rather than leaving it
+                    // to be guessed at. Paused frames are excluded; those are meant to be idle.
+                    if (!KsaWorld.IsPaused) _battery.FramesWithoutSimStep++;
                     break;
             }
+
+            // Outside the clock gate on purpose. Placing the round bodies is drawing, not
+            // simulating, and it has to happen on every rendered frame or the rounds sit still
+            // through any frame that advanced no simulated time while the world moved past
+            // them. Cheap, and it only reads state.
+            _battery.SyncRoundBodies();
         }
         catch (Exception e)
         {
