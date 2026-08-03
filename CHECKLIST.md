@@ -442,6 +442,15 @@ tried this once, and it is the only failure here that could cost you work.
 **Why:** every engagement so far has been one drone. Track prioritisation, round attribution and
 salvo allocation have literally never run against a contested list.
 
+**The arithmetic is now covered.** `ThreatModelTests` ranks contested lists, checks non-threats
+never outrank threats, and walks twelve tubes across three targets to prove the first does not
+take the whole magazine — 19 tests, headless. That became possible by moving the logic out of
+`Ksa/Radar.cs` and `Ksa/DefenceBattery.cs` into `Sim/ThreatModel.cs`.
+
+It does **not** retire these boxes. The tests prove the maths; they say nothing about KSA
+handing us the vehicles we expect, tracks surviving a rebuild, or the lock promoting cleanly
+when a target dies mid-engagement. Run them still — expect fewer surprises.
+
 ### 7.3 Blast catching a third party
 
 - [ ] Put two drones close together, kill one, confirm the other reports `near miss` or dies too.

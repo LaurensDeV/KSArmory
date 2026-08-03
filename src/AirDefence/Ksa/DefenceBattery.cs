@@ -314,7 +314,7 @@ internal sealed class DefenceBattery(Config config)
         if (!IsLaid) return;
 
         Track target = Radar.Locked!;
-        if (target.RoundsAssigned >= _config.RoundsPerTarget) return;
+        if (!ThreatModel.HasSalvoCapacity(target, _config.RoundsPerTarget)) return;
 
         Fire(target);
     }
@@ -441,13 +441,8 @@ internal sealed class DefenceBattery(Config config)
     /// <summary>The threat the turret should be watching when there is no firing solution yet.</summary>
     private Track? MostUrgentThreat()
     {
-        Track? best = null;
-        foreach (Track track in Radar.Tracks)
-        {
-            if (!track.IsThreat) continue;
-            if (best is null || track.TimeToClosestApproach < best.TimeToClosestApproach) best = track;
-        }
-        return best;
+        int i = ThreatModel.IndexOfMostUrgent(Radar.Tracks);
+        return i >= 0 ? Radar.Tracks[i] : null;
     }
 
     /// <summary>

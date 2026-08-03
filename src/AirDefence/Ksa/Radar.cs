@@ -43,8 +43,6 @@ internal sealed class Radar(Config config)
 
         double3 originEcl = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
-        double coneCos = Math.Cos(_sensor.ConeHalfAngleRad);
-        double rangeSq = (double)_sensor.Range * _sensor.Range;
 
         KsaWorld.CollectVehicles(_scratch);
 
@@ -54,50 +52,32 @@ internal sealed class Radar(Config config)
             if (_config.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
 
             double3 targetPos = KsaWorld.PositionEcl(candidate);
-            double3 r = targetPos - originEcl;
-            double rangeSquared = Vec.Len2(r);
-            if (rangeSquared > rangeSq || rangeSquared < 1.0) continue;
-
-            // Inside the search cone?
-            if (Vec.Dot(Vec.Unit(r), boresight) < coneCos) continue;
-
             double3 targetVel = KsaWorld.VelocityEcl(candidate);
-            double3 v = targetVel - originVel;
 
-            double relSpeed = Vec.Len(v);
-            if (relSpeed < _sensor.MinTargetSpeed) continue;
+            // Relative motion, so the ecliptic frame's huge common position and velocity cancel
+            // before any of the geometry runs. The maths itself lives in Sim/ and is tested.
+            if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
+                                       boresight, _sensor, out var a)) continue;
 
-            double range = Math.Sqrt(rangeSquared);
-
-            // Closest point of approach against the battery, assuming both hold course.
-            double tCa = Vec.TimeOfClosestApproach(r, v, _sensor.ThreatHorizonSeconds);
-            double cpa = Vec.Len(r + v * tCa);
-
-            double held = _dwell.GetValueOrDefault(candidate) + dt;
-
-            var track = new Track
+            Tracks.Add(new Track
             {
                 Vehicle = candidate,
                 PositionEcl = targetPos,
                 VelocityEcl = targetVel,
-                Range = range,
-                ClosingSpeed = -Vec.Dot(v, Vec.Unit(r)),
-                ClosestApproach = cpa,
-                TimeToClosestApproach = tCa,
-                HeldSeconds = held,
-            };
-
-            // A threat either will pass close enough to matter, or is already inside the bubble.
-            track.IsThreat = cpa <= _sensor.ThreatRadius || range <= _sensor.ThreatRadius;
-
-            Tracks.Add(track);
+                Range = a.Range,
+                ClosingSpeed = a.ClosingSpeed,
+                ClosestApproach = a.ClosestApproach,
+                TimeToClosestApproach = a.TimeToClosestApproach,
+                HeldSeconds = _dwell.GetValueOrDefault(candidate) + dt,
+                IsThreat = a.IsThreat,
+            });
         }
 
         // Refresh dwell bookkeeping, dropping anything we no longer see.
         _dwell.Clear();
         foreach (Track t in Tracks) _dwell[t.Vehicle] = t.HeldSeconds;
 
-        Tracks.Sort(static (a, b) => a.Priority.CompareTo(b.Priority));
+        ThreatModel.SortByPriority(Tracks);
 
         UpdateLock();
     }
@@ -116,7 +96,8 @@ internal sealed class Radar(Config config)
             ManualDesignation = null;
         }
 
-        Locked = Tracks.Find(t => t.IsThreat);
+        int first = ThreatModel.IndexOfFirstThreat(Tracks);
+        Locked = first >= 0 ? Tracks[first] : null;
     }
 
     /// <summary>True when the locked contact has been held long enough to shoot at.</summary>
