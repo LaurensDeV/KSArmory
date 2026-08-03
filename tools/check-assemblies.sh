@@ -3,6 +3,7 @@
 # Checks that a set of KSA assemblies matches the one this repository is known to build against.
 #
 #   ./tools/check-assemblies.sh                 # check whatever the build would resolve
+#   ./tools/check-assemblies.sh --game          # check the installed game - has KSA updated?
 #   ./tools/check-assemblies.sh <dir>           # check a specific folder
 #   ./tools/check-assemblies.sh <dir> --update  # record that folder as the new expectation
 #
@@ -22,8 +23,29 @@ LOCK="$REPO_ROOT/ksa-assemblies.lock"
 
 DIR="${1:-}"
 UPDATE=0
-for arg in "$@"; do [[ "$arg" == "--update" ]] && UPDATE=1; done
-[[ "$DIR" == "--update" ]] && DIR=""
+GAME=0
+QUIET=0
+for arg in "$@"; do
+    case "$arg" in
+        --update) UPDATE=1 ;;
+        --game) GAME=1 ;;
+        --quiet) QUIET=1 ;;   # say nothing unless something is wrong; for build.sh
+    esac
+done
+[[ "$DIR" == --* ]] && DIR=""
+
+# --game deliberately skips Import/ and looks at the install. Checking the resolved folder
+# cannot detect a game update: Import/ is a copy, so it still matches the lock until it is
+# refreshed, and the update goes unnoticed until someone happens to run sync-import.sh.
+if (( GAME )); then
+    for candidate in "${KSA_DIR:-}" "/mnt/c/Program Files/Kitten Space Agency" "C:/Program Files/Kitten Space Agency"; do
+        [[ -n "$candidate" && -f "$candidate/KSA.dll" ]] && { DIR="$candidate"; break; }
+    done
+    if [[ -z "$DIR" ]]; then
+        (( QUIET )) || echo "no KSA install found; nothing to compare against"
+        exit 0
+    fi
+fi
 
 # Mirror Directory.Build.props' resolution order, so this checks what the build would use.
 if [[ -z "$DIR" ]]; then
@@ -44,6 +66,16 @@ fi
 mapfile -t NAMES < <(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
     "$REPO_ROOT"/src/AirDefence/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)
 [[ ${#NAMES[@]} -gt 0 ]] || { echo "error: no \$(KsaDllDir) references found in the csproj files" >&2; exit 1; }
+
+# In --game mode, compare only what the install actually ships. StarMap.API.dll comes from the
+# loader rather than the game, so demanding it here would report a KSA update on every run.
+if (( GAME )); then
+    present=()
+    for name in "${NAMES[@]}"; do
+        [[ -f "$DIR/$name.dll" ]] && present+=("$name")
+    done
+    NAMES=("${present[@]}")
+fi
 
 digests() {
     for name in "${NAMES[@]}"; do
@@ -78,13 +110,28 @@ fi
 actual="$(digests)"
 expected="$(grep -v '^#' "$LOCK" | grep -v '^build ' | grep -v '^$')"
 
+# Compare like with like when only a subset was hashed.
+if (( GAME )); then
+    filter="$(printf '%s.dll\n' "${NAMES[@]}")"
+    expected="$(printf '%s\n' "$expected" | grep -F -f <(printf '%s\n' "$filter") || true)"
+fi
+
 if [[ "$actual" == "$expected" ]]; then
-    echo "assemblies match the lock ($(grep -oP '(?<=^build ).*' "$LOCK"), ${#NAMES[@]} files)"
-    echo "  $DIR"
+    if (( ! QUIET )); then
+        echo "assemblies match the lock ($(grep -oP '(?<=^build ).*' "$LOCK"), ${#NAMES[@]} files)"
+        echo "  $DIR"
+    fi
     exit 0
 fi
 
-echo "assemblies in $DIR do not match $(basename "$LOCK"):" >&2
+if (( GAME )); then
+    echo >&2
+    echo "KSA has been updated: the installed game no longer matches ksa-assemblies.lock." >&2
+    echo "  installed: $DIR" >&2
+    echo "  expected:  build $(grep -oP '(?<=^build ).*' "$LOCK")" >&2
+fi
+
+(( GAME )) || echo "assemblies in $DIR do not match $(basename "$LOCK"):" >&2
 diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") \
     | grep -E '^[<>]' | sed 's/^</  expected/; s/^>/  found   /' >&2
 cat >&2 <<EOF

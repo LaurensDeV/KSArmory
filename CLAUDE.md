@@ -81,7 +81,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
 ./tools/run.sh --attach                    # follow a game that's already running
 ./tools/setup-starmap.sh                   # one-off: install StarMap and write its config
-./tools/check-assemblies.sh                 # do local and CI agree on the game build?
+./tools/check-assemblies.sh --game         # has KSA updated since the lock was written?
 ./tools/sync-import.sh                     # refresh Import/ -- NOT the whole story after a
                                            #   KSA update; see "After a KSA update" below
 
@@ -264,7 +264,16 @@ nothing local changed.
 
 ### After a KSA update
 
-The assemblies now exist in two places that drift apart silently: your `Import/`, and the
+**You will be told when this happens.** `./tools/build.sh` checks the installed game against the
+lock on every build and is silent unless it has moved, so the first build after a KSA update
+says so. `./tools/check-assemblies.sh --game` asks the same question on demand.
+
+That check deliberately looks at the *install*, not at whatever the build resolved: `Import/` is
+a copy, so it still matches the lock after a game update and would report all-clear. It also
+compares only what the install ships — `StarMap.API.dll` comes from the loader, and would
+otherwise report a KSA update every single run.
+
+The assemblies exist in two places that drift apart silently: your `Import/`, and the
 private repo CI compiles against. Update one and not the other and CI is building the mod
 against a different game from the one you are testing against — which surfaces as behaviour
 nobody can reproduce, not as an error.
