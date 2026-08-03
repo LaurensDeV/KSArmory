@@ -4,13 +4,13 @@ name: Release
 # works out whether that is a patch, minor or major, and cuts the release. Nobody edits a
 # version number by hand.
 #
-# It runs in two halves for the same reason CI does. Deciding the version, writing the
-# changelog, tagging and creating the GitHub Release need nothing but git, so they run on a
-# hosted runner. Building the archive needs KSA's assemblies, which are not redistributable, so
-# it runs on a self-hosted runner and attaches the file to the release the first half made.
+# It runs in two jobs: the first decides the version and creates the release, the second builds
+# the archive and attaches it. Both are hosted. Building needs KSA's assemblies, which are not
+# redistributable and so live in the private repository LaurensDeV/ksa-game-assemblies, checked
+# out here with a read-only deploy key (the KSA_ASSEMBLIES_KEY secret).
 #
-# Without a self-hosted runner you still get versioning, changelogs and releases — just no
-# attached binary. Build that locally with ./tools/package.sh and upload it.
+# Without that secret the release is still cut - version, changelog, notes - just with no binary
+# attached. ./tools/publish-release.sh attaches one afterwards from a machine that has KSA.
 
 on:
   push:
@@ -65,10 +65,11 @@ jobs:
   artifact:
     name: Build and attach the mod
     needs: version
-    # Only when there is something to attach it to, and only where KSA exists. Set the
-    # repository variable KSA_SELF_HOSTED to 'true' once such a runner is registered.
-    if: ${{ needs.version.outputs.published == 'true' && vars.KSA_SELF_HOSTED == 'true' }}
-    runs-on: [self-hosted, ksa]
+    if: ${{ needs.version.outputs.published == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      HAVE_KEY: ${{ secrets.KSA_ASSEMBLIES_KEY != '' }}
+      KSA_DLL_DIR: ${{ github.workspace }}/.ksa-assemblies/current/dll
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,23 +77,45 @@ jobs:
           # rather than whatever main has drifted to since.
           ref: v${{ needs.version.outputs.version }}
 
-      - name: Refresh game assemblies
-        run: ./tools/sync-import.sh
+      - name: Check out the KSA assemblies
+        if: env.HAVE_KEY == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: LaurensDeV/ksa-game-assemblies
+          path: .ksa-assemblies
+          ssh-key: ${{ secrets.KSA_ASSEMBLIES_KEY }}
+          persist-credentials: false
+
+      - name: Cannot build without the assemblies
+        if: env.HAVE_KEY != 'true'
+        run: |
+          echo "::warning::KSA_ASSEMBLIES_KEY is not set; the release has no binary attached."
+          echo "Run ./tools/publish-release.sh from a machine with KSA to add one."
+
+      - uses: actions/setup-dotnet@v4
+        if: env.HAVE_KEY == 'true'
+        with:
+          dotnet-version: "10.0.x"
 
       # A release that fails its own checks is not a release.
       - name: Test
-        run: ./tools/test.sh
+        if: env.HAVE_KEY == 'true'
+        run: dotnet test tests/AirDefence.Tests/AirDefence.Tests.csproj --nologo
 
       - name: Validate parts and launch geometry
-        run: ./tools/validate-parts.py
+        if: env.HAVE_KEY == 'true'
+        run: ./tools/validate-parts.py --offline
 
       - name: Check the mesh
+        if: env.HAVE_KEY == 'true'
         run: ./tools/model/checkmesh.py src/AirDefence/Meshes/AirDefence_MeshAtlas.glb
 
       - name: Package
+        if: env.HAVE_KEY == 'true'
         run: ./tools/package.sh --version "${{ needs.version.outputs.version }}"
 
       - name: Attach to the release
+        if: env.HAVE_KEY == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.version.outputs.version }}
@@ -102,9 +125,10 @@ jobs:
 
             ---
 
-            Drop the `AirDefence` folder into
-            `Documents/My Games/Kitten Space Agency/mods/`, register it in `manifest.toml`, and
-            launch with **StarMap.exe**. See the README for the full install guide.
+            Drop the `AirDefence` folder into your KSA user directory's `mods/`, register it in
+            `manifest.toml`, and launch through StarMap. See the README for the full guide.
+
+            Works on Windows and Linux — the mod is a portable .NET assembly.
 
             Release build: no debug symbols, log starts at INFO. Tick **Verbose log** in the
             panel if you are reporting a bug.

@@ -178,9 +178,9 @@ something lands on `main`: it reads the Conventional Commits since the last tag,
 version, writes `CHANGELOG.md`, stamps the version into the project file, tags and publishes a
 GitHub Release. No version number is ever edited by hand.
 
-Building the archive still needs the game, so that half runs on a self-hosted runner and
-attaches the file to the release. Without one you get versioning, changelogs and releases —
-just no attached binary. Attach it from a machine that has KSA:
+Building the archive needs KSA's assemblies, which CI gets from a private repository (see
+below), so the second job builds and attaches it automatically. If that is ever unavailable the
+release is still cut, just without a binary — attach one from a machine that has KSA:
 
 ```bash
 ./tools/publish-release.sh            # build and attach to the release for the current version
@@ -227,11 +227,11 @@ Release builds carry no debug symbols and start the log at `INFO` instead of `DE
 **Verbose log** in the panel to get the detail back when reporting a bug. The script refuses to
 ship a `.pdb` or any assembly that is not ours.
 
-> **CI cannot build this mod on a hosted runner.** It needs KSA's assemblies, which are not
-> redistributable. The always-on CI job runs everything that does not need the game — mesh
-> checks, the `Sim/`-boundary guard, texture reproducibility, shellcheck, XML validation — and
-> the full build and tests run on a self-hosted runner with KSA installed, enabled with the
-> repository variable `KSA_SELF_HOSTED`.
+> **CI needs KSA's assemblies, and they are not redistributable.** They live in a private
+> repository and are checked out with a read-only deploy key held in the `KSA_ASSEMBLIES_KEY`
+> secret — keeping your own licensed copy privately is fine, publishing it is not. Forks without
+> the secret still get the tooling job: mesh checks, the `Sim/` boundary guard, case-exact asset
+> paths, texture reproducibility, shellcheck and XML validation.
 
 On WSL you can also drive the whole loop from the terminal:
 
@@ -327,6 +327,7 @@ and will save you an evening with a decompiler.
 ```bash
 ./tools/install-hooks.sh   # commit-msg hook, so a bad message is caught before it exists
 ./tools/sync-import.sh     # copy KSA's assemblies into Import/ (gitignored, not redistributable)
+                           # ...or skip it: the build also finds a local KSA install by itself
 ./tools/build.sh           # needs .NET 10; a distro dotnet 8 fails with NETSDK1045
 ./tools/test.sh            # 74 tests, no game required
 ```
@@ -372,11 +373,9 @@ Both run `tools/check-commit-msg.sh`, so they cannot disagree about what is lega
 ./tools/model/checkmesh.py src/AirDefence/Meshes/*.glb       # only if you touched the model
 ```
 
-Of those, CI's always-on job runs only `check-boundary.sh` and `checkmesh.py`. The other two need
-the game — the tests reference KSA's numerics assembly, and `validate-parts.py` reads Core's
-asset library — and a GitHub-hosted runner has neither, because those files are not
-redistributable. **So running the tests is on you**; nothing upstream will catch a regression in
-them unless the repo has a self-hosted runner with KSA installed.
+CI runs all of these, given access to the private assemblies repository — so a regression will
+be caught. Run them locally anyway: the feedback is seconds rather than minutes, and a fork
+without that access only gets the first two.
 
 ### How the code is laid out
 

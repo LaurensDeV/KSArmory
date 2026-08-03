@@ -241,13 +241,22 @@ speculatively built.
 
 ## CI and releases
 
-**A GitHub-hosted runner cannot build this mod.** It needs KSA's own assemblies — `KSA.dll`,
-`Brutal.Core.Numerics.dll` and friends — which are not redistributable, so `Import/` is
-gitignored and there is no legitimate way for a hosted runner to obtain them. The C# tests need
-them too: they reference `Brutal.Core.Numerics` for `double3`. Do not try to work around this by
-committing the assemblies.
+Building needs KSA's own assemblies — `KSA.dll`, `Brutal.Core.Numerics.dll` and friends — and
+the tests need them too, for `double3`. They are RocketWerkz's copyrighted files and **must
+never be committed here or published anywhere**.
 
-So CI is split the same way the source is:
+They live instead in the private repository **`LaurensDeV/ksa-game-assemblies`**, checked out by
+CI with a **read-only deploy key** held in the `KSA_ASSEMBLIES_KEY` secret. Keeping your own
+licensed copy privately is fine; publishing it is not. Only the eight assemblies the projects
+actually reference are kept — verified as the minimum that both builds the mod and runs its
+tests — and `tools/sync-assemblies.sh` refreshes them after a KSA update, refusing if a csproj
+references something it does not know to copy.
+
+`Directory.Build.props` resolves the folder in tiers, first match wins: `KSA_DLL_DIR` (what CI
+sets), then `Import/`, then a sibling `ksa-game-assemblies` checkout, then the game install. So
+nothing local changed.
+
+CI is split the same way the source is:
 
 - **`tooling` (hosted, always runs)** — everything that does not need the game, which is more
   than it sounds. `checkmesh.py` on the committed atlas catches the two defect classes that are
@@ -255,9 +264,9 @@ So CI is split the same way the source is:
   `palette.py` is re-run and the textures diffed, so hand-edited PNGs are caught before the next
   model build silently reverts them. Plus shellcheck, XML well-formedness and a check that no
   `.dll` is tracked.
-- **`build` (self-hosted, opt-in)** — the real build, the 74 tests, `validate-parts.py` and the
-  package. Gated on the repository variable `KSA_SELF_HOSTED` being `true`, so it skips cleanly
-  rather than sitting pending forever when no such runner exists.
+- **`build` (hosted)** — the real build, the 74 tests, `validate-parts.py` and the package,
+  against the checked-out assemblies. If the secret is absent — a fork — the job skips with a
+  notice instead of failing on something a contributor cannot fix.
 
 shellcheck runs at `-S warning`. At the default level it flags every `source tools/env.sh` as
 unfollowable, which it is, and CI would fail on nothing.
@@ -270,10 +279,9 @@ GitHub Release. **Never edit a version by hand** — it will be overwritten. `fe
 `chore`, `ci`, `test`, `style` and `refactor` cut no release. A commit that does not parse is
 treated as no release, so a stray `wip` cannot publish anything.
 
-That workflow is in two jobs for the same reason CI is: deciding the version needs only git and
-runs hosted, while building the archive needs KSA and runs on the gated self-hosted runner,
-attaching the file to the release the first job made. The release commit carries `[skip ci]` so
-it does not retrigger CI.
+That workflow is in two jobs: the first decides the version and creates the release, the second
+builds the archive and attaches it. Both hosted. The release commit carries `[skip ci]` so it
+does not retrigger CI.
 
 Three things that will bite:
 
@@ -289,9 +297,9 @@ Three things that will bite:
 
 **Releases** are `./tools/package.sh`, locally or from the release workflow — the archive is
 identical either way. `./tools/publish-release.sh` does both halves from a machine with KSA:
-build, then attach to the release semantic-release created. That is the standing workaround for
-having no self-hosted runner, and it refuses rather than guessing if the tag or the release does
-not exist.
+build, then attach to the release semantic-release created. That is the fallback for when the
+assemblies secret is unavailable, and it refuses rather than guessing if the tag or the release
+does not exist.
 
 **One archive covers Windows and Linux.** The mod is a portable `net10.0` assembly: no
 `RuntimeIdentifier`, no P/Invoke, no Windows-only API. There is nothing to build twice, and
