@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Checks that src/AirDefence/Sim stays free of KSA types.
+# Checks that src/KSArmory/Sim stays free of KSA types.
 #
 # The real guard is the test project: it links Sim/** and references no KSA assembly, so a
 # `using KSA;` there fails the test build. That guard needs the game's assemblies to run, which
@@ -10,7 +10,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SIM="$REPO_ROOT/src/AirDefence/Sim"
+SIM="$REPO_ROOT/src/KSArmory/Sim"
 
 if [[ ! -d "$SIM" ]]; then
     echo "error: $SIM does not exist" >&2
@@ -26,7 +26,7 @@ if [[ -n "$offenders" ]]; then
     echo "Sim/ must not reference KSA types:" >&2
     echo "$offenders" >&2
     echo >&2
-    echo "Move the KSA-facing part into src/AirDefence/Ksa/ and keep the maths in Sim/." >&2
+    echo "Move the KSA-facing part into src/KSArmory/Ksa/ and keep the maths in Sim/." >&2
     exit 1
 fi
 

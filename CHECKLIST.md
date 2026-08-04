@@ -81,7 +81,7 @@ Use the wrapper scripts, not bare `dotnet`. The mod targets **net10.0** and your
 - [x] **0.2** `./tools/build.sh` — succeeds.
 - [x] **0.3** `./tools/test.sh` — 13 passed.
 - [x] **0.4** `./tools/validate-parts.py` — "OK: 26 asset reference(s) resolve".
-- [ ] **0.5** `./tools/deploy.sh` — prints an install path containing `AirDefence.dll`,
+- [ ] **0.5** `./tools/deploy.sh` — prints an install path containing `KSArmory.dll`,
       `mod.toml`, **two XML files at the root**, `Meshes/AirDefence_MeshAtlas.glb` and three
       PNGs under `Textures/`. If an `Assets/` folder is still there from an older deploy, the
       script should have deleted it — two copies of the part would fight over one Id.
@@ -92,7 +92,7 @@ Use the wrapper scripts, not bare `dotnet`. The mod targets **net10.0** and your
 
 > Dropping the folder into `mods/` is **not** enough. KSA discovers mods through
 > `Documents/My Games/Kitten Space Agency/manifest.toml`, and StarMap walks the same list —
-> without an `[[mods]] id = "AirDefence"` entry, nothing loads.
+> without an `[[mods]] id = "KSArmory"` entry, nothing loads.
 
 > Running `dotnet` directly gives `error NETSDK1045: The current .NET SDK does not support
 > targeting .NET 10.0`. Either use the scripts, or `source tools/env.sh` once per shell.
@@ -114,7 +114,7 @@ output, StarMap's load messages, and anything that looks like a failure.
 **You do not need the in-game console.** The mod writes its own log next to KSA's:
 
 ```bash
-tail -F "/mnt/c/Users/devoo/Documents/My Games/Kitten Space Agency/Logs/AirDefence.log"
+tail -F "/mnt/c/Users/devoo/Documents/My Games/Kitten Space Agency/Logs/KSArmory.log"
 ```
 
 It is truncated at each launch, so it always shows the current session. KSA's own log
@@ -133,17 +133,17 @@ If you cannot find it, ignore it — the log files cover everything on this chec
 ### 1.1 The mod loads
 
 - [x] Launch via **`StarMap.exe`**, not `KSA.exe`.
-- [x] `KittenSpaceAgency.log` contains `INFO found mod 'AirDefence'`.
-- [x] StarMap prints `Loaded mod: AirDefence from manifest`.
-- [x] `Logs/AirDefence.log` contains `loading (mod id: AirDefence)`.
+- [x] `KittenSpaceAgency.log` contains `INFO found mod 'KSArmory'`.
+- [x] StarMap prints `Loaded mod: KSArmory from manifest`.
+- [x] `Logs/KSArmory.log` contains `loading (mod id: KSArmory)`.
 - [ ] Then `ready - 12 tubes, safe.` (was 6 before the Pantsir model landed)
 
 **Passed 2026-08-02.** Both StarMap hooks fire. Note `[StarMapAllModsLoaded]` lands about
 **21 s** after `[StarMapImmediateLoad]` — it waits for the game to finish loading, so the
 `ready` line appearing late is normal, not a hang.
 
-**If it fails:** no `AirDefence.log` at all means StarMap never ran our entry class. Check
-`mod.toml`'s `EntryAssembly = "AirDefence"` matches the DLL name, and that StarMapConfig.json
+**If it fails:** no `KSArmory.log` at all means StarMap never ran our entry class. Check
+`mod.toml`'s `EntryAssembly = "KSArmory"` matches the DLL name, and that StarMapConfig.json
 points at the right KSA folder. An exception mentioning TOML means the `assets` array in
 `mod.toml` isn't tolerated there; move the part XML into a second mod folder and keep
 `mod.toml` StarMap-only.
@@ -244,7 +244,7 @@ the Ids must match exactly between the two files.
 **The open question is whether KSA honours a runtime transform write at all.** Everything else
 here is instrumented so the answer is readable either way.
 
-- [ ] `AirDefence.log` has a `launcher subparts: ...` line naming both subparts. If the turret
+- [ ] `KSArmory.log` has a `launcher subparts: ...` line naming both subparts. If the turret
       one is missing or oddly named, `Part.ResolveRuntimeId` rewrote it and `TurretMarker` in
       `LauncherPart.cs` needs to match whatever is actually there.
 - [ ] The panel shows `Turret: N deg` and not `subpart not found` or `engine refused`.
@@ -332,7 +332,7 @@ Do all of this at `simspeed 1`.
 - [ ] With a lock, press **FIRE**.
 - [ ] `Rounds` drops to 5/6; one muzzle dot turns grey.
 - [ ] A tracer leaves that tube with a trail behind it.
-- [ ] Console logs `[AirDefence] round N away at <target> (X.X km)`.
+- [ ] Console logs `[KSArmory] round N away at <target> (X.X km)`.
 
 **If it fails:** "refused: …" in the log tells you which gate stopped it — not armed, no
 launcher, empty, or target gone.
@@ -414,7 +414,7 @@ Where I'd expect latent bugs.
 - [ ] **6.8** **Long session** — leave auto-engage on for a while. No unbounded log growth, no
       frame-rate decay.
 - [ ] **6.9** **Fault handling** — if anything throws, the console shows
-      `[AirDefence] ERROR … (n/10)`. After 10 it disables itself rather than spamming. If you
+      `[KSArmory] ERROR … (n/10)`. After 10 it disables itself rather than spamming. If you
       see this, **copy those lines** — that's the most useful thing you can send me.
 
 ---
@@ -492,7 +492,7 @@ when a target dies mid-engagement. Run them still — expect fewer surprises.
 
 Most useful, in order:
 
-1. `Logs/AirDefence.log` — the whole file. Especially `ERROR` lines with stack traces.
+1. `Logs/KSArmory.log` — the whole file. Especially `ERROR` lines with stack traces.
    `Logs/KittenSpaceAgency.log` too if the part or XML is misbehaving.
 2. Which checklist item failed and what you saw instead.
 3. A screenshot for anything visual (2.2 especially).

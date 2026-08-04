@@ -5,7 +5,7 @@
 #   ./tools/api-surface.sh            # regenerate docs/KSA-API-SURFACE.md
 #   ./tools/api-surface.sh --check    # fail if the committed file is stale (for CI)
 #
-# The surface is read out of the compiled AirDefence.dll's TypeRef and MemberRef tables, not out
+# The surface is read out of the compiled KSArmory.dll's TypeRef and MemberRef tables, not out
 # of the source, so it is exactly what the compiler bound and it cannot drift from the code.
 #
 # What it is for: KSA is pre-release and its API moves between builds. After an update the
@@ -26,7 +26,7 @@ OUT="$REPO_ROOT/docs/KSA-API-SURFACE.md"
 CHECK=0
 [[ "${1:-}" == "--check" ]] && CHECK=1
 
-MOD_DLL="$REPO_ROOT/src/AirDefence/bin/Release/net10.0/AirDefence.dll"
+MOD_DLL="$REPO_ROOT/src/KSArmory/bin/Release/net10.0/KSArmory.dll"
 if [[ ! -f "$MOD_DLL" ]]; then
     echo "building the mod first (the surface is read from the compiled assembly)..."
     "$REPO_ROOT/tools/build.sh" >/dev/null

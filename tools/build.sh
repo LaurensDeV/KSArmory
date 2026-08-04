@@ -16,4 +16,4 @@ source "$REPO_ROOT/tools/env.sh"
 # everything downstream (Import/, the private repo CI builds against) is now stale.
 "$REPO_ROOT/tools/check-assemblies.sh" --game --quiet || true
 
-dotnet build "$REPO_ROOT/src/AirDefence/AirDefence.csproj" -c "${1:-Release}" --nologo
+dotnet build "$REPO_ROOT/src/KSArmory/KSArmory.csproj" -c "${1:-Release}" --nologo

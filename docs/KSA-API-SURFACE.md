@@ -1,6 +1,6 @@
 # KSA API surface
 
-Every external type and member `AirDefence.dll` binds to, read out of its
+Every external type and member `KSArmory.dll` binds to, read out of its
 metadata tables by `tools/api-surface.sh`. **Generated - do not edit.**
 
 This is the checklist for a KSA update: anything here that changed shape in the new

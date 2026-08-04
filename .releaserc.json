@@ -117,7 +117,7 @@
       {
         "assets": [
           "CHANGELOG.md",
-          "src/AirDefence/AirDefence.csproj"
+          "src/KSArmory/KSArmory.csproj"
         ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }

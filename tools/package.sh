@@ -2,7 +2,7 @@
 #
 # Builds a release archive: the mod, and nothing else.
 #
-#   ./tools/package.sh                 # dist/AirDefence-<version>.zip
+#   ./tools/package.sh                 # dist/KSArmory-<version>.zip
 #   ./tools/package.sh --version 1.2.0 # override the version in the csproj
 #
 # Release carries no debug symbols (see the csproj) and the log starts at INFO rather than
@@ -24,7 +24,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-PROJECT="$REPO_ROOT/src/AirDefence/AirDefence.csproj"
+PROJECT="$REPO_ROOT/src/KSArmory/KSArmory.csproj"
 
 if [[ -z "$VERSION" ]]; then
     VERSION="$(grep -oP '(?<=<Version>)[^<]+' "$PROJECT" | head -1)"
@@ -32,21 +32,21 @@ fi
 [[ -n "$VERSION" ]] || { echo "error: no <Version> in the csproj and none given" >&2; exit 1; }
 
 OUT_DIR="$REPO_ROOT/dist"
-STAGE="$OUT_DIR/AirDefence"
-ARCHIVE="$OUT_DIR/AirDefence-$VERSION.zip"
+STAGE="$OUT_DIR/KSArmory"
+ARCHIVE="$OUT_DIR/KSArmory-$VERSION.zip"
 
-echo "packaging AirDefence $VERSION"
+echo "packaging KSArmory $VERSION"
 
 # A clean build, so a stale Debug artefact cannot ride along into a release.
-rm -rf "$REPO_ROOT/src/AirDefence/bin/Release" "$STAGE" "$ARCHIVE"
+rm -rf "$REPO_ROOT/src/KSArmory/bin/Release" "$STAGE" "$ARCHIVE"
 dotnet build "$PROJECT" -c Release --nologo -p:Version="$VERSION"
 
-BUILD="$REPO_ROOT/src/AirDefence/bin/Release/net10.0"
+BUILD="$REPO_ROOT/src/KSArmory/bin/Release/net10.0"
 
 mkdir -p "$STAGE/Meshes" "$STAGE/Textures"
-cp "$BUILD/AirDefence.dll" "$STAGE/"
+cp "$BUILD/KSArmory.dll" "$STAGE/"
 cp "$BUILD/mod.toml" "$STAGE/"
-cp "$BUILD"/AirDefence*.xml "$STAGE/"
+cp "$BUILD"/KSArmory*.xml "$STAGE/"
 cp "$BUILD/Meshes"/*.glb "$STAGE/Meshes/"
 cp "$BUILD/Textures"/*.png "$STAGE/Textures/"
 
@@ -60,7 +60,7 @@ fi
 # the last gate before an archive leaves the machine.
 for stray in "$STAGE"/*.dll; do
     case "$(basename "$stray")" in
-        AirDefence.dll) ;;
+        KSArmory.dll) ;;
         *) echo "error: $stray is not ours and must not ship" >&2; exit 1 ;;
     esac
 done
@@ -72,7 +72,7 @@ cp "$REPO_ROOT/README.md" "$REPO_ROOT/LICENSE" "$STAGE/"
 # and Python's zipfile is already a dependency of the model tooling.
 ( cd "$OUT_DIR" && python3 -c "
 import shutil, sys
-shutil.make_archive('AirDefence-$VERSION', 'zip', root_dir='.', base_dir='AirDefence')
+shutil.make_archive('KSArmory-$VERSION', 'zip', root_dir='.', base_dir='KSArmory')
 " )
 rm -rf "$STAGE"
 

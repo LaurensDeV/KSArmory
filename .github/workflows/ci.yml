@@ -79,7 +79,7 @@ jobs:
           python - <<'PY'
           import sys, xml.etree.ElementTree as ET
           from pathlib import Path
-          for path in sorted(Path("src/AirDefence").glob("AirDefence*.xml")):
+          for path in sorted(Path("src/KSArmory").glob("KSArmory*.xml")):
               ET.parse(path)
               print(f"  {path} ok")
           PY
@@ -93,7 +93,7 @@ jobs:
 
       - name: Mesh has no z-fighting or degenerate UVs
         # The two defects that only show up in game, and never in a Blender preview.
-        run: ./tools/model/checkmesh.py src/AirDefence/Meshes/AirDefence_MeshAtlas.glb
+        run: ./tools/model/checkmesh.py src/KSArmory/Meshes/AirDefence_MeshAtlas.glb
 
       - name: Textures are reproducible
         # If the committed PNGs do not match what palette.py generates, someone edited them by
@@ -163,13 +163,13 @@ jobs:
         if: env.HAVE_KEY == 'true'
         env:
           KSA_DLL_DIR: ${{ github.workspace }}/.ksa-assemblies/current/dll
-        run: dotnet build src/AirDefence/AirDefence.csproj -c Release --nologo
+        run: dotnet build src/KSArmory/KSArmory.csproj -c Release --nologo
 
       - name: Test
         if: env.HAVE_KEY == 'true'
         env:
           KSA_DLL_DIR: ${{ github.workspace }}/.ksa-assemblies/current/dll
-        run: dotnet test tests/AirDefence.Tests/AirDefence.Tests.csproj --nologo
+        run: dotnet test tests/KSArmory.Tests/KSArmory.Tests.csproj --nologo
 
       - name: Validate parts and launch geometry
         if: env.HAVE_KEY == 'true'
@@ -193,6 +193,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: env.HAVE_KEY == 'true'
         with:
-          name: AirDefence-mod
+          name: KSArmory-mod
           path: dist/*.zip
           if-no-files-found: error

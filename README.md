@@ -32,7 +32,7 @@ A point-defence mod for **[Kitten Space Agency](https://kittenspaceagency.wiki.g
 
 ### Steps
 
-1. **Get the mod.** Download `AirDefence-<version>.zip` from
+1. **Get the mod.** Download `KSArmory-<version>.zip` from
    [Releases](../../releases), or build it yourself with `./tools/package.sh`.
 
 2. **Unzip it into your mods folder.** That folder lives inside KSA's user directory:
@@ -46,8 +46,8 @@ A point-defence mod for **[Kitten Space Agency](https://kittenspaceagency.wiki.g
    You should end up with:
 
    ```
-   <KSA user directory>/mods/AirDefence/
-     AirDefence.dll
+   <KSA user directory>/mods/KSArmory/
+     KSArmory.dll
      mod.toml
      AirDefenceAssets.xml
      AirDefenceGameData.xml
@@ -64,7 +64,7 @@ A point-defence mod for **[Kitten Space Agency](https://kittenspaceagency.wiki.g
 
    ```toml
    [[mods]]
-   id = "AirDefence"
+   id = "KSArmory"
    enabled = true
    ```
 
@@ -81,12 +81,12 @@ A point-defence mod for **[Kitten Space Agency](https://kittenspaceagency.wiki.g
 
 ### Check it worked
 
-The mod writes its own log to `Logs/AirDefence.log` under the KSA user directory, and prints
+The mod writes its own log to `Logs/KSArmory.log` under the KSA user directory, and prints
 the path it chose to stdout on startup — handy if it ended up somewhere unexpected. The file is
 truncated each session. You should see:
 
 ```
-loading (mod id: AirDefence)
+loading (mod id: KSArmory)
 ready - 12 tubes, safe. Open the 'Air Defence' panel to arm.
 ```
 
@@ -100,9 +100,9 @@ and the **Air Defence** panel appears once you are in flight.
 
 | Symptom | Cause |
 | --- | --- |
-| No `AirDefence.log` at all | StarMap never ran the mod. Check the `manifest.toml` entry, and that you launched `StarMap.exe`. |
+| No `KSArmory.log` at all | StarMap never ran the mod. Check the `manifest.toml` entry, and that you launched `StarMap.exe`. |
 | Part missing from the editor | The asset XML did not load. `KittenSpaceAgency.log` is where XML and asset errors appear. |
-| Part is there but nothing happens in flight | The DLL did not load, but the XML did — check `mod.toml`'s `EntryAssembly = "AirDefence"` matches the DLL name. |
+| Part is there but nothing happens in flight | The DLL did not load, but the XML did — check `mod.toml`'s `EntryAssembly = "KSArmory"` matches the DLL name. |
 | Part renders untextured or invisible | `Meshes/` or `Textures/` did not come across, or the folder layout was flattened. |
 | Panel says `Launcher: none fitted` | The part is not on the craft you are flying. Untick **Require launcher part** to test anyway. |
 | Works on Windows, part untextured on Linux | A case mismatch in a file or folder name. Linux filesystems are case-sensitive; Windows is not. Re-unzip rather than renaming by hand. |
@@ -190,7 +190,7 @@ release is still cut, just without a binary — attach one from a machine that h
 Or build the archive alone:
 
 ```bash
-./tools/package.sh                     # dist/AirDefence-<version>.zip
+./tools/package.sh                     # dist/KSArmory-<version>.zip
 ./tools/package.sh --version 1.2.0     # override the version
 ```
 
@@ -273,7 +273,7 @@ The part itself is inert — KSA sees structure with mass and a collider. The C#
 the vehicle and mounts the battery there. That split avoids registering a custom module type
 into the engine's internal update lists, which is not reachable without patching.
 
-**Adding a weapon system is data, not code.** `src/AirDefence/Sim/Arsenal.cs` registers each
+**Adding a weapon system is data, not code.** `src/KSArmory/Sim/Arsenal.cs` registers each
 launcher, round and sensor as a profile; discovery is by part Id, so nothing in the simulation
 or the game binding names a particular vehicle. A new system is an entry there plus its art.
 
@@ -322,7 +322,7 @@ The quickest start on any platform:
 ```
 
 Worth knowing up front: **most of this repository is testable with nothing but the .NET SDK.**
-Everything under `src/AirDefence/Sim/` is free of KSA types by construction, so guidance, threat
+Everything under `src/KSArmory/Sim/` is free of KSA types by construction, so guidance, threat
 classification, tube geometry and the fuse can all be worked on without owning the game.
 
 The rest of this section is the longer version.
@@ -388,7 +388,7 @@ Both run `tools/check-commit-msg.sh`, so they cannot disagree about what is lega
 ./tools/test.sh                                              # simulation
 ./tools/check-boundary.sh                                    # Sim/ stays free of KSA types
 ./tools/validate-parts.py                                    # asset Ids, texture paths, launch geometry
-./tools/model/checkmesh.py src/AirDefence/Meshes/*.glb       # only if you touched the model
+./tools/model/checkmesh.py src/KSArmory/Meshes/*.glb       # only if you touched the model
 ```
 
 CI runs all of these, given access to the private assemblies repository — so a regression will
@@ -397,7 +397,7 @@ without that access only gets the first two.
 
 ### How the code is laid out
 
-`src/AirDefence/` splits by whether a file can see the game:
+`src/KSArmory/` splits by whether a file can see the game:
 
 - **`Sim/`** — pure simulation and data. Guidance, the turret drives, launch geometry, and the
   weapon profiles. The test project links this folder wholesale and references no KSA assembly,
@@ -417,7 +417,7 @@ It is data, not code. Nothing in `Sim/` or `Ksa/` names the Pantsir.
 1. Model it — copy `tools/model/pantsir.py`, keep the group and pivot conventions, export into
    the same atlas.
 2. Declare the part in `AirDefenceAssets.xml` and `AirDefenceGameData.xml`.
-3. Register a `LauncherProfile` in [`src/AirDefence/Sim/Arsenal.cs`](src/AirDefence/Sim/Arsenal.cs),
+3. Register a `LauncherProfile` in [`src/KSArmory/Sim/Arsenal.cs`](src/KSArmory/Sim/Arsenal.cs),
    with the geometry `tools/model/build.sh` prints. Add a `MunitionProfile` if the round differs.
 
 Discovery is by part Id, so the battery picks up whatever is fitted. A launcher that cannot

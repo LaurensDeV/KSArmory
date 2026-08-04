@@ -32,7 +32,7 @@ done
 # `|| true` throughout: find exits non-zero for any missing search root, and under
 # `set -e` that would abort the script with no message at all.
 KSA_USER_DIR="$(find /mnt/c/Users -maxdepth 4 -type d -path '*My Games/Kitten Space Agency' 2>/dev/null | head -1 || true)"
-MOD_LOG="${KSA_USER_DIR:+$KSA_USER_DIR/Logs/AirDefence.log}"
+MOD_LOG="${KSA_USER_DIR:+$KSA_USER_DIR/Logs/KSArmory.log}"
 
 # --- attach to a running game ------------------------------------------------
 
@@ -106,4 +106,4 @@ fi
 echo "(showing mod output only -- use --verbose for KSA's full log)"
 echo
 exec "${LAUNCH[@]}" 2>&1 | grep --line-buffered -E \
-    '^\[AirDefence\]|^StarMap -|ERROR|WARN|Exception|error|failed'
+    '^\[KSArmory\]|^StarMap -|ERROR|WARN|Exception|error|failed'

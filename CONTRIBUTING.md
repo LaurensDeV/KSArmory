@@ -32,7 +32,7 @@ Then:
 | Rebuild the 3D model | plus Blender 5.2 |
 
 **A large amount of this repository is testable with nothing but the .NET SDK.** Everything under
-`src/AirDefence/Sim/` is free of KSA types *by construction* — the test project links it and
+`src/KSArmory/Sim/` is free of KSA types *by construction* — the test project links it and
 references no game assembly, so a stray `using KSA;` there fails the test build rather than
 slipping through. If you are fixing guidance, threat classification, tube geometry or the fuse,
 you do not need the game at all.

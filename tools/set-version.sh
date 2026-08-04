@@ -9,7 +9,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT="$REPO_ROOT/src/AirDefence/AirDefence.csproj"
+PROJECT="$REPO_ROOT/src/KSArmory/KSArmory.csproj"
 
 VERSION="${1:-}"
 if [[ -z "$VERSION" ]]; then

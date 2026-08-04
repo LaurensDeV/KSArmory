@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 meshinfo = import_module("meshinfo")
 
 REPO = Path(__file__).resolve().parent.parent
-MOD = REPO / "src" / "AirDefence"
+MOD = REPO / "src" / "KSArmory"
 KSA_DIR = Path(os.environ.get("KSA_DIR", "/mnt/c/Program Files/Kitten Space Agency"))
 CORE = KSA_DIR / "Content" / "Core"
 
@@ -91,7 +91,7 @@ def check_file(path, core_subparts, core_materials):
     local_materials = {el.get("Id") for el in root.iter("PbrMaterial") if el.get("Id")}
 
     # Paths are resolved against the XML's own directory, which for this mod is also the mod
-    # root -- see the comment at the top of AirDefenceAssets.xml for why those are the same.
+    # root -- see the comment at the top of KSArmoryAssets.xml for why those are the same.
     meshes_in_atlas = set()
     for el in root.iter("MeshAtlas"):
         checked += 1
@@ -285,7 +285,7 @@ def main():
         core_materials = declared.get("PbrMaterial", set())
         print(f"  {len(core_subparts)} subparts, {len(core_materials)} materials declared\n")
 
-    files = sorted(MOD.glob("AirDefence*.xml"))
+    files = sorted(MOD.glob("KSArmory*.xml"))
     if not files:
         print(f"error: no asset XML found in {MOD}", file=sys.stderr)
         return 1
@@ -297,7 +297,7 @@ def main():
         problems += p
         checked += c
 
-    print("checking src/AirDefence/Sim/Arsenal.cs against the mesh")
+    print("checking src/KSArmory/Sim/Arsenal.cs against the mesh")
     p, c = check_launcher_geometry()
     problems += p
     checked += c

@@ -26,7 +26,7 @@ for arg in "$@"; do [[ "$arg" == "--create" ]] && CREATE=1; done
 [[ "$TAG" == "--create" ]] && TAG=""
 
 if [[ -z "$TAG" ]]; then
-    VERSION="$(grep -oP '(?<=<Version>)[^<]+' src/AirDefence/AirDefence.csproj | head -1)"
+    VERSION="$(grep -oP '(?<=<Version>)[^<]+' src/KSArmory/KSArmory.csproj | head -1)"
     TAG="v$VERSION"
     echo "no tag given; using the version in the project file: $TAG"
 else
@@ -49,7 +49,7 @@ fi
 
 echo "building $VERSION"
 ./tools/package.sh --version "$VERSION" >/dev/null
-ARCHIVE="dist/AirDefence-$VERSION.zip"
+ARCHIVE="dist/KSArmory-$VERSION.zip"
 [[ -f "$ARCHIVE" ]] || { echo "error: $ARCHIVE was not produced" >&2; exit 1; }
 
 if gh release view "$TAG" >/dev/null 2>&1; then
@@ -60,7 +60,7 @@ elif (( CREATE )); then
     gh release create "$TAG" "$ARCHIVE" \
         --title "$TAG" \
         --generate-notes \
-        --notes "Drop the \`AirDefence\` folder into your KSA user directory's \`mods/\`, register it in \`manifest.toml\`, and launch through StarMap. See the README for the full install guide."
+        --notes "Drop the \`KSArmory\` folder into your KSA user directory's \`mods/\`, register it in \`manifest.toml\`, and launch through StarMap. See the README for the full install guide."
 else
     echo "error: no release exists for $TAG." >&2
     echo "       pass --create to make one, or let a push to main cut it first." >&2

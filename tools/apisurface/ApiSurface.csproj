@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Deliberately references nothing. The surface is read out of AirDefence.dll's own metadata
+  <!-- Deliberately references nothing. The surface is read out of KSArmory.dll's own metadata
        tables, so this tool builds and runs without KSA's assemblies present - which means CI can
        regenerate the surface on a machine that has no access to the private repository. -->
   <PropertyGroup>

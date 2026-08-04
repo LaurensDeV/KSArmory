@@ -91,6 +91,9 @@ patch like everything else, so labelling something a feature is a changelog deci
 release-size one. That split is deliberate: a mod's routine flow is features, enhancements and
 fixes together, and bumping minor for each of them makes the middle digit a commit counter.
 
+For calibration: a patch is the right size for a guidance overhaul, a new targeting UI and a dozen
+fixes shipped together. A minor means more than that — a new weapon system, or a compatibility
+milestone.
 
 **A minor is a deliberate act.** When something genuinely lands — a new weapon system, a KSA
 compatibility milestone — tag it:
@@ -116,7 +119,7 @@ is worse than a short one.
 Scope is not consulted either: `feat(tools)` on a developer script is still a `feat` and still
 cuts a release, publishing an archive identical to the last but for its version string. Developer
 tooling is `chore`, `ci`, `test` or `refactor`. The
-commit-msg hook warns when a `feat`/`fix`/`perf` commit touches nothing under `src/AirDefence/`;
+commit-msg hook warns when a `feat`/`fix`/`perf` commit touches nothing under `src/KSArmory/`;
 it only warns, because a packaging fix in `tools/package.sh` genuinely changes what ships without
 touching `src/` and no mechanical rule gets that right.
 
@@ -167,7 +170,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 - **The game is launchable from WSL** — interop is enabled, so `tools/run.sh` starts
   `StarMap.exe` directly. StarMap lives at `/mnt/c/Users/devoo/StarMap` and reads
   `./StarMapConfig.json` **relative to its own directory**, so it must be launched from there.
-- **The mod writes its own log** to `<KSA user dir>/Logs/AirDefence.log`, readable from WSL.
+- **The mod writes its own log** to `<KSA user dir>/Logs/KSArmory.log`, readable from WSL.
   `Console.WriteLine` only reaches stdout, and KSA's `KittenSpaceAgency.log` is written by its
   internal logger which mods cannot reach — so the mod's own file is the debugging channel.
   KSA's log is still the place to look for mod discovery and asset/XML errors.
@@ -209,7 +212,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 
 | Path | What |
 | --- | --- |
-| **`src/AirDefence/Sim/`** | **no KSA types, linked into the tests wholesale** |
+| **`src/KSArmory/Sim/`** | **no KSA types, linked into the tests wholesale** |
 | `Sim/Arsenal.cs` | **the registry — add a weapon system here** |
 | `Sim/LauncherProfile.cs` | one launch platform: part Id, tube geometry, drives |
 | `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
@@ -226,8 +229,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
-| **`src/AirDefence/Ksa/`** | **everything that binds to the game** |
-| `Ksa/AirDefenceMod.cs` | StarMap entry point and frame hooks |
+| **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
+| `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |
 | `Ksa/KsaWorld.cs` | most KSA contact is funnelled here — keep it that way |
 | `Ksa/DefenceBattery.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
@@ -237,10 +240,10 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the battery can see and why |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
-| `src/AirDefence/AirDefence*.xml` | the launcher part — at the mod root, mirroring Core |
-| `src/AirDefence/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
-| `src/AirDefence/mod.toml` | serves as both the content-mod and StarMap manifest |
-| `tests/AirDefence.Tests/` | links the KSA-free sources and flies engagements headlessly |
+| `src/KSArmory/KSArmory*.xml` | the launcher part — at the mod root, mirroring Core |
+| `src/KSArmory/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
+| `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
+| `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-API-SURFACE.md` | **generated** — the 149 members an upgrade has to preserve |
@@ -359,7 +362,7 @@ is **data plus art**, not new logic. Nothing in `Sim/` or `Ksa/` names the Pants
    into the same atlas. Run `tools/model/checkmesh.py` — it fails the build on the two defects
    that only show up in game.
 2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
-   `AirDefenceAssets.xml`, and a `<PartGameData>` with its colliders and mass.
+   `KSArmoryAssets.xml`, and a `<PartGameData>` with its colliders and mass.
 3. **Register it.** One `LauncherProfile` in `Sim/Arsenal.cs`, naming the munition and sensor it
    uses, with the geometry `build.sh` prints. Add a `MunitionProfile` too if the round differs.
 4. **Nothing else.** `LauncherPart.Find` matches against every registered part Id, and the
@@ -656,7 +659,7 @@ a part that can be assembled from Core's kit, but a Pantsir cannot. The mod now 
 `Meshes/AirDefence_MeshAtlas.glb` and three PNGs, declared with `<MeshAtlas>` and
 `<PbrMaterial>` exactly as Core does.
 
-The XML sits at `src/AirDefence/*.xml` rather than in an `Assets/` subfolder **on purpose**.
+The XML sits at `src/KSArmory/*.xml` rather than in an `Assets/` subfolder **on purpose**.
 `<MeshAtlas Path="Meshes/…">` is relative, and it is not documented whether it resolves against
 the mod root or against the XML's own directory. With the XML at the root those are the same
 directory, so the question never has to be answered. Moving it back into a subfolder reopens a
@@ -701,7 +704,7 @@ That does **not** weaken the rule in [Committing](#committing): a behaviour chan
 until it has been flown, whatever the suite says. The two facts sit together — most of the mod is
 confirmed working, and each new change still has to earn that separately.
 
-`tests/AirDefence.Tests` flies whole engagements headlessly. Three suites are load-bearing and
+`tests/KSArmory.Tests` flies whole engagements headlessly. Three suites are load-bearing and
 should not be weakened without understanding what they buy:
 
 - `GuidanceDiscriminationTests` asserts the crossing-target scenario **misses** with the nav

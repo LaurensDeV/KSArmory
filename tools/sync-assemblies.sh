@@ -52,7 +52,7 @@ SUBSET=0
 [[ "${2:-}" == "--subset" ]] && SUBSET=1
 
 referenced="$(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
-    "$REPO_ROOT"/src/AirDefence/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)"
+    "$REPO_ROOT"/src/KSArmory/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)"
 
 # Game-shipped third-party. Taken from the install rather than NuGet on purpose: the game is
 # pre-release and binds to the exact build it ships, so a NuGet package of the same nominal

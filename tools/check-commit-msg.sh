@@ -71,11 +71,11 @@ advise_release_impact() {
     local touched
     touched="$(git diff --cached --name-only 2>/dev/null || true)"
     [[ -n "$touched" ]] || return 0
-    printf '%s\n' "$touched" | grep -q '^src/AirDefence/' && return 0
+    printf '%s\n' "$touched" | grep -q '^src/KSArmory/' && return 0
 
     local bump="patch"; [[ "$type" == feat ]] && bump="minor"
     echo >&2
-    echo "note: this cuts a $bump release, but nothing under src/AirDefence/ changed." >&2
+    echo "note: this cuts a $bump release, but nothing under src/KSArmory/ changed." >&2
     echo "      The published archive will differ from the last only by its version number." >&2
     echo "      If this is developer tooling, chore/ci/test/refactor cut no release." >&2
     echo "      If it changes what gets packaged, ignore this — that is the exception." >&2

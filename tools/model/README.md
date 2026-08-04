@@ -10,7 +10,7 @@ and installs the results into the mod. Nothing here needs the Blender UI, and th
 ./tools/model/build.sh --previews   # renders only; leaves the committed atlas alone
 ```
 
-Outputs land in `src/AirDefence/`:
+Outputs land in `src/KSArmory/`:
 
 | File | What |
 | --- | --- |
@@ -92,7 +92,7 @@ the model well inside its cell.
 wired in, so the previews look perfect while the part sparkles in KSA. Run the checker:
 
 ```bash
-./tools/model/checkmesh.py src/AirDefence/Meshes/AirDefence_MeshAtlas.glb
+./tools/model/checkmesh.py src/KSArmory/Meshes/AirDefence_MeshAtlas.glb
 ```
 
 It reports zero-UV-area triangles and coplanar face pairs, and exits non-zero on either. It is

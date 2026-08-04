@@ -8,4 +8,4 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=env.sh
 source "$REPO_ROOT/tools/env.sh"
 
-dotnet test "$REPO_ROOT/tests/AirDefence.Tests/AirDefence.Tests.csproj" --nologo "$@"
+dotnet test "$REPO_ROOT/tests/KSArmory.Tests/KSArmory.Tests.csproj" --nologo "$@"

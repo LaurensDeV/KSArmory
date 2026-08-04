@@ -69,7 +69,7 @@ DLL_DIR="$TARGET/current/dll"
 
 # Whatever the mirror holds, not whatever this mod references. The private repository is a
 # general KSA SDK mirror that other mods build against too, and a corpus covering only
-# AirDefence's eight assemblies would be useless to them - and would quietly stop covering this
+# KSArmory's eight assemblies would be useless to them - and would quietly stop covering this
 # mod the moment it referenced something new.
 mapfile -t NAMES < <(find "$DLL_DIR" -maxdepth 1 -name '*.dll' -printf '%f\n' | sed 's/\.dll$//' | sort)
 [[ ${#NAMES[@]} -gt 0 ]] || { echo "error: no assemblies in $DLL_DIR" >&2; exit 1; }
@@ -116,7 +116,7 @@ if [[ ! -f "$TARGET/README.md" ]]; then
     cat > "$TARGET/README.md" <<'EOF'
 # ksa-game-assemblies (private)
 
-Kitten Space Agency's assemblies and their decompiled sources, kept so that the AirDefence mod
+Kitten Space Agency's assemblies and their decompiled sources, kept so that the KSArmory mod
 can be built by CI and so that a KSA update produces a readable diff of what changed.
 
 **This repository must stay private.** These are RocketWerkz's copyrighted game files, both the

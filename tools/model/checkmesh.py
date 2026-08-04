@@ -12,7 +12,7 @@ Every triangle is reduced to its plane (unit normal, offset), sign-canonicalised
 back-to-back faces hash together, and quantised. Any plane holding triangles from more than one
 direction, with overlapping extents, is a candidate.
 
-    ./tools/model/checkmesh.py src/AirDefence/Meshes/AirDefence_MeshAtlas.glb
+    ./tools/model/checkmesh.py src/KSArmory/Meshes/AirDefence_MeshAtlas.glb
     ./tools/model/checkmesh.py <atlas.glb> --mesh AirDefence_Subpart_Chassis
     ./tools/model/checkmesh.py <a.glb> --compare <b.glb>    # same model, or genuinely changed?
 

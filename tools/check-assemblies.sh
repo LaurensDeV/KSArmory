@@ -64,7 +64,7 @@ fi
 
 # The set the projects actually reference, from the csproj files, so this cannot fall behind.
 mapfile -t NAMES < <(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
-    "$REPO_ROOT"/src/AirDefence/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)
+    "$REPO_ROOT"/src/KSArmory/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)
 [[ ${#NAMES[@]} -gt 0 ]] || { echo "error: no \$(KsaDllDir) references found in the csproj files" >&2; exit 1; }
 
 # In --game mode, compare only what the install actually ships. StarMap.API.dll comes from the

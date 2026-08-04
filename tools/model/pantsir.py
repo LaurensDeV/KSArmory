@@ -860,7 +860,7 @@ def render_previews(out_dir):
 def report_muzzles(out_dir):
     """Emits the firing tubes as a C# array and as JSON.
 
-    The array goes into the LauncherProfile's `Tubes` in src/AirDefence/Sim/Arsenal.cs by hand;
+    The array goes into the LauncherProfile's `Tubes` in src/KSArmory/Sim/Arsenal.cs by hand;
     the JSON is what tools/validate-parts.py compares that file against, so the two cannot
     quietly drift.
 
@@ -873,7 +873,7 @@ def report_muzzles(out_dir):
     # follow them through both traverse and elevation, with no extra bookkeeping.
     firing = [tube_muzzle(*t) - pivot for t in firing_order()]
 
-    print("\n=== LauncherProfile.Tubes (paste into src/AirDefence/Sim/Arsenal.cs)")
+    print("\n=== LauncherProfile.Tubes (paste into src/KSArmory/Sim/Arsenal.cs)")
     for m in firing:
         print(f"        new({m.x:8.5f}, {m.y:8.5f}, {m.z:8.5f}),")
 

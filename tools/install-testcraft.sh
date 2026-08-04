@@ -35,7 +35,7 @@ cat > "$TARGET/meta.toml" <<EOF
 name = "$NAME"
 created = $NOW
 updated = $NOW
-version = "AirDefence-mod"
+version = "KSArmory-mod"
 systems = [ "Sol", ]
 EOF
 

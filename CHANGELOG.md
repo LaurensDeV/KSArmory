@@ -1,166 +1,166 @@
-## [0.8.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.7.0...v0.8.0) (2026-08-04)
+## [0.8.0](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.7.0...v0.8.0) (2026-08-04)
 
 ### Features
 
-* **radar:** identify contacts by team before engaging them ([94da4d8](https://github.com/LaurensDeV/KSA-AirDefence/commit/94da4d8e74be55187b4cd037ee8f0127041f7ca7))
-* **rounds:** fly through any medium, including water ([8dde3f7](https://github.com/LaurensDeV/KSA-AirDefence/commit/8dde3f70bb4e03ec61a64c39e566930b5d015c69))
-* **sim:** decouple magazine depth from tube count ([82a1e0b](https://github.com/LaurensDeV/KSA-AirDefence/commit/82a1e0ba70c6ee3b50dd17c7d95fad25d16b1e16))
-* **sim:** let a round aim at a part or a point, not only a craft ([4e83b23](https://github.com/LaurensDeV/KSA-AirDefence/commit/4e83b234853f45165c40536df2891dad9a5abd0f))
+* **radar:** identify contacts by team before engaging them ([94da4d8](https://github.com/LaurensDeV/KSA-KSArmory/commit/94da4d8e74be55187b4cd037ee8f0127041f7ca7))
+* **rounds:** fly through any medium, including water ([8dde3f7](https://github.com/LaurensDeV/KSA-KSArmory/commit/8dde3f70bb4e03ec61a64c39e566930b5d015c69))
+* **sim:** decouple magazine depth from tube count ([82a1e0b](https://github.com/LaurensDeV/KSA-KSArmory/commit/82a1e0ba70c6ee3b50dd17c7d95fad25d16b1e16))
+* **sim:** let a round aim at a part or a point, not only a craft ([4e83b23](https://github.com/LaurensDeV/KSA-KSArmory/commit/4e83b234853f45165c40536df2891dad9a5abd0f))
 
 ### Documentation
 
-* audit modularity against torpedoes, RPGs, aircraft and submarines ([aab95dd](https://github.com/LaurensDeV/KSA-AirDefence/commit/aab95ddeb3aaf75dc3f9eba33a7f1fdcc0970184))
-* comments state the fact, not the history ([59b6cf0](https://github.com/LaurensDeV/KSA-AirDefence/commit/59b6cf0dce2969077fbe92f69a9525b87433d600))
-* record what the four changes unblocked, and what is still open ([31349fa](https://github.com/LaurensDeV/KSA-AirDefence/commit/31349fa19b4e967426a1a8969ce3a7673d8989d9))
-* strip history and narrative from comments ([a7ed136](https://github.com/LaurensDeV/KSA-AirDefence/commit/a7ed13633a759ed856f929a58979a686f4f483fb))
-* write down the rules for comments and keeping docs true ([85c8ae6](https://github.com/LaurensDeV/KSA-AirDefence/commit/85c8ae63c99f96dd5e824cce1c85f05f1a568424))
+* audit modularity against torpedoes, RPGs, aircraft and submarines ([aab95dd](https://github.com/LaurensDeV/KSA-KSArmory/commit/aab95ddeb3aaf75dc3f9eba33a7f1fdcc0970184))
+* comments state the fact, not the history ([59b6cf0](https://github.com/LaurensDeV/KSA-KSArmory/commit/59b6cf0dce2969077fbe92f69a9525b87433d600))
+* record what the four changes unblocked, and what is still open ([31349fa](https://github.com/LaurensDeV/KSA-KSArmory/commit/31349fa19b4e967426a1a8969ce3a7673d8989d9))
+* strip history and narrative from comments ([a7ed136](https://github.com/LaurensDeV/KSA-KSArmory/commit/a7ed13633a759ed856f929a58979a686f4f483fb))
+* write down the rules for comments and keeping docs true ([85c8ae6](https://github.com/LaurensDeV/KSA-KSArmory/commit/85c8ae63c99f96dd5e824cce1c85f05f1a568424))
 
-## [0.7.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.6.0...v0.7.0) (2026-08-04)
+## [0.7.0](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.6.0...v0.7.0) (2026-08-04)
 
 ### Features
 
-* **radar:** let a sensor choose where its search cone points ([c184fb9](https://github.com/LaurensDeV/KSA-AirDefence/commit/c184fb9bc7cd0201cad46ba86c3ddff490f5d6cf))
-* **rounds:** scale drag by air density so vacuum launches work ([da005cb](https://github.com/LaurensDeV/KSA-AirDefence/commit/da005cb21e5fc037505ae944b530beab735e97c9))
-* **sim:** give each tube its own launch direction ([3a6416b](https://github.com/LaurensDeV/KSA-AirDefence/commit/3a6416b71f59f5ba73bc16987c1f5adac4093da8))
-* **ui:** add slow-motion simulation speed buttons ([90f1c80](https://github.com/LaurensDeV/KSA-AirDefence/commit/90f1c8011c0d76a7a540e2418ca0d0995f1fcd2a))
+* **radar:** let a sensor choose where its search cone points ([c184fb9](https://github.com/LaurensDeV/KSA-KSArmory/commit/c184fb9bc7cd0201cad46ba86c3ddff490f5d6cf))
+* **rounds:** scale drag by air density so vacuum launches work ([da005cb](https://github.com/LaurensDeV/KSA-KSArmory/commit/da005cb21e5fc037505ae944b530beab735e97c9))
+* **sim:** give each tube its own launch direction ([3a6416b](https://github.com/LaurensDeV/KSA-KSArmory/commit/3a6416b71f59f5ba73bc16987c1f5adac4093da8))
+* **ui:** add slow-motion simulation speed buttons ([90f1c80](https://github.com/LaurensDeV/KSA-KSArmory/commit/90f1c8011c0d76a7a540e2418ca0d0995f1fcd2a))
 
 ### Fixes
 
-* **rounds:** aim at the target's own instant, not one step ahead of it ([9ed1b06](https://github.com/LaurensDeV/KSA-AirDefence/commit/9ed1b0649c059df617282c6f091f28f0bb8da7ae))
-* **rounds:** draw rounds from the frame that simulated them ([e7548c1](https://github.com/LaurensDeV/KSA-AirDefence/commit/e7548c145f0ef4ace3b560d7d5b2efaac8bfa0bf))
-* **rounds:** measure the drawn offset against its own frame's platform ([bea84a6](https://github.com/LaurensDeV/KSA-AirDefence/commit/bea84a6fd7ebf1826d094937626c26b011a3eeeb))
-* **rounds:** measure the tube muzzle from the centre of mass ([589c49b](https://github.com/LaurensDeV/KSA-AirDefence/commit/589c49b44b9b4948d779599c1126991d4236b5c8))
-* **rounds:** seat every body so none can flash at the vehicle origin ([4140846](https://github.com/LaurensDeV/KSA-AirDefence/commit/41408461139f57038b2fd0373406aeeea14ef24a))
-* **rounds:** stop a launching round pointing along Earth's orbit ([6ae0753](https://github.com/LaurensDeV/KSA-AirDefence/commit/6ae07530643946c32392c538fd8b04ae39f0ef15))
-* **rounds:** track loaded tubes instead of deriving them from ammo ([628d57a](https://github.com/LaurensDeV/KSA-AirDefence/commit/628d57afe0cd3a7909144cbd71e9fb8172559c73))
-* **sim:** join KSA's vehicle solvers before destroying a target ([e3be8ea](https://github.com/LaurensDeV/KSA-AirDefence/commit/e3be8ea11327e376278bb18618c7a706410c9f6c))
-* **sim:** step on what the engine applied, not on the pause flag ([48d7ef6](https://github.com/LaurensDeV/KSA-AirDefence/commit/48d7ef6149afb6c9a367238c123f790f19d8bbd4))
-* **testtarget:** spawn kittens as KittenEva so they can be flown ([770244d](https://github.com/LaurensDeV/KSA-AirDefence/commit/770244df8845ac5309445d1227e16eac66167f25))
+* **rounds:** aim at the target's own instant, not one step ahead of it ([9ed1b06](https://github.com/LaurensDeV/KSA-KSArmory/commit/9ed1b0649c059df617282c6f091f28f0bb8da7ae))
+* **rounds:** draw rounds from the frame that simulated them ([e7548c1](https://github.com/LaurensDeV/KSA-KSArmory/commit/e7548c145f0ef4ace3b560d7d5b2efaac8bfa0bf))
+* **rounds:** measure the drawn offset against its own frame's platform ([bea84a6](https://github.com/LaurensDeV/KSA-KSArmory/commit/bea84a6fd7ebf1826d094937626c26b011a3eeeb))
+* **rounds:** measure the tube muzzle from the centre of mass ([589c49b](https://github.com/LaurensDeV/KSA-KSArmory/commit/589c49b44b9b4948d779599c1126991d4236b5c8))
+* **rounds:** seat every body so none can flash at the vehicle origin ([4140846](https://github.com/LaurensDeV/KSA-KSArmory/commit/41408461139f57038b2fd0373406aeeea14ef24a))
+* **rounds:** stop a launching round pointing along Earth's orbit ([6ae0753](https://github.com/LaurensDeV/KSA-KSArmory/commit/6ae07530643946c32392c538fd8b04ae39f0ef15))
+* **rounds:** track loaded tubes instead of deriving them from ammo ([628d57a](https://github.com/LaurensDeV/KSA-KSArmory/commit/628d57afe0cd3a7909144cbd71e9fb8172559c73))
+* **sim:** join KSA's vehicle solvers before destroying a target ([e3be8ea](https://github.com/LaurensDeV/KSA-KSArmory/commit/e3be8ea11327e376278bb18618c7a706410c9f6c))
+* **sim:** step on what the engine applied, not on the pause flag ([48d7ef6](https://github.com/LaurensDeV/KSA-KSArmory/commit/48d7ef6149afb6c9a367238c123f790f19d8bbd4))
+* **testtarget:** spawn kittens as KittenEva so they can be flown ([770244d](https://github.com/LaurensDeV/KSA-KSArmory/commit/770244df8845ac5309445d1227e16eac66167f25))
 
 ### Internal
 
-* **sim:** lift the launcher's tube geometry out of LauncherPart ([90a892f](https://github.com/LaurensDeV/KSA-AirDefence/commit/90a892fcd7a4d6449afd980f76dd3334de267d1c))
-* **sim:** lift the sim-step dedup into a testable gate ([c78d541](https://github.com/LaurensDeV/KSA-AirDefence/commit/c78d541520c1a96109b2104dc43a11660ab099f1))
-* **sim:** lift tube bookkeeping into a testable Magazine ([3ca5ba1](https://github.com/LaurensDeV/KSA-AirDefence/commit/3ca5ba178ec0a27adf343007664be510a1f55156))
-* **sim:** make the projectile an abstraction, not one class ([df18e45](https://github.com/LaurensDeV/KSA-AirDefence/commit/df18e45b4c32ec1f242f63f5831239489f0c2359))
+* **sim:** lift the launcher's tube geometry out of LauncherPart ([90a892f](https://github.com/LaurensDeV/KSA-KSArmory/commit/90a892fcd7a4d6449afd980f76dd3334de267d1c))
+* **sim:** lift the sim-step dedup into a testable gate ([c78d541](https://github.com/LaurensDeV/KSA-KSArmory/commit/c78d541520c1a96109b2104dc43a11660ab099f1))
+* **sim:** lift tube bookkeeping into a testable Magazine ([3ca5ba1](https://github.com/LaurensDeV/KSA-KSArmory/commit/3ca5ba178ec0a27adf343007664be510a1f55156))
+* **sim:** make the projectile an abstraction, not one class ([df18e45](https://github.com/LaurensDeV/KSA-KSArmory/commit/df18e45b4c32ec1f242f63f5831239489f0c2359))
 
 ### Documentation
 
-* correct the modularity audit after the extraction moved it ([159bd46](https://github.com/LaurensDeV/KSA-AirDefence/commit/159bd46ab1971fe357b0284d4249f82b0ddcdc96))
-* record how far the weapon-system split generalises ([4ded6a3](https://github.com/LaurensDeV/KSA-AirDefence/commit/4ded6a390fb50d1415e5a8ef3540024ee3ea8c1c))
+* correct the modularity audit after the extraction moved it ([159bd46](https://github.com/LaurensDeV/KSA-KSArmory/commit/159bd46ab1971fe357b0284d4249f82b0ddcdc96))
+* record how far the weapon-system split generalises ([4ded6a3](https://github.com/LaurensDeV/KSA-KSArmory/commit/4ded6a390fb50d1415e5a8ef3540024ee3ea8c1c))
 
-## [0.6.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.5.2...v0.6.0) (2026-08-03)
+## [0.6.0](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.5.2...v0.6.0) (2026-08-03)
 
 ### Features
 
-* **model:** fold clipped-delta fins out after launch ([4c2062d](https://github.com/LaurensDeV/KSA-AirDefence/commit/4c2062dfc22733355bde035bc39c1b3606649983))
-* **rounds:** seat loaded rounds in their tubes ([01678fa](https://github.com/LaurensDeV/KSA-AirDefence/commit/01678fa21e7de101f27a8b37c6716544bd0faf83))
-* **ui:** put the tube markers behind a debug toggle ([19b7940](https://github.com/LaurensDeV/KSA-AirDefence/commit/19b794012ba24f77cea41307c73d6ccaab1db00f))
+* **model:** fold clipped-delta fins out after launch ([4c2062d](https://github.com/LaurensDeV/KSA-KSArmory/commit/4c2062dfc22733355bde035bc39c1b3606649983))
+* **rounds:** seat loaded rounds in their tubes ([01678fa](https://github.com/LaurensDeV/KSA-KSArmory/commit/01678fa21e7de101f27a8b37c6716544bd0faf83))
+* **ui:** put the tube markers behind a debug toggle ([19b7940](https://github.com/LaurensDeV/KSA-KSArmory/commit/19b794012ba24f77cea41307c73d6ccaab1db00f))
 
 ### Documentation
 
-* **model:** record the three traps that only bite hand-built meshes ([980a285](https://github.com/LaurensDeV/KSA-AirDefence/commit/980a285d9f0e64753b03dd30d771bb9a8395960f))
+* **model:** record the three traps that only bite hand-built meshes ([980a285](https://github.com/LaurensDeV/KSA-KSArmory/commit/980a285d9f0e64753b03dd30d771bb9a8395960f))
 
-## [0.5.2](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.5.1...v0.5.2) (2026-08-03)
-
-### Fixes
-
-* **sim:** step on this frame's interval, expressed in simulated seconds ([b6ad885](https://github.com/LaurensDeV/KSA-AirDefence/commit/b6ad885d5ba77fb568cb76d8b41e47ab54fc12be))
-
-## [0.5.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.5.0...v0.5.1) (2026-08-03)
+## [0.5.2](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.5.1...v0.5.2) (2026-08-03)
 
 ### Fixes
 
-* **draw:** step on the frame delta the platform sample moved over ([05dc512](https://github.com/LaurensDeV/KSA-AirDefence/commit/05dc512a33f7639cb827262bef1220ac0acc080f))
+* **sim:** step on this frame's interval, expressed in simulated seconds ([b6ad885](https://github.com/LaurensDeV/KSA-KSArmory/commit/b6ad885d5ba77fb568cb76d8b41e47ab54fc12be))
 
-## [0.5.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.4...v0.5.0) (2026-08-03)
+## [0.5.1](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.5.0...v0.5.1) (2026-08-03)
+
+### Fixes
+
+* **draw:** step on the frame delta the platform sample moved over ([05dc512](https://github.com/LaurensDeV/KSA-KSArmory/commit/05dc512a33f7639cb827262bef1220ac0acc080f))
+
+## [0.5.0](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.4.4...v0.5.0) (2026-08-03)
 
 ### Features
 
-* **radar:** engage only what the round can actually reach ([585b318](https://github.com/LaurensDeV/KSA-AirDefence/commit/585b3182c7656de19562f93080c8b94205423bef))
-* **rounds:** fly the 57E6 as the command-guided weapon it is ([9060854](https://github.com/LaurensDeV/KSA-AirDefence/commit/9060854d260ddaab5f7739e447782c5381b21867))
+* **radar:** engage only what the round can actually reach ([585b318](https://github.com/LaurensDeV/KSA-KSArmory/commit/585b3182c7656de19562f93080c8b94205423bef))
+* **rounds:** fly the 57E6 as the command-guided weapon it is ([9060854](https://github.com/LaurensDeV/KSA-KSArmory/commit/9060854d260ddaab5f7739e447782c5381b21867))
 
-## [0.4.4](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.3...v0.4.4) (2026-08-03)
-
-### Fixes
-
-* **rounds:** accumulate travel rather than difference ecliptic positions ([c17735c](https://github.com/LaurensDeV/KSA-AirDefence/commit/c17735c3e1fc0b37d62a9c7980f4ae9ba4cc6aa7))
-
-## [0.4.3](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.2...v0.4.3) (2026-08-03)
+## [0.4.4](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.4.3...v0.4.4) (2026-08-03)
 
 ### Fixes
 
-* **rounds:** stop extrapolating the platform a frame past where it is ([b422d39](https://github.com/LaurensDeV/KSA-AirDefence/commit/b422d3974f8f1a033a96a91aed3d3e60f09477de))
+* **rounds:** accumulate travel rather than difference ecliptic positions ([c17735c](https://github.com/LaurensDeV/KSA-KSArmory/commit/c17735c3e1fc0b37d62a9c7980f4ae9ba4cc6aa7))
 
-## [0.4.2](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.1...v0.4.2) (2026-08-03)
+## [0.4.3](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.4.2...v0.4.3) (2026-08-03)
 
 ### Fixes
 
-* **rounds:** fuse on proximity, not on the seeker holding the target ([5b9e68e](https://github.com/LaurensDeV/KSA-AirDefence/commit/5b9e68e3a1ddc5c9f1256846318564885377bf7f))
+* **rounds:** stop extrapolating the platform a frame past where it is ([b422d39](https://github.com/LaurensDeV/KSA-KSArmory/commit/b422d3974f8f1a033a96a91aed3d3e60f09477de))
+
+## [0.4.2](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.4.1...v0.4.2) (2026-08-03)
+
+### Fixes
+
+* **rounds:** fuse on proximity, not on the seeker holding the target ([5b9e68e](https://github.com/LaurensDeV/KSA-KSArmory/commit/5b9e68e3a1ddc5c9f1256846318564885377bf7f))
 
 ### Documentation
 
-* do not commit a behaviour fix until it is verified in game ([28b2d14](https://github.com/LaurensDeV/KSA-AirDefence/commit/28b2d1474d5efe6bdc2fa05726aab7cc85cc3c0f))
+* do not commit a behaviour fix until it is verified in game ([28b2d14](https://github.com/LaurensDeV/KSA-KSArmory/commit/28b2d1474d5efe6bdc2fa05726aab7cc85cc3c0f))
 
-## [0.4.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.4.0...v0.4.1) (2026-08-03)
+## [0.4.1](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.4.0...v0.4.1) (2026-08-03)
 
 ### Fixes
 
-* **sim:** step on the delta KSA applied, not one measured around it ([80023e4](https://github.com/LaurensDeV/KSA-AirDefence/commit/80023e492418a38b128eb10bf6981b4664386a19))
+* **sim:** step on the delta KSA applied, not one measured around it ([80023e4](https://github.com/LaurensDeV/KSA-KSArmory/commit/80023e492418a38b128eb10bf6981b4664386a19))
 
-## [0.4.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.3.2...v0.4.0) (2026-08-03)
+## [0.4.0](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.3.2...v0.4.0) (2026-08-03)
 
 ### Features
 
-* **rounds:** add a round-body toggle and placement tracing ([0735022](https://github.com/LaurensDeV/KSA-AirDefence/commit/0735022262b1f6edd1f1ca4b2879797d7ab49510))
+* **rounds:** add a round-body toggle and placement tracing ([0735022](https://github.com/LaurensDeV/KSA-KSArmory/commit/0735022262b1f6edd1f1ca4b2879797d7ab49510))
 
 ### Fixes
 
-* **build:** silence the two nullable warnings in TestTarget ([a2bcb04](https://github.com/LaurensDeV/KSA-AirDefence/commit/a2bcb041214327742ec95425152d1fcc85c122d1))
+* **build:** silence the two nullable warnings in TestTarget ([a2bcb04](https://github.com/LaurensDeV/KSA-KSArmory/commit/a2bcb041214327742ec95425152d1fcc85c122d1))
 
-## [0.3.2](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.3.1...v0.3.2) (2026-08-03)
-
-### Fixes
-
-* **rounds:** place round bodies every frame, not every simulation step ([609d783](https://github.com/LaurensDeV/KSA-AirDefence/commit/609d783846ba6763740f7666a58ffe4e6da1c554))
-
-## [0.3.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.3.0...v0.3.1) (2026-08-03)
+## [0.3.2](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.3.1...v0.3.2) (2026-08-03)
 
 ### Fixes
 
-* **sim:** step on simulation time, not wall-clock player time ([21f07e7](https://github.com/LaurensDeV/KSA-AirDefence/commit/21f07e71af994846b8fd603e12bed3e88555ed92))
+* **rounds:** place round bodies every frame, not every simulation step ([609d783](https://github.com/LaurensDeV/KSA-KSArmory/commit/609d783846ba6763740f7666a58ffe4e6da1c554))
+
+## [0.3.1](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.3.0...v0.3.1) (2026-08-03)
+
+### Fixes
+
+* **sim:** step on simulation time, not wall-clock player time ([21f07e7](https://github.com/LaurensDeV/KSA-KSArmory/commit/21f07e71af994846b8fd603e12bed3e88555ed92))
 
 ### Internal
 
-* **radar:** move threat ranking into Sim/ so it can be tested ([5876c61](https://github.com/LaurensDeV/KSA-AirDefence/commit/5876c6119af7ad61400f52efda76244b79becb18))
+* **radar:** move threat ranking into Sim/ so it can be tested ([5876c61](https://github.com/LaurensDeV/KSA-KSArmory/commit/5876c6119af7ad61400f52efda76244b79becb18))
 
-## [0.3.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.2.0...v0.3.0) (2026-08-03)
-
-### Features
-
-* **tools:** mirror and decompile the whole KSA SDK ([4bf7ed7](https://github.com/LaurensDeV/KSA-AirDefence/commit/4bf7ed7811fa2e05a6dfabe30342149ce11a63fa))
-* **tools:** narrow a KSA update to the changes that touch this mod ([cd3fe6b](https://github.com/LaurensDeV/KSA-AirDefence/commit/cd3fe6b21d23783d6cddf8c887fd24aabce14c83))
-* **tools:** record the KSA API surface this mod binds to ([e5f9c87](https://github.com/LaurensDeV/KSA-AirDefence/commit/e5f9c87d653d72753d85ecabc9b9d9a836ce0117))
-
-### Documentation
-
-* add an upgrade-ksa skill and record the new workflow ([1142ca4](https://github.com/LaurensDeV/KSA-AirDefence/commit/1142ca49cbf0363aa539a73adc15b3af1a53df75))
-
-## [0.2.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.1.1...v0.2.0) (2026-08-03)
+## [0.3.0](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.2.0...v0.3.0) (2026-08-03)
 
 ### Features
 
-* **model:** compare two mesh atlases by geometry, not by bytes ([212418e](https://github.com/LaurensDeV/KSA-AirDefence/commit/212418e8f54d5bfe1c92382fd28394222c18fb01))
-* **tools:** notice a KSA update on the first build after it ([04a1746](https://github.com/LaurensDeV/KSA-AirDefence/commit/04a1746f86090664a25507ce3098bc5aec045635))
-* **tools:** watch RocketWerkz's version endpoint for KSA updates ([89ba25f](https://github.com/LaurensDeV/KSA-AirDefence/commit/89ba25f9bb2fbbdf9f3f92e1585cfc9c427bb45c))
+* **tools:** mirror and decompile the whole KSA SDK ([4bf7ed7](https://github.com/LaurensDeV/KSA-KSArmory/commit/4bf7ed7811fa2e05a6dfabe30342149ce11a63fa))
+* **tools:** narrow a KSA update to the changes that touch this mod ([cd3fe6b](https://github.com/LaurensDeV/KSA-KSArmory/commit/cd3fe6b21d23783d6cddf8c887fd24aabce14c83))
+* **tools:** record the KSA API surface this mod binds to ([e5f9c87](https://github.com/LaurensDeV/KSA-KSArmory/commit/e5f9c87d653d72753d85ecabc9b9d9a836ce0117))
 
 ### Documentation
 
-* cross-reference the KSA update procedure from the commands list ([f0aec7c](https://github.com/LaurensDeV/KSA-AirDefence/commit/f0aec7c188a5ebe3088e389ee755e9689044bc87))
+* add an upgrade-ksa skill and record the new workflow ([1142ca4](https://github.com/LaurensDeV/KSA-KSArmory/commit/1142ca49cbf0363aa539a73adc15b3af1a53df75))
 
-## [0.1.1](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.1.0...v0.1.1) (2026-08-03)
+## [0.2.0](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.1.1...v0.2.0) (2026-08-03)
+
+### Features
+
+* **model:** compare two mesh atlases by geometry, not by bytes ([212418e](https://github.com/LaurensDeV/KSA-KSArmory/commit/212418e8f54d5bfe1c92382fd28394222c18fb01))
+* **tools:** notice a KSA update on the first build after it ([04a1746](https://github.com/LaurensDeV/KSA-KSArmory/commit/04a1746f86090664a25507ce3098bc5aec045635))
+* **tools:** watch RocketWerkz's version endpoint for KSA updates ([89ba25f](https://github.com/LaurensDeV/KSA-KSArmory/commit/89ba25f9bb2fbbdf9f3f92e1585cfc9c427bb45c))
+
+### Documentation
+
+* cross-reference the KSA update procedure from the commands list ([f0aec7c](https://github.com/LaurensDeV/KSA-KSArmory/commit/f0aec7c188a5ebe3088e389ee755e9689044bc87))
+
+## [0.1.1](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.1.0...v0.1.1) (2026-08-03)
 
 ### Build and packaging
 
-* **release:** add publish-release.sh for machines with KSA ([6af1bed](https://github.com/LaurensDeV/KSA-AirDefence/commit/6af1bed582c9f30048b215100cd8f3f52d4d1f1d))
-* resolve the KSA assembly folder in tiers ([a7f72e7](https://github.com/LaurensDeV/KSA-AirDefence/commit/a7f72e7a08313a597f30cf8268387ffb538593e5))
+* **release:** add publish-release.sh for machines with KSA ([6af1bed](https://github.com/LaurensDeV/KSA-KSArmory/commit/6af1bed582c9f30048b215100cd8f3f52d4d1f1d))
+* resolve the KSA assembly folder in tiers ([a7f72e7](https://github.com/LaurensDeV/KSA-KSArmory/commit/a7f72e7a08313a597f30cf8268387ffb538593e5))

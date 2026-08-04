@@ -104,7 +104,7 @@ jobs:
       # A release that fails its own checks is not a release.
       - name: Test
         if: env.HAVE_KEY == 'true'
-        run: dotnet test tests/AirDefence.Tests/AirDefence.Tests.csproj --nologo
+        run: dotnet test tests/KSArmory.Tests/KSArmory.Tests.csproj --nologo
 
       - name: Validate parts and launch geometry
         if: env.HAVE_KEY == 'true'
@@ -112,7 +112,7 @@ jobs:
 
       - name: Check the mesh
         if: env.HAVE_KEY == 'true'
-        run: ./tools/model/checkmesh.py src/AirDefence/Meshes/AirDefence_MeshAtlas.glb
+        run: ./tools/model/checkmesh.py src/KSArmory/Meshes/AirDefence_MeshAtlas.glb
 
       - name: Package
         if: env.HAVE_KEY == 'true'
@@ -123,13 +123,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.version.outputs.version }}
-          files: dist/AirDefence-${{ needs.version.outputs.version }}.zip
+          files: dist/KSArmory-${{ needs.version.outputs.version }}.zip
           append_body: true
           body: |
 
             ---
 
-            Drop the `AirDefence` folder into your KSA user directory's `mods/`, register it in
+            Drop the `KSArmory` folder into your KSA user directory's `mods/`, register it in
             `manifest.toml`, and launch through StarMap. See the README for the full guide.
 
             Works on Windows and Linux — the mod is a portable .NET assembly.

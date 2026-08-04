@@ -29,10 +29,10 @@ Mods live in `Documents/My Games/Kitten Space Agency/mods/<ModName>/` or
 `mod.toml` beside the DLL:
 
 ```toml
-name = "AirDefence"
+name = "KSArmory"
 
 [StarMap]
-EntryAssembly = "AirDefence"     # StarMap loads "<EntryAssembly>.dll"
+EntryAssembly = "KSArmory"     # StarMap loads "<EntryAssembly>.dll"
 ```
 
 StarMap loads that assembly and instantiates **the first type carrying `[StarMapMod]`** — the
@@ -319,11 +319,11 @@ A mod is a folder with `mod.toml`. The same folder serves as both a content mod 
 code mod:
 
 ```toml
-name = "AirDefence"
+name = "KSArmory"
 assets = [ "Assets/AirDefenceAssets.xml", "Assets/AirDefenceGameData.xml" ]
 
 [StarMap]
-EntryAssembly = "AirDefence"
+EntryAssembly = "KSArmory"
 ```
 
 **Assets XML** — appearance and layout. `<Part>` places `<SubPart>` instances:

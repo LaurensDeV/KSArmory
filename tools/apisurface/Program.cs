@@ -1,7 +1,7 @@
 // Reads the exact external API surface a compiled assembly depends on, straight out of its
 // metadata tables.
 //
-//   apisurface <AirDefence.dll> [--assemblies KSA,Brutal,Bepu,StarMap]
+//   apisurface <KSArmory.dll> [--assemblies KSA,Brutal,Bepu,StarMap]
 //
 // Why not grep the C#: `using KSA;` plus a call to `vehicle.Parts` tells you nothing about
 // which overload bound, what the parameter types were, or that `double3`'s constructor is part

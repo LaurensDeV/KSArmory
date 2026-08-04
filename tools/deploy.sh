@@ -52,12 +52,12 @@ else
     exit 1
 fi
 
-TARGET="$MODS_DIR/AirDefence"
+TARGET="$MODS_DIR/KSArmory"
 
 echo "building ($CONFIG)..."
-dotnet build "$REPO_ROOT/src/AirDefence/AirDefence.csproj" -c "$CONFIG" --nologo
+dotnet build "$REPO_ROOT/src/KSArmory/KSArmory.csproj" -c "$CONFIG" --nologo
 
-OUT="$REPO_ROOT/src/AirDefence/bin/$CONFIG/net10.0"
+OUT="$REPO_ROOT/src/KSArmory/bin/$CONFIG/net10.0"
 
 # The build output is deliberately just the mod itself: game assemblies are referenced with
 # Private=false so we never ship a second copy alongside the running game's.
@@ -65,8 +65,8 @@ mkdir -p "$TARGET"
 
 # KSA holds the assembly open while it runs, so the copy fails with a bare "Permission denied"
 # that looks like a filesystem problem rather than "close the game".
-if ! cp "$OUT/AirDefence.dll" "$TARGET/" 2>/dev/null; then
-    echo "error: could not write AirDefence.dll to the mods folder." >&2
+if ! cp "$OUT/KSArmory.dll" "$TARGET/" 2>/dev/null; then
+    echo "error: could not write KSArmory.dll to the mods folder." >&2
     if pgrep -f 'StarMap.exe|KSA.exe' >/dev/null 2>&1 || tasklist.exe 2>/dev/null | grep -qi '^KSA.exe'; then
         echo "       KSA is still running and has the file locked -- close the game and retry." >&2
     else
@@ -75,12 +75,12 @@ if ! cp "$OUT/AirDefence.dll" "$TARGET/" 2>/dev/null; then
     exit 1
 fi
 cp "$OUT/mod.toml" "$TARGET/"
-[[ -f "$OUT/AirDefence.pdb" ]] && cp "$OUT/AirDefence.pdb" "$TARGET/"
+[[ -f "$OUT/KSArmory.pdb" ]] && cp "$OUT/KSArmory.pdb" "$TARGET/"
 
 # Part definitions and the art they reference. Paths here must match the assets array in
-# mod.toml and the <MeshAtlas>/<PbrMaterial> paths inside AirDefenceAssets.xml. A missing
+# mod.toml and the <MeshAtlas>/<PbrMaterial> paths inside KSArmoryAssets.xml. A missing
 # texture is a silent in-game failure, so copy the folders wholesale rather than by name.
-cp "$OUT"/AirDefence*.xml "$TARGET/"
+cp "$OUT"/KSArmory*.xml "$TARGET/"
 for dir in Meshes Textures; do
     if [[ -d "$OUT/$dir" ]]; then
         mkdir -p "$TARGET/$dir"
@@ -105,11 +105,11 @@ MANIFEST="$(dirname "$MODS_DIR")/manifest.toml"
 
 if [[ ! -f "$MANIFEST" ]]; then
     echo "warning: no manifest at $MANIFEST -- register the mod by hand" >&2
-elif grep -q '^[[:space:]]*id[[:space:]]*=[[:space:]]*"AirDefence"' "$MANIFEST"; then
+elif grep -q '^[[:space:]]*id[[:space:]]*=[[:space:]]*"KSArmory"' "$MANIFEST"; then
     echo "already registered in $(basename "$MANIFEST")"
 else
     cp "$MANIFEST" "$MANIFEST.bak"
-    printf '\n[[mods]]\nid = "AirDefence"\nenabled = true\n' >> "$MANIFEST"
+    printf '\n[[mods]]\nid = "KSArmory"\nenabled = true\n' >> "$MANIFEST"
     echo "registered in $(basename "$MANIFEST") (backup: $(basename "$MANIFEST").bak)"
 fi
 

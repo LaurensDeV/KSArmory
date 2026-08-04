@@ -33,7 +33,7 @@ except ImportError:
     sys.exit("error: this needs Pillow (pip install pillow)")
 
 REPO = Path(__file__).resolve().parent.parent.parent
-TEXTURES = REPO / "src" / "AirDefence" / "Textures"
+TEXTURES = REPO / "src" / "KSArmory" / "Textures"
 PALETTE_JSON = Path(__file__).resolve().parent / "palette.json"
 
 GRID = 4          # cells per side
