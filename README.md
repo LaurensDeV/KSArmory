@@ -150,7 +150,7 @@ The system works end to end in game: the part loads and renders, the launcher tr
 proportional navigation intercepts at 22–23 m. [`CHECKLIST.md`](CHECKLIST.md) walks through what
 is confirmed and what is still open, in risk order.
 
-`./tools/test.sh` runs 74 headless tests — whole engagements at ecliptic speeds, the turret
+`./tools/test.sh` runs 244 headless tests — whole engagements at ecliptic speeds, the turret
 drives, launch geometry and the registry — with no game present.
 
 ## Build
@@ -312,7 +312,20 @@ API this is built on.
 
 ## Contributing
 
-Issues and pull requests welcome. A few things will save you time.
+Issues and pull requests welcome. **[`CONTRIBUTING.md`](CONTRIBUTING.md) is the short version** —
+what you need, what you don't, and the handful of rules that are not style preferences.
+
+The quickest start on any platform:
+
+```bash
+./tools/doctor.sh   # checks this machine and prints the fix for anything missing
+```
+
+Worth knowing up front: **most of this repository is testable with nothing but the .NET SDK.**
+Everything under `src/AirDefence/Sim/` is free of KSA types by construction, so guidance, threat
+classification, tube geometry and the fuse can all be worked on without owning the game.
+
+The rest of this section is the longer version.
 
 ### Read `CLAUDE.md` first
 
@@ -329,7 +342,7 @@ and will save you an evening with a decompiler.
 ./tools/sync-import.sh     # copy KSA's assemblies into Import/ (gitignored, not redistributable)
                            # ...or skip it: the build also finds a local KSA install by itself
 ./tools/build.sh           # needs .NET 10; a distro dotnet 8 fails with NETSDK1045
-./tools/test.sh            # 74 tests, no game required
+./tools/test.sh            # the full suite, no game required
 ```
 
 The wrapper scripts exist because bare `dotnet` picks up the system SDK and cannot target

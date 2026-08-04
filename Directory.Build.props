@@ -4,28 +4,70 @@
     Where the KSA assemblies the mod compiles against come from.
 
     They are RocketWerkz's copyrighted game files and cannot be committed here, so this resolves
-    a folder rather than keeping copies. First match wins, and every tier works on any host OS:
+    a folder rather than keeping copies. First match wins:
 
       1. KSA_DLL_DIR, as a property or an environment variable. This is what CI uses, pointing
-         at a checkout of the private ksa-game-assemblies repository.
+         at a checkout of the private ksa-game-assemblies repository. It is also the escape
+         hatch for any install this file does not guess.
       2. Import/, populated by tools/sync-import.sh. The long-standing local arrangement.
       3. A ksa-game-assemblies checkout sitting next to this repository - clone both and go,
          with nothing to configure.
-      4. The game install itself, per OS.
+      4. The game install itself. Windows, then native Linux, then WSL.
 
-    The references are guarded on the folder existing. Without it the game-facing half simply
-    does not compile, rather than failing with forty "type or namespace not found" errors that
-    say nothing about the real problem - see the check at the bottom of this file.
+    Tier 4 used to be "Windows, otherwise WSL", which quietly assumed that every non-Windows
+    developer was on WSL: a native Linux contributor got /mnt/c/... , a path that cannot exist on
+    their machine, and no hint that KSA_DLL_DIR was the way out. The Linux locations below are
+    the common ones; anything else still works via KSA_DLL_DIR, which the error at the bottom
+    now actually says.
   -->
   <PropertyGroup>
     <KsaDllDir Condition="'$(KsaDllDir)' == '' AND '$(KSA_DLL_DIR)' != ''">$([MSBuild]::EnsureTrailingSlash('$(KSA_DLL_DIR)'))</KsaDllDir>
     <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(MSBuildThisFileDirectory)Import/KSA.dll')">$(MSBuildThisFileDirectory)Import/</KsaDllDir>
     <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(MSBuildThisFileDirectory)../ksa-game-assemblies/current/dll/KSA.dll')">$(MSBuildThisFileDirectory)../ksa-game-assemblies/current/dll/</KsaDllDir>
-    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND '$(OS)' == 'Windows_NT'">C:\Program Files\Kitten Space Agency\</KsaDllDir>
-    <KsaDllDir Condition="'$(KsaDllDir)' == ''">/mnt/c/Program Files/Kitten Space Agency/</KsaDllDir>
+
+    <!-- Windows -->
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('C:\Program Files\Kitten Space Agency\KSA.dll')">C:\Program Files\Kitten Space Agency\</KsaDllDir>
+
+    <!-- Native Linux and macOS: Steam in both its usual homes, then the obvious manual spots. -->
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(HOME)/.steam/steam/steamapps/common/Kitten Space Agency/KSA.dll')">$(HOME)/.steam/steam/steamapps/common/Kitten Space Agency/</KsaDllDir>
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(HOME)/.local/share/Steam/steamapps/common/Kitten Space Agency/KSA.dll')">$(HOME)/.local/share/Steam/steamapps/common/Kitten Space Agency/</KsaDllDir>
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(HOME)/Games/Kitten Space Agency/KSA.dll')">$(HOME)/Games/Kitten Space Agency/</KsaDllDir>
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(HOME)/Kitten Space Agency/KSA.dll')">$(HOME)/Kitten Space Agency/</KsaDllDir>
+
+    <!-- WSL, last: this path exists only there, so probing it earlier would shadow a real install. -->
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('/mnt/c/Program Files/Kitten Space Agency/KSA.dll')">/mnt/c/Program Files/Kitten Space Agency/</KsaDllDir>
 
     <HaveKsaAssemblies>false</HaveKsaAssemblies>
-    <HaveKsaAssemblies Condition="Exists('$(KsaDllDir)KSA.dll')">true</HaveKsaAssemblies>
+    <HaveKsaAssemblies Condition="'$(KsaDllDir)' != '' AND Exists('$(KsaDllDir)KSA.dll')">true</HaveKsaAssemblies>
   </PropertyGroup>
+
+  <!--
+    The check the comment above has always promised and never had. HaveKsaAssemblies was computed
+    and then read by nothing, so a contributor with no KSA install got a wall of "type or
+    namespace not found" that says nothing about the real problem.
+
+    A target rather than a plain error so it only fires on a real build, and only for the projects
+    that actually need the game - `dotnet restore` and IDE load stay quiet.
+  -->
+  <Target Name="AirDefenceCheckKsaAssemblies"
+          BeforeTargets="CoreCompile"
+          Condition="'$(HaveKsaAssemblies)' != 'true' AND '$(AirDefenceNeedsKsa)' != 'false'">
+    <Error Text="
+KSA's assemblies were not found, so this project cannot compile.
+
+Looked in (first match wins):
+  KSA_DLL_DIR                     $(KSA_DLL_DIR)
+  Import/                         $(MSBuildThisFileDirectory)Import/
+  ../ksa-game-assemblies          $(MSBuildThisFileDirectory)../ksa-game-assemblies/current/dll/
+  a KSA install                   Windows, Steam on Linux, ~/Games, ~/, or WSL's /mnt/c
+
+Pick whichever fits:
+  * Own KSA?    KSA_DLL_DIR=/path/to/Kitten Space Agency ./tools/build.sh
+                ...or ./tools/sync-import.sh to copy them into Import/ once.
+  * Have the private mirror? Clone ksa-game-assemblies next to this repository.
+
+They are RocketWerkz's copyrighted files: keep your own copy, never commit or publish one.
+Run ./tools/doctor.sh for a full check of this machine's setup." />
+  </Target>
 
 </Project>

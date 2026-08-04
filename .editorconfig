@@ -1,0 +1,31 @@
+# Shared editor settings, so a contributor's IDE does not reformat files it did not come to change.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.cs]
+indent_size = 4
+max_line_length = 100
+
+# Match the surrounding code rather than the default C# templates.
+csharp_new_line_before_open_brace = all
+csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_style_var_for_built_in_types = false:suggestion
+dotnet_sort_system_directives_first = true
+
+[*.{sh,py}]
+indent_size = 4
+
+[*.{yml,yaml,json,toml}]
+indent_size = 2
+
+[*.{xml,csproj,props}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
