@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-61 types and 153 members across 5 assemblies.
+67 types and 190 members across 5 assemblies.
 
 ## Brutal.Concurrency
 
@@ -52,7 +52,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.Numerics.float2
 
-*referenced as a type only*
+- `Brutal.Numerics.float2 op_Addition(Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `float X`
+- `float Y`
+- `void .ctor(float, float)`
 
 ### Brutal.Numerics.float3
 
@@ -66,12 +69,28 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ## Brutal.ImGui
 
+### Brutal.ImGuiApi.ImColor8
+
+- `void .ctor(byte, byte, byte, byte)`
+
+### Brutal.ImGuiApi.ImDrawListExtensions
+
+- `void AddLine(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, float)`
+- `void AddText(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, Brutal.ImGuiApi.ImString)`
+
+### Brutal.ImGuiApi.ImDrawListPtr
+
+*referenced as a type only*
+
 ### Brutal.ImGuiApi.ImGui
 
+- `Brutal.ImGuiApi.ImDrawListPtr GetWindowDrawList()`
+- `Brutal.ImGuiApi.ImGuiViewportPtr GetMainViewport()`
 - `bool Begin(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Begin(Brutal.ImGuiApi.ImString, ref bool, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Button(Brutal.ImGuiApi.ImString, ref System.Nullable`1<Brutal.Numerics.float2>)`
 - `bool Checkbox(Brutal.ImGuiApi.ImString, ref bool)`
+- `bool RadioButton(Brutal.ImGuiApi.ImString, bool)`
 - `bool SliderFloat(Brutal.ImGuiApi.ImString, ref float, float, float, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool SliderInt(Brutal.ImGuiApi.ImString, ref int, int, int, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool TreeNode(Brutal.ImGuiApi.ImString)`
@@ -79,14 +98,26 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void ProgressBar(float, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImString)`
 - `void SameLine(float, float)`
 - `void Separator()`
+- `void SetNextWindowBgAlpha(float)`
+- `void SetNextWindowPos(ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImGuiCond, ref System.Nullable`1<Brutal.Numerics.float2>)`
+- `void SetNextWindowSize(ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImGuiCond)`
 - `void Text(Brutal.ImGuiApi.ImString)`
 - `void TextColored(ref Brutal.Numerics.float4, Brutal.ImGuiApi.ImString)`
 - `void TextDisabled(Brutal.ImGuiApi.ImString)`
 - `void TreePop()`
 
+### Brutal.ImGuiApi.ImGuiCond
+
+*referenced as a type only*
+
 ### Brutal.ImGuiApi.ImGuiSliderFlags
 
 *referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiViewportPtr
+
+- `ref Brutal.Numerics.float2 get_Pos()`
+- `ref Brutal.Numerics.float2 get_Size()`
 
 ### Brutal.ImGuiApi.ImGuiWindowFlags
 
@@ -122,7 +153,20 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 EclToEgo(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double3 EgoToEcl(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double3 GetPositionEgo(KSA.IPosition)`
+- `Brutal.Numerics.float2 EclToScreen(Brutal.Numerics.double3, bool)`
+- `KSA.Celestial get_NearbyCelestial()`
 - `KSA.IFollowable get_Following()`
+- `double CurrentAltitudeKm`
+- `double DistanceToNearbyCelestialKm`
+- `double DistanceToNearbyCelestialSurfaceMeanKm`
+- `double NearbyCelestialTerrainHeight`
+- `float GetFieldOfView()`
+- `void LookAt(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `void set_NearbyCelestial(KSA.Celestial)`
+
+### KSA.CameraMode
+
+*referenced as a type only*
 
 ### KSA.Celestial
 
@@ -262,9 +306,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Camera GetMainCamera()`
 - `KSA.Camera GetRenderCamera()`
 - `KSA.GizmosRenderer GizmosRenderer`
+- `KSA.Program get_Instance()`
 - `KSA.Vehicle ControlledVehicle`
 - `KSA.Viewport get_MainViewport()`
+- `System.Collections.Generic.List`1<KSA.Viewport> Viewports`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
+- `void SetCameraUbo(KSA.Viewport)`
+- `void UpdateShaderData(double, KSA.Viewport)`
 
 ### KSA.Rendering.Water.Data.OceanReference
 
@@ -342,7 +390,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Viewport
 
-*referenced as a type only*
+- `Brutal.Numerics.float2 Position`
+- `KSA.Camera BaseCamera`
+- `KSA.Camera GetCamera()`
+- `KSA.CameraMode Mode`
+- `bool IsOffscreen`
+- `bool Visible`
+- `int get_Height()`
+- `int get_Width()`
+- `void SetCameraMode(KSA.CameraMode)`
 
 ## StarMap.API
 
