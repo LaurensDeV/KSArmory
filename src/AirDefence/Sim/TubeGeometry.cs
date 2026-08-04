@@ -150,6 +150,36 @@ public static class TubeGeometry
     }
 
     /// <summary>
+    /// The direction a sensor's boresight names, in the launcher part's own frame.
+    ///
+    /// <para>False for <see cref="BoresightMode.LocalUp"/>, which is not a part-frame direction at
+    /// all — it depends on where the parent body is, so the caller resolves it. Returning false
+    /// rather than a guess keeps that distinction explicit: a mode that silently fell back to +X
+    /// would leave a ground site searching whichever way the truck happened to be parked.</para>
+    /// </summary>
+    public static bool TryBoresightPartFrame(LauncherProfile profile, BoresightMode mode,
+                                             double bearingRad, double elevationRad,
+                                             out double3 partFrame)
+    {
+        switch (mode)
+        {
+            case BoresightMode.PartForward:
+                partFrame = TraverseAxis;
+                return true;
+
+            case BoresightMode.TurretAxis:
+                // Tube zero: the tubes are what the launcher is laid on, and a splayed bundle has
+                // no single axis to speak of anyway.
+                partFrame = TubeAxisPartFrame(profile, PodPose(profile, bearingRad, elevationRad).Rotation, 0);
+                return !partFrame.Equals(Vec.Zero);
+
+            default:
+                partFrame = Vec.Zero;
+                return false;
+        }
+    }
+
+    /// <summary>
     /// Muzzle of one tube laid out on a ring about the boresight, in Ecl.
     ///
     /// <para><b>Fallback only</b>, for a launcher with no pods subpart to read a real transform

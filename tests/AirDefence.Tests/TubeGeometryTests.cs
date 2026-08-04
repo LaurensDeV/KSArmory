@@ -418,6 +418,73 @@ public class TubeGeometryTests
         AssertClose(combined * probe, split.Rotation * probe, "composed search-array rotation");
     }
 
+    // ---- Boresight modes -----------------------------------------------
+
+    /// <summary>
+    /// Local "up" is not a part-frame direction — it depends on where the parent body is — so it
+    /// must be refused rather than guessed at. A mode that silently fell back to +X would leave a
+    /// ground site searching whichever way the truck happened to be parked.
+    /// </summary>
+    [Fact]
+    public void LocalUpIsNotAPartFrameDirectionAndIsRefused()
+    {
+        LauncherProfile profile = TestLauncher(0.6);
+
+        Assert.False(TubeGeometry.TryBoresightPartFrame(
+            profile, BoresightMode.LocalUp, 0.3, 0.4, out double3 partFrame));
+        Assert.Equal(Vec.Zero, partFrame);
+    }
+
+    [Fact]
+    public void PartForwardIsTheLaunchersOwnUpAndIgnoresTheDrives()
+    {
+        LauncherProfile profile = TestLauncher(0.6);
+
+        Assert.True(TubeGeometry.TryBoresightPartFrame(
+            profile, BoresightMode.PartForward, bearingRad: 2.1, elevationRad: 0.2, out double3 a));
+        Assert.True(TubeGeometry.TryBoresightPartFrame(
+            profile, BoresightMode.PartForward, bearingRad: -0.7, elevationRad: 1.3, out double3 b));
+
+        AssertClose(TubeGeometry.TraverseAxis, a, "part-forward boresight");
+        AssertClose(a, b, "part-forward boresight across two different aims");
+    }
+
+    /// <summary>
+    /// Slaved to the launcher: the cone has to move when the drives do, which is the entire
+    /// difference between this mode and <see cref="BoresightMode.PartForward"/>.
+    /// </summary>
+    [Fact]
+    public void TurretAxisFollowsTheDrivesWherePartForwardDoesNot()
+    {
+        LauncherProfile profile = TestLauncher(0.95993);
+
+        Assert.True(TubeGeometry.TryBoresightPartFrame(
+            profile, BoresightMode.TurretAxis, bearingRad: 0.0, elevationRad: 0.2, out double3 low));
+        Assert.True(TubeGeometry.TryBoresightPartFrame(
+            profile, BoresightMode.TurretAxis, bearingRad: 1.4, elevationRad: 1.2, out double3 high));
+
+        Assert.True(Vec.Len(low - high) > 0.1, "the turret-slaved boresight did not move with the drives");
+
+        // And it is genuinely the tube axis, not something adjacent to it.
+        DrivePose pose = TubeGeometry.PodPose(profile, 0.0, 0.2);
+        AssertClose(TubeGeometry.TubeAxisPartFrame(profile, pose.Rotation, 0), low, "turret-axis boresight");
+    }
+
+    [Fact]
+    public void EveryPartRelativeBoresightIsAUnitVector()
+    {
+        LauncherProfile profile = TestLauncher(0.8);
+
+        foreach (BoresightMode mode in new[] { BoresightMode.PartForward, BoresightMode.TurretAxis })
+        {
+            for (double bearing = -Math.PI; bearing <= Math.PI; bearing += 0.63)
+            {
+                Assert.True(TubeGeometry.TryBoresightPartFrame(profile, mode, bearing, 0.5, out double3 dir));
+                Assert.Equal(1.0, Vec.Len(dir), 9);
+            }
+        }
+    }
+
     // ---- The muzzle ring fallback --------------------------------------
 
     [Fact]

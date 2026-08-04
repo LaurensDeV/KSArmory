@@ -218,7 +218,7 @@ internal sealed class DefenceBattery(Config config)
         PlatformStepEcl = _hasPlatformSample ? sampled - PlatformEcl : Vec.Zero;
         _hasPlatformSample = true;
         PlatformEcl = sampled;
-        Boresight = KsaWorld.LocalUp(Platform);
+
         // Whichever registered weapon system is fitted, if any. Selecting it points the
         // config's profiles at that system, so everything downstream - drives, guidance, the
         // panel - follows without knowing which launcher this is.
@@ -242,6 +242,11 @@ internal sealed class DefenceBattery(Config config)
         PodsPart = Launcher is null ? null : LauncherPart.FindPods(Launcher, _profile);
         RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher, _profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
+
+        // After the launcher is resolved, not before: the part-relative modes read the part's own
+        // mounting, and resolving them against last frame's launcher would point the cone at
+        // whatever was fitted previously for one frame after a craft change.
+        Boresight = ResolveBoresight();
 
         // Say what the launcher is actually made of, once. If the turret is never found, this
         // is the line that says whether the subpart Ids survived into the runtime unchanged.
@@ -365,6 +370,34 @@ internal sealed class DefenceBattery(Config config)
             Announce($"battery moved to {KsaWorld.DisplayName(v)}");
         }
         Platform = v;
+    }
+
+    /// <summary>
+    /// Where the search cone points this frame.
+    ///
+    /// <para>Local "up" unless the sensor profile says otherwise, which is what a ground site wants
+    /// and what this mod did unconditionally before <see cref="BoresightMode"/> existed. The
+    /// part-relative modes exist for a launcher on something that manoeuvres: on a pitched-over
+    /// booster or anything in orbit, "up" is not where the threats are.</para>
+    ///
+    /// <para>Every failure falls back to local up rather than to a zero vector — a cone with no
+    /// direction sees nothing at all, and a battery that silently stops detecting is a much worse
+    /// failure than one pointed conservatively at the sky.</para>
+    /// </summary>
+    private double3 ResolveBoresight()
+    {
+        if (Platform is not { } platform) return Boresight;
+
+        if (Launcher is { } launcher
+            && TubeGeometry.TryBoresightPartFrame(_profile, _config.Sensor.BoresightSource,
+                                                  Turret.BearingRad, Turret.ElevationRad,
+                                                  out double3 partFrame)
+            && LauncherPart.TryLauncherDirectionEcl(platform, launcher, partFrame, out double3 ecl))
+        {
+            return ecl;
+        }
+
+        return KsaWorld.LocalUp(platform);
     }
 
     /// <summary>Tells each track how many rounds are already committed to it.</summary>

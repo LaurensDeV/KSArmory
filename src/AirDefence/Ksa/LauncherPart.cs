@@ -514,6 +514,31 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// Rotates a direction in the <em>launcher part's</em> frame out into Ecl, through the part's
+    /// own mounting and then the vehicle's attitude.
+    ///
+    /// <para>Distinct from <see cref="TryDirectionFromPartFrame"/>, which starts from the vehicle
+    /// assembly frame. The two agree only while the launcher is mounted unrotated relative to the
+    /// assembly — which it currently is, measured at 0.0 m of difference over travels out to
+    /// 7.4 km, but that is a property of this part and not a rule.</para>
+    /// </summary>
+    public static bool TryLauncherDirectionEcl(Vehicle platform, Part launcher, double3 partFrame,
+                                               out double3 directionEcl)
+    {
+        directionEcl = Vec.Zero;
+        try
+        {
+            double3 inVehicle = launcher.Asmb2VehicleAsmb * partFrame;
+            directionEcl = Vec.Unit(platform.Asmb2Ego * inVehicle);
+            return Vec.IsFinite(directionEcl) && !directionEcl.Equals(Vec.Zero);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Rotates a direction in the part's frame back out into Ecl.</summary>
     public static bool TryDirectionFromPartFrame(Vehicle vehicle, double3 partFrame, out double3 directionEcl)
     {

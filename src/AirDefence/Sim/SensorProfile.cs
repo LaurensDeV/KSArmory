@@ -1,5 +1,37 @@
 namespace AirDefence;
 
+/// <summary>Where a sensor's search cone points.</summary>
+public enum BoresightMode
+{
+    /// <summary>
+    /// Radially outward from the parent body — the sky, for anything sitting on the ground.
+    ///
+    /// <para>Right for a static site or a vehicle on a surface, and wrong the moment the platform
+    /// stops being level: on a pitched-over booster or anything in orbit, "up" is not where the
+    /// threats are. It is deliberately independent of vehicle attitude, so a truck on a slope still
+    /// searches the sky rather than the hillside.</para>
+    /// </summary>
+    LocalUp,
+
+    /// <summary>
+    /// The launcher part's own <c>+X</c>, which is its mounting "up".
+    ///
+    /// <para>Follows the platform's attitude, so a launcher on a rocket keeps searching the volume
+    /// it is mounted to face however the craft is oriented.</para>
+    /// </summary>
+    PartForward,
+
+    /// <summary>
+    /// Wherever the tubes are actually pointing.
+    ///
+    /// <para>Models a set that is slaved to the launcher rather than searching independently — a
+    /// narrow tracking radar rather than a rotating search array. Pair it with a small
+    /// <see cref="SensorProfile.ConeDeg"/>; a hemisphere that follows the turret is just
+    /// <see cref="LocalUp"/> with extra steps.</para>
+    /// </summary>
+    TurretAxis,
+}
+
 /// <summary>
 /// What a sensor can see and what it considers worth shooting at.
 ///
@@ -16,11 +48,17 @@ public sealed class SensorProfile
     public float Range = 36000f;
 
     /// <summary>
-    /// Half-angle of the search cone about the boresight (degrees). Measured off local "up",
-    /// so 90 is a full hemisphere down to the horizon — the right default for a site that has
-    /// to cover the whole sky. Narrow it to model a directional radar.
+    /// Half-angle of the search cone about the boresight (degrees). With the default
+    /// <see cref="BoresightMode.LocalUp"/>, 90 is a full hemisphere down to the horizon — the right
+    /// default for a site that has to cover the whole sky. Narrow it to model a directional radar.
     /// </summary>
     public float ConeDeg = 90f;
+
+    /// <summary>
+    /// Where the cone points. Defaults to local "up", which is what a ground site wants and what
+    /// this mod did unconditionally before the mode existed.
+    /// </summary>
+    public BoresightMode BoresightSource = BoresightMode.LocalUp;
 
     /// <summary>
     /// A track counts as a threat if its closest point of approach to the battery falls inside
