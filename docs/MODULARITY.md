@@ -170,8 +170,10 @@ extractions — `Magazine` in the tube numbering, `TubeGeometry` in the seating 
 Extraction has limits, and these remain untestable because they genuinely need a `Vehicle`, a
 `Part` or a `Camera`. They are the target of any next round, not oversights:
 
-- fire-control *sequencing* — salvo spacing, the reload timer, the `IsLaid` gate. The magazine came
-  out; the timing did not.
+- fire-control *sequencing* — salvo spacing and the reload timer. The magazine came out; the timing
+  did not. The `IsLaid` *decision* did come out, into `FireGate`: it depends on four booleans and a
+  settle time, none of them KSA types. What is still in `Ksa/` is the mode ladder above it —
+  spin, manual, stow, track — and the ordering of the four transform writes.
 - `ResolvePlatform`, and the platform-election order.
 - `LauncherPart.Find` and subpart resolution by marker substring.
 - the centre-of-mass correction in `TryGetTubeMuzzleEcl`, and `ResolveOriginEcl`'s camera round trip.
@@ -282,6 +284,39 @@ after it, rather than at the end of a long change.
 
 A continuous-effect abstraction (beams, flamethrowers) and AI pilots sit after all of that, and
 neither should be attempted speculatively.
+
+---
+
+## Articulation: what an audit found, and what is left
+
+Four assemblies are addressed by four hardcoded roles — marker, pivot and reference elevation as
+three unrelated fields each — and `TubeGeometry.ElevatingPose` composes exactly **two** levels.
+A gun on a turret on a hull is not expressible: it needs `P₀ + R₀·(P₁ + R₁·P₂)`, and adding one
+assembly today touches eight places across `Sim/`, `Ksa/`, the XML, the Blender script and the
+validator.
+
+The shape that fixes it is one record — marker, pivot-from-parent, axis, reference angle, parent
+index — with a `PoseOf` that walks the chain, collapsing four `Find*`, four `TryApply*Aim`, three
+`*Pose` wrappers and ten profile fields. It also removes a silent failure by construction: a
+profile can currently declare `GunsMarker` and omit `GunReferenceElevationRad`, and the default of
+zero against a mesh modelled at 22° is a 22° error nothing reports.
+
+**Not done, deliberately.** The guns made this the second elevating assembly rather than the
+first, so it is no longer speculative — but it is a restructuring of the region where the two most
+recent in-flight bugs came from, and it wants a flight after it rather than the end of a long
+change. The same applies to per-channel elevation drives (a `TraverseDrive` plus N
+`ElevationDrive`s, with per-channel `IsLaid`), which is the same refactor at a different scale and
+should follow rather than precede the weapon manager.
+
+### Geometry that is known wrong
+
+`tools/model/checkswept.py` sweeps the drives and reports it, so these are measured rather than
+suspected. What it still allows, and should not forever: the pods' inner tube column occupies the
+same Z band as the turret cheeks and runs through them near the trunnion at every elevation — a
+full tube diameter. It is hidden rather than visibly clipping, because the column is narrower than
+the cheek it is inside, but the allowance that lets the sweep pass is wide enough to mask a real
+defect between those two bodies. Designing it out means moving the columns or the cheeks in Z,
+which is the axis both drives preserve.
 
 ---
 

@@ -182,6 +182,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/test.sh                            # guidance + fuse tests, no game needed
 ./tools/validate-parts.py                  # check part XML + launch geometry -- run after editing either
 ./tools/model/build.sh                     # rebuild the Pantsir mesh and textures (needs Blender)
+./tools/model/checkswept.py                # does any assembly pass through another in its travel?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
 ./tools/check-comments.sh                  # history in comments, XML docs on privates, ratios
 ./tools/package.sh                         # release zip into dist/ -- no symbols, no game DLLs
@@ -247,12 +248,14 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-API-SURFACE.md` | **generated** — the 149 members an upgrade has to preserve |
+| `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
 | `tools/model/` | headless Blender scripts that generate the Pantsir |
-| `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry |
+| `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry *and* node transform |
+| `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 
 ## 3D model pipeline (Blender, headless)
@@ -287,12 +290,45 @@ each already cost time. Three worth repeating here:
   each other, and does nothing for two boxes whose outer faces both sit on the same constant.
   `cyl()` does not inflate at all, and radius alone will not save a coaxial pair: use a
   different facet count or a `cone()`.
+- **The jitter runs off one seed, so moving a `box()` call reshuffles every box after it.** Adding
+  or removing one is enough, and the damage lands somewhere else entirely — pushing two faces in
+  an unrelated assembly onto the same plane. To change which group a primitive belongs to without
+  disturbing anything, set `_group` around the existing call rather than moving the call.
 
 **The atlas is not byte-reproducible.** Blender's exporter does not emit triangles in a stable
 order, so a rebuild from unchanged sources gives a different file — same positions, normals and
 UVs, permuted index buffer. `git status` showing it modified after a build therefore means
 nothing. Ask `./tools/model/checkmesh.py <new> --compare <old>`, which compares the surface
 rather than the bytes, and **revert the atlas** if it says the geometry is unchanged.
+
+- **Two bodies can share a plane, and `checkmesh.py` alone will not see it.** It analyses one
+  mesh at a time, so a turntable resting exactly on the cap of its mast z-fights like any other
+  coincident pair and reports clean — worse when the pair spins, because the fight then rotates.
+  The cross-body pass lives in `validate-parts.py`, because the atlas carries **no node
+  transforms** and only the part XML knows where each body sits.
+- **A render only shows the poses you thought to ask for.** Every geometry defect this model has
+  shipped was at some other pose: the pods passing through the gun sponsons at all twelve
+  o'clock positions, the tubes through the APU box at bearing 50°. `tools/model/checkswept.py`
+  sweeps the drives and reports the metres one assembly would have to move to leave another.
+  It needs neither Blender nor the game — the atlas is a library of bodies in their own local
+  frames, so any pose is reconstructible from it plus `muzzles.json`.
+- **A piece can come adrift and every other check still passes.** The mesh is clean, the pivots
+  agree, nothing intersects — the part simply stops touching what carried it and hangs in the
+  air. `checkswept.py` requires every primitive of the assembled vehicle to reach the chassis
+  through overlap. Per-*body* connectivity is the wrong test and was tried first: the cannon are
+  legitimately two islands that never touch each other, and the fins are twelve.
+- **A cover must not stand proud of what it covers.** A cap a few millimetres wider than its tube
+  catches the light as a rim all the way round, and one with fewer facets makes that rim visibly
+  polygonal. It is far too small to see in a preview. `checkswept.py` flags a *short* coaxial
+  primitive slightly wider than the long one it caps — short is what separates a mistake from a
+  design, because a booster stage is legitimately fatter than its sustainer.
+- **Bearing cancels for any pair of bodies that both ride the turret.** The traverse is one rigid
+  motion applied to the whole group, so pods-vs-guns, pods-vs-turret and guns-vs-turret are
+  one-degree-of-freedom problems in elevation alone. That is a fact about the chain, not a
+  sampling shortcut, and it is what keeps the sweep cheap.
+- **Elevation turns about +Z, so a gap in Z holds at every pose.** Separating two turret-riding
+  bodies in Z is the only separation that survives both drives; separating them in X or Y only
+  works at the elevation you checked.
 
 **Neither shows up in Blender's preview render**, so a clean preview proves nothing.
 `./tools/model/checkmesh.py <atlas.glb>` catches both and exits non-zero — run it after any
@@ -369,10 +405,11 @@ is **data plus art**, not new logic. Nothing in `Sim/` or `Ksa/` names the Pants
    battery selects whichever profile it finds. `ArsenalTests` checks the registry hangs
    together; `validate-parts.py` checks the geometry still matches the mesh.
 
-A launcher that does not train is the same `LauncherProfile` with `TurretMarker` left null —
-the drives are skipped and `IsLaid` stays true, so fire control cannot deadlock waiting for
-something that will never move. `ArsenalTests.AFixedLauncherIsJustAProfileWithNothingThatMoves`
-pins that shape.
+A launcher that does not train is the same `LauncherProfile` with `TurretMarker` and `PodsMarker`
+left null — `Trains` is then false, the drives are skipped and `IsLaid` stays true, so fire
+control cannot deadlock waiting for something that will never move.
+`ArsenalTests.AFixedLauncherIsJustAProfileWithNothingThatMoves` pins that shape, and
+`DriveFailureTests` pins the difference between that and a drive the engine refused.
 
 **What is deliberately *not* general yet:** one battery per craft (the first launcher found
 wins), and `Config` holds a single active profile set, so the panel tunes one system at a time.
@@ -440,6 +477,10 @@ reasoning attached**:
 ./tools/api-surface.sh                              # the surface moves if the fixes did
 #   edit the `build` line in ksa-assemblies.lock, commit it here
 ```
+
+Then **recheck `docs/BLOCKED-ON-KSA.md`**. It lists what this mod wants and cannot build, with the
+engine reason for each; a KSA update is the only thing that changes any of them, and none will show
+up in `ksa-api-diff.sh` because they are calls that do not happen rather than members that moved.
 
 Do the private repo *before* pushing here, or CI fails on the lock it cannot satisfy yet.
 
@@ -686,8 +727,19 @@ with it.
 **The battery will not fire while the launcher is slewing.** `DefenceBattery.IsLaid` requires
 both axes on target for `TurretSettleSeconds` first. Before that gate existed it launched the
 instant it had a lock, out of tubes still pointing somewhere else — guidance recovered and the
-intercepts still landed, so nothing measured it and only watching it caught it. `IsLaid` returns
-true whenever nothing is driving the turret, so it can never deadlock fire control.
+intercepts still landed, so nothing measured it and only watching it caught it.
+
+**A launcher with nothing to aim and one that cannot aim are different, and `FireGate` keeps them
+apart.** A profile declaring no training gear is always laid, so fire control cannot deadlock on
+a launcher that will never move. A profile that declares gear whose transform the engine then
+refuses is frozen wherever it stopped, and holds fire — treating that as laid ejects rounds along
+a stale tube transform, which guidance recovers from well enough that nothing but the drawn
+facing line shows it happened.
+
+**Drive failures latch per assembly, not for the whole launcher.** `DriveStatus` carries one bit
+per `DriveChannel`, so a refused search-array spin — cosmetic — no longer freezes the traverse,
+the pods and the cannon with it. `Reset()` clears the latches, because they record what one
+vehicle's part tree refused and a new platform deserves a fresh assessment.
 
 **The class is `DefenceBattery`, not `Battery`.** `KSA.Battery` already exists as the game's
 electrical battery, and these files have `using KSA;`.

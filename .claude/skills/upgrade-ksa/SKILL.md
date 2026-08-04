@@ -137,7 +137,13 @@ Then regenerate the surface, because fixing breakages usually changes what the m
 ./tools/check-assemblies.sh          # the lock now matches
 ./tools/api-surface.sh --check       # the surface now matches
 ./tools/check-boundary.sh
+./tools/model/checkswept.py          # nothing adrift or passing through anything
 ```
+
+Then work through the recheck list at the top of **`docs/BLOCKED-ON-KSA.md`** and tick what has
+changed. Nothing else in this procedure will surface those: they are calls the engine does not
+make and modules it does not have, so `ksa-api-diff.sh` sees nothing, and a build that succeeds
+proves nothing about them. This is the one moment any of them can become possible.
 
 ## 7. Push, private repository first
 

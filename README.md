@@ -305,7 +305,7 @@ API this is built on.
 
 ## Limitations
 
-- The autocannons are decorative — they traverse with the turret but never elevate or fire.
+- The autocannons traverse and elevate with the launcher, but do not fire.
 - The radar's search volume is a hemisphere about local "up"; it does not follow the turret.
 - Rounds only interact with their designated target; they ignore terrain and other craft.
 - Radar has no occlusion or line-of-sight check.

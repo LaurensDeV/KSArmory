@@ -319,6 +319,28 @@ When the part cannot be assembled out of Core's kit, mirror Core's own file exac
 
 - **`.png` works** for every material slot — no `.ktx2` encoder needed.
   `CharacterAssets.xml` mixes `.ktx2` and `.png` inside a single `<PbrMaterial>`.
+
+### How the atlas loader reads a `.glb`
+
+From `MeshAtlasFileReference.cs`. None of this is documented anywhere, and three of the four are
+silent failures.
+
+- **Mesh Ids are a single global namespace**, shared with Core and with every other loaded mod.
+  On a collision the loader keeps whoever registered first and **yours simply never loads** — no
+  error, no log line. Prefixing every mesh with the mod's own name is not tidiness, it is the
+  only thing standing between your turret and someone else's.
+- **The Id is the glTF *mesh* name, not the node name.** Renaming the object in Blender without
+  renaming its mesh data changes nothing; renaming the mesh data breaks the XML.
+- **The node graph is never walked.** The loader takes mesh data and ignores the scene hierarchy,
+  so a parent transform, an armature or a nested empty contributes nothing. Geometry has to be
+  *baked* into the mesh — that is a requirement, not a style preference.
+- **Meshes whose name starts with `_` are skipped**, which is a free convention for helper
+  geometry you want in the source file but not in the game.
+
+A consequence worth stating separately: because node transforms are not read, **an atlas is a
+library of bodies in their own local frames**, and placement lives entirely in the part XML's
+`<Transform><Position>`. That is what makes a pose reconstructible outside the game — see
+`tools/model/checkswept.py`.
 - **`AoRoughMetal` is R=occlusion, G=roughness, B=metalness** (glTF ORM). Core's own
   `Textures/default_pbr.png` is `(255, 180, 0)` and `EmptyAoRoughMetallic.png` is
   `(255, 255, 0)`: unoccluded, rough, non-metal. *An earlier revision of these notes had this
