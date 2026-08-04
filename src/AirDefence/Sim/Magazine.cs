@@ -34,7 +34,19 @@ internal sealed class Magazine
 {
     private bool[] _loaded = [];
 
-    /// <summary>Tubes this launcher has.</summary>
+    /// <summary>Firing positions this launcher has.</summary>
+    public int TubeCount => _loaded.Length;
+
+    /// <summary>
+    /// Rounds carried in total, which need not equal <see cref="TubeCount"/>.
+    ///
+    /// <para>A tube is a place to fire from; the magazine is how much there is to fire. A missile
+    /// launcher has one round per tube, and a belt-fed gun has one barrel and a thousand rounds.
+    /// Zero means the two are the same.</para>
+    /// </summary>
+    public int Depth { get; private set; }
+
+    /// <summary>Firing positions this launcher has. Kept for callers that mean tubes.</summary>
     public int Capacity => _loaded.Length;
 
     /// <summary>
@@ -45,33 +57,62 @@ internal sealed class Magazine
     {
         get
         {
+            if (_reserve >= 0) return _reserve;
+
             int n = 0;
             for (int i = 0; i < _loaded.Length; i++) if (_loaded[i]) n++;
             return n;
         }
     }
 
-    /// <summary>Tubes already fired and not yet reloaded.</summary>
-    public int SpentCount => Capacity - Ammo;
+    // Negative when the magazine is one-round-per-tube, in which case the tube flags are the
+    // count. Non-negative when it holds more rounds than tubes and has to track them separately.
+    private int _reserve = -1;
+
+    /// <summary>Tubes already fired and not yet reloaded. Always zero for a deep magazine.</summary>
+    public int SpentCount => Depth > 0 ? 0 : Capacity - Ammo;
 
     public bool IsEmpty => Ammo == 0;
 
-    /// <summary>Sizes the magazine to a launcher and fills it. Safe to call with the same size.</summary>
-    public void Resize(int tubeCount)
+    /// <summary>
+    /// Sizes the magazine to a launcher and fills it. Safe to call with the same size.
+    /// </summary>
+    /// <param name="depth">
+    /// Rounds carried. Zero or anything at or below <paramref name="tubeCount"/> means one round
+    /// per tube, which is the missile-launcher case and how this behaves without it.
+    /// </param>
+    public void Resize(int tubeCount, int depth = 0)
     {
         if (tubeCount < 0) tubeCount = 0;
         if (_loaded.Length != tubeCount) _loaded = new bool[tubeCount];
-        RefillAll();
+
+        Depth = depth > tubeCount ? depth : 0;
+        _reserve = Depth > 0 ? Depth : -1;
+        Array.Fill(_loaded, true);
     }
 
-    /// <summary>Puts a round back in every tube.</summary>
-    public void RefillAll() => Array.Fill(_loaded, true);
+    /// <summary>Puts a round back in every tube, and refills the reserve if there is one.</summary>
+    public void RefillAll()
+    {
+        Array.Fill(_loaded, true);
+        if (Depth > 0) _reserve = Depth;
+    }
 
     /// <summary>Empties every tube. For teardown, not for firing.</summary>
-    public void Clear() => Array.Fill(_loaded, false);
+    public void Clear()
+    {
+        Array.Fill(_loaded, false);
+        if (Depth > 0) _reserve = 0;
+    }
 
     public bool IsLoaded(int tubeIndex)
-        => tubeIndex >= 0 && tubeIndex < _loaded.Length && _loaded[tubeIndex];
+    {
+        if (tubeIndex < 0 || tubeIndex >= _loaded.Length) return false;
+
+        // A deep magazine keeps every tube loaded while it has rounds left: the tube is a barrel,
+        // not a container, so it is full whenever the belt is.
+        return Depth > 0 ? _reserve > 0 : _loaded[tubeIndex];
+    }
 
     /// <summary>
     /// The lowest tube that is both loaded and not already occupied by a round in the air, and
@@ -83,6 +124,26 @@ internal sealed class Magazine
     /// </param>
     public bool TryTakeTube(IReadOnlyList<IProjectile> inFlight, out int tubeIndex)
     {
+        tubeIndex = -1;
+
+        // A deep magazine cycles rounds through its tubes rather than emptying them, so a tube is
+        // reusable the moment its previous round is clear. Occupancy still applies: a body subpart
+        // is chosen by tube number, so two rounds on one tube would share a body.
+        if (Depth > 0)
+        {
+            if (_reserve <= 0) return false;
+
+            for (int i = 0; i < _loaded.Length; i++)
+            {
+                if (IsOccupied(inFlight, i)) continue;
+
+                _reserve--;
+                tubeIndex = i;
+                return true;
+            }
+            return false;
+        }
+
         for (int i = 0; i < _loaded.Length; i++)
         {
             if (!_loaded[i]) continue;
@@ -93,7 +154,6 @@ internal sealed class Magazine
             return true;
         }
 
-        tubeIndex = -1;
         return false;
     }
 
@@ -113,7 +173,10 @@ internal sealed class Magazine
     /// <para>Spent tubes are the first <see cref="SpentCount"/>, matching the order
     /// <see cref="TryTakeTube"/> hands them out.</para>
     /// </summary>
-    public TubeVisual Plan(int tubeIndex, bool inFlight) => Plan(tubeIndex, inFlight, SpentCount);
+    public TubeVisual Plan(int tubeIndex, bool inFlight)
+        => Depth > 0
+            ? (inFlight ? TubeVisual.InFlight : _reserve > 0 ? TubeVisual.Loaded : TubeVisual.Spent)
+            : Plan(tubeIndex, inFlight, SpentCount);
 
     /// <inheritdoc cref="Plan(int, bool)"/>
     public static TubeVisual Plan(int tubeIndex, bool inFlight, int spentCount)

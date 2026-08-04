@@ -272,4 +272,137 @@ public class MagazineTests
 
         for (int i = 1; i < 4; i++) Assert.Equal(TubeVisual.Loaded, magazine.Plan(i, inFlight: false));
     }
+
+    // ---- Deep magazines: guns and rack-fed launchers ---------------------
+
+    /// <summary>
+    /// A tube is a place to fire from; the magazine is how much there is to fire. A gun has one
+    /// barrel and hundreds of rounds, so the two cannot be the same number.
+    /// </summary>
+    [Fact]
+    public void ADeepMagazineCarriesMoreRoundsThanItHasTubes()
+    {
+        var magazine = new Magazine();
+        magazine.Resize(tubeCount: 2, depth: 500);
+
+        Assert.Equal(2, magazine.TubeCount);
+        Assert.Equal(500, magazine.Depth);
+        Assert.Equal(500, magazine.Ammo);
+    }
+
+    /// <summary>Tubes cycle rather than empty, so a barrel is reusable once its round is clear.</summary>
+    [Fact]
+    public void ATubeIsReusableAsSoonAsItsRoundIsClear()
+    {
+        var magazine = new Magazine();
+        magazine.Resize(tubeCount: 1, depth: 100);
+        var empty = new List<IProjectile>();
+
+        for (int shot = 0; shot < 20; shot++)
+        {
+            Assert.True(magazine.TryTakeTube(empty, out int tube), $"refused shot {shot}");
+            Assert.Equal(0, tube);
+        }
+
+        Assert.Equal(80, magazine.Ammo);
+    }
+
+    /// <summary>
+    /// Occupancy still applies: a body subpart is chosen by tube number, so two rounds on one
+    /// tube would share a body however deep the magazine is.
+    /// </summary>
+    [Fact]
+    public void ADeepMagazineStillRefusesAnOccupiedTube()
+    {
+        var magazine = new Magazine();
+        magazine.Resize(tubeCount: 1, depth: 100);
+
+        var inFlight = new List<IProjectile> { RoundInTube(1) };
+
+        Assert.False(magazine.TryTakeTube(inFlight, out _));
+        Assert.Equal(100, magazine.Ammo);
+    }
+
+    [Fact]
+    public void ADeepMagazineRunsDryOnTheReserveNotTheTubes()
+    {
+        var magazine = new Magazine();
+        magazine.Resize(tubeCount: 4, depth: 6);
+        var empty = new List<IProjectile>();
+
+        for (int i = 0; i < 6; i++) Assert.True(magazine.TryTakeTube(empty, out _), $"refused shot {i}");
+
+        Assert.True(magazine.IsEmpty);
+        Assert.False(magazine.TryTakeTube(empty, out _));
+    }
+
+    /// <summary>Every barrel is loaded while the belt has rounds, and none is ever "spent".</summary>
+    [Fact]
+    public void ADeepMagazineHasNoSpentTubes()
+    {
+        var magazine = new Magazine();
+        magazine.Resize(tubeCount: 3, depth: 50);
+        var empty = new List<IProjectile>();
+
+        magazine.TryTakeTube(empty, out _);
+        magazine.TryTakeTube(empty, out _);
+
+        Assert.Equal(0, magazine.SpentCount);
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.True(magazine.IsLoaded(i));
+            Assert.Equal(TubeVisual.Loaded, magazine.Plan(i, inFlight: false));
+        }
+    }
+
+    [Fact]
+    public void AnEmptyDeepMagazineShowsEveryTubeSpent()
+    {
+        var magazine = new Magazine();
+        magazine.Resize(tubeCount: 2, depth: 2);
+        var empty = new List<IProjectile>();
+
+        magazine.TryTakeTube(empty, out _);
+        magazine.TryTakeTube(empty, out _);
+
+        Assert.True(magazine.IsEmpty);
+        Assert.Equal(TubeVisual.Spent, magazine.Plan(0, inFlight: false));
+    }
+
+    [Fact]
+    public void ReloadingRefillsTheReserve()
+    {
+        var magazine = new Magazine();
+        magazine.Resize(tubeCount: 2, depth: 10);
+        var empty = new List<IProjectile>();
+
+        for (int i = 0; i < 10; i++) magazine.TryTakeTube(empty, out _);
+        Assert.True(magazine.IsEmpty);
+
+        magazine.RefillAll();
+        Assert.Equal(10, magazine.Ammo);
+    }
+
+    /// <summary>
+    /// A depth at or below the tube count is the missile case, and must behave exactly as it did
+    /// without a depth at all — tubes empty one by one and spend.
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    [InlineData(2)]
+    public void ADepthThatIsNotDeeperThanTheTubesIsTheOrdinaryCase(int depth)
+    {
+        var magazine = new Magazine();
+        magazine.Resize(tubeCount: 4, depth: depth);
+        var empty = new List<IProjectile>();
+
+        Assert.Equal(0, magazine.Depth);
+        Assert.Equal(4, magazine.Ammo);
+
+        magazine.TryTakeTube(empty, out int tube);
+        Assert.Equal(3, magazine.Ammo);
+        Assert.Equal(1, magazine.SpentCount);
+        Assert.False(magazine.IsLoaded(tube));
+    }
 }

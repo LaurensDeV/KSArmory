@@ -108,6 +108,14 @@ public sealed class LauncherProfile
 
     // ---- Firing ---------------------------------------------------------
 
+    /// <summary>
+    /// Rounds carried in total. Zero means one per tube, which is what a missile launcher wants.
+    ///
+    /// <para>A gun sets this far above <see cref="TubeCount"/>: one or two barrels and a belt of
+    /// hundreds. Tubes then cycle rather than empty, and only the reserve runs down.</para>
+    /// </summary>
+    public int MagazineDepth;
+
     /// <summary>Seconds between consecutive rounds of a salvo.</summary>
     public float SalvoSpacing = 0.45f;
 

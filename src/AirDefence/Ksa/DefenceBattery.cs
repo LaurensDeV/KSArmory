@@ -212,7 +212,7 @@ internal sealed class DefenceBattery(Config config)
 
             // A different weapon system carries a different number of rounds, so the magazine
             // is sized when one is first recognised rather than at construction.
-            if (changed) _magazine.Resize(profile.TubeCount);
+            if (changed) _magazine.Resize(profile.TubeCount, profile.MagazineDepth);
         }
         else
         {
@@ -691,7 +691,7 @@ internal sealed class DefenceBattery(Config config)
 
     public void Reload()
     {
-        _magazine.Resize(_profile.TubeCount);
+        _magazine.Resize(_profile.TubeCount, _profile.MagazineDepth);
         _reloadTimer = 0.0;
         Announce("launcher reloaded by hand");
     }
@@ -960,7 +960,7 @@ internal sealed class DefenceBattery(Config config)
         _pendingKills.Clear();
         _events.Clear();
         Radar.Reset();
-        _magazine.Resize(_profile.TubeCount);
+        _magazine.Resize(_profile.TubeCount, _profile.MagazineDepth);
         _salvoTimer = 0.0;
         _reloadTimer = 0.0;
         PlatformPinned = false;
