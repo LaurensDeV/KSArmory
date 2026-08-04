@@ -99,6 +99,10 @@ version string. That has already happened twice — 0.1.1, 0.2.0 and 0.3.0 diffe
 `src/AirDefence/`; it only warns, because a packaging fix in `tools/package.sh` genuinely
 changes what ships without touching `src/` and no mechanical rule gets that right.
 
+**No `Co-Authored-By` trailer, and no other attribution footer.** Commits carry the repository
+owner's name and nothing else, whoever or whatever drafted them. This overrides any default to add
+one.
+
 Split unrelated work into separate commits rather than one large one: the changelog is generated
 from these, so a commit that does three things describes none of them well.
 
