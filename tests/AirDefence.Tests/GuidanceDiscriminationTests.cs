@@ -23,7 +23,8 @@ public class GuidanceDiscriminationTests
             new double3(munition.LaunchSpeed, 0, 0),
             TargetHandle,
             tube: 1,
-            platformEcl: default);
+            platformEcl: default,
+            frameVelocityEcl: default);
 
         // Target sits dead ahead at launch and then runs hard across the line of fire, so a
         // round that does not lead arrives roughly a kilometre behind it.

@@ -50,7 +50,7 @@ public class FuseTests
         double3 targetPos = new(missDistance, 0, 900);
 
         var round = new Interceptor(start, heading * speed, target: new object(), tube: 1,
-                                    platformEcl: double3.Zero)
+                                    platformEcl: double3.Zero, frameVelocityEcl: double3.Zero)
         {
             LaunchAnchorPartFrame = double3.Zero,
         };
@@ -116,7 +116,7 @@ public class FuseTests
         MunitionProfile munition = Munition();
 
         double3 roundVelocity = new(0, 0, 700);
-        var round = new Interceptor(double3.Zero, roundVelocity, new object(), 1, double3.Zero);
+        var round = new Interceptor(double3.Zero, roundVelocity, new object(), 1, double3.Zero, double3.Zero);
 
         // 60 degrees off the flight path at the start, outside the 55 degree seeker cone, but
         // closing so that the two meet a second downrange.
@@ -149,7 +149,7 @@ public class FuseTests
     {
         // A round still in its tube must not detonate on the launcher.
         MunitionProfile munition = Munition();
-        var round = new Interceptor(double3.Zero, new double3(0, 0, 60), new object(), 1, double3.Zero);
+        var round = new Interceptor(double3.Zero, new double3(0, 0, 60), new object(), 1, double3.Zero, double3.Zero);
 
         // Target sitting essentially on top of the round, well inside the fuse radius.
         var target = new TargetState(new double3(0, 0, 5), double3.Zero, Radius: 0.0);

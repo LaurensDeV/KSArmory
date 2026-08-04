@@ -22,8 +22,9 @@ public class FrameRegressionTests
     private static MunitionProfile Vacuum() =>
         new() { Name = "test", DisplayName = "test", DragK = 0f };
 
-    private static Interceptor Round(double3 velocity, double3 platformEcl = default) =>
-        new(new double3(0, 0, 0), velocity, TargetHandle, tube: 1, platformEcl);
+    private static Interceptor Round(double3 velocity, double3 platformEcl = default,
+                                     double3 frameVelocityEcl = default) =>
+        new(new double3(0, 0, 0), velocity, TargetHandle, tube: 1, platformEcl, frameVelocityEcl);
 
     /// <summary>
     /// Shipped bug: rounds were drawn ~500 m from where they were, with trails smeared across

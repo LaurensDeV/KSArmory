@@ -60,7 +60,8 @@ public class OffsetPhaseTests
             velocityEcl: OrbitalVelocity + up * munition.LaunchSpeed,
             target: null!,
             tube: 1,
-            platformEcl: platform);
+            platformEcl: platform,
+            frameVelocityEcl: OrbitalVelocity);
 
         var offsets = new List<double3>();
 

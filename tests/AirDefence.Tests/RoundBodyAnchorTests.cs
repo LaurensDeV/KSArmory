@@ -27,7 +27,8 @@ public class RoundBodyAnchorTests
             velocityEcl: launchDirection * 60.0,
             target: new object(),
             tube: 1,
-            platformEcl: platformEcl);
+            platformEcl: platformEcl,
+            frameVelocityEcl: default);
     }
 
     [Fact]
@@ -86,7 +87,18 @@ public class RoundBodyAnchorTests
             velocityEcl: frame + new double3(0, 0, 60),      // straight up, through the frame
             target: new object(),
             tube: 1,
-            platformEcl: platform);
+            platformEcl: platform,
+            frameVelocityEcl: frame);
+
+        // BEFORE the first update, which is the instant that actually mattered and the one this
+        // test used to skip. A round IS drawn on its launch frame - Fire runs in fire control,
+        // which is after the round update, so SyncRoundBodies reaches a round that has never been
+        // integrated. With the frame velocity left to the first Update, VelocityLocal degenerated
+        // to VelocityEcl for exactly that frame, and the body was drawn pointing along the
+        // planet's orbit before snapping into its tube. Reported from play as the round appearing
+        // sideways at launch.
+        Assert.True(Vec.AngleBetween(new double3(0, 0, 1), round.VelocityLocal) < 0.05,
+            "a freshly launched round does not know its frame yet - its body will be drawn sideways");
 
         round.Update(1.0 / 60.0, null, Vec.Zero, frame, platform, munition);
 
@@ -101,11 +113,11 @@ public class RoundBodyAnchorTests
     public void RoundsFromDifferentTubesKeepTheirOwnIdentity()
     {
         // Bodies are matched to rounds by tube number, so a round must carry the tube it left.
-        var first = new Interceptor(Vec.Zero, new double3(0, 0, 60), new object(), 1, Vec.Zero)
+        var first = new Interceptor(Vec.Zero, new double3(0, 0, 60), new object(), 1, Vec.Zero, Vec.Zero)
         {
             LaunchAnchorPartFrame = new double3(5.5, 0.1, 1.3),
         };
-        var second = new Interceptor(Vec.Zero, new double3(0, 0, 60), new object(), 7, Vec.Zero)
+        var second = new Interceptor(Vec.Zero, new double3(0, 0, 60), new object(), 7, Vec.Zero, Vec.Zero)
         {
             LaunchAnchorPartFrame = new double3(5.3, 0.2, -1.1),
         };

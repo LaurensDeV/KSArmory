@@ -132,7 +132,20 @@ internal sealed class Interceptor
 
     private double _trailTimer;
 
-    public Interceptor(double3 positionEcl, double3 velocityEcl, object target, int tube, double3 platformEcl)
+    /// <param name="frameVelocityEcl">
+    /// Velocity of the frame the round was launched into — the platform's. <b>Required, not
+    /// optional, and this is why:</b> it seeds <see cref="VelocityLocal"/>, which is what a round's
+    /// body is oriented along. Leaving it to the first <see cref="Update"/> left it zero for the
+    /// round's first frame, so <c>VelocityLocal</c> degenerated to <see cref="VelocityEcl"/> — the
+    /// platform's ~29.8 km/s of ecliptic motion — and the body was drawn pointing along Earth's
+    /// orbit for exactly one frame before snapping into its tube.
+    ///
+    /// <para>A round <em>is</em> drawn on its launch frame: <c>Fire</c> runs in fire control, which
+    /// is after the round update, and <c>SyncRoundBodies</c> then draws every round including one
+    /// created moments earlier that has never been integrated.</para>
+    /// </param>
+    public Interceptor(double3 positionEcl, double3 velocityEcl, object target, int tube,
+                       double3 platformEcl, double3 frameVelocityEcl)
     {
         PositionEcl = positionEcl;
         VelocityEcl = velocityEcl;
@@ -141,6 +154,9 @@ internal sealed class Interceptor
         OffsetFromPlatform = positionEcl - platformEcl;
         LaunchOffset = OffsetFromPlatform;
         TrailOffsets.Add(OffsetFromPlatform);
+
+        // Seeded here so the round is orientable from birth rather than from its first step.
+        _frameVelocityEcl = frameVelocityEcl;
     }
 
     public bool SeekerInView { get; private set; } = true;

@@ -44,7 +44,8 @@ public class RoundOffsetStabilityTests
             velocityEcl: OrbitalVelocity + up * munition.LaunchSpeed,
             target: null!,
             tube: 1,
-            platformEcl: platform);
+            platformEcl: platform,
+            frameVelocityEcl: OrbitalVelocity);
 
         var offsets = new List<double3>();
 
@@ -121,7 +122,8 @@ public class RoundOffsetStabilityTests
         double3 up = new(1, 0, 0);
         double3 velocity = OrbitalVelocity + up * 300.0;
 
-        Interceptor Fresh() => new(PlatformStart + up * 500.0, velocity, null!, 1, PlatformStart);
+        Interceptor Fresh() => new(PlatformStart + up * 500.0, velocity, null!, 1, PlatformStart,
+                                   OrbitalVelocity);
 
         Interceptor shortFrame = Fresh();
         Interceptor longFrame = Fresh();
@@ -176,7 +178,7 @@ public class RoundOffsetStabilityTests
         var round = new Interceptor(
             positionEcl: platform + up * 3.0,
             velocityEcl: OrbitalVelocity + up * munition.LaunchSpeed,
-            target: null!, tube: 1, platformEcl: platform);
+            target: null!, tube: 1, platformEcl: platform, frameVelocityEcl: OrbitalVelocity);
 
         Assert.Equal(0.0, Vec.Len(round.TravelSinceLaunch), 9);
 

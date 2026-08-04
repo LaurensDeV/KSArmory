@@ -728,7 +728,9 @@ internal sealed class DefenceBattery(Config config)
 
         double3 launchVel = platformVel + launchDir * _munition.LaunchSpeed;
 
-        _rounds.Add(new Interceptor(launchPos, launchVel, track.Vehicle, tube + 1, PlatformEcl)
+        // platformVel is the frame the round launches into. Passing it here is what makes the body
+        // orientable on its very first drawn frame - see the Interceptor constructor.
+        _rounds.Add(new Interceptor(launchPos, launchVel, track.Vehicle, tube + 1, PlatformEcl, platformVel)
         {
             LaunchAnchorPartFrame = launchAnchorPartFrame,
         });

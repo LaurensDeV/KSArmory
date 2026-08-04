@@ -41,7 +41,8 @@ public class MunitionVarietyTests
             new double3(munition.LaunchSpeed, 0, 0),
             TargetHandle,
             tube: 1,
-            platformEcl: default);
+            platformEcl: default,
+            frameVelocityEcl: default);
 
         const double dt = 1.0 / 60.0;
         double t = 0.0;
@@ -78,7 +79,8 @@ public class MunitionVarietyTests
             new double3(munition.LaunchSpeed, 0, 0),
             TargetHandle,
             tube: 1,
-            platformEcl: default);
+            platformEcl: default,
+            frameVelocityEcl: default);
 
         const double dt = 1.0 / 60.0;
         double t = 0.0;
