@@ -164,4 +164,77 @@ public class IffTests
         Assert.False(ThreatModel.MayEngage(friendly, policy));
         Assert.True(ThreatModel.MayEngage(hostile, policy));
     }
+
+    // ---- More than two sides ---------------------------------------------
+
+    /// <summary>
+    /// Team names are arbitrary strings, so any number of sides can exist. With no alliances
+    /// declared, every other team is hostile — a free-for-all.
+    /// </summary>
+    [Fact]
+    public void EveryOtherTeamIsHostileInAFreeForAll()
+    {
+        IffPolicy blue = Blue();
+
+        Assert.Equal(Allegiance.Friendly, blue.Classify("Blue"));
+        Assert.Equal(Allegiance.Hostile, blue.Classify("Red"));
+        Assert.Equal(Allegiance.Hostile, blue.Classify("Green"));
+        Assert.Equal(Allegiance.Hostile, blue.Classify("Yellow"));
+    }
+
+    [Fact]
+    public void AnAlliedTeamIsFriendlyWithoutSharingAName()
+    {
+        IffPolicy blue = Blue();
+        blue.AlliedTeams.Add("Green");
+
+        Assert.Equal(Allegiance.Friendly, blue.Classify("Green"));
+        Assert.False(blue.MayEngageTeam("Green"));
+        Assert.True(blue.MayEngageTeam("Red"));
+    }
+
+    /// <summary>
+    /// A coalition is per-battery: each side lists the others. Nothing infers that an ally's ally
+    /// is a friend, which keeps a battery's view of the world its own.
+    /// </summary>
+    [Fact]
+    public void AlliancesAreDeclaredFromEachSideSeparately()
+    {
+        IffPolicy blue = new() { OwnTeam = "Blue" };
+        blue.AlliedTeams.Add("Green");
+
+        IffPolicy green = new() { OwnTeam = "Green" };
+
+        // Blue holds fire; Green has not been told, so it does not.
+        Assert.False(blue.MayEngageTeam("Green"));
+        Assert.True(green.MayEngageTeam("Blue"));
+
+        green.AlliedTeams.Add("Blue");
+        Assert.False(green.MayEngageTeam("Blue"));
+    }
+
+    [Fact]
+    public void ThreeSidedWarWithOneCoalition()
+    {
+        IffPolicy blue = new() { OwnTeam = "Blue" };
+        blue.AlliedTeams.Add("Green");
+        blue.NeutralTeams.Add("Civilian");
+
+        Assert.False(blue.MayEngageTeam("Blue"));       // itself
+        Assert.False(blue.MayEngageTeam("Green"));      // ally
+        Assert.True(blue.MayEngageTeam("Red"));         // enemy
+        Assert.True(blue.MayEngageTeam("Yellow"));      // unaligned enemy
+        Assert.False(blue.MayEngageTeam("Civilian"));   // neutral
+    }
+
+    /// <summary>Neutral is checked before allied, so a team can be held off without being a friend.</summary>
+    [Fact]
+    public void NeutralOutranksAllied()
+    {
+        IffPolicy blue = Blue();
+        blue.AlliedTeams.Add("Green");
+        blue.NeutralTeams.Add("Green");
+
+        Assert.Equal(Allegiance.Neutral, blue.Classify("Green"));
+    }
 }

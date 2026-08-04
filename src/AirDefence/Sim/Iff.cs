@@ -46,6 +46,15 @@ public sealed class IffPolicy
     /// </summary>
     public bool ProtectFriendly { get; set; } = true;
 
+    /// <summary>
+    /// Teams counted as friendly alongside <see cref="OwnTeam"/>. Case-insensitive.
+    ///
+    /// <para>Any number of teams can exist — a name is just a string — and without this every
+    /// team but one is hostile, which is a free-for-all. A coalition needs each member to list
+    /// the others.</para>
+    /// </summary>
+    public HashSet<string> AlliedTeams { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Teams treated as neutral rather than hostile. Case-insensitive.</summary>
     public HashSet<string> NeutralTeams { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -54,6 +63,7 @@ public sealed class IffPolicy
     {
         if (string.IsNullOrWhiteSpace(contactTeam)) return Allegiance.Unknown;
         if (NeutralTeams.Contains(contactTeam)) return Allegiance.Neutral;
+        if (AlliedTeams.Contains(contactTeam)) return Allegiance.Friendly;
 
         if (string.IsNullOrWhiteSpace(OwnTeam)) return Allegiance.Unknown;
 
