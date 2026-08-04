@@ -120,10 +120,9 @@ public class FrameRegressionTests
         // target will be at the end of this step", not "where it is now". Interceptor back-dates
         // it by the step to line it up with the round's own epoch.
         //
-        // Writing the sample as the start-of-step position instead is what the old code assumed,
-        // and it left every line of sight carrying a whole frame of the planet's 29.8 km/s. So the
-        // + SolarFrame * dt here is not padding to make a test pass: it is the convention, and
-        // omitting it re-creates the bug inside the test.
+        // The + SolarFrame * dt is the convention, not padding to make a test pass. Writing the
+        // sample as a start-of-step position leaves every line of sight carrying a whole frame of
+        // the planet's 29.8 km/s, and re-creates that inside the test.
         var target = new TargetState(new double3(20, 0, 0) + SolarFrame * dt, SolarFrame, 1.0);
         munition.FuseArmSeconds = 0f;
 

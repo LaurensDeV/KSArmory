@@ -53,8 +53,7 @@ public sealed class SensorProfile
     public float ConeDeg = 90f;
 
     /// <summary>
-    /// Where the cone points. Defaults to local "up", which is what a ground site wants and what
-    /// this mod did unconditionally before the mode existed.
+    /// Where the cone points. Defaults to local "up", which is what a ground site wants.
     /// </summary>
     public BoresightMode BoresightSource = BoresightMode.LocalUp;
 

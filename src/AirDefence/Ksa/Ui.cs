@@ -14,11 +14,9 @@ internal sealed class Ui(Config config, DefenceBattery battery)
     private static readonly float4 Amber = new(1.0f, 0.78f, 0.25f, 1f);
     private static readonly float4 Grey = new(0.65f, 0.65f, 0.7f, 1f);
 
-    /// <summary>
-    /// Warp above which a frame carries more simulated time than the interceptor can integrate,
-    /// so the battery stands rounds down. Indicative only: the real limit is per frame, so a
-    /// lower frame rate reaches it sooner. Assumes 60 fps.
-    /// </summary>
+    // Warp above which a frame carries more simulated time than the interceptor can integrate, so
+    // the battery stands rounds down. Indicative only: the real limit is per frame, so a lower
+    // frame rate reaches it sooner. Assumes 60 fps.
     private const double MaxTrackableWarp = Interceptor.MaxFaithfulStep * 60.0;
 
     private readonly Config _config = config;
@@ -144,31 +142,23 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         ImGui.Text($"In flight: {_battery.Rounds.Count}");
     }
 
-    /// <summary>
-    /// Where the turret is pointing, and whether it is still swinging.
-    ///
-    /// Also the place the engine's verdict on the transform write surfaces: if KSA refuses it,
-    /// the drive gives up for the session and this is where that gets said, rather than the
-    /// turret just silently never moving.
-    /// </summary>
-    /// <summary>The weapon system the panel is tuning. See Config.Select.</summary>
+    // Where the turret is pointing, and whether it is still swinging. Also the place the engine's
+    // verdict on the transform write surfaces: if KSA refuses it, the drive gives up for the
+    // session and this is where that gets said, rather than the turret just silently never moving.
+    // The weapon system the panel is tuning. See Config.Select.
     private LauncherProfile _profile => _config.Launcher;
     private MunitionProfile _munition => _config.Munition;
 
-    /// <summary>Speeds worth a button. KSA's own roller stops at 0.1x; these go two decades below.</summary>
+    // Speeds worth a button. KSA's own roller stops at 0.1x; these go two decades below.
     private static readonly (string Label, double Speed)[] SlowMotionSpeeds =
     [
         ("0.01x", 0.01), ("0.05x", 0.05), ("0.1x", 0.1), ("0.25x", 0.25), ("1x", 1.0),
     ];
 
-    /// <summary>
-    /// Slow motion, well below what the game's speed control reaches.
-    ///
-    /// <para>An engagement is over in a couple of seconds of real time and the interesting part —
-    /// the round leaving the tube, the endgame turn, the fuse — happens far faster than it can be
-    /// watched. Nothing in KSA stops the simulation running at a hundredth of real time; its
-    /// roller is simply built in tenths.</para>
-    /// </summary>
+    // Slow motion, well below what the game's speed control reaches. An engagement is over in a
+    // couple of seconds of real time and the interesting part — the round leaving the tube, the
+    // endgame turn, the fuse — happens far faster than it can be watched. Nothing in KSA stops the
+    // simulation running at a hundredth of real time; its roller is simply built in tenths.
     private void DrawSlowMotion()
     {
         ImGui.Text($"Sim speed: {KsaWorld.SimulationSpeed:0.###}x");
@@ -250,10 +240,8 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         ImGui.Checkbox("Require launcher part", ref _config.RequireLauncherPart);
     }
 
-    /// <summary>
-    /// Spawns a drone on a timed pass, so the system can be tested without building and
-    /// flying a second craft by hand.
-    /// </summary>
+    // Spawns a drone on a timed pass, so the system can be tested without building and flying a
+    // second craft by hand.
     private void DrawTestTargets()
     {
         if (!ImGui.TreeNode("Test targets")) return;

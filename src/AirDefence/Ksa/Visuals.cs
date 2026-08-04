@@ -40,7 +40,7 @@ internal static class Visuals
         if (config.DrawRadarVolume) DrawTurretFacing(battery);
     }
 
-    /// <summary>Wireframe cone: boresight, a rim, and ribs out to the rim.</summary>
+    // Wireframe cone: boresight, a rim, and ribs out to the rim.
     private static void DrawSearchVolume(double3 origin, double3 boresight, Config config)
     {
         const int ribs = 12;
@@ -109,10 +109,8 @@ internal static class Visuals
         }
     }
 
-    /// <summary>
-    /// Marks which tubes still hold a round. Rounds are fired in tube order, so the first
-    /// <c>TubeCount - Ammo</c> tubes are the spent ones.
-    /// </summary>
+    // Marks which tubes still hold a round. Rounds are fired in tube order, so the first TubeCount
+    // - Ammo tubes are the spent ones.
     private static void DrawLoadedTubes(DefenceBattery battery, Config config, double3 origin)
     {
         LauncherProfile profile = config.Launcher;
@@ -146,13 +144,10 @@ internal static class Visuals
         }
     }
 
-    /// <summary>
-    /// A line along where the turret drive *thinks* it is pointing.
-    ///
-    /// Worth having beyond the cosmetics: it separates "the slew maths is wrong" from "the
-    /// engine ignored the transform write". If the line sweeps onto the target and the mesh
-    /// does not follow it, the maths is fine and <c>Asmb2ParentAsmb</c> is not being honoured.
-    /// </summary>
+    // A line along where the turret drive *thinks* it is pointing. Worth having beyond the
+    // cosmetics: it separates "the slew maths is wrong" from "the engine ignored the transform
+    // write". If the line sweeps onto the target and the mesh does not follow it, the maths is fine
+    // and Asmb2ParentAsmb is not being honoured.
     private static void DrawTurretFacing(DefenceBattery battery)
     {
         if (battery.Platform is not { } platform) return;

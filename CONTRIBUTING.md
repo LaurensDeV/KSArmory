@@ -113,6 +113,7 @@ directory listing rather than trusting `is_file()`.
 ./tools/build.sh
 ./tools/test.sh
 ./tools/check-boundary.sh     # Sim/ must not reference KSA types
+./tools/check-comments.sh     # comment rules that can be checked mechanically
 ./tools/validate-parts.py     # if you touched part XML or launch geometry
 ```
 

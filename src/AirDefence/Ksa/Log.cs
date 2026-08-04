@@ -12,7 +12,7 @@ internal static class Log
 {
     private const string Prefix = "[AirDefence]";
 
-    /// <summary>Guards the writer; frame and GUI hooks can both log.</summary>
+    // Guards the writer; frame and GUI hooks can both log.
     private static readonly object Gate = new();
 
     private static string? _path;
@@ -112,10 +112,8 @@ internal static class Log
         }
     }
 
-    /// <summary>
-    /// Picks a log location once: KSA's own Logs folder if we can find it, otherwise the
-    /// user's temp directory.
-    /// </summary>
+    // Picks a log location once: KSA's own Logs folder if we can find it, otherwise the user's temp
+    // directory.
     private static void EnsureResolved()
     {
         if (_resolved) return;
@@ -141,15 +139,11 @@ internal static class Log
         }
     }
 
-    /// <summary>
-    /// Where the log might go, best first. KSA runs on Linux as well as Windows and puts its
-    /// user data in a different place on each, so this tries the plausible locations rather
-    /// than assuming one — and only ever uses a directory that already exists, so a wrong guess
-    /// costs nothing but a failed <c>Directory.Exists</c>.
-    ///
-    /// The temp directory is the last resort and always works, which is why the mod can say
-    /// where it is logging on startup rather than silently going quiet.
-    /// </summary>
+    // Where the log might go, best first. KSA runs on Linux as well as Windows and puts its user
+    // data in a different place on each, so this tries the plausible locations rather than assuming
+    // one — and only ever uses a directory that already exists, so a wrong guess costs nothing but
+    // a failed Directory.Exists. The temp directory is the last resort and always works, which is
+    // why the mod can say where it is logging on startup rather than silently going quiet.
     private static IEnumerable<string> CandidateDirectories()
     {
         const string game = "Kitten Space Agency";

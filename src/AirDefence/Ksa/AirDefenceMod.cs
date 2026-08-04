@@ -41,10 +41,9 @@ public sealed class AirDefenceMod
     /// Simulation tick.
     ///
     /// <para>StarMap passes a <em>player-time</em> clock and delta, and those are deliberately
-    /// ignored. Player time is wall-clock: it runs through a pause, so the battery used to
-    /// mature a lock and fire into a frozen world, and it ignores timewarp, so under warp the
-    /// world moved many seconds while rounds moved one frame. Both were seen in game. The
-    /// simulation clock is the one that matches what the world did.</para>
+    /// ignored. Player time is wall-clock: it runs through a pause, so a battery on it matures a
+    /// lock and fires into a frozen world, and it ignores timewarp, so the world outruns the
+    /// rounds. The simulation clock is the one that matches what the world did.</para>
     /// </summary>
     [StarMapAfterOnFrame]
     public void OnAfterFrame(double currentPlayerTime, double dtPlayer)
@@ -101,9 +100,7 @@ public sealed class AirDefenceMod
         }
     }
 
-    /// <summary>
-    /// One simulation step, run from the GUI hook so it shares an epoch with the draw.
-    /// </summary>
+    // One simulation step, run from the GUI hook so it shares an epoch with the draw.
     private void StepSimulation(double dtPlayer)
     {
         if (_battery is null) return;

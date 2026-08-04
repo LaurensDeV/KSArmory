@@ -33,7 +33,7 @@ internal sealed class Radar(Config config)
     /// <summary>Set when the operator picks a target by hand; clears on lock loss.</summary>
     public Vehicle? ManualDesignation { get; set; }
 
-    /// <summary>Held between scans so a contact's dwell time survives track rebuilds.</summary>
+    // Held between scans so a contact's dwell time survives track rebuilds.
     private readonly Dictionary<Vehicle, double> _dwell = new();
 
     /// <summary>

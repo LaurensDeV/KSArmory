@@ -80,10 +80,8 @@ internal static class Diagnostics
         }
     }
 
-    /// <summary>
-    /// Checks the pieces the gizmo overlay depends on. If the renderer or camera is missing,
-    /// nothing we submit can ever appear.
-    /// </summary>
+    // Checks the pieces the gizmo overlay depends on. If the renderer or camera is missing, nothing
+    // we submit can ever appear.
     private static void DumpRendering(DefenceBattery battery)
     {
         bool hasRenderer = Program.GizmosRenderer is not null;
@@ -157,10 +155,8 @@ internal static class Diagnostics
         }
     }
 
-    /// <summary>
-    /// Lists every loaded vehicle with the numbers the radar filters on, and says which filter
-    /// rejected it. This is the fastest way to see why the track list is empty.
-    /// </summary>
+    // Lists every loaded vehicle with the numbers the radar filters on, and says which filter
+    // rejected it. This is the fastest way to see why the track list is empty.
     private static void DumpVehicles(DefenceBattery battery, Config config)
     {
         KsaWorld.CollectVehicles(Scratch);

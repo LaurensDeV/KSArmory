@@ -71,13 +71,9 @@ internal sealed class DefenceBattery(Config config)
     /// </summary>
     public bool TurretDriveWorks { get; private set; } = true;
 
-    /// <summary>
-    /// The weapon system this battery is running, and what it fires.
-    ///
-    /// Read through the config rather than captured at construction: the battery does not know
-    /// which launcher it has until it finds the part, and the panel can retune the profile
-    /// while an engagement is under way.
-    /// </summary>
+    // The weapon system this battery is running, and what it fires. Read through the config rather
+    // than captured at construction: the battery does not know which launcher it has until it finds
+    // the part, and the panel can retune the profile while an engagement is under way.
     private LauncherProfile _profile => _config.Launcher;
     private MunitionProfile _munition => _config.Munition;
 
@@ -90,14 +86,12 @@ internal sealed class DefenceBattery(Config config)
     private readonly List<Part> _missileBodies = [];
     private readonly List<Part> _finBodies = [];
 
-    /// <summary>
-    /// Which tubes still hold a round, and which fires next. See <see cref="Magazine"/> — the
-    /// bookkeeping is pure and lives in Sim/ so it is testable, because getting it wrong produces
-    /// a salvo that looks like it never left rather than an error.
-    /// </summary>
+    // Which tubes still hold a round, and which fires next. See Magazine — the bookkeeping is pure
+    // and lives in Sim/ so it is testable, because getting it wrong produces a salvo that looks
+    // like it never left rather than an error.
     private readonly Magazine _magazine = new();
 
-    /// <summary>The fin set belonging to a tube, or null if the launcher carries none.</summary>
+    // The fin set belonging to a tube, or null if the launcher carries none.
     private Part? FinsFor(int index) => index >= 0 && index < _finBodies.Count ? _finBodies[index] : null;
 
     /// <summary>
@@ -120,7 +114,7 @@ internal sealed class DefenceBattery(Config config)
     /// </summary>
     public int FramesWithoutSimStep { get; set; }
 
-    /// <summary>Trace one frame in this many, so a debug log stays readable at 60 fps.</summary>
+    // Trace one frame in this many, so a debug log stays readable at 60 fps.
     private const int BodyTraceEveryFrames = 15;
 
     private int _bodyFrame;
@@ -230,9 +224,7 @@ internal sealed class DefenceBattery(Config config)
         RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher, _profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
-        // After the launcher is resolved, not before: the part-relative modes read the part's own
-        // mounting, and resolving them against last frame's launcher would point the cone at
-        // whatever was fitted previously for one frame after a craft change.
+        // After the launcher is resolved: the part-relative modes read the part's own mounting.
         Boresight = ResolveBoresight();
 
         // Say what the launcher is actually made of, once. If the turret is never found, this
@@ -287,14 +279,11 @@ internal sealed class DefenceBattery(Config config)
         }
     }
 
-    /// <summary>
-    /// Decides which craft the battery is mounted on. The launcher is a physical part, so the
-    /// battery belongs to the craft carrying it and stays there rather than following control.
-    ///
-    /// <para>Preference order: an explicit pin, then the craft you are flying if it has a
-    /// launcher, then whatever the battery is already on, then any loaded craft with one. Falls
-    /// back to the controlled vehicle only when the part requirement is switched off.</para>
-    /// </summary>
+    // Decides which craft the battery is mounted on. The launcher is a physical part, so the
+    // battery belongs to the craft carrying it and stays there rather than following control.
+    // Preference order: an explicit pin, then the craft you are flying if it has a launcher, then
+    // whatever the battery is already on, then any loaded craft with one. Falls back to the
+    // controlled vehicle only when the part requirement is switched off.
     private void ResolvePlatform()
     {
         if (PlatformPinned)
@@ -342,18 +331,10 @@ internal sealed class DefenceBattery(Config config)
         Platform = v;
     }
 
-    /// <summary>
-    /// Where the search cone points this frame.
-    ///
-    /// <para>Local "up" unless the sensor profile says otherwise, which is what a ground site wants
-    /// and what this mod did unconditionally before <see cref="BoresightMode"/> existed. The
-    /// part-relative modes exist for a launcher on something that manoeuvres: on a pitched-over
-    /// booster or anything in orbit, "up" is not where the threats are.</para>
-    ///
-    /// <para>Every failure falls back to local up rather than to a zero vector — a cone with no
-    /// direction sees nothing at all, and a battery that silently stops detecting is a much worse
-    /// failure than one pointed conservatively at the sky.</para>
-    /// </summary>
+    // Where the search cone points this frame. Local "up" unless the sensor says otherwise, which
+    // is what a ground site wants; the part-relative modes are for a launcher on something that
+    // manoeuvres. Every failure falls back to local up rather than a zero vector, because a cone
+    // with no direction detects nothing at all.
     private double3 ResolveBoresight()
     {
         if (Platform is not { } platform) return Boresight;
@@ -370,7 +351,7 @@ internal sealed class DefenceBattery(Config config)
         return KsaWorld.LocalUp(platform);
     }
 
-    /// <summary>Tells each track how many rounds are already committed to it.</summary>
+    // Tells each track how many rounds are already committed to it.
     private void AttributeRoundsToTracks()
     {
         foreach (Track t in Radar.Tracks) t.RoundsAssigned = 0;
@@ -420,17 +401,12 @@ internal sealed class DefenceBattery(Config config)
         Fire(target);
     }
 
-    /// <summary>
-    /// Slews the turret onto whatever the radar is holding, and writes the result to the part.
-    ///
-    /// <para>Priority is the lock, then the most urgent threat, then rest. Following a threat
-    /// before the lock has settled is what makes the vehicle look like it is *watching* the sky
-    /// rather than reacting a second late.</para>
-    ///
-    /// <para>The bearing has to be computed in the part's own frame, not in Ecl: the turret
-    /// rotates about the part's X axis, and the platform's own attitude is what relates the
-    /// two.</para>
-    /// </summary>
+    // Slews the turret onto whatever the radar is holding, and writes the result to the part.
+    // Priority is the lock, then the most urgent threat, then rest. Following a threat before the
+    // lock has settled is what makes the vehicle look like it is *watching* the sky rather than
+    // reacting a second late. The bearing has to be computed in the part's own frame, not in Ecl:
+    // the turret rotates about the part's X axis, and the platform's own attitude is what relates
+    // the two.
     private void UpdateTurret(double dt)
     {
         if (_config.TurretSpin)
@@ -623,7 +599,7 @@ internal sealed class DefenceBattery(Config config)
         }
     }
 
-    /// <summary>The threat the turret should be watching when there is no firing solution yet.</summary>
+    // The threat the turret should be watching when there is no firing solution yet.
     private Track? MostUrgentThreat()
     {
         int i = ThreatModel.IndexOfMostUrgent(Radar.Tracks);
@@ -765,10 +741,8 @@ internal sealed class DefenceBattery(Config config)
         ApplyPendingKills();
     }
 
-    /// <summary>
-    /// Reads the round's target out of the world once per frame. Returns null when the target
-    /// is gone, which breaks the round's lock and leaves it coasting.
-    /// </summary>
+    // Reads the round's target out of the world once per frame. Returns null when the target is
+    // gone, which breaks the round's lock and leaves it coasting.
     private TargetState? SampleTarget(IProjectile round)
     {
         if (round.TargetRef is not Vehicle target || !KsaWorld.IsAlive(target)) return null;
@@ -795,11 +769,9 @@ internal sealed class DefenceBattery(Config config)
             KsaWorld.MeanRadius(target));
     }
 
-    /// <summary>
-    /// Applies a warhead burst. KSA has no partial-damage model exposed, so the effect is
-    /// binary: anything inside the lethal radius is destroyed, anything between lethal and
-    /// blast radius is reported as a near miss and survives.
-    /// </summary>
+    // Applies a warhead burst. KSA has no partial-damage model exposed, so the effect is binary:
+    // anything inside the lethal radius is destroyed, anything between lethal and blast radius is
+    // reported as a near miss and survives.
     private void Detonate(IProjectile round)
     {
         double3 burst = round.PositionEcl;
@@ -897,10 +869,8 @@ internal sealed class DefenceBattery(Config config)
         }
     }
 
-    /// <summary>
-    /// Destroys queued targets after the blast sweep, so we never mutate the engine's
-    /// vehicle collection while walking it.
-    /// </summary>
+    // Destroys queued targets after the blast sweep, so we never mutate the engine's vehicle
+    // collection while walking it.
     private void ApplyPendingKills()
     {
         if (_pendingKills.Count == 0) return;

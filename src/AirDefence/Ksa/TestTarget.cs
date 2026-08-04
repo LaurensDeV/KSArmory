@@ -16,10 +16,8 @@ internal static class TestTarget
 {
     private static int _counter;
 
-    /// <summary>
-    /// Compass bearing the drones come in on, relative to an arbitrary local axis. Fixed rather
-    /// than random so repeated runs are comparable.
-    /// </summary>
+    // Compass bearing the drones come in on, relative to an arbitrary local axis. Fixed rather than
+    // random so repeated runs are comparable.
     private const double AzimuthRadians = 0.0;
 
     /// <summary>How the drone is aimed relative to the battery.</summary>
@@ -268,23 +266,16 @@ internal static class TestTarget
     /// <summary>Stock craft that ship with the game, usable as drones.</summary>
     public static readonly string[] StockCraft = ["Gemini7", "Hunter", "Banjo", "Polaris", "Rocket"];
 
-    /// <summary>
-    /// Builds the drone's parts, preferring one of KSA's own craft.
-    ///
-    /// Cloning the launcher platform works and is always structurally valid, but it means
-    /// shooting air-defence sites at air-defence sites, which is both silly to watch and
-    /// actively confusing — a drone carrying a launcher looks like it should be fighting back,
-    /// and being a clone it shares the guards that protect the player's craft. A stock vessel is
-    /// an obviously separate thing. Falls back to the clone if the library craft will not load.
-    /// </summary>
-    /// <summary>
-    /// Everything about a vehicle that plausibly bears on whether the camera can frame it.
-    ///
-    /// <para>Written as one function used for both the spawned drone and the craft already in
-    /// the scene, so the two are described identically and the difference is the only thing that
-    /// stands out. A stock Hunter zooms and a clone of it does not, with the same MeanRadius, so
-    /// whatever is responsible is one of the other fields.</para>
-    /// </summary>
+    // Builds the drone's parts, preferring one of KSA's own craft. Cloning the launcher platform
+    // works and is always structurally valid, but it means shooting air-defence sites at air-
+    // defence sites, which is both silly to watch and actively confusing — a drone carrying a
+    // launcher looks like it should be fighting back, and being a clone it shares the guards that
+    // protect the player's craft. A stock vessel is an obviously separate thing. Falls back to the
+    // clone if the library craft will not load. Everything about a vehicle that plausibly bears on
+    // whether the camera can frame it. Written as one function used for both the spawned drone and
+    // the craft already in the scene, so the two are described identically and the difference is
+    // the only thing that stands out. A stock Hunter zooms and a clone of it does not, with the
+    // same MeanRadius, so whatever is responsible is one of the other fields.
     private static string Describe(Vehicle v)
     {
         try
@@ -312,52 +303,38 @@ internal static class TestTarget
         }
     }
 
-    /// <summary>Whether the tree carries a Control module at all, listed or not.</summary>
+    // Whether the tree carries a Control module at all, listed or not.
     private static string HasControlModule(Vehicle v)
     {
         try { return v.Parts?.Modules.HasAny<Control>().ToString() ?? "?"; } catch { return "?"; }
     }
 
-    /// <summary>
-    /// Control modules the tree has, which is exactly what Vehicle.IsControllable tests.
-    ///
-    /// <para>Zero modules and zero controls means the save's parts arrived without their modules
-    /// at all. Modules present but no controls means they exist and the hot-path list was never
-    /// built. Those need different fixes, and the difference is invisible from IsControllable
-    /// alone - which is why the first attempt at this rebuilt the list and changed nothing.</para>
-    /// </summary>
+    // Control modules the tree has, which is exactly what Vehicle.IsControllable tests. Zero
+    // modules and zero controls means the save's parts arrived without their modules at all.
+    // Modules present but no controls means they exist and the hot-path list was never built. Those
+    // need different fixes, and the difference is invisible from IsControllable alone - which is
+    // why the first attempt at this rebuilt the list and changed nothing.
     private static int ControlCount(Vehicle v)
     {
         try { return v.Parts?.Controls.NumModules ?? -1; } catch { return -1; }
     }
 
-    /// <summary>
-    /// A drone's part tree, plus the character it belongs to if the save names one.
-    ///
-    /// <para>The character is empty for craft. It is the only thing that distinguishes a kitten
-    /// save from a vehicle save, and it cannot be recovered from the part tree.</para>
-    /// </summary>
+    // A drone's part tree, plus the character it belongs to if the save names one. The character is
+    // empty for craft. It is the only thing that distinguishes a kitten save from a vehicle save,
+    // and it cannot be recovered from the part tree.
     private readonly record struct DroneBlueprint(PartTree Parts, string Character);
 
-    /// <summary>
-    /// Builds the drone in whichever class KSA itself would have used for this save.
-    ///
-    /// <para><b>Kittens are not craft.</b> <c>KittenEva</c> is a <c>Vehicle</c> subclass that
-    /// overrides <c>IsControllable</c> to a constant true, and the stock Hunter, Banjo and
-    /// Polaris are all instances of it. Measured in game, they carry <em>no control module at
-    /// all</em> — which is exactly what the base <c>Vehicle.IsControllable</c> requires. So a
-    /// Hunter rebuilt through <c>Vehicle.CreateVehicle</c> is a plain vehicle wearing a kitten's
-    /// part tree: it matches the stock one in every measurable respect — same radius, same half
-    /// extents, same zoom power, same part count, same zero control modules — and can never be
-    /// controlled or zoomed, because the property that would have said otherwise belongs to a
-    /// class it is not an instance of.</para>
-    ///
-    /// <para>That is why rebuilding the part tree's caches changed nothing, twice. There was
-    /// never anything wrong with the part tree.</para>
-    ///
-    /// <para>KSA chooses between the two the same way, on whether the save names a character —
-    /// see <c>VehicleTemplate</c>, which branches on <c>Character != null</c>.</para>
-    /// </summary>
+    // Builds the drone in whichever class KSA itself would have used for this save. Kittens are not
+    // craft. KittenEva is a Vehicle subclass that overrides IsControllable to a constant true, and
+    // the stock Hunter, Banjo and Polaris are all instances of it. Measured in game, they carry no
+    // control module at all — which is exactly what the base Vehicle.IsControllable requires. So a
+    // Hunter rebuilt through Vehicle.CreateVehicle is a plain vehicle wearing a kitten's part tree:
+    // it matches the stock one in every measurable respect — same radius, same half extents, same
+    // zoom power, same part count, same zero control modules — and can never be controlled or
+    // zoomed, because the property that would have said otherwise belongs to a class it is not an
+    // instance of. That is why rebuilding the part tree's caches changed nothing, twice. There was
+    // never anything wrong with the part tree. KSA chooses between the two the same way, on whether
+    // the save names a character — see VehicleTemplate, which branches on Character != null.
     private static Vehicle CreateDroneVehicle(
         DroneBlueprint blueprint, CelestialSystem system, Vehicle platform,
         IParentBody parent, string id, Orbit orbit)
@@ -410,13 +387,10 @@ internal static class TestTarget
         return new DroneBlueprint(platform.Parts.DeepCopy(), string.Empty);
     }
 
-    /// <summary>
-    /// Converts an ecliptic state into the parent body's inertial frame.
-    ///
-    /// Cce is the parent-centred *ecliptic* frame, so it differs from Ecl only by the body's
-    /// own position and velocity. Cci is parent-centred *inertial*, a fixed rotation away from
-    /// Cce - both are non-rotating, so the same quaternion carries position and velocity.
-    /// </summary>
+    // Converts an ecliptic state into the parent body's inertial frame. Cce is the parent-centred
+    // *ecliptic* frame, so it differs from Ecl only by the body's own position and velocity. Cci is
+    // parent-centred *inertial*, a fixed rotation away from Cce - both are non-rotating, so the
+    // same quaternion carries position and velocity.
     private static bool ToParentInertial(
         IParentBody parent, double3 posEcl, double3 velEcl, out double3 posCci, out double3 velCci)
     {

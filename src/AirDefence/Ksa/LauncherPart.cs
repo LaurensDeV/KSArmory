@@ -12,15 +12,13 @@ namespace AirDefence;
 /// </summary>
 internal static class LauncherPart
 {
-    /// <summary>Scale applied to a round that is not in the air. Small rather than zero: a
-    /// zero-scaled transform is singular, and nothing good comes of handing one to a renderer.</summary>
+    // Scale applied to a round that is not in the air. Small rather than zero: a zero-scaled
+    // transform is singular, and nothing good comes of handing one to a renderer.
     private static readonly double3 Hidden = new(1e-3, 1e-3, 1e-3);
     private static readonly double3 Shown = new(1.0, 1.0, 1.0);
 
-    /// <summary>
-    /// Marker for the round subparts, one per tube, flown by the mod. Unlike the moving
-    /// assemblies this is a property of the *round*, so it comes off the munition profile.
-    /// </summary>
+    // Marker for the round subparts, one per tube, flown by the mod. Unlike the moving assemblies
+    // this is a property of the *round*, so it comes off the munition profile.
     private const string MissileMarkerFallback = "Missile";
 
     /// <summary>

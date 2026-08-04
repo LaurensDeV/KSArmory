@@ -91,7 +91,7 @@ internal sealed class Interceptor : IProjectile
     /// </summary>
     public double DistanceFlown { get; private set; }
 
-    /// <summary>Frame velocity from the last update, so telemetry can be reported locally.</summary>
+    // Frame velocity from the last update, so telemetry can be reported locally.
     private double3 _frameVelocityEcl;
 
     /// <summary>Tube number, for display.</summary>
@@ -129,11 +129,9 @@ internal sealed class Interceptor : IProjectile
     /// </summary>
     public double3 LaunchAnchorPartFrame { get; set; }
 
-    /// <summary>
-    /// Recent positions for the smoke trail, oldest first, as platform-relative offsets.
-    /// Stored this way for the same reason: absolute points recorded across 1.6 s of trail
-    /// would be smeared over ~48 km of the planet's motion around its star.
-    /// </summary>
+    // Recent positions for the smoke trail, oldest first, as platform-relative offsets. Stored this
+    // way for the same reason: absolute points recorded across 1.6 s of trail would be smeared over
+    // ~48 km of the planet's motion around its star.
     private readonly List<double3> _trail = new(TrailCapacity);
 
     /// <inheritdoc cref="IProjectile.TrailOffsets"/>
@@ -353,7 +351,7 @@ internal sealed class Interceptor : IProjectile
             // and proportional navigation, doing its job perfectly, flew a clean intercept on a
             // ghost displaced by one frame of the planet's ~29.8 km/s of ecliptic motion.
             //
-            // That is 450-680 m, not the 10-15 m the log used to report. MissDistance could never
+            // That is 450-680 m, not the 10-15 m MissDistance reports. MissDistance could never
             // show it: it is a threshold crossing with a one-sub-step horizon, so it is bounded by
             // the fuse radius whatever the round actually does. Confirmed three ways - headlessly,
             // where the miss vector came out 0.96-0.999 aligned with the ecliptic carrier and

@@ -28,7 +28,7 @@ internal static class KsaWorld
     /// </summary>
     public static double SimStepSeconds => Universe.GetLastSimStep().DeltaTime;
 
-    /// <summary>Pure, and in Sim/ so it can be tested. See <see cref="StepGate{T}"/>.</summary>
+    // Pure, and in Sim/ so it can be tested. See StepGate.
     private static readonly StepGate<SimTime> _stepGate = new();
 
     /// <summary>

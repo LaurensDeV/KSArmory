@@ -5,7 +5,7 @@ namespace AirDefence;
 /// <summary>
 /// Decides what counts as a threat and which one to shoot at first.
 ///
-/// <para>Two jobs, both pure arithmetic over relative motion, and both previously stranded
+/// <para>Two jobs, both pure arithmetic over relative motion, both stranded
 /// inside KSA-facing classes where nothing could test them. The search-volume and CPA maths
 /// came out of <c>Ksa/Radar.cs</c>; the ranking and salvo rules out of
 /// <c>Ksa/DefenceBattery.cs</c>.</para>

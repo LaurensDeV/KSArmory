@@ -102,6 +102,12 @@ jobs:
         # fail here purely because the runner's Pillow is not the author's.
         run: ./tools/model/palette.py --check
 
+      - name: Comment rules
+        # History in comments and XML docs on private members are mechanically detectable; the
+        # rest of CLAUDE.md's comment rules need judgement. Also prints the ratio per file, so
+        # drift is visible in a PR rather than found in an audit.
+        run: ./tools/check-comments.sh
+
       - name: No binaries or build artefacts committed
         run: |
           if git ls-files | grep -E '\.(dll|pdb)$'; then
