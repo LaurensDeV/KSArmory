@@ -673,6 +673,8 @@ internal sealed class DefenceBattery(Config config)
         _rounds.Add(new Interceptor(launchPos, launchVel, track.Vehicle, tube + 1, PlatformEcl, platformVel)
         {
             LaunchAnchorPartFrame = launchAnchorPartFrame,
+            Aimpoint = Aimpoint.OnVehicle(track.Vehicle, track.PositionEcl, track.VelocityEcl,
+                                          KsaWorld.MeanRadius(track.Vehicle)),
         });
         _salvoTimer = _profile.SalvoSpacing;
 
@@ -751,6 +753,10 @@ internal sealed class DefenceBattery(Config config)
     // gone, which breaks the round's lock and leaves it coasting.
     private TargetState? SampleTarget(IProjectile round)
     {
+        // A fixed position needs nothing from the world and can never be lost, so a round aimed
+        // at a coordinate keeps its aimpoint until it arrives or expires.
+        if (round.Aimpoint.Kind == AimpointKind.Point) return round.Aimpoint.ToTargetState();
+
         if (round.TargetRef is not Vehicle target || !KsaWorld.IsAlive(target)) return null;
 
         // A command-linked round is steered from here, so it is only guided while the launcher
@@ -780,6 +786,14 @@ internal sealed class DefenceBattery(Config config)
     // reported as a near miss and survives.
     private void Detonate(IProjectile round)
     {
+        // Only a whole craft can be destroyed. KSA exposes no component damage, so a round aimed
+        // at a part or a coordinate arrives, reports, and destroys nothing.
+        if (round.Aimpoint.Kind != AimpointKind.Vehicle && round.Aimpoint.Handle is not null)
+        {
+            Announce($"round {round.Tube} arrived at its {round.Aimpoint.Kind} aimpoint");
+            return;
+        }
+
         double3 burst = round.PositionEcl;
         Announce($"round {round.Tube} detonated, miss distance {round.MissDistance:F0} m");
 

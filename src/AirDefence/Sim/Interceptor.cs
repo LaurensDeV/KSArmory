@@ -57,6 +57,9 @@ internal sealed class Interceptor : IProjectile
     /// </summary>
     public object? TargetRef { get; private set; }
 
+    /// <inheritdoc cref="IProjectile.Aimpoint"/>
+    public Aimpoint Aimpoint { get; set; }
+
     public RoundState State { get; private set; } = RoundState.Flying;
 
     /// <summary>Miss distance recorded at detonation (m). Meaningful once detonated.</summary>
@@ -328,10 +331,8 @@ internal sealed class Interceptor : IProjectile
         }
 
         // Quadratic drag on airspeed, so a coasting round bleeds speed instead of holding it.
-        // Scaled by air density, so one profile is right on the pad, climbing out and in orbit.
-        // The ratio is 1.0 at sea level, which is where every DragK in the arsenal was tuned, so
-        // this changes nothing at low altitude and removes drag entirely in vacuum. Before it, a
-        // round fired in orbit was scrubbed as though at sea level.
+        // Scaled by the medium's density, so one profile is right on the pad, climbing out, in
+        // orbit and submerged. DragK is the sea-level-air value, so the ratio is 1.0 there.
         double airspeed = Vec.Len(localVelocity);
         if (munition.DragK > 0f && airspeed > 1e-6 && mediumDensityRatio > 0.0)
         {

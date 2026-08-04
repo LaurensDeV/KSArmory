@@ -53,6 +53,9 @@ internal sealed class Slug : IProjectile
 
     public object? TargetRef { get; private set; }
 
+    /// <inheritdoc cref="IProjectile.Aimpoint"/>
+    public Aimpoint Aimpoint { get; set; }
+
     /// <summary>Always false. A slug is not steered, so it has nothing to lose lock on.</summary>
     public bool HasLock => false;
 

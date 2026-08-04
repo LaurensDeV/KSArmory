@@ -71,6 +71,12 @@ internal interface IProjectile
     /// <summary>Opaque handle to the target, compared by reference. Null once lock is lost.</summary>
     object? TargetRef { get; }
 
+    /// <summary>
+    /// What this round is shooting at — a craft, a component, or a fixed position. The kinematics
+    /// arrive per frame through <see cref="Update"/>; this is the identity.
+    /// </summary>
+    Aimpoint Aimpoint { get; set; }
+
     /// <summary>Whether it is still being steered. Always false for something unguided.</summary>
     bool HasLock { get; }
 

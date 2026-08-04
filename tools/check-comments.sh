@@ -26,7 +26,7 @@ FAIL=0
 
 # --- history in comments ----------------------------------------------------
 
-HISTORY='(reported from play|regression, commit|commit [0-9a-f]{7}|used to (be|run|live|sit|fall|advance|assume|report|do)|already happened twice|duly did|for months|first draft|on its first run|was rewritten|the old code|before (it|this|the mode) existed)'
+HISTORY='(reported from play|regression, commit|commit [0-9a-f]{7}|used to (be|run|live|sit|fall|advance|assume|report|do)|already happened twice|duly did|for months|first draft|on its first run|was rewritten|the old code|before (it|this|that|the mode) existed|before it, a |before that, )'
 
 echo "History in comments"
 hits="$(grep -rniE "^\s*(//|///|\*)" src tests --include='*.cs' 2>/dev/null \
