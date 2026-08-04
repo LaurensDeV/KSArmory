@@ -252,16 +252,36 @@ tubes that reload from a rack too.
   patching. Modules are faked by scanning part Ids, which works but means every new module type
   needs mod-side wiring rather than being declarative.
 
-### Order that follows
+### Status
 
-1. **IFF and teams** — cheapest now, and everything multi-craft depends on it.
-2. **Target abstraction** — vehicle, part, or point. Unblocks RPGs, bombs and anything ground-attack.
-3. **Medium generalisation** — unblocks torpedoes; the smallest of the three.
-4. **Magazine decoupled from tubes** — unblocks guns and rack-fed launchers.
-5. **Per-craft weapon manager** — needed before several weapons on one craft behave sensibly.
+| | | |
+| --- | --- | --- |
+| 1 | **IFF and teams** — `Sim/Iff.cs` | **done** |
+| 2 | **Target abstraction** — `Sim/Aimpoint.cs`, vehicle / part / point | **done** |
+| 3 | **Medium generalisation** — density ratio covers vacuum, air and water, plus buoyancy | **done** |
+| 4 | **Magazine decoupled from tubes** — `LauncherProfile.MagazineDepth` | **done** |
+| 5 | **Per-craft weapon manager** | **not started** |
 
-A continuous-effect abstraction and AI pilots sit after all of that, and neither should be
-attempted speculatively.
+**None of 1–4 has been flown.** They are covered by tests — 295 now — and every regression check
+was verified against the bug it guards, but this repository has repeatedly shipped changes that
+compiled, passed and were still wrong in flight. Treat them as unverified until a salvo says
+otherwise.
+
+What each unblocked, concretely:
+
+- A torpedo is now an ordinary `MunitionProfile`: a small `DragK`, a `NeutralDensityRatio` near
+  840, and it swims. No new flight model.
+- An RPG or a bomb can name a coordinate or a component rather than a whole craft.
+- A gun is a `LauncherProfile` with one or two tubes and a `MagazineDepth` in the hundreds.
+- A battery can be told whose side it is on, and refuses friendlies.
+
+**5 is deliberately still open.** It is the one piece that restructures `Ksa/` rather than adding
+to `Sim/`, so it is the one with no test coverage to fall back on — and the two most recent
+in-flight bugs both came out of exactly that region. It wants doing on its own, with a flight
+after it, rather than at the end of a long change.
+
+A continuous-effect abstraction (beams, flamethrowers) and AI pilots sit after all of that, and
+neither should be attempted speculatively.
 
 ---
 

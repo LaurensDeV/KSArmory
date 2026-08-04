@@ -103,7 +103,7 @@ Split unrelated work into separate commits rather than one large one: the change
 from these, so a commit that does three things describes none of them well.
 
 **Do not commit a behaviour fix as a fix until it has been verified in game.** Compiling, passing
-the 244 tests, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
+the 295 tests, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
 the gap between the maths and what KSA actually does, and that gap is only visible in flight. The
 round-body zigzag cost three such commits: a sim-step-gating change and an offset-extrapolation
 change, both shipped as fixes for a cause not yet diagnosed, and neither was it. The answer was in
@@ -440,7 +440,7 @@ CI is split the same way the source is:
   `palette.py` is re-run and the textures diffed, so hand-edited PNGs are caught before the next
   model build silently reverts them. Plus shellcheck, XML well-formedness and a check that no
   `.dll` is tracked.
-- **`build` (hosted)** — the real build, the 244 tests, `validate-parts.py` and the package,
+- **`build` (hosted)** — the real build, the 295 tests, `validate-parts.py` and the package,
   against the checked-out assemblies. If the secret is absent — a fork — the job skips with a
   notice instead of failing on something a contributor cannot fix.
 
