@@ -17,7 +17,13 @@ _ad_has_net10() {
     "$dotnet_bin" --list-sdks 2>/dev/null | grep -q '^10\.'
 }
 
+# .exe as well as the bare name: under Git Bash or MSYS on Windows the private SDK installs as
+# dotnet.exe, and testing only for `dotnet` silently skips it and falls through to whatever is on
+# PATH - which is exactly the distro-8 case this file exists to avoid.
 if _ad_has_net10 "$HOME/.dotnet/dotnet"; then
+    export DOTNET_ROOT="$HOME/.dotnet"
+    export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"
+elif _ad_has_net10 "$HOME/.dotnet/dotnet.exe"; then
     export DOTNET_ROOT="$HOME/.dotnet"
     export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"
 elif _ad_has_net10 "$(command -v dotnet 2>/dev/null)"; then
@@ -26,7 +32,8 @@ else
     echo "error: no .NET 10 SDK found." >&2
     echo "       Install one with:" >&2
     echo "         curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0 --install-dir \$HOME/.dotnet" >&2
-    echo "       then re-run. (Your distro's dotnet is likely 8.x, which cannot target net10.0.)" >&2
+    echo "       On Windows, install the .NET 10 SDK from https://dot.net and reopen your shell." >&2
+    echo "       (A distro dotnet is likely 8.x, which cannot target net10.0.)" >&2
     return 1 2>/dev/null || exit 1
 fi
 

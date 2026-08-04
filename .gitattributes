@@ -1,0 +1,45 @@
+# Line endings.
+#
+# Git for Windows defaults to core.autocrlf=true, which rewrites text files to CRLF on checkout.
+# For a repository driven entirely by shell scripts that is fatal and invisible: bash reads the
+# trailing \r as part of the command and every script dies with
+#
+#     $'\r': command not found
+#
+# which says nothing about line endings. The `eol=lf` entries below override autocrlf per file
+# type, so a Windows clone gets working scripts regardless of the user's global Git settings.
+
+* text=auto
+
+# Anything with a shebang, or read by an interpreter, must keep LF.
+*.sh    text eol=lf
+*.py    text eol=lf
+*.bash  text eol=lf
+
+# Git hooks are shell scripts without an extension.
+.githooks/*  text eol=lf
+
+# Source and config: LF everywhere, so a Windows contributor's diffs stay readable to everyone.
+*.cs       text eol=lf
+*.csproj   text eol=lf
+*.props    text eol=lf
+*.xml      text eol=lf
+*.json     text eol=lf
+*.toml     text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.md       text eol=lf
+
+# Binary, so Git never tries to translate them. The mesh atlas especially: a CRLF rewrite would
+# corrupt it silently and the failure would show up as garbage geometry in game, not as an error.
+*.glb   binary
+*.png   binary
+*.ktx2  binary
+*.zip   binary
+*.dll   binary
+*.pdb   binary
+*.exe   binary
+
+# Generated and not worth diffing in a review.
+docs/KSA-API-SURFACE.md  linguist-generated=true
+CHANGELOG.md             linguist-generated=true

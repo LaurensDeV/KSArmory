@@ -40,6 +40,22 @@ UNAME="$(uname -s 2>/dev/null || echo unknown)"
 if grep -qi microsoft /proc/version 2>/dev/null; then
     PLATFORM="wsl"
     ok "WSL ($UNAME) - the game is launchable from here via tools/run.sh"
+elif [[ "$UNAME" == MINGW* || "$UNAME" == MSYS* || "$UNAME" == CYGWIN* ]]; then
+    PLATFORM="gitbash"
+    ok "Windows, under $UNAME"
+    hint "build, tests, packaging and deploy work; launch the game with StarMap.exe directly"
+    hint "tools/run.sh and the model pipeline assume WSL paths - set KSA_DIR / STARMAP_DIR if you use them"
+
+    # The one that stops everything, checked before anything else can fail confusingly. CRLF in a
+    # shell script makes bash read the \r as part of the command: `$'\r': command not found`,
+    # which names neither the file nor the cause.
+    if [[ -n "$(find tools -name '*.sh' -exec grep -lU $'\r' {} + 2>/dev/null | head -1)" ]]; then
+        bad "shell scripts have CRLF line endings - bash cannot run them"
+        hint "git config core.autocrlf input && git rm --cached -r . >/dev/null && git reset --hard"
+        hint ".gitattributes now forces LF, so a fresh clone will be correct"
+    else
+        ok "shell scripts have LF line endings"
+    fi
 elif [[ "$UNAME" == "Linux" ]]; then
     PLATFORM="linux"
     ok "native Linux"
@@ -76,9 +92,11 @@ head_ "KSA assemblies (needed to compile against the game)"
 FOUND_DLL=""
 for candidate in \
     "${KSA_DLL_DIR:-}" \
+    "${KSA_DIR:-}" \
     "$REPO_ROOT/Import" \
     "$REPO_ROOT/../ksa-game-assemblies/current/dll" \
     "C:/Program Files/Kitten Space Agency" \
+    "/c/Program Files/Kitten Space Agency" \
     "$HOME/.steam/steam/steamapps/common/Kitten Space Agency" \
     "$HOME/.local/share/Steam/steamapps/common/Kitten Space Agency" \
     "$HOME/Games/Kitten Space Agency" \
@@ -176,6 +194,23 @@ if [[ "$PLATFORM" == "wsl" ]]; then
         warn "Blender 5.2 not found - only needed to rebuild the mesh"
         hint "set BLENDER=/path/to/blender if it lives elsewhere"
     fi
+elif [[ "$PLATFORM" == "gitbash" ]]; then
+    STARMAP_HIT=""
+    for root in "${STARMAP_DIR:-}" "$HOME" "/c/Games" "/c/StarMap" "/c/Program Files"; do
+        [[ -n "$root" && -d "$root" ]] || continue
+        STARMAP_HIT="$(find "$root" -maxdepth 4 -iname 'StarMap.exe' 2>/dev/null | head -1 || true)"
+        [[ -n "$STARMAP_HIT" ]] && break
+    done
+
+    if [[ -n "$STARMAP_HIT" ]]; then
+        ok "StarMap found at $(dirname "$STARMAP_HIT")"
+        hint "launch it directly - tools/run.sh assumes WSL and will not find it from here"
+    else
+        warn "StarMap not found - needed to actually run the mod"
+        hint "install it, then ./tools/deploy.sh puts the mod where KSA will load it"
+    fi
+
+    hint "the Blender model pipeline is not wired up for this shell; set BLENDER if you need it"
 else
     hint "running the game and rebuilding the model are WSL/Windows only; everything else works here"
 fi

@@ -59,17 +59,49 @@ when it cannot find them.
 **The mod ships as one portable `net10.0` assembly** — no `RuntimeIdentifier`, no P/Invoke, no
 Windows-only API — so the same archive works everywhere and there is nothing to build twice.
 
-| | Windows | WSL | Native Linux / macOS |
+| | Windows (Git Bash) | WSL | Native Linux / macOS |
 | --- | --- | --- | --- |
 | Build, test, package | yes | yes | yes |
 | Compile against KSA | yes | yes | yes, with KSA installed |
-| `tools/run.sh` (launch the game) | — | yes | no |
-| Blender model pipeline | yes | yes | no |
+| `tools/deploy.sh` | yes | yes | yes |
+| `tools/run.sh` (launch the game) | no — run `StarMap.exe` | yes | no |
+| Blender model pipeline | set `BLENDER` | yes | no |
 
-The two gaps are honest ones rather than oversights: `run.sh` drives a Windows `StarMap.exe`
-through WSL interop, and the model scripts drive a Windows Blender binary. StarMap does ship a
-portable `StarMap.dll` that `dotnet StarMap.dll` should run on Linux — **that path is untested
-here**, and confirming it would be a genuinely useful contribution.
+The gaps are honest ones rather than oversights: `run.sh` drives a Windows `StarMap.exe` through
+WSL interop, and the model scripts drive a Windows Blender binary. StarMap does ship a portable
+`StarMap.dll` that `dotnet StarMap.dll` should run on Linux — **that path is untested here**, and
+confirming it would be a genuinely useful contribution.
+
+### On Windows
+
+**The tooling is bash, so use [Git Bash](https://git-scm.com/download/win)** — it ships with Git
+for Windows and has everything the scripts need. PowerShell and `cmd` will not run them.
+
+```bash
+./tools/doctor.sh          # recognises Git Bash and reports what works here
+./tools/build.sh
+./tools/test.sh
+```
+
+Two things to know, both already handled but worth understanding:
+
+- **Line endings.** Git for Windows defaults to `core.autocrlf=true`, which would rewrite every
+  script to CRLF and make bash fail with `$'\r': command not found` — a message that names neither
+  the file nor the cause. `.gitattributes` forces LF on scripts and sources, so a fresh clone is
+  correct whatever your global Git config says. `doctor.sh` checks it anyway, because a clone made
+  *before* that file existed is still broken.
+- **Paths.** The build finds a KSA install at `C:\Program Files\Kitten Space Agency` by itself.
+  Several of the older helper scripts still assume WSL's `/mnt/c` rather than Git Bash's `/c`; the
+  ones that matter for building take `KSA_DIR` or `KSA_DLL_DIR`, so set those if a script cannot
+  find your install.
+
+**Launch the game by running `StarMap.exe` directly.** `tools/run.sh` exists to reach a Windows
+StarMap *from WSL*, which is a problem a Windows developer does not have. `./tools/deploy.sh` puts
+the mod where KSA will load it, and works from Git Bash.
+
+> The Windows-native path has been **reasoned through and made correct, but not executed on a
+> Windows machine** — this repository is developed from WSL. If you hit something it gets wrong,
+> that is a bug worth reporting rather than something you are doing wrong.
 
 **Case sensitivity bites across platforms.** A mismatched filename loads on Windows and fails on
 Linux, so CI runs `validate-parts.py --offline` on Linux specifically, comparing against the real
