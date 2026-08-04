@@ -109,7 +109,7 @@ internal interface IProjectile
     /// Sampled at the <em>end</em> of this step, the way KSA hands vehicle state over. An
     /// implementation that aims must back-date it.
     /// </param>
-    /// <param name="airDensityRatio">Air density as a fraction of sea level.</param>
+    /// <param name="mediumDensityRatio">Air density as a fraction of sea level.</param>
     void Update(double dt, TargetState? target, double3 gravity, double3 frameVelocityEcl,
-                double3 platformEcl, MunitionProfile munition, double airDensityRatio = 1.0);
+                double3 platformEcl, MunitionProfile munition, double mediumDensityRatio = 1.0);
 }

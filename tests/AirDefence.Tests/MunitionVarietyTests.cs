@@ -71,7 +71,7 @@ public class MunitionVarietyTests
     /// the round expires on its own timer, so the only thing separating two runs is what the air
     /// did to it.
     /// </summary>
-    private static Engagement FlyAt(MunitionProfile munition, double airDensityRatio)
+    private static Engagement FlyAt(MunitionProfile munition, double mediumDensityRatio)
     {
         var round = new Interceptor(
             new double3(0, 0, 0),
@@ -89,7 +89,7 @@ public class MunitionVarietyTests
             // Target far enough away to be unreachable, so the flight always runs to its timer.
             round.Update(dt, new TargetState(new double3(1e9, 0, 0), Vec.Zero, TargetRadius),
                          NoGravity, frameVelocityEcl: default, platformEcl: default, munition,
-                         airDensityRatio);
+                         mediumDensityRatio);
             t += dt;
         }
 
@@ -307,8 +307,8 @@ public class MunitionVarietyTests
         MunitionProfile munition = LongRange();
         munition.DragK = 3.0e-4f;             // draggy enough for the difference to be obvious
 
-        Engagement sealevel = FlyAt(munition, airDensityRatio: 1.0);
-        Engagement vacuum = FlyAt(munition, airDensityRatio: 0.0);
+        Engagement sealevel = FlyAt(munition, mediumDensityRatio: 1.0);
+        Engagement vacuum = FlyAt(munition, mediumDensityRatio: 0.0);
 
         Assert.True(vacuum.Speed > sealevel.Speed * 1.5,
             $"vacuum {vacuum.Speed:F0} m/s against sea level {sealevel.Speed:F0} m/s - " +
@@ -328,7 +328,7 @@ public class MunitionVarietyTests
         MunitionProfile munition = LongRange();
         munition.DragK = 2.0e-4f;
 
-        Engagement explicitly = FlyAt(munition, airDensityRatio: 1.0);
+        Engagement explicitly = FlyAt(munition, mediumDensityRatio: 1.0);
         Engagement byDefault = Fly(munition, new double3(1e9, 0, 0), Vec.Zero);
 
         Assert.Equal(byDefault.Speed, explicitly.Speed, 9);

@@ -717,12 +717,12 @@ internal sealed class DefenceBattery(Config config)
             // Read at the round's own position, not the platform's. A round climbing out of the
             // atmosphere leaves the air behind long before the launcher does, and that is the
             // whole point of scaling drag rather than fixing it per profile.
-            double airDensity = KsaWorld.AirDensityRatioAt(Platform!, round.PositionEcl);
+            double mediumDensity = KsaWorld.MediumDensityRatioAt(Platform!, round.PositionEcl);
 
             // The platform's velocity defines the local frame: it carries the parent body's
             // orbital and rotational motion, which is not airspeed and not a heading.
             round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl,
-                         _munition, airDensity);
+                         _munition, mediumDensity);
 
 
             switch (round.State)

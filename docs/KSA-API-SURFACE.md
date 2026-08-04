@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-60 types and 149 members across 5 assemblies.
+61 types and 153 members across 5 assemblies.
 
 ## Brutal.Concurrency
 
@@ -108,6 +108,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 GetVelocityEcl()`
 - `KSA.AtmosphereReference GetAtmosphereReference()`
 - `KSA.OrbitView OrbitView`
+- `KSA.Rendering.Water.Data.OceanReference GetOceanReference()`
 - `double get_MeanRadius()`
 - `string get_Id()`
 - `void UpdatePerFrameData()`
@@ -264,6 +265,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Vehicle ControlledVehicle`
 - `KSA.Viewport get_MainViewport()`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
+
+### KSA.Rendering.Water.Data.OceanReference
+
+- `KSA.DensityReference Density`
+- `KSA.DistanceReference Level`
+- `bool IsValid()`
 
 ### KSA.SimSpeed
 

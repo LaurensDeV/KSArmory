@@ -1,5 +1,6 @@
 using Brutal.Numerics;
 using KSA;
+using KSA.Rendering.Water.Data;
 
 namespace AirDefence;
 
@@ -208,19 +209,19 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Air density at a point, as a fraction of the parent body's sea-level density.
+    /// Density of whatever the round is flying through, as a multiple of the parent body's
+    /// sea-level air density.
     ///
-    /// <para>Returns 1.0 at sea level, 0.0 in vacuum and above the atmosphere's modelled top, and
-    /// 0.0 for a body with no atmosphere at all. A <em>ratio</em> rather than a density so that a
-    /// munition's drag coefficient keeps meaning what it meant when it was tuned — the numbers on
-    /// <see cref="MunitionProfile.DragK"/> were fitted at sea level, and scaling by an absolute
-    /// density would silently retune every round in the arsenal.</para>
+    /// <para>1.0 at sea level, 0.0 in vacuum and above the atmosphere, and roughly 840 below the
+    /// waterline. A <em>ratio</em> rather than an absolute density so a munition's drag
+    /// coefficient keeps meaning what it did when it was tuned; one scale covers air and water, so
+    /// a torpedo simply carries a much smaller <see cref="MunitionProfile.DragK"/>.</para>
     ///
     /// <para>Falls back to 1.0, not 0.0, when the atmosphere cannot be read: a round that keeps
     /// its tuned drag is a far less confusing failure than one that silently loses all of it and
     /// flies several times further.</para>
     /// </summary>
-    public static double AirDensityRatioAt(Vehicle platform, double3 positionEcl)
+    public static double MediumDensityRatioAt(Vehicle platform, double3 positionEcl)
     {
         try
         {
@@ -230,16 +231,26 @@ internal static class KsaWorld
             AtmosphereReference? atmosphere = body.GetAtmosphereReference();
             if (atmosphere?.Physical is not { } air || !air.IsValid()) return 0.0;
 
-            // Altitude above the mean surface, the same measure KSA's own physics uses.
-            double altitude = Vec.Len(positionEcl - parent.GetPositionEcl()) - body.MeanRadius;
-            if (altitude < 0.0) altitude = 0.0;
-            if (altitude >= air.Height) return 0.0;
-
             double seaLevel = air.SeaLevelDensity;
             if (!(seaLevel > 0.0)) return 0.0;
 
+            // Altitude above the mean surface, the same measure KSA's own physics uses.
+            double altitude = Vec.Len(positionEcl - parent.GetPositionEcl()) - body.MeanRadius;
+
+            // Below the waterline the medium is the ocean, which is ~840x sea-level air. The
+            // ratio is therefore not bounded above by 1.
+            OceanReference? ocean = body.GetOceanReference();
+            if (ocean is { } sea && sea.IsValid() && altitude < sea.Level)
+            {
+                double water = sea.Density / seaLevel;
+                return double.IsFinite(water) && water > 0.0 ? water : 1.0;
+            }
+
+            if (altitude < 0.0) altitude = 0.0;
+            if (altitude >= air.Height) return 0.0;
+
             double ratio = air.GetAtmosphericDensityAtAltitude(altitude) / seaLevel;
-            return double.IsFinite(ratio) ? Math.Clamp(ratio, 0.0, 1.0) : 1.0;
+            return double.IsFinite(ratio) && ratio >= 0.0 ? ratio : 1.0;
         }
         catch
         {

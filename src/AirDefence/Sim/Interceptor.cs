@@ -209,7 +209,7 @@ internal sealed class Interceptor : IProjectile
     public void Update(
         double dt, TargetState? target, double3 gravity,
         double3 frameVelocityEcl, double3 platformEcl, MunitionProfile munition,
-        double airDensityRatio = 1.0)
+        double mediumDensityRatio = 1.0)
     {
         if (State != RoundState.Flying) return;
 
@@ -253,7 +253,7 @@ internal sealed class Interceptor : IProjectile
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
-            Step(h, elapsed, dt, target, gravity, frameVelocityEcl, munition, airDensityRatio);
+            Step(h, elapsed, dt, target, gravity, frameVelocityEcl, munition, mediumDensityRatio);
             elapsed += h;
         }
 
@@ -299,7 +299,7 @@ internal sealed class Interceptor : IProjectile
     private void Step(
         double h, double elapsedInFrame, double frameSeconds, TargetState? target,
         double3 gravity, double3 frameVelocityEcl, MunitionProfile munition,
-        double airDensityRatio)
+        double mediumDensityRatio)
     {
         Age += h;
 
@@ -314,7 +314,11 @@ internal sealed class Interceptor : IProjectile
         // the absolute ecliptic velocity it inherited from the planet.
         double3 localVelocity = VelocityEcl - frameVelocityEcl;
 
-        double3 accel = gravity;
+        // Buoyancy: a round denser than its medium still sinks, one at its neutral density
+        // neither sinks nor rises. Zero disables it, so nothing that flies only in air changes.
+        double3 accel = munition.NeutralDensityRatio > 0f
+            ? gravity * (1.0 - mediumDensityRatio / munition.NeutralDensityRatio)
+            : gravity;
 
         // Boost motor: axial thrust along the flight path.
         if (Age <= munition.BoostSeconds)
@@ -329,9 +333,9 @@ internal sealed class Interceptor : IProjectile
         // this changes nothing at low altitude and removes drag entirely in vacuum. Before it, a
         // round fired in orbit was scrubbed as though at sea level.
         double airspeed = Vec.Len(localVelocity);
-        if (munition.DragK > 0f && airspeed > 1e-6 && airDensityRatio > 0.0)
+        if (munition.DragK > 0f && airspeed > 1e-6 && mediumDensityRatio > 0.0)
         {
-            accel -= localVelocity * (munition.DragK * airspeed * airDensityRatio);
+            accel -= localVelocity * (munition.DragK * airspeed * mediumDensityRatio);
         }
 
         if (target is { } t)

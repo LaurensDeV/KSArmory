@@ -67,7 +67,7 @@ internal sealed class Slug : IProjectile
     public double FinDeployment(MunitionProfile munition) => 1.0;
 
     public void Update(double dt, TargetState? target, double3 gravity, double3 frameVelocityEcl,
-                       double3 platformEcl, MunitionProfile munition, double airDensityRatio = 1.0)
+                       double3 platformEcl, MunitionProfile munition, double mediumDensityRatio = 1.0)
     {
         if (State != RoundState.Flying) return;
         if (!double.IsFinite(dt) || dt <= 0.0) return;
@@ -85,7 +85,7 @@ internal sealed class Slug : IProjectile
         {
             // Incremented after the step, so the round's position and the back-dated target share
             // an instant. Splitting them across a sub-step costs ~142 m at 29.8 km/s.
-            Step(h, elapsed, dt, target, gravity, munition, airDensityRatio);
+            Step(h, elapsed, dt, target, gravity, munition, mediumDensityRatio);
             elapsed += h;
         }
 
@@ -105,18 +105,22 @@ internal sealed class Slug : IProjectile
     }
 
     private void Step(double h, double elapsedInFrame, double frameSeconds, TargetState? target,
-                      double3 gravity, MunitionProfile munition, double airDensityRatio)
+                      double3 gravity, MunitionProfile munition, double mediumDensityRatio)
     {
         Age += h;
 
         double3 localVelocity = VelocityEcl - _frameVelocityEcl;
-        double3 accel = gravity;
+        // Buoyancy: a round denser than its medium still sinks, one at its neutral density
+        // neither sinks nor rises. Zero disables it, so nothing that flies only in air changes.
+        double3 accel = munition.NeutralDensityRatio > 0f
+            ? gravity * (1.0 - mediumDensityRatio / munition.NeutralDensityRatio)
+            : gravity;
 
         // Drag on airspeed, scaled by density. No thrust term: a slug coasts from the muzzle.
         double airspeed = Vec.Len(localVelocity);
-        if (munition.DragK > 0f && airspeed > 1e-6 && airDensityRatio > 0.0)
+        if (munition.DragK > 0f && airspeed > 1e-6 && mediumDensityRatio > 0.0)
         {
-            accel -= localVelocity * (munition.DragK * airspeed * airDensityRatio);
+            accel -= localVelocity * (munition.DragK * airspeed * mediumDensityRatio);
         }
 
         if (target is { } t)

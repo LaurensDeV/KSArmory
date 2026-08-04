@@ -99,6 +99,17 @@ public sealed class MunitionProfile
     public float GravityCompensation = 1f;
 
     /// <summary>
+    /// Medium density ratio at which this round is neutrally buoyant, in the same units as
+    /// <see cref="DragK"/> is scaled by — multiples of sea-level air. Zero disables buoyancy.
+    ///
+    /// <para>A torpedo sits near 840, the density of water, so it neither sinks nor rises once
+    /// submerged while still falling normally through air. Gravity is scaled by
+    /// <c>1 - medium / this</c>, so a round denser than its medium still sinks and a lighter one
+    /// rises.</para>
+    /// </summary>
+    public float NeutralDensityRatio;
+
+    /// <summary>
     /// Quadratic drag coefficient, k in <c>a = -k*|v|*v</c>, <b>at sea level</b>.
     ///
     /// <para>Scaled at runtime by the density where the round is, so one profile is correct on the
