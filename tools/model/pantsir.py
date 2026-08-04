@@ -126,7 +126,10 @@ GUN_ELEV = math.radians(22.0)
 # Outboard of the pod bundle, which reaches Z 1.44, and clear of the turret cheeks at 1.00-1.24.
 # The barrels sit at GUN_Z +/- 0.09, so anything under 1.53 buries the inner one in geometry.
 GUN_Z = 1.62
-GUN_MOUNT = (2.74, -1.35)                # (X, Y) - high enough that the barrels clear the cab
+# Above the turret deck, which tops out at X 3.38. The cradle is 0.52 tall, so a centre below
+# 3.64 puts it inside the turret body - invisible while the guns were welded into that mesh, and
+# a swept intersection once they became a body that rotates on its own trunnion.
+GUN_MOUNT = (3.70, -1.35)                # (X, Y) - clear of the deck, and clear of the cab
 
 # The cannon elevate about a line across the vehicle through both mounts, as the pods do about
 # their trunnion. Their mesh is exported recentred on it so KSA's subpart rotation pitches them
