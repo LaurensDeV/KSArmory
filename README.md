@@ -1,22 +1,43 @@
 # KSArmory
 
-A point-defence mod for **[Kitten Space Agency](https://kittenspaceagency.wiki.gg/)**: a
-**Pantsir-S1** that searches, tracks and engages vehicles flying at or past your craft.
+Weapon systems for **[Kitten Space Agency](https://ahwoo.com/app/100000/kitten-space-agency)**
+— sensors, fire control, guided and unguided rounds, and the parts to mount them on.
 
-- **A buildable part** — *Pantsir-S1 Point Defence System*, an 8×8 vehicle with two pods of six
-  missile containers, twin autocannon, tracking array and search radar; surface-attachable in
-  the editor
-- **Twelve rounds**, salvo-fired with configurable spacing and reload
-- **Search radar** with a steerable range/cone, lock-on dwell, and manual designation
-- **Proportional-navigation guidance** — the rounds *lead* a crossing target instead of chasing it
-- **Proximity-fused warhead** with a lethal radius, armed a set time after launch
-- **Auto-engage** using a closest-point-of-approach threat model, so targets merely *passing by*
-  are engaged, not only ones closing head-on
-- Full ImGui control panel and in-world visualisation of the search volume, tracks and rounds
+The mod provides the machinery a weapon needs and keeps it separate from any particular weapon:
+a search sensor with a threat model, fire control that decides when to commit, articulated mounts
+that traverse and elevate, projectiles flown to sub-frame accuracy, and an operator's panel.
+**A weapon system is then a registry entry plus its art** — nothing in the simulation or the game
+binding names a specific vehicle.
+
+What that machinery gives any system built on it:
+
+- **Search sensor** with a steerable range and cone, lock-on dwell, and manual designation
+- **Threat classification by closest point of approach**, so a target merely *passing by* is
+  engaged rather than only one closing head-on
+- **Identification friend-or-foe** with teams, allies, neutrals and an engage-unknown policy
+- **Guided rounds** — proportional navigation, so they *lead* a crossing target instead of
+  chasing it — and **unguided ones**, with a ballistic lead solved by the mount
+- **Proximity and contact fuses**, solved analytically within each sub-step so nothing tunnels
+  through the trigger radius between frames
+- **Articulated mounts** — traverse, elevation, independent pointing heads, with travel limits
+  and interlocks against the vehicle's own bodywork
+- Full ImGui panel, and in-world drawing of the search volume, tracks and rounds
+
+## What ships with it
+
+**The Pantsir-S1 Point Defence System** — a buildable 8×8 vehicle carrying twelve missiles in two
+pods of six, twin 30 mm autocannon, a tracking array, a spinning search radar, and an
+electro-optical head you can watch through. The missiles reach 20 km; the cannon cover the close-in
+band beneath them. Surface-attachable in the editor, and its own command source, so a craft
+consisting of nothing but the Pantsir builds and launches.
+
+More systems are the point of the split, not a promise — see
+[Adding a weapon system](#adding-a-weapon-system).
 
 > Built against KSA build `2026.8.3.5117`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
-> may need updating when the game does.
+> may need updating when the game does. The community
+> [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
 
 ## Install
 
@@ -125,6 +146,13 @@ The launcher **traverses and elevates onto the target**, and will not fire until
 on the aim point. The radar's own boresight stays local "up" — a hemisphere is what you want for
 a defence site. Green dots mark loaded tubes, grey ones spent.
 
+**Missiles** and **Cannon** can be armed independently. The cannon engage inside 4 km, overlapping
+the missiles' 1.2 km minimum so nothing can sit in a gap between them, and the mount solves a
+ballistic lead for them rather than pointing straight at the contact. Tick
+**View through the optical head** to watch from the tracker, if you have a second camera window
+open — though KSA renders those without its atmosphere pass, so that view has no sky. See
+[`docs/BLOCKED-ON-KSA.md`](docs/BLOCKED-ON-KSA.md).
+
 Testing without opening the editor? Untick **Require launcher part** and the battery works on
 any craft, firing from the hull.
 
@@ -146,12 +174,14 @@ launcher commits **Rounds per target** rounds before re-evaluating.
 
 ## Testing
 
-The system works end to end in game: the part loads and renders, the launcher tracks, and
-proportional navigation intercepts at 22–23 m. [`CHECKLIST.md`](CHECKLIST.md) walks through what
-is confirmed and what is still open, in risk order.
+The system works end to end in game: the part loads and renders, the launcher tracks, missiles
+intercept at 16–20 m, and the cannon kill at 6–8 m. [`CHECKLIST.md`](CHECKLIST.md) walks through
+what is confirmed and what is still open, in risk order.
 
-`./tools/test.sh` runs 244 headless tests — whole engagements at ecliptic speeds, the turret
-drives, launch geometry and the registry — with no game present.
+`./tools/test.sh` runs 353 headless tests — whole engagements at ecliptic speeds, the drives,
+launch and lead geometry, the fuses and the registry — with no game present.
+`./tools/model/checkswept.py` sweeps the mount through its travel and reports any assembly that
+comes adrift or passes through another, needing neither Blender nor the game.
 
 ## Build
 
@@ -305,8 +335,12 @@ API this is built on.
 
 ## Limitations
 
-- The autocannons traverse and elevate with the launcher, but do not fire.
 - The radar's search volume is a hemisphere about local "up"; it does not follow the turret.
+- The optical head's camera view has no sky, clouds or terrain detail: KSA renders secondary
+  viewports without the atmosphere pass. [`docs/BLOCKED-ON-KSA.md`](docs/BLOCKED-ON-KSA.md) has
+  the mechanism and what would change it.
+- The wheels are geometry. KSA has no wheel or suspension module, so the vehicle is placed rather
+  than driven.
 - Rounds only interact with their designated target; they ignore terrain and other craft.
 - Radar has no occlusion or line-of-sight check.
 - Damage is binary. KSA exposes no partial-damage model, only outright destruction.
