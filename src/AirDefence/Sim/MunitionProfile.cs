@@ -99,7 +99,14 @@ public sealed class MunitionProfile
     /// <summary>Fraction of local gravity the autopilot compensates for.</summary>
     public float GravityCompensation = 1f;
 
-    /// <summary>Quadratic drag coefficient, k in a = -k*|v|*v. Zero for vacuum-like flight.</summary>
+    /// <summary>
+    /// Quadratic drag coefficient, k in <c>a = -k*|v|*v</c>, <b>at sea level</b>.
+    ///
+    /// <para>Scaled at runtime by the air density where the round actually is, so this is the
+    /// sea-level value and one profile is correct on the pad, climbing out and in orbit. Zero
+    /// disables drag outright, which is still the right answer for a round that only ever flies in
+    /// vacuum and saves the lookup.</para>
+    /// </summary>
     public float DragK = 3.0e-5f;
 
     // ---- Warhead --------------------------------------------------------

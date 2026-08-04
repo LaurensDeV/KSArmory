@@ -66,6 +66,35 @@ public class MunitionVarietyTests
         return new Engagement(round.State, closest, round.Speed, round.DistanceFlown, round.Age);
     }
 
+    /// <summary>
+    /// A straight coast with nothing to shoot at, flown in air of a given density. Isolates drag:
+    /// the round expires on its own timer, so the only thing separating two runs is what the air
+    /// did to it.
+    /// </summary>
+    private static Engagement FlyAt(MunitionProfile munition, double airDensityRatio)
+    {
+        var round = new Interceptor(
+            new double3(0, 0, 0),
+            new double3(munition.LaunchSpeed, 0, 0),
+            TargetHandle,
+            tube: 1,
+            platformEcl: default);
+
+        const double dt = 1.0 / 60.0;
+        double t = 0.0;
+
+        while (round.State == RoundState.Flying && t < 60.0)
+        {
+            // Target far enough away to be unreachable, so the flight always runs to its timer.
+            round.Update(dt, new TargetState(new double3(1e9, 0, 0), Vec.Zero, TargetRadius),
+                         NoGravity, frameVelocityEcl: default, platformEcl: default, munition,
+                         airDensityRatio);
+            t += dt;
+        }
+
+        return new Engagement(round.State, double.MaxValue, round.Speed, round.DistanceFlown, round.Age);
+    }
+
     /// <summary>A short-legged round: brief boost, hard drag, tight fuse.</summary>
     private static MunitionProfile ShortRange() => new()
     {
@@ -261,6 +290,64 @@ public class MunitionVarietyTests
 
         Assert.True(a.Speed > b.Speed * 1.5,
             $"drag barely mattered: {a.Speed:F0} m/s clean against {b.Speed:F0} m/s draggy");
+    }
+
+    // ---- Vacuum --------------------------------------------------------
+
+    /// <summary>
+    /// The same round, fired in vacuum and at sea level, must fly differently — otherwise the drag
+    /// coefficient is being applied regardless of where the round actually is, which is what this
+    /// mod did before the density term existed. A round launched in orbit was scrubbed as though
+    /// at sea level.
+    /// </summary>
+    [Fact]
+    public void TheSameRoundFliesFurtherInVacuumThanInAir()
+    {
+        MunitionProfile munition = LongRange();
+        munition.DragK = 3.0e-4f;             // draggy enough for the difference to be obvious
+
+        Engagement sealevel = FlyAt(munition, airDensityRatio: 1.0);
+        Engagement vacuum = FlyAt(munition, airDensityRatio: 0.0);
+
+        Assert.True(vacuum.Speed > sealevel.Speed * 1.5,
+            $"vacuum {vacuum.Speed:F0} m/s against sea level {sealevel.Speed:F0} m/s - " +
+            "drag is not being scaled by density");
+        Assert.True(vacuum.Distance > sealevel.Distance,
+            $"vacuum flight covered {vacuum.Distance:F0} m against {sealevel.Distance:F0} m in air");
+    }
+
+    /// <summary>
+    /// A ratio of one is sea level, and must reproduce the behaviour that existed before density
+    /// was modelled at all — every <see cref="MunitionProfile.DragK"/> in the arsenal was tuned
+    /// there, and scaling by an absolute density would have silently retuned all of them.
+    /// </summary>
+    [Fact]
+    public void SeaLevelIsExactlyTheUnscaledBehaviour()
+    {
+        MunitionProfile munition = LongRange();
+        munition.DragK = 2.0e-4f;
+
+        Engagement explicitly = FlyAt(munition, airDensityRatio: 1.0);
+        Engagement byDefault = Fly(munition, new double3(1e9, 0, 0), Vec.Zero);
+
+        Assert.Equal(byDefault.Speed, explicitly.Speed, 9);
+        Assert.Equal(byDefault.Distance, explicitly.Distance, 9);
+    }
+
+    /// <summary>Thinner air is less drag, monotonically — nothing clever, but it pins the sign.</summary>
+    [Fact]
+    public void ThinnerAirScrubsLessSpeed()
+    {
+        MunitionProfile munition = LongRange();
+        munition.DragK = 3.0e-4f;
+
+        double previous = 0.0;
+        foreach (double ratio in new[] { 1.0, 0.5, 0.1, 0.0 })
+        {
+            double speed = FlyAt(munition, ratio).Speed;
+            Assert.True(speed > previous, $"density {ratio:F1} left {speed:F0} m/s, thicker air left {previous:F0} m/s");
+            previous = speed;
+        }
     }
 
     // ---- Kinetic kill --------------------------------------------------

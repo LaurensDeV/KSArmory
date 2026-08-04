@@ -221,6 +221,46 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Air density at a point, as a fraction of the parent body's sea-level density.
+    ///
+    /// <para>Returns 1.0 at sea level, 0.0 in vacuum and above the atmosphere's modelled top, and
+    /// 0.0 for a body with no atmosphere at all. A <em>ratio</em> rather than a density so that a
+    /// munition's drag coefficient keeps meaning what it meant when it was tuned — the numbers on
+    /// <see cref="MunitionProfile.DragK"/> were fitted at sea level, and scaling by an absolute
+    /// density would silently retune every round in the arsenal.</para>
+    ///
+    /// <para>Falls back to 1.0, not 0.0, when the atmosphere cannot be read. A round that keeps its
+    /// tuned sea-level drag is the behaviour this mod already had; one that silently loses all drag
+    /// would fly several times further and read as a guidance bug.</para>
+    /// </summary>
+    public static double AirDensityRatioAt(Vehicle platform, double3 positionEcl)
+    {
+        try
+        {
+            if (platform.Parent is not IPosition parent) return 1.0;
+            if (platform.Parent is not Celestial body) return 1.0;
+
+            AtmosphereReference? atmosphere = body.GetAtmosphereReference();
+            if (atmosphere?.Physical is not { } air || !air.IsValid()) return 0.0;
+
+            // Altitude above the mean surface, the same measure KSA's own physics uses.
+            double altitude = Vec.Len(positionEcl - parent.GetPositionEcl()) - body.MeanRadius;
+            if (altitude < 0.0) altitude = 0.0;
+            if (altitude >= air.Height) return 0.0;
+
+            double seaLevel = air.SeaLevelDensity;
+            if (!(seaLevel > 0.0)) return 0.0;
+
+            double ratio = air.GetAtmosphericDensityAtAltitude(altitude) / seaLevel;
+            return double.IsFinite(ratio) ? Math.Clamp(ratio, 0.0, 1.0) : 1.0;
+        }
+        catch
+        {
+            return 1.0;
+        }
+    }
+
+    /// <summary>
     /// Destroys a vehicle, attributing it to collision damage. Must be called from the main
     /// thread and never while iterating engine-owned vehicle collections.
     /// </summary>

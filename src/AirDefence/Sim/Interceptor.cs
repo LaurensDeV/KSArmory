@@ -195,7 +195,8 @@ internal sealed class Interceptor
     /// </param>
     public void Update(
         double dt, TargetState? target, double3 gravity,
-        double3 frameVelocityEcl, double3 platformEcl, MunitionProfile munition)
+        double3 frameVelocityEcl, double3 platformEcl, MunitionProfile munition,
+        double airDensityRatio = 1.0)
     {
         if (State != RoundState.Flying) return;
 
@@ -235,7 +236,7 @@ internal sealed class Interceptor
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
-            Step(h, elapsed, dt, target, gravity, frameVelocityEcl, munition);
+            Step(h, elapsed, dt, target, gravity, frameVelocityEcl, munition, airDensityRatio);
             elapsed += h;
         }
 
@@ -280,7 +281,8 @@ internal sealed class Interceptor
     /// </param>
     private void Step(
         double h, double elapsedInFrame, double frameSeconds, TargetState? target,
-        double3 gravity, double3 frameVelocityEcl, MunitionProfile munition)
+        double3 gravity, double3 frameVelocityEcl, MunitionProfile munition,
+        double airDensityRatio)
     {
         Age += h;
 
@@ -305,10 +307,14 @@ internal sealed class Interceptor
         }
 
         // Quadratic drag on airspeed, so a coasting round bleeds speed instead of holding it.
+        // Scaled by air density, so one profile is right on the pad, climbing out and in orbit.
+        // The ratio is 1.0 at sea level, which is where every DragK in the arsenal was tuned, so
+        // this changes nothing at low altitude and removes drag entirely in vacuum. Before it, a
+        // round fired in orbit was scrubbed as though at sea level.
         double airspeed = Vec.Len(localVelocity);
-        if (munition.DragK > 0f && airspeed > 1e-6)
+        if (munition.DragK > 0f && airspeed > 1e-6 && airDensityRatio > 0.0)
         {
-            accel -= localVelocity * (munition.DragK * airspeed);
+            accel -= localVelocity * (munition.DragK * airspeed * airDensityRatio);
         }
 
         if (target is { } t)
