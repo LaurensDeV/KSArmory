@@ -73,6 +73,12 @@
     -2.05,
     0.0
   ],
+  "gun_pivot_from_turret": [
+    3.7,
+    0.07,
+    0.0
+  ],
+  "gun_reference_elevation_deg": 22.0,
   "pod_pivot_from_turret": [
     2.62,
     -0.63,

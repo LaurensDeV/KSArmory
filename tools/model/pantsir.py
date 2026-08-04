@@ -929,6 +929,8 @@ def report_muzzles(out_dir):
             "tube_ring_radius": round(ring, 3),
             "turret_pivot": [round(v, 5) for v in TURRET_PIVOT],
             "pod_pivot": [round(v, 5) for v in POD_PIVOT],
+            "gun_pivot_from_turret": [round(v, 5) for v in gun_rel_turret],
+            "gun_reference_elevation_deg": round(math.degrees(GUN_ELEV), 3),
             "pod_pivot_from_turret": [round(v, 5) for v in pod_rel_turret],
             "pod_reference_elevation_deg": round(math.degrees(POD_ELEV), 3),
             "radar_pivot": [round(v, 5) for v in RADAR_PIVOT],

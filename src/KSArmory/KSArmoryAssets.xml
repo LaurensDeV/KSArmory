@@ -163,7 +163,7 @@
     -->
     <SubPart Id="AirDefence_Launcher_Guns" InstanceOf="AirDefence_Subpart_Guns">
       <Transform>
-        <Position X="2.74000" Y="-1.35000" Z="0.00000" />
+        <Position X="3.70000" Y="-1.35000" Z="0.00000" />
       </Transform>
     </SubPart>
 
