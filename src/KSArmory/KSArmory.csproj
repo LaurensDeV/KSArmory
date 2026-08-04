@@ -2,9 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>AirDefence</RootNamespace>
+    <RootNamespace>KSArmory</RootNamespace>
     <!-- StarMap loads "<EntryAssembly>.dll" from mod.toml, so this name must match it. -->
-    <AssemblyName>AirDefence</AssemblyName>
+    <AssemblyName>KSArmory</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -32,7 +32,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <!-- Part definitions, listed in mod.toml's assets array. -->
-    <None Update="AirDefence*.xml">
+    <None Update="KSArmory*.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <!-- The launcher's art. Regenerate with tools/model/build.sh; both are committed so a
