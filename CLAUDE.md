@@ -27,9 +27,9 @@ months after most of it had been, and `Directory.Build.props` described a check 
 exist — both were believed until someone happened to look.
 
 **Comment why, never what.** The code says what it does. A comment earns its place only when the
-reason is not recoverable from reading it — an engine contract, a measured number, a bug that
-already shipped, an ordering that looks arbitrary and is not. Everything else is noise that goes
-stale.
+reason is not recoverable from reading it — an engine contract, a measured number, a constraint
+imposed from somewhere else in the frame, an ordering that looks arbitrary and is not. Everything
+else is noise that goes stale.
 
 ```csharp
 // Anchor to the tube, not the orbit position: those differ by metres on a landed craft.   ok
@@ -43,13 +43,28 @@ double3 travelPart = asmb2Part * (ecl2Asmb * travelEcl);
 `docs/` with a one-line pointer to it — that is what `docs/FRAMES-AND-EPOCHS.md` and
 `docs/MODULARITY.md` are for.
 
+**State the fact, not the history.** A comment says what is true now. It does not narrate what the
+code used to do, what broke, when it was reported, or which commit fixed it — that belongs in git,
+and the reasoning belongs in `docs/`. History in a comment ages badly, buries the invariant in
+storytelling, and is unreadable to anyone who was not there.
+
+```csharp
+// elapsed is incremented after the step so the round's position and the back-dated
+// target share an instant. Splitting them costs ~142 m at 29.8 km/s.                      ok
+
+// elapsed used to be incremented first, which paired the round with the END of the
+// sub-step. Reported from play as rounds appearing sideways; caught by
+// ProjectileContractTests on its first run. See commit 6351118.                           delete
+```
+
+Both say why. Only the first will still be true and useful in a year.
+
 **When in doubt, delete.** An unnecessary comment is not neutral: it is another thing that can
 drift out of step with the code and mislead the next reader. Deleting one is a real improvement,
 not a loss.
 
-The load-bearing exceptions are deliberate and stay: the notes recording *why* a phase, an
-ordering or a fallback is what it is. Those cost hours to learn and are invisible in the code.
-Prune around them.
+What stays is the *invariant* and its consequence — the ordering that looks arbitrary, the
+measured number, the engine contract. What goes is how anyone came to know it.
 
 ## Committing
 

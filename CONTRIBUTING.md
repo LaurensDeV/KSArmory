@@ -135,8 +135,9 @@ a perfectly good contribution, it just means someone else confirms it before it 
 
 **Docs are part of the change.** If your commit makes a line in `CLAUDE.md`, `docs/`, `README.md`
 or a comment untrue, fix it in the same commit — a stale line is worse than a missing one, because
-it is trusted. Comment *why*, never *what*; keep it to a sentence or two; and if a comment is not
-strictly necessary, delete it. See the "Comments and documentation" section of `CLAUDE.md`.
+it is trusted. Comment *why*, never *what*. State the fact, not the history: what broke and when
+belongs in git and in `docs/`, not in a comment. Keep it to a sentence or two, and if a comment is
+not strictly necessary, delete it. See "Comments and documentation" in `CLAUDE.md`.
 
 **A regression test only counts if it fails against the old code.** Check that it does, every
 time. Tests here have three times been written for a bug, passed against it, and looked like
