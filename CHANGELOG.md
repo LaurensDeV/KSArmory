@@ -1,3 +1,20 @@
+## [0.8.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.7.0...v0.8.0) (2026-08-04)
+
+### Features
+
+* **radar:** identify contacts by team before engaging them ([94da4d8](https://github.com/LaurensDeV/KSA-AirDefence/commit/94da4d8e74be55187b4cd037ee8f0127041f7ca7))
+* **rounds:** fly through any medium, including water ([8dde3f7](https://github.com/LaurensDeV/KSA-AirDefence/commit/8dde3f70bb4e03ec61a64c39e566930b5d015c69))
+* **sim:** decouple magazine depth from tube count ([82a1e0b](https://github.com/LaurensDeV/KSA-AirDefence/commit/82a1e0ba70c6ee3b50dd17c7d95fad25d16b1e16))
+* **sim:** let a round aim at a part or a point, not only a craft ([4e83b23](https://github.com/LaurensDeV/KSA-AirDefence/commit/4e83b234853f45165c40536df2891dad9a5abd0f))
+
+### Documentation
+
+* audit modularity against torpedoes, RPGs, aircraft and submarines ([aab95dd](https://github.com/LaurensDeV/KSA-AirDefence/commit/aab95ddeb3aaf75dc3f9eba33a7f1fdcc0970184))
+* comments state the fact, not the history ([59b6cf0](https://github.com/LaurensDeV/KSA-AirDefence/commit/59b6cf0dce2969077fbe92f69a9525b87433d600))
+* record what the four changes unblocked, and what is still open ([31349fa](https://github.com/LaurensDeV/KSA-AirDefence/commit/31349fa19b4e967426a1a8969ce3a7673d8989d9))
+* strip history and narrative from comments ([a7ed136](https://github.com/LaurensDeV/KSA-AirDefence/commit/a7ed13633a759ed856f929a58979a686f4f483fb))
+* write down the rules for comments and keeping docs true ([85c8ae6](https://github.com/LaurensDeV/KSA-AirDefence/commit/85c8ae63c99f96dd5e824cce1c85f05f1a568424))
+
 ## [0.7.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.6.0...v0.7.0) (2026-08-04)
 
 ### Features
