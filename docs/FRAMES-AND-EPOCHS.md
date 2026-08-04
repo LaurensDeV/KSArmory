@@ -38,6 +38,9 @@ Three consequences, all load-bearing:
 3. **KSA's frame order is** reset gizmos → `OnDrawUiViewports` (mod GUI hook) → render → postfix
    on `OnFrame` (mod frame hook). **The frame hook lands after the drawing it feeds.**
 
+That third point is also a constraint on any *loader* this mod runs under, not just on where the
+simulation is called from — see "Porting to a different loader" in `docs/KSA-MODDING-NOTES.md`.
+
 ## Rules that follow
 
 **Simulate in the same pass that draws.** The simulation runs in `OnAfterGui`, immediately before

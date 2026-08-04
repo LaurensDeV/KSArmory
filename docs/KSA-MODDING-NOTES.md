@@ -52,6 +52,27 @@ Mods are loaded into separate `AssemblyLoadContext`s, so dependencies do not col
 
 `Console.WriteLine` reaches the KSA console.
 
+### Porting to a different loader
+
+The bound surface is small — six attributes and a `KSA.Mod` parameter, all in one entry class, so
+a different loader is a new entry point calling the same methods rather than a rewrite. What does
+not port automatically is **when the hooks fire**, and that is load-bearing:
+
+| Requirement | Why |
+| --- | --- |
+| A hook **between the gizmo reset and the render** | `GizmosRenderer.ResetInstances()` runs near the top of `OnFrame`. Anything submitted outside that window is cleared before it is drawn. `[StarMapAfterGui]` sits there; a hook that only fires after the render draws nothing at all. |
+| A hook that can run **on the main thread mid-frame** | Destroying a vehicle mutates a list KSA's solver jobs enumerate on workers, so the barrier in `KsaWorld.WaitForVehicleSolvers` has to be taken from somewhere the scheduler can be joined. |
+| Simulated, not player, time available | Everything steps on `Universe.GetLastSimStep()`. A loader that only offers a wall-clock delta is not sufficient — see `SimClock`. |
+
+The first is the dangerous one: a loader without a pre-render hook leaves the mod **compiling,
+loading and silently drawing nothing**, with no error anywhere. If that happens, the fallback is
+Harmony-patching `Program.OnDrawUiViewports` directly, which is what StarMap does on our behalf.
+
+**Only the code half needs a loader.** `mod.toml`'s `assets` array, the part XML, meshes and
+textures are KSA's own content system: without any loader the part still appears in the editor and
+renders, it simply does nothing. A package manager — a CKAN equivalent — sits above all of this
+and distributes the archive; it neither loads code nor changes any of the above.
+
 ## Key types
 
 ### Entry points into world state — `KSA.Program : App`
