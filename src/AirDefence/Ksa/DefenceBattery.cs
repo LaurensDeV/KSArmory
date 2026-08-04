@@ -572,31 +572,7 @@ internal sealed class DefenceBattery(Config config)
             }
             flying[index] = true;
 
-            // The two renderers, differenced directly. No theory in between.
-            //
-            // The gizmo puts the round at `AnchorEgo + OffsetFromPlatform`, and that path is
-            // measured exact: 0.000 m against the target at every speed. The body is a subpart at
-            // `bodyPos` in the vehicle-assembly frame, so its offset from the same anchor is
-            // `Asmb2Ego * bodyPos` - Asmb2Ego carries assembly to world, and for a *direction*
-            // Ego and Ecl are identical because Ego is a pure translation of Ecl.
-            //
-            // Those two must agree. Whatever this prints is the body's error, in metres, with the
-            // correct path as the reference rather than a target that is itself moving.
-            //
-            // Reported as a fraction of travel as well: a rotation error grows with distance from
-            // the tube, a translation error does not. That distinguishes the planet turning under
-            // an inertially-measured vector from a fixed anchor mistake, and they need different
-            // fixes.
-            if (_bodyFrame % 30 == 0 && Vec.Len(round.TravelSinceLaunch) > 50.0)
-            {
-                double3 bodyOffsetEcl = platform.Asmb2Ego * bodyPos;
-                double3 gap = bodyOffsetEcl - round.OffsetFromPlatform;
-                double travelled = Vec.Len(round.TravelSinceLaunch);
 
-                Log.Info($"body t{round.Tube}: gizmo-vs-body {Vec.Len(gap):F1} m "
-                         + $"({Vec.Len(gap) / travelled * 100.0:F2}% of {travelled:F0} m travelled) "
-                         + $"| gap ({gap.X:F1},{gap.Y:F1},{gap.Z:F1})");
-            }
 
 
             // Fins ride the body's own transform and open over the first fraction of a second.
@@ -652,12 +628,32 @@ internal sealed class DefenceBattery(Config config)
         {
             if (flying[i]) continue;
 
-            if (i >= spent && PodsPart is { } loadedPods
-                && LauncherPart.TrySeatMissile(loadedPods, _profile, _missileBodies[i],
-                                            FinsFor(i), i, _munition))
-            {
-                continue;
-            }
+            // Seat EVERY tube's body, spent or not, and only then hide the spent ones.
+            //
+            // HideMissile writes Scale and nothing else, so a body that was never seated keeps
+            // whatever transform it had - and a Part with no PositionParentAsmb written sits at
+            // the assembly origin, which is the middle of the truck. Skipping the seat for spent
+            // tubes left them parked there, invisible.
+            //
+            // That is harmless until the tube fires. TryPlaceMissile then writes position and
+            // scale in the same pass, but the engine has already sampled the cached matrix for
+            // this frame, so it draws one or two frames at the OLD transform with the NEW scale:
+            // the round flashes at the centre of the vehicle before snapping into its tube.
+            //
+            // Reported from play, and the measurement that identified it is that the flash is the
+            // same brief flick at 0.01x as at 1x. Anything driven by simulated time - fin
+            // deployment, travel - would have stretched a hundredfold; a render-frame artefact
+            // does not. The launch trace separately showed the body's written position is exactly
+            // the tube anchor from frame zero, so it was never the placement that was wrong, only
+            // what the body had been left holding beforehand.
+            //
+            // Seating first means a body is always already in its tube, so the first frame it
+            // becomes visible cannot show it anywhere else.
+            bool seated = PodsPart is { } loadedPods
+                          && LauncherPart.TrySeatMissile(loadedPods, _profile, _missileBodies[i],
+                                                         FinsFor(i), i, _munition);
+
+            if (seated && i >= spent) continue;
 
             LauncherPart.HideMissile(_missileBodies[i]);
             if (FinsFor(i) is { } spentFins) LauncherPart.HideMissile(spentFins);
