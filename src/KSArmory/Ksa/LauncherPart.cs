@@ -6,7 +6,7 @@ namespace KSArmory;
 /// <summary>
 /// Locates the launcher part on a vehicle and works out where its tubes are in the world.
 ///
-/// The part itself (AirDefenceAssets.xml) is inert geometry - KSA sees a lump of
+/// The part itself (KSArmoryAssets.xml) is inert geometry - KSA sees a lump of
 /// structure with mass and a collider. This class is the bridge: it finds that part on the
 /// vehicle, and the battery mounts to it.
 /// </summary>

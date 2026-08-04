@@ -150,8 +150,8 @@ points at the right KSA folder. An exception mentioning TOML means the `assets` 
 
 ### 1.2 No XML parse errors
 
-- [x] Nothing in `KittenSpaceAgency.log` about failing to load `AirDefenceAssets.xml` or
-      `AirDefenceGameData.xml`.
+- [x] Nothing in `KittenSpaceAgency.log` about failing to load `KSArmoryAssets.xml` or
+      `KSArmoryGameData.xml`.
 
 **Passed 2026-08-02.** Re-check after any XML edit.
 

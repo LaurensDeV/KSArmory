@@ -49,13 +49,13 @@ A point-defence mod for **[Kitten Space Agency](https://kittenspaceagency.wiki.g
    <KSA user directory>/mods/KSArmory/
      KSArmory.dll
      mod.toml
-     AirDefenceAssets.xml
-     AirDefenceGameData.xml
+     KSArmoryAssets.xml
+     KSArmoryGameData.xml
      Meshes/AirDefence_MeshAtlas.glb
      Textures/AirDefence_{Diffuse,Normal,PBR}.png
    ```
 
-   The folder layout matters, and on Linux so does the **case**. `AirDefenceAssets.xml` refers
+   The folder layout matters, and on Linux so does the **case**. `KSArmoryAssets.xml` refers
    to `Meshes/` and `Textures/` by relative path; a case mismatch is silently tolerated on
    Windows and fails on Linux. Unzip rather than retyping the names.
 
@@ -423,7 +423,7 @@ It is data, not code. Nothing in `Sim/` or `Ksa/` names the Pantsir.
 
 1. Model it — copy `tools/model/pantsir.py`, keep the group and pivot conventions, export into
    the same atlas.
-2. Declare the part in `AirDefenceAssets.xml` and `AirDefenceGameData.xml`.
+2. Declare the part in `KSArmoryAssets.xml` and `KSArmoryGameData.xml`.
 3. Register a `LauncherProfile` in [`src/KSArmory/Sim/Arsenal.cs`](src/KSArmory/Sim/Arsenal.cs),
    with the geometry `tools/model/build.sh` prints. Add a `MunitionProfile` if the round differs.
 

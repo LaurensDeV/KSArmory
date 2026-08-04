@@ -378,7 +378,7 @@ internal sealed class Ui(Config config, DefenceBattery battery)
 
         ImGui.Separator();
 
-        // Writes the battery's whole world view to AirDefence.log, including why each nearby
+        // Writes the battery's whole world view to KSArmory.log, including why each nearby
         // vehicle was or was not tracked. Far more useful than staring at an empty screen.
         if (ImGui.Checkbox("Verbose log", ref _config.VerboseLog))
         {
@@ -396,7 +396,7 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         {
             Diagnostics.ResetTimer();
         }
-        ImGui.TextDisabled("  -> Logs/AirDefence.log");
+        ImGui.TextDisabled("  -> Logs/KSArmory.log");
 
         ImGui.TreePop();
     }

@@ -363,7 +363,7 @@ code mod:
 
 ```toml
 name = "KSArmory"
-assets = [ "Assets/AirDefenceAssets.xml", "Assets/AirDefenceGameData.xml" ]
+assets = [ "MyModAssets.xml", "MyModGameData.xml" ]
 
 [StarMap]
 EntryAssembly = "KSArmory"
