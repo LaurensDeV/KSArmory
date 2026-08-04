@@ -246,8 +246,18 @@ internal static class LauncherPart
 
         try
         {
+            // Measured from the centre of mass, because that is what platformEcl is.
+            //
+            // Vehicle.GetPositionEcl() returns the vehicle's centre of mass, while
+            // PositionVehicleAsmb is measured from the assembly origin. Adding one to the other
+            // puts the muzzle out by the whole centre-of-mass offset - metres, and on a vehicle
+            // this shape that is somewhere off the hull entirely. Reported from play as the round
+            // appearing outside the vehicle for a frame before snapping into its tube.
+            //
+            // ResolveOriginEcl (below) never had this: it goes through GetMatrixAsmb2Ego, which
+            // accounts for the offset itself. The two paths are supposed to agree, and now do.
             double3 inVehicle = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * partFrame;
-            ecl = platformEcl + platform.Asmb2Ego * inVehicle;
+            ecl = platformEcl + platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb);
             return Vec.IsFinite(ecl);
         }
         catch
