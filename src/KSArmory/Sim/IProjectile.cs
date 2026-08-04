@@ -66,6 +66,12 @@ internal interface IProjectile
     /// </summary>
     double3 LaunchAnchorPartFrame { get; set; }
 
+    /// <summary>
+    /// Which round this is. A launcher flying more than one weapon steps and fuses each by its
+    /// own numbers, so the projectile carries them rather than the battery holding one set.
+    /// </summary>
+    MunitionProfile Munition { get; init; }
+
     // ---- What it is chasing ---------------------------------------------
 
     /// <summary>Opaque handle to the target, compared by reference. Null once lock is lost.</summary>

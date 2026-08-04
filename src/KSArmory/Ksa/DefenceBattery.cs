@@ -61,18 +61,29 @@ internal sealed class DefenceBattery(Config config)
     /// <summary>The cannon, which pitch with the launcher. Null if this system carries none.</summary>
     public Part? GunsPart { get; private set; }
 
+    /// <summary>The optical head, which points at whatever the battery is watching.</summary>
+    public Part? OpticPart { get; private set; }
+
+    /// <summary>Where the head is looking, in the launcher part's frame.</summary>
+    public double3 OpticDirectionPartFrame => _optic.Direction;
+
+    /// <summary>True once the head has caught up with what it was told to look at.</summary>
+    public bool OpticOnTarget => _optic.OnTarget;
+
     /// <summary>The search array's current angle. Cosmetic - the radar model is a cone search.</summary>
     public double RadarSpinRad { get; private set; }
 
     /// <summary>Azimuth drive state. Pure maths, no KSA types — see <see cref="Turret"/>.</summary>
     public Turret Turret { get; } = new();
 
-    /// <summary>
-    /// False once KSA has refused a turret write. Writing every frame to an API the engine
-    /// ignores would fill the log and hide the one message that matters, so the first failure
-    /// turns it off for the session.
-    /// </summary>
-    public bool TurretDriveWorks { get; private set; } = true;
+    // Which drives the engine is still accepting writes for, latched per assembly.
+    private DriveStatus _drives;
+
+    /// <summary>True while the engine still accepts writes for this assembly.</summary>
+    public bool DriveWorks(DriveChannel channel) => _drives.Works(channel);
+
+    /// <summary>True once the engine has refused any drive on this launcher.</summary>
+    public bool AnyDriveRefused => _drives.AnyRefused;
 
     // The weapon system this battery is running, and what it fires. Read through the config rather
     // than captured at construction: the battery does not know which launcher it has until it finds
@@ -82,6 +93,12 @@ internal sealed class DefenceBattery(Config config)
 
     /// <summary>How far the platform moved between the last two frames (m, Ecl).</summary>
     public double3 PlatformStepEcl { get; private set; }
+
+    // Which launcher on the platform this battery runs, by part order. One battery per craft, so
+    // it is always the first; keying on the ordinal rather than the Part reference is what
+    // survives KSA rebuilding the part tree during staging and docking.
+    private const int LauncherOrdinal = 0;
+    private readonly List<(Part, LauncherProfile)> _launcherScratch = [];
 
     private bool _hasPlatformSample;
     private bool _loggedSubParts;
@@ -93,6 +110,23 @@ internal sealed class DefenceBattery(Config config)
     // and lives in Sim/ so it is testable, because getting it wrong produces a salvo that looks
     // like it never left rather than an error.
     private readonly Magazine _magazine = new();
+
+    // The cannon's belt and burst timing. A second weapon on the same mount, sharing the
+    // platform, the sensor and the aim, and differing in what it throws and how far.
+    // Where the optical head is looking. Rate-limited, so it sweeps onto a track rather than
+    // snapping to it the frame the radar produces one.
+    private readonly PointingDrive _optic = new();
+
+    private readonly GunChannel _guns = new();
+    private int _nextBarrel;
+    private double _gunTrace;
+    private double _gunReloadTimer;
+
+    /// <summary>Rounds left in the cannon belt.</summary>
+    public int GunAmmo => _guns.Ammo;
+
+    /// <summary>True while the cannon are mid-burst, so the panel can say so.</summary>
+    public bool GunsFiring => _guns.Firing;
 
     // The fin set belonging to a tube, or null if the launcher carries none.
     private Part? FinsFor(int index) => index >= 0 && index < _finBodies.Count ? _finBodies[index] : null;
@@ -141,19 +175,17 @@ internal sealed class DefenceBattery(Config config)
     /// True when the launcher is actually pointing where it is about to shoot, so rounds do not
     /// leave tubes aimed somewhere else.
     ///
-    /// <para>Always true when nothing is driving the turret — tracking off, no pods fitted, or the
-    /// engine refusing the write — so it cannot deadlock fire control on a launcher that will
-    /// never move.</para>
+    /// <para>Always true when nothing is being laid — tracking off, driven from the panel, or a
+    /// launcher whose profile declares no training gear — so it cannot deadlock fire control on
+    /// a launcher that will never move. A launcher that <em>should</em> move and cannot is a
+    /// different case, and holds fire. See <see cref="FireGate"/>.</para>
     /// </summary>
-    public bool IsLaid
-    {
-        get
-        {
-            if (!_config.TurretTracking || _config.TurretManual || _config.TurretSpin) return true;
-            if (PodsPart is null || !TurretDriveWorks) return true;
-            return Turret.IsLaid(_profile.SettleSeconds);
-        }
-    }
+    public bool IsLaid => FireGate.IsLaid(
+        aiming: _config.TurretTracking && !_config.TurretManual && !_config.TurretSpin,
+        trains: _profile.Trains,
+        drivesAccepted: _drives.AimingAccepted,
+        assembliesResolved: _profile.PodsMarker is null || PodsPart is not null,
+        settled: Turret.IsLaid(_profile.SettleSeconds));
 
     public void PinPlatform(Vehicle? v)
     {
@@ -206,16 +238,25 @@ internal sealed class DefenceBattery(Config config)
         // Whichever registered weapon system is fitted, if any. Selecting it points the
         // config's profiles at that system, so everything downstream - drives, guidance, the
         // panel - follows without knowing which launcher this is.
-        if (LauncherPart.Find(Platform) is var (part, profile))
+        if (LauncherPart.FindNth(Platform, LauncherOrdinal, _launcherScratch) is var (part, profile))
         {
             bool changed = !ReferenceEquals(profile, _config.Launcher) || Launcher is null;
             Launcher = part;
             _config.Select(profile);
             profile.ConfigureTurret(Turret);
 
+            // The set is fitted to this launcher, so it filters on that system's sensor rather
+            // than on whichever one the config points at.
+            Radar.Sensor = _config.Sensor;
+
             // A different weapon system carries a different number of rounds, so the magazine
             // is sized when one is first recognised rather than at construction.
-            if (changed) _magazine.Resize(profile.TubeCount, profile.MagazineDepth);
+            if (changed)
+            {
+                _magazine.Resize(profile.TubeCount, profile.MagazineDepth);
+                _guns.Fill(profile.GunAmmo);
+                _nextBarrel = 0;
+            }
         }
         else
         {
@@ -226,6 +267,7 @@ internal sealed class DefenceBattery(Config config)
         PodsPart = Launcher is null ? null : LauncherPart.FindPods(Launcher, _profile);
         RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher, _profile);
         GunsPart = Launcher is null ? null : LauncherPart.FindGuns(Launcher, _profile);
+        OpticPart = Launcher is null ? null : LauncherPart.FindOptic(Launcher, _profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
         // After the launcher is resolved: the part-relative modes read the part's own mounting.
@@ -275,6 +317,7 @@ internal sealed class DefenceBattery(Config config)
         // the tube on the frame the trigger is pulled.
         UpdateRounds(dt);
         UpdateFireControl(dt);
+        UpdateGunFireControl(dt);
         TrimEvents();
 
         if (_config.DiagnosticDump)
@@ -387,6 +430,7 @@ internal sealed class DefenceBattery(Config config)
         }
 
         if (!_config.AutoEngage || !_config.Armed || !IsOperational) return;
+        if (!_config.MissilesEnabled) return;
         if (Ammo <= 0 || _salvoTimer > 0.0) return;
         if (!Radar.HasFiringSolution) return;
 
@@ -404,6 +448,151 @@ internal sealed class DefenceBattery(Config config)
         if (!ThreatModel.InEngagementEnvelope(target, _config.Sensor)) return;
 
         Fire(target);
+    }
+
+    // Sends one shell down whichever barrel is next in the cycle.
+    //
+    // Which way the optical head looks, in the launcher part's frame: at the locked contact if
+    // there is one, otherwise along the turret's own facing.
+    private double3 OpticAimPartFrame()
+    {
+        if (Radar.Locked is { } locked && Platform is not null
+            && LauncherPart.TryDirectionToPartFrame(Platform, locked.PositionEcl - MountEcl,
+                                                    out double3 toTarget))
+        {
+            return toTarget;
+        }
+
+        return TubeGeometry.TurretRotation(Turret.BearingRad) * TubeGeometry.OpticRestDirection;
+    }
+
+    // Where the turret points: the target itself while the missiles have the engagement, and a
+    // ballistic solution once the cannon do.
+    //
+    // One traverse ring serves both weapons, so it can only solve for one at a time — the same
+    // choice a real fire-control computer makes. A missile steers and needs only to be pointed;
+    // a shell arrives where it was thrown, and at 4 km it flies for 4.5 s, during which a 300 m/s
+    // target crosses 1.4 km and the round falls 100 m. Laying on the target itself misses by
+    // both of those together.
+    private double3 AimPointEcl(Track aim)
+    {
+        if (!GunsHaveTheEngagement(aim)) return aim.PositionEcl;
+
+        MunitionProfile shell = Arsenal.MunitionNamed(_profile.GunMunition!);
+        double3 gravity = Platform is null ? Vec.Zero : KsaWorld.GravityAt(Platform, MountEcl);
+
+        // Relative to the platform, not absolute: the round is launched with the platform's
+        // velocity already in it, so the only motion it has to lead is the difference.
+        double3 relative = aim.VelocityEcl - KsaWorld.VelocityEcl(Platform!);
+
+        return BallisticLead.TrySolve(MountEcl, aim.PositionEcl, relative,
+                                      shell.LaunchSpeed, gravity, out double3 lead)
+            ? lead
+            : aim.PositionEcl;
+    }
+
+    // Whether the cannon are the weapon this engagement belongs to: inside their envelope, and
+    // with the missiles either switched off or unable to reach.
+    private bool GunsHaveTheEngagement(Track aim)
+        => _profile.HasCannon && _config.GunsEnabled && !_guns.IsEmpty
+           && aim.Range >= _profile.GunMinRange && aim.Range <= _profile.GunMaxRange;
+
+    // Fired along the barrel: the lead is in where the turret is pointing, so aiming the shell
+    // itself as well would apply it twice.
+    private void FireGun(Track track)
+    {
+        if (Platform is null || Launcher is null || GunsPart is not { } guns) return;
+
+        int barrel = _nextBarrel % _profile.GunMuzzles.Length;
+        _nextBarrel = (_nextBarrel + 1) % _profile.GunMuzzles.Length;
+
+        if (!LauncherPart.TryGetGunMuzzleEcl(Platform, Launcher, guns, _profile, barrel,
+                                             PlatformEcl, out double3 muzzle, out double3 axis))
+        {
+            return;
+        }
+
+        MunitionProfile shell = Arsenal.MunitionNamed(_profile.GunMunition!);
+        double3 platformVel = KsaWorld.VelocityEcl(Platform);
+
+        // Negative tube numbers mark the cannon: the magazine owns 0..TubeCount-1, and a shell
+        // must never be mistaken for a missile that could claim a tube back.
+        _rounds.Add(new Slug(muzzle, platformVel + axis * shell.LaunchSpeed, track.Vehicle,
+                             -(barrel + 1), PlatformEcl, platformVel)
+        {
+            Munition = shell,
+            Aimpoint = Aimpoint.OnVehicle(track.Vehicle, track.PositionEcl, track.VelocityEcl,
+                                          KsaWorld.MeanRadius(track.Vehicle)),
+        });
+    }
+
+    // The cannon, which run on their own belt and their own envelope.
+    //
+    // Deliberately not gated on the missile channel's state. The two cover each other: the
+    // missiles need 1.2 km to arm and steer, so anything closer is the cannon's problem and stays
+    // untouchable if the guns wait for the launcher to run dry.
+    private void UpdateGunFireControl(double dt)
+    {
+        if (!_profile.HasCannon)
+        {
+            _gunTrace += dt;
+            if (_gunTrace >= 5.0)
+            {
+                _gunTrace = 0.0;
+                Log.Debug(() => $"cannon: none on {_profile.DisplayName} "
+                                + $"(munition={_profile.GunMunition ?? "null"} "
+                                + $"barrels={_profile.GunMuzzles.Length})");
+            }
+            return;
+        }
+
+        bool wantToFire = _config.AutoEngage && _config.Armed && _config.GunsEnabled
+                          && IsOperational && IsLaid
+                          && _drives.Works(DriveChannel.Guns)
+                          && Radar.Locked is { } locked
+                          && ThreatModel.MayEngage(locked, _config.Iff)
+                          && locked.Range >= _profile.GunMinRange
+                          && locked.Range <= _profile.GunMaxRange;
+
+        // Say why the cannon are silent. Every gate below is invisible from outside, and "no
+        // shooting" is the same symptom for all of them.
+        _gunTrace += dt;
+        if (_gunTrace >= 1.0)
+        {
+            _gunTrace = 0.0;
+            Log.Debug(() =>
+            {
+                string range = Radar.Locked is { } t ? $"{t.Range:F0} m" : "no lock";
+                return $"cannon: want={wantToFire} ammo={_guns.Ammo} burst={_guns.BurstRemaining} "
+                       + $"cd={_guns.Cooldown:F3} armed={_config.Armed} auto={_config.AutoEngage} "
+                       + $"enabled={_config.GunsEnabled} laid={IsLaid} drive={_drives.Works(DriveChannel.Guns)} "
+                       + $"part={(GunsPart is not null)} range={range} "
+                       + $"envelope={_profile.GunMinRange:F0}-{_profile.GunMaxRange:F0} m";
+            });
+        }
+
+        // Belt resupply, on its own timer: the launcher's reload gate returns early when the
+        // tubes are empty, so a shared one would leave the cannon dry for as long as the
+        // missiles took to come back.
+        if (_guns.IsEmpty && _profile.GunReloadSeconds > 0f)
+        {
+            _gunReloadTimer += dt;
+            if (_gunReloadTimer >= _profile.GunReloadSeconds)
+            {
+                _gunReloadTimer = 0.0;
+                _guns.Fill(_profile.GunAmmo);
+                Announce("cannon belt replaced");
+            }
+            return;
+        }
+        _gunReloadTimer = 0.0;
+
+        int fired = _guns.Step(dt, wantToFire, _profile);
+        if (fired <= 0) return;
+
+        for (int i = 0; i < fired; i++) FireGun(Radar.Locked!);
+        Log.Debug(() => $"cannon: {fired} round(s) away, {_guns.Ammo} left");
+        if (_guns.IsEmpty) Announce("cannon belt empty");
     }
 
     // Slews the turret onto whatever the radar is holding, and writes the result to the part.
@@ -438,7 +627,7 @@ internal sealed class DefenceBattery(Config config)
             Track? aim = Radar.Locked ?? MostUrgentThreat();
 
             if (aim is not null && Platform is not null
-                && LauncherPart.TryDirectionToPartFrame(Platform, aim.PositionEcl - MountEcl, out double3 partFrame))
+                && LauncherPart.TryDirectionToPartFrame(Platform, AimPointEcl(aim) - MountEcl, out double3 partFrame))
             {
                 Turret.Track(partFrame);
             }
@@ -450,38 +639,58 @@ internal sealed class DefenceBattery(Config config)
 
         Turret.Update(dt, _profile.SlewRateRad, _profile.ElevationRateRad);
 
-        if (!TurretDriveWorks) return;
-
-        if (TurretPart is not null)
+        // Each assembly latches on its own refusal. The drive keeps integrating either way, so the
+        // drawn facing line goes on showing where the battery believes it is pointing — which is
+        // the only thing that distinguishes a refused write from a wrong solution.
+        if (TurretPart is not null && _drives.Works(DriveChannel.Turret)
+            && !LauncherPart.TryApplyTurretBearing(TurretPart, Turret.BearingRad))
         {
-            TurretDriveWorks = LauncherPart.TryApplyTurretBearing(TurretPart, Turret.BearingRad);
+            Refuse(DriveChannel.Turret, "turret traverse");
         }
 
-        if (TurretDriveWorks && PodsPart is not null)
+        if (PodsPart is not null && _drives.Works(DriveChannel.Pods)
+            && !LauncherPart.TryApplyPodAim(PodsPart, _profile, Turret.BearingRad, Turret.ElevationRad))
         {
-            TurretDriveWorks = LauncherPart.TryApplyPodAim(PodsPart, _profile, Turret.BearingRad, Turret.ElevationRad);
+            Refuse(DriveChannel.Pods, "pod elevation");
         }
 
         // The cannon follow the same aim as the pods: one turret, one solution.
-        if (TurretDriveWorks && GunsPart is not null)
+        if (GunsPart is not null && _drives.Works(DriveChannel.Guns)
+            && !LauncherPart.TryApplyGunAim(GunsPart, _profile, Turret.BearingRad, Turret.ElevationRad))
         {
-            TurretDriveWorks = LauncherPart.TryApplyGunAim(GunsPart, _profile,
-                                                           Turret.BearingRad, Turret.ElevationRad);
+            Refuse(DriveChannel.Guns, "cannon elevation");
+        }
+
+        // The optical head points at what the battery is watching, and falls back to wherever
+        // the turret faces so it never sits skewed across the hull with nothing to look at.
+        _optic.Update(dt, OpticAimPartFrame(), _profile.OpticSlewRateRad);
+
+        if (OpticPart is not null && _drives.Works(DriveChannel.Optic)
+            && !LauncherPart.TryApplyOpticAim(OpticPart, _profile, Turret.BearingRad,
+                                              _optic.Direction))
+        {
+            Refuse(DriveChannel.Optic, "optical head");
         }
 
         // The search array turns regardless of what the battery is doing - it is looking, not
         // aiming - so it is driven off the clock rather than off the track.
-        if (TurretDriveWorks && RadarPart is not null)
+        if (RadarPart is not null && _drives.Works(DriveChannel.Radar))
         {
             if (!_config.SearchRadarStopped)
             {
                 RadarSpinRad = Turret.WrapPi(
                     RadarSpinRad + _profile.SearchRadarRpm * (Math.Tau / 60.0) * dt);
             }
-            TurretDriveWorks = LauncherPart.TryApplyRadarSpin(RadarPart, _profile, Turret.BearingRad, RadarSpinRad);
+            if (!LauncherPart.TryApplyRadarSpin(RadarPart, _profile, Turret.BearingRad, RadarSpinRad))
+            {
+                Refuse(DriveChannel.Radar, "search array spin");
+            }
         }
+    }
 
-        if (!TurretDriveWorks) Announce("turret drive rejected by the engine; holding position");
+    private void Refuse(DriveChannel channel, string what)
+    {
+        if (_drives.Refuse(channel)) Announce($"{what} rejected by the engine; that assembly is frozen");
     }
 
     /// <summary>
@@ -735,7 +944,7 @@ internal sealed class DefenceBattery(Config config)
             // The platform's velocity defines the local frame: it carries the parent body's
             // orbital and rotational motion, which is not airspeed and not a heading.
             round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl,
-                         _munition, mediumDensity);
+                         round.Munition, mediumDensity);
 
 
             switch (round.State)
@@ -780,7 +989,7 @@ internal sealed class DefenceBattery(Config config)
         // target's seat cut the uplink to every round already flying at it, turning a
         // deliberate safety rule into a guaranteed miss. The policy belongs at the kill, where
         // Detonate already declines and says why.
-        if (_munition.Guidance == GuidanceMode.CommandLink && Platform is not null)
+        if (round.Munition.Guidance == GuidanceMode.CommandLink && Platform is not null)
         {
             double3 toTarget = KsaWorld.PositionEcl(target) - PlatformEcl;
             if (!ThreatModel.InSensorVolume(toTarget, Boresight, _config.Sensor)) return null;
@@ -858,7 +1067,7 @@ internal sealed class DefenceBattery(Config config)
         // Trust that number rather than re-deriving it.
         if (round.TargetRef is Vehicle intended && KsaWorld.IsAlive(intended))
         {
-            double lethalRange = _munition.LethalRadius + KsaWorld.MeanRadius(intended);
+            double lethalRange = round.Munition.LethalRadius + KsaWorld.MeanRadius(intended);
             if (round.MissDistance <= lethalRange)
             {
                 // Say why a lethal hit did not kill. Taking control of the target makes it
@@ -889,11 +1098,11 @@ internal sealed class DefenceBattery(Config config)
             double3 posAtBurst = KsaWorld.PositionEcl(v) + KsaWorld.VelocityEcl(v) * elapsed;
             double dist = Vec.Len(posAtBurst - burst) - KsaWorld.MeanRadius(v);
 
-            if (dist <= _munition.LethalRadius)
+            if (dist <= round.Munition.LethalRadius)
             {
                 _pendingKills.Add(v);
             }
-            else if (dist <= _munition.BlastRadius)
+            else if (dist <= round.Munition.BlastRadius)
             {
                 Announce($"near miss on {KsaWorld.DisplayName(v)} at {dist:F0} m");
             }
@@ -976,5 +1185,16 @@ internal sealed class DefenceBattery(Config config)
         _reloadTimer = 0.0;
         PlatformPinned = false;
         Platform = null;
+
+        // The latches record what one vehicle's part tree refused. A different platform gets a
+        // fresh assessment rather than inheriting the last one's failures.
+        _drives.Clear();
+        RoundBodiesWork = true;
+        OpticPart = null;
+        _optic.Reset();
+        _guns.Fill(_profile.GunAmmo);
+        _guns.Reset();
+        _nextBarrel = 0;
+        _gunReloadTimer = 0.0;
     }
 }

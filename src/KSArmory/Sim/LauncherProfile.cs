@@ -57,6 +57,13 @@ public sealed class LauncherProfile
     /// <summary>Cannon that elevate on their own trunnion. Null for a launcher with none.</summary>
     public string? GunsMarker { get; init; }
 
+    /// <summary>
+    /// Electro-optical head, aimed freely rather than about an axis. Null for a launcher with
+    /// none — it is the only assembly the mod writes an arbitrary rotation to, because it points
+    /// rather than trains.
+    /// </summary>
+    public string? OpticMarker { get; init; }
+
     // ---- Geometry, generated. See the class summary. ----
 
     /// <summary>Rounds carried, and the length of <see cref="Tubes"/>.</summary>
@@ -80,6 +87,9 @@ public sealed class LauncherProfile
 
     /// <summary>Where the search array's turntable sits relative to the turret's axis.</summary>
     public double3 RadarPivotFromTurret { get; init; }
+
+    /// <summary>Where the optical head's ball centre sits relative to the turret's axis.</summary>
+    public double3 OpticPivotFromTurret { get; init; }
 
     /// <summary>Where the cannon trunnion sits relative to the turret's axis.</summary>
     public double3 GunPivotFromTurret { get; init; }
@@ -112,11 +122,37 @@ public sealed class LauncherProfile
     public float SettleSeconds = 0.35f;
     public float SearchRadarRpm = 20f;
 
+    /// <summary>
+    /// How far forward of the head's pivot the eye sits (m). The pivot is the ball's centre, so
+    /// a view taken there is inside the ball's own mesh: black, with a corner of whatever else
+    /// the vehicle has nearby. Far enough out to clear the housing and its lens.
+    /// </summary>
+    public float OpticEyeForward = 0.45f;
+
+    /// <summary>How fast the optical head may turn. Slower than it could be: a sight that snaps
+    /// onto a track the instant one exists reads as a glitch rather than as a sensor.</summary>
+    public float OpticSlewRateDeg = 90f;
+
     /// <summary>Elevation travel, and the higher floor over the vehicle's own bodywork.</summary>
     public float MinElevationDeg;
     public float MaxElevationDeg = 82f;
     public float ForwardMinElevationDeg = 15f;
-    public float ForwardArcDeg = 50f;
+    public float ForwardArcDeg = 80f;
+    public float ForwardPlateauDeg = 62f;
+
+    /// <summary>
+    /// Elevation the launcher returns to with nothing to look at. Defaults to the pods' modelled
+    /// pose, so a stowed launcher sits where its mesh was built and a refused write is invisible.
+    /// </summary>
+    public double RestElevationRad => double.IsFinite(RestElevationDeg)
+        ? double.DegreesToRadians(RestElevationDeg)
+        : PodReferenceElevationRad;
+
+    /// <summary>NaN follows <see cref="PodReferenceElevationRad"/>; set it to override.</summary>
+    public float RestElevationDeg = float.NaN;
+
+    /// <summary>True when something has to be aimed before this launcher can shoot.</summary>
+    public bool Trains => TurretMarker is not null || PodsMarker is not null;
 
     // ---- Firing ---------------------------------------------------------
 
@@ -146,9 +182,50 @@ public sealed class LauncherProfile
     /// <summary>Standoff used when no launcher part is fitted at all (m).</summary>
     public float MuzzleOffset = 8f;
 
+    // ---- Cannon ---------------------------------------------------------
+
+    /// <summary>
+    /// Registry key of the round the cannon fire, or null for a launcher with none.
+    ///
+    /// <para>A second weapon on the same mount rather than a second launcher: it shares the
+    /// platform, the sensor and the aim, and differs in what it throws and how far.</para>
+    /// </summary>
+    public string? GunMunition { get; init; }
+
+    /// <summary>Each barrel's muzzle in the cannon subpart's own frame, at its modelled pose.</summary>
+    public double3[] GunMuzzles { get; init; } = [];
+
+    /// <summary>Rounds in the belt, across all barrels.</summary>
+    public int GunAmmo = 480;
+
+    /// <summary>Cyclic rate, rounds per minute across all barrels.</summary>
+    public float GunRoundsPerMinute = 2500f;
+
+    /// <summary>Rounds per burst, and the pause between bursts.</summary>
+    public int GunBurstRounds = 12;
+    public float GunBurstGapSeconds = 0.55f;
+
+    /// <summary>
+    /// Where the cannon are worth firing. The inner limit is where the missiles stop being
+    /// usable, so the two together leave no gap; the outer is where a 30 mm round still arrives
+    /// with enough speed to matter.
+    /// </summary>
+    public float GunMinRange = 200f;
+    public float GunMaxRange = 4000f;
+
+    /// <summary>Seconds to feed a fresh belt. Zero disables cannon resupply.</summary>
+    public float GunReloadSeconds = 20f;
+
+    /// <summary>Seconds between rounds, derived from the cyclic rate.</summary>
+    public double GunRoundInterval => GunRoundsPerMinute > 0f ? 60.0 / GunRoundsPerMinute : 0.0;
+
+    /// <summary>True when this launcher carries cannon that can actually shoot.</summary>
+    public bool HasCannon => GunMunition is not null && GunMuzzles.Length > 0;
+
     /// <summary>Turret drive rates in the units the drive wants.</summary>
     public double SlewRateRad => float.DegreesToRadians(SlewRateDeg);
     public double ElevationRateRad => float.DegreesToRadians(ElevationRateDeg);
+    public double OpticSlewRateRad => float.DegreesToRadians(OpticSlewRateDeg);
 
     /// <summary>Applies this profile's travel limits to a drive.</summary>
     public void ConfigureTurret(Turret turret)
@@ -157,5 +234,7 @@ public sealed class LauncherProfile
         turret.MaxElevationRad = float.DegreesToRadians(MaxElevationDeg);
         turret.ForwardMinElevationRad = float.DegreesToRadians(ForwardMinElevationDeg);
         turret.ForwardArcRad = float.DegreesToRadians(ForwardArcDeg);
+        turret.ForwardPlateauRad = float.DegreesToRadians(ForwardPlateauDeg);
+        turret.RestElevationRad = RestElevationRad;
     }
 }

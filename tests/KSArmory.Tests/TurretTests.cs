@@ -128,6 +128,87 @@ public class TurretTests
         Assert.InRange(edge, turret.MinElevationRad, turret.ForwardMinElevationRad * 0.1);
     }
 
+    /// <summary>
+    /// The bodywork the floor protects does not taper, so the floor must not either. A curve that
+    /// starts falling at the bow has given most of its height away by the time the tubes are
+    /// abeam the obstruction, which is where the tubes are longest across it.
+    /// </summary>
+    /// <summary>
+    /// The radar overlay is clocked off this. Seeded from a fixed ecliptic axis instead, it turns
+    /// with the planet under a boresight that is local "up", so the cone's ribs rotate on their
+    /// own and snap when the seed swaps.
+    /// </summary>
+    [Fact]
+    public void PerpendicularTo_HoldsStillWhileTheBoresightSweepsWithTheCraft()
+    {
+        double previous = double.NaN;
+        for (double spin = 0.0; spin < Math.Tau; spin += 0.05)
+        {
+            // A craft standing on a rotating planet: "up" and "forward" turn together.
+            double3 up = new(Math.Cos(spin), Math.Sin(spin), 0.0);
+            double3 forward = new(-Math.Sin(spin), Math.Cos(spin), 0.0);
+
+            double3 u = Vec.PerpendicularTo(up, forward);
+
+            // The clocking must stay on the craft's forward axis, not drift round the rim.
+            Assert.Equal(1.0, Vec.Dot(u, forward), 9);
+            Assert.Equal(0.0, Vec.Dot(u, up), 9);
+
+            double angle = Math.Atan2(Vec.Dot(u, forward), Vec.Dot(u, up));
+            if (!double.IsNaN(previous)) Assert.Equal(previous, angle, 9);
+            previous = angle;
+        }
+    }
+
+    [Fact]
+    public void PerpendicularTo_FallsBackWhenTheReferenceIsUseless()
+    {
+        double3 up = new(0, 0, 1);
+
+        // Parallel to the boresight, so it has no perpendicular component to clock against.
+        Assert.Equal(0.0, Vec.Dot(Vec.PerpendicularTo(up, up), up), 9);
+        Assert.Equal(0.0, Vec.Dot(Vec.PerpendicularTo(up, Vec.Zero), up), 9);
+    }
+
+    [Fact]
+    public void DepressionFloor_HoldsFullHeightAcrossTheSectorItProtects()
+    {
+        var turret = new Turret();
+
+        foreach (double deg in new[] { 0.0, 15.0, 25.0, 40.0, 50.0, 60.0, 62.0 })
+        {
+            Assert.Equal(turret.ForwardMinElevationRad,
+                         turret.DepressionFloorAt(double.DegreesToRadians(deg)), 9);
+        }
+    }
+
+    [Fact]
+    public void DepressionFloor_EasesAwayOutsideThePlateauAndNeverRises()
+    {
+        var turret = new Turret();
+
+        double previous = turret.ForwardMinElevationRad;
+        for (double deg = 62.0; deg <= 90.0; deg += 2.0)
+        {
+            double floor = turret.DepressionFloorAt(double.DegreesToRadians(deg));
+            Assert.True(floor <= previous + 1e-9, $"floor rose again at {deg} degrees");
+            previous = floor;
+        }
+        Assert.Equal(turret.MinElevationRad, previous, 9);
+    }
+
+    [Fact]
+    public void DepressionFloor_IsSymmetricAboutTheBow()
+    {
+        var turret = new Turret();
+
+        foreach (double deg in new[] { 20.0, 45.0, 62.0, 70.0, 79.0 })
+        {
+            Assert.Equal(turret.DepressionFloorAt(double.DegreesToRadians(deg)),
+                         turret.DepressionFloorAt(double.DegreesToRadians(-deg)), 9);
+        }
+    }
+
     [Fact]
     public void Elevation_IsLiftedWhenTraversingIntoTheForwardArc()
     {

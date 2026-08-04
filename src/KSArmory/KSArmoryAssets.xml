@@ -95,6 +95,16 @@
     </SubPart>
 
   <!-- Double-sided hexagonal search array. Turns continuously on its own turntable. -->
+  <SubPart Id="AirDefence_Subpart_Optic">
+    <PartModel Id="AirDefence_Subpart_Optic_Model">
+      <Mesh Id="AirDefence_Subpart_Optic" />
+      <Material Id="AirDefence_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="AirDefence_Subpart_Optic_VM" />
+    </MeshView>
+  </SubPart>
+
   <SubPart Id="AirDefence_Subpart_Radar">
     <PartModel Id="AirDefence_Subpart_Radar_Model">
       <Mesh Id="AirDefence_Subpart_Radar" />
@@ -175,6 +185,17 @@
     <SubPart Id="AirDefence_Launcher_Radar" InstanceOf="AirDefence_Subpart_Radar">
       <Transform>
         <Position X="4.05000" Y="-2.52000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Electro-optical head. Aimed freely rather than about an axis, so the mod writes it a full
+      rotation each frame; the value here is only where its ball sits with the turret forward.
+      Keep in step with EO_PIVOT in tools/model/pantsir.py.
+    -->
+    <SubPart Id="AirDefence_Launcher_Optic" InstanceOf="AirDefence_Subpart_Optic">
+      <Transform>
+        <Position X="4.10000" Y="-0.35000" Z="0.44000" />
       </Transform>
     </SubPart>
 

@@ -108,6 +108,10 @@ internal static class LauncherPart
     public static Part? FindGuns(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.GunsMarker);
 
+    /// <summary>The optical head, which points wherever the battery is looking.</summary>
+    public static Part? FindOptic(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.OpticMarker);
+
     /// <summary>
     /// Collects the round subparts, in declaration order, so tube N maps to the same body every
     /// time. There is one per tube, which is what lets a whole salvo be in the air at once.
@@ -291,6 +295,40 @@ internal static class LauncherPart
             double3 inVehicle = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * partFrame;
             ecl = platformEcl + platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb);
             return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where one cannon barrel's muzzle is in Ecl, and which way it points. Both come off the
+    /// cannon subpart's live transform, so they follow the traverse and elevation the drives
+    /// wrote this frame rather than the pose the mesh was modelled in.
+    /// </summary>
+    public static bool TryGetGunMuzzleEcl(
+        Vehicle platform, Part launcher, Part guns, LauncherProfile profile, int barrelIndex,
+        double3 platformEcl, out double3 ecl, out double3 axisEcl)
+    {
+        ecl = axisEcl = Vec.Zero;
+        try
+        {
+            if (!TubeGeometry.TryGunMuzzlePartFrame(profile, barrelIndex, guns.PositionParentAsmb,
+                                                    guns.Asmb2ParentAsmb, out double3 partFrame))
+            {
+                return false;
+            }
+
+            // Same centre-of-mass correction as the tubes: platformEcl is the centre of mass,
+            // PositionVehicleAsmb is from the assembly origin.
+            double3 inVehicle = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * partFrame;
+            ecl = platformEcl + platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb);
+
+            double3 axisPart = TubeGeometry.GunAxisPartFrame(profile, guns.Asmb2ParentAsmb);
+            axisEcl = Vec.Unit(platform.Asmb2Ego * (launcher.Asmb2VehicleAsmb * axisPart));
+
+            return Vec.IsFinite(ecl) && Vec.IsFinite(axisEcl) && !axisEcl.Equals(Vec.Zero);
         }
         catch
         {
@@ -533,6 +571,66 @@ internal static class LauncherPart
         catch (Exception e)
         {
             Log.Warn($"search array: could not write spin ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Points the optical head along a direction given in the launcher part's frame. Unlike the
+    /// drives this is not an angle about an axis: the head has two degrees of freedom and takes
+    /// whatever rotation carries its lens onto the aim.
+    /// </summary>
+    public static bool TryApplyOpticAim(Part optic, LauncherProfile profile,
+                                        double turretBearingRad, double3 aimPartFrame)
+    {
+        try
+        {
+            DrivePose pose = TubeGeometry.OpticPose(profile, turretBearingRad, aimPartFrame);
+            (double3 position, doubleQuat rotation) = (pose.Position, pose.Rotation);
+
+            optic.Asmb2ParentAsmb = rotation;
+            optic.Asmb2ParentAsmbSafe = rotation;
+            optic.PositionParentAsmb = position;
+            optic.PositionParentAsmbSafe = position;
+            optic.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"optical head: could not write aim ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where the optical head's eye sits in Ecl, and which way it is looking. Both come off the
+    /// head's own aim rather than the turret's, so the view follows the sight and not the tubes.
+    /// </summary>
+    public static bool TryGetOpticViewEcl(Vehicle platform, Part launcher, LauncherProfile profile,
+                                          double turretBearingRad, double3 aimPartFrame,
+                                          double3 platformEcl,
+                                          out double3 eyeEcl, out double3 forwardEcl)
+    {
+        eyeEcl = forwardEcl = Vec.Zero;
+        try
+        {
+            DrivePose pose = TubeGeometry.OpticPose(profile, turretBearingRad, aimPartFrame);
+
+            // Ahead of the ball's centre, along the way it is looking, or the view starts inside
+            // the head's own mesh.
+            double3 eyePartFrame = pose.Position
+                                   + Vec.Unit(aimPartFrame) * profile.OpticEyeForward;
+
+            // Same centre-of-mass correction as the tubes: platformEcl is the centre of mass and
+            // PositionVehicleAsmb is from the assembly origin.
+            double3 inVehicle = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * eyePartFrame;
+            eyeEcl = platformEcl + platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb);
+
+            return TryLauncherDirectionEcl(platform, launcher, aimPartFrame, out forwardEcl)
+                   && Vec.IsFinite(eyeEcl);
+        }
+        catch
+        {
             return false;
         }
     }

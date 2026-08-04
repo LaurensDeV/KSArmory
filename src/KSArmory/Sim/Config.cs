@@ -45,6 +45,23 @@ public sealed class Config
     /// <summary>Engage without asking.</summary>
     public bool AutoEngage;
 
+    /// <summary>
+    /// Which weapons may engage, independently of the master arm.
+    ///
+    /// <para>Two layers on one mount: without a switch each, whichever reaches further takes
+    /// every target and the other can never be seen to work.</para>
+    /// </summary>
+    /// <summary>
+    /// Which of the game's open camera views the optical head drives, or -1 for none.
+    ///
+    /// <para>An index rather than a flag because KSA opens the views itself — <c>AddViewport</c>
+    /// is private, so a mod borrows one the player has opened rather than making its own.</para>
+    /// </summary>
+    public int OpticViewport = -1;
+
+    public bool MissilesEnabled = true;
+    public bool GunsEnabled = true;
+
     /// <summary>Master arm. Nothing launches while this is false.</summary>
     public bool Armed;
 

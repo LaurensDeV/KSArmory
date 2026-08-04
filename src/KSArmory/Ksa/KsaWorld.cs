@@ -451,6 +451,184 @@ internal static class KsaWorld
         Program.GizmosRenderer.DrawSphere(ego, radiusMetres, colour);
     }
 
+    /// <summary>How many camera views the game currently has open.</summary>
+    public static int ViewportCount
+    {
+        get
+        {
+            try { return Program.Viewports?.Count ?? 0; }
+            catch { return 0; }
+        }
+    }
+
+    /// <summary>
+    /// Indices of the camera windows a player can actually see.
+    ///
+    /// <para>KSA keeps viewports of its own that are never shown — the thumbnail renderer is
+    /// one — and they are indistinguishable from real windows by index alone. Driving one looks
+    /// exactly like the feature not working.</para>
+    /// </summary>
+    public static void CollectUsableViewports(List<int> into)
+    {
+        into.Clear();
+        try
+        {
+            if (Program.Viewports is not { } viewports) return;
+
+            // Index 0 is the view the player flies from; taking it is a different feature.
+            for (int i = 1; i < viewports.Count; i++)
+            {
+                if (viewports[i] is { Visible: true, IsOffscreen: false }) into.Add(i);
+            }
+        }
+        catch
+        {
+            into.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Where a point in Ecl lands on screen inside one viewport, in absolute screen pixels.
+    ///
+    /// <para>The camera projects into its own framebuffer, so the result is viewport-local and
+    /// has to be offset by where that window sits — otherwise an overlay drawn from it lands on
+    /// the main view instead.</para>
+    ///
+    /// <para>False when the point is behind the camera or outside the window, which is the
+    /// caller's cue to draw nothing rather than to clamp it to an edge.</para>
+    /// </summary>
+    public static bool TryProjectIntoViewport(int index, double3 pointEcl, out float2 screen,
+                                              out int width, out int height)
+    {
+        screen = default;
+        width = height = 0;
+        try
+        {
+            if (Program.Viewports is not { } viewports) return false;
+            if (index < 0 || index >= viewports.Count) return false;
+
+            Viewport viewport = viewports[index];
+            Camera camera = viewport.Mode == CameraMode.Fixed ? viewport.BaseCamera
+                                                              : viewport.GetCamera();
+            if (camera is null) return false;
+
+            width = viewport.Width;
+            height = viewport.Height;
+            if (width <= 0 || height <= 0) return false;
+
+            float2 local = camera.EclToScreen(pointEcl, ignoreBehind: false);
+            if (!float.IsFinite(local.X) || !float.IsFinite(local.Y)) return false;
+            if (local.X < 0f || local.Y < 0f || local.X > width || local.Y > height) return false;
+
+            screen = new float2(viewport.Position.X + local.X, viewport.Position.Y + local.Y);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Vertical field of view of a viewport's camera (rad), for scaling an overlay.</summary>
+    public static double ViewportFovRad(int index)
+    {
+        try
+        {
+            Camera camera = Program.Viewports[index].GetCamera();
+            // GetFieldOfView reports degrees; everything here works in radians.
+            return camera is null ? 1.0 : double.DegreesToRadians(camera.GetFieldOfView());
+        }
+        catch
+        {
+            return 1.0;
+        }
+    }
+
+    /// <summary>A short description of one open view, for the panel's picker.</summary>
+    public static string DescribeViewport(int index)
+    {
+        try
+        {
+            Viewport v = Program.Viewports[index];
+            return $"Camera {index} ({v.Width}x{v.Height})";
+        }
+        catch
+        {
+            return $"#{index}";
+        }
+    }
+
+    /// <summary>
+    /// Puts one viewport's camera at a point in Ecl, looking along a direction.
+    ///
+    /// <para>Must be written every frame. Each viewport runs a controller that rewrites its
+    /// camera from whatever mode it is in, so this holds only for as long as it keeps being
+    /// reapplied — and only if it runs after that controller. The GUI hook does, which is why
+    /// the call sits there.</para>
+    ///
+    /// <para>KSA opens views itself; <c>AddViewport</c> is private, so a mod cannot make one. It
+    /// can drive one the player has opened, which is the difference between borrowing a window
+    /// and stealing the main camera.</para>
+    /// </summary>
+    public static bool TryLookFromViewport(int index, double3 eyeEcl, double3 forwardEcl,
+                                           double3 upEcl, double dt)
+    {
+        if (!Vec.IsFinite(eyeEcl) || !Vec.IsFinite(forwardEcl) || !Vec.IsFinite(upEcl)) return false;
+        if (Vec.Len2(forwardEcl) < 1e-12) return false;
+
+        try
+        {
+            if (Program.Viewports is not { } viewports) return false;
+            if (index < 0 || index >= viewports.Count) return false;
+
+            Viewport viewport = viewports[index];
+
+            // A view in Map mode renders the map scene — starfield, orbits, planets as discs —
+            // and GetCamera() hands back the *map* camera, so moving it puts the map somewhere
+            // else rather than showing the world from here. Fixed is the mode that draws the
+            // scene from wherever its camera happens to be, which is the whole point.
+            if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
+
+            Camera camera = viewport.BaseCamera;
+            if (camera is null) return false;
+
+            // Position and orientation together: setting one without the other leaves a frame
+            // drawn from the old place looking the new way.
+            camera.LookAt(eyeEcl, eyeEcl + Vec.Unit(forwardEcl) * 1000.0, upEcl);
+
+            // Moving a camera does not tell it where it now is. The sky, the atmosphere and the
+            // terrain LOD are all shaded from this context, which the engine derives per camera
+            // for its own controller — so a camera the mod has moved keeps whatever its
+            // controller last worked out and renders the sky from there. Copied from the main
+            // view, which is metres away and has it right.
+            if (Program.GetMainCamera() is { } reference)
+            {
+                camera.NearbyCelestial = reference.NearbyCelestial;
+                camera.CurrentAltitudeKm = reference.CurrentAltitudeKm;
+                camera.DistanceToNearbyCelestialKm = reference.DistanceToNearbyCelestialKm;
+                camera.DistanceToNearbyCelestialSurfaceMeanKm =
+                    reference.DistanceToNearbyCelestialSurfaceMeanKm;
+                camera.NearbyCelestialTerrainHeight = reference.NearbyCelestialTerrainHeight;
+            }
+
+            // Setting the fields is not enough on its own: the sky and atmosphere are shaded from
+            // data the engine uploads per viewport, which by this point in the frame already holds
+            // where the camera *was*. These recompute and re-upload it for the new position.
+            if (Program.Instance is { } program)
+            {
+                program.UpdateShaderData(dt, viewport);
+                program.SetCameraUbo(viewport);
+            }
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"camera: could not take view {index} ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
     public static void DrawLineEcl(double3 startEcl, double3 endEcl, float4 colour)
     {
         if (Program.GizmosRenderer is null) return;

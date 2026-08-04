@@ -20,7 +20,7 @@ internal readonly record struct TargetState(double3 PositionEcl, double3 Velocit
 /// of metres, and must not perturb the save. Its state lives entirely in the ecliptic frame.
 ///
 /// Deliberately free of KSA types so the guidance and fuse can be exercised headlessly -
-/// see tests/AirDefence.Tests. The caller samples the target once per frame and passes it in;
+/// see tests/KSArmory.Tests. The caller samples the target once per frame and passes it in;
 /// the round extrapolates that state across its own sub-steps.
 /// </summary>
 internal sealed class Interceptor : IProjectile
@@ -131,6 +131,9 @@ internal sealed class Interceptor : IProjectile
     /// against the tube it came out of rather than against the platform's orbit position.
     /// </summary>
     public double3 LaunchAnchorPartFrame { get; set; }
+
+    /// <inheritdoc cref="IProjectile.Munition"/>
+    public MunitionProfile Munition { get; init; } = Arsenal.Missile57E6;
 
     // Recent positions for the smoke trail, oldest first, as platform-relative offsets. Stored this
     // way for the same reason: absolute points recorded across 1.6 s of trail would be smeared over

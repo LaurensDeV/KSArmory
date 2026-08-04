@@ -21,6 +21,7 @@ internal sealed class Ui(Config config, DefenceBattery battery)
 
     private readonly Config _config = config;
     private readonly DefenceBattery _battery = battery;
+    private readonly List<int> _viewports = [];
 
     public bool Visible = true;
 
@@ -42,6 +43,9 @@ internal sealed class Ui(Config config, DefenceBattery battery)
             ImGui.End();
             return;
         }
+
+        ImGui.TextDisabled($"KSArmory {Build.Version}");
+        ImGui.Separator();
 
         DrawStatus();
         ImGui.Separator();
@@ -91,6 +95,13 @@ internal sealed class Ui(Config config, DefenceBattery battery)
 
         ImGui.SameLine();
         ImGui.Text($"   Rounds: {_battery.Ammo}/{_profile.TubeCount}");
+
+        if (_profile.HasCannon)
+        {
+            ImGui.SameLine();
+            if (_battery.GunsFiring) ImGui.TextColored(Red, $"   Cannon: {_battery.GunAmmo} FIRING");
+            else ImGui.Text($"   Cannon: {_battery.GunAmmo}");
+        }
 
         if (_battery.ReloadRemaining > 0.0)
         {
@@ -170,6 +181,51 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         }
     }
 
+    // Which of the game's camera views the optical head drives. KSA opens the views; a mod can
+    // only borrow one, so this is a picker rather than a switch.
+    private void DrawOpticView()
+    {
+        if (_battery.OpticPart is null) return;
+
+        // Only windows the player can actually see. KSA keeps offscreen viewports of its own -
+        // the thumbnail renderer is one - and offering those means picking a view that shows
+        // nothing, which is indistinguishable from the feature being broken.
+        KsaWorld.CollectUsableViewports(_viewports);
+
+        ImGui.Text("Optical head view:");
+        ImGui.SameLine();
+
+        if (_viewports.Count == 0)
+        {
+            ImGui.TextDisabled("open a camera window in KSA (View menu), then pick it here");
+            _config.OpticViewport = -1;
+            return;
+        }
+
+        if (ImGui.RadioButton("off", _config.OpticViewport < 0)) _config.OpticViewport = -1;
+
+        foreach (int index in _viewports)
+        {
+            ImGui.SameLine();
+            if (ImGui.RadioButton(KsaWorld.DescribeViewport(index), _config.OpticViewport == index))
+            {
+                _config.OpticViewport = index;
+            }
+        }
+
+        if (_config.OpticViewport >= 0)
+        {
+            ImGui.TextDisabled("  no sky or terrain detail here - KSA renders secondary views");
+            ImGui.TextDisabled("  without the atmosphere pass. See docs/BLOCKED-ON-KSA.md");
+        }
+
+        // A window closed under us, so stop writing to something that is no longer shown.
+        if (_config.OpticViewport >= 0 && !_viewports.Contains(_config.OpticViewport))
+        {
+            _config.OpticViewport = -1;
+        }
+    }
+
     private void DrawTurretLine()
     {
         if (_battery.Launcher is null) return;
@@ -180,10 +236,18 @@ internal sealed class Ui(Config config, DefenceBattery battery)
             return;
         }
 
-        if (!_battery.TurretDriveWorks)
+        if (_battery.AnyDriveRefused)
         {
-            ImGui.TextColored(Red, "Turret: engine refused the transform write");
-            return;
+            string frozen = string.Join(", ",
+                Enum.GetValues<DriveChannel>()
+                    .Where(c => !_battery.DriveWorks(c))
+                    .Select(c => c.ToString().ToLowerInvariant()));
+            ImGui.TextColored(Red, $"Drive: engine refused the transform write ({frozen})");
+            if (!_battery.DriveWorks(DriveChannel.Turret) || !_battery.DriveWorks(DriveChannel.Pods))
+            {
+                ImGui.TextColored(Red, "Holding fire: the tubes cannot be laid");
+                return;
+            }
         }
 
         double bearing = float.RadiansToDegrees((float)_battery.Turret.BearingRad);
@@ -216,6 +280,15 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         ImGui.Checkbox("Master arm", ref _config.Armed);
         ImGui.SameLine();
         ImGui.Checkbox("Auto engage", ref _config.AutoEngage);
+        ImGui.SameLine();
+        ImGui.Checkbox("Missiles", ref _config.MissilesEnabled);
+        if (_profile.HasCannon)
+        {
+            ImGui.SameLine();
+            ImGui.Checkbox("Cannon", ref _config.GunsEnabled);
+        }
+
+        DrawOpticView();
 
         if (ImGui.Button("FIRE")) _battery.FireAtLock();
         ImGui.SameLine();

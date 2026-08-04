@@ -69,4 +69,22 @@ internal static class Vec
         double3 seed = Math.Abs(n.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);
         return Unit(Cross(n, seed));
     }
+
+    /// <summary>
+    /// A unit vector perpendicular to <paramref name="v"/>, clocked to <paramref name="reference"/>.
+    ///
+    /// <para><see cref="AnyPerpendicular"/> seeds from a fixed ecliptic axis. For a direction that
+    /// sweeps through world space — local "up" on a rotating planet — the result turns with it,
+    /// and jumps when the seed swaps at |X| = 0.9. Anything drawn off it appears to rotate on its
+    /// own and occasionally snap. Clocking to something that turns *with* the craft holds it
+    /// still.</para>
+    /// </summary>
+    public static double3 PerpendicularTo(double3 v, double3 reference)
+    {
+        double3 n = Unit(v);
+        if (n.Equals(Zero) || !IsFinite(reference)) return AnyPerpendicular(v);
+
+        double3 flattened = reference - n * Dot(reference, n);
+        return Len2(flattened) < 1e-12 ? AnyPerpendicular(v) : Unit(flattened);
+    }
 }

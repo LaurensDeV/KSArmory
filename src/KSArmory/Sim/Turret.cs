@@ -27,8 +27,14 @@ public sealed class Turret
     /// <summary>Elevation it has been told to hold, or null if it has no order.</summary>
     public double? CommandElevationRad { get; private set; }
 
-    /// <summary>Elevation the pods sit at with nothing to look at.</summary>
-    public const double DefaultRestElevation = 0.9599; // 55 degrees, the modelled pose
+    /// <summary>
+    /// Elevation this launcher sits at with nothing to look at — its own modelled pose, so a
+    /// refused elevation write leaves the vehicle looking right. Set from the profile.
+    /// </summary>
+    public double RestElevationRad { get; set; } = DefaultRestElevation;
+
+    /// <summary>Rest pose of a launcher that has not been configured from a profile.</summary>
+    public const double DefaultRestElevation = 0.9599; // 55 degrees
 
     /// <summary>
     /// Travel limits on the elevation drive. The floor is level, not slightly below it: a real
@@ -50,16 +56,27 @@ public sealed class Turret
     /// against something skimming the horizon.</para>
     /// </summary>
     public double ForwardMinElevationRad { get; set; } = double.DegreesToRadians(15);
-    public double ForwardArcRad { get; set; } = double.DegreesToRadians(50);
+    public double ForwardArcRad { get; set; } = double.DegreesToRadians(80);
 
-    /// <summary>Lowest elevation the pods may take at a given bearing, easing across the arc
-    /// edge so traversing into the forward sector lifts them rather than snapping them up.</summary>
+    /// <summary>
+    /// How far off the bow the floor stays at its full height before easing away.
+    ///
+    /// <para>The bodywork the floor protects does not taper, so the floor must not either: a
+    /// curve that starts falling at the bow has given away most of its height by the time the
+    /// tubes are abeam the obstruction. The ease belongs outside the conflict, not across it.</para>
+    /// </summary>
+    public double ForwardPlateauRad { get; set; } = double.DegreesToRadians(62);
+
+    /// <summary>Lowest elevation the pods may take at a given bearing: flat across the sector the
+    /// bodywork occupies, then easing so traversing out of it lowers them rather than dropping
+    /// them.</summary>
     public double DepressionFloorAt(double bearingRad)
     {
         double offAxis = Math.Abs(WrapPi(bearingRad));
         if (offAxis >= ForwardArcRad || ForwardArcRad <= 0.0) return MinElevationRad;
+        if (offAxis <= ForwardPlateauRad) return Math.Max(MinElevationRad, ForwardMinElevationRad);
 
-        double t = offAxis / ForwardArcRad;
+        double t = (offAxis - ForwardPlateauRad) / (ForwardArcRad - ForwardPlateauRad);
         return Math.Max(MinElevationRad, ForwardMinElevationRad * (1.0 - t * t));
     }
 
@@ -126,7 +143,10 @@ public sealed class Turret
     }
 
     /// <summary>Sends the launcher back to rest: facing forward, pods at their modelled pose.</summary>
-    public void Stow(double restElevationRad = DefaultRestElevation)
+    public void Stow() => Stow(RestElevationRad);
+
+    /// <summary>Stows to a given elevation rather than this launcher's own rest pose.</summary>
+    public void Stow(double restElevationRad)
     {
         CommandRad = 0.0;
         CommandElevationRad = ClampElevation(restElevationRad, 0.0);
@@ -200,7 +220,7 @@ public sealed class Turret
     public void Reset()
     {
         BearingRad = 0.0;
-        ElevationRad = DefaultRestElevation;
+        ElevationRad = RestElevationRad;
         CommandRad = null;
         CommandElevationRad = null;
         SecondsOnTarget = 0.0;

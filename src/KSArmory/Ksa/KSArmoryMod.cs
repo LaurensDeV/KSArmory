@@ -1,3 +1,4 @@
+using Brutal.Numerics;
 using KSA;
 using StarMap.API;
 
@@ -21,6 +22,7 @@ public sealed class KSArmoryMod
     private DefenceBattery? _battery;
     private Ui? _ui;
     private int _faults;
+    private int _viewTrace;
     private bool _disabled;
 
     [StarMapImmediateLoad]
@@ -93,6 +95,14 @@ public sealed class KSArmoryMod
             _ui.Draw();
 
             if (KsaWorld.InFlight) Visuals.Draw(_battery, _config);
+
+            // Last, and every frame. KSA's controller writes the camera from its own mode, so a
+            // view taken earlier in the frame is simply overwritten before anything renders.
+            if (KsaWorld.InFlight && _config.OpticViewport >= 0)
+            {
+                TakeOpticView(dt);
+                Sight.Draw(_battery, _config);
+            }
         }
         catch (Exception e)
         {
@@ -150,6 +160,45 @@ public sealed class KSArmoryMod
         _battery = null;
         _ui = null;
         Log.Info("unloaded");
+    }
+
+    // Puts the view on the launcher's optical head. Returns quietly when the launcher has none or
+    // the head cannot be resolved: the toggle is allowed to be on for a craft that cannot honour
+    // it, and stealing the camera to nowhere would be worse than ignoring it.
+    private void TakeOpticView(double dt)
+    {
+        if (_battery?.Platform is not { } platform || _battery.Launcher is not { } launcher) return;
+        if (_battery.OpticPart is null) return;
+
+        _viewTrace += 1;
+        bool trace = _viewTrace % 60 == 0;
+
+        if (!LauncherPart.TryGetOpticViewEcl(platform, launcher, _config.Launcher,
+                                             _battery.Turret.BearingRad,
+                                             _battery.OpticDirectionPartFrame,
+                                             _battery.PlatformEcl,
+                                             out double3 eye, out double3 forward))
+        {
+            if (trace) Log.Debug(() => "camera: could not resolve the optical head's eye");
+            return;
+        }
+
+        // Local "up" at the launcher, which is what the boresight already is — so the horizon
+        // sits level rather than rolling with the ecliptic.
+        bool took = KsaWorld.TryLookFromViewport(_config.OpticViewport, eye, forward,
+                                                 _battery.Boresight, dt);
+        if (trace)
+        {
+            Log.Debug(() => $"camera: view {_config.OpticViewport} of {KsaWorld.ViewportCount} "
+                            + $"took={took} eye={eye.X:F0},{eye.Y:F0},{eye.Z:F0} "
+                            + $"fwd={forward.X:F3},{forward.Y:F3},{forward.Z:F3}");
+        }
+
+        if (!took)
+        {
+            _config.OpticViewport = -1;
+            Log.Warn("camera: could not drive that view; released it");
+        }
     }
 
     private void Fault(string where, Exception e)

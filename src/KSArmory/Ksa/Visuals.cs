@@ -33,7 +33,16 @@ internal static class Visuals
 
         double3 origin = battery.MountEcl;
 
-        if (config.DrawRadarVolume) DrawSearchVolume(origin, battery.Boresight, config);
+        // The overlay is clocked to the craft's own forward axis. Left to an arbitrary
+        // perpendicular it turns with the planet under a boresight that is local "up".
+        double3 clockRef = Vec.Zero;
+        if (battery.Launcher is { } launcher)
+        {
+            LauncherPart.TryLauncherDirectionEcl(battery.Platform, launcher, new double3(0, 1, 0),
+                                                 out clockRef);
+        }
+
+        if (config.DrawRadarVolume) DrawSearchVolume(origin, battery.Boresight, clockRef, config);
         if (config.DrawTracks) DrawTracks(battery, origin, config);
         if (config.DrawMissiles) DrawRounds(battery, config);
         if (battery.Launcher is not null && config.DrawTubeMarkers) DrawLoadedTubes(battery, config, origin);
@@ -41,7 +50,8 @@ internal static class Visuals
     }
 
     // Wireframe cone: boresight, a rim, and ribs out to the rim.
-    private static void DrawSearchVolume(double3 origin, double3 boresight, Config config)
+    private static void DrawSearchVolume(double3 origin, double3 boresight, double3 clockRef,
+                                         Config config)
     {
         const int ribs = 12;
 
@@ -55,7 +65,7 @@ internal static class Visuals
         double3 axisEnd = origin + boresight * range;
         KsaWorld.DrawLineEcl(origin, axisEnd, ConeColour);
 
-        double3 u = Vec.AnyPerpendicular(boresight);
+        double3 u = Vec.PerpendicularTo(boresight, clockRef);
         double3 w = Vec.Cross(boresight, u);
 
         double rimDist = range * Math.Cos(half);

@@ -78,6 +78,76 @@ public static class TubeGeometry
         return Vec.IsFinite(partFrame);
     }
 
+    /// <summary>Where the optical head looks with nothing to look at: along the vehicle's nose.</summary>
+    public static readonly double3 OpticRestDirection = new(0, 1, 0);
+
+    /// <summary>
+    /// The shortest rotation carrying one direction onto another.
+    ///
+    /// <para>The optical head points rather than trains, so unlike every other assembly here it
+    /// has no axis of its own and takes an arbitrary rotation. Antiparallel is the case worth
+    /// handling: the cross product vanishes and any perpendicular axis is equally correct, which
+    /// is a half turn about whichever one is picked rather than a NaN.</para>
+    /// </summary>
+    public static doubleQuat RotationFromTo(double3 from, double3 to)
+    {
+        double3 a = Vec.Unit(from);
+        double3 b = Vec.Unit(to);
+        if (!Vec.IsFinite(a) || !Vec.IsFinite(b) || a.Equals(Vec.Zero) || b.Equals(Vec.Zero))
+        {
+            return doubleQuat.Identity;
+        }
+
+        double dot = Math.Clamp(Vec.Dot(a, b), -1.0, 1.0);
+        if (dot > 1.0 - 1e-12) return doubleQuat.Identity;
+        if (dot < -1.0 + 1e-12)
+        {
+            return doubleQuat.CreateFromAxisAngle(Vec.AnyPerpendicular(a), Math.PI);
+        }
+
+        return doubleQuat.CreateFromAxisAngle(Vec.Unit(Vec.Cross(a, b)), Math.Acos(dot));
+    }
+
+    /// <summary>
+    /// The optical head: rides the turret's traverse, but points wherever it is told rather than
+    /// following the drives. <paramref name="aimPartFrame"/> is a direction in the part's frame.
+    /// </summary>
+    public static DrivePose OpticPose(LauncherProfile profile, double bearingRad, double3 aimPartFrame)
+    {
+        doubleQuat traverse = TurretRotation(bearingRad);
+        return new DrivePose(profile.TurretPivot + traverse * profile.OpticPivotFromTurret,
+                             RotationFromTo(OpticRestDirection, aimPartFrame));
+    }
+
+    /// <summary>
+    /// Where one barrel's muzzle sits in the launcher part's frame, given where the cannon
+    /// currently are. False for a barrel this launcher does not have.
+    /// </summary>
+    public static bool TryGunMuzzlePartFrame(LauncherProfile profile, int barrelIndex,
+                                             double3 gunPosition, doubleQuat gunRotation,
+                                             out double3 partFrame)
+    {
+        partFrame = Vec.Zero;
+        if (barrelIndex < 0 || barrelIndex >= profile.GunMuzzles.Length) return false;
+
+        partFrame = gunPosition + gunRotation * profile.GunMuzzles[barrelIndex];
+        return Vec.IsFinite(partFrame);
+    }
+
+    /// <summary>
+    /// Which way the barrels point in the cannon's own frame: the elevation they were modelled
+    /// at, exactly as <see cref="TubeAxisPodFrame(LauncherProfile)"/> does for the tubes.
+    /// </summary>
+    public static double3 GunAxisGunFrame(LauncherProfile profile)
+    {
+        double reference = profile.GunReferenceElevationRad;
+        return new double3(Math.Sin(reference), Math.Cos(reference), 0.0);
+    }
+
+    /// <summary>Which way the barrels point in the launcher part's frame.</summary>
+    public static double3 GunAxisPartFrame(LauncherProfile profile, doubleQuat gunRotation)
+        => Vec.Unit(gunRotation * GunAxisGunFrame(profile));
+
     /// <summary>
     /// Where a round's <em>centre</em> sits when seated. The body mesh is modelled about its
     /// centre, so half a body length back from the mouth puts the nose at the mouth.

@@ -51,6 +51,9 @@ internal sealed class Slug : IProjectile
     public IReadOnlyList<double3> TrailOffsets => _trail;
     public double3 LaunchAnchorPartFrame { get; set; }
 
+    /// <inheritdoc cref="IProjectile.Munition"/>
+    public MunitionProfile Munition { get; init; } = Arsenal.Cannon30Mm;
+
     public object? TargetRef { get; private set; }
 
     /// <inheritdoc cref="IProjectile.Aimpoint"/>

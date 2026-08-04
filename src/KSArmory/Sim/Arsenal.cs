@@ -41,6 +41,40 @@ public static class Arsenal
         FinMarker = "Fins",
     };
 
+    /// <summary>
+    /// The 2A38M's 30 mm shell: the Pantsir's inner layer, for what the missiles cannot reach.
+    ///
+    /// <para>A <see cref="Slug"/> rather than an <see cref="Interceptor"/> — no seeker, no boost,
+    /// no command link. It leaves at muzzle velocity and is then only ballistics and drag, which
+    /// is why the numbers that matter here are speed and reach rather than guidance.</para>
+    ///
+    /// <para>Muzzle velocity (~960 m/s) and the 4 km effective range are the real weapon's. The
+    /// fuse radii are ours: a 30 mm shell is a contact weapon, but the mod steps in sub-frames
+    /// and cannot resolve a true contact, so the fuse is the smallest radius a round travelling
+    /// 960 m/s can be tested against without stepping past it.</para>
+    /// </summary>
+    public static readonly MunitionProfile Cannon30Mm = new()
+    {
+        Name = "30MM",
+        DisplayName = "2A38M 30 mm cannon",
+
+        // No body subpart: twelve missile bodies exist because a salvo is twelve rounds, and a
+        // burst is hundreds. Shells are drawn as tracers only.
+        LaunchSpeed = 960f,
+        BoostSeconds = 0f,
+        BoostAccel = 0f,
+        MaxFlightSeconds = 6f,
+
+        // Heavier per frontal area than a missile, so it holds velocity better through the
+        // thick air where it is used at all.
+        DragK = 1.1e-5f,
+
+        FuseRadius = 3f,
+        FuseArmSeconds = 0.05f,
+        LethalRadius = 4f,
+        BlastRadius = 6f,
+    };
+
     // ---- Sensors --------------------------------------------------------
 
     /// <summary>
@@ -70,6 +104,7 @@ public static class Arsenal
         PodsMarker = "Pods",
         RadarMarker = "Radar",
         GunsMarker = "Guns",
+        OpticMarker = "Optic",
 
         // Generated: muzzle of each tube in the pods' frame, in firing order. The Pantsir's tubes
         // are a parallel block, so none declares a direction of its own and they all follow the
@@ -93,8 +128,20 @@ public static class Arsenal
         TurretPivot = new(0.00000, -1.42000, 0.00000),
         PodPivotFromTurret = new(2.62000, -0.63000, 0.00000),
         RadarPivotFromTurret = new(4.05000, -1.10000, 0.00000),
+        OpticPivotFromTurret = new(4.10000, 1.07000, 0.44000),
         GunPivotFromTurret = new(3.70000, 0.07000, 0.00000),
         GunReferenceElevationRad = 0.38397,          // 22 degrees
+
+        // The inner layer: what the missiles cannot reach, because they need 1.2 km to arm and
+        // steer. Generated with the tube table by tools/model/pantsir.py.
+        GunMunition = "30MM",
+        GunMuzzles =
+        [
+            new( 1.01144,  2.50340, -1.94000),
+            new( 1.01144,  2.50340, -1.76000),
+            new( 1.01144,  2.50340,  1.76000),
+            new( 1.01144,  2.50340,  1.94000),
+        ],
         PodReferenceElevationRad = 0.95993,          // 55 degrees
         MuzzleForwardOffset = 5.446,
         TubeRingRadius = 1.231,
@@ -103,7 +150,7 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1];
-    public static readonly IReadOnlyList<MunitionProfile> Munitions = [Missile57E6];
+    public static readonly IReadOnlyList<MunitionProfile> Munitions = [Missile57E6, Cannon30Mm];
     public static readonly IReadOnlyList<SensorProfile> Sensors = [SearchRadar1Rs1];
 
     /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
