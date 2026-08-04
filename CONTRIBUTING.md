@@ -133,6 +133,11 @@ not evidence. This mod's hardest bugs live in the gap between the maths and what
 does, and that gap is only visible in game. If you cannot test in game, say so in the PR — that is
 a perfectly good contribution, it just means someone else confirms it before it ships.
 
+**Docs are part of the change.** If your commit makes a line in `CLAUDE.md`, `docs/`, `README.md`
+or a comment untrue, fix it in the same commit — a stale line is worse than a missing one, because
+it is trusted. Comment *why*, never *what*; keep it to a sentence or two; and if a comment is not
+strictly necessary, delete it. See the "Comments and documentation" section of `CLAUDE.md`.
+
 **A regression test only counts if it fails against the old code.** Check that it does, every
 time. Tests here have three times been written for a bug, passed against it, and looked like
 proof — usually by asserting at the wrong instant. Reintroduce the bug, watch the test go red, put

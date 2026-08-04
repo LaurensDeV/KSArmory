@@ -18,6 +18,39 @@ Read it before touching anything KSA-facing — it will save you an hour of deco
 KSA has **no official code-modding API**. Everything is community tooling against a pre-release
 game, so the API moves between builds.
 
+## Comments and documentation
+
+**Docs are part of the change, not a follow-up.** If a change makes a line in `CLAUDE.md`, a
+`docs/` file, `README.md` or a comment untrue, fix it in the same commit. A stale line is worse
+than a missing one: it is trusted. This file claimed "nothing has been verified in-game" for
+months after most of it had been, and `Directory.Build.props` described a check that did not
+exist — both were believed until someone happened to look.
+
+**Comment why, never what.** The code says what it does. A comment earns its place only when the
+reason is not recoverable from reading it — an engine contract, a measured number, a bug that
+already shipped, an ordering that looks arbitrary and is not. Everything else is noise that goes
+stale.
+
+```csharp
+// Anchor to the tube, not the orbit position: those differ by metres on a landed craft.   ok
+double3 travelPart = asmb2Part * (ecl2Asmb * travelEcl);
+
+// Convert the travel into the part frame.                                                 delete
+double3 travelPart = asmb2Part * (ecl2Asmb * travelEcl);
+```
+
+**Keep them short.** A sentence or two. If a comment needs paragraphs, the explanation belongs in
+`docs/` with a one-line pointer to it — that is what `docs/FRAMES-AND-EPOCHS.md` and
+`docs/MODULARITY.md` are for.
+
+**When in doubt, delete.** An unnecessary comment is not neutral: it is another thing that can
+drift out of step with the code and mislead the next reader. Deleting one is a real improvement,
+not a loss.
+
+The load-bearing exceptions are deliberate and stay: the notes recording *why* a phase, an
+ordering or a fallback is what it is. Those cost hours to learn and are invisible in the code.
+Prune around them.
+
 ## Committing
 
 **Every commit message must be a [Conventional Commit](https://www.conventionalcommits.org/).**
