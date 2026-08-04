@@ -122,8 +122,16 @@ BOOSTER_R = 0.086
 BOOSTER_LEN = 1.20
 
 GUN_ELEV = math.radians(22.0)
-GUN_Z = 1.06                             # inboard of the pods, as on the real turret
+
+# Outboard of the pod bundle, which reaches Z 1.44, and clear of the turret cheeks at 1.00-1.24.
+# The barrels sit at GUN_Z +/- 0.09, so anything under 1.53 buries the inner one in geometry.
+GUN_Z = 1.62
 GUN_MOUNT = (2.74, -1.35)                # (X, Y) - high enough that the barrels clear the cab
+
+# The cannon elevate about a line across the vehicle through both mounts, as the pods do about
+# their trunnion. Their mesh is exported recentred on it so KSA's subpart rotation pitches them
+# in place rather than swinging them round the turret.
+GUN_PIVOT = (GUN_MOUNT[0], GUN_MOUNT[1], 0.0)
 BARREL_LEN = 2.40
 BARREL_R = 0.036
 
@@ -161,7 +169,7 @@ _jitter = random.Random(0x9A5D)
 UV_PER_METRE = 0.012
 SWATCH_REACH = 0.08
 
-_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "missile": [],
+_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "guns": [], "missile": [],
             "fins": []}
 _group = "chassis"
 
@@ -466,7 +474,13 @@ def build_turret():
              (min(z * 1.00, z * 1.24), max(z * 1.00, z * 1.24)), "hull_dark")
 
     build_trunnions()
+
+    # The cannon pitch independently of the turret's traverse, so they need their own mesh and
+    # pivot. Built here because they hang off the turret cheeks, but exported separately.
+    _group = "guns"
     build_guns()
+    _group = "turret"
+
     build_tracking_radar()
     build_search_radar_mount()
 
@@ -730,6 +744,7 @@ def export(path):
     turret = join_group("turret", recentre=TURRET_PIVOT)
     pods = join_group("pods", recentre=POD_PIVOT)
     radar = join_group("radar", recentre=RADAR_PIVOT)
+    guns = join_group("guns", recentre=GUN_PIVOT)
     missile = join_group("missile")
     fins = join_group("fins")
 
@@ -740,6 +755,7 @@ def export(path):
                       (turret, "AirDefence_Subpart_Turret"),
                       (pods, "AirDefence_Subpart_Pods"),
                       (radar, "AirDefence_Subpart_Radar"),
+                      (guns, "AirDefence_Subpart_Guns"),
                       (missile, "AirDefence_Subpart_Missile"),
                       (fins, "AirDefence_Subpart_Fins")):
         preview = ob.copy()
@@ -897,6 +913,9 @@ def report_muzzles(out_dir):
     print(f"    PodPivot             = ({POD_PIVOT[0]:.3f}, {POD_PIVOT[1]:.3f}, {POD_PIVOT[2]:.3f})")
     print(f"    PodPivotFromTurret   = ({pod_rel_turret.x:.5f}, {pod_rel_turret.y:.5f}, {pod_rel_turret.z:.5f})")
     print(f"    PodReferenceElevDeg  = {math.degrees(POD_ELEV):.3f}")
+    gun_rel_turret = Vector(GUN_PIVOT) - Vector(TURRET_PIVOT)
+    print(f"    GunPivotFromTurret   = ({gun_rel_turret.x:.5f}, {gun_rel_turret.y:.5f}, {gun_rel_turret.z:.5f})")
+    print(f"    GunReferenceElevDeg  = {math.degrees(GUN_ELEV):.3f}")
     print(f"    RadarPivotFromTurret = ({radar_rel_turret.x:.5f}, {radar_rel_turret.y:.5f}, "
           f"{radar_rel_turret.z:.5f})")
 
