@@ -230,8 +230,8 @@ the Ids must match exactly between the two files.
 
 ### 3.1 The panel appears
 
-- [x] In flight, an **Air Defence** window is visible.
-- [x] Closing it leaves a small **Air Defence** button that reopens it.
+- [x] In flight, a **KSArmory** window is visible.
+- [x] Closing it leaves a small **KSArmory** button that reopens it.
 - [ ] Header shows `Platform: <your craft>` and `Launcher: Pantsir-S1 fitted` in green.
 - [ ] Shows `MASTER ARM: SAFE` in green and `Rounds: 12/12`.
 

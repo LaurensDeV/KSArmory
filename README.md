@@ -1,4 +1,4 @@
-# KSA Air Defence
+# KSArmory
 
 A point-defence mod for **[Kitten Space Agency](https://kittenspaceagency.wiki.gg/)**: a
 **Pantsir-S1** that searches, tracks and engages vehicles flying at or past your craft.
@@ -87,14 +87,14 @@ truncated each session. You should see:
 
 ```
 loading (mod id: KSArmory)
-ready - 12 tubes, safe. Open the 'Air Defence' panel to arm.
+ready - 12 tubes, safe. Open the 'KSArmory' panel to arm.
 ```
 
 The `ready` line arrives roughly **20 seconds after** the first, because the loader waits for
 the game to finish loading. That delay is normal, not a hang.
 
 Then: build a craft with the **Pantsir-S1 Point Defence System** (under *Structural*), launch,
-and the **Air Defence** panel appears once you are in flight.
+and the **KSArmory** panel appears once you are in flight.
 
 ### If it doesn't
 

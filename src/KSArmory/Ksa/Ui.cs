@@ -29,15 +29,15 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         if (!Visible)
         {
             // Closing the panel must not strand the operator with no way back.
-            if (ImGui.Begin("Air Defence##reopen", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
+            if (ImGui.Begin("KSArmory##reopen", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
             {
-                if (ImGui.Button("Air Defence")) Visible = true;
+                if (ImGui.Button("KSArmory")) Visible = true;
             }
             ImGui.End();
             return;
         }
 
-        if (!ImGui.Begin("Air Defence", ref Visible))
+        if (!ImGui.Begin("KSArmory", ref Visible))
         {
             ImGui.End();
             return;
