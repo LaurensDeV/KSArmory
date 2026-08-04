@@ -104,6 +104,10 @@ internal static class LauncherPart
     public static Part? FindRadar(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.RadarMarker);
 
+    /// <summary>The cannon, which pitch on their own trunnion.</summary>
+    public static Part? FindGuns(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.GunsMarker);
+
     /// <summary>
     /// Collects the round subparts, in declaration order, so tube N maps to the same body every
     /// time. There is one per tube, which is what lets a whole salvo be in the air at once.
@@ -469,6 +473,27 @@ internal static class LauncherPart
     /// sibling of the turret and both the composed rotation and the position have to be written
     /// each frame — see <see cref="TubeGeometry.PodPose"/>.
     /// </summary>
+    /// <summary>Pitches the cannon and carries them round with the turret.</summary>
+    public static bool TryApplyGunAim(Part guns, LauncherProfile profile, double bearingRad, double elevationRad)
+    {
+        try
+        {
+            DrivePose pose = TubeGeometry.GunPose(profile, bearingRad, elevationRad);
+
+            guns.Asmb2ParentAsmb = pose.Rotation;
+            guns.Asmb2ParentAsmbSafe = pose.Rotation;
+            guns.PositionParentAsmb = pose.Position;
+            guns.PositionParentAsmbSafe = pose.Position;
+            guns.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"guns: could not write aim ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
     public static bool TryApplyPodAim(Part pods, LauncherProfile profile, double bearingRad, double elevationRad)
     {
         try

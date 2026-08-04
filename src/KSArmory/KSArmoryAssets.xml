@@ -105,6 +105,17 @@
     </MeshView>
   </SubPart>
 
+  <!-- Twin 30 mm cannon, one each side. Pitch on their own trunnion, outboard of the pods. -->
+  <SubPart Id="AirDefence_Subpart_Guns">
+    <PartModel Id="AirDefence_Subpart_Guns_Model">
+      <Mesh Id="AirDefence_Subpart_Guns" />
+      <Material Id="AirDefence_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="AirDefence_Subpart_Guns_VM" />
+    </MeshView>
+  </SubPart>
+
   <!-- Twelve missile containers in two pods. Elevates on the turret's trunnions. -->
   <SubPart Id="AirDefence_Subpart_Pods">
     <PartModel Id="AirDefence_Subpart_Pods_Model">
@@ -142,6 +153,17 @@
     <SubPart Id="AirDefence_Launcher_Pods" InstanceOf="AirDefence_Subpart_Pods">
       <Transform>
         <Position X="2.62000" Y="-2.05000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Cannon. Pitch about their own trunnion while riding the turret, so like the pods they get
+      both rotation and position rewritten every frame.
+      Keep in step with GUN_PIVOT in tools/model/pantsir.py.
+    -->
+    <SubPart Id="AirDefence_Launcher_Guns" InstanceOf="AirDefence_Subpart_Guns">
+      <Transform>
+        <Position X="2.74000" Y="-1.35000" Z="0.00000" />
       </Transform>
     </SubPart>
 

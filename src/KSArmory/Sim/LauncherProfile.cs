@@ -54,6 +54,9 @@ public sealed class LauncherProfile
     /// <summary>Turns continuously. Cosmetic.</summary>
     public string? RadarMarker { get; init; }
 
+    /// <summary>Cannon that elevate on their own trunnion. Null for a launcher with none.</summary>
+    public string? GunsMarker { get; init; }
+
     // ---- Geometry, generated. See the class summary. ----
 
     /// <summary>Rounds carried, and the length of <see cref="Tubes"/>.</summary>
@@ -77,6 +80,15 @@ public sealed class LauncherProfile
 
     /// <summary>Where the search array's turntable sits relative to the turret's axis.</summary>
     public double3 RadarPivotFromTurret { get; init; }
+
+    /// <summary>Where the cannon trunnion sits relative to the turret's axis.</summary>
+    public double3 GunPivotFromTurret { get; init; }
+
+    /// <summary>
+    /// Elevation the cannon are modelled at. Runtime elevation is a rotation away from it, the
+    /// same convention as <see cref="PodReferenceElevationRad"/>.
+    /// </summary>
+    public double GunReferenceElevationRad { get; init; }
 
     /// <summary>
     /// Elevation the pods are modelled at. Runtime elevation is a rotation <em>away</em> from it,

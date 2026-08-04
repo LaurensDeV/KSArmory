@@ -111,13 +111,31 @@ public static class TubeGeometry
     /// <c>reference - elevation</c>, applied before the traverse.</para>
     /// </summary>
     public static DrivePose PodPose(LauncherProfile profile, double bearingRad, double elevationRad)
+        => ElevatingPose(profile, profile.PodPivotFromTurret,
+                         profile.PodReferenceElevationRad, bearingRad, elevationRad);
+
+    /// <summary>
+    /// Where the cannon sit and how they are pitched. Same drive as the pods on a different
+    /// trunnion, so a launcher with both gets one implementation rather than two.
+    /// </summary>
+    public static DrivePose GunPose(LauncherProfile profile, double bearingRad, double elevationRad)
+        => ElevatingPose(profile, profile.GunPivotFromTurret,
+                         profile.GunReferenceElevationRad, bearingRad, elevationRad);
+
+    /// <summary>
+    /// An assembly that elevates about a trunnion offset from the traverse axis, then rides the
+    /// turret round. Because the trunnion is offset, the position moves with the traverse and has
+    /// to be rewritten too.
+    /// </summary>
+    public static DrivePose ElevatingPose(LauncherProfile profile, double3 pivotFromTurret,
+                                          double referenceElevationRad,
+                                          double bearingRad, double elevationRad)
     {
         doubleQuat traverse = TurretRotation(bearingRad);
         doubleQuat elevate = doubleQuat.CreateFromAxisAngle(
-            ElevationAxis, profile.PodReferenceElevationRad - elevationRad);
+            ElevationAxis, referenceElevationRad - elevationRad);
 
-        return new DrivePose(profile.TurretPivot + traverse * profile.PodPivotFromTurret,
-                             traverse * elevate);
+        return new DrivePose(profile.TurretPivot + traverse * pivotFromTurret, traverse * elevate);
     }
 
     /// <summary>

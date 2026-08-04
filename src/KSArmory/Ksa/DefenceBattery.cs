@@ -58,6 +58,9 @@ internal sealed class DefenceBattery(Config config)
     /// <summary>The search array, which turns continuously on its own turntable.</summary>
     public Part? RadarPart { get; private set; }
 
+    /// <summary>The cannon, which pitch with the launcher. Null if this system carries none.</summary>
+    public Part? GunsPart { get; private set; }
+
     /// <summary>The search array's current angle. Cosmetic - the radar model is a cone search.</summary>
     public double RadarSpinRad { get; private set; }
 
@@ -222,6 +225,7 @@ internal sealed class DefenceBattery(Config config)
         TurretPart = Launcher is null ? null : LauncherPart.FindTurret(Launcher, _profile);
         PodsPart = Launcher is null ? null : LauncherPart.FindPods(Launcher, _profile);
         RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher, _profile);
+        GunsPart = Launcher is null ? null : LauncherPart.FindGuns(Launcher, _profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
         // After the launcher is resolved: the part-relative modes read the part's own mounting.
@@ -456,6 +460,13 @@ internal sealed class DefenceBattery(Config config)
         if (TurretDriveWorks && PodsPart is not null)
         {
             TurretDriveWorks = LauncherPart.TryApplyPodAim(PodsPart, _profile, Turret.BearingRad, Turret.ElevationRad);
+        }
+
+        // The cannon follow the same aim as the pods: one turret, one solution.
+        if (TurretDriveWorks && GunsPart is not null)
+        {
+            TurretDriveWorks = LauncherPart.TryApplyGunAim(GunsPart, _profile,
+                                                           Turret.BearingRad, Turret.ElevationRad);
         }
 
         // The search array turns regardless of what the battery is doing - it is looking, not

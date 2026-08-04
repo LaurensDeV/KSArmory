@@ -69,6 +69,7 @@ public static class Arsenal
         TurretMarker = "Turret",
         PodsMarker = "Pods",
         RadarMarker = "Radar",
+        GunsMarker = "Guns",
 
         // Generated: muzzle of each tube in the pods' frame, in firing order. The Pantsir's tubes
         // are a parallel block, so none declares a direction of its own and they all follow the
@@ -92,6 +93,8 @@ public static class Arsenal
         TurretPivot = new(0.00000, -1.42000, 0.00000),
         PodPivotFromTurret = new(2.62000, -0.63000, 0.00000),
         RadarPivotFromTurret = new(4.05000, -1.10000, 0.00000),
+        GunPivotFromTurret = new(2.74000, 0.07000, 0.00000),
+        GunReferenceElevationRad = 0.38397,          // 22 degrees
         PodReferenceElevationRad = 0.95993,          // 55 degrees
         MuzzleForwardOffset = 5.446,
         TubeRingRadius = 1.231,

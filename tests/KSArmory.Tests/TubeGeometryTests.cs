@@ -31,6 +31,9 @@ public class TubeGeometryTests
         TurretPivot = new(0.0, -1.5, 0.0),
         PodPivotFromTurret = new(2.5, -0.5, 0.0),
         RadarPivotFromTurret = new(4.0, -1.0, 0.0),
+        GunsMarker = "Guns",
+        GunPivotFromTurret = new(2.7, 0.1, 0.0),
+        GunReferenceElevationRad = 0.38397,
         PodReferenceElevationRad = referenceElevationRad,
         MuzzleForwardOffset = 5.0,
         TubeRingRadius = 1.2,
@@ -477,6 +480,73 @@ public class TubeGeometryTests
                 Assert.Equal(1.0, Vec.Len(dir), 9);
             }
         }
+    }
+
+    // ---- The cannon ------------------------------------------------------
+
+    /// <summary>
+    /// The cannon use the same drive as the pods on a different trunnion, so everything the pods
+    /// are pinned for has to hold for them: elevating to an angle produces that angle, the
+    /// trunnion rides the traverse, and elevation alone does not move it.
+    /// </summary>
+    [Fact]
+    public void TheCannonElevateOnTheirOwnTrunnion()
+    {
+        LauncherProfile profile = TestLauncher();
+
+        DrivePose forward = TubeGeometry.GunPose(profile, bearingRad: 0.0, elevationRad: 0.3);
+        AssertClose(profile.TurretPivot + profile.GunPivotFromTurret, forward.Position,
+                    "cannon at zero bearing");
+
+        // Half a turn about the traverse axis flips the offset's Y and Z, not the pivot.
+        DrivePose reversed = TubeGeometry.GunPose(profile, Math.PI, 0.3);
+        double3 g = profile.GunPivotFromTurret;
+        AssertClose(profile.TurretPivot + new double3(g.X, -g.Y, -g.Z), reversed.Position,
+                    "cannon reversed");
+
+        // Elevation happens about the trunnion, so the trunnion itself stays put.
+        DrivePose high = TubeGeometry.GunPose(profile, 0.0, Math.PI / 2);
+        AssertClose(forward.Position, high.Position, "cannon pivot across the elevation range");
+    }
+
+    /// <summary>
+    /// The cannon and the pods are laid on one solution but sit at different modelled angles, so
+    /// the same commanded elevation must produce the same barrel angle from either reference.
+    /// </summary>
+    [Fact]
+    public void TheCannonAndThePodsReachTheSameCommandedElevation()
+    {
+        LauncherProfile profile = TestLauncher(0.95993);
+
+        foreach (double commanded in new[] { 0.0, 0.4, 1.1, Math.PI / 2 })
+        {
+            DrivePose pods = TubeGeometry.PodPose(profile, 0.0, commanded);
+            DrivePose guns = TubeGeometry.GunPose(profile, 0.0, commanded);
+
+            // Each reference axis carried through its own drive lands at the commanded angle.
+            double3 podAxis = Vec.Unit(pods.Rotation * TubeGeometry.TubeAxisPodFrame(profile));
+            double3 gunAxis = Vec.Unit(guns.Rotation * new double3(
+                Math.Sin(profile.GunReferenceElevationRad),
+                Math.Cos(profile.GunReferenceElevationRad), 0.0));
+
+            AssertClose(new double3(Math.Sin(commanded), Math.Cos(commanded), 0), podAxis,
+                        $"pod axis at {commanded:F3}");
+            AssertClose(new double3(Math.Sin(commanded), Math.Cos(commanded), 0), gunAxis,
+                        $"gun axis at {commanded:F3}");
+        }
+    }
+
+    [Fact]
+    public void ALauncherWithNoCannonSaysSo()
+    {
+        var noGuns = new LauncherProfile
+        {
+            PartId = "Test_Prefab_NoGuns", DisplayName = "no guns",
+            Munition = "57E6", Sensor = "1RS1",
+            Tubes = [new(1, 0, 0)],
+        };
+
+        Assert.Null(noGuns.GunsMarker);
     }
 
     // ---- The muzzle ring fallback --------------------------------------
