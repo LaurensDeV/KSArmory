@@ -81,31 +81,41 @@ refactor(sim): split launch geometry out of LauncherPart
 
 | Type | Version effect |
 | --- | --- |
-| `fix`, `perf`, `build`, `revert` | patch |
-| `feat` | minor |
+| `feat`, `fix`, `perf`, `build`, `revert` | **patch** |
 | `!` after the type, or a `BREAKING CHANGE:` footer | **major** — see the 1.0.0 note below before using this |
 | `docs`, `refactor`, `test`, `chore`, `ci`, `style` | no release (`docs` and `refactor` still reach the changelog) |
+| a **minor** | never automatic — tag it by hand |
+
+**The type says what a change is; it does not decide how big the version bump is.** `feat` cuts a
+patch like everything else, so labelling something a feature is a changelog decision rather than a
+release-size one. That split is deliberate: a mod's routine flow is features, enhancements and
+fixes together, and bumping minor for each of them makes the middle digit a commit counter.
+
+
+**A minor is a deliberate act.** When something genuinely lands — a new weapon system, a KSA
+compatibility milestone — tag it:
+
+```bash
+git tag -a v0.9.0 -m "second weapon system"
+git push origin v0.9.0
+```
+
+semantic-release reads the newest tag and carries on from it, so the next `fix` after that is
+0.9.1. The same mechanism anchored the very first release.
 
 Scope is optional but useful; prefer the area touched — `turret`, `rounds`, `radar`, `sim`,
 `model`, `ci`. Keep the subject in the imperative and under ~72 characters, and use the body to
 say *why* when the reason is not obvious from the diff.
 
-**`feat` requires a change a player can observe in the shipped archive**, not merely one that
-makes a future change possible. The test is concrete: *could someone install the new archive and
-see a difference without editing source?* If not, it is not a feature yet.
-
-**Capability nothing uses is `refactor`, however large.** A new profile field, a new abstraction,
-a new axis of configuration — all `refactor` until something in `Arsenal.cs` or the panel actually
-uses them. It becomes a `feat` in the commit that *uses* it, which is also the first commit whose
-behaviour anyone can check. Judging by "could a player eventually notice" is the loophole; it
-turns every enabling change into a minor and the version stops meaning anything.
-
-That is not hypothetical bookkeeping. Releases 0.1.1, 0.2.0 and 0.3.0 differ only in `<Version>`,
-and so do most of 0.7.0 and 0.8.0 — a run of minor bumps that shipped archives behaving
-identically to the one before.
+**`feat` still means a player can observe the difference in the shipped archive.** Capability that
+nothing in `Arsenal.cs` or the panel yet uses is `refactor` — it becomes a feature in the commit
+that uses it, which is also the first commit whose behaviour anyone can check. This matters for
+the changelog rather than for the version now: a Features section listing things nobody can reach
+is worse than a short one.
 
 Scope is not consulted either: `feat(tools)` on a developer script is still a `feat` and still
-bumps the mod's minor version. Developer tooling is `chore`, `ci`, `test` or `refactor`. The
+cuts a release, publishing an archive identical to the last but for its version string. Developer
+tooling is `chore`, `ci`, `test` or `refactor`. The
 commit-msg hook warns when a `feat`/`fix`/`perf` commit touches nothing under `src/AirDefence/`;
 it only warns, because a packaging fix in `tools/package.sh` genuinely changes what ships without
 touching `src/` and no mechanical rule gets that right.
