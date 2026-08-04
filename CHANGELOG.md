@@ -1,3 +1,22 @@
+## [0.8.2](https://github.com/LaurensDeV/KSArmory/compare/v0.8.1...v0.8.2) (2026-08-04)
+
+### Features
+
+* **turret:** elevate the cannon with the launcher ([8035fba](https://github.com/LaurensDeV/KSArmory/commit/8035fbab33156ebaec40f7530cf904ac5f928a9e))
+
+### Fixes
+
+* **model:** mount the cannon on sponsons and give them daylight ([1fc641c](https://github.com/LaurensDeV/KSArmory/commit/1fc641c0b05a7a3cc82d72c6ee203972700770ca))
+* **model:** place the cannon where their mesh was recentred ([a9682b6](https://github.com/LaurensDeV/KSArmory/commit/a9682b62a9a03012175ade89ab2dc9beb487161b))
+* **model:** raise the cannon clear of the turret body ([14668ab](https://github.com/LaurensDeV/KSArmory/commit/14668ab08109d728da85679cd83acaec0357c9b7))
+* **model:** unbury the cannon and give them their own body ([371866c](https://github.com/LaurensDeV/KSArmory/commit/371866c5d9cd50732d38e08df8450758e1b753c3))
+
+### Documentation
+
+* correct the versioning docs to match what the config now does ([f2444b7](https://github.com/LaurensDeV/KSArmory/commit/f2444b716c1c65168afb746bdf1a6fe3dff1002b))
+* hold the copyright as KSArmory, and repair the changelog links ([bc57e39](https://github.com/LaurensDeV/KSArmory/commit/bc57e39de3923de9a74d1ec0c0138186b90edb08))
+* write down what a different mod loader would have to provide ([26f434a](https://github.com/LaurensDeV/KSArmory/commit/26f434a1e158d72ea0584197d1fd0986696e2d9b))
+
 ## [0.8.1](https://github.com/LaurensDeV/KSArmory/compare/v0.8.0...v0.8.1) (2026-08-04)
 
 ### Features
