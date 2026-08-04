@@ -1,3 +1,37 @@
+## [0.7.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.6.0...v0.7.0) (2026-08-04)
+
+### Features
+
+* **radar:** let a sensor choose where its search cone points ([c184fb9](https://github.com/LaurensDeV/KSA-AirDefence/commit/c184fb9bc7cd0201cad46ba86c3ddff490f5d6cf))
+* **rounds:** scale drag by air density so vacuum launches work ([da005cb](https://github.com/LaurensDeV/KSA-AirDefence/commit/da005cb21e5fc037505ae944b530beab735e97c9))
+* **sim:** give each tube its own launch direction ([3a6416b](https://github.com/LaurensDeV/KSA-AirDefence/commit/3a6416b71f59f5ba73bc16987c1f5adac4093da8))
+* **ui:** add slow-motion simulation speed buttons ([90f1c80](https://github.com/LaurensDeV/KSA-AirDefence/commit/90f1c8011c0d76a7a540e2418ca0d0995f1fcd2a))
+
+### Fixes
+
+* **rounds:** aim at the target's own instant, not one step ahead of it ([9ed1b06](https://github.com/LaurensDeV/KSA-AirDefence/commit/9ed1b0649c059df617282c6f091f28f0bb8da7ae))
+* **rounds:** draw rounds from the frame that simulated them ([e7548c1](https://github.com/LaurensDeV/KSA-AirDefence/commit/e7548c145f0ef4ace3b560d7d5b2efaac8bfa0bf))
+* **rounds:** measure the drawn offset against its own frame's platform ([bea84a6](https://github.com/LaurensDeV/KSA-AirDefence/commit/bea84a6fd7ebf1826d094937626c26b011a3eeeb))
+* **rounds:** measure the tube muzzle from the centre of mass ([589c49b](https://github.com/LaurensDeV/KSA-AirDefence/commit/589c49b44b9b4948d779599c1126991d4236b5c8))
+* **rounds:** seat every body so none can flash at the vehicle origin ([4140846](https://github.com/LaurensDeV/KSA-AirDefence/commit/41408461139f57038b2fd0373406aeeea14ef24a))
+* **rounds:** stop a launching round pointing along Earth's orbit ([6ae0753](https://github.com/LaurensDeV/KSA-AirDefence/commit/6ae07530643946c32392c538fd8b04ae39f0ef15))
+* **rounds:** track loaded tubes instead of deriving them from ammo ([628d57a](https://github.com/LaurensDeV/KSA-AirDefence/commit/628d57afe0cd3a7909144cbd71e9fb8172559c73))
+* **sim:** join KSA's vehicle solvers before destroying a target ([e3be8ea](https://github.com/LaurensDeV/KSA-AirDefence/commit/e3be8ea11327e376278bb18618c7a706410c9f6c))
+* **sim:** step on what the engine applied, not on the pause flag ([48d7ef6](https://github.com/LaurensDeV/KSA-AirDefence/commit/48d7ef6149afb6c9a367238c123f790f19d8bbd4))
+* **testtarget:** spawn kittens as KittenEva so they can be flown ([770244d](https://github.com/LaurensDeV/KSA-AirDefence/commit/770244df8845ac5309445d1227e16eac66167f25))
+
+### Internal
+
+* **sim:** lift the launcher's tube geometry out of LauncherPart ([90a892f](https://github.com/LaurensDeV/KSA-AirDefence/commit/90a892fcd7a4d6449afd980f76dd3334de267d1c))
+* **sim:** lift the sim-step dedup into a testable gate ([c78d541](https://github.com/LaurensDeV/KSA-AirDefence/commit/c78d541520c1a96109b2104dc43a11660ab099f1))
+* **sim:** lift tube bookkeeping into a testable Magazine ([3ca5ba1](https://github.com/LaurensDeV/KSA-AirDefence/commit/3ca5ba178ec0a27adf343007664be510a1f55156))
+* **sim:** make the projectile an abstraction, not one class ([df18e45](https://github.com/LaurensDeV/KSA-AirDefence/commit/df18e45b4c32ec1f242f63f5831239489f0c2359))
+
+### Documentation
+
+* correct the modularity audit after the extraction moved it ([159bd46](https://github.com/LaurensDeV/KSA-AirDefence/commit/159bd46ab1971fe357b0284d4249f82b0ddcdc96))
+* record how far the weapon-system split generalises ([4ded6a3](https://github.com/LaurensDeV/KSA-AirDefence/commit/4ded6a390fb50d1415e5a8ef3540024ee3ea8c1c))
+
 ## [0.6.0](https://github.com/LaurensDeV/KSA-AirDefence/compare/v0.5.2...v0.6.0) (2026-08-03)
 
 ### Features
