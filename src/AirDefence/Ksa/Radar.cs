@@ -56,6 +56,11 @@ internal sealed class Radar(Config config)
             if (ReferenceEquals(candidate, platform)) continue;
             if (_config.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
 
+            // Classified before the geometry, so a friendly still appears on the panel as a
+            // contact and is simply never handed to fire control.
+            string? team = TeamOf(candidate);
+            Allegiance allegiance = _config.Iff.Classify(team);
+
             double3 targetPos = KsaWorld.PositionEcl(candidate);
             double3 targetVel = KsaWorld.VelocityEcl(candidate);
 
@@ -74,7 +79,9 @@ internal sealed class Radar(Config config)
                 ClosestApproach = a.ClosestApproach,
                 TimeToClosestApproach = a.TimeToClosestApproach,
                 HeldSeconds = _dwell.GetValueOrDefault(candidate) + dt,
-                IsThreat = a.IsThreat,
+                IsThreat = a.IsThreat && _config.Iff.MayEngage(allegiance),
+                Team = team,
+                Allegiance = allegiance,
             });
         }
 
@@ -85,6 +92,27 @@ internal sealed class Radar(Config config)
         ThreatModel.SortByPriority(Tracks);
 
         UpdateLock();
+    }
+
+    // KSA has no team field, so the craft's name is the only assignment available without extra
+    // UI. Longest match wins, so "Red Team" beats "Red" when both are listed.
+    private string? TeamOf(Vehicle v)
+    {
+        if (_config.TeamNames.Count == 0) return null;
+
+        string name = KsaWorld.DisplayName(v);
+        string? best = null;
+
+        foreach (string team in _config.TeamNames)
+        {
+            if (string.IsNullOrWhiteSpace(team)) continue;
+            if (name.Contains(team, StringComparison.OrdinalIgnoreCase)
+                && (best is null || team.Length > best.Length))
+            {
+                best = team;
+            }
+        }
+        return best;
     }
 
     private void UpdateLock()

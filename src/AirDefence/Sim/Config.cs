@@ -51,6 +51,21 @@ public sealed class Config
     /// <summary>Never fire on the vehicle the player is flying.</summary>
     public bool ProtectControlledVehicle = true;
 
+    /// <summary>
+    /// Who this battery will shoot at. Defaults to engaging anything unrecognised, so a world
+    /// where nobody has assigned teams behaves as it did before teams existed.
+    /// </summary>
+    public IffPolicy Iff { get; } = new();
+
+    /// <summary>
+    /// Substring that marks a craft as belonging to a team, matched against its name.
+    ///
+    /// <para>KSA has no team field, so a name convention is the only assignment that needs no
+    /// extra UI: a craft called "Red Hunter" is on team "Red" if that is listed here. Empty means
+    /// no craft is ever classified and everything stays Unknown.</para>
+    /// </summary>
+    public readonly List<string> TeamNames = [];
+
     /// <summary>Rounds committed to a single target before re-evaluating.</summary>
     public int RoundsPerTarget = 2;
 

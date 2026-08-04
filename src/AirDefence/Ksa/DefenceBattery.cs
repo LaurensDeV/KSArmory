@@ -391,6 +391,7 @@ internal sealed class DefenceBattery(Config config)
         if (!IsLaid) return;
 
         Track target = Radar.Locked!;
+        if (!ThreatModel.MayEngage(target, _config.Iff)) return;
         if (!ThreatModel.HasSalvoCapacity(target, _config.RoundsPerTarget)) return;
 
         // Detection reaches 36 km; the round reaches 20 km. Without this the battery empties
@@ -617,6 +618,11 @@ internal sealed class DefenceBattery(Config config)
         if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
         if (Ammo <= 0) { Announce("refused: launcher empty"); return false; }
         if (!KsaWorld.IsAlive(track.Vehicle)) { Announce("refused: target gone"); return false; }
+        if (!ThreatModel.MayEngage(track, _config.Iff))
+        {
+            Announce($"refused: {KsaWorld.DisplayName(track.Vehicle)} is {track.Allegiance}");
+            return false;
+        }
         if (!IsLaid) { Announce("refused: launcher still slewing"); return false; }
 
         // Takes the round as it picks the tube. Nothing between here and the round being added

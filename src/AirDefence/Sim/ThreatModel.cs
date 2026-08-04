@@ -142,6 +142,15 @@ internal static class ThreatModel
         => track.Range >= sensor.MinEngagementRange && track.Range <= sensor.MaxEngagementRange;
 
     /// <summary>
+    /// Whether this contact may be fired on at all, before any geometry is considered.
+    ///
+    /// <para>Separate from <see cref="InEngagementEnvelope"/> because the two answer different
+    /// questions: this one is about whose side the contact is on, that one about whether the round
+    /// can reach it. A friendly inside the envelope must still be refused.</para>
+    /// </summary>
+    public static bool MayEngage(TrackState track, IffPolicy iff) => iff.MayEngage(track.Allegiance);
+
+    /// <summary>
     /// Whether another round may be committed to this track.
     ///
     /// <para>This is what stops the battery emptying all twelve tubes into the first contact it

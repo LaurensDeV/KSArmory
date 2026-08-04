@@ -44,6 +44,12 @@ internal class TrackState
     /// <summary>True once the contact satisfies the threat criteria and may be fired on.</summary>
     public bool IsThreat { get; set; }
 
+    /// <summary>Team name this contact was assigned, if any.</summary>
+    public string? Team { get; set; }
+
+    /// <summary>Where this contact stands relative to the battery. See <see cref="IffPolicy"/>.</summary>
+    public Allegiance Allegiance { get; set; }
+
     /// <summary>Rounds currently in the air against this target.</summary>
     public int RoundsAssigned { get; set; }
 
