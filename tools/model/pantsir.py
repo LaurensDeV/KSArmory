@@ -124,8 +124,10 @@ BOOSTER_LEN = 1.20
 GUN_ELEV = math.radians(22.0)
 
 # Outboard of the pod bundle, which reaches Z 1.44, and clear of the turret cheeks at 1.00-1.24.
-# The barrels sit at GUN_Z +/- 0.09, so anything under 1.53 buries the inner one in geometry.
-GUN_Z = 1.62
+# The inner barrel's muzzle brake is the widest part: GUN_Z - 0.09 - 0.068. Clearing the pods at
+# all needs 1.60; clearing them so they do not read as touching needs a good deal more, and 1.85
+# leaves 0.25 m of daylight.
+GUN_Z = 1.85
 # Above the turret deck, which tops out at X 3.38. The cradle is 0.52 tall, so a centre below
 # 3.64 puts it inside the turret body - invisible while the guns were welded into that mesh, and
 # a swept intersection once they became a body that rotates on its own trunnion.
@@ -486,6 +488,16 @@ def build_turret():
 
     build_tracking_radar()
     build_search_radar_mount()
+
+    # Sponsons carrying the cannon trunnions, out from the cheeks and up to GUN_MOUNT. Part of
+    # the turret, not the guns: the cradle pitches on this, so it has to stay put.
+    #
+    # Added last on purpose. The box jitter runs off one seed, so inserting a primitive
+    # reshuffles every one after it - putting these earlier moved the tracking radar's faces
+    # into a 1.79 mm near-coplanar pair.
+    for z in (-1.0, 1.0):
+        span((2.90, GUN_MOUNT[0]), (GUN_MOUNT[1] - 0.34, GUN_MOUNT[1] + 0.34),
+             (min(z * 1.12, z * GUN_Z), max(z * 1.12, z * GUN_Z)), "hull_dark")
 
     # The pods are a group of their own: they pitch about the trunnion line independently of
     # the turret's traverse, so they need their own mesh, pivot and transform.
