@@ -21,9 +21,18 @@ public class MunitionVarietyTests
 
     private sealed record Engagement(RoundState State, double Closest, double Speed, double Distance, double Age);
 
+    /// <summary>Radius of the target body in this harness, which the fuse trigger includes.</summary>
+    private const double TargetRadius = 5.0;
+
     /// <summary>
     /// One crossing engagement, flown with whatever munition it is handed. The geometry is fixed,
     /// so every difference in the result is a difference in the round.
+    ///
+    /// <para><b>Closest approach is analytic, not min-over-samples.</b> At 1000 m/s a 1/60 s sample
+    /// is ~17 m of travel, so a sampled minimum reports the grid spacing rather than the pass: the
+    /// first draft of this harness returned an identical 33.91 m for fuse radii of 15 m, 2 m and
+    /// 0 m. Taking the true closest approach across each step — the same continuous measure the
+    /// fuse itself uses — is what makes a sub-metre pass measurable at all.</para>
     /// </summary>
     private static Engagement Fly(MunitionProfile munition, double3 targetStart, double3 targetVel)
     {
@@ -41,10 +50,15 @@ public class MunitionVarietyTests
         while (round.State == RoundState.Flying && t < 60.0)
         {
             double3 targetPos = targetStart + targetVel * t;
-            closest = Math.Min(closest, Vec.Len(targetPos - round.PositionEcl));
+
+            // True closest approach over this step, assuming linear relative motion across it -
+            // the assumption the fuse makes too.
+            double3 r = targetPos - round.PositionEcl;
+            double3 v = targetVel - round.VelocityEcl;
+            closest = Math.Min(closest, Vec.Len(r + v * Vec.TimeOfClosestApproach(r, v, dt)));
 
             // End-of-step, the way KSA hands a sample over.
-            round.Update(dt, new TargetState(targetPos + targetVel * dt, targetVel, 5.0),
+            round.Update(dt, new TargetState(targetPos + targetVel * dt, targetVel, TargetRadius),
                          NoGravity, frameVelocityEcl: default, platformEcl: default, munition);
             t += dt;
         }
@@ -247,6 +261,93 @@ public class MunitionVarietyTests
 
         Assert.True(a.Speed > b.Speed * 1.5,
             $"drag barely mattered: {a.Speed:F0} m/s clean against {b.Speed:F0} m/s draggy");
+    }
+
+    // ---- Kinetic kill --------------------------------------------------
+
+    /// <summary>
+    /// A hit-to-kill round is expressible with no new code: the trigger is
+    /// <c>munition.FuseRadius + target.Radius</c>, so a zero fuse radius means "trigger on contact
+    /// with the target's body" exactly.
+    ///
+    /// <para>And it cannot tunnel however small the radius gets, because the fuse is analytic —
+    /// <see cref="Vec.TimeOfClosestApproach"/> then the true range at that instant, not a sampled
+    /// distance. The limit on a kinetic round is guidance accuracy, not the fuse model.</para>
+    /// </summary>
+    [Fact]
+    public void AKineticRoundIsAProfileWithNoFuseRadiusAtAll()
+    {
+        var kinetic = LongRange();
+        kinetic.FuseRadius = 0f;          // contact with the target body, nothing more
+        kinetic.LethalRadius = 0f;
+        kinetic.BlastRadius = 0f;
+
+        Engagement hit = Fly(kinetic, new double3(6000, 0, 0), new double3(0, 150, 0));
+
+        Assert.Equal(RoundState.Detonated, hit.State);
+    }
+
+    /// <summary>
+    /// The discriminator for the above. A round that intercepts on contact must <em>miss</em> the
+    /// same target when its guidance is turned off — otherwise the scenario was winnable by flying
+    /// straight and proves nothing about hit-to-kill accuracy.
+    /// </summary>
+    [Fact]
+    public void AKineticRoundWithoutGuidanceMissesTheSameTarget()
+    {
+        var unguided = LongRange();
+        unguided.FuseRadius = 0f;
+        unguided.LethalRadius = 0f;
+        unguided.NavConstant = 0f;
+
+        Engagement miss = Fly(unguided, new double3(6000, 0, 0), new double3(0, 150, 0));
+
+        Assert.NotEqual(RoundState.Detonated, miss.State);
+        Assert.True(miss.Closest > 100.0,
+            $"an unguided round still passed within {miss.Closest:F1} m - the geometry is too easy");
+    }
+
+    /// <summary>
+    /// The fuse radius decides <em>when</em> a round bursts, not how close it gets.
+    ///
+    /// <para>Worth stating, because the obvious assertion is the wrong one. Proportional navigation
+    /// drives this engagement to a measured 0.000 m closest approach at every fuse setting from
+    /// 20 m down to contact, so "a smaller fuse forces a closer pass" is vacuous — the round was
+    /// already going to hit. What the radius actually moves is the burst instant: a wider fuse
+    /// trips further out and therefore earlier.</para>
+    /// </summary>
+    [Fact]
+    public void AWiderFuseBurstsEarlierWithoutChangingThePass()
+    {
+        var ages = new List<double>();
+
+        foreach (float fuseRadius in new[] { 40f, 20f, 5f, 0f })
+        {
+            var munition = LongRange();
+            munition.FuseRadius = fuseRadius;
+            munition.FuseArmSeconds = 0f;
+
+            Engagement flight = Fly(munition, new double3(5000, 0, 0), new double3(0, 100, 0));
+
+            Assert.Equal(RoundState.Detonated, flight.State);
+            Assert.True(flight.Closest <= fuseRadius + TargetRadius + 1e-6,
+                $"a {fuseRadius} m fuse triggered at {flight.Closest:F3} m");
+
+            ages.Add(flight.Age);
+        }
+
+        // Never earlier as the fuse narrows. Not *strictly* later at every step: with the round
+        // converging to a direct hit, a 5 m fuse and a 0 m one are both crossed inside one
+        // sub-step and burst at the same instant to four decimal places. That is the integrator's
+        // resolution, not a failure to read the profile - which the ends demonstrate.
+        for (int i = 1; i < ages.Count; i++)
+        {
+            Assert.True(ages[i] >= ages[i - 1] - 1e-9,
+                $"burst {i} at {ages[i]:F4}s came earlier than {ages[i - 1]:F4}s as the fuse narrowed");
+        }
+
+        Assert.True(ages[^1] > ages[0],
+            $"a contact fuse burst at {ages[^1]:F4}s and a 40 m one at {ages[0]:F4}s - the radius is not being read");
     }
 
     /// <summary>
