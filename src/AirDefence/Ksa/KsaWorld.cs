@@ -28,8 +28,11 @@ internal static class KsaWorld
     /// </summary>
     public static double SimStepSeconds => Universe.GetLastSimStep().DeltaTime;
 
-    private static SimTime _integratedThrough;
-    private static bool _hasIntegrated;
+    /// <summary>
+    /// The dedup itself, which is pure and lives in Sim/ so it can be tested — the failure it
+    /// prevents compounds silently and is invisible to any test that only ever steps once.
+    /// </summary>
+    private static readonly StepGate<SimTime> _stepGate = new();
 
     /// <summary>
     /// The simulated seconds to integrate now, or zero if the engine has applied no new step
@@ -53,16 +56,11 @@ internal static class KsaWorld
     public static double ConsumeSimStep()
     {
         SimStep step = Universe.GetLastSimStep();
-
-        if (_hasIntegrated && step.NextTime.Equals(_integratedThrough)) return 0.0;
-
-        _integratedThrough = step.NextTime;
-        _hasIntegrated = true;
-        return step.DeltaTime;
+        return _stepGate.Consume(step.NextTime, step.DeltaTime);
     }
 
     /// <summary>Forgets which step was last integrated. For unload and scene changes.</summary>
-    public static void ResetSimStepTracking() => _hasIntegrated = false;
+    public static void ResetSimStepTracking() => _stepGate.Reset();
 
     /// <summary>True while the simulation is stopped. KSA defines this as speed exactly zero.</summary>
     public static bool IsPaused => Universe.IsPaused();
