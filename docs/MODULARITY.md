@@ -1,4 +1,4 @@
-# Modularity: what generalises, what does not, and what it cost to make testable
+# Modularity: what generalises, what does not, and what it would take
 
 The mod was built around three profile types and a registry so that a second weapon system would
 be *data plus art*. This is an audit of how far that actually holds, read out of the code rather
@@ -177,6 +177,91 @@ Extraction has limits, and these remain untestable because they genuinely need a
 - the centre-of-mass correction in `TryGetTubeMuzzleEcl`, and `ResolveOriginEcl`'s camera round trip.
 - `SyncRoundBodies`' loop over live rounds, and `Radar.Scan`'s vehicle iteration. The maths inside
   both — `TubeGeometry`, `ThreatModel` — is covered; the iteration is not.
+
+---
+
+## Reaching further: torpedoes, RPGs, aircraft, submarines
+
+A second audit, against a much wider ambition than the first. Read out of the code and out of the
+engine's decompiled source, not estimated.
+
+**Summary: the weapon side reaches further than expected, the platform side is not the mod's
+problem at all, and the two real ceilings are both KSA's rather than ours.**
+
+### Platforms are not weapons
+
+Aircraft and submarines are **craft the player builds**, not things this mod adds. The battery
+mounts on any `Vehicle` carrying a registered launcher part and never asks what shape it is —
+`BoresightMode` already lets a launcher on something that manoeuvres search forward rather than
+along local "up".
+
+So "can we support aeroplanes" has no weapon-side answer, because there is nothing to support.
+What would actually make them interesting is **AI that flies them** and **IFF so they can fight
+each other**, and neither is a weapon concern. IFF is cheap now and expensive after ten weapon
+types exist; AI pilots are a project in their own right.
+
+### Torpedoes — one small generalisation away
+
+The engine has water: `Celestial.GetOceanReference()` gives a density, and there is an ocean
+radius and a splash event. Nothing is blocked there.
+
+The mod's blocker is naming plus one resolver. `Sim/` already threads a **scalar medium density
+ratio** through the flight model — the maths does not care what the medium is — but it is called
+`airDensityRatio`, and `KsaWorld.AirDensityRatioAt` only reads the atmosphere, so it returns 0
+below the waterline and a torpedo would coast frictionlessly.
+
+What a torpedo needs:
+
+| | |
+| --- | --- |
+| rename the ratio to a **medium** density | mechanical, ~24 references |
+| resolver returns ocean density below the ocean radius | small, `KsaWorld` only |
+| buoyancy | new, `Sim/` — a torpedo does not fall like a rock |
+| surface-crossing behaviour | new, `Sim/` — and the interesting part |
+
+Everything else it already has: `Slug` is unguided-kinetic, `Interceptor` is guided, both fuse on
+proximity or contact, and both obey the frame rules by contract.
+
+### RPGs — expressible today
+
+An unguided rocket is `Slug` with a launch speed, or an `Interceptor` with `NavConstant = 0`.
+`MunitionVarietyTests` and `ProjectileContractTests` already fly both shapes. No new code.
+
+The gap is what it shoots *at*: see below.
+
+### What the architecture genuinely cannot express
+
+**Targets must be whole vehicles.** `TargetState` is medium-agnostic — position, velocity, radius —
+but `TargetRef` is cast to `Vehicle` in five places in `DefenceBattery`. There is no way to aim at
+a *part*, a *point on the ground*, or a static structure. An anti-tank RPG wanting a specific
+component, or a bomb wanting a coordinate, cannot say so. Contained to those five places, but real.
+
+**Continuous-effect weapons have no home.** `IProjectile` is a discrete object with a position, a
+flight and a fuse. A laser has no flight time, a flamethrower has no discrete round. Those need a
+sibling abstraction, not another `IProjectile`.
+
+**Magazines are physical tubes.** Still the blocker for belt-fed guns, and it now blocks torpedo
+tubes that reload from a rack too.
+
+### The two ceilings that are not ours
+
+- **No damage below destruction.** KSA exposes `DestroyVehicleFromEvent` and nothing else. Armour,
+  penetration and component damage — most of what makes an RPG interesting against a tank — are
+  not expressible at any level of mod cleverness.
+- **No real part modules.** Registering a module type into the engine's update lists needs Harmony
+  patching. Modules are faked by scanning part Ids, which works but means every new module type
+  needs mod-side wiring rather than being declarative.
+
+### Order that follows
+
+1. **IFF and teams** — cheapest now, and everything multi-craft depends on it.
+2. **Target abstraction** — vehicle, part, or point. Unblocks RPGs, bombs and anything ground-attack.
+3. **Medium generalisation** — unblocks torpedoes; the smallest of the three.
+4. **Magazine decoupled from tubes** — unblocks guns and rack-fed launchers.
+5. **Per-craft weapon manager** — needed before several weapons on one craft behave sensibly.
+
+A continuous-effect abstraction and AI pilots sit after all of that, and neither should be
+attempted speculatively.
 
 ---
 
