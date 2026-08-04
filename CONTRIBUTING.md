@@ -126,8 +126,11 @@ notice instead of failing** — that is deliberate, not something you need to fi
 **Commit messages are [Conventional Commits](https://www.conventionalcommits.org/), and they are
 the input to versioning.** semantic-release parses them, so a message that does not parse produces
 no release and never reaches the changelog. `feat` is a minor, `fix`/`perf` a patch, `docs`,
-`test`, `refactor` and `chore` cut no release. Pick the type by asking whether a *player* would
-notice — developer tooling is `chore` however much work it was.
+`test`, `refactor` and `chore` cut no release.
+
+`feat` means a player can **observe** the difference by installing the new archive, without
+editing source. Capability that nothing yet uses is `refactor`, however large — it becomes a
+feature in the commit that uses it. Developer tooling is `chore` however much work it was.
 
 **A behaviour change is unverified until it has been flown.** Compiling and passing the suite are
 not evidence. This mod's hardest bugs live in the gap between the maths and what KSA actually

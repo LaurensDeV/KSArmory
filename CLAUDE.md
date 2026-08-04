@@ -90,14 +90,25 @@ Scope is optional but useful; prefer the area touched — `turret`, `rounds`, `r
 `model`, `ci`. Keep the subject in the imperative and under ~72 characters, and use the body to
 say *why* when the reason is not obvious from the diff.
 
-**Pick the type by asking whether a player would notice, not by how much work it was.** The
-scope is not consulted: `feat(tools)` on a developer script is still a `feat`, so it bumps the
-*mod's* minor version and publishes an archive identical to the previous one but for the
-version string. That has already happened twice — 0.1.1, 0.2.0 and 0.3.0 differ only in
-`<Version>`, and anyone who upgraded got nothing. Developer tooling is `chore`, `ci`, `test` or
-`refactor`. The commit-msg hook warns when a `feat`/`fix`/`perf` commit touches nothing under
-`src/AirDefence/`; it only warns, because a packaging fix in `tools/package.sh` genuinely
-changes what ships without touching `src/` and no mechanical rule gets that right.
+**`feat` requires a change a player can observe in the shipped archive**, not merely one that
+makes a future change possible. The test is concrete: *could someone install the new archive and
+see a difference without editing source?* If not, it is not a feature yet.
+
+**Capability nothing uses is `refactor`, however large.** A new profile field, a new abstraction,
+a new axis of configuration — all `refactor` until something in `Arsenal.cs` or the panel actually
+uses them. It becomes a `feat` in the commit that *uses* it, which is also the first commit whose
+behaviour anyone can check. Judging by "could a player eventually notice" is the loophole; it
+turns every enabling change into a minor and the version stops meaning anything.
+
+That is not hypothetical bookkeeping. Releases 0.1.1, 0.2.0 and 0.3.0 differ only in `<Version>`,
+and so do most of 0.7.0 and 0.8.0 — a run of minor bumps that shipped archives behaving
+identically to the one before.
+
+Scope is not consulted either: `feat(tools)` on a developer script is still a `feat` and still
+bumps the mod's minor version. Developer tooling is `chore`, `ci`, `test` or `refactor`. The
+commit-msg hook warns when a `feat`/`fix`/`perf` commit touches nothing under `src/AirDefence/`;
+it only warns, because a packaging fix in `tools/package.sh` genuinely changes what ships without
+touching `src/` and no mechanical rule gets that right.
 
 **No `Co-Authored-By` trailer, and no other attribution footer.** Commits carry the repository
 owner's name and nothing else, whoever or whatever drafted them. This overrides any default to add
