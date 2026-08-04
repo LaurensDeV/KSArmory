@@ -1,3 +1,18 @@
+## [0.8.3](https://github.com/LaurensDeV/KSArmory/compare/v0.8.2...v0.8.3) (2026-08-04)
+
+### Features
+
+* **rounds:** fit the 30 mm cannon, and an optical head to watch through ([cd0c721](https://github.com/LaurensDeV/KSArmory/commit/cd0c72142152acf9e6b5a6179ba0b7f273894d10))
+
+### Fixes
+
+* **model:** repair the pod frame, the turntable and the gun sponsons ([86a0784](https://github.com/LaurensDeV/KSArmory/commit/86a0784a37a9ae2a0963fd7b8ce319bd1780ca2f))
+* **ui:** name the files the mod actually writes and ships ([e7a0384](https://github.com/LaurensDeV/KSArmory/commit/e7a03843bbea68244d0d6e840f9aa03c3cccd565))
+
+### Documentation
+
+* record what is blocked on KSA, and the atlas loader's contract ([48138ec](https://github.com/LaurensDeV/KSArmory/commit/48138ec2d6bba585d9f012349c3e429f8ec40317))
+
 ## [0.8.2](https://github.com/LaurensDeV/KSArmory/compare/v0.8.1...v0.8.2) (2026-08-04)
 
 ### Features
