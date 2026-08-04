@@ -102,13 +102,23 @@ public static class Arsenal
     public static readonly IReadOnlyList<SensorProfile> Sensors = [SearchRadar1Rs1];
 
     /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
-    public static LauncherProfile? LauncherForPart(string? partId)
+    public static LauncherProfile? LauncherForPart(string? partId) => LauncherForPart(Launchers, partId);
+
+    /// <summary>
+    /// The same lookup against an explicit registry.
+    ///
+    /// <para>Exists so the selection logic can be tested with <em>several</em> launchers
+    /// registered. With one entry every registry assertion is trivially satisfied and cannot
+    /// distinguish "picks the right one" from "picks the only one" — and the mod ships with one
+    /// launcher, so that is the state the suite would otherwise be stuck in forever.</para>
+    /// </summary>
+    internal static LauncherProfile? LauncherForPart(IReadOnlyList<LauncherProfile> from, string? partId)
     {
         if (string.IsNullOrEmpty(partId)) return null;
 
-        for (int i = 0; i < Launchers.Count; i++)
+        for (int i = 0; i < from.Count; i++)
         {
-            if (Launchers[i].PartId == partId) return Launchers[i];
+            if (from[i].PartId == partId) return from[i];
         }
         return null;
     }
@@ -122,7 +132,12 @@ public static class Arsenal
 
     public static SensorProfile SensorNamed(string name) => Named(Sensors, name, s => s.Name);
 
-    private static T Named<T>(IReadOnlyList<T> from, string name, Func<T, string> key)
+    /// <summary>
+    /// First entry whose key matches, or the first entry as a fallback. Internal rather than
+    /// private so the fallback can be tested against a registry with more than one candidate,
+    /// where "matched" and "fell back to element zero" are actually distinguishable.
+    /// </summary>
+    internal static T Named<T>(IReadOnlyList<T> from, string name, Func<T, string> key)
     {
         for (int i = 0; i < from.Count; i++)
         {

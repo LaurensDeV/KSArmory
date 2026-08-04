@@ -25,10 +25,20 @@ public sealed class Config
 
     /// <summary>Points every profile at the system this battery actually has fitted.</summary>
     public void Select(LauncherProfile launcher)
+        => Select(launcher, Arsenal.Munitions, Arsenal.Sensors);
+
+    /// <summary>
+    /// The same selection against explicit registries, so switching between two systems can be
+    /// tested while the mod still ships only one. All three fields must move together: a launcher
+    /// left pointing at the previous system's round is a silent wrong-weapon bug, not an error.
+    /// </summary>
+    internal void Select(LauncherProfile launcher,
+                         IReadOnlyList<MunitionProfile> munitions,
+                         IReadOnlyList<SensorProfile> sensors)
     {
         Launcher = launcher;
-        Munition = Arsenal.MunitionNamed(launcher.Munition);
-        Sensor = Arsenal.SensorNamed(launcher.Sensor);
+        Munition = Arsenal.Named(munitions, launcher.Munition, m => m.Name);
+        Sensor = Arsenal.Named(sensors, launcher.Sensor, s => s.Name);
     }
 
     // ---- Engagement policy ----------------------------------------------
