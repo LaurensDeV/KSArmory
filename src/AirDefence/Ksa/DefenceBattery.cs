@@ -947,6 +947,15 @@ internal sealed class DefenceBattery(Config config)
     {
         if (_pendingKills.Count == 0) return;
 
+        // Join the engine's vehicle solvers before disposing anything. Destroying a vehicle removes
+        // it from the list those worker jobs are enumerating, and this hook runs while they are
+        // live - see KsaWorld.WaitForVehicleSolvers for the frame order that makes that unavoidable
+        // without the barrier.
+        //
+        // Taken once for the whole batch rather than per kill, which is most of why kills are
+        // deferred into this list in the first place.
+        KsaWorld.WaitForVehicleSolvers();
+
         foreach (Vehicle v in _pendingKills)
         {
             if (!KsaWorld.IsAlive(v)) continue;

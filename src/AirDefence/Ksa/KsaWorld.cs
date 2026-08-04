@@ -261,8 +261,44 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Blocks until KSA's vehicle solver jobs have finished the step they are working on.
+    ///
+    /// <para><b>Required before destroying a vehicle from a mod hook.</b> Disposing a vehicle
+    /// removes it from the update task's <c>_vehicleStates</c> list, and that is the very list
+    /// <c>VehicleUpdateTask.DoWorkAndStageResults</c> is enumerating on a worker thread — so the
+    /// dispose lands as
+    /// <c>InvalidOperationException: Collection was modified</c> inside the engine.</para>
+    ///
+    /// <para>There is no mod hook in the safe window. Reading the frame order out of the engine:
+    /// <c>PrepareFrame</c> takes this same barrier at <c>Program.cs:1984</c>, applies the results at
+    /// <c>:1986</c>, and then <em>re-dispatches</em> the jobs at <c>:2020</c> — while
+    /// <c>OnDrawUiViewports</c>, which is where StarMap's GUI hook fires, is not until <c>:2068</c>.
+    /// The frame hook is later still. Both mod hooks therefore run with the workers live, and
+    /// moving the call between them cannot help.</para>
+    ///
+    /// <para>So the barrier has to be taken explicitly, which is exactly what the engine does.
+    /// It costs a main-thread stall only on frames where something is actually destroyed, and the
+    /// work is not extra — those jobs had to finish before the next frame's <c>PrepareFrame</c>
+    /// regardless. It cannot deadlock the scheduler either: <c>Wait</c> only joins the runners, and
+    /// leaving them idle early is the state <c>ExecuteJobs</c> already requires.</para>
+    /// </summary>
+    public static void WaitForVehicleSolvers()
+    {
+        try
+        {
+            JobSystems.VehicleSolvers?.Wait();
+        }
+        catch (Exception e)
+        {
+            // Never worth taking the frame down over. Falling through to the destroy just restores
+            // the pre-existing race rather than making anything newly wrong.
+            Log.Warn($"could not join the vehicle solvers before a kill ({e.GetType().Name})");
+        }
+    }
+
+    /// <summary>
     /// Destroys a vehicle, attributing it to collision damage. Must be called from the main
-    /// thread and never while iterating engine-owned vehicle collections.
+    /// thread, and only after <see cref="WaitForVehicleSolvers"/> — see there for why.
     /// </summary>
     public static void Destroy(Vehicle v, float blastSeverity)
     {

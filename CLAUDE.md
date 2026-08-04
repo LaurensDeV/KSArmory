@@ -55,7 +55,7 @@ Split unrelated work into separate commits rather than one large one: the change
 from these, so a commit that does three things describes none of them well.
 
 **Do not commit a behaviour fix as a fix until it has been verified in game.** Compiling, passing
-the 106 tests, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
+the 220 tests, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
 the gap between the maths and what KSA actually does, and that gap is only visible in flight. The
 round-body zigzag cost three such commits: a sim-step-gating change and an offset-extrapolation
 change, both shipped as fixes for a cause not yet diagnosed, and neither was it. The answer was in
@@ -158,7 +158,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tests/AirDefence.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 115 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 149 members an upgrade has to preserve |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
@@ -299,7 +299,7 @@ never be committed here or published anywhere**.
 
 They live instead in the private repository **`LaurensDeV/ksa-game-assemblies`**, checked out by
 CI with a **read-only deploy key** held in the `KSA_ASSEMBLIES_KEY` secret. Keeping your own
-licensed copy privately is fine; publishing it is not. Only the eight assemblies the projects
+licensed copy privately is fine; publishing it is not. Only the nine assemblies the projects
 actually reference are kept — verified as the minimum that both builds the mod and runs its
 tests — and `tools/sync-assemblies.sh` refreshes them after a KSA update, refusing if a csproj
 references something it does not know to copy.
@@ -380,7 +380,7 @@ CI is split the same way the source is:
   `palette.py` is re-run and the textures diffed, so hand-edited PNGs are caught before the next
   model build silently reverts them. Plus shellcheck, XML well-formedness and a check that no
   `.dll` is tracked.
-- **`build` (hosted)** — the real build, the 74 tests, `validate-parts.py` and the package,
+- **`build` (hosted)** — the real build, the 220 tests, `validate-parts.py` and the package,
   against the checked-out assemblies. If the secret is absent — a fork — the job skips with a
   notice instead of failing on something a contributor cannot fix.
 

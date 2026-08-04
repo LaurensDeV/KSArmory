@@ -7,7 +7,13 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-53 types and 140 members across 4 assemblies.
+60 types and 149 members across 5 assemblies.
+
+## Brutal.Concurrency
+
+### Brutal.Concurrency.Jobs.JobScheduler
+
+- `void Wait()`
 
 ## Brutal.Core.Numerics
 
@@ -100,10 +106,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 GetPositionEcl()`
 - `Brutal.Numerics.double3 GetVelocityEcl()`
+- `KSA.AtmosphereReference GetAtmosphereReference()`
 - `KSA.OrbitView OrbitView`
 - `double get_MeanRadius()`
 - `string get_Id()`
 - `void UpdatePerFrameData()`
+
+### KSA.AtmosphereReference
+
+- `KSA.PhysicalAtmosphereReference Physical`
 
 ### KSA.Camera
 
@@ -111,6 +122,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 EgoToEcl(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double3 GetPositionEgo(KSA.IPosition)`
 - `KSA.IFollowable get_Following()`
+
+### KSA.Celestial
+
+*referenced as a type only*
 
 ### KSA.CelestialSystem
 
@@ -123,6 +138,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.DefaultVehicleSaves
 
 - `KSA.VehicleSave FindSave(string)`
+
+### KSA.DensityReference
+
+- `double op_Implicit(KSA.DensityReference)`
+
+### KSA.DistanceReference
+
+- `double op_Implicit(KSA.DistanceReference)`
 
 ### KSA.Double3Ex
 
@@ -158,6 +181,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.IVelocity
 
 - `Brutal.Numerics.double3 GetVelocityEcl()`
+
+### KSA.JobSystems
+
+- `Brutal.Concurrency.Jobs.JobScheduler VehicleSolvers`
 
 ### KSA.KittenEva
 
@@ -222,6 +249,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `int get_Count()`
 - `void RecomputeAllDerivedData()`
 
+### KSA.PhysicalAtmosphereReference
+
+- `KSA.DensityReference SeaLevelDensity`
+- `KSA.DistanceReference get_Height()`
+- `bool IsValid()`
+- `double GetAtmosphericDensityAtAltitude(double)`
+
 ### KSA.Program
 
 - `KSA.Camera GetMainCamera()`
@@ -242,7 +276,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.SimTime
 
-- `bool Equals(KSA.SimTime)`
+*referenced as a type only*
 
 ### KSA.Transform3D
 

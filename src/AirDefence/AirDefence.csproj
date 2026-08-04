@@ -63,6 +63,12 @@
     <Reference Include="$(KsaDllDir)Brutal.Core.Strings.dll" Private="false" />
     <Reference Include="$(KsaDllDir)Brutal.ImGui.dll" Private="false" />
     <Reference Include="$(KsaDllDir)Brutal.ImGui.Abstractions.dll" Private="false" />
+    <!--
+      JobScheduler, for KsaWorld.WaitForVehicleSolvers. Destroying a vehicle removes it from the
+      list KSA's solver jobs are enumerating on worker threads, and no mod hook lands in the window
+      where those are idle - so the barrier has to be taken explicitly. See KsaWorld.
+    -->
+    <Reference Include="$(KsaDllDir)Brutal.Concurrency.dll" Private="false" />
     <!-- Needed to compile against Vehicle's mass-properties signatures (Symmetric3x3). -->
     <Reference Include="$(KsaDllDir)BepuUtilities.dll" Private="false" />
   </ItemGroup>

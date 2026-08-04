@@ -3,6 +3,7 @@
 # and refresh the private ksa-game-assemblies repo to match - see CLAUDE.md.
 build 2026.8.3.5117
 e0a1528ded4ef8efcb8002b99704cb8614b7db840d2cb39b5e45eda52d63bc68  BepuUtilities.dll
+d854513d48741174b8c3f61ee89d111878f65c02ff5f2037c02cfaea00d4854c  Brutal.Concurrency.dll
 f0274391f32ae48817ec0d9506b2e76eb42fc513e8a59bbbb9d282340f8a2fc6  Brutal.Core.Common.dll
 fba275c0c5abd9ef05bdcb99dc2df4ef80950ffda36526d862321e9673fbe7c3  Brutal.Core.Numerics.dll
 5e2a63d8ed40adb2073e1da2b2075902ff1e483ab85108eb02e6316aadc52db8  Brutal.Core.Strings.dll
