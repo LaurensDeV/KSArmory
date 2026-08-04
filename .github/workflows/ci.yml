@@ -102,13 +102,20 @@ jobs:
         # fail here purely because the runner's Pillow is not the author's.
         run: ./tools/model/palette.py --check
 
-      - name: No game assemblies committed
+      - name: No binaries or build artefacts committed
         run: |
           if git ls-files | grep -E '\.(dll|pdb)$'; then
             echo "::error::game assemblies must not be committed - see .gitignore"
             exit 1
           fi
-          echo "no binaries tracked"
+          # .gitignore does not untrack what is already tracked, so a file committed before its
+          # rule existed stays in the repository forever without anyone noticing. That is exactly
+          # how tools/__pycache__/meshinfo.cpython-312.pyc survived being ignored.
+          if git ls-files | grep -E '(^|/)__pycache__/|\.pyc$'; then
+            echo "::error::compiled Python must not be committed - see .gitignore"
+            exit 1
+          fi
+          echo "no binaries or build artefacts tracked"
 
   build:
     name: Build and test

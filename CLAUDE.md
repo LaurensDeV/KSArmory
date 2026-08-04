@@ -141,9 +141,16 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
 | `Sim/Config.cs` | the player's settings only — policy and display |
-| `Sim/Interceptor.cs` | round physics, proportional navigation, fuse |
+| `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
+| `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
+| `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
+| `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
+| `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives |
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
+| `Sim/ThreatModel.cs` | CPA threat classification, priority, engagement envelope |
+| `Sim/TrackState.cs` | one contact, as the threat model sees it |
+| `Sim/StepGate.cs` | hands a simulation step out once and only once |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/AirDefence/Ksa/`** | **everything that binds to the game** |
 | `Ksa/AirDefenceMod.cs` | StarMap entry point and frame hooks |
@@ -152,6 +159,10 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
 | `Ksa/Ui.cs`, `Ksa/Visuals.cs` | ImGui panel, gizmo rendering |
+| `Ksa/Track.cs` | a radar contact bound to a KSA vehicle |
+| `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
+| `Ksa/Diagnostics.cs` | the periodic world dump — what the battery can see and why |
+| `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/AirDefence/AirDefence*.xml` | the launcher part — at the mod root, mirroring Core |
 | `src/AirDefence/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
 | `src/AirDefence/mod.toml` | serves as both the content-mod and StarMap manifest |
@@ -607,13 +618,26 @@ electrical battery, and these files have `using KSA;`.
 
 ## Testing
 
-**Nothing has been verified in-game.** `CHECKLIST.md` is the manual test plan, ordered by risk;
-update its tick-boxes and the risk table as items are confirmed or disproved.
+**The system works end to end in game** — search, lock, slew, salvo, intercept, kill, and the
+overlay. `CHECKLIST.md` records what has been confirmed and what has not; update its tick-boxes
+and the risk table as items are proved or disproved. It is the list of what is *still* unverified
+that matters, not the headline.
 
-`tests/AirDefence.Tests` flies whole engagements headlessly. `GuidanceDiscriminationTests` is
-load-bearing: it asserts that the crossing-target scenario **misses** with the nav constant
-turned off. Without it, a hit test can silently pass on a geometry that never needed a lead.
-Keep that guard if you change the test geometry.
+That does **not** weaken the rule in [Committing](#committing): a behaviour change is unverified
+until it has been flown, whatever the suite says. The two facts sit together — most of the mod is
+confirmed working, and each new change still has to earn that separately.
+
+`tests/AirDefence.Tests` flies whole engagements headlessly. Three suites are load-bearing and
+should not be weakened without understanding what they buy:
+
+- `GuidanceDiscriminationTests` asserts the crossing-target scenario **misses** with the nav
+  constant off. Without it a hit test can pass on a geometry that never needed a lead.
+- `ProjectileContractTests` runs the frame and epoch rules against **every** `IProjectile`. Those
+  rules belong to the engine, not to a weapon, so a new projectile type inherits the whole trap
+  list — it caught a 142 m sub-step phase error in `Slug` on its first run.
+- `OffsetPhaseTests` varies the step the way a simulation-speed change does. A constant `dt`
+  cannot distinguish the right phase from the wrong one, which is how two broken implementations
+  passed for months.
 
 ## Not done
 
