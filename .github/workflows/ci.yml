@@ -95,6 +95,12 @@ jobs:
         # The two defects that only show up in game, and never in a Blender preview.
         run: ./tools/model/checkmesh.py src/KSArmory/Meshes/AirDefence_MeshAtlas.glb
 
+      - name: Nothing adrift, standing proud, or passing through anything
+        # A render only shows the poses someone thought to ask for, and every geometry defect
+        # this model has shipped was at some other pose. Needs neither Blender nor the game: the
+        # atlas holds each body in its own local frame, so any pose is reconstructible from it.
+        run: ./tools/model/checkswept.py --step 2 --bearing-step 5
+
       - name: Textures are reproducible
         # If the committed PNGs do not match what palette.py generates, someone edited them by
         # hand and the next model build will silently revert it. Compares pixels rather than

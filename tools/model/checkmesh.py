@@ -264,15 +264,34 @@ def coplanar_overlaps(gltf, binary, mesh):
     real overlap, skipping pairs that share vertices (those are the two halves of one quad, or
     a fan, not a conflict).
     """
+    return plane_conflicts([(a, b, c, None) for a, b, c in triangles(gltf, binary, mesh)])
+
+
+def plane_conflicts(tagged, cross_body=False):
+    """Shared core of the within-mesh and between-mesh coplanar checks.
+
+    Each triangle carries a tag naming the body it came from. With `cross_body`, only pairs whose
+    tags differ are conflicts — within-body pairs are the other check's business.
+    """
     planes = defaultdict(list)
 
-    for a, b, c in triangles(gltf, binary, mesh):
+    for a, b, c, tag in tagged:
         n, d, area = plane_of(a, b, c)
         if n is None or area < 1e-7:
             continue
+        # Between bodies the pair that matters faces *inward* — a cap resting on a cap — so the
+        # plane is taken unoriented. Within one body the opposite holds: near_coplanar() already
+        # covers faces pointing at each other, and keeping the orientation here is what finds two
+        # outer faces landing on one plane, which fight just as hard and point the same way.
+        if cross_body:
+            for component in n:
+                if abs(component) > 1e-9:
+                    if component < 0.0:
+                        n, d = tuple(-v for v in n), -d
+                    break
         key = (round(n[0] / PLANE_QUANT), round(n[1] / PLANE_QUANT),
                round(n[2] / PLANE_QUANT), round(d / PLANE_QUANT))
-        planes[key].append((a, b, c, n, area))
+        planes[key].append((a, b, c, n, area, tag))
 
     hits = []
     for key, faces in planes.items():
@@ -289,13 +308,15 @@ def coplanar_overlaps(gltf, binary, mesh):
         w = (n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0])
 
         flat = []
-        for a, b, c, _n, area in faces:
+        for a, b, c, _n, area, tag in faces:
             flat.append(([(sum(p[k] * u[k] for k in range(3)),
                            sum(p[k] * w[k] for k in range(3))) for p in (a, b, c)],
-                         {tuple(round(v, 6) for v in p) for p in (a, b, c)}, area))
+                         {tuple(round(v, 6) for v in p) for p in (a, b, c)}, area, tag))
 
         for i in range(len(flat)):
             for j in range(i + 1, len(flat)):
+                if cross_body and flat[i][3] == flat[j][3]:
+                    continue
                 if flat[i][1] & flat[j][1]:
                     continue          # shares a vertex: same surface, not a conflict
                 shared = overlap_area_2d(flat[i][0], flat[j][0])
@@ -303,12 +324,52 @@ def coplanar_overlaps(gltf, binary, mesh):
                 # triangulated disc, say - clip to a sliver whose area is numerical noise, and
                 # counting those reports every wheel as fighting itself.
                 if shared > 0.05 * min(flat[i][2], flat[j][2]):
-                    hits.append((shared, key))
+                    pair = tuple(sorted((flat[i][3], flat[j][3]))) if cross_body else key
+                    hits.append((shared, pair))
 
     merged = defaultdict(float)
     for area, key in hits:
         merged[key] += area
     return sorted(((a, k) for k, a in merged.items() if a >= MIN_AREA), reverse=True)
+
+
+def place(point, trs):
+    """Applies a glTF node's scale, rotation and translation to a point."""
+    t, q, s = trs
+    x, y, z = point[0] * s[0], point[1] * s[1], point[2] * s[2]
+    qx, qy, qz, qw = q
+    tx, ty, tz = 2 * (qy * z - qz * y), 2 * (qz * x - qx * z), 2 * (qx * y - qy * x)
+    return (x + qw * tx + qy * tz - qz * ty + t[0],
+            y + qw * ty + qz * tx - qx * tz + t[1],
+            z + qw * tz + qx * ty - qy * tx + t[2])
+
+
+def cross_body_overlaps(gltf, binary, placements):
+    """Coplanar overlapping faces between two *different* bodies, at the modelled rest pose.
+
+    coplanar_overlaps() sees one mesh at a time, so a face plane shared between two subparts —
+    a turntable resting exactly on the cap of its mast — is invisible to it and z-fights in game
+    exactly like a within-body pair. It is worse when the pair articulates about a common axis,
+    because the fight then rotates with the assembly.
+
+    Each mesh in the atlas sits in its own pivot-local frame with no node transform, so the
+    caller supplies `placements`: mesh name -> (x, y, z) in part space. That is the asset XML's
+    <SubPart><Position>, which is why this is driven from validate-parts.py.
+
+    Only the rest pose is checked — the pose the model is authored in, and the one the vehicle
+    sits at before the drives run.
+    """
+    by_name = {m.get("name", "?"): m for m in gltf.get("meshes", [])}
+
+    tagged = []
+    for name, origin in placements.items():
+        if name not in by_name:
+            continue
+        trs = (tuple(origin), (0.0, 0.0, 0.0, 1.0), (1.0, 1.0, 1.0))
+        for a, b, c in triangles(gltf, binary, by_name[name]):
+            tagged.append((place(a, trs), place(b, trs), place(c, trs), name))
+
+    return plane_conflicts(tagged, cross_body=True)
 
 
 def analyse(gltf, binary, mesh):
@@ -393,7 +454,7 @@ def compare(path_a, path_b):
     by_name_a = {m.get("name", "?"): m for m in ga["meshes"]}
     by_name_b = {m.get("name", "?"): m for m in gb["meshes"]}
 
-    changed = 0
+    changed = node_transforms(ga, gb, path_a, path_b)
     for name in sorted(set(by_name_a) | set(by_name_b)):
         if name not in by_name_a or name not in by_name_b:
             side = "only in " + (path_a if name in by_name_a else path_b)
@@ -414,10 +475,45 @@ def compare(path_a, path_b):
 
     print()
     if changed:
-        print(f"{changed} mesh(es) genuinely differ")
+        print(f"{changed} difference(s) that are not triangle order")
         return 1
     print("same geometry — the files differ only in triangle order, which is expected")
     return 0
+
+
+def node_transforms(ga, gb, path_a, path_b):
+    """Compares the node TRS of every mesh-bearing node, and reports how many differ.
+
+    A pose applied by `build.sh --pose` lands entirely here and leaves every vertex buffer
+    untouched, so comparing meshes alone calls a posed atlas identical to a rest one and advises
+    reverting it. The transforms are what carry a body's rest pivot and orientation into the file.
+    """
+    def by_mesh(gltf):
+        names = [m.get("name", "?") for m in gltf.get("meshes", [])]
+        out = {}
+        for node in gltf.get("nodes", []):
+            if node.get("mesh") is None:
+                continue
+            trs = tuple(round(v, 6) for key, default in (("translation", (0.0, 0.0, 0.0)),
+                                                         ("rotation", (0.0, 0.0, 0.0, 1.0)),
+                                                         ("scale", (1.0, 1.0, 1.0)))
+                        for v in node.get(key, default))
+            out[names[node["mesh"]]] = (trs, tuple(round(v, 6) for v in node["matrix"])
+                                        if "matrix" in node else None)
+        return out
+
+    a, b = by_mesh(ga), by_mesh(gb)
+    changed = 0
+    for name in sorted(set(a) | set(b)):
+        if name not in a or name not in b:
+            continue  # a missing mesh is reported by the geometry pass
+        if a[name] != b[name]:
+            print(f"  {name:<34} MOVED — node transform differs")
+            changed += 1
+    if changed:
+        print(f"  ({path_a} and {path_b} place {changed} body(s) differently — "
+              f"one of them is posed)")
+    return changed
 
 
 def main():

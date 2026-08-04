@@ -11,6 +11,9 @@
 # displays once the drives are running. A defect that only appears at another elevation - an
 # assembly sweeping through its own mount, say - is invisible without it. Angles are degrees.
 #
+# --pose implies --previews: a posed scene exports a posed atlas, and the runtime composes poses
+# itself from the rest library.
+#
 # Blender is a Windows binary, so the script path and every output path it is given have to be
 # Windows paths. It also cannot write into the WSL tree reliably, so it works in a temp folder
 # and the results are copied back here.
@@ -35,6 +38,16 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# Posing moves the assemblies in the scene, so the export would carry that pose in its node
+# transforms. It is a way of looking at the model, never a way of producing one.
+if [[ -n "$POSE" && $PREVIEWS_ONLY -eq 0 ]]; then
+    echo "--pose renders only; the committed atlas is left alone"
+    PREVIEWS_ONLY=1
+fi
+
+EXPORT_FLAG=()
+[[ $PREVIEWS_ONLY -eq 1 ]] && EXPORT_FLAG=(--no-export)
+
 if [[ ! -x "$BLENDER" ]]; then
     echo "error: Blender not found at $BLENDER" >&2
     echo "       set BLENDER to your blender.exe and retry" >&2
@@ -53,6 +66,7 @@ echo "building mesh (headless Blender)..."
 "$BLENDER" --background \
     --python "$(wslpath -w "$REPO_ROOT/tools/model/pantsir.py")" \
     -- "$WIN_WORK" "$WIN_WORK\\palette.json" "$WIN_WORK\\AirDefence_Diffuse.png" "$POSE" \
+    "${EXPORT_FLAG[@]}" \
     2>&1 | grep -v '^Fra:' | sed '/^$/d'
 
 # The muzzle table validate-parts.py checks LauncherPart.cs against.

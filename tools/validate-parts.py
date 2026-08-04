@@ -29,6 +29,7 @@ from importlib import import_module
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "model"))
 meshinfo = import_module("meshinfo")
 
 REPO = Path(__file__).resolve().parent.parent
@@ -199,9 +200,10 @@ def check_launcher_geometry():
 
     scalars = [("MuzzleForwardOffset", expected["muzzle_forward_offset"]),
                ("TubeRingRadius", expected["tube_ring_radius"])]
-    if "pod_reference_elevation_deg" in expected:
-        scalars.append(("PodReferenceElevationRad",
-                        math.radians(expected["pod_reference_elevation_deg"])))
+    for field, key in (("PodReferenceElevationRad", "pod_reference_elevation_deg"),
+                       ("GunReferenceElevationRad", "gun_reference_elevation_deg")):
+        if key in expected:
+            scalars.append((field, math.radians(expected[key])))
 
     for field, want in scalars:
         checked += 1
@@ -214,11 +216,14 @@ def check_launcher_geometry():
                   f"mesh says {want:.5f}", file=sys.stderr)
             problems += 1
 
-    # The two slew pivots. Getting one of these wrong swings the turret around the chassis
-    # rather than spinning it in place, which is a whole restart to discover.
+    # Every slew pivot. Getting one wrong swings that assembly around the chassis rather than
+    # spinning it in place, and the runtime writes the stale value back every frame -- so in game
+    # it looks like the model change never happened.
     for field, key in (("PodPivotFromTurret", "pod_pivot_from_turret"),
                        ("TurretPivot", "turret_pivot"),
-                       ("RadarPivotFromTurret", "radar_pivot_from_turret")):
+                       ("GunPivotFromTurret", "gun_pivot_from_turret"),
+                       ("RadarPivotFromTurret", "radar_pivot_from_turret"),
+                       ("OpticPivotFromTurret", "eo_pivot_from_turret")):
         if key not in expected:
             continue
         checked += 1
@@ -262,6 +267,158 @@ def check_launcher_geometry():
     else:
         print(f"  launch geometry: {len(want)} tubes match the mesh")
 
+    # The cannon barrels, the same way and for the same reason.
+    if "gun_muzzles" in expected:
+        guns = re.search(r"GunMuzzles\s*=\s*\[(.*?)\n\s*\]", text, re.S)
+        want_guns = [tuple(m) for m in expected["gun_muzzles"]]
+        checked += len(want_guns)
+        if guns is None:
+            print("  MISSING Arsenal GunMuzzles", file=sys.stderr)
+            problems += 1
+        else:
+            found_guns = [
+                tuple(float(v) for v in m)
+                for m in re.findall(r"new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)",
+                                    guns.group(1))]
+            if found_guns != want_guns:
+                print(f"  STALE Arsenal GunMuzzles: {len(found_guns)} entries, "
+                      f"mesh has {len(want_guns)}", file=sys.stderr)
+                for i, (a, b) in enumerate(zip(found_guns + [None] * len(want_guns), want_guns)):
+                    if a != b:
+                        print(f"    barrel {i}: file {a}, mesh {b}", file=sys.stderr)
+                problems += 1
+            else:
+                print(f"  cannon geometry: {len(want_guns)} barrels match the mesh")
+
+    return problems, checked
+
+
+def check_cross_body_planes():
+    """Looks for faces shared between two different subparts, placed as the XML places them.
+
+    checkmesh.py analyses one mesh at a time, so a plane shared by two *bodies* — a turntable
+    resting exactly on the cap of its mast — is invisible to it and z-fights in game like any
+    other coincident pair. Worse when the two ride a common axis, because the fight then rotates.
+
+    This lives here rather than in checkmesh.py because the atlas carries no node transforms: the
+    meshes are pivot-local and only this file knows where the XML puts them.
+    """
+    checkmesh = import_module("checkmesh")
+
+    problems = checked = 0
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        root = ET.parse(path).getroot()
+
+        atlas = root.find(".//MeshAtlas")
+        if atlas is None or atlas.get("Path") is None:
+            continue
+        glb = MOD / atlas.get("Path")
+        if not glb.is_file():
+            continue
+
+        # Definition Id -> the mesh it draws with. The MeshView copy is the same geometry under
+        # another name, so it would report every body as fighting itself.
+        mesh_of = {}
+        for sub in root.findall("SubPart"):
+            model = sub.find("PartModel/Mesh")
+            if sub.get("Id") and model is not None and model.get("Id"):
+                mesh_of[sub.get("Id")] = model.get("Id")
+
+        placements = {}
+        for part in root.findall("Part"):
+            for sub in part.findall("SubPart"):
+                mesh = mesh_of.get(sub.get("InstanceOf"))
+                if mesh is None:
+                    continue
+                position = sub.find("Transform/Position")
+                origin = ([float(position.get(axis, "0")) for axis in "XYZ"]
+                          if position is not None else [0.0, 0.0, 0.0])
+                # A body instanced more than once - the twelve round bodies - would collide with
+                # its own copies at rest, which is how they are stowed.
+                placements.setdefault(mesh, origin)
+
+        gltf, binary = checkmesh.read_glb(str(glb))
+        checked += len(placements)
+        for area, (a, b) in checkmesh.cross_body_overlaps(gltf, binary, placements):
+            print(f"  COPLANAR {area * 1e4:.1f} cm² shared by {a} and {b}", file=sys.stderr)
+            problems += 1
+
+    return problems, checked
+
+
+def check_subpart_positions():
+    """Verifies the asset XML places each articulated subpart where Arsenal.cs says its pivot is.
+
+    Every pivot exists three times: in pantsir.py, which recentres that mesh on it; in Arsenal.cs,
+    which composes the runtime pose from it; and in the XML, which places the subpart at rest. The
+    mod rewrites PositionParentAsmb every frame from the Arsenal value, so an XML that disagrees
+    looks correct until the drives run and then snaps.
+
+    Also checks each marker resolves to exactly one subpart. LauncherPart.FindSubPart matches on
+    the Id *containing* the marker and takes the first hit, so two matches is a silent coin toss.
+    """
+    source = MOD / "Sim" / "Arsenal.cs"
+    text = source.read_text()
+
+    def vector(field):
+        match = re.search(
+            rf"{field}\s*=\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", text)
+        return [float(v) for v in match.groups()] if match else None
+
+    def marker(field):
+        match = re.search(rf'{field}\s*=\s*"([^"]+)"', text)
+        return match.group(1) if match else None
+
+    turret_pivot = vector("TurretPivot")
+    if turret_pivot is None:
+        print("  MISSING Arsenal.TurretPivot", file=sys.stderr)
+        return 1, 1
+
+    # Marker, and the offset from the traverse axis. The turret sits on the axis itself.
+    assemblies = (("TurretMarker", None),
+                  ("PodsMarker", "PodPivotFromTurret"),
+                  ("GunsMarker", "GunPivotFromTurret"),
+                  ("RadarMarker", "RadarPivotFromTurret"),
+                  ("OpticMarker", "OpticPivotFromTurret"))
+
+    placed = {}
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        for part in ET.parse(path).getroot().findall("Part"):
+            for sub in part.findall("SubPart"):
+                position = sub.find("Transform/Position")
+                if position is None or sub.get("Id") is None:
+                    continue
+                placed[sub.get("Id")] = [float(position.get(axis, "0")) for axis in "XYZ"]
+
+    problems = checked = 0
+    for marker_field, offset_field in assemblies:
+        name = marker(marker_field)
+        if name is None:
+            continue
+
+        hits = [sub_id for sub_id in placed if name.lower() in sub_id.lower()]
+        checked += 1
+        if len(hits) != 1:
+            found = ", ".join(sorted(hits)) or "nothing"
+            print(f"  {marker_field} '{name}' matches {found} -- "
+                  f"LauncherPart.FindSubPart needs exactly one", file=sys.stderr)
+            problems += 1
+            continue
+
+        offset = [0.0, 0.0, 0.0] if offset_field is None else vector(offset_field)
+        if offset is None:
+            print(f"  MISSING Arsenal.{offset_field}", file=sys.stderr)
+            problems += 1
+            continue
+
+        want = [pivot + delta for pivot, delta in zip(turret_pivot, offset)]
+        got = placed[hits[0]]
+        if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
+            show = lambda v: "(" + ", ".join(f"{x:g}" for x in v) + ")"  # noqa: E731
+            print(f"  STALE <SubPart Id=\"{hits[0]}\"> at {show(got)}, "
+                  f"Arsenal.cs says {show(want)}", file=sys.stderr)
+            problems += 1
+
     return problems, checked
 
 
@@ -299,6 +456,16 @@ def main():
 
     print("checking src/KSArmory/Sim/Arsenal.cs against the mesh")
     p, c = check_launcher_geometry()
+    problems += p
+    checked += c
+
+    print("checking subpart placement against src/KSArmory/Sim/Arsenal.cs")
+    p, c = check_subpart_positions()
+    problems += p
+    checked += c
+
+    print("checking for planes shared between subparts")
+    p, c = check_cross_body_planes()
     problems += p
     checked += c
 
