@@ -54,12 +54,9 @@ internal static class LauncherPart
     public static bool IsMounted(Vehicle? vehicle) => vehicle is not null && Find(vehicle) is not null;
 
     /// <summary>
-    /// Every launcher on a vehicle, in part order, appended to <paramref name="into"/>.
-    ///
-    /// <para>Part order is the identity a battery is keyed on. Deliberately <em>not</em> the
-    /// <see cref="Part"/> reference: KSA rebuilds the part tree during staging and docking, so a
-    /// reference can be replaced by an equivalent part and a battery keyed on it would lose its
-    /// magazine and its rounds in flight for no visible reason. The ordinal survives that.</para>
+    /// Every launcher on a vehicle, in part order, appended to <paramref name="into"/>. Part order
+    /// rather than the <see cref="Part"/> reference is what a battery keys on: KSA rebuilds the
+    /// part tree during staging and docking, and the ordinal survives that.
     /// </summary>
     public static void FindAll(Vehicle vehicle, List<(Part Part, LauncherProfile Profile)> into)
     {
@@ -286,16 +283,9 @@ internal static class LauncherPart
 
         try
         {
-            // Measured from the centre of mass, because that is what platformEcl is.
-            //
-            // Vehicle.GetPositionEcl() returns the vehicle's centre of mass, while
-            // PositionVehicleAsmb is measured from the assembly origin. Adding one to the other
-            // puts the muzzle out by the whole centre-of-mass offset - metres, and on a vehicle
-            // this shape that is somewhere off the hull entirely. Reported from play as the round
-            // appearing outside the vehicle for a frame before snapping into its tube.
-            //
-            // ResolveOriginEcl (below) never had this: it goes through GetMatrixAsmb2Ego, which
-            // accounts for the offset itself. The two paths are supposed to agree, and now do.
+            // Measured from the centre of mass, because that is what platformEcl is:
+            // GetPositionEcl returns the centre of mass while PositionVehicleAsmb is from the
+            // assembly origin, and adding one to the other is out by the whole offset.
             double3 inVehicle = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * partFrame;
             ecl = platformEcl + platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb);
             return Vec.IsFinite(ecl);
@@ -307,12 +297,8 @@ internal static class LauncherPart
     }
 
     /// <summary>
-    /// Places a fin set on its round, at the given deployment.
-    ///
-    /// <para>Same position and rotation as the body — the two meshes share an origin — with the
-    /// span carried entirely by a radial scale. Scaling per axis about the part's own origin was
-    /// verified in game before the fins were modelled this way: a round squashed to 15% across
-    /// stayed the same length and did not move.</para>
+    /// Places a fin set on its round. Same position and rotation as the body, which shares its
+    /// origin; the span is carried entirely by a radial scale.
     /// </summary>
     public static bool TryPlaceFins(Part fins, double3 position, doubleQuat rotation,
                                     double deployment, MunitionProfile munition)
@@ -387,14 +373,9 @@ internal static class LauncherPart
             doubleQuat ecl2Asmb = doubleQuat.Conjugate(platform.Asmb2Ego);
             doubleQuat asmb2Part = doubleQuat.Conjugate(launcher.Asmb2VehicleAsmb);
 
-            // Anchor to the tube it came out of and add how far it has travelled *since*.
-            // Converting the round's absolute platform offset instead measures from the
-            // platform's analytic orbit position, while a subpart is placed against the
-            // vehicle's physics origin - and those two are metres apart on a landed craft.
-            // Both frames, and they are the same frame: asmb2Part measured 0.0 m of difference
-            // over travels out to 7.4 km, so the launcher part is unrotated relative to the
-            // vehicle assembly. Kept explicit because PositionParentAsmb *is* the assembly frame,
-            // so the conversion is only a no-op for as long as that holds.
+            // asmb2Part is currently identity - the launcher is mounted unrotated relative to the
+            // vehicle assembly - but PositionParentAsmb is the assembly frame, so the conversion
+            // is kept explicit rather than relying on that holding.
             position = TubeGeometry.BodyPositionPartFrame(launchAnchorPartFrame, travelEcl,
                                                           ecl2Asmb, asmb2Part);
             if (!Vec.IsFinite(position)) return false;
@@ -461,14 +442,10 @@ internal static class LauncherPart
     /// <summary>
     /// Points the turret at <paramref name="bearingRad"/> about the part's X axis.
     ///
-    /// <para>Writing the quaternion is not enough on its own — <see cref="Part"/> caches the
-    /// matrices derived from it (<c>_matrixAsmb2Parent</c> and friends), so without
-    /// <c>ResetCachedPosMatrixValues</c> the new orientation would be stored and then
-    /// ignored.</para>
-    ///
-    /// <para>Both the plain and the <c>Safe</c> property are written. The naming suggests one is
-    /// a snapshot for the render or physics thread to read without tearing, and it is cheaper to
-    /// set both than to guess wrong and be left wondering why nothing moved.</para>
+    /// <para><see cref="Part"/> caches the matrices derived from the quaternion, so without
+    /// <c>ResetCachedPosMatrixValues</c> the new orientation is stored and ignored. Both the plain
+    /// and <c>Safe</c> properties are written — one appears to be a snapshot for another thread,
+    /// and setting both is cheaper than guessing wrong.</para>
     /// </summary>
     /// <returns>False if KSA rejected the write; the caller should stop trying and say so.</returns>
     public static bool TryApplyTurretBearing(Part turret, double bearingRad)
@@ -490,18 +467,9 @@ internal static class LauncherPart
     }
 
     /// <summary>
-    /// Traverses and elevates the missile pods.
-    ///
-    /// <para>The pods are a <em>sibling</em> of the turret in the subpart list, not a child of
-    /// it — KSA's asset XML places every SubPart against the Part, and there is no nesting. So
-    /// the two rotations have to be composed here rather than inherited: the pods elevate about
-    /// their own trunnion, and that whole assembly is then swung round by the turret's
-    /// bearing.</para>
-    ///
-    /// <para>Because the pivot is offset from the turret's axis, the pods' <em>position</em>
-    /// changes as the turret traverses. <c>PositionParentAsmb</c> is settable too, so that gets
-    /// written each frame as well; leaving it alone would spin the pods on the spot while the
-    /// turret they are supposed to sit on rotates away from underneath them.</para>
+    /// Traverses and elevates the missile pods. Subparts do not nest in KSA, so the pods are a
+    /// sibling of the turret and both the composed rotation and the position have to be written
+    /// each frame — see <see cref="TubeGeometry.PodPose"/>.
     /// </summary>
     public static bool TryApplyPodAim(Part pods, LauncherProfile profile, double bearingRad, double elevationRad)
     {
@@ -524,13 +492,7 @@ internal static class LauncherPart
         }
     }
 
-    /// <summary>
-    /// Turns the search array to <paramref name="spinRad"/> while it rides the turret.
-    ///
-    /// Both rotations are about the part's X axis — the turret's traverse and the array's own
-    /// spin — so composing them is just adding the angles. The position still has to be
-    /// rewritten, because the turntable sits well aft of the turret's axis and swings with it.
-    /// </summary>
+    /// <summary>Turns the search array to <paramref name="spinRad"/> while it rides the turret.</summary>
     public static bool TryApplyRadarSpin(Part radar, LauncherProfile profile, double turretBearingRad, double spinRad)
     {
         try
@@ -554,12 +516,9 @@ internal static class LauncherPart
 
     /// <summary>
     /// Rotates a direction in the <em>launcher part's</em> frame out into Ecl, through the part's
-    /// own mounting and then the vehicle's attitude.
-    ///
-    /// <para>Distinct from <see cref="TryDirectionFromPartFrame"/>, which starts from the vehicle
-    /// assembly frame. The two agree only while the launcher is mounted unrotated relative to the
-    /// assembly — which it currently is, measured at 0.0 m of difference over travels out to
-    /// 7.4 km, but that is a property of this part and not a rule.</para>
+    /// mounting and then the vehicle's attitude. Distinct from
+    /// <see cref="TryDirectionFromPartFrame"/>, which starts from the vehicle assembly frame; the
+    /// two agree only while the launcher is mounted unrotated relative to the assembly.
     /// </summary>
     public static bool TryLauncherDirectionEcl(Vehicle platform, Part launcher, double3 partFrame,
                                                out double3 directionEcl)
@@ -657,12 +616,8 @@ internal static class LauncherPart
         => TubeGeometry.MuzzleRingEcl(profile, originEcl, boresight, tubeIndex);
 
     /// <summary>
-    /// Muzzle of each tube in the render frame, derived from the part's own transform.
-    ///
-    /// <see cref="MuzzleEcl"/> builds its ring from an arbitrary perpendicular of the boresight,
-    /// which has no relation to how the part is actually mounted — the markers land on a ring of
-    /// the right size, rotated by a random angle off the real tubes. Going through the part's
-    /// assembly transform puts them on the tubes themselves.
+    /// Muzzle of each tube in the render frame, from the part's own transform — so unlike
+    /// <see cref="MuzzleEcl"/> these land on the actual tubes.
     /// </summary>
     /// <returns>False if the transform is unavailable; the caller should skip drawing.</returns>
     public static bool TryGetTubeMuzzlesEgo(Vehicle platform, Part pods, LauncherProfile profile, double3 platformEgo, Span<double3> into)

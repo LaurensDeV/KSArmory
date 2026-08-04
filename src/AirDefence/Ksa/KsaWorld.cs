@@ -28,30 +28,17 @@ internal static class KsaWorld
     /// </summary>
     public static double SimStepSeconds => Universe.GetLastSimStep().DeltaTime;
 
-    /// <summary>
-    /// The dedup itself, which is pure and lives in Sim/ so it can be tested — the failure it
-    /// prevents compounds silently and is invisible to any test that only ever steps once.
-    /// </summary>
+    /// <summary>Pure, and in Sim/ so it can be tested. See <see cref="StepGate{T}"/>.</summary>
     private static readonly StepGate<SimTime> _stepGate = new();
 
     /// <summary>
     /// The simulated seconds to integrate now, or zero if the engine has applied no new step
     /// since the last call. <b>Consuming</b> — call once per update and use the result.
     ///
-    /// <para><see cref="SimStepSeconds"/> reports the <em>last</em> step, not "a step has happened
-    /// since you last asked". Ask twice without the engine stepping in between and it answers the
-    /// same step twice, and integrating it twice puts real, permanent motion into the round that
-    /// the world never made.</para>
-    ///
-    /// <para>That is not hypothetical: pause, select 0.05x, pause again, repeat — and the round
-    /// walks further off with every cycle. Accumulation is the tell. A mismatched epoch produces
-    /// a fixed offset; only re-integrating a consumed step compounds, because it lands in
-    /// <c>PositionEcl</c>, which is integrated rather than derived.</para>
-    ///
-    /// <para>Deduplicated on the step's own end time rather than by differencing a clock, which
-    /// keeps the property <see cref="SimClock"/> exists to protect: the value returned is still
-    /// the step the engine actually applied, so it cannot be a phase out from the world. It just
-    /// cannot now be applied twice.</para>
+    /// <para><see cref="SimStepSeconds"/> reports the <em>last</em> step, not one since you last
+    /// asked, so asking twice without the engine stepping returns it twice. Integrating it twice
+    /// adds motion the world never made, and it compounds because it lands in
+    /// <c>PositionEcl</c>.</para>
     /// </summary>
     public static double ConsumeSimStep()
     {
@@ -229,9 +216,9 @@ internal static class KsaWorld
     /// <see cref="MunitionProfile.DragK"/> were fitted at sea level, and scaling by an absolute
     /// density would silently retune every round in the arsenal.</para>
     ///
-    /// <para>Falls back to 1.0, not 0.0, when the atmosphere cannot be read. A round that keeps its
-    /// tuned sea-level drag is the behaviour this mod already had; one that silently loses all drag
-    /// would fly several times further and read as a guidance bug.</para>
+    /// <para>Falls back to 1.0, not 0.0, when the atmosphere cannot be read: a round that keeps
+    /// its tuned drag is a far less confusing failure than one that silently loses all of it and
+    /// flies several times further.</para>
     /// </summary>
     public static double AirDensityRatioAt(Vehicle platform, double3 positionEcl)
     {
@@ -264,23 +251,16 @@ internal static class KsaWorld
     /// Blocks until KSA's vehicle solver jobs have finished the step they are working on.
     ///
     /// <para><b>Required before destroying a vehicle from a mod hook.</b> Disposing a vehicle
-    /// removes it from the update task's <c>_vehicleStates</c> list, and that is the very list
-    /// <c>VehicleUpdateTask.DoWorkAndStageResults</c> is enumerating on a worker thread — so the
-    /// dispose lands as
-    /// <c>InvalidOperationException: Collection was modified</c> inside the engine.</para>
+    /// removes it from the update task's <c>_vehicleStates</c>, which is the list
+    /// <c>VehicleUpdateTask.DoWorkAndStageResults</c> enumerates on a worker thread — the dispose
+    /// surfaces as <c>InvalidOperationException: Collection was modified</c> inside the
+    /// engine.</para>
     ///
-    /// <para>There is no mod hook in the safe window. Reading the frame order out of the engine:
-    /// <c>PrepareFrame</c> takes this same barrier at <c>Program.cs:1984</c>, applies the results at
-    /// <c>:1986</c>, and then <em>re-dispatches</em> the jobs at <c>:2020</c> — while
-    /// <c>OnDrawUiViewports</c>, which is where StarMap's GUI hook fires, is not until <c>:2068</c>.
-    /// The frame hook is later still. Both mod hooks therefore run with the workers live, and
-    /// moving the call between them cannot help.</para>
-    ///
-    /// <para>So the barrier has to be taken explicitly, which is exactly what the engine does.
-    /// It costs a main-thread stall only on frames where something is actually destroyed, and the
-    /// work is not extra — those jobs had to finish before the next frame's <c>PrepareFrame</c>
-    /// regardless. It cannot deadlock the scheduler either: <c>Wait</c> only joins the runners, and
-    /// leaving them idle early is the state <c>ExecuteJobs</c> already requires.</para>
+    /// <para>No mod hook sits in the safe window. <c>PrepareFrame</c> takes this barrier at
+    /// <c>Program.cs:1984</c> and re-dispatches the jobs at <c>:2020</c>, while the GUI hook fires
+    /// at <c>:2068</c> and the frame hook later still — so moving the call between hooks cannot
+    /// help. Taking the barrier costs a stall only on frames where something dies, and those jobs
+    /// had to finish before the next <c>PrepareFrame</c> anyway.</para>
     /// </summary>
     public static void WaitForVehicleSolvers()
     {
@@ -290,8 +270,8 @@ internal static class KsaWorld
         }
         catch (Exception e)
         {
-            // Never worth taking the frame down over. Falling through to the destroy just restores
-            // the pre-existing race rather than making anything newly wrong.
+            // Falling through to the destroy leaves the race in place; taking the frame down is
+            // worse.
             Log.Warn($"could not join the vehicle solvers before a kill ({e.GetType().Name})");
         }
     }

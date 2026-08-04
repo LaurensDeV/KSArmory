@@ -3,10 +3,9 @@ namespace AirDefence;
 /// <summary>
 /// The player's settings: what the battery is allowed to do, and what gets drawn.
 ///
-/// <para>Deliberately <em>not</em> the place for how a weapon performs. Range, guidance, fuse
-/// and launcher geometry live on <see cref="SensorProfile"/>, <see cref="MunitionProfile"/> and
-/// <see cref="LauncherProfile"/>, because those vary per weapon system and this does not. A
-/// second launcher on a second craft has its own profiles and shares this.</para>
+/// <para>Not the place for how a weapon performs. Range, guidance, fuse and launcher geometry
+/// live on <see cref="SensorProfile"/>, <see cref="MunitionProfile"/> and
+/// <see cref="LauncherProfile"/>, because those vary per weapon system and this does not.</para>
 ///
 /// <para><see cref="Active"/> points at whichever system the panel is currently tuning, so the
 /// sliders keep editing live values by reference.</para>
@@ -28,9 +27,9 @@ public sealed class Config
         => Select(launcher, Arsenal.Munitions, Arsenal.Sensors);
 
     /// <summary>
-    /// The same selection against explicit registries, so switching between two systems can be
-    /// tested while the mod still ships only one. All three fields must move together: a launcher
-    /// left pointing at the previous system's round is a silent wrong-weapon bug, not an error.
+    /// The same selection against explicit registries, so switching between systems is testable
+    /// while the mod ships one. All three fields move together: a launcher left pointing at
+    /// another system's round is a silent wrong-weapon bug.
     /// </summary>
     internal void Select(LauncherProfile launcher,
                          IReadOnlyList<MunitionProfile> munitions,
@@ -128,20 +127,17 @@ public sealed class Config
     /// <summary>
     /// Draw a marker on each tube, green for loaded and grey for spent.
     ///
-    /// <para>Off by default. It was a diagnostic for whether the tube offsets tracked the pods
-    /// through traverse and elevation, which they now demonstrably do — and with rounds sitting
-    /// visibly in their tubes it is redundant as well as untidy.</para>
+    /// <para>Off by default: with rounds sitting visibly in their tubes it is redundant.</para>
     /// </summary>
     public bool DrawTubeMarkers;
 
     /// <summary>
     /// Place a real subpart body on each round in flight.
     ///
-    /// <para>On by default — the bodies are the whole point of modelling the round. Turn it off
-    /// to fall back to tracer spheres, which are drawn by a completely separate path: the
-    /// bodies go through a subpart transform in the vehicle's frame, the tracers through the
-    /// gizmo anchor in Ecl. If the rounds misbehave with bodies on and fly cleanly with them
-    /// off, the fault is in the transform path and not in the simulation.</para>
+    /// <para>On by default. Turning it off falls back to tracer spheres, which take a completely
+    /// separate path — subpart transform in the vehicle's frame versus gizmo anchor in Ecl — so
+    /// misbehaviour with bodies on and clean flight with them off isolates the fault to the
+    /// transform path rather than the simulation.</para>
     /// </summary>
     public bool UseRoundBodies = true;
 

@@ -4,35 +4,22 @@ using Xunit;
 namespace AirDefence.Tests;
 
 /// <summary>
-/// The drawn offset, tested against the phase relationship the <em>engine</em> actually has —
-/// which is not the one the older tests in this directory assume.
+/// The drawn offset, tested against the phase relationship the engine actually has.
 ///
-/// <para><b>What was measured.</b> A probe in the frame hook, where both values are produced,
-/// compared the round's integration against the platform's sample every update for thousands of
-/// frames. Writing the update index as k, with Q the platform sample and P the round's position
-/// after its step, it violated</para>
+/// <para>The platform sample arriving at update k has advanced by <c>v * dt(k)</c> — the step used
+/// by <em>that same</em> update, not the one before it. Measured in the frame hook over thousands
+/// of frames, this held to within 5 m on all but two of them:</para>
 ///
 /// <code>
 /// ( P(k) - P(k-1) ) - ( Q(k) - Q(k-1) )  ==  localVelocity * dt(k)
 /// </code>
 ///
-/// <para>by more than 5 m on <b>2 frames out of several thousand</b>. So the platform sample
-/// arriving at frame k has advanced by <c>v * dt(k)</c> — the step used by <em>that same</em>
-/// update, not the one before it. That is also what <c>Universe.GetLastSimStep()</c> means: at
-/// frame k it reports the step the engine has just finished applying, which is precisely the
-/// interval the platform moved across since the previous sample.</para>
+/// <para>It is also what <c>Universe.GetLastSimStep()</c> means: at frame k it reports the step
+/// just finished, which is the interval the platform moved across.</para>
 ///
-/// <para><b>Why this file exists separately.</b> <see cref="RoundOffsetStabilityTests"/> advances
-/// the platform <em>after</em> the update, encoding <c>Q(k+1) - Q(k) == v * dt(k)</c> — the
-/// opposite phase. With a constant step the two are identical, which is why that suite passed
-/// against implementations that visibly jumped in game: its own frame times were the only thing
-/// varying, and it advanced the platform by exactly the <c>v*dt</c> it passed in, so the error
-/// cancelled. These tests vary the step the way changing simulation speed does, which is when the
-/// two phases separate.</para>
-///
-/// <para>Every assertion here was checked to <b>fail</b> against the two previous implementations
-/// before being kept. A regression test that passes against the old code is worth nothing, and
-/// this repository has already produced one.</para>
+/// <para>These tests <b>vary the step</b> the way changing simulation speed does. At a constant
+/// step this phase and its opposite are indistinguishable, so a suite that never varies it cannot
+/// see the difference at all.</para>
 /// </summary>
 public class OffsetPhaseTests
 {
@@ -96,7 +83,7 @@ public class OffsetPhaseTests
     {
         // Real frames are not evenly spaced: 16/20 ms alternation is unremarkable. A form that
         // pairs the round's displacement from one frame with the platform's from another leaks
-        // 29800 * 0.004 = ~119 m every frame, which is the fast zigzag reported from play.
+        // 29800 * 0.004 = ~119 m every frame, alternating in sign: a fast lateral zigzag.
         //
         // The round climbs at a few hundred m/s, so a legitimate frame moves it well under 20 m.
         var steps = new List<double>();

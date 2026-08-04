@@ -6,11 +6,9 @@ namespace AirDefence.Tests;
 /// <summary>
 /// A round's drawn offset must be smooth from frame to frame, whatever the frame times.
 ///
-/// <para>Reported from play: rounds leaving the tubes "teleport around" and climb in a "super
-/// quick zigzag pattern (slightly randomized)". Everything visible about a round — the tracer
-/// and the subpart body — is placed from <see cref="Interceptor.OffsetFromPlatform"/>, so if
-/// that quantity is not a smooth function of time the round visibly jitters however correct its
-/// trajectory is.</para>
+/// <para>Everything visible about a round — the tracer and the subpart body — is placed from
+/// <see cref="Interceptor.OffsetFromPlatform"/>, so if that quantity is not a smooth function of
+/// time the round jitters however correct its trajectory is.</para>
 ///
 /// <para>The trap is that offsets are differences of ecliptic positions, which near Earth are
 /// ~1.5e11 m apart and closing at ~29.8 km/s. At 60 fps the platform moves ~500 m per frame, so

@@ -6,10 +6,9 @@ public enum BoresightMode
     /// <summary>
     /// Radially outward from the parent body — the sky, for anything sitting on the ground.
     ///
-    /// <para>Right for a static site or a vehicle on a surface, and wrong the moment the platform
-    /// stops being level: on a pitched-over booster or anything in orbit, "up" is not where the
-    /// threats are. It is deliberately independent of vehicle attitude, so a truck on a slope still
-    /// searches the sky rather than the hillside.</para>
+    /// <para>Independent of vehicle attitude, so a truck on a slope still searches the sky rather
+    /// than the hillside — and wrong the moment the platform is not level-ish, since on a
+    /// pitched-over booster or in orbit "up" is not where the threats are.</para>
     /// </summary>
     LocalUp,
 
@@ -24,9 +23,8 @@ public enum BoresightMode
     /// <summary>
     /// Wherever the tubes are actually pointing.
     ///
-    /// <para>Models a set that is slaved to the launcher rather than searching independently — a
-    /// narrow tracking radar rather than a rotating search array. Pair it with a small
-    /// <see cref="SensorProfile.ConeDeg"/>; a hemisphere that follows the turret is just
+    /// <para>A set slaved to the launcher rather than searching independently. Pair it with a
+    /// small <see cref="SensorProfile.ConeDeg"/>: a hemisphere that follows the turret is
     /// <see cref="LocalUp"/> with extra steps.</para>
     /// </summary>
     TurretAxis,
@@ -78,14 +76,13 @@ public sealed class SensorProfile
 
     /// <summary>
     /// Closest a target may be and still be engaged (m). Inside this the round has not finished
-    /// boosting and the launcher cannot bring it round; the real Pantsir's floor is 1.2 km.
+    /// boosting and the launcher cannot bring it round.
     /// </summary>
     public float MinEngagementRange = 1200f;
 
     /// <summary>
-    /// Furthest a target may be and still be engaged (m). Detection reaches much further than
-    /// the round does - 36 km against 20 km - so without this the battery empties its tubes at
-    /// contacts it cannot possibly reach.
+    /// Furthest a target may be and still be engaged (m). Detection reaches much further than the
+    /// round flies, so without this the battery empties its tubes at contacts it cannot reach.
     /// </summary>
     public float MaxEngagementRange = 20000f;
 

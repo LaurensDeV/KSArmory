@@ -90,13 +90,10 @@ public class RoundBodyAnchorTests
             platformEcl: platform,
             frameVelocityEcl: frame);
 
-        // BEFORE the first update, which is the instant that actually mattered and the one this
-        // test used to skip. A round IS drawn on its launch frame - Fire runs in fire control,
-        // which is after the round update, so SyncRoundBodies reaches a round that has never been
-        // integrated. With the frame velocity left to the first Update, VelocityLocal degenerated
-        // to VelocityEcl for exactly that frame, and the body was drawn pointing along the
-        // planet's orbit before snapping into its tube. Reported from play as the round appearing
-        // sideways at launch.
+        // Before the first update, which is an instant the round is genuinely drawn at: Fire runs
+        // after the round update, so SyncRoundBodies reaches a round that has never been
+        // integrated. Unseeded, VelocityLocal degenerates to VelocityEcl and the body points along
+        // the planet's orbit.
         Assert.True(Vec.AngleBetween(new double3(0, 0, 1), round.VelocityLocal) < 0.05,
             "a freshly launched round does not know its frame yet - its body will be drawn sideways");
 

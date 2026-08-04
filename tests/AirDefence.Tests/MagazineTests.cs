@@ -4,13 +4,8 @@ using Xunit;
 namespace AirDefence.Tests;
 
 /// <summary>
-/// Tube bookkeeping, which used to live in <c>DefenceBattery</c> and therefore could not be
-/// tested at all — despite being a <c>bool[]</c> and two loops, and despite having already
-/// shipped a bug that only in-game observation caught.
-///
-/// <para>Two things are pinned here that cost real debugging: a reload must not hand out a tube
-/// whose previous round is still in the air, and a spent tube's body must still be seated before
-/// it is hidden. See <c>docs/MODULARITY.md</c>.</para>
+/// Tube bookkeeping. Two invariants matter most: a reload must not hand out a tube whose previous
+/// round is still in the air, and a spent tube's body must still be seated before it is hidden.
 /// </summary>
 public class MagazineTests
 {
@@ -37,9 +32,8 @@ public class MagazineTests
     [InlineData(12)]
     public void AFreshMagazineIsFull(int tubes)
     {
-        // Deliberately parameterised. Everything in the suite used to assume twelve, so a launcher
-        // with a different tube count was an untested shape - and it is exactly the shape a second
-        // weapon system takes.
+        // Parameterised: a launcher with a different tube count is the shape a second weapon
+        // system takes.
         Magazine magazine = Full(tubes);
 
         Assert.Equal(tubes, magazine.Capacity);
@@ -66,10 +60,7 @@ public class MagazineTests
         Assert.False(magazine.TryTakeTube(empty, out _));
     }
 
-    /// <summary>
-    /// Ammo is counted from the tube flags rather than tracked alongside them. Two representations
-    /// of one fact is what let them disagree in the first place.
-    /// </summary>
+    /// <summary>Ammo is counted from the tube flags, so the two cannot disagree.</summary>
     [Fact]
     public void AmmoAlwaysAgreesWithTheTubesThatAreLoaded()
     {
@@ -91,10 +82,9 @@ public class MagazineTests
     // ---- The shipped bug -----------------------------------------------
 
     /// <summary>
-    /// <b>Regression, commit 3a1f5f3.</b> A reload refills every tube, including ones whose round
-    /// has not landed yet. Handing such a tube out again gives two rounds the same body subpart,
-    /// and since the body is written once per round per frame it flips between their positions —
-    /// which in game looked like most of the salvo never leaving.
+    /// A reload refills every tube, including ones whose round has not landed. Handing one out
+    /// again would give two rounds the same body subpart, which is written once per round per
+    /// frame and would flip between their positions.
     /// </summary>
     [Fact]
     public void AReloadDoesNotHandOutATubeWhoseRoundIsStillFlying()
@@ -217,8 +207,7 @@ public class MagazineTests
     // ---- The launch flash ----------------------------------------------
 
     /// <summary>
-    /// <b>Regression, commit be99d5f.</b> Every tube that is not in the air must have its body
-    /// seated, spent or not.
+    /// Every tube that is not in the air must have its body seated, spent or not.
     ///
     /// <para><c>HideMissile</c> writes <c>Scale</c> and nothing else, so a body that was never
     /// seated keeps whatever transform it had — and an unwritten one sits at the assembly origin,
@@ -227,9 +216,8 @@ public class MagazineTests
     /// with the new scale: the round flashes at the centre of the vehicle before snapping into
     /// its tube.</para>
     ///
-    /// <para>This is the assertion that fails if seating is ever skipped for spent tubes as an
-    /// optimisation. It is expressed over every tube and every magazine state rather than one
-    /// case, because the flash only appears on the tubes that have already fired.</para>
+    /// <para>Expressed over every tube and every magazine state rather than one case, because the
+    /// flash only appears on tubes that have already fired.</para>
     /// </summary>
     [Fact]
     public void EveryTubeNotInFlightIsSeated_WhateverItsState()

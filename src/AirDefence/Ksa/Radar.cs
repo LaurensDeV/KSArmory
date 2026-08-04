@@ -15,13 +15,9 @@ internal sealed class Radar(Config config)
     /// <summary>
     /// What this set can see.
     ///
-    /// <para>Owned by the battery that fitted it, <b>not</b> read through <c>Config</c>. With more
-    /// than one battery alive, a shared config field is whichever system was resolved last, so
-    /// every radar in the world would end up running the profile of whichever launcher happened to
-    /// sample most recently.</para>
-    ///
-    /// <para>Live tuning still works: profiles are shared instances, so the panel editing
-    /// <c>Config.Sensor</c> edits the very object every battery of that type is pointing at.</para>
+    /// <para>Owned by the battery that fitted it rather than read through <c>Config</c>: with more
+    /// than one battery alive a shared field is whichever system resolved last. Live tuning still
+    /// works, because profiles are shared instances.</para>
     /// </summary>
     public SensorProfile Sensor { get; set; } = Arsenal.SearchRadar1Rs1;
 

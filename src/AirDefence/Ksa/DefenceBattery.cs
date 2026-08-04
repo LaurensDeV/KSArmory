@@ -141,16 +141,12 @@ internal sealed class DefenceBattery(Config config)
     public bool IsOperational => Platform is not null && (Launcher is not null || !_config.RequireLauncherPart);
 
     /// <summary>
-    /// True when the launcher is actually pointing where it is about to shoot.
+    /// True when the launcher is actually pointing where it is about to shoot, so rounds do not
+    /// leave tubes aimed somewhere else.
     ///
-    /// <para>Without this the battery fired the instant it had a lock, while the turret was
-    /// still swinging round — rounds left tubes that were aimed somewhere else entirely, which
-    /// looked exactly as wrong as it was. Guidance recovered and the intercepts still worked,
-    /// which is precisely why it needed to be watched rather than measured.</para>
-    ///
-    /// <para>Always true when nothing is driving the turret — tracking switched off, no pods
-    /// fitted, or the engine refusing the transform write — so this can never deadlock fire
-    /// control on a launcher that is never going to move.</para>
+    /// <para>Always true when nothing is driving the turret — tracking off, no pods fitted, or the
+    /// engine refusing the write — so it cannot deadlock fire control on a launcher that will
+    /// never move.</para>
     /// </summary>
     public bool IsLaid
     {
@@ -173,20 +169,13 @@ internal sealed class DefenceBattery(Config config)
     /// Re-reads where the world is. <b>Must run every rendered frame, not every simulation
     /// step.</b>
     ///
-    /// <para>This sets <see cref="PlatformEcl"/>, <see cref="Boresight"/> and
-    /// <see cref="MountEcl"/> — the frame of reference the entire overlay is drawn against.
-    /// <c>Visuals</c> hands <see cref="PlatformEcl"/> to <c>KsaWorld.BeginDraw</c> as the
-    /// anchor's Ecl half, and <see cref="DrawAnchor"/> pairs it with an Ego position sampled
-    /// fresh every frame. If this half goes stale while that half does not, the pair no longer
-    /// describes one instant and the whole overlay slides off the craft and jitters.</para>
+    /// <para>Sets <see cref="PlatformEcl"/>, <see cref="Boresight"/> and <see cref="MountEcl"/> —
+    /// the frame of reference the whole overlay is drawn against. <see cref="DrawAnchor"/> pairs
+    /// <see cref="PlatformEcl"/> with an Ego position sampled fresh every frame; if this half goes
+    /// stale while that one does not, the pair no longer describes one instant and the overlay
+    /// slides off the craft.</para>
     ///
-    /// <para>That is exactly what happened when stepping moved onto the simulation clock:
-    /// <c>Update</c> had always run once per frame, so the invariant held by accident rather
-    /// than by design. Gating it on the clock left the overlay's reference frozen on any frame
-    /// the simulation did not advance. Confirmed by bisect — the commit before that change
-    /// draws dead centre.</para>
-    ///
-    /// <para>Sampling only: it reads the world and resolves parts, and advances nothing.</para>
+    /// <para>Sampling only: reads the world, resolves parts, advances nothing.</para>
     /// </summary>
 
     public void SampleWorld()
@@ -199,10 +188,8 @@ internal sealed class DefenceBattery(Config config)
             return;
         }
 
-        // Taking control of another craft re-homes the battery to it. Rounds already in flight
-        // store their position relative to the platform, so without re-basing they would jump
-        // by the distance between the two craft and appear to fly off course. Their actual
-        // trajectory is untouched - this only keeps the bookkeeping honest.
+        // Rounds store position relative to the platform, so a change of platform has to be
+        // announced: their offsets are now measured from somewhere else.
         if (!ReferenceEquals(Platform, _lastPlatform))
         {
             if (_lastPlatform is not null && _rounds.Count > 0)
@@ -281,28 +268,15 @@ internal sealed class DefenceBattery(Config config)
         AttributeRoundsToTracks();
         UpdateTurret(dt);
 
-        // Rounds before fire control, so a round fired this frame is NOT integrated until the
-        // next one.
+        // Rounds before fire control, so a round fired this frame is not integrated until the
+        // next one. TravelSinceLaunch differences two platform-relative offsets, which cancels the
+        // platform's ~29.8 km/s only while the sample advances alongside the round. Integrating a
+        // new round in its own launch frame leaves the sample still for one step, so a frame of
+        // ecliptic motion lands in travel permanently - measured at 658.78 m of travel at an age
+        // of 0.04 s on a round doing 124 m/s.
         //
-        // A round is created from the platform sample this update was handed, and everything
-        // drawn from it is a difference against that sample: TravelSinceLaunch is
-        // `OffsetFromPlatform - LaunchOffset`, and both terms are `roundPosition - platformSample`.
-        // That cancels the platform's ~29.8 km/s of ecliptic motion only while the sample advances
-        // alongside the round. Integrate a brand new round in its own launch frame and the sample
-        // stands still for one step, so the round's *ecliptic* displacement lands in travel
-        // instead of its local one - and because travel is a difference from launch, the error is
-        // permanent rather than transient.
-        //
-        // Measured in game: travel reading 658.78 m at an age of 0.04 s on a round doing 124 m/s,
-        // against 29800 * 0.022 = 656 m for one frame of ecliptic motion. The round bodies left
-        // the tube that far out and stayed that far out for the whole flight, which is why the
-        // launch point and the impact point were displaced by the same amount. The gizmo tracers
-        // were unaffected, because they draw from the offset directly and never difference it
-        // against launch - so for several rounds of testing the two renderers disagreed about
-        // where the same round was.
-        //
-        // Firing after this call costs the new round one frame before it moves, which is correct
-        // anyway: it is still in the tube on the frame the trigger is pulled.
+        // The cost is one frame before a new round moves, which is correct anyway: it is still in
+        // the tube on the frame the trigger is pulled.
         UpdateRounds(dt);
         UpdateFireControl(dt);
         TrimEvents();
@@ -314,16 +288,12 @@ internal sealed class DefenceBattery(Config config)
     }
 
     /// <summary>
-    /// Decides which craft the battery is mounted on.
-    ///
-    /// <para>The launcher is a physical part, so the battery belongs to the craft carrying it and
-    /// stays there. It does not follow the player around: chasing control meant that taking the
-    /// target's seat re-homed the battery onto the target, which then could not be shot at, and
-    /// rounds already in flight had to be re-based mid-engagement.</para>
+    /// Decides which craft the battery is mounted on. The launcher is a physical part, so the
+    /// battery belongs to the craft carrying it and stays there rather than following control.
     ///
     /// <para>Preference order: an explicit pin, then the craft you are flying if it has a
-    /// launcher, then whatever the battery is already on, then any loaded craft with one.
-    /// Falls back to the controlled vehicle only when the part requirement is switched off.</para>
+    /// launcher, then whatever the battery is already on, then any loaded craft with one. Falls
+    /// back to the controlled vehicle only when the part requirement is switched off.</para>
     /// </summary>
     private void ResolvePlatform()
     {
@@ -537,12 +507,9 @@ internal sealed class DefenceBattery(Config config)
     /// <para>Rounds are indexed from one, so tube N is body N-1.</para>
     /// </summary>
     /// <para><b>Called every rendered frame, not every simulation step.</b> Writing a subpart
-    /// transform is a drawing job, and the two cadences are not the same: the battery only
-    /// steps when simulated time advances, so leaving this inside <see cref="Update"/> meant
-    /// that any frame KSA rendered without advancing the clock left the bodies where they were
-    /// while the camera and the world moved on. Rounds then hold still and jump, which is what
-    /// "teleporting" looks like. Placement reads state and changes none, so running it more
-    /// often than the simulation is free and correct.</para>
+    /// transform is a drawing job: the battery only steps when simulated time advances, so a frame
+    /// rendered without a step would leave the bodies behind while the world moved on. Placement
+    /// reads state and changes none, so running it more often than the simulation is free.</para>
     public void SyncRoundBodies()
     {
         if (Platform is not { } platform || Launcher is not { } launcher) return;
@@ -566,9 +533,8 @@ internal sealed class DefenceBattery(Config config)
             int index = round.Tube - 1;
             if (index < 0 || index >= _missileBodies.Count) continue;
 
-            // Two rounds sharing one body would write it twice a frame and it would appear to
-            // flip between their positions - a hard, fast zigzag. Tube numbers are meant to be
-            // unique among rounds in the air, so if this ever fires it is the explanation.
+            // Tube numbers are unique among rounds in the air. Two sharing one body would write
+            // it twice a frame and it would flip between their positions.
             if (flying[index])
             {
                 if (!_warnedDuplicateTube)
@@ -639,9 +605,8 @@ internal sealed class DefenceBattery(Config config)
             }
         }
 
-        // Every tube that is not in the air gets its body seated, spent or not, and only then are
-        // the spent ones hidden. The plan comes from Magazine, where TubeVisual documents why
-        // "hide without seating" is not one of the answers - it is the launch flash.
+        // Every tube not in the air is seated first, spent or not, and only then hidden. See
+        // TubeVisual for why "hide without seating" is not one of the options.
         for (int i = 0; i < _missileBodies.Count && i < _profile.TubeCount; i++)
         {
             TubeVisual plan = _magazine.Plan(i, flying[i]);
@@ -679,7 +644,7 @@ internal sealed class DefenceBattery(Config config)
         if (!IsLaid) { Announce("refused: launcher still slewing"); return false; }
 
         // Takes the round as it picks the tube. Nothing between here and the round being added
-        // can fail, so there is no window in which a tube is claimed but no round exists.
+        // can fail, so a tube is never claimed without a round.
         if (!_magazine.TryTakeTube(_rounds, out int tube))
         {
             Announce("refused: no free tube");
@@ -688,10 +653,8 @@ internal sealed class DefenceBattery(Config config)
 
         double3 platformVel = KsaWorld.VelocityEcl(Platform);
 
-        // Leave from the tube itself, taken from where the pods are actually aimed. The ring
-        // about the boresight below is only a fallback for a launcher with no pods fitted -
-        // it ignores traverse and elevation entirely, which since the turret started moving
-        // meant rounds appearing wherever the ring sat rather than at a tube mouth.
+        // From the tube itself, using where the pods are aimed. The ring about the boresight
+        // below is a fallback for a launcher with no pods: it ignores traverse and elevation.
         double3 launchAnchorPartFrame = Vec.Zero;
         double3 tubeMouth = Vec.Zero;
         bool fromTube = Launcher is not null && PodsPart is { } pods
@@ -711,14 +674,9 @@ internal sealed class DefenceBattery(Config config)
                 ? LauncherPart.MuzzleEcl(_profile, MountEcl, Boresight, tube)
                 : MountEcl + Boresight * _profile.MuzzleOffset;
 
-        // Leave along the tube. That is what a tube launcher does, and it is only possible now
-        // that the pods genuinely aim: the round emerges pointing where the launcher is
-        // pointing, and guidance takes it from there.
-        //
-        // The fallback below slews to the target and adds loft instead. That was the right
-        // answer while the tubes were fixed pointing up - firing along local "up" put anything
-        // low in the sky outside the seeker cone immediately - but against a laid launcher it
-        // sends the round off at a visibly different angle to the tube it just came out of.
+        // Along the tube, so the round emerges pointing where the launcher points. The fallback
+        // slews to the target and adds loft instead, which is what a launcher with fixed tubes
+        // needs and what a laid one must not do.
         double3 tubeAxis = Vec.Zero;
         bool alongTube = fromTube && _profile.LaunchAlongTube
                          && LauncherPart.TryGetTubeAxisEcl(Platform, Launcher!, PodsPart!, _profile, tube, out tubeAxis);

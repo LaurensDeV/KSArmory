@@ -3,16 +3,11 @@ namespace AirDefence;
 /// <summary>
 /// What to do with one tube's round body this frame.
 ///
-/// <para><b>Note what is missing: there is no value meaning "hide without seating".</b> That is
-/// deliberate, and it is the launch-flash bug made unrepresentable. <c>HideMissile</c> writes
-/// <c>Scale</c> and nothing else, so a body that was never seated keeps whatever transform it had
-/// — and a part with no position written sits at the assembly origin, in the middle of the truck.
-/// Skipping the seat for spent tubes parked them there invisibly, which is harmless right up until
-/// that tube fires: the placement then writes position and scale together, but the engine has
-/// already sampled the cached matrix, so it draws a frame or two at the <em>old</em> transform with
-/// the <em>new</em> scale and the round flashes at the centre of the vehicle.</para>
-///
-/// <para>Both <see cref="Loaded"/> and <see cref="Spent"/> seat the body. Only the visibility
+/// <para><b>There is no value meaning "hide without seating".</b> <c>HideMissile</c> writes
+/// <c>Scale</c> and nothing else, so an unseated body keeps an unwritten transform and sits at the
+/// assembly origin. It stays invisible there until its tube fires, at which point the engine has
+/// already sampled the cached matrix and draws a frame at the old transform with the new scale.
+/// Both <see cref="Loaded"/> and <see cref="Spent"/> therefore seat the body; only visibility
 /// differs.</para>
 /// </summary>
 internal enum TubeVisual
@@ -30,15 +25,10 @@ internal enum TubeVisual
 /// <summary>
 /// Which tubes hold a round, and which one fires next.
 ///
-/// <para>Authoritative, rather than derived from an ammo count. <c>TubeCount - Ammo</c> was a guess
-/// at the next tube and it is only right while a magazine empties monotonically: a reload restarts
-/// it at zero while earlier rounds are still in the air, so two rounds end up claiming the same
-/// tube — and since a body subpart is chosen by tube number, one body then flips between two
-/// rounds every frame while the rest of the salvo appears not to leave at all.</para>
-///
-/// <para>Lifted out of <c>DefenceBattery</c> because none of it touches KSA: it is a
-/// <c>bool[]</c> and two loops, and it was a shipped bug that only in-game observation caught.
-/// See <c>docs/MODULARITY.md</c>.</para>
+/// <para>Authoritative rather than derived from an ammo count. <c>TubeCount - Ammo</c> only names
+/// the next tube while a magazine empties monotonically: a reload restarts it at zero while earlier
+/// rounds are still in the air, so two rounds claim one tube — and a body subpart is chosen by tube
+/// number, so one body would flip between them every frame.</para>
 /// </summary>
 internal sealed class Magazine
 {
@@ -48,11 +38,8 @@ internal sealed class Magazine
     public int Capacity => _loaded.Length;
 
     /// <summary>
-    /// Rounds still in the tubes.
-    ///
-    /// <para>Counted rather than tracked. It used to be a field maintained alongside the tube
-    /// flags, which is two representations of one fact and an invitation for them to disagree —
-    /// and the bug this class exists to prevent was exactly a disagreement between them.</para>
+    /// Rounds still in the tubes, counted from the flags rather than tracked beside them. Two
+    /// representations of one fact can disagree; one cannot.
     /// </summary>
     public int Ammo
     {
@@ -135,11 +122,9 @@ internal sealed class Magazine
          : TubeVisual.Loaded;
 
     /// <summary>
-    /// Whether this plan requires the body to be seated in its tube first.
-    ///
-    /// <para>True for everything the tube is responsible for placing — which is both
-    /// <see cref="TubeVisual.Loaded"/> and <see cref="TubeVisual.Spent"/>. See
-    /// <see cref="TubeVisual"/> for why the spent case is not an optimisation opportunity.</para>
+    /// Whether this plan requires the body to be seated first. True for everything the tube places,
+    /// which is both <see cref="TubeVisual.Loaded"/> and <see cref="TubeVisual.Spent"/> — see
+    /// <see cref="TubeVisual"/> for why the spent case is not an optimisation opportunity.
     /// </summary>
     public static bool RequiresSeating(TubeVisual plan) => plan != TubeVisual.InFlight;
 

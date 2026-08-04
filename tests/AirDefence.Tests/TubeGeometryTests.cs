@@ -5,11 +5,7 @@ namespace AirDefence.Tests;
 
 /// <summary>
 /// The launcher's own geometry — tube positions, tube direction, and where the moving assemblies
-/// sit once the drives are laid.
-///
-/// <para>All of this used to sit behind a <c>Part</c> argument it only read two properties off, so
-/// none of it could be tested. It is also precisely what a second launcher rewrites, which is why
-/// it is pinned here first. See <c>docs/MODULARITY.md</c>.</para>
+/// sit once the drives are laid. This is what a second launcher rewrites, so it is pinned closely.
 /// </summary>
 public class TubeGeometryTests
 {
@@ -177,9 +173,8 @@ public class TubeGeometryTests
     }
 
     /// <summary>
-    /// <b>The capability this change exists for.</b> Before it, one axis was derived for the whole
-    /// pod, so every tube necessarily pointed the same way and a splayed bundle — a VLS with
-    /// divergence, an MLRS — could not be expressed at all.
+    /// Each tube carries its own direction, which is what makes a splayed bundle — a VLS with
+    /// divergence, an MLRS — expressible at all.
     /// </summary>
     [Fact]
     public void ASplayedBundleGivesEachTubeItsOwnDirection()
@@ -343,10 +338,9 @@ public class TubeGeometryTests
     // ---- The drives ----------------------------------------------------
 
     /// <summary>
-    /// <b>The wrecking-ball case.</b> Subparts do not nest in KSA, so the pods are a sibling of
-    /// the turret rather than a child. Their <em>position</em> therefore has to be rewritten as the
-    /// turret traverses; leaving it alone spins them on the spot while the turret rotates out from
-    /// under them.
+    /// Subparts do not nest in KSA, so the pods are a sibling of the turret and their
+    /// <em>position</em> has to be rewritten as it traverses — otherwise they spin on the spot
+    /// while the turret rotates out from under them.
     /// </summary>
     [Fact]
     public void TraversingMovesThePodsAndNotJustTheirRotation()
@@ -551,10 +545,8 @@ public class TubeGeometryTests
     [Fact]
     public void OnlyTheTravelIsRotatedIntoThePartFrame()
     {
-        // The anchor is deliberately OFF the rotation axis. With it on the axis the rotation is a
-        // no-op for that term, so a version that wrongly rotates the anchor too gives the same
-        // answer and the test proves nothing - which is the mistake the zigzag regression test
-        // made and the reason this file says so out loud.
+        // The anchor is off the rotation axis on purpose: on the axis, rotating it is a no-op, so
+        // a version that wrongly rotates the anchor too would give the same answer.
         double3 anchor = new(1, 2, 0);
         double3 travel = new(0, 10, 0);
 

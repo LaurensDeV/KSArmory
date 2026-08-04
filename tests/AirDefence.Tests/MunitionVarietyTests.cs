@@ -28,11 +28,10 @@ public class MunitionVarietyTests
     /// One crossing engagement, flown with whatever munition it is handed. The geometry is fixed,
     /// so every difference in the result is a difference in the round.
     ///
-    /// <para><b>Closest approach is analytic, not min-over-samples.</b> At 1000 m/s a 1/60 s sample
-    /// is ~17 m of travel, so a sampled minimum reports the grid spacing rather than the pass: the
-    /// first draft of this harness returned an identical 33.91 m for fuse radii of 15 m, 2 m and
-    /// 0 m. Taking the true closest approach across each step — the same continuous measure the
-    /// fuse itself uses — is what makes a sub-metre pass measurable at all.</para>
+    /// <para><b>Closest approach is analytic, not min-over-samples.</b> At 1000 m/s a 1/60 s
+    /// sample is ~17 m of travel, so a sampled minimum reports the grid spacing rather than the
+    /// pass. The true closest approach across each step — the measure the fuse itself uses — is
+    /// what makes a sub-metre pass measurable.</para>
     /// </summary>
     private static Engagement Fly(MunitionProfile munition, double3 targetStart, double3 targetVel)
     {
@@ -399,11 +398,10 @@ public class MunitionVarietyTests
     /// <summary>
     /// The fuse radius decides <em>when</em> a round bursts, not how close it gets.
     ///
-    /// <para>Worth stating, because the obvious assertion is the wrong one. Proportional navigation
-    /// drives this engagement to a measured 0.000 m closest approach at every fuse setting from
-    /// 20 m down to contact, so "a smaller fuse forces a closer pass" is vacuous — the round was
-    /// already going to hit. What the radius actually moves is the burst instant: a wider fuse
-    /// trips further out and therefore earlier.</para>
+    /// <para>The obvious assertion is the wrong one: proportional navigation drives this
+    /// engagement to a measured 0.000 m closest approach at every fuse setting from 20 m down to
+    /// contact, so "a smaller fuse forces a closer pass" is vacuous. What the radius moves is the
+    /// burst instant — a wider fuse trips further out and therefore earlier.</para>
     /// </summary>
     [Fact]
     public void AWiderFuseBurstsEarlierWithoutChangingThePass()
@@ -425,10 +423,10 @@ public class MunitionVarietyTests
             ages.Add(flight.Age);
         }
 
-        // Never earlier as the fuse narrows. Not *strictly* later at every step: with the round
-        // converging to a direct hit, a 5 m fuse and a 0 m one are both crossed inside one
-        // sub-step and burst at the same instant to four decimal places. That is the integrator's
-        // resolution, not a failure to read the profile - which the ends demonstrate.
+        // Never earlier as the fuse narrows, though not strictly later at every step: with the
+        // round converging to a direct hit, a 5 m fuse and a 0 m one are crossed inside one
+        // sub-step and burst at the same instant. That is integrator resolution; the ends show the
+        // profile is read.
         for (int i = 1; i < ages.Count; i++)
         {
             Assert.True(ages[i] >= ages[i - 1] - 1e-9,

@@ -31,9 +31,9 @@ internal sealed class Interceptor : IProjectile
     /// <summary>Fixed integration step. Frames are subdivided to this, which keeps the
     /// guidance stable and stops fast targets tunnelling through the fuse radius.</summary>
     /// <summary>
-    /// Shared with every other <see cref="IProjectile"/> deliberately: <see cref="SimClock"/>
-    /// refuses steps beyond what these allow, and that guard is only correct if everything in the
-    /// air integrates to the same resolution.
+    /// Shared with every other <see cref="IProjectile"/>: <see cref="SimClock"/> refuses steps
+    /// beyond what these allow, and that guard is only correct if everything integrates to the
+    /// same resolution.
     /// </summary>
     internal const double SubStep = 0.005;
 
@@ -72,10 +72,8 @@ internal sealed class Interceptor : IProjectile
     /// <see cref="PositionEcl"/> therefore advances it by this much, which moves it
     /// <em>backward</em>.</para>
     ///
-    /// <para>The sign matters: in the ecliptic frame the gap is hundreds of metres per frame, so
-    /// getting it the wrong way round doubles the error rather than cancelling it, and a blast
-    /// finds nothing at all. This used to be measured from the frame start on the assumption that
-    /// samples arrived there; the engine source says otherwise.</para>
+    /// <para>The sign matters: the gap is hundreds of metres per frame, so reversing it doubles
+    /// the error rather than cancelling it and the blast finds nothing.</para>
     /// </summary>
     public double DetonationElapsedInFrame { get; private set; }
 
@@ -144,16 +142,10 @@ internal sealed class Interceptor : IProjectile
     private double _trailTimer;
 
     /// <param name="frameVelocityEcl">
-    /// Velocity of the frame the round was launched into — the platform's. <b>Required, not
-    /// optional, and this is why:</b> it seeds <see cref="VelocityLocal"/>, which is what a round's
-    /// body is oriented along. Leaving it to the first <see cref="Update"/> left it zero for the
-    /// round's first frame, so <c>VelocityLocal</c> degenerated to <see cref="VelocityEcl"/> — the
-    /// platform's ~29.8 km/s of ecliptic motion — and the body was drawn pointing along Earth's
-    /// orbit for exactly one frame before snapping into its tube.
-    ///
-    /// <para>A round <em>is</em> drawn on its launch frame: <c>Fire</c> runs in fire control, which
-    /// is after the round update, and <c>SyncRoundBodies</c> then draws every round including one
-    /// created moments earlier that has never been integrated.</para>
+    /// Velocity of the frame the round launches into — the platform's. Required, because it seeds
+    /// <see cref="VelocityLocal"/>, which is what the body is oriented along, and a round is drawn
+    /// on its launch frame before any <see cref="Update"/>. Left unseeded, <c>VelocityLocal</c>
+    /// degenerates to <see cref="VelocityEcl"/> and the body points along the planet's orbit.
     /// </param>
     public Interceptor(double3 positionEcl, double3 velocityEcl, object target, int tube,
                        double3 platformEcl, double3 frameVelocityEcl)
@@ -166,7 +158,6 @@ internal sealed class Interceptor : IProjectile
         LaunchOffset = OffsetFromPlatform;
         _trail.Add(OffsetFromPlatform);
 
-        // Seeded here so the round is orientable from birth rather than from its first step.
         _frameVelocityEcl = frameVelocityEcl;
     }
 
@@ -175,12 +166,9 @@ internal sealed class Interceptor : IProjectile
     public bool HasLock => TargetRef is not null && SeekerInView;
 
     /// <summary>
-    /// Velocity relative to the moving frame — the round's airspeed vector, and the direction
-    /// it is actually pointing.
-    ///
-    /// Not <see cref="VelocityEcl"/>: that carries the platform's ~29.8 km/s of ecliptic
-    /// motion, so using it to orient anything points every round the same way regardless of
-    /// where it is going. That mistake has been made in this codebase before.
+    /// Velocity relative to the moving frame — the round's airspeed vector, and the direction it
+    /// points. Not <see cref="VelocityEcl"/>, which carries the platform's ~29.8 km/s and would
+    /// orient every round the same way.
     /// </summary>
     public double3 VelocityLocal => VelocityEcl - _frameVelocityEcl;
 
@@ -227,9 +215,8 @@ internal sealed class Interceptor : IProjectile
     {
         if (State != RoundState.Flying) return;
 
-        // A step that did not happen must not be integrated. SimClock and the frame hook both
-        // already refuse these, so this is unreachable in game - but it is part of the
-        // IProjectile contract and a negative h would integrate the round backwards.
+        // A negative h would integrate the round backwards. SimClock and the frame hook both
+        // refuse these already; this holds the IProjectile contract regardless.
         if (!double.IsFinite(dt) || dt <= 0.0) return;
 
         if (target is null) TargetRef = null;

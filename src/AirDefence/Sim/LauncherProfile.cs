@@ -10,10 +10,8 @@ namespace AirDefence;
 /// what a launcher with parallel tubes wants and what the model generator emits, so the common case
 /// stays a bare position.</para>
 ///
-/// <para>A per-tube direction is what a splayed bundle needs: a VLS with divergence, an MLRS, or
-/// any launcher whose tubes are not a parallel block. Before this existed the axis was derived once
-/// for the whole pod from <see cref="LauncherProfile.PodReferenceElevationRad"/>, so every tube
-/// necessarily pointed the same way and those launchers could not be expressed at all.</para>
+/// <para>A per-tube direction is what a splayed bundle needs — a VLS with divergence, an MLRS, or
+/// anything whose tubes are not a parallel block.</para>
 /// </summary>
 public readonly record struct Tube(double3 Position, double3 Direction)
 {
@@ -81,8 +79,8 @@ public sealed class LauncherProfile
     public double3 RadarPivotFromTurret { get; init; }
 
     /// <summary>
-    /// Elevation the pods are modelled at. Runtime elevation is applied as a rotation *away*
-    /// from this, so a refused transform write leaves the vehicle in a pose that looks right.
+    /// Elevation the pods are modelled at. Runtime elevation is a rotation <em>away</em> from it,
+    /// so a refused transform write leaves the vehicle in a pose that looks right.
     /// </summary>
     public double PodReferenceElevationRad { get; init; }
 

@@ -3,20 +3,15 @@ namespace AirDefence;
 /// <summary>
 /// Decides what to do with the simulation step KSA has just applied.
 ///
-/// <para><b>The mod used to run on player time.</b> That is wall-clock, and it is wrong twice
-/// over, both seen in game. Under timewarp the world advances many seconds per frame while
-/// rounds advanced one frame's worth, so tracking fell apart. While <em>paused</em>, player
-/// time kept running, so the radar accumulated dwell, matured a firing solution and launched
-/// into a frozen world.</para>
+/// <para><b>Never player time.</b> That is wall-clock: it keeps running while the game is paused,
+/// so the radar would mature a firing solution and launch into a frozen world, and it ignores
+/// timewarp, so the world outruns the rounds.</para>
 ///
 /// <para><b>And it must be the step KSA applied, not one the mod measures.</b> Differencing a
-/// clock from a postfix hook can land a step out of phase — the round then integrates over a
-/// different span than the world moved by, and the difference is multiplied by the platform's
-/// ~29.8 km/s of ecliptic velocity. A frame-time wobble of under a millisecond becomes tens of
-/// metres of lateral error, alternating in sign, which in flight is a hard zigzag with the
-/// vertical axis left clean because the orbital velocity barely projects onto it. That is what
-/// the flight log showed. <c>Universe.GetLastSimStep().DeltaTime</c> is the applied step and
-/// cannot be out of phase with itself, so there is nothing left to measure.</para>
+/// clock from a postfix hook can land a step out of phase, and the round then integrates over a
+/// different span than the world moved by — multiplied by ~29.8 km/s, a sub-millisecond wobble is
+/// tens of metres of alternating lateral error. <c>Universe.GetLastSimStep().DeltaTime</c> is the
+/// applied step and cannot be out of phase with itself.</para>
 ///
 /// <para>Stateless on purpose: with no differencing there is no previous sample to hold, and
 /// therefore no priming, no reset, and no way to be wrong across a scene change.</para>
@@ -56,8 +51,7 @@ internal static class SimClock
         dt = 0.0;
 
         // Pause is checked as well as the step, not instead of it: a paused game reports no
-        // step anyway, but saying so explicitly is what stops a future change quietly
-        // reintroducing firing-while-paused.
+        // step anyway; saying so explicitly keeps firing-while-paused unreachable.
         if (paused) return State.Idle;
 
         // A non-finite or negative step is not something to reason about. Neither is zero.

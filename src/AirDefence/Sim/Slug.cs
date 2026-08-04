@@ -5,16 +5,11 @@ namespace AirDefence;
 /// <summary>
 /// An unguided kinetic round — a gun slug. Ballistics and a contact fuse, nothing else.
 ///
-/// <para><b>This is why <see cref="IProjectile"/> exists.</b> A slug is not an
-/// <see cref="Interceptor"/> with its nav constant set to zero: it has no seeker, no lock, no
-/// boost, no fins, no command link, and it never steers, so most of that flight model is dead code
-/// for it and every branch would need a guard. It is a different implementation of the same
-/// contract, which is the distinction a profile field cannot draw.</para>
+/// <para>Not an <see cref="Interceptor"/> with its nav constant zeroed: it has no seeker, lock,
+/// boost, fins or command link, so most of that flight model would be dead code behind guards.</para>
 ///
-/// <para>It still has to obey every frame and epoch rule the guided round does — the target sample
-/// arrives at the end of the step and must be back-dated, the drawn offset is taken after the step
-/// with no extrapolation, and the body is oriented off local velocity. Those are properties of the
-/// engine, not of the weapon. See docs/FRAMES-AND-EPOCHS.md.</para>
+/// <para>It obeys the same frame and epoch rules regardless — those belong to the engine, not to
+/// the weapon. See docs/FRAMES-AND-EPOCHS.md.</para>
 /// </summary>
 internal sealed class Slug : IProjectile
 {
@@ -36,8 +31,8 @@ internal sealed class Slug : IProjectile
         LaunchOffset = OffsetFromPlatform;
         _trail.Add(OffsetFromPlatform);
 
-        // Seeded so the round is orientable on the frame it is fired, which is a frame it is
-        // genuinely drawn on. Same trap that pointed missiles along Earth's orbit at launch.
+        // Seeded here: a round is drawn on its launch frame, before any Update, and needs a
+        // usable VelocityLocal to orient by.
         _frameVelocityEcl = frameVelocityEcl;
     }
 
@@ -79,8 +74,7 @@ internal sealed class Slug : IProjectile
 
         _frameVelocityEcl = frameVelocityEcl;
 
-        // A slug is unguided, so losing the target does not end its flight - it keeps going and
-        // simply has nothing left to fuse against.
+        // Unguided: losing the target leaves it flying with nothing to fuse against.
         if (target is null) TargetRef = null;
 
         int steps = Math.Min(Interceptor.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / Interceptor.SubStep)));
@@ -89,16 +83,14 @@ internal sealed class Slug : IProjectile
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
-            // elapsed is incremented AFTER the step, so the round's start-of-sub-step position is
-            // paired with the target back-dated to that same instant. Incrementing first pairs it
-            // with the END of the sub-step instead, and at 29.8 km/s that half-step is ~142 m of
-            // phantom separation. Caught by ProjectileContractTests on this file's first run.
+            // Incremented after the step, so the round's position and the back-dated target share
+            // an instant. Splitting them across a sub-step costs ~142 m at 29.8 km/s.
             Step(h, elapsed, dt, target, gravity, munition, airDensityRatio);
             elapsed += h;
         }
 
-        // After the step, against the platform sample from this same frame, with no extrapolation.
-        // Both terms then advance in lockstep and the difference is the round's own flight.
+        // After the step, against this frame's platform sample, no extrapolation: both terms then
+        // advance in lockstep and the difference is the round's own flight.
         OffsetFromPlatform = PositionEcl - platformEcl;
 
         _trailTimer += dt;
@@ -120,8 +112,7 @@ internal sealed class Slug : IProjectile
         double3 localVelocity = VelocityEcl - _frameVelocityEcl;
         double3 accel = gravity;
 
-        // Drag on airspeed, scaled by air density. No thrust term at all: a slug is coasting from
-        // the instant it leaves the barrel, which is the whole difference from a boosted round.
+        // Drag on airspeed, scaled by density. No thrust term: a slug coasts from the muzzle.
         double airspeed = Vec.Len(localVelocity);
         if (munition.DragK > 0f && airspeed > 1e-6 && airDensityRatio > 0.0)
         {
@@ -130,10 +121,8 @@ internal sealed class Slug : IProjectile
 
         if (target is { } t)
         {
-            // Back-dated to this round's epoch. The sample is where the target will be at the END
-            // of the frame; the round is mid-step. Skipping this leaves the line of sight carrying
-            // a whole frame of the planet's motion, which is what made guided rounds chase a ghost
-            // hundreds of metres away.
+            // Back-dated to this round's epoch: the sample is end-of-frame, the round is mid-step.
+            // Without it the line of sight carries a whole frame of the planet's motion.
             double3 targetPos = t.PositionEcl + t.VelocityEcl * (elapsedInFrame - frameSeconds);
             double3 r = targetPos - PositionEcl;
             double3 v = t.VelocityEcl - VelocityEcl;
@@ -142,8 +131,8 @@ internal sealed class Slug : IProjectile
 
             if (Age >= munition.FuseArmSeconds)
             {
-                // Analytic closest approach across the sub-step, so a fast slug cannot step over a
-                // small target. This is what lets FuseRadius go to zero for a contact hit.
+                // Analytic closest approach across the sub-step, so a fast round cannot step over
+                // a small target. This is what lets FuseRadius go to zero for a contact hit.
                 double trigger = munition.FuseRadius + t.Radius;
                 double tCa = Vec.TimeOfClosestApproach(r, v, h);
                 double miss = Vec.Len(r + v * tCa);
@@ -154,8 +143,8 @@ internal sealed class Slug : IProjectile
                     MissDistance = miss;
                     ClosestApproach = Math.Min(ClosestApproach, miss);
 
-                    // Negative: measured against a world sample taken at the end of the step, so
-                    // the caller advances the world BACKWARD by this much to place the burst.
+                    // Negative: the world sample is end-of-step, so the caller advances the world
+                    // backward by this much to place the burst.
                     DetonationElapsedInFrame = elapsedInFrame + tCa - frameSeconds;
                     State = RoundState.Detonated;
                     return;
@@ -168,8 +157,8 @@ internal sealed class Slug : IProjectile
         double3 stepEcl = VelocityEcl * h;
         PositionEcl += stepEcl;
 
-        // Local, not absolute: absolute displacement is dominated by the planet's orbit and would
-        // report ~30 km per second of flight regardless of what the slug did.
+        // Local, not absolute: absolute displacement reports ~30 km per second of the planet's
+        // orbit regardless of what the round did.
         DistanceFlown += Vec.Len(stepEcl - _frameVelocityEcl * h);
     }
 }
