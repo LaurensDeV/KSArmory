@@ -66,6 +66,10 @@ if len(argv) > 3 and argv[3]:
         key, _, value = field.partition("=")
         POSE[key.strip().lower()] = math.radians(float(value))
 
+# Exporting is the slowest phase after rendering and produces a file nothing reads when the
+# caller only wants pictures.
+EXPORT = "--no-export" not in argv
+
 PALETTE = json.loads(open(PALETTE_PATH).read())["swatches"]
 
 # ---------------------------------------------------------------------------
@@ -124,6 +128,15 @@ RADAR_SPLAY = math.radians(21.0)         # lean of each face off vertical
 RADAR_CLOCK = math.pi / 6
 RADAR_PIVOT = (4.05, RADAR_MAST_Y, 0.0)  # spin axis, parallel to the part's X
 
+# Electro-optical head. Aimed freely rather than on an axis, so its mesh is recentred on the
+# ball's own centre and the mod writes a full rotation. At rest it looks along +Y, the way the
+# vehicle drives, which is the direction its lens is modelled sticking out in.
+#
+# Above the tracking array, which reaches X 3.67. Beside it the array cuts the sight line the
+# moment the head looks down and forward - which is exactly where a target on its final approach
+# is.
+EO_PIVOT = (4.10, TURRET_Y + 1.07, 0.44)
+
 # The 57E6 round: a bronze booster with small tail fins, a cluster of four delta fins at the
 # stage joint, and a slim grey sustainer with a blue-grey nose. Modelled nose-along-+X with the
 # origin at its centre, which is the frame LauncherPart aims it in.
@@ -134,11 +147,14 @@ BOOSTER_LEN = 1.20
 
 GUN_ELEV = math.radians(22.0)
 
-# Outboard of the pod bundle, which reaches Z 1.44, and clear of the turret cheeks at 1.00-1.24.
-# The inner barrel's muzzle brake is the widest part: GUN_Z - 0.09 - 0.068. Clearing the pods at
-# all needs 1.60; clearing them so they do not read as touching needs a good deal more, and 1.85
-# leaves 0.25 m of daylight.
+# Outboard of the pod bundle, whose frame rings reach Z 1.51, and clear of the turret cheeks at
+# 1.00-1.24. The inner barrel's muzzle brake is the widest part: GUN_Z - 0.09 - 0.068. Clearing
+# the pods at all needs 1.67; clearing them so they do not read as touching needs a good deal
+# more, and 1.85 leaves 0.18 m of daylight.
 GUN_Z = 1.85
+# Inboard face of the gun sponsons. Clear of the tube bundle's widest point (|Z| 1.51 after the
+# frame rings), because the sponsons sit inside the disc the bundle sweeps about its trunnion.
+SPONSON_INNER_Z = 1.58
 # Above the turret deck, which tops out at X 3.38. The cradle is 0.52 tall, so a centre below
 # 3.64 puts it inside the turret body - invisible while the guns were welded into that mesh, and
 # a swept intersection once they became a body that rotates on its own trunnion.
@@ -185,8 +201,8 @@ _jitter = random.Random(0x9A5D)
 UV_PER_METRE = 0.012
 SWATCH_REACH = 0.08
 
-_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "guns": [], "missile": [],
-            "fins": []}
+_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "guns": [], "optic": [],
+            "missile": [], "fins": []}
 _group = "chassis"
 
 
@@ -484,7 +500,9 @@ def build_turret():
     span((2.14, 3.30), (TURRET_Y - 1.72, TURRET_Y + 1.44), (-1.00, 1.00), "hull")
     box((0.10, 1.20, 1.96), (3.02, TURRET_Y + 1.56, 0.0), (0.0, 0.0, -0.55), "hull_dark")
     span((3.30, 3.38), (TURRET_Y - 1.74, TURRET_Y + 1.34), (-1.02, 1.02), "deck")
-    # Cheeks the pods and guns hang off.
+    # Cheeks the pods and guns hang off. They reach forward past the trunnion line on purpose:
+    # the pods are a separate body hanging on that line, and the cheek is what visually carries
+    # them. Stopping it at the trunnion leaves the pods reading as detached.
     for z in (-1.0, 1.0):
         span((2.30, 3.10), (TURRET_Y - 1.30, TURRET_Y + 0.60),
              (min(z * 1.00, z * 1.24), max(z * 1.00, z * 1.24)), "hull_dark")
@@ -500,15 +518,29 @@ def build_turret():
     build_tracking_radar()
     build_search_radar_mount()
 
-    # Sponsons carrying the cannon trunnions, out from the cheeks and up to GUN_MOUNT. Part of
-    # the turret, not the guns: the cradle pitches on this, so it has to stay put.
+    # Sponsons carrying the cannon trunnions, out from the trunnion line and up to GUN_MOUNT.
+    # Part of the turret, not the guns: the cradle pitches on this, so it has to stay put.
+    #
+    # Their inboard face sits outboard of the tube bundle's widest point. Reaching in to the
+    # cheek instead puts them inside the disc the bundle sweeps about its own trunnion, and the
+    # tubes then pass through them at every elevation - the bundle is 20 cm across and was fully
+    # immersed. Elevation turns about Z and the traverse is shared, so a gap in Z is the only
+    # one that holds at every pose. tools/model/checkswept.py is what proves it.
     #
     # Added last on purpose. The box jitter runs off one seed, so inserting a primitive
     # reshuffles every one after it - putting these earlier moved the tracking radar's faces
     # into a 1.79 mm near-coplanar pair.
     for z in (-1.0, 1.0):
         span((2.90, GUN_MOUNT[0]), (GUN_MOUNT[1] - 0.34, GUN_MOUNT[1] + 0.34),
-             (min(z * 1.12, z * GUN_Z), max(z * 1.12, z * GUN_Z)), "hull_dark")
+             (min(z * SPONSON_INNER_Z, z * GUN_Z), max(z * SPONSON_INNER_Z, z * GUN_Z)),
+             "hull_dark")
+
+        # Web tying each sponson back to its cheek. Standing the sponson off on its own leaves
+        # the whole cannon assembly floating clear of the turret. It reaches inboard *behind*
+        # the pod trunnion line, which is the one place it can: forward of that line it would be
+        # inside the disc the tube bundle sweeps.
+        span((2.90, GUN_MOUNT[0]), (POD_TRUNNION[1] - 0.36, POD_TRUNNION[1] + 0.02),
+             (min(z * 1.06, z * GUN_Z), max(z * 1.06, z * GUN_Z)), "hull_dark")
 
     # The pods are a group of their own: they pitch about the trunnion line independently of
     # the turret's traverse, so they need their own mesh, pivot and transform.
@@ -555,39 +587,47 @@ def build_pods():
                 muzzle = tube_muzzle(side, row, col)
                 centre = muzzle - d * (TUBE_LEN / 2)
                 cyl(TUBE_R, TUBE_LEN, centre, rot, "tube", verts=16)
-                # Frangible cover on the mouth, standing proud of the container so its end cap
-                # clears. Deliberately a different radius *and* a different facet count: two
-                # coaxial cylinders with the same number of sides have parallel side faces a
-                # couple of millimetres apart, which is a z-fight even though nothing is
-                # coplanar. checkmesh.py finds these.
-                # A tapered cap, not a cylinder. Two coaxial cylinders have parallel side faces
-                # a couple of millimetres apart - a z-fight with nothing coplanar - and the
-                # radius cannot simply be grown to escape it, because the tubes are pitched
-                # 0.225 apart and 0.21 across, so a fatter cover starts overlapping its
-                # neighbours instead. A cone's sides are parallel to nothing.
-                cone(TUBE_R * 1.06, TUBE_R * 0.80, 0.10, muzzle - d * 0.02, rot, "tube_cap")
+                # Frangible cover on the mouth. A cone rather than a cylinder because two
+                # coaxial cylinders have parallel side faces a couple of millimetres apart,
+                # which is a z-fight with nothing coplanar; a cone's sides are parallel to
+                # nothing, so the cover can sit *inside* the container's silhouette instead of
+                # proud of it. Any radius above TUBE_R reads as a lip, and a facet count below
+                # the tube's makes that lip visibly polygonal.
+                cone(TUBE_R * 0.985, TUBE_R * 0.80, 0.10, muzzle - d * 0.02, rot, "tube_cap",
+                     verts=16)
 
         # Frame wrapping the bundle, stopping short so the containers stay visible.
+        #
+        # `rot` carries a primitive's local Z onto the tube axis, which is what cyl() wants and
+        # box() does not: its size tuple is (across Z, along p, along the tube).
         bundle_w = TUBE_COLS * TUBE_PITCH + 0.10
         bundle_h = TUBE_ROWS * TUBE_PITCH + 0.10
         for frac in (0.18, 0.55, 0.88):
             ring = base + d * (POD_STANDOFF + TUBE_LEN * frac)
-            box((bundle_h, 0.09, bundle_w), ring, rot, "hull_dark")
+            box((bundle_w, bundle_h, 0.09), ring, rot, "hull_dark")
         # Spine down the pod's back.
         spine = base + d * (POD_STANDOFF + TUBE_LEN * 0.5) + p * (bundle_h / 2 + 0.04)
-        box((0.09, TUBE_LEN * 0.78, bundle_w), spine, rot, "hull_dark")
+        box((bundle_w, 0.09, TUBE_LEN * 0.78), spine, rot, "hull_dark")
 
 
 def build_guns():
+    global _group
     d, _ = elevated_frame(GUN_ELEV)
     rot = pitched(GUN_ELEV)
 
     for side in (-1, 1):
         mount = Vector((GUN_MOUNT[0], GUN_MOUNT[1], side * GUN_Z))
 
-        # Cradle and its ammunition box.
         box((0.52, 0.86, 0.46), mount, swatch="hull_dark")
+
+        # The ammunition box goes on the turret, not the cradle. Riding the cradle it hangs
+        # 0.78 m off the trunnion and sweeps an annulus the sponson sits inside, so it passes
+        # through its own mount above 33 degrees of elevation. The belt feeds a gun that
+        # pitches; the box it feeds from does not have to. Built here rather than beside the
+        # sponsons so the jitter sequence is unchanged.
+        _group = "turret"
         box((0.60, 0.70, 0.38), (mount.x - 0.05, mount.y - 0.78, mount.z), swatch="detail")
+        _group = "guns"
 
         # Twin 30 mm barrels.
         for offset in (-0.09, 0.09):
@@ -611,10 +651,17 @@ def build_tracking_radar():
     for z in (-1.0, 1.0):
         box((1.44, 0.16, 0.10), (2.95, face_y - 0.04, z * 0.76), (0.0, 0.0, tilt), "metal")
 
-    # Electro-optical tracker on a short pedestal beside the array.
-    box((0.34, 0.44, 0.50), (3.52, TURRET_Y + 1.05, 0.44), swatch="hull_dark")
-    sphere(0.26, (3.82, TURRET_Y + 1.07, 0.44), "radar")
-    cyl(0.14, 0.10, (3.86, TURRET_Y + 1.30, 0.44), axis_y(), "glass", verts=16)
+    # Electro-optical tracker. The pedestal belongs to the turret; the head above it is a body
+    # of its own so it can be slewed onto the track. sphere() and cyl() consume no box jitter,
+    # so lifting them into another group leaves the sequence untouched.
+    global _group
+    box((0.74, 0.44, 0.50), (3.72, TURRET_Y + 1.05, 0.44), swatch="hull_dark")
+
+    _group = "optic"
+    sphere(0.26, EO_PIVOT, "radar")
+    cyl(0.14, 0.10, (EO_PIVOT[0] + 0.04, EO_PIVOT[1] + 0.23, EO_PIVOT[2]), axis_y(),
+        "glass", verts=16)
+    _group = "turret"
 
 
 def build_search_radar_mount():
@@ -710,7 +757,11 @@ def build_search_array():
 
     # Turntable, wide enough to actually reach under the splayed faces. A narrow one leaves the
     # whole array visibly hovering above its mount.
-    cyl(0.60, 0.18, (px + 0.09, py, 0.0), axis_x(), "steel_dark", verts=18)
+    #
+    # Sunk 4 cm into the mast, whose cap sits on X = RADAR_PIVOT[0]. Resting on it exactly puts
+    # two capped cylinders' faces on one plane, and this pair turns at SearchRadarRpm — so the
+    # z-fight rotates. cyl() applies no skin of its own, unlike box().
+    cyl(0.60, 0.18, (px + 0.05, py, 0.0), axis_x(), "steel_dark", verts=18)
     cyl(0.40, 0.10, (px + 0.22, py, 0.0), axis_x(), "metal", verts=18)
 
     for side in (-1, 1):
@@ -771,6 +822,7 @@ def export(path):
     pods = join_group("pods", recentre=POD_PIVOT)
     radar = join_group("radar", recentre=RADAR_PIVOT)
     guns = join_group("guns", recentre=GUN_PIVOT)
+    optic = join_group("optic", recentre=EO_PIVOT)
     missile = join_group("missile")
     fins = join_group("fins")
 
@@ -782,6 +834,7 @@ def export(path):
                       (pods, "AirDefence_Subpart_Pods"),
                       (radar, "AirDefence_Subpart_Radar"),
                       (guns, "AirDefence_Subpart_Guns"),
+                      (optic, "AirDefence_Subpart_Optic"),
                       (missile, "AirDefence_Subpart_Missile"),
                       (fins, "AirDefence_Subpart_Fins")):
         preview = ob.copy()
@@ -953,6 +1006,7 @@ def report_muzzles(out_dir):
     # mod composes traverse and elevation itself and writes the pods' position each frame.
     pod_rel_turret = Vector(POD_PIVOT) - Vector(TURRET_PIVOT)
     radar_rel_turret = Vector(RADAR_PIVOT) - Vector(TURRET_PIVOT)
+    eo_rel_turret = Vector(EO_PIVOT) - Vector(TURRET_PIVOT)
 
     print(f"\n    tube count           = {len(firing)}   (LauncherProfile.TubeCount is derived)")
     print(f"    MuzzleForwardOffset  = {mean_x:.3f}   (highest tube mouth {highest:.3f} m)")
@@ -964,8 +1018,23 @@ def report_muzzles(out_dir):
     gun_rel_turret = Vector(GUN_PIVOT) - Vector(TURRET_PIVOT)
     print(f"    GunPivotFromTurret   = ({gun_rel_turret.x:.5f}, {gun_rel_turret.y:.5f}, {gun_rel_turret.z:.5f})")
     print(f"    GunReferenceElevDeg  = {math.degrees(GUN_ELEV):.3f}")
+
+    # Barrel muzzles in the cannon subpart's own frame, which is the mesh recentred on GUN_PIVOT.
+    # Emitted for the same reason the tube muzzles are: the C# needs them to spawn rounds, and
+    # nothing at build or run time would notice the two disagreeing.
+    gun_d, _ = elevated_frame(GUN_ELEV)
+    gun_muzzles = []
+    for side in (-1, 1):
+        for offset in (-0.09, 0.09):
+            tip = (Vector((0.0, 0.0, side * GUN_Z + offset))
+                   + gun_d * (0.30 + BARREL_LEN))
+            gun_muzzles.append(tip)
+    print("    GunMuzzles           = " + ", ".join(
+        f"({m.x:.5f}, {m.y:.5f}, {m.z:.5f})" for m in gun_muzzles))
     print(f"    RadarPivotFromTurret = ({radar_rel_turret.x:.5f}, {radar_rel_turret.y:.5f}, "
           f"{radar_rel_turret.z:.5f})")
+    print(f"    OpticPivotFromTurret = ({eo_rel_turret.x:.5f}, {eo_rel_turret.y:.5f}, "
+          f"{eo_rel_turret.z:.5f})")
 
     with open(os.path.join(out_dir, "muzzles.json"), "w") as fh:
         json.dump({
@@ -976,10 +1045,12 @@ def report_muzzles(out_dir):
             "pod_pivot": [round(v, 5) for v in POD_PIVOT],
             "gun_pivot_from_turret": [round(v, 5) for v in gun_rel_turret],
             "gun_reference_elevation_deg": round(math.degrees(GUN_ELEV), 3),
+            "gun_muzzles": [[round(m.x, 5), round(m.y, 5), round(m.z, 5)] for m in gun_muzzles],
             "pod_pivot_from_turret": [round(v, 5) for v in pod_rel_turret],
             "pod_reference_elevation_deg": round(math.degrees(POD_ELEV), 3),
             "radar_pivot": [round(v, 5) for v in RADAR_PIVOT],
             "radar_pivot_from_turret": [round(v, 5) for v in radar_rel_turret],
+            "eo_pivot_from_turret": [round(v, 5) for v in eo_rel_turret],
         }, fh, indent=2)
 
 
@@ -996,9 +1067,12 @@ def main():
         pose_assemblies(POSE.get("bearing", 0.0), POSE.get("elev", 0.0))
     render_previews(OUT_DIR)
 
-    glb = os.path.join(OUT_DIR, "AirDefence_MeshAtlas.glb")
-    export(glb)
-    print("EXPORT_OK", glb)
+    # A posed scene exports a posed atlas: same vertex buffers, different node transforms. The
+    # runtime composes poses itself from the rest library, so that file is never one to install.
+    if EXPORT and not POSE:
+        glb = os.path.join(OUT_DIR, "AirDefence_MeshAtlas.glb")
+        export(glb)
+        print("EXPORT_OK", glb)
 
     report_muzzles(OUT_DIR)
     print("DONE")
