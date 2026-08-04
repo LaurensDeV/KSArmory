@@ -1,0 +1,177 @@
+# Modularity: what generalises, what does not, and what to test first
+
+The mod was built around three profile types and a registry so that a second weapon system would
+be *data plus art*. This is an audit of how far that actually holds, read out of the code rather
+than out of the design notes, plus the test work that has to come **before** any of the refactors
+it proposes.
+
+Nothing here has been decided or implemented. It is a plan.
+
+**Summary: modular for rounds, mostly modular for launchers, not modular for mounts.**
+
+---
+
+## Where it stands
+
+### Different rounds — genuinely there
+
+`Interceptor` never names a munition. Every number arrives as a `MunitionProfile` argument per
+`Update`, and there is exactly **one** branch on round type in the whole flight model:
+
+```csharp
+SeekerInView = munition.Guidance == GuidanceMode.CommandLink || /* seeker cone check */;
+```
+
+`Sim/Interceptor.cs:352`. Boost, drag, nav constant, fuse, blast, body mesh and fin timing are all
+profile fields; bodies and fins resolve by `BodyMarker` / `FinMarker`, so a new round brings its own
+meshes with no code change. Profiles are mutable fields read *by reference* every frame, which is
+what makes live panel tuning work.
+
+The limit is the *class* of weapon, not the round. `Interceptor` is one concrete type with a
+hardwired integrate → guide → fuse loop. `NavConstant = 0` approximates unguided and
+`BoostSeconds = 0` a pure coast, but there is no shape for a gun burst, a hitscan, a beam or a
+timed airburst. A CIWS cannon is not a `MunitionProfile`.
+
+### Different launchers — modular in count, rigid in articulation
+
+Discovery is `Arsenal.LauncherForPart(part.Id)` (`Ksa/LauncherPart.cs:41`); nothing hardcodes an
+Id. Tube count is fully derived — `_tubeLoaded`, `Ammo`, the `stackalloc` and the body sync all
+size off `profile.TubeCount`, and `Ksa/DefenceBattery.cs:239-244` re-sizes the magazine when a
+*different* profile is recognised. A non-training launcher (`TurretMarker = null`) is a supported
+shape.
+
+**The hard assumption is that articulation is exactly three named subparts in one fixed kinematic
+chain**: traverse about part +X, elevate about +Z at a trunnion offset, radar spinning about +X.
+Those axes are literals in `TryApplyPodAim` (`Ksa/LauncherPart.cs:470-497`) and `TryApplyRadarSpin`
+(`506-527`), and `LauncherProfile` offers exactly three markers and three pivots. That covers
+another turret-and-pods system, or a fixed box. It does not cover a rotating drum, a translating
+rail, per-tube articulation, two elevating groups, or a radar that trains independently of the
+turret.
+
+The sharper limit: **`TubeOffsets` is `double3[]` — positions only.** `TryGetTubeAxisPartFrame`
+(`Ksa/LauncherPart.cs:156-170`) derives one axis for the whole pod, so every tube necessarily
+points the same way. Splayed tubes, a VLS with divergence or an MLRS cannot be expressed at all.
+
+### Different mounts — the weak axis
+
+A **static site already works** — it is a landed vehicle that does not move. **On a rocket** it
+works structurally, since a part on a vehicle is a part on a vehicle. Two things break in
+behaviour:
+
+- **`Boresight = KsaWorld.LocalUp(Platform)`** (`Ksa/DefenceBattery.cs:226`). The search cone points
+  radially outward regardless of vehicle attitude. On a truck that is the sky; on a pitched-over
+  booster or anything in orbit it is pointed at nothing. This is already listed under "Not done" in
+  CLAUDE.md, but its significance changes completely once the launcher is on something that
+  manoeuvres.
+- **One battery per *world*, not per craft.** `DefenceBattery` is a single instance
+  (`Ksa/AirDefenceMod.cs:35`) and `ResolvePlatform` (`Ksa/DefenceBattery.cs:333`) elects exactly one
+  platform. A static site *and* a rocket-mounted launcher gives you one of them, silently. `Config`
+  likewise holds one active profile set, re-`Select`ed every frame by whichever battery won.
+
+---
+
+## Proposed changes, ranked
+
+| # | Change | Size | Unlocks |
+| --- | --- | --- | --- |
+| 1 | `TubeOffsets` becomes `Tube(position, direction)`, direction defaulting to the pod axis | small | any launcher whose tubes are not parallel |
+| 2 | `DefenceBattery` becomes a list, one per launcher part found | medium | static site + vehicle + rocket at once |
+| 3 | `BoresightMode` on `SensorProfile` (LocalUp / PartForward / TurretAxis) | small | a launcher on anything that pitches |
+| 4 | Articulation as a list of drives rather than three named roles | large | drums, rails, per-tube motion |
+
+**4 is deliberately last and should not be attempted speculatively.** It is the one whose shape is
+least knowable before a second launcher exists that actually needs it.
+
+Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → `Arsenal` boundary that
+`validate-parts.py` guards, so the generator and the validator move with it. That is the third
+piece of geometry duplicated across a boundary in this repo and the first two both drifted — see
+CLAUDE.md.
+
+Two minor items worth folding in: `Ksa/Ui.cs:78` and `:83` hardcode "Pantsir-S1" in operator-facing
+text where `_config.Launcher.DisplayName` is available, and `Arsenal.MunitionNamed` falls back to
+`Munitions[0]` on an unknown name with no warning, so a typo'd key silently flies the wrong round.
+
+---
+
+## Test gaps — **closed**
+
+The audit that prompted this work found 117 tests passing with good coverage where it existed:
+eight offset/phase tests all verified to fail against their predecessors, 22 on the turret drive,
+21 on the threat model, plus fuse and guidance-discrimination suites.
+
+**The problem was that the coverage boundary was drawn at the file layout, not at the risk.** The
+test project links `Sim/**` and references no KSA assembly, so `Ksa/` has zero coverage by
+construction. That is the right design — but a body of *pure* logic was sitting on the wrong side
+of it, and it was disproportionately the logic the refactors above rewrite.
+
+That logic has been lifted into `Sim/`, the same way `FireGeometry` came out of `LauncherPart`.
+The `Ksa/` side keeps only the property writes. **117 → 203 tests.**
+
+| Was stranded in `Ksa/` | Now | Tested by |
+| --- | --- | --- |
+| tube occupancy, `NextFreeTube`, refill | `Sim/Magazine.cs` | `MagazineTests` |
+| the seat-then-hide decision | `Sim/Magazine.cs` (`TubeVisual`) | `MagazineTests` |
+| tube muzzle / axis / seated maths | `Sim/TubeGeometry.cs` | `TubeGeometryTests` |
+| `MuzzleEcl` ring fallback | `Sim/TubeGeometry.cs` | `TubeGeometryTests` |
+| pod & radar pose composition | `Sim/TubeGeometry.cs` | `TubeGeometryTests` |
+| travel → part-frame chain, fin span | `Sim/TubeGeometry.cs` | `TubeGeometryTests` |
+| `ConsumeSimStep` dedup | `Sim/StepGate.cs` | `StepGateTests` |
+
+And the `Sim/` holes: `WeaponSystemSelectionTests` runs the registry with **three** launchers,
+rounds and sensors — where "picked the right one" and "picked the only one" finally differ — and
+covers profile switching, stale turret limits and the fixed-launcher shape. `MunitionVarietyTests`
+flies two genuinely different munitions through one `Interceptor` and asserts they diverge, which
+is the modularity claim itself. `MagazineTests` is parameterised over tube count.
+
+**`TubeVisual` deserves a note.** It has no value meaning "hide without seating" — the launch-flash
+bug is unrepresentable rather than merely tested against. That is the preferred shape when the
+option exists.
+
+### Verified against the old code
+
+Per the method below, every regression test was checked by reintroducing the bug it guards:
+
+| Bug reintroduced | Tests that failed |
+| --- | --- |
+| occupancy check dropped from `TryTakeTube` | 3 |
+| `RequiresSeating` false for spent tubes | 1 |
+| pod elevation sign flipped | 3 |
+| pod position not rewritten on traverse | 2 |
+| anchor rotated along with travel | 2 |
+| step dedup removed | 4 |
+| launcher lookup returns element zero | 3 |
+| fuse radius hardcoded | 1 |
+| guidance mode ignored | 2 |
+
+The lookup-returns-element-zero case is the instructive one: **every pre-existing `ArsenalTests`
+assertion still passed against it.** So did `OnlyTheTravelIsRotatedIntoThePartFrame` on its first
+draft, because its anchor sat on the rotation axis where rotating it is a no-op — the same way the
+zigzag test cancelled its own error. It was rewritten with an off-axis anchor and then failed.
+
+### Still not reachable
+
+Extraction has limits, and these remain untestable because they genuinely need a `Vehicle`, a
+`Part` or a `Camera`. They are the target of any next round, not oversights:
+
+- fire-control *sequencing* — salvo spacing, the reload timer, the `IsLaid` gate. The magazine came
+  out; the timing did not.
+- `ResolvePlatform`, and the platform-election order.
+- `LauncherPart.Find` and subpart resolution by marker substring.
+- the centre-of-mass correction in `TryGetTubeMuzzleEcl`, and `ResolveOriginEcl`'s camera round trip.
+- `SyncRoundBodies`' loop over live rounds, and `Radar.Scan`'s vehicle iteration. The maths inside
+  both — `TubeGeometry`, `ThreatModel` — is covered; the iteration is not.
+
+---
+
+## Method
+
+From CLAUDE.md, and it applies to every test written for this work:
+
+**A regression test only counts if it fails against the old code. Check that it does, every time.**
+The test written for the round-body zigzag passed against both implementations — it advanced the
+platform by exactly the `v*dt` it was passed, so the error cancelled. It looked like proof and was
+worth nothing.
+
+And a test that never varies its inputs cannot see a phase error: at a constant `dt` the right and
+wrong orderings are indistinguishable, which is how this suite passed against two broken
+implementations for months.
