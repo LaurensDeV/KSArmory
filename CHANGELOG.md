@@ -1,3 +1,21 @@
+## [0.8.1](https://github.com/LaurensDeV/KSArmory/compare/v0.8.0...v0.8.1) (2026-08-04)
+
+### Features
+
+* **radar:** let teams form coalitions rather than only mine-versus-all ([bf45225](https://github.com/LaurensDeV/KSArmory/commit/bf452256b3e9f14fa284998442876b89a3a8d6a2))
+
+### Build and packaging
+
+* cut patches for features too, and tag minors by hand ([7e5afe6](https://github.com/LaurensDeV/KSArmory/commit/7e5afe611e3974f98878dda07ec3103fafa4cc8f))
+* name the assembly and its assets KSArmory too ([527520d](https://github.com/LaurensDeV/KSArmory/commit/527520dfcd7632914572bad79b8074fc67355a96))
+* rename the in-game panel to KSArmory ([0f3177d](https://github.com/LaurensDeV/KSArmory/commit/0f3177d59b02961191544a3f62b64f5ea0b5600a))
+* rename the project to KSArmory ([a3576b8](https://github.com/LaurensDeV/KSArmory/commit/a3576b8ccd2eaf76c8ea6de50981d94fe969e5d8))
+
+### Documentation
+
+* commits carry no attribution trailer ([e7e6038](https://github.com/LaurensDeV/KSArmory/commit/e7e6038040d7fcfa47fdfac7b65ad3c5ed51c6b8))
+* feat means observable in the archive, not merely enabled ([4ecdef3](https://github.com/LaurensDeV/KSArmory/commit/4ecdef3db331fd556a89bb6b71a3f53d0a01a8bf))
+
 ## [0.8.0](https://github.com/LaurensDeV/KSA-KSArmory/compare/v0.7.0...v0.8.0) (2026-08-04)
 
 ### Features
