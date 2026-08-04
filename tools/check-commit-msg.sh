@@ -54,7 +54,7 @@ check() {
 # Warns when a commit will cut a release that changes nothing a player installs.
 #
 # `feat` means "feature" to semantic-release whatever the scope says, so `feat(tools)` on a
-# developer script bumps the *mod's* minor version and publishes an archive identical to the
+# developer script cuts a release and publishes an archive identical to the
 # last one but for the version string. That happened twice in one day: 0.1.1, 0.2.0 and 0.3.0
 # differ only in <Version>, and anyone who upgraded got nothing.
 #
@@ -73,7 +73,7 @@ advise_release_impact() {
     [[ -n "$touched" ]] || return 0
     printf '%s\n' "$touched" | grep -q '^src/KSArmory/' && return 0
 
-    local bump="patch"; [[ "$type" == feat ]] && bump="minor"
+    local bump="patch"   # feat, fix and perf all cut a patch; minors are tagged by hand
     echo >&2
     echo "note: this cuts a $bump release, but nothing under src/KSArmory/ changed." >&2
     echo "      The published archive will differ from the last only by its version number." >&2
@@ -128,7 +128,7 @@ Conventional Commits, e.g.:
     fix(rounds): anchor bodies to the tube they left
     docs: write an install guide
 
-feat -> minor, fix -> patch, docs/chore/ci/test/style/refactor -> no release.
+feat/fix/perf -> patch, docs/chore/ci/test/style/refactor -> no release.
 See the Committing section of CLAUDE.md.
 EOF
     exit 1
