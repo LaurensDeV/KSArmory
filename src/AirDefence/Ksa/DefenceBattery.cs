@@ -15,7 +15,7 @@ internal readonly record struct BatteryEvent(double AtSeconds, string Message);
 internal sealed class DefenceBattery(Config config)
 {
     private readonly Config _config = config;
-    private readonly List<Interceptor> _rounds = [];
+    private readonly List<IProjectile> _rounds = [];
     private readonly List<Vehicle> _blastScratch = [];
     private readonly List<Vehicle> _pendingKills = [];
     private readonly List<BatteryEvent> _events = [];
@@ -36,7 +36,7 @@ internal sealed class DefenceBattery(Config config)
     /// <summary>Rounds left in the launcher.</summary>
     public int Ammo => _magazine.Ammo;
 
-    public IReadOnlyList<Interceptor> Rounds => _rounds;
+    public IReadOnlyList<IProjectile> Rounds => _rounds;
 
     public IReadOnlyList<BatteryEvent> Events => _events;
 
@@ -405,7 +405,7 @@ internal sealed class DefenceBattery(Config config)
     {
         foreach (Track t in Radar.Tracks) t.RoundsAssigned = 0;
 
-        foreach (Interceptor round in _rounds)
+        foreach (IProjectile round in _rounds)
         {
             if (round.TargetRef is not Vehicle target) continue;
             Track? t = Radar.Tracks.Find(x => ReferenceEquals(x.Vehicle, target));
@@ -561,7 +561,7 @@ internal sealed class DefenceBattery(Config config)
         _bodyFrame++;
         bool trace = Log.Threshold <= Log.Level.Debug && _bodyFrame % BodyTraceEveryFrames == 0;
 
-        foreach (Interceptor round in _rounds)
+        foreach (IProjectile round in _rounds)
         {
             int index = round.Tube - 1;
             if (index < 0 || index >= _missileBodies.Count) continue;
@@ -609,7 +609,7 @@ internal sealed class DefenceBattery(Config config)
             // frame conversion or in the engine; if travel itself jumps, it is the simulation.
             if (trace)
             {
-                Interceptor r = round;
+                IProjectile r = round;
 
                 // Range to the target and whether the seeker can still see it. Without these a
                 // miss in the log is just a number at the end; with them the flight shows where
@@ -771,7 +771,7 @@ internal sealed class DefenceBattery(Config config)
 
         for (int i = _rounds.Count - 1; i >= 0; i--)
         {
-            Interceptor round = _rounds[i];
+            IProjectile round = _rounds[i];
             double3 gravity = KsaWorld.GravityAt(Platform!, round.PositionEcl);
 
             // Read at the round's own position, not the platform's. A round climbing out of the
@@ -811,7 +811,7 @@ internal sealed class DefenceBattery(Config config)
     /// Reads the round's target out of the world once per frame. Returns null when the target
     /// is gone, which breaks the round's lock and leaves it coasting.
     /// </summary>
-    private TargetState? SampleTarget(Interceptor round)
+    private TargetState? SampleTarget(IProjectile round)
     {
         if (round.TargetRef is not Vehicle target || !KsaWorld.IsAlive(target)) return null;
 
@@ -842,7 +842,7 @@ internal sealed class DefenceBattery(Config config)
     /// binary: anything inside the lethal radius is destroyed, anything between lethal and
     /// blast radius is reported as a near miss and survives.
     /// </summary>
-    private void Detonate(Interceptor round)
+    private void Detonate(IProjectile round)
     {
         double3 burst = round.PositionEcl;
         Announce($"round {round.Tube} detonated, miss distance {round.MissDistance:F0} m");

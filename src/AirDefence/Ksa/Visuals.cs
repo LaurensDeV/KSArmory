@@ -177,7 +177,7 @@ internal static class Visuals
         // there is nothing better to show, or when asked for.
         bool haveBodies = battery.RoundBodiesWork && battery.RoundBodyCount > 0;
 
-        foreach (Interceptor round in battery.Rounds)
+        foreach (IProjectile round in battery.Rounds)
         {
             // Rounds are stored as platform-relative offsets, so they draw straight off the
             // anchor with no absolute-position arithmetic to go stale.
@@ -194,7 +194,7 @@ internal static class Visuals
                 && round.TargetRef is Vehicle drawn && KsaWorld.IsAlive(drawn)
                 && KsaWorld.TryVehicleEgo(drawn, out double3 targetEgo))
             {
-                Interceptor r = round;
+                IProjectile r = round;
                 double onScreen = Vec.Len(roundEgo - targetEgo);
                 Log.Debug(() => $"draw t{r.Tube}: on-screen separation {onScreen:F1} m, " +
                                 $"offset |{Vec.Len(r.OffsetFromPlatform):F0}| m, anchored={KsaWorld.HasAnchor}");

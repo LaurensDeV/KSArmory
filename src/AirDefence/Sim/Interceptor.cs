@@ -23,22 +23,30 @@ internal readonly record struct TargetState(double3 PositionEcl, double3 Velocit
 /// see tests/AirDefence.Tests. The caller samples the target once per frame and passes it in;
 /// the round extrapolates that state across its own sub-steps.
 /// </summary>
-internal sealed class Interceptor
+internal sealed class Interceptor : IProjectile
 {
     private const int TrailCapacity = 32;
     private const double TrailIntervalSeconds = 0.05;
 
     /// <summary>Fixed integration step. Frames are subdivided to this, which keeps the
     /// guidance stable and stops fast targets tunnelling through the fuse radius.</summary>
-    private const double SubStep = 0.005;
+    /// <summary>
+    /// Shared with every other <see cref="IProjectile"/> deliberately: <see cref="SimClock"/>
+    /// refuses steps beyond what these allow, and that guard is only correct if everything in the
+    /// air integrates to the same resolution.
+    /// </summary>
+    internal const double SubStep = 0.005;
 
-    private const int MaxSubSteps = 64;
+    internal const int MaxSubSteps = 64;
 
     /// <summary>Longest step integrable without coarsening; SimClock refuses beyond it.</summary>
     public const double MaxFaithfulStep = SubStep * MaxSubSteps;
 
-    public double3 PositionEcl;
-    public double3 VelocityEcl;
+    /// <inheritdoc cref="IProjectile.PositionEcl"/>
+    public double3 PositionEcl { get; private set; }
+
+    /// <inheritdoc cref="IProjectile.VelocityEcl"/>
+    public double3 VelocityEcl { get; private set; }
 
     /// <summary>Seconds since launch.</summary>
     public double Age { get; private set; }
@@ -128,7 +136,10 @@ internal sealed class Interceptor
     /// Stored this way for the same reason: absolute points recorded across 1.6 s of trail
     /// would be smeared over ~48 km of the planet's motion around its star.
     /// </summary>
-    public readonly List<double3> TrailOffsets = new(TrailCapacity);
+    private readonly List<double3> _trail = new(TrailCapacity);
+
+    /// <inheritdoc cref="IProjectile.TrailOffsets"/>
+    public IReadOnlyList<double3> TrailOffsets => _trail;
 
     private double _trailTimer;
 
@@ -153,7 +164,7 @@ internal sealed class Interceptor
         Tube = tube;
         OffsetFromPlatform = positionEcl - platformEcl;
         LaunchOffset = OffsetFromPlatform;
-        TrailOffsets.Add(OffsetFromPlatform);
+        _trail.Add(OffsetFromPlatform);
 
         // Seeded here so the round is orientable from birth rather than from its first step.
         _frameVelocityEcl = frameVelocityEcl;
@@ -215,6 +226,11 @@ internal sealed class Interceptor
         double airDensityRatio = 1.0)
     {
         if (State != RoundState.Flying) return;
+
+        // A step that did not happen must not be integrated. SimClock and the frame hook both
+        // already refuse these, so this is unreachable in game - but it is part of the
+        // IProjectile contract and a negative h would integrate the round backwards.
+        if (!double.IsFinite(dt) || dt <= 0.0) return;
 
         if (target is null) TargetRef = null;
 
@@ -285,8 +301,8 @@ internal sealed class Interceptor
         if (_trailTimer >= TrailIntervalSeconds)
         {
             _trailTimer = 0.0;
-            TrailOffsets.Add(OffsetFromPlatform);
-            if (TrailOffsets.Count > TrailCapacity) TrailOffsets.RemoveAt(0);
+            _trail.Add(OffsetFromPlatform);
+            if (_trail.Count > TrailCapacity) _trail.RemoveAt(0);
         }
     }
 

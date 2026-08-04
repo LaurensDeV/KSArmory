@@ -54,6 +54,44 @@ internal static class LauncherPart
     public static bool IsMounted(Vehicle? vehicle) => vehicle is not null && Find(vehicle) is not null;
 
     /// <summary>
+    /// Every launcher on a vehicle, in part order, appended to <paramref name="into"/>.
+    ///
+    /// <para>Part order is the identity a battery is keyed on. Deliberately <em>not</em> the
+    /// <see cref="Part"/> reference: KSA rebuilds the part tree during staging and docking, so a
+    /// reference can be replaced by an equivalent part and a battery keyed on it would lose its
+    /// magazine and its rounds in flight for no visible reason. The ordinal survives that.</para>
+    /// </summary>
+    public static void FindAll(Vehicle vehicle, List<(Part Part, LauncherProfile Profile)> into)
+    {
+        into.Clear();
+        try
+        {
+            ReadOnlySpan<Part> parts = vehicle.Parts.Parts;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] is { } part && Arsenal.LauncherForPart(part.Id) is { } profile)
+                {
+                    into.Add((part, profile));
+                }
+            }
+        }
+        catch
+        {
+            // Part tree can be mid-rebuild during staging or docking.
+        }
+    }
+
+    /// <summary>The nth launcher on a vehicle, or null once that many are no longer fitted.</summary>
+    public static (Part Part, LauncherProfile Profile)? FindNth(Vehicle vehicle, int ordinal,
+                                                                List<(Part, LauncherProfile)> scratch)
+    {
+        if (ordinal < 0) return null;
+
+        FindAll(vehicle, scratch);
+        return ordinal < scratch.Count ? scratch[ordinal] : null;
+    }
+
+    /// <summary>
     /// The turret subpart of a launcher, or null if it cannot be found.
     ///
     /// KSA models subparts as <see cref="Part"/> objects in their own right, each with its own

@@ -211,7 +211,7 @@ internal static class Diagnostics
                  $"locked={(battery.Radar.Locked is null ? "none" : KsaWorld.DisplayName(battery.Radar.Locked.Vehicle))}, " +
                  $"firingSolution={battery.Radar.HasFiringSolution}, roundsInFlight={battery.Rounds.Count}");
 
-        foreach (Interceptor round in battery.Rounds)
+        foreach (IProjectile round in battery.Rounds)
         {
             Log.Debug($"  round {round.Tube}: age {round.Age:F1}s, speed {round.Speed:F0} m/s, lock={round.HasLock}");
         }

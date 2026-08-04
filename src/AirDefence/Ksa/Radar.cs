@@ -13,10 +13,19 @@ internal sealed class Radar(Config config)
     private readonly Config _config = config;
 
     /// <summary>
-    /// What this set can see. Read through the config each time rather than captured, so that
-    /// re-selecting the weapon system — or tuning it from the panel — takes effect immediately.
+    /// What this set can see.
+    ///
+    /// <para>Owned by the battery that fitted it, <b>not</b> read through <c>Config</c>. With more
+    /// than one battery alive, a shared config field is whichever system was resolved last, so
+    /// every radar in the world would end up running the profile of whichever launcher happened to
+    /// sample most recently.</para>
+    ///
+    /// <para>Live tuning still works: profiles are shared instances, so the panel editing
+    /// <c>Config.Sensor</c> edits the very object every battery of that type is pointing at.</para>
     /// </summary>
-    private SensorProfile _sensor => _config.Sensor;
+    public SensorProfile Sensor { get; set; } = Arsenal.SearchRadar1Rs1;
+
+    private SensorProfile _sensor => Sensor;
     private readonly List<Vehicle> _scratch = [];
 
     /// <summary>Live tracks, highest priority first. Rebuilt every scan.</summary>

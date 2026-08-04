@@ -94,7 +94,7 @@ internal sealed class Magazine
     /// Rounds currently flying. A reload refills a tube whose previous round has not landed yet;
     /// firing it again would hand two rounds the same body.
     /// </param>
-    public bool TryTakeTube(IReadOnlyList<Interceptor> inFlight, out int tubeIndex)
+    public bool TryTakeTube(IReadOnlyList<IProjectile> inFlight, out int tubeIndex)
     {
         for (int i = 0; i < _loaded.Length; i++)
         {
@@ -111,7 +111,7 @@ internal sealed class Magazine
     }
 
     /// <summary>Whether a round in the air already claims this tube. Rounds number tubes from one.</summary>
-    public static bool IsOccupied(IReadOnlyList<Interceptor> inFlight, int tubeIndex)
+    public static bool IsOccupied(IReadOnlyList<IProjectile> inFlight, int tubeIndex)
     {
         for (int r = 0; r < inFlight.Count; r++)
         {
