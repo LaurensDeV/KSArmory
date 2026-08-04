@@ -1,11 +1,11 @@
-# Modularity: what generalises, what does not, and what to test first
+# Modularity: what generalises, what does not, and what it cost to make testable
 
 The mod was built around three profile types and a registry so that a second weapon system would
 be *data plus art*. This is an audit of how far that actually holds, read out of the code rather
-than out of the design notes, plus the test work that has to come **before** any of the refactors
-it proposes.
+than out of the design notes.
 
-Nothing here has been decided or implemented. It is a plan.
+**The four changes it proposes are not implemented — they are a plan.** The test work that had to
+come first *is* done, and the last section records what that turned up.
 
 **Summary: modular for rounds, mostly modular for launchers, not modular for mounts.**
 
@@ -35,22 +35,23 @@ timed airburst. A CIWS cannon is not a `MunitionProfile`.
 ### Different launchers — modular in count, rigid in articulation
 
 Discovery is `Arsenal.LauncherForPart(part.Id)` (`Ksa/LauncherPart.cs:41`); nothing hardcodes an
-Id. Tube count is fully derived — `_tubeLoaded`, `Ammo`, the `stackalloc` and the body sync all
-size off `profile.TubeCount`, and `Ksa/DefenceBattery.cs:239-244` re-sizes the magazine when a
-*different* profile is recognised. A non-training launcher (`TurretMarker = null`) is a supported
-shape.
+Id. Tube count is fully derived — `Magazine`, the `stackalloc` at `Ksa/DefenceBattery.cs:526` and
+the body sync all size off `profile.TubeCount`, and `Ksa/DefenceBattery.cs:234` re-sizes the
+magazine when a *different* profile is recognised. A non-training launcher (`TurretMarker = null`)
+is a supported shape.
 
 **The hard assumption is that articulation is exactly three named subparts in one fixed kinematic
 chain**: traverse about part +X, elevate about +Z at a trunnion offset, radar spinning about +X.
-Those axes are literals in `TryApplyPodAim` (`Ksa/LauncherPart.cs:470-497`) and `TryApplyRadarSpin`
-(`506-527`), and `LauncherProfile` offers exactly three markers and three pivots. That covers
-another turret-and-pods system, or a fixed box. It does not cover a rotating drum, a translating
-rail, per-tube articulation, two elevating groups, or a radar that trains independently of the
-turret.
+Those axes are `TubeGeometry.TraverseAxis` and `ElevationAxis` (`Sim/TubeGeometry.cs:28-30`),
+composed by `PodPose` (`:99`) and `RadarPose` (`:116`), and `LauncherProfile` offers exactly three
+markers and three pivots. That covers another turret-and-pods system, or a fixed box. It does not
+cover a rotating drum, a translating rail, per-tube articulation, two elevating groups, or a radar
+that trains independently of the turret.
 
-The sharper limit: **`TubeOffsets` is `double3[]` — positions only.** `TryGetTubeAxisPartFrame`
-(`Ksa/LauncherPart.cs:156-170`) derives one axis for the whole pod, so every tube necessarily
-points the same way. Splayed tubes, a VLS with divergence or an MLRS cannot be expressed at all.
+The sharper limit: **`TubeOffsets` is `double3[]` — positions only** (`Sim/LauncherProfile.cs:46`).
+`TubeGeometry.TubeAxisPartFrame` (`Sim/TubeGeometry.cs:46`) derives one axis for the whole pod from
+`PodReferenceElevationRad`, so every tube necessarily points the same way. Splayed tubes, a VLS with
+divergence or an MLRS cannot be expressed at all.
 
 ### Different mounts — the weak axis
 
@@ -58,13 +59,13 @@ A **static site already works** — it is a landed vehicle that does not move. *
 works structurally, since a part on a vehicle is a part on a vehicle. Two things break in
 behaviour:
 
-- **`Boresight = KsaWorld.LocalUp(Platform)`** (`Ksa/DefenceBattery.cs:226`). The search cone points
+- **`Boresight = KsaWorld.LocalUp(Platform)`** (`Ksa/DefenceBattery.cs:221`). The search cone points
   radially outward regardless of vehicle attitude. On a truck that is the sky; on a pitched-over
   booster or anything in orbit it is pointed at nothing. This is already listed under "Not done" in
   CLAUDE.md, but its significance changes completely once the launcher is on something that
   manoeuvres.
 - **One battery per *world*, not per craft.** `DefenceBattery` is a single instance
-  (`Ksa/AirDefenceMod.cs:35`) and `ResolvePlatform` (`Ksa/DefenceBattery.cs:333`) elects exactly one
+  (`Ksa/AirDefenceMod.cs:35`) and `ResolvePlatform` (`Ksa/DefenceBattery.cs:323`) elects exactly one
   platform. A static site *and* a rocket-mounted launcher gives you one of them, silently. `Config`
   likewise holds one active profile set, re-`Select`ed every frame by whichever battery won.
 
@@ -72,15 +73,21 @@ behaviour:
 
 ## Proposed changes, ranked
 
-| # | Change | Size | Unlocks |
-| --- | --- | --- | --- |
-| 1 | `TubeOffsets` becomes `Tube(position, direction)`, direction defaulting to the pod axis | small | any launcher whose tubes are not parallel |
-| 2 | `DefenceBattery` becomes a list, one per launcher part found | medium | static site + vehicle + rocket at once |
-| 3 | `BoresightMode` on `SensorProfile` (LocalUp / PartForward / TurretAxis) | small | a launcher on anything that pitches |
-| 4 | Articulation as a list of drives rather than three named roles | large | drums, rails, per-tube motion |
+| # | Change | Size | Mostly lands in | Unlocks |
+| --- | --- | --- | --- | --- |
+| 1 | `TubeOffsets` becomes `Tube(position, direction)`, direction defaulting to the pod axis | small | `Sim/TubeGeometry.cs` | any launcher whose tubes are not parallel |
+| 2 | `DefenceBattery` becomes a list, one per launcher part found | medium | `Ksa/DefenceBattery.cs` | static site + vehicle + rocket at once |
+| 3 | `BoresightMode` on `SensorProfile` (LocalUp / PartForward / TurretAxis) | small | `Sim/SensorProfile.cs`, `Ksa/DefenceBattery.cs` | a launcher on anything that pitches |
+| 4 | Articulation as a list of drives rather than three named roles | large | `Sim/TubeGeometry.cs`, `Sim/LauncherProfile.cs` | drums, rails, per-tube motion |
 
 **4 is deliberately last and should not be attempted speculatively.** It is the one whose shape is
 least knowable before a second launcher exists that actually needs it.
+
+**1, 3 and 4 are now cheaper than this audit first estimated**, because the geometry they rewrite
+has since moved into `Sim/` and is covered — see the section below. 1 and 4 are almost entirely
+`TubeGeometry` edits with tests already standing behind them. **2 has not moved at all**: fire
+control, platform election and the salvo timers are still KSA-facing and still unreachable from the
+test project, so it remains the riskiest of the four despite being the middle-sized one.
 
 Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → `Arsenal` boundary that
 `validate-parts.py` guards, so the generator and the validator move with it. That is the third
@@ -90,6 +97,7 @@ CLAUDE.md.
 Two minor items worth folding in: `Ksa/Ui.cs:78` and `:83` hardcode "Pantsir-S1" in operator-facing
 text where `_config.Launcher.DisplayName` is available, and `Arsenal.MunitionNamed` falls back to
 `Munitions[0]` on an unknown name with no warning, so a typo'd key silently flies the wrong round.
+The fallback is now pinned by `WeaponSystemSelectionTests` rather than merely noted.
 
 ---
 
@@ -147,6 +155,15 @@ The lookup-returns-element-zero case is the instructive one: **every pre-existin
 assertion still passed against it.** So did `OnlyTheTravelIsRotatedIntoThePartFrame` on its first
 draft, because its anchor sat on the rotation axis where rotating it is a no-op — the same way the
 zigzag test cancelled its own error. It was rewritten with an off-axis anchor and then failed.
+
+### Verified in flight
+
+The extraction touches the live firing path, and the tests it added cover `Sim/` — not the `Ksa/`
+side that was left behind. So it was flown before being committed: a full twelve-round salvo on one
+target, distinct tube numbers with no double-booking warning, target destroyed, a sim-speed
+excursion to 0.01x and back, and zero warnings across 2,246 log lines. That exercises all three
+extractions — `Magazine` in the tube numbering, `TubeGeometry` in the seating and pose chain,
+`StepGate` in the speed change.
 
 ### Still not reachable
 
