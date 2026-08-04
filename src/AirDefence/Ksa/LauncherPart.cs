@@ -152,12 +152,12 @@ internal static class LauncherPart
     /// transform then carries that through the launcher's current elevation and traverse.
     /// </summary>
     /// <summary>Direction the tubes point, in the launcher part's own frame.</summary>
-    public static bool TryGetTubeAxisPartFrame(Part pods, LauncherProfile profile, out double3 axis)
+    public static bool TryGetTubeAxisPartFrame(Part pods, LauncherProfile profile, int tubeIndex, out double3 axis)
     {
         axis = Vec.Zero;
         try
         {
-            axis = TubeGeometry.TubeAxisPartFrame(profile, pods.Asmb2ParentAsmb);
+            axis = TubeGeometry.TubeAxisPartFrame(profile, pods.Asmb2ParentAsmb, tubeIndex);
             return Vec.IsFinite(axis) && !axis.Equals(Vec.Zero);
         }
         catch
@@ -197,7 +197,7 @@ internal static class LauncherPart
         try
         {
             if (!TryGetSeatedPartFrame(pods, profile, tubeIndex, munition.BodyLength, out double3 seated)) return false;
-            if (!TryGetTubeAxisPartFrame(pods, profile, out double3 axis)) return false;
+            if (!TryGetTubeAxisPartFrame(pods, profile, tubeIndex, out double3 axis)) return false;
 
             doubleQuat rotation = FireGeometry.RotationFromNose(axis);
 
@@ -218,14 +218,16 @@ internal static class LauncherPart
         }
     }
 
-    public static bool TryGetTubeAxisEcl(Vehicle platform, Part launcher, Part pods, LauncherProfile profile, out double3 axisEcl)
+    public static bool TryGetTubeAxisEcl(Vehicle platform, Part launcher, Part pods, LauncherProfile profile,
+                                         int tubeIndex, out double3 axisEcl)
     {
         axisEcl = Vec.Zero;
         try
         {
-            // Direction the tubes point in the pods' own frame, at the elevation they were
-            // modelled at; the pods' transform then carries it through the current aim.
-            double3 inPart = pods.Asmb2ParentAsmb * TubeGeometry.TubeAxisPodFrame(profile);
+            // Direction THIS tube points in the pods' own frame - its own if it declares one,
+            // otherwise the elevation the pods were modelled at. The pods' transform then carries
+            // it through the current aim.
+            double3 inPart = pods.Asmb2ParentAsmb * TubeGeometry.TubeAxisPodFrame(profile, tubeIndex);
             double3 inVehicle = launcher.Asmb2VehicleAsmb * inPart;
             axisEcl = Vec.Unit(platform.Asmb2Ego * inVehicle);
             return Vec.IsFinite(axisEcl) && !axisEcl.Equals(Vec.Zero);
@@ -612,7 +614,7 @@ internal static class LauncherPart
             {
                 // Pod-local -> vehicle assembly -> render frame. The first hop carries the
                 // launcher's current traverse and elevation, so these ride the tubes.
-                double3 vehicleAsmb = pods.PositionVehicleAsmbOffset(profile.TubeOffsets[i]);
+                double3 vehicleAsmb = pods.PositionVehicleAsmbOffset(profile.Tubes[i].Position);
                 double3 ego = vehicleAsmb.Transform(asmb2Ego);
 
                 if (!Vec.IsFinite(ego)) return false;

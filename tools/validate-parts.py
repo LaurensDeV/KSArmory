@@ -233,9 +233,14 @@ def check_launcher_geometry():
                       f"mesh says {tuple(expected[key])}", file=sys.stderr)
                 problems += 1
 
-    # Scope this to the TubeOffsets initialiser. The pivots beside it are also `new(x, y, z),`
-    # and sweeping the whole file picks those up as extra tubes.
-    block = re.search(r"TubeOffsets\s*=\s*\[(.*?)\]", text, re.S)
+    # Scope this to the Tubes initialiser. The pivots beside it are also `new(x, y, z),` and
+    # sweeping the whole file picks those up as extra tubes.
+    #
+    # Only the bare `new(x, y, z)` form is a generated tube position. A tube that declares its own
+    # direction is written `new(new double3(...), new double3(...))` and is hand-authored for a
+    # splayed launcher -- the generator only knows parallel bundles, because it reads them off a
+    # mesh that has parallel tubes. Such a tube is skipped here rather than mismatched.
+    block = re.search(r"Tubes\s*=\s*\[(.*?)\n\s*\]", text, re.S)
     found = [] if block is None else [
         tuple(float(v) for v in m)
         for m in re.findall(r"new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", block.group(1))]
@@ -243,11 +248,11 @@ def check_launcher_geometry():
     checked += len(want)
 
     if block is None:
-        print("  MISSING Arsenal TubeOffsets", file=sys.stderr)
+        print("  MISSING Arsenal Tubes", file=sys.stderr)
         return problems + 1, checked
 
     if found != want:
-        print(f"  STALE Arsenal TubeOffsets: {len(found)} entries, "
+        print(f"  STALE Arsenal Tubes: {len(found)} entries, "
               f"mesh has {len(want)}", file=sys.stderr)
         for i, (a, b) in enumerate(zip(found + [None] * len(want), want)):
             if a != b:

@@ -70,8 +70,10 @@ public static class Arsenal
         PodsMarker = "Pods",
         RadarMarker = "Radar",
 
-        // Generated: muzzle of each tube in the pods' frame, in firing order.
-        TubeOffsets =
+        // Generated: muzzle of each tube in the pods' frame, in firing order. The Pantsir's tubes
+        // are a parallel block, so none declares a direction of its own and they all follow the
+        // pods. tools/validate-parts.py checks these against the mesh.
+        Tubes =
         [
             new( 2.95513,  1.79453,  1.33250),
             new( 2.95513,  1.79453, -1.33250),

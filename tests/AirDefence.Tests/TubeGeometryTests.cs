@@ -25,7 +25,7 @@ public class TubeGeometryTests
         TurretMarker = "Turret",
         PodsMarker = "Pods",
         RadarMarker = "Radar",
-        TubeOffsets =
+        Tubes =
         [
             new(3.0, 1.0,  0.5),
             new(3.0, 1.0, -0.5),
@@ -56,7 +56,7 @@ public class TubeGeometryTests
         double3 podPosition = new(1, 2, 3);
 
         Assert.True(TubeGeometry.TryMuzzlePartFrame(profile, 0, podPosition, doubleQuat.Identity, out double3 muzzle));
-        AssertClose(podPosition + profile.TubeOffsets[0], muzzle, "tube 0");
+        AssertClose(podPosition + profile.Tubes[0].Position, muzzle, "tube 0");
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class TubeGeometryTests
 
         Assert.True(TubeGeometry.TryMuzzlePartFrame(profile, 0, Vec.Zero, halfTurn, out double3 muzzle));
 
-        double3 o = profile.TubeOffsets[0];
+        double3 o = profile.Tubes[0].Position;
         AssertClose(new double3(o.X, -o.Y, -o.Z), muzzle, "tube 0 after a half turn");
     }
 
@@ -154,6 +154,149 @@ public class TubeGeometryTests
                     $"tube axis at bearing {bearing:F2} elevation {elevation:F2} had length {length:F9}");
             }
         }
+    }
+
+    // ---- Per-tube direction --------------------------------------------
+
+    /// <summary>
+    /// A tube with no direction of its own follows the pods. That is the parallel-bundle case, what
+    /// the model generator emits, and what every tube on the Pantsir does.
+    /// </summary>
+    [Fact]
+    public void ATubeWithNoDirectionOfItsOwnFollowsThePods()
+    {
+        LauncherProfile profile = TestLauncher(0.95993);
+
+        for (int tube = 0; tube < profile.TubeCount; tube++)
+        {
+            Assert.False(profile.Tubes[tube].HasOwnDirection);
+            AssertClose(TubeGeometry.TubeAxisPodFrame(profile),
+                        TubeGeometry.TubeAxisPodFrame(profile, tube),
+                        $"tube {tube} without its own direction");
+        }
+    }
+
+    /// <summary>
+    /// <b>The capability this change exists for.</b> Before it, one axis was derived for the whole
+    /// pod, so every tube necessarily pointed the same way and a splayed bundle — a VLS with
+    /// divergence, an MLRS — could not be expressed at all.
+    /// </summary>
+    [Fact]
+    public void ASplayedBundleGivesEachTubeItsOwnDirection()
+    {
+        var splayed = new LauncherProfile
+        {
+            PartId = "Test_Prefab_Splayed",
+            DisplayName = "splayed rack",
+            Munition = "57E6",
+            Sensor = "1RS1",
+            PodsMarker = "Pods",
+            Tubes =
+            [
+                new(new double3(1, 0,  0.5), new double3(0, 1,  1)),   // canted one way
+                new(new double3(1, 0, -0.5), new double3(0, 1, -1)),   // and the other
+                new(1, 0, 0),                                          // straight up the middle
+            ],
+            PodReferenceElevationRad = Math.PI / 2,
+        };
+
+        double3 left = TubeGeometry.TubeAxisPodFrame(splayed, 0);
+        double3 right = TubeGeometry.TubeAxisPodFrame(splayed, 1);
+        double3 centre = TubeGeometry.TubeAxisPodFrame(splayed, 2);
+
+        // Each canted tube is a unit vector along its own declared direction.
+        AssertClose(Vec.Unit(new double3(0, 1, 1)), left, "left tube");
+        AssertClose(Vec.Unit(new double3(0, 1, -1)), right, "right tube");
+
+        // The undirected one still follows the pod reference elevation.
+        AssertClose(new double3(1, 0, 0), centre, "centre tube");
+
+        Assert.True(Vec.Len(left - right) > 0.1, "the splayed tubes point the same way");
+    }
+
+    [Fact]
+    public void ASplayedTubesDirectionRidesThePodsThroughTraverse()
+    {
+        var splayed = new LauncherProfile
+        {
+            PartId = "Test_Prefab_Splayed",
+            DisplayName = "splayed rack",
+            Munition = "57E6",
+            Sensor = "1RS1",
+            Tubes = [new(new double3(1, 0, 0), new double3(0, 1, 0))],
+            PodReferenceElevationRad = 0.5,
+        };
+
+        // Half a turn about the traverse axis takes the declared +Y direction onto -Y.
+        doubleQuat halfTurn = doubleQuat.CreateFromAxisAngle(TubeGeometry.TraverseAxis, Math.PI);
+
+        AssertClose(new double3(0, -1, 0),
+                    TubeGeometry.TubeAxisPartFrame(splayed, halfTurn, 0),
+                    "splayed tube after a half turn");
+    }
+
+    /// <summary>
+    /// A declared direction need not be normalised — a profile is hand-authored, and requiring unit
+    /// vectors of whoever writes one is an invitation to a subtly scaled launch.
+    /// </summary>
+    [Fact]
+    public void ADeclaredDirectionIsNormalised()
+    {
+        var profile = new LauncherProfile
+        {
+            PartId = "Test_Prefab_Long",
+            DisplayName = "unnormalised",
+            Munition = "57E6",
+            Sensor = "1RS1",
+            Tubes = [new(new double3(0, 0, 0), new double3(0, 900, 0))],
+            PodReferenceElevationRad = 0.3,
+        };
+
+        Assert.Equal(1.0, Vec.Len(TubeGeometry.TubeAxisPodFrame(profile, 0)), 9);
+    }
+
+    /// <summary>
+    /// A degenerate or out-of-range direction falls back to the pod axis rather than throwing or
+    /// producing a zero vector. A tube number comes from a magazine slot, and a launcher firing
+    /// into empty air is a better failure than one that takes the game down.
+    /// </summary>
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(99)]
+    public void AnOutOfRangeTubeFallsBackToThePodAxis(int tubeIndex)
+    {
+        LauncherProfile profile = TestLauncher(0.6);
+
+        AssertClose(TubeGeometry.TubeAxisPodFrame(profile),
+                    TubeGeometry.TubeAxisPodFrame(profile, tubeIndex),
+                    $"tube {tubeIndex}");
+    }
+
+    [Fact]
+    public void ASplayedRoundSeatsAlongItsOwnTubeNotThePods()
+    {
+        // Two tubes at the same mouth position, pointing opposite ways. If seating used the pod
+        // axis the two would land in the same place; using each tube's own axis puts them on
+        // opposite sides of the mouth.
+        var splayed = new LauncherProfile
+        {
+            PartId = "Test_Prefab_Splayed",
+            DisplayName = "splayed rack",
+            Munition = "57E6",
+            Sensor = "1RS1",
+            Tubes =
+            [
+                new(new double3(2, 0, 0), new double3(0, 1, 0)),
+                new(new double3(2, 0, 0), new double3(0, -1, 0)),
+            ],
+            PodReferenceElevationRad = Math.PI / 2,
+        };
+
+        Assert.True(TubeGeometry.TrySeatedPartFrame(splayed, 0, Vec.Zero, doubleQuat.Identity, 4.0, out double3 a));
+        Assert.True(TubeGeometry.TrySeatedPartFrame(splayed, 1, Vec.Zero, doubleQuat.Identity, 4.0, out double3 b));
+
+        AssertClose(new double3(2, -2, 0), a, "tube 0 seated");
+        AssertClose(new double3(2, 2, 0), b, "tube 1 seated");
     }
 
     // ---- Seating -------------------------------------------------------

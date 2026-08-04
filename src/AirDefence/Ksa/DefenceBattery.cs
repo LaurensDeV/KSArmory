@@ -688,7 +688,7 @@ internal sealed class DefenceBattery(Config config)
         // sends the round off at a visibly different angle to the tube it just came out of.
         double3 tubeAxis = Vec.Zero;
         bool alongTube = fromTube && _profile.LaunchAlongTube
-                         && LauncherPart.TryGetTubeAxisEcl(Platform, Launcher!, PodsPart!, _profile, out tubeAxis);
+                         && LauncherPart.TryGetTubeAxisEcl(Platform, Launcher!, PodsPart!, _profile, tube, out tubeAxis);
 
         double3 launchDir = FireGeometry.LaunchDirection(
             alongTube, tubeAxis, launchPos, track.PositionEcl, Boresight, _profile.LaunchLoft);

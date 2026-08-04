@@ -65,7 +65,7 @@ public class ArsenalTests
     {
         foreach (LauncherProfile launcher in Arsenal.Launchers)
         {
-            Assert.Equal(launcher.TubeOffsets.Length, launcher.TubeCount);
+            Assert.Equal(launcher.Tubes.Length, launcher.TubeCount);
             Assert.True(launcher.TubeCount > 0, $"{launcher.DisplayName} has no tubes");
         }
     }
@@ -111,7 +111,7 @@ public class ArsenalTests
             DisplayName = "test rail",
             Munition = "57E6",
             Sensor = "1RS1",
-            TubeOffsets = [new double3(1, 0, 0), new double3(1, 0, 0.4)],
+            Tubes = [new(1, 0, 0), new(1, 0, 0.4)],
             LaunchAlongTube = false,
         };
 

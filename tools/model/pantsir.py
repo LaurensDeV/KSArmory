@@ -32,8 +32,8 @@ immediately, so there is no unwrapping step and nothing to get out of sync.
 ## Missile geometry is exported, not eyeballed
 
 The tube muzzle positions are computed here and printed as a ready-to-paste C# block. They
-must match LauncherPart.TubeOffsetsPartFrame, which is what puts the launch markers on the
-actual tubes.
+must match the LauncherProfile's `Tubes` in Sim/Arsenal.cs, which is what puts the launch
+markers on the actual tubes. tools/validate-parts.py fails the build if the two disagree.
 """
 
 import json
@@ -860,15 +860,20 @@ def render_previews(out_dir):
 def report_muzzles(out_dir):
     """Emits the firing tubes as a C# array and as JSON.
 
-    The array goes into LauncherPart.TubeOffsetsPartFrame by hand; the JSON is what
-    tools/validate-parts.py compares that file against, so the two cannot quietly drift.
+    The array goes into the LauncherProfile's `Tubes` in src/AirDefence/Sim/Arsenal.cs by hand;
+    the JSON is what tools/validate-parts.py compares that file against, so the two cannot
+    quietly drift.
+
+    Bare positions, with no direction: this reads tubes off a mesh that has parallel ones, so
+    every entry follows the pod axis. A launcher with splayed tubes declares its directions by
+    hand -- see the Tube record in Sim/LauncherProfile.cs.
     """
     pivot = Vector(POD_PIVOT)
     # Pod-local, matching the exported mesh: the markers then ride the pods' own transform and
     # follow them through both traverse and elevation, with no extra bookkeeping.
     firing = [tube_muzzle(*t) - pivot for t in firing_order()]
 
-    print("\n=== LauncherPart.TubeOffsetsPodFrame (paste into src/AirDefence/LauncherPart.cs)")
+    print("\n=== LauncherProfile.Tubes (paste into src/AirDefence/Sim/Arsenal.cs)")
     for m in firing:
         print(f"        new({m.x:8.5f}, {m.y:8.5f}, {m.z:8.5f}),")
 
@@ -885,7 +890,7 @@ def report_muzzles(out_dir):
     pod_rel_turret = Vector(POD_PIVOT) - Vector(TURRET_PIVOT)
     radar_rel_turret = Vector(RADAR_PIVOT) - Vector(TURRET_PIVOT)
 
-    print(f"\n    Config.TubeCount     = {len(firing)}")
+    print(f"\n    tube count           = {len(firing)}   (LauncherProfile.TubeCount is derived)")
     print(f"    MuzzleForwardOffset  = {mean_x:.3f}   (highest tube mouth {highest:.3f} m)")
     print(f"    TubeRingRadius       = {ring:.3f}")
     print(f"    TurretPivot          = ({TURRET_PIVOT[0]:.3f}, {TURRET_PIVOT[1]:.3f}, {TURRET_PIVOT[2]:.3f})")

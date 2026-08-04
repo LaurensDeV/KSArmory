@@ -47,6 +47,32 @@ public static class TubeGeometry
         => Vec.Unit(podRotation * TubeAxisPodFrame(profile));
 
     /// <summary>
+    /// Which way <em>one</em> tube points in the pods' own frame.
+    ///
+    /// <para>A tube with no direction of its own follows the pod axis, which is the parallel-bundle
+    /// case and what the model generator emits. A tube that declares one uses it — that is what
+    /// lets a splayed bundle, a VLS with divergence or an MLRS be expressed at all.</para>
+    ///
+    /// <para>Out-of-range indices fall back to the pod axis rather than throwing: a tube number is
+    /// derived from a magazine slot, and a launcher that fires into empty air is a better failure
+    /// than one that takes the game down.</para>
+    /// </summary>
+    public static double3 TubeAxisPodFrame(LauncherProfile profile, int tubeIndex)
+    {
+        if (tubeIndex < 0 || tubeIndex >= profile.TubeCount) return TubeAxisPodFrame(profile);
+
+        Tube tube = profile.Tubes[tubeIndex];
+        if (!tube.HasOwnDirection) return TubeAxisPodFrame(profile);
+
+        double3 own = Vec.Unit(tube.Direction);
+        return own.Equals(Vec.Zero) ? TubeAxisPodFrame(profile) : own;
+    }
+
+    /// <summary>One tube's direction, carried through the pods' current traverse and elevation.</summary>
+    public static double3 TubeAxisPartFrame(LauncherProfile profile, doubleQuat podRotation, int tubeIndex)
+        => Vec.Unit(podRotation * TubeAxisPodFrame(profile, tubeIndex));
+
+    /// <summary>
     /// Where one tube's mouth sits in the launcher part's frame, given where the pods currently
     /// are. False for a tube this launcher does not have.
     /// </summary>
@@ -57,7 +83,7 @@ public static class TubeGeometry
         partFrame = Vec.Zero;
         if (tubeIndex < 0 || tubeIndex >= profile.TubeCount) return false;
 
-        partFrame = podPosition + podRotation * profile.TubeOffsets[tubeIndex];
+        partFrame = podPosition + podRotation * profile.Tubes[tubeIndex].Position;
         return Vec.IsFinite(partFrame);
     }
 
@@ -76,7 +102,9 @@ public static class TubeGeometry
         seated = Vec.Zero;
         if (!TryMuzzlePartFrame(profile, tubeIndex, podPosition, podRotation, out double3 muzzle)) return false;
 
-        double3 axis = TubeAxisPartFrame(profile, podRotation);
+        // This tube's own axis, not the pod's: a splayed round has to back into the tube it is
+        // actually in, or it seats itself through the side of a neighbouring one.
+        double3 axis = TubeAxisPartFrame(profile, podRotation, tubeIndex);
         if (axis.Equals(Vec.Zero)) return false;
 
         seated = muzzle - axis * (bodyLength * 0.5);

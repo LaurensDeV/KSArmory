@@ -24,7 +24,7 @@ public class WeaponSystemSelectionTests
         DisplayName = id,
         Munition = munition,
         Sensor = sensor,
-        TubeOffsets = [new double3(1, 0, 0), new double3(1, 0, 0.4)],
+        Tubes = [new(1, 0, 0), new(1, 0, 0.4)],
         MaxElevationDeg = maxElevation,
         ForwardArcDeg = forwardArc,
     };
