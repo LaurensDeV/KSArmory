@@ -2,8 +2,14 @@
 #
 # Regenerates the launcher's art: palette textures, then the mesh atlas.
 #
-#   ./tools/model/build.sh              # build, render previews, install into the mod
-#   ./tools/model/build.sh --previews   # renders only, leave the committed atlas alone
+#   ./tools/model/build.sh                       # build, render previews, install into the mod
+#   ./tools/model/build.sh --previews            # renders only, leave the committed atlas alone
+#   ./tools/model/build.sh --pose elev=0         # ...posed the way the drives would pose it
+#   ./tools/model/build.sh --previews --pose elev=0,bearing=90
+#
+# Without --pose the previews show the modelled rest pose, which is the one pose the game never
+# displays once the drives are running. A defect that only appears at another elevation - an
+# assembly sweeping through its own mount, say - is invisible without it. Angles are degrees.
 #
 # Blender is a Windows binary, so the script path and every output path it is given have to be
 # Windows paths. It also cannot write into the WSL tree reliably, so it works in a temp folder
@@ -18,7 +24,16 @@ WIN_WORK='C:\Windows\Temp\airdefence-model'
 WORK="$(wslpath -u "$WIN_WORK")"
 
 PREVIEWS_ONLY=0
-[[ "${1:-}" == "--previews" ]] && PREVIEWS_ONLY=1
+POSE=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --previews) PREVIEWS_ONLY=1 ;;
+        --pose)     POSE="${2:-}"; shift ;;
+        --pose=*)   POSE="${1#--pose=}" ;;
+        *)          echo "unknown option: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
 
 if [[ ! -x "$BLENDER" ]]; then
     echo "error: Blender not found at $BLENDER" >&2
@@ -37,7 +52,7 @@ echo
 echo "building mesh (headless Blender)..."
 "$BLENDER" --background \
     --python "$(wslpath -w "$REPO_ROOT/tools/model/pantsir.py")" \
-    -- "$WIN_WORK" "$WIN_WORK\\palette.json" "$WIN_WORK\\AirDefence_Diffuse.png" \
+    -- "$WIN_WORK" "$WIN_WORK\\palette.json" "$WIN_WORK\\AirDefence_Diffuse.png" "$POSE" \
     2>&1 | grep -v '^Fra:' | sed '/^$/d'
 
 # The muzzle table validate-parts.py checks LauncherPart.cs against.

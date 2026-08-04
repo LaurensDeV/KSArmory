@@ -55,6 +55,17 @@ OUT_DIR = argv[0]
 PALETTE_PATH = argv[1]
 DIFFUSE_PATH = argv[2]
 
+# Optional "elev=<deg>,bearing=<deg>": pose the moving assemblies before rendering. Without it
+# the previews show the modelled rest pose, which is the one pose the game never displays once
+# the drives are running - so a defect that only appears at another elevation is invisible here.
+POSE = {}
+if len(argv) > 3 and argv[3]:
+    for field in argv[3].split(","):
+        if "=" not in field:
+            continue
+        key, _, value = field.partition("=")
+        POSE[key.strip().lower()] = math.radians(float(value))
+
 PALETTE = json.loads(open(PALETTE_PATH).read())["swatches"]
 
 # ---------------------------------------------------------------------------
@@ -827,6 +838,28 @@ def look_at(cam, loc, look):
     cam.matrix_world = Matrix.Translation(loc) @ Matrix((right, up, forward)).transposed().to_4x4()
 
 
+def pose_assemblies(bearing_rad, elev_rad):
+    """Rotates the moving groups the way the runtime does, so a preview shows a real pose.
+
+    Mirrors TubeGeometry.ElevatingPose and TurretRotation: each assembly pitches about +Z
+    through its own pivot by (reference - commanded), then everything riding the turret turns
+    about +X through TURRET_PIVOT. Run before joining, while the groups are still separate.
+    """
+    def turn(group, pivot, axis, angle):
+        if abs(angle) < 1e-9:
+            return
+        p = Vector(pivot)
+        m = Matrix.Translation(p) @ Matrix.Rotation(angle, 4, axis) @ Matrix.Translation(-p)
+        for ob in _objects[group]:
+            ob.matrix_world = m @ ob.matrix_world
+
+    turn("pods", POD_PIVOT, "Z", POD_ELEV - elev_rad)
+    turn("guns", GUN_PIVOT, "Z", GUN_ELEV - elev_rad)
+
+    for group in ("turret", "pods", "guns", "radar"):
+        turn(group, TURRET_PIVOT, "X", bearing_rad)
+
+
 def render_previews(out_dir):
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE"
@@ -959,6 +992,8 @@ def main():
     # pivots, which is right for the game and wrong for a picture: afterwards the scene shows
     # the pods hanging through the chassis and the turret shifted forward. Previews are only
     # useful if they show the vehicle assembled.
+    if POSE:
+        pose_assemblies(POSE.get("bearing", 0.0), POSE.get("elev", 0.0))
     render_previews(OUT_DIR)
 
     glb = os.path.join(OUT_DIR, "AirDefence_MeshAtlas.glb")
