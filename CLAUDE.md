@@ -492,12 +492,11 @@ Three things that will bite:
 - **Branch protection on `main`** blocks the release commit unless the token can bypass it.
 - **A shallow checkout** makes semantic-release believe every push is a first release — hence
   `fetch-depth: 0`.
-- **The first ever release is 1.0.0 unless a tag says otherwise.** semantic-release reads "no
-  tags" as "no releases", and the `<Version>` in the csproj has no bearing on it — confirmed by
-  dry run, which announced 1.0.0 with the project file saying 0.1.0. The project is pre-1.0, so
-  a `v0.1.0` tag has to exist before the first automated run anchors it. Promotion to 1.0.0 is
-  then a deliberate `git tag -a v1.0.0`; a `BREAKING CHANGE:` footer would also do it, which is
-  worth avoiding until it is meant.
+- **A release with no prior tag is 1.0.0.** semantic-release reads "no tags" as "no releases" and
+  the `<Version>` in the csproj has no bearing on it. Tags anchor everything, which is also how a
+  minor is cut here — see the Committing section. Promotion to 1.0.0 is a deliberate
+  `git tag -a v1.0.0`; a `BREAKING CHANGE:` footer would also do it, which is worth avoiding
+  until it is meant.
 
 **Releases** are `./tools/package.sh`, locally or from the release workflow — the archive is
 identical either way. `./tools/publish-release.sh` does both halves from a machine with KSA:

@@ -194,18 +194,21 @@ Or build the archive alone:
 ./tools/package.sh --version 1.2.0     # override the version
 ```
 
-#### Starting at 0.x
+#### What bumps what
 
-The project is pre-1.0, and this needs one bootstrap step. **semantic-release publishes 1.0.0
-for its first ever release** — it takes "no tags yet" to mean "no releases yet", and the version
-in the project file has no say in it. Anchor it with a tag before the first automated run:
+`feat`, `fix` and `perf` all cut a **patch**. Minor versions are never automatic — tag one by hand
+when something genuinely lands:
 
 ```bash
-git tag -a v0.1.0 -m "0.1.0"
-git push origin v0.1.0
+git tag -a v0.9.0 -m "second weapon system"
+git push origin v0.9.0
 ```
 
-From there it behaves normally: `feat` gives `0.2.0`, `fix` gives `0.1.1`.
+semantic-release reads the newest tag and carries on from it, so the next `fix` after that is
+`0.9.1`.
+
+That mechanism is also what anchored the very first release: semantic-release treats "no tags" as
+"no releases" and would otherwise have published `1.0.0`, whatever the project file said.
 
 #### Going 1.0.0
 
@@ -366,10 +369,14 @@ docs: write an install guide
 
 | Prefix | Effect on the version |
 | --- | --- |
-| `fix:`, `perf:`, `build:`, `revert:` | patch — `1.2.3` → `1.2.4` |
-| `feat:` | minor — `1.2.3` → `1.3.0` |
+| `feat:`, `fix:`, `perf:`, `build:`, `revert:` | patch — `1.2.3` → `1.2.4` |
 | any type with `!` or a `BREAKING CHANGE:` footer | major — `1.2.3` → `2.0.0` |
 | `docs:`, `test:`, `chore:`, `ci:`, `style:`, `refactor:` | no release |
+| a minor — `1.2.3` → `1.3.0` | never automatic; tag it by hand |
+
+`feat` cutting a patch is deliberate. The type says what a change *is*, for the changelog; how big
+a bump it earns is a separate decision, and a mod's routine flow of features, enhancements and
+fixes together should not push the middle digit every time.
 
 `docs` and `refactor` still appear in the changelog; they just do not cut a release on their
 own. A commit that does not parse is treated as no release — so a stray `wip` will not publish
