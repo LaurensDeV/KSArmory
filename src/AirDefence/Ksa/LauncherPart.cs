@@ -133,12 +133,11 @@ internal static class LauncherPart
     public static bool TryGetTubeMuzzlePartFrame(Part pods, LauncherProfile profile, int tubeIndex, out double3 partFrame)
     {
         partFrame = Vec.Zero;
-        if (tubeIndex < 0 || tubeIndex >= profile.TubeCount) return false;
-
         try
         {
-            partFrame = pods.PositionParentAsmb + pods.Asmb2ParentAsmb * profile.TubeOffsets[tubeIndex];
-            return Vec.IsFinite(partFrame);
+            return TubeGeometry.TryMuzzlePartFrame(profile, tubeIndex,
+                                                   pods.PositionParentAsmb, pods.Asmb2ParentAsmb,
+                                                   out partFrame);
         }
         catch
         {
@@ -158,9 +157,7 @@ internal static class LauncherPart
         axis = Vec.Zero;
         try
         {
-            double3 tubeAxisPodFrame = new(Math.Sin(profile.PodReferenceElevationRad),
-                                           Math.Cos(profile.PodReferenceElevationRad), 0.0);
-            axis = Vec.Unit(pods.Asmb2ParentAsmb * tubeAxisPodFrame);
+            axis = TubeGeometry.TubeAxisPartFrame(profile, pods.Asmb2ParentAsmb);
             return Vec.IsFinite(axis) && !axis.Equals(Vec.Zero);
         }
         catch
@@ -181,11 +178,16 @@ internal static class LauncherPart
                                              double bodyLength, out double3 seated)
     {
         seated = Vec.Zero;
-        if (!TryGetTubeMuzzlePartFrame(pods, profile, tubeIndex, out double3 muzzle)) return false;
-        if (!TryGetTubeAxisPartFrame(pods, profile, out double3 axis)) return false;
-
-        seated = muzzle - axis * (bodyLength * 0.5);
-        return Vec.IsFinite(seated);
+        try
+        {
+            return TubeGeometry.TrySeatedPartFrame(profile, tubeIndex,
+                                                   pods.PositionParentAsmb, pods.Asmb2ParentAsmb,
+                                                   bodyLength, out seated);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>Places a loaded round in its tube, at rest, with its fins stowed.</summary>
@@ -223,9 +225,7 @@ internal static class LauncherPart
         {
             // Direction the tubes point in the pods' own frame, at the elevation they were
             // modelled at; the pods' transform then carries it through the current aim.
-            double3 tubeAxisPodFrame = new(Math.Sin(profile.PodReferenceElevationRad),
-                                           Math.Cos(profile.PodReferenceElevationRad), 0.0);
-            double3 inPart = pods.Asmb2ParentAsmb * tubeAxisPodFrame;
+            double3 inPart = pods.Asmb2ParentAsmb * TubeGeometry.TubeAxisPodFrame(profile);
             double3 inVehicle = launcher.Asmb2VehicleAsmb * inPart;
             axisEcl = Vec.Unit(platform.Asmb2Ego * inVehicle);
             return Vec.IsFinite(axisEcl) && !axisEcl.Equals(Vec.Zero);
@@ -279,12 +279,9 @@ internal static class LauncherPart
     {
         try
         {
-            double span = munition.FinStowedScale
-                          + (1.0 - munition.FinStowedScale) * Math.Clamp(deployment, 0.0, 1.0);
-
             // X is along the body, so length is untouched; Y and Z carry the span.
-            var scale = new double3(1.0, span, span);
-            if (!Vec.IsFinite(position) || !double.IsFinite(span)) return false;
+            double3 scale = TubeGeometry.FinScale(munition, deployment);
+            if (!Vec.IsFinite(position) || !Vec.IsFinite(scale)) return false;
 
             fins.PositionParentAsmb = position;
             fins.PositionParentAsmbSafe = position;
@@ -358,12 +355,11 @@ internal static class LauncherPart
             // over travels out to 7.4 km, so the launcher part is unrotated relative to the
             // vehicle assembly. Kept explicit because PositionParentAsmb *is* the assembly frame,
             // so the conversion is only a no-op for as long as that holds.
-            double3 travelPart = asmb2Part * (ecl2Asmb * travelEcl);
-
-            position = launchAnchorPartFrame + travelPart;
+            position = TubeGeometry.BodyPositionPartFrame(launchAnchorPartFrame, travelEcl,
+                                                          ecl2Asmb, asmb2Part);
             if (!Vec.IsFinite(position)) return false;
 
-            rotation = FireGeometry.RotationFromNose(asmb2Part * (ecl2Asmb * directionEcl));
+            rotation = TubeGeometry.BodyRotationPartFrame(directionEcl, ecl2Asmb, asmb2Part);
 
             missile.PositionParentAsmb = position;
             missile.PositionParentAsmbSafe = position;
@@ -439,7 +435,7 @@ internal static class LauncherPart
     {
         try
         {
-            doubleQuat rotation = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), bearingRad);
+            doubleQuat rotation = TubeGeometry.TurretRotation(bearingRad);
 
             turret.Asmb2ParentAsmb = rotation;
             turret.Asmb2ParentAsmbSafe = rotation;
@@ -471,16 +467,8 @@ internal static class LauncherPart
     {
         try
         {
-            doubleQuat traverse = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), bearingRad);
-
-            // Rotating about +Z by `a` takes elevation `e` to `e - a`, so reaching `elevation`
-            // from the modelled pose is a rotation of (reference - elevation).
-            doubleQuat elevate = doubleQuat.CreateFromAxisAngle(
-                new double3(0, 0, 1), profile.PodReferenceElevationRad - elevationRad);
-
-            // Elevation first, in the pods' own frame; then the turret's traverse.
-            doubleQuat rotation = traverse * elevate;
-            double3 position = profile.TurretPivot + traverse * profile.PodPivotFromTurret;
+            DrivePose pose = TubeGeometry.PodPose(profile, bearingRad, elevationRad);
+            (double3 position, doubleQuat rotation) = (pose.Position, pose.Rotation);
 
             pods.Asmb2ParentAsmb = rotation;
             pods.Asmb2ParentAsmbSafe = rotation;
@@ -507,10 +495,8 @@ internal static class LauncherPart
     {
         try
         {
-            var axis = new double3(1, 0, 0);
-            doubleQuat rotation = doubleQuat.CreateFromAxisAngle(axis, turretBearingRad + spinRad);
-            doubleQuat traverse = doubleQuat.CreateFromAxisAngle(axis, turretBearingRad);
-            double3 position = profile.TurretPivot + traverse * profile.RadarPivotFromTurret;
+            DrivePose pose = TubeGeometry.RadarPose(profile, turretBearingRad, spinRad);
+            (double3 position, doubleQuat rotation) = (pose.Position, pose.Rotation);
 
             radar.Asmb2ParentAsmb = rotation;
             radar.Asmb2ParentAsmbSafe = rotation;
@@ -603,15 +589,7 @@ internal static class LauncherPart
     /// consistent with each other.
     /// </summary>
     public static double3 MuzzleEcl(LauncherProfile profile, double3 originEcl, double3 boresight, int tubeIndex)
-    {
-        double3 u = Vec.AnyPerpendicular(boresight);
-        double3 w = Vec.Cross(boresight, u);
-
-        double angle = tubeIndex * (Math.Tau / profile.TubeCount);
-        double3 ring = (u * Math.Cos(angle) + w * Math.Sin(angle)) * profile.TubeRingRadius;
-
-        return originEcl + boresight * profile.MuzzleForwardOffset + ring;
-    }
+        => TubeGeometry.MuzzleRingEcl(profile, originEcl, boresight, tubeIndex);
 
     /// <summary>
     /// Muzzle of each tube in the render frame, derived from the part's own transform.
