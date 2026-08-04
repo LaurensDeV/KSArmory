@@ -34,7 +34,7 @@ internal sealed class DefenceBattery(Config config)
     public Radar Radar { get; } = new(config);
 
     /// <summary>Rounds left in the launcher.</summary>
-    public int Ammo { get; private set; }
+    public int Ammo => _magazine.Ammo;
 
     public IReadOnlyList<Interceptor> Rounds => _rounds;
 
@@ -91,16 +91,11 @@ internal sealed class DefenceBattery(Config config)
     private readonly List<Part> _finBodies = [];
 
     /// <summary>
-    /// Which tubes still hold a round. Authoritative, rather than derived from the ammo count.
-    ///
-    /// <para><c>TubeCount - Ammo</c> was a guess at which tube to fire next, and it is only
-    /// right while a magazine empties monotonically. A reload restarts it at zero while earlier
-    /// rounds are still in the air, so two rounds end up claiming the same tube - and since a
-    /// round's body subpart is chosen by tube number, one body then flips between two rounds
-    /// every frame and the rest of the salvo appears not to leave at all. The
-    /// "two rounds share tube N" warning was added to catch exactly this and duly did.</para>
+    /// Which tubes still hold a round, and which fires next. See <see cref="Magazine"/> — the
+    /// bookkeeping is pure and lives in Sim/ so it is testable, because getting it wrong produces
+    /// a salvo that looks like it never left rather than an error.
     /// </summary>
-    private bool[] _tubeLoaded = [];
+    private readonly Magazine _magazine = new();
 
     /// <summary>The fin set belonging to a tube, or null if the launcher carries none.</summary>
     private Part? FinsFor(int index) => index >= 0 && index < _finBodies.Count ? _finBodies[index] : null;
@@ -236,12 +231,7 @@ internal sealed class DefenceBattery(Config config)
 
             // A different weapon system carries a different number of rounds, so the magazine
             // is sized when one is first recognised rather than at construction.
-            if (changed)
-            {
-                _tubeLoaded = new bool[profile.TubeCount];
-                Array.Fill(_tubeLoaded, true);
-                Ammo = profile.TubeCount;
-            }
+            if (changed) _magazine.Resize(profile.TubeCount);
         }
         else
         {
@@ -395,15 +385,14 @@ internal sealed class DefenceBattery(Config config)
         if (_salvoTimer > 0.0) _salvoTimer = Math.Max(0.0, _salvoTimer - dt);
 
         // Reload cycle.
-        if (Ammo == 0 && _profile.ReloadSeconds > 0f)
+        if (_magazine.IsEmpty && _profile.ReloadSeconds > 0f)
         {
             if (_reloadTimer <= 0.0) _reloadTimer = _profile.ReloadSeconds;
             _reloadTimer -= dt;
             if (_reloadTimer <= 0.0)
             {
                 _reloadTimer = 0.0;
-                RefillTubes();
-                Ammo = _profile.TubeCount;
+                _magazine.RefillAll();
                 Announce("launcher reloaded");
             }
             return;
@@ -617,43 +606,19 @@ internal sealed class DefenceBattery(Config config)
             }
         }
 
-        // Tubes that are neither in the air nor already fired still have a round in them, so
-        // show it seated rather than scaling it away. Rounds now visibly wait in their tubes and
-        // leave from inside one, instead of appearing already half clear of the mouth.
-        //
-        // Fired tubes are the first TubeCount - Ammo, matching the numbering Fire uses.
-        int spent = _profile.TubeCount - Ammo;
-
+        // Every tube that is not in the air gets its body seated, spent or not, and only then are
+        // the spent ones hidden. The plan comes from Magazine, where TubeVisual documents why
+        // "hide without seating" is not one of the answers - it is the launch flash.
         for (int i = 0; i < _missileBodies.Count && i < _profile.TubeCount; i++)
         {
-            if (flying[i]) continue;
+            TubeVisual plan = _magazine.Plan(i, flying[i]);
+            if (!Magazine.RequiresSeating(plan)) continue;
 
-            // Seat EVERY tube's body, spent or not, and only then hide the spent ones.
-            //
-            // HideMissile writes Scale and nothing else, so a body that was never seated keeps
-            // whatever transform it had - and a Part with no PositionParentAsmb written sits at
-            // the assembly origin, which is the middle of the truck. Skipping the seat for spent
-            // tubes left them parked there, invisible.
-            //
-            // That is harmless until the tube fires. TryPlaceMissile then writes position and
-            // scale in the same pass, but the engine has already sampled the cached matrix for
-            // this frame, so it draws one or two frames at the OLD transform with the NEW scale:
-            // the round flashes at the centre of the vehicle before snapping into its tube.
-            //
-            // Reported from play, and the measurement that identified it is that the flash is the
-            // same brief flick at 0.01x as at 1x. Anything driven by simulated time - fin
-            // deployment, travel - would have stretched a hundredfold; a render-frame artefact
-            // does not. The launch trace separately showed the body's written position is exactly
-            // the tube anchor from frame zero, so it was never the placement that was wrong, only
-            // what the body had been left holding beforehand.
-            //
-            // Seating first means a body is always already in its tube, so the first frame it
-            // becomes visible cannot show it anywhere else.
             bool seated = PodsPart is { } loadedPods
                           && LauncherPart.TrySeatMissile(loadedPods, _profile, _missileBodies[i],
                                                          FinsFor(i), i, _munition);
 
-            if (seated && i >= spent) continue;
+            if (seated && Magazine.IsVisible(plan)) continue;
 
             LauncherPart.HideMissile(_missileBodies[i]);
             if (FinsFor(i) is { } spentFins) LauncherPart.HideMissile(spentFins);
@@ -680,8 +645,13 @@ internal sealed class DefenceBattery(Config config)
         if (!KsaWorld.IsAlive(track.Vehicle)) { Announce("refused: target gone"); return false; }
         if (!IsLaid) { Announce("refused: launcher still slewing"); return false; }
 
-        int tube = NextFreeTube();
-        if (tube < 0) { Announce("refused: no free tube"); return false; }
+        // Takes the round as it picks the tube. Nothing between here and the round being added
+        // can fail, so there is no window in which a tube is claimed but no round exists.
+        if (!_magazine.TryTakeTube(_rounds, out int tube))
+        {
+            Announce("refused: no free tube");
+            return false;
+        }
 
         double3 platformVel = KsaWorld.VelocityEcl(Platform);
 
@@ -729,8 +699,6 @@ internal sealed class DefenceBattery(Config config)
         {
             LaunchAnchorPartFrame = launchAnchorPartFrame,
         });
-        if (tube < _tubeLoaded.Length) _tubeLoaded[tube] = false;
-        Ammo--;
         _salvoTimer = _profile.SalvoSpacing;
 
         Announce($"round {tube + 1} away at {KsaWorld.DisplayName(track.Vehicle)} ({track.Range / 1000.0:F1} km)");
@@ -744,37 +712,9 @@ internal sealed class DefenceBattery(Config config)
         return Fire(Radar.Locked);
     }
 
-    /// <summary>The lowest tube that is both loaded and not already occupied by a round in the
-    /// air. Returns -1 when there is none.</summary>
-    private int NextFreeTube()
-    {
-        for (int i = 0; i < _tubeLoaded.Length; i++)
-        {
-            if (!_tubeLoaded[i]) continue;
-
-            // A reload refills a tube whose previous round is still flying. Firing it again
-            // would hand two rounds the same body.
-            bool occupied = false;
-            for (int r = 0; r < _rounds.Count; r++)
-            {
-                if (_rounds[r].Tube == i + 1) { occupied = true; break; }
-            }
-
-            if (!occupied) return i;
-        }
-        return -1;
-    }
-
-    private void RefillTubes()
-    {
-        if (_tubeLoaded.Length != _profile.TubeCount) _tubeLoaded = new bool[_profile.TubeCount];
-        Array.Fill(_tubeLoaded, true);
-    }
-
     public void Reload()
     {
-        RefillTubes();
-        Ammo = _profile.TubeCount;
+        _magazine.Resize(_profile.TubeCount);
         _reloadTimer = 0.0;
         Announce("launcher reloaded by hand");
     }
@@ -1023,8 +963,7 @@ internal sealed class DefenceBattery(Config config)
         _pendingKills.Clear();
         _events.Clear();
         Radar.Reset();
-        RefillTubes();
-        Ammo = _profile.TubeCount;
+        _magazine.Resize(_profile.TubeCount);
         _salvoTimer = 0.0;
         _reloadTimer = 0.0;
         PlatformPinned = false;
