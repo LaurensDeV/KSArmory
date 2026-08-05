@@ -1,7 +1,12 @@
 namespace KSArmory;
 
 /// <summary>
-/// The player's settings: what the battery is allowed to do, and what gets drawn.
+/// Settings that belong to the session rather than to any one battery: who counts as hostile,
+/// what gets drawn, how much is logged.
+///
+/// <para>What an individual installation is allowed to do lives on <see cref="BatteryConfig"/>.
+/// The line between them is whether the answer can differ between two launchers in the same
+/// world — arming can, the IFF policy cannot.</para>
 ///
 /// <para>Not the place for how a weapon performs. Range, guidance, fuse and launcher geometry
 /// live on <see cref="SensorProfile"/>, <see cref="MunitionProfile"/> and
@@ -42,40 +47,8 @@ public sealed class Config
 
     // ---- Engagement policy ----------------------------------------------
 
-    /// <summary>Engage without asking.</summary>
-    public bool AutoEngage;
-
-    /// <summary>
-    /// Which weapons may engage, independently of the master arm.
-    ///
-    /// <para>Two layers on one mount: without a switch each, whichever reaches further takes
-    /// every target and the other can never be seen to work.</para>
-    /// </summary>
-    /// <summary>
-    /// Which of the game's open camera views the optical head drives, or -1 for none.
-    ///
-    /// <para>An index rather than a flag because KSA opens the views itself — <c>AddViewport</c>
-    /// is private, so a mod borrows one the player has opened rather than making its own.</para>
-    /// </summary>
-    public int OpticViewport = -1;
-
-    public bool MissilesEnabled = true;
-    public bool GunsEnabled = true;
-
-    /// <summary>Master arm. Nothing launches while this is false.</summary>
-    public bool Armed;
-
     /// <summary>Never fire on the vehicle the player is flying.</summary>
     public bool ProtectControlledVehicle = true;
-
-    /// <summary>
-    /// Point the launcher wherever the mouse is, instead of at what the radar is holding.
-    ///
-    /// <para>The drives are rate-limited either way, so this aims *towards* the cursor rather than
-    /// snapping to it. Auto-engage still decides when to shoot; this only decides where the
-    /// launcher looks.</para>
-    /// </summary>
-    public bool MouseAim;
 
     /// <summary>
     /// Hold the world's timewarp down while rounds are in the air, and give it back when they
@@ -104,33 +77,11 @@ public sealed class Config
     /// </summary>
     public readonly List<string> TeamNames = [];
 
-    /// <summary>Rounds committed to a single target before re-evaluating.</summary>
-    public int RoundsPerTarget = 2;
-
     /// <summary>
     /// Require a launcher part before the battery works. Turn this off to run the system on any
     /// craft, which is useful for testing without opening the editor.
     /// </summary>
     public bool RequireLauncherPart = true;
-
-    // ---- Turret ---------------------------------------------------------
-
-    /// <summary>
-    /// Slew the launcher onto the tracked target. Turning this off parks it facing forward,
-    /// which is also the fallback if the engine refuses the transform write.
-    /// </summary>
-    public bool TurretTracking = true;
-
-    /// <summary>Drive the launcher by hand instead of from the radar.</summary>
-    public bool TurretManual;
-    public float TurretManualBearingDeg;
-    public float TurretManualElevationDeg = 55f;
-
-    /// <summary>Sweep the turret continuously. Purely for watching it work.</summary>
-    public bool TurretSpin;
-
-    /// <summary>Stop the search array turning. Only useful for looking at it.</summary>
-    public bool SearchRadarStopped;
 
     // ---- Diagnostics ----------------------------------------------------
 

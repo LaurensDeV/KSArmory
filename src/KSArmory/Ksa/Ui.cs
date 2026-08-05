@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
+internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery battery, WarpPolicy warp)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -20,6 +20,7 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
     private const double MaxTrackableWarp = Interceptor.MaxFaithfulStep * 60.0;
 
     private readonly Config _config = config;
+    private readonly BatteryConfig _policy = policy;
     private readonly DefenceBattery _battery = battery;
     private readonly WarpPolicy _warp = warp;
     private readonly List<int> _viewports = [];
@@ -149,7 +150,7 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
             ImGui.TextColored(Amber, "Launcher: none (part requirement off)");
         }
 
-        if (_config.Armed) ImGui.TextColored(Red, "MASTER ARM: ARMED");
+        if (_policy.Armed) ImGui.TextColored(Red, "MASTER ARM: ARMED");
         else ImGui.TextColored(Green, "MASTER ARM: SAFE");
 
         ImGui.SameLine();
@@ -268,31 +269,31 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
         if (_viewports.Count == 0)
         {
             ImGui.TextDisabled("open a camera window in KSA (View menu), then pick it here");
-            _config.OpticViewport = -1;
+            _policy.OpticViewport = -1;
             return;
         }
 
-        if (ImGui.RadioButton("off", _config.OpticViewport < 0)) _config.OpticViewport = -1;
+        if (ImGui.RadioButton("off", _policy.OpticViewport < 0)) _policy.OpticViewport = -1;
 
         foreach (int index in _viewports)
         {
             ImGui.SameLine();
-            if (ImGui.RadioButton(KsaWorld.DescribeViewport(index), _config.OpticViewport == index))
+            if (ImGui.RadioButton(KsaWorld.DescribeViewport(index), _policy.OpticViewport == index))
             {
-                _config.OpticViewport = index;
+                _policy.OpticViewport = index;
             }
         }
 
-        if (_config.OpticViewport >= 0)
+        if (_policy.OpticViewport >= 0)
         {
             ImGui.TextDisabled("  no sky or terrain detail here - KSA renders secondary views");
             ImGui.TextDisabled("  without the atmosphere pass. See docs/BLOCKED-ON-KSA.md");
         }
 
         // A window closed under us, so stop writing to something that is no longer shown.
-        if (_config.OpticViewport >= 0 && !_viewports.Contains(_config.OpticViewport))
+        if (_policy.OpticViewport >= 0 && !_viewports.Contains(_policy.OpticViewport))
         {
-            _config.OpticViewport = -1;
+            _policy.OpticViewport = -1;
         }
     }
 
@@ -325,7 +326,7 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
         double elevation = float.RadiansToDegrees((float)_battery.Turret.ElevationRad);
         string aim = $"Turret: {bearing:F0} deg, elev {elevation:F0} deg";
 
-        if (!_config.TurretTracking)
+        if (!_policy.TurretTracking)
         {
             ImGui.TextColored(Grey, $"{aim} (tracking off)");
         }
@@ -347,15 +348,15 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
 
     private void DrawWeapons()
     {
-        ImGui.Checkbox("Master arm", ref _config.Armed);
+        ImGui.Checkbox("Master arm", ref _policy.Armed);
         ImGui.SameLine();
-        ImGui.Checkbox("Auto engage", ref _config.AutoEngage);
+        ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
         ImGui.SameLine();
-        ImGui.Checkbox("Missiles", ref _config.MissilesEnabled);
+        ImGui.Checkbox("Missiles", ref _policy.MissilesEnabled);
         if (_profile.HasCannon)
         {
             ImGui.SameLine();
-            ImGui.Checkbox("Cannon", ref _config.GunsEnabled);
+            ImGui.Checkbox("Cannon", ref _policy.GunsEnabled);
         }
 
         DrawOpticView();
@@ -382,8 +383,8 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
         ImGui.Checkbox("Never target the vehicle I'm flying", ref _config.ProtectControlledVehicle);
         ImGui.Checkbox("Require launcher part", ref _config.RequireLauncherPart);
 
-        ImGui.Checkbox("Aim with the mouse", ref _config.MouseAim);
-        if (_config.MouseAim)
+        ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);
+        if (_policy.MouseAim)
         {
             ImGui.TextDisabled("  The launcher and the optical head follow the cursor. Auto-engage");
             ImGui.TextDisabled("  still decides when to fire; the drives still have to settle first.");
@@ -731,7 +732,7 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
 
         if (ImGui.TreeNode("Turret"))
         {
-            ImGui.Checkbox("Track with turret", ref _config.TurretTracking);
+            ImGui.Checkbox("Track with turret", ref _policy.TurretTracking);
             ImGui.SliderFloat("Traverse rate (deg/s)", ref _profile.SlewRateDeg, 5f, 180f);
             ImGui.SliderFloat("Elevation rate (deg/s)", ref _profile.ElevationRateDeg, 5f, 120f);
             ImGui.SliderFloat("Settle before firing (s)", ref _profile.SettleSeconds, 0f, 2f);
@@ -740,15 +741,15 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
 
             ImGui.Separator();
             ImGui.TextDisabled("Drive it by hand - neither needs a target:");
-            ImGui.Checkbox("Spin continuously", ref _config.TurretSpin);
-            ImGui.Checkbox("Manual aim", ref _config.TurretManual);
-            ImGui.SliderFloat("Bearing (deg)", ref _config.TurretManualBearingDeg, -180f, 180f);
-            ImGui.SliderFloat("Elevation (deg)", ref _config.TurretManualElevationDeg, 0f, 82f);
+            ImGui.Checkbox("Spin continuously", ref _policy.TurretSpin);
+            ImGui.Checkbox("Manual aim", ref _policy.TurretManual);
+            ImGui.SliderFloat("Bearing (deg)", ref _policy.TurretManualBearingDeg, -180f, 180f);
+            ImGui.SliderFloat("Elevation (deg)", ref _policy.TurretManualElevationDeg, 0f, 82f);
             ImGui.TextDisabled("  Elevation applies to spin as well as manual aim.");
 
             ImGui.Separator();
             ImGui.SliderFloat("Search array (rpm)", ref _profile.SearchRadarRpm, 0f, 60f);
-            ImGui.Checkbox("Stop the search array", ref _config.SearchRadarStopped);
+            ImGui.Checkbox("Stop the search array", ref _policy.SearchRadarStopped);
             ImGui.TreePop();
         }
 
@@ -776,7 +777,7 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
             ImGui.SliderFloat("Fuse arm delay (s)", ref _munition.FuseArmSeconds, 0f, 5f);
             ImGui.SliderFloat("Lethal radius (m)", ref _munition.LethalRadius, 2f, 300f);
             ImGui.SliderFloat("Blast radius (m)", ref _munition.BlastRadius, 5f, 600f);
-            ImGui.SliderInt("Rounds per target", ref _config.RoundsPerTarget, 1, _profile.TubeCount);
+            ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget, 1, _profile.TubeCount);
             ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
             ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);
             ImGui.TreePop();

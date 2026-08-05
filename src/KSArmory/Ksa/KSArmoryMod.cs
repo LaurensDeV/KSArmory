@@ -19,6 +19,10 @@ public sealed class KSArmoryMod
 
     private double _lastSimSpeed = 1.0;
     private readonly Config _config = new();
+
+    // One battery today, so one policy. When ResolvePlatform stops electing a single launcher
+    // this becomes one per battery and Config stays shared.
+    private readonly BatteryConfig _policy = new();
     private DefenceBattery? _battery;
     private Ui? _ui;
     private int _faults;
@@ -43,8 +47,8 @@ public sealed class KSArmoryMod
     [StarMapAllModsLoaded]
     public void OnFullyLoaded()
     {
-        _battery = new DefenceBattery(_config);
-        _ui = new Ui(_config, _battery, _warp);
+        _battery = new DefenceBattery(_config, _policy);
+        _ui = new Ui(_config, _policy, _battery, _warp);
         Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -118,10 +122,10 @@ public sealed class KSArmoryMod
 
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
-            if (KsaWorld.InFlight && _config.OpticViewport >= 0)
+            if (KsaWorld.InFlight && _policy.OpticViewport >= 0)
             {
                 TakeOpticView(dt);
-                Sight.Draw(_battery, _config);
+                Sight.Draw(_battery, _config, _policy);
             }
         }
         catch (Exception e)
@@ -228,18 +232,18 @@ public sealed class KSArmoryMod
 
         // Local "up" at the launcher, which is what the boresight already is — so the horizon
         // sits level rather than rolling with the ecliptic.
-        bool took = KsaWorld.TryLookFromViewport(_config.OpticViewport, eye, forward,
+        bool took = KsaWorld.TryLookFromViewport(_policy.OpticViewport, eye, forward,
                                                  _battery.Boresight, dt);
         if (trace)
         {
-            Log.Debug(() => $"camera: view {_config.OpticViewport} of {KsaWorld.ViewportCount} "
+            Log.Debug(() => $"camera: view {_policy.OpticViewport} of {KsaWorld.ViewportCount} "
                             + $"took={took} eye={eye.X:F0},{eye.Y:F0},{eye.Z:F0} "
                             + $"fwd={forward.X:F3},{forward.Y:F3},{forward.Z:F3}");
         }
 
         if (!took)
         {
-            _config.OpticViewport = -1;
+            _policy.OpticViewport = -1;
             Log.Warn("camera: could not drive that view; released it");
         }
     }

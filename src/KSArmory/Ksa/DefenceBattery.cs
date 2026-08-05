@@ -12,9 +12,12 @@ internal readonly record struct BatteryEvent(double AtSeconds, string Message);
 /// whatever the player is flying but can be pinned so the site keeps defending itself
 /// after the player switches away.
 /// </summary>
-internal sealed class DefenceBattery(Config config)
+internal sealed class DefenceBattery(Config config, BatteryConfig policy)
 {
     private readonly Config _config = config;
+
+    // This installation's own settings. Shared Config stays for the session-wide ones.
+    private readonly BatteryConfig _policy = policy;
     private readonly List<IProjectile> _rounds = [];
     private readonly List<Vehicle> _blastScratch = [];
     private readonly List<Vehicle> _pendingKills = [];
@@ -213,8 +216,8 @@ internal sealed class DefenceBattery(Config config)
     // Slewing onto something, rather than stowed or driven from the panel. Mouse aim counts:
     // the drives are chasing a cursor, so fire control must still wait for them to settle or
     // rounds leave along a tube that is still swinging.
-    private bool Aiming => (_config.TurretTracking || _config.MouseAim)
-                           && !_config.TurretManual && !_config.TurretSpin;
+    private bool Aiming => (_policy.TurretTracking || _policy.MouseAim)
+                           && !_policy.TurretManual && !_policy.TurretSpin;
 
     public void PinPlatform(Vehicle? v)
     {
@@ -459,8 +462,8 @@ internal sealed class DefenceBattery(Config config)
             return;
         }
 
-        if (!_config.AutoEngage || !_config.Armed || !IsOperational) return;
-        if (!_config.MissilesEnabled) return;
+        if (!_policy.AutoEngage || !_policy.Armed || !IsOperational) return;
+        if (!_policy.MissilesEnabled) return;
         if (Ammo <= 0 || _salvoTimer > 0.0) return;
         if (!Radar.HasFiringSolution) return;
 
@@ -475,7 +478,7 @@ internal sealed class DefenceBattery(Config config)
 
         Track target = Radar.Locked!;
         if (!ThreatModel.MayEngage(target, _config.Iff)) return;
-        if (!ThreatModel.HasSalvoCapacity(target, _config.RoundsPerTarget)) return;
+        if (!ThreatModel.HasSalvoCapacity(target, _policy.RoundsPerTarget)) return;
 
         // Detection reaches 36 km; the round reaches 20 km. Without this the battery empties
         // itself at contacts it cannot possibly catch, which is what every 8.7 km crossing shot
@@ -495,7 +498,7 @@ internal sealed class DefenceBattery(Config config)
     {
         partFrame = default;
 
-        return _config.MouseAim
+        return _policy.MouseAim
                && Platform is not null
                && KsaWorld.TryCursorDirectionEcl(out double3 dirEcl)
                && LauncherPart.TryDirectionToPartFrame(Platform, dirEcl, out partFrame);
@@ -550,7 +553,7 @@ internal sealed class DefenceBattery(Config config)
     // Whether the cannon are the weapon this engagement belongs to: inside their envelope, and
     // with the missiles either switched off or unable to reach.
     private bool GunsHaveTheEngagement(Track aim)
-        => FireGate.GunsHaveTheEngagement(_profile.HasCannon, _config.GunsEnabled, !_guns.IsEmpty,
+        => FireGate.GunsHaveTheEngagement(_profile.HasCannon, _policy.GunsEnabled, !_guns.IsEmpty,
                                           aim.Range, _profile.GunMinRange, _profile.GunMaxRange);
 
     // Fired along the barrel: the lead is in where the turret is pointing, so aiming the shell
@@ -609,7 +612,7 @@ internal sealed class DefenceBattery(Config config)
             return;
         }
 
-        bool wantToFire = _config.AutoEngage && _config.Armed && _config.GunsEnabled
+        bool wantToFire = _policy.AutoEngage && _policy.Armed && _policy.GunsEnabled
                           && IsOperational && GunsAreLaid
                           && Radar.Locked is { } locked
                           && ThreatModel.MayEngage(locked, _config.Iff)
@@ -626,8 +629,8 @@ internal sealed class DefenceBattery(Config config)
             {
                 string range = Radar.Locked is { } t ? $"{t.Range:F0} m" : "no lock";
                 return $"cannon: want={wantToFire} ammo={_guns.Ammo} burst={_guns.BurstRemaining} "
-                       + $"cd={_guns.Cooldown:F3} armed={_config.Armed} auto={_config.AutoEngage} "
-                       + $"enabled={_config.GunsEnabled} laid={GunsAreLaid} drive={_drives.Works(DriveChannel.Guns)} "
+                       + $"cd={_guns.Cooldown:F3} armed={_policy.Armed} auto={_policy.AutoEngage} "
+                       + $"enabled={_policy.GunsEnabled} laid={GunsAreLaid} drive={_drives.Works(DriveChannel.Guns)} "
                        + $"part={(GunsPart is not null)} range={range} "
                        + $"envelope={_profile.GunMinRange:F0}-{_profile.GunMaxRange:F0} m";
             });
@@ -675,7 +678,7 @@ internal sealed class DefenceBattery(Config config)
     // the two.
     private void UpdateTurret(double dt)
     {
-        if (_config.TurretSpin)
+        if (_policy.TurretSpin)
         {
             // Command a bearing that runs away at the slew rate, so the turret chases it
             // forever. Nothing depends on this - it exists so "does the mesh move at all" can
@@ -683,12 +686,12 @@ internal sealed class DefenceBattery(Config config)
             // Elevation still comes from the manual slider, so the two can be driven together:
             // spinning while pitching is the quickest way to see both axes composing properly.
             _spinPhase = Turret.WrapPi(_spinPhase + _profile.SlewRateRad * dt);
-            Turret.Point(_spinPhase, double.DegreesToRadians(_config.TurretManualElevationDeg));
+            Turret.Point(_spinPhase, double.DegreesToRadians(_policy.TurretManualElevationDeg));
         }
-        else if (_config.TurretManual)
+        else if (_policy.TurretManual)
         {
-            Turret.Point(double.DegreesToRadians(_config.TurretManualBearingDeg),
-                         double.DegreesToRadians(_config.TurretManualElevationDeg));
+            Turret.Point(double.DegreesToRadians(_policy.TurretManualBearingDeg),
+                         double.DegreesToRadians(_policy.TurretManualElevationDeg));
         }
         else if (TryCursorAimPartFrame(out double3 cursorFrame))
         {
@@ -698,7 +701,7 @@ internal sealed class DefenceBattery(Config config)
             _ringIsOnGunLead = false;
             Turret.Track(cursorFrame);
         }
-        else if (!_config.TurretTracking)
+        else if (!_policy.TurretTracking)
         {
             Turret.Stow();
         }
@@ -756,7 +759,7 @@ internal sealed class DefenceBattery(Config config)
         // aiming - so it is driven off the clock rather than off the track.
         if (RadarPart is not null && _drives.Works(DriveChannel.Radar))
         {
-            if (!_config.SearchRadarStopped)
+            if (!_policy.SearchRadarStopped)
             {
                 RadarSpinRad = Turret.WrapPi(
                     RadarSpinRad + _profile.SearchRadarRpm * (Math.Tau / 60.0) * dt);
@@ -913,7 +916,7 @@ internal sealed class DefenceBattery(Config config)
     /// </summary>
     public bool Fire(Track track)
     {
-        if (!_config.Armed) { Announce("refused: not armed"); return false; }
+        if (!_policy.Armed) { Announce("refused: not armed"); return false; }
         if (Platform is null) { Announce("refused: no platform"); return false; }
         if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
         if (Ammo <= 0) { Announce("refused: launcher empty"); return false; }

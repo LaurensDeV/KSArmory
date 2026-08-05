@@ -17,12 +17,12 @@ internal static class Sight
 
     private static readonly ReticleStroke[] _strokes = new ReticleStroke[KSArmory.Reticle.MaxStrokes];
 
-    public static void Draw(DefenceBattery battery, Config config)
+    public static void Draw(DefenceBattery battery, Config config, BatteryConfig policy)
     {
-        if (config.OpticViewport < 0 || battery.OpticPart is null) return;
+        if (policy.OpticViewport < 0 || battery.OpticPart is null) return;
         if (battery.Radar.Locked is not { } track) return;
 
-        if (!KsaWorld.TryProjectIntoViewport(config.OpticViewport, track.PositionEcl,
+        if (!KsaWorld.TryProjectIntoViewport(policy.OpticViewport, track.PositionEcl,
                                              out float2 centre, out int width, out int height))
         {
             return;
@@ -30,7 +30,7 @@ internal static class Sight
 
         double angular = 2.0 * Math.Atan2(KsaWorld.MeanRadius(track.Vehicle),
                                           Math.Max(track.Range, 1.0));
-        float half = KSArmory.Reticle.BoxHalfSize(angular, KsaWorld.ViewportFovRad(config.OpticViewport),
+        float half = KSArmory.Reticle.BoxHalfSize(angular, KsaWorld.ViewportFovRad(policy.OpticViewport),
                                                   height);
 
         // Settled means the head is actually on it, not merely that the radar has a lock — the

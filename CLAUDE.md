@@ -221,7 +221,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/LauncherProfile.cs` | one launch platform: part Id, tube geometry, drives |
 | `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
-| `Sim/Config.cs` | the player's settings only — policy and display |
+| `Sim/Config.cs` | session-wide settings — IFF, drawing, logging |
+| `Sim/BatteryConfig.cs` | one installation's own settings — arm, engage, turret mode |
 | `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
@@ -461,6 +462,16 @@ left null — `Trains` is then false, the drives are skipped and `IsLaid` stays 
 control cannot deadlock waiting for something that will never move.
 `ArsenalTests.AFixedLauncherIsJustAProfileWithNothingThatMoves` pins that shape, and
 `DriveFailureTests` pins the difference between that and a drive the engine refused.
+
+**A setting belongs to a battery or to the session, and which one is the whole distinction.**
+`BatteryConfig` holds what can differ between two launchers in the same world — armed,
+auto-engage, which weapons are live, turret mode, the optical head's viewport. `Config` holds what
+cannot: the IFF policy, the team names, what gets drawn, how much is logged. The test to apply is
+not importance but whether two sites could sensibly disagree.
+
+Weapon *performance* is neither: range, guidance and fuse live on the profiles, because two
+Pantsirs on opposite sides of the map share a flight model and disagree about whether they are
+armed.
 
 **What is deliberately *not* general yet:** one battery per craft (the first launcher found
 wins), and `Config` holds a single active profile set, so the panel tunes one system at a time.
