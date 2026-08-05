@@ -1127,6 +1127,9 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             }
 
             ImGui.Separator();
+            ImGui.Checkbox("Warhead effects", ref _config.DrawExplosions);
+            ImGui.TextDisabled("  the fireball, not a debug line -- kept when those are off");
+
             ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
             ImGui.TextDisabled("  brackets over every system; (+) in the list pins a label");
             ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);

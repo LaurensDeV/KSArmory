@@ -261,6 +261,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
 | `Ksa/Ui.cs`, `Ksa/Visuals.cs` | ImGui panel, gizmo rendering |
+| `Ksa/Detonation.cs` | the fireball where a warhead goes off, through KSA's particle system |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
 | `Ksa/Markers.cs` | on-screen brackets over every weapons system, labelled on hover or when pinned |
 | `Ksa/WatchCamera.cs` | nudges the main view round onto one system, then lets go |
@@ -271,13 +272,13 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
-| `src/KSArmory/KSArmory*.xml` | the launcher part and the armed character — at the mod root, mirroring Core |
+| `src/KSArmory/KSArmory*.xml` | the launcher part, the armed character and the warhead effects — at the mod root, mirroring Core |
 | `src/KSArmory/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 253 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 263 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -581,7 +582,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-660,000 lines to the files defining the 94 types this mod actually uses.
+660,000 lines to the files defining the 104 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —

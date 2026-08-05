@@ -1152,6 +1152,9 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         double3 burst = round.PositionEcl;
         Announce($"round {round.Tube} detonated, miss distance {round.MissDistance:F0} m");
 
+        // Which effect is decided after the blast sweep, once it is known whether anything died.
+        _burstKilled = false;
+
         // Three measurements of the same event, because "the burst went off beside the drone"
         // needs a number to be actionable.
         //
@@ -1236,13 +1239,28 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
             if (dist <= round.Munition.LethalRadius)
             {
                 _pendingKills.Add(v);
+                _burstKilled = true;
             }
             else if (dist <= round.Munition.BlastRadius)
             {
                 Announce($"near miss on {KsaWorld.DisplayName(v)} at {dist:F0} m");
             }
         }
+
+        // After the sweep, so a kill and a miss look different. Scaled by the warhead's own
+        // lethal radius rather than by a constant, so a bigger round reads as a bigger burst
+        // without a second number to keep in step.
+        if (_config.DrawExplosions)
+        {
+            Detonation.Show(_burstKilled ? Detonation.Fireball : Detonation.Airburst,
+                            burst, round.TargetRef as Vehicle ?? Platform,
+                            Math.Clamp(round.Munition.LethalRadius / 20f, 0.4f, 3f));
+        }
     }
+
+    // Whether the blast sweep just now found something to destroy. Only meaningful inside the
+    // detonation it belongs to.
+    private bool _burstKilled;
 
     // Destroys queued targets after the blast sweep, so we never mutate the engine's vehicle
     // collection while walking it.

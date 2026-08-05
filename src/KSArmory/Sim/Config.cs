@@ -152,6 +152,15 @@ public sealed class Config
     public bool DrawSystemMarkers = true;
 
     /// <summary>
+    /// Show a fireball where a warhead goes off.
+    ///
+    /// <para>Not part of <see cref="DrawOverlays"/>: that is diagnostic drawing that says what the
+    /// mod thinks, and this is the engagement itself. Turning the debug lines off should leave the
+    /// explosions.</para>
+    /// </summary>
+    public bool DrawExplosions = true;
+
+    /// <summary>
     /// Draw a sphere on each contact. It scales with range so distant targets stay visible,
     /// which up close means a large ball sitting over the craft. Off by default — the line to
     /// the contact already shows where it is.

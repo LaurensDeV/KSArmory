@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-94 types and 253 members across 6 assemblies.
+104 types and 263 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -30,6 +30,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.double3
 
 - `Brutal.Numerics.double3 Cross(Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `Brutal.Numerics.double3 get_Zero()`
 - `Brutal.Numerics.double3 op_Addition(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `Brutal.Numerics.double3 op_Division(Brutal.Numerics.double3, double)`
 - `Brutal.Numerics.double3 op_Multiply(Brutal.Numerics.double3, double)`
@@ -59,12 +60,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.float2
 
 - `Brutal.Numerics.float2 op_Addition(Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `Brutal.Numerics.float2 op_Multiply(Brutal.Numerics.float2, float)`
 - `float X`
 - `float Y`
 - `void .ctor(float, float)`
 
 ### Brutal.Numerics.float3
 
+- `Brutal.Numerics.float3 op_Multiply(Brutal.Numerics.float3, float)`
 - `float X`
 - `float Y`
 - `float Z`
@@ -231,6 +234,18 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.PhysicalAtmosphereReference Physical`
 
+### KSA.BubbleFrame
+
+*referenced as a type only*
+
+### KSA.BubbleOrigin
+
+- `Brutal.Numerics.double3 PositionBub`
+- `Brutal.Numerics.double3 VelocityBub`
+- `KSA.BubbleFrame BubFrame`
+- `KSA.IParentBody Parent`
+- `KSA.SimTime Time`
+
 ### KSA.Camera
 
 - `Brutal.Numerics.double3 EclToEgo(Brutal.Numerics.double3)`
@@ -266,6 +281,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double GetLatitudeFromCce(Brutal.Numerics.double3)`
 - `double GetLongitudeFromCce(Brutal.Numerics.double3)`
 - `double GetTerrainHeightFromDirCce(Brutal.Numerics.double3, bool)`
+- `void AddEmitter(Handle<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData>)`
 
 ### KSA.CelestialSystem
 
@@ -455,6 +471,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Camera GetRenderCamera()`
 - `KSA.GizmosRenderer GizmosRenderer`
 - `KSA.Program get_Instance()`
+- `KSA.Rendering.Particles.ParticleSystem`2<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData> ParticleSystem`
 - `KSA.Vehicle get_ControlledVehicle()`
 - `KSA.Viewport get_MainViewport()`
 - `System.Collections.Generic.List`1<KSA.Viewport> Viewports`
@@ -466,6 +483,38 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Ray
 
 - `Brutal.Numerics.double3 Direction`
+
+### KSA.Rendering.Particles.ParticleEmitter`2
+
+*referenced as a type only*
+
+### KSA.Rendering.Particles.ParticleEmitter`2+EmitterContext
+
+*referenced as a type only*
+
+### KSA.Rendering.Particles.ParticleEmitter`2+EmitterShapeInfo
+
+*referenced as a type only*
+
+### KSA.Rendering.Particles.ParticleEmitter`2+Handle
+
+*referenced as a type only*
+
+### KSA.Rendering.Particles.ParticleEmitter`2+ParticleSpawnInfo
+
+*referenced as a type only*
+
+### KSA.Rendering.Particles.ParticleRenderData
+
+*referenced as a type only*
+
+### KSA.Rendering.Particles.ParticleSystem`2
+
+*referenced as a type only*
+
+### KSA.Rendering.Particles.ParticleUpdateData
+
+*referenced as a type only*
 
 ### KSA.Rendering.Water.Data.OceanReference
 

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Warhead effects. Modelled on Core's ParticleEmitterAssets.xml, which is the only documentation
+  this format has.
+
+  SimpleColor rather than Pbr: it needs no MaterialId, so nothing here depends on a Core material
+  Id that could be renamed. Colour components above 1 are deliberate - Core's ThrusterSparks runs
+  at 15/11/6 - because the renderer is HDR and that is what makes a fireball bloom rather than
+  read as flat orange paint.
+-->
+<Assets>
+    <!-- Proximity kill: a bright short-lived ball with a slower debris shell inside it. -->
+    <ParticleEmitter Id="KSArmoryFireball">
+        <!--General-->
+        <MaxParticles Value="192" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>HueShift</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <!--Emitter Data-->
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="3"/>
+        <EmitterExtents X="1.5" Y="0" Z="0"/>
+        <SpawnRate Value="192"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="true"/>
+        <!--Particle Data-->
+        <ParticleColor X="18" Y="8" Z="2" W="1"/>
+        <ParticleColorShift X="0.35" Y="0.2" Z="0"/>
+        <ParticleLifespan X="0.35" Y="1.1"/>
+        <ParticleSpawnLogic>Fountain</ParticleSpawnLogic>
+        <ParticleSize X="0.6" Y="2.2"/>
+        <ParticleVelocity X="26" Y="26" Z="26"/>
+        <ParticleVelocityShift Value="0.8"/>
+        <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
+        <ParticleAngularVelocity X="4" Y="4" Z="4"/>
+
+        <!-- Fragments: dimmer, slower, longer-lived, so the ball leaves something behind it. -->
+        <ParticleEmitters>
+            <MaxParticles Value="96" />
+            <Mesh Id="ParticleSphere"/>
+            <Renderer>SimpleColor</Renderer>
+            <Updaters>SimpleMovement</Updaters>
+            <Updaters>ShrinkOverLifetime</Updaters>
+            <Updaters>HueShift</Updaters>
+            <Updaters>ModelMatrix</Updaters>
+            <Updaters>Age</Updaters>
+            <SpawnMode>Burst</SpawnMode>
+            <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+            <EmitterSize Value="1.5"/>
+            <EmitterExtents X="0.6" Y="0" Z="0"/>
+            <SpawnRate Value="96"/>
+            <Force X="0" Y="0" Z="0" />
+            <InheritVelocity Value="true"/>
+            <ParticleColor X="6" Y="2.2" Z="0.4" W="1"/>
+            <ParticleColorShift X="0.5" Y="0.3" Z="0"/>
+            <ParticleLifespan X="0.8" Y="2.4"/>
+            <ParticleSpawnLogic>Fountain</ParticleSpawnLogic>
+            <ParticleSize X="0.12" Y="0.4"/>
+            <ParticleVelocity X="55" Y="55" Z="55"/>
+            <ParticleVelocityShift Value="1"/>
+            <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
+            <ParticleAngularVelocity X="9" Y="9" Z="9"/>
+        </ParticleEmitters>
+    </ParticleEmitter>
+
+    <!--
+      A round that fused but did not kill. Same shape, much smaller and paler: a near miss should
+      be visible without being mistaken for a hit, because telling those apart by eye is most of
+      what watching an engagement is for.
+    -->
+    <ParticleEmitter Id="KSArmoryAirburst">
+        <MaxParticles Value="64" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>HueShift</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="1.2"/>
+        <EmitterExtents X="0.6" Y="0" Z="0"/>
+        <SpawnRate Value="64"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="true"/>
+        <ParticleColor X="4" Y="3.2" Z="2.4" W="1"/>
+        <ParticleColorShift X="0.2" Y="0.2" Z="0"/>
+        <ParticleLifespan X="0.3" Y="0.9"/>
+        <ParticleSpawnLogic>Fountain</ParticleSpawnLogic>
+        <ParticleSize X="0.2" Y="0.7"/>
+        <ParticleVelocity X="18" Y="18" Z="18"/>
+        <ParticleVelocityShift Value="0.8"/>
+        <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
+        <ParticleAngularVelocity X="4" Y="4" Z="4"/>
+    </ParticleEmitter>
+</Assets>

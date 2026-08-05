@@ -12,6 +12,7 @@ assets = [
     "KSArmoryAssets.xml",
     "KSArmoryGameData.xml",
     "KSArmoryCharacters.xml",
+    "KSArmoryParticles.xml",
 ]
 
 [StarMap]

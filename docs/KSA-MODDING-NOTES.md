@@ -220,6 +220,38 @@ void DrawLine(double3 startEgo, double3 endEgo, float4 colour);
 Reachable as `Program.GizmosRenderer`. This is the cheapest way to render anything custom —
 no asset pipeline, no shaders.
 
+### Particle effects — authored emitters, fired by Id
+
+Emitters are **assets**, declared in XML exactly like meshes and materials, and Core's
+`Content/Core/ParticleEmitterAssets.xml` is the only documentation the format has. Copy from it.
+`<SpawnMode>Burst</SpawnMode>` is an explosion; `<ParticleEmitters>` nests, so one Id can fire
+several emitters together.
+
+```csharp
+Program.Instance.ParticleSystem.GetAndInitializeEmitters(id, out var handles);   // ModLibrary.Get
+foreach (var h in handles) { var e = h.TryGet(); ...; body.AddEmitter(h); }
+```
+
+`GetAndInitializeEmitters` resolves through `ModLibrary`, so **a mod's own emitter Id works as well
+as Core's** — no editing Core, no borrowing its assets.
+
+Four things worth knowing:
+
+- **Host it on a `Celestial`, not on a vehicle,** for anything in mid-air. `Vehicle.AddEmitter` and
+  `Celestial.AddEmitter` are both public, and the obvious host for a warhead — the target — is the
+  thing about to be destroyed. `Celestial.TrySpawnGroundImpact` is the engine's own worked example
+  of placing an emitter at a point with no vehicle.
+- **With `BubbleFrame.Ccf` the position is `Origin.PositionBub` and `LocalOffset` is ignored** —
+  the engine sets `GpuLocalOffset` to identity on that branch and builds the model matrix from the
+  origin alone. Setting a transform there looks like it worked and does nothing. Convert Ecl to
+  that frame with `(pointEcl - body.GetPositionEcl()).Transform(body.GetCce2Ccf())`.
+- **Colour is HDR.** Core's `ThrusterSparks` runs at `(15, 11, 6)`. Values at or below 1 read as
+  flat paint; the bloom is what makes a fireball look like one.
+- **The pool is finite and shared.** `EmitterPool.Get` returns false when not enough emitters are
+  free, so a salvo can starve it. Handle the false — an effect is decoration.
+
+`SimpleColor` needs no `MaterialId`; `Pbr` does, and that would be a Core asset Id to keep in step.
+
 ### Placing a craft on the ground — `Vehicle.TeleportToLocation`
 
 `TeleportToLocation(Celestial, latDeg, lonDeg)` is public and is how the game moves a vessel. It
