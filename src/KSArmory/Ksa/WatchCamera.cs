@@ -26,6 +26,7 @@ internal sealed class WatchCamera
 
     private Vehicle? _target;
     private CameraMode _restoreMode = CameraMode.Fixed;
+    private IFollowable? _restoreFollowing;
     private bool _holding;
 
     /// <summary>The craft being watched, or null.</summary>
@@ -49,6 +50,10 @@ internal sealed class WatchCamera
 
         _holding = false;
         KsaWorld.RestoreMainCameraMode(_restoreMode);
+
+        // Re-follow before handing back: the mode alone is not the whole state we took.
+        KsaWorld.RefollowMainCamera(_restoreFollowing);
+        _restoreFollowing = null;
     }
 
     /// <summary>
@@ -86,6 +91,9 @@ internal sealed class WatchCamera
         if (!_holding)
         {
             _restoreMode = KsaWorld.MainCameraMode();
+            // Remembered before the view is taken; TryLookFromMainViewport does the unfollowing
+            // that Fixed mode requires.
+            _restoreFollowing = KsaWorld.MainCameraFollowing();
             _holding = true;
         }
 

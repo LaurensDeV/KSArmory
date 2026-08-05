@@ -904,6 +904,40 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>What the main camera is following, or null.</summary>
+    public static IFollowable? MainCameraFollowing()
+    {
+        try { return Program.GetMainCamera()?.Following; }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Stops the main camera following anything, without giving up control of the vehicle.
+    ///
+    /// <para>Required before putting the main viewport into <c>Fixed</c>.
+    /// <c>FixedController.OnFrame</c> runs only when the camera is following something, and then
+    /// normalises <c>Cross(CameraRotation, up)</c> — <c>CameraRotation</c> is a public field
+    /// defaulting to zero, so the cross product is zero and normalising it divides by a zero
+    /// length. Switching the main view to Fixed while it still follows a craft takes the game
+    /// down on the next frame with a DivideByZeroException.</para>
+    ///
+    /// <para>The optical head never met this because the viewport it borrows follows nothing.</para>
+    /// </summary>
+    public static void UnfollowMainCamera()
+    {
+        try { Program.GetMainCamera()?.Unfollow(changeControl: false); }
+        catch { /* Nothing useful to do; the view is the player's. */ }
+    }
+
+    /// <summary>Puts the main camera back on what it was following.</summary>
+    public static void RefollowMainCamera(IFollowable? target)
+    {
+        if (target is null) return;
+
+        try { Program.GetMainCamera()?.SetFollow(target, tidalLocking: true, changeControl: false); }
+        catch { /* As above. */ }
+    }
+
     /// <summary>The main viewport's current camera mode, so it can be given back.</summary>
     public static CameraMode MainCameraMode()
     {
@@ -947,7 +981,17 @@ internal static class KsaWorld
 
             // Fixed is the mode that draws the scene from wherever its camera is. Anything else
             // has a controller that will put the camera back where it thinks it belongs.
-            if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
+            //
+            // Unfollow first, always. FixedController.OnFrame runs only while the camera follows
+            // something, and then normalises Cross(CameraRotation, up) -- CameraRotation is a
+            // public field defaulting to zero, so that is a zero vector and normalising it
+            // divides by a zero length. One frame in Fixed while still following takes the game
+            // down with a DivideByZeroException.
+            if (viewport.Mode != CameraMode.Fixed)
+            {
+                UnfollowMainCamera();
+                viewport.SetCameraMode(CameraMode.Fixed);
+            }
 
             Camera camera = viewport.BaseCamera;
             if (camera is null) return false;
@@ -1000,7 +1044,15 @@ internal static class KsaWorld
             // and GetCamera() hands back the *map* camera, so moving it puts the map somewhere
             // else rather than showing the world from here. Fixed is the mode that draws the
             // scene from wherever its camera happens to be, which is the whole point.
-            if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
+            // Unfollow before Fixed for the same reason as the main view: FixedController
+            // divides by zero on its own default CameraRotation whenever the camera it drives is
+            // following something. This viewport's camera normally follows nothing, which is why
+            // the optical head never met it -- but a player can set one to follow a craft.
+            if (viewport.Mode != CameraMode.Fixed)
+            {
+                try { viewport.GetCamera()?.Unfollow(changeControl: false); } catch { }
+                viewport.SetCameraMode(CameraMode.Fixed);
+            }
 
             Camera camera = viewport.BaseCamera;
             if (camera is null) return false;

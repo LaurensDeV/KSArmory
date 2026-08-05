@@ -167,6 +167,34 @@ with `RequireLauncherPart` off. Core's medium capsule carries the doors
 
 ---
 
+## Driving the main camera means unfollowing first
+
+**Not blocked** — recorded because it is a crash, in engine code, with nothing in the message
+pointing at the cause.
+
+`FixedController.OnFrame` runs only when the camera it drives is following something, and then
+does:
+
+```csharp
+double3 cameraRotation = CameraRotation;                       // public field, defaults to zero
+double3 vector2 = double3.Cross(cameraRotation, vector).Normalized();
+```
+
+A cross product with the zero vector is the zero vector, and normalising that divides by a zero
+length. So putting a viewport into `CameraMode.Fixed` while its camera still follows a craft takes
+the game down on the *next* frame with `DivideByZeroException` inside
+`KSA.Program.OnFrameViewports` — nowhere near the mod that set the mode.
+
+`Camera.Unfollow(changeControl: false)` before the switch avoids it and keeps control of the
+vehicle. `KsaWorld.TryLookFromMainViewport` and `TryLookFromViewport` both do this, so no caller
+has to remember.
+
+The optical head never met it because the secondary viewport it borrows follows nothing. A player
+who sets a secondary view to follow a craft and then enables the optic view on it would have,
+which is why the guard is in both.
+
+---
+
 ## Aiming a character attachment
 
 **What we want.** The kitten's shoulder gun to point where the mouse points, the way the

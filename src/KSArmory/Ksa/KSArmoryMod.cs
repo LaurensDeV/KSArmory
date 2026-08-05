@@ -329,6 +329,8 @@ public sealed class KSArmoryMod
     private void ReportControlledKitten()
     {
         Vehicle? controlled = KsaWorld.ControlledVehicle;
+        if (controlled is null) { _lastKittenSeen = string.Empty; return; }
+
         string id = $"{KsaWorld.DisplayName(controlled)}|{KsaWorld.CharacterOf(controlled) ?? ""}";
         if (id == _lastKittenSeen) return;
 

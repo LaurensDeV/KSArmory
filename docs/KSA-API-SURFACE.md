@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-83 types and 218 members across 6 assemblies.
+83 types and 219 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -205,6 +205,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float GetFieldOfView()`
 - `void LookAt(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `void SetFollow(KSA.IFollowable, bool, bool, bool)`
+- `void Unfollow(bool)`
 - `void set_NearbyCelestial(KSA.Celestial)`
 
 ### KSA.CameraMode
