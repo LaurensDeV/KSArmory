@@ -122,6 +122,10 @@ internal sealed class DefenceBattery(Config config)
     private double _gunTrace;
     private double _gunReloadTimer;
 
+    // What the current burst was started against. A burst outlives its trigger by design, so
+    // Radar.Locked is routinely null while the tail of one is still leaving the barrel.
+    private Track? _burstTrack;
+
     /// <summary>Rounds left in the cannon belt.</summary>
     public int GunAmmo => _guns.Ammo;
 
@@ -256,6 +260,7 @@ internal sealed class DefenceBattery(Config config)
                 _magazine.Resize(profile.TubeCount, profile.MagazineDepth);
                 _guns.Fill(profile.GunAmmo);
                 _nextBarrel = 0;
+                _burstTrack = null;
             }
         }
         else
@@ -499,7 +504,7 @@ internal sealed class DefenceBattery(Config config)
 
     // Fired along the barrel: the lead is in where the turret is pointing, so aiming the shell
     // itself as well would apply it twice.
-    private void FireGun(Track track)
+    private void FireGun(Track? track)
     {
         if (Platform is null || Launcher is null || GunsPart is not { } guns) return;
 
@@ -517,13 +522,20 @@ internal sealed class DefenceBattery(Config config)
 
         // Negative tube numbers mark the cannon: the magazine owns 0..TubeCount-1, and a shell
         // must never be mistaken for a missile that could claim a tube back.
-        _rounds.Add(new Slug(muzzle, platformVel + axis * shell.LaunchSpeed, track.Vehicle,
-                             -(barrel + 1), PlatformEcl, platformVel)
+        //
+        // A null track is the tail of a burst whose target died: the shell is unguided and aimed
+        // by the turret, so it still flies, with nothing to fuse against.
+        Slug slug = new(muzzle, platformVel + axis * shell.LaunchSpeed, track?.Vehicle,
+                        -(barrel + 1), PlatformEcl, platformVel)
         {
             Munition = shell,
-            Aimpoint = Aimpoint.OnVehicle(track.Vehicle, track.PositionEcl, track.VelocityEcl,
-                                          KsaWorld.MeanRadius(track.Vehicle)),
-        });
+        };
+        if (track is not null)
+        {
+            slug.Aimpoint = Aimpoint.OnVehicle(track.Vehicle, track.PositionEcl, track.VelocityEcl,
+                                               KsaWorld.MeanRadius(track.Vehicle));
+        }
+        _rounds.Add(slug);
     }
 
     // The cannon, which run on their own belt and their own envelope.
@@ -587,12 +599,22 @@ internal sealed class DefenceBattery(Config config)
         }
         _gunReloadTimer = 0.0;
 
+        // Latch the track while the trigger is down. GunChannel deliberately runs a started burst
+        // to its end after wantToFire goes false, and losing the lock is one of the ways it does
+        // — so reading Radar.Locked per round hands the tail of every such burst a null.
+        if (wantToFire) _burstTrack = Radar.Locked;
+
         int fired = _guns.Step(dt, wantToFire, _profile);
         if (fired <= 0) return;
 
-        for (int i = 0; i < fired; i++) FireGun(Radar.Locked!);
+        // A flickering track keeps its vehicle; a destroyed one does not, and a shell must not
+        // carry a reference to it.
+        if (_burstTrack is { } held && !KsaWorld.IsAlive(held.Vehicle)) _burstTrack = null;
+
+        for (int i = 0; i < fired; i++) FireGun(_burstTrack);
         Log.Debug(() => $"cannon: {fired} round(s) away, {_guns.Ammo} left");
         if (_guns.IsEmpty) Announce("cannon belt empty");
+        if (_guns.BurstRemaining <= 0) _burstTrack = null;
     }
 
     // Slews the turret onto whatever the radar is holding, and writes the result to the part.
