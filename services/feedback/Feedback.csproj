@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>KSArmory.Feedback</RootNamespace>
+
+    <!-- Not part of the mod. tools/package.sh builds src/KSArmory only, and this
+         must never end up in the archive. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>
