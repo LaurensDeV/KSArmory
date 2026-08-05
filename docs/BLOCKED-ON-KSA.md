@@ -22,6 +22,7 @@ happen rather than a member that moved.
 - [x] Wheel, suspension or steering module exists
 - [x] Partial or component damage exists alongside `DestroyVehicleFromEvent`
 - [x] Per-mod vehicle library path, or a way to register saved craft
+- [ ] `UncompressedVehicleSave.Load` honours `Character`, making a kitten launchable
 - [x] Custom part modules can be registered without patching
 - [x] Public accessor for the volumetric trail renderer
 
@@ -128,6 +129,40 @@ craft with the loader.
 
 **Workaround in the mod.** `tools/install-testcraft.sh` writes a craft into the *user's* vehicle
 folder, which is writable, and `TestTarget` spawns drones on demand from the panel.
+
+---
+
+## A launchable kitten
+
+**What we want.** A `KittenEva` on the pad, so the on-foot weapon can be tested without flying a
+capsule up and climbing out of it every time.
+
+**Why it is blocked.** The same hardcoded folder as above, reached from a second direction. A
+vehicle save becomes a kitten rather than a craft purely because `VehicleSaveData` carries a
+`Character` attribute — `VehicleTemplate.CreateInto` branches on it and calls
+`KittenEva.CreateKittenEva`. But only `VehicleTemplate` reads that attribute, and
+`VehicleTemplate.OnDataLoad` sources its save from `DefaultVehicleSaves.FindSave`. Core's own
+kittens live there: `Content/Core/defaultvehicles/Hunter/vehicle.xml` is four lines of XML with
+`Character="HunterKitten"`.
+
+The user's vehicle folder is loaded by an entirely different path. `UncompressedVehicleSave.Load`
+builds a `PartTree` and returns it, and **never looks at `Character`** — so no craft a mod or a
+player can write will ever become a `KittenEva`, whatever its XML says.
+
+The failure is silent and looks like a mod bug. The craft loads as a plain `Vehicle` wearing
+`KittenBackPackPart`, whose `<SubPart Id="KittenBackPackSubPart"/>` is declared empty — no model,
+no mesh, no material, because a kitten's body is drawn by `KittenRenderable` and that only exists
+on a `KittenEva`. So it spawns, is controllable, and is **invisible**. The only clue is KSA's own
+log: a working craft logs `finished loading vehicle … part count 1`, and this one stops at
+`started loading vehicle`.
+
+**What would unblock it.** `UncompressedVehicleSave.Load` honouring `Character`, or a per-mod
+vehicle library path — the same fix as the entry above.
+
+**Workaround in the mod.** EVA a kitten out of a crewed capsule: `EVADoor.CreateKittenEva` is the
+only path that builds one, and it sets `Program.ControlledVehicle`, so the battery mounts on it
+with `RequireLauncherPart` off. Core's medium capsule carries the doors
+(`CoreCommandA_Subpart_MediumCapsuleCrewDoorA`/`B`).
 
 ---
 
