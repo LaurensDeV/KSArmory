@@ -1,3 +1,19 @@
+## [0.8.4](https://github.com/LaurensDeV/KSArmory/compare/v0.8.3...v0.8.4) (2026-08-05)
+
+### Features
+
+* **ui:** make teams and IFF reachable ([7c15b2c](https://github.com/LaurensDeV/KSArmory/commit/7c15b2c78a737ba27be23a48eb1174050a78eb71))
+
+### Fixes
+
+* **sim:** report the simulated time the frame hook throws away ([93c7e01](https://github.com/LaurensDeV/KSArmory/commit/93c7e01dd28e395ae3901ff9da64ebf5de90c457))
+
+### Documentation
+
+* lead the README with the mod rather than with the Pantsir ([a8e0253](https://github.com/LaurensDeV/KSArmory/commit/a8e0253e08d68e44adc367784d42d618946a3115))
+* mark the model repairs confirmed in flight ([44fd7a8](https://github.com/LaurensDeV/KSArmory/commit/44fd7a89aac2531d12bafd2ce523d3aa58e3f294))
+* record the August audit and its ranked backlog ([7cc7f48](https://github.com/LaurensDeV/KSArmory/commit/7cc7f481c92d9e79aa4991305545bf2f5f54214e))
+
 ## [0.8.3](https://github.com/LaurensDeV/KSArmory/compare/v0.8.2...v0.8.3) (2026-08-04)
 
 ### Features
