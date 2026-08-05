@@ -1,3 +1,13 @@
+## [0.8.6](https://github.com/LaurensDeV/KSArmory/compare/v0.8.5...v0.8.6) (2026-08-05)
+
+### Fixes
+
+* **guns:** stop a burst outliving its lock from crashing fire control ([aab4c57](https://github.com/LaurensDeV/KSArmory/commit/aab4c5717c67d5b8c474914a8d28d5c3d07ef8d8))
+
+### Documentation
+
+* confirm the retarget in flight, and round bodies at 79 km ([09e0a19](https://github.com/LaurensDeV/KSArmory/commit/09e0a19cb9447febf6b571a6ed430de93d72d388))
+
 ## [0.8.5](https://github.com/LaurensDeV/KSArmory/compare/v0.8.4...v0.8.5) (2026-08-05)
 
 ### Build and packaging
