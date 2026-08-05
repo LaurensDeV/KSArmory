@@ -108,6 +108,53 @@ public static partial class Guard
         return distinct <= 2;
     }
 
+    // Function words, not vocabulary. They are the words English cannot avoid, they are short, and
+    // they do not overlap much with the other Latin-script languages a report might arrive in.
+    private static readonly HashSet<string> EnglishMarkers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "the", "and", "is", "it", "to", "of", "in", "that", "was", "for", "with", "not", "but",
+        "have", "has", "this", "when", "then", "there", "does", "doesn't", "don't", "can't",
+        "after", "before", "from", "they", "you", "are", "were", "will", "would", "should",
+    };
+
+    /// <summary>
+    /// Whether text reads as English, so it can be judged by an English classifier and read by
+    /// whoever triages it.
+    ///
+    /// <para>Deliberately lenient. Two independent signals have to agree that it is <em>not</em>
+    /// English before it is refused, and short text is always accepted: "turret stuck" carries no
+    /// evidence either way, and refusing a real bug report because it was terse would be worse
+    /// than reading an occasional one in Dutch.</para>
+    /// </summary>
+    public static bool LooksEnglish(string? value)
+    {
+        string text = (value ?? "").Trim();
+        if (text.Length == 0) return true;
+
+        // Script first: this is the reliable half. A body of Cyrillic or CJK is not English
+        // whatever its length, and no word-frequency argument is needed.
+        int latin = 0, other = 0;
+        foreach (char c in text)
+        {
+            if (!char.IsLetter(c)) continue;
+
+            if (c < 0x0250 || (c >= 0x1E00 && c <= 0x1EFF)) latin++;
+            else other++;
+        }
+
+        if (latin + other > 0 && other > (latin + other) * 0.3) return false;
+
+        // Then function words, which only mean anything with enough of them to count.
+        string[] words = text.Split(
+            [' ', '\n', '\t', '\r', '.', ',', ';', ':', '!', '?', '(', ')', '"', '/'],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        if (words.Length < 8) return true;
+
+        int markers = words.Count(w => EnglishMarkers.Contains(w.Trim('\'')));
+        return markers >= 1 + words.Length / 25;
+    }
+
     /// <summary>
     /// Whether a reported version is at least the minimum, so a bug fixed two releases ago is
     /// not filed again.

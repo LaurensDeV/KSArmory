@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace KSArmory.Feedback;
 
+
 /// <summary>
 /// Takes a report from inside the game and files it as a GitHub issue.
 ///
@@ -92,6 +93,11 @@ public static class Program
 
         WebApplication app = builder.Build();
 
+        // Loaded once, at start: a model read per request would cost more than the inference.
+        Classifier? classifier = Classifier.TryLoad(
+            builder.Configuration["CLASSIFIER_DIR"] ?? "/app/model",
+            app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("classifier"));
+
         app.UseForwardedHeaders();
         app.UseRateLimiter();
 
@@ -109,6 +115,16 @@ public static class Program
             if (Validate(report) is { } complaint)
             {
                 return Results.BadRequest(new { error = complaint });
+            }
+
+            // Ahead of the classifier, which is English-only: scoring Dutch with an English model
+            // produces a number that means nothing, and acting on it would be worse than not
+            // scoring at all. It is also what everyone triaging these can read.
+            if (!Guard.LooksEnglish($"{report.Summary} {report.Detail}"))
+            {
+                return Results.Json(
+                    new { error = "reports need to be in English" },
+                    statusCode: StatusCodes.Status422UnprocessableEntity);
             }
 
             // Optional, and only a speed bump: the mod ships it, so anyone can read it out of the
@@ -135,8 +151,13 @@ public static class Program
 
             // Only what a person wrote. The log is machine output, and sending it would be both
             // pointless and a much larger disclosure than the reporter intended.
-            Verdict verdict = await Moderate(
-                $"{report.Summary}\n{report.Detail}", factory, config, log, cancellation);
+            string written = $"{report.Summary}\n{report.Detail}";
+
+            // Local first: no key, no quota, no third party, and nothing leaves the machine. The
+            // hosted path is the fallback for a deployment without the model baked in.
+            Verdict verdict = classifier is not null
+                ? Judge(classifier, written, config, log)
+                : await Moderate(written, factory, config, log, cancellation);
 
             if (verdict == Verdict.Refused)
             {
@@ -200,6 +221,34 @@ public static class Program
         .WithRequestTimeout(TimeSpan.FromSeconds(20));
 
         app.Run();
+    }
+
+    /// <summary>
+    /// Scores text with the local model and turns the number into a verdict.
+    ///
+    /// <para>The threshold is configurable because it is a judgement, not a fact: 0.8 refuses
+    /// abuse while letting through a report that calls the mod rubbish, which is a thing someone
+    /// with a real bug might well write.</para>
+    /// </summary>
+    private static Verdict Judge(Classifier classifier, string text, IConfiguration config, ILogger log)
+    {
+        try
+        {
+            float threshold = float.TryParse(config["CLASSIFIER_THRESHOLD"], out float t) ? t : 0.8f;
+            (string label, float score) = classifier.Worst(text);
+
+            if (score < threshold) return Verdict.Allowed;
+
+            log.LogInformation("refused a report: {Label} at {Score:F2}", label, score);
+            return Verdict.Refused;
+        }
+        catch (Exception e)
+        {
+            // Same posture as an unreachable hosted moderator: file it, and label it so the gap
+            // is visible rather than silent.
+            log.LogWarning("the classifier failed: {Message}", e.Message);
+            return Verdict.Unchecked;
+        }
     }
 
     /// <summary>What the moderator said, or that it never answered.</summary>

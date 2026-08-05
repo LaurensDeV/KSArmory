@@ -58,7 +58,8 @@ failure:
 | **60 issues per day, service wide** | a botnet, where per-address limiting does nothing |
 | Optional `FEEDBACK_SECRET` | casual scripts, and nothing more: the mod ships it, so it can be read out of the DLL |
 | `MIN_MOD_VERSION` | reports against versions whose bugs are already fixed |
-| OpenAI moderation, when a key is set | abuse and slurs reaching a public issue |
+| A local toxicity classifier | abuse and slurs reaching a public issue |
+| `Guard.LooksEnglish` | reports nobody triaging can read, and text an English model cannot score |
 
 Version comparison is numeric per component, never lexical: `0.10.0` is newer
 than `0.9.0` and a string comparison says the opposite. A missing or
@@ -73,24 +74,52 @@ morning".
 trade: durable counters mean a database, and the ceiling exists to bound a
 catastrophe rather than to be exact.
 
+### English only
+
+A report that is not English is refused with `422`. Two reasons, and the second
+is the load-bearing one: everyone who triages these reads English, and the
+classifier below is an English model, so scoring Dutch with it produces a
+number that means nothing.
+
+The test is deliberately lenient. Script is checked first, which is the
+reliable half: a body of Cyrillic or CJK is not English at any length. Function
+words are only counted when there are at least eight of them. **Short text is
+always accepted** — "turret stuck" carries no evidence either way, and refusing
+a real bug report for being terse is worse than reading the occasional one in
+Dutch.
+
 ### Moderation
 
 Everything above makes text *safe to render*. None of it says whether the text
 is vile, which is a different question and not one a wordlist answers well.
 
-With `MODERATION_API_KEY` set, the summary and detail go to OpenAI's moderation
-endpoint (`omni-moderation-latest`, free with a key) before an issue is filed.
-Flagged text gets `422` and a plain message, because a false positive on a real
-bug report is possible and someone who is told can rewrite it.
+**The classifier runs on this machine.** `unitary/toxic-bert` (Apache-2.0),
+exported to ONNX during the image build **from the original weights** rather
+than pulled from a re-upload of someone else's export. No key, no quota, no
+account, nothing to sunset, and nothing anyone types leaves the box.
 
-Only what a person typed is sent. The log is machine output: sending it would
-be pointless and a far larger disclosure than the reporter intended.
+That last property is why it is worth the image size. Every hosted alternative
+is a dependency that can be withdrawn: Perspective ran for nine years, served
+Reddit and Wikipedia, and announced its own end date.
 
-**It fails soft.** An unreachable moderator files the issue anyway, labelled
-`unmoderated`. Failing closed would put someone else's availability in charge
-of whether bug reports work at all; failing open silently would let an outage
-quietly publish anything. A label says which issues were never checked, so they
-can be looked at.
+The head is **multi-label** — six independent sigmoids, not a softmax over six
+classes — so a comment can be both an insult and a threat. The worst label is
+compared against `CLASSIFIER_THRESHOLD`, which is a judgement rather than a
+fact: 0.8 refuses abuse while letting through a report that calls the mod
+rubbish, which someone with a genuine bug might well write.
+
+`MODERATION_API_KEY` still works and is used only when no local model is
+present, so a deployment without the model baked in is not left unguarded.
+
+**Both fail soft.** A classifier that throws, or an unreachable hosted
+moderator, files the issue anyway with an `unmoderated` label. Failing closed
+would put an optional dependency in charge of whether bug reports work at all;
+failing open silently would let an outage publish anything unnoticed. The label
+is how the difference stays visible.
+
+Only what a person typed is judged. The log is machine output: scoring it would
+be pointless, and sending it anywhere is a far larger disclosure than the
+reporter intended.
 
 A report can still be rude or useless, and that is triage rather than
 engineering. What it cannot be is dangerous to render.
@@ -103,7 +132,9 @@ engineering. What it cannot be is dangerous to render.
 | `GITHUB_REPOSITORY` | `LaurensDeV/KSArmory` |
 | `FEEDBACK_SECRET` | optional; when set, a report must carry the same string |
 | `MIN_MOD_VERSION` | optional; oldest version accepted, e.g. `0.8.9`. Unset accepts any |
-| `MODERATION_API_KEY` | optional; an OpenAI key. Unset skips the check entirely |
+| `CLASSIFIER_DIR` | where `model.onnx` and `vocab.txt` live. `/app/model` in the image |
+| `CLASSIFIER_THRESHOLD` | optional; refuse above this score. Defaults to `0.8` |
+| `MODERATION_API_KEY` | optional OpenAI key, used only when no local model is present |
 
 Scope the token to Issues on one repository. It is on a machine that accepts
 requests from anyone, so it should be able to do exactly one thing.
