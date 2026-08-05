@@ -763,13 +763,16 @@ internal static class KsaWorld
                 Viewport v = Program.Viewports[i];
                 if (!v.Visible || v.IsOffscreen) continue;
 
-                if (!CursorAim.TryToViewport(cursor, v.Position, v.Width, v.Height,
-                                             out float2 local))
+                if (v.GetCamera() is not { } camera) continue;
+
+                // Framebuffer pixels, not viewport pixels: ScreenToEgoRay divides by the camera's
+                // own framebuffer, and a render or display scale makes those different sizes.
+                if (!CursorAim.TryToFramebuffer(cursor, v.Position, v.Width, v.Height,
+                                                camera.FramebufferSize.X, camera.FramebufferSize.Y,
+                                                out float2 local))
                 {
                     continue;
                 }
-
-                if (v.GetCamera() is not { } camera) continue;
 
                 double3 direction = camera.ScreenToEgoRay(local).Direction;
                 if (!CursorAim.IsUsableDirection(direction)) continue;
@@ -799,13 +802,16 @@ internal static class KsaWorld
                 Viewport v = Program.Viewports[i];
                 if (!v.Visible || v.IsOffscreen) continue;
 
-                if (!CursorAim.TryToViewport(cursor, v.Position, v.Width, v.Height,
-                                             out float2 local))
+                if (v.GetCamera() is not { } camera) continue;
+
+                // Framebuffer pixels, not viewport pixels: ScreenToEgoRay divides by the camera's
+                // own framebuffer, and a render or display scale makes those different sizes.
+                if (!CursorAim.TryToFramebuffer(cursor, v.Position, v.Width, v.Height,
+                                                camera.FramebufferSize.X, camera.FramebufferSize.Y,
+                                                out float2 local))
                 {
                     continue;
                 }
-
-                if (v.GetCamera() is not { } camera) continue;
 
                 double3 direction = camera.ScreenToEgoRay(local).Direction;
                 if (!CursorAim.IsUsableDirection(direction)) continue;

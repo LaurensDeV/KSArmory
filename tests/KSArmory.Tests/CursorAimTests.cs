@@ -96,4 +96,49 @@ public class CursorAimTests
     [Fact]
     public void AUsableDirectionIsAccepted()
         => Assert.True(CursorAim.IsUsableDirection(new double3(0, 0, 1)));
+
+    /// <summary>
+    /// The camera unprojects against its framebuffer, which a render or display scale makes a
+    /// different size from the window. Getting only the viewport offset right leaves an error
+    /// that is zero at the top-left and grows across the screen — "close, but not under the
+    /// pointer", which is exactly how it looked.
+    /// </summary>
+    [Fact]
+    public void TheCursorIsScaledIntoFramebufferPixels()
+    {
+        // A 800x600 viewport rendered at 1600x1200: the centre must stay the centre, and the
+        // far corner must reach the far corner of the framebuffer rather than its midpoint.
+        Assert.True(CursorAim.TryToFramebuffer(new float2(400, 300), new float2(0, 0),
+                                               800, 600, 1600, 1200, out float2 centre));
+        Assert.Equal(800f, centre.X, 3);
+        Assert.Equal(600f, centre.Y, 3);
+
+        Assert.True(CursorAim.TryToFramebuffer(new float2(799, 599), new float2(0, 0),
+                                               800, 600, 1600, 1200, out float2 corner));
+        Assert.Equal(1598f, corner.X, 3);
+        Assert.Equal(1198f, corner.Y, 3);
+    }
+
+    /// <summary>The offset still has to happen; the scale is on top of it, not instead.</summary>
+    [Fact]
+    public void TheViewportOffsetStillApplies()
+    {
+        Assert.True(CursorAim.TryToFramebuffer(new float2(1000, 400), new float2(600, 100),
+                                               800, 600, 800, 600, out float2 local));
+        Assert.Equal(400f, local.X, 3);
+        Assert.Equal(300f, local.Y, 3);
+    }
+
+    [Fact]
+    public void ADegenerateFramebufferIsRefused()
+    {
+        Assert.False(CursorAim.TryToFramebuffer(new float2(10, 10), new float2(0, 0),
+                                                800, 600, 0, 600, out _));
+        Assert.False(CursorAim.TryToFramebuffer(new float2(10, 10), new float2(0, 0),
+                                                800, 600, 800, -1, out _));
+
+        // Outside the viewport is still outside it, whatever the framebuffer is.
+        Assert.False(CursorAim.TryToFramebuffer(new float2(900, 10), new float2(0, 0),
+                                                800, 600, 1600, 1200, out _));
+    }
 }

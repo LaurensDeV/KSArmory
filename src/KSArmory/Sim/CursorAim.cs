@@ -12,6 +12,13 @@ namespace KSArmory;
 /// invisible until someone opens a second view, and then reads as the gun aiming at a point
 /// offset from the cursor by a fixed amount.</para>
 ///
+/// <para>And the viewport's pixels are not necessarily the camera's. The unprojection divides by
+/// <c>FramebufferSize</c>, which a render scale or a display scale can make a different size from
+/// the window it is shown in — so the cursor has to be scaled into framebuffer pixels as well as
+/// offset into the viewport. Getting only the offset right leaves an error that is zero at the
+/// top-left corner and grows across the screen, which reads as "close, but not under the
+/// pointer".</para>
+///
 /// <para>No KSA types: the caller supplies the rectangle and unprojects the answer.</para>
 /// </summary>
 public static class CursorAim
@@ -40,6 +47,30 @@ public static class CursorAim
         if (x < 0f || y < 0f || x >= width || y >= height) return false;
 
         local = new float2(x, y);
+        return true;
+    }
+
+    /// <summary>
+    /// The cursor in the camera's framebuffer coordinates: offset into the viewport, then scaled
+    /// from viewport pixels into framebuffer pixels.
+    /// </summary>
+    /// <param name="framebufferWidth">Width the camera unprojects against, which is what matters.</param>
+    /// <param name="framebufferHeight">Height the camera unprojects against.</param>
+    public static bool TryToFramebuffer(float2 cursorScreen, float2 viewportOrigin,
+                                        int width, int height,
+                                        int framebufferWidth, int framebufferHeight,
+                                        out float2 local)
+    {
+        local = default;
+
+        if (framebufferWidth <= 0 || framebufferHeight <= 0) return false;
+        if (!TryToViewport(cursorScreen, viewportOrigin, width, height, out float2 inViewport))
+        {
+            return false;
+        }
+
+        local = new float2(inViewport.X * framebufferWidth / width,
+                           inViewport.Y * framebufferHeight / height);
         return true;
     }
 
