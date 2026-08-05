@@ -750,6 +750,50 @@ internal static class KsaWorld
     /// <para><c>ScreenToEgoRay</c> returns an origin of zero, because Ego <em>is</em> that
     /// camera's frame — so the origin in Ecl is that camera's own position.</para>
     /// </summary>
+    /// <summary>
+    /// Reports how the cursor is being turned into a ray, and how far the answer lands from the
+    /// pointer once projected back. The round trip is the measurement that matters: it is the
+    /// error actually on screen, whatever the intermediate conventions turn out to be.
+    /// </summary>
+    public static string DescribeCursorRay(double3 solvedEcl)
+    {
+        try
+        {
+            float2 cursor = ImGui.GetMousePos();
+            ImGuiViewportPtr main = ImGui.GetMainViewport();
+
+            string chosen = "none";
+            for (int i = 0; i < Program.Viewports.Count; i++)
+            {
+                Viewport v = Program.Viewports[i];
+                if (!v.Visible || v.IsOffscreen) continue;
+                if (!CursorAim.TryToViewport(cursor, v.Position, v.Width, v.Height, out float2 local))
+                {
+                    continue;
+                }
+
+                Camera? c = v.GetCamera();
+                chosen = $"vp{i} pos={v.Position.X:F0},{v.Position.Y:F0} "
+                         + $"size={v.Width}x{v.Height} fb={c?.FramebufferSize.X}x{c?.FramebufferSize.Y} "
+                         + $"local={local.X:F0},{local.Y:F0}";
+                break;
+            }
+
+            string back = TryProjectAhead(solvedEcl, out float2 screen)
+                              ? $"back={screen.X:F0},{screen.Y:F0} "
+                                + $"err={screen.X - cursor.X:F0},{screen.Y - cursor.Y:F0}"
+                              : "back=offscreen";
+
+            return $"cursor={cursor.X:F0},{cursor.Y:F0} "
+                   + $"mainvp={main.Pos.X:F0},{main.Pos.Y:F0} {main.Size.X:F0}x{main.Size.Y:F0} "
+                   + $"{chosen} {back}";
+        }
+        catch (Exception e)
+        {
+            return $"(describe failed: {e.Message})";
+        }
+    }
+
     public static bool TryCursorRayEcl(out double3 originEcl, out double3 directionEcl)
     {
         originEcl = default;

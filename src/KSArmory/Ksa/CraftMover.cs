@@ -38,6 +38,7 @@ internal sealed class CraftMover
     private Vehicle? _held;
     private Vehicle? _hovered;
     private int _trace;
+    private int _aimTrace;
 
     /// <summary>The craft waiting to be put down, if any.</summary>
     public Vehicle? Held => _held;
@@ -174,6 +175,10 @@ internal sealed class CraftMover
         KsaWorld.DrawSphereEcl(heldEcl, Ring(_held), HeldColour);
 
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _)) return;
+
+        // The round trip: where the marker lands, projected back, against where the pointer is.
+        // Reported while held, which is exactly when someone is looking at the marker.
+        if (++_aimTrace % 60 == 0) Log.Info($"aim: {KsaWorld.DescribeCursorRay(groundEcl)}");
 
         KsaWorld.DrawSphereEcl(groundEcl, (float)MarkerRadius, TargetColour);
         KsaWorld.DrawLineEcl(heldEcl, groundEcl, TargetColour);
