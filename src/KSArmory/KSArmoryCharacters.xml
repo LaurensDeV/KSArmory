@@ -14,8 +14,15 @@
 -->
 <Assets>
 
+    <!--
+      AllowEmbedded because this is a self-contained .glb, where Core's character attachments are
+      all .gltf with their textures and materials as separate assets. GltfPbrSystem only falls
+      back to a file's own embedded materials when this is set; without it the material slot stays
+      null for anything not named by an explicit Material sub-reference.
+    -->
     <GltfFile Id="KSArmoryKittenGunGlb">
         <Source Path="Meshes/KittenGun.glb"/>
+        <AllowEmbedded>true</AllowEmbedded>
     </GltfFile>
 
     <!--
