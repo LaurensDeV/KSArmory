@@ -15,14 +15,17 @@
 <Assets>
 
     <!--
-      AllowEmbedded because this is a self-contained .glb, where Core's character attachments are
-      all .gltf with their textures and materials as separate assets. GltfPbrSystem only falls
-      back to a file's own embedded materials when this is set; without it the material slot stays
-      null for anything not named by an explicit Material sub-reference.
+      A .glb, where Core's character attachments are .gltf with a sidecar .bin. That difference
+      does not matter: GltfUtility sniffs the glTF magic word and reads either container, and
+      nothing in the runtime keys off the extension.
+
+      No AllowEmbedded. It only decides whether a file's *own* materials are used for slots no
+      explicit Material sub-reference names, and GltfPbrSystem fills any slot left null with a
+      generated BlankMaterial regardless, so it can change this gun's colour and never its
+      existence. CharacterAvatar overwrites slot 0 from the Materials block below in any case.
     -->
     <GltfFile Id="KSArmoryKittenGunGlb">
         <Source Path="Meshes/KittenGun.glb"/>
-        <AllowEmbedded>true</AllowEmbedded>
     </GltfFile>
 
     <!--
