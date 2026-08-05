@@ -1,3 +1,22 @@
+## [0.8.10](https://github.com/LaurensDeV/KSArmory/compare/v0.8.9...v0.8.10) (2026-08-05)
+
+### Features
+
+* **sim:** keep a system's settings inside the save it belongs to ([5afd27f](https://github.com/LaurensDeV/KSArmory/commit/5afd27fa737ee5b7646031fefbf58b513a519b11))
+* **ui:** let a system's remembered settings be reset ([8463de5](https://github.com/LaurensDeV/KSArmory/commit/8463de552f742cc559480259eb7e659cdc389490))
+
+### Fixes
+
+* **rounds:** floor how small a warhead effect is drawn ([c08055d](https://github.com/LaurensDeV/KSArmory/commit/c08055d6f28cddfe55212d6617d971fd3fb7e59c))
+* **rounds:** put the burst where the round is drawn, not where it is ([5a98fea](https://github.com/LaurensDeV/KSArmory/commit/5a98fea9ce214d59b4973514a59798584c03a918))
+* **rounds:** stop the airburst compounding two reductions to nothing ([7414605](https://github.com/LaurensDeV/KSArmory/commit/7414605e68d3ccdaea059bfa2e6bea38b97c483d))
+* **sim:** opening a save is a read, not a write ([1b96bad](https://github.com/LaurensDeV/KSArmory/commit/1b96bada971d96ab6a1323ce85f158d9b2964900))
+
+### Internal
+
+* **ui:** drop the Kittens pane and the Session group with it ([3b016bc](https://github.com/LaurensDeV/KSArmory/commit/3b016bca823a265b92fc6ed64efe56e5c35e9570))
+* **ui:** split the panel into Ksa/Ui/ along the pane seam ([51b0a6f](https://github.com/LaurensDeV/KSArmory/commit/51b0a6fe84efbe2aed025eebe697f6341c805c5c))
+
 ## [0.8.9](https://github.com/LaurensDeV/KSArmory/compare/v0.8.8...v0.8.9) (2026-08-05)
 
 ### Features
