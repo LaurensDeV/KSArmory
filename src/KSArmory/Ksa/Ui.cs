@@ -329,7 +329,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         {
             FoundComponent c = inv.Components[i];
             double3 at = c.PositionVehicleAsmb;
-            ImGui.Text($"  {c.Profile.DisplayName}");
+            ImGui.Text($"  {c.DisplayName}");
             ImGui.TextDisabled($"    {c.Role} at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
         }
     }

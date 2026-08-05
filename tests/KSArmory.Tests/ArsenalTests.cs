@@ -121,4 +121,36 @@ public class ArsenalTests
         Assert.Equal(2, fixedLauncher.TubeCount);
         Assert.NotNull(Arsenal.MunitionNamed(fixedLauncher.Munition));
     }
+
+    /// <summary>
+    /// A prefab is one Part with its radar, optical head and cannon as SubParts, so the survey
+    /// walking parts finds a launcher and stops. The roles it carries have to be declared, or a
+    /// system with a camera reports as having none.
+    /// </summary>
+    [Fact]
+    public void ThePantsirReportsTheRolesItCarriesInside()
+    {
+        List<SurveyedPart> parts =
+            [new SurveyedPart(Arsenal.PantsirS1.PartId, default, doubleQuat.Identity)];
+
+        WeaponInventory inv = WeaponSurvey.Survey(parts, Arsenal.Components);
+
+        Assert.Equal(1, inv.CountOf(WeaponRole.Launcher));
+        Assert.Equal(1, inv.CountOf(WeaponRole.Sensor));
+        Assert.Equal(1, inv.CountOf(WeaponRole.Camera));
+        Assert.Equal(1, inv.CountOf(WeaponRole.Gun));
+        Assert.Equal(1, inv.CountOf(WeaponRole.FireControl));
+    }
+
+    /// <summary>
+    /// Declared roles are not a licence to invent parts: a built-in still needs the part it is
+    /// built into, so a craft carrying nothing of ours reports nothing.
+    /// </summary>
+    [Fact]
+    public void BuiltInRolesNeedThePartTheyAreBuiltInto()
+    {
+        List<SurveyedPart> parts = [new SurveyedPart("SomeoneElsesTank", default, doubleQuat.Identity)];
+
+        Assert.False(WeaponSurvey.Survey(parts, Arsenal.Components).IsWeaponSystem);
+    }
 }

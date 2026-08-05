@@ -45,7 +45,20 @@ public sealed class ComponentProfile
     public required string PartId { get; init; }
     public required WeaponRole Role { get; init; }
     public required string DisplayName { get; init; }
+
+    /// <summary>
+    /// Roles this one part carries as subparts rather than as parts of their own.
+    ///
+    /// <para>A prefab like the Pantsir is a single <c>Part</c> whose radar, optical head and
+    /// cannon are <c>SubPart</c>s of it. The survey walks parts, so without this it reports a
+    /// launcher and nothing else — which reads as a system that has no camera rather than one
+    /// whose camera is built in.</para>
+    /// </summary>
+    public IReadOnlyList<BuiltInComponent> Provides { get; init; } = [];
 }
+
+/// <summary>A role a part carries within itself: what it is and what to call it.</summary>
+public readonly record struct BuiltInComponent(WeaponRole Role, string DisplayName);
 
 /// <summary>
 /// One part found on a craft, with where it sits.
@@ -63,11 +76,10 @@ public readonly record struct SurveyedPart(
 /// <summary>A component found on a craft: what it is, and where.</summary>
 public readonly record struct FoundComponent(
     ComponentProfile Profile,
+    WeaponRole Role,
+    string DisplayName,
     double3 PositionVehicleAsmb,
-    doubleQuat Asmb2VehicleAsmb)
-{
-    public WeaponRole Role => Profile.Role;
-}
+    doubleQuat Asmb2VehicleAsmb);
 
 /// <summary>
 /// Everything this mod recognises on one craft.
@@ -128,7 +140,17 @@ public static class WeaponSurvey
             SurveyedPart part = parts[i];
             if (Match(part.PartId, registry) is not { } profile) continue;
 
-            found.Add(new FoundComponent(profile, part.PositionVehicleAsmb, part.Asmb2VehicleAsmb));
+            found.Add(new FoundComponent(profile, profile.Role, profile.DisplayName,
+                                         part.PositionVehicleAsmb, part.Asmb2VehicleAsmb));
+
+            // Built-ins sit at the part's own position: they are subparts of it, and where each
+            // one is within the assembly is the model's business rather than the survey's.
+            for (int b = 0; b < profile.Provides.Count; b++)
+            {
+                BuiltInComponent built = profile.Provides[b];
+                found.Add(new FoundComponent(profile, built.Role, built.DisplayName,
+                                             part.PositionVehicleAsmb, part.Asmb2VehicleAsmb));
+            }
         }
 
         return new WeaponInventory { Components = found };

@@ -173,6 +173,16 @@ public static class Arsenal
             PartId = PantsirS1.PartId,
             Role = WeaponRole.Launcher,
             DisplayName = PantsirS1.DisplayName,
+
+            // The Pantsir is one part. Its radar, optical head and cannon are subparts, so they
+            // are declared rather than found -- see ComponentProfile.Provides.
+            Provides =
+            [
+                new(WeaponRole.Sensor, SearchRadar1Rs1.DisplayName),
+                new(WeaponRole.Camera, "Optical head"),
+                new(WeaponRole.Gun, Cannon30Mm.DisplayName),
+                new(WeaponRole.FireControl, "Pantsir-S1 fire control"),
+            ],
         },
     ];
 
