@@ -46,11 +46,8 @@ internal static class Detonation
         }
     }
 
-    // Emitters come from a fixed pool the whole game shares, so a salvo can run it dry. Reported
-    // once rather than per round: a missing effect is cosmetic, and a line per round of a
-    // twelve-round salvo would bury the engagement it belongs to.
-    private static bool _reportedExhaustion;
-    private static bool _reportedFailure;
+    // Reported once per distinct reason rather than per round: a twelve-round salvo would
+    // otherwise bury the engagement it belongs to.
     private static bool _reportedFirstBurst;
 
     /// <summary>
@@ -94,26 +91,38 @@ internal static class Detonation
     /// <param name="scale">Multiplies particle size and speed, so a bigger warhead looks bigger.</param>
     public static void Show(string emitterId, double3 burstEcl, Vehicle? near, float scale = 1f)
     {
-        if (!Vec.IsFinite(burstEcl) || !float.IsFinite(scale) || scale <= 0f) return;
+        string why = TryShow(emitterId, burstEcl, near, scale);
+        if (why.Length == 0) return;
+
+        // A silent refusal is indistinguishable from a wrong frame, a disabled renderer and a
+        // warhead that never went off: all four are "no explosion". Say which, once per reason.
+        if (_reported.Add(why)) Log.Warn($"no burst ({emitterId}): {why}");
+    }
+
+    private static readonly HashSet<string> _reported = [];
+
+    // Empty on success, otherwise why not.
+    private static string TryShow(string emitterId, double3 burstEcl, Vehicle? near, float scale)
+    {
+        if (!Vec.IsFinite(burstEcl)) return "burst position is not finite";
+        if (!float.IsFinite(scale) || scale <= 0f) return $"bad scale {scale}";
 
         try
         {
-            if (BodyFor(near) is not { } body) return;
+            if (BodyFor(near) is not { } body)
+            {
+                return "no celestial to hang it on";
+            }
 
-            // Body-fixed, as ground impacts use: the engine then applies the body's rotation to
-            // the particles itself rather than leaving them behind in an inertial frame.
             double3 positionCcf = (burstEcl - body.GetPositionEcl()).Transform(body.GetCce2Ccf());
-            if (!Vec.IsFinite(positionCcf)) return;
+            if (!Vec.IsFinite(positionCcf)) return "burst position does not convert to body-fixed";
 
             if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(emitterId, out var handles))
             {
-                if (!_reportedExhaustion)
-                {
-                    _reportedExhaustion = true;
-                    Log.Warn($"no free particle emitters for {emitterId}; effect skipped");
-                }
-                return;
+                return "no free emitters in the pool";
             }
+
+            if (handles is null || handles.Count == 0) return "the emitter resolved to no emitters";
 
             BubbleOrigin origin = new()
             {
@@ -124,6 +133,7 @@ internal static class Detonation
                 VelocityBub = double3.Zero,
             };
 
+            int placed = 0;
             foreach (ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle handle in handles)
             {
                 if (handle.TryGet() is not { } emitter) continue;
@@ -144,32 +154,33 @@ internal static class Detonation
                 }
 
                 body.AddEmitter(handle);
+                placed++;
 
-                // Once, on the first burst of the session. An emitter renders only when it has
-                // both a renderer and at least one compute pipeline, and it gets those from the
-                // XML's Renderer and Updaters elements -- so a bad name there leaves it acquired,
-                // positioned, and invisible, with nothing thrown anywhere.
+                // Once per session. An emitter renders only when it holds both a renderer and a
+                // compute pipeline, both from the XML's Renderer and Updaters elements, so a bad
+                // name leaves it acquired, positioned and invisible with nothing thrown.
                 if (!_reportedFirstBurst)
                 {
                     ParticleEmitter<ParticleUpdateData, ParticleRenderData> e = emitter;
-                    Log.Info($"burst {emitterId}: registered={e.IsRegistered} "
-                             + $"maxParticles={e.MaximumParticleCount} "
-                             + $"particlesEnabled={ParticlesEnabled} "
-                             + $"bub={positionCcf.X:F0},{positionCcf.Y:F0},{positionCcf.Z:F0}");
+                    Log.Info($"burst {emitterId} stage {placed}: registered={e.IsRegistered} "
+                             + $"max={e.MaximumParticleCount} spawn={e.SpawnRate} "
+                             + $"life={e.ParticleInfo.Lifespan.X:F1}-{e.ParticleInfo.Lifespan.Y:F1}s "
+                             + $"size={e.ParticleInfo.Size.X:F2}-{e.ParticleInfo.Size.Y:F2}");
                 }
             }
 
-            _reportedFirstBurst = true;
+            if (!_reportedFirstBurst)
+            {
+                Log.Info($"burst {emitterId}: {placed} of {handles.Count} stage(s) placed at "
+                         + $"{positionCcf.X:F0},{positionCcf.Y:F0},{positionCcf.Z:F0} on {body.Id}");
+                _reportedFirstBurst = true;
+            }
+
+            return placed == 0 ? "every handle came back empty" : string.Empty;
         }
         catch (Exception e)
         {
-            // Once, and at warning level. Swallowing this quietly is what turns "the asset never
-            // loaded" into "there is no explosion", which is the same symptom as everything else.
-            if (!_reportedFailure)
-            {
-                _reportedFailure = true;
-                Log.Warn($"could not show {emitterId}: {e.Message}");
-            }
+            return $"{e.GetType().Name}: {e.Message}";
         }
     }
 
