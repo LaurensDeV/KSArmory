@@ -47,8 +47,10 @@ internal static class Detonation
     }
 
     // Reported once per distinct reason rather than per round: a twelve-round salvo would
-    // otherwise bury the engagement it belongs to.
-    private static bool _reportedFirstBurst;
+    // otherwise bury the engagement it belongs to. Keyed by emitter Id, not a single flag,
+    // because the variant changes with a graphics setting and the new one has told nobody
+    // anything yet.
+    private static readonly HashSet<string> _describedBursts = [];
 
     /// <summary>
     /// Whether the game is drawing particles at all. The whole system returns early when this is
@@ -159,7 +161,7 @@ internal static class Detonation
                 // Once per session. An emitter renders only when it holds both a renderer and a
                 // compute pipeline, both from the XML's Renderer and Updaters elements, so a bad
                 // name leaves it acquired, positioned and invisible with nothing thrown.
-                if (!_reportedFirstBurst)
+                if (!_describedBursts.Contains(emitterId))
                 {
                     ParticleEmitter<ParticleUpdateData, ParticleRenderData> e = emitter;
                     Log.Info($"burst {emitterId} stage {placed}: registered={e.IsRegistered} "
@@ -169,11 +171,10 @@ internal static class Detonation
                 }
             }
 
-            if (!_reportedFirstBurst)
+            if (_describedBursts.Add(emitterId))
             {
                 Log.Info($"burst {emitterId}: {placed} of {handles.Count} stage(s) placed at "
                          + $"{positionCcf.X:F0},{positionCcf.Y:F0},{positionCcf.Z:F0} on {body.Id}");
-                _reportedFirstBurst = true;
             }
 
             return placed == 0 ? "every handle came back empty" : string.Empty;
