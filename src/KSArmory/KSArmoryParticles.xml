@@ -16,6 +16,10 @@
 
   No InheritVelocity: these are hung on a celestial with no vehicle, so there is nothing to
   inherit from and the setting could only mislead whoever reads it next.
+
+  Three stages with deliberately different lifespans, because an explosion is not one event: a
+  flash that is gone in under a second, fragments that outlive it, and smoke that hangs. Giving
+  them all one lifespan is what makes a burst read as a blink.
 -->
 <Assets>
     <!-- Proximity kill: a bright short-lived ball with a slower debris shell inside it. -->
@@ -25,6 +29,7 @@
         <Mesh Id="ParticleSphere"/>
         <Renderer>SimpleColor</Renderer>
         <Updaters>SimpleMovement</Updaters>
+        <Updaters>GrowOnSpawn</Updaters>
         <Updaters>ShrinkOverLifetime</Updaters>
         <Updaters>HueShift</Updaters>
         <Updaters>ModelMatrix</Updaters>
@@ -39,10 +44,10 @@
         <!--Particle Data-->
         <ParticleColor X="18" Y="8" Z="2" W="1"/>
         <ParticleColorShift X="0.35" Y="0.2" Z="0"/>
-        <ParticleLifespan X="0.35" Y="1.1"/>
+        <ParticleLifespan X="0.9" Y="2.2"/>
         <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleSize X="0.6" Y="2.2"/>
-        <ParticleVelocity X="26" Y="26" Z="26"/>
+        <ParticleSize X="0.8" Y="2.8"/>
+        <ParticleVelocity X="20" Y="20" Z="20"/>
         <ParticleVelocityShift Value="0.8"/>
         <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
         <ParticleAngularVelocity X="4" Y="4" Z="4"/>
@@ -65,13 +70,44 @@
             <Force X="0" Y="0" Z="0" />
             <ParticleColor X="6" Y="2.2" Z="0.4" W="1"/>
             <ParticleColorShift X="0.5" Y="0.3" Z="0"/>
-            <ParticleLifespan X="0.8" Y="2.4"/>
+            <ParticleLifespan X="1.8" Y="4.5"/>
             <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
             <ParticleSize X="0.12" Y="0.4"/>
             <ParticleVelocity X="55" Y="55" Z="55"/>
             <ParticleVelocityShift Value="1"/>
             <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
             <ParticleAngularVelocity X="9" Y="9" Z="9"/>
+        </ParticleEmitters>
+
+        <!--
+          Smoke. Dim, slow, long, and it GROWS rather than shrinking - a cloud spreads as it
+          cools. This is the stage that makes an explosion linger; without it the whole thing is
+          over in a second however long the flash is given.
+        -->
+        <ParticleEmitters>
+            <MaxParticles Value="80" />
+            <Mesh Id="ParticleSphere"/>
+            <Renderer>SimpleColor</Renderer>
+            <Updaters>SimpleMovement</Updaters>
+            <Updaters>GrowOverLifetime</Updaters>
+            <Updaters>HueShift</Updaters>
+            <Updaters>ModelMatrix</Updaters>
+            <Updaters>Age</Updaters>
+            <SpawnMode>Burst</SpawnMode>
+            <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+            <EmitterSize Value="2.5"/>
+            <EmitterExtents X="1" Y="0" Z="0"/>
+            <SpawnRate Value="80"/>
+            <Force X="0" Y="0" Z="0" />
+            <ParticleColor X="0.35" Y="0.28" Z="0.24" W="1"/>
+            <ParticleColorShift X="0.1" Y="0.05" Z="0"/>
+            <ParticleLifespan X="3.5" Y="7.0"/>
+            <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+            <ParticleSize X="1.2" Y="3.0"/>
+            <ParticleVelocity X="5" Y="5" Z="5"/>
+            <ParticleVelocityShift Value="0.9"/>
+            <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
+            <ParticleAngularVelocity X="1.5" Y="1.5" Z="1.5"/>
         </ParticleEmitters>
     </ParticleEmitter>
 
@@ -97,7 +133,7 @@
         <Force X="0" Y="0" Z="0" />
         <ParticleColor X="4" Y="3.2" Z="2.4" W="1"/>
         <ParticleColorShift X="0.2" Y="0.2" Z="0"/>
-        <ParticleLifespan X="0.3" Y="0.9"/>
+        <ParticleLifespan X="0.7" Y="1.8"/>
         <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
         <ParticleSize X="0.2" Y="0.7"/>
         <ParticleVelocity X="18" Y="18" Z="18"/>
