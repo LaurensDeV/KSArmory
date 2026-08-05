@@ -181,7 +181,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
             }
             else
             {
-                ImGui.TextDisabled(Describe(inv));
+                ImGui.TextDisabled($"not crewed  -  {Describe(inv)}");
             }
 
             ImGui.TableNextColumn();
@@ -318,16 +318,31 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     // system the battery is not on can show what it is and offer to move the battery there.
     private void DrawNotRunningHere(KSA.Vehicle craft)
     {
-        ImGui.TextColored(Amber, "The battery is not running on this system,");
-        ImGui.TextColored(Amber, "so there is nothing here to show or set yet.");
+        // Say what the operator can see and do, not how the mod is built. "The battery is not
+        // running on this system" describes a single DefenceBattery instance and its mount, which
+        // is true and means nothing to anyone who has not read the source.
+        ImGui.TextColored(Amber, "Not crewed.");
+        ImGui.TextDisabled("KSArmory operates one system at a time. This one is");
+        ImGui.TextDisabled("switched off: no radar, no tracking, nothing to set.");
+
+        if (_battery.Platform is { } running)
+        {
+            ImGui.TextDisabled($"Currently operating: {KsaWorld.DisplayName(running)}");
+        }
+
         ImGui.Separator();
 
-        if (ImGui.Button("Run the battery here")) _battery.PinPlatform(craft);
-
-        ImGui.SameLine();
-        if (_battery.Platform is { } running && ImGui.Button($"Manage {KsaWorld.DisplayName(running)}"))
+        if (ImGui.Button("Operate this one")) _battery.PinPlatform(craft);
+        if (ImGui.IsItemHovered())
         {
-            _managed = running;
+            ImGui.SetTooltip("Moves the crew here. Whichever system they leave goes\n"
+                             + "quiet -- it keeps its settings but stops tracking.");
+        }
+
+        if (_battery.Platform is { } other)
+        {
+            ImGui.SameLine();
+            if (ImGui.Button($"Manage {KsaWorld.DisplayName(other)}")) _managed = other;
         }
     }
 
