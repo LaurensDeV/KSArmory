@@ -24,7 +24,7 @@ public class BallisticLeadTests
         double3 target = new(4000, 0, 0);
         double3 velocity = new(0, 300, 0);        // straight across the line of sight
 
-        Assert.True(BallisticLead.TrySolve(shooter, target, velocity, MuzzleSpeed, NoGravity,
+        Assert.True(BallisticLead.TrySolve(shooter, Vec.Zero, target, velocity, MuzzleSpeed, NoGravity,
                                            out double3 aim));
 
         // Fly the round along the solution and step the target the same interval.
@@ -60,7 +60,7 @@ public class BallisticLeadTests
         double3 target = new(4000, 0, 0);
         double3 gravity = new(0, 0, -9.80665);
 
-        Assert.True(BallisticLead.TrySolve(shooter, target, Vec.Zero, MuzzleSpeed, gravity,
+        Assert.True(BallisticLead.TrySolve(shooter, Vec.Zero, target, Vec.Zero, MuzzleSpeed, gravity,
                                            out double3 aim));
 
         double flight = 4000.0 / MuzzleSpeed;
@@ -75,7 +75,7 @@ public class BallisticLeadTests
     {
         double3 target = new(2000, 0, 0);
 
-        Assert.True(BallisticLead.TrySolve(Vec.Zero, target, Vec.Zero, MuzzleSpeed, NoGravity,
+        Assert.True(BallisticLead.TrySolve(Vec.Zero, Vec.Zero, target, Vec.Zero, MuzzleSpeed, NoGravity,
                                            out double3 aim));
 
         Assert.Equal(target.X, aim.X, 6);
@@ -89,44 +89,70 @@ public class BallisticLeadTests
         double3 target = new(4000, 0, 0);
         double3 closing = new(-300, 0, 0);
 
-        Assert.True(BallisticLead.TrySolve(Vec.Zero, target, closing, MuzzleSpeed, NoGravity,
+        Assert.True(BallisticLead.TrySolve(Vec.Zero, Vec.Zero, target, closing, MuzzleSpeed, NoGravity,
                                            out double3 aim));
 
         Assert.True(aim.X < target.X, "a closing target is met nearer than it currently is");
     }
 
     /// <summary>
-    /// The solver takes motion <em>relative to the shooter</em>. Handing it an absolute ecliptic
-    /// velocity leads on the planet's ~29.8 km/s around its star — motion the round already
-    /// carries — and throws the aim more than a hundred kilometres wide, which in flight reads as
-    /// the turret swinging to a wrong bearing the instant the cannon take the engagement.
+    /// Motion shared by the shooter and the target must not reach the aim point. The round is
+    /// launched with the shooter's velocity already in it, so only the difference is worth
+    /// leading — and both terms carry the planet's ~29.8 km/s around its star.
+    ///
+    /// <para>This is an <em>invariance</em> assertion, and the pair below is a sensitivity one:
+    /// together they say the common term is removed and that the relative term still matters.
+    /// The test this replaced asserted only sensitivity, on a pre-differenced argument, so it
+    /// passed unchanged against the bug it was written for — which lived at the call site.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(0.0, 29_800.0, 0.0)]          // the planet's motion around its star
+    [InlineData(-7800.0, 0.0, 0.0)]           // orbital speed, the other way
+    [InlineData(1.0, -2.0, 3.0)]              // something small and arbitrary
+    public void MotionSharedWithTheTargetDoesNotMoveTheAimPoint(double cx, double cy, double cz)
+    {
+        double3 shooter = new(100, -50, 25);
+        double3 target = new(3100, -50, 25);
+        double3 targetVelocity = new(0, 300, 0);
+
+        Assert.True(BallisticLead.TrySolve(shooter, Vec.Zero, target, targetVelocity,
+                                           MuzzleSpeed, NoGravity, out double3 still));
+
+        // Both bodies now carry an identical extra velocity. Nothing about the shot has changed.
+        double3 common = new(cx, cy, cz);
+        Assert.True(BallisticLead.TrySolve(shooter, common, target, targetVelocity + common,
+                                           MuzzleSpeed, NoGravity, out double3 moving));
+
+        Assert.True(Vec.Len(moving - still) < 1.0,
+                    $"common motion moved the aim point by {Vec.Len(moving - still):F1} m");
+    }
+
+    /// <summary>
+    /// The companion to the invariance test above: the part that is *not* shared must still be
+    /// led on. Without this, a solver that ignored velocity entirely would pass.
     /// </summary>
     [Fact]
-    public void CommonMotionMustNotBeLedOn()
+    public void MotionRelativeToTheShooterStillMovesTheAimPoint()
     {
         double3 shooter = Vec.Zero;
         double3 target = new(3000, 0, 0);
-        double3 relative = new(0, 300, 0);
 
-        Assert.True(BallisticLead.TrySolve(shooter, target, relative, MuzzleSpeed, NoGravity,
-                                           out double3 correct));
+        Assert.True(BallisticLead.TrySolve(shooter, Vec.Zero, target, Vec.Zero,
+                                           MuzzleSpeed, NoGravity, out double3 stationary));
+        Assert.True(BallisticLead.TrySolve(shooter, Vec.Zero, target, new double3(0, 300, 0),
+                                           MuzzleSpeed, NoGravity, out double3 crossing));
 
-        // What the battery must never pass: the planet's motion, shared by shooter and round.
-        double3 ecliptic = new(0, 29_800, 0);
-        Assert.True(BallisticLead.TrySolve(shooter, target, relative + ecliptic, MuzzleSpeed,
-                                           NoGravity, out double3 wrong));
-
-        Assert.True(Vec.Len(wrong - correct) > 100_000.0,
-                    "leading on absolute velocity should be catastrophically wrong, "
-                    + $"but the two aim points differ by only {Vec.Len(wrong - correct):F0} m");
+        Assert.True(Vec.Len(crossing - stationary) > 500.0,
+                    "a 300 m/s crosser at 3 km needs hundreds of metres of lead, but the aim "
+                    + $"point moved only {Vec.Len(crossing - stationary):F0} m");
     }
 
     [Fact]
     public void NoMuzzleSpeedHasNoSolution()
     {
-        Assert.False(BallisticLead.TrySolve(Vec.Zero, new double3(1000, 0, 0), Vec.Zero,
+        Assert.False(BallisticLead.TrySolve(Vec.Zero, Vec.Zero, new double3(1000, 0, 0), Vec.Zero,
                                             0.0, NoGravity, out _));
-        Assert.False(BallisticLead.TrySolve(Vec.Zero, new double3(1000, 0, 0), Vec.Zero,
+        Assert.False(BallisticLead.TrySolve(Vec.Zero, Vec.Zero, new double3(1000, 0, 0), Vec.Zero,
                                             double.NaN, NoGravity, out _));
     }
 
@@ -135,8 +161,8 @@ public class BallisticLeadTests
     {
         double3 bad = new(double.NaN, 0, 0);
 
-        Assert.False(BallisticLead.TrySolve(Vec.Zero, bad, Vec.Zero, MuzzleSpeed, NoGravity, out _));
-        Assert.False(BallisticLead.TrySolve(bad, new double3(1000, 0, 0), Vec.Zero, MuzzleSpeed,
+        Assert.False(BallisticLead.TrySolve(Vec.Zero, Vec.Zero, bad, Vec.Zero, MuzzleSpeed, NoGravity, out _));
+        Assert.False(BallisticLead.TrySolve(bad, Vec.Zero, new double3(1000, 0, 0), Vec.Zero, MuzzleSpeed,
                                             NoGravity, out _));
     }
 }

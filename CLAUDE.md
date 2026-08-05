@@ -607,6 +607,12 @@ something KSA-facing turns out to have testable maths inside it, move the maths 
 rather than leaving it unverifiable; `FireGeometry` came out of `LauncherPart` exactly that way,
 and the launch-angle bug was only testable afterwards.
 
+**And a `Sim/` entry point differences its own inputs.** It takes both frame-carrying terms —
+`(shooterPos, shooterVel, targetPos, targetVel)` — never a `relativeVelocity` computed in `Ksa/`,
+because that moves the subtraction carrying the whole frame contract to a call site no test
+reaches. Test it for *invariance*: add the same velocity to both inputs, assert the answer does
+not move. `docs/FRAMES-AND-EPOCHS.md` has why, and `BallisticLead` is the one that was wrong.
+
 **Weapon performance lives on profiles, not in `Config`.** `Config` is the *player's* settings:
 armed, auto-engage, what to draw. Range, guidance, fuse and launcher geometry belong to a
 weapon system and vary per system, so they sit on `SensorProfile`, `MunitionProfile` and

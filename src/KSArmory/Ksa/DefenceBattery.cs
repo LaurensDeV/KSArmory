@@ -513,11 +513,8 @@ internal sealed class DefenceBattery(Config config)
         MunitionProfile shell = Arsenal.MunitionNamed(_profile.GunMunition!);
         double3 gravity = Platform is null ? Vec.Zero : KsaWorld.GravityAt(Platform, MountEcl);
 
-        // Relative to the platform, not absolute: the round is launched with the platform's
-        // velocity already in it, so the only motion it has to lead is the difference.
-        double3 relative = aim.VelocityEcl - KsaWorld.VelocityEcl(Platform!);
-
-        if (!BallisticLead.TrySolve(MountEcl, aim.PositionEcl, relative,
+        if (!BallisticLead.TrySolve(MountEcl, KsaWorld.VelocityEcl(Platform!),
+                                    aim.PositionEcl, aim.VelocityEcl,
                                     shell.LaunchSpeed, gravity, out double3 lead))
         {
             return aim.PositionEcl;

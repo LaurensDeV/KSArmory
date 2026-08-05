@@ -24,22 +24,30 @@ public static class BallisticLead
     /// The point to aim at, in the same frame as the inputs. False if there is no solution —
     /// no muzzle speed, or a target so fast the round can never arrive.
     /// </summary>
-    /// <param name="targetVelocityRelative">
-    /// The target's velocity <b>relative to the shooter</b>, never its absolute ecliptic velocity.
-    /// Both carry the planet's ~29.8 km/s around its star, and that motion is shared by the round:
-    /// leading on it throws the aim point over a hundred kilometres wide.
-    /// </param>
+    /// <remarks>
+    /// Takes both velocities and differences them here rather than accepting a relative one.
+    /// The subtraction carries the whole frame contract — both terms hold the planet's ~29.8 km/s
+    /// around its star, the round is launched with the shooter's share already in it, and leading
+    /// on the common part throws the aim point a hundred kilometres wide. Accepting the difference
+    /// left that subtraction at a call site in <c>Ksa/</c>, which no test can reach.
+    ///
+    /// <para>This is the convention for the whole of <c>Sim/</c>: an entry point takes both
+    /// frame-carrying terms and differences them itself. See docs/FRAMES-AND-EPOCHS.md.</para>
+    /// </remarks>
     /// <param name="gravityEcl">Acceleration acting on the round, not on the shooter.</param>
-    public static bool TrySolve(double3 shooterPos, double3 targetPos,
-                                double3 targetVelocityRelative,
+    public static bool TrySolve(double3 shooterPos, double3 shooterVelocity,
+                                double3 targetPos, double3 targetVelocity,
                                 double muzzleSpeed, double3 gravityEcl, out double3 aimPoint)
     {
         aimPoint = targetPos;
         if (!(muzzleSpeed > 0.0) || !double.IsFinite(muzzleSpeed)) return false;
-        if (!Vec.IsFinite(shooterPos) || !Vec.IsFinite(targetPos) || !Vec.IsFinite(targetVelocityRelative))
+        if (!Vec.IsFinite(shooterPos) || !Vec.IsFinite(targetPos)
+            || !Vec.IsFinite(shooterVelocity) || !Vec.IsFinite(targetVelocity))
         {
             return false;
         }
+
+        double3 targetVelocityRelative = targetVelocity - shooterVelocity;
 
         double flightTime = Vec.Len(targetPos - shooterPos) / muzzleSpeed;
 

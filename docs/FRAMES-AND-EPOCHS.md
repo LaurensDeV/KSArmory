@@ -77,6 +77,18 @@ differenced against a platform sample that has not moved yet, so one frame of ec
 baked into `TravelSinceLaunch` for the rest of its life — measured at 658.78 m of travel at an age
 of 0.04 s on a round doing 124 m/s.
 
+**A `Sim/` entry point takes both frame-carrying terms and differences them itself. It never
+accepts a difference computed in `Ksa/`.** Every rule above is a subtraction that has to happen at
+the right place and the right instant, and a signature taking `relativeVelocity` moves exactly
+that subtraction to a call site no test can reach. `BallisticLead.TrySolve` did, and its
+regression test asserted the *solver* was sensitive to the common term — which it always had been.
+The bug was the caller, and the test passed unchanged against it.
+
+`Interceptor.Update` is the shape to copy: it takes `platformEcl` and computes the offset itself.
+Test such a function for **invariance** — add the same arbitrary velocity to both inputs and
+assert the answer does not move — with a sensitivity assertion beside it. One proves the common
+term is removed, the other proves the relative term still matters; neither alone is worth much.
+
 ## Diagnosing
 
 **Measure vectors, not magnitudes.** Comparing two *separations* mixes the error with the closing
