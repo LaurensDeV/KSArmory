@@ -135,9 +135,22 @@ would put an optional dependency in charge of whether bug reports work at all;
 failing open silently would let an outage publish anything unnoticed. The label
 is how the difference stays visible.
 
-Only what a person typed is judged. The log is machine output: scoring it would
-be pointless, and sending it anywhere is a far larger disclosure than the
-reporter intended.
+Only what a person typed is judged. **The log is never scored** — it is machine
+output full of `destroyed NewRocket_1` and `round 1 detonated`, so judging it
+would be both meaningless and a good way to refuse every report from a working
+battery.
+
+### This mod's vocabulary is violent, and that is fine
+
+A weapons mod's bug reports say *kill*, *destroy*, *lethal*, *warhead*,
+*blast*. That was measured against ten realistic reports and none is flagged:
+threat and insult sit at essentially zero throughout, because the model
+separates describing violence from directing it at a person.
+
+The closest call is "I want to blow up a drone and nothing happens", at 0.775
+`toxic` and 0.253 `threat` — comfortably under both thresholds, but it would
+have been marginal under a single 0.8 rule on the worst label. Another reason
+that rule is gone.
 
 A report can still be rude or useless, and that is triage rather than
 engineering. What it cannot be is dangerous to render.
