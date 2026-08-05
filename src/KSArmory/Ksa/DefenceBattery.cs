@@ -355,8 +355,52 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
 
         if (_config.DiagnosticDump)
         {
-            Diagnostics.Tick(this, _config, _clock, _config.DiagnosticIntervalSeconds);
+            Diagnostics.Tick(this, _config, _policy, _clock, _config.DiagnosticIntervalSeconds);
         }
+    }
+
+    /// <summary>
+    /// Why the missiles are not launching, or null when nothing is stopping them.
+    ///
+    /// <para>Every gate returned quietly and looked identical from outside: an unarmed battery, a
+    /// battery with no lock and a battery whose drives have not settled all sit there doing
+    /// nothing. Naming the first gate that says no is the difference between reading the panel
+    /// and reading the source.</para>
+    /// </summary>
+    public string? Hold { get; private set; } = "not started";
+
+    // In order, and the order is the fire sequence's: the first answer is the one to act on.
+    private string? Holding()
+    {
+        if (Platform is null) return "no platform";
+        if (!IsOperational) return _config.RequireLauncherPart && Launcher is null
+                                       ? "no launcher part on this craft"
+                                       : "not operational";
+
+        if (_magazine.IsEmpty && _reloadTimer > 0.0) return $"reloading ({_reloadTimer:F0} s)";
+        if (!_policy.Armed) return "safe -- master arm is off";
+        if (!_policy.AutoEngage) return "auto-engage is off";
+        if (!_policy.MissilesEnabled) return "missiles are switched off";
+        if (Ammo <= 0) return "out of rounds";
+        if (_salvoTimer > 0.0) return "between salvos";
+
+        if (!Radar.HasFiringSolution)
+        {
+            return Radar.Tracks.Count == 0 ? "nothing detected" : "no firing solution yet";
+        }
+
+        if (!IsLaid) return "drives still settling";
+        if (!FireGate.MissilesMayFire(_ringIsOnGunLead, _profile.LaunchAlongTube))
+        {
+            return "the cannon has the bearing";
+        }
+
+        if (Radar.Locked is not { } locked) return "no lock";
+        if (!ThreatModel.MayEngage(locked, _policy.Iff)) return "target is not engageable (IFF)";
+        if (!ThreatModel.HasSalvoCapacity(locked, _policy.RoundsPerTarget)) return "salvo committed";
+        if (!ThreatModel.InEngagementEnvelope(locked, _config.Sensor)) return "target out of reach";
+
+        return null;
     }
 
     // Decides which craft the battery is mounted on. The launcher is a physical part, so the
@@ -446,6 +490,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
 
     private void UpdateFireControl(double dt)
     {
+        Hold = Holding();
         if (_salvoTimer > 0.0) _salvoTimer = Math.Max(0.0, _salvoTimer - dt);
 
         // Reload cycle.
@@ -462,19 +507,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
             return;
         }
 
-        if (!_policy.AutoEngage || !_policy.Armed || !IsOperational) return;
-        if (!_policy.MissilesEnabled) return;
-        if (Ammo <= 0 || _salvoTimer > 0.0) return;
-        if (!Radar.HasFiringSolution) return;
-
-        // Wait for the launcher to settle on the aim point. Auto-engage returns quietly rather
-        // than announcing a refusal, because it will be back next frame.
-        if (!IsLaid) return;
-
-        // IsLaid only says the drives settled on the *commanded* bearing, and inside the envelope
-        // overlap that command is the cannon's ballistic lead. Releasing then puts the missile
-        // along a tube pointing ~18 degrees off the target.
-        if (!FireGate.MissilesMayFire(_ringIsOnGunLead, _profile.LaunchAlongTube)) return;
+        if (Hold is not null) return;
 
         Track target = Radar.Locked!;
         if (!ThreatModel.MayEngage(target, _policy.Iff)) return;
@@ -1160,7 +1193,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
                 {
                     Announce($"hit on {KsaWorld.DisplayName(intended)} ignored - it is now the battery's own platform");
                 }
-                else if (_config.ProtectControlledVehicle && ReferenceEquals(intended, KsaWorld.ControlledVehicle))
+                else if (_policy.ProtectControlledVehicle && ReferenceEquals(intended, KsaWorld.ControlledVehicle))
                 {
                     Announce($"hit on {KsaWorld.DisplayName(intended)} ignored - you are flying it (untick 'Never target the vehicle I'm flying')");
                 }
@@ -1176,7 +1209,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         foreach (Vehicle v in _blastScratch)
         {
             if (ReferenceEquals(v, Platform)) continue;
-            if (_config.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle)) continue;
+            if (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle)) continue;
             if (_pendingKills.Contains(v)) continue;
 
             double3 posAtBurst = KsaWorld.PositionEcl(v) + KsaWorld.VelocityEcl(v) * elapsed;

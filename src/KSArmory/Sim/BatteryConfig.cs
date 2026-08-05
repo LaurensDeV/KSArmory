@@ -28,6 +28,15 @@ public sealed class BatteryConfig
     /// </summary>
     public IffPolicy Iff { get; } = new();
 
+    /// <summary>
+    /// Never fire on the vehicle the player is flying.
+    ///
+    /// <para>Per battery: two sites can sensibly disagree about it, which is the test. Flying into
+    /// one range as a target while another site guards you is the case, and a single switch makes
+    /// that impossible.</para>
+    /// </summary>
+    public bool ProtectControlledVehicle = true;
+
     /// <summary>Master arm. Nothing launches while this is false.</summary>
     public bool Armed;
 

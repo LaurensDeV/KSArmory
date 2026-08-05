@@ -264,6 +264,15 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
 
         // ###id keeps one window across a change of craft, so it holds its size and place
         // instead of opening afresh every time a different system is managed.
+        // Point the panes at *this* window's craft. Focus was worked out at the top of the frame
+        // from last frame's selection, so the window that opens on the click that selected it
+        // would otherwise show -- and edit -- the previously focused battery for one frame.
+        if (!Focus(craft))
+        {
+            _managed = null;
+            return;
+        }
+
         bool open = true;
         if (ImGui.Begin($"{KsaWorld.DisplayName(craft)}###KSArmorySystem", ref open))
         {
@@ -526,6 +535,12 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         }
 
         ImGui.Text($"In flight: {_battery.Rounds.Count}");
+
+        // The most-asked question about this mod, answered where it is asked. Every gate in fire
+        // control returns quietly, so an unarmed battery, one with no lock and one whose drives
+        // are still settling all look identical from outside.
+        if (_battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
+        else ImGui.TextColored(Green, "Clear to fire");
     }
 
     // Where the turret is pointing, and whether it is still swinging. Also the place the engine's
@@ -671,8 +686,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         ImGui.SameLine();
         if (ImGui.Button("Safe all")) _battery.SafeAll();
 
-        ImGui.Checkbox("Never target the vehicle I'm flying", ref _config.ProtectControlledVehicle);
-        ImGui.Checkbox("Require launcher part", ref _config.RequireLauncherPart);
+        ImGui.Checkbox("Never target the vehicle I'm flying", ref _policy.ProtectControlledVehicle);
 
         ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);
         if (_policy.MouseAim)
@@ -858,7 +872,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
 
         if (ImGui.Button("Write diagnostic dump"))
         {
-            Diagnostics.Dump(_battery, _config);
+            Diagnostics.Dump(_battery, _config, _policy);
         }
         ImGui.SameLine();
         if (ImGui.Checkbox("Keep dumping", ref _config.DiagnosticDump))

@@ -17,23 +17,24 @@ internal static class Diagnostics
     private static double _nextDumpAt;
 
     /// <summary>Emit a dump every <paramref name="intervalSeconds"/> while enabled.</summary>
-    public static void Tick(DefenceBattery battery, Config config, double clock, double intervalSeconds)
+    public static void Tick(DefenceBattery battery, Config config, BatteryConfig policy,
+                            double clock, double intervalSeconds)
     {
         if (clock < _nextDumpAt) return;
         _nextDumpAt = clock + intervalSeconds;
-        Dump(battery, config);
+        Dump(battery, config, policy);
     }
 
     public static void ResetTimer() => _nextDumpAt = 0.0;
 
-    public static void Dump(DefenceBattery battery, Config config)
+    public static void Dump(DefenceBattery battery, Config config, BatteryConfig policy)
     {
         try
         {
             Log.Debug("---- diagnostic dump ----");
             DumpPlatform(battery);
             DumpRendering(battery);
-            DumpVehicles(battery, config);
+            DumpVehicles(battery, config, policy);
             DumpRadar(battery);
             Log.Debug("---- end dump ----");
         }
@@ -157,7 +158,7 @@ internal static class Diagnostics
 
     // Lists every loaded vehicle with the numbers the radar filters on, and says which filter
     // rejected it. This is the fastest way to see why the track list is empty.
-    private static void DumpVehicles(DefenceBattery battery, Config config)
+    private static void DumpVehicles(DefenceBattery battery, Config config, BatteryConfig policy)
     {
         KsaWorld.CollectVehicles(Scratch);
 
@@ -189,7 +190,7 @@ internal static class Diagnostics
             double cpa = Vec.Len(r + rel * tCa);
 
             string verdict =
-                config.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle) ? "SKIP: is controlled vehicle"
+                policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle) ? "SKIP: is controlled vehicle"
                 : range > config.Sensor.Range ? $"REJECT: out of range ({range / 1000.0:F1} > {config.Sensor.Range / 1000.0:F1} km)"
                 : cos < coneCos ? $"REJECT: outside cone ({offAxisDeg:F0} deg > {config.Sensor.ConeDeg:F0})"
                 : relSpeed < config.Sensor.MinTargetSpeed ? $"REJECT: too slow ({relSpeed:F1} < {config.Sensor.MinTargetSpeed:F0} m/s)"

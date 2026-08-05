@@ -55,7 +55,7 @@ internal sealed class Radar(Config config, BatteryConfig policy)
         foreach (Vehicle candidate in _scratch)
         {
             if (ReferenceEquals(candidate, platform)) continue;
-            if (_config.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
+            if (_policy.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
 
             // Classified before the geometry, so a friendly still appears on the panel as a
             // contact and is simply never handed to fire control.

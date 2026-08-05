@@ -47,9 +47,6 @@ public sealed class Config
 
     // ---- Engagement policy ----------------------------------------------
 
-    /// <summary>Never fire on the vehicle the player is flying.</summary>
-    public bool ProtectControlledVehicle = true;
-
     /// <summary>
     /// Hold the world's timewarp down while rounds are in the air, and give it back when they
     /// land. See <see cref="WarpPolicy"/> for why: past ~19x a round cannot be simulated, and

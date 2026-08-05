@@ -486,8 +486,9 @@ draw, a tool being active. Tint the button if open/closed is worth showing.
 
 **A setting belongs to a battery or to the session, and which one is the whole distinction.**
 `BatteryConfig` holds what can differ between two launchers in the same world — armed,
-auto-engage, which weapons are live, turret mode, the optical head's viewport, and **the IFF
-policy**, because two sites on opposite sides is exactly the case. `Config` holds what cannot: the
+auto-engage, which weapons are live, turret mode, the optical head's viewport, whether the craft
+being flown is protected, and **the IFF policy**, because two sites on opposite sides is exactly
+the case. `Config` holds what cannot: the
 roster of team names, what gets drawn, how much is logged. The test to apply is not importance but
 whether two sites could sensibly disagree — a name labels a craft the same way whoever is looking
 at it, and what that name *means* is each battery's own.
