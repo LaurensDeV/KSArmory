@@ -7,6 +7,12 @@ searches and classifies threats, the launcher slews and fires salvos, proportion
 **intercepts at 22–23 m**, the proximity fuse detonates, the blast destroys the target, and the
 overlay draws correctly on the craft.
 
+**That was flown against KSA 2026.8.3.5117.** The mod is now built against 2026.8.5.5168 and has
+**not been flown since**. The retarget moved no member the mod binds to and changed no reference
+frame, unit or transform call — so there is a good reason to expect it still works, which is
+exactly the kind of reason this file exists to distrust. Re-fly the smoke test below before
+treating any of the above as current.
+
 Bugs found and fixed along the way, all worth knowing about (see
 `docs/KSA-MODDING-NOTES.md`):
 
