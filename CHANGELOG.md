@@ -1,3 +1,21 @@
+## [0.8.7](https://github.com/LaurensDeV/KSArmory/compare/v0.8.6...v0.8.7) (2026-08-05)
+
+### Features
+
+* **sim:** hold timewarp down while rounds are in the air ([2e42236](https://github.com/LaurensDeV/KSArmory/commit/2e4223615bde076ba0c1b8b1f5ff4836fdeed276))
+
+### Fixes
+
+* **sim:** stop the cannon and the missiles fighting over one bearing ([7a09938](https://github.com/LaurensDeV/KSArmory/commit/7a09938abd73a5b8f6f9af4bef7aef6d4b89376c))
+
+### Internal
+
+* stop hardcoding one weapon system; fix two comments ([865e232](https://github.com/LaurensDeV/KSArmory/commit/865e23278e0a7434509f702962310aefe52a7c5b))
+
+### Documentation
+
+* repair the drift the audit found in CLAUDE.md ([b45a6cf](https://github.com/LaurensDeV/KSArmory/commit/b45a6cf90f122ec89dcde9f411528bab855a2f9d))
+
 ## [0.8.6](https://github.com/LaurensDeV/KSArmory/compare/v0.8.5...v0.8.6) (2026-08-05)
 
 ### Fixes
