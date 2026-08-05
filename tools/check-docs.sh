@@ -33,9 +33,15 @@ fail() {
 # which is the table's only job. Sight.cs - a headline feature - was missing for two releases.
 
 echo "Layout table covers src/"
+
+# Table rows only, not the whole file. Searching all of CLAUDE.md passes a file that prose
+# happens to name while its row is missing, which is the failure this check exists to catch --
+# it did, for WarpPolicy.cs, in the same session the check was written.
+rows="$(grep '^|' CLAUDE.md || true)"
+
 missing=""
 while IFS= read -r path; do
-    grep -qF "$(basename "$path")" CLAUDE.md || missing+="    $path"$'\n'
+    grep -qF "$(basename "$path")" <<< "$rows" || missing+="    $path"$'\n'
 done < <(find src/KSArmory/Sim src/KSArmory/Ksa -name '*.cs' | sed 's|src/KSArmory/||' | sort)
 
 if [[ -n "$missing" ]]; then

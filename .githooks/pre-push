@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# Runs every check CI runs, before the push rather than after it.
+#
+# Bypass with `git push --no-verify` -- which is the right move when you are pushing a branch
+# precisely to see what CI says about it.
+#
+# The drive sweep is not included: it is ~43 s against the rest of the set's ~7 s, and the defect
+# it finds is only reachable by changing the model or the drive limits. tools/model/build.sh is
+# where that one belongs.
+set -uo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ ! -x "$REPO_ROOT/tools/check-all.sh" ]]; then
+    echo "pre-push: tools/check-all.sh missing or not executable; skipping" >&2
+    exit 0
+fi
+
+if "$REPO_ROOT/tools/check-all.sh"; then
+    exit 0
+fi
+
+echo >&2
+echo "pre-push: refusing to push - the checks above are what CI will run." >&2
+echo "          re-run them with ./tools/check-all.sh, or push anyway with --no-verify" >&2
+exit 1

@@ -110,16 +110,24 @@ directory listing rather than trusting `is_file()`.
 ## Before you open a PR
 
 ```bash
-./tools/build.sh
-./tools/test.sh
-./tools/check-boundary.sh     # Sim/ must not reference KSA types
-./tools/check-comments.sh     # comment rules that can be checked mechanically
-./tools/validate-parts.py     # if you touched part XML or launch geometry
+./tools/check-all.sh          # everything CI runs, about 8 seconds
 ```
 
-CI runs all of these plus shellcheck, XML well-formedness, and a check that no binaries are
-tracked. The `build` job needs the private assemblies mirror, so **on a fork it skips with a
-notice instead of failing** — that is deliberate, not something you need to fix.
+That is the whole list, and it is the same script CI calls — so the two cannot drift, which is
+what three hand-maintained lists in three files could not manage. `./tools/check-all.sh --list`
+names the checks; `--with-sweep` adds the drive sweep, which is left out by default because it
+is ~43 s against the rest of the set's ~7 s.
+
+`./tools/install-hooks.sh` wires it to `pre-push`, so you get it without remembering. Push
+anyway with `git push --no-verify`.
+
+Anything needing the game assemblies — the build, the C# tests, the API surface — is **skipped
+with a notice** rather than failed, so the script is useful without owning KSA. It says which
+ones it skipped.
+
+On a fork, the `tooling` job runs in full: it needs no secret. Only the `build` job is gated on
+the private assemblies mirror, and it skips with a notice instead of failing — that is
+deliberate, not something you need to fix.
 
 ## Rules that are not style preferences
 

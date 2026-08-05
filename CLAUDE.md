@@ -179,6 +179,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 
 ```bash
 ./tools/doctor.sh                          # can this machine build, test and run it? -- start here
+./tools/check-all.sh                       # everything CI runs (~8 s); also the pre-push hook
 ./tools/build.sh                           # build the mod (handles the SDK PATH)
 ./tools/test.sh                            # guidance + fuse tests, no game needed
 ./tools/validate-parts.py                  # part XML, launch geometry, registered PartIds; runs in deploy.sh
@@ -239,6 +240,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
+| `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |

@@ -426,15 +426,17 @@ Both run `tools/check-commit-msg.sh`, so they cannot disagree about what is lega
 ### Before opening a PR
 
 ```bash
-./tools/test.sh                                              # simulation
-./tools/check-boundary.sh                                    # Sim/ stays free of KSA types
-./tools/validate-parts.py                                    # asset Ids, texture paths, launch geometry
-./tools/model/checkmesh.py src/KSArmory/Meshes/*.glb       # only if you touched the model
+./tools/check-all.sh          # everything CI runs, about 8 seconds
 ```
 
-CI runs all of these, given access to the private assemblies repository — so a regression will
-be caught. Run them locally anyway: the feedback is seconds rather than minutes, and a fork
-without that access only gets the first two.
+One script, and CI calls the same one, so they cannot disagree about what "the checks" are.
+`--list` names them; `--with-sweep` adds the ~43 s drive sweep.
+
+Checks needing the game assemblies are skipped with a notice rather than failed, so this is
+worth running without a KSA install. On a fork the `tooling` job runs in full — it needs no
+secret — and only the `build` job is gated, skipping with a notice.
+
+`./tools/install-hooks.sh` also wires it to `pre-push`.
 
 ### How the code is laid out
 
