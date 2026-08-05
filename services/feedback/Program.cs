@@ -72,6 +72,15 @@ public static class Program
                     }));
         });
 
+        builder.Services.AddHttpClient("moderation", client =>
+        {
+            client.BaseAddress = new Uri("https://api.openai.com/");
+
+            // Short: this sits in the request path, and a slow moderator must not become a slow
+            // endpoint. A timeout is treated the same as any other failure below.
+            client.Timeout = TimeSpan.FromSeconds(6);
+        });
+
         builder.Services.AddHttpClient("github", client =>
         {
             client.BaseAddress = new Uri("https://api.github.com/");
@@ -124,6 +133,21 @@ public static class Program
                     statusCode: StatusCodes.Status426UpgradeRequired);
             }
 
+            // Only what a person wrote. The log is machine output, and sending it would be both
+            // pointless and a much larger disclosure than the reporter intended.
+            Verdict verdict = await Moderate(
+                $"{report.Summary}\n{report.Detail}", factory, config, log, cancellation);
+
+            if (verdict == Verdict.Refused)
+            {
+                // Said plainly rather than silently dropped: a false positive on a real bug report
+                // is possible, and someone who is told can rephrase. A flooder learns nothing
+                // useful from it either.
+                return Results.Json(
+                    new { error = "that reads as abusive; please rewrite it" },
+                    statusCode: StatusCodes.Status422UnprocessableEntity);
+            }
+
             string fingerprint = Guard.Fingerprint(report.Summary, report.Detail);
             if (!TryReserve(fingerprint, out string refusal))
             {
@@ -150,7 +174,9 @@ public static class Program
             {
                 title = Title(report),
                 body = Body(report),
-                labels = new[] { "from-game", report.Kind == "idea" ? "enhancement" : "bug" },
+                labels = verdict == Verdict.Unchecked
+                    ? new[] { "from-game", report.Kind == "idea" ? "enhancement" : "bug", "unmoderated" }
+                    : new[] { "from-game", report.Kind == "idea" ? "enhancement" : "bug" },
             };
 
             HttpResponseMessage response = await github.PostAsJsonAsync(
@@ -174,6 +200,70 @@ public static class Program
         .WithRequestTimeout(TimeSpan.FromSeconds(20));
 
         app.Run();
+    }
+
+    /// <summary>What the moderator said, or that it never answered.</summary>
+    private enum Verdict
+    {
+        /// <summary>Checked and acceptable, or no moderator configured.</summary>
+        Allowed,
+
+        /// <summary>Checked and flagged.</summary>
+        Refused,
+
+        /// <summary>The moderator could not be reached. Filed, and labelled as such.</summary>
+        Unchecked,
+    }
+
+    /// <summary>
+    /// Asks OpenAI's moderation endpoint whether text is abusive.
+    ///
+    /// <para>Fails <b>soft</b>: an outage there must not stop bug reports arriving, so an
+    /// unreachable moderator files the issue with an <c>unmoderated</c> label instead. Failing
+    /// closed would make someone else's availability decide whether this works; failing silently
+    /// open would let an outage quietly publish anything.</para>
+    /// </summary>
+    private static async Task<Verdict> Moderate(
+        string text,
+        IHttpClientFactory factory,
+        IConfiguration config,
+        ILogger log,
+        CancellationToken cancellation)
+    {
+        string? key = config["MODERATION_API_KEY"];
+        if (string.IsNullOrWhiteSpace(key)) return Verdict.Allowed;
+
+        try
+        {
+            HttpClient client = factory.CreateClient("moderation");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+
+            HttpResponseMessage response = await client.PostAsJsonAsync(
+                "v1/moderations",
+                new { model = "omni-moderation-latest", input = text },
+                cancellation);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                log.LogWarning("moderation returned {Status}", response.StatusCode);
+                return Verdict.Unchecked;
+            }
+
+            using JsonDocument body = JsonDocument.Parse(
+                await response.Content.ReadAsStringAsync(cancellation));
+
+            bool flagged = body.RootElement
+                .GetProperty("results")[0]
+                .GetProperty("flagged")
+                .GetBoolean();
+
+            return flagged ? Verdict.Refused : Verdict.Allowed;
+        }
+        catch (Exception e)
+        {
+            log.LogWarning("moderation unreachable: {Message}", e.Message);
+            return Verdict.Unchecked;
+        }
     }
 
     /// <summary>

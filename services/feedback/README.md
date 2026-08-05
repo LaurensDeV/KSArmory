@@ -58,6 +58,7 @@ failure:
 | **60 issues per day, service wide** | a botnet, where per-address limiting does nothing |
 | Optional `FEEDBACK_SECRET` | casual scripts, and nothing more: the mod ships it, so it can be read out of the DLL |
 | `MIN_MOD_VERSION` | reports against versions whose bugs are already fixed |
+| OpenAI moderation, when a key is set | abuse and slurs reaching a public issue |
 
 Version comparison is numeric per component, never lexical: `0.10.0` is newer
 than `0.9.0` and a string comparison says the opposite. A missing or
@@ -72,8 +73,27 @@ morning".
 trade: durable counters mean a database, and the ceiling exists to bound a
 catastrophe rather than to be exact.
 
-None of this filters content. A report can still be rude or useless, and that
-is moderation, not engineering. What it cannot be is *dangerous* to render.
+### Moderation
+
+Everything above makes text *safe to render*. None of it says whether the text
+is vile, which is a different question and not one a wordlist answers well.
+
+With `MODERATION_API_KEY` set, the summary and detail go to OpenAI's moderation
+endpoint (`omni-moderation-latest`, free with a key) before an issue is filed.
+Flagged text gets `422` and a plain message, because a false positive on a real
+bug report is possible and someone who is told can rewrite it.
+
+Only what a person typed is sent. The log is machine output: sending it would
+be pointless and a far larger disclosure than the reporter intended.
+
+**It fails soft.** An unreachable moderator files the issue anyway, labelled
+`unmoderated`. Failing closed would put someone else's availability in charge
+of whether bug reports work at all; failing open silently would let an outage
+quietly publish anything. A label says which issues were never checked, so they
+can be looked at.
+
+A report can still be rude or useless, and that is triage rather than
+engineering. What it cannot be is dangerous to render.
 
 ## Configuration
 
@@ -83,6 +103,7 @@ is moderation, not engineering. What it cannot be is *dangerous* to render.
 | `GITHUB_REPOSITORY` | `LaurensDeV/KSArmory` |
 | `FEEDBACK_SECRET` | optional; when set, a report must carry the same string |
 | `MIN_MOD_VERSION` | optional; oldest version accepted, e.g. `0.8.9`. Unset accepts any |
+| `MODERATION_API_KEY` | optional; an OpenAI key. Unset skips the check entirely |
 
 Scope the token to Issues on one repository. It is on a machine that accepts
 requests from anyone, so it should be able to do exactly one thing.
