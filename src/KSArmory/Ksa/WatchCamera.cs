@@ -35,11 +35,9 @@ internal sealed class WatchCamera
     /// <summary>The craft being turned towards, or null once it has arrived.</summary>
     public Vehicle? Target => _target;
 
-    /// <summary>Starts turning towards a craft, or stops if it is already the one.</summary>
-    public void Toggle(Vehicle? vehicle)
+    /// <summary>Starts turning towards a craft, restarting the turn if it is already the one.</summary>
+    public void Watch(Vehicle? vehicle)
     {
-        if (ReferenceEquals(vehicle, _target)) { Release(); return; }
-
         _target = vehicle;
         _elapsed = 0.0;
     }

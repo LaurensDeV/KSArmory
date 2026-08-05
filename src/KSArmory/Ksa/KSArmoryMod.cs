@@ -36,7 +36,6 @@ public sealed class KSArmoryMod
     private readonly WarpPolicy _warp = new();
 
     // The short-lived marker the systems list drops on a craft.
-    private readonly Ping _ping = new();
 
     // Holds the main view on one system without handing it the controls.
     private readonly WatchCamera _watch = new();
@@ -54,7 +53,7 @@ public sealed class KSArmoryMod
     public void OnFullyLoaded()
     {
         _battery = new DefenceBattery(_config, _policy);
-        _ui = new Ui(_config, _policy, _battery, _warp, _ping, _watch);
+        _ui = new Ui(_config, _policy, _battery, _warp, _watch);
         Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -130,12 +129,6 @@ public sealed class KSArmoryMod
             // panel is submitted first, so a full-screen overlay added here sits above the scene
             // and below anything the operator is reading.
             if (KsaWorld.InFlight) Markers.Draw(_ui.Systems, _battery.Platform);
-
-            // After the overlay, so the marker sits on top of it rather than under a track line.
-            if (_ping.Tick(dt, out double pingLeft) is { } marked)
-            {
-                Visuals.DrawPing(marked, pingLeft);
-            }
 
             // Both of these write a camera, and both must be last and every frame: KSA's
             // controller writes from its own mode, so a view taken earlier in the frame is
@@ -222,7 +215,6 @@ public sealed class KSArmoryMod
             Log.Info($"timewarp restored to {_warp.HeldSpeed:F0}x - unloading");
         }
         _warp.Clear();
-        _ping.Clear();
         _watch.Release();
 
         _battery?.Reset();

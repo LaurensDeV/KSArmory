@@ -5,7 +5,8 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// A bracket on every weapons system in view, each labelled with its name, armament and range.
+/// A bracket on every weapons system, labelled with its name, armament and range when the pointer
+/// is on it or when it has been pinned from the panel.
 ///
 /// <para>Modelled on the game's own object markers, so a site reads the way a mountain or a
 /// vessel already does. An ImGui overlay rather than gizmos: a marker belongs on the glass, at a
@@ -28,6 +29,21 @@ internal static class Markers
 
     // Pointer distance, in pixels, that counts as hovering a marker.
     private const float HoverRadius = 18f;
+
+    // Systems whose label stays up without the pointer on them. Reference identity, which is what
+    // a Vehicle compares by -- two craft are never equal, so a stale entry cannot shadow a live
+    // one. Pruned in Draw as craft are destroyed.
+    private static readonly HashSet<Vehicle> Pinned = [];
+
+    public static bool IsPinned(Vehicle craft) => Pinned.Contains(craft);
+
+    /// <summary>Pins a system's label up, or takes it down if it was already pinned.</summary>
+    public static void TogglePinned(Vehicle craft)
+    {
+        if (!Pinned.Remove(craft)) Pinned.Add(craft);
+    }
+
+    public static void Forget(Vehicle craft) => Pinned.Remove(craft);
 
     public static void Draw(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems,
                             Vehicle? active)
@@ -59,8 +75,7 @@ internal static class Markers
         float2 cursor = ImGui.GetMousePos();
         double3 eye = KsaWorld.CameraPositionEcl();
 
-        // Every marker keeps its label, so a system reads as a name and a range without having to
-        // be found with the pointer first -- which is the whole job when it is off screen.
+        // Labelled either because the pointer is on it or because it was pinned from the panel.
         List<(int Index, float2 At)> labels = [];
 
         // The hovered one is drawn last so its label sits over any neighbouring bracket.
@@ -70,7 +85,7 @@ internal static class Markers
         for (int i = 0; i < systems.Count; i++)
         {
             (Vehicle craft, WeaponInventory _) = systems[i];
-            if (!KsaWorld.IsAlive(craft)) continue;
+            if (!KsaWorld.IsAlive(craft)) { Pinned.Remove(craft); continue; }
 
             double3 atEcl = KsaWorld.PositionEcl(craft);
             if (!KsaWorld.TryProjectOrClamp(atEcl, out float2 at, out bool inView)) continue;
@@ -90,7 +105,7 @@ internal static class Markers
                 hovered = i;
                 hoveredAt = at;
             }
-            else
+            else if (Pinned.Contains(craft))
             {
                 labels.Add((i, at));
             }

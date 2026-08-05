@@ -49,6 +49,19 @@ if [[ -n "$missing" ]]; then
     fail "these source files are in no row of CLAUDE.md's Layout table"
 fi
 
+# And the other direction. A row naming a file that no longer exists is the worse half of the
+# same problem -- coverage alone stays green when a file is deleted, and the row is then trusted.
+stale=""
+while IFS= read -r path; do
+    [[ -e "$path" || -e "src/KSArmory/$path" ]] || stale+="    $path"$'\n'
+done < <(grep -oE '`(src/|tools/|docs/|tests/|Sim/|Ksa/)[A-Za-z0-9_./*-]+`' <<< "$rows" \
+         | tr -d '`' | grep -v '[*]' | sort -u)
+
+if [[ -n "$stale" ]]; then
+    echo "$stale"
+    fail "CLAUDE.md's Layout table names these, and they do not exist"
+fi
+
 # --- the API surface counts -------------------------------------------------
 #
 # docs/KSA-API-SURFACE.md is generated and states its own totals on line 10. Any other file

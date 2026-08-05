@@ -258,9 +258,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
 | `Ksa/Ui.cs`, `Ksa/Visuals.cs` | ImGui panel, gizmo rendering |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
-| `Ksa/Markers.cs` | on-screen brackets over every weapons system, with range on hover |
-| `Ksa/WatchCamera.cs` | holds the main view on one system without handing it the controls |
-| `Ksa/Ping.cs` | the short-lived marker that finds a system in the world |
+| `Ksa/Markers.cs` | on-screen brackets over every weapons system, labelled on hover or when pinned |
+| `Ksa/WatchCamera.cs` | nudges the main view round onto one system, then lets go |
 | `Ksa/Track.cs` | a radar contact bound to a KSA vehicle |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the battery can see and why |

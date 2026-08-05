@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery battery, WarpPolicy warp, Ping ping, WatchCamera watch)
+internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery battery, WarpPolicy warp, WatchCamera watch)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -23,7 +23,6 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private readonly BatteryConfig _policy = policy;
     private readonly DefenceBattery _battery = battery;
     private readonly WarpPolicy _warp = warp;
-    private readonly Ping _ping = ping;
     private readonly WatchCamera _watch = watch;
     private readonly List<int> _viewports = [];
     private readonly List<(string Name, string Character)> _roster = [];
@@ -174,23 +173,27 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
             // Two different things, so two buttons. Going there moves the camera and the
             // controls; taking the battery moves which craft this mod is running on. Wanting to
             // watch a site without commandeering it is the whole reason PinPlatform exists.
-            // Point the camera at it and mark it, without moving or commandeering anything.
+            // Point the camera at it and keep its label up, without moving or commandeering
+            // anything. The button tracks the label rather than the turn, because the turn ends
+            // on arrival and a button that reverted a second after being pressed would read as
+            // having failed.
             // ASCII on purpose: ImGui's default font carries basic Latin only, so a crosshair
             // glyph would render as a box.
-            bool watching = ReferenceEquals(craft, _watch.Target);
-            if (watching) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
-            if (ImGui.Button(watching ? "(o)" : "(+)"))
+            bool pinned = Markers.IsPinned(craft);
+            if (pinned) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
+            if (ImGui.Button(pinned ? "(o)" : "(+)"))
             {
-                _watch.Toggle(craft);
-                _ping.Mark(craft);
+                Markers.TogglePinned(craft);
+                if (pinned) _watch.Release();
+                else _watch.Watch(craft);
             }
-            if (watching) ImGui.PopStyleColor();
+            if (pinned) ImGui.PopStyleColor();
             if (ImGui.IsItemHovered())
             {
-                ImGui.SetTooltip(watching
-                    ? "Turning towards it. Click to stop, or just drag the view."
-                    : "Turn the view towards it. It stops once it is looking,\n"
-                      + "and you keep control of the camera throughout.");
+                ImGui.SetTooltip(pinned
+                    ? "Labelled on screen. Click to stop labelling it."
+                    : "Turn the view towards it and keep its label up. The turn stops\n"
+                      + "once it is looking, and you keep control of the camera throughout.");
             }
             ImGui.SameLine();
 
