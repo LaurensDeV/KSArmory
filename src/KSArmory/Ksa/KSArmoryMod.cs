@@ -35,6 +35,9 @@ public sealed class KSArmoryMod
     private bool _disabled;
     private readonly WarpPolicy _warp = new();
 
+    // The short-lived marker the systems list drops on a craft.
+    private readonly Ping _ping = new();
+
     // Last kitten reported, so the character is logged once per EVA rather than every frame.
     private string _lastKittenSeen = string.Empty;
 
@@ -48,7 +51,7 @@ public sealed class KSArmoryMod
     public void OnFullyLoaded()
     {
         _battery = new DefenceBattery(_config, _policy);
-        _ui = new Ui(_config, _policy, _battery, _warp);
+        _ui = new Ui(_config, _policy, _battery, _warp, _ping);
         Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -119,6 +122,12 @@ public sealed class KSArmoryMod
             _ui.Draw();
 
             if (KsaWorld.InFlight) Visuals.Draw(_battery, _config);
+
+            // After the overlay, so the marker sits on top of it rather than under a track line.
+            if (_ping.Tick(dt, out double pingLeft) is { } marked)
+            {
+                Visuals.DrawPing(marked, pingLeft);
+            }
 
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
@@ -201,6 +210,7 @@ public sealed class KSArmoryMod
             Log.Info($"timewarp restored to {_warp.HeldSpeed:F0}x - unloading");
         }
         _warp.Clear();
+        _ping.Clear();
 
         _battery?.Reset();
         KsaWorld.ResetSimStepTracking();

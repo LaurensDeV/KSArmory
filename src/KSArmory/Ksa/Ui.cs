@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery battery, WarpPolicy warp)
+internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery battery, WarpPolicy warp, Ping ping)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -23,6 +23,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private readonly BatteryConfig _policy = policy;
     private readonly DefenceBattery _battery = battery;
     private readonly WarpPolicy _warp = warp;
+    private readonly Ping _ping = ping;
     private readonly List<int> _viewports = [];
     private readonly List<(string Name, string Character)> _roster = [];
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
@@ -166,6 +167,17 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
             // Two different things, so two buttons. Going there moves the camera and the
             // controls; taking the battery moves which craft this mod is running on. Wanting to
             // watch a site without commandeering it is the whole reason PinPlatform exists.
+            // Point the camera at it and mark it, without moving or commandeering anything.
+            // ASCII on purpose: ImGui's default font carries basic Latin only, so a crosshair
+            // glyph would render as a box.
+            if (ImGui.Button("(+)"))
+            {
+                KsaWorld.LookAtEcl(KsaWorld.PositionEcl(craft));
+                _ping.Mark(craft);
+            }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Look at it and mark it");
+            ImGui.SameLine();
+
             bool flyingIt = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
             if (!flyingIt)
             {

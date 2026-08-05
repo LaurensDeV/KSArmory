@@ -712,6 +712,68 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>Where the camera is, in Ecl. Zero if there is none.</summary>
+    public static double3 CameraPositionEcl()
+    {
+        try
+        {
+            return Program.GetMainCamera() is { } camera ? camera.EgoToEcl(Vec.Zero) : Vec.Zero;
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
+
+    /// <summary>
+    /// Turns the current camera to face a craft, without moving it or taking control.
+    ///
+    /// <para><c>LookAt</c> only sets the rotation, so the view stays exactly where the player put
+    /// it and simply swings round. That is the difference from <see cref="GoTo"/>, which follows
+    /// the craft and hands it the controls: this answers "where is it" and gives the view back.</para>
+    ///
+    /// <para>Holds for one frame. KSA's camera controller rewrites the rotation from whatever
+    /// mode the viewport is in, so a free camera keeps the new heading and one that is following
+    /// something snaps back — which is correct, since it is still following that thing.</para>
+    /// </summary>
+    public static bool LookAtEcl(double3 targetEcl)
+    {
+        if (!Vec.IsFinite(targetEcl)) return false;
+
+        try
+        {
+            if (Program.GetMainCamera() is not { } camera) return false;
+
+            camera.LookAt(targetEcl, LocalUpAtCamera(camera));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Something to keep level against. The nearby body's radial-out if there is one, so the
+    // horizon stays where the eye expects it; otherwise the camera's own up, which at least does
+    // not roll the view.
+    private static double3 LocalUpAtCamera(Camera camera)
+    {
+        try
+        {
+            if (camera.NearbyCelestial is { } body)
+            {
+                double3 up = Vec.Unit(camera.EgoToEcl(Vec.Zero) - body.GetPositionEcl());
+                if (Vec.IsFinite(up) && Vec.Len(up) > 0.5) return up;
+            }
+        }
+        catch
+        {
+            // No nearby body, or none resolvable. Fall through.
+        }
+
+        return new double3(0, 0, 1);
+    }
+
     /// <summary>
     /// Points the camera at a craft and takes control of it.
     ///

@@ -226,4 +226,54 @@ internal static class Visuals
                 KsaWorld.DrawLineEgo(roundEgo, tgtEgo, LockColour);
         }
     }
+
+    // Colour of the "which one is it" marker. Deliberately not any of the track or round
+    // colours: it answers a question about the panel, not about the engagement.
+    private static readonly float4 PingColour = new(1.0f, 0.95f, 0.35f, 1f);
+
+    /// <summary>
+    /// Draws the short-lived marker on a craft picked out of the systems list.
+    ///
+    /// <para>A ring of segments rather than a sphere, and scaled to distance so it stays the same
+    /// size on screen. A fixed-radius marker is either lost inside a nearby craft or invisible
+    /// against a distant one, which is the opposite of what it is for.</para>
+    /// </summary>
+    public static void DrawPing(Vehicle craft, double fraction)
+    {
+        double3 atEcl = KsaWorld.PositionEcl(craft);
+        double3 eyeEcl = KsaWorld.CameraPositionEcl();
+        double range = Vec.Len(atEcl - eyeEcl);
+        if (!double.IsFinite(range) || range <= 0.0) return;
+
+        // About a degree across, floored so it does not vanish up close.
+        double radius = Math.Max(KsaWorld.MeanRadius(craft) * 1.6, range * 0.02);
+
+        // Fades by shrinking the ring rather than by alpha: the gizmo renderer takes a colour per
+        // line and nothing here knows whether alpha is honoured, so shrinking is the effect that
+        // is certainly visible.
+        radius *= 0.6 + 0.4 * Math.Clamp(fraction, 0.0, 1.0);
+
+        double3 forward = Vec.Unit(atEcl - eyeEcl);
+        double3 right = Vec.Unit(Vec.Cross(forward, new double3(0, 0, 1)));
+        if (!Vec.IsFinite(right) || Vec.Len(right) < 0.5) right = new double3(1, 0, 0);
+        double3 up = Vec.Cross(forward, right);
+
+        const int Segments = 24;
+        double3 previous = default;
+        for (int i = 0; i <= Segments; i++)
+        {
+            double a = i * (2.0 * Math.PI / Segments);
+            double3 point = atEcl + (right * Math.Cos(a) + up * Math.Sin(a)) * radius;
+            if (i > 0) KsaWorld.DrawLineEcl(previous, point, PingColour);
+            previous = point;
+        }
+
+        // Four ticks pointing in, so it reads as a sight rather than as a bubble.
+        for (int i = 0; i < 4; i++)
+        {
+            double a = i * (Math.PI / 2.0);
+            double3 edge = right * Math.Cos(a) + up * Math.Sin(a);
+            KsaWorld.DrawLineEcl(atEcl + edge * radius, atEcl + edge * (radius * 0.55), PingColour);
+        }
+    }
 }
