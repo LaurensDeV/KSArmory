@@ -3,7 +3,7 @@
 #
 # Same R2 bucket as the other layers; only the state key differs.
 
-bucket     = "laurens-tofu-state"
+bucket     = "tofu-state"
 endpoints  = { s3 = "https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com" }
 access_key = "<R2_ACCESS_KEY_ID>"
 secret_key = "<R2_SECRET_ACCESS_KEY>"
