@@ -22,12 +22,21 @@ fi
 mkdir -p "$IMPORT_DIR"
 
 echo "syncing game assemblies from $KSA_DIR"
+shopt -s nullglob
 for pattern in 'KSA.dll' 'Brutal.*.dll' 'BepuPhysics.dll' 'BepuUtilities.dll' \
                'Planet.*.dll' 'MemoryPack.Core.dll' 'Tomlet.dll' \
                'CommunityToolkit.HighPerformance.dll' 'MathNet.Numerics.dll'; do
+    # nullglob drops a pattern that matches nothing, so a game build that stops shipping one is
+    # skipped silently. A copy that fails is not: it means Import/ still holds the previous build.
     # shellcheck disable=SC2086
-    cp "$KSA_DIR"/$pattern "$IMPORT_DIR/" 2>/dev/null || true
+    for src in "$KSA_DIR"/$pattern; do
+        # The install is read-only and cp carries that mode across, so the destination left by a
+        # previous sync cannot be opened for writing: -f unlinks it, chmod stops it recurring.
+        cp -f "$src" "$IMPORT_DIR/"
+        chmod u+rw "$IMPORT_DIR/$(basename "$src")"
+    done
 done
+shopt -u nullglob
 
 # StarMap.API.dll ships with the StarMap loader, not with the game.
 if [[ -n "${STARMAP_DIR:-}" && -f "$STARMAP_DIR/StarMap.API.dll" ]]; then
