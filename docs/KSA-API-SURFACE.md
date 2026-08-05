@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-109 types and 269 members across 6 assemblies.
+107 types and 265 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -388,15 +388,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.CharacterReference Character`
 - `void .ctor(KSA.CelestialSystem, string, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 
-### KSA.KittenRosterData
-
-- `System.Collections.Generic.List`1<KSA.KittenRosterEntryData> Kittens`
-
-### KSA.KittenRosterEntryData
-
-- `string Character`
-- `string Name`
-
 ### KSA.LandmarkReference
 
 - `bool IsLaunchPad`
@@ -568,7 +559,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Universe
 
 - `KSA.CelestialSystem get_CurrentSystem()`
-- `KSA.KittenRosterData get_KittenRoster()`
 - `KSA.SimStep GetLastSimStep()`
 - `KSA.SimTime GetElapsedSimTime()`
 - `bool IsPaused()`

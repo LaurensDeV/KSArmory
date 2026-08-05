@@ -969,64 +969,7 @@ internal static class KsaWorld
     /// <summary>The character this mod declares, whose kitten carries the shoulder cannon.</summary>
     public const string ArmedCharacterId = "KSArmoryArmedKitten";
 
-    /// <summary>Every kitten on the roster, as (name, character Id).</summary>
-    ///
-    /// <para>Also the only way to tell whether this mod's character registered at all:
-    /// <c>ModLibrary.AllCharacters</c> is internal, so the roster is the one public surface that
-    /// names one.</para>
-    public static void CollectRoster(List<(string Name, string Character)> into)
-    {
-        into.Clear();
-        try
-        {
-            foreach (KittenRosterEntryData kitten in Universe.KittenRoster.Kittens)
-            {
-                into.Add((kitten.Name, kitten.Character));
-            }
-        }
-        catch
-        {
-            // No roster yet, which is normal before a universe exists.
-        }
-    }
 
-    /// <summary>
-    /// Puts this mod's armed character on a roster kitten.
-    ///
-    /// <para>Needed because the roster picks a character once, when it is first created, and an
-    /// existing save's roster predates any character a mod adds — so nothing would ever be
-    /// wearing ours however correctly it is declared.</para>
-    ///
-    /// <para>Takes effect on the <em>next</em> kitten built from that entry: a KittenEva makes its
-    /// renderable from the character Id in its constructor, so one already on its feet keeps the
-    /// body it was born with. EVA again to see the change.</para>
-    /// </summary>
-    /// <returns>False if the character is not registered, there is no roster, or no such kitten.</returns>
-    public static bool SetRosterCharacter(string kittenName, string characterId)
-    {
-        // Checked before the write, not after. A roster naming a character the game does not have
-        // is not a missing model: KittenEva's constructor dereferences the lookup, so the next
-        // kitten built from that entry takes the whole game down with
-        // "CharacterReference is null". Writing an Id we have not resolved is the bug.
-        if (!IsCharacterRegistered(characterId)) return false;
-
-        try
-        {
-            foreach (KittenRosterEntryData kitten in Universe.KittenRoster.Kittens)
-            {
-                if (kitten.Name != kittenName) continue;
-
-                kitten.Character = characterId;
-                return true;
-            }
-        }
-        catch
-        {
-            return false;
-        }
-
-        return false;
-    }
 
     /// <summary>
     /// Whether the game resolved a character by this Id. False for one this mod declares but

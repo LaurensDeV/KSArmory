@@ -31,7 +31,6 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     private readonly CraftMover _mover = mover;
     private readonly BurstTool _bursts = bursts;
     private readonly List<int> _viewports = [];
-    private readonly List<(string Name, string Character)> _roster = [];
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
     private readonly List<SurveyedPart> _surveyed = [];
     private readonly List<KSA.Vehicle> _craftScratch = [];
@@ -56,9 +55,8 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     }
 
     // What a pane is about. Anything belonging to one installation is a tab in that system's own
-    // window instead; Session is the rest, and Debug is for whoever is working on the mod rather
-    // than playing with it.
-    private enum PaneGroup { Session, Debug }
+    // window; Debug is for whoever is working on the mod rather than playing with it.
+    private enum PaneGroup { Debug }
 
     // One pop-out window: what it is called, whether it is open, and what it draws. A class
     // rather than a struct so Open is shared with the button that toggles it.
@@ -77,7 +75,6 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     // appear in, which runs roughly from what an operator touches most to what they touch once.
     private Pane[] Panes => _panes ??=
     [
-        new("Kittens", DrawKittenRoster, PaneGroup.Session),
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -368,8 +365,6 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
 
     private void DrawPaneToggles()
     {
-        DrawPaneGroup("Session", PaneGroup.Session);
-
         // Collapsed, and last: these answer questions about the mod, not about the engagement.
         if (ImGui.TreeNode("Debug"))
         {
@@ -444,13 +439,6 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         bool flyingIt = ReferenceEquals(_battery.Platform, KsaWorld.ControlledVehicle);
         ImGui.Text($"Platform: {platform}");
         if (!flyingIt) ImGui.TextDisabled("  (you are flying something else; the battery stays here)");
-
-        if (KsaWorld.CharacterOf(_battery.Platform) is { } character)
-        {
-            bool armed = character == KsaWorld.ArmedCharacterId;
-            ImGui.TextColored(armed ? Green : Amber, $"  kitten wearing '{character}'");
-            if (!armed) ImGui.TextDisabled("  Arm it, then EVA again - the body is fixed at EVA.");
-        }
 
         if (_battery.Launcher is not null)
         {
@@ -708,76 +696,6 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         }
     }
 
-    // Spawns a drone on a timed pass, so the system can be tested without building and flying a
-    // second craft by hand.
-    // The kitten roster, and which character each one wears.
-    //
-    // Doubles as the only check that this mod's character registered: ModLibrary.AllCharacters is
-    // internal, so a roster entry naming it is the one public evidence it loaded. If "arm" leaves
-    // the entry reading something else, the XML did not take.
-    private void DrawKittenRoster()
-    {
-        KsaWorld.CollectRoster(_roster);
-        if (_roster.Count == 0)
-        {
-            ImGui.TextDisabled("  No roster yet.");
-            return;
-        }
-
-        int armed = 0;
-        for (int i = 0; i < _roster.Count; i++)
-        {
-            if (_roster[i].Character == KsaWorld.ArmedCharacterId) armed++;
-        }
-
-        // Say it up front rather than letting every Arm fail silently. An asset file missing
-        // from mod.toml is never reported, so this is the only place it surfaces.
-        // Every link in this chain fails silently, so every link is asked about separately.
-        KsaWorld.CollectArmedChain(_armedChain);
-        bool available = true;
-        for (int i = 0; i < _armedChain.Count; i++)
-        {
-            (string what, string id, bool ok) = _armedChain[i];
-            if (ok)
-            {
-                ImGui.TextColored(Green, $"  {what}: {id}");
-            }
-            else
-            {
-                ImGui.TextColored(Red, $"  {what}: {id} did NOT resolve");
-                available = false;
-            }
-        }
-
-        if (!available)
-        {
-            ImGui.TextDisabled("  The first red line is where it breaks. A declaration that does");
-            ImGui.TextDisabled("  not resolve is skipped in silence by KSA, not reported.");
-            return;
-        }
-
-        ImGui.TextDisabled($"  {armed} of {_roster.Count} carry the shoulder cannon.");
-        ImGui.TextDisabled("  Arming changes the *next* kitten built from that entry - EVA again.");
-
-        for (int i = 0; i < _roster.Count; i++)
-        {
-            (string name, string character) = _roster[i];
-            bool isArmed = character == KsaWorld.ArmedCharacterId;
-
-            ImGui.PushID(i);
-            if (isArmed) ImGui.TextColored(Green, $"  {name}");
-            else if (ImGui.Button($"Arm##{i}")) KsaWorld.SetRosterCharacter(name, KsaWorld.ArmedCharacterId);
-            if (!isArmed)
-            {
-                ImGui.SameLine();
-                ImGui.Text($"{name}");
-            }
-            ImGui.SameLine();
-            ImGui.TextDisabled($"({character})");
-            ImGui.PopID();
-        }
-
-    }
 
     private void DrawBurstTool()
     {
