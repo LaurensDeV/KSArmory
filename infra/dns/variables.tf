@@ -15,6 +15,15 @@ variable "domain" {
   default     = "ksarmory.com"
 }
 
+# Every name here needs a matching site block in the Caddyfile on the VPS. Caddy
+# fails the TLS handshake for names it does not serve, so an unmatched record
+# reads as a broken site rather than an absent one.
+variable "subdomains" {
+  description = "Hostnames served from the same machine as the apex."
+  type        = set(string)
+  default     = ["api"]
+}
+
 # Caddy answers the ACME HTTP-01 challenge on the VPS and holds the certificate.
 # Proxying puts Cloudflare's certificate in front of that, so the origin needs
 # Full (strict) or the site breaks with a redirect loop.

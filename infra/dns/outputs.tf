@@ -5,5 +5,8 @@ output "domain" {
 
 output "hostnames" {
   description = "Every name declared here, for cross-checking against the Caddyfile."
-  value       = [var.domain, "www.${var.domain}"]
+  value = concat(
+    [var.domain, "www.${var.domain}"],
+    [for s in var.subdomains : "${s}.${var.domain}"],
+  )
 }

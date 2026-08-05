@@ -28,11 +28,22 @@ resource "cloudflare_dns_record" "apex_aaaa" {
   proxied = var.proxied
 }
 
-# CNAME rather than a second pair of address records: the apex is the only place
-# the VPS address is written down, so a move is one change.
+# CNAMEs rather than more address records: the apex is the only place the VPS
+# address is written down, so a move is one change.
 resource "cloudflare_dns_record" "www" {
   zone_id = var.zone_id
   name    = "www.${var.domain}"
+  type    = "CNAME"
+  content = var.domain
+  ttl     = local.ttl
+  proxied = var.proxied
+}
+
+resource "cloudflare_dns_record" "subdomain" {
+  for_each = var.subdomains
+
+  zone_id = var.zone_id
+  name    = "${each.key}.${var.domain}"
   type    = "CNAME"
   content = var.domain
   ttl     = local.ttl

@@ -41,9 +41,11 @@ on the domain's overview page.
 | `ksarmory.com` | A | `var.vps_ipv4` |
 | `ksarmory.com` | AAAA | `var.vps_ipv6`, omitted when empty |
 | `www.ksarmory.com` | CNAME | `ksarmory.com` |
+| `api.ksarmory.com` | CNAME | `ksarmory.com` |
 
-`www` is a CNAME rather than a second pair of address records, so moving the
-site is one change rather than three.
+Everything but the apex is a CNAME, so the VPS address appears once and moving
+the site is one change rather than four. Add a name by putting it in
+`var.subdomains`; `api` is there by default.
 
 ## Two things that will bite
 
