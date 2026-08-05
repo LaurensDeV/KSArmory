@@ -1,3 +1,4 @@
+using System.IO;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
@@ -394,6 +395,53 @@ internal static class KsaWorld
         catch
         {
             return false;
+        }
+    }
+
+    /// <summary>Where a save keeps its files, or false if it has no folder on disk.</summary>
+    public static bool TrySaveFolder(string saveId, out string folder)
+    {
+        folder = string.Empty;
+        if (string.IsNullOrWhiteSpace(saveId)) return false;
+
+        try
+        {
+            string path = Path.Combine(GameSaves.SaveFolderPath, saveId);
+            if (!Directory.Exists(path)) return false;
+
+            folder = path;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// When the open save was last written, as ticks, or 0 if there is none.
+    ///
+    /// <para>The only way to notice the player saving without patching the engine: StarMap has no
+    /// save hook, so the file's own timestamp is the event. Watching it is what lets the mod write
+    /// its settings <em>when the game writes</em> rather than continuously — and a continuous
+    /// write is what makes reloading a save unable to restore anything, because the file has
+    /// already been brought up to date with the session.</para>
+    /// </summary>
+    public static long CurrentSaveStamp()
+    {
+        try
+        {
+            if (GameSaves.Selected?.Id is not { Length: > 0 } id) return 0;
+
+            string folder = Path.Combine(GameSaves.SaveFolderPath, id);
+            string universe = Path.Combine(folder, "universe.xml");
+
+            if (File.Exists(universe)) return File.GetLastWriteTimeUtc(universe).Ticks;
+            return Directory.Exists(folder) ? Directory.GetLastWriteTimeUtc(folder).Ticks : 0;
+        }
+        catch
+        {
+            return 0;
         }
     }
 

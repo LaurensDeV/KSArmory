@@ -30,6 +30,12 @@ internal sealed class BatteryRoster(Config config)
     // what it was given.
     private string _scope = string.Empty;
 
+    // When the open save was last written. Settings are written to disk on the frame this
+    // advances -- i.e. when the player saves -- and at no other time. Writing continuously is
+    // what stopped a reload restoring anything: the file was always already up to date with the
+    // session, so there was nothing older to come back to.
+    private long _savedAt;
+
     public int Count => _entries.Count;
 
     /// <summary>Every crewed system, in no particular order.</summary>
@@ -108,9 +114,23 @@ internal sealed class BatteryRoster(Config config)
         {
             // A different save is open. Adopt what it says instead of writing over it.
             _scope = scope;
+            _savedAt = KsaWorld.CurrentSaveStamp();
             Adopt();
             return;
         }
+
+        // Only when the game saves. A load then finds the settings as they were at that moment,
+        // because nothing has been written over them since.
+        long stamp = KsaWorld.CurrentSaveStamp();
+        if (stamp == 0 || stamp == _savedAt) return;
+
+        bool firstSight = _savedAt == 0;
+        _savedAt = stamp;
+
+        // The first stamp seen is the save as it already was, not the player saving.
+        if (firstSight) return;
+
+        Log.Info("settings: the game saved, writing the systems' settings with it");
 
         bool changed = false;
         foreach (KeyValuePair<Vehicle, Entry> kv in _entries)
@@ -139,10 +159,26 @@ internal sealed class BatteryRoster(Config config)
         if (applied > 0) Log.Info($"settings: re-read {applied} system(s) for the open save");
     }
 
+    /// <summary>
+    /// Writes now, whatever the save has done. For unload, and for anything that has to take
+    /// effect immediately rather than at the next save.
+    /// </summary>
+    public void WriteNow()
+    {
+        bool changed = false;
+        foreach (KeyValuePair<Vehicle, Entry> kv in _entries)
+        {
+            if (!KsaWorld.IsAlive(kv.Key)) continue;
+            changed |= SettingsStore.Remember(KsaWorld.DisplayName(kv.Key), kv.Value.Policy);
+        }
+
+        if (changed) SettingsStore.Save();
+    }
+
     public void Clear()
     {
         // Last chance: a battery about to be forgotten still holds settings someone chose.
-        Remember();
+        WriteNow();
 
         foreach (Entry e in _entries.Values) e.Battery.Reset();
         _entries.Clear();

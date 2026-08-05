@@ -304,6 +304,7 @@ internal sealed partial class Ui
         {
             SettingsStore.Forget(KsaWorld.DisplayName(craft));
             new BatterySettings().ApplyTo(_policy);
+            _batteries.WriteNow();
             Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
         }
 

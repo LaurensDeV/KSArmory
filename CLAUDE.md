@@ -284,7 +284,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 265 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 266 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -966,15 +966,16 @@ should not be weakened without understanding what they buy:
   the whole look, which suits KSA's art style, but it is a floor not a ceiling.
 - Rounds do not collide with terrain or structures, only their designated target.
 - Radar has no line-of-sight or occlusion check.
-- Battery settings survive a restart — `Ksa/SettingsStore.cs` keys them **by save, then by craft**
-  in JSON beside the log. KSA's save format cannot be extended (`UniverseData` is a fixed
-  XML-mapped class) and StarMap has no save or load hook, so the save's Id from
-  `GameSaves.Selected` scopes the mod's own file instead. `Selected` follows the save browser's
-  selection rather than being a guaranteed "currently loaded" pointer, and a session never loaded
-  from a save uses a shared bucket. A craft renamed in game still arrives with defaults. What is
-  *not* persisted is battery *state* — ammo, tracks, rounds in flight all start fresh.
+- Battery settings live **inside the save**, at `saves/<save>/KSArmory/systems.json`. KSA's save
+  format cannot be extended (`UniverseData` is a fixed XML-mapped class) and StarMap has no save or
+  load hook — but a save is a *directory*, so the file sits beside the `universe.xml` it belongs
+  to, under a mod-named folder so several mods can do this without agreeing on filenames.
 
-  **A save being opened must make the roster read, not write.** Selecting a save switches the
-  bucket *before* the craft are rebuilt, so a periodic write in that window stamps the outgoing
-  session's settings onto the save just opened — which looks like a save that refuses to keep what
-  it was given. `BatteryRoster` watches `SettingsStore.CurrentScope` and re-reads on a change.
+  That placement is chosen because it makes the awkward cases vanish rather than need code:
+  deleting a save deletes its settings, copying copies them, renaming takes them along. A session
+  with no save open falls back to `<user dir>/KSArmory/`, and the first save opened adopts it.
+
+  **Settings are written when the game writes its save**, detected by watching `universe.xml`'s
+  timestamp — not continuously. A continuous write is what stops a reload restoring anything: the
+  file is always already up to date with the session, so there is nothing older to go back to.
+  What is *not* persisted is battery *state* — ammo, tracks, rounds in flight all start fresh.
