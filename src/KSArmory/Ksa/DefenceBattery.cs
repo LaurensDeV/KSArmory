@@ -405,13 +405,6 @@ internal sealed class DefenceBattery(Config config)
         {
             Announce($"battery moved to {KsaWorld.DisplayName(v)}");
         }
-
-        // A kitten reports the character it was *built* with, which is the fact that separates a
-        // gun that will not render from a kitten that was armed too late.
-        if (KsaWorld.CharacterOf(v) is { } character)
-        {
-            Announce($"{KsaWorld.DisplayName(v)} is a kitten wearing '{character}'");
-        }
         Platform = v;
     }
 

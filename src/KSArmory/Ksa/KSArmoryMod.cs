@@ -31,6 +31,9 @@ public sealed class KSArmoryMod
     private bool _disabled;
     private readonly WarpPolicy _warp = new();
 
+    // Last kitten reported, so the character is logged once per EVA rather than every frame.
+    private string _lastKittenSeen = string.Empty;
+
     [StarMapImmediateLoad]
     public void OnImmediateLoad(Mod mod)
     {
@@ -136,6 +139,11 @@ public sealed class KSArmoryMod
         // overlay is drawn against it — leaving it inside the gated step froze the drawing's
         // frame of reference whenever the simulation did not advance.
         _battery.SampleWorld();
+
+        // Reported off the *controlled* vehicle, not the battery's platform: whether a gun
+        // renders has nothing to do with whether the battery mounted, and gating it on that hid
+        // the answer behind an unrelated tick box.
+        ReportControlledKitten();
 
         // Gate on the step the engine applied, not on the pause flag. Universe.IsPaused() is
         // `simulationSpeed == 0.0`, a statement about the setting rather than about whether the
@@ -286,6 +294,22 @@ public sealed class KSArmoryMod
             case WarpAction.None:
             default:
                 break;
+        }
+    }
+
+    // Says what character the kitten being flown was built with. That is the one fact that
+    // separates a gun that will not render from a kitten armed after it was already walking.
+    private void ReportControlledKitten()
+    {
+        Vehicle? controlled = KsaWorld.ControlledVehicle;
+        string id = $"{KsaWorld.DisplayName(controlled)}|{KsaWorld.CharacterOf(controlled) ?? ""}";
+        if (id == _lastKittenSeen) return;
+
+        _lastKittenSeen = id;
+        if (KsaWorld.CharacterOf(controlled) is { } character)
+        {
+            Log.Info($"flying kitten {KsaWorld.DisplayName(controlled)} wearing '{character}'"
+                     + (character == KsaWorld.ArmedCharacterId ? " - armed" : " - NOT armed"));
         }
     }
 
