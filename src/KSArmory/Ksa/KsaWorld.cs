@@ -915,6 +915,13 @@ internal static class KsaWorld
     /// angles the controller is already reading has neither problem, and leaves the player able
     /// to drag out of it mid-turn.</para>
     ///
+    /// <para>The angles are held in two places and only one of them is writable.
+    /// <c>OrbitView.Azimuth</c> on whatever the camera follows is the stored angle, and is what a
+    /// mouse drag moves; <c>OrbitController.Azimuth</c> is an <em>output</em>, respring towards it
+    /// every frame. Writing the controller's therefore lasts one frame and fights the spring, which
+    /// looks exactly like jitter. So: solve against the controller's, since those built the camera
+    /// being measured, and write the view's.</para>
+    ///
     /// <para>The geometry is <see cref="OrbitAim"/>, which is testable; this only reads the
     /// camera and writes the two numbers back.</para>
     /// </summary>
@@ -928,22 +935,28 @@ internal static class KsaWorld
             if (Program.MainViewport is not { } viewport) return false;
             if (viewport.OrbitController is not { } orbit) return false;
             if (Program.GetMainCamera() is not { } camera) return false;
+            if (camera.Following?.OrbitView is not { } view) return false;
 
-            double azimuth = orbit.Azimuth;
-            double elevation = orbit.Elevation;
+            double shownAzimuth = orbit.Azimuth;
+            double shownElevation = orbit.Elevation;
 
             if (!OrbitAim.TrySolve(camera.GetForwardEcl(), camera.GetRightEcl(),
-                                   azimuth, elevation, forwardEcl,
+                                   shownAzimuth, shownElevation, forwardEcl,
                                    out double toAzimuth, out double toElevation))
             {
                 return false;
             }
 
+            double azimuth = view.Azimuth;
+            double elevation = view.Elevation;
             OrbitAim.Ease(ref azimuth, ref elevation, toAzimuth, toElevation, rate, dt);
-            orbit.Azimuth = azimuth;
-            orbit.Elevation = elevation;
 
-            arrived = OrbitAim.Arrived(azimuth, elevation, toAzimuth, toElevation, arrivedRad);
+            view.Azimuth = azimuth;
+            view.Elevation = Math.Clamp(elevation, -Math.PI / 2.0, Math.PI / 2.0);
+
+            // Arrival is what the player sees, so measure the camera rather than what it chases.
+            arrived = OrbitAim.Arrived(shownAzimuth, shownElevation,
+                                       toAzimuth, toElevation, arrivedRad);
             return true;
         }
         catch

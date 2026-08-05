@@ -9,7 +9,8 @@ namespace KSArmory;
 /// its controller rewrites the camera from those every frame. So the way to aim that camera is to
 /// set the angles it is already reading — not to write the camera, which is overwritten before it
 /// renders, and not to switch the viewport to a fixed mode, which takes the view away from the
-/// player entirely.</para>
+/// player entirely. Which of the two copies of those angles is the writable one is a KSA fact, and
+/// lives with the caller.</para>
 ///
 /// <para>The frame those angles are measured in is private. It does not have to be: the
 /// controller builds the camera's own basis out of it, so the frame can be recovered <em>from</em>

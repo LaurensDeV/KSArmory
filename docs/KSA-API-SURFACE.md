@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-83 types and 221 members across 6 assemblies.
+83 types and 224 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -259,7 +259,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.IFollowable
 
-*referenced as a type only*
+- `KSA.OrbitView get_OrbitView()`
 
 ### KSA.IKeyed
 
@@ -344,7 +344,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.OrbitView
 
+- `double Azimuth`
 - `double DistancePower`
+- `double Elevation`
 
 ### KSA.Part
 

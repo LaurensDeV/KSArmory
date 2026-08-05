@@ -220,6 +220,40 @@ void DrawLine(double3 startEgo, double3 endEgo, float4 colour);
 Reachable as `Program.GizmosRenderer`. This is the cheapest way to render anything custom —
 no asset pipeline, no shaders.
 
+### Aiming the player's camera — `OrbitView`, not `OrbitController`
+
+Writing `Camera.LocalRotation` does nothing lasting: every viewport runs a controller that rebuilds
+its camera each frame. `ViewportBase.SetCameraMode(CameraMode.Fixed)` does hold, and is how a
+*secondary* viewport is driven — but on the main one it takes the view off the player and hides the
+interface, and `FixedController.OnFrame` divides by zero if the camera is following anything, so
+`Unfollow(changeControl: false)` has to come first.
+
+To turn the player's own view, move the orbit angles the controller is already reading. They exist
+in two places and **only one is writable**:
+
+| | |
+| --- | --- |
+| `Camera.Following.OrbitView.Azimuth` / `.Elevation` | the stored angles — **write these**; a mouse drag moves the same fields |
+| `OrbitController.Azimuth` / `.Elevation` | an **output**, resprung towards the stored pair every frame (`SpringInterpDriven`, 0.12 s) |
+
+Writing the controller's pair survives one frame and then fights the spring, which on screen is
+jitter rather than motion. Read them, though: they are what built the camera basis this frame, so
+they are the angles to solve against. Elevation is clamped to ±π/2 by the game and should be
+clamped on write too.
+
+The frame the angles are measured in is private (`GetFrame2Ecl`), but it need not be — the
+controller builds the camera's basis out of it:
+
+```csharp
+horizontal = frameX rotated about frameZ by Azimuth;
+right      = normalize(cross(horizontal, frameZ));   // == Camera.GetRightEcl()
+forward    = horizontal rotated about right by Elevation;
+```
+
+so undoing the elevation about the camera's right recovers the horizontal, and `cross(right,
+horizontal)` recovers the frame's vertical. That is everything aiming needs. `Sim/OrbitAim.cs` has
+the inversion, with the construction above reproduced in `OrbitAimTests` as a round trip.
+
 ### ImGui — `Brutal.ImGuiApi.ImGui`
 
 `ImString` has an implicit conversion from `string`, so plain literals work.

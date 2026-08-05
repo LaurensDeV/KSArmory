@@ -5,7 +5,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// A bracket on every weapons system in view, with its name and range when the cursor is on it.
+/// A bracket on every weapons system in view, each labelled with its name, armament and range.
 ///
 /// <para>Modelled on the game's own object markers, so a site reads the way a mountain or a
 /// vessel already does. An ImGui overlay rather than gizmos: a marker belongs on the glass, at a
@@ -59,6 +59,10 @@ internal static class Markers
         float2 cursor = ImGui.GetMousePos();
         double3 eye = KsaWorld.CameraPositionEcl();
 
+        // Every marker keeps its label, so a system reads as a name and a range without having to
+        // be found with the pointer first -- which is the whole job when it is off screen.
+        List<(int Index, float2 At)> labels = [];
+
         // The hovered one is drawn last so its label sits over any neighbouring bracket.
         int hovered = -1;
         float2 hoveredAt = default;
@@ -77,7 +81,7 @@ internal static class Markers
             // In view gets the bracket; out of view gets an arrow at the edge pointing at it, so
             // a site can be located from a craft that cannot see it.
             if (inView) DrawBracket(draw, at, colour);
-            else DrawEdgeArrow(draw, at, atEcl, eye, colour);
+            else DrawEdgeArrow(draw, at, colour);
 
             float dx = cursor.X - at.X;
             float dy = cursor.Y - at.Y;
@@ -86,14 +90,14 @@ internal static class Markers
                 hovered = i;
                 hoveredAt = at;
             }
+            else
+            {
+                labels.Add((i, at));
+            }
         }
 
-        if (hovered >= 0)
-        {
-            (Vehicle craft, WeaponInventory inv) = systems[hovered];
-            DrawLabel(draw, hoveredAt, KsaWorld.DisplayName(craft),
-                      Describe(inv, Vec.Len(KsaWorld.PositionEcl(craft) - eye)));
-        }
+        foreach ((int index, float2 at) in labels) DrawLabel(draw, main, at, systems[index], eye);
+        if (hovered >= 0) DrawLabel(draw, main, hoveredAt, systems[hovered], eye);
 
         ImGui.End();
     }
@@ -114,11 +118,9 @@ internal static class Markers
         draw.AddLine(new float2(r, b), new float2(r, b - Corner), colour);
     }
 
-    // A triangle at the screen edge pointing the way to something out of view, with its range
-    // under it. The range is drawn without hovering: an arrow that only says "that way" leaves
-    // you no idea whether it is a hundred metres or a hundred kilometres away.
-    private static void DrawEdgeArrow(ImDrawListPtr draw, float2 at, double3 targetEcl,
-                                      double3 eyeEcl, ImColor8 colour)
+    // A triangle at the screen edge pointing the way to something out of view. Its range comes
+    // from the label, which every marker carries.
+    private static void DrawEdgeArrow(ImDrawListPtr draw, float2 at, ImColor8 colour)
     {
         ImGuiViewportPtr main = ImGui.GetMainViewport();
         float cx = main.Pos.X + main.Size.X * 0.5f;
@@ -137,14 +139,15 @@ internal static class Markers
                                new float2(at.X - dx * 3f + px * Wide, at.Y - dy * 3f + py * Wide),
                                new float2(at.X - dx * 3f - px * Wide, at.Y - dy * 3f - py * Wide),
                                colour);
-
-        string range = Range(Vec.Len(targetEcl - eyeEcl));
-        float2 size = ImGui.CalcTextSize(range);
-        draw.AddText(new float2(at.X - size.X * 0.5f - dx * 6f, at.Y + 10f - dy * 6f), colour, range);
     }
 
-    private static void DrawLabel(ImDrawListPtr draw, float2 at, string name, string detail)
+    private static void DrawLabel(ImDrawListPtr draw, ImGuiViewportPtr main, float2 at,
+                                  (Vehicle Craft, WeaponInventory Inventory) system, double3 eyeEcl)
     {
+        string name = KsaWorld.DisplayName(system.Craft);
+        string detail = Describe(system.Inventory,
+                                 Vec.Len(KsaWorld.PositionEcl(system.Craft) - eyeEcl));
+
         float2 nameSize = ImGui.CalcTextSize(name);
         float2 detailSize = ImGui.CalcTextSize(detail);
 
@@ -152,8 +155,12 @@ internal static class Markers
         float w = Math.Max(nameSize.X, detailSize.X) + PadX * 2f;
         float h = nameSize.Y + detailSize.Y + Gap + PadY * 2f;
 
-        // Up and to the right of the bracket, clear of it.
-        float2 tl = new(at.X + Half + 6f, at.Y - h - 6f);
+        // Up and to the right of the bracket, clear of it -- then held on screen, because a marker
+        // pinned to the edge would otherwise put its own label past it.
+        const float Edge = 4f;
+        float x = Math.Clamp(at.X + Half + 6f, main.Pos.X + Edge, main.Pos.X + main.Size.X - w - Edge);
+        float y = Math.Clamp(at.Y - h - 6f, main.Pos.Y + Edge, main.Pos.Y + main.Size.Y - h - Edge);
+        float2 tl = new(x, y);
 
         draw.AddRectFilled(tl, new float2(tl.X + w, tl.Y + h), Panel);
         draw.AddRect(tl, new float2(tl.X + w, tl.Y + h), PanelEdge);
