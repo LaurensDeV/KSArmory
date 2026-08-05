@@ -397,6 +397,30 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Which save the player is in, for scoping anything the mod writes down.
+    ///
+    /// <para>KSA's own save format cannot be extended — <c>UniverseData</c> is a fixed
+    /// XML-mapped class with no room for a mod — and StarMap has no save or load hook. So this is
+    /// the next best thing: the save's Id, used to key the mod's own file.</para>
+    ///
+    /// <para><c>GameSaves.Selected</c> is set when a save is picked in the browser, which is what
+    /// happens immediately before loading one. It is not a guaranteed "currently loaded" pointer,
+    /// and it is empty on a sandbox that was never loaded from a save — hence the caller's
+    /// fallback bucket rather than an assumption.</para>
+    /// </summary>
+    public static string CurrentSaveId()
+    {
+        try
+        {
+            return GameSaves.Selected?.Id ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
     /// <summary>Rough size of a vehicle, used to scale hit and blast checks.</summary>
     public static double MeanRadius(Vehicle v)
     {

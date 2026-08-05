@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-107 types and 267 members across 6 assemblies.
+109 types and 269 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -321,6 +321,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.doubleQuat)`
+
+### KSA.GameSave
+
+- `string get_Id()`
+
+### KSA.GameSaves
+
+- `KSA.GameSave get_Selected()`
 
 ### KSA.GameSettings
 

@@ -142,4 +142,51 @@ public class BatterySettingsTests
 
         Assert.Equal(-1, loaded.OpticViewport);
     }
+
+    /// <summary>
+    /// The shape the store writes: save, then craft. Two saves with a craft of the same name are
+    /// exactly what the scoping is for, and JSON round-tripping the nested form is the part that
+    /// would silently lose settings if it broke.
+    /// </summary>
+    [Fact]
+    public void SettingsRoundTripNestedByCraftWithinSave()
+    {
+        Dictionary<string, Dictionary<string, BatterySettings>> stored = new()
+        {
+            ["Campaign"] = new() { ["AA Defence Site"] = BatterySettings.From(Configured()) },
+            ["Sandbox"] = new() { ["AA Defence Site"] = new BatterySettings { Armed = false } },
+        };
+
+        string json = System.Text.Json.JsonSerializer.Serialize(stored);
+        var back = System.Text.Json.JsonSerializer
+            .Deserialize<Dictionary<string, Dictionary<string, BatterySettings>>>(json)!;
+
+        // The same craft name, two saves, two answers -- which is the whole point.
+        Assert.True(back["Campaign"]["AA Defence Site"].Armed);
+        Assert.False(back["Sandbox"]["AA Defence Site"].Armed);
+        Assert.Equal("Blue", back["Campaign"]["AA Defence Site"].OwnTeam);
+    }
+
+    /// <summary>
+    /// A file written before the scoping existed is a flat craft->settings map. It has to still
+    /// read, or upgrading the mod silently discards everything anyone had set.
+    /// </summary>
+    [Fact]
+    public void TheOlderFlatFileStillDeserialises()
+    {
+        string legacy = System.Text.Json.JsonSerializer.Serialize(
+            new Dictionary<string, BatterySettings> { ["Old Site"] = BatterySettings.From(Configured()) });
+
+        var flat = System.Text.Json.JsonSerializer
+            .Deserialize<Dictionary<string, BatterySettings>>(legacy)!;
+
+        Assert.True(flat["Old Site"].Armed);
+        Assert.Equal(4, flat["Old Site"].RoundsPerTarget);
+
+        // And it must NOT read as the nested shape, which is what makes the fallback necessary
+        // rather than merely tidy.
+        Assert.ThrowsAny<System.Text.Json.JsonException>(() =>
+            System.Text.Json.JsonSerializer
+                .Deserialize<Dictionary<string, Dictionary<string, BatterySettings>>>(legacy));
+    }
 }

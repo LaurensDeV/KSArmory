@@ -10,10 +10,14 @@ namespace KSArmory;
 /// the craft's Id. That is what makes it survive a save being loaded: the Id is the same string
 /// the vessel had when the settings were chosen.</para>
 ///
-/// <para>The consequence, and it is worth knowing: the file is <b>per installation, not per
-/// save</b>. Two saves with a craft of the same name share its settings, and a craft renamed in
-/// game arrives with defaults. KSA's own launch-time uniquing means names rarely collide within a
-/// world, and nothing here is precious enough to be worth a migration when it does.</para>
+/// <para>Keyed by save first, then by craft. KSA's save format cannot be extended —
+/// <c>UniverseData</c> is a fixed XML-mapped class — and StarMap has no save or load hook, so the
+/// save's Id is used to scope this file instead. Two saves with a craft of the same name therefore
+/// keep their own settings, which they did not when this was one flat map.</para>
+///
+/// <para>A craft renamed in game still arrives with defaults, and a session never loaded from a
+/// save lands in a shared bucket. Both are honest limits of keying on names rather than on
+/// something the engine would keep for us.</para>
 ///
 /// <para>Every failure is swallowed and logged. A settings file is a convenience: a mod that
 /// refuses to run because it could not read one is worse than one that starts with defaults.</para>
@@ -24,8 +28,32 @@ internal static class SettingsStore
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
-    private static Dictionary<string, BatterySettings> _stored = [];
+    // save id -> craft id -> settings.
+    private static Dictionary<string, Dictionary<string, BatterySettings>> _stored = [];
     private static bool _loaded;
+
+    // Where settings go when no save has been selected — a fresh sandbox, or a session started
+    // without opening the save browser. Named rather than dropped: losing what someone set
+    // because the game had not been saved yet would be worse than sharing one bucket.
+    private const string NoSave = "(no save)";
+
+    private static string _lastScope = string.Empty;
+
+    private static string Scope()
+    {
+        string id = KsaWorld.CurrentSaveId();
+        string scope = string.IsNullOrWhiteSpace(id) ? NoSave : id;
+
+        // Worth a line: which save the settings are being read from and written to is otherwise
+        // invisible, and it is the thing that decides whether they appear to have been lost.
+        if (scope != _lastScope)
+        {
+            _lastScope = scope;
+            Log.Info($"settings: using the '{scope}' bucket");
+        }
+
+        return scope;
+    }
 
     /// <summary>Reads the file, once. Missing or unreadable is an empty store, not an error.</summary>
     public static void Load()
@@ -41,9 +69,21 @@ internal static class SettingsStore
             string json = File.ReadAllText(path);
             if (string.IsNullOrWhiteSpace(json)) return;
 
-            _stored = JsonSerializer.Deserialize<Dictionary<string, BatterySettings>>(json, Options)
-                      ?? [];
-            Log.Info($"settings: loaded {_stored.Count} system(s) from {path}");
+            _stored = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, BatterySettings>>>(
+                          json, Options) ?? [];
+
+            int systems = 0;
+            foreach (Dictionary<string, BatterySettings> bucket in _stored.Values) systems += bucket.Count;
+            Log.Info($"settings: loaded {systems} system(s) across {_stored.Count} save(s)");
+        }
+        catch (JsonException)
+        {
+            // The first version of this file was one flat craft->settings map. Read it into the
+            // shared bucket rather than discarding settings someone chose.
+            if (TryReadFlat()) return;
+
+            _stored = [];
+            Log.Warn($"settings: {FileName} is not readable; starting from defaults");
         }
         catch (Exception e)
         {
@@ -52,11 +92,41 @@ internal static class SettingsStore
         }
     }
 
+    private static bool TryReadFlat()
+    {
+        try
+        {
+            var flat = JsonSerializer.Deserialize<Dictionary<string, BatterySettings>>(
+                           File.ReadAllText(Path()), Options);
+            if (flat is null || flat.Count == 0) return false;
+
+            _stored = new Dictionary<string, Dictionary<string, BatterySettings>> { [NoSave] = flat };
+            Log.Info($"settings: carried {flat.Count} system(s) over from the un-scoped file");
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>What was last written down for a craft, or null.</summary>
     public static BatterySettings? For(string craftId)
     {
         Load();
-        return _stored.TryGetValue(craftId, out BatterySettings? s) ? s : null;
+
+        // This save first, then the shared bucket: settings chosen before a save existed should
+        // still apply once it does, rather than silently reverting to defaults on first save.
+        if (_stored.TryGetValue(Scope(), out Dictionary<string, BatterySettings>? bucket)
+            && bucket.TryGetValue(craftId, out BatterySettings? found))
+        {
+            return found;
+        }
+
+        return _stored.TryGetValue(NoSave, out Dictionary<string, BatterySettings>? shared)
+               && shared.TryGetValue(craftId, out BatterySettings? fallback)
+                   ? fallback
+                   : null;
     }
 
     /// <summary>
@@ -70,10 +140,17 @@ internal static class SettingsStore
 
         Load();
         BatterySettings now = BatterySettings.From(config);
+        string scope = Scope();
 
-        if (_stored.TryGetValue(craftId, out BatterySettings? was) && !now.Differs(was)) return false;
+        if (!_stored.TryGetValue(scope, out Dictionary<string, BatterySettings>? bucket))
+        {
+            bucket = [];
+            _stored[scope] = bucket;
+        }
 
-        _stored[craftId] = now;
+        if (bucket.TryGetValue(craftId, out BatterySettings? was) && !now.Differs(was)) return false;
+
+        bucket[craftId] = now;
         return true;
     }
 

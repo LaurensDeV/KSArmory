@@ -280,7 +280,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 267 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 269 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -585,7 +585,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-660,000 lines to the files defining the 107 types this mod actually uses.
+660,000 lines to the files defining the 109 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
@@ -957,8 +957,10 @@ should not be weakened without understanding what they buy:
   the whole look, which suits KSA's art style, but it is a floor not a ceiling.
 - Rounds do not collide with terrain or structures, only their designated target.
 - Radar has no line-of-sight or occlusion check.
-- Battery settings survive a restart — `Ksa/SettingsStore.cs` keys them on the craft's Id in
-  JSON beside the log. KSA's save format is not reachable from a mod, so the file is **per
-  installation, not per save**: two saves with a craft of the same name share its settings, and a
-  craft renamed in game arrives with defaults. What is *not* persisted is battery *state* — ammo,
-  tracks, rounds in flight all start fresh.
+- Battery settings survive a restart — `Ksa/SettingsStore.cs` keys them **by save, then by craft**
+  in JSON beside the log. KSA's save format cannot be extended (`UniverseData` is a fixed
+  XML-mapped class) and StarMap has no save or load hook, so the save's Id from
+  `GameSaves.Selected` scopes the mod's own file instead. `Selected` follows the save browser's
+  selection rather than being a guaranteed "currently loaded" pointer, and a session never loaded
+  from a save uses a shared bucket. A craft renamed in game still arrives with defaults. What is
+  *not* persisted is battery *state* — ammo, tracks, rounds in flight all start fresh.
