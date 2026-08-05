@@ -224,10 +224,15 @@ internal static class KsaWorld
 
             if (nearest is null) return false;
 
-            // The mean sphere is not the ground. A ray at a mountain meets the real surface well
-            // before the sphere, so the lat/lon taken from that first hit lands past where the
-            // pointer is. Re-intersect against the terrain height under the answer until it stops
-            // moving -- three passes is plenty for anything short of a cliff edge.
+            // The mean sphere is not the surface. A ray at a mountain -- or at a launch pad --
+            // meets the real surface well before the sphere, so the answer taken from that first
+            // hit lands past where the pointer is. Re-intersect against the height under the
+            // answer until it stops moving; three passes is plenty short of a cliff edge.
+            //
+            // The height goes into the *radius*, never added to the point afterwards. Raising a
+            // hit radially moves it off the ray, and a point off the ray is not under the cursor:
+            // that error is zero at ground level and grows with every metre of elevation, which
+            // is what made the marker drift furthest over the pad.
             double3 centreEcl = nearest.GetPositionEcl();
             for (int pass = 0; pass < 3; pass++)
             {
@@ -237,8 +242,8 @@ internal static class KsaWorld
                 double height = nearest.GetTerrainHeightFromDirCce(dirCce, accurate: true);
                 if (!double.IsFinite(height)) break;
 
-                if (!Picking.TryHitSphere(eye, direction, centreEcl, nearest.MeanRadius + height,
-                                          out double3 refined))
+                double radius = nearest.MeanRadius + height + LaunchPadHeight(nearest, dirCce);
+                if (!Picking.TryHitSphere(eye, direction, centreEcl, radius, out double3 refined))
                 {
                     // Grazing: the raised surface is missed where the mean sphere was caught.
                     // The last good answer is closer than none.
@@ -249,15 +254,10 @@ internal static class KsaWorld
             }
 
             double3 cce = nearestHit - centreEcl;
+            groundEcl = nearestHit;
             latitudeDeg = nearest.GetLatitudeFromCce(cce);
             longitudeDeg = nearest.GetLongitudeFromCce(cce);
             bodyName = nearest.Id ?? string.Empty;
-
-            // Lift the marker onto the pad, because that is where the craft will land: KSA's own
-            // placement adds this height and the terrain query knows nothing about it, so without
-            // it the marker sits inside the structure the craft ends up standing on.
-            double pad = LaunchPadHeight(nearest, Vec.Unit(cce));
-            groundEcl = pad > 0.0 ? nearestHit + Vec.Unit(cce) * pad : nearestHit;
             return true;
         }
         catch
