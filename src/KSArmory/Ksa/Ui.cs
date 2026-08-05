@@ -60,7 +60,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     private enum PaneGroup { Session, Debug }
 
     // One pop-out window: what it is called, whether it is open, and what it draws. A class
-    // rather than a struct so Open can be passed to ImGui.Checkbox by reference.
+    // rather than a struct so Open is shared with the button that toggles it.
     private sealed class Pane(string title, Action body, PaneGroup group)
     {
         public readonly string Title = title;
@@ -380,7 +380,13 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             if (pane.Group != group) continue;
 
             if (shown++ % 2 == 1) ImGui.SameLine();
-            ImGui.Checkbox(pane.Title, ref pane.Open);
+
+            // A button, never a tick box. A checkmark reads as "this setting is on", so a window
+            // arriving instead is unannounced and the tick says nothing about where it went.
+            // Opening a window is an action; tick boxes are for state.
+            if (pane.Open) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
+            if (ImGui.Button(pane.Open ? $"{pane.Title} (open)" : pane.Title)) pane.Open = !pane.Open;
+            if (pane.Open) ImGui.PopStyleColor();
         }
     }
 
