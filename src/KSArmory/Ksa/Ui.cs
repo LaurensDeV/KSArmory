@@ -29,16 +29,16 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
     private readonly List<SurveyedPart> _surveyed = [];
     private readonly List<KSA.Vehicle> _craftScratch = [];
-    private KSA.Vehicle? _selected;
+    private KSA.Vehicle? _managed;
     private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
 
     public bool Visible = true;
 
-    // What a pane is about. The first two are the split BatteryConfig and Config make in code,
-    // shown where the operator meets it; Debug is neither, and is for whoever is working on the
-    // mod rather than playing with it.
-    private enum PaneGroup { System, Session, Debug }
+    // What a pane is about. Anything belonging to one installation is a tab in that system's own
+    // window instead; Session is the rest, and Debug is for whoever is working on the mod rather
+    // than playing with it.
+    private enum PaneGroup { Session, Debug }
 
     // One pop-out window: what it is called, whether it is open, and what it draws. A class
     // rather than a struct so Open can be passed to ImGui.Checkbox by reference.
@@ -57,12 +57,8 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     // appear in, which runs roughly from what an operator touches most to what they touch once.
     private Pane[] Panes => _panes ??=
     [
-        new("Status", DrawSystemPane, PaneGroup.System),
-        new("Tracks", DrawTrackList, PaneGroup.System),
-        new("Tuning", DrawTuning, PaneGroup.System),
-        new("Teams and IFF", DrawIff, PaneGroup.System),
-        new("Survey", DrawSurvey, PaneGroup.System),
         new("Kittens", DrawKittenRoster, PaneGroup.Session),
+        new("Survey", DrawSurvey, PaneGroup.Debug),
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -77,15 +73,15 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
                 if (ImGui.Button("KSArmory")) Visible = true;
             }
             ImGui.End();
+            DrawManageWindow();
             DrawPanes();
             return;
         }
 
-        if (ImGui.Begin("KSArmory", ref Visible))
+        // ###id so the version can ride in the title without the window losing its place
+        // every time the mod is bumped.
+        if (ImGui.Begin($"KSArmory {Build.Version}###KSArmory", ref Visible))
         {
-            ImGui.TextDisabled($"KSArmory {Build.Version}");
-            ImGui.Separator();
-
             // Opens on what exists in the world rather than on whatever the camera is pointed
             // at. Everything below is about the *selected* system, and everything that is not
             // about one particular system is a pane.
@@ -96,8 +92,9 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
         ImGui.End();
 
-        // Outside the main window's Begin/End: a pane is its own top-level window, so it must
-        // not be nested inside another one.
+        // Outside the main window's Begin/End: each of these is its own top-level window, so
+        // they must not be nested inside another one.
+        DrawManageWindow();
         DrawPanes();
     }
 
@@ -135,19 +132,10 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         }
     }
 
-    // The system the per-system panes act on. Falls back to the one the battery is running on,
-    // so the panel is never pointed at nothing.
-    private KSA.Vehicle? Selected
-    {
-        get
-        {
-            if (_selected is { } craft && KsaWorld.IsAlive(craft)) return craft;
-            _selected = null;
-            return _battery.Platform;
-        }
-    }
-
     // The list the panel opens on: what exists, not what happens to be under the camera.
+    //
+    // A table, one row per system, because the alternative grew a heading, a status line and a
+    // row of buttons each and stopped being readable at two craft.
     private void DrawSystemList()
     {
         RefreshSystems();
@@ -156,86 +144,118 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         {
             ImGui.TextColored(Grey, "No weapons systems.");
             ImGui.TextDisabled("A craft becomes one by carrying a part this mod recognises.");
-            ImGui.TextDisabled("Open Survey to see what is on the craft you are flying.");
+            ImGui.TextDisabled("Open Survey under Debug to see what is on the craft you are flying.");
             return;
         }
 
         ImGui.Text($"Weapons systems ({_systems.Count})");
-        ImGui.Separator();
+
+        if (!ImGui.BeginTable("##systems", 3, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
+        {
+            return;
+        }
+
+        ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("##what", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("##act", ImGuiTableColumnFlags.WidthFixed);
 
         for (int i = 0; i < _systems.Count; i++)
         {
             (KSA.Vehicle craft, WeaponInventory inv) = _systems[i];
             bool isActive = ReferenceEquals(craft, _battery.Platform);
-            bool isSelected = ReferenceEquals(craft, Selected);
 
             ImGui.PushID(i);
+            ImGui.TableNextRow();
 
-            // Clicking a row points the per-system panes at it. The battery still runs on exactly
-            // one craft, so selection and running are different things and the row says which is
-            // which -- a row that looked live and was not would be worse than saying so.
-            // Armament goes in the Selectable's own label rather than after a SameLine: the
-            // row spans the window, so anything placed beside it lands at the far edge.
-            string mark = isActive ? ">" : " ";
-            if (isActive) ImGui.PushStyleColor(ImGuiCol.Text, Green);
-            if (ImGui.Selectable($"{mark} {KsaWorld.DisplayName(craft)}   {Describe(inv)}", isSelected))
-            {
-                _selected = craft;
-            }
-            if (isActive) ImGui.PopStyleColor();
+            ImGui.TableNextColumn();
+            if (isActive) ImGui.TextColored(Green, KsaWorld.DisplayName(craft));
+            else ImGui.Text(KsaWorld.DisplayName(craft));
 
+            // The running battery's state earns the column; the others have none to report, so
+            // they say what they are instead.
+            ImGui.TableNextColumn();
             if (isActive)
             {
-                ImGui.TextDisabled($"    {(_policy.Armed ? "ARMED" : "safe")}"
-                                   + $"   {_battery.Ammo}/{_profile.TubeCount} rounds"
-                                   + (_battery.PlatformPinned ? "   (pinned)" : ""));
+                ImGui.TextColored(_policy.Armed ? Red : Grey,
+                                  $"{(_policy.Armed ? "ARMED" : "safe")}  {_battery.Ammo}/{_profile.TubeCount}");
+            }
+            else
+            {
+                ImGui.TextDisabled(Describe(inv));
             }
 
-            // Two different things, so two buttons. Going there moves the camera and the
-            // controls; taking the battery moves which craft this mod is running on. Wanting to
-            // watch a site without commandeering it is the whole reason PinPlatform exists.
-            // Point the camera at it and keep its label up, without moving or commandeering
-            // anything. The button tracks the label rather than the turn, because the turn ends
-            // on arrival and a button that reverted a second after being pressed would read as
-            // having failed.
-            // ASCII on purpose: ImGui's default font carries basic Latin only, so a crosshair
-            // glyph would render as a box.
-            bool pinned = Markers.IsPinned(craft);
-            if (pinned) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
-            if (ImGui.Button(pinned ? "(o)" : "(+)"))
-            {
-                Markers.TogglePinned(craft);
-                if (pinned) _watch.Release();
-                else _watch.Watch(craft);
-            }
-            if (pinned) ImGui.PopStyleColor();
-            if (ImGui.IsItemHovered())
-            {
-                ImGui.SetTooltip(pinned
-                    ? "Labelled on screen. Click to stop labelling it."
-                    : "Turn the view towards it and keep its label up. The turn stops\n"
-                      + "once it is looking, and you keep control of the camera throughout.");
-            }
-            ImGui.SameLine();
-
-            bool flyingIt = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
-            if (!flyingIt)
-            {
-                if (ImGui.Button("Go to")) KsaWorld.GoTo(craft);
-                ImGui.SameLine();
-            }
-
-            if (!isActive && ImGui.Button("Run the battery here"))
-            {
-                _battery.PinPlatform(craft);
-            }
-            else if (isActive && _battery.PlatformPinned && ImGui.Button("Release pin"))
-            {
-                _battery.PinPlatform(null);
-            }
+            ImGui.TableNextColumn();
+            DrawSystemRowButtons(craft);
 
             ImGui.PopID();
         }
+
+        ImGui.EndTable();
+    }
+
+    // Inline, and small: three short buttons fit a row where "Run the battery here" did not.
+    // Moving the battery is a decision about one system, so it lives in that system's window.
+    private void DrawSystemRowButtons(KSA.Vehicle craft)
+    {
+        // Point the camera at it and keep its label up, without moving or commandeering anything.
+        // The button tracks the label rather than the turn, because the turn ends on arrival and
+        // a button that reverted a second after being pressed would read as having failed.
+        // ASCII on purpose: ImGui's default font carries basic Latin only, so a crosshair glyph
+        // would render as a box.
+        bool pinned = Markers.IsPinned(craft);
+        if (pinned) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
+        if (ImGui.SmallButton(pinned ? "(o)" : "(+)"))
+        {
+            Markers.TogglePinned(craft);
+            if (pinned) _watch.Release();
+            else _watch.Watch(craft);
+        }
+        if (pinned) ImGui.PopStyleColor();
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip(pinned
+                ? "Labelled on screen. Click to stop labelling it."
+                : "Turn the view towards it and keep its label up. The turn stops\n"
+                  + "once it is looking, and you keep control of the camera throughout.");
+        }
+
+        ImGui.SameLine();
+        bool flyingIt = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
+        if (!flyingIt && ImGui.SmallButton("Go to")) KsaWorld.GoTo(craft);
+        if (flyingIt) ImGui.TextDisabled("here");
+
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Manage")) _managed = craft;
+    }
+
+    // One system's own window: everything that belongs to that installation rather than to the
+    // session, as tabs. Separate from the main panel so the list stays a list.
+    private void DrawManageWindow()
+    {
+        if (_managed is not { } craft || !KsaWorld.IsAlive(craft))
+        {
+            _managed = null;
+            return;
+        }
+
+        // ###id keeps one window across a change of craft, so it holds its size and place
+        // instead of opening afresh every time a different system is managed.
+        bool open = true;
+        if (ImGui.Begin($"{KsaWorld.DisplayName(craft)}###KSArmorySystem", ref open))
+        {
+            if (!ReferenceEquals(craft, _battery.Platform)) DrawNotRunningHere(craft);
+            else if (ImGui.BeginTabBar("##systemtabs"))
+            {
+                if (ImGui.BeginTabItem("Status")) { DrawSystemPane(); ImGui.EndTabItem(); }
+                if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
+                if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
+                if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
+                ImGui.EndTabBar();
+            }
+        }
+        ImGui.End();
+
+        if (!open) _managed = null;
     }
 
     private static string Describe(WeaponInventory inv)
@@ -296,25 +316,18 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     // One battery runs at a time -- the profiles are per system, but the fire control, radar and
     // drives are a single instance that mounts to one craft. Until that is widened, selecting a
     // system the battery is not on can show what it is and offer to move the battery there.
-    private void DrawNotRunningHere()
+    private void DrawNotRunningHere(KSA.Vehicle craft)
     {
-        if (Selected is not { } craft)
-        {
-            ImGui.TextColored(Grey, "No system selected.");
-            return;
-        }
-
-        ImGui.TextColored(Amber, KsaWorld.DisplayName(craft));
-        ImGui.TextDisabled("The battery is not running on this system, so there is");
-        ImGui.TextDisabled("nothing here to show or set yet.");
+        ImGui.TextColored(Amber, "The battery is not running on this system,");
+        ImGui.TextColored(Amber, "so there is nothing here to show or set yet.");
         ImGui.Separator();
 
         if (ImGui.Button("Run the battery here")) _battery.PinPlatform(craft);
 
         ImGui.SameLine();
-        if (_battery.Platform is { } running && ImGui.Button($"Select {KsaWorld.DisplayName(running)}"))
+        if (_battery.Platform is { } running && ImGui.Button($"Manage {KsaWorld.DisplayName(running)}"))
         {
-            _selected = running;
+            _managed = running;
         }
     }
 
@@ -327,10 +340,6 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
     private void DrawPaneToggles()
     {
-        // Named after the craft rather than "this system": with a list above it, a heading that
-        // does not say which one leaves the panes ambiguous exactly when more than one exists.
-        DrawPaneGroup(Selected is { } craft ? KsaWorld.DisplayName(craft) : "No system selected",
-                      PaneGroup.System);
         DrawPaneGroup("Session", PaneGroup.Session);
 
         // Collapsed, and last: these answer questions about the mod, not about the engagement.
@@ -365,20 +374,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
             // Title doubles as the ImGui id, so each pane keeps its own size and position
             // across sessions the way any other window does.
-            if (ImGui.Begin(pane.Title, ref pane.Open))
-            {
-                // Every per-system pane reads the running battery, and the mod runs one. So a
-                // pane opened against a system the battery is not on would show another craft's
-                // numbers under this craft's heading -- say so instead.
-                if (pane.Group == PaneGroup.System && !ReferenceEquals(Selected, _battery.Platform))
-                {
-                    DrawNotRunningHere();
-                }
-                else
-                {
-                    pane.Body();
-                }
-            }
+            if (ImGui.Begin(pane.Title, ref pane.Open)) pane.Body();
             ImGui.End();
         }
     }

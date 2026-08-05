@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-84 types and 225 members across 6 assemblies.
+89 types and 234 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -103,16 +103,23 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float2 GetMousePos()`
 - `bool Begin(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Begin(Brutal.ImGuiApi.ImString, ref bool, Brutal.ImGuiApi.ImGuiWindowFlags)`
+- `bool BeginTabBar(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTabBarFlags)`
+- `bool BeginTabItem(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTabItemFlags)`
+- `bool BeginTable(Brutal.ImGuiApi.ImString, int, Brutal.ImGuiApi.ImGuiTableFlags, ref System.Nullable`1<Brutal.Numerics.float2>, float)`
 - `bool Button(Brutal.ImGuiApi.ImString, ref System.Nullable`1<Brutal.Numerics.float2>)`
 - `bool Checkbox(Brutal.ImGuiApi.ImString, ref bool)`
 - `bool InputText(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool IsItemHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
 - `bool RadioButton(Brutal.ImGuiApi.ImString, bool)`
-- `bool Selectable(Brutal.ImGuiApi.ImString, bool, Brutal.ImGuiApi.ImGuiSelectableFlags, ref System.Nullable`1<Brutal.Numerics.float2>)`
 - `bool SliderFloat(Brutal.ImGuiApi.ImString, ref float, float, float, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool SliderInt(Brutal.ImGuiApi.ImString, ref int, int, int, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
+- `bool SmallButton(Brutal.ImGuiApi.ImString)`
+- `bool TableNextColumn()`
 - `bool TreeNode(Brutal.ImGuiApi.ImString)`
 - `void End()`
+- `void EndTabBar()`
+- `void EndTabItem()`
+- `void EndTable()`
 - `void PopID()`
 - `void PopStyleColor(int)`
 - `void ProgressBar(float, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImString)`
@@ -124,6 +131,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void SetNextWindowPos(ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImGuiCond, ref System.Nullable`1<Brutal.Numerics.float2>)`
 - `void SetNextWindowSize(ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImGuiCond)`
 - `void SetTooltip(Brutal.ImGuiApi.ImString)`
+- `void TableNextRow(Brutal.ImGuiApi.ImGuiTableRowFlags, float)`
+- `void TableSetupColumn(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTableColumnFlags, float, Brutal.ImGuiApi.ImGuiID)`
 - `void Text(Brutal.ImGuiApi.ImString)`
 - `void TextColored(ref Brutal.Numerics.float4, Brutal.ImGuiApi.ImString)`
 - `void TextDisabled(Brutal.ImGuiApi.ImString)`
@@ -141,6 +150,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.ImGuiApi.ImGuiID
+
+*referenced as a type only*
+
 ### Brutal.ImGuiApi.ImGuiInputTextCallback
 
 *referenced as a type only*
@@ -149,11 +162,27 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
-### Brutal.ImGuiApi.ImGuiSelectableFlags
+### Brutal.ImGuiApi.ImGuiSliderFlags
 
 *referenced as a type only*
 
-### Brutal.ImGuiApi.ImGuiSliderFlags
+### Brutal.ImGuiApi.ImGuiTabBarFlags
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiTabItemFlags
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiTableColumnFlags
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiTableFlags
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiTableRowFlags
 
 *referenced as a type only*
 
