@@ -1,0 +1,63 @@
+name: Feedback image
+
+# The service that takes in-game bug reports, built and pushed to GHCR so the machine that runs
+# it can pull an immutable tag. It is deliberately not part of CI: the image carries an exported
+# copy of unitary/toxic-bert, so the build downloads torch and runs the export, which is minutes
+# rather than seconds and has nothing to do with whether the mod compiles.
+#
+# The VPS side lives in a private repository and pulls by digest. What is published here is the
+# only thing the two share.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "services/feedback/**"
+      - ".github/workflows/feedback-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    name: Build and push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Name the image
+        id: name
+        run: |
+          # Lowercase: GHCR rejects an uppercase path, and the owner here has capitals.
+          repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/$repo/feedback" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: services/feedback
+          push: true
+          # The SHA is what the deploy references; latest is for looking at, never for deploying.
+          tags: |
+            ${{ steps.name.outputs.image }}:${{ github.sha }}
+            ${{ steps.name.outputs.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Say what to deploy
+        run: |
+          echo "### Feedback image" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.name.outputs.image }}@${{ steps.push.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

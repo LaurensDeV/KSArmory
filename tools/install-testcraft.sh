@@ -6,7 +6,7 @@
 #     ./tools/install-testcraft.sh
 #
 # The craft is nothing but the AA-6 launcher, which is its own command source. Launch it,
-# open the Air Defence panel, and use the Test targets buttons to fly drones at it.
+# open the KSArmory panel, and use the Test targets buttons to fly drones at it.
 #
 set -euo pipefail
 
@@ -57,4 +57,4 @@ EOF
 echo "installed '$NAME' to $TARGET"
 echo
 echo "In game: load it from the vehicle list and launch. No editor work needed."
-echo "Then open the Air Defence panel -> Test targets -> Overhead."
+echo "Then open the KSArmory panel -> Test targets -> Overhead."
