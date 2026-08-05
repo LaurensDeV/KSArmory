@@ -57,9 +57,16 @@
         <CharacterVisor Id="CharacterVisorAttachment"/>
         <CharacterMMU Id="CharacterMMUAttachment"/>
 
-        <CosmeticAttachments>
-            <CharacterAttachment Id="KSArmoryKittenGunAttachment"/>
-        </CosmeticAttachments>
+        <!--
+          One element per attachment, Id as an attribute, not a wrapper with children. The field
+          is a List with [XmlElement], so each CosmeticAttachments element *is* one entry: the
+          same shape CharacterHelmet uses above.
+
+          A wrapper deserialises to a single entry with an empty Id, which resolves to nothing.
+          CharacterAvatar then skips it inside its GetGltf null check and renders a kitten with
+          no gun and no error anywhere.
+        -->
+        <CosmeticAttachments Id="KSArmoryKittenGunAttachment"/>
 
         <CharacterFur Id="CharacterFur"/>
         <CharacterExpressions Id="CharacterExpressions"/>
