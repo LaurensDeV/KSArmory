@@ -423,6 +423,33 @@ def check_subpart_positions():
     return problems, checked
 
 
+def check_assets_declared():
+    """Verifies every asset XML at the mod root is listed in mod.toml.
+
+    mod.toml names its assets one by one. A file left out is simply never loaded and nothing
+    reports it -- no warning at load, no missing-asset error. Whatever it declared then resolves
+    to null at the point something first asks for it, which for a character is a crash inside
+    KSA's own constructor rather than anything pointing back here.
+    """
+    toml = MOD / "mod.toml"
+    declared = set(re.findall(r'"([^"]+\.xml)"', toml.read_text()))
+
+    problems = checked = 0
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        checked += 1
+        if path.name not in declared:
+            print(f"  UNDECLARED {path.name} -- present but not in mod.toml's assets, so KSA "
+                  f"never loads it", file=sys.stderr)
+            problems += 1
+
+    for name in sorted(declared):
+        if not (MOD / name).is_file():
+            print(f"  MISSING {name} -- listed in mod.toml, not on disk", file=sys.stderr)
+            problems += 1
+
+    return problems, checked
+
+
 def check_registered_part_ids():
     """Verifies every registered LauncherProfile.PartId is declared in the asset XML.
 
@@ -485,6 +512,11 @@ def main():
         p, c = check_file(path, core_subparts, core_materials)
         problems += p
         checked += c
+
+    print("checking every asset XML is declared in mod.toml")
+    p, c = check_assets_declared()
+    problems += p
+    checked += c
 
     print("checking every registered PartId is declared in the XML")
     p, c = check_registered_part_ids()

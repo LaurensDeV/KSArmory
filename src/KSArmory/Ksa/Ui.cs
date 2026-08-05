@@ -372,6 +372,18 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
             if (_roster[i].Character == KsaWorld.ArmedCharacterId) armed++;
         }
 
+        // Say it up front rather than letting every Arm fail silently. An asset file missing
+        // from mod.toml is never reported, so this is the only place it surfaces.
+        bool available = KsaWorld.IsCharacterRegistered(KsaWorld.ArmedCharacterId);
+        if (!available)
+        {
+            ImGui.TextColored(Red, "  The armed character did not load.");
+            ImGui.TextDisabled($"  '{KsaWorld.ArmedCharacterId}' is not registered - check that");
+            ImGui.TextDisabled("  KSArmoryCharacters.xml is listed in mod.toml's assets.");
+            ImGui.TreePop();
+            return;
+        }
+
         ImGui.TextDisabled($"  {armed} of {_roster.Count} carry the shoulder cannon.");
         ImGui.TextDisabled("  Arming changes the *next* kitten built from that entry - EVA again.");
 

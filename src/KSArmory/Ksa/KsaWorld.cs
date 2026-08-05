@@ -627,9 +627,15 @@ internal static class KsaWorld
     /// renderable from the character Id in its constructor, so one already on its feet keeps the
     /// body it was born with. EVA again to see the change.</para>
     /// </summary>
-    /// <returns>False if there is no roster, or no kitten by that name.</returns>
+    /// <returns>False if the character is not registered, there is no roster, or no such kitten.</returns>
     public static bool SetRosterCharacter(string kittenName, string characterId)
     {
+        // Checked before the write, not after. A roster naming a character the game does not have
+        // is not a missing model: KittenEva's constructor dereferences the lookup, so the next
+        // kitten built from that entry takes the whole game down with
+        // "CharacterReference is null". Writing an Id we have not resolved is the bug.
+        if (!IsCharacterRegistered(characterId)) return false;
+
         try
         {
             foreach (KittenRosterEntryData kitten in Universe.KittenRoster.Kittens)
@@ -646,6 +652,23 @@ internal static class KsaWorld
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Whether the game resolved a character by this Id. False for one this mod declares but
+    /// whose XML never loaded — an asset file missing from <c>mod.toml</c> is not reported
+    /// anywhere, so this is the only way to find out before something dereferences it.
+    /// </summary>
+    public static bool IsCharacterRegistered(string characterId)
+    {
+        try
+        {
+            return ModLibrary.Get<CharacterReference>(characterId) is not null;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>A short description of one open view, for the panel's picker.</summary>
