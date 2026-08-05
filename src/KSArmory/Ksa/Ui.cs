@@ -23,6 +23,7 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
     private readonly DefenceBattery _battery = battery;
     private readonly WarpPolicy _warp = warp;
     private readonly List<int> _viewports = [];
+    private readonly List<(string Name, string Character)> _roster = [];
     private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
 
@@ -55,6 +56,8 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
         DrawWeapons();
         ImGui.Separator();
         DrawTestTargets();
+        ImGui.Separator();
+        DrawKittenRoster();
         ImGui.Separator();
         DrawTrackList();
         ImGui.Separator();
@@ -346,6 +349,53 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
 
     // Spawns a drone on a timed pass, so the system can be tested without building and flying a
     // second craft by hand.
+    // The kitten roster, and which character each one wears.
+    //
+    // Doubles as the only check that this mod's character registered: ModLibrary.AllCharacters is
+    // internal, so a roster entry naming it is the one public evidence it loaded. If "arm" leaves
+    // the entry reading something else, the XML did not take.
+    private void DrawKittenRoster()
+    {
+        if (!ImGui.TreeNode("Kittens")) return;
+
+        KsaWorld.CollectRoster(_roster);
+        if (_roster.Count == 0)
+        {
+            ImGui.TextDisabled("  No roster yet.");
+            ImGui.TreePop();
+            return;
+        }
+
+        int armed = 0;
+        for (int i = 0; i < _roster.Count; i++)
+        {
+            if (_roster[i].Character == KsaWorld.ArmedCharacterId) armed++;
+        }
+
+        ImGui.TextDisabled($"  {armed} of {_roster.Count} carry the shoulder cannon.");
+        ImGui.TextDisabled("  Arming changes the *next* kitten built from that entry - EVA again.");
+
+        for (int i = 0; i < _roster.Count; i++)
+        {
+            (string name, string character) = _roster[i];
+            bool isArmed = character == KsaWorld.ArmedCharacterId;
+
+            ImGui.PushID(i);
+            if (isArmed) ImGui.TextColored(Green, $"  {name}");
+            else if (ImGui.Button($"Arm##{i}")) KsaWorld.SetRosterCharacter(name, KsaWorld.ArmedCharacterId);
+            if (!isArmed)
+            {
+                ImGui.SameLine();
+                ImGui.Text($"{name}");
+            }
+            ImGui.SameLine();
+            ImGui.TextDisabled($"({character})");
+            ImGui.PopID();
+        }
+
+        ImGui.TreePop();
+    }
+
     private void DrawTestTargets()
     {
         if (!ImGui.TreeNode("Test targets")) return;

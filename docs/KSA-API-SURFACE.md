@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-71 types and 194 members across 6 assemblies.
+73 types and 200 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -103,7 +103,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool SliderInt(Brutal.ImGuiApi.ImString, ref int, int, int, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool TreeNode(Brutal.ImGuiApi.ImString)`
 - `void End()`
+- `void PopID()`
 - `void ProgressBar(float, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImString)`
+- `void PushID(int)`
 - `void SameLine(float, float)`
 - `void Separator()`
 - `void SetNextWindowBgAlpha(float)`
@@ -252,6 +254,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `void .ctor(KSA.CelestialSystem, string, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 
+### KSA.KittenRosterData
+
+- `System.Collections.Generic.List`1<KSA.KittenRosterEntryData> Kittens`
+
+### KSA.KittenRosterEntryData
+
+- `string Character`
+- `string Name`
+
 ### KSA.LookupCollection`1
 
 *referenced as a type only*
@@ -361,6 +372,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Universe
 
 - `KSA.CelestialSystem get_CurrentSystem()`
+- `KSA.KittenRosterData get_KittenRoster()`
 - `KSA.SimStep GetLastSimStep()`
 - `KSA.SimTime GetElapsedSimTime()`
 - `bool IsPaused()`
