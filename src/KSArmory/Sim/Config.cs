@@ -112,6 +112,14 @@ public sealed class Config
     public bool DrawMissiles = true;
 
     /// <summary>
+    /// Bracket every weapons system on screen, with an arrow at the edge for one out of view.
+    ///
+    /// <para>Session-wide rather than per battery: it draws every system in the world, including
+    /// the ones no battery is running on.</para>
+    /// </summary>
+    public bool DrawSystemMarkers = true;
+
+    /// <summary>
     /// Draw a sphere on each contact. It scales with range so distant targets stay visible,
     /// which up close means a large ball sitting over the craft. Off by default — the line to
     /// the contact already shows where it is.

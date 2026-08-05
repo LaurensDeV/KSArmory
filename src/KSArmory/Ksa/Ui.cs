@@ -984,6 +984,8 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
         if (ImGui.TreeNode("Display"))
         {
+            ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
+            ImGui.TextDisabled("  brackets over every system; (+) in the list pins a label");
             ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);
             ImGui.SliderFloat("Cone draw length (m)", ref _config.ConeDisplayMetres, 200f, 20000f);
             ImGui.TextDisabled("  cosmetic only; detection range is set under Radar");

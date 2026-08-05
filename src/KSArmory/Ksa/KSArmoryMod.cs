@@ -128,7 +128,8 @@ public sealed class KSArmoryMod
             // Over the world, under the panel: ImGui draws windows in submission order, and the
             // panel is submitted first, so a full-screen overlay added here sits above the scene
             // and below anything the operator is reading.
-            if (KsaWorld.InFlight) Markers.Draw(_ui.Systems, _battery.Platform);
+            if (KsaWorld.InFlight && _config.DrawSystemMarkers)
+                Markers.Draw(_ui.Systems, _battery.Platform);
 
             // Both of these write a camera, and both must be last and every frame: KSA's
             // controller writes from its own mode, so a view taken earlier in the frame is
