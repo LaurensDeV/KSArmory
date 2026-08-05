@@ -257,7 +257,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the battery can see and why |
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
-| `src/KSArmory/KSArmory*.xml` | the launcher part — at the mod root, mirroring Core |
+| `src/KSArmory/KSArmory*.xml` | the launcher part and the armed character — at the mod root, mirroring Core |
 | `src/KSArmory/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
@@ -273,6 +273,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/` | headless Blender scripts that generate the Pantsir |
 | `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
+| `tools/model/kittengun.py` | the kitten's shoulder cannon — a character attachment, not a part |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 
 ## 3D model pipeline (Blender, headless)

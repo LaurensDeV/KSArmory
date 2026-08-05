@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  An armed kitten: Core's kitten with a shoulder cannon bolted to its spine.
+
+  This is a whole new <Character> rather than an edit to HunterKitten because a mod cannot add to
+  one Core already declares - ModLibrary registers by Id with TryAdd, so first registration wins
+  and a duplicate Id is silently dropped. Declaring our own puts it in ModLibrary.AllCharacters,
+  which is the list KittenRosterData.PickRandomCharacterId draws from, so kittens on the roster
+  can come up wearing it.
+
+  Everything but the attachment is Core's, referenced by Id: the body, the fur, every animation
+  set. Only CosmeticAttachments differs. If Core renames one of these, this file breaks loudly at
+  load rather than quietly rendering a kitten with no head.
+-->
+<Assets>
+
+    <GltfFile Id="KSArmoryKittenGunGlb">
+        <Source Path="Meshes/KittenGun.glb"/>
+    </GltfFile>
+
+    <!--
+      Mounted on Spine2_M, the upper back. Two reasons, both deliberate:
+
+      the torso carries the walk cycle, so the gun rides it without fighting the arm animation
+      the mod aims this weapon, not the kitten, so it should read as mounted rather than carried
+
+      The mod's rounds do NOT leave from here. Bone transforms are private (KittenEva._renderable,
+      KittenRenderable._characterAvatar), so the muzzle cannot be resolved at runtime and rounds
+      launch from a fixed offset in the kitten's body frame instead. Centimetres, against
+      engagement ranges in kilometres - see docs/BLOCKED-ON-KSA.md.
+
+      Textures are the mod's own palette, the same three the launcher uses. PNG, not ktx2: KSA
+      loads both, and CharacterAssets.xml mixes them in one material.
+    -->
+    <CharacterAttachment Id="KSArmoryKittenGunAttachment">
+        <Source Id="KSArmoryKittenGunGlb"/>
+        <Socket Name="Spine2_M"/>
+        <Materials>
+            <Diffuse Path="Textures/AirDefence_Diffuse.png" Category="Default"/>
+            <Normal Path="Textures/AirDefence_Normal.png" Category="Default"/>
+            <AoRoughMetal Path="Textures/AirDefence_PBR.png" Category="Default"/>
+        </Materials>
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <AttachmentType>Cosmetic</AttachmentType>
+    </CharacterAttachment>
+
+    <Character Id="KSArmoryArmedKitten">
+        <Personality Value="Neutral"/>
+        <CharacterCore Id="CharacterCore"/>
+        <CharacterTextures Id="CharacterTextures"/>
+
+        <CharacterHelmet Id="CharacterHelmetAttachment"/>
+        <CharacterVisor Id="CharacterVisorAttachment"/>
+        <CharacterMMU Id="CharacterMMUAttachment"/>
+
+        <CosmeticAttachments>
+            <CharacterAttachment Id="KSArmoryKittenGunAttachment"/>
+        </CosmeticAttachments>
+
+        <CharacterFur Id="CharacterFur"/>
+        <CharacterExpressions Id="CharacterExpressions"/>
+        <CharacterMMUAnimations Id="CharacterMMUAnimations"/>
+        <CharacterAnimationMasks Id="CharacterAnimationMasks"/>
+        <CharacterGroundAnimations Id="CharacterGroundAnimations"/>
+
+        <AnimHelmetMask Id="KittenAnimHelmetMaskGlb"/>
+        <BlinkAnim Id="KSA_Cat_Anim_BlinkGlb"/>
+    </Character>
+
+</Assets>
