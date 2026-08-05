@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-104 types and 263 members across 6 assemblies.
+105 types and 263 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -483,6 +483,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Ray
 
 - `Brutal.Numerics.double3 Direction`
+
+### KSA.Rendering.Particles.ParticleEmitterReference
+
+*referenced as a type only*
 
 ### KSA.Rendering.Particles.ParticleEmitter`2
 

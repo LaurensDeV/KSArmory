@@ -62,6 +62,11 @@ public sealed class KSArmoryMod
         // Logged, not just shown in the panel. Every link of this chain fails silently inside
         // KSA, so without a record the only symptom is a kitten with no gun -- and that looks
         // identical whether the XML never loaded, a reference did not resolve, or the mesh did.
+        Log.Info($"warhead effect {Detonation.Fireball}: "
+                 + $"{(Detonation.Resolves(Detonation.Fireball) ? "ok" : "DID NOT RESOLVE")}");
+        Log.Info($"warhead effect {Detonation.Airburst}: "
+                 + $"{(Detonation.Resolves(Detonation.Airburst) ? "ok" : "DID NOT RESOLVE")}");
+
         List<(string What, string Id, bool Resolved)> chain = [];
         KsaWorld.CollectArmedChain(chain);
         foreach ((string what, string id, bool resolved) in chain)

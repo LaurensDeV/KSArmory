@@ -28,6 +28,24 @@ internal static class Detonation
     // once rather than per round: a missing effect is cosmetic, and a line per round of a
     // twelve-round salvo would bury the engagement it belongs to.
     private static bool _reportedExhaustion;
+    private static bool _reportedFailure;
+
+    /// <summary>
+    /// Whether an emitter Id resolves. Checked at load and logged, because every link in this
+    /// chain fails silently: a missing XML, an Id that does not resolve and an effect placed in
+    /// the wrong frame all look identical in game, which is no explosion.
+    /// </summary>
+    public static bool Resolves(string emitterId)
+    {
+        try
+        {
+            return ModLibrary.Get<ParticleEmitterReference>(emitterId) is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// Shows a burst at a point in Ecl. Silently does nothing if the effect cannot be placed —
@@ -56,7 +74,7 @@ internal static class Detonation
                 if (!_reportedExhaustion)
                 {
                     _reportedExhaustion = true;
-                    Log.Debug(() => $"no free particle emitters for {emitterId}; effect skipped");
+                    Log.Warn($"no free particle emitters for {emitterId}; effect skipped");
                 }
                 return;
             }
@@ -94,7 +112,13 @@ internal static class Detonation
         }
         catch (Exception e)
         {
-            Log.Debug(() => $"could not show {emitterId}: {e.Message}");
+            // Once, and at warning level. Swallowing this quietly is what turns "the asset never
+            // loaded" into "there is no explosion", which is the same symptom as everything else.
+            if (!_reportedFailure)
+            {
+                _reportedFailure = true;
+                Log.Warn($"could not show {emitterId}: {e.Message}");
+            }
         }
     }
 

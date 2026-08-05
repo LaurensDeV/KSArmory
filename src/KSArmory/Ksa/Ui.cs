@@ -383,6 +383,15 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
 
             ImGui.Separator();
 
+            // Firing one on demand separates "the effect is broken" from "nothing has detonated",
+            // which are the two reasons for seeing no explosion and look identical.
+            if (ImGui.Button("Test fireball")) FireTestBurst(Detonation.Fireball);
+            ImGui.SameLine();
+            if (ImGui.Button("Test airburst")) FireTestBurst(Detonation.Airburst);
+            ImGui.TextDisabled("  100 m above the system shown in the panel");
+
+            ImGui.Separator();
+
             // Inline rather than a pane of its own. It is one tick box and a line of state, and
             // a window holding that is a window to open, move and close for nothing.
             DrawCraftMover();
@@ -773,6 +782,20 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             ImGui.PopID();
         }
 
+    }
+
+    // A burst overhead, where it cannot be missed.
+    private void FireTestBurst(string emitterId)
+    {
+        if (_battery.Platform is not { } platform)
+        {
+            Log.Info("no platform to burst over");
+            return;
+        }
+
+        double3 at = KsaWorld.PositionEcl(platform) + KsaWorld.LocalUp(platform) * 100.0;
+        Log.Info($"test burst: {emitterId} 100 m over {KsaWorld.DisplayName(platform)}");
+        Detonation.Show(emitterId, at, platform);
     }
 
     private void DrawCraftMover()
