@@ -718,13 +718,25 @@ not a warp factor: it is `MaxFaithfulStep / frameTime`, about 19× at 60 fps and
 frame, and the policy calibrates off the step it was just handed rather than assuming a frame
 rate.
 
-Two rules it exists to keep. A player who moves the speed while it is held has overridden the
-mod, so the held value is not restored over the top of a deliberate choice. And if the engine
-will not take the speed at all, the salvo is abandoned after
-`WarpPolicy.AttemptsBeforeAbandon` frames — a lost salvo the player is told about beats the
-silent alternative, which was measured in flight at **124 km closest approach against 15–20 m
-unwarped**. `Config.LimitWarpInFlight` turns the whole thing off, and then rounds lag the world
-exactly as they used to.
+**It is a control loop against an actuator that answers late and is shared with the player**, and
+both halves of that cost a flight to learn. The first version reduced 30× to 9.9× and then
+straight on to 3.2×, and oscillated for the whole salvo:
+
+- **Never judge a request on a step that predates it.** The step arriving on the frame a write
+  takes effect still measures the interval *before* it, so dividing by it again reduces on top of
+  a reduction already in flight. `SettleSteps` waits it out; `AStaleStepDoesNotReduceTheSpeedTwice`
+  fails against the version that shipped.
+- **Stop competing.** The player's warp control and KSA's auto-warp write the same field, and
+  trading writes frame by frame is a loop neither side wins. After `OverridesBeforeYielding` the
+  mod stands down for the rest of the salvo and says so — it is the guest.
+- **A request never observed is a refusal.** KSA rejects a speed change outright while auto-warp
+  runs, which is indistinguishable from a slow write until `FramesAwaitingWrite` have passed.
+  Then the salvo is abandoned: a lost salvo the player is told about beats the silent
+  alternative, measured in flight at **124 km closest approach against 15–20 m unwarped**.
+
+A player who moves the speed while it is held has overridden the mod, so the held value is not
+restored over the top of a deliberate choice. `Config.LimitWarpInFlight` turns the whole thing
+off, and then rounds lag the world exactly as they used to.
 
 The clamp is still there and still discards time: the frame that overran cannot be un-run, and
 the policy only takes effect from the next one. What it stops is the next thousand frames doing

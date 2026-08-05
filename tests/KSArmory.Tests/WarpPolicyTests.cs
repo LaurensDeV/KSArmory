@@ -146,17 +146,18 @@ public class WarpPolicyTests
     }
 
     /// <summary>
-    /// If the world will not go slower, there is nothing honest left to do. A lost salvo the
-    /// player is told about beats the 124 km miss that clamping produced in flight.
+    /// If the world will not take the speed at all, there is nothing honest left to do. KSA
+    /// rejects a speed change outright while its own auto-warp runs, and a salvo the player is
+    /// told about beats the 124 km miss that clamping produced in flight.
     /// </summary>
     [Fact]
-    public void AWorldThatWillNotSlowDownEndsInAbandon()
+    public void AWorldThatNeverTakesTheSpeedEndsInAbandon()
     {
         var policy = new WarpPolicy();
 
-        // The engine ignores every request: the speed and the step never change.
+        // The request is never observed: the speed stays where it was, frame after frame.
         WarpDecision last = WarpDecision.Nothing;
-        for (int i = 0; i <= WarpPolicy.AttemptsBeforeAbandon; i++)
+        for (int i = 0; i <= WarpPolicy.FramesAwaitingWrite + 1; i++)
         {
             last = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
         }
@@ -166,34 +167,151 @@ public class WarpPolicyTests
     }
 
     [Fact]
-    public void ItDoesNotAbandonWhileTheSlowdownIsStillTakingEffect()
+    public void ItDoesNotAbandonWhileTheWriteIsStillLanding()
     {
         var policy = new WarpPolicy();
 
-        // The speed write lands a frame later than the read, so the first repeats must not kill
-        // the salvo. Exactly AttemptsBeforeAbandon overrunning frames are survivable.
-        for (int i = 0; i < WarpPolicy.AttemptsBeforeAbandon; i++)
+        for (int i = 0; i < WarpPolicy.FramesAwaitingWrite; i++)
         {
             WarpDecision d = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
-            Assert.Equal(WarpAction.Slow, d.Action);
+            Assert.NotEqual(WarpAction.Abandon, d.Action);
+        }
+    }
+
+    /// <summary>
+    /// The step arriving on the frame a write takes effect still measures the interval *before*
+    /// it. Dividing by that again reduces on top of a reduction already in flight: 30x becomes
+    /// 9.9x and then 3.2x, and the pair repeats for as long as the salvo lasts.
+    /// </summary>
+    [Fact]
+    public void AStaleStepDoesNotReduceTheSpeedTwice()
+    {
+        var policy = new WarpPolicy();
+
+        WarpDecision first = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        Assert.Equal(WarpAction.Slow, first.Action);
+
+        // The write lands, but this frame's step still describes the interval at 600x.
+        WarpDecision onLanding = policy.Decide(StepAt(600.0), first.Speed,
+                                               roundsInFlight: true, enabled: true);
+        Assert.Equal(WarpAction.None, onLanding.Action);
+
+        // And the settle step after it, still carrying the old interval.
+        WarpDecision settling = policy.Decide(StepAt(600.0), first.Speed,
+                                              roundsInFlight: true, enabled: true);
+        Assert.Equal(WarpAction.None, settling.Action);
+
+        Assert.True(policy.Holding);
+        Assert.Equal(600.0, policy.HeldSpeed);
+    }
+
+    /// <summary>
+    /// Once a step measured at the speed we asked for arrives and is still too long, reducing
+    /// again is correct — that is the slow-frame case, not the stale-step one.
+    /// </summary>
+    [Fact]
+    public void AFreshStepThatStillOverrunsDoesReduceAgain()
+    {
+        var policy = new WarpPolicy();
+
+        WarpDecision first = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        policy.Decide(StepAt(600.0), first.Speed, roundsInFlight: true, enabled: true);   // lands
+        policy.Decide(StepAt(600.0), first.Speed, roundsInFlight: true, enabled: true);   // settles
+
+        // A genuinely long frame: at the held speed the step is still over the limit.
+        WarpDecision again = policy.Decide(Interceptor.MaxFaithfulStep * 2.0, first.Speed,
+                                           roundsInFlight: true, enabled: true);
+
+        Assert.Equal(WarpAction.Slow, again.Action);
+        Assert.True(again.Speed < first.Speed);
+    }
+
+    /// <summary>
+    /// The player's warp control and KSA's auto-warp write the same field this does. Trading
+    /// writes with them frame by frame is a loop neither side wins, and in flight it produced a
+    /// 10x/3.2x oscillation that ran for the whole salvo. The mod is the guest; it stands down.
+    /// </summary>
+    [Fact]
+    public void SomethingElseDrivingTheSpeedMakesItStandDown()
+    {
+        var policy = new WarpPolicy();
+
+        WarpDecision held = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        Assert.Equal(WarpAction.Slow, held.Action);
+
+        WarpDecision last = WarpDecision.Nothing;
+        for (int i = 0; i <= WarpPolicy.OverridesBeforeYielding + 1; i++)
+        {
+            // The write lands, then something puts the speed straight back up.
+            policy.Decide(StepAt(600.0), held.Speed, roundsInFlight: true, enabled: true);
+            policy.Decide(StepAt(600.0), held.Speed, roundsInFlight: true, enabled: true);
+            last = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+            if (last.Action == WarpAction.Yield) break;
+        }
+
+        Assert.Equal(WarpAction.Yield, last.Action);
+        Assert.True(policy.Yielded);
+        Assert.False(policy.Holding);
+    }
+
+    /// <summary>Having stood down, it must not restart the fight on the next overrunning frame.</summary>
+    [Fact]
+    public void OnceStoodDownItStaysDownForTheSalvo()
+    {
+        var policy = new WarpPolicy();
+
+        WarpDecision held = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        for (int i = 0; i <= WarpPolicy.OverridesBeforeYielding + 1; i++)
+        {
+            policy.Decide(StepAt(600.0), held.Speed, roundsInFlight: true, enabled: true);
+            policy.Decide(StepAt(600.0), held.Speed, roundsInFlight: true, enabled: true);
+            policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        }
+
+        Assert.True(policy.Yielded);
+        for (int i = 0; i < 5; i++)
+        {
+            WarpDecision d = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+            Assert.Equal(WarpAction.None, d.Action);
         }
     }
 
     [Fact]
-    public void RecoveringInsideTheLimitForgetsTheFailedAttempts()
+    public void TheAirClearingClearsTheStandDownToo()
     {
         var policy = new WarpPolicy();
 
-        for (int i = 0; i < WarpPolicy.AttemptsBeforeAbandon; i++)
+        WarpDecision held = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        for (int i = 0; i <= WarpPolicy.OverridesBeforeYielding + 1; i++)
         {
+            policy.Decide(StepAt(600.0), held.Speed, roundsInFlight: true, enabled: true);
+            policy.Decide(StepAt(600.0), held.Speed, roundsInFlight: true, enabled: true);
             policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
         }
+        Assert.True(policy.Yielded);
 
-        // The slowdown takes effect, then the player warps up again later in the same flight.
-        policy.Decide(StepAt(1.0), 1.0, roundsInFlight: true, enabled: true);
+        policy.Decide(StepAt(600.0), 600.0, roundsInFlight: false, enabled: true);
+        Assert.False(policy.Yielded);
+
+        // A fresh salvo gets a fresh attempt.
         WarpDecision again = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
-
         Assert.Equal(WarpAction.Slow, again.Action);
+    }
+
+    /// <summary>
+    /// Asking for a speed at or above the current one is not a reduction, and issuing it would
+    /// latch a hold that never converges.
+    /// </summary>
+    [Fact]
+    public void ItNeverAsksForASpeedItIsAlreadyAtOrAbove()
+    {
+        var policy = new WarpPolicy();
+
+        // Barely over the limit: the computed target is close to the current speed.
+        WarpDecision d = policy.Decide(Interceptor.MaxFaithfulStep * 1.01, 1.0,
+                                       roundsInFlight: true, enabled: true);
+
+        Assert.True(d.Action != WarpAction.Slow || d.Speed < 1.0);
     }
 
     [Theory]

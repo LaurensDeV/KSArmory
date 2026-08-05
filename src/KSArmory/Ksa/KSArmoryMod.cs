@@ -255,14 +255,18 @@ public sealed class KSArmoryMod
         {
             case WarpAction.Slow:
             case WarpAction.Restore:
-                // A refused write is not an error here: the policy counts the frames it keeps
-                // overrunning and abandons on its own, which is the case that matters.
+                // A refused write is not an error here: the policy waits for the value it asked
+                // for to appear and abandons on its own if it never does.
                 if (KsaWorld.SetSimulationSpeed(d.Speed))
                 {
                     Log.Info(d.Action == WarpAction.Slow
                                  ? $"timewarp held at {d.Speed:F1}x - {d.Why}"
                                  : $"timewarp restored to {d.Speed:F0}x - {d.Why}");
                 }
+                break;
+
+            case WarpAction.Yield:
+                Log.Warn($"timewarp not held - {d.Why}");
                 break;
 
             case WarpAction.Abandon:

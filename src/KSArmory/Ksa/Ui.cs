@@ -128,6 +128,11 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
                 $"Warp held at {KsaWorld.SimulationSpeed:0.#}x - {_warp.HeldSpeed:F0}x returns "
                 + "when the rounds land");
         }
+        else if (_warp.Yielded)
+        {
+            ImGui.TextColored(Red, "Warp not held - something else is driving the speed control");
+            ImGui.TextDisabled("  Rounds in flight will lag the world and miss.");
+        }
         else if (KsaWorld.SimulationSpeed > 1.0)
         {
             double warp = KsaWorld.SimulationSpeed;

@@ -12,7 +12,10 @@ internal enum WarpAction
     /// <summary>Give the player their speed back — the air is clear.</summary>
     Restore,
 
-    /// <summary>Slowing the world did not take. Give up on what is in the air.</summary>
+    /// <summary>Stop competing for the speed control: something else is driving it.</summary>
+    Yield,
+
+    /// <summary>The world will not run slower at all. Give up on what is in the air.</summary>
     Abandon,
 }
 
@@ -27,13 +30,13 @@ internal readonly record struct WarpDecision(WarpAction Action, double Speed, st
 ///
 /// <para>Past <see cref="Interceptor.MaxFaithfulStep"/> a round moves further per step than its
 /// own fuse radius, so it can pass through a target without ever measuring a close approach.
-/// Clamping the step instead — which is what shipped — leaves rounds advancing 0.32 s while the
-/// world advances seconds, so they trail further behind every frame and the salvo reads as a
-/// guidance failure. Measured at 600x: closest approach 124 km against 15-20 m unwarped.</para>
+/// Clamping the step instead leaves rounds advancing 0.32 s while the world advances seconds, so
+/// they trail further behind every frame and the salvo reads as a guidance failure. Measured at
+/// 600x: closest approach 124 km, against 15-20 m unwarped.</para>
 ///
-/// <para>So the world is slowed rather than the round being lied to, and only while something is
-/// in the air. If the engine will not take the speed, there is nothing honest left to do and the
-/// salvo is abandoned — a lost salvo the player is told about beats a silent 124 km miss.</para>
+/// <para>This is a control loop against an actuator that answers late and is shared with the
+/// player, and both of those cost a flight to learn. See the constants for what each one is
+/// holding shut.</para>
 ///
 /// <para>No KSA types: the caller supplies the speed and applies the answer.</para>
 /// </summary>
@@ -47,20 +50,50 @@ internal sealed class WarpPolicy
     public const double Margin = 0.6;
 
     /// <summary>
-    /// Consecutive overrunning frames, while already holding the speed down, before the salvo is
-    /// abandoned. More than one because the speed write lands a frame later than the read.
+    /// Steps to let pass after a request lands before judging it.
+    ///
+    /// <para>The step arriving on the frame a write takes effect still measures the interval
+    /// *before* it. Dividing by that again reduces on top of a reduction already in flight: in
+    /// flight this took 30x to 9.9x and then straight on to 3.2x, and the pair repeated for as
+    /// long as the salvo lasted.</para>
     /// </summary>
-    public const int AttemptsBeforeAbandon = 3;
+    public const int SettleSteps = 1;
+
+    /// <summary>
+    /// Frames to wait for a request to be observed before calling it refused. KSA rejects a speed
+    /// change outright while its own auto-warp is running, and that is indistinguishable from a
+    /// slow write until enough frames have passed.
+    /// </summary>
+    public const int FramesAwaitingWrite = 4;
+
+    /// <summary>
+    /// Times something else may raise the speed while we hold it before we stop competing.
+    ///
+    /// <para>The player's warp control and KSA's auto-warp both write the same field this does.
+    /// Fighting them frame by frame is a loop neither side wins, and the mod is the one that
+    /// should stand down — it is the guest.</para>
+    /// </summary>
+    public const int OverridesBeforeYielding = 2;
+
+    // A speed is never observed exactly: SimSpeed rounds what it stores.
+    private const double SpeedTolerance = 0.05;
 
     private double _restoreTo;
-    private double _lastRequested;
-    private int _attempts;
+    private double _requested;
+    private bool _awaitingWrite;
+    private int _framesAwaiting;
+    private int _settle;
+    private int _overrides;
+    private bool _yielded;
 
     /// <summary>True while the player's chosen speed is being held down.</summary>
     public bool Holding => _restoreTo > 0.0;
 
     /// <summary>The speed that will be given back, or zero when not holding.</summary>
     public double HeldSpeed => _restoreTo;
+
+    /// <summary>True once this salvo has given up competing for the speed control.</summary>
+    public bool Yielded => _yielded;
 
     /// <summary>
     /// Decides what the frame hook should do, given the step the engine just reported.
@@ -79,66 +112,102 @@ internal sealed class WarpPolicy
             return WarpDecision.Nothing;
         }
 
+        // Once we have stood down, stay down until the air is clear. Otherwise the next
+        // overrunning frame simply restarts the fight.
+        if (_yielded) return WarpDecision.Nothing;
+
+        if (Holding)
+        {
+            if (_awaitingWrite)
+            {
+                if (Near(currentSpeed, _requested))
+                {
+                    _awaitingWrite = false;
+                    _settle = SettleSteps;
+                }
+                else if (++_framesAwaiting > FramesAwaitingWrite)
+                {
+                    double was = _restoreTo;
+                    Clear();
+                    return new WarpDecision(WarpAction.Abandon, was,
+                                            "the world will not run slow enough to simulate them");
+                }
+
+                return WarpDecision.Nothing;
+            }
+
+            if (_settle > 0)
+            {
+                _settle--;
+                return WarpDecision.Nothing;
+            }
+
+            // Raised by something that is not us. Stand down rather than trade writes with it.
+            if (currentSpeed > _requested * (1.0 + SpeedTolerance) && ++_overrides > OverridesBeforeYielding)
+            {
+                _yielded = true;
+                _restoreTo = 0.0;
+                return new WarpDecision(WarpAction.Yield, 0.0,
+                                        "something else is driving the speed; rounds will lag");
+            }
+        }
+
         if (dtSim <= Interceptor.MaxFaithfulStep)
         {
-            _attempts = 0;
+            _overrides = 0;
             return WarpDecision.Nothing;
         }
 
         // Self-calibrating: the frame time is dtSim/currentSpeed, so the speed that lands on the
-        // target step needs no knowledge of the frame rate. Doing it this way also means a slow
-        // frame is handled the same as a high warp, because to a round they are the same thing.
+        // target step needs no knowledge of the frame rate. That also makes a slow frame and a
+        // high warp the same problem, which to a round they are.
         double target = currentSpeed * (Interceptor.MaxFaithfulStep * Margin) / dtSim;
-        if (!double.IsFinite(target) || target <= 0.0) return WarpDecision.Nothing;
-
-        if (!Holding)
+        if (!double.IsFinite(target) || target <= 0.0 || target >= currentSpeed)
         {
-            _restoreTo = currentSpeed;
-            _lastRequested = target;
-            _attempts = 1;
-            return new WarpDecision(WarpAction.Slow, target,
-                                    $"holding {currentSpeed:F0}x down to {target:F1}x while rounds fly");
+            return WarpDecision.Nothing;
         }
 
-        // Still overrunning while already holding: the write is not taking effect.
-        _attempts++;
-        if (_attempts > AttemptsBeforeAbandon)
-        {
-            double was = _restoreTo;
-            Clear();
-            return new WarpDecision(WarpAction.Abandon, was,
-                                    "the world will not run slow enough to simulate them");
-        }
+        bool first = !Holding;
+        if (first) _restoreTo = currentSpeed;
 
-        _lastRequested = target;
-        return new WarpDecision(WarpAction.Slow, target, "still overrunning; asking again");
+        _requested = target;
+        _awaitingWrite = true;
+        _framesAwaiting = 0;
+
+        return new WarpDecision(WarpAction.Slow, target,
+                                first
+                                    ? $"holding {currentSpeed:F0}x down to {target:F1}x while rounds fly"
+                                    : $"{currentSpeed:F1}x still overruns; asking for {target:F1}x");
     }
 
     // Gives the speed back, if it is still ours to give. A player who moved the speed themselves
     // while we held it has overridden us, and restoring would undo a deliberate choice.
     private WarpDecision Release(double currentSpeed, string why)
     {
-        if (!Holding) return WarpDecision.Nothing;
-
+        bool held = Holding;
         double to = _restoreTo;
-        double requested = _lastRequested;
+        double requested = _requested;
         Clear();
+        _yielded = false;
 
-        // Only if the world is still sitting at what we asked for. A player who moved the speed
-        // while we held it has overridden us, and restoring would undo a deliberate choice.
-        // Compared as a ratio: SimSpeed rounds what it stores, so an exact match is not reachable.
-        bool stillOurs = requested > 0.0
-                         && double.IsFinite(currentSpeed)
-                         && System.Math.Abs(currentSpeed - requested) <= requested * 0.05;
+        if (!held) return WarpDecision.Nothing;
+
+        bool stillOurs = requested > 0.0 && double.IsFinite(currentSpeed)
+                         && Near(currentSpeed, requested);
 
         return stillOurs ? new WarpDecision(WarpAction.Restore, to, why) : WarpDecision.Nothing;
     }
+
+    private static bool Near(double a, double b) => System.Math.Abs(a - b) <= b * SpeedTolerance;
 
     /// <summary>Forgets any held speed, without restoring it.</summary>
     public void Clear()
     {
         _restoreTo = 0.0;
-        _lastRequested = 0.0;
-        _attempts = 0;
+        _requested = 0.0;
+        _awaitingWrite = false;
+        _framesAwaiting = 0;
+        _settle = 0;
+        _overrides = 0;
     }
 }
