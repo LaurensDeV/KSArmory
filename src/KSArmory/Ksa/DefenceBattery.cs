@@ -490,7 +490,16 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
 
     private void UpdateFireControl(double dt)
     {
-        Hold = Holding();
+        string? hold = Holding();
+
+        // Logged on change, not every frame: "why is it not shooting" is the question this mod
+        // gets asked most, and a panel line only answers it for whoever is looking at the panel.
+        if (hold != Hold)
+        {
+            Announce(hold is null ? "clear to fire" : $"holding fire: {hold}");
+        }
+
+        Hold = hold;
         if (_salvoTimer > 0.0) _salvoTimer = Math.Max(0.0, _salvoTimer - dt);
 
         // Reload cycle.
