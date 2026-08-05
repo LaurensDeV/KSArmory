@@ -149,8 +149,6 @@ public static class Program
                     statusCode: StatusCodes.Status426UpgradeRequired);
             }
 
-            // Only what a person wrote. The log is machine output, and sending it would be both
-            // pointless and a much larger disclosure than the reporter intended.
             string written = $"{report.Summary}\n{report.Detail}";
 
             // Local first: no key, no quota, no third party, and nothing leaves the machine. The
@@ -158,6 +156,14 @@ public static class Program
             Verdict verdict = classifier is not null
                 ? Judge(classifier, written, config, log)
                 : await Moderate(written, factory, config, log, cancellation);
+
+            // The log is judged too, and separately. It is mostly machine output, but a craft name
+            // is player-authored and reaches a public issue through it — so a slur in one would
+            // otherwise walk straight past a gate that only reads the summary.
+            Guard.Condensed condensed = Guard.Condense(report.Log);
+            bool withLog = classifier is null
+                           || (condensed.Whole && condensed.Lines.All(
+                               line => Judge(classifier, line, config, log) != Verdict.Refused));
 
             if (verdict == Verdict.Refused)
             {
@@ -194,7 +200,7 @@ public static class Program
             var issue = new
             {
                 title = Title(report),
-                body = Body(report),
+                body = Body(report, withLog),
                 labels = verdict == Verdict.Unchecked
                     ? new[] { "from-game", report.Kind == "idea" ? "enhancement" : "bug", "unmoderated" }
                     : new[] { "from-game", report.Kind == "idea" ? "enhancement" : "bug" },
@@ -226,9 +232,8 @@ public static class Program
     /// <summary>
     /// Scores text with the local model and turns the number into a verdict.
     ///
-    /// <para>The threshold is configurable because it is a judgement, not a fact: 0.8 refuses
-    /// abuse while letting through a report that calls the mod rubbish, which is a thing someone
-    /// with a real bug might well write.</para>
+    /// <para>The thresholds are per label and live on <see cref="Classifier.Thresholds"/>, with the
+    /// measurements that chose them.</para>
     /// </summary>
     private static Verdict Judge(Classifier classifier, string text, IConfiguration config, ILogger log)
     {
@@ -236,7 +241,7 @@ public static class Program
         {
             if (classifier.Offence(text) is not var (label, score)) return Verdict.Allowed;
 
-            log.LogInformation("refused a report: {Label} at {Score:F2}", label, score);
+            log.LogInformation("refused: {Label} at {Score:F2}", label, score);
             return Verdict.Refused;
         }
         catch (Exception e)
@@ -384,7 +389,7 @@ public static class Program
     /// server ping strangers. Fencing also stops markdown and HTML in a report rendering as
     /// anything but what was typed.</para>
     /// </summary>
-    private static string Body(Report report)
+    private static string Body(Report report, bool withLog)
     {
         var body = new System.Text.StringBuilder();
 
@@ -405,12 +410,17 @@ public static class Program
             body.AppendLine(Fence(Guard.Clean(report.Detail, MaxDetail), MaxDetail)).AppendLine();
         }
 
-        if (!string.IsNullOrWhiteSpace(report.Log))
+        if (!string.IsNullOrWhiteSpace(report.Log) && withLog)
         {
             body.AppendLine("### Log").AppendLine();
             body.AppendLine("<details><summary>KSArmory.log</summary>").AppendLine();
             body.AppendLine(Fence(Guard.Clean(report.Log, MaxLog), MaxLog)).AppendLine();
             body.AppendLine("</details>");
+        }
+        else if (!string.IsNullOrWhiteSpace(report.Log))
+        {
+            body.AppendLine("### Log").AppendLine();
+            body.AppendLine("Withheld: something in it reads as abusive. Ask for it directly.");
         }
 
         return body.ToString();

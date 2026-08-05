@@ -79,6 +79,76 @@ public static partial class Guard
     }
 
     /// <summary>
+    /// A log reduced to the distinct things it says, so it can be judged in one pass.
+    ///
+    /// <para>A log is mostly not a log: it is the same handful of messages repeated, and what
+    /// varies between them is a number or a name. Dropping the timestamp, the level, the numbers
+    /// and every repeat leaves the vocabulary — which is the only part worth scoring, and is what
+    /// makes a 12 KB log fit inside the model's 512-token window instead of needing eight passes at
+    /// nearly a second each.</para>
+    ///
+    /// <para>Names survive. That is the point: a craft name is player-authored text that reaches a
+    /// public issue through the log, and it is the only part of a log anyone can choose.</para>
+    ///
+    /// <para>Each line is returned separately because whoever scores them should score them one at
+    /// a time. A whole log judged as one document dilutes a single abusive line among the hundred
+    /// dull ones around it — measured at insult 0.95 alone against 0.34 in company.</para>
+    /// </summary>
+    public static Condensed Condense(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return new Condensed([], true);
+
+        HashSet<string> seen = [];
+        List<string> kept = [];
+        int budget = CondenseBudget;
+        bool whole = true;
+
+        foreach (string raw in value.Split('\n'))
+        {
+            string line = Preamble().Replace(raw, "");
+            line = Numbers().Replace(line, "#").Trim();
+
+            // A log with no newlines is one enormous line, and one pass over it would read the
+            // first 512 tokens and silently ignore the rest. Cutting it keeps every part readable.
+            for (int i = 0; i < line.Length; i += CondenseLine)
+            {
+                if (budget <= 0 || kept.Count >= CondenseLines)
+                {
+                    whole = false;
+                    break;
+                }
+
+                string piece = line[i..Math.Min(i + CondenseLine, line.Length)];
+
+                // A repeat is already covered by the copy that was kept, so skipping it loses
+                // nothing and is not a gap.
+                if (!seen.Add(piece)) continue;
+
+                kept.Add(piece);
+                budget -= piece.Length;
+            }
+        }
+
+        return new Condensed(kept, whole);
+    }
+
+    /// <summary>
+    /// A log reduced to what is worth scoring, and whether that is all of it.
+    ///
+    /// <para><see cref="Whole"/> false means the limits cut something off, so nobody can say the
+    /// unread part was clean. Whoever asked is expected to treat that as a refusal — a log too
+    /// strange to read through is not one to publish unread.</para>
+    /// </summary>
+    public readonly record struct Condensed(IReadOnlyList<string> Lines, bool Whole);
+
+    // What Condense will read at most. A real log condenses to about 300 characters over a dozen
+    // lines, so this is twenty-odd times the headroom it needs; the ceiling is there so a hostile
+    // log cannot turn one scan into a minute of model passes.
+    private const int CondenseLine = 400;
+    private const int CondenseLines = 32;
+    private const int CondenseBudget = 8_000;
+
+    /// <summary>
     /// A stable fingerprint of a report, for noticing the same thing arriving repeatedly.
     ///
     /// <para>Rate limiting is per address and a flood is not. This is what makes one message sent
@@ -199,6 +269,13 @@ public static partial class Guard
 
         return [.. parts];
     }
+
+    // A leading timestamp and level, in the shape Log.cs writes them.
+    [GeneratedRegex(@"^\s*\d{1,2}:\d{2}:\d{2}[.,]\d+\s+[A-Za-z]+\s+")]
+    private static partial Regex Preamble();
+
+    [GeneratedRegex(@"[-+]?\d[\d.,:]*")]
+    private static partial Regex Numbers();
 
     [GeneratedRegex(@"[A-Za-z]:\\Users\\[^\\\r\n]+", RegexOptions.IgnoreCase)]
     private static partial Regex WindowsUsers();
