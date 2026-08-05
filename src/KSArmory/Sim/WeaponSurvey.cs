@@ -11,8 +11,22 @@ public enum WeaponRole
     /// <summary>Throws guided rounds. Carries its own tubes.</summary>
     Launcher,
 
-    /// <summary>Finds targets.</summary>
+    /// <summary>Finds targets. Feeds the threat model.</summary>
     Sensor,
+
+    /// <summary>
+    /// Looks at one thing and shows it to the operator.
+    ///
+    /// <para>Separate from <see cref="Sensor"/> because it does a different job: a sensor
+    /// *detects*, producing tracks the threat model ranks, while a camera *observes* something
+    /// already known and drives one of the game's viewports. A craft can carry either without the
+    /// other — a site with no camera still shoots, and a camera without a radar has nothing to
+    /// look at but is still worth pointing by hand.</para>
+    ///
+    /// <para>They also differ in what they cost: a sensor is a per-frame scan over every loaded
+    /// vehicle, a camera is a transform write and a borrowed viewport.</para>
+    /// </summary>
+    Camera,
 
     /// <summary>Throws unguided rounds on a belt.</summary>
     Gun,

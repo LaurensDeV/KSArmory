@@ -120,8 +120,9 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         }
 
         ImGui.TextColored(Green, "  Weapons system");
-        foreach (WeaponRole role in (ReadOnlySpan<WeaponRole>)
-                 [WeaponRole.FireControl, WeaponRole.Launcher, WeaponRole.Sensor, WeaponRole.Gun])
+        // Every role, read off the enum rather than listed here. A hand-written list silently
+        // omits a role added later, which reads as the survey not finding one.
+        foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
         {
             int n = inv.CountOf(role);
             if (n > 0) ImGui.TextDisabled($"    {role}: {n}");

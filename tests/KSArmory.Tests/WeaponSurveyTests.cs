@@ -137,4 +137,61 @@ public class WeaponSurveyTests
         Assert.True(inv.IsWeaponSystem);
         Assert.Equal(1, inv.CountOf(WeaponRole.Launcher));
     }
+
+    /// <summary>
+    /// A camera is not a sensor. One detects and feeds the threat model; the other observes
+    /// something already known and drives a viewport. Counting them together would report a
+    /// craft with an optical head as radar-equipped, which is the opposite of true.
+    /// </summary>
+    [Fact]
+    public void ACameraIsCountedApartFromASensor()
+    {
+        ComponentProfile camera = new()
+            { PartId = "KSArmory_Camera", Role = WeaponRole.Camera, DisplayName = "Optical head" };
+        IReadOnlyList<ComponentProfile> registry = [Tube, Radar, camera];
+
+        WeaponInventory inv = WeaponSurvey.Survey(
+            [At("KSArmory_Camera", 0, 0, 1), At("KSArmory_Radar", 0, 0, 2), At("KSArmory_Camera", 1, 0, 1)],
+            registry);
+
+        Assert.Equal(2, inv.CountOf(WeaponRole.Camera));
+        Assert.Equal(1, inv.CountOf(WeaponRole.Sensor));
+    }
+
+    /// <summary>
+    /// A craft can carry a camera and nothing else, and is still a weapons system worth showing:
+    /// the head is worth pointing by hand even with no radar to tell it where to look.
+    /// </summary>
+    [Fact]
+    public void ACameraAloneStillCounts()
+    {
+        ComponentProfile camera = new()
+            { PartId = "KSArmory_Camera", Role = WeaponRole.Camera, DisplayName = "Optical head" };
+
+        WeaponInventory inv = WeaponSurvey.Survey([At("KSArmory_Camera", 0, 0, 0)], [camera]);
+
+        Assert.True(inv.IsWeaponSystem);
+        Assert.Equal(1, inv.CountOf(WeaponRole.Camera));
+        Assert.Equal(0, inv.CountOf(WeaponRole.Launcher));
+    }
+
+    /// <summary>
+    /// Every role must be countable. CountOf is a linear scan over a single enum field, so a role
+    /// added later works without touching it -- this pins that, since the panel iterates the enum
+    /// and would otherwise show a role it cannot count.
+    /// </summary>
+    [Fact]
+    public void EveryRoleIsCountable()
+    {
+        foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
+        {
+            ComponentProfile p = new()
+                { PartId = $"KSArmory_{role}", Role = role, DisplayName = role.ToString() };
+
+            WeaponInventory inv = WeaponSurvey.Survey([At(p.PartId, 0, 0, 0)], [p]);
+
+            Assert.Equal(1, inv.CountOf(role));
+            Assert.True(inv.IsWeaponSystem);
+        }
+    }
 }
