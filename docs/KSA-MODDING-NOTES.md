@@ -251,6 +251,11 @@ Four things worth knowing:
   mesh, so a cloud of them is a heap of balls whatever the colour. `Volumetric` with a low
   `<Opacity>` (Core's own uses 0.05) accumulates instead — individual particles stop being visible
   and what is left is the density where they overlap.
+- **Nest child emitters inline, not by Id.** Core's `Debug_SphericalBurst` composes with
+  `<ParticleEmitters Id="Billboard"/>`, but doing that from a mod threw *"Invalid renderer type"* —
+  the hardcoded message `ParticleSystem` uses when an emitter in the tree has no renderer, i.e. the
+  by-Id child did not resolve back to its definition. Inline `<ParticleEmitters>` blocks are the
+  form every emitter Core uses in play, and they work.
 - **`Volumetric` is the screen-space renderer and is OFF by default.**
   `ParticleSystem.WriteCommandsColorTranslucent` only issues its draw commands when
   `GameSettings.Graphics.ScreenSpaceParticles` is on, and that setting defaults to `false`. A
