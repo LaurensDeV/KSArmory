@@ -266,7 +266,7 @@
         <Updaters>Age</Updaters>
         <SpawnMode>Burst</SpawnMode>
         <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-        <EmitterSize Value="1.2"/>
+        <EmitterSize Value="2.5"/>
         <EmitterExtents X="0.6" Y="0" Z="0"/>
         <SpawnRate Value="40"/>
         <Force X="0" Y="0" Z="0" />
@@ -275,8 +275,8 @@
         <ParticleColorShift X="0.2" Y="0.2" Z="0"/>
         <ParticleLifespan X="0.4" Y="1.0"/>
         <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleSize X="0.25" Y="0.8"/>
-        <ParticleVelocity X="16" Y="16" Z="16"/>
+        <ParticleSize X="1.0" Y="3.0"/>
+        <ParticleVelocity X="22" Y="22" Z="22"/>
         <ParticleVelocityShift Value="0.8"/>
         <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
         <ParticleAngularVelocity X="4" Y="4" Z="4"/>
@@ -297,11 +297,11 @@
             <Force X="0" Y="0" Z="0" />
             <GravityStrength Value="-0.1"/>
             <EmitterExtra X="0.1" Y="0.01" Z="0" W="0"/>
-            <Opacity Value="0.04"/>
-            <ParticleColor X="0.35" Y="0.32" Z="0.30" W="1"/>
+            <Opacity Value="0.14"/>
+            <ParticleColor X="0.40" Y="0.36" Z="0.33" W="1"/>
             <ParticleLifespan X="2.0" Y="4.0"/>
             <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-            <ParticleSize X="1.0" Y="2.2"/>
+            <ParticleSize X="3.5" Y="7.0"/>
             <ParticleVelocity X="3" Y="3" Z="3"/>
             <ParticleVelocityShift Value="0.9"/>
             <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
@@ -320,7 +320,7 @@
         <Updaters>Age</Updaters>
         <SpawnMode>Burst</SpawnMode>
         <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-        <EmitterSize Value="1.2"/>
+        <EmitterSize Value="2.5"/>
         <EmitterExtents X="0.6" Y="0" Z="0"/>
         <SpawnRate Value="40"/>
         <Force X="0" Y="0" Z="0" />
@@ -329,8 +329,8 @@
         <ParticleColorShift X="0.2" Y="0.2" Z="0"/>
         <ParticleLifespan X="0.4" Y="1.0"/>
         <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleSize X="0.25" Y="0.8"/>
-        <ParticleVelocity X="16" Y="16" Z="16"/>
+        <ParticleSize X="1.0" Y="3.0"/>
+        <ParticleVelocity X="22" Y="22" Z="22"/>
         <ParticleVelocityShift Value="0.8"/>
         <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
         <ParticleAngularVelocity X="4" Y="4" Z="4"/>
@@ -351,10 +351,10 @@
             <SpawnRate Value="24"/>
             <Force X="0" Y="0" Z="0" />
             <GravityStrength Value="-0.1"/>
-            <ParticleColor X="0.32" Y="0.30" Z="0.28" W="0.4"/>
+            <ParticleColor X="0.32" Y="0.30" Z="0.28" W="0.5"/>
             <ParticleLifespan X="2.0" Y="4.0"/>
             <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-            <ParticleSize X="1.4" Y="3.0"/>
+            <ParticleSize X="4.0" Y="8.0"/>
             <ParticleVelocity X="3" Y="3" Z="3"/>
             <ParticleVelocityShift Value="0.9"/>
             <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>

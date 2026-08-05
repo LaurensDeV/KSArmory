@@ -54,7 +54,7 @@ public static class Warhead
     /// and invisible at any range anyone watches from. An effect nobody can see is the same as no
     /// effect, and this is decoration, so it gets a floor. The damage radii do not.</para>
     /// </summary>
-    public const double MinimumEffectScale = 0.45;
+    public const double MinimumEffectScale = 0.6;
 
     /// <summary>
     /// What to multiply the authored effect by so it reads as this charge. Cube root again, so a
