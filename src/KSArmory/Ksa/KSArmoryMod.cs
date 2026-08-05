@@ -29,6 +29,7 @@ public sealed class KSArmoryMod
     private int _overrunFrames;
     private double _overrunDiscarded;
     private bool _disabled;
+    private readonly WarpPolicy _warp = new();
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad(Mod mod)
@@ -40,7 +41,7 @@ public sealed class KSArmoryMod
     public void OnFullyLoaded()
     {
         _battery = new DefenceBattery(_config);
-        _ui = new Ui(_config, _battery);
+        _ui = new Ui(_config, _battery, _warp);
         Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
                  + "Open the 'KSArmory' panel to arm.");
     }
@@ -147,16 +148,16 @@ public sealed class KSArmoryMod
             // nothing exactly when it advanced nothing, so an estimate would integrate the round
             // across an interval the world did not move over, and the whole of that lands in the
             // drawn offset. Skipping costs one frame of round motion and nothing accumulates.
-            // Classified for the log only. The clamp below is what actually runs, and it is
-            // *not* what SimClock exists to do: past MaxFaithfulStep the honest answer is to
-            // abandon what is in the air, and clamping instead discards simulated time silently.
-            // Which is right is a question about flight, not about the maths - so this reports
-            // and changes nothing. See docs/AUDIT-2026-08.md.
             if (SimClock.Classify(dtSim, KsaWorld.IsPaused, out _) == SimClock.State.Skipped)
             {
                 ReportOverrun(dtSim);
             }
 
+            ApplyWarpPolicy(dtSim);
+
+            // Still clamped, and it still discards time: the frame that overran cannot be
+            // un-run, and the policy above only takes effect from the next one. What it stops
+            // is the *next* thousand frames doing the same thing silently.
             if (double.IsFinite(dtSim) && dtSim > 0.0)
                 _battery.Update(Math.Min(dtSim, Interceptor.MaxFaithfulStep));
         }
@@ -171,6 +172,14 @@ public sealed class KSArmoryMod
     [StarMapUnload]
     public void Unload()
     {
+        // Give the speed back before letting go of it, or unloading mid-salvo leaves the world
+        // stuck at whatever the policy had wound it down to, with nothing left to wind it back.
+        if (_warp.Holding && KsaWorld.SetSimulationSpeed(_warp.HeldSpeed))
+        {
+            Log.Info($"timewarp restored to {_warp.HeldSpeed:F0}x - unloading");
+        }
+        _warp.Clear();
+
         _battery?.Reset();
         KsaWorld.ResetSimStepTracking();
         _battery = null;
@@ -231,6 +240,39 @@ public sealed class KSArmoryMod
                  + $"a round can integrate faithfully; clamped and carried on. "
                  + $"{_overrunFrames} frame(s), {_overrunDiscarded:F2} s of simulated time discarded. "
                  + $"Rounds in flight will lag the world.");
+    }
+
+    // Keeps the world slow enough to simulate what is in the air, and gives the speed back when
+    // it lands. WarpPolicy holds the reasoning and all of the arithmetic.
+    private void ApplyWarpPolicy(double dtSim)
+    {
+        if (_battery is null) return;
+
+        WarpDecision d = _warp.Decide(dtSim, KsaWorld.SimulationSpeed,
+                                      _battery.Rounds.Count > 0, _config.LimitWarpInFlight);
+
+        switch (d.Action)
+        {
+            case WarpAction.Slow:
+            case WarpAction.Restore:
+                // A refused write is not an error here: the policy counts the frames it keeps
+                // overrunning and abandons on its own, which is the case that matters.
+                if (KsaWorld.SetSimulationSpeed(d.Speed))
+                {
+                    Log.Info(d.Action == WarpAction.Slow
+                                 ? $"timewarp held at {d.Speed:F1}x - {d.Why}"
+                                 : $"timewarp restored to {d.Speed:F0}x - {d.Why}");
+                }
+                break;
+
+            case WarpAction.Abandon:
+                _battery.AbandonFlight(d.Why);
+                break;
+
+            case WarpAction.None:
+            default:
+                break;
+        }
     }
 
     private void Fault(string where, Exception e)

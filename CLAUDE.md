@@ -239,6 +239,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
+| `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |
@@ -702,14 +703,24 @@ frame than the rounds did and tracking fell apart. `KsaWorld.SimTimeSeconds` dif
 at 64 sub-steps, so beyond `Interceptor.MaxFaithfulStep` (0.32 s) a round at 700 m/s starts
 stepping over its own fuse radius, and `SimClock.Classify` answers `Skipped`.
 
-**What the frame hook then does with that is currently a clamp, not a refusal.** It calls
-`Math.Min(dtSim, MaxFaithfulStep)` and carries on; `DefenceBattery.AbandonFlight` has no callers.
-So under heavy warp simulated time is discarded and rounds fall behind the world — the failure
-most easily misread as bad guidance. The hook now reports each overrun and how much time it threw
-away, and changes nothing else: whether abandoning the salvo is better than lagging it is a
-question about flight rather than about the maths, and this file has already been wrong once by
-describing a mechanism that was not running. `SimClockTests` pins `Classify`, which is correct and
-unused. Decide it, then rewrite this paragraph. See `docs/AUDIT-2026-08.md`.
+**Past that step the world is slowed rather than the round being lied to.** `Sim/WarpPolicy.cs`
+holds timewarp down while anything is in the air and gives the player's speed back when it lands
+— so the unsimulatable state is prevented instead of being chosen between. The limit is a *step*,
+not a warp factor: it is `MaxFaithfulStep / frameTime`, about 19× at 60 fps and lower on a slow
+frame, and the policy calibrates off the step it was just handed rather than assuming a frame
+rate.
+
+Two rules it exists to keep. A player who moves the speed while it is held has overridden the
+mod, so the held value is not restored over the top of a deliberate choice. And if the engine
+will not take the speed at all, the salvo is abandoned after
+`WarpPolicy.AttemptsBeforeAbandon` frames — a lost salvo the player is told about beats the
+silent alternative, which was measured in flight at **124 km closest approach against 15–20 m
+unwarped**. `Config.LimitWarpInFlight` turns the whole thing off, and then rounds lag the world
+exactly as they used to.
+
+The clamp is still there and still discards time: the frame that overran cannot be un-run, and
+the policy only takes effect from the next one. What it stops is the next thousand frames doing
+the same thing silently.
 
 **Kills are binary.** KSA exposes no partial-damage model, only
 `Universe.DestroyVehicleFromEvent`. `LethalRadius` destroys; between lethal and `BlastRadius`

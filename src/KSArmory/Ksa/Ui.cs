@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed class Ui(Config config, DefenceBattery battery)
+internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -21,6 +21,7 @@ internal sealed class Ui(Config config, DefenceBattery battery)
 
     private readonly Config _config = config;
     private readonly DefenceBattery _battery = battery;
+    private readonly WarpPolicy _warp = warp;
     private readonly List<int> _viewports = [];
     private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
@@ -121,11 +122,17 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         {
             ImGui.Text("Paused - the battery is stopped with the world");
         }
+        else if (_warp.Holding)
+        {
+            ImGui.TextColored(Amber,
+                $"Warp held at {KsaWorld.SimulationSpeed:0.#}x - {_warp.HeldSpeed:F0}x returns "
+                + "when the rounds land");
+        }
         else if (KsaWorld.SimulationSpeed > 1.0)
         {
             double warp = KsaWorld.SimulationSpeed;
-            ImGui.Text(warp > MaxTrackableWarp
-                ? $"Warp {warp:F0}x - too fast to guide; rounds stand down"
+            ImGui.Text(warp > MaxTrackableWarp && !_config.LimitWarpInFlight
+                ? $"Warp {warp:F0}x - too fast to guide; rounds will lag the world"
                 : $"Warp {warp:F0}x");
         }
 
@@ -315,6 +322,14 @@ internal sealed class Ui(Config config, DefenceBattery battery)
 
         ImGui.Checkbox("Never target the vehicle I'm flying", ref _config.ProtectControlledVehicle);
         ImGui.Checkbox("Require launcher part", ref _config.RequireLauncherPart);
+
+        ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);
+        ImGui.TextDisabled($"  Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only");
+        ImGui.TextDisabled("  while something is in the air, and given back after.");
+        if (!_config.LimitWarpInFlight)
+        {
+            ImGui.TextColored(Amber, "  Off: rounds under warp will lag the world and miss.");
+        }
     }
 
     // Spawns a drone on a timed pass, so the system can be tested without building and flying a

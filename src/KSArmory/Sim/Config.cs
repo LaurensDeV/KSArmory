@@ -69,6 +69,18 @@ public sealed class Config
     public bool ProtectControlledVehicle = true;
 
     /// <summary>
+    /// Hold the world's timewarp down while rounds are in the air, and give it back when they
+    /// land. See <see cref="WarpPolicy"/> for why: past ~19x a round cannot be simulated, and
+    /// the alternative to slowing the world is a salvo that misses by kilometres for reasons
+    /// nothing on screen explains.
+    ///
+    /// <para>Off means the mod never touches the speed. Rounds under heavy warp then lag the
+    /// world and miss — the behaviour is wrong rather than absent, which is why this defaults
+    /// on.</para>
+    /// </summary>
+    public bool LimitWarpInFlight = true;
+
+    /// <summary>
     /// Who this battery will shoot at. Defaults to engaging anything unrecognised, so a world
     /// where nobody has assigned teams behaves as it did before teams existed.
     /// </summary>
