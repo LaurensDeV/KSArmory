@@ -326,6 +326,16 @@ assigned and never read anywhere in the engine. A scale left on the Blender obje
 discarded. `tools/model/kittengun.py` applies `CHARACTER_SPACE` and then `transform_apply`s it for
 exactly that reason.
 
+**An attachment's axes are composed in a different order from the body's.** The body gets
+`RotX(-90) * RotZ(-90)` applied *after* the scale (`KittenRenderable:184`); an attachment gets
+`RotZ(-90) * RotX(-90)` applied *before* the bone matrix (`:207`). So a mesh that is the right
+size can still arrive rotated, and the `<Rotation>` in the attachment XML is where that is
+corrected.
+
+**Keep an attachment to one mesh with one primitive.** `GltfPbrSystem` aliases the index buffer
+across primitives and then disposes it (`:102` against `:112`), so the second primitive frees a
+list the first still points at. One mesh is the only shape that is not walking on freed memory.
+
 **Nothing else in that pipeline fails quietly.** A bad material Id, a missing bone, a null material
 slot and a failed asset load all throw, and `AssetManager.GetOrLoad` rethrows rather than
 swallowing. The only silent no-draws are `Visible == false` and a glTF with no mesh primitives. So
