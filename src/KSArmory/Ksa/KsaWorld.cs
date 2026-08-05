@@ -251,15 +251,45 @@ internal static class KsaWorld
             }
 
             double3 cce = nearestHit - centreEcl;
-            groundEcl = nearestHit;
             latitudeDeg = nearest.GetLatitudeFromCce(cce);
             longitudeDeg = nearest.GetLongitudeFromCce(cce);
             bodyName = nearest.Id ?? string.Empty;
+
+            // Lift the marker onto the pad, because that is where the craft will land: KSA's own
+            // placement adds this height and the terrain query knows nothing about it, so without
+            // it the marker sits inside the structure the craft ends up standing on.
+            double pad = LaunchPadHeight(nearest, Vec.Unit(cce));
+            groundEcl = pad > 0.0 ? nearestHit + Vec.Unit(cce) * pad : nearestHit;
             return true;
         }
         catch
         {
             return false;
+        }
+    }
+
+    // Mirrors Vehicle.GetInitialKinematicStateForLocation, which is private and is what actually
+    // places the craft: within 40 m of a launch-pad landmark it stands 8 m up, on the pad. These
+    // numbers are the engine's, not ours -- if they move, the marker and the landing part company.
+    private static double LaunchPadHeight(Celestial body, double3 dirCce)
+    {
+        try
+        {
+            if (body.BodyTemplate is not { } template) return 0.0;
+
+            double3 dirCcf = dirCce.Transform(body.GetCce2Ccf());
+
+            foreach (LocationReference location in template.Locations)
+            {
+                if (location is not LandmarkReference { IsLaunchPad: true } pad) continue;
+                if (Vec.Len(pad.ForwardCcf - dirCcf) * body.MeanRadius < 40.0) return 8.0;
+            }
+
+            return 0.0;
+        }
+        catch
+        {
+            return 0.0;
         }
     }
 

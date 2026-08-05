@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-89 types and 241 members across 6 assemblies.
+92 types and 247 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -248,6 +248,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Celestial
 
+- `Brutal.Numerics.doubleQuat GetCce2Ccf()`
+- `KSA.CelestialTemplate get_BodyTemplate()`
 - `double GetLatitudeFromCce(Brutal.Numerics.double3)`
 - `double GetLongitudeFromCce(Brutal.Numerics.double3)`
 - `double GetTerrainHeightFromDirCce(Brutal.Numerics.double3, bool)`
@@ -257,6 +259,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Astronomical GetIndex(int)`
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 - `int get_Count()`
+
+### KSA.CelestialTemplate
+
+- `System.Collections.Generic.List`1<KSA.LocationReference> Locations`
 
 ### KSA.CharacterAttachmentReference
 
@@ -285,6 +291,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Double3Ex
 
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.double4x4)`
+- `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.doubleQuat)`
 
 ### KSA.GizmosRenderer
 
@@ -342,6 +349,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `string Character`
 - `string Name`
+
+### KSA.LandmarkReference
+
+- `bool IsLaunchPad`
+
+### KSA.LocationReference
+
+- `Brutal.Numerics.double3 get_ForwardCcf()`
 
 ### KSA.LookupCollection`1
 

@@ -220,6 +220,24 @@ void DrawLine(double3 startEgo, double3 endEgo, float4 colour);
 Reachable as `Program.GizmosRenderer`. This is the cheapest way to render anything custom —
 no asset pipeline, no shaders.
 
+### Placing a craft on the ground — `Vehicle.TeleportToLocation`
+
+`TeleportToLocation(Celestial, latDeg, lonDeg)` is public and is how the game moves a vessel. It
+builds the kinematic state from the craft's own bounding box and queues it through
+`InputEvents.TeleportInputBuffer`, so the hull arrives upright and resting on the terrain. Writing
+a position instead puts the craft's *origin* at the point and leaves the rest wherever that falls.
+
+Because it is a buffered engine event that rebuilds the vehicle's orbit and velocity, it is a
+once-per-action call. Do not drive it per frame to make a craft follow the cursor.
+
+**It silently adds 8 m within 40 m of a launch-pad landmark** — `GetInitialKinematicStateForLocation`
+calls a private `GetLaunchPadHeightAtDirCcf`, so a craft placed at the pad stands *on* it. Anything
+drawing a preview marker has to add the same, or the marker sits inside the structure the craft
+will end up on. `KsaWorld.LaunchPadHeight` mirrors it, reading `Celestial.BodyTemplate.Locations`
+for a `LandmarkReference { IsLaunchPad: true }` — all public. **Those two numbers are the engine's
+and are copied**, so `ksa-api-diff.sh` will not notice if they move: the method holding them is
+private and is not in the API surface.
+
 ### Aiming the player's camera — `OrbitView`, not `OrbitController`
 
 Writing `Camera.LocalRotation` does nothing lasting: every viewport runs a controller that rebuilds
