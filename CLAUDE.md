@@ -261,7 +261,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/DefenceBattery.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
-| `Ksa/Ui.cs`, `Ksa/Visuals.cs` | ImGui panel, gizmo rendering |
+| `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
+| `Ksa/Ui/UiSystem.cs` | what one system is, sees and is doing |
+| `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
+| `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
+| `Ksa/Visuals.cs` | gizmo rendering |
 | `Ksa/Detonation.cs` | the fireball where a warhead goes off, through KSA's particle system |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
 | `Ksa/Markers.cs` | on-screen brackets over every weapons system, labelled on hover or when pinned |
