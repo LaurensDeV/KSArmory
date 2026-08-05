@@ -44,6 +44,16 @@ public sealed class KSArmoryMod
         _ui = new Ui(_config, _battery, _warp);
         Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
                  + "Open the 'KSArmory' panel to arm.");
+
+        // Logged, not just shown in the panel. Every link of this chain fails silently inside
+        // KSA, so without a record the only symptom is a kitten with no gun -- and that looks
+        // identical whether the XML never loaded, a reference did not resolve, or the mesh did.
+        List<(string What, string Id, bool Resolved)> chain = [];
+        KsaWorld.CollectArmedChain(chain);
+        foreach ((string what, string id, bool resolved) in chain)
+        {
+            Log.Info($"armed kitten {what}: {id} {(resolved ? "ok" : "DID NOT RESOLVE")}");
+        }
     }
 
     /// <summary>

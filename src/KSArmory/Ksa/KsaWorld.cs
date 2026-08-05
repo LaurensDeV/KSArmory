@@ -681,6 +681,25 @@ internal static class KsaWorld
     public const string ArmedAttachmentId = "KSArmoryKittenGunAttachment";
     public const string ArmedGltfId = "KSArmoryKittenGunGlb";
 
+    /// <summary>
+    /// The character a vehicle is wearing, or null when it is not a kitten.
+    ///
+    /// <para>The one fact that separates "the gun is not rendering" from "this kitten was never
+    /// armed": a KittenEva takes its character in its constructor, so one that was walking before
+    /// the roster changed still reports the body it was born with.</para>
+    /// </summary>
+    public static string? CharacterOf(Vehicle? vehicle)
+    {
+        try
+        {
+            return vehicle is KittenEva kitten ? kitten.Character?.Id : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static bool Resolves<T>(string id) where T : IKeyed
     {
         try

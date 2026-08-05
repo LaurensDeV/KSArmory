@@ -84,6 +84,13 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
         ImGui.Text($"Platform: {platform}{(_battery.PlatformPinned ? " (pinned)" : "")}");
         if (!flyingIt) ImGui.TextDisabled("  (you are flying something else; the battery stays here)");
 
+        if (KsaWorld.CharacterOf(_battery.Platform) is { } character)
+        {
+            bool armed = character == KsaWorld.ArmedCharacterId;
+            ImGui.TextColored(armed ? Green : Amber, $"  kitten wearing '{character}'");
+            if (!armed) ImGui.TextDisabled("  Arm it, then EVA again - the body is fixed at EVA.");
+        }
+
         if (_battery.Launcher is not null)
         {
             ImGui.TextColored(Green, $"Launcher: {_config.Launcher.DisplayName} fitted");
