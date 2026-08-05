@@ -10,7 +10,9 @@ public readonly record struct ReticleStroke(float2 A, float2 B);
 ///
 /// <para>Geometry only — no drawing, no ImGui, no camera. The layout is the part worth being sure
 /// of: brackets that close as the head settles, a gap at the centre so the target is never
-/// covered by the thing pointing at it, and ticks whose spread reads as range.</para>
+/// covered by the thing pointing at it, and a ladder scaled to the target's apparent size.
+/// Nothing here takes a range — the ladder tracks how large the target looks, which only reads
+/// as distance once you know what you are looking at.</para>
 ///
 /// <para>Modelled on the Pantsir's optical channel: corner brackets rather than a full box, a
 /// broken cross rather than a solid one, and a scale that grows as the target closes.</para>

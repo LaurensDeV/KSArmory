@@ -1028,8 +1028,9 @@ internal sealed class DefenceBattery(Config config)
     // reported as a near miss and survives.
     private void Detonate(IProjectile round)
     {
-        // Only a whole craft can be destroyed. KSA exposes no component damage, so a round aimed
-        // at a part or a coordinate arrives, reports, and destroys nothing.
+        // KSA exposes no component damage, so a round aimed at a *part* arrives, reports and
+        // destroys nothing. A coordinate round carries no handle and falls through to the blast
+        // sweep below, which is what makes an airburst over a position do anything at all.
         if (round.Aimpoint.Kind != AimpointKind.Vehicle && round.Aimpoint.Handle is not null)
         {
             Announce($"round {round.Tube} arrived at its {round.Aimpoint.Kind} aimpoint");

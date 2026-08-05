@@ -41,7 +41,8 @@ public sealed class KSArmoryMod
     {
         _battery = new DefenceBattery(_config);
         _ui = new Ui(_config, _battery);
-        Log.Info($"ready - {Arsenal.PantsirS1.TubeCount} tubes, safe. Open the 'KSArmory' panel to arm.");
+        Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
+                 + "Open the 'KSArmory' panel to arm.");
     }
 
     /// <summary>

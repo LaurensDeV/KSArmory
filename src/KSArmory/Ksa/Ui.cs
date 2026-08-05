@@ -81,12 +81,12 @@ internal sealed class Ui(Config config, DefenceBattery battery)
 
         if (_battery.Launcher is not null)
         {
-            ImGui.TextColored(Green, "Launcher: Pantsir-S1 fitted");
+            ImGui.TextColored(Green, $"Launcher: {_config.Launcher.DisplayName} fitted");
         }
         else if (_config.RequireLauncherPart)
         {
             ImGui.TextColored(Red, "Launcher: none fitted");
-            ImGui.TextDisabled("  Add the Pantsir-S1 Point Defence System in the editor,");
+            ImGui.TextDisabled($"  Add the {_config.Launcher.DisplayName} in the editor,");
             ImGui.TextDisabled("  or untick 'Require launcher part' below.");
         }
         else
