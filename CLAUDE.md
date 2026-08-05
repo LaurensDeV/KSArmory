@@ -511,7 +511,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-660,000 lines to the files defining the 75 types this mod actually uses.
+660,000 lines to the files defining the 78 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —

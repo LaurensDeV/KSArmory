@@ -24,6 +24,7 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
     private readonly WarpPolicy _warp = warp;
     private readonly List<int> _viewports = [];
     private readonly List<(string Name, string Character)> _roster = [];
+    private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
     private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
 
@@ -374,12 +375,27 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
 
         // Say it up front rather than letting every Arm fail silently. An asset file missing
         // from mod.toml is never reported, so this is the only place it surfaces.
-        bool available = KsaWorld.IsCharacterRegistered(KsaWorld.ArmedCharacterId);
+        // Every link in this chain fails silently, so every link is asked about separately.
+        KsaWorld.CollectArmedChain(_armedChain);
+        bool available = true;
+        for (int i = 0; i < _armedChain.Count; i++)
+        {
+            (string what, string id, bool ok) = _armedChain[i];
+            if (ok)
+            {
+                ImGui.TextColored(Green, $"  {what}: {id}");
+            }
+            else
+            {
+                ImGui.TextColored(Red, $"  {what}: {id} did NOT resolve");
+                available = false;
+            }
+        }
+
         if (!available)
         {
-            ImGui.TextColored(Red, "  The armed character did not load.");
-            ImGui.TextDisabled($"  '{KsaWorld.ArmedCharacterId}' is not registered - check that");
-            ImGui.TextDisabled("  KSArmoryCharacters.xml is listed in mod.toml's assets.");
+            ImGui.TextDisabled("  The first red line is where it breaks. A declaration that does");
+            ImGui.TextDisabled("  not resolve is skipped in silence by KSA, not reported.");
             ImGui.TreePop();
             return;
         }

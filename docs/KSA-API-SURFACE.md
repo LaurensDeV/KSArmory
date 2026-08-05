@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-75 types and 201 members across 6 assemblies.
+78 types and 201 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -195,6 +195,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 
+### KSA.CharacterAttachmentReference
+
+*referenced as a type only*
+
 ### KSA.CharacterReference
 
 *referenced as a type only*
@@ -224,7 +228,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void DrawLine(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.float4)`
 - `void DrawSphere(Brutal.Numerics.double3, float, Brutal.Numerics.float4)`
 
+### KSA.Gltf2Reference
+
+*referenced as a type only*
+
 ### KSA.IFollowable
+
+*referenced as a type only*
+
+### KSA.IKeyed
 
 *referenced as a type only*
 
