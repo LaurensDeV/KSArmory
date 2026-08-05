@@ -17,6 +17,12 @@ internal static class Markers
 {
     private static readonly ImColor8 Idle = new(150, 200, 255, 150);
     private static readonly ImColor8 Active = new(90, 255, 120, 220);
+
+    // Behind the planet. Dimmed rather than hidden: where a system is stays worth knowing when
+    // you cannot see it -- that is most of what the marker is for -- but it must not read as
+    // something you could look at.
+    private static readonly ImColor8 Hidden = new(150, 200, 255, 70);
+    private static readonly ImColor8 HiddenActive = new(90, 255, 120, 90);
     private static readonly ImColor8 Label = new(235, 240, 245, 255);
     private static readonly ImColor8 Panel = new(18, 20, 24, 225);
     private static readonly ImColor8 PanelEdge = new(90, 100, 115, 200);
@@ -91,11 +97,18 @@ internal static class Markers
             if (!KsaWorld.TryProjectOrClamp(atEcl, out float2 at, out bool inView)) continue;
 
             bool isActive = ReferenceEquals(craft, active);
-            ImColor8 colour = isActive ? Active : Idle;
+            bool blocked = KsaWorld.IsOccluded(eye, atEcl, out _);
+            ImColor8 colour = (isActive, blocked) switch
+            {
+                (true, false) => Active,
+                (true, true) => HiddenActive,
+                (false, false) => Idle,
+                (false, true) => Hidden,
+            };
 
             // In view gets the bracket; out of view gets an arrow at the edge pointing at it, so
             // a site can be located from a craft that cannot see it.
-            if (inView) DrawBracket(draw, at, colour);
+            if (inView) DrawBracket(draw, at, colour, blocked);
             else DrawEdgeArrow(draw, at, colour);
 
             float dx = cursor.X - at.X;
@@ -118,7 +131,8 @@ internal static class Markers
     }
 
     // Four corners, not a closed box: the gap is what stops the marker hiding the thing it marks.
-    private static void DrawBracket(ImDrawListPtr draw, float2 at, ImColor8 colour)
+    // A blocked one is crossed through, because dimming alone does not survive a bright horizon.
+    private static void DrawBracket(ImDrawListPtr draw, float2 at, ImColor8 colour, bool blocked)
     {
         float l = at.X - Half, r = at.X + Half;
         float t = at.Y - Half, b = at.Y + Half;
@@ -131,6 +145,13 @@ internal static class Markers
         draw.AddLine(new float2(l, b), new float2(l, b - Corner), colour);
         draw.AddLine(new float2(r, b), new float2(r - Corner, b), colour);
         draw.AddLine(new float2(r, b), new float2(r, b - Corner), colour);
+
+        if (blocked)
+        {
+            const float In = 3f;
+            draw.AddLine(new float2(l + In, t + In), new float2(r - In, b - In), colour);
+            draw.AddLine(new float2(r - In, t + In), new float2(l + In, b - In), colour);
+        }
     }
 
     // A triangle at the screen edge pointing the way to something out of view. Its range comes
@@ -159,9 +180,14 @@ internal static class Markers
     private static void DrawLabel(ImDrawListPtr draw, ImGuiViewportPtr main, float2 at,
                                   (Vehicle Craft, WeaponInventory Inventory) system, double3 eyeEcl)
     {
+        double3 atEcl = KsaWorld.PositionEcl(system.Craft);
         string name = KsaWorld.DisplayName(system.Craft);
-        string detail = Describe(system.Inventory,
-                                 Vec.Len(KsaWorld.PositionEcl(system.Craft) - eyeEcl));
+        string detail = Describe(system.Inventory, Vec.Len(atEcl - eyeEcl));
+
+        if (KsaWorld.IsOccluded(eyeEcl, atEcl, out string blockedBy))
+        {
+            detail += blockedBy.Length > 0 ? $"   behind {blockedBy}" : "   no line of sight";
+        }
 
         float2 nameSize = ImGui.CalcTextSize(name);
         float2 detailSize = ImGui.CalcTextSize(detail);

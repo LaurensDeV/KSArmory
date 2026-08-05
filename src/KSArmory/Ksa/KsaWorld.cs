@@ -146,6 +146,40 @@ internal static class KsaWorld
 
     public static double3 VelocityEcl(Vehicle v) => v.GetVelocityEcl();
 
+    /// <summary>
+    /// Whether a celestial body sits between two points — the planet in the way.
+    ///
+    /// <para>Every body in the system, not just the one being orbited: a marker hidden behind a
+    /// moon is as unusable as one hidden behind the world under it.</para>
+    /// </summary>
+    /// <param name="blockedBy">The first body found in the way, or empty.</param>
+    public static bool IsOccluded(double3 eyeEcl, double3 targetEcl, out string blockedBy)
+    {
+        blockedBy = string.Empty;
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return false;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not Celestial body) continue;
+                if (!LineOfSight.Blocked(eyeEcl, targetEcl, body.GetPositionEcl(), body.MeanRadius))
+                {
+                    continue;
+                }
+
+                blockedBy = body.Id ?? string.Empty;
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Rough size of a vehicle, used to scale hit and blast checks.</summary>
     public static double MeanRadius(Vehicle v)
     {

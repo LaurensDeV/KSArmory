@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-89 types and 234 members across 6 assemblies.
+89 types and 236 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -252,7 +252,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.CelestialSystem
 
+- `KSA.Astronomical GetIndex(int)`
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
+- `int get_Count()`
 
 ### KSA.CharacterAttachmentReference
 
