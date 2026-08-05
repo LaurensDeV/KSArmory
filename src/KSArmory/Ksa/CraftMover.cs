@@ -21,6 +21,7 @@ namespace KSArmory;
 /// </summary>
 internal sealed class CraftMover
 {
+    private static readonly float4 HoverColour = new(0.6f, 0.8f, 1.0f, 0.8f);
     private static readonly float4 HeldColour = new(1.0f, 0.85f, 0.3f, 1f);
     private static readonly float4 TargetColour = new(0.4f, 1.0f, 0.6f, 1f);
 
@@ -35,11 +36,20 @@ internal sealed class CraftMover
     private readonly List<float2> _screen = [];
 
     private Vehicle? _held;
+    private Vehicle? _hovered;
+    private int _trace;
 
     /// <summary>The craft waiting to be put down, if any.</summary>
     public Vehicle? Held => _held;
 
-    public void Release() => _held = null;
+    /// <summary>The craft the pointer is over, which the next click would pick up.</summary>
+    public Vehicle? Hovered => _hovered;
+
+    public void Release()
+    {
+        _held = null;
+        _hovered = null;
+    }
 
     /// <summary>
     /// One frame of the tool. Does nothing at all while switched off, including reading the mouse.
@@ -48,25 +58,51 @@ internal sealed class CraftMover
     {
         if (!config.MoveCraftWithMouse)
         {
-            _held = null;
+            Release();
             return;
         }
 
         if (!KsaWorld.IsAlive(_held)) _held = null;
+        if (!KsaWorld.IsAlive(_hovered)) _hovered = null;
+
+        // Whether a click ever reaches this hook at all is not obvious: ImGui, KSA's own input
+        // and this mod all read the same mouse. Reported once a second while the tool is on.
+        bool wantCapture = ImGui.GetIO().WantCaptureMouse;
+        bool clicked = ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false);
+        bool down = ImGui.IsMouseDown(ImGuiMouseButton.Left);
+
+        // Whether a click reaches this hook at all is not obvious -- ImGui, KSA's own input and
+        // this mod all read the same mouse -- so it stays traced, quietly.
+        if (clicked || down || ++_trace % 120 == 0)
+        {
+            float2 where = ImGui.GetMousePos();
+            Log.Debug(() => $"mover: capture={wantCapture} clicked={clicked} down={down} "
+                            + $"cursor={where.X:F0},{where.Y:F0} held={_held is not null}");
+        }
 
         // The panel and the marker labels are windows; a click meant for one of them is not a
         // click on the world behind it.
-        if (ImGui.GetIO().WantCaptureMouse) return;
-        if (!ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false)) return;
+        if (wantCapture)
+        {
+            _hovered = null;
+            return;
+        }
+
+        // Worked out every frame, not only on click: clicking blind and finding out afterwards
+        // which craft was nearest is not an interaction, it is a guess.
+        _hovered = _held is null ? UnderCursor() : null;
+
+        if (!clicked) return;
 
         if (_held is null) PickUp();
         else PutDown();
     }
 
-    private void PickUp()
+    // The craft nearest the pointer within reach, or null.
+    private Vehicle? UnderCursor()
     {
         KsaWorld.CollectVehicles(_craft);
-        if (_craft.Count == 0) return;
+        if (_craft.Count == 0) return null;
 
         _screen.Clear();
         for (int i = 0; i < _craft.Count; i++)
@@ -79,11 +115,18 @@ internal sealed class CraftMover
         }
 
         int pick = Picking.NearestOnScreen(_screen, ImGui.GetMousePos(), PickRadius);
-        if (pick < 0) return;
-
-        _held = _craft[pick];
-        Log.Info($"holding {KsaWorld.DisplayName(_held)} - click the ground to set it down");
+        return pick < 0 ? null : _craft[pick];
     }
+
+    private void PickUp()
+    {
+        if (_hovered is not { } craft) return;
+
+        _held = craft;
+        _hovered = null;
+        Log.Info($"holding {KsaWorld.DisplayName(craft)} - click the ground to set it down");
+    }
+
 
     private void PutDown()
     {
@@ -104,22 +147,38 @@ internal sealed class CraftMover
         _held = null;
     }
 
-    /// <summary>Shows what is held and where it would go.</summary>
+    /// <summary>Shows what the next click would pick up, or what is held and where it would go.</summary>
     public void Draw(Config config)
     {
-        if (!config.MoveCraftWithMouse || _held is not { } craft) return;
-        if (!KsaWorld.IsAlive(craft)) return;
+        if (!config.MoveCraftWithMouse) return;
 
-        double3 heldEcl = KsaWorld.PositionEcl(craft);
-        if (!KsaWorld.BeginDraw(craft, heldEcl)) return;
+        // Nothing held: ring whatever the pointer is over, so the click is aimed rather than
+        // taken on trust.
+        if (_held is null)
+        {
+            if (_hovered is not { } candidate || !KsaWorld.IsAlive(candidate)) return;
+
+            double3 atEcl = KsaWorld.PositionEcl(candidate);
+            if (!KsaWorld.BeginDraw(candidate, atEcl)) return;
+
+            KsaWorld.DrawSphereEcl(atEcl, Ring(candidate), HoverColour);
+            return;
+        }
+
+        if (!KsaWorld.IsAlive(_held)) return;
+
+        double3 heldEcl = KsaWorld.PositionEcl(_held);
+        if (!KsaWorld.BeginDraw(_held, heldEcl)) return;
 
         // A ring on the craft being held, so it is obvious which one the next click moves.
-        KsaWorld.DrawSphereEcl(heldEcl, (float)Math.Max(KsaWorld.MeanRadius(craft) * 1.4, 5.0),
-                               HeldColour);
+        KsaWorld.DrawSphereEcl(heldEcl, Ring(_held), HeldColour);
 
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _)) return;
 
         KsaWorld.DrawSphereEcl(groundEcl, (float)MarkerRadius, TargetColour);
         KsaWorld.DrawLineEcl(heldEcl, groundEcl, TargetColour);
     }
+
+    private static float Ring(Vehicle craft)
+        => (float)Math.Max(KsaWorld.MeanRadius(craft) * 1.4, 5.0);
 }

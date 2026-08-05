@@ -757,9 +757,13 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             ImGui.TextDisabled("  Click the ground to set it down.");
             if (ImGui.Button("Cancel")) _mover.Release();
         }
+        else if (_mover.Hovered is { } over)
+        {
+            ImGui.TextColored(Green, $"Click to pick up {KsaWorld.DisplayName(over)}");
+        }
         else
         {
-            ImGui.TextDisabled("  Click a craft to pick it up.");
+            ImGui.TextDisabled("  Point at a craft; it rings when the click would take it.");
         }
 
         ImGui.Separator();

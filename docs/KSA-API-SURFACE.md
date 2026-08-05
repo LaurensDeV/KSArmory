@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-89 types and 239 members across 6 assemblies.
+89 types and 241 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -106,6 +106,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool InputText(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool IsItemHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
 - `bool IsMouseClicked(Brutal.ImGuiApi.ImGuiMouseButton, bool)`
+- `bool IsMouseDown(Brutal.ImGuiApi.ImGuiMouseButton)`
 - `bool IsWindowHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
 - `bool RadioButton(Brutal.ImGuiApi.ImString, bool)`
 - `bool SliderFloat(Brutal.ImGuiApi.ImString, ref float, float, float, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
@@ -249,6 +250,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `double GetLatitudeFromCce(Brutal.Numerics.double3)`
 - `double GetLongitudeFromCce(Brutal.Numerics.double3)`
+- `double GetTerrainHeightFromDirCce(Brutal.Numerics.double3, bool)`
 
 ### KSA.CelestialSystem
 

@@ -226,7 +226,31 @@ internal static class KsaWorld
 
             if (nearest is null) return false;
 
-            double3 cce = nearestHit - nearest.GetPositionEcl();
+            // The mean sphere is not the ground. A ray at a mountain meets the real surface well
+            // before the sphere, so the lat/lon taken from that first hit lands past where the
+            // pointer is. Re-intersect against the terrain height under the answer until it stops
+            // moving -- three passes is plenty for anything short of a cliff edge.
+            double3 centreEcl = nearest.GetPositionEcl();
+            for (int pass = 0; pass < 3; pass++)
+            {
+                double3 dirCce = Vec.Unit(nearestHit - centreEcl);
+                if (!Vec.IsFinite(dirCce) || Vec.Len(dirCce) < 0.5) break;
+
+                double height = nearest.GetTerrainHeightFromDirCce(dirCce, accurate: true);
+                if (!double.IsFinite(height)) break;
+
+                if (!Picking.TryHitSphere(eye, direction, centreEcl, nearest.MeanRadius + height,
+                                          out double3 refined))
+                {
+                    // Grazing: the raised surface is missed where the mean sphere was caught.
+                    // The last good answer is closer than none.
+                    break;
+                }
+
+                nearestHit = refined;
+            }
+
+            double3 cce = nearestHit - centreEcl;
             groundEcl = nearestHit;
             latitudeDeg = nearest.GetLatitudeFromCce(cce);
             longitudeDeg = nearest.GetLongitudeFromCce(cce);
