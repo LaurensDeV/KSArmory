@@ -76,13 +76,11 @@
             },
             {
               "type": "refactor",
-              "section": "Internal",
-              "hidden": false
+              "hidden": true
             },
             {
               "type": "docs",
-              "section": "Documentation",
-              "hidden": false
+              "hidden": true
             },
             {
               "type": "test",

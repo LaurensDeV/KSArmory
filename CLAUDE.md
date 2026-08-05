@@ -83,7 +83,7 @@ refactor(sim): split launch geometry out of LauncherPart
 | --- | --- |
 | `feat`, `fix`, `perf`, `build`, `revert` | **patch** |
 | `!` after the type, or a `BREAKING CHANGE:` footer | **major** — see the 1.0.0 note below before using this |
-| `docs`, `refactor`, `test`, `chore`, `ci`, `style` | no release (`docs` and `refactor` still reach the changelog) |
+| `docs`, `refactor`, `test`, `chore`, `ci`, `style` | no release, and none of them appear in the changelog |
 | a **minor** | never automatic — tag it by hand |
 
 **The type says what a change is; it does not decide how big the version bump is.** `feat` cuts a
@@ -619,7 +619,12 @@ unfollowable, which it is, and CI would fail on nothing.
 **Versioning is automatic and commit messages are the input.** semantic-release runs on every
 push to `main`, reads the Conventional Commits since the last tag, and cuts the release: version,
 `CHANGELOG.md`, the `<Version>` in the csproj (via `tools/set-version.sh`), the tag and the
-GitHub Release. **Never edit a version by hand** — it will be overwritten. `feat` is a minor,
+GitHub Release.
+
+**The changelog is written for players, not for this repository.** Those same notes are what
+SpaceDock shows, so only `feat`, `fix`, `perf` and `build` appear in it; a refactor or a docs
+change tells a player nothing and is in `git log` for anyone who wants it. That is a reason to
+label a commit by what a player can observe rather than by which files it touched. **Never edit a version by hand** — it will be overwritten. `feat` is a minor,
 `fix`/`perf`/`build`/`revert` a patch, `!` or a `BREAKING CHANGE:` footer a major; `docs`,
 `chore`, `ci`, `test`, `style` and `refactor` cut no release. A commit that does not parse is
 treated as no release, so a stray `wip` cannot publish anything.
