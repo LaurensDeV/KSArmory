@@ -15,6 +15,7 @@ direction, with overlapping extents, is a candidate.
     ./tools/model/checkmesh.py src/KSArmory/Meshes/AirDefence_MeshAtlas.glb
     ./tools/model/checkmesh.py <atlas.glb> --mesh AirDefence_Subpart_Chassis
     ./tools/model/checkmesh.py <a.glb> --compare <b.glb>    # same model, or genuinely changed?
+    ./tools/model/checkmesh.py <gun.glb> --units-per-metre 100   # a character attachment
 
 Exits non-zero if it finds conflicting coplanar area above the reporting threshold.
 """
@@ -517,8 +518,27 @@ def node_transforms(ga, gb, path_a, path_b):
 
 
 def main():
+    global PLANE_QUANT, MIN_AREA, NEAR_MIN, NEAR_MAX
+
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     only = other = None
+
+    # Every threshold in this file is an absolute distance or area in metres, because a part mesh
+    # is authored in metres. A character attachment is authored in the rig's centimetre space, so
+    # the same geometry reads a hundred times larger and every threshold is wrong by that factor
+    # -- it reports separations that are fine as if they were microns, and areas in the tens of
+    # thousands of cm2. Scale the thresholds instead of the mesh, so the numbers printed stay in
+    # the file's own units.
+    if "--units-per-metre" in sys.argv:
+        upm = float(sys.argv[sys.argv.index("--units-per-metre") + 1])
+        args = [a for a in args if a != str(upm)]
+        if upm <= 0.0:
+            print("error: --units-per-metre must be positive", file=sys.stderr)
+            return 2
+        PLANE_QUANT *= upm
+        MIN_AREA *= upm * upm
+        NEAR_MIN *= upm
+        NEAR_MAX *= upm
     if "--mesh" in sys.argv:
         only = sys.argv[sys.argv.index("--mesh") + 1]
         args = [a for a in args if a != only]

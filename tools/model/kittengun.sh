@@ -48,4 +48,4 @@ echo "installed $MESH_DIR/$OUT_NAME"
 
 # The two defects that are invisible outside the game, and are the whole reason this check
 # exists. checkmesh.py exits non-zero on either.
-"$REPO_ROOT/tools/model/checkmesh.py" "$MESH_DIR/$OUT_NAME"
+"$REPO_ROOT/tools/model/checkmesh.py" "$MESH_DIR/$OUT_NAME" --units-per-metre 100

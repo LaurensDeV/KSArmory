@@ -44,7 +44,7 @@
     -->
     <CharacterAttachment Id="KSArmoryKittenGunAttachment">
         <Source Id="KSArmoryKittenGunGlb"/>
-        <Socket Name="Spine2_M"/>
+        <Socket Name="Head_M"/>
         <Materials>
             <Diffuse Path="Textures/AirDefence_Diffuse.png" Category="Default"/>
             <Normal Path="Textures/AirDefence_Normal.png" Category="Default"/>

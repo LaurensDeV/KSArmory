@@ -23,6 +23,7 @@ happen rather than a member that moved.
 - [x] Partial or component damage exists alongside `DestroyVehicleFromEvent`
 - [x] Per-mod vehicle library path, or a way to register saved craft
 - [ ] `UncompressedVehicleSave.Load` honours `Character`, making a kitten launchable
+- [ ] A character attachment's pose survives the frame, so a mod can aim one
 - [x] Custom part modules can be registered without patching
 - [x] Public accessor for the volumetric trail renderer
 
@@ -163,6 +164,43 @@ vehicle library path — the same fix as the entry above.
 only path that builds one, and it sets `Program.ControlledVehicle`, so the battery mounts on it
 with `RequireLauncherPart` off. Core's medium capsule carries the doors
 (`CoreCommandA_Subpart_MediumCapsuleCrewDoorA`/`B`).
+
+---
+
+## Aiming a character attachment
+
+**What we want.** The kitten's shoulder gun to point where the mouse points, the way the
+launcher's turret and optical head do.
+
+**Why it is blocked.** Not visibility — `CharacterAvatar.Attachments` and its
+`CosmeticAttachments` list are both public, and the mesh is a `StaticMeshRenderable` with a
+settable `Transform`. The problem is reaching it and, more fundamentally, *when*.
+
+`KittenEva._renderable` is private and `KittenRenderable._characterAvatar` is private inside it,
+so the avatar is unreachable without reflection. And reflection would not help, because
+`KittenRenderable.UpdateRenderData` writes the transform and submits the draw in consecutive
+statements:
+
+```csharp
+cosmeticAttachment.Mesh.Transform = cosmeticAttachment.Transform * (float4x7 * boneTransform3);
+cosmeticAttachment.Mesh.Draw();
+```
+
+That runs inside `Vehicle.UpdateRenderData`, called from `Program.cs:3884` during render — after
+the GUI hook a mod gets. Any transform a mod writes is overwritten in the same frame it is read.
+This is the difference from the launcher, where the mod writes `Part.SubParts` transforms that
+the engine reads later in its own pass.
+
+Nor is there a part to fall back on: a kitten's only part is Core's `KittenBackPackPart`, whose
+`KittenBackPackSubPart` is declared with no model at all.
+
+**What would unblock it.** A settable pose on the attachment that survives the frame — an
+`ExtraTransform` the renderer composes rather than overwrites — or a public accessor for the
+avatar plus a hook between `UpdateRenderData` and the render submit.
+
+**Consequence in the mod.** The gun is a fixed ornament. `Config.MouseAim` still aims the
+*battery* at the cursor and rounds leave along that direction, so the weapon works; only the
+model does not turn.
 
 ---
 

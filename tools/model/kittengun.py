@@ -208,12 +208,26 @@ RIG_AXES = Matrix(((0.0, 1.0, 0.0),
                    (0.0, 0.0, 1.0),
                    (1.0, 0.0, 0.0)))
 
+# Where it sits relative to the socket bone, in rig units, applied after the permutation above so
+# these read as (lateral, up, forward).
+#
+# Head_M, beside the helmet rather than on the spine: mounted low on the back the barrel came out
+# under the kitten's chin, because the helmet is enormous relative to the body. Core's helmet mesh
+# spans +-40.3 lateral and reaches +63.7 up from this same bone, so 45 clears its side and 30 sits
+# it against the upper shell. Forward 8 puts the muzzle just past the visor -- a gun that ends
+# behind the face reads as ornament.
+#
+# Head_M and Spine2_M have identical rest axes to within 0.01, so moving between them needs no
+# change to the permutation.
+MOUNT_OFFSET = Vector((45.0, 30.0, 8.0))
+
 
 def export(path):
     gun = join_all("KittenGun")
 
     bpy.context.view_layer.objects.active = gun
-    gun.matrix_world = (RIG_AXES.to_4x4()
+    gun.matrix_world = (Matrix.Translation(MOUNT_OFFSET)
+                        @ RIG_AXES.to_4x4()
                         @ Matrix.Scale(CHARACTER_SPACE, 4)
                         @ gun.matrix_world)
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
