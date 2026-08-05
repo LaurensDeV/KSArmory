@@ -299,6 +299,20 @@ internal sealed partial class Ui
         ImGui.SameLine();
         if (ImGui.Button("Safe all")) _battery.SafeAll();
 
+        ImGui.SameLine();
+        if (ImGui.Button("Reset settings") && _battery.Platform is { } craft)
+        {
+            SettingsStore.Forget(KsaWorld.DisplayName(craft));
+            new BatterySettings().ApplyTo(_policy);
+            Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Back to defaults, and forgotten from the settings file.\n"
+                             + "Settings persist across restarts now, so this is the way back.");
+        }
+
         ImGui.Checkbox("Never target the vehicle I'm flying", ref _policy.ProtectControlledVehicle);
 
         ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);

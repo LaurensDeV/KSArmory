@@ -154,6 +154,25 @@ internal static class SettingsStore
         return true;
     }
 
+    /// <summary>
+    /// Forgets a craft's settings, in every bucket, so it starts from defaults again.
+    ///
+    /// <para>Needed because persistence is silent: a switch flicked once now survives every
+    /// restart, and without this the only way back is to find and edit the file.</para>
+    /// </summary>
+    public static void Forget(string craftId)
+    {
+        Load();
+
+        bool changed = false;
+        foreach (Dictionary<string, BatterySettings> bucket in _stored.Values)
+        {
+            changed |= bucket.Remove(craftId);
+        }
+
+        if (changed) Save();
+    }
+
     public static void Save()
     {
         try
