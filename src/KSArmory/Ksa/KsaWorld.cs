@@ -939,31 +939,19 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Turns the main view a frame's worth towards a direction, by moving the orbit camera's own
-    /// angles.
+    /// Reads the main view's orbit camera: the basis it is looking along, and both copies of the
+    /// angles behind it.
     ///
-    /// <para>Setting the camera does not work: its controller rewrites rotation and position
-    /// every frame from the azimuth and elevation it holds, so a written camera is gone before it
-    /// renders. Switching the viewport to a fixed mode does work, and takes the view off the
-    /// player and crashes <c>FixedController</c> if the camera is following anything. Moving the
-    /// angles the controller is already reading has neither problem, and leaves the player able
-    /// to drag out of it mid-turn.</para>
-    ///
-    /// <para>The angles are held in two places and only one of them is writable.
-    /// <c>OrbitView.Azimuth</c> on whatever the camera follows is the stored angle, and is what a
-    /// mouse drag moves; <c>OrbitController.Azimuth</c> is an <em>output</em>, respring towards it
-    /// every frame. Writing the controller's therefore lasts one frame and fights the spring, which
-    /// looks exactly like jitter. So: solve against the controller's, since those built the camera
-    /// being measured, and write the view's.</para>
-    ///
-    /// <para>The geometry is <see cref="OrbitAim"/>, which is testable; this only reads the
-    /// camera and writes the two numbers back.</para>
+    /// <para>The angles live in two places and only one is writable.
+    /// <c>Camera.Following.OrbitView</c> holds the stored pair, which is what a mouse drag moves;
+    /// <c>OrbitController</c> holds an <em>output</em>, resprung towards it every frame. Writing
+    /// the controller's lasts one frame and fights the spring, which looks exactly like jitter.
+    /// Read both: the controller's built the camera being measured, so that is what the geometry
+    /// solves against, and the view's is what a write has to land on.</para>
     /// </summary>
-    /// <returns>False if there is no orbit camera to drive.</returns>
-    public static bool TryNudgeMainCameraTowards(double3 forwardEcl, double rate, double dt,
-                                                 double arrivedRad, out bool arrived)
+    public static bool TryReadMainOrbit(out OrbitAim.Reading reading)
     {
-        arrived = false;
+        reading = default;
         try
         {
             if (Program.MainViewport is not { } viewport) return false;
@@ -971,26 +959,31 @@ internal static class KsaWorld
             if (Program.GetMainCamera() is not { } camera) return false;
             if (camera.Following?.OrbitView is not { } view) return false;
 
-            double shownAzimuth = orbit.Azimuth;
-            double shownElevation = orbit.Elevation;
+            reading = new OrbitAim.Reading(camera.GetForwardEcl(), camera.GetRightEcl(),
+                                           orbit.Azimuth, orbit.Elevation,
+                                           view.Azimuth, view.Elevation);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
-            if (!OrbitAim.TrySolve(camera.GetForwardEcl(), camera.GetRightEcl(),
-                                   shownAzimuth, shownElevation, forwardEcl,
-                                   out double toAzimuth, out double toElevation))
-            {
-                return false;
-            }
+    /// <summary>Moves the main orbit camera to a pair of angles.</summary>
+    public static bool TryWriteMainOrbit(double azimuth, double elevation)
+    {
+        if (!double.IsFinite(azimuth) || !double.IsFinite(elevation)) return false;
 
-            double azimuth = view.Azimuth;
-            double elevation = view.Elevation;
-            OrbitAim.Ease(ref azimuth, ref elevation, toAzimuth, toElevation, rate, dt);
+        try
+        {
+            if (Program.GetMainCamera()?.Following?.OrbitView is not { } view) return false;
 
             view.Azimuth = azimuth;
-            view.Elevation = Math.Clamp(elevation, -Math.PI / 2.0, Math.PI / 2.0);
 
-            // Arrival is what the player sees, so measure the camera rather than what it chases.
-            arrived = OrbitAim.Arrived(shownAzimuth, shownElevation,
-                                       toAzimuth, toElevation, arrivedRad);
+            // The game clamps it on every path that writes it, so a value past the pole would be
+            // one this camera can never report back and the write would look refused forever.
+            view.Elevation = Math.Clamp(elevation, -Math.PI / 2.0, Math.PI / 2.0);
             return true;
         }
         catch

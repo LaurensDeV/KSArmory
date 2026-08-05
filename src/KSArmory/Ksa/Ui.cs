@@ -226,26 +226,20 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     // Moving the battery is a decision about one system, so it lives in that system's window.
     private void DrawSystemRowButtons(KSA.Vehicle craft)
     {
-        // Point the camera at it and keep its label up, without moving or commandeering anything.
-        // The button tracks the label rather than the turn, because the turn ends on arrival and
-        // a button that reverted a second after being pressed would read as having failed.
+        // Point the camera at it and label it for a few seconds, without moving or commandeering
+        // anything. One shot rather than a toggle: both halves end on their own, so there is
+        // nothing left to switch off and no state for the button to get out of step with.
         // ASCII on purpose: ImGui's default font carries basic Latin only, so a crosshair glyph
         // would render as a box.
-        bool pinned = Markers.IsPinned(craft);
-        if (pinned) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
-        if (ImGui.SmallButton(pinned ? "(o)" : "(+)"))
+        if (ImGui.SmallButton("(+)"))
         {
-            Markers.TogglePinned(craft);
-            if (pinned) _watch.Release();
-            else _watch.Watch(craft);
+            Markers.Show(craft);
+            _watch.Watch(craft);
         }
-        if (pinned) ImGui.PopStyleColor();
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip(pinned
-                ? "Labelled on screen. Click to stop labelling it."
-                : "Turn the view towards it and keep its label up. The turn stops\n"
-                  + "once it is looking, and you keep control of the camera throughout.");
+            ImGui.SetTooltip("Turn the view towards it and label it for a few seconds.\n"
+                             + "Move the camera yourself at any point and it lets go.");
         }
 
         ImGui.SameLine();

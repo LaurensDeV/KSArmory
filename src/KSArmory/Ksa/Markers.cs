@@ -36,24 +36,27 @@ internal static class Markers
     // Pointer distance, in pixels, that counts as hovering a marker.
     private const float HoverRadius = 18f;
 
-    // Systems whose label stays up without the pointer on them. Reference identity, which is what
+    // How long a label stays up after being called for, and how much of that it spends fading.
+    // Long enough to read and find the thing, short enough that pressing it again is easier than
+    // remembering to switch it off.
+    private const double ShowSeconds = 10.0;
+    private const double FadeSeconds = 2.0;
+
+    // Systems whose label is showing, and for how much longer. Reference identity, which is what
     // a Vehicle compares by -- two craft are never equal, so a stale entry cannot shadow a live
-    // one. Pruned in Draw as craft are destroyed.
-    private static readonly HashSet<Vehicle> Pinned = [];
+    // one. Pruned in Draw as they expire or the craft is destroyed.
+    private static readonly Dictionary<Vehicle, double> Showing = [];
+    private static readonly List<Vehicle> Expired = [];
 
-    public static bool IsPinned(Vehicle craft) => Pinned.Contains(craft);
+    /// <summary>Puts a system's label up for a while. Pressing again restarts the clock.</summary>
+    public static void Show(Vehicle craft) => Showing[craft] = ShowSeconds;
 
-    /// <summary>Pins a system's label up, or takes it down if it was already pinned.</summary>
-    public static void TogglePinned(Vehicle craft)
-    {
-        if (!Pinned.Remove(craft)) Pinned.Add(craft);
-    }
-
-    public static void Forget(Vehicle craft) => Pinned.Remove(craft);
+    public static void Forget(Vehicle craft) => Showing.Remove(craft);
 
     public static void Draw(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems,
-                            Vehicle? active)
+                            Vehicle? active, double dt)
     {
+        Age(dt);
         if (systems.Count == 0) return;
 
         ImGuiViewportPtr main = ImGui.GetMainViewport();
@@ -81,8 +84,9 @@ internal static class Markers
         float2 cursor = ImGui.GetMousePos();
         double3 eye = KsaWorld.CameraPositionEcl();
 
-        // Labelled either because the pointer is on it or because it was pinned from the panel.
-        List<(int Index, float2 At)> labels = [];
+        // Labelled either because the pointer is on it or because it was called for from the
+        // panel and has not run out yet.
+        List<(int Index, float2 At, float Alpha)> labels = [];
 
         // The hovered one is drawn last so its label sits over any neighbouring bracket.
         int hovered = -1;
@@ -91,7 +95,7 @@ internal static class Markers
         for (int i = 0; i < systems.Count; i++)
         {
             (Vehicle craft, WeaponInventory _) = systems[i];
-            if (!KsaWorld.IsAlive(craft)) { Pinned.Remove(craft); continue; }
+            if (!KsaWorld.IsAlive(craft)) { Showing.Remove(craft); continue; }
 
             double3 atEcl = KsaWorld.PositionEcl(craft);
             if (!KsaWorld.TryProjectOrClamp(atEcl, out float2 at, out bool inView)) continue;
@@ -118,14 +122,18 @@ internal static class Markers
                 hovered = i;
                 hoveredAt = at;
             }
-            else if (Pinned.Contains(craft))
+            else if (Showing.TryGetValue(craft, out double left))
             {
-                labels.Add((i, at));
+                labels.Add((i, at, (float)Math.Clamp(left / FadeSeconds, 0.0, 1.0)));
             }
         }
 
-        foreach ((int index, float2 at) in labels) DrawLabel(draw, main, at, systems[index], eye);
-        if (hovered >= 0) DrawLabel(draw, main, hoveredAt, systems[hovered], eye);
+        foreach ((int index, float2 at, float alpha) in labels)
+        {
+            DrawLabel(draw, main, at, systems[index], eye, alpha);
+        }
+
+        if (hovered >= 0) DrawLabel(draw, main, hoveredAt, systems[hovered], eye, 1f);
 
         ImGui.End();
     }
@@ -177,12 +185,15 @@ internal static class Markers
                                colour);
     }
 
+    // Name and range, and nothing else. What a system is made of is a question the Components tab
+    // answers at leisure; a marker is read at a glance while looking for something.
     private static void DrawLabel(ImDrawListPtr draw, ImGuiViewportPtr main, float2 at,
-                                  (Vehicle Craft, WeaponInventory Inventory) system, double3 eyeEcl)
+                                  (Vehicle Craft, WeaponInventory Inventory) system, double3 eyeEcl,
+                                  float alpha)
     {
         double3 atEcl = KsaWorld.PositionEcl(system.Craft);
         string name = KsaWorld.DisplayName(system.Craft);
-        string detail = Describe(system.Inventory, Vec.Len(atEcl - eyeEcl));
+        string detail = Range(Vec.Len(atEcl - eyeEcl));
 
         if (KsaWorld.IsOccluded(eyeEcl, atEcl, out string blockedBy))
         {
@@ -203,23 +214,37 @@ internal static class Markers
         float y = Math.Clamp(at.Y - h - 6f, main.Pos.Y + Edge, main.Pos.Y + main.Size.Y - h - Edge);
         float2 tl = new(x, y);
 
-        draw.AddRectFilled(tl, new float2(tl.X + w, tl.Y + h), Panel);
-        draw.AddRect(tl, new float2(tl.X + w, tl.Y + h), PanelEdge);
-        draw.AddText(new float2(tl.X + PadX, tl.Y + PadY), Label, name);
-        draw.AddText(new float2(tl.X + PadX, tl.Y + PadY + nameSize.Y + Gap), Idle, detail);
+        draw.AddRectFilled(tl, new float2(tl.X + w, tl.Y + h), Fade(Panel, alpha));
+        draw.AddRect(tl, new float2(tl.X + w, tl.Y + h), Fade(PanelEdge, alpha));
+        draw.AddText(new float2(tl.X + PadX, tl.Y + PadY), Fade(Label, alpha), name);
+        draw.AddText(new float2(tl.X + PadX, tl.Y + PadY + nameSize.Y + Gap), Fade(Idle, alpha), detail);
     }
 
-    private static string Describe(WeaponInventory inv, double metres)
+    // Counts every showing label down, whether or not its system is still on screen -- otherwise
+    // one behind the camera never expires and reappears at full strength when you turn back.
+    private static void Age(double dt)
     {
-        List<string> roles = [];
-        foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
+        if (Showing.Count == 0 || !double.IsFinite(dt) || dt <= 0.0) return;
+
+        Expired.Clear();
+        foreach (Vehicle craft in Showing.Keys)
         {
-            int n = inv.CountOf(role);
-            if (n > 0) roles.Add(n == 1 ? role.ToString() : $"{n} {role}");
+            double left = Showing[craft] - dt;
+            if (left <= 0.0 || !KsaWorld.IsAlive(craft)) Expired.Add(craft);
+            else Showing[craft] = left;
         }
 
-        return $"{string.Join(", ", roles)}   {Range(metres)}";
+        foreach (Vehicle craft in Expired) Showing.Remove(craft);
     }
+
+    private static ImColor8 Fade(ImColor8 colour, float k)
+    {
+        if (k >= 1f) return colour;
+
+        byte4 rgba = colour.AsByte4();
+        return new ImColor8(rgba.X, rgba.Y, rgba.Z, (byte)(rgba.W * Math.Clamp(k, 0f, 1f)));
+    }
+
 
     // Metres up close, kilometres beyond a kilometre. A site 340 m away reading "0.34 km" is
     // harder to act on than the same number in metres.

@@ -152,4 +152,25 @@ public class OrbitAimTests
         Assert.False(OrbitAim.TrySolve(ok, ok, 0, 0, zero, out _, out _));
         Assert.False(OrbitAim.TrySolve(ok, ok, double.NaN, 0, ok, out _, out _));
     }
+
+    /// <summary>
+    /// The test that lets the player take the view back. A write lands exactly, so the stored
+    /// angles read back the same next frame unless something else moved them — and anything else
+    /// is the player. Without this the turn drags the camera back for its whole run, which is
+    /// what "it just keeps permanently trying" was.
+    /// </summary>
+    [Fact]
+    public void AnUntouchedViewReadsBackAsTheSameAim()
+    {
+        const double tol = 1e-6;
+
+        Assert.True(OrbitAim.SameAim(1.234, 0.5, 1.234, 0.5, tol));
+
+        // A whole turn away is the same aim; the camera cannot tell them apart.
+        Assert.True(OrbitAim.SameAim(1.234, 0.5, 1.234 + 2 * Math.PI, 0.5, tol));
+
+        // A drag is not. Even a small one: the write was exact, so any difference is an input.
+        Assert.False(OrbitAim.SameAim(1.234, 0.5, 1.235, 0.5, tol));
+        Assert.False(OrbitAim.SameAim(1.234, 0.5, 1.234, 0.501, tol));
+    }
 }

@@ -13,8 +13,10 @@ namespace KSArmory;
 /// zero on — and easing is a matter of moving two numbers, so the view swings round instead of
 /// cutting.</para>
 ///
-/// <para>It stops of its own accord on arrival. Holding the view would mean holding it against
-/// the player, and the on-screen brackets already answer "where is it" continuously.</para>
+/// <para>It stops of its own accord on arrival, and the moment the player moves the view
+/// themselves. Holding on would mean fighting them for a camera they never gave up: the stored
+/// angles are exactly what was last written unless something else moved them, so any difference
+/// is somebody else's and the turn is over.</para>
 /// </summary>
 internal sealed class WatchCamera
 {
@@ -29,8 +31,17 @@ internal sealed class WatchCamera
     // overhead, or a craft moving faster than the view can follow.
     private const double Timeout = 4.0;
 
+    // How far the stored angles may differ from what was written before it counts as the player
+    // having taken the view. Tight: a write lands exactly, so anything else is a real input.
+    private const double HandoverRad = 1e-6;
+
     private Vehicle? _target;
     private double _elapsed;
+
+    // What was last written, to notice anything else moving it.
+    private double _wroteAzimuth;
+    private double _wroteElevation;
+    private bool _hasWritten;
 
     /// <summary>The craft being turned towards, or null once it has arrived.</summary>
     public Vehicle? Target => _target;
@@ -40,12 +51,14 @@ internal sealed class WatchCamera
     {
         _target = vehicle;
         _elapsed = 0.0;
+        _hasWritten = false;
     }
 
     public void Release()
     {
         _target = null;
         _elapsed = 0.0;
+        _hasWritten = false;
     }
 
     /// <summary>Moves the view one frame's worth towards the target.</summary>
@@ -75,14 +88,49 @@ internal sealed class WatchCamera
             return;
         }
 
-        if (!KsaWorld.TryNudgeMainCameraTowards(Vec.Unit(toTarget), Rate, dtPlayer, ArrivedRad,
-                                               out bool arrived))
+        // No orbit camera to drive -- a map or fixed view, say. Nothing to chase.
+        if (!KsaWorld.TryReadMainOrbit(out OrbitAim.Reading view))
         {
-            // No orbit controller to drive -- a map or fixed view, say. Nothing to chase.
             Release();
             return;
         }
 
-        if (arrived) Release();
+        // The player moved the view. It is theirs; stand down rather than dragging it back.
+        if (_hasWritten
+            && !OrbitAim.SameAim(view.StoredAzimuth, view.StoredElevation,
+                                 _wroteAzimuth, _wroteElevation, HandoverRad))
+        {
+            Release();
+            return;
+        }
+
+        // Solved against the shown angles, because those are what built the basis being measured.
+        if (!OrbitAim.TrySolve(view.Forward, view.Right, view.ShownAzimuth, view.ShownElevation,
+                               Vec.Unit(toTarget), out double toAzimuth, out double toElevation))
+        {
+            Release();
+            return;
+        }
+
+        double azimuth = view.StoredAzimuth;
+        double elevation = view.StoredElevation;
+        OrbitAim.Ease(ref azimuth, ref elevation, toAzimuth, toElevation, Rate, dtPlayer);
+
+        if (!KsaWorld.TryWriteMainOrbit(azimuth, elevation))
+        {
+            Release();
+            return;
+        }
+
+        _wroteAzimuth = azimuth;
+        _wroteElevation = Math.Clamp(elevation, -Math.PI / 2.0, Math.PI / 2.0);
+        _hasWritten = true;
+
+        // Arrival is what the player sees, so measure the camera rather than what it chases.
+        if (OrbitAim.Arrived(view.ShownAzimuth, view.ShownElevation,
+                             toAzimuth, toElevation, ArrivedRad))
+        {
+            Release();
+        }
     }
 }

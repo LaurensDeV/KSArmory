@@ -23,6 +23,28 @@ namespace KSArmory;
 public static class OrbitAim
 {
     /// <summary>
+    /// One frame's view of the orbit camera. The two angle pairs are not the same numbers: the
+    /// shown pair is what built the camera basis this frame, and the stored pair is the one a
+    /// mouse drag moves and the only one worth writing.
+    /// </summary>
+    public readonly record struct Reading(
+        double3 Forward, double3 Right,
+        double ShownAzimuth, double ShownElevation,
+        double StoredAzimuth, double StoredElevation);
+
+    /// <summary>
+    /// Whether two angle pairs mean the same aim, allowing for a whole turn between them.
+    ///
+    /// <para>Used to notice the player taking the view back: the stored angles are exactly what
+    /// was last written unless something else moved them, so any difference is somebody else's.
+    /// </para>
+    /// </summary>
+    public static bool SameAim(double azimuth, double elevation,
+                               double otherAzimuth, double otherElevation, double toleranceRad)
+        => Math.Abs(WrapPi(azimuth - otherAzimuth)) <= toleranceRad
+           && Math.Abs(elevation - otherElevation) <= toleranceRad;
+
+    /// <summary>
     /// The azimuth and elevation that would point the camera along <paramref name="desired"/>.
     /// </summary>
     /// <param name="forward">Where the camera looks now.</param>
