@@ -42,6 +42,9 @@ public sealed class KSArmoryMod
     // Development tool: pick a craft up and set it down somewhere else.
     private readonly CraftMover _mover = new();
 
+    // Development tool: click the world to set off a warhead there.
+    private readonly BurstTool _bursts = new();
+
     // Last kitten reported, so the character is logged once per EVA rather than every frame.
     private string _lastKittenSeen = string.Empty;
 
@@ -55,13 +58,14 @@ public sealed class KSArmoryMod
     public void OnFullyLoaded()
     {
         _roster = new BatteryRoster(_config);
-        _ui = new Ui(_config, _roster, _warp, _watch, _mover);
+        _ui = new Ui(_config, _roster, _warp, _watch, _mover, _bursts);
         Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
         // Logged, not just shown in the panel. Every link of this chain fails silently inside
         // KSA, so without a record the only symptom is a kitten with no gun -- and that looks
         // identical whether the XML never loaded, a reference did not resolve, or the mesh did.
+        Log.Info($"particles graphics setting: {(Detonation.ParticlesEnabled ? "on" : "OFF")}");
         Log.Info($"warhead effect {Detonation.Fireball}: "
                  + $"{(Detonation.Resolves(Detonation.Fireball) ? "ok" : "DID NOT RESOLVE")}");
         Log.Info($"warhead effect {Detonation.Airburst}: "
@@ -158,6 +162,8 @@ public sealed class KSArmoryMod
             {
                 _mover.Update(_config);
                 _mover.Draw(_config);
+                _bursts.Update(_config);
+                _bursts.Draw(_config);
             }
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.

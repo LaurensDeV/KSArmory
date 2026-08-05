@@ -72,6 +72,20 @@ public sealed class Config
     public readonly List<string> TeamNames = [];
 
     /// <summary>
+    /// Click the world to set off a warhead there.
+    ///
+    /// <para>A development tool for looking at the effect without flying an engagement to get one.
+    /// Off by default: while it is on, a click on the world is an explosion.</para>
+    /// </summary>
+    public bool BurstTool;
+
+    /// <summary>Fireball rather than the paler airburst.</summary>
+    public bool BurstFireball = true;
+
+    /// <summary>Multiplies the burst's size and speed.</summary>
+    public float BurstScale = 1f;
+
+    /// <summary>
     /// Pick a craft up with one click and set it down with the next.
     ///
     /// <para>A development tool for laying out a test range, and off by default because while it

@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, WatchCamera watch, CraftMover mover)
+internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -29,6 +29,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     private BatteryConfig _policy = null!;
     private readonly WatchCamera _watch = watch;
     private readonly CraftMover _mover = mover;
+    private readonly BurstTool _bursts = bursts;
     private readonly List<int> _viewports = [];
     private readonly List<(string Name, string Character)> _roster = [];
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
@@ -383,13 +384,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
 
             ImGui.Separator();
 
-            // Firing one on demand separates "the effect is broken" from "nothing has detonated",
-            // which are the two reasons for seeing no explosion and look identical.
-            if (ImGui.Button("Test fireball")) FireTestBurst(Detonation.Fireball);
-            ImGui.SameLine();
-            if (ImGui.Button("Test airburst")) FireTestBurst(Detonation.Airburst);
-            ImGui.TextDisabled("  100 m above the system shown in the panel");
-
+            DrawBurstTool();
             ImGui.Separator();
 
             // Inline rather than a pane of its own. It is one tick box and a line of state, and
@@ -782,6 +777,30 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             ImGui.PopID();
         }
 
+    }
+
+    private void DrawBurstTool()
+    {
+        ImGui.Checkbox("Explosions on click", ref _config.BurstTool);
+
+        if (_config.BurstTool)
+        {
+            ImGui.TextDisabled("  click the ground to set one off there");
+            ImGui.SliderFloat("Size", ref _config.BurstScale, 0.25f, 8f);
+            ImGui.Checkbox("Fireball (off: airburst)", ref _config.BurstFireball);
+        }
+
+        // Straight overhead, for when the pointer is not the question -- it needs no aim and no
+        // ground under it, so it still answers "does the effect work at all".
+        if (ImGui.Button("Burst overhead")) FireTestBurst(Detonation.Fireball);
+        ImGui.SameLine();
+        ImGui.TextDisabled("100 m over the system shown");
+
+        if (!Detonation.ParticlesEnabled)
+        {
+            ImGui.TextColored(Red, "KSA's Particles graphics setting is OFF");
+            ImGui.TextDisabled("  nothing will draw until it is turned back on");
+        }
     }
 
     // A burst overhead, where it cannot be missed.

@@ -268,6 +268,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Track.cs` | a radar contact bound to a KSA vehicle |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
+| `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the battery can see and why |
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
@@ -278,7 +279,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 263 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 266 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -582,7 +583,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-660,000 lines to the files defining the 105 types this mod actually uses.
+660,000 lines to the files defining the 107 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —

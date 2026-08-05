@@ -29,6 +29,20 @@ internal static class Detonation
     // twelve-round salvo would bury the engagement it belongs to.
     private static bool _reportedExhaustion;
     private static bool _reportedFailure;
+    private static bool _reportedFirstBurst;
+
+    /// <summary>
+    /// Whether the game is drawing particles at all. The whole system returns early when this is
+    /// off, so an emitter can resolve, acquire and register and still show nothing.
+    /// </summary>
+    public static bool ParticlesEnabled
+    {
+        get
+        {
+            try { return GameSettings.Current.Graphics.Particles; }
+            catch { return true; }
+        }
+    }
 
     /// <summary>
     /// Whether an emitter Id resolves. Checked at load and logged, because every link in this
@@ -108,7 +122,22 @@ internal static class Detonation
                 }
 
                 body.AddEmitter(handle);
+
+                // Once, on the first burst of the session. An emitter renders only when it has
+                // both a renderer and at least one compute pipeline, and it gets those from the
+                // XML's Renderer and Updaters elements -- so a bad name there leaves it acquired,
+                // positioned, and invisible, with nothing thrown anywhere.
+                if (!_reportedFirstBurst)
+                {
+                    ParticleEmitter<ParticleUpdateData, ParticleRenderData> e = emitter;
+                    Log.Info($"burst {emitterId}: registered={e.IsRegistered} "
+                             + $"maxParticles={e.MaximumParticleCount} "
+                             + $"particlesEnabled={ParticlesEnabled} "
+                             + $"bub={positionCcf.X:F0},{positionCcf.Y:F0},{positionCcf.Z:F0}");
+                }
             }
+
+            _reportedFirstBurst = true;
         }
         catch (Exception e)
         {
