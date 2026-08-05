@@ -152,11 +152,11 @@ internal sealed class WarpPolicy
             }
         }
 
-        if (dtSim <= Interceptor.MaxFaithfulStep)
-        {
-            _overrides = 0;
-            return WarpDecision.Nothing;
-        }
+        // Note what is *not* reset here. A step inside the limit is exactly what the fight against
+        // another writer produces -- our value lands, one good frame passes, the speed goes back up
+        // -- so clearing the override count on it means the count never reaches its threshold. The
+        // budget is per salvo and only Release clears it.
+        if (dtSim <= Interceptor.MaxFaithfulStep) return WarpDecision.Nothing;
 
         // Self-calibrating: the frame time is dtSim/currentSpeed, so the speed that lands on the
         // target step needs no knowledge of the frame rate. That also makes a slow frame and a

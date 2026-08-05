@@ -353,4 +353,41 @@ public class WarpPolicyTests
         Assert.Equal(WarpAction.Slow, d.Action);
         Assert.True(d.Speed < 10.0);
     }
+
+    /// <summary>
+    /// The fight against another writer *produces* good frames: our value lands, one frame runs
+    /// inside the limit, and the speed goes straight back up. A stand-down budget cleared by a
+    /// good step therefore never reaches its threshold, and the loop runs for the whole salvo.
+    ///
+    /// <para>This is the shape of the log it was taken from — 28 hold lines across three salvos,
+    /// each reading "120.0x still overruns" a few frames after the previous request landed.</para>
+    /// </summary>
+    [Fact]
+    public void AnAlternatingFightStillEndsInStandingDown()
+    {
+        var policy = new WarpPolicy();
+
+        WarpDecision last = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        Assert.Equal(WarpAction.Slow, last.Action);
+
+        for (int cycle = 0; cycle < 20 && last.Action != WarpAction.Yield; cycle++)
+        {
+            double asked = last.Action == WarpAction.Slow ? last.Speed : 11.5;
+
+            // Our write lands, then the settle step passes.
+            policy.Decide(StepAt(asked), asked, roundsInFlight: true, enabled: true);
+            policy.Decide(StepAt(asked), asked, roundsInFlight: true, enabled: true);
+
+            // Then a genuinely idle frame: holding, settled, and the step inside the limit. This
+            // is the one that reaches the good-step branch, and clearing the budget there is what
+            // made the loop run forever. Without this call the test cannot see the defect at all.
+            policy.Decide(StepAt(asked), asked, roundsInFlight: true, enabled: true);
+
+            // Something else puts the speed straight back up.
+            last = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        }
+
+        Assert.Equal(WarpAction.Yield, last.Action);
+        Assert.True(policy.Yielded);
+    }
 }
