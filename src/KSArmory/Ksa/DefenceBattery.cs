@@ -386,7 +386,9 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
 
         if (!Radar.HasFiringSolution)
         {
-            return Radar.Tracks.Count == 0 ? "nothing detected" : "no firing solution yet";
+            return Radar.Tracks.Count == 0
+                       ? "nothing detected"
+                       : $"no firing solution yet ({Radar.Tracks.Count} track(s))";
         }
 
         if (!IsLaid) return "drives still settling";
@@ -398,7 +400,14 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         if (Radar.Locked is not { } locked) return "no lock";
         if (!ThreatModel.MayEngage(locked, _policy.Iff)) return "target is not engageable (IFF)";
         if (!ThreatModel.HasSalvoCapacity(locked, _policy.RoundsPerTarget)) return "salvo committed";
-        if (!ThreatModel.InEngagementEnvelope(locked, _config.Sensor)) return "target out of reach";
+        if (!ThreatModel.InEngagementEnvelope(locked, _config.Sensor))
+        {
+            // With the numbers: "out of reach" is read as too far, and the usual cause is a
+            // target that came inside the minimum instead.
+            return $"target out of reach ({locked.Range / 1000.0:F1} km, envelope "
+                   + $"{_config.Sensor.MinEngagementRange / 1000f:F1}-"
+                   + $"{_config.Sensor.MaxEngagementRange / 1000f:F1} km)";
+        }
 
         return null;
     }
