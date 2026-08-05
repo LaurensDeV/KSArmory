@@ -4,62 +4,54 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Holds the main view pointed at one craft, from wherever the player is, without handing it the
-/// controls.
+/// Nudges the main view round until it is looking at a chosen craft, then lets go.
 ///
-/// <para>The camera is rewritten every frame from the GUI hook. That is not belt and braces: each
-/// viewport runs a controller that rewrites its camera from whatever mode it is in, so a single
-/// write is gone before it renders — which is why <c>Camera.LookAt</c> on its own does nothing
-/// while the camera is following anything. The optical head has driven a viewport this way since
-/// it existed; this is the same mechanism aimed at the main one.</para>
+/// <para>It drives KSA's own orbit camera by setting the azimuth and elevation its controller
+/// already reads, rather than taking the view. That matters three times over: the player keeps
+/// full control throughout and can drag out of it at any moment, no camera mode changes — so the
+/// interface stays up and <c>FixedController</c> is never handed a following camera to divide by
+/// zero on — and easing is a matter of moving two numbers, so the view swings round instead of
+/// cutting.</para>
 ///
-/// <para>The view sits behind the craft being flown and looks past it at the target, so the
-/// answer to "where is it" includes "relative to me". Pure rotation would lose that: a view
-/// spun off its own craft shows a patch of sky with no sense of which way anything is.</para>
+/// <para>It stops of its own accord on arrival. Holding the view would mean holding it against
+/// the player, and the on-screen brackets already answer "where is it" continuously.</para>
 /// </summary>
 internal sealed class WatchCamera
 {
-    // How far back from the anchor to sit, in anchor radii, and a floor for it so a kitten does
-    // not put the camera inside its own helmet.
-    private const double StandOff = 9.0;
-    private const double MinStandOff = 12.0;
+    // Fraction of the remaining angle covered per second. About a second to swing most of the way
+    // round, which reads as deliberate rather than either instant or sluggish.
+    private const double Rate = 4.0;
+
+    // Close enough that another frame of nudging would not be visible.
+    private const double ArrivedRad = 0.004;
+
+    // Gives up rather than chasing forever if the angles will not converge -- a target directly
+    // overhead, or a craft moving faster than the view can follow.
+    private const double Timeout = 4.0;
 
     private Vehicle? _target;
-    private CameraMode _restoreMode = CameraMode.Fixed;
-    private IFollowable? _restoreFollowing;
-    private bool _holding;
+    private double _elapsed;
 
-    /// <summary>The craft being watched, or null.</summary>
+    /// <summary>The craft being turned towards, or null once it has arrived.</summary>
     public Vehicle? Target => _target;
 
-    public bool IsWatching => _holding && KsaWorld.IsAlive(_target);
-
-    /// <summary>Starts watching a craft, or stops if it is already the one being watched.</summary>
+    /// <summary>Starts turning towards a craft, or stops if it is already the one.</summary>
     public void Toggle(Vehicle? vehicle)
     {
         if (ReferenceEquals(vehicle, _target)) { Release(); return; }
 
         _target = vehicle;
+        _elapsed = 0.0;
     }
 
-    /// <summary>Gives the view back to whatever mode it was in.</summary>
     public void Release()
     {
         _target = null;
-        if (!_holding) return;
-
-        _holding = false;
-        KsaWorld.RestoreMainCameraMode(_restoreMode);
-
-        // Re-follow before handing back: the mode alone is not the whole state we took.
-        KsaWorld.RefollowMainCamera(_restoreFollowing);
-        _restoreFollowing = null;
+        _elapsed = 0.0;
     }
 
-    /// <summary>
-    /// Writes the view for this frame. Call from the GUI hook, after the engine's own controller.
-    /// </summary>
-    public void Apply(double dt)
+    /// <summary>Moves the view one frame's worth towards the target.</summary>
+    public void Apply(double dtPlayer)
     {
         if (_target is null) return;
 
@@ -69,34 +61,30 @@ internal sealed class WatchCamera
             return;
         }
 
-        // Anchored to what the player is flying, not to the camera's own position: in Fixed mode
-        // nothing moves the camera, so anchoring it to itself would leave it hanging in space
-        // while the craft flew away from it.
-        Vehicle anchor = KsaWorld.ControlledVehicle ?? _target;
-        double3 anchorEcl = KsaWorld.PositionEcl(anchor);
-        double3 targetEcl = KsaWorld.PositionEcl(_target);
-
-        double3 toTarget = targetEcl - anchorEcl;
-        if (Vec.Len2(toTarget) < 1e-6)
+        if (double.IsFinite(dtPlayer) && dtPlayer > 0.0) _elapsed += dtPlayer;
+        if (_elapsed > Timeout)
         {
-            // Watching the craft you are flying. Nothing to point at, so leave the view alone.
             Release();
             return;
         }
 
-        double3 forward = Vec.Unit(toTarget);
-        double back = Math.Max(KsaWorld.MeanRadius(anchor) * StandOff, MinStandOff);
-        double3 eye = anchorEcl - forward * back;
-
-        if (!_holding)
+        // Where the view would have to look. Measured from the camera rather than from the craft
+        // being flown: it is the camera that is being turned, and the two are metres apart.
+        double3 toTarget = KsaWorld.PositionEcl(_target) - KsaWorld.CameraPositionEcl();
+        if (Vec.Len2(toTarget) < 1e-6)
         {
-            _restoreMode = KsaWorld.MainCameraMode();
-            // Remembered before the view is taken; TryLookFromMainViewport does the unfollowing
-            // that Fixed mode requires.
-            _restoreFollowing = KsaWorld.MainCameraFollowing();
-            _holding = true;
+            Release();
+            return;
         }
 
-        KsaWorld.TryLookFromMainViewport(eye, forward, KsaWorld.LocalUp(anchor), dt);
+        if (!KsaWorld.TryNudgeMainCameraTowards(Vec.Unit(toTarget), Rate, dtPlayer, ArrivedRad,
+                                               out bool arrived))
+        {
+            // No orbit controller to drive -- a map or fixed view, say. Nothing to chase.
+            Release();
+            return;
+        }
+
+        if (arrived) Release();
     }
 }

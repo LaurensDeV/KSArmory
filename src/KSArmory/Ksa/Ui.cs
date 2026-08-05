@@ -188,9 +188,9 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
             if (ImGui.IsItemHovered())
             {
                 ImGui.SetTooltip(watching
-                    ? "Watching. Click to give the view back."
-                    : "Point the main view at it, from where you are.\n"
-                      + "You keep flying what you are flying.");
+                    ? "Turning towards it. Click to stop, or just drag the view."
+                    : "Turn the view towards it. It stops once it is looking,\n"
+                      + "and you keep control of the camera throughout.");
             }
             ImGui.SameLine();
 

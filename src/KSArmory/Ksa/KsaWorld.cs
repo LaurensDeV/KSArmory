@@ -904,109 +904,46 @@ internal static class KsaWorld
         }
     }
 
-    /// <summary>What the main camera is following, or null.</summary>
-    public static IFollowable? MainCameraFollowing()
-    {
-        try { return Program.GetMainCamera()?.Following; }
-        catch { return null; }
-    }
-
     /// <summary>
-    /// Stops the main camera following anything, without giving up control of the vehicle.
+    /// Turns the main view a frame's worth towards a direction, by moving the orbit camera's own
+    /// angles.
     ///
-    /// <para>Required before putting the main viewport into <c>Fixed</c>.
-    /// <c>FixedController.OnFrame</c> runs only when the camera is following something, and then
-    /// normalises <c>Cross(CameraRotation, up)</c> — <c>CameraRotation</c> is a public field
-    /// defaulting to zero, so the cross product is zero and normalising it divides by a zero
-    /// length. Switching the main view to Fixed while it still follows a craft takes the game
-    /// down on the next frame with a DivideByZeroException.</para>
+    /// <para>Setting the camera does not work: its controller rewrites rotation and position
+    /// every frame from the azimuth and elevation it holds, so a written camera is gone before it
+    /// renders. Switching the viewport to a fixed mode does work, and takes the view off the
+    /// player and crashes <c>FixedController</c> if the camera is following anything. Moving the
+    /// angles the controller is already reading has neither problem, and leaves the player able
+    /// to drag out of it mid-turn.</para>
     ///
-    /// <para>The optical head never met this because the viewport it borrows follows nothing.</para>
+    /// <para>The geometry is <see cref="OrbitAim"/>, which is testable; this only reads the
+    /// camera and writes the two numbers back.</para>
     /// </summary>
-    public static void UnfollowMainCamera()
+    /// <returns>False if there is no orbit camera to drive.</returns>
+    public static bool TryNudgeMainCameraTowards(double3 forwardEcl, double rate, double dt,
+                                                 double arrivedRad, out bool arrived)
     {
-        try { Program.GetMainCamera()?.Unfollow(changeControl: false); }
-        catch { /* Nothing useful to do; the view is the player's. */ }
-    }
-
-    /// <summary>Puts the main camera back on what it was following.</summary>
-    public static void RefollowMainCamera(IFollowable? target)
-    {
-        if (target is null) return;
-
-        try { Program.GetMainCamera()?.SetFollow(target, tidalLocking: true, changeControl: false); }
-        catch { /* As above. */ }
-    }
-
-    /// <summary>The main viewport's current camera mode, so it can be given back.</summary>
-    public static CameraMode MainCameraMode()
-    {
-        try { return Program.MainViewport?.Mode ?? CameraMode.Fixed; }
-        catch { return CameraMode.Fixed; }
-    }
-
-    /// <summary>Puts the main viewport back into a mode the engine drives itself.</summary>
-    public static void RestoreMainCameraMode(CameraMode mode)
-    {
-        try
-        {
-            if (Program.MainViewport is { } viewport && viewport.Mode != mode)
-            {
-                viewport.SetCameraMode(mode);
-            }
-        }
-        catch
-        {
-            // Nothing useful to do: the view is the player's and they can change it themselves.
-        }
-    }
-
-    /// <summary>
-    /// Drives the <em>main</em> view from a point, looking along a direction.
-    ///
-    /// <para>Same mechanism as <see cref="TryLookFromViewport"/> and the same rule: it holds only
-    /// while it keeps being reapplied, from a hook that runs after the viewport's own controller.
-    /// The difference is which window it takes — this one borrows the player's, which is why
-    /// whatever called it has to have a way to give it back.</para>
-    /// </summary>
-    public static bool TryLookFromMainViewport(double3 eyeEcl, double3 forwardEcl, double3 upEcl,
-                                               double dt)
-    {
-        if (!Vec.IsFinite(eyeEcl) || !Vec.IsFinite(forwardEcl) || !Vec.IsFinite(upEcl)) return false;
-        if (Vec.Len2(forwardEcl) < 1e-12) return false;
-
+        arrived = false;
         try
         {
             if (Program.MainViewport is not { } viewport) return false;
+            if (viewport.OrbitController is not { } orbit) return false;
+            if (Program.GetMainCamera() is not { } camera) return false;
 
-            // Fixed is the mode that draws the scene from wherever its camera is. Anything else
-            // has a controller that will put the camera back where it thinks it belongs.
-            //
-            // Unfollow first, always. FixedController.OnFrame runs only while the camera follows
-            // something, and then normalises Cross(CameraRotation, up) -- CameraRotation is a
-            // public field defaulting to zero, so that is a zero vector and normalising it
-            // divides by a zero length. One frame in Fixed while still following takes the game
-            // down with a DivideByZeroException.
-            if (viewport.Mode != CameraMode.Fixed)
+            double azimuth = orbit.Azimuth;
+            double elevation = orbit.Elevation;
+
+            if (!OrbitAim.TrySolve(camera.GetForwardEcl(), camera.GetRightEcl(),
+                                   azimuth, elevation, forwardEcl,
+                                   out double toAzimuth, out double toElevation))
             {
-                UnfollowMainCamera();
-                viewport.SetCameraMode(CameraMode.Fixed);
+                return false;
             }
 
-            Camera camera = viewport.BaseCamera;
-            if (camera is null) return false;
+            OrbitAim.Ease(ref azimuth, ref elevation, toAzimuth, toElevation, rate, dt);
+            orbit.Azimuth = azimuth;
+            orbit.Elevation = elevation;
 
-            camera.LookAt(eyeEcl, eyeEcl + Vec.Unit(forwardEcl) * 1000.0, upEcl);
-
-            // The sky, atmosphere and terrain LOD are shaded from data the engine uploads per
-            // viewport, which by this point holds where the camera *was*. Without this the view
-            // renders the sky from the old position.
-            if (Program.Instance is { } program)
-            {
-                program.UpdateShaderData(dt, viewport);
-                program.SetCameraUbo(viewport);
-            }
-
+            arrived = OrbitAim.Arrived(azimuth, elevation, toAzimuth, toElevation, arrivedRad);
             return true;
         }
         catch
