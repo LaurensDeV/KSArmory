@@ -4,6 +4,10 @@ Thanks for looking. This is a mod for a **pre-release game with no official code
 some of the setup is unusual and a couple of the rules below exist because breaking them cost
 whole evenings.
 
+**Modded Kerbal Space Program before?** Read
+[docs/FROM-KSP-MODDING.md](docs/FROM-KSP-MODDING.md) first. Most of what you know transfers; three
+things actively mislead, and that page is the translation.
+
 ## Start here
 
 ```bash
