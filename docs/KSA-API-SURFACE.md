@@ -7,13 +7,19 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-67 types and 190 members across 5 assemblies.
+70 types and 191 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
 ### Brutal.Concurrency.Jobs.JobScheduler
 
 - `void Wait()`
+
+## Brutal.Core.Common
+
+### Brutal.Pointers.Ptr
+
+*referenced as a type only*
 
 ## Brutal.Core.Numerics
 
@@ -90,6 +96,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool Begin(Brutal.ImGuiApi.ImString, ref bool, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Button(Brutal.ImGuiApi.ImString, ref System.Nullable`1<Brutal.Numerics.float2>)`
 - `bool Checkbox(Brutal.ImGuiApi.ImString, ref bool)`
+- `bool InputText(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool RadioButton(Brutal.ImGuiApi.ImString, bool)`
 - `bool SliderFloat(Brutal.ImGuiApi.ImString, ref float, float, float, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool SliderInt(Brutal.ImGuiApi.ImString, ref int, int, int, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
@@ -107,6 +114,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void TreePop()`
 
 ### Brutal.ImGuiApi.ImGuiCond
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiInputTextCallback
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiInputTextFlags
 
 *referenced as a type only*
 

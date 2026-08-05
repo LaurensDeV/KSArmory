@@ -22,6 +22,8 @@ internal sealed class Ui(Config config, DefenceBattery battery)
     private readonly Config _config = config;
     private readonly DefenceBattery _battery = battery;
     private readonly List<int> _viewports = [];
+    private string _ownTeamEntry = string.Empty;
+    private string _newTeamEntry = string.Empty;
 
     public bool Visible = true;
 
@@ -54,6 +56,8 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         DrawTestTargets();
         ImGui.Separator();
         DrawTrackList();
+        ImGui.Separator();
+        DrawIff();
         ImGui.Separator();
         DrawTuning();
         ImGui.Separator();
@@ -422,9 +426,13 @@ internal sealed class Ui(Config config, DefenceBattery battery)
             Track t = _battery.Radar.Tracks[i];
             bool isLock = ReferenceEquals(t, _battery.Radar.Locked);
 
-            float4 colour = isLock ? Red : t.IsThreat ? Amber : Grey;
+            float4 colour = isLock ? Red : AllegianceColour(t.Allegiance);
+            string mark = t.Allegiance == Allegiance.Friendly ? "F"
+                : t.Allegiance == Allegiance.Neutral ? "N"
+                : t.Allegiance == Allegiance.Hostile ? "H" : "?";
+
             ImGui.TextColored(colour,
-                $"{(isLock ? ">" : " ")} {KsaWorld.DisplayName(t.Vehicle)}  " +
+                $"{(isLock ? ">" : " ")}[{mark}] {KsaWorld.DisplayName(t.Vehicle)}  " +
                 $"{t.Range / 1000.0:F2} km  cpa {t.ClosestApproach:F0} m  " +
                 $"{(t.RoundsAssigned > 0 ? $"[{t.RoundsAssigned} away]" : "")}");
 
@@ -441,6 +449,132 @@ internal sealed class Ui(Config config, DefenceBattery battery)
         }
 
         ImGui.TreePop();
+    }
+
+    // Teams and IFF. The whole subsystem shipped tested and unreachable: nothing outside
+    // Config.cs ever wrote Config.Iff or Config.TeamNames, so every session anyone has played
+    // ran with no teams declared and every contact Unknown.
+    private void DrawIff()
+    {
+        if (!ImGui.TreeNode("Teams and IFF")) return;
+
+        ImGui.TextDisabled("KSA has no team field. A craft joins a team when the team's name");
+        ImGui.TextDisabled("appears anywhere in its name - so \"Red\" also matches \"Redstone\".");
+        ImGui.TextDisabled("Longest match wins. Name teams distinctly.");
+        ImGui.Separator();
+
+        if (TextField("Own team", ref _ownTeamEntry))
+        {
+            _config.Iff.OwnTeam = string.IsNullOrWhiteSpace(_ownTeamEntry) ? null : _ownTeamEntry.Trim();
+            Remember(_config.Iff.OwnTeam);
+        }
+
+        ImGui.SameLine();
+        ImGui.TextDisabled(_config.Iff.OwnTeam is null ? "(none - everything is Unknown)" : "");
+
+        if (TextField("Add team", ref _newTeamEntry) && !string.IsNullOrWhiteSpace(_newTeamEntry))
+        {
+            Remember(_newTeamEntry.Trim());
+            _newTeamEntry = string.Empty;
+        }
+
+        if (_config.TeamNames.Count == 0)
+        {
+            ImGui.TextDisabled("  no teams declared; every contact classifies as Unknown");
+        }
+
+        for (int i = _config.TeamNames.Count - 1; i >= 0; i--)
+        {
+            string team = _config.TeamNames[i];
+            bool own = string.Equals(team, _config.Iff.OwnTeam, StringComparison.OrdinalIgnoreCase);
+
+            bool allied = _config.Iff.AlliedTeams.Contains(team);
+            bool neutral = _config.Iff.NeutralTeams.Contains(team);
+
+            ImGui.TextColored(AllegianceColour(_config.Iff.Classify(team)), $"  {team}");
+            ImGui.SameLine();
+
+            if (own)
+            {
+                ImGui.TextDisabled("own team");
+            }
+            else
+            {
+                if (ImGui.Checkbox($"allied##a{i}", ref allied))
+                {
+                    Toggle(_config.Iff.AlliedTeams, team, allied);
+                    if (allied) _config.Iff.NeutralTeams.Remove(team);
+                }
+                ImGui.SameLine();
+                if (ImGui.Checkbox($"neutral##n{i}", ref neutral))
+                {
+                    Toggle(_config.Iff.NeutralTeams, team, neutral);
+                    if (neutral) _config.Iff.AlliedTeams.Remove(team);
+                }
+            }
+
+            ImGui.SameLine();
+            if (ImGui.Button($"remove##t{i}"))
+            {
+                _config.TeamNames.RemoveAt(i);
+                _config.Iff.AlliedTeams.Remove(team);
+                _config.Iff.NeutralTeams.Remove(team);
+            }
+        }
+
+        ImGui.Separator();
+
+        bool engageUnknown = _config.Iff.EngageUnknown;
+        if (ImGui.Checkbox("Engage unknown contacts", ref engageUnknown)) _config.Iff.EngageUnknown = engageUnknown;
+
+        bool engageNeutral = _config.Iff.EngageNeutral;
+        if (ImGui.Checkbox("Engage neutrals", ref engageNeutral)) _config.Iff.EngageNeutral = engageNeutral;
+
+        bool protectFriendly = _config.Iff.ProtectFriendly;
+        if (ImGui.Checkbox("Never engage friendlies", ref protectFriendly)) _config.Iff.ProtectFriendly = protectFriendly;
+
+        ImGui.TreePop();
+    }
+
+    private static void Toggle(HashSet<string> set, string team, bool wanted)
+    {
+        if (wanted) set.Add(team);
+        else set.Remove(team);
+    }
+
+    private void Remember(string? team)
+    {
+        if (string.IsNullOrWhiteSpace(team)) return;
+        if (!_config.TeamNames.Contains(team, StringComparer.OrdinalIgnoreCase))
+        {
+            _config.TeamNames.Add(team);
+        }
+    }
+
+    private static float4 AllegianceColour(Allegiance a) => a switch
+    {
+        Allegiance.Friendly => Green,
+        Allegiance.Hostile => Red,
+        Allegiance.Neutral => Grey,
+        _ => Amber,
+    };
+
+    // ImGui.InputText wants a fixed byte buffer, so each field owns one and the string is
+    // marshalled either side of the call.
+    private static bool TextField(string label, ref string value)
+    {
+        Span<byte> buffer = stackalloc byte[64];
+        int written = System.Text.Encoding.UTF8.GetBytes(value.AsSpan(), buffer);
+        buffer[Math.Min(written, buffer.Length - 1)] = 0;
+
+        if (!ImGui.InputText(label, buffer, ImGuiInputTextFlags.EnterReturnsTrue, null, default))
+        {
+            return false;
+        }
+
+        int end = buffer.IndexOf((byte)0);
+        value = System.Text.Encoding.UTF8.GetString(buffer[..(end < 0 ? buffer.Length : end)]);
+        return true;
     }
 
     private void DrawTuning()
