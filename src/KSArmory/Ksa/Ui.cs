@@ -76,7 +76,6 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     private Pane[] Panes => _panes ??=
     [
         new("Kittens", DrawKittenRoster, PaneGroup.Session),
-        new("Survey", DrawSurvey, PaneGroup.Debug),
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -173,7 +172,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         {
             ImGui.TextColored(Grey, "No weapons systems.");
             ImGui.TextDisabled("A craft becomes one by carrying a part this mod recognises.");
-            ImGui.TextDisabled("Open Survey under Debug to see what is on the craft you are flying.");
+            ImGui.TextDisabled("Recognised parts are listed under Components once it is one.");
             return;
         }
 
@@ -279,6 +278,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
                 if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
                 if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
                 if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
+                if (ImGui.BeginTabItem("Components")) { DrawComponents(craft); ImGui.EndTabItem(); }
                 ImGui.EndTabBar();
             }
         }
@@ -298,20 +298,14 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         return string.Join(", ", parts);
     }
 
-    private void DrawSurvey()
+    // What this system is made of, read off the craft rather than from a table -- which is the
+    // whole point of surveying, and why it belongs to a system rather than to the mod's menu.
+    private void DrawComponents(KSA.Vehicle craft)
     {
-        KSA.Vehicle? craft = KsaWorld.ControlledVehicle;
-        if (craft is null)
-        {
-            ImGui.TextDisabled("  Not flying anything.");
-            return;
-        }
-
         KsaWorld.SurveyParts(craft, _surveyed);
         WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Arsenal.Components);
 
-        ImGui.Text($"{KsaWorld.DisplayName(craft)}");
-        ImGui.TextDisabled($"  {_surveyed.Count} part(s) on the craft");
+        ImGui.TextDisabled($"{_surveyed.Count} part(s) on the craft");
 
         if (!inv.IsWeaponSystem)
         {
@@ -321,9 +315,9 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             return;
         }
 
-        ImGui.TextColored(Green, "  Weapons system");
         // Every role, read off the enum rather than listed here. A hand-written list silently
         // omits a role added later, which reads as the survey not finding one.
+        ImGui.TextColored(Green, "  Weapons system");
         foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
         {
             int n = inv.CountOf(role);
@@ -336,7 +330,6 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             FoundComponent c = inv.Components[i];
             double3 at = c.PositionVehicleAsmb;
             ImGui.Text($"  {c.Profile.DisplayName}");
-            // Read off the craft, not from a table -- which is the whole point of surveying.
             ImGui.TextDisabled($"    {c.Role} at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
         }
     }
