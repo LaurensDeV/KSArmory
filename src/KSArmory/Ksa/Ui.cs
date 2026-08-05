@@ -315,24 +315,39 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             return;
         }
 
-        // Every role, read off the enum rather than listed here. A hand-written list silently
-        // omits a role added later, which reads as the survey not finding one.
-        ImGui.TextColored(Green, "  Weapons system");
+        // One group per role, read off the enum rather than listed here. A hand-written list
+        // silently omits a role added later, which reads as the survey not finding one.
         foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
         {
             int n = inv.CountOf(role);
-            if (n > 0) ImGui.TextDisabled($"    {role}: {n}");
-        }
+            if (n == 0) continue;
 
-        ImGui.Separator();
-        for (int i = 0; i < inv.Components.Count; i++)
-        {
-            FoundComponent c = inv.Components[i];
-            double3 at = c.PositionVehicleAsmb;
-            ImGui.Text($"  {c.DisplayName}");
-            ImGui.TextDisabled($"    {c.Role} at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
+            if (!ImGui.TreeNode($"{GroupName(role)} ({n})")) continue;
+
+            for (int i = 0; i < inv.Components.Count; i++)
+            {
+                FoundComponent c = inv.Components[i];
+                if (c.Role != role) continue;
+
+                double3 at = c.PositionVehicleAsmb;
+                ImGui.Text(c.DisplayName);
+                ImGui.TextDisabled($"  at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
+            }
+
+            ImGui.TreePop();
         }
     }
+
+    // Plural, and spaced: the enum names are identifiers and read as such on screen.
+    private static string GroupName(WeaponRole role) => role switch
+    {
+        WeaponRole.FireControl => "Fire control",
+        WeaponRole.Launcher => "Launchers",
+        WeaponRole.Sensor => "Sensors",
+        WeaponRole.Camera => "Cameras",
+        WeaponRole.Gun => "Guns",
+        _ => role.ToString(),
+    };
 
     // The selected system's own controls: where it is, what it is holding, and its master arm.
     // One battery runs at a time -- the profiles are per system, but the fire control, radar and
