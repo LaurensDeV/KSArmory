@@ -4,8 +4,12 @@ The mod was built around three profile types and a registry so that a second wea
 be *data plus art*. This is an audit of how far that actually holds, read out of the code rather
 than out of the design notes.
 
-**The four changes it proposes are not implemented — they are a plan.** The test work that had to
-come first *is* done, and the last section records what that turned up.
+**Two of the four changes it proposes have since landed; 2 and 4 are still a plan.** The test work
+that had to come first *is* done, and the last section records what that turned up.
+
+**Cite symbols here, never file and line.** Every one of the seven line citations this file
+originally carried was wrong within a few months, and one named a file that a rename had deleted.
+A symbol survives edits above it, and `grep` finds it.
 
 **Summary: modular for rounds, mostly modular for launchers, not modular for mounts.**
 
@@ -22,7 +26,7 @@ come first *is* done, and the last section records what that turned up.
 SeekerInView = munition.Guidance == GuidanceMode.CommandLink || /* seeker cone check */;
 ```
 
-`Sim/Interceptor.cs:352`. Boost, drag, nav constant, fuse, blast, body mesh and fin timing are all
+`Interceptor.SeekerInView`. Boost, drag, nav constant, fuse, blast, body mesh and fin timing are all
 profile fields; bodies and fins resolve by `BodyMarker` / `FinMarker`, so a new round brings its own
 meshes with no code change. Profiles are mutable fields read *by reference* every frame, which is
 what makes live panel tuning work.
@@ -34,24 +38,25 @@ timed airburst. A CIWS cannon is not a `MunitionProfile`.
 
 ### Different launchers — modular in count, rigid in articulation
 
-Discovery is `Arsenal.LauncherForPart(part.Id)` (`Ksa/LauncherPart.cs:41`); nothing hardcodes an
-Id. Tube count is fully derived — `Magazine`, the `stackalloc` at `Ksa/DefenceBattery.cs:526` and
-the body sync all size off `profile.TubeCount`, and `Ksa/DefenceBattery.cs:234` re-sizes the
+Discovery is `Arsenal.LauncherForPart(part.Id)` (`LauncherPart.Find`); nothing hardcodes an
+Id. Tube count is fully derived — `Magazine`, the `stackalloc` in `DefenceBattery.Fire` and
+the body sync all size off `profile.TubeCount`, and `DefenceBattery.ResolveLauncher` re-sizes the
 magazine when a *different* profile is recognised. A non-training launcher (`TurretMarker = null`)
 is a supported shape.
 
 **The hard assumption is that articulation is exactly three named subparts in one fixed kinematic
 chain**: traverse about part +X, elevate about +Z at a trunnion offset, radar spinning about +X.
-Those axes are `TubeGeometry.TraverseAxis` and `ElevationAxis` (`Sim/TubeGeometry.cs:28-30`),
-composed by `PodPose` (`:99`) and `RadarPose` (`:116`), and `LauncherProfile` offers exactly three
+Those axes are `TubeGeometry.TraverseAxis` and `ElevationAxis` (`TubeGeometry.TraverseAxis`, `TubeGeometry.ElevationAxis`),
+composed by `TubeGeometry.PodPose` and `TubeGeometry.RadarPose`, both over the shared
+`ElevatingPose`, and `LauncherProfile` offers exactly three
 markers and three pivots. That covers another turret-and-pods system, or a fixed box. It does not
 cover a rotating drum, a translating rail, per-tube articulation, two elevating groups, or a radar
 that trains independently of the turret.
 
-The sharper limit: **`TubeOffsets` is `double3[]` — positions only** (`Sim/LauncherProfile.cs:46`).
-`TubeGeometry.TubeAxisPartFrame` (`Sim/TubeGeometry.cs:46`) derives one axis for the whole pod from
-`PodReferenceElevationRad`, so every tube necessarily points the same way. Splayed tubes, a VLS with
-divergence or an MLRS cannot be expressed at all.
+That limit has since narrowed. **`LauncherProfile.Tubes` is `Tube[]` — a position *and* an
+optional direction** — and `TubeGeometry.TubeAxisPartFrame` falls back to the pod axis only when
+`HasOwnDirection` is false. Splayed tubes, a VLS with divergence and an MLRS are expressible now;
+what remains rigid is the chain those tubes ride on, not the tubes themselves.
 
 ### Different mounts — the weak axis
 
@@ -59,13 +64,13 @@ A **static site already works** — it is a landed vehicle that does not move. *
 works structurally, since a part on a vehicle is a part on a vehicle. Two things break in
 behaviour:
 
-- **`Boresight = KsaWorld.LocalUp(Platform)`** (`Ksa/DefenceBattery.cs:221`). The search cone points
+- **`Boresight = KsaWorld.LocalUp(Platform)`** (`DefenceBattery.SampleWorld`). The search cone points
   radially outward regardless of vehicle attitude. On a truck that is the sky; on a pitched-over
   booster or anything in orbit it is pointed at nothing. This is already listed under "Not done" in
   CLAUDE.md, but its significance changes completely once the launcher is on something that
   manoeuvres.
 - **One battery per *world*, not per craft.** `DefenceBattery` is a single instance
-  (`Ksa/AirDefenceMod.cs:35`) and `ResolvePlatform` (`Ksa/DefenceBattery.cs:323`) elects exactly one
+  (`KSArmoryMod`) and `DefenceBattery.ResolvePlatform` elects exactly one
   platform. A static site *and* a rocket-mounted launcher gives you one of them, silently. `Config`
   likewise holds one active profile set, re-`Select`ed every frame by whichever battery won.
 
@@ -75,29 +80,29 @@ behaviour:
 
 | # | Change | Size | Mostly lands in | Unlocks |
 | --- | --- | --- | --- | --- |
-| 1 | `TubeOffsets` becomes `Tube(position, direction)`, direction defaulting to the pod axis | small | `Sim/TubeGeometry.cs` | any launcher whose tubes are not parallel |
+| 1 | ~~`TubeOffsets` becomes `Tube(position, direction)`~~ | **landed** | `Sim/LauncherProfile.cs` | any launcher whose tubes are not parallel |
 | 2 | `DefenceBattery` becomes a list, one per launcher part found | medium | `Ksa/DefenceBattery.cs` | static site + vehicle + rocket at once |
-| 3 | `BoresightMode` on `SensorProfile` (LocalUp / PartForward / TurretAxis) | small | `Sim/SensorProfile.cs`, `Ksa/DefenceBattery.cs` | a launcher on anything that pitches |
+| 3 | ~~`BoresightMode` on `SensorProfile`~~ | **landed** | `Sim/SensorProfile.cs` | a launcher on anything that pitches |
 | 4 | Articulation as a list of drives rather than three named roles | large | `Sim/TubeGeometry.cs`, `Sim/LauncherProfile.cs` | drums, rails, per-tube motion |
 
 **4 is deliberately last and should not be attempted speculatively.** It is the one whose shape is
 least knowable before a second launcher exists that actually needs it.
 
-**1, 3 and 4 are now cheaper than this audit first estimated**, because the geometry they rewrite
-has since moved into `Sim/` and is covered — see the section below. 1 and 4 are almost entirely
-`TubeGeometry` edits with tests already standing behind them. **2 has not moved at all**: fire
-control, platform election and the salvo timers are still KSA-facing and still unreachable from the
-test project, so it remains the riskiest of the four despite being the middle-sized one.
+**1 and 3 have since landed**, both cheaply, because the geometry they rewrite had already moved
+into `Sim/` and was covered — see the section below. **2 has not moved at all**: fire control,
+platform election and the salvo timers are still KSA-facing and still unreachable from the test
+project, so it remains the riskiest of the four despite being the middle-sized one. 4 stays last.
 
 Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → `Arsenal` boundary that
 `validate-parts.py` guards, so the generator and the validator move with it. That is the third
 piece of geometry duplicated across a boundary in this repo and the first two both drifted — see
 CLAUDE.md.
 
-Two minor items worth folding in: `Ksa/Ui.cs:78` and `:83` hardcode "Pantsir-S1" in operator-facing
-text where `_config.Launcher.DisplayName` is available, and `Arsenal.MunitionNamed` falls back to
-`Munitions[0]` on an unknown name with no warning, so a typo'd key silently flies the wrong round.
-The fallback is now pinned by `WeaponSystemSelectionTests` rather than merely noted.
+One minor item is still open: `Arsenal.MunitionNamed` falls back to `Munitions[0]` on an unknown
+name with no warning, so a typo'd key silently flies the wrong round — a 30 mm barrel throwing
+45 m/s SAMs. The fallback is pinned by `WeaponSystemSelectionTests` rather than merely noted. The
+"Pantsir-S1" strings that used to sit beside it in `Ui.DrawStatus` now read the fitted profile's
+`DisplayName`.
 
 ---
 
