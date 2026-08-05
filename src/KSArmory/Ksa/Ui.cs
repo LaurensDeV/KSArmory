@@ -30,6 +30,29 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
 
     public bool Visible = true;
 
+    // One pop-out window: what it is called, whether it is open, and what it draws. A class
+    // rather than a struct so Open can be passed to ImGui.Checkbox by reference.
+    private sealed class Pane(string title, Action body)
+    {
+        public readonly string Title = title;
+        public readonly Action Body = body;
+        public bool Open;
+    }
+
+    private Pane[]? _panes;
+
+    // Built lazily because every Body is an instance method. Order is the order the buttons
+    // appear in, which runs roughly from what an operator touches most to what they touch once.
+    private Pane[] Panes => _panes ??=
+    [
+        new("Tracks", DrawTrackList),
+        new("Tuning", DrawTuning),
+        new("Teams and IFF", DrawIff),
+        new("Test targets", DrawTestTargets),
+        new("Kittens", DrawKittenRoster),
+        new("Log", DrawLog),
+    ];
+
     public void Draw()
     {
         if (!Visible)
@@ -40,35 +63,55 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
                 if (ImGui.Button("KSArmory")) Visible = true;
             }
             ImGui.End();
+            DrawPanes();
             return;
         }
 
-        if (!ImGui.Begin("KSArmory", ref Visible))
+        if (ImGui.Begin("KSArmory", ref Visible))
         {
-            ImGui.End();
-            return;
+            ImGui.TextDisabled($"KSArmory {Build.Version}");
+            ImGui.Separator();
+
+            // The main window keeps only what is wanted at a glance while flying: where the
+            // battery is, what it is holding, and the master arm. Everything else is a pane,
+            // because one window carrying all of it had grown past a screen.
+            DrawStatus();
+            ImGui.Separator();
+            DrawWeapons();
+            ImGui.Separator();
+            DrawPaneToggles();
         }
-
-        ImGui.TextDisabled($"KSArmory {Build.Version}");
-        ImGui.Separator();
-
-        DrawStatus();
-        ImGui.Separator();
-        DrawWeapons();
-        ImGui.Separator();
-        DrawTestTargets();
-        ImGui.Separator();
-        DrawKittenRoster();
-        ImGui.Separator();
-        DrawTrackList();
-        ImGui.Separator();
-        DrawIff();
-        ImGui.Separator();
-        DrawTuning();
-        ImGui.Separator();
-        DrawLog();
 
         ImGui.End();
+
+        // Outside the main window's Begin/End: a pane is its own top-level window, so it must
+        // not be nested inside another one.
+        DrawPanes();
+    }
+
+    private void DrawPaneToggles()
+    {
+        ImGui.TextDisabled("Panels");
+        for (int i = 0; i < Panes.Length; i++)
+        {
+            Pane pane = Panes[i];
+            if (i % 2 == 1) ImGui.SameLine();
+            ImGui.Checkbox(pane.Title, ref pane.Open);
+        }
+    }
+
+    private void DrawPanes()
+    {
+        for (int i = 0; i < Panes.Length; i++)
+        {
+            Pane pane = Panes[i];
+            if (!pane.Open) continue;
+
+            // Title doubles as the ImGui id, so each pane keeps its own size and position
+            // across sessions the way any other window does.
+            if (ImGui.Begin(pane.Title, ref pane.Open)) pane.Body();
+            ImGui.End();
+        }
     }
 
     private void DrawStatus()
@@ -364,13 +407,10 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
     // the entry reading something else, the XML did not take.
     private void DrawKittenRoster()
     {
-        if (!ImGui.TreeNode("Kittens")) return;
-
         KsaWorld.CollectRoster(_roster);
         if (_roster.Count == 0)
         {
             ImGui.TextDisabled("  No roster yet.");
-            ImGui.TreePop();
             return;
         }
 
@@ -403,7 +443,6 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
         {
             ImGui.TextDisabled("  The first red line is where it breaks. A declaration that does");
             ImGui.TextDisabled("  not resolve is skipped in silence by KSA, not reported.");
-            ImGui.TreePop();
             return;
         }
 
@@ -428,17 +467,13 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
             ImGui.PopID();
         }
 
-        ImGui.TreePop();
     }
 
     private void DrawTestTargets()
     {
-        if (!ImGui.TreeNode("Test targets")) return;
-
         if (_battery.Platform is null)
         {
             ImGui.TextDisabled("no platform");
-            ImGui.TreePop();
             return;
         }
 
@@ -514,7 +549,6 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
         }
         ImGui.TextDisabled("  -> Logs/KSArmory.log");
 
-        ImGui.TreePop();
     }
 
     // 30 s at 300 m/s spawns 9 km out, comfortably inside the default 20 km radar range,
@@ -526,8 +560,6 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
 
     private void DrawTrackList()
     {
-        if (!ImGui.TreeNode($"Tracks ({_battery.Radar.Tracks.Count})")) return;
-
         if (_battery.Radar.Tracks.Count == 0)
         {
             ImGui.TextDisabled("scope clear");
@@ -560,7 +592,6 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
             _battery.Radar.ManualDesignation = null;
         }
 
-        ImGui.TreePop();
     }
 
     // Teams and IFF. The whole subsystem shipped tested and unreachable: nothing outside
@@ -568,8 +599,6 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
     // ran with no teams declared and every contact Unknown.
     private void DrawIff()
     {
-        if (!ImGui.TreeNode("Teams and IFF")) return;
-
         ImGui.TextDisabled("KSA has no team field. A craft joins a team when the team's name");
         ImGui.TextDisabled("appears anywhere in its name - so \"Red\" also matches \"Redstone\".");
         ImGui.TextDisabled("Longest match wins. Name teams distinctly.");
@@ -645,7 +674,6 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
         bool protectFriendly = _config.Iff.ProtectFriendly;
         if (ImGui.Checkbox("Never engage friendlies", ref protectFriendly)) _config.Iff.ProtectFriendly = protectFriendly;
 
-        ImGui.TreePop();
     }
 
     private static void Toggle(HashSet<string> set, string team, bool wanted)
@@ -779,14 +807,11 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
 
     private void DrawLog()
     {
-        if (!ImGui.TreeNode("Log")) return;
-
         var events = _battery.Events;
         for (int i = events.Count - 1; i >= 0; i--)
         {
             ImGui.TextDisabled($"[{events[i].AtSeconds:F1}] {events[i].Message}");
         }
 
-        ImGui.TreePop();
     }
 }
