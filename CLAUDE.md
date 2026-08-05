@@ -775,10 +775,10 @@ should not be weakened without understanding what they buy:
 
 ## Not done
 
-- Whether round bodies survive at long range is unproven. They are subparts of a vehicle they
-  fly kilometres away from, so the engine may cull or clamp them; the gizmo tracers stay on as
-  a fallback and `DefenceBattery.RoundBodiesWork` turns the whole thing off if a write is
-  refused.
+- Round bodies survive at long range: measured in flight to **79.5 km with 0.0 m drift**, never
+  dropping the subpart link and never culled or clamped. The gizmo tracers stay on as a fallback
+  anyway, and `DefenceBattery.RoundBodiesWork` still turns the whole thing off if a write is
+  refused — the engine is under no obligation to keep behaving this way.
 - The guns do not move. They are fixed in the turret mesh, so they traverse but never elevate.
 - Radar boresight is local "up" regardless of where the launcher is aimed, so the search volume
   does not follow the turret.
