@@ -398,6 +398,30 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// The Ecl position that renders at a given Ego position.
+    ///
+    /// <para>The inverse of the conversion everything else does, and it exists for one case:
+    /// handing a point to a system that takes Ecl — the particle emitters — when what is known is
+    /// where something is <em>drawn</em>. A vehicle's drawn position and its
+    /// <c>GetPositionEcl</c> are not the same place.</para>
+    /// </summary>
+    public static bool TryEgoToEcl(double3 ego, out double3 ecl)
+    {
+        ecl = default;
+        try
+        {
+            if (Program.GetMainCamera() is not { } camera) return false;
+
+            ecl = camera.EgoToEcl(ego);
+            return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Which save the player is in, for scoping anything the mod writes down.
     ///
     /// <para>KSA's own save format cannot be extended — <c>UniverseData</c> is a fixed

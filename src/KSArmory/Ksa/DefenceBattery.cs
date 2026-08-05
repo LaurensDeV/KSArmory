@@ -1253,7 +1253,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         if (_config.DrawExplosions)
         {
             Detonation.Show(_burstKilled ? Detonation.Fireball : Detonation.Airburst,
-                            burst, round.TargetRef as Vehicle ?? Platform,
+                            DrawnBurstEcl(round, burst), round.TargetRef as Vehicle ?? Platform,
                             (float)Warhead.EffectScale(round.Munition.ChargeKg));
         }
     }
@@ -1261,6 +1261,28 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
     // Whether the blast sweep just now found something to destroy. Only meaningful inside the
     // detonation it belongs to.
     private bool _burstKilled;
+
+    // Where the burst has to be put so it appears where the round was *drawn*.
+    //
+    // round.PositionEcl is the analytic position the simulation works in; a vehicle is drawn at
+    // its physics position, and the two differ - which is the whole reason DrawAnchor exists and
+    // why round bodies are anchored to the tube rather than to the orbit position. The particle
+    // system takes Ecl, so the drawn position is converted back through the camera rather than
+    // the analytic one being handed over.
+    private double3 DrawnBurstEcl(IProjectile round, double3 analyticEcl)
+    {
+        if (Platform is not { } platform) return analyticEcl;
+        if (!KsaWorld.TryVehicleEgo(platform, out double3 platformEgo)) return analyticEcl;
+        if (!KsaWorld.TryEgoToEcl(platformEgo + round.OffsetFromPlatform, out double3 drawn))
+        {
+            return analyticEcl;
+        }
+
+        double slip = Vec.Len(drawn - analyticEcl);
+        if (slip > 1.0) Log.Debug(() => $"  burst moved {slip:F1} m to where the round is drawn");
+
+        return drawn;
+    }
 
     // Destroys queued targets after the blast sweep, so we never mutate the engine's vehicle
     // collection while walking it.

@@ -126,3 +126,28 @@ exactly that reason, and CLAUDE.md recorded the wrong ordering as correct with "
 - Write target samples as end-of-step values (`position + velocity * dt`).
 - **Check every regression test fails against the old code.** All eight offset tests were checked
   against both predecessors before being kept.
+
+
+## Handing a position to something that draws for itself
+
+The particle emitters take a world position and place themselves. That makes them the first thing
+in this mod that draws without going through `DrawAnchor`, and it reintroduces the oldest trap in
+this file from a new direction.
+
+A warhead's burst is at `round.PositionEcl` — the analytic position the simulation integrates. The
+round and its target are *drawn* against the platform's **physics** origin, which is not the same
+place: `KsaWorld.TryVehicleEgo` says outright that deriving a draw position from `GetPositionEcl`
+"visibly misses the craft". Placing the burst at the analytic position therefore puts the
+explosion somewhere the engagement did not visibly happen.
+
+The fix is to convert the *drawn* position back:
+
+```csharp
+KsaWorld.TryVehicleEgo(platform, out double3 platformEgo);          // where it is drawn
+KsaWorld.TryEgoToEcl(platformEgo + round.OffsetFromPlatform, out double3 burst);
+```
+
+`DefenceBattery.DrawnBurstEcl` does this and logs the correction when it exceeds a metre. The rule
+generalises: **anything handed to the engine to place must be derived from where things are drawn,
+not from where the simulation says they are** — the two frames agree on directions and differ on
+positions, which is the same asymmetry `TryCursorRayEcl` exists for.
