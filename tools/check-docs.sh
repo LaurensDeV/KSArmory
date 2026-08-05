@@ -131,11 +131,15 @@ fi
 # Nobody's home directory belongs in a public repository, and a hardcoded one is wrong for
 # everyone else anyway. `tools/ksa-user-dir.sh` and STARMAP_DIR are the portable answers.
 # A bare /mnt/c/Users is fine -- that is a search root -- as is one continuing into a variable.
+#
+# GuardTests is exempt because a home path is its subject: it feeds one in to check the feedback
+# service replaces it before a report reaches a public issue. Exempting the file rather than the
+# pattern keeps the check exact everywhere else.
 echo "No personal paths"
 while IFS= read -r hit; do
     [[ -n "$hit" ]] && fail "personal path: $hit"
 done < <(git grep -nIE '(/mnt/c/Users|/home)/[A-Za-z0-9._-]+' \
-             -- . ':!tools/check-docs.sh' 2>/dev/null || true)
+             -- . ':!tools/check-docs.sh' ':!tests/Feedback.Tests/GuardTests.cs' 2>/dev/null || true)
 
 echo
 if [[ $FAIL -eq 0 ]]; then

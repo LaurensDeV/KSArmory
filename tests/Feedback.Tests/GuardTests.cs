@@ -24,9 +24,9 @@ public class GuardTests
     }
 
     [Theory]
-    [InlineData(@"C:\Users\laurens\Documents\log", @"C:\Users\<user>\Documents\log")]
-    [InlineData("/home/laurens/.local/share", "/home/<user>/.local/share")]
-    [InlineData("/Users/laurens/Library", "/Users/<user>/Library")]
+    [InlineData(@"C:\Users\someone\Documents\log", @"C:\Users\<user>\Documents\log")]
+    [InlineData("/home/someone/.local/share", "/home/<user>/.local/share")]
+    [InlineData("/Users/someone/Library", "/Users/<user>/Library")]
     public void AHomeDirectoryIsNotPublished(string path, string expected)
     {
         // KSA writes its own path into the log. Someone reporting a bug is not choosing to publish
@@ -39,7 +39,7 @@ public class GuardTests
     {
         // Truncating before scrubbing would count characters that a later step removes, so the
         // limit would not mean what it says.
-        string cleaned = Guard.Clean(@"C:\Users\laurens\x " + new string('y', 100), 40);
+        string cleaned = Guard.Clean(@"C:\Users\someone\x " + new string('y', 100), 40);
 
         Assert.StartsWith(@"C:\Users\<user>\x", cleaned);
         Assert.EndsWith("[truncated]", cleaned);
