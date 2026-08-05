@@ -275,7 +275,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 249 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 252 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -578,7 +578,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-660,000 lines to the files defining the 93 types this mod actually uses.
+660,000 lines to the files defining the 94 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
@@ -876,11 +876,22 @@ switch — with it on the operator is the sensor, so needing to enable radar tra
 surprising. Auto-engage still decides when to shoot, and `Aiming` counts mouse aim so `IsLaid`
 still makes the drives settle: without that, rounds leave along a tube that is still swinging.
 
-The conversion is the part worth being careful with. `Camera.ScreenToEgoRay` divides by *its own*
-framebuffer while ImGui reports the cursor across every window, so the two agree only on a single
-full-screen viewport — `Sim/CursorAim.cs` holds that subtraction and is tested against an offset
-one. The ray comes back in Ego, and a *direction* is identical in Ecl because the two differ by a
-translation, so nothing converts it.
+The conversion is the part worth being careful with, and it is **two** corrections rather than
+one. `Camera.ScreenToEgoRay` divides by *its own* `FramebufferSize` while ImGui reports the cursor
+across every window, so the cursor has to be offset into the viewport **and scaled from viewport
+pixels into framebuffer pixels** — a render or display scale makes those different sizes, and
+getting only the offset right leaves an error that is zero at the top-left corner and grows across
+the screen. `Sim/CursorAim.TryToFramebuffer` does both and is tested against an offset viewport
+rendered at twice its size.
+
+The ray comes back in Ego, and a *direction* is identical in Ecl because the two differ by a
+translation, so nothing converts it. An **origin** is not: `KsaWorld.TryCursorRayEcl` takes both
+off one camera, because pairing a direction from the viewport under the pointer with a position
+from `GetMainCamera()` puts the ray a viewport away from the cursor.
+
+The overlay itself — search volume, tracks, tracers, drive facing — is diagnostic and off by
+default (`Config.DrawOverlays`, under **Debug → Draw debug lines**). Round *bodies* are real
+subparts and are unaffected.
 
 **Only one weapon can own the bearing, and the cannon win the overlap.** The turret lays on the
 gun's *ballistic lead* whenever `FireGate.GunsHaveTheEngagement`, and rounds leave along the tube

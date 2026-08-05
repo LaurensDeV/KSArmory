@@ -77,7 +77,6 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     private Pane[] Panes => _panes ??=
     [
         new("Kittens", DrawKittenRoster, PaneGroup.Session),
-        new("Move craft", DrawCraftMover, PaneGroup.Debug),
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -364,6 +363,22 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         // Collapsed, and last: these answer questions about the mod, not about the engagement.
         if (ImGui.TreeNode("Debug"))
         {
+            // The overlay is diagnostic drawing, so its master switch belongs here rather than
+            // only under Display -- which is where someone goes to tune it, not to find it.
+            ImGui.Checkbox("Draw debug lines", ref _config.DrawOverlays);
+            ImGui.TextDisabled("  search cone, tracks, round tracers, drive facing");
+            if (_config.DrawOverlays)
+            {
+                ImGui.TextDisabled("  Display has the individual switches");
+            }
+
+            ImGui.Separator();
+
+            // Inline rather than a pane of its own. It is one tick box and a line of state, and
+            // a window holding that is a window to open, move and close for nothing.
+            DrawCraftMover();
+            ImGui.Separator();
+
             DrawPaneGroup(null, PaneGroup.Debug);
             ImGui.TreePop();
         }
@@ -752,33 +767,24 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
 
         if (!_config.MoveCraftWithMouse)
         {
-            ImGui.TextDisabled("  Click a craft to pick it up, then click the ground");
-            ImGui.TextDisabled("  to set it down there.");
+            ImGui.TextDisabled("  click a craft to lift it, click the ground to set it down");
             return;
         }
 
         if (_mover.Held is { } held)
         {
-            ImGui.TextColored(Amber, $"Holding {KsaWorld.DisplayName(held)}");
-            ImGui.TextDisabled("  Click the ground to set it down.");
-            if (ImGui.Button("Cancel")) _mover.Release();
+            ImGui.TextColored(Amber, $"  holding {KsaWorld.DisplayName(held)} - click the ground");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Cancel")) _mover.Release();
         }
         else if (_mover.Hovered is { } over)
         {
-            ImGui.TextColored(Green, $"Click to pick up {KsaWorld.DisplayName(over)}");
+            ImGui.TextColored(Green, $"  click to pick up {KsaWorld.DisplayName(over)}");
         }
         else
         {
-            ImGui.TextDisabled("  Point at a craft; it rings when the click would take it.");
+            ImGui.TextDisabled("  point at a craft; it rings when the click would take it");
         }
-
-        ImGui.Separator();
-
-        // Worth saying outright: the obvious reading of "follows the mouse" is a craft dragged
-        // through the air, and that is not what this does or should do.
-        ImGui.TextDisabled("The craft stays put while held -- placing it is an engine");
-        ImGui.TextDisabled("event, so dragging it would rebuild its motion every frame.");
-        ImGui.TextDisabled("It moves once, on the second click, and lands upright.");
     }
 
     private void DrawTestTargets()

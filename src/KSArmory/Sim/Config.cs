@@ -113,12 +113,17 @@ public sealed class Config
     // ---- Visuals --------------------------------------------------------
 
     /// <summary>
-    /// Draw the world overlay at all — search volume, tracks, rounds, drive facing.
+    /// Draw the world overlay at all — search volume, tracks, round tracers, drive facing.
+    ///
+    /// <para>Off by default. It is diagnostic drawing: it answers questions about what the mod
+    /// thinks, not about what is happening, and a search cone and a facing line around every
+    /// crewed system is a lot of geometry to look past. Rounds still have real bodies with this
+    /// off — only the tracers go.</para>
     ///
     /// <para>One switch above all the others because there are as many overlays as there are
     /// crewed systems, and four of everything around four craft is not four times as useful.</para>
     /// </summary>
-    public bool DrawOverlays = true;
+    public bool DrawOverlays;
 
     /// <summary>
     /// Draw the overlay only for the system the panel is showing, rather than for every one.
