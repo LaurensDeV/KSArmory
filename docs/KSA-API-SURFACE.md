@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-82 types and 213 members across 6 assemblies.
+82 types and 212 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -193,7 +193,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double DistanceToNearbyCelestialSurfaceMeanKm`
 - `double NearbyCelestialTerrainHeight`
 - `float GetFieldOfView()`
-- `void LookAt(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `void LookAt(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `void SetFollow(KSA.IFollowable, bool, bool, bool)`
 - `void set_NearbyCelestial(KSA.Celestial)`

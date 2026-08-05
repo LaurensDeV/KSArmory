@@ -178,10 +178,10 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
             // glyph would render as a box.
             if (ImGui.Button("(+)"))
             {
-                KsaWorld.LookAtEcl(KsaWorld.PositionEcl(craft));
+                KsaWorld.Watch(craft);
                 _ping.Mark(craft);
             }
-            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Look at it and mark it");
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Watch it - camera only, controls stay here");
             ImGui.SameLine();
 
             bool flyingIt = ReferenceEquals(craft, KsaWorld.ControlledVehicle);

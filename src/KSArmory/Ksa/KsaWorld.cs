@@ -760,53 +760,36 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Turns the current camera to face a craft, without moving it or taking control.
+    /// Moves the camera to a craft and keeps it there, without taking control of it.
     ///
-    /// <para><c>LookAt</c> only sets the rotation, so the view stays exactly where the player put
-    /// it and simply swings round. That is the difference from <see cref="GoTo"/>, which follows
-    /// the craft and hands it the controls: this answers "where is it" and gives the view back.</para>
+    /// <para><c>SetFollow</c>'s <c>changeControl</c> flag is the whole distinction from
+    /// <see cref="GoTo"/>: both point the view at a craft, and only one hands it the controls.
+    /// It parks the camera at 2.5 mean radii along its current forward and latches onto the
+    /// target, so the view stays there instead of being dragged back.</para>
     ///
-    /// <para>Holds for one frame. KSA's camera controller rewrites the rotation from whatever
-    /// mode the viewport is in, so a free camera keeps the new heading and one that is following
-    /// something snaps back — which is correct, since it is still following that thing.</para>
+    /// <para>Rotating the camera with <c>LookAt</c> does not work for this. That sets rotation
+    /// only, and the viewport's controller rewrites it every frame from whatever it is following
+    /// — so it appears to work when nothing else is driving the camera and does nothing at all
+    /// when something is, which is exactly when it is wanted.</para>
     /// </summary>
-    public static bool LookAtEcl(double3 targetEcl)
+    public static bool Watch(Vehicle? vehicle)
     {
-        if (!Vec.IsFinite(targetEcl)) return false;
+        if (!IsAlive(vehicle)) return false;
 
         try
         {
             if (Program.GetMainCamera() is not { } camera) return false;
 
-            camera.LookAt(targetEcl, LocalUpAtCamera(camera));
+            camera.SetFollow(vehicle!, tidalLocking: true, changeControl: false);
             return true;
         }
-        catch
+        catch (Exception e)
         {
+            Log.Warn($"could not watch {DisplayName(vehicle!)}: {e.Message}");
             return false;
         }
     }
 
-    // Something to keep level against. The nearby body's radial-out if there is one, so the
-    // horizon stays where the eye expects it; otherwise the camera's own up, which at least does
-    // not roll the view.
-    private static double3 LocalUpAtCamera(Camera camera)
-    {
-        try
-        {
-            if (camera.NearbyCelestial is { } body)
-            {
-                double3 up = Vec.Unit(camera.EgoToEcl(Vec.Zero) - body.GetPositionEcl());
-                if (Vec.IsFinite(up) && Vec.Len(up) > 0.5) return up;
-            }
-        }
-        catch
-        {
-            // No nearby body, or none resolvable. Fall through.
-        }
-
-        return new double3(0, 0, 1);
-    }
 
     /// <summary>
     /// Points the camera at a craft and takes control of it.
