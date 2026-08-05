@@ -36,6 +36,12 @@ internal static class Markers
     // Pointer distance, in pixels, that counts as hovering a marker.
     private const float HoverRadius = 18f;
 
+    // Apparent size, in radians, past which a craft needs no marker: you are looking straight at
+    // it. Angular rather than a distance, so a big vessel drops its bracket further out than a
+    // drone does -- what matters is how much of the view it fills, not how many metres away it is.
+    // About 1.7 degrees, which for the Pantsir is a little over a hundred metres.
+    private const double FillsTheViewRad = 0.03;
+
     // How long a label stays up after being called for, and how much of that it spends fading.
     // Long enough to read and find the thing, short enough that pressing it again is easier than
     // remembering to switch it off.
@@ -114,6 +120,12 @@ internal static class Markers
             if (!KsaWorld.IsAlive(craft)) { Showing.Remove(craft); continue; }
 
             double3 atEcl = KsaWorld.PositionEcl(craft);
+
+            // Close enough to see plainly: no bracket, and no hover target either. A marker over
+            // something already filling the view is nothing but something to catch the pointer.
+            double range = Vec.Len(atEcl - eye);
+            if (range > 1e-6 && KsaWorld.MeanRadius(craft) / range > FillsTheViewRad) continue;
+
             if (!KsaWorld.TryProjectOrClamp(atEcl, out float2 at, out bool inView)) continue;
 
             bool isActive = ReferenceEquals(craft, active);
