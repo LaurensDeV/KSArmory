@@ -71,21 +71,29 @@ public class BatteryConfigTests
     }
 
     /// <summary>
-    /// The other half of the split: what the session decides stays on Config, so two batteries
-    /// cannot disagree about who is hostile.
+    /// The other half of the split. Which side a battery takes is its own — two sites in one
+    /// world on opposite sides is the whole case — while the roster of team names belongs to the
+    /// session, because a name labels a craft the same way whoever is looking at it.
     /// </summary>
     [Fact]
-    public void TheSessionKeepsWhoIsHostile()
+    public void EachBatteryPicksItsOwnSide()
     {
         var world = new Config();
         world.TeamNames.Add("Red");
-        world.Iff.OwnTeam = "Blue";
 
-        // Nothing on a battery can contradict it: the policy object has no such field, which is
-        // the point. If one appears here, two sites can fight over who is an enemy.
+        var north = new BatteryConfig();
+        var south = new BatteryConfig();
+        north.Iff.OwnTeam = "Blue";
+        south.Iff.OwnTeam = "Red";
+
+        Assert.Equal(Allegiance.Hostile, north.Iff.Classify("Red"));
+        Assert.Equal(Allegiance.Friendly, south.Iff.Classify("Red"));
+
+        // The names are not duplicated per battery, and the policy is not shared: one craft is
+        // on one team however many batteries are looking at it, and each decides for itself
+        // what that means.
         Assert.Contains("Red", world.TeamNames);
-        Assert.Equal("Blue", world.Iff.OwnTeam);
         Assert.Null(typeof(BatteryConfig).GetField("TeamNames"));
-        Assert.Null(typeof(BatteryConfig).GetProperty("Iff"));
+        Assert.Null(typeof(Config).GetProperty("Iff"));
     }
 }

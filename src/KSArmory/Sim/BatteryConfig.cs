@@ -5,8 +5,9 @@ namespace KSArmory;
 ///
 /// <para>Split from <see cref="Config"/> because these are the only settings that stop making
 /// sense when there is more than one battery in the world. Arming a site, telling it to engage
-/// on its own, or driving its turret by hand are decisions about that site; the IFF policy, the
-/// team names and what gets drawn are decisions about the session, and stay shared.</para>
+/// on its own, which side it is on, or driving its turret by hand are decisions about that site;
+/// the roster of team names and what gets drawn are decisions about the session, and stay
+/// shared.</para>
 ///
 /// <para>Nothing here says how a weapon *performs*. Range, guidance, fuse and launcher geometry
 /// belong to <see cref="SensorProfile"/>, <see cref="MunitionProfile"/> and
@@ -17,6 +18,15 @@ namespace KSArmory;
 public sealed class BatteryConfig
 {
     // ---- Engagement policy ----------------------------------------------
+
+    /// <summary>
+    /// Who this battery will shoot at. Defaults to engaging anything unrecognised, so a world
+    /// where nobody has assigned teams behaves as it did before teams existed.
+    ///
+    /// <para>Per battery, because two sites in one world are exactly what taking opposite sides
+    /// means. The team <em>names</em> stay on <see cref="Config.TeamNames"/>.</para>
+    /// </summary>
+    public IffPolicy Iff { get; } = new();
 
     /// <summary>Master arm. Nothing launches while this is false.</summary>
     public bool Armed;

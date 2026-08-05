@@ -34,7 +34,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
     /// <summary>True when the operator pinned the platform rather than following control.</summary>
     public bool PlatformPinned { get; private set; }
 
-    public Radar Radar { get; } = new(config);
+    public Radar Radar { get; } = new(config, policy);
 
     /// <summary>Rounds left in the launcher.</summary>
     public int Ammo => _magazine.Ammo;
@@ -477,7 +477,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         if (!FireGate.MissilesMayFire(_ringIsOnGunLead, _profile.LaunchAlongTube)) return;
 
         Track target = Radar.Locked!;
-        if (!ThreatModel.MayEngage(target, _config.Iff)) return;
+        if (!ThreatModel.MayEngage(target, _policy.Iff)) return;
         if (!ThreatModel.HasSalvoCapacity(target, _policy.RoundsPerTarget)) return;
 
         // Detection reaches 36 km; the round reaches 20 km. Without this the battery empties
@@ -615,7 +615,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         bool wantToFire = _policy.AutoEngage && _policy.Armed && _policy.GunsEnabled
                           && IsOperational && GunsAreLaid
                           && Radar.Locked is { } locked
-                          && ThreatModel.MayEngage(locked, _config.Iff)
+                          && ThreatModel.MayEngage(locked, _policy.Iff)
                           && locked.Range >= _profile.GunMinRange
                           && locked.Range <= _profile.GunMaxRange;
 
@@ -921,7 +921,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
         if (Ammo <= 0) { Announce("refused: launcher empty"); return false; }
         if (!KsaWorld.IsAlive(track.Vehicle)) { Announce("refused: target gone"); return false; }
-        if (!ThreatModel.MayEngage(track, _config.Iff))
+        if (!ThreatModel.MayEngage(track, _policy.Iff))
         {
             Announce($"refused: {KsaWorld.DisplayName(track.Vehicle)} is {track.Allegiance}");
             return false;

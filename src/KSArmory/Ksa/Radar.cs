@@ -8,9 +8,10 @@ namespace KSArmory;
 /// contacts as threats using their closest point of approach rather than raw closing
 /// speed, so a target crossing the site is engaged just as readily as one flying at it.
 /// </summary>
-internal sealed class Radar(Config config)
+internal sealed class Radar(Config config, BatteryConfig policy)
 {
     private readonly Config _config = config;
+    private readonly BatteryConfig _policy = policy;
 
     /// <summary>
     /// What this set can see.
@@ -59,7 +60,7 @@ internal sealed class Radar(Config config)
             // Classified before the geometry, so a friendly still appears on the panel as a
             // contact and is simply never handed to fire control.
             string? team = TeamOf(candidate);
-            Allegiance allegiance = _config.Iff.Classify(team);
+            Allegiance allegiance = _policy.Iff.Classify(team);
 
             double3 targetPos = KsaWorld.PositionEcl(candidate);
             double3 targetVel = KsaWorld.VelocityEcl(candidate);
@@ -79,7 +80,7 @@ internal sealed class Radar(Config config)
                 ClosestApproach = a.ClosestApproach,
                 TimeToClosestApproach = a.TimeToClosestApproach,
                 HeldSeconds = _dwell.GetValueOrDefault(candidate) + dt,
-                IsThreat = a.IsThreat && _config.Iff.MayEngage(allegiance),
+                IsThreat = a.IsThreat && _policy.Iff.MayEngage(allegiance),
                 Team = team,
                 Allegiance = allegiance,
             });

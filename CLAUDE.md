@@ -225,8 +225,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/LauncherProfile.cs` | one launch platform: part Id, tube geometry, drives |
 | `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
-| `Sim/Config.cs` | session-wide settings — IFF, drawing, logging |
-| `Sim/BatteryConfig.cs` | one installation's own settings — arm, engage, turret mode |
+| `Sim/Config.cs` | session-wide settings — team names, drawing, logging |
+| `Sim/BatteryConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
 | `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
@@ -271,7 +271,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 224 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 225 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -472,9 +472,11 @@ control cannot deadlock waiting for something that will never move.
 
 **A setting belongs to a battery or to the session, and which one is the whole distinction.**
 `BatteryConfig` holds what can differ between two launchers in the same world — armed,
-auto-engage, which weapons are live, turret mode, the optical head's viewport. `Config` holds what
-cannot: the IFF policy, the team names, what gets drawn, how much is logged. The test to apply is
-not importance but whether two sites could sensibly disagree.
+auto-engage, which weapons are live, turret mode, the optical head's viewport, and **the IFF
+policy**, because two sites on opposite sides is exactly the case. `Config` holds what cannot: the
+roster of team names, what gets drawn, how much is logged. The test to apply is not importance but
+whether two sites could sensibly disagree — a name labels a craft the same way whoever is looking
+at it, and what that name *means* is each battery's own.
 
 Weapon *performance* is neither: range, guidance and fuse live on the profiles, because two
 Pantsirs on opposite sides of the map share a flight model and disagree about whether they are
@@ -558,7 +560,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-660,000 lines to the files defining the 83 types this mod actually uses.
+660,000 lines to the files defining the 84 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —

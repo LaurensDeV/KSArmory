@@ -29,21 +29,24 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
     private readonly List<SurveyedPart> _surveyed = [];
     private readonly List<KSA.Vehicle> _craftScratch = [];
+    private KSA.Vehicle? _selected;
     private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
 
     public bool Visible = true;
 
+    // What a pane is about. The first two are the split BatteryConfig and Config make in code,
+    // shown where the operator meets it; Debug is neither, and is for whoever is working on the
+    // mod rather than playing with it.
+    private enum PaneGroup { System, Session, Debug }
+
     // One pop-out window: what it is called, whether it is open, and what it draws. A class
     // rather than a struct so Open can be passed to ImGui.Checkbox by reference.
-    private sealed class Pane(string title, Action body, bool perSystem)
+    private sealed class Pane(string title, Action body, PaneGroup group)
     {
         public readonly string Title = title;
         public readonly Action Body = body;
-
-        // Whether this pane is about the selected system or about the session. The same split
-        // BatteryConfig and Config make in code, shown where the operator meets it.
-        public readonly bool PerSystem = perSystem;
+        public readonly PaneGroup Group = group;
 
         public bool Open;
     }
@@ -54,14 +57,14 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     // appear in, which runs roughly from what an operator touches most to what they touch once.
     private Pane[] Panes => _panes ??=
     [
-        new("System", DrawSystemPane, perSystem: true),
-        new("Tracks", DrawTrackList, perSystem: true),
-        new("Tuning", DrawTuning, perSystem: true),
-        new("Survey", DrawSurvey, perSystem: true),
-        new("Teams and IFF", DrawIff, perSystem: false),
-        new("Test targets", DrawTestTargets, perSystem: false),
-        new("Kittens", DrawKittenRoster, perSystem: false),
-        new("Log", DrawLog, perSystem: false),
+        new("Status", DrawSystemPane, PaneGroup.System),
+        new("Tracks", DrawTrackList, PaneGroup.System),
+        new("Tuning", DrawTuning, PaneGroup.System),
+        new("Teams and IFF", DrawIff, PaneGroup.System),
+        new("Survey", DrawSurvey, PaneGroup.System),
+        new("Kittens", DrawKittenRoster, PaneGroup.Session),
+        new("Test targets", DrawTestTargets, PaneGroup.Debug),
+        new("Log", DrawLog, PaneGroup.Debug),
     ];
 
     public void Draw()
@@ -132,6 +135,18 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         }
     }
 
+    // The system the per-system panes act on. Falls back to the one the battery is running on,
+    // so the panel is never pointed at nothing.
+    private KSA.Vehicle? Selected
+    {
+        get
+        {
+            if (_selected is { } craft && KsaWorld.IsAlive(craft)) return craft;
+            _selected = null;
+            return _battery.Platform;
+        }
+    }
+
     // The list the panel opens on: what exists, not what happens to be under the camera.
     private void DrawSystemList()
     {
@@ -152,16 +167,22 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         {
             (KSA.Vehicle craft, WeaponInventory inv) = _systems[i];
             bool isActive = ReferenceEquals(craft, _battery.Platform);
+            bool isSelected = ReferenceEquals(craft, Selected);
 
             ImGui.PushID(i);
 
-            // The battery runs on exactly one craft today, so the others are listed and not yet
-            // controllable. Saying which is which beats a row that looks live and is not.
-            if (isActive) ImGui.TextColored(Green, $"> {KsaWorld.DisplayName(craft)}");
-            else ImGui.Text($"  {KsaWorld.DisplayName(craft)}");
-
-            ImGui.SameLine();
-            ImGui.TextDisabled($"  {Describe(inv)}");
+            // Clicking a row points the per-system panes at it. The battery still runs on exactly
+            // one craft, so selection and running are different things and the row says which is
+            // which -- a row that looked live and was not would be worse than saying so.
+            // Armament goes in the Selectable's own label rather than after a SameLine: the
+            // row spans the window, so anything placed beside it lands at the far edge.
+            string mark = isActive ? ">" : " ";
+            if (isActive) ImGui.PushStyleColor(ImGuiCol.Text, Green);
+            if (ImGui.Selectable($"{mark} {KsaWorld.DisplayName(craft)}   {Describe(inv)}", isSelected))
+            {
+                _selected = craft;
+            }
+            if (isActive) ImGui.PopStyleColor();
 
             if (isActive)
             {
@@ -272,6 +293,31 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     }
 
     // The selected system's own controls: where it is, what it is holding, and its master arm.
+    // One battery runs at a time -- the profiles are per system, but the fire control, radar and
+    // drives are a single instance that mounts to one craft. Until that is widened, selecting a
+    // system the battery is not on can show what it is and offer to move the battery there.
+    private void DrawNotRunningHere()
+    {
+        if (Selected is not { } craft)
+        {
+            ImGui.TextColored(Grey, "No system selected.");
+            return;
+        }
+
+        ImGui.TextColored(Amber, KsaWorld.DisplayName(craft));
+        ImGui.TextDisabled("The battery is not running on this system, so there is");
+        ImGui.TextDisabled("nothing here to show or set yet.");
+        ImGui.Separator();
+
+        if (ImGui.Button("Run the battery here")) _battery.PinPlatform(craft);
+
+        ImGui.SameLine();
+        if (_battery.Platform is { } running && ImGui.Button($"Select {KsaWorld.DisplayName(running)}"))
+        {
+            _selected = running;
+        }
+    }
+
     private void DrawSystemPane()
     {
         DrawStatus();
@@ -281,19 +327,29 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
     private void DrawPaneToggles()
     {
-        DrawPaneGroup("This system", perSystem: true);
-        DrawPaneGroup("Session", perSystem: false);
+        // Named after the craft rather than "this system": with a list above it, a heading that
+        // does not say which one leaves the panes ambiguous exactly when more than one exists.
+        DrawPaneGroup(Selected is { } craft ? KsaWorld.DisplayName(craft) : "No system selected",
+                      PaneGroup.System);
+        DrawPaneGroup("Session", PaneGroup.Session);
+
+        // Collapsed, and last: these answer questions about the mod, not about the engagement.
+        if (ImGui.TreeNode("Debug"))
+        {
+            DrawPaneGroup(null, PaneGroup.Debug);
+            ImGui.TreePop();
+        }
     }
 
-    private void DrawPaneGroup(string heading, bool perSystem)
+    private void DrawPaneGroup(string? heading, PaneGroup group)
     {
-        ImGui.TextDisabled(heading);
+        if (heading is not null) ImGui.TextDisabled(heading);
 
         int shown = 0;
         for (int i = 0; i < Panes.Length; i++)
         {
             Pane pane = Panes[i];
-            if (pane.PerSystem != perSystem) continue;
+            if (pane.Group != group) continue;
 
             if (shown++ % 2 == 1) ImGui.SameLine();
             ImGui.Checkbox(pane.Title, ref pane.Open);
@@ -309,7 +365,20 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
             // Title doubles as the ImGui id, so each pane keeps its own size and position
             // across sessions the way any other window does.
-            if (ImGui.Begin(pane.Title, ref pane.Open)) pane.Body();
+            if (ImGui.Begin(pane.Title, ref pane.Open))
+            {
+                // Every per-system pane reads the running battery, and the mod runs one. So a
+                // pane opened against a system the battery is not on would show another craft's
+                // numbers under this craft's heading -- say so instead.
+                if (pane.Group == PaneGroup.System && !ReferenceEquals(Selected, _battery.Platform))
+                {
+                    DrawNotRunningHere();
+                }
+                else
+                {
+                    pane.Body();
+                }
+            }
             ImGui.End();
         }
     }
@@ -806,12 +875,12 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
         if (TextField("Own team", ref _ownTeamEntry))
         {
-            _config.Iff.OwnTeam = string.IsNullOrWhiteSpace(_ownTeamEntry) ? null : _ownTeamEntry.Trim();
-            Remember(_config.Iff.OwnTeam);
+            _policy.Iff.OwnTeam = string.IsNullOrWhiteSpace(_ownTeamEntry) ? null : _ownTeamEntry.Trim();
+            Remember(_policy.Iff.OwnTeam);
         }
 
         ImGui.SameLine();
-        ImGui.TextDisabled(_config.Iff.OwnTeam is null ? "(none - everything is Unknown)" : "");
+        ImGui.TextDisabled(_policy.Iff.OwnTeam is null ? "(none - everything is Unknown)" : "");
 
         if (TextField("Add team", ref _newTeamEntry) && !string.IsNullOrWhiteSpace(_newTeamEntry))
         {
@@ -827,12 +896,12 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         for (int i = _config.TeamNames.Count - 1; i >= 0; i--)
         {
             string team = _config.TeamNames[i];
-            bool own = string.Equals(team, _config.Iff.OwnTeam, StringComparison.OrdinalIgnoreCase);
+            bool own = string.Equals(team, _policy.Iff.OwnTeam, StringComparison.OrdinalIgnoreCase);
 
-            bool allied = _config.Iff.AlliedTeams.Contains(team);
-            bool neutral = _config.Iff.NeutralTeams.Contains(team);
+            bool allied = _policy.Iff.AlliedTeams.Contains(team);
+            bool neutral = _policy.Iff.NeutralTeams.Contains(team);
 
-            ImGui.TextColored(AllegianceColour(_config.Iff.Classify(team)), $"  {team}");
+            ImGui.TextColored(AllegianceColour(_policy.Iff.Classify(team)), $"  {team}");
             ImGui.SameLine();
 
             if (own)
@@ -843,14 +912,14 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
             {
                 if (ImGui.Checkbox($"allied##a{i}", ref allied))
                 {
-                    Toggle(_config.Iff.AlliedTeams, team, allied);
-                    if (allied) _config.Iff.NeutralTeams.Remove(team);
+                    Toggle(_policy.Iff.AlliedTeams, team, allied);
+                    if (allied) _policy.Iff.NeutralTeams.Remove(team);
                 }
                 ImGui.SameLine();
                 if (ImGui.Checkbox($"neutral##n{i}", ref neutral))
                 {
-                    Toggle(_config.Iff.NeutralTeams, team, neutral);
-                    if (neutral) _config.Iff.AlliedTeams.Remove(team);
+                    Toggle(_policy.Iff.NeutralTeams, team, neutral);
+                    if (neutral) _policy.Iff.AlliedTeams.Remove(team);
                 }
             }
 
@@ -858,21 +927,21 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
             if (ImGui.Button($"remove##t{i}"))
             {
                 _config.TeamNames.RemoveAt(i);
-                _config.Iff.AlliedTeams.Remove(team);
-                _config.Iff.NeutralTeams.Remove(team);
+                _policy.Iff.AlliedTeams.Remove(team);
+                _policy.Iff.NeutralTeams.Remove(team);
             }
         }
 
         ImGui.Separator();
 
-        bool engageUnknown = _config.Iff.EngageUnknown;
-        if (ImGui.Checkbox("Engage unknown contacts", ref engageUnknown)) _config.Iff.EngageUnknown = engageUnknown;
+        bool engageUnknown = _policy.Iff.EngageUnknown;
+        if (ImGui.Checkbox("Engage unknown contacts", ref engageUnknown)) _policy.Iff.EngageUnknown = engageUnknown;
 
-        bool engageNeutral = _config.Iff.EngageNeutral;
-        if (ImGui.Checkbox("Engage neutrals", ref engageNeutral)) _config.Iff.EngageNeutral = engageNeutral;
+        bool engageNeutral = _policy.Iff.EngageNeutral;
+        if (ImGui.Checkbox("Engage neutrals", ref engageNeutral)) _policy.Iff.EngageNeutral = engageNeutral;
 
-        bool protectFriendly = _config.Iff.ProtectFriendly;
-        if (ImGui.Checkbox("Never engage friendlies", ref protectFriendly)) _config.Iff.ProtectFriendly = protectFriendly;
+        bool protectFriendly = _policy.Iff.ProtectFriendly;
+        if (ImGui.Checkbox("Never engage friendlies", ref protectFriendly)) _policy.Iff.ProtectFriendly = protectFriendly;
 
     }
 

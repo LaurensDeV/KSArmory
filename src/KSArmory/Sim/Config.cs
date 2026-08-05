@@ -1,12 +1,12 @@
 namespace KSArmory;
 
 /// <summary>
-/// Settings that belong to the session rather than to any one battery: who counts as hostile,
+/// Settings that belong to the session rather than to any one battery: the roster of team names,
 /// what gets drawn, how much is logged.
 ///
 /// <para>What an individual installation is allowed to do lives on <see cref="BatteryConfig"/>.
 /// The line between them is whether the answer can differ between two launchers in the same
-/// world — arming can, the IFF policy cannot.</para>
+/// world — arming and which side it is on can, the team names themselves cannot.</para>
 ///
 /// <para>Not the place for how a weapon performs. Range, guidance, fuse and launcher geometry
 /// live on <see cref="SensorProfile"/>, <see cref="MunitionProfile"/> and
@@ -63,17 +63,14 @@ public sealed class Config
     public bool LimitWarpInFlight = true;
 
     /// <summary>
-    /// Who this battery will shoot at. Defaults to engaging anything unrecognised, so a world
-    /// where nobody has assigned teams behaves as it did before teams existed.
-    /// </summary>
-    public IffPolicy Iff { get; } = new();
-
-    /// <summary>
     /// Substring that marks a craft as belonging to a team, matched against its name.
     ///
     /// <para>KSA has no team field, so a name convention is the only assignment that needs no
     /// extra UI: a craft called "Red Hunter" is on team "Red" if that is listed here. Empty means
     /// no craft is ever classified and everything stays Unknown.</para>
+    ///
+    /// <para>Session-wide, unlike <see cref="BatteryConfig.Iff"/>: a team name labels a craft the
+    /// same way whoever is looking at it, and it is which side each battery takes that differs.</para>
     /// </summary>
     public readonly List<string> TeamNames = [];
 
