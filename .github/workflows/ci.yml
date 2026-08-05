@@ -114,6 +114,12 @@ jobs:
         # drift is visible in a PR rather than found in an audit.
         run: ./tools/check-comments.sh
 
+      - name: Documented facts match what produces them
+        # The layout table, the API surface counts and the KSA build have each been wrong in
+        # prose while every other gate passed. All three are derivable, so they are checked
+        # rather than trusted.
+        run: ./tools/check-docs.sh
+
       - name: No binaries or build artefacts committed
         run: |
           if git ls-files | grep -E '\.(dll|pdb)$'; then
