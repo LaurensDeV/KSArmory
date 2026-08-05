@@ -247,6 +247,13 @@ Four things worth knowing:
   that frame with `(pointEcl - body.GetPositionEcl()).Transform(body.GetCce2Ccf())`.
 - **Colour is HDR.** Core's `ThrusterSparks` runs at `(15, 11, 6)`. Values at or below 1 read as
   flat paint; the bloom is what makes a fireball look like one.
+- **`Renderer` decides whether smoke reads as smoke.** `SimpleColor` draws each particle as a solid
+  mesh, so a cloud of them is a heap of balls whatever the colour. `Volumetric` with a low
+  `<Opacity>` (Core's own uses 0.05) accumulates instead — individual particles stop being visible
+  and what is left is the density where they overlap.
+- **`GravityStrength` defaults to 1**, so anything that does not set it falls at full local
+  gravity — about 20 m in two seconds. Core sets it on every emitter. A **negative** value flips
+  the gravity vector, which is buoyancy for free and is how smoke rises.
 - **The pool is finite and shared.** `EmitterPool.Get` returns false when not enough emitters are
   free, so a salvo can starve it. Handle the false — an effect is decoration.
 

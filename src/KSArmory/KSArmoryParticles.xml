@@ -3,34 +3,37 @@
   Warhead effects. Modelled on Core's ParticleEmitterAssets.xml, which is the only documentation
   this format has.
 
-  SimpleColor rather than Pbr: it needs no MaterialId, so nothing here depends on a Core material
-  Id that could be renamed. Colour components above 1 are deliberate - Core's ThrusterSparks runs
-  at 15/11/6 - because the renderer is HDR and that is what makes a fireball bloom rather than
-  read as flat orange paint.
+  The renderer decides whether smoke reads as smoke. SimpleColor draws each particle as a solid
+  mesh, so a cloud of them reads as a heap of balls however it is coloured. Volumetric with a low
+  Opacity accumulates instead: the individual particles stop being visible and what is left is the
+  density where they overlap. That is the difference between this and the first version, and it is
+  the same renderer the game's own soft effects use.
+
+  Colour components above 1 are deliberate - Core's ThrusterSparks runs at 15/11/6 - because the
+  renderer is HDR and that is what makes a fireball bloom rather than read as flat orange paint.
 
   ParticleSpawnLogic is radial, never Fountain. Fountain builds a cone about the emitter's local
   +X, and a burst placed in a body-fixed frame has its model matrix forced to identity - so that
-  +X is a fixed direction in the world and every explosion sprays the same way regardless of what
+  +X would be a fixed direction in the world and every explosion would spray the same way whatever
   blew up. ScatterFromCenter and MoveAwayFromCenter take their direction from each particle's own
   offset from the centre, so they need no orientation to be correct.
 
-  No InheritVelocity: these are hung on a celestial with no vehicle, so there is nothing to
-  inherit from and the setting could only mislead whoever reads it next.
-
-  Three stages with deliberately different lifespans, because an explosion is not one event: a
-  flash that is gone in under a second, fragments that outlive it, and smoke that hangs. Giving
-  them all one lifespan is what makes a burst read as a blink.
-
   GravityStrength is set on every stage, and it must be: it defaults to 1, so anything that does
-  not say otherwise falls at full local gravity. That is right for debris and wrong for the other
-  two - a fireball that falls looks like it ended early because it drops out of view, and smoke
-  that falls sinks into the ground within a second or two.
+  not say otherwise falls at full local gravity. That is right for debris and wrong for everything
+  else - a fireball that falls looks like it ended early because it drops out of view, and smoke
+  that falls sinks into the ground within a second.
+
+  No InheritVelocity: these hang on a celestial with no vehicle, so there is nothing to inherit
+  from and the setting could only mislead whoever reads it next.
 -->
 <Assets>
-    <!-- Proximity kill: a bright short-lived ball with a slower debris shell inside it. -->
+    <!--
+      Proximity kill, in four stages. An explosion is not one event, and giving it one lifespan,
+      one renderer and one gravity is what made the first version a puff of spheres.
+    -->
     <ParticleEmitter Id="KSArmoryFireball">
-        <!--General-->
-        <MaxParticles Value="192" />
+        <!-- 1. The flash: small, very bright, brief. This is the stage that blooms. -->
+        <MaxParticles Value="48" />
         <Mesh Id="ParticleSphere"/>
         <Renderer>SimpleColor</Renderer>
         <Updaters>SimpleMovement</Updaters>
@@ -39,26 +42,56 @@
         <Updaters>HueShift</Updaters>
         <Updaters>ModelMatrix</Updaters>
         <Updaters>Age</Updaters>
-        <!--Emitter Data-->
         <SpawnMode>Burst</SpawnMode>
         <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-        <EmitterSize Value="3"/>
-        <EmitterExtents X="1.5" Y="0" Z="0"/>
-        <SpawnRate Value="192"/>
+        <EmitterSize Value="2"/>
+        <EmitterExtents X="1" Y="0" Z="0"/>
+        <SpawnRate Value="48"/>
         <Force X="0" Y="0" Z="0" />
         <GravityStrength Value="0.0"/>
-        <!--Particle Data-->
-        <ParticleColor X="18" Y="8" Z="2" W="1"/>
-        <ParticleColorShift X="0.35" Y="0.2" Z="0"/>
-        <ParticleLifespan X="0.9" Y="2.2"/>
+        <ParticleColor X="22" Y="10" Z="3" W="1"/>
+        <ParticleColorShift X="0.3" Y="0.15" Z="0"/>
+        <ParticleLifespan X="0.25" Y="0.7"/>
         <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleSize X="0.8" Y="2.8"/>
-        <ParticleVelocity X="20" Y="20" Z="20"/>
+        <ParticleSize X="0.7" Y="2.0"/>
+        <ParticleVelocity X="16" Y="16" Z="16"/>
         <ParticleVelocityShift Value="0.8"/>
         <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
         <ParticleAngularVelocity X="4" Y="4" Z="4"/>
 
-        <!-- Fragments: dimmer, slower, longer-lived, so the ball leaves something behind it. -->
+        <!--
+          2. The fire itself: volumetric, so it is a body of burning gas rather than a bag of
+          marbles. Grows and cools, and outlives the flash that lit it.
+        -->
+        <ParticleEmitters>
+            <MaxParticles Value="72" />
+            <Mesh Id="ParticleSphere"/>
+            <Renderer>Volumetric</Renderer>
+            <Updaters>SimpleMovement</Updaters>
+            <Updaters>GrowOverLifetime</Updaters>
+            <Updaters>HueShift</Updaters>
+            <Updaters>ModelMatrix</Updaters>
+            <Updaters>Age</Updaters>
+            <SpawnMode>Burst</SpawnMode>
+            <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+            <EmitterSize Value="2.5"/>
+            <EmitterExtents X="1" Y="0" Z="0"/>
+            <SpawnRate Value="72"/>
+            <Force X="0" Y="0" Z="0" />
+            <GravityStrength Value="-0.05"/>
+            <EmitterExtra X="0.1" Y="0.01" Z="0" W="0"/>
+            <Opacity Value="0.22"/>
+            <ParticleColor X="6" Y="2" Z="0.3" W="1"/>
+            <ParticleColorShift X="0.4" Y="0.2" Z="0"/>
+            <ParticleLifespan X="1.2" Y="2.8"/>
+            <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+            <ParticleSize X="1.5" Y="3.5"/>
+            <ParticleVelocity X="9" Y="9" Z="9"/>
+            <ParticleVelocityShift Value="0.9"/>
+            <ParticleExtra X="0.7" Y="0" Z="0" W="0"/>
+        </ParticleEmitters>
+
+        <!-- 3. Fragments: the one stage that should be discrete, and the one that should arc. -->
         <ParticleEmitters>
             <MaxParticles Value="96" />
             <Mesh Id="ParticleSphere"/>
@@ -75,60 +108,60 @@
             <SpawnRate Value="96"/>
             <Force X="0" Y="0" Z="0" />
             <GravityStrength Value="0.6"/>
-            <ParticleColor X="6" Y="2.2" Z="0.4" W="1"/>
+            <ParticleColor X="7" Y="2.4" Z="0.4" W="1"/>
             <ParticleColorShift X="0.5" Y="0.3" Z="0"/>
             <ParticleLifespan X="1.8" Y="4.5"/>
             <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
-            <ParticleSize X="0.12" Y="0.4"/>
-            <ParticleVelocity X="55" Y="55" Z="55"/>
+            <ParticleSize X="0.1" Y="0.35"/>
+            <ParticleVelocity X="60" Y="60" Z="60"/>
             <ParticleVelocityShift Value="1"/>
             <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
             <ParticleAngularVelocity X="9" Y="9" Z="9"/>
         </ParticleEmitters>
 
         <!--
-          Smoke. Dim, slow, long, and it GROWS rather than shrinking - a cloud spreads as it
-          cools. This is the stage that makes an explosion linger; without it the whole thing is
-          over in a second however long the flash is given.
+          4. Smoke: volumetric at a very low opacity, so it is density rather than objects. Slow,
+          long, buoyant, and it grows - a cloud spreads as it cools, which is the opposite of what
+          every other stage does. This is the stage that makes a burst linger.
         -->
         <ParticleEmitters>
-            <MaxParticles Value="80" />
+            <MaxParticles Value="64" />
             <Mesh Id="ParticleSphere"/>
-            <Renderer>SimpleColor</Renderer>
+            <Renderer>Volumetric</Renderer>
             <Updaters>SimpleMovement</Updaters>
             <Updaters>GrowOverLifetime</Updaters>
-            <Updaters>HueShift</Updaters>
             <Updaters>ModelMatrix</Updaters>
             <Updaters>Age</Updaters>
             <SpawnMode>Burst</SpawnMode>
             <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-            <EmitterSize Value="2.5"/>
+            <EmitterSize Value="3"/>
             <EmitterExtents X="1" Y="0" Z="0"/>
-            <SpawnRate Value="80"/>
+            <SpawnRate Value="64"/>
             <Force X="0" Y="0" Z="0" />
             <GravityStrength Value="-0.12"/>
-            <ParticleColor X="0.35" Y="0.28" Z="0.24" W="1"/>
-            <ParticleColorShift X="0.1" Y="0.05" Z="0"/>
-            <ParticleLifespan X="3.5" Y="7.0"/>
+            <EmitterExtra X="0.1" Y="0.01" Z="0" W="0"/>
+            <Opacity Value="0.05"/>
+            <ParticleColor X="0.30" Y="0.26" Z="0.24" W="1"/>
+            <ParticleLifespan X="4.0" Y="8.0"/>
             <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-            <ParticleSize X="1.2" Y="3.0"/>
-            <ParticleVelocity X="5" Y="5" Z="5"/>
+            <ParticleSize X="2.0" Y="5.0"/>
+            <ParticleVelocity X="4" Y="4" Z="4"/>
             <ParticleVelocityShift Value="0.9"/>
             <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
-            <ParticleAngularVelocity X="1.5" Y="1.5" Z="1.5"/>
         </ParticleEmitters>
     </ParticleEmitter>
 
     <!--
-      A round that fused but did not kill. Same shape, much smaller and paler: a near miss should
-      be visible without being mistaken for a hit, because telling those apart by eye is most of
-      what watching an engagement is for.
+      A round that fused but did not kill: a flash and a wisp, nothing more. Telling a near miss
+      from a hit by eye is most of what watching an engagement is for, so this must not become a
+      small version of the fireball.
     -->
     <ParticleEmitter Id="KSArmoryAirburst">
-        <MaxParticles Value="64" />
+        <MaxParticles Value="40" />
         <Mesh Id="ParticleSphere"/>
         <Renderer>SimpleColor</Renderer>
         <Updaters>SimpleMovement</Updaters>
+        <Updaters>GrowOnSpawn</Updaters>
         <Updaters>ShrinkOverLifetime</Updaters>
         <Updaters>HueShift</Updaters>
         <Updaters>ModelMatrix</Updaters>
@@ -137,17 +170,43 @@
         <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
         <EmitterSize Value="1.2"/>
         <EmitterExtents X="0.6" Y="0" Z="0"/>
-        <SpawnRate Value="64"/>
+        <SpawnRate Value="40"/>
         <Force X="0" Y="0" Z="0" />
         <GravityStrength Value="0.0"/>
-        <ParticleColor X="4" Y="3.2" Z="2.4" W="1"/>
+        <ParticleColor X="5" Y="4" Z="3" W="1"/>
         <ParticleColorShift X="0.2" Y="0.2" Z="0"/>
-        <ParticleLifespan X="0.7" Y="1.8"/>
+        <ParticleLifespan X="0.4" Y="1.0"/>
         <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleSize X="0.2" Y="0.7"/>
-        <ParticleVelocity X="18" Y="18" Z="18"/>
+        <ParticleSize X="0.25" Y="0.8"/>
+        <ParticleVelocity X="16" Y="16" Z="16"/>
         <ParticleVelocityShift Value="0.8"/>
         <ParticleExtra X="0.55" Y="0" Z="0" W="0"/>
         <ParticleAngularVelocity X="4" Y="4" Z="4"/>
+
+        <ParticleEmitters>
+            <MaxParticles Value="28" />
+            <Mesh Id="ParticleSphere"/>
+            <Renderer>Volumetric</Renderer>
+            <Updaters>SimpleMovement</Updaters>
+            <Updaters>GrowOverLifetime</Updaters>
+            <Updaters>ModelMatrix</Updaters>
+            <Updaters>Age</Updaters>
+            <SpawnMode>Burst</SpawnMode>
+            <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+            <EmitterSize Value="1.5"/>
+            <EmitterExtents X="0.6" Y="0" Z="0"/>
+            <SpawnRate Value="28"/>
+            <Force X="0" Y="0" Z="0" />
+            <GravityStrength Value="-0.1"/>
+            <EmitterExtra X="0.1" Y="0.01" Z="0" W="0"/>
+            <Opacity Value="0.04"/>
+            <ParticleColor X="0.35" Y="0.32" Z="0.30" W="1"/>
+            <ParticleLifespan X="2.0" Y="4.0"/>
+            <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+            <ParticleSize X="1.0" Y="2.2"/>
+            <ParticleVelocity X="3" Y="3" Z="3"/>
+            <ParticleVelocityShift Value="0.9"/>
+            <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
+        </ParticleEmitters>
     </ParticleEmitter>
 </Assets>
