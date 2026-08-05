@@ -32,7 +32,7 @@ import random
 import sys
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 OUT_PATH = argv[0]
@@ -194,12 +194,29 @@ def join_all(name):
 CHARACTER_SPACE = 100.0
 
 
+# Rig space, read off Core's own attachments rather than assumed: X is lateral, Y is up, Z is
+# forward. Both Core attachments are symmetric about X (centre X = 0) and offset along Y -- the
+# helmet sits +27.8 above Head_M. This file authors X forward, Y left, Z up, so the axes have to
+# be permuted on the way out: our X -> their Z, our Y -> their X, our Z -> their Y.
+#
+# Baked, not expressed as <Rotation> in the XML, for two reasons. The engine composes an
+# attachment's axes as RotZ(-90) * RotX(-90) *before* the bone matrix while the body composes the
+# reverse *after* the scale, so reasoning about the XML angle means reasoning through that
+# asymmetry; and TransformReference reads Euler radians whose order is not stated anywhere. A
+# baked permutation is checkable here, against Core's numbers, with no launch.
+RIG_AXES = Matrix(((0.0, 1.0, 0.0),
+                   (0.0, 0.0, 1.0),
+                   (1.0, 0.0, 0.0)))
+
+
 def export(path):
     gun = join_all("KittenGun")
 
-    gun.scale = (CHARACTER_SPACE, CHARACTER_SPACE, CHARACTER_SPACE)
     bpy.context.view_layer.objects.active = gun
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    gun.matrix_world = (RIG_AXES.to_4x4()
+                        @ Matrix.Scale(CHARACTER_SPACE, 4)
+                        @ gun.matrix_world)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
     bpy.ops.object.select_all(action="DESELECT")
     bpy.ops.export_scene.gltf(
