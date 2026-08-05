@@ -69,6 +69,15 @@ public sealed class Config
     public bool ProtectControlledVehicle = true;
 
     /// <summary>
+    /// Point the launcher wherever the mouse is, instead of at what the radar is holding.
+    ///
+    /// <para>The drives are rate-limited either way, so this aims *towards* the cursor rather than
+    /// snapping to it. Auto-engage still decides when to shoot; this only decides where the
+    /// launcher looks.</para>
+    /// </summary>
+    public bool MouseAim;
+
+    /// <summary>
     /// Hold the world's timewarp down while rounds are in the air, and give it back when they
     /// land. See <see cref="WarpPolicy"/> for why: past ~19x a round cannot be simulated, and
     /// the alternative to slowing the world is a salvo that misses by kilometres for reasons

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-70 types and 191 members across 6 assemblies.
+71 types and 194 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -92,6 +92,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.ImGuiApi.ImDrawListPtr GetWindowDrawList()`
 - `Brutal.ImGuiApi.ImGuiViewportPtr GetMainViewport()`
+- `Brutal.Numerics.float2 GetMousePos()`
 - `bool Begin(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Begin(Brutal.ImGuiApi.ImString, ref bool, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Button(Brutal.ImGuiApi.ImString, ref System.Nullable`1<Brutal.Numerics.float2>)`
@@ -171,6 +172,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float2 EclToScreen(Brutal.Numerics.double3, bool)`
 - `KSA.Celestial get_NearbyCelestial()`
 - `KSA.IFollowable get_Following()`
+- `KSA.Ray ScreenToEgoRay(Brutal.Numerics.float2)`
 - `double CurrentAltitudeKm`
 - `double DistanceToNearbyCelestialKm`
 - `double DistanceToNearbyCelestialSurfaceMeanKm`
@@ -328,6 +330,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
 - `void SetCameraUbo(KSA.Viewport)`
 - `void UpdateShaderData(double, KSA.Viewport)`
+
+### KSA.Ray
+
+- `Brutal.Numerics.double3 Direction`
 
 ### KSA.Rendering.Water.Data.OceanReference
 

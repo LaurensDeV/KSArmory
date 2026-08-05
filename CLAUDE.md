@@ -239,6 +239,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
+| `Sim/CursorAim.cs` | cursor to viewport coordinates, and whether an aim direction is usable |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
@@ -262,7 +263,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 191 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 194 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -509,7 +510,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-660,000 lines to the files defining the 70 types this mod actually uses.
+660,000 lines to the files defining the 71 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
@@ -798,6 +799,18 @@ vehicle's part tree refused and a new platform deserves a fresh assessment.
 traverse, so `GunsAreLaid` reads `GunAimingAccepted` and the guns' own subpart while `IsLaid`
 reads the pods'. Pointing both at one flag silenced a working cannon whenever a pod elevation was
 refused — or whenever the pods marker resolved to nothing, which needs no engine refusal at all.
+
+**Mouse aim points the launcher, it does not fire it.** `Config.MouseAim` sends the turret and
+the optical head at whatever the cursor is over, ahead of the radar *and* ahead of the tracking
+switch — with it on the operator is the sensor, so needing to enable radar tracking first would be
+surprising. Auto-engage still decides when to shoot, and `Aiming` counts mouse aim so `IsLaid`
+still makes the drives settle: without that, rounds leave along a tube that is still swinging.
+
+The conversion is the part worth being careful with. `Camera.ScreenToEgoRay` divides by *its own*
+framebuffer while ImGui reports the cursor across every window, so the two agree only on a single
+full-screen viewport — `Sim/CursorAim.cs` holds that subtraction and is tested against an offset
+one. The ray comes back in Ego, and a *direction* is identical in Ecl because the two differ by a
+translation, so nothing converts it.
 
 **Only one weapon can own the bearing, and the cannon win the overlap.** The turret lays on the
 gun's *ballistic lead* whenever `FireGate.GunsHaveTheEngagement`, and rounds leave along the tube

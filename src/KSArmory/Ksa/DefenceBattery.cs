@@ -210,7 +210,11 @@ internal sealed class DefenceBattery(Config config)
         settled: Turret.IsLaid(_profile.SettleSeconds));
 
     // Slewing onto a track, rather than stowed or driven from the panel.
-    private bool Aiming => _config.TurretTracking && !_config.TurretManual && !_config.TurretSpin;
+    // Slewing onto something, rather than stowed or driven from the panel. Mouse aim counts:
+    // the drives are chasing a cursor, so fire control must still wait for them to settle or
+    // rounds leave along a tube that is still swinging.
+    private bool Aiming => (_config.TurretTracking || _config.MouseAim)
+                           && !_config.TurretManual && !_config.TurretSpin;
 
     public void PinPlatform(Vehicle? v)
     {
@@ -485,8 +489,24 @@ internal sealed class DefenceBattery(Config config)
     //
     // Which way the optical head looks, in the launcher part's frame: at the locked contact if
     // there is one, otherwise along the turret's own facing.
+    // Where the cursor points, in the launcher part's frame. False unless mouse aim is on and the
+    // cursor is over a viewport whose camera gives a usable ray.
+    private bool TryCursorAimPartFrame(out double3 partFrame)
+    {
+        partFrame = default;
+
+        return _config.MouseAim
+               && Platform is not null
+               && KsaWorld.TryCursorDirectionEcl(out double3 dirEcl)
+               && LauncherPart.TryDirectionToPartFrame(Platform, dirEcl, out partFrame);
+    }
+
     private double3 OpticAimPartFrame()
     {
+        // The head watches what the launcher is aimed at, so it follows the cursor too — without
+        // this it keeps staring at a radar track while the tubes point somewhere else entirely.
+        if (TryCursorAimPartFrame(out double3 cursorFrame)) return cursorFrame;
+
         if (Radar.Locked is { } locked && Platform is not null
             && LauncherPart.TryDirectionToPartFrame(Platform, locked.PositionEcl - MountEcl,
                                                     out double3 toTarget))
@@ -669,6 +689,14 @@ internal sealed class DefenceBattery(Config config)
         {
             Turret.Point(double.DegreesToRadians(_config.TurretManualBearingDeg),
                          double.DegreesToRadians(_config.TurretManualElevationDeg));
+        }
+        else if (TryCursorAimPartFrame(out double3 cursorFrame))
+        {
+            // Ahead of the radar, and ahead of the tracking switch: with mouse aim on the operator
+            // *is* the sensor, so needing to enable radar tracking first would be surprising. The
+            // drives stay rate-limited, so this points towards the cursor rather than snapping.
+            _ringIsOnGunLead = false;
+            Turret.Track(cursorFrame);
         }
         else if (!_config.TurretTracking)
         {

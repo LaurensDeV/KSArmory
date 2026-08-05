@@ -1,3 +1,4 @@
+using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
 using KSA.Rendering.Water.Data;
@@ -541,6 +542,53 @@ internal static class KsaWorld
         catch
         {
             return 1.0;
+        }
+    }
+
+    /// <summary>
+    /// The direction the mouse is pointing, in Ecl. False when the cursor is over no viewport, or
+    /// the unprojection produced nothing usable.
+    ///
+    /// <para>Ecl and Ego differ by a translation, so a <em>direction</em> is the same in both and
+    /// the camera's Ego ray needs no conversion. That equivalence is the same one
+    /// <c>Vehicle.Asmb2Ego</c> relies on — see docs/FRAMES-AND-EPOCHS.md.</para>
+    ///
+    /// <para>Which viewport matters: <c>ScreenToEgoRay</c> divides by the camera's own
+    /// framebuffer, while ImGui reports the cursor across every window. <see cref="CursorAim"/>
+    /// holds that subtraction.</para>
+    /// </summary>
+    public static bool TryCursorDirectionEcl(out double3 directionEcl)
+    {
+        directionEcl = default;
+        try
+        {
+            float2 cursor = ImGui.GetMousePos();
+
+            for (int i = 0; i < Program.Viewports.Count; i++)
+            {
+                Viewport v = Program.Viewports[i];
+                if (!v.Visible || v.IsOffscreen) continue;
+
+                if (!CursorAim.TryToViewport(cursor, v.Position, v.Width, v.Height,
+                                             out float2 local))
+                {
+                    continue;
+                }
+
+                if (v.GetCamera() is not { } camera) continue;
+
+                double3 direction = camera.ScreenToEgoRay(local).Direction;
+                if (!CursorAim.IsUsableDirection(direction)) continue;
+
+                directionEcl = Vec.Unit(direction);
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
         }
     }
 

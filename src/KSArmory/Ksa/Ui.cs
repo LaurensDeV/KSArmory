@@ -328,6 +328,13 @@ internal sealed class Ui(Config config, DefenceBattery battery, WarpPolicy warp)
         ImGui.Checkbox("Never target the vehicle I'm flying", ref _config.ProtectControlledVehicle);
         ImGui.Checkbox("Require launcher part", ref _config.RequireLauncherPart);
 
+        ImGui.Checkbox("Aim with the mouse", ref _config.MouseAim);
+        if (_config.MouseAim)
+        {
+            ImGui.TextDisabled("  The launcher and the optical head follow the cursor. Auto-engage");
+            ImGui.TextDisabled("  still decides when to fire; the drives still have to settle first.");
+        }
+
         ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);
         ImGui.TextDisabled($"  Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only");
         ImGui.TextDisabled("  while something is in the air, and given back after.");
