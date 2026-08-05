@@ -1247,14 +1247,14 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
             }
         }
 
-        // After the sweep, so a kill and a miss look different. Scaled by the warhead's own
-        // lethal radius rather than by a constant, so a bigger round reads as a bigger burst
-        // without a second number to keep in step.
+        // After the sweep, so a kill and a miss look different. Sized off the charge, which is
+        // also what the damage radii come from -- so what you see and what died cannot drift
+        // apart, and a 30 mm shell cannot paint a missile's fireball.
         if (_config.DrawExplosions)
         {
             Detonation.Show(_burstKilled ? Detonation.Fireball : Detonation.Airburst,
                             burst, round.TargetRef as Vehicle ?? Platform,
-                            Math.Clamp(round.Munition.LethalRadius / 20f, 0.4f, 3f));
+                            (float)Warhead.EffectScale(round.Munition.ChargeKg));
         }
     }
 

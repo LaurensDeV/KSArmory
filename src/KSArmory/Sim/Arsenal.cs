@@ -71,8 +71,10 @@ public static class Arsenal
 
         FuseRadius = 3f,
         FuseArmSeconds = 0.05f,
-        LethalRadius = 4f,
-        BlastRadius = 6f,
+        // Chosen to keep the 4 m lethal radius the cannon was tuned with. Its blast radius grows
+        // from 6 m to about 12 m as a result -- that one only decides whether a near miss is
+        // logged, and one law cannot reproduce a pair authored at a different ratio.
+        ChargeKg = 0.16f,
     };
 
     // ---- Sensors --------------------------------------------------------

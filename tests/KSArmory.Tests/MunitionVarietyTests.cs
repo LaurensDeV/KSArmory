@@ -106,7 +106,8 @@ public class MunitionVarietyTests
         DragK = 2.0e-4f,
         MaxFlightSeconds = 8f,
         FuseRadius = 8f,
-        LethalRadius = 10f,
+        ChargeKg = 2.5f,          // ~10 m lethal
+
     };
 
     /// <summary>A long-legged one: long boost, low drag, generous fuse.</summary>
@@ -119,7 +120,8 @@ public class MunitionVarietyTests
         DragK = 1.0e-5f,
         MaxFlightSeconds = 40f,
         FuseRadius = 20f,
-        LethalRadius = 25f,
+        ChargeKg = 39f,           // ~25 m lethal
+
     };
 
     // ---- The profile actually drives the flight ------------------------
@@ -367,8 +369,7 @@ public class MunitionVarietyTests
     {
         var kinetic = LongRange();
         kinetic.FuseRadius = 0f;          // contact with the target body, nothing more
-        kinetic.LethalRadius = 0f;
-        kinetic.BlastRadius = 0f;
+        kinetic.ChargeKg = 0f;            // no charge, so no lethal or blast radius either
 
         Engagement hit = Fly(kinetic, new double3(6000, 0, 0), new double3(0, 150, 0));
 
@@ -385,7 +386,7 @@ public class MunitionVarietyTests
     {
         var unguided = LongRange();
         unguided.FuseRadius = 0f;
-        unguided.LethalRadius = 0f;
+        unguided.ChargeKg = 0f;
         unguided.NavConstant = 0f;
 
         Engagement miss = Fly(unguided, new double3(6000, 0, 0), new double3(0, 150, 0));

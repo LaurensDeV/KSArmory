@@ -224,6 +224,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/WeaponSurvey.cs` | reads a weapons system off a craft the mod did not design |
 | `Sim/LauncherProfile.cs` | one launch platform: part Id, tube geometry, drives |
 | `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
+| `Sim/Warhead.cs` | explosive charge to lethal, blast and fireball radius |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
 | `Sim/Config.cs` | session-wide settings — team names, drawing, logging |
 | `Sim/BatteryConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
@@ -821,6 +822,14 @@ the same thing silently.
 **Kills are binary.** KSA exposes no partial-damage model, only
 `Universe.DestroyVehicleFromEvent`. `LethalRadius` destroys; between lethal and `BlastRadius`
 the mod logs a near miss and the target survives.
+
+**A warhead is one number: `MunitionProfile.ChargeKg`.** Lethal radius, blast radius and the size
+of the fireball are all read off it in `Sim/Warhead.cs`, as the **cube root** — Hopkinson–Cranz,
+`R = Z · W^(1/3)`. Doubling a warhead multiplies its reach by 1.26, not by 2, which is the one
+thing about explosives worth encoding rather than leaving to whoever types the next profile. Three
+free radii could also describe a round whose lethal radius exceeds its blast radius;
+`WarheadTests` pins that it cannot. The scaled distances are calibrated to the 57E6's flown
+numbers (20 kg → 20 m lethal, 60 m blast), so nothing that has been tested in flight moved.
 
 **The launcher ships its own art, and the asset XML lives at the mod root.** It used to
 instance Core's meshes by Id and ship nothing — that worked, and is still the right answer for

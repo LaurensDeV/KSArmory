@@ -124,11 +124,23 @@ public sealed class MunitionProfile
     /// <summary>Fuse stays safe for this long after launch, so we never kill the platform.</summary>
     public float FuseArmSeconds = 0.6f;
 
+    /// <summary>
+    /// Explosive charge (kg). <b>This is the warhead</b> — the radii below are read off it.
+    ///
+    /// <para>One figure rather than three, because three independent radii can describe a warhead
+    /// whose lethal radius exceeds its blast radius, and because a round's reach is not a free
+    /// choice: it follows from what it carries. <see cref="Warhead"/> has the scaling.</para>
+    /// </summary>
+    public float ChargeKg = 20f;
+
     /// <summary>Radius inside which a detonation is unconditionally lethal (m).</summary>
-    public float LethalRadius = 20f;
+    public float LethalRadius => (float)Warhead.LethalRadius(ChargeKg);
 
     /// <summary>Radius at which blast effect falls to zero (m).</summary>
-    public float BlastRadius = 60f;
+    public float BlastRadius => (float)Warhead.BlastRadius(ChargeKg);
+
+    /// <summary>Roughly how big the burst should look (m).</summary>
+    public float FireballRadius => (float)Warhead.FireballRadius(ChargeKg);
 
     public float SeekerFovRad => float.DegreesToRadians(SeekerFovDeg);
     public double MaxLateralAccel => MaxLateralG * 9.80665;

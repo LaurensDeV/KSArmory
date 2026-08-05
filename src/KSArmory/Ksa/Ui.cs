@@ -786,7 +786,11 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         if (_config.BurstTool)
         {
             ImGui.TextDisabled("  click the ground to set one off there");
-            ImGui.SliderFloat("Size", ref _config.BurstScale, 0.25f, 8f);
+            ImGui.SliderFloat("Charge (kg)", ref _config.BurstChargeKg, 0.01f, 500f,
+                              "%.2f", ImGuiSliderFlags.Logarithmic);
+            ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(_config.BurstChargeKg):F0} m, "
+                               + $"fireball {Warhead.FireballRadius(_config.BurstChargeKg):F0} m"
+                               + "   (the ring is the lethal radius)");
             ImGui.Checkbox("Fireball (off: airburst)", ref _config.BurstFireball);
         }
 
@@ -1148,8 +1152,14 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
         {
             ImGui.SliderFloat("Fuse radius (m)", ref _munition.FuseRadius, 2f, 200f);
             ImGui.SliderFloat("Fuse arm delay (s)", ref _munition.FuseArmSeconds, 0f, 5f);
-            ImGui.SliderFloat("Lethal radius (m)", ref _munition.LethalRadius, 2f, 300f);
-            ImGui.SliderFloat("Blast radius (m)", ref _munition.BlastRadius, 5f, 600f);
+            // One slider, because the radii are read off the charge rather than chosen. Showing
+            // what it buys keeps the cube root visible: ten times the explosive is a bit over
+            // twice the reach, which is not what a reader expects and is the point.
+            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 500f,
+                              "%.2f", ImGuiSliderFlags.Logarithmic);
+            ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
+                               + $"blast {_munition.BlastRadius:F0} m, "
+                               + $"fireball {_munition.FireballRadius:F0} m");
             ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget, 1, _profile.TubeCount);
             ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
             ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);

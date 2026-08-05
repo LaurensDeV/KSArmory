@@ -82,8 +82,11 @@ public sealed class Config
     /// <summary>Fireball rather than the paler airburst.</summary>
     public bool BurstFireball = true;
 
-    /// <summary>Multiplies the burst's size and speed.</summary>
-    public float BurstScale = 1f;
+    /// <summary>
+    /// Explosive charge for a hand-fired burst (kg). The same figure a round carries, so the tool
+    /// shows what a warhead of that size actually looks like rather than an arbitrary size.
+    /// </summary>
+    public float BurstChargeKg = 20f;
 
     /// <summary>
     /// Pick a craft up with one click and set it down with the next.

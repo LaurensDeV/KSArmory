@@ -41,16 +41,19 @@ internal sealed class BurstTool
                          ? KsaWorld.LocalUp(craft)
                          : Vec.Unit(groundEcl);
 
-        double3 at = groundEcl + up * Math.Max(config.BurstScale * 4.0, 2.0);
+        double radius = Warhead.FireballRadius(config.BurstChargeKg);
+        double3 at = groundEcl + up * Math.Max(radius, 2.0);
 
         _lastBurstEcl = at;
         _haveLast = true;
 
         Detonation.Show(config.BurstFireball ? Detonation.Fireball : Detonation.Airburst,
-                        at, KsaWorld.ControlledVehicle, config.BurstScale);
+                        at, KsaWorld.ControlledVehicle,
+                        (float)Warhead.EffectScale(config.BurstChargeKg));
 
-        Log.Info($"burst tool: {(config.BurstFireball ? "fireball" : "airburst")} "
-                 + $"at scale {config.BurstScale:F1}");
+        Log.Info($"burst tool: {(config.BurstFireball ? "fireball" : "airburst")}, "
+                 + $"{config.BurstChargeKg:F2} kg, lethal "
+                 + $"{Warhead.LethalRadius(config.BurstChargeKg):F0} m");
     }
 
     /// <summary>Marks where the next click would put a burst, and how big it would be.</summary>
@@ -61,7 +64,9 @@ internal sealed class BurstTool
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _)) return;
         if (!KsaWorld.BeginDraw(anchor, KsaWorld.PositionEcl(anchor))) return;
 
-        KsaWorld.DrawSphereEcl(groundEcl, (float)Math.Max(config.BurstScale * 4.0, 2.0),
+        // The lethal radius, not the fireball: the marker is there to say what the burst would
+        // destroy, and those are very different numbers.
+        KsaWorld.DrawSphereEcl(groundEcl, (float)Warhead.LethalRadius(config.BurstChargeKg),
                                MarkerColour);
     }
 }
