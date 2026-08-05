@@ -459,6 +459,25 @@ when a target dies mid-engagement. Run them still — expect fewer surprises.
 
 ### 7.4 Recently changed, unproven
 
+Confirmed in flight and no longer open: the model repairs of August 2026 - pod frame rings and
+spine, the search array's turntable, the gun sponsons tied back to their cheeks, the tube covers,
+the raised optical head - all seen and judged correct over several sessions. `checkswept.py` now
+guards the class, so a regression is caught before a build rather than by eye.
+
+Still open below.
+
+- [ ] **Pods clear the bodywork off the bow** - traverse into the forward sector at low elevation
+      and confirm the tubes lift rather than passing through the APU box. The depression floor was
+      widened to hold its full height across the sector it protects; only flight proves the arc is
+      wide enough.
+- [ ] **A refused drive holds fire** - cannot be forced on demand, since it needs KSA to reject a
+      transform write. If it ever happens the panel says which assembly froze and whether the
+      launcher is holding fire; report the line rather than trying to reproduce it.
+- [ ] **Teams and IFF** - declare an own team and a hostile one, confirm the track list marks
+      F / N / H / ? correctly and that a friendly is not engaged. Name teams so that no team name
+      is a substring of another craft's name.
+- [ ] **Warp overrun** - warp hard enough to exceed 0.32 s of simulated time per frame and confirm
+      the log warns how much time was discarded. That warning is a diagnostic, not a fix.
 - [ ] **Stock drones** — Gemini7 / Hunter / Banjo / Polaris / Rocket each spawn and fly.
 - [ ] **Battery stays put** — fly a second craft; the battery remains on the launcher and the
       panel says so.
