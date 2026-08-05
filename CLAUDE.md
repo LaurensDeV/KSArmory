@@ -973,3 +973,8 @@ should not be weakened without understanding what they buy:
   selection rather than being a guaranteed "currently loaded" pointer, and a session never loaded
   from a save uses a shared bucket. A craft renamed in game still arrives with defaults. What is
   *not* persisted is battery *state* — ammo, tracks, rounds in flight all start fresh.
+
+  **A save being opened must make the roster read, not write.** Selecting a save switches the
+  bucket *before* the craft are rebuilt, so a periodic write in that window stamps the outgoing
+  session's settings onto the save just opened — which looks like a save that refuses to keep what
+  it was given. `BatteryRoster` watches `SettingsStore.CurrentScope` and re-reads on a change.

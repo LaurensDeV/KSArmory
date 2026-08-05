@@ -24,6 +24,12 @@ internal sealed class BatteryRoster(Config config)
     private readonly Dictionary<Vehicle, Entry> _entries = [];
     private readonly List<Vehicle> _scratch = [];
 
+    // Which save's settings the live batteries are holding. Loading a save switches the bucket
+    // before the craft are rebuilt, so without this the next periodic write stamps the outgoing
+    // session's settings onto the save just opened -- which reads as a save that will not keep
+    // what it was given.
+    private string _scope = string.Empty;
+
     public int Count => _entries.Count;
 
     /// <summary>Every crewed system, in no particular order.</summary>
@@ -92,6 +98,20 @@ internal sealed class BatteryRoster(Config config)
     /// </summary>
     public void Remember()
     {
+        string scope = SettingsStore.CurrentScope;
+        if (_scope.Length == 0)
+        {
+            // First pass: Sync has already applied whatever this bucket holds.
+            _scope = scope;
+        }
+        else if (scope != _scope)
+        {
+            // A different save is open. Adopt what it says instead of writing over it.
+            _scope = scope;
+            Adopt();
+            return;
+        }
+
         bool changed = false;
         foreach (KeyValuePair<Vehicle, Entry> kv in _entries)
         {
@@ -100,6 +120,23 @@ internal sealed class BatteryRoster(Config config)
         }
 
         if (changed) SettingsStore.Save();
+    }
+
+    // Re-reads every live battery's settings from the store. Used when the save changes under a
+    // roster that is still holding the previous one's.
+    private void Adopt()
+    {
+        int applied = 0;
+        foreach (KeyValuePair<Vehicle, Entry> kv in _entries)
+        {
+            if (!KsaWorld.IsAlive(kv.Key)) continue;
+            if (SettingsStore.For(KsaWorld.DisplayName(kv.Key)) is not { } stored) continue;
+
+            stored.ApplyTo(kv.Value.Policy);
+            applied++;
+        }
+
+        if (applied > 0) Log.Info($"settings: re-read {applied} system(s) for the open save");
     }
 
     public void Clear()

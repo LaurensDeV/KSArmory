@@ -110,6 +110,12 @@ internal static class SettingsStore
         }
     }
 
+    /// <summary>
+    /// Which bucket is in use — the save's Id, or the shared one. Changes when a save is selected,
+    /// which is the moment anything holding settings has to re-read rather than write.
+    /// </summary>
+    public static string CurrentScope => Scope();
+
     /// <summary>What was last written down for a craft, or null.</summary>
     public static BatterySettings? For(string craftId)
     {
