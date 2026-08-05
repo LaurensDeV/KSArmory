@@ -160,10 +160,10 @@ public static class Program
             // The log is judged too, and separately. It is mostly machine output, but a craft name
             // is player-authored and reaches a public issue through it — so a slur in one would
             // otherwise walk straight past a gate that only reads the summary.
-            Guard.Condensed condensed = Guard.Condense(report.Log);
             bool withLog = classifier is null
-                           || (condensed.Whole && condensed.Lines.All(
-                               line => Judge(classifier, line, config, log) != Verdict.Refused));
+                           || LogGate.MayPublish(
+                               report.Log,
+                               line => Judge(classifier, line, config, log) == Verdict.Refused);
 
             if (verdict == Verdict.Refused)
             {

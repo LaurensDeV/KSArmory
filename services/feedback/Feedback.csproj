@@ -10,6 +10,9 @@
     <!-- Not part of the mod. tools/package.sh builds src/KSArmory only, and this
          must never end up in the archive. -->
     <IsPackable>false</IsPackable>
+
+    <!-- And it never loads KSA, so it builds on a runner with no game assemblies. -->
+    <KSArmoryNeedsKsa>false</KSArmoryNeedsKsa>
   </PropertyGroup>
 
   <ItemGroup>

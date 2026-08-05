@@ -58,6 +58,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      # For the feedback service's tests, which need no game assemblies and so belong in the job
+      # that runs without the secret. check-all.sh skips them if this is missing.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
       - name: Install Pillow
         run: pip install --quiet pillow
 

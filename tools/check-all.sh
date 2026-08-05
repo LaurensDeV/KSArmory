@@ -30,7 +30,7 @@ for arg in "$@"; do
     esac
 done
 
-ATLAS="src/KSArmory/Meshes/AirDefence_MeshAtlas.glb"
+ATLAS="src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
 
 FAILED=()
 SKIPPED=()
@@ -72,6 +72,15 @@ if (( LIST )) || command -v shellcheck >/dev/null 2>&1; then
     run "Shell tooling is sane" bash -c 'shellcheck -S warning tools/*.sh tools/model/*.sh'
 else
     skip "Shell tooling is sane" "shellcheck not installed"
+fi
+
+# Above the assemblies gate on purpose: the feedback service never loads KSA, so its rules are
+# checkable on any machine. They decide what a stranger's text becomes on a public page, which is
+# not something to leave until someone happens to have a game install.
+if (( LIST )) || command -v dotnet >/dev/null 2>&1; then
+    run "Feedback service rules"    ./tools/test-api.sh
+else
+    skip "Feedback service rules"   "no dotnet on PATH"
 fi
 
 run "Sim/ is free of KSA types"     ./tools/check-boundary.sh

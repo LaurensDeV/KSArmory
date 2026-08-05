@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>KSArmory.Feedback.Tests</RootNamespace>
+
+    <!-- The service is not the mod and never loads KSA, so this runs on a machine with no game. -->
+    <KSArmoryNeedsKsa>false</KSArmoryNeedsKsa>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <!--
+    A project reference, not linked sources. The mod's tests link Sim/ to prove it never reaches
+    for KSA; there is no equivalent boundary here, and the service references nothing this project
+    cannot also load.
+
+    Nothing here touches the classifier. The weights are fetched during the image build and are not
+    in the repository, so what can be pinned on any machine is the text rules and the policy - the
+    scores themselves are measured in README.md.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\services\feedback\Feedback.csproj" />
+  </ItemGroup>
+
+</Project>
