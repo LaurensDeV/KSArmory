@@ -260,8 +260,12 @@ Four things worth knowing:
   `ParticleSystem.WriteCommandsColorTranslucent` only issues its draw commands when
   `GameSettings.Graphics.ScreenSpaceParticles` is on, and that setting defaults to `false`. A
   volumetric emitter otherwise resolves, acquires, registers, spawns, ages and draws **nothing**,
-  with no error anywhere. Ship a `SimpleColor` variant too and pick at runtime — `Detonation` does.
-  `Billboard` is *not* gated this way, but it needs a `MaterialId`.
+  with no error anywhere. Ship a fallback variant too and pick at runtime — `Detonation` does.
+- **`Billboard` is the ungated soft renderer.** It is an alpha-blended camera-facing quad
+  (`BillboardParticleFrag`, `BlendColorAlpha`, no cull) sampling a `<MaterialId>`, and nothing in
+  the graphics settings turns it off. With a soft-edged sprite it is what smoke should be on a
+  default install: a sprite with no edge cannot read as a ball, however many overlap. Use
+  `<Mesh Id="Plane"/>`, and `ParticleColor`'s W is its alpha.
 - **`GravityStrength` defaults to 1**, so anything that does not set it falls at full local
   gravity — about 20 m in two seconds. Core sets it on every emitter. A **negative** value flips
   the gravity vector, which is buoyancy for free and is how smoke rises.

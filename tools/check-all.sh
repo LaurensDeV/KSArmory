@@ -91,6 +91,7 @@ fi
 # build silently reverts it.
 if (( LIST )) || python3 -c "import PIL" >/dev/null 2>&1; then
     run "Textures are reproducible" ./tools/model/palette.py --check
+    run "Smoke sprite is reproducible" ./tools/model/smokepuff.py --check
 else
     skip "Textures are reproducible" "Pillow not installed (pip install pillow)"
 fi

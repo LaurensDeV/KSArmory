@@ -291,6 +291,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
 | `tools/model/kittengun.py` | the kitten's shoulder cannon — a character attachment, not a part |
+| `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 
 ## 3D model pipeline (Blender, headless)
