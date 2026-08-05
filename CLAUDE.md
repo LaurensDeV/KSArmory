@@ -836,6 +836,11 @@ free radii could also describe a round whose lethal radius exceeds its blast rad
 `WarheadTests` pins that it cannot. The scaled distances are calibrated to the 57E6's flown
 numbers (20 kg → 20 m lethal, 60 m blast), so nothing that has been tested in flight moved.
 
+The *drawn* size has a floor and the radii do not. A 0.16 kg cannon shell scales to 0.2 by the
+same law, which draws 5 cm particles — proportionate and invisible at any range anyone watches
+from, which is the same as no effect at all. `Warhead.MinimumEffectScale` applies to decoration
+only.
+
 **The launcher ships its own art, and the asset XML lives at the mod root.** It used to
 instance Core's meshes by Id and ship nothing — that worked, and is still the right answer for
 a part that can be assembled from Core's kit, but a Pantsir cannot. The mod now carries
