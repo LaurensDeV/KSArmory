@@ -198,10 +198,8 @@ internal static class KsaWorld
 
         try
         {
-            if (!TryCursorDirectionEcl(out double3 direction)) return false;
+            if (!TryCursorRayEcl(out double3 eye, out double3 direction)) return false;
             if (Universe.CurrentSystem is not { } system) return false;
-
-            double3 eye = CameraPositionEcl();
             Celestial? nearest = null;
             double3 nearestHit = default;
             double nearestRange = double.MaxValue;
@@ -740,6 +738,55 @@ internal static class KsaWorld
     /// framebuffer, while ImGui reports the cursor across every window. <see cref="CursorAim"/>
     /// holds that subtraction.</para>
     /// </summary>
+    /// <summary>
+    /// The cursor's ray, origin and direction taken from the <em>same</em> camera.
+    ///
+    /// <para>That is the whole point of it existing next to
+    /// <see cref="TryCursorDirectionEcl"/>: a direction is identical in Ego and Ecl so it can be
+    /// read off whichever viewport the pointer is over, but an origin cannot. Pairing a direction
+    /// from one camera with a position from another puts the ray a viewport apart from the
+    /// pointer, and everything solved along it lands beside where it was aimed.</para>
+    ///
+    /// <para><c>ScreenToEgoRay</c> returns an origin of zero, because Ego <em>is</em> that
+    /// camera's frame — so the origin in Ecl is that camera's own position.</para>
+    /// </summary>
+    public static bool TryCursorRayEcl(out double3 originEcl, out double3 directionEcl)
+    {
+        originEcl = default;
+        directionEcl = default;
+        try
+        {
+            float2 cursor = ImGui.GetMousePos();
+
+            for (int i = 0; i < Program.Viewports.Count; i++)
+            {
+                Viewport v = Program.Viewports[i];
+                if (!v.Visible || v.IsOffscreen) continue;
+
+                if (!CursorAim.TryToViewport(cursor, v.Position, v.Width, v.Height,
+                                             out float2 local))
+                {
+                    continue;
+                }
+
+                if (v.GetCamera() is not { } camera) continue;
+
+                double3 direction = camera.ScreenToEgoRay(local).Direction;
+                if (!CursorAim.IsUsableDirection(direction)) continue;
+
+                originEcl = camera.EgoToEcl(Vec.Zero);
+                directionEcl = Vec.Unit(direction);
+                return Vec.IsFinite(originEcl);
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static bool TryCursorDirectionEcl(out double3 directionEcl)
     {
         directionEcl = default;
