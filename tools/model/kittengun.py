@@ -182,8 +182,24 @@ def join_all(name):
     return joined
 
 
+# Character attachments are authored in the rig's centimetre space, not metres. The kitten is
+# drawn through CharacterAvatar.Core.Scale = 0.01, and GetBoneTransform returns the bone matrix
+# already carrying that 0.01 -- so a mesh in metres arrives a hundred times too small. Core's own
+# attachments measure 80.6 units (helmet) and 48.3 (MMU), which is 0.81 m and 0.48 m once scaled.
+#
+# Applied at export rather than in the dimensions above, so the numbers in this file stay in
+# metres and mean what they say. It is baked into the vertices, *not* left on the object: KSA's
+# StaticMeshRenderable.Draw writes one instance transform per asset and never reads the glTF's
+# node transforms, so an object-level scale would silently do nothing.
+CHARACTER_SPACE = 100.0
+
+
 def export(path):
-    join_all("KittenGun")
+    gun = join_all("KittenGun")
+
+    gun.scale = (CHARACTER_SPACE, CHARACTER_SPACE, CHARACTER_SPACE)
+    bpy.context.view_layer.objects.active = gun
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
 
     bpy.ops.object.select_all(action="DESELECT")
     bpy.ops.export_scene.gltf(

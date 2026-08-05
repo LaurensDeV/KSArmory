@@ -313,6 +313,25 @@ each already cost time. Three worth repeating here:
   an unrelated assembly onto the same plane. To change which group a primitive belongs to without
   disturbing anything, set `_group` around the existing call rather than moving the call.
 
+**A character attachment is authored in centimetres, a part in metres.** The kitten is drawn
+through `CharacterAvatar.Core.Scale = 0.01`, and `GetBoneTransform` returns a bone matrix that
+already carries it — so a mesh exported in metres arrives a hundred times too small. Core's own
+attachments measure 80.6 glTF units (helmet) and 48.3 (MMU); ours is 33.8. At metre scale the gun
+rendered 3.4 mm long, buried in the fur: it loaded, registered, drew every frame, and was
+invisible, with nothing in any log.
+
+**And the scale must be baked into the vertices.** `StaticMeshRenderable.Draw` writes one instance
+transform per asset and never reads the glTF's node transforms — `GltfPbrAssetRef.SceneGraph` is
+assigned and never read anywhere in the engine. A scale left on the Blender object is silently
+discarded. `tools/model/kittengun.py` applies `CHARACTER_SPACE` and then `transform_apply`s it for
+exactly that reason.
+
+**Nothing else in that pipeline fails quietly.** A bad material Id, a missing bone, a null material
+slot and a failed asset load all throw, and `AssetManager.GetOrLoad` rethrows rather than
+swallowing. The only silent no-draws are `Visible == false` and a glTF with no mesh primitives. So
+an attachment that is present but unseen is a *geometry* problem — wrong units, wrong winding, or
+wrapped around the camera — not a materials or registration one.
+
 **The atlas is not byte-reproducible.** Blender's exporter does not emit triangles in a stable
 order, so a rebuild from unchanged sources gives a different file — same positions, normals and
 UVs, permuted index buffer. `git status` showing it modified after a build therefore means
