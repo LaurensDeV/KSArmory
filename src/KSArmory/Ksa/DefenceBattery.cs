@@ -126,6 +126,10 @@ internal sealed class DefenceBattery(Config config)
     // Radar.Locked is routinely null while the tail of one is still leaving the barrel.
     private Track? _burstTrack;
 
+    // Whether the turret is laid on the cannon's ballistic lead rather than on the target. Set by
+    // AimPointEcl, which is the only place the choice is made.
+    private bool _ringIsOnGunLead;
+
     /// <summary>Rounds left in the cannon belt.</summary>
     public int GunAmmo => _guns.Ammo;
 
@@ -185,11 +189,28 @@ internal sealed class DefenceBattery(Config config)
     /// different case, and holds fire. See <see cref="FireGate"/>.</para>
     /// </summary>
     public bool IsLaid => FireGate.IsLaid(
-        aiming: _config.TurretTracking && !_config.TurretManual && !_config.TurretSpin,
+        aiming: Aiming,
         trains: _profile.Trains,
         drivesAccepted: _drives.AimingAccepted,
         assembliesResolved: _profile.PodsMarker is null || PodsPart is not null,
         settled: Turret.IsLaid(_profile.SettleSeconds));
+
+    /// <summary>
+    /// The same question for the cannon, which share only the traverse with the pods.
+    ///
+    /// <para>Asking <see cref="IsLaid"/> instead reads the missiles' drive latch and the missiles'
+    /// subpart, so a refused pod elevation — or a pods marker that resolved to nothing — silenced
+    /// a cannon that was working perfectly.</para>
+    /// </summary>
+    public bool GunsAreLaid => FireGate.IsLaid(
+        aiming: Aiming,
+        trains: _profile.Trains,
+        drivesAccepted: _drives.GunAimingAccepted,
+        assembliesResolved: _profile.GunsMarker is null || GunsPart is not null,
+        settled: Turret.IsLaid(_profile.SettleSeconds));
+
+    // Slewing onto a track, rather than stowed or driven from the panel.
+    private bool Aiming => _config.TurretTracking && !_config.TurretManual && !_config.TurretSpin;
 
     public void PinPlatform(Vehicle? v)
     {
@@ -443,6 +464,11 @@ internal sealed class DefenceBattery(Config config)
         // than announcing a refusal, because it will be back next frame.
         if (!IsLaid) return;
 
+        // IsLaid only says the drives settled on the *commanded* bearing, and inside the envelope
+        // overlap that command is the cannon's ballistic lead. Releasing then puts the missile
+        // along a tube pointing ~18 degrees off the target.
+        if (!FireGate.MissilesMayFire(_ringIsOnGunLead, _profile.LaunchAlongTube)) return;
+
         Track target = Radar.Locked!;
         if (!ThreatModel.MayEngage(target, _config.Iff)) return;
         if (!ThreatModel.HasSalvoCapacity(target, _config.RoundsPerTarget)) return;
@@ -481,6 +507,7 @@ internal sealed class DefenceBattery(Config config)
     // both of those together.
     private double3 AimPointEcl(Track aim)
     {
+        _ringIsOnGunLead = false;
         if (!GunsHaveTheEngagement(aim)) return aim.PositionEcl;
 
         MunitionProfile shell = Arsenal.MunitionNamed(_profile.GunMunition!);
@@ -490,17 +517,24 @@ internal sealed class DefenceBattery(Config config)
         // velocity already in it, so the only motion it has to lead is the difference.
         double3 relative = aim.VelocityEcl - KsaWorld.VelocityEcl(Platform!);
 
-        return BallisticLead.TrySolve(MountEcl, aim.PositionEcl, relative,
-                                      shell.LaunchSpeed, gravity, out double3 lead)
-            ? lead
-            : aim.PositionEcl;
+        if (!BallisticLead.TrySolve(MountEcl, aim.PositionEcl, relative,
+                                    shell.LaunchSpeed, gravity, out double3 lead))
+        {
+            return aim.PositionEcl;
+        }
+
+        // Recorded rather than recomputed at the missile gate: a solve that fails leaves the ring
+        // on the target, which the missiles can use, so only the write that actually happened
+        // decides whether they are held.
+        _ringIsOnGunLead = true;
+        return lead;
     }
 
     // Whether the cannon are the weapon this engagement belongs to: inside their envelope, and
     // with the missiles either switched off or unable to reach.
     private bool GunsHaveTheEngagement(Track aim)
-        => _profile.HasCannon && _config.GunsEnabled && !_guns.IsEmpty
-           && aim.Range >= _profile.GunMinRange && aim.Range <= _profile.GunMaxRange;
+        => FireGate.GunsHaveTheEngagement(_profile.HasCannon, _config.GunsEnabled, !_guns.IsEmpty,
+                                          aim.Range, _profile.GunMinRange, _profile.GunMaxRange);
 
     // Fired along the barrel: the lead is in where the turret is pointing, so aiming the shell
     // itself as well would apply it twice.
@@ -559,8 +593,7 @@ internal sealed class DefenceBattery(Config config)
         }
 
         bool wantToFire = _config.AutoEngage && _config.Armed && _config.GunsEnabled
-                          && IsOperational && IsLaid
-                          && _drives.Works(DriveChannel.Guns)
+                          && IsOperational && GunsAreLaid
                           && Radar.Locked is { } locked
                           && ThreatModel.MayEngage(locked, _config.Iff)
                           && locked.Range >= _profile.GunMinRange
@@ -577,7 +610,7 @@ internal sealed class DefenceBattery(Config config)
                 string range = Radar.Locked is { } t ? $"{t.Range:F0} m" : "no lock";
                 return $"cannon: want={wantToFire} ammo={_guns.Ammo} burst={_guns.BurstRemaining} "
                        + $"cd={_guns.Cooldown:F3} armed={_config.Armed} auto={_config.AutoEngage} "
-                       + $"enabled={_config.GunsEnabled} laid={IsLaid} drive={_drives.Works(DriveChannel.Guns)} "
+                       + $"enabled={_config.GunsEnabled} laid={GunsAreLaid} drive={_drives.Works(DriveChannel.Guns)} "
                        + $"part={(GunsPart is not null)} range={range} "
                        + $"envelope={_profile.GunMinRange:F0}-{_profile.GunMaxRange:F0} m";
             });

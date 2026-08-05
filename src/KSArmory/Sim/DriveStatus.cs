@@ -36,8 +36,17 @@ public struct DriveStatus
     /// <summary>True once any channel has been refused.</summary>
     public readonly bool AnyRefused => _refused != 0;
 
-    /// <summary>True while both channels that aim the tubes are still accepted.</summary>
+    /// <summary>True while both channels that aim the missile tubes are still accepted.</summary>
     public readonly bool AimingAccepted => Works(DriveChannel.Turret) && Works(DriveChannel.Pods);
+
+    /// <summary>
+    /// True while both channels that aim the cannon are still accepted.
+    ///
+    /// <para>Separate from <see cref="AimingAccepted"/> because the two weapons share only the
+    /// traverse. Reading the missiles' pair silenced a cannon whose own drive and subpart were
+    /// fine, which is the whole reason the latches are per channel.</para>
+    /// </summary>
+    public readonly bool GunAimingAccepted => Works(DriveChannel.Turret) && Works(DriveChannel.Guns);
 
     public void Clear() => _refused = 0;
 

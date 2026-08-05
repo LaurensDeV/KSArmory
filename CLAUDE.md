@@ -776,6 +776,19 @@ per `DriveChannel`, so a refused search-array spin — cosmetic — no longer fr
 the pods and the cannon with it. `Reset()` clears the latches, because they record what one
 vehicle's part tree refused and a new platform deserves a fresh assessment.
 
+**Being laid is asked per weapon, for the same reason.** The cannon and the pods share only the
+traverse, so `GunsAreLaid` reads `GunAimingAccepted` and the guns' own subpart while `IsLaid`
+reads the pods'. Pointing both at one flag silenced a working cannon whenever a pod elevation was
+refused — or whenever the pods marker resolved to nothing, which needs no engine refusal at all.
+
+**Only one weapon can own the bearing, and the cannon win the overlap.** The turret lays on the
+gun's *ballistic lead* whenever `FireGate.GunsHaveTheEngagement`, and rounds leave along the tube
+— so a missile released in that state departs ~18° off a 300 m/s crosser. `FireGate.MissilesMayFire`
+holds them. The gate asks where the ring actually points rather than whether the guns are in
+range, because a lead solve that fails leaves the ring on the target, which the missiles can use.
+Proportional navigation recovered from the off-axis launch well enough that only arithmetic found
+it, which is the whole reason the condition is now a tested function rather than an assumption.
+
 **The class is `DefenceBattery`, not `Battery`.** `KSA.Battery` already exists as the game's
 electrical battery, and these files have `using KSA;`.
 

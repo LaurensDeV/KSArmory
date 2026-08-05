@@ -173,4 +173,39 @@ public class DriveFailureTests
 
         Assert.Equal(double.DegreesToRadians(30), turret.CommandElevationRad!.Value, 9);
     }
+
+    /// <summary>
+    /// The cannon and the missiles share only the traverse, so a refused pod elevation must not
+    /// silence a gun whose own drive the engine is still accepting.
+    /// </summary>
+    [Fact]
+    public void ARefusedPodDriveDoesNotStopTheCannonAiming()
+    {
+        var drives = new DriveStatus();
+        drives.Refuse(DriveChannel.Pods);
+
+        Assert.False(drives.AimingAccepted);
+        Assert.True(drives.GunAimingAccepted);
+    }
+
+    [Fact]
+    public void ARefusedGunDriveDoesNotStopTheMissilesAiming()
+    {
+        var drives = new DriveStatus();
+        drives.Refuse(DriveChannel.Guns);
+
+        Assert.True(drives.AimingAccepted);
+        Assert.False(drives.GunAimingAccepted);
+    }
+
+    /// <summary>The traverse is shared, so losing it stops both.</summary>
+    [Fact]
+    public void ARefusedTraverseStopsBoth()
+    {
+        var drives = new DriveStatus();
+        drives.Refuse(DriveChannel.Turret);
+
+        Assert.False(drives.AimingAccepted);
+        Assert.False(drives.GunAimingAccepted);
+    }
 }
