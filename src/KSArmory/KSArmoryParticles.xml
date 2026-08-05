@@ -7,6 +7,15 @@
   Id that could be renamed. Colour components above 1 are deliberate - Core's ThrusterSparks runs
   at 15/11/6 - because the renderer is HDR and that is what makes a fireball bloom rather than
   read as flat orange paint.
+
+  ParticleSpawnLogic is radial, never Fountain. Fountain builds a cone about the emitter's local
+  +X, and a burst placed in a body-fixed frame has its model matrix forced to identity - so that
+  +X is a fixed direction in the world and every explosion sprays the same way regardless of what
+  blew up. ScatterFromCenter and MoveAwayFromCenter take their direction from each particle's own
+  offset from the centre, so they need no orientation to be correct.
+
+  No InheritVelocity: these are hung on a celestial with no vehicle, so there is nothing to
+  inherit from and the setting could only mislead whoever reads it next.
 -->
 <Assets>
     <!-- Proximity kill: a bright short-lived ball with a slower debris shell inside it. -->
@@ -27,12 +36,11 @@
         <EmitterExtents X="1.5" Y="0" Z="0"/>
         <SpawnRate Value="192"/>
         <Force X="0" Y="0" Z="0" />
-        <InheritVelocity Value="true"/>
         <!--Particle Data-->
         <ParticleColor X="18" Y="8" Z="2" W="1"/>
         <ParticleColorShift X="0.35" Y="0.2" Z="0"/>
         <ParticleLifespan X="0.35" Y="1.1"/>
-        <ParticleSpawnLogic>Fountain</ParticleSpawnLogic>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
         <ParticleSize X="0.6" Y="2.2"/>
         <ParticleVelocity X="26" Y="26" Z="26"/>
         <ParticleVelocityShift Value="0.8"/>
@@ -55,11 +63,10 @@
             <EmitterExtents X="0.6" Y="0" Z="0"/>
             <SpawnRate Value="96"/>
             <Force X="0" Y="0" Z="0" />
-            <InheritVelocity Value="true"/>
             <ParticleColor X="6" Y="2.2" Z="0.4" W="1"/>
             <ParticleColorShift X="0.5" Y="0.3" Z="0"/>
             <ParticleLifespan X="0.8" Y="2.4"/>
-            <ParticleSpawnLogic>Fountain</ParticleSpawnLogic>
+            <ParticleSpawnLogic>MoveAwayFromCenter</ParticleSpawnLogic>
             <ParticleSize X="0.12" Y="0.4"/>
             <ParticleVelocity X="55" Y="55" Z="55"/>
             <ParticleVelocityShift Value="1"/>
@@ -88,11 +95,10 @@
         <EmitterExtents X="0.6" Y="0" Z="0"/>
         <SpawnRate Value="64"/>
         <Force X="0" Y="0" Z="0" />
-        <InheritVelocity Value="true"/>
         <ParticleColor X="4" Y="3.2" Z="2.4" W="1"/>
         <ParticleColorShift X="0.2" Y="0.2" Z="0"/>
         <ParticleLifespan X="0.3" Y="0.9"/>
-        <ParticleSpawnLogic>Fountain</ParticleSpawnLogic>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
         <ParticleSize X="0.2" Y="0.7"/>
         <ParticleVelocity X="18" Y="18" Z="18"/>
         <ParticleVelocityShift Value="0.8"/>
