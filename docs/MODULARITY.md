@@ -264,7 +264,7 @@ tubes that reload from a rack too.
 | 4 | **Magazine decoupled from tubes** — `LauncherProfile.MagazineDepth` | **done** |
 | 5 | **Per-craft weapon manager** | **not started** |
 
-**None of 1–4 has been flown.** They are covered by tests — 295 now — and every regression check
+**None of 1–4 has been flown.** They are covered by tests — 353 now — and every regression check
 was verified against the bug it guards, but this repository has repeatedly shipped changes that
 compiled, passed and were still wrong in flight. Treat them as unverified until a salvo says
 otherwise.

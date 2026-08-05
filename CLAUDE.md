@@ -131,7 +131,7 @@ Split unrelated work into separate commits rather than one large one: the change
 from these, so a commit that does three things describes none of them well.
 
 **Do not commit a behaviour fix as a fix until it has been verified in game.** Compiling, passing
-the 353 tests, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
+the suite, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
 the gap between the maths and what KSA actually does, and that gap is only visible in flight. The
 round-body zigzag cost three such commits: a sim-step-gating change and an offset-extrapolation
 change, both shipped as fixes for a cause not yet diagnosed, and neither was it. The answer was in
@@ -178,6 +178,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ## Commands
 
 ```bash
+./tools/doctor.sh                          # can this machine build, test and run it? -- start here
 ./tools/build.sh                           # build the mod (handles the SDK PATH)
 ./tools/test.sh                            # guidance + fuse tests, no game needed
 ./tools/validate-parts.py                  # check part XML + launch geometry -- run after editing either
@@ -185,6 +186,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
 ./tools/check-comments.sh                  # history in comments, XML docs on privates, ratios
+./tools/check-docs.sh                      # layout table, API counts and KSA build vs reality
 ./tools/package.sh                         # release zip into dist/ -- no symbols, no game DLLs
 ./tools/deploy.sh                          # build and install into the KSA mods folder
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
@@ -225,9 +227,17 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives |
+| `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
+| `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
+| `Sim/DriveStatus.cs` | which drives the engine is still accepting writes for, latched per channel |
+| `Sim/GunChannel.cs` | the cannon's belt, burst position and next-round timing |
+| `Sim/BallisticLead.cs` | where an unguided round must be aimed to arrive where the target will be |
+| `Sim/Aimpoint.cs` | what a round is shooting at — craft, component or coordinate |
 | `Sim/ThreatModel.cs` | CPA threat classification, priority, engagement envelope |
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
+| `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
+| `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
@@ -237,9 +247,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
 | `Ksa/Ui.cs`, `Ksa/Visuals.cs` | ImGui panel, gizmo rendering |
+| `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
 | `Ksa/Track.cs` | a radar contact bound to a KSA vehicle |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the battery can see and why |
+| `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the launcher part — at the mod root, mirroring Core |
 | `src/KSArmory/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
@@ -393,7 +405,9 @@ hemisphere regardless of where the tubes are aimed, and the spinning array is co
 ## Adding a weapon system
 
 The mod is built around three profile types and a registry, so a new launcher, round or sensor
-is **data plus art**, not new logic. Nothing in `Sim/` or `Ksa/` names the Pantsir.
+is **data plus art**, not new logic. No fire-control, guidance or drive code names the Pantsir —
+it is named in `Sim/Arsenal.cs`, which is the registry and is meant to, and once in `Sim/Config.cs`
+as the default selection. Anything else naming it is a doc comment citing what it was modelled on.
 
 1. **Model it.** Copy `tools/model/pantsir.py`, keep the group/pivot conventions, and export
    into the same atlas. Run `tools/model/checkmesh.py` — it fails the build on the two defects
@@ -425,10 +439,10 @@ never be committed here or published anywhere**.
 
 They live instead in the private repository **`LaurensDeV/ksa-game-assemblies`**, checked out by
 CI with a **read-only deploy key** held in the `KSA_ASSEMBLIES_KEY` secret. Keeping your own
-licensed copy privately is fine; publishing it is not. Only the nine assemblies the projects
-actually reference are kept — verified as the minimum that both builds the mod and runs its
-tests — and `tools/sync-assemblies.sh` refreshes them after a KSA update, refusing if a csproj
-references something it does not know to copy.
+licensed copy privately is fine; publishing it is not. `tools/sync-assemblies.sh` refreshes the
+mirror after a KSA update, refusing if a csproj references something it does not know to copy.
+It mirrors the whole SDK by default — see *The mirror is a general KSA SDK* below for why, and
+for the `--subset` flag that restores the nine assemblies this repository alone references.
 
 `Directory.Build.props` resolves the folder in tiers, first match wins: `KSA_DLL_DIR` (what CI
 sets), then `Import/`, then a sibling `ksa-game-assemblies` checkout, then the game install. So
@@ -510,7 +524,7 @@ CI is split the same way the source is:
   `palette.py` is re-run and the textures diffed, so hand-edited PNGs are caught before the next
   model build silently reverts them. Plus shellcheck, XML well-formedness and a check that no
   `.dll` is tracked.
-- **`build` (hosted)** — the real build, the 353 tests, `validate-parts.py` and the package,
+- **`build` (hosted)** — the real build, the tests, `validate-parts.py` and the package,
   against the checked-out assemblies. If the secret is absent — a fork — the job skips with a
   notice instead of failing on something a contributor cannot fix.
 
@@ -779,7 +793,9 @@ should not be weakened without understanding what they buy:
   dropping the subpart link and never culled or clamped. The gizmo tracers stay on as a fallback
   anyway, and `DefenceBattery.RoundBodiesWork` still turns the whole thing off if a write is
   refused — the engine is under no obligation to keep behaving this way.
-- The guns do not move. They are fixed in the turret mesh, so they traverse but never elevate.
+- The guns elevate on the same solution as the pods — one turret, one aim. What they do not have
+  is a firing solution of their own, so the cannon cannot engage a different target from the
+  missiles.
 - Radar boresight is local "up" regardless of where the launcher is aimed, so the search volume
   does not follow the turret.
 - The model has no normal or occlusion detail — flat palette swatches only. Faceted lighting is

@@ -105,7 +105,7 @@ faster way to ask a narrow question:
 cd tools/apidump && dotnet run -- ../../Import members KSA.Vehicle
 ```
 
-The 353 tests do not touch KSA, so they passing proves the simulation still works, **not** that
+The tests do not touch KSA, so they passing proves the simulation still works, **not** that
 the game binding does. Anything found in step 3 that survives into runtime behaviour needs a
 line in `CHECKLIST.md`.
 
