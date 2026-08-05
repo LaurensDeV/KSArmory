@@ -32,7 +32,9 @@ EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
 ENV CLASSIFIER_DIR=/app/model
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD ["dotnet", "--info"]
+# The service asking itself: there is no curl or wget here, and `dotnet --info` passes while it
+# is dead.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["dotnet", "Feedback.dll", "--healthcheck"]
 
 ENTRYPOINT ["dotnet", "Feedback.dll"]

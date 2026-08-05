@@ -1,25 +1,24 @@
 # Infrastructure
 
-`ksarmory.com`, as code. OpenTofu, one layer, no server of its own.
+`ksarmory.com` and the machine behind it, as code. OpenTofu, two layers, one
+R2 bucket for state.
 
-The site is served by a VPS this repository does not manage: Caddy on that
-machine terminates TLS, holds the Let's Encrypt certificate, and reverse-proxies
-to a container built from `site/`. **What lives here is the domain and the thing
-being served; what lives there is the machine.**
+| Layer | State key | What it owns |
+| --- | --- | --- |
+| `infra/dns` | `ksarmory/dns.tfstate` | the Cloudflare records |
+| `infra/services` | `ksarmory/services.tfstate` | Caddy and the feedback service on the VPS |
 
-That split is deliberate. Two repositories cannot both own one Caddyfile, and
-this one is public while the server's is not.
-
-| Here | There |
-| --- | --- |
-| `infra/dns` — the Cloudflare records | the VPS, Docker Swarm, Caddy |
-| `site/` — what is served, published to GHCR | a `site_image` value naming the tag to run |
+The split is by change cadence, not by subject: records change when a hostname
+is added, services change on every deploy of the image.
 
 ## Applying
 
+Each layer takes the same two files, both gitignored and neither belonging in a
+commit:
+
 ```bash
-cd infra/dns
-cp .env.example .env               # Cloudflare token, zone id, VPS addresses
+cd infra/<layer>
+cp .env.example .env               # what this layer needs
 cp backend.hcl.example backend.hcl # R2 credentials for the state
 chmod 600 .env backend.hcl
 
@@ -28,11 +27,10 @@ tofu init -backend-config=backend.hcl
 tofu plan
 ```
 
-Both files are gitignored. Neither belongs in a commit.
-
 The Cloudflare token needs **Zone:Read** and **DNS:Edit**, scoped to this zone
-alone: *My Profile → API Tokens → Create Token → Edit zone DNS*. The zone ID is
-on the domain's overview page.
+alone: *My Profile → API Tokens → Create Token → Edit zone DNS*. An R2 token is
+not one of these — it can read the state bucket and sees no zones at all, which
+the API reports as an empty list rather than an error.
 
 ## Records
 
@@ -47,6 +45,27 @@ Everything but the apex is a CNAME, so the VPS address appears once and moving
 the site is one change rather than four. Add a name by putting it in
 `var.subdomains`; `api` is there by default.
 
+## Services
+
+`api.ksarmory.com` serves the feedback endpoint. The apex and `www` redirect to
+the project page, there being no site to serve yet.
+
+The image is built by `.github/workflows/feedback-image.yml` and deployed **by
+digest**, so a moved tag cannot silently change what runs. `var.feedback_image`
+empty means the service is not deployed, and Caddy then routes to nothing —
+set it to the digest that workflow prints.
+
+Caddy holds `:80` and `:443` as a single replica with a `stop-first` update, so
+a bad Caddyfile takes the site down rather than rolling back. Render it before
+applying:
+
+```bash
+tofu console <<<'local.caddyfile'
+```
+
+`caddy-data` carries the certificates and the ACME account. Deleting that volume
+means re-issuing, and Let's Encrypt rate-limits per domain per week.
+
 ## Two things that will bite
 
 **Records are DNS-only, not proxied.** Caddy answers the ACME HTTP-01 challenge
@@ -59,13 +78,6 @@ because the API rejects anything else.
 **A record without a matching Caddy site block is worse than no record.** Caddy
 serves the names in its Caddyfile and fails the TLS handshake for everything
 else, so a name that resolves but is not configured looks like a broken site
-rather than an absent one. Add the record and the site block together.
-
-## The VPS address is written down twice
-
-Once here, once in the repository that provisions the machine. That layer
-exposes it as state output and this one could read it, which would remove the
-duplication and add a dependency on a private repository's state bucket and key.
-
-Given this repository is public and the address changes roughly never, the
-duplication is the cheaper of the two.
+rather than an absent one. The two layers are applied separately, so this is a
+real window rather than a theoretical one — but DNS has to exist first, because
+Caddy cannot pass an ACME challenge for a name that does not resolve.

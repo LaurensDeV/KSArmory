@@ -283,6 +283,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `infra/dns/` | ksarmory.com's Cloudflare records, as OpenTofu; see `infra/README.md` |
+| `infra/services/` | Caddy and the feedback service on the VPS, same |
+| `services/feedback/` | the endpoint that takes in-game bug reports and files them as issues |
+| `tests/Feedback.Tests/` | its text rules and the log gate, needing neither the game nor the model |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-API-SURFACE.md` | **generated** — the 266 members an upgrade has to preserve |

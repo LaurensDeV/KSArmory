@@ -43,6 +43,15 @@ public static class Program
 
     public static void Main(string[] args)
     {
+        // The container has no curl or wget, so the health check is this program asking itself.
+        // Without it the only available check is `dotnet --info`, which passes while the service
+        // is dead.
+        if (args.Contains("--healthcheck"))
+        {
+            Environment.Exit(IsHealthy() ? 0 : 1);
+            return;
+        }
+
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
         // Refusing an oversized body at the socket, before any of it is read into memory.
@@ -227,6 +236,33 @@ public static class Program
         .WithRequestTimeout(TimeSpan.FromSeconds(20));
 
         app.Run();
+    }
+
+    /// <summary>
+    /// <summary>
+    /// Whether the service answers its own health endpoint.
+    ///
+    /// <para>Reads the port from <c>ASPNETCORE_URLS</c> rather than assuming one, so a container
+    /// started on a different port is checked on that port instead of reporting a false failure
+    /// forever.</para>
+    /// </summary>
+    private static bool IsHealthy()
+    {
+        try
+        {
+            string urls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://+:8080";
+            string port = urls.Split(':').LastOrDefault()?.TrimEnd('/') ?? "8080";
+
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(4) };
+            using HttpResponseMessage response =
+                client.GetAsync($"http://127.0.0.1:{port}/health").GetAwaiter().GetResult();
+
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>
