@@ -14,9 +14,9 @@ does not look like a cloud of identical discs. Alpha carries the shape; RGB is w
 ParticleColor alone decides the tint.
 
 Writes, next to the mod's other textures:
-    Textures/AirDefence_Smoke_Diffuse.png     white, alpha = the puff
-    Textures/AirDefence_Smoke_Normal.png      flat
-    Textures/AirDefence_Smoke_PBR.png         unoccluded, fully rough, non-metal
+    Textures/KSArmory_Smoke_Diffuse.png     white, alpha = the puff
+    Textures/KSArmory_Smoke_Normal.png      flat
+    Textures/KSArmory_Smoke_PBR.png         unoccluded, fully rough, non-metal
 
     ./tools/model/smokepuff.py            regenerate
     ./tools/model/smokepuff.py --check    fail if the committed files differ
@@ -97,9 +97,9 @@ def build() -> dict[str, Image.Image]:
             pixels[x, y] = (255, 255, 255, max(0, min(255, int(a * 255.0 + 0.5))))
 
     return {
-        "AirDefence_Smoke_Diffuse.png": diffuse,
-        "AirDefence_Smoke_Normal.png": Image.new("RGB", (SIZE, SIZE), (128, 128, 255)),
-        "AirDefence_Smoke_PBR.png": Image.new("RGB", (SIZE, SIZE), (255, 255, 0)),
+        "KSArmory_Smoke_Diffuse.png": diffuse,
+        "KSArmory_Smoke_Normal.png": Image.new("RGB", (SIZE, SIZE), (128, 128, 255)),
+        "KSArmory_Smoke_PBR.png": Image.new("RGB", (SIZE, SIZE), (255, 255, 0)),
     }
 
 

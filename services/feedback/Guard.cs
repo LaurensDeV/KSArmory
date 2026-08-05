@@ -141,11 +141,12 @@ public static partial class Guard
     /// </summary>
     public readonly record struct Condensed(IReadOnlyList<string> Lines, bool Whole);
 
-    // What Condense will read at most. A real log condenses to about 300 characters over a dozen
-    // lines, so this is twenty-odd times the headroom it needs; the ceiling is there so a hostile
-    // log cannot turn one scan into a minute of model passes.
+    // What Condense will read at most. Measured against a real log, 12 KB of it condenses to 25
+    // lines and 1,627 characters, so these are several times the headroom it needs — and the
+    // headroom is the point, because exceeding them withholds the log. The ceiling exists so a
+    // hostile log cannot turn one scan into a minute of model passes.
     private const int CondenseLine = 400;
-    private const int CondenseLines = 32;
+    private const int CondenseLines = 96;
     private const int CondenseBudget = 8_000;
 
     /// <summary>

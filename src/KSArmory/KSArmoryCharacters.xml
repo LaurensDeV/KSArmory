@@ -46,9 +46,9 @@
         <Source Id="KSArmoryKittenGunGlb"/>
         <Socket Name="Head_M"/>
         <Materials>
-            <Diffuse Path="Textures/AirDefence_Diffuse.png" Category="Default"/>
-            <Normal Path="Textures/AirDefence_Normal.png" Category="Default"/>
-            <AoRoughMetal Path="Textures/AirDefence_PBR.png" Category="Default"/>
+            <Diffuse Path="Textures/KSArmory_Diffuse.png" Category="Default"/>
+            <Normal Path="Textures/KSArmory_Normal.png" Category="Default"/>
+            <AoRoughMetal Path="Textures/KSArmory_PBR.png" Category="Default"/>
         </Materials>
         <Transform>
             <Position X="0" Y="0" Z="0"/>

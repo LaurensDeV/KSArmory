@@ -58,14 +58,14 @@ echo "generating palette textures..."
 "$REPO_ROOT/tools/model/palette.py"
 
 mkdir -p "$WORK"
-cp "$REPO_ROOT/src/KSArmory/Textures/AirDefence_Diffuse.png" "$WORK/"
+cp "$REPO_ROOT/src/KSArmory/Textures/KSArmory_Diffuse.png" "$WORK/"
 cp "$REPO_ROOT/tools/model/palette.json" "$WORK/"
 
 echo
 echo "building mesh (headless Blender)..."
 "$BLENDER" --background \
     --python "$(wslpath -w "$REPO_ROOT/tools/model/pantsir.py")" \
-    -- "$WIN_WORK" "$WIN_WORK\\palette.json" "$WIN_WORK\\AirDefence_Diffuse.png" "$POSE" \
+    -- "$WIN_WORK" "$WIN_WORK\\palette.json" "$WIN_WORK\\KSArmory_Diffuse.png" "$POSE" \
     "${EXPORT_FLAG[@]}" \
     2>&1 | grep -v '^Fra:' | sed '/^$/d'
 
@@ -74,15 +74,15 @@ cp "$WORK/muzzles.json" "$REPO_ROOT/tools/model/"
 
 if [[ $PREVIEWS_ONLY -eq 0 ]]; then
     mkdir -p "$REPO_ROOT/src/KSArmory/Meshes"
-    cp "$WORK/AirDefence_MeshAtlas.glb" "$REPO_ROOT/src/KSArmory/Meshes/"
+    cp "$WORK/KSArmory_MeshAtlas.glb" "$REPO_ROOT/src/KSArmory/Meshes/"
     echo
-    echo "installed src/KSArmory/Meshes/AirDefence_MeshAtlas.glb"
-    "$REPO_ROOT/tools/meshinfo.py" "$REPO_ROOT/src/KSArmory/Meshes/AirDefence_MeshAtlas.glb"
+    echo "installed src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
+    "$REPO_ROOT/tools/meshinfo.py" "$REPO_ROOT/src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
 
     # Zero-UV-area triangles and coplanar faces both render as flickering speckle in game and
     # are both invisible in the preview renders above. Fail the build rather than ship either.
     echo
-    "$REPO_ROOT/tools/model/checkmesh.py" "$REPO_ROOT/src/KSArmory/Meshes/AirDefence_MeshAtlas.glb"
+    "$REPO_ROOT/tools/model/checkmesh.py" "$REPO_ROOT/src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
 fi
 
 echo

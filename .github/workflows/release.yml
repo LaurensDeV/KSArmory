@@ -118,7 +118,7 @@ jobs:
 
       - name: Check the mesh
         if: env.HAVE_KEY == 'true'
-        run: ./tools/model/checkmesh.py src/KSArmory/Meshes/AirDefence_MeshAtlas.glb
+        run: ./tools/model/checkmesh.py src/KSArmory/Meshes/KSArmory_MeshAtlas.glb
 
       - name: Package
         if: env.HAVE_KEY == 'true'

@@ -14,8 +14,8 @@ Outputs land in `src/KSArmory/`:
 
 | File | What |
 | --- | --- |
-| `Meshes/AirDefence_MeshAtlas.glb` | `AirDefence_Subpart_{Chassis,Turret}` and their `_VM` previews |
-| `Textures/AirDefence_{Diffuse,PBR,Normal}.png` | the palette |
+| `Meshes/KSArmory_MeshAtlas.glb` | `KSArmory_Subpart_{Chassis,Turret}` and their `_VM` previews |
+| `Textures/KSArmory_{Diffuse,PBR,Normal}.png` | the palette |
 | `tools/model/muzzles.json` | launch geometry, checked against `LauncherPart.cs` |
 
 Previews (`preview_{3q,rear3q,side,front,top}.png`) go to `C:\Windows\Temp\airdefence-model`,
@@ -53,7 +53,7 @@ created with a swatch name and gets **all** its UVs written to that swatch's cen
 material is chosen per-primitive by name, there are no seams, no bakes, and no unwrap step.
 128 px cells mean mipmapping never bleeds one swatch into its neighbour.
 
-`AirDefence_PBR.png` is **R = ambient occlusion, G = roughness, B = metalness**. That is not a
+`KSArmory_PBR.png` is **R = ambient occlusion, G = roughness, B = metalness**. That is not a
 guess: KSA's own `Content/Core/Textures/default_pbr.png` is `(255, 180, 0)` and
 `EmptyAoRoughMetallic.png` is `(255, 255, 0)` — unoccluded, rough, non-metal — matching the
 `<AoRoughMetal>` element name and the glTF ORM convention.
@@ -92,7 +92,7 @@ the model well inside its cell.
 wired in, so the previews look perfect while the part sparkles in KSA. Run the checker:
 
 ```bash
-./tools/model/checkmesh.py src/KSArmory/Meshes/AirDefence_MeshAtlas.glb
+./tools/model/checkmesh.py src/KSArmory/Meshes/KSArmory_MeshAtlas.glb
 ```
 
 It reports zero-UV-area triangles and coplanar face pairs, and exits non-zero on either. It is

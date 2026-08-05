@@ -97,7 +97,7 @@ public static class Arsenal
 
     public static readonly LauncherProfile PantsirS1 = new()
     {
-        PartId = "AirDefence_Prefab_Launcher6",
+        PartId = "KSArmory_Prefab_Launcher6",
         DisplayName = "Pantsir-S1",
         Munition = "57E6",
         Sensor = "1RS1",

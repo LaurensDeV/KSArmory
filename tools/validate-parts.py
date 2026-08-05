@@ -140,10 +140,10 @@ def check_file(path, core_subparts, core_materials):
         #
         # The Core check below is skipped when that library is unavailable - offline, or a
         # different install layout - and that skip used to swallow this case too. A SubPart
-        # instancing an AirDefence_* template that does not exist passed validation and then
+        # instancing an KSArmory_* template that does not exist passed validation and then
         # killed the game on load with "PartTemplate is null". Nothing about that needs Core to
         # detect: if we named it, we declare it.
-        if source.startswith("AirDefence_") and source not in local_subparts:
+        if source.startswith("KSArmory_") and source not in local_subparts:
             print(f"  UNDECLARED SubPart InstanceOf=\"{source}\" - no such template in this file",
                   file=sys.stderr)
             problems += 1

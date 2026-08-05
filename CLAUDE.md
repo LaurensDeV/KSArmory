@@ -864,7 +864,7 @@ only.
 **The launcher ships its own art, and the asset XML lives at the mod root.** It used to
 instance Core's meshes by Id and ship nothing — that worked, and is still the right answer for
 a part that can be assembled from Core's kit, but a Pantsir cannot. The mod now carries
-`Meshes/AirDefence_MeshAtlas.glb` and three PNGs, declared with `<MeshAtlas>` and
+`Meshes/KSArmory_MeshAtlas.glb` and three PNGs, declared with `<MeshAtlas>` and
 `<PbrMaterial>` exactly as Core does.
 
 The XML sits at `src/KSArmory/*.xml` rather than in an `Assets/` subfolder **on purpose**.

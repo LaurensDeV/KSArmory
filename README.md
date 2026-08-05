@@ -72,8 +72,8 @@ More systems are the point of the split, not a promise — see
      mod.toml
      KSArmoryAssets.xml
      KSArmoryGameData.xml
-     Meshes/AirDefence_MeshAtlas.glb
-     Textures/AirDefence_{Diffuse,Normal,PBR}.png
+     Meshes/KSArmory_MeshAtlas.glb
+     Textures/KSArmory_{Diffuse,Normal,PBR}.png
    ```
 
    The folder layout matters, and on Linux so does the **case**. `KSArmoryAssets.xml` refers

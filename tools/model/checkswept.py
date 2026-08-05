@@ -55,10 +55,10 @@ SEATED = 0.06
 # Optic/Turret is the head seated in its socket: the ball's centre sits at the pedestal top, so
 # its lower hemisphere is inside by construction. A ball perched on a post instead would clear
 # this check and look wrong.
-ALLOWED = {("AirDefence_Subpart_Optic", "AirDefence_Subpart_Turret"): 0.30,
-           ("AirDefence_Subpart_Guns", "AirDefence_Subpart_Turret"): 0.30,
-           ("AirDefence_Subpart_Pods", "AirDefence_Subpart_Turret"): 0.22,
-           ("AirDefence_Subpart_Chassis", "AirDefence_Subpart_Turret"): 0.10}
+ALLOWED = {("KSArmory_Subpart_Optic", "KSArmory_Subpart_Turret"): 0.30,
+           ("KSArmory_Subpart_Guns", "KSArmory_Subpart_Turret"): 0.30,
+           ("KSArmory_Subpart_Pods", "KSArmory_Subpart_Turret"): 0.22,
+           ("KSArmory_Subpart_Chassis", "KSArmory_Subpart_Turret"): 0.10}
 
 
 def load_bodies(atlas):
@@ -268,7 +268,7 @@ def depression_floor(bearing_deg, travel):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--atlas", default=str(MOD / "Meshes" / "AirDefence_MeshAtlas.glb"))
+    ap.add_argument("--atlas", default=str(MOD / "Meshes" / "KSArmory_MeshAtlas.glb"))
     ap.add_argument("--muzzles", default=str(Path(__file__).resolve().parent / "muzzles.json"))
     ap.add_argument("--step", type=float, default=2.0, help="elevation step, degrees")
     ap.add_argument("--bearing-step", type=float, default=5.0)
@@ -285,17 +285,17 @@ def main():
     # chassis do not elevate; the array's spin is about the traverse axis, so it cannot change
     # any clearance that the bearing does not already cover.
     elevating = {
-        "AirDefence_Subpart_Pods": (muzzles["pod_pivot_from_turret"],
+        "KSArmory_Subpart_Pods": (muzzles["pod_pivot_from_turret"],
                                     math.radians(muzzles["pod_reference_elevation_deg"])),
-        "AirDefence_Subpart_Guns": (muzzles["gun_pivot_from_turret"],
+        "KSArmory_Subpart_Guns": (muzzles["gun_pivot_from_turret"],
                                     math.radians(muzzles["gun_reference_elevation_deg"])),
     }
     riding = dict(elevating)
-    riding["AirDefence_Subpart_Turret"] = ((0.0, 0.0, 0.0), 0.0)
-    riding["AirDefence_Subpart_Radar"] = (muzzles["radar_pivot_from_turret"], 0.0)
-    riding["AirDefence_Subpart_Optic"] = (muzzles["eo_pivot_from_turret"], 0.0)
+    riding["KSArmory_Subpart_Turret"] = ((0.0, 0.0, 0.0), 0.0)
+    riding["KSArmory_Subpart_Radar"] = (muzzles["radar_pivot_from_turret"], 0.0)
+    riding["KSArmory_Subpart_Optic"] = (muzzles["eo_pivot_from_turret"], 0.0)
 
-    names = [n for n in sorted(bodies) if n in riding or n == "AirDefence_Subpart_Chassis"]
+    names = [n for n in sorted(bodies) if n in riding or n == "KSArmory_Subpart_Chassis"]
     elevations = [travel["MinElevationDeg"] + i * args.step for i in
                   range(int((travel["MaxElevationDeg"] - travel["MinElevationDeg"]) / args.step) + 1)]
     bearings = [i * args.bearing_step for i in range(int(360 / args.bearing_step))]
@@ -336,7 +336,7 @@ def main():
     for pair in sorted(worst, key=lambda p: -worst[p][0]):
         depth, elev, bearing = worst[pair]
         limit = allowed.get(tuple(sorted(pair)), SEATED)
-        short = tuple(n.replace("AirDefence_Subpart_", "") for n in pair)
+        short = tuple(n.replace("KSArmory_Subpart_", "") for n in pair)
         if depth <= limit:
             print(f"  ok         {short[0]:<8} / {short[1]:<8} "
                   f"max interpenetration {depth * 100:5.1f} cm (allowed {limit * 100:.0f})")
@@ -426,7 +426,7 @@ LIP_MAX_EXTENT = 0.2
 # Bands that are meant to stand proud, by body and cap radius in millimetres. A real interstage
 # collar wraps the joint and stands slightly outside the booster — geometrically the same thing
 # this check exists to catch, so it has to be named rather than inferred.
-DELIBERATE_BANDS = {("AirDefence_Subpart_Missile", 89)}
+DELIBERATE_BANDS = {("KSArmory_Subpart_Missile", 89)}
 
 
 def revolution(prim):
@@ -506,7 +506,7 @@ def check_no_coaxial_lips(bodies):
                 if key in seen:
                     continue
                 seen.add(key)
-                short = name.replace("AirDefence_Subpart_", "")
+                short = name.replace("KSArmory_Subpart_", "")
                 print(f"  LIP        {short:<8} a coaxial cover of radius {cap * 1000:.1f} mm "
                       f"stands {(cap - host) * 1000:.1f} mm proud of the {host * 1000:.1f} mm "
                       f"body it caps")
@@ -527,9 +527,9 @@ def check_vehicle_is_connected(bodies, riding, turret_pivot):
 
     Only the assembled vehicle counts. Stowed rounds sit far off the origin until fired.
     """
-    parts = ("AirDefence_Subpart_Chassis", "AirDefence_Subpart_Turret",
-             "AirDefence_Subpart_Pods", "AirDefence_Subpart_Guns", "AirDefence_Subpart_Radar",
-             "AirDefence_Subpart_Optic")
+    parts = ("KSArmory_Subpart_Chassis", "KSArmory_Subpart_Turret",
+             "KSArmory_Subpart_Pods", "KSArmory_Subpart_Guns", "KSArmory_Subpart_Radar",
+             "KSArmory_Subpart_Optic")
 
     cache = {}
     prims, owners = [], []
@@ -537,7 +537,7 @@ def check_vehicle_is_connected(bodies, riding, turret_pivot):
         if name not in bodies:
             continue
         rest = math.degrees(riding[name][1]) if name in riding else 0.0
-        placed = (bodies[name] if name == "AirDefence_Subpart_Chassis"
+        placed = (bodies[name] if name == "KSArmory_Subpart_Chassis"
                   else placed_body(bodies, riding, name, rest, 0.0, turret_pivot, cache)[0])
         prims.extend(placed)
         owners.extend([name] * len(placed))
@@ -572,7 +572,7 @@ def check_vehicle_is_connected(bodies, riding, turret_pivot):
     for group in order[1:]:
         lo = [min(prims[i].lo[k] for i in group) for k in range(3)]
         hi = [max(prims[i].hi[k] for i in group) for k in range(3)]
-        who = ", ".join(sorted({owners[i].replace("AirDefence_Subpart_", "") for i in group}))
+        who = ", ".join(sorted({owners[i].replace("KSArmory_Subpart_", "") for i in group}))
         print(f"      {len(group):>3} primitive(s) of {who} at "
               f"X[{lo[0]:.2f},{hi[0]:.2f}] Y[{lo[1]:.2f},{hi[1]:.2f}] Z[{lo[2]:.2f},{hi[2]:.2f}]")
     return 1
@@ -585,11 +585,11 @@ def check_attachment(bodies, riding, turret_pivot):
     clean, the pivots agree, and nothing passes through anything. It simply reads as detached,
     which is the one defect a player notices immediately and a tool never does.
     """
-    parents = {"AirDefence_Subpart_Optic": "AirDefence_Subpart_Turret",
-               "AirDefence_Subpart_Pods": "AirDefence_Subpart_Turret",
-               "AirDefence_Subpart_Guns": "AirDefence_Subpart_Turret",
-               "AirDefence_Subpart_Radar": "AirDefence_Subpart_Turret",
-               "AirDefence_Subpart_Turret": "AirDefence_Subpart_Chassis"}
+    parents = {"KSArmory_Subpart_Optic": "KSArmory_Subpart_Turret",
+               "KSArmory_Subpart_Pods": "KSArmory_Subpart_Turret",
+               "KSArmory_Subpart_Guns": "KSArmory_Subpart_Turret",
+               "KSArmory_Subpart_Radar": "KSArmory_Subpart_Turret",
+               "KSArmory_Subpart_Turret": "KSArmory_Subpart_Chassis"}
 
     problems = 0
     for child, parent in sorted(parents.items()):
@@ -601,11 +601,11 @@ def check_attachment(bodies, riding, turret_pivot):
         kid = placed_body(bodies, riding, child, math.degrees(riding[child][1]), 0.0,
                           turret_pivot, cache)[0]
         mum = placed_body(bodies, riding, parent, 0.0, 0.0, turret_pivot, cache)[0] \
-            if parent != "AirDefence_Subpart_Chassis" else bodies[parent]
+            if parent != "KSArmory_Subpart_Chassis" else bodies[parent]
 
         touching = any(not aabb_apart(pa, pb) and sat(pa, pb) > 0.0
                        for pa in kid for pb in mum)
-        short = child.replace("AirDefence_Subpart_", ""), parent.replace("AirDefence_Subpart_", "")
+        short = child.replace("KSArmory_Subpart_", ""), parent.replace("KSArmory_Subpart_", "")
         if touching:
             print(f"  ok         {short[0]:<8} is attached to {short[1]}")
             continue
@@ -622,12 +622,12 @@ def placed_body(bodies, riding, name, elev, bearing, turret_pivot, cache):
     if key in cache:
         return cache[key]
 
-    if name == "AirDefence_Subpart_Chassis":
+    if name == "KSArmory_Subpart_Chassis":
         prims = bodies[name]
     else:
         pivot, reference = riding[name]
-        pitch = math.radians(elev) if name in ("AirDefence_Subpart_Pods",
-                                               "AirDefence_Subpart_Guns") else 0.0
+        pitch = math.radians(elev) if name in ("KSArmory_Subpart_Pods",
+                                               "KSArmory_Subpart_Guns") else 0.0
         fn = placement(pivot, reference, pitch, math.radians(bearing), turret_pivot)
         prims = [p.placed(fn) for p in bodies[name]]
 

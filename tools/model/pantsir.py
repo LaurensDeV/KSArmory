@@ -7,7 +7,7 @@ Windows paths for both the script and its output.
     blender --background --python pantsir.py -- <outdir> <palette.json> <diffuse.png>
 
 Produces in <outdir>:
-    AirDefence_MeshAtlas.glb    two subpart meshes plus their editor-preview variants
+    KSArmory_MeshAtlas.glb    two subpart meshes plus their editor-preview variants
     preview_*.png               four renders, so the shape can be judged without the game
 
 ## Coordinate system
@@ -254,7 +254,7 @@ def _finish(ob, swatch):
     uv = mesh.uv_layers.get("UVMap") or mesh.uv_layers.new(name="UVMap")
     project_to_swatch(mesh, uv, PALETTE[swatch]["uv"])
 
-    mesh.materials.append(bpy.data.materials["AirDefencePalette"])
+    mesh.materials.append(bpy.data.materials["KSArmoryPalette"])
     _objects[_group].append(ob)
     return ob
 
@@ -404,7 +404,7 @@ def elevated_frame(elev):
 def new_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
-    mat = bpy.data.materials.new("AirDefencePalette")
+    mat = bpy.data.materials.new("KSArmoryPalette")
     mat.use_nodes = True
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
     bsdf = nodes["Principled BSDF"]
@@ -829,14 +829,14 @@ def export(path):
     # KSA looks these up by Id out of the atlas; *_VM is the editor's preview variant, and
     # Core ships one for every subpart. Ours are the same geometry - the part is low-poly
     # enough that a simplified preview would buy nothing.
-    for ob, ident in ((chassis, "AirDefence_Subpart_Chassis"),
-                      (turret, "AirDefence_Subpart_Turret"),
-                      (pods, "AirDefence_Subpart_Pods"),
-                      (radar, "AirDefence_Subpart_Radar"),
-                      (guns, "AirDefence_Subpart_Guns"),
-                      (optic, "AirDefence_Subpart_Optic"),
-                      (missile, "AirDefence_Subpart_Missile"),
-                      (fins, "AirDefence_Subpart_Fins")):
+    for ob, ident in ((chassis, "KSArmory_Subpart_Chassis"),
+                      (turret, "KSArmory_Subpart_Turret"),
+                      (pods, "KSArmory_Subpart_Pods"),
+                      (radar, "KSArmory_Subpart_Radar"),
+                      (guns, "KSArmory_Subpart_Guns"),
+                      (optic, "KSArmory_Subpart_Optic"),
+                      (missile, "KSArmory_Subpart_Missile"),
+                      (fins, "KSArmory_Subpart_Fins")):
         preview = ob.copy()
         preview.data = ob.data.copy()
         preview.name = preview.data.name = ident + "_VM"
@@ -1070,7 +1070,7 @@ def main():
     # A posed scene exports a posed atlas: same vertex buffers, different node transforms. The
     # runtime composes poses itself from the rest library, so that file is never one to install.
     if EXPORT and not POSE:
-        glb = os.path.join(OUT_DIR, "AirDefence_MeshAtlas.glb")
+        glb = os.path.join(OUT_DIR, "KSArmory_MeshAtlas.glb")
         export(glb)
         print("EXPORT_OK", glb)
 

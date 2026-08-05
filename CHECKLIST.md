@@ -93,7 +93,7 @@ Use the wrapper scripts, not bare `dotnet`. The mod targets **net10.0** and your
 - [x] **0.3** `./tools/test.sh` — 13 passed.
 - [x] **0.4** `./tools/validate-parts.py` — "OK: 26 asset reference(s) resolve".
 - [ ] **0.5** `./tools/deploy.sh` — prints an install path containing `KSArmory.dll`,
-      `mod.toml`, **two XML files at the root**, `Meshes/AirDefence_MeshAtlas.glb` and three
+      `mod.toml`, **two XML files at the root**, `Meshes/KSArmory_MeshAtlas.glb` and three
       PNGs under `Textures/`. If an `Assets/` folder is still there from an older deploy, the
       script should have deleted it — two copies of the part would fight over one Id.
 - [ ] **0.6** Re-run `./tools/deploy.sh` — it must now say it **registered the mod in
@@ -274,7 +274,7 @@ node, rather than a subpart.
 **If the turret swings round the chassis instead of spinning in place:** the mesh recentring and
 the XML `<Position>` disagree, or KSA composes child transforms rotate-then-translate rather
 than translate-then-rotate. Compare `TURRET_PIVOT` in `pantsir.py` against the `<Position>` on
-`AirDefence_Launcher_Turret`.
+`KSArmory_Launcher_Turret`.
 
 ### 3.2 The search cone is drawn
 
@@ -442,7 +442,7 @@ Added after the system was working. These are not "probably fine", they are "nev
 - [ ] A save made with the mod active still loads with the mod **removed** — or fails cleanly.
 
 **Why it matters:** the part goes into the save's part tree. If KSA cannot resolve
-`AirDefence_Prefab_Launcher6` on load, the craft — or the whole save — may fail. Nobody has
+`KSArmory_Prefab_Launcher6` on load, the craft — or the whole save — may fail. Nobody has
 tried this once, and it is the only failure here that could cost you work.
 
 ### 7.2 More than one target at a time

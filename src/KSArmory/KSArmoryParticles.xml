@@ -48,9 +48,9 @@
       checked for reproducibility in CI the same way the palette is.
     -->
     <PbrMaterial Id="KSArmorySmokeMaterial">
-        <Diffuse Path="Textures/AirDefence_Smoke_Diffuse.png" Category="Vessel" />
-        <Normal Path="Textures/AirDefence_Smoke_Normal.png" Category="Vessel" />
-        <AoRoughMetal Path="Textures/AirDefence_Smoke_PBR.png" Category="Vessel" />
+        <Diffuse Path="Textures/KSArmory_Smoke_Diffuse.png" Category="Vessel" />
+        <Normal Path="Textures/KSArmory_Smoke_Normal.png" Category="Vessel" />
+        <AoRoughMetal Path="Textures/KSArmory_Smoke_PBR.png" Category="Vessel" />
     </PbrMaterial>
 
 

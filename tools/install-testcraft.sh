@@ -44,7 +44,7 @@ EOF
 cat > "$TARGET/vehicle.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <VehicleSaveData Id="AA Defence Site" ActiveSequence="0">
-  <RootPartRef InstanceOf="AirDefence_Prefab_Launcher6" LocalInstanceId="1" Stage="0">
+  <RootPartRef InstanceOf="KSArmory_Prefab_Launcher6" LocalInstanceId="1" Stage="0">
     <Transform>
       <Position X="0" Y="0" Z="0" />
       <Rotation X="0" Y="0" Z="0" />

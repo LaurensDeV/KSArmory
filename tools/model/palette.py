@@ -9,9 +9,9 @@ The cells are large (128 px in a 512 px atlas) so mipmapping never bleeds one sw
 its neighbour at any distance the part is visible from.
 
 Writes, next to the mod's other assets:
-    Textures/AirDefence_Diffuse.png     base colour
-    Textures/AirDefence_PBR.png         R = ambient occlusion, G = roughness, B = metalness
-    Textures/AirDefence_Normal.png      flat normal
+    Textures/KSArmory_Diffuse.png     base colour
+    Textures/KSArmory_PBR.png         R = ambient occlusion, G = roughness, B = metalness
+    Textures/KSArmory_Normal.png      flat normal
 
 and tools/model/palette.json, which the Blender script reads so the UV coordinates and the
 pixels come from one source.
@@ -95,9 +95,9 @@ def build():
         u, v = uv_centre(col, row)
         table[name] = {"uv": [u, v], "rgb": list(rgb), "roughness": rough, "metalness": metal}
 
-    return {"AirDefence_Diffuse.png": diffuse,
-            "AirDefence_PBR.png": pbr,
-            "AirDefence_Normal.png": normal}, table
+    return {"KSArmory_Diffuse.png": diffuse,
+            "KSArmory_PBR.png": pbr,
+            "KSArmory_Normal.png": normal}, table
 
 
 def check():
@@ -146,7 +146,7 @@ def main():
     for name in table:
         u, v = table[name]["uv"]
         print(f"  {name:<12} uv = ({u:.4f}, {v:.4f})  rgb = {tuple(table[name]['rgb'])}")
-    print(f"\n  {TEXTURES.relative_to(REPO)}/AirDefence_{{Diffuse,PBR,Normal}}.png")
+    print(f"\n  {TEXTURES.relative_to(REPO)}/KSArmory_{{Diffuse,PBR,Normal}}.png")
     print(f"  {PALETTE_JSON.relative_to(REPO)}")
     return 0
 
