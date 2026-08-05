@@ -22,3 +22,11 @@ dist/
 # Python bytecode, from tools/ and CI
 __pycache__/
 *.pyc
+
+# OpenTofu / Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+backend.hcl
+infra/**/.env
