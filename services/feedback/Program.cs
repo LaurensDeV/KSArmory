@@ -234,10 +234,7 @@ public static class Program
     {
         try
         {
-            float threshold = float.TryParse(config["CLASSIFIER_THRESHOLD"], out float t) ? t : 0.8f;
-            (string label, float score) = classifier.Worst(text);
-
-            if (score < threshold) return Verdict.Allowed;
+            if (classifier.Offence(text) is not var (label, score)) return Verdict.Allowed;
 
             log.LogInformation("refused a report: {Label} at {Score:F2}", label, score);
             return Verdict.Refused;

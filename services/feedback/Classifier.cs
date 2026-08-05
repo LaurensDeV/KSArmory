@@ -18,9 +18,33 @@ namespace KSArmory.Feedback;
 /// </summary>
 public sealed class Classifier : IDisposable
 {
-    /// <summary>Detoxify's label order. Fixed by the model, not a choice.</summary>
-    private static readonly string[] Labels =
+    /// <summary>Detoxify's label order, from the model's own config. Fixed, not a choice.</summary>
+    public static readonly string[] Labels =
         ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"];
+
+    /// <summary>
+    /// The score above which each label refuses a report. Per label, and measured rather than
+    /// guessed.
+    ///
+    /// <para><c>toxic</c> is effectively off, and that is the whole point. It fires at 0.83 on
+    /// "this mod is rubbish and the guidance never hits anything" and 0.83 on "garbage, total
+    /// waste of time" — ordinary frustration from someone with a real bug. The specific labels
+    /// separate cleanly on the same sentences: insult stays under 0.17 and threat under 0.01,
+    /// while "the dev is an idiot" reaches 0.94 insult and "I will find you and kill you" reaches
+    /// 0.89 threat.</para>
+    ///
+    /// <para>So: criticism of the mod is allowed however sharp, and abuse of a person is not.</para>
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, float> Thresholds =
+        new Dictionary<string, float>
+        {
+            ["toxic"] = 0.99f,
+            ["severe_toxic"] = 0.5f,
+            ["obscene"] = 0.85f,
+            ["threat"] = 0.6f,
+            ["insult"] = 0.7f,
+            ["identity_hate"] = 0.5f,
+        };
 
     // BERT's positional embeddings stop here, and the tokenizer will happily hand over more.
     private const int MaxTokens = 512;
@@ -84,8 +108,26 @@ public sealed class Classifier : IDisposable
         }
     }
 
-    /// <summary>The highest label score, and which label it was.</summary>
-    public (string Label, float Score) Worst(string text)
+    /// <summary>
+    /// The first label whose score passes its own threshold, or null when none does.
+    ///
+    /// <para>Per label rather than the worst of them: the worst is almost always <c>toxic</c>,
+    /// which cannot tell a rude opinion about software from abuse of a person.</para>
+    /// </summary>
+    public (string Label, float Score)? Offence(string text)
+    {
+        float[] scores = Score(text);
+
+        for (int i = 0; i < scores.Length && i < Labels.Length; i++)
+        {
+            if (scores[i] >= Thresholds[Labels[i]]) return (Labels[i], scores[i]);
+        }
+
+        return null;
+    }
+
+    /// <summary>Every label's score, in <see cref="Labels"/> order.</summary>
+    public float[] Score(string text)
     {
         IReadOnlyList<int> ids = _tokenizer.EncodeToIds(text);
         int length = Math.Min(ids.Count, MaxTokens);
@@ -112,21 +154,9 @@ public sealed class Classifier : IDisposable
         using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = _session.Run(feeds);
         float[] logits = [.. results.First().AsEnumerable<float>()];
 
-        string worst = Labels[0];
-        float highest = 0f;
-
-        for (int i = 0; i < logits.Length && i < Labels.Length; i++)
-        {
-            // Sigmoid per label: the head is multi-label, so a softmax here would make six
-            // independent probabilities compete and quietly suppress all but the strongest.
-            float score = 1f / (1f + MathF.Exp(-logits[i]));
-            if (score <= highest) continue;
-
-            highest = score;
-            worst = Labels[i];
-        }
-
-        return (worst, highest);
+        // Sigmoid per label: the head is multi-label, so a softmax here would make six independent
+        // probabilities compete and quietly suppress all but the strongest.
+        return [.. logits.Select(x => 1f / (1f + MathF.Exp(-x)))];
     }
 
     public void Dispose() => _session.Dispose();

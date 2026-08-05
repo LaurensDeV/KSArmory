@@ -103,10 +103,28 @@ is a dependency that can be withdrawn: Perspective ran for nine years, served
 Reddit and Wikipedia, and announced its own end date.
 
 The head is **multi-label** — six independent sigmoids, not a softmax over six
-classes — so a comment can be both an insult and a threat. The worst label is
-compared against `CLASSIFIER_THRESHOLD`, which is a judgement rather than a
-fact: 0.8 refuses abuse while letting through a report that calls the mod
-rubbish, which someone with a genuine bug might well write.
+classes — so a comment can be both an insult and a threat.
+
+**Each label has its own threshold, and `toxic` is effectively off.** That is
+the important part, and it was measured rather than guessed. Taking the worst
+label refuses ordinary frustration:
+
+| | toxic | severe | obscene | threat | insult | ident |
+| --- | --- | --- | --- | --- | --- | --- |
+| a plain bug report | 0.001 | | | | | |
+| "this mod is rubbish and the guidance never hits anything" | **0.83** | 0.00 | 0.13 | 0.00 | 0.17 | 0.00 |
+| "garbage, total waste of time, broken junk" | **0.83** | 0.00 | 0.05 | 0.00 | 0.04 | 0.00 |
+| "the dev is an idiot" | 0.98 | 0.03 | 0.71 | 0.00 | **0.94** | 0.02 |
+| "worthless piece of garbage, I hope you die" | 0.99 | 0.27 | 0.51 | **0.85** | 0.70 | 0.06 |
+| "I will find you and kill you" | 0.90 | 0.14 | 0.09 | **0.89** | 0.13 | 0.06 |
+
+`toxic` fires at 0.83 on someone with a real bug being rude about the software.
+The specific labels do not: insult stays under 0.17 and threat under 0.01 on
+the same sentences, while abuse of a person reaches 0.94 and 0.89.
+
+So the rule is **criticism of the mod is allowed however sharp, and abuse of a
+person is not** — insult at 0.7, threat at 0.6, identity hate and severe at
+0.5, obscene at 0.85, and `toxic` at 0.99 where it cannot act alone.
 
 `MODERATION_API_KEY` still works and is used only when no local model is
 present, so a deployment without the model baked in is not left unguarded.
@@ -133,7 +151,6 @@ engineering. What it cannot be is dangerous to render.
 | `FEEDBACK_SECRET` | optional; when set, a report must carry the same string |
 | `MIN_MOD_VERSION` | optional; oldest version accepted, e.g. `0.8.9`. Unset accepts any |
 | `CLASSIFIER_DIR` | where `model.onnx` and `vocab.txt` live. `/app/model` in the image |
-| `CLASSIFIER_THRESHOLD` | optional; refuse above this score. Defaults to `0.8` |
 | `MODERATION_API_KEY` | optional OpenAI key, used only when no local model is present |
 
 Scope the token to Issues on one repository. It is on a machine that accepts
