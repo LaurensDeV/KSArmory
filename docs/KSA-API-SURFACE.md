@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-88 types and 239 members across 6 assemblies.
+87 types and 233 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -25,10 +25,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.Numerics.byte4
 
-- `byte W`
-- `byte X`
-- `byte Y`
-- `byte Z`
 - `void .ctor(byte, byte, byte, byte)`
 
 ### Brutal.Numerics.double3
@@ -81,18 +77,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ImGuiApi.ImColor8
 
-- `Brutal.Numerics.byte4 AsByte4()`
 - `void .ctor(byte, byte, byte, byte)`
-
-### Brutal.ImGuiApi.ImDrawFlags
-
-*referenced as a type only*
 
 ### Brutal.ImGuiApi.ImDrawListExtensions
 
 - `void AddLine(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, float)`
-- `void AddRect(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, float, Brutal.ImGuiApi.ImDrawFlags, float)`
-- `void AddRectFilled(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, float, Brutal.ImGuiApi.ImDrawFlags)`
 - `void AddText(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, Brutal.ImGuiApi.ImString)`
 - `void AddTriangleFilled(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8)`
 
@@ -115,6 +104,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool Checkbox(Brutal.ImGuiApi.ImString, ref bool)`
 - `bool InputText(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool IsItemHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
+- `bool IsWindowHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
 - `bool RadioButton(Brutal.ImGuiApi.ImString, bool)`
 - `bool SliderFloat(Brutal.ImGuiApi.ImString, ref float, float, float, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool SliderInt(Brutal.ImGuiApi.ImString, ref int, int, int, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`

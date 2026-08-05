@@ -42,16 +42,34 @@ internal static class Markers
     private const double ShowSeconds = 10.0;
     private const double FadeSeconds = 2.0;
 
+    // Long enough after the pointer leaves a bracket to reach the label it put up. Without it the
+    // label is unclickable: moving towards it leaves the bracket's hover radius and it vanishes.
+    private const double ReachSeconds = 2.0;
+
     // Systems whose label is showing, and for how much longer. Reference identity, which is what
     // a Vehicle compares by -- two craft are never equal, so a stale entry cannot shadow a live
     // one. Pruned in Draw as they expire or the craft is destroyed.
     private static readonly Dictionary<Vehicle, double> Showing = [];
     private static readonly List<Vehicle> Expired = [];
 
+    // Systems whose label stays up until it is unlocked. Separate from the timers rather than an
+    // infinite one, so a lock survives a (+) press and a (+) press does not disturb a lock.
+    private static readonly HashSet<Vehicle> Locked = [];
+
     /// <summary>Puts a system's label up for a while. Pressing again restarts the clock.</summary>
     public static void Show(Vehicle craft) => Showing[craft] = ShowSeconds;
 
-    public static void Forget(Vehicle craft) => Showing.Remove(craft);
+    public static void Forget(Vehicle craft)
+    {
+        Showing.Remove(craft);
+        Locked.Remove(craft);
+    }
+
+    private static void KeepUpFor(Vehicle craft, double seconds)
+    {
+        Showing[craft] = Showing.TryGetValue(craft, out double left) ? Math.Max(left, seconds)
+                                                                    : seconds;
+    }
 
     public static void Draw(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems,
                             Vehicle? active, double dt)
@@ -84,13 +102,11 @@ internal static class Markers
         float2 cursor = ImGui.GetMousePos();
         double3 eye = KsaWorld.CameraPositionEcl();
 
-        // Labelled either because the pointer is on it or because it was called for from the
-        // panel and has not run out yet.
+        // Labelled because it is locked, because it was called for from the panel and has not run
+        // out, or because the pointer is on its bracket. Collected here and drawn after this
+        // window closes: a label is a window of its own so its lock can be clicked, and ImGui
+        // windows do not nest.
         List<(int Index, float2 At, float Alpha)> labels = [];
-
-        // The hovered one is drawn last so its label sits over any neighbouring bracket.
-        int hovered = -1;
-        float2 hoveredAt = default;
 
         for (int i = 0; i < systems.Count; i++)
         {
@@ -117,10 +133,11 @@ internal static class Markers
 
             float dx = cursor.X - at.X;
             float dy = cursor.Y - at.Y;
-            if (dx * dx + dy * dy <= HoverRadius * HoverRadius)
+            if (dx * dx + dy * dy <= HoverRadius * HoverRadius) KeepUpFor(craft, ReachSeconds);
+
+            if (Locked.Contains(craft))
             {
-                hovered = i;
-                hoveredAt = at;
+                labels.Add((i, at, 1f));
             }
             else if (Showing.TryGetValue(craft, out double left))
             {
@@ -128,14 +145,12 @@ internal static class Markers
             }
         }
 
+        ImGui.End();
+
         foreach ((int index, float2 at, float alpha) in labels)
         {
-            DrawLabel(draw, main, at, systems[index], eye, alpha);
+            DrawLabel(main, at, systems[index], eye, alpha);
         }
-
-        if (hovered >= 0) DrawLabel(draw, main, hoveredAt, systems[hovered], eye, 1f);
-
-        ImGui.End();
     }
 
     // Four corners, not a closed box: the gap is what stops the marker hiding the thing it marks.
@@ -187,12 +202,15 @@ internal static class Markers
 
     // Name and range, and nothing else. What a system is made of is a question the Components tab
     // answers at leisure; a marker is read at a glance while looking for something.
-    private static void DrawLabel(ImDrawListPtr draw, ImGuiViewportPtr main, float2 at,
+    // A window of its own, not part of the overlay, because the overlay is NoInputs and nothing
+    // drawn on it can be clicked. That is the whole reason the lock works.
+    private static void DrawLabel(ImGuiViewportPtr main, float2 at,
                                   (Vehicle Craft, WeaponInventory Inventory) system, double3 eyeEcl,
                                   float alpha)
     {
-        double3 atEcl = KsaWorld.PositionEcl(system.Craft);
-        string name = KsaWorld.DisplayName(system.Craft);
+        Vehicle craft = system.Craft;
+        double3 atEcl = KsaWorld.PositionEcl(craft);
+        string name = KsaWorld.DisplayName(craft);
         string detail = Range(Vec.Len(atEcl - eyeEcl));
 
         if (KsaWorld.IsOccluded(eyeEcl, atEcl, out string blockedBy))
@@ -200,24 +218,61 @@ internal static class Markers
             detail += blockedBy.Length > 0 ? $"   behind {blockedBy}" : "   no line of sight";
         }
 
+        bool locked = Locked.Contains(craft);
+
+        // Estimated, only to keep the window on screen; AlwaysAutoResize sets the real size.
         float2 nameSize = ImGui.CalcTextSize(name);
         float2 detailSize = ImGui.CalcTextSize(detail);
-
-        const float PadX = 8f, PadY = 6f, Gap = 2f;
-        float w = Math.Max(nameSize.X, detailSize.X) + PadX * 2f;
-        float h = nameSize.Y + detailSize.Y + Gap + PadY * 2f;
+        float w = Math.Max(nameSize.X, detailSize.X + 34f) + 18f;
+        float h = nameSize.Y + detailSize.Y + 18f;
 
         // Up and to the right of the bracket, clear of it -- then held on screen, because a marker
         // pinned to the edge would otherwise put its own label past it.
         const float Edge = 4f;
         float x = Math.Clamp(at.X + Half + 6f, main.Pos.X + Edge, main.Pos.X + main.Size.X - w - Edge);
         float y = Math.Clamp(at.Y - h - 6f, main.Pos.Y + Edge, main.Pos.Y + main.Size.Y - h - Edge);
-        float2 tl = new(x, y);
 
-        draw.AddRectFilled(tl, new float2(tl.X + w, tl.Y + h), Fade(Panel, alpha));
-        draw.AddRect(tl, new float2(tl.X + w, tl.Y + h), Fade(PanelEdge, alpha));
-        draw.AddText(new float2(tl.X + PadX, tl.Y + PadY), Fade(Label, alpha), name);
-        draw.AddText(new float2(tl.X + PadX, tl.Y + PadY + nameSize.Y + Gap), Fade(Idle, alpha), detail);
+        ImGui.SetNextWindowPos(new float2(x, y), ImGuiCond.Always);
+        ImGui.SetNextWindowBgAlpha(0.88f * alpha);
+
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
+                                       | ImGuiWindowFlags.AlwaysAutoResize
+                                       | ImGuiWindowFlags.NoNav
+                                       | ImGuiWindowFlags.NoFocusOnAppearing
+                                       | ImGuiWindowFlags.NoBringToFrontOnFocus
+                                       | ImGuiWindowFlags.NoSavedSettings
+                                       | ImGuiWindowFlags.NoMove;
+
+        // Keyed on the craft's Id, which KSA keeps unique, so each label is its own window and
+        // they do not fight over one set of state.
+        if (ImGui.Begin($"##KSArmoryLabel_{name}", flags))
+        {
+            // Reaching for the lock takes the pointer off the bracket, which is what put the
+            // label up. Without this the label disappears on the way to its own button.
+            if (ImGui.IsWindowHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem
+                                      | ImGuiHoveredFlags.ChildWindows))
+            {
+                KeepUpFor(craft, ReachSeconds);
+            }
+
+            ImGui.TextColored(new float4(0.92f, 0.94f, 0.96f, alpha), name);
+            ImGui.TextColored(new float4(0.59f, 0.78f, 1.0f, alpha), detail);
+
+            ImGui.SameLine();
+            if (ImGui.SmallButton(locked ? "[x]" : "[ ]"))
+            {
+                if (locked) Locked.Remove(craft);
+                else Locked.Add(craft);
+            }
+
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip(locked ? "Locked up. Click to let it fade."
+                                        : "Keep this label up until it is unlocked.");
+            }
+        }
+
+        ImGui.End();
     }
 
     // Counts every showing label down, whether or not its system is still on screen -- otherwise
@@ -237,13 +292,6 @@ internal static class Markers
         foreach (Vehicle craft in Expired) Showing.Remove(craft);
     }
 
-    private static ImColor8 Fade(ImColor8 colour, float k)
-    {
-        if (k >= 1f) return colour;
-
-        byte4 rgba = colour.AsByte4();
-        return new ImColor8(rgba.X, rgba.Y, rgba.Z, (byte)(rgba.W * Math.Clamp(k, 0f, 1f)));
-    }
 
 
     // Metres up close, kilometres beyond a kilometre. A site 340 m away reading "0.34 km" is
