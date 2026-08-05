@@ -27,6 +27,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private readonly List<(string Name, string Character)> _roster = [];
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
     private readonly List<SurveyedPart> _surveyed = [];
+    private readonly List<KSA.Vehicle> _craftScratch = [];
     private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
 
@@ -34,10 +35,15 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
     // One pop-out window: what it is called, whether it is open, and what it draws. A class
     // rather than a struct so Open can be passed to ImGui.Checkbox by reference.
-    private sealed class Pane(string title, Action body)
+    private sealed class Pane(string title, Action body, bool perSystem)
     {
         public readonly string Title = title;
         public readonly Action Body = body;
+
+        // Whether this pane is about the selected system or about the session. The same split
+        // BatteryConfig and Config make in code, shown where the operator meets it.
+        public readonly bool PerSystem = perSystem;
+
         public bool Open;
     }
 
@@ -47,13 +53,14 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     // appear in, which runs roughly from what an operator touches most to what they touch once.
     private Pane[] Panes => _panes ??=
     [
-        new("Tracks", DrawTrackList),
-        new("Tuning", DrawTuning),
-        new("Teams and IFF", DrawIff),
-        new("Test targets", DrawTestTargets),
-        new("Kittens", DrawKittenRoster),
-        new("Survey", DrawSurvey),
-        new("Log", DrawLog),
+        new("System", DrawSystemPane, perSystem: true),
+        new("Tracks", DrawTrackList, perSystem: true),
+        new("Tuning", DrawTuning, perSystem: true),
+        new("Survey", DrawSurvey, perSystem: true),
+        new("Teams and IFF", DrawIff, perSystem: false),
+        new("Test targets", DrawTestTargets, perSystem: false),
+        new("Kittens", DrawKittenRoster, perSystem: false),
+        new("Log", DrawLog, perSystem: false),
     ];
 
     public void Draw()
@@ -75,12 +82,10 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
             ImGui.TextDisabled($"KSArmory {Build.Version}");
             ImGui.Separator();
 
-            // The main window keeps only what is wanted at a glance while flying: where the
-            // battery is, what it is holding, and the master arm. Everything else is a pane,
-            // because one window carrying all of it had grown past a screen.
-            DrawStatus();
-            ImGui.Separator();
-            DrawWeapons();
+            // Opens on what exists in the world rather than on whatever the camera is pointed
+            // at. Everything below is about the *selected* system, and everything that is not
+            // about one particular system is a pane.
+            DrawSystemList();
             ImGui.Separator();
             DrawPaneToggles();
         }
@@ -96,6 +101,87 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     // yet. Proving discovery works against real user-built craft comes before anything is wired
     // to it, because a survey that quietly finds nothing looks exactly like a craft with no
     // weapons on it.
+    // Every craft in the world this mod recognises as a weapons system, refreshed on a timer.
+    //
+    // Surveying is a walk of every part of every loaded vehicle, so it does not belong on a
+    // per-frame path just to draw a list that changes when a craft is built or destroyed.
+    private readonly List<(KSA.Vehicle Craft, WeaponInventory Inventory)> _systems = [];
+    private int _systemsAge = RefreshSystemsEvery;
+    private const int RefreshSystemsEvery = 60;
+
+    private void RefreshSystems()
+    {
+        if (++_systemsAge < RefreshSystemsEvery) return;
+        _systemsAge = 0;
+
+        _systems.Clear();
+        KsaWorld.CollectVehicles(_craftScratch);
+        for (int i = 0; i < _craftScratch.Count; i++)
+        {
+            KSA.Vehicle craft = _craftScratch[i];
+            KsaWorld.SurveyParts(craft, _surveyed);
+            WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Arsenal.Components);
+            if (inv.IsWeaponSystem) _systems.Add((craft, inv));
+        }
+    }
+
+    // The list the panel opens on: what exists, not what happens to be under the camera.
+    private void DrawSystemList()
+    {
+        RefreshSystems();
+
+        if (_systems.Count == 0)
+        {
+            ImGui.TextColored(Grey, "No weapons systems.");
+            ImGui.TextDisabled("A craft becomes one by carrying a part this mod recognises.");
+            ImGui.TextDisabled("Open Survey to see what is on the craft you are flying.");
+            return;
+        }
+
+        ImGui.Text($"Weapons systems ({_systems.Count})");
+        ImGui.Separator();
+
+        for (int i = 0; i < _systems.Count; i++)
+        {
+            (KSA.Vehicle craft, WeaponInventory inv) = _systems[i];
+            bool isActive = ReferenceEquals(craft, _battery.Platform);
+
+            ImGui.PushID(i);
+
+            // The battery runs on exactly one craft today, so the others are listed and not yet
+            // controllable. Saying which is which beats a row that looks live and is not.
+            if (isActive) ImGui.TextColored(Green, $"> {KsaWorld.DisplayName(craft)}");
+            else ImGui.Text($"  {KsaWorld.DisplayName(craft)}");
+
+            ImGui.SameLine();
+            ImGui.TextDisabled($"  {Describe(inv)}");
+
+            if (isActive)
+            {
+                ImGui.TextDisabled($"    {(_policy.Armed ? "ARMED" : "safe")}"
+                                   + $"   {_battery.Ammo}/{_profile.TubeCount} rounds"
+                                   + (_battery.PlatformPinned ? "   (pinned)" : ""));
+            }
+            else if (ImGui.Button("Take control of this system"))
+            {
+                _battery.PinPlatform(craft);
+            }
+
+            ImGui.PopID();
+        }
+    }
+
+    private static string Describe(WeaponInventory inv)
+    {
+        List<string> parts = [];
+        foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
+        {
+            int n = inv.CountOf(role);
+            if (n > 0) parts.Add(n == 1 ? role.ToString() : $"{n} {role}");
+        }
+        return string.Join(", ", parts);
+    }
+
     private void DrawSurvey()
     {
         KSA.Vehicle? craft = KsaWorld.ControlledVehicle;
@@ -139,13 +225,31 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         }
     }
 
+    // The selected system's own controls: where it is, what it is holding, and its master arm.
+    private void DrawSystemPane()
+    {
+        DrawStatus();
+        ImGui.Separator();
+        DrawWeapons();
+    }
+
     private void DrawPaneToggles()
     {
-        ImGui.TextDisabled("Panels");
+        DrawPaneGroup("This system", perSystem: true);
+        DrawPaneGroup("Session", perSystem: false);
+    }
+
+    private void DrawPaneGroup(string heading, bool perSystem)
+    {
+        ImGui.TextDisabled(heading);
+
+        int shown = 0;
         for (int i = 0; i < Panes.Length; i++)
         {
             Pane pane = Panes[i];
-            if (i % 2 == 1) ImGui.SameLine();
+            if (pane.PerSystem != perSystem) continue;
+
+            if (shown++ % 2 == 1) ImGui.SameLine();
             ImGui.Checkbox(pane.Title, ref pane.Open);
         }
     }
