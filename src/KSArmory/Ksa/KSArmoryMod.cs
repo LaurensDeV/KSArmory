@@ -38,6 +38,9 @@ public sealed class KSArmoryMod
     // Holds the main view on one system without handing it the controls.
     private readonly WatchCamera _watch = new();
 
+    // Development tool: pick a craft up and set it down somewhere else.
+    private readonly CraftMover _mover = new();
+
     // Last kitten reported, so the character is logged once per EVA rather than every frame.
     private string _lastKittenSeen = string.Empty;
 
@@ -51,7 +54,7 @@ public sealed class KSArmoryMod
     public void OnFullyLoaded()
     {
         _roster = new BatteryRoster(_config);
-        _ui = new Ui(_config, _roster, _warp, _watch);
+        _ui = new Ui(_config, _roster, _warp, _watch, _mover);
         Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -136,6 +139,13 @@ public sealed class KSArmoryMod
             // controller writes from its own mode, so a view taken earlier in the frame is
             // overwritten before anything renders.
             _watch.Apply(dt);
+
+            // After the panel, so a click on a window is not also a click on the world behind it.
+            if (KsaWorld.InFlight)
+            {
+                _mover.Update(_config);
+                _mover.Draw(_config);
+            }
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
             if (KsaWorld.InFlight && _roster.For(_ui.Focused) is { } focused
@@ -222,6 +232,7 @@ public sealed class KSArmoryMod
         }
         _warp.Clear();
         _watch.Release();
+        _mover.Release();
 
         _roster?.Clear();
         KsaWorld.ResetSimStepTracking();

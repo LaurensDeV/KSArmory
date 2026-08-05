@@ -75,6 +75,14 @@ public sealed class Config
     public readonly List<string> TeamNames = [];
 
     /// <summary>
+    /// Pick a craft up with one click and set it down with the next.
+    ///
+    /// <para>A development tool for laying out a test range, and off by default because while it
+    /// is on a click on the world moves a vehicle instead of doing whatever it usually does.</para>
+    /// </summary>
+    public bool MoveCraftWithMouse;
+
+    /// <summary>
     /// Require a launcher part before the battery works. Turn this off to run the system on any
     /// craft, which is useful for testing without opening the editor.
     /// </summary>

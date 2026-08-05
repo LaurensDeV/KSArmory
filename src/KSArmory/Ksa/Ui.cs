@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, WatchCamera watch)
+internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, WatchCamera watch, CraftMover mover)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -28,6 +28,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     private DefenceBattery _battery = null!;
     private BatteryConfig _policy = null!;
     private readonly WatchCamera _watch = watch;
+    private readonly CraftMover _mover = mover;
     private readonly List<int> _viewports = [];
     private readonly List<(string Name, string Character)> _roster = [];
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
@@ -76,6 +77,7 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
     private Pane[] Panes => _panes ??=
     [
         new("Kittens", DrawKittenRoster, PaneGroup.Session),
+        new("Move craft", DrawCraftMover, PaneGroup.Debug),
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -736,6 +738,37 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             ImGui.PopID();
         }
 
+    }
+
+    private void DrawCraftMover()
+    {
+        ImGui.Checkbox("Move craft with the mouse", ref _config.MoveCraftWithMouse);
+
+        if (!_config.MoveCraftWithMouse)
+        {
+            ImGui.TextDisabled("  Click a craft to pick it up, then click the ground");
+            ImGui.TextDisabled("  to set it down there.");
+            return;
+        }
+
+        if (_mover.Held is { } held)
+        {
+            ImGui.TextColored(Amber, $"Holding {KsaWorld.DisplayName(held)}");
+            ImGui.TextDisabled("  Click the ground to set it down.");
+            if (ImGui.Button("Cancel")) _mover.Release();
+        }
+        else
+        {
+            ImGui.TextDisabled("  Click a craft to pick it up.");
+        }
+
+        ImGui.Separator();
+
+        // Worth saying outright: the obvious reading of "follows the mouse" is a craft dragged
+        // through the air, and that is not what this does or should do.
+        ImGui.TextDisabled("The craft stays put while held -- placing it is an engine");
+        ImGui.TextDisabled("event, so dragging it would rebuild its motion every frame.");
+        ImGui.TextDisabled("It moves once, on the second click, and lands upright.");
     }
 
     private void DrawTestTargets()

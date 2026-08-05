@@ -180,6 +180,101 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Where the cursor's ray meets a celestial surface, as a place a craft can be put.
+    ///
+    /// <para>Nearest body hit, not the one being orbited: pointing at a moon on the horizon should
+    /// mean the moon. The mean sphere, so a mountain is not accounted for — the engine's own
+    /// placement settles the craft onto the real terrain, and this only has to say where.</para>
+    /// </summary>
+    public static bool TryCursorGroundPoint(out double3 groundEcl,
+                                            out double latitudeDeg, out double longitudeDeg,
+                                            out string bodyName)
+    {
+        groundEcl = default;
+        latitudeDeg = 0.0;
+        longitudeDeg = 0.0;
+        bodyName = string.Empty;
+
+        try
+        {
+            if (!TryCursorDirectionEcl(out double3 direction)) return false;
+            if (Universe.CurrentSystem is not { } system) return false;
+
+            double3 eye = CameraPositionEcl();
+            Celestial? nearest = null;
+            double3 nearestHit = default;
+            double nearestRange = double.MaxValue;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not Celestial body) continue;
+
+                double3 centre = body.GetPositionEcl();
+                if (!Picking.TryHitSphere(eye, direction, centre, body.MeanRadius, out double3 hit))
+                {
+                    continue;
+                }
+
+                double range = Vec.Len2(hit - eye);
+                if (range >= nearestRange) continue;
+
+                nearest = body;
+                nearestHit = hit;
+                nearestRange = range;
+            }
+
+            if (nearest is null) return false;
+
+            double3 cce = nearestHit - nearest.GetPositionEcl();
+            groundEcl = nearestHit;
+            latitudeDeg = nearest.GetLatitudeFromCce(cce);
+            longitudeDeg = nearest.GetLongitudeFromCce(cce);
+            bodyName = nearest.Id ?? string.Empty;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Sets a craft down at a latitude and longitude on the body it is nearest.
+    ///
+    /// <para><c>Vehicle.TeleportToLocation</c> does the work, and doing it this way rather than by
+    /// writing a position is what makes the craft arrive upright and resting: it builds the
+    /// kinematic state from the craft's own bounding box, so the hull ends up on the ground rather
+    /// than the origin.</para>
+    /// </summary>
+    public static bool TryPlaceOnSurface(Vehicle craft, string bodyName,
+                                         double latitudeDeg, double longitudeDeg)
+    {
+        if (!IsAlive(craft)) return false;
+        if (!double.IsFinite(latitudeDeg) || !double.IsFinite(longitudeDeg)) return false;
+
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return false;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not Celestial body) continue;
+                if (body.Id != bodyName) continue;
+
+                craft.TeleportToLocation(body, latitudeDeg, longitudeDeg);
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not place {DisplayName(craft)}: {e.Message}");
+            return false;
+        }
+    }
+
     /// <summary>Rough size of a vehicle, used to scale hit and blast checks.</summary>
     public static double MeanRadius(Vehicle v)
     {
