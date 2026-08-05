@@ -1,0 +1,145 @@
+using Xunit;
+
+namespace KSArmory.Tests;
+
+/// <summary>
+/// Settings surviving a session. The round trip is the contract: what was chosen is what comes
+/// back, and anything a newer version added arrives at its default rather than at zero.
+/// </summary>
+public class BatterySettingsTests
+{
+    private static BatteryConfig Configured()
+    {
+        BatteryConfig c = new()
+        {
+            Armed = true,
+            AutoEngage = true,
+            ProtectControlledVehicle = false,
+            MissilesEnabled = false,
+            GunsEnabled = true,
+            RoundsPerTarget = 4,
+            MouseAim = true,
+            TurretTracking = false,
+            TurretManual = true,
+            TurretManualBearingDeg = 137.5f,
+            TurretManualElevationDeg = 12.25f,
+            TurretSpin = true,
+            SearchRadarStopped = true,
+        };
+
+        c.Iff.OwnTeam = "Blue";
+        c.Iff.EngageUnknown = false;
+        c.Iff.EngageNeutral = true;
+        c.Iff.ProtectFriendly = false;
+        c.Iff.AlliedTeams.Add("Green");
+        c.Iff.NeutralTeams.Add("Grey");
+        return c;
+    }
+
+    [Fact]
+    public void EverythingChosenComesBack()
+    {
+        BatteryConfig saved = Configured();
+        BatteryConfig loaded = new();
+
+        BatterySettings.From(saved).ApplyTo(loaded);
+
+        Assert.True(loaded.Armed);
+        Assert.True(loaded.AutoEngage);
+        Assert.False(loaded.ProtectControlledVehicle);
+        Assert.False(loaded.MissilesEnabled);
+        Assert.Equal(4, loaded.RoundsPerTarget);
+        Assert.True(loaded.MouseAim);
+        Assert.False(loaded.TurretTracking);
+        Assert.True(loaded.TurretManual);
+        Assert.Equal(137.5f, loaded.TurretManualBearingDeg, 3);
+        Assert.Equal(12.25f, loaded.TurretManualElevationDeg, 3);
+        Assert.True(loaded.TurretSpin);
+        Assert.True(loaded.SearchRadarStopped);
+
+        Assert.Equal("Blue", loaded.Iff.OwnTeam);
+        Assert.False(loaded.Iff.EngageUnknown);
+        Assert.True(loaded.Iff.EngageNeutral);
+        Assert.False(loaded.Iff.ProtectFriendly);
+        Assert.Contains("Green", loaded.Iff.AlliedTeams);
+        Assert.Contains("Grey", loaded.Iff.NeutralTeams);
+    }
+
+    /// <summary>
+    /// A file written before a setting existed must load it at its default. Zero would be the
+    /// obvious result of deserialising a missing field, and for MissilesEnabled or TurretTracking
+    /// that silently disarms half a battery.
+    /// </summary>
+    [Fact]
+    public void AMissingSettingArrivesAtItsDefaultNotAtZero()
+    {
+        BatterySettings older = new();
+        BatteryConfig loaded = new() { MissilesEnabled = false, TurretTracking = false };
+
+        older.ApplyTo(loaded);
+
+        Assert.True(loaded.MissilesEnabled);
+        Assert.True(loaded.GunsEnabled);
+        Assert.True(loaded.TurretTracking);
+        Assert.True(loaded.ProtectControlledVehicle);
+        Assert.True(loaded.Iff.EngageUnknown);
+        Assert.True(loaded.Iff.ProtectFriendly);
+        Assert.Equal(2, loaded.RoundsPerTarget);
+        Assert.Equal(55f, loaded.TurretManualElevationDeg, 3);
+    }
+
+    /// <summary>Applying twice must not stack the team lists.</summary>
+    [Fact]
+    public void ApplyingTwiceDoesNotDuplicateTeams()
+    {
+        BatterySettings settings = BatterySettings.From(Configured());
+        BatteryConfig loaded = new();
+
+        settings.ApplyTo(loaded);
+        settings.ApplyTo(loaded);
+
+        Assert.Single(loaded.Iff.AlliedTeams);
+        Assert.Single(loaded.Iff.NeutralTeams);
+    }
+
+    /// <summary>
+    /// Nothing is written when nothing changed — this is called every half second, and rewriting
+    /// an unchanged file that often is how a settings file gets corrupted by a crash.
+    /// </summary>
+    [Fact]
+    public void UnchangedSettingsCompareEqual()
+    {
+        BatteryConfig config = Configured();
+
+        Assert.False(BatterySettings.From(config).Differs(BatterySettings.From(config)));
+
+        config.RoundsPerTarget += 1;
+        Assert.True(BatterySettings.From(config).Differs(BatterySettings.From(Configured())));
+    }
+
+    [Fact]
+    public void AChangedTeamListCounts()
+    {
+        BatteryConfig config = Configured();
+        BatterySettings before = BatterySettings.From(config);
+
+        config.Iff.AlliedTeams.Add("Amber");
+
+        Assert.True(BatterySettings.From(config).Differs(before));
+    }
+
+    /// <summary>
+    /// The optical head's viewport is deliberately not carried: it names an index in the session
+    /// that saved it, and a new session need not have that window at all.
+    /// </summary>
+    [Fact]
+    public void TheOpticViewportIsNotRestored()
+    {
+        BatteryConfig saved = new() { OpticViewport = 3 };
+        BatteryConfig loaded = new();
+
+        BatterySettings.From(saved).ApplyTo(loaded);
+
+        Assert.Equal(-1, loaded.OpticViewport);
+    }
+}

@@ -227,6 +227,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
 | `Sim/Config.cs` | session-wide settings — team names, drawing, logging |
 | `Sim/BatteryConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
+| `Sim/BatterySettings.cs` | those settings flattened, so they can be written down and read back |
 | `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
@@ -268,6 +269,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the battery can see and why |
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
+| `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the launcher part and the armed character — at the mod root, mirroring Core |
 | `src/KSArmory/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
@@ -943,4 +945,8 @@ should not be weakened without understanding what they buy:
   the whole look, which suits KSA's art style, but it is a floor not a ceiling.
 - Rounds do not collide with terrain or structures, only their designated target.
 - Radar has no line-of-sight or occlusion check.
-- No save/load persistence of battery state; settings reset each session.
+- Battery settings survive a restart — `Ksa/SettingsStore.cs` keys them on the craft's Id in
+  JSON beside the log. KSA's save format is not reachable from a mod, so the file is **per
+  installation, not per save**: two saves with a craft of the same name share its settings, and a
+  craft renamed in game arrives with defaults. What is *not* persisted is battery *state* — ammo,
+  tracks, rounds in flight all start fresh.

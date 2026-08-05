@@ -45,6 +45,11 @@ internal sealed class BatteryRoster(Config config)
             if (!KsaWorld.IsAlive(craft) || _entries.ContainsKey(craft)) continue;
 
             BatteryConfig policy = new();
+
+            // Whatever this craft was last set to. Applied before the battery exists so its first
+            // frame runs on the restored settings rather than on defaults it then overwrites.
+            SettingsStore.For(KsaWorld.DisplayName(craft))?.ApplyTo(policy);
+
             DefenceBattery battery = new(_config, policy);
 
             // Pinned on creation, so ResolvePlatform leaves it alone. Without this every battery
@@ -81,8 +86,27 @@ internal sealed class BatteryRoster(Config config)
         return null;
     }
 
+    /// <summary>
+    /// Writes down anything that has changed. Cheap to call often: the store compares against what
+    /// it already holds and only reports a change when there is one.
+    /// </summary>
+    public void Remember()
+    {
+        bool changed = false;
+        foreach (KeyValuePair<Vehicle, Entry> kv in _entries)
+        {
+            if (!KsaWorld.IsAlive(kv.Key)) continue;
+            changed |= SettingsStore.Remember(KsaWorld.DisplayName(kv.Key), kv.Value.Policy);
+        }
+
+        if (changed) SettingsStore.Save();
+    }
+
     public void Clear()
     {
+        // Last chance: a battery about to be forgotten still holds settings someone chose.
+        Remember();
+
         foreach (Entry e in _entries.Values) e.Battery.Reset();
         _entries.Clear();
     }

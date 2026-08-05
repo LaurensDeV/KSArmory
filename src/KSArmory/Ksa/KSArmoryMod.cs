@@ -25,6 +25,7 @@ public sealed class KSArmoryMod
     private Ui? _ui;
     private int _faults;
     private int _viewTrace;
+    private int _settingsTick;
 
     // Overrun bookkeeping. See ReportOverrun.
     private const int OverrunReportEvery = 120;
@@ -226,6 +227,11 @@ public sealed class KSArmoryMod
         // through any frame that advanced no simulated time while the world moved past
         // them. Cheap, and it only reads state.
         foreach (BatteryRoster.Entry e in _roster.All) e.Battery.SyncRoundBodies();
+
+        // Settings are written down a couple of times a second rather than on every edit: the
+        // panel has no change notification, and a comparison against what is already stored is
+        // far cheaper than working out which widget was touched.
+        if (++_settingsTick % 30 == 0) _roster.Remember();
 }
 
     [StarMapUnload]

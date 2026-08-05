@@ -112,6 +112,19 @@ internal static class Log
         }
     }
 
+    /// <summary>
+    /// The folder the log went to, which is the one place this mod knows how to find on every
+    /// platform. Anything else it writes goes beside it rather than repeating the search.
+    /// </summary>
+    public static string Folder
+    {
+        get
+        {
+            EnsureResolved();
+            return _path is null ? Path.GetTempPath() : Path.GetDirectoryName(_path) ?? Path.GetTempPath();
+        }
+    }
+
     // Picks a log location once: KSA's own Logs folder if we can find it, otherwise the user's temp
     // directory.
     private static void EnsureResolved()
