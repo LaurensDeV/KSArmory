@@ -59,6 +59,16 @@ dotnet build "$REPO_ROOT/src/KSArmory/KSArmory.csproj" -c "$CONFIG" --nologo
 
 OUT="$REPO_ROOT/src/KSArmory/bin/$CONFIG/net10.0"
 
+# Before the copy, not after: a bad asset Id or a marker resolving to nothing is a *silent*
+# in-game failure, so without this the first sign is a launch, an inspection and a quit. 89 ms
+# against that. --offline because a deploy only needs our own files to be consistent.
+if ! "$REPO_ROOT/tools/validate-parts.py" --offline; then
+    echo >&2
+    echo "error: the part assets did not validate; not deploying." >&2
+    echo "       run ./tools/validate-parts.py for the full report." >&2
+    exit 1
+fi
+
 # The build output is deliberately just the mod itself: game assemblies are referenced with
 # Private=false so we never ship a second copy alongside the running game's.
 mkdir -p "$TARGET"

@@ -20,6 +20,7 @@ else in the toolchain would notice a rename.
 Exits non-zero if anything is unresolved or the XML is malformed.
 """
 
+import argparse
 import json
 import os
 import re
@@ -422,11 +423,42 @@ def check_subpart_positions():
     return problems, checked
 
 
+def check_registered_part_ids():
+    """Verifies every registered LauncherProfile.PartId is declared in the asset XML.
+
+    This is the documented extension path -- add a profile, add art -- and nothing else compares
+    the two sides. A profile naming a part that exists nowhere passes the build, the tests, the
+    boundary and comment checks and this validator, and then finds no launcher at run time.
+    """
+    source = MOD / "Sim" / "Arsenal.cs"
+    declared = set()
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        declared |= set(re.findall(r'<Part\s+Id="([^"]+)"', path.read_text()))
+
+    problems = checked = 0
+    for part_id in re.findall(r'PartId\s*=\s*"([^"]+)"', source.read_text()):
+        checked += 1
+        if part_id not in declared:
+            print(f'  MISSING <Part Id="{part_id}"> -- registered in Arsenal.cs, declared in no XML',
+                  file=sys.stderr)
+            problems += 1
+
+    if not checked:
+        print("  no PartId in Arsenal.cs -- nothing registered?", file=sys.stderr)
+        problems += 1
+
+    return problems, checked
+
+
 def main():
     # Without the game installed, everything that depends only on our own files can still be
     # checked -- and on Linux that includes case, which is the difference between a mod that
     # loads on both platforms and one that only loads on Windows.
-    offline = "--offline" in sys.argv
+    parser = argparse.ArgumentParser(
+        description="Check the part XML, the launch geometry and the registry against each other.")
+    parser.add_argument("--offline", action="store_true",
+                        help="skip the checks that need KSA's Core assets")
+    offline = parser.parse_args().offline
 
     if offline:
         print("offline: skipping the checks that need KSA's Core assets\n")
@@ -453,6 +485,11 @@ def main():
         p, c = check_file(path, core_subparts, core_materials)
         problems += p
         checked += c
+
+    print("checking every registered PartId is declared in the XML")
+    p, c = check_registered_part_ids()
+    problems += p
+    checked += c
 
     print("checking src/KSArmory/Sim/Arsenal.cs against the mesh")
     p, c = check_launcher_geometry()

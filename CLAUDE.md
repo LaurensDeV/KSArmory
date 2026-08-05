@@ -181,7 +181,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/doctor.sh                          # can this machine build, test and run it? -- start here
 ./tools/build.sh                           # build the mod (handles the SDK PATH)
 ./tools/test.sh                            # guidance + fuse tests, no game needed
-./tools/validate-parts.py                  # check part XML + launch geometry -- run after editing either
+./tools/validate-parts.py                  # part XML, launch geometry, registered PartIds; runs in deploy.sh
 ./tools/model/build.sh                     # rebuild the Pantsir mesh and textures (needs Blender)
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
@@ -418,7 +418,9 @@ as the default selection. Anything else naming it is a doc comment citing what i
    uses, with the geometry `build.sh` prints. Add a `MunitionProfile` too if the round differs.
 4. **Nothing else.** `LauncherPart.Find` matches against every registered part Id, and the
    battery selects whichever profile it finds. `ArsenalTests` checks the registry hangs
-   together; `validate-parts.py` checks the geometry still matches the mesh.
+   together; `validate-parts.py` checks the geometry still matches the mesh, and that every
+   registered `PartId` is declared in the XML — a profile naming a part that exists nowhere
+   used to pass every gate and simply find no launcher in game.
 
 A launcher that does not train is the same `LauncherProfile` with `TurretMarker` and `PodsMarker`
 left null — `Trains` is then false, the drives are skipped and `IsLaid` stays true, so fire
