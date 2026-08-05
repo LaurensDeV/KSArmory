@@ -713,6 +713,37 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Points the camera at a craft and takes control of it.
+    ///
+    /// <para>The same four steps KSA's own "Control from here" runs, in the same order — follow,
+    /// control, match the zoom, then let the vehicle rebuild its derived data. Doing fewer of
+    /// them leaves the camera watching one craft while the controls drive another, or the view
+    /// snapped to a zoom that belonged to the last vehicle.</para>
+    /// </summary>
+    /// <returns>False if the craft is gone, or the engine refused any part of it.</returns>
+    public static bool GoTo(Vehicle? vehicle)
+    {
+        if (!IsAlive(vehicle)) return false;
+
+        try
+        {
+            Camera? camera = Program.GetMainCamera();
+            if (camera is null) return false;
+
+            camera.SetFollow(vehicle!, tidalLocking: true);
+            Program.ControlledVehicle = vehicle;
+            Program.MainViewport.OrbitController.DistancePower = vehicle!.OrbitView.DistancePower;
+            vehicle.UpdateAfterPartTreeModification();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not go to {DisplayName(vehicle!)}: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Flattens a craft's part tree into what <see cref="WeaponSurvey"/> takes.
     ///
     /// <para>Position and orientation are read in the vehicle's assembly frame, which is the

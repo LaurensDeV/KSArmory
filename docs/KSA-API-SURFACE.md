@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-79 types and 203 members across 6 assemblies.
+80 types and 207 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -181,6 +181,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double NearbyCelestialTerrainHeight`
 - `float GetFieldOfView()`
 - `void LookAt(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `void SetFollow(KSA.IFollowable, bool, bool, bool)`
 - `void set_NearbyCelestial(KSA.Celestial)`
 
 ### KSA.CameraMode
@@ -311,6 +312,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double get_Eccentricity()`
 - `double get_Periapsis()`
 
+### KSA.OrbitController
+
+- `double DistancePower`
+
 ### KSA.OrbitView
 
 - `double DistancePower`
@@ -362,6 +367,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
 - `void SetCameraUbo(KSA.Viewport)`
 - `void UpdateShaderData(double, KSA.Viewport)`
+- `void set_ControlledVehicle(KSA.Vehicle)`
 
 ### KSA.Ray
 
@@ -452,6 +458,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Camera BaseCamera`
 - `KSA.Camera GetCamera()`
 - `KSA.CameraMode Mode`
+- `KSA.OrbitController OrbitController`
 - `bool IsOffscreen`
 - `bool Visible`
 - `int get_Height()`

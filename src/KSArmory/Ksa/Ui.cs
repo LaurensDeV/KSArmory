@@ -162,9 +162,24 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
                                    + $"   {_battery.Ammo}/{_profile.TubeCount} rounds"
                                    + (_battery.PlatformPinned ? "   (pinned)" : ""));
             }
-            else if (ImGui.Button("Take control of this system"))
+
+            // Two different things, so two buttons. Going there moves the camera and the
+            // controls; taking the battery moves which craft this mod is running on. Wanting to
+            // watch a site without commandeering it is the whole reason PinPlatform exists.
+            bool flyingIt = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
+            if (!flyingIt)
+            {
+                if (ImGui.Button("Go to")) KsaWorld.GoTo(craft);
+                ImGui.SameLine();
+            }
+
+            if (!isActive && ImGui.Button("Run the battery here"))
             {
                 _battery.PinPlatform(craft);
+            }
+            else if (isActive && _battery.PlatformPinned && ImGui.Button("Release pin"))
+            {
+                _battery.PinPlatform(null);
             }
 
             ImGui.PopID();
