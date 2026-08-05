@@ -38,6 +38,9 @@ public sealed class KSArmoryMod
     // The short-lived marker the systems list drops on a craft.
     private readonly Ping _ping = new();
 
+    // Holds the main view on one system without handing it the controls.
+    private readonly WatchCamera _watch = new();
+
     // Last kitten reported, so the character is logged once per EVA rather than every frame.
     private string _lastKittenSeen = string.Empty;
 
@@ -51,7 +54,7 @@ public sealed class KSArmoryMod
     public void OnFullyLoaded()
     {
         _battery = new DefenceBattery(_config, _policy);
-        _ui = new Ui(_config, _policy, _battery, _warp, _ping);
+        _ui = new Ui(_config, _policy, _battery, _warp, _ping, _watch);
         Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -134,6 +137,10 @@ public sealed class KSArmoryMod
                 Visuals.DrawPing(marked, pingLeft);
             }
 
+            // Both of these write a camera, and both must be last and every frame: KSA's
+            // controller writes from its own mode, so a view taken earlier in the frame is
+            // overwritten before anything renders.
+            _watch.Apply(dt);
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
             if (KsaWorld.InFlight && _policy.OpticViewport >= 0)
@@ -216,6 +223,7 @@ public sealed class KSArmoryMod
         }
         _warp.Clear();
         _ping.Clear();
+        _watch.Release();
 
         _battery?.Reset();
         KsaWorld.ResetSimStepTracking();

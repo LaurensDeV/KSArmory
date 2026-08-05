@@ -827,36 +827,6 @@ internal static class KsaWorld
         }
     }
 
-    /// <summary>
-    /// Moves the camera to a craft and keeps it there, without taking control of it.
-    ///
-    /// <para><c>SetFollow</c>'s <c>changeControl</c> flag is the whole distinction from
-    /// <see cref="GoTo"/>: both point the view at a craft, and only one hands it the controls.
-    /// It parks the camera at 2.5 mean radii along its current forward and latches onto the
-    /// target, so the view stays there instead of being dragged back.</para>
-    ///
-    /// <para>Rotating the camera with <c>LookAt</c> does not work for this. That sets rotation
-    /// only, and the viewport's controller rewrites it every frame from whatever it is following
-    /// — so it appears to work when nothing else is driving the camera and does nothing at all
-    /// when something is, which is exactly when it is wanted.</para>
-    /// </summary>
-    public static bool Watch(Vehicle? vehicle)
-    {
-        if (!IsAlive(vehicle)) return false;
-
-        try
-        {
-            if (Program.GetMainCamera() is not { } camera) return false;
-
-            camera.SetFollow(vehicle!, tidalLocking: true, changeControl: false);
-            return true;
-        }
-        catch (Exception e)
-        {
-            Log.Warn($"could not watch {DisplayName(vehicle!)}: {e.Message}");
-            return false;
-        }
-    }
 
 
     /// <summary>
@@ -931,6 +901,73 @@ internal static class KsaWorld
         catch
         {
             return $"#{index}";
+        }
+    }
+
+    /// <summary>The main viewport's current camera mode, so it can be given back.</summary>
+    public static CameraMode MainCameraMode()
+    {
+        try { return Program.MainViewport?.Mode ?? CameraMode.Fixed; }
+        catch { return CameraMode.Fixed; }
+    }
+
+    /// <summary>Puts the main viewport back into a mode the engine drives itself.</summary>
+    public static void RestoreMainCameraMode(CameraMode mode)
+    {
+        try
+        {
+            if (Program.MainViewport is { } viewport && viewport.Mode != mode)
+            {
+                viewport.SetCameraMode(mode);
+            }
+        }
+        catch
+        {
+            // Nothing useful to do: the view is the player's and they can change it themselves.
+        }
+    }
+
+    /// <summary>
+    /// Drives the <em>main</em> view from a point, looking along a direction.
+    ///
+    /// <para>Same mechanism as <see cref="TryLookFromViewport"/> and the same rule: it holds only
+    /// while it keeps being reapplied, from a hook that runs after the viewport's own controller.
+    /// The difference is which window it takes — this one borrows the player's, which is why
+    /// whatever called it has to have a way to give it back.</para>
+    /// </summary>
+    public static bool TryLookFromMainViewport(double3 eyeEcl, double3 forwardEcl, double3 upEcl,
+                                               double dt)
+    {
+        if (!Vec.IsFinite(eyeEcl) || !Vec.IsFinite(forwardEcl) || !Vec.IsFinite(upEcl)) return false;
+        if (Vec.Len2(forwardEcl) < 1e-12) return false;
+
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return false;
+
+            // Fixed is the mode that draws the scene from wherever its camera is. Anything else
+            // has a controller that will put the camera back where it thinks it belongs.
+            if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
+
+            Camera camera = viewport.BaseCamera;
+            if (camera is null) return false;
+
+            camera.LookAt(eyeEcl, eyeEcl + Vec.Unit(forwardEcl) * 1000.0, upEcl);
+
+            // The sky, atmosphere and terrain LOD are shaded from data the engine uploads per
+            // viewport, which by this point holds where the camera *was*. Without this the view
+            // renders the sky from the old position.
+            if (Program.Instance is { } program)
+            {
+                program.UpdateShaderData(dt, viewport);
+                program.SetCameraUbo(viewport);
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 

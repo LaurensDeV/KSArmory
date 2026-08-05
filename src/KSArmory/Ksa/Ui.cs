@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery battery, WarpPolicy warp, Ping ping)
+internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery battery, WarpPolicy warp, Ping ping, WatchCamera watch)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -24,6 +24,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private readonly DefenceBattery _battery = battery;
     private readonly WarpPolicy _warp = warp;
     private readonly Ping _ping = ping;
+    private readonly WatchCamera _watch = watch;
     private readonly List<int> _viewports = [];
     private readonly List<(string Name, string Character)> _roster = [];
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
@@ -176,16 +177,20 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
             // Point the camera at it and mark it, without moving or commandeering anything.
             // ASCII on purpose: ImGui's default font carries basic Latin only, so a crosshair
             // glyph would render as a box.
-            if (ImGui.Button("(+)"))
+            bool watching = ReferenceEquals(craft, _watch.Target);
+            if (watching) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
+            if (ImGui.Button(watching ? "(o)" : "(+)"))
             {
-                KsaWorld.Watch(craft);
+                _watch.Toggle(craft);
                 _ping.Mark(craft);
             }
+            if (watching) ImGui.PopStyleColor();
             if (ImGui.IsItemHovered())
             {
-                ImGui.SetTooltip("Send the camera to it. Controls stay on what you are flying.\n"
-                                 + "To find it without moving: it is marked on screen, with an\n"
-                                 + "arrow at the edge and its range when it is out of view.");
+                ImGui.SetTooltip(watching
+                    ? "Watching. Click to give the view back."
+                    : "Point the main view at it, from where you are.\n"
+                      + "You keep flying what you are flying.");
             }
             ImGui.SameLine();
 
