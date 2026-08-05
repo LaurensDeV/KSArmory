@@ -1090,9 +1090,22 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
 
         if (ImGui.TreeNode("Display"))
         {
+            ImGui.Checkbox("World overlay", ref _config.DrawOverlays);
+            ImGui.TextDisabled("  everything drawn in the world around a system");
+
+            if (_config.DrawOverlays)
+            {
+                ImGui.Checkbox("Only the system shown in the panel",
+                               ref _config.DrawOverlayForFocusedOnly);
+                ImGui.TextDisabled("  off: every crewed system draws its own");
+            }
+
+            ImGui.Separator();
             ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
             ImGui.TextDisabled("  brackets over every system; (+) in the list pins a label");
             ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);
+            ImGui.Checkbox("Drive facing line", ref _config.DrawTurretFacing);
+            ImGui.TextDisabled("  where the drives think they point, not where they are told to");
             ImGui.SliderFloat("Cone draw length (m)", ref _config.ConeDisplayMetres, 200f, 20000f);
             ImGui.TextDisabled("  cosmetic only; detection range is set under Radar");
             ImGui.Checkbox("Tracks", ref _config.DrawTracks);

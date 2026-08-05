@@ -124,9 +124,16 @@ public sealed class KSArmoryMod
 
             _ui.Draw();
 
-            if (KsaWorld.InFlight)
+            if (KsaWorld.InFlight && _config.DrawOverlays)
             {
-                foreach (BatteryRoster.Entry e in _roster.All) Visuals.Draw(e.Battery, _config);
+                if (_config.DrawOverlayForFocusedOnly)
+                {
+                    if (_roster.For(_ui.Focused) is { } shown) Visuals.Draw(shown.Battery, _config);
+                }
+                else
+                {
+                    foreach (BatteryRoster.Entry e in _roster.All) Visuals.Draw(e.Battery, _config);
+                }
             }
 
             // Over the world, under the panel: ImGui draws windows in submission order, and the

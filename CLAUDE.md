@@ -435,9 +435,14 @@ way round rather than on arrival. A flat depression limit everywhere would be si
 worse — off the beam the pods can legitimately come down to level, which is the shot against
 anything skimming the horizon.
 
-`Visuals` draws a cyan line along where the drives think they point. It stays: it is what
-separates "the maths is wrong" from "the engine ignored the write", and it cost a restart to
-learn that distinction matters.
+`Visuals` draws a cyan line along where the drives think they point, on `Config.DrawTurretFacing`
+— its own switch rather than riding on the radar volume, because it is what separates "the maths
+is wrong" from "the engine ignored the write" and is the one line worth keeping when everything
+else is off. It cost a restart to learn that distinction matters.
+
+The overlay is drawn for **one** system by default. There are as many overlays as there are crewed
+systems, and four search cones around four craft is not four times as useful;
+`Config.DrawOverlayForFocusedOnly` off draws them all, which is the case for comparing two sites.
 
 Four moving pieces now: chassis (fixed), turret (traverses), pods (traverse + elevate), and the
 **search array**, a double-sided hexagonal wedge that turns continuously off the clock rather

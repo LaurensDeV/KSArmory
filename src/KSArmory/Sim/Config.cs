@@ -112,9 +112,34 @@ public sealed class Config
 
     // ---- Visuals --------------------------------------------------------
 
+    /// <summary>
+    /// Draw the world overlay at all — search volume, tracks, rounds, drive facing.
+    ///
+    /// <para>One switch above all the others because there are as many overlays as there are
+    /// crewed systems, and four of everything around four craft is not four times as useful.</para>
+    /// </summary>
+    public bool DrawOverlays = true;
+
+    /// <summary>
+    /// Draw the overlay only for the system the panel is showing, rather than for every one.
+    ///
+    /// <para>On by default for the same reason. Turn it off to compare two sites at once, which
+    /// is the case it exists for.</para>
+    /// </summary>
+    public bool DrawOverlayForFocusedOnly = true;
+
     public bool DrawRadarVolume = true;
     public bool DrawTracks = true;
     public bool DrawMissiles = true;
+
+    /// <summary>
+    /// Draw a line along where the drives think they are pointing.
+    ///
+    /// <para>Its own switch rather than riding on the radar volume: it is what separates "the
+    /// maths is wrong" from "the engine ignored the write", so it is the one line worth keeping
+    /// when everything else is off.</para>
+    /// </summary>
+    public bool DrawTurretFacing = true;
 
     /// <summary>
     /// Bracket every weapons system on screen, with an arrow at the edge for one out of view.

@@ -46,7 +46,7 @@ internal static class Visuals
         if (config.DrawTracks) DrawTracks(battery, origin, config);
         if (config.DrawMissiles) DrawRounds(battery, config);
         if (battery.Launcher is not null && config.DrawTubeMarkers) DrawLoadedTubes(battery, config, origin);
-        if (config.DrawRadarVolume) DrawTurretFacing(battery);
+        if (config.DrawTurretFacing) DrawTurretFacing(battery);
     }
 
     // Wireframe cone: boresight, a rim, and ribs out to the rim.
