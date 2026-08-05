@@ -1,3 +1,13 @@
+## [0.8.5](https://github.com/LaurensDeV/KSArmory/compare/v0.8.4...v0.8.5) (2026-08-05)
+
+### Build and packaging
+
+* **ksa:** retarget 2026.8.5.5168 ([80fb957](https://github.com/LaurensDeV/KSArmory/commit/80fb957b6ad54dd0d6e6d348b300407b79255139))
+
+### Documentation
+
+* record that the retarget has not been flown ([da83bf8](https://github.com/LaurensDeV/KSArmory/commit/da83bf8de75e154e11df05e801461c0da6dfb596))
+
 ## [0.8.4](https://github.com/LaurensDeV/KSArmory/compare/v0.8.3...v0.8.4) (2026-08-05)
 
 ### Features
