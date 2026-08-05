@@ -153,6 +153,29 @@ public static class Arsenal
     public static readonly IReadOnlyList<MunitionProfile> Munitions = [Missile57E6, Cannon30Mm];
     public static readonly IReadOnlyList<SensorProfile> Sensors = [SearchRadar1Rs1];
 
+    /// <summary>
+    /// The parts this mod recognises on a craft it did not design, keyed by part Id.
+    ///
+    /// <para>Separate from <see cref="Launchers"/>, which describes a whole weapon system as one
+    /// prefab part with its geometry generated into this file. This describes *components*: what
+    /// a player assembled, surveyed where they put it. A prefab appears in both, because the
+    /// Pantsir is a launcher however it got onto the craft.</para>
+    ///
+    /// <para>Thin on purpose. Until there are parts to compose — a tube, a radar, a cannon, a
+    /// manager — this registry has one entry and the survey has little to find. The mechanism is
+    /// worth having first: it is what a second weapon system plugs into, and it is testable
+    /// before any of that art exists.</para>
+    /// </summary>
+    public static readonly IReadOnlyList<ComponentProfile> Components =
+    [
+        new ComponentProfile
+        {
+            PartId = PantsirS1.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = PantsirS1.DisplayName,
+        },
+    ];
+
     /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
     public static LauncherProfile? LauncherForPart(string? partId) => LauncherForPart(Launchers, partId);
 

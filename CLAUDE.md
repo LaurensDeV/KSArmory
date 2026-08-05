@@ -218,6 +218,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | --- | --- |
 | **`src/KSArmory/Sim/`** | **no KSA types, linked into the tests wholesale** |
 | `Sim/Arsenal.cs` | **the registry — add a weapon system here** |
+| `Sim/WeaponSurvey.cs` | reads a weapons system off a craft the mod did not design |
 | `Sim/LauncherProfile.cs` | one launch platform: part Id, tube geometry, drives |
 | `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |

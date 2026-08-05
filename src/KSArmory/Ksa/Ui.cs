@@ -26,6 +26,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private readonly List<int> _viewports = [];
     private readonly List<(string Name, string Character)> _roster = [];
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
+    private readonly List<SurveyedPart> _surveyed = [];
     private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
 
@@ -51,6 +52,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         new("Teams and IFF", DrawIff),
         new("Test targets", DrawTestTargets),
         new("Kittens", DrawKittenRoster),
+        new("Survey", DrawSurvey),
         new("Log", DrawLog),
     ];
 
@@ -88,6 +90,52 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         // Outside the main window's Begin/End: a pane is its own top-level window, so it must
         // not be nested inside another one.
         DrawPanes();
+    }
+
+    // What the mod recognises on the craft being flown. Reports only -- nothing depends on this
+    // yet. Proving discovery works against real user-built craft comes before anything is wired
+    // to it, because a survey that quietly finds nothing looks exactly like a craft with no
+    // weapons on it.
+    private void DrawSurvey()
+    {
+        KSA.Vehicle? craft = KsaWorld.ControlledVehicle;
+        if (craft is null)
+        {
+            ImGui.TextDisabled("  Not flying anything.");
+            return;
+        }
+
+        KsaWorld.SurveyParts(craft, _surveyed);
+        WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Arsenal.Components);
+
+        ImGui.Text($"{KsaWorld.DisplayName(craft)}");
+        ImGui.TextDisabled($"  {_surveyed.Count} part(s) on the craft");
+
+        if (!inv.IsWeaponSystem)
+        {
+            ImGui.TextColored(Grey, "  Nothing this mod recognises.");
+            ImGui.TextDisabled("  A craft becomes a weapons system by carrying a part from");
+            ImGui.TextDisabled("  Arsenal.Components. Only the launcher is registered so far.");
+            return;
+        }
+
+        ImGui.TextColored(Green, "  Weapons system");
+        foreach (WeaponRole role in (ReadOnlySpan<WeaponRole>)
+                 [WeaponRole.FireControl, WeaponRole.Launcher, WeaponRole.Sensor, WeaponRole.Gun])
+        {
+            int n = inv.CountOf(role);
+            if (n > 0) ImGui.TextDisabled($"    {role}: {n}");
+        }
+
+        ImGui.Separator();
+        for (int i = 0; i < inv.Components.Count; i++)
+        {
+            FoundComponent c = inv.Components[i];
+            double3 at = c.PositionVehicleAsmb;
+            ImGui.Text($"  {c.Profile.DisplayName}");
+            // Read off the craft, not from a table -- which is the whole point of surveying.
+            ImGui.TextDisabled($"    {c.Role} at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
+        }
     }
 
     private void DrawPaneToggles()

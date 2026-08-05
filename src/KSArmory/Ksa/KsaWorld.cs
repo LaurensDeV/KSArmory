@@ -712,6 +712,36 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Flattens a craft's part tree into what <see cref="WeaponSurvey"/> takes.
+    ///
+    /// <para>Position and orientation are read in the vehicle's assembly frame, which is the
+    /// frame the parts were placed in, so what comes back is where the player put them. Only the
+    /// top-level parts: a subpart is a piece of one part's own articulation, not a component
+    /// somebody bolted on.</para>
+    /// </summary>
+    public static void SurveyParts(Vehicle? vehicle, List<SurveyedPart> into)
+    {
+        into.Clear();
+        if (!IsAlive(vehicle)) return;
+
+        try
+        {
+            ReadOnlySpan<Part> parts = vehicle!.Parts.Parts;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                Part part = parts[i];
+                into.Add(new SurveyedPart(part.Id, part.PositionVehicleAsmb, part.Asmb2VehicleAsmb));
+            }
+        }
+        catch
+        {
+            // A tree being rebuilt underneath us during staging or docking. Next frame will see
+            // the finished one; reporting a half-built craft would be worse than reporting none.
+            into.Clear();
+        }
+    }
+
     /// <summary>A short description of one open view, for the panel's picker.</summary>
     public static string DescribeViewport(int index)
     {
