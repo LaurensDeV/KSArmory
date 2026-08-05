@@ -27,10 +27,12 @@ CHECK=0
 [[ "${1:-}" == "--check" ]] && CHECK=1
 
 MOD_DLL="$REPO_ROOT/src/KSArmory/bin/Release/net10.0/KSArmory.dll"
-if [[ ! -f "$MOD_DLL" ]]; then
-    echo "building the mod first (the surface is read from the compiled assembly)..."
-    "$REPO_ROOT/tools/build.sh" >/dev/null
-fi
+
+# Always, not only when the assembly is missing. The surface is read from the compiled DLL, so
+# checking against a stale one reports a match that says nothing about the code as it stands --
+# and an incremental build costs about as long as the check itself.
+echo "building the mod first (the surface is read from the compiled assembly)..."
+"$REPO_ROOT/tools/build.sh" >/dev/null
 [[ -f "$MOD_DLL" ]] || { echo "error: $MOD_DLL not found; run ./tools/build.sh" >&2; exit 1; }
 
 # Build the extractor rather than `dotnet run` it: run rebuilds on every invocation and its

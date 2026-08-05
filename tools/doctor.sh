@@ -142,7 +142,9 @@ fi
 
 head_ "Repository setup"
 
-if [[ "$(git config core.hooksPath 2>/dev/null)" == ".githooks" ]] || [[ -x .githooks/commit-msg ]]; then
+# core.hooksPath only. The file being present and executable proves nothing: it is tracked with
+# its exec bit, so `-x` is true in every clone including ones where git will never run it.
+if [[ "$(git config core.hooksPath 2>/dev/null)" == ".githooks" ]]; then
     ok "commit-msg hook installed"
 else
     warn "commit-msg hook not installed - a message that does not parse silently cuts no release"

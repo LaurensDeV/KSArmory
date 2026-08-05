@@ -132,8 +132,10 @@ if (( GAME )); then
 fi
 
 (( GAME )) || echo "assemblies in $DIR do not match $(basename "$LOCK"):" >&2
+# `|| true`: diff exits non-zero when it finds a difference, which is the whole point here, and
+# under `set -e` with `pipefail` that killed the script before the remediation below ever printed.
 diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") \
-    | grep -E '^[<>]' | sed 's/^</  expected/; s/^>/  found   /' >&2
+    | grep -E '^[<>]' | sed 's/^</  expected/; s/^>/  found   /' >&2 || true
 cat >&2 <<EOF
 
 The local assemblies and the ones CI builds against have drifted. After a KSA update:
