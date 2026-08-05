@@ -625,8 +625,21 @@ GitHub Release. **Never edit a version by hand** — it will be overwritten. `fe
 treated as no release, so a stray `wip` cannot publish anything.
 
 That workflow is in two jobs: the first decides the version and creates the release, the second
-builds the archive and attaches it. Both hosted. The release commit carries `[skip ci]` so it
-does not retrigger CI.
+builds the archive, attaches it, and **publishes it to SpaceDock**. Both hosted. The release commit
+carries `[skip ci]` so it does not retrigger CI.
+
+SpaceDock needs three settings, and the step skips with a notice if any is missing — a fork cannot
+have them, and the GitHub release is the real artefact either way:
+
+| | |
+| --- | --- |
+| `SPACEDOCK_MOD_ID` | repository **variable** — the number in the mod's SpaceDock URL |
+| `SPACEDOCK_USERNAME` | repository **variable** |
+| `SPACEDOCK_PASSWORD` | repository **secret** |
+
+The KSA version it claims compatibility with comes from `ksa-assemblies.lock`, so what SpaceDock
+advertises cannot drift from the build CI actually enforced. `SPACEDOCK_GAME_VERSION` overrides it
+for the case where SpaceDock does not list that build yet. It notifies followers on every upload.
 
 Three things that will bite:
 

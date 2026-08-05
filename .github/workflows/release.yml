@@ -29,6 +29,7 @@ jobs:
     outputs:
       published: ${{ steps.semantic.outputs.new_release_published }}
       version: ${{ steps.semantic.outputs.new_release_version }}
+      notes: ${{ steps.semantic.outputs.new_release_notes }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,6 +71,11 @@ jobs:
     env:
       HAVE_KEY: ${{ secrets.KSA_ASSEMBLIES_KEY != '' }}
       KSA_DLL_DIR: ${{ github.workspace }}/.ksa-assemblies/current/dll
+      # Publishing to SpaceDock needs all three. Absent, the step is skipped with a notice rather
+      # than failing: a fork cannot have them, and the GitHub release is the real artefact either
+      # way. SPACEDOCK_MOD_ID and SPACEDOCK_USERNAME are repository *variables*, the password a
+      # secret.
+      HAVE_SPACEDOCK: ${{ vars.SPACEDOCK_MOD_ID != '' && vars.SPACEDOCK_USERNAME != '' && secrets.SPACEDOCK_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -136,3 +142,56 @@ jobs:
 
             Release build: no debug symbols, log starts at INFO. Tick **Verbose log** in the
             panel if you are reporting a bug.
+
+      # SpaceDock is where most people will actually get this, so the release is not finished
+      # until it is there. Adapted from AMPW-german/KSAGEffects, which worked the API out first.
+      - name: Publish to SpaceDock
+        if: env.HAVE_KEY == 'true' && env.HAVE_SPACEDOCK == 'true'
+        env:
+          SPACEDOCK_USERNAME: ${{ vars.SPACEDOCK_USERNAME }}
+          SPACEDOCK_PASSWORD: ${{ secrets.SPACEDOCK_PASSWORD }}
+          MOD_ID: ${{ vars.SPACEDOCK_MOD_ID }}
+          VERSION: ${{ needs.version.outputs.version }}
+          NOTES: ${{ needs.version.outputs.notes }}
+          # The KSA build SpaceDock lists this against. Taken from ksa-assemblies.lock, which is
+          # the build the mod was compiled and checked against, so the compatibility claimed on
+          # SpaceDock cannot drift from the one CI enforced. Override only if SpaceDock does not
+          # yet list that build.
+          GAME_VERSION_OVERRIDE: ${{ vars.SPACEDOCK_GAME_VERSION }}
+        run: |
+          set -euo pipefail
+
+          version="${GAME_VERSION_OVERRIDE:-$(awk '/^build /{print $2}' ksa-assemblies.lock)}"
+          if [[ -z "$version" ]]; then
+            echo "::error::no KSA version: ksa-assemblies.lock has no build line"
+            exit 1
+          fi
+
+          zip="dist/KSArmory-${VERSION}.zip"
+          [[ -f "$zip" ]] || { echo "::error::$zip was not built"; exit 1; }
+
+          printf '%s' "$NOTES" > spacedock-changelog.md
+
+          # -f so a rejected login is a failure here rather than a confusing one on the upload,
+          # where the cookie jar would simply be empty.
+          curl -fsS --form-string "username=$SPACEDOCK_USERNAME" \
+                    --form-string "password=$SPACEDOCK_PASSWORD" \
+                    -c ./spacedock-cookies \
+                    https://spacedock.info/api/login > /dev/null
+
+          curl -fsS -b ./spacedock-cookies \
+                    --form-string "version=$VERSION" \
+                    -F "changelog=<spacedock-changelog.md" \
+                    --form-string "game-version=$version" \
+                    --form-string "notify-followers=yes" \
+                    -F "zipball=@$zip" \
+                    "https://spacedock.info/api/mod/${MOD_ID}/update"
+
+          echo "published $VERSION to SpaceDock for KSA $version" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: SpaceDock not configured
+        if: env.HAVE_KEY == 'true' && env.HAVE_SPACEDOCK != 'true'
+        run: |
+          echo "::notice::SpaceDock upload skipped. Set the repository variables"
+          echo "::notice::SPACEDOCK_MOD_ID and SPACEDOCK_USERNAME, and the secret SPACEDOCK_PASSWORD."
+
