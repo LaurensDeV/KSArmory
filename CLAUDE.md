@@ -682,13 +682,18 @@ a frozen world; and it ignores **timewarp**, so at 10× the world moved ten time
 frame than the rounds did and tracking fell apart. `KsaWorld.SimTimeSeconds` differenced by
 `Sim/SimClock.cs` is the fix, and it is `Universe.GetElapsedSimTime()` plus `Universe.IsPaused()`.
 
-`SimClock` also refuses steps it cannot integrate. `Interceptor` subdivides internally but
-clamps at 64 sub-steps, so beyond `Interceptor.MaxFaithfulStep` (0.32 s) a round at 700 m/s
-starts stepping over its own fuse radius. Past that — heavy warp, or a load that replaced the
-clock — the battery calls `AbandonFlight` and drops what is in the air rather than pretending.
-Clamping the delta instead, which is what the old code did with `Math.Min(dt, 0.1)`, silently
-discards time and makes the mismatch worse. `SimClockTests` pins both behaviours, and both were
-checked by reintroducing the bug.
+`SimClock` classifies steps it cannot integrate. `Interceptor` subdivides internally but clamps
+at 64 sub-steps, so beyond `Interceptor.MaxFaithfulStep` (0.32 s) a round at 700 m/s starts
+stepping over its own fuse radius, and `SimClock.Classify` answers `Skipped`.
+
+**What the frame hook then does with that is currently a clamp, not a refusal.** It calls
+`Math.Min(dtSim, MaxFaithfulStep)` and carries on; `DefenceBattery.AbandonFlight` has no callers.
+So under heavy warp simulated time is discarded and rounds fall behind the world — the failure
+most easily misread as bad guidance. The hook now reports each overrun and how much time it threw
+away, and changes nothing else: whether abandoning the salvo is better than lagging it is a
+question about flight rather than about the maths, and this file has already been wrong once by
+describing a mechanism that was not running. `SimClockTests` pins `Classify`, which is correct and
+unused. Decide it, then rewrite this paragraph. See `docs/AUDIT-2026-08.md`.
 
 **Kills are binary.** KSA exposes no partial-damage model, only
 `Universe.DestroyVehicleFromEvent`. `LethalRadius` destroys; between lethal and `BlastRadius`

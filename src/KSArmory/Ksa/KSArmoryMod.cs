@@ -23,6 +23,11 @@ public sealed class KSArmoryMod
     private Ui? _ui;
     private int _faults;
     private int _viewTrace;
+
+    // Overrun bookkeeping. See ReportOverrun.
+    private const int OverrunReportEvery = 120;
+    private int _overrunFrames;
+    private double _overrunDiscarded;
     private bool _disabled;
 
     [StarMapImmediateLoad]
@@ -141,6 +146,16 @@ public sealed class KSArmoryMod
             // nothing exactly when it advanced nothing, so an estimate would integrate the round
             // across an interval the world did not move over, and the whole of that lands in the
             // drawn offset. Skipping costs one frame of round motion and nothing accumulates.
+            // Classified for the log only. The clamp below is what actually runs, and it is
+            // *not* what SimClock exists to do: past MaxFaithfulStep the honest answer is to
+            // abandon what is in the air, and clamping instead discards simulated time silently.
+            // Which is right is a question about flight, not about the maths - so this reports
+            // and changes nothing. See docs/AUDIT-2026-08.md.
+            if (SimClock.Classify(dtSim, KsaWorld.IsPaused, out _) == SimClock.State.Skipped)
+            {
+                ReportOverrun(dtSim);
+            }
+
             if (double.IsFinite(dtSim) && dtSim > 0.0)
                 _battery.Update(Math.Min(dtSim, Interceptor.MaxFaithfulStep));
         }
@@ -199,6 +214,22 @@ public sealed class KSArmoryMod
             _config.OpticViewport = -1;
             Log.Warn("camera: could not drive that view; released it");
         }
+    }
+
+    // Says how much simulated time the clamp threw away, and how often. Rate-limited because
+    // sustained warp overruns every frame, and a line per frame buries the first one - which is
+    // the only one that says when it started.
+    private void ReportOverrun(double stepSeconds)
+    {
+        _overrunFrames++;
+        _overrunDiscarded += stepSeconds - Interceptor.MaxFaithfulStep;
+
+        if (_overrunFrames != 1 && _overrunFrames % OverrunReportEvery != 0) return;
+
+        Log.Warn($"step {stepSeconds * 1000.0:F0} ms exceeds the {Interceptor.MaxFaithfulStep * 1000.0:F0} ms "
+                 + $"a round can integrate faithfully; clamped and carried on. "
+                 + $"{_overrunFrames} frame(s), {_overrunDiscarded:F2} s of simulated time discarded. "
+                 + $"Rounds in flight will lag the world.");
     }
 
     private void Fault(string where, Exception e)
