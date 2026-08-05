@@ -1,3 +1,9 @@
+## [0.8.9](https://github.com/LaurensDeV/KSArmory/compare/v0.8.8...v0.8.9) (2026-08-05)
+
+### Features
+
+* **sim:** scope each system's settings to the save it was set in ([990f015](https://github.com/LaurensDeV/KSArmory/commit/990f015f8ff1650ed301554eb386e14b117a6377))
+
 ## [0.8.8](https://github.com/LaurensDeV/KSArmory/compare/v0.8.7...v0.8.8) (2026-08-05)
 
 ### Features
