@@ -327,6 +327,76 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// How large something at <paramref name="atEcl"/> appears on screen, in pixels.
+    ///
+    /// <para>Measured by projecting a point one radius to the camera's right rather than by
+    /// reconstructing the field of view: the projection already knows the lens, and asking it
+    /// twice cannot disagree with itself.</para>
+    /// </summary>
+    public static bool TryApparentRadiusPixels(double3 atEcl, double metres, out float pixels)
+    {
+        pixels = 0f;
+        if (!double.IsFinite(metres) || metres <= 0.0) return false;
+
+        try
+        {
+            if (Program.GetMainCamera() is not { } camera) return false;
+
+            double3 right = camera.GetRightEcl();
+            if (!Vec.IsFinite(right) || Vec.Len(right) < 0.5) return false;
+
+            if (!TryProjectAhead(atEcl, out float2 centre)) return false;
+            if (!TryProjectAhead(atEcl + Vec.Unit(right) * metres, out float2 edge)) return false;
+
+            float dx = edge.X - centre.X, dy = edge.Y - centre.Y;
+            pixels = MathF.Sqrt(dx * dx + dy * dy);
+            return float.IsFinite(pixels);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where a craft stands: the surface point under it, and its latitude and longitude.
+    ///
+    /// <para>Placing something at a craft has to use the craft's own position rather than the
+    /// ground the cursor ray reaches. A ray through a vehicle's middle carries on and meets the
+    /// ground <em>behind</em> it, so aiming at a craft and using the ray puts the answer a
+    /// vehicle-height's worth of parallax past it.</para>
+    /// </summary>
+    public static bool TryCraftSurfacePoint(Vehicle craft, out double3 groundEcl,
+                                            out double latitudeDeg, out double longitudeDeg,
+                                            out string bodyName)
+    {
+        groundEcl = default;
+        latitudeDeg = 0.0;
+        longitudeDeg = 0.0;
+        bodyName = string.Empty;
+
+        if (!IsAlive(craft)) return false;
+
+        try
+        {
+            if (craft.Parent is not Celestial body) return false;
+
+            double3 cce = PositionEcl(craft) - body.GetPositionEcl();
+            if (!Vec.IsFinite(cce) || Vec.Len(cce) < 1.0) return false;
+
+            groundEcl = body.GetSurfacePositionEclFromCce(cce);
+            latitudeDeg = body.GetLatitudeFromCce(cce);
+            longitudeDeg = body.GetLongitudeFromCce(cce);
+            bodyName = body.Id ?? string.Empty;
+            return Vec.IsFinite(groundEcl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Rough size of a vehicle, used to scale hit and blast checks.</summary>
     public static double MeanRadius(Vehicle v)
     {

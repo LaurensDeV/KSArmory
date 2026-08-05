@@ -43,6 +43,35 @@ public static class Picking
     }
 
     /// <summary>
+    /// The index of the screen position nearest the cursor, each with its own reach, or -1.
+    ///
+    /// <para>Per item because a flat radius makes a big vessel exactly as hard to hit as a drone:
+    /// the pointer has to find its centre either way, and most of what is plainly under the
+    /// cursor is not clickable.</para>
+    /// </summary>
+    public static int NearestWithin(IReadOnlyList<float2> positions, IReadOnlyList<float> radii,
+                                    float2 cursor)
+    {
+        int best = -1;
+        float bestDistance2 = float.MaxValue;
+
+        for (int i = 0; i < positions.Count && i < radii.Count; i++)
+        {
+            float dx = positions[i].X - cursor.X;
+            float dy = positions[i].Y - cursor.Y;
+            float distance2 = dx * dx + dy * dy;
+
+            if (distance2 > radii[i] * radii[i]) continue;
+            if (distance2 >= bestDistance2) continue;
+
+            bestDistance2 = distance2;
+            best = i;
+        }
+
+        return best;
+    }
+
+    /// <summary>
     /// The index of the screen position nearest the cursor within <paramref name="radius"/>
     /// pixels, or -1.
     ///

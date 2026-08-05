@@ -25,8 +25,11 @@ internal sealed class CraftMover
     private static readonly float4 HeldColour = new(1.0f, 0.85f, 0.3f, 1f);
     private static readonly float4 TargetColour = new(0.4f, 1.0f, 0.6f, 1f);
 
-    // Pointer distance, in pixels, that counts as clicking a craft.
-    private const float PickRadius = 40f;
+    // Smallest and largest a craft's clickable area may be, in pixels. The floor keeps a distant
+    // vessel reachable when it is a couple of pixels across; the ceiling stops one filling the
+    // screen from swallowing every click meant for the ground beside it.
+    private const float MinPickRadius = 14f;
+    private const float MaxPickRadius = 140f;
 
     // Radius of the ring drawn where the craft would land, in metres. Fixed rather than scaled to
     // the craft: it marks a spot on the ground, and a big vessel would otherwise hide it.
@@ -34,6 +37,7 @@ internal sealed class CraftMover
 
     private readonly List<Vehicle> _craft = [];
     private readonly List<float2> _screen = [];
+    private readonly List<float> _reach = [];
 
     private Vehicle? _held;
     private Vehicle? _hovered;
@@ -91,7 +95,7 @@ internal sealed class CraftMover
 
         // Worked out every frame, not only on click: clicking blind and finding out afterwards
         // which craft was nearest is not an interaction, it is a guess.
-        _hovered = _held is null ? UnderCursor() : null;
+        _hovered = UnderCursor();
 
         if (!clicked) return;
 
@@ -106,16 +110,29 @@ internal sealed class CraftMover
         if (_craft.Count == 0) return null;
 
         _screen.Clear();
+        _reach.Clear();
         for (int i = 0; i < _craft.Count; i++)
         {
             // Off-screen craft get a position that cannot be picked, so the indices stay aligned
-            // with _craft and the nearest-on-screen answer means what it says.
-            _screen.Add(KsaWorld.TryProjectAhead(KsaWorld.PositionEcl(_craft[i]), out float2 at)
+            // with _craft and the nearest answer means what it says.
+            double3 atEcl = KsaWorld.PositionEcl(_craft[i]);
+            _screen.Add(KsaWorld.TryProjectAhead(atEcl, out float2 at)
                             ? at
                             : new float2(float.MaxValue, float.MaxValue));
+
+            // As big as the craft looks, so pointing anywhere on a vessel picks it rather than
+            // only its centre. MeanRadius is a bounding measure, so this is its whole extent.
+            float reach = MinPickRadius;
+            if (KsaWorld.TryApparentRadiusPixels(atEcl, KsaWorld.MeanRadius(_craft[i]),
+                                                 out float pixels))
+            {
+                reach = Math.Clamp(pixels, MinPickRadius, MaxPickRadius);
+            }
+
+            _reach.Add(reach);
         }
 
-        int pick = Picking.NearestOnScreen(_screen, ImGui.GetMousePos(), PickRadius);
+        int pick = Picking.NearestWithin(_screen, _reach, ImGui.GetMousePos());
         return pick < 0 ? null : _craft[pick];
     }
 
@@ -133,7 +150,7 @@ internal sealed class CraftMover
     {
         if (_held is not { } craft) return;
 
-        if (!KsaWorld.TryCursorGroundPoint(out _, out double lat, out double lon, out string body))
+        if (!TryTarget(out _, out double lat, out double lon, out string body))
         {
             Log.Info("nothing under the cursor to set it down on");
             return;
@@ -146,6 +163,28 @@ internal sealed class CraftMover
         }
 
         _held = null;
+    }
+
+    // Where the next click would put the held craft.
+    //
+    // A craft under the pointer answers with its own footing rather than with the ray: a ray
+    // through a vehicle's middle carries on and meets the ground behind it, so aiming at one and
+    // taking the ray lands a vehicle-height's worth of parallax past it. Aiming at the held craft
+    // itself therefore leaves it exactly where it is, which is what clicking it twice should do.
+    private bool TryTarget(out double3 groundEcl, out double latitudeDeg, out double longitudeDeg,
+                           out string bodyName)
+    {
+        // The hover is already worked out this frame; asking again would project every craft
+        // twice more per frame for the same answer.
+        if (_hovered is { } over
+            && KsaWorld.TryCraftSurfacePoint(over, out groundEcl, out latitudeDeg,
+                                             out longitudeDeg, out bodyName))
+        {
+            return true;
+        }
+
+        return KsaWorld.TryCursorGroundPoint(out groundEcl, out latitudeDeg, out longitudeDeg,
+                                             out bodyName);
     }
 
     /// <summary>Shows what the next click would pick up, or what is held and where it would go.</summary>
@@ -174,11 +213,10 @@ internal sealed class CraftMover
         // A ring on the craft being held, so it is obvious which one the next click moves.
         KsaWorld.DrawSphereEcl(heldEcl, Ring(_held), HeldColour);
 
-        if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _)) return;
+        if (!TryTarget(out double3 groundEcl, out _, out _, out _)) return;
 
         // The round trip: where the marker lands, projected back, against where the pointer is.
-        // Reported while held, which is exactly when someone is looking at the marker.
-        if (++_aimTrace % 60 == 0) Log.Info($"aim: {KsaWorld.DescribeCursorRay(groundEcl)}");
+        if (++_aimTrace % 120 == 0) Log.Debug(() => $"aim: {KsaWorld.DescribeCursorRay(groundEcl)}");
 
         KsaWorld.DrawSphereEcl(groundEcl, (float)MarkerRadius, TargetColour);
         KsaWorld.DrawLineEcl(heldEcl, groundEcl, TargetColour);

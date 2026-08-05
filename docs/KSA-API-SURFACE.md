@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-94 types and 252 members across 6 assemblies.
+94 types and 253 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -260,6 +260,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Celestial
 
+- `Brutal.Numerics.double3 GetSurfacePositionEclFromCce(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.doubleQuat GetCce2Ccf()`
 - `KSA.CelestialTemplate get_BodyTemplate()`
 - `double GetLatitudeFromCce(Brutal.Numerics.double3)`

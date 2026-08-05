@@ -76,4 +76,42 @@ public class PickingTests
         Assert.Equal(-1, Picking.NearestOnScreen(positions, new float2(400, 400), 40f));
         Assert.Equal(-1, Picking.NearestOnScreen([], new float2(0, 0), 40f));
     }
+
+    /// <summary>
+    /// Each item reaches as far as it looks. A flat radius makes a big vessel exactly as hard to
+    /// hit as a drone — the pointer has to find its centre either way, so most of what is plainly
+    /// under the cursor is not clickable.
+    /// </summary>
+    [Fact]
+    public void EachItemIsPickedWithinItsOwnReach()
+    {
+        List<float2> positions = [new(100, 100), new(400, 400)];
+        List<float> radii = [80f, 10f];
+
+        // 60 px from the big one is inside it; the same distance from the small one is not.
+        Assert.Equal(0, Picking.NearestWithin(positions, radii, new float2(160, 100)));
+        Assert.Equal(-1, Picking.NearestWithin(positions, radii, new float2(460, 400)));
+        Assert.Equal(1, Picking.NearestWithin(positions, radii, new float2(405, 400)));
+    }
+
+    /// <summary>
+    /// Overlapping reaches go to whichever centre is nearer, not to whichever is listed first —
+    /// list order is build order and means nothing to whoever is pointing.
+    /// </summary>
+    [Fact]
+    public void OverlappingReachesGoToTheNearerCentre()
+    {
+        List<float2> positions = [new(100, 100), new(140, 100)];
+        List<float> radii = [100f, 100f];
+
+        Assert.Equal(1, Picking.NearestWithin(positions, radii, new float2(130, 100)));
+        Assert.Equal(0, Picking.NearestWithin(positions, radii, new float2(110, 100)));
+    }
+
+    [Fact]
+    public void MismatchedOrEmptyListsPickNothing()
+    {
+        Assert.Equal(-1, Picking.NearestWithin([], [], new float2(0, 0)));
+        Assert.Equal(-1, Picking.NearestWithin([new float2(0, 0)], [], new float2(0, 0)));
+    }
 }
