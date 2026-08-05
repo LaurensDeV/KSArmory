@@ -746,6 +746,74 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Where a world point sits on screen, and whether it is actually in view.
+    ///
+    /// <para>For a point that is off-screen or behind, <paramref name="screen"/> comes back
+    /// clamped to the edge of the viewport in the direction of the target, so a caller can draw
+    /// an indicator pointing at something it cannot see. That is the difference from
+    /// <see cref="TryProjectAhead"/>, which simply refuses.</para>
+    ///
+    /// <para>A point behind the camera has to be handled by hand: a projection matrix maps it to
+    /// the *opposite* side of the screen, so an arrow built from it points exactly the wrong way.
+    /// The camera basis is public, so the bearing is taken from the direction to the target
+    /// against the camera's own right and up, which is well defined for any point that is not
+    /// exactly on the axis.</para>
+    /// </summary>
+    public static bool TryProjectOrClamp(double3 pointEcl, out float2 screen, out bool inView)
+    {
+        screen = default;
+        inView = false;
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return false;
+            if (viewport.GetCamera() is not { } camera) return false;
+
+            int w = viewport.Width, h = viewport.Height;
+            if (w <= 0 || h <= 0) return false;
+
+            double3 toTarget = pointEcl - camera.EgoToEcl(Vec.Zero);
+            bool ahead = Vec.Dot(toTarget, camera.GetForwardEcl()) > 0.0;
+
+            if (ahead)
+            {
+                float2 local = camera.EclToScreen(pointEcl, ignoreBehind: true);
+                if (float.IsFinite(local.X) && float.IsFinite(local.Y)
+                    && local.X >= 0f && local.Y >= 0f && local.X <= w && local.Y <= h)
+                {
+                    inView = true;
+                    screen = new float2(viewport.Position.X + local.X, viewport.Position.Y + local.Y);
+                    return true;
+                }
+            }
+
+            // Off-screen or behind: bearing from the camera basis, then out to the edge.
+            double right = Vec.Dot(toTarget, camera.GetRightEcl());
+            double up = Vec.Dot(toTarget, camera.GetUpEcl());
+            if (!double.IsFinite(right) || !double.IsFinite(up)) return false;
+            if (Math.Abs(right) < 1e-9 && Math.Abs(up) < 1e-9) return false;
+
+            // Screen Y grows downward, so the camera's up is negated.
+            double len = Math.Sqrt(right * right + up * up);
+            double dx = right / len, dy = -up / len;
+
+            double halfW = w * 0.5 - EdgeMargin, halfH = h * 0.5 - EdgeMargin;
+            double scale = Math.Min(Math.Abs(dx) > 1e-9 ? halfW / Math.Abs(dx) : double.MaxValue,
+                                    Math.Abs(dy) > 1e-9 ? halfH / Math.Abs(dy) : double.MaxValue);
+
+            screen = new float2((float)(viewport.Position.X + w * 0.5 + dx * scale),
+                                (float)(viewport.Position.Y + h * 0.5 + dy * scale));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Keeps an edge indicator clear of the very border, where it would be half off-screen.
+    private const float EdgeMargin = 28f;
+
     /// <summary>Where the camera is, in Ecl. Zero if there is none.</summary>
     public static double3 CameraPositionEcl()
     {

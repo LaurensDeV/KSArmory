@@ -181,7 +181,12 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
                 KsaWorld.Watch(craft);
                 _ping.Mark(craft);
             }
-            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Watch it - camera only, controls stay here");
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("Send the camera to it. Controls stay on what you are flying.\n"
+                                 + "To find it without moving: it is marked on screen, with an\n"
+                                 + "arrow at the edge and its range when it is out of view.");
+            }
             ImGui.SameLine();
 
             bool flyingIt = ReferenceEquals(craft, KsaWorld.ControlledVehicle);

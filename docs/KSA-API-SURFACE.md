@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-82 types and 212 members across 6 assemblies.
+82 types and 216 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -89,6 +89,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void AddRect(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, float, Brutal.ImGuiApi.ImDrawFlags, float)`
 - `void AddRectFilled(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, float, Brutal.ImGuiApi.ImDrawFlags)`
 - `void AddText(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, Brutal.ImGuiApi.ImString)`
+- `void AddTriangleFilled(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8)`
 
 ### Brutal.ImGuiApi.ImDrawListPtr
 
@@ -183,7 +184,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 EclToEgo(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double3 EgoToEcl(Brutal.Numerics.double3)`
+- `Brutal.Numerics.double3 GetForwardEcl()`
 - `Brutal.Numerics.double3 GetPositionEgo(KSA.IPosition)`
+- `Brutal.Numerics.double3 GetRightEcl()`
+- `Brutal.Numerics.double3 GetUpEcl()`
 - `Brutal.Numerics.float2 EclToScreen(Brutal.Numerics.double3, bool)`
 - `KSA.Celestial get_NearbyCelestial()`
 - `KSA.IFollowable get_Following()`

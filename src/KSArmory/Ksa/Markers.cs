@@ -67,10 +67,17 @@ internal static class Markers
         {
             (Vehicle craft, WeaponInventory _) = systems[i];
             if (!KsaWorld.IsAlive(craft)) continue;
-            if (!KsaWorld.TryProjectAhead(KsaWorld.PositionEcl(craft), out float2 at)) continue;
+
+            double3 atEcl = KsaWorld.PositionEcl(craft);
+            if (!KsaWorld.TryProjectOrClamp(atEcl, out float2 at, out bool inView)) continue;
 
             bool isActive = ReferenceEquals(craft, active);
-            DrawBracket(draw, at, isActive ? Active : Idle);
+            ImColor8 colour = isActive ? Active : Idle;
+
+            // In view gets the bracket; out of view gets an arrow at the edge pointing at it, so
+            // a site can be located from a craft that cannot see it.
+            if (inView) DrawBracket(draw, at, colour);
+            else DrawEdgeArrow(draw, at, atEcl, eye, colour);
 
             float dx = cursor.X - at.X;
             float dy = cursor.Y - at.Y;
@@ -105,6 +112,35 @@ internal static class Markers
         draw.AddLine(new float2(l, b), new float2(l, b - Corner), colour);
         draw.AddLine(new float2(r, b), new float2(r - Corner, b), colour);
         draw.AddLine(new float2(r, b), new float2(r, b - Corner), colour);
+    }
+
+    // A triangle at the screen edge pointing the way to something out of view, with its range
+    // under it. The range is drawn without hovering: an arrow that only says "that way" leaves
+    // you no idea whether it is a hundred metres or a hundred kilometres away.
+    private static void DrawEdgeArrow(ImDrawListPtr draw, float2 at, double3 targetEcl,
+                                      double3 eyeEcl, ImColor8 colour)
+    {
+        ImGuiViewportPtr main = ImGui.GetMainViewport();
+        float cx = main.Pos.X + main.Size.X * 0.5f;
+        float cy = main.Pos.Y + main.Size.Y * 0.5f;
+
+        float dx = at.X - cx, dy = at.Y - cy;
+        float len = MathF.Sqrt(dx * dx + dy * dy);
+        if (len < 1e-3f) return;
+        dx /= len; dy /= len;
+
+        // Perpendicular, for the base of the triangle.
+        float px = -dy, py = dx;
+        const float Long = 11f, Wide = 7f;
+
+        draw.AddTriangleFilled(new float2(at.X + dx * Long, at.Y + dy * Long),
+                               new float2(at.X - dx * 3f + px * Wide, at.Y - dy * 3f + py * Wide),
+                               new float2(at.X - dx * 3f - px * Wide, at.Y - dy * 3f - py * Wide),
+                               colour);
+
+        string range = Range(Vec.Len(targetEcl - eyeEcl));
+        float2 size = ImGui.CalcTextSize(range);
+        draw.AddText(new float2(at.X - size.X * 0.5f - dx * 6f, at.Y + 10f - dy * 6f), colour, range);
     }
 
     private static void DrawLabel(ImDrawListPtr draw, float2 at, string name, string detail)
