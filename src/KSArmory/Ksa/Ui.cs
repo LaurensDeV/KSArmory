@@ -110,6 +110,12 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private int _systemsAge = RefreshSystemsEvery;
     private const int RefreshSystemsEvery = 60;
 
+    /// <summary>The weapons systems last surveyed, for the on-screen markers.</summary>
+    public IReadOnlyList<(KSA.Vehicle Craft, WeaponInventory Inventory)> Systems
+    {
+        get { RefreshSystems(); return _systems; }
+    }
+
     private void RefreshSystems()
     {
         if (++_systemsAge < RefreshSystemsEvery) return;

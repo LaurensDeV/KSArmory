@@ -1,0 +1,147 @@
+using Brutal.ImGuiApi;
+using Brutal.Numerics;
+using KSA;
+
+namespace KSArmory;
+
+/// <summary>
+/// A bracket on every weapons system in view, with its name and range when the cursor is on it.
+///
+/// <para>Modelled on the game's own object markers, so a site reads the way a mountain or a
+/// vessel already does. An ImGui overlay rather than gizmos: a marker belongs on the glass, at a
+/// constant size, rather than in the scene where it would shrink with distance and be occluded by
+/// the very terrain it is meant to find something behind.</para>
+/// </summary>
+internal static class Markers
+{
+    private static readonly ImColor8 Idle = new(150, 200, 255, 150);
+    private static readonly ImColor8 Active = new(90, 255, 120, 220);
+    private static readonly ImColor8 Label = new(235, 240, 245, 255);
+    private static readonly ImColor8 Panel = new(18, 20, 24, 225);
+    private static readonly ImColor8 PanelEdge = new(90, 100, 115, 200);
+
+    // Half-width of the bracket, in pixels. Constant: this is an icon, not a bounding box, and
+    // sizing it to the craft would make a distant site a sub-pixel dot -- which is the one case
+    // it exists for.
+    private const float Half = 11f;
+    private const float Corner = 4f;
+
+    // Pointer distance, in pixels, that counts as hovering a marker.
+    private const float HoverRadius = 18f;
+
+    public static void Draw(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems,
+                            Vehicle? active)
+    {
+        if (systems.Count == 0) return;
+
+        ImGuiViewportPtr main = ImGui.GetMainViewport();
+        ImGui.SetNextWindowPos(main.Pos, ImGuiCond.Always);
+        ImGui.SetNextWindowSize(main.Size, ImGuiCond.Always);
+        ImGui.SetNextWindowBgAlpha(0f);
+
+        // NoInputs: the overlay covers the screen, so anything else would swallow every click in
+        // the game. Hovering is worked out from the pointer position instead.
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
+                                       | ImGuiWindowFlags.NoInputs
+                                       | ImGuiWindowFlags.NoNav
+                                       | ImGuiWindowFlags.NoFocusOnAppearing
+                                       | ImGuiWindowFlags.NoBringToFrontOnFocus
+                                       | ImGuiWindowFlags.NoSavedSettings
+                                       | ImGuiWindowFlags.NoBackground;
+
+        if (!ImGui.Begin("##KSArmoryMarkers", flags))
+        {
+            ImGui.End();
+            return;
+        }
+
+        ImDrawListPtr draw = ImGui.GetWindowDrawList();
+        float2 cursor = ImGui.GetMousePos();
+        double3 eye = KsaWorld.CameraPositionEcl();
+
+        // The hovered one is drawn last so its label sits over any neighbouring bracket.
+        int hovered = -1;
+        float2 hoveredAt = default;
+
+        for (int i = 0; i < systems.Count; i++)
+        {
+            (Vehicle craft, WeaponInventory _) = systems[i];
+            if (!KsaWorld.IsAlive(craft)) continue;
+            if (!KsaWorld.TryProjectAhead(KsaWorld.PositionEcl(craft), out float2 at)) continue;
+
+            bool isActive = ReferenceEquals(craft, active);
+            DrawBracket(draw, at, isActive ? Active : Idle);
+
+            float dx = cursor.X - at.X;
+            float dy = cursor.Y - at.Y;
+            if (dx * dx + dy * dy <= HoverRadius * HoverRadius)
+            {
+                hovered = i;
+                hoveredAt = at;
+            }
+        }
+
+        if (hovered >= 0)
+        {
+            (Vehicle craft, WeaponInventory inv) = systems[hovered];
+            DrawLabel(draw, hoveredAt, KsaWorld.DisplayName(craft),
+                      Describe(inv, Vec.Len(KsaWorld.PositionEcl(craft) - eye)));
+        }
+
+        ImGui.End();
+    }
+
+    // Four corners, not a closed box: the gap is what stops the marker hiding the thing it marks.
+    private static void DrawBracket(ImDrawListPtr draw, float2 at, ImColor8 colour)
+    {
+        float l = at.X - Half, r = at.X + Half;
+        float t = at.Y - Half, b = at.Y + Half;
+
+        draw.AddLine(new float2(l, t), new float2(l + Corner, t), colour);
+        draw.AddLine(new float2(l, t), new float2(l, t + Corner), colour);
+        draw.AddLine(new float2(r, t), new float2(r - Corner, t), colour);
+        draw.AddLine(new float2(r, t), new float2(r, t + Corner), colour);
+        draw.AddLine(new float2(l, b), new float2(l + Corner, b), colour);
+        draw.AddLine(new float2(l, b), new float2(l, b - Corner), colour);
+        draw.AddLine(new float2(r, b), new float2(r - Corner, b), colour);
+        draw.AddLine(new float2(r, b), new float2(r, b - Corner), colour);
+    }
+
+    private static void DrawLabel(ImDrawListPtr draw, float2 at, string name, string detail)
+    {
+        float2 nameSize = ImGui.CalcTextSize(name);
+        float2 detailSize = ImGui.CalcTextSize(detail);
+
+        const float PadX = 8f, PadY = 6f, Gap = 2f;
+        float w = Math.Max(nameSize.X, detailSize.X) + PadX * 2f;
+        float h = nameSize.Y + detailSize.Y + Gap + PadY * 2f;
+
+        // Up and to the right of the bracket, clear of it.
+        float2 tl = new(at.X + Half + 6f, at.Y - h - 6f);
+
+        draw.AddRectFilled(tl, new float2(tl.X + w, tl.Y + h), Panel);
+        draw.AddRect(tl, new float2(tl.X + w, tl.Y + h), PanelEdge);
+        draw.AddText(new float2(tl.X + PadX, tl.Y + PadY), Label, name);
+        draw.AddText(new float2(tl.X + PadX, tl.Y + PadY + nameSize.Y + Gap), Idle, detail);
+    }
+
+    private static string Describe(WeaponInventory inv, double metres)
+    {
+        List<string> roles = [];
+        foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
+        {
+            int n = inv.CountOf(role);
+            if (n > 0) roles.Add(n == 1 ? role.ToString() : $"{n} {role}");
+        }
+
+        return $"{string.Join(", ", roles)}   {Range(metres)}";
+    }
+
+    // Metres up close, kilometres beyond a kilometre. A site 340 m away reading "0.34 km" is
+    // harder to act on than the same number in metres.
+    private static string Range(double metres)
+    {
+        if (!double.IsFinite(metres)) return "range unknown";
+        return metres < 1000.0 ? $"{metres:F0} m" : $"{metres / 1000.0:F1} km";
+    }
+}

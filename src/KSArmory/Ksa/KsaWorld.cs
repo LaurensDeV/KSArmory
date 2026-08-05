@@ -712,6 +712,40 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Projects a world point onto the main viewport, culling anything behind the camera.
+    ///
+    /// <para>Distinct from <see cref="TryProjectIntoViewport"/>, which passes
+    /// <c>ignoreBehind: false</c>. That is right for the gunner's sight, whose head is pointed at
+    /// its target and so cannot be looking away from it, and wrong for a marker over an arbitrary
+    /// craft: <c>EgoToScreen</c> only tests the point against the camera's forward when asked, so
+    /// without it a site *behind* you draws a bracket in front of you.</para>
+    /// </summary>
+    public static bool TryProjectAhead(double3 pointEcl, out float2 screen)
+    {
+        screen = default;
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return false;
+            if (viewport.GetCamera() is not { } camera) return false;
+            if (viewport.Width <= 0 || viewport.Height <= 0) return false;
+
+            float2 local = camera.EclToScreen(pointEcl, ignoreBehind: true);
+            if (!float.IsFinite(local.X) || !float.IsFinite(local.Y)) return false;
+            if (local.X < 0f || local.Y < 0f || local.X > viewport.Width || local.Y > viewport.Height)
+            {
+                return false;
+            }
+
+            screen = new float2(viewport.Position.X + local.X, viewport.Position.Y + local.Y);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Where the camera is, in Ecl. Zero if there is none.</summary>
     public static double3 CameraPositionEcl()
     {

@@ -123,6 +123,11 @@ public sealed class KSArmoryMod
 
             if (KsaWorld.InFlight) Visuals.Draw(_battery, _config);
 
+            // Over the world, under the panel: ImGui draws windows in submission order, and the
+            // panel is submitted first, so a full-screen overlay added here sits above the scene
+            // and below anything the operator is reading.
+            if (KsaWorld.InFlight) Markers.Draw(_ui.Systems, _battery.Platform);
+
             // After the overlay, so the marker sits on top of it rather than under a track line.
             if (_ping.Tick(dt, out double pingLeft) is { } marked)
             {
