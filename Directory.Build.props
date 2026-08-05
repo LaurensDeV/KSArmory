@@ -49,9 +49,9 @@
     A target rather than a plain error so it only fires on a real build, and only for the projects
     that actually need the game - `dotnet restore` and IDE load stay quiet.
   -->
-  <Target Name="AirDefenceCheckKsaAssemblies"
+  <Target Name="KSArmoryCheckKsaAssemblies"
           BeforeTargets="CoreCompile"
-          Condition="'$(HaveKsaAssemblies)' != 'true' AND '$(AirDefenceNeedsKsa)' != 'false'">
+          Condition="'$(HaveKsaAssemblies)' != 'true' AND '$(KSArmoryNeedsKsa)' != 'false'">
     <Error Text="
 KSA's assemblies were not found, so this project cannot compile.
 
