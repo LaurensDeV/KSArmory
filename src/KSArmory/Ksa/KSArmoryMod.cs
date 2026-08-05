@@ -20,10 +20,8 @@ public sealed class KSArmoryMod
     private double _lastSimSpeed = 1.0;
     private readonly Config _config = new();
 
-    // One battery today, so one policy. When ResolvePlatform stops electing a single launcher
-    // this becomes one per battery and Config stays shared.
-    private readonly BatteryConfig _policy = new();
-    private DefenceBattery? _battery;
+    // One battery per weapons system, each with its own policy; Config stays shared.
+    private BatteryRoster? _roster;
     private Ui? _ui;
     private int _faults;
     private int _viewTrace;
@@ -52,8 +50,8 @@ public sealed class KSArmoryMod
     [StarMapAllModsLoaded]
     public void OnFullyLoaded()
     {
-        _battery = new DefenceBattery(_config, _policy);
-        _ui = new Ui(_config, _policy, _battery, _warp, _watch);
+        _roster = new BatteryRoster(_config);
+        _ui = new Ui(_config, _roster, _warp, _watch);
         Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -79,7 +77,7 @@ public sealed class KSArmoryMod
     [StarMapAfterOnFrame]
     public void OnAfterFrame(double currentPlayerTime, double dtPlayer)
     {
-        if (_disabled || _battery is null) return;
+        if (_disabled || _roster is null) return;
         if (!KsaWorld.InFlight) return;
 
         // Sim speed and pause state change what everything else in the log means, so record them
@@ -107,7 +105,7 @@ public sealed class KSArmoryMod
     [StarMapAfterGui]
     public void OnAfterGui(double dt)
     {
-        if (_disabled || _ui is null || _battery is null) return;
+        if (_disabled || _ui is null || _roster is null) return;
 
         try
         {
@@ -123,13 +121,16 @@ public sealed class KSArmoryMod
 
             _ui.Draw();
 
-            if (KsaWorld.InFlight) Visuals.Draw(_battery, _config);
+            if (KsaWorld.InFlight)
+            {
+                foreach (BatteryRoster.Entry e in _roster.All) Visuals.Draw(e.Battery, _config);
+            }
 
             // Over the world, under the panel: ImGui draws windows in submission order, and the
             // panel is submitted first, so a full-screen overlay added here sits above the scene
             // and below anything the operator is reading.
             if (KsaWorld.InFlight && _config.DrawSystemMarkers)
-                Markers.Draw(_ui.Systems, _battery.Platform);
+                Markers.Draw(_ui.Systems, _ui.Focused);
 
             // Both of these write a camera, and both must be last and every frame: KSA's
             // controller writes from its own mode, so a view taken earlier in the frame is
@@ -137,10 +138,11 @@ public sealed class KSArmoryMod
             _watch.Apply(dt);
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
-            if (KsaWorld.InFlight && _policy.OpticViewport >= 0)
+            if (KsaWorld.InFlight && _roster.For(_ui.Focused) is { } focused
+                && focused.Policy.OpticViewport >= 0)
             {
-                TakeOpticView(dt);
-                Sight.Draw(_battery, _config, _policy);
+                TakeOpticView(focused.Battery, focused.Policy, dt);
+                Sight.Draw(focused.Battery, _config, focused.Policy);
             }
         }
         catch (Exception e)
@@ -152,12 +154,12 @@ public sealed class KSArmoryMod
     // One simulation step, run from the GUI hook so it shares an epoch with the draw.
     private void StepSimulation(double dtPlayer)
     {
-        if (_battery is null) return;
+        if (_roster is null) return;
 
         // Every frame, before the clock gate. This reads where the world is, and the whole
         // overlay is drawn against it — leaving it inside the gated step froze the drawing's
         // frame of reference whenever the simulation did not advance.
-        _battery.SampleWorld();
+        foreach (BatteryRoster.Entry e in _roster.All) e.Battery.SampleWorld();
 
         // Reported off the *controlled* vehicle, not the battery's platform: whether a gun
         // renders has nothing to do with whether the battery mounted, and gating it on that hid
@@ -196,14 +198,17 @@ public sealed class KSArmoryMod
             // un-run, and the policy above only takes effect from the next one. What it stops
             // is the *next* thousand frames doing the same thing silently.
             if (double.IsFinite(dtSim) && dtSim > 0.0)
-                _battery.Update(Math.Min(dtSim, Interceptor.MaxFaithfulStep));
+            {
+                double step = Math.Min(dtSim, Interceptor.MaxFaithfulStep);
+                foreach (BatteryRoster.Entry e in _roster.All) e.Battery.Update(step);
+            }
         }
 
         // Outside the clock gate on purpose. Placing the round bodies is drawing, not
         // simulating, and it has to happen on every rendered frame or the rounds sit still
         // through any frame that advanced no simulated time while the world moved past
         // them. Cheap, and it only reads state.
-        _battery.SyncRoundBodies();
+        foreach (BatteryRoster.Entry e in _roster.All) e.Battery.SyncRoundBodies();
 }
 
     [StarMapUnload]
@@ -218,9 +223,9 @@ public sealed class KSArmoryMod
         _warp.Clear();
         _watch.Release();
 
-        _battery?.Reset();
+        _roster?.Clear();
         KsaWorld.ResetSimStepTracking();
-        _battery = null;
+        _roster = null;
         _ui = null;
         Log.Info("unloaded");
     }
@@ -228,18 +233,18 @@ public sealed class KSArmoryMod
     // Puts the view on the launcher's optical head. Returns quietly when the launcher has none or
     // the head cannot be resolved: the toggle is allowed to be on for a craft that cannot honour
     // it, and stealing the camera to nowhere would be worse than ignoring it.
-    private void TakeOpticView(double dt)
+    private void TakeOpticView(DefenceBattery battery, BatteryConfig policy, double dt)
     {
-        if (_battery?.Platform is not { } platform || _battery.Launcher is not { } launcher) return;
-        if (_battery.OpticPart is null) return;
+        if (battery.Platform is not { } platform || battery.Launcher is not { } launcher) return;
+        if (battery.OpticPart is null) return;
 
         _viewTrace += 1;
         bool trace = _viewTrace % 60 == 0;
 
         if (!LauncherPart.TryGetOpticViewEcl(platform, launcher, _config.Launcher,
-                                             _battery.Turret.BearingRad,
-                                             _battery.OpticDirectionPartFrame,
-                                             _battery.PlatformEcl,
+                                             battery.Turret.BearingRad,
+                                             battery.OpticDirectionPartFrame,
+                                             battery.PlatformEcl,
                                              out double3 eye, out double3 forward))
         {
             if (trace) Log.Debug(() => "camera: could not resolve the optical head's eye");
@@ -248,18 +253,18 @@ public sealed class KSArmoryMod
 
         // Local "up" at the launcher, which is what the boresight already is — so the horizon
         // sits level rather than rolling with the ecliptic.
-        bool took = KsaWorld.TryLookFromViewport(_policy.OpticViewport, eye, forward,
-                                                 _battery.Boresight, dt);
+        bool took = KsaWorld.TryLookFromViewport(policy.OpticViewport, eye, forward,
+                                                 battery.Boresight, dt);
         if (trace)
         {
-            Log.Debug(() => $"camera: view {_policy.OpticViewport} of {KsaWorld.ViewportCount} "
+            Log.Debug(() => $"camera: view {policy.OpticViewport} of {KsaWorld.ViewportCount} "
                             + $"took={took} eye={eye.X:F0},{eye.Y:F0},{eye.Z:F0} "
                             + $"fwd={forward.X:F3},{forward.Y:F3},{forward.Z:F3}");
         }
 
         if (!took)
         {
-            _policy.OpticViewport = -1;
+            policy.OpticViewport = -1;
             Log.Warn("camera: could not drive that view; released it");
         }
     }
@@ -284,10 +289,18 @@ public sealed class KSArmoryMod
     // it lands. WarpPolicy holds the reasoning and all of the arithmetic.
     private void ApplyWarpPolicy(double dtSim)
     {
-        if (_battery is null) return;
+        if (_roster is null) return;
+
+        // Any round anywhere: the step has to be small enough for the busiest battery, not for
+        // the one the panel happens to be showing.
+        bool anyInFlight = false;
+        foreach (BatteryRoster.Entry e in _roster.All)
+        {
+            if (e.Battery.Rounds.Count > 0) { anyInFlight = true; break; }
+        }
 
         WarpDecision d = _warp.Decide(dtSim, KsaWorld.SimulationSpeed,
-                                      _battery.Rounds.Count > 0, _config.LimitWarpInFlight);
+                                      anyInFlight, _config.LimitWarpInFlight);
 
         switch (d.Action)
         {
@@ -308,7 +321,7 @@ public sealed class KSArmoryMod
                 break;
 
             case WarpAction.Abandon:
-                _battery.AbandonFlight(d.Why);
+                foreach (BatteryRoster.Entry e in _roster.All) e.Battery.AbandonFlight(d.Why);
                 break;
 
             case WarpAction.None:
@@ -343,7 +356,7 @@ public sealed class KSArmoryMod
         if (_faults < FaultLimit) return;
 
         _disabled = true;
-        _battery?.Reset();
+        _roster?.Clear();
         Log.Error("too many faults - air defence disabled for this session");
     }
 }

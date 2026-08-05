@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery battery, WarpPolicy warp, WatchCamera watch)
+internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, WatchCamera watch)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -20,9 +20,13 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private const double MaxTrackableWarp = Interceptor.MaxFaithfulStep * 60.0;
 
     private readonly Config _config = config;
-    private readonly BatteryConfig _policy = policy;
-    private readonly DefenceBattery _battery = battery;
+    private readonly BatteryRoster _batteries = roster;
     private readonly WarpPolicy _warp = warp;
+
+    // The system every pane below reads. Every one of them was written against a single battery,
+    // and pointing this at whichever system is being shown is what lets them all stay that way.
+    private DefenceBattery _battery = null!;
+    private BatteryConfig _policy = null!;
     private readonly WatchCamera _watch = watch;
     private readonly List<int> _viewports = [];
     private readonly List<(string Name, string Character)> _roster = [];
@@ -34,6 +38,20 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     private string _newTeamEntry = string.Empty;
 
     public bool Visible = true;
+
+    /// <summary>The system the panel is pointed at, for the overlay to highlight.</summary>
+    public KSA.Vehicle? Focused { get; private set; }
+
+    // Points the panes at one system. Returns false when there is nothing crewed to point at,
+    // which is the only state in which they must not be drawn at all.
+    private bool Focus(KSA.Vehicle? craft)
+    {
+        if (_batteries.For(craft) is not { } entry) return false;
+
+        _battery = entry.Battery;
+        _policy = entry.Policy;
+        return true;
+    }
 
     // What a pane is about. Anything belonging to one installation is a tab in that system's own
     // window instead; Session is the rest, and Debug is for whoever is working on the mod rather
@@ -65,6 +83,15 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
     public void Draw()
     {
+        RefreshSystems();
+        _batteries.Sync(_systems);
+
+        if (_managed is not null && _batteries.For(_managed) is null) _managed = null;
+        Focused = _managed ?? _batteries.Default();
+
+        // Nothing crewed: the panes all read a battery, so there is nothing for them to show.
+        bool anyCrewed = Focus(Focused);
+
         if (!Visible)
         {
             // Closing the panel must not strand the operator with no way back.
@@ -73,8 +100,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
                 if (ImGui.Button("KSArmory")) Visible = true;
             }
             ImGui.End();
-            DrawManageWindow();
-            DrawPanes();
+            if (anyCrewed) { DrawManageWindow(); DrawPanes(); }
             return;
         }
 
@@ -94,8 +120,11 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
         // Outside the main window's Begin/End: each of these is its own top-level window, so
         // they must not be nested inside another one.
-        DrawManageWindow();
-        DrawPanes();
+        if (anyCrewed)
+        {
+            DrawManageWindow();
+            DrawPanes();
+        }
     }
 
     // What the mod recognises on the craft being flown. Reports only -- nothing depends on this
@@ -162,26 +191,27 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         for (int i = 0; i < _systems.Count; i++)
         {
             (KSA.Vehicle craft, WeaponInventory inv) = _systems[i];
-            bool isActive = ReferenceEquals(craft, _battery.Platform);
+            bool isFocused = ReferenceEquals(craft, Focused);
+            BatteryRoster.Entry? entry = _batteries.For(craft);
 
             ImGui.PushID(i);
             ImGui.TableNextRow();
 
             ImGui.TableNextColumn();
-            if (isActive) ImGui.TextColored(Green, KsaWorld.DisplayName(craft));
+            if (isFocused) ImGui.TextColored(Green, KsaWorld.DisplayName(craft));
             else ImGui.Text(KsaWorld.DisplayName(craft));
 
-            // The running battery's state earns the column; the others have none to report, so
-            // they say what they are instead.
+            // Every system runs its own battery, so every row reports its own state rather than
+            // one row's state and a list of names.
             ImGui.TableNextColumn();
-            if (isActive)
+            if (entry is { } e)
             {
-                ImGui.TextColored(_policy.Armed ? Red : Grey,
-                                  $"{(_policy.Armed ? "ARMED" : "safe")}  {_battery.Ammo}/{_profile.TubeCount}");
+                ImGui.TextColored(e.Policy.Armed ? Red : Grey,
+                                  $"{(e.Policy.Armed ? "ARMED" : "safe")}  {e.Battery.Ammo}/{_profile.TubeCount}");
             }
             else
             {
-                ImGui.TextDisabled($"not crewed  -  {Describe(inv)}");
+                ImGui.TextDisabled(Describe(inv));
             }
 
             ImGui.TableNextColumn();
@@ -243,8 +273,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         bool open = true;
         if (ImGui.Begin($"{KsaWorld.DisplayName(craft)}###KSArmorySystem", ref open))
         {
-            if (!ReferenceEquals(craft, _battery.Platform)) DrawNotRunningHere(craft);
-            else if (ImGui.BeginTabBar("##systemtabs"))
+            if (ImGui.BeginTabBar("##systemtabs"))
             {
                 if (ImGui.BeginTabItem("Status")) { DrawSystemPane(); ImGui.EndTabItem(); }
                 if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
@@ -316,35 +345,6 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
     // One battery runs at a time -- the profiles are per system, but the fire control, radar and
     // drives are a single instance that mounts to one craft. Until that is widened, selecting a
     // system the battery is not on can show what it is and offer to move the battery there.
-    private void DrawNotRunningHere(KSA.Vehicle craft)
-    {
-        // Say what the operator can see and do, not how the mod is built. "The battery is not
-        // running on this system" describes a single DefenceBattery instance and its mount, which
-        // is true and means nothing to anyone who has not read the source.
-        ImGui.TextColored(Amber, "Not crewed.");
-        ImGui.TextDisabled("KSArmory operates one system at a time. This one is");
-        ImGui.TextDisabled("switched off: no radar, no tracking, nothing to set.");
-
-        if (_battery.Platform is { } running)
-        {
-            ImGui.TextDisabled($"Currently operating: {KsaWorld.DisplayName(running)}");
-        }
-
-        ImGui.Separator();
-
-        if (ImGui.Button("Operate this one")) _battery.PinPlatform(craft);
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Moves the crew here. Whichever system they leave goes\n"
-                             + "quiet -- it keeps its settings but stops tracking.");
-        }
-
-        if (_battery.Platform is { } other)
-        {
-            ImGui.SameLine();
-            if (ImGui.Button($"Manage {KsaWorld.DisplayName(other)}")) _managed = other;
-        }
-    }
 
     private void DrawSystemPane()
     {
@@ -404,7 +404,7 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
 
         string platform = KsaWorld.DisplayName(_battery.Platform);
         bool flyingIt = ReferenceEquals(_battery.Platform, KsaWorld.ControlledVehicle);
-        ImGui.Text($"Platform: {platform}{(_battery.PlatformPinned ? " (pinned)" : "")}");
+        ImGui.Text($"Platform: {platform}");
         if (!flyingIt) ImGui.TextDisabled("  (you are flying something else; the battery stays here)");
 
         if (KsaWorld.CharacterOf(_battery.Platform) is { } character)
@@ -645,19 +645,6 @@ internal sealed class Ui(Config config, BatteryConfig policy, DefenceBattery bat
         if (ImGui.Button("Reload")) _battery.Reload();
         ImGui.SameLine();
         if (ImGui.Button("Safe all")) _battery.SafeAll();
-
-        // The battery stays on the craft carrying the launcher by itself, so pinning is only
-        // needed to override that - e.g. choosing between two launcher-equipped craft.
-        if (_battery.PlatformPinned)
-        {
-            if (ImGui.Button("Release pin")) _battery.PinPlatform(null);
-            ImGui.SameLine();
-            ImGui.TextDisabled("overriding automatic choice");
-        }
-        else if (ImGui.Button("Pin to this vehicle"))
-        {
-            _battery.PinPlatform(KsaWorld.ControlledVehicle);
-        }
 
         ImGui.Checkbox("Never target the vehicle I'm flying", ref _config.ProtectControlledVehicle);
         ImGui.Checkbox("Require launcher part", ref _config.RequireLauncherPart);

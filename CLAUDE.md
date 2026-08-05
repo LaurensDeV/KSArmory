@@ -253,6 +253,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |
 | `Ksa/KsaWorld.cs` | most KSA contact is funnelled here — keep it that way |
+| `Ksa/BatteryRoster.cs` | one battery per weapons system, crewed and forgotten with the craft |
 | `Ksa/DefenceBattery.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
@@ -482,10 +483,14 @@ Weapon *performance* is neither: range, guidance and fuse live on the profiles, 
 Pantsirs on opposite sides of the map share a flight model and disagree about whether they are
 armed.
 
-**What is deliberately *not* general yet:** one battery per craft (the first launcher found
-wins), and `Config` holds a single active profile set, so the panel tunes one system at a time.
-Both are straightforward to widen — the profiles are already per-system — but neither is
-speculatively built.
+**Every weapons system in the world runs its own battery.** `Ksa/BatteryRoster.cs` crews a craft
+the moment a survey recognises a part on it, pins the battery there and forgets it when the craft
+dies. Each carries its own `BatteryConfig`, so arming one site, sending it a target or putting it
+on a team says nothing about any other.
+
+**What is deliberately *not* general yet:** `Config` holds a single active profile set, so the
+panel tunes one weapon *type* at a time — two Pantsirs share a flight model, which is the intent,
+but a second weapon system would need the profiles selected per battery rather than per session.
 
 ## CI and releases
 
@@ -693,11 +698,13 @@ elevation. So a one-click "everything placed and ready" scenario would mean writ
 Program Files. Instead: `tools/install-testcraft.sh` writes a craft into the *user's* vehicle
 folder (which is writable), and `TestTarget` spawns drones on demand from the panel.
 
-**The battery mounts to the craft carrying the launcher part, and stays there.** It does not
+**A battery mounts to the craft carrying the launcher part, and stays there.** It does not
 follow the player's control. It used to, from before the part existed, and that meant taking the
 target's seat re-homed the battery onto the target — which then could not be shot at, because
 the kill path refuses to destroy its own platform. Four confirmed 22 m hits looked like misses.
-`PinPlatform` is now only an override for choosing between multiple launcher-equipped craft.
+`PinPlatform` is how `BatteryRoster` mounts each battery on creation, and nothing moves it after:
+`ResolvePlatform` returns early for a pinned platform, so without that every battery would elect
+the craft being flown and they would all pile onto it.
 
 **A round's drawn offset is `PositionEcl − platformEcl`, measured *after* the step against the
 platform sample from the *same* frame, with no extrapolation.** Write the update index as `k`,
