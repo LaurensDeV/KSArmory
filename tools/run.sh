@@ -29,10 +29,12 @@ for arg in "$@"; do
     esac
 done
 
-# `|| true` throughout: find exits non-zero for any missing search root, and under
-# `set -e` that would abort the script with no message at all.
-KSA_USER_DIR="$(find /mnt/c/Users -maxdepth 4 -type d -path '*My Games/Kitten Space Agency' 2>/dev/null | head -1 || true)"
-MOD_LOG="${KSA_USER_DIR:+$KSA_USER_DIR/Logs/KSArmory.log}"
+# `|| true`: not finding the folder is reported below with something useful to say, and under
+# `set -e` a bare failure would abort the script with no message at all.
+# shellcheck source=ksa-user-dir.sh
+source "$REPO_ROOT/tools/ksa-user-dir.sh"
+USER_DIR="$(ksa_user_dir || true)"
+MOD_LOG="${USER_DIR:+$USER_DIR/Logs/KSArmory.log}"
 
 # --- attach to a running game ------------------------------------------------
 

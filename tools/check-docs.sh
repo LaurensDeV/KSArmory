@@ -115,6 +115,15 @@ README.md"
     fi
 fi
 
+# Nobody's home directory belongs in a public repository, and a hardcoded one is wrong for
+# everyone else anyway. `tools/ksa-user-dir.sh` and STARMAP_DIR are the portable answers.
+# A bare /mnt/c/Users is fine -- that is a search root -- as is one continuing into a variable.
+echo "No personal paths"
+while IFS= read -r hit; do
+    [[ -n "$hit" ]] && fail "personal path: $hit"
+done < <(git grep -nIE '(/mnt/c/Users|/home)/[A-Za-z0-9._-]+' \
+             -- . ':!tools/check-docs.sh' 2>/dev/null || true)
+
 echo
 if [[ $FAIL -eq 0 ]]; then
     echo "docs ok"

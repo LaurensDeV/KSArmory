@@ -14,37 +14,13 @@ CONFIG="${1:-Release}"
 # shellcheck source=env.sh
 source "$REPO_ROOT/tools/env.sh"
 
-# Where StarMap reads mods from. KSA runs on Linux as well as Windows and keeps its user data
-# in a different place on each, so look in all the plausible ones rather than assuming.
-# KSA_MODS_DIR overrides everything.
-find_user_dir() {
-    local candidates=()
-
-    # Windows, reached from WSL. The Windows username often differs from the Linux one.
-    if [[ -d /mnt/c/Users ]]; then
-        candidates+=("/mnt/c/Users/$(whoami)/Documents/My Games/Kitten Space Agency")
-        while IFS= read -r dir; do
-            candidates+=("$dir")
-        done < <(find /mnt/c/Users -maxdepth 4 -type d -path '*My Games/Kitten Space Agency' 2>/dev/null)
-    fi
-
-    # Native Linux.
-    candidates+=(
-        "${XDG_DATA_HOME:-$HOME/.local/share}/Kitten Space Agency"
-        "$HOME/.config/Kitten Space Agency"
-        "$HOME/My Games/Kitten Space Agency"
-        "$HOME/Documents/My Games/Kitten Space Agency"
-    )
-
-    for dir in "${candidates[@]}"; do
-        [[ -d "$dir" ]] && { printf '%s\n' "$dir"; return 0; }
-    done
-    return 1
-}
+# Where StarMap reads mods from. KSA_MODS_DIR overrides everything.
+# shellcheck source=ksa-user-dir.sh
+source "$REPO_ROOT/tools/ksa-user-dir.sh"
 
 if [[ -n "${KSA_MODS_DIR:-}" ]]; then
     MODS_DIR="$KSA_MODS_DIR"
-elif USER_DIR="$(find_user_dir)"; then
+elif USER_DIR="$(ksa_user_dir)"; then
     MODS_DIR="$USER_DIR/mods"
 else
     echo "error: could not locate the KSA user folder on this machine." >&2

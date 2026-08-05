@@ -125,7 +125,8 @@ output, StarMap's load messages, and anything that looks like a failure.
 **You do not need the in-game console.** The mod writes its own log next to KSA's:
 
 ```bash
-tail -F "/mnt/c/Users/devoo/Documents/My Games/Kitten Space Agency/Logs/KSArmory.log"
+./tools/run.sh --attach                  # finds the log and follows it
+tail -F "$(./tools/ksa-user-dir.sh)/Logs/KSArmory.log"
 ```
 
 It is truncated at each launch, so it always shows the current session. KSA's own log

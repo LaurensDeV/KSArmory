@@ -168,9 +168,11 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
   [After a KSA update](#after-a-ksa-update); getting it wrong makes CI build the mod against a
   different game from the one you are testing on, silently.
 - **The game is launchable from WSL** — interop is enabled, so `tools/run.sh` starts
-  `StarMap.exe` directly. StarMap lives at `/mnt/c/Users/devoo/StarMap` and reads
-  `./StarMapConfig.json` **relative to its own directory**, so it must be launched from there.
-- **The mod writes its own log** to `<KSA user dir>/Logs/KSArmory.log`, readable from WSL.
+  `StarMap.exe` directly. `run.sh` finds it under the Windows user profile — override with
+  `STARMAP_DIR`. It reads `./StarMapConfig.json` **relative to its own directory**, so it must be
+  launched from there.
+- **The mod writes its own log** to `<KSA user dir>/Logs/KSArmory.log`, readable from WSL;
+  `./tools/ksa-user-dir.sh` prints that directory and `./tools/run.sh --attach` follows the log.
   `Console.WriteLine` only reaches stdout, and KSA's `KittenSpaceAgency.log` is written by its
   internal logger which mods cannot reach — so the mod's own file is the debugging channel.
   KSA's log is still the place to look for mod discovery and asset/XML errors.
@@ -192,6 +194,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/deploy.sh                          # build and install into the KSA mods folder
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
 ./tools/run.sh --attach                    # follow a game that's already running
+./tools/ksa-user-dir.sh                    # where KSA keeps Logs/, mods/ and saves on this box
 ./tools/setup-starmap.sh                   # one-off: install StarMap and write its config
 ./tools/check-assemblies.sh --game         # has the installed game moved past the lock?
 ./tools/check-ksa-version.sh               # has RocketWerkz published a newer build?
