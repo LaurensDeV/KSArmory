@@ -18,11 +18,33 @@ namespace KSArmory;
 /// </summary>
 internal static class Detonation
 {
-    /// <summary>The kill: a bright ball with a debris shell inside it.</summary>
-    public const string Fireball = "KSArmoryFireball";
+    // Two of each. The Volumetric renderer is KSA's screen-space particle renderer, and its draw
+    // commands are only issued when GameSettings.Graphics.ScreenSpaceParticles is on -- which
+    // defaults to off. A volumetric emitter on a default install resolves, acquires, registers,
+    // spawns, ages and draws nothing at all, with no error anywhere.
+    private const string FireballVolumetric = "KSArmoryFireball";
+    private const string FireballSolid = "KSArmoryFireballSolid";
+    private const string AirburstVolumetric = "KSArmoryAirburst";
+    private const string AirburstSolid = "KSArmoryAirburstSolid";
+
+    /// <summary>The kill: a bright ball with fire, fragments and smoke.</summary>
+    public static string Fireball => SoftParticles ? FireballVolumetric : FireballSolid;
 
     /// <summary>A round that fused and did not kill. Smaller and paler on purpose.</summary>
-    public const string Airburst = "KSArmoryAirburst";
+    public static string Airburst => SoftParticles ? AirburstVolumetric : AirburstSolid;
+
+    /// <summary>
+    /// Whether the volumetric renderer will actually draw. Off by default in KSA, and the
+    /// difference between smoke that looks like smoke and smoke that looks like a heap of balls.
+    /// </summary>
+    public static bool SoftParticles
+    {
+        get
+        {
+            try { return GameSettings.Current.Graphics.ScreenSpaceParticles; }
+            catch { return false; }
+        }
+    }
 
     // Emitters come from a fixed pool the whole game shares, so a salvo can run it dry. Reported
     // once rather than per round: a missing effect is cosmetic, and a line per round of a

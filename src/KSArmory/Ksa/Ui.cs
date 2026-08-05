@@ -805,6 +805,11 @@ internal sealed class Ui(Config config, BatteryRoster roster, WarpPolicy warp, W
             ImGui.TextColored(Red, "KSA's Particles graphics setting is OFF");
             ImGui.TextDisabled("  nothing will draw until it is turned back on");
         }
+        else if (!Detonation.SoftParticles)
+        {
+            ImGui.TextDisabled("Smoke is drawn as small spheres. KSA's Screen Space");
+            ImGui.TextDisabled("Particles setting turns on the volumetric version.");
+        }
     }
 
     // A burst overhead, where it cannot be missed.

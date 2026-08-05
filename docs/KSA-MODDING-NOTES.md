@@ -251,6 +251,12 @@ Four things worth knowing:
   mesh, so a cloud of them is a heap of balls whatever the colour. `Volumetric` with a low
   `<Opacity>` (Core's own uses 0.05) accumulates instead — individual particles stop being visible
   and what is left is the density where they overlap.
+- **`Volumetric` is the screen-space renderer and is OFF by default.**
+  `ParticleSystem.WriteCommandsColorTranslucent` only issues its draw commands when
+  `GameSettings.Graphics.ScreenSpaceParticles` is on, and that setting defaults to `false`. A
+  volumetric emitter otherwise resolves, acquires, registers, spawns, ages and draws **nothing**,
+  with no error anywhere. Ship a `SimpleColor` variant too and pick at runtime — `Detonation` does.
+  `Billboard` is *not* gated this way, but it needs a `MaterialId`.
 - **`GravityStrength` defaults to 1**, so anything that does not set it falls at full local
   gravity — about 20 m in two seconds. Core sets it on every emitter. A **negative** value flips
   the gravity vector, which is buoyancy for free and is how smoke rises.

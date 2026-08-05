@@ -65,7 +65,8 @@ public sealed class KSArmoryMod
         // Logged, not just shown in the panel. Every link of this chain fails silently inside
         // KSA, so without a record the only symptom is a kitten with no gun -- and that looks
         // identical whether the XML never loaded, a reference did not resolve, or the mesh did.
-        Log.Info($"particles graphics setting: {(Detonation.ParticlesEnabled ? "on" : "OFF")}");
+        Log.Info($"particles graphics setting: {(Detonation.ParticlesEnabled ? "on" : "OFF")}, "
+                 + $"screen-space particles: {(Detonation.SoftParticles ? "on" : "off")}");
         Log.Info($"warhead effect {Detonation.Fireball}: "
                  + $"{(Detonation.Resolves(Detonation.Fireball) ? "ok" : "DID NOT RESOLVE")}");
         Log.Info($"warhead effect {Detonation.Airburst}: "
