@@ -322,7 +322,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Camera GetRenderCamera()`
 - `KSA.GizmosRenderer GizmosRenderer`
 - `KSA.Program get_Instance()`
-- `KSA.Vehicle ControlledVehicle`
+- `KSA.Vehicle get_ControlledVehicle()`
 - `KSA.Viewport get_MainViewport()`
 - `System.Collections.Generic.List`1<KSA.Viewport> Viewports`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`

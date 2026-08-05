@@ -8,7 +8,7 @@ Each entry says what was actually read in the decompiled corpus, so a claim can 
 a KSA update rather than taken on trust. **Recheck this file when the game moves** — the whole
 point of it is that some of these will quietly become possible.
 
-Findings are against KSA **2026.8.3.5117**. Paths are relative to
+Findings are against KSA **2026.8.5.5168**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -17,13 +17,17 @@ Tick when rechecked against the new build, then untick for the next one. `tools/
 will not surface any of these — none is a signature change, and most are a call that does not
 happen rather than a member that moved.
 
-- [ ] Secondary viewport gets the planet, atmosphere and lighting passes
-- [ ] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport
-- [ ] Wheel, suspension or steering module exists
-- [ ] Partial or component damage exists alongside `DestroyVehicleFromEvent`
-- [ ] Per-mod vehicle library path, or a way to register saved craft
-- [ ] Custom part modules can be registered without patching
-- [ ] Public accessor for the volumetric trail renderer
+- [x] Secondary viewport gets the planet, atmosphere and lighting passes
+- [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport
+- [x] Wheel, suspension or steering module exists
+- [x] Partial or component damage exists alongside `DestroyVehicleFromEvent`
+- [x] Per-mod vehicle library path, or a way to register saved craft
+- [x] Custom part modules can be registered without patching
+- [x] Public accessor for the volumetric trail renderer
+
+All seven rechecked against 2026.8.5.5168 and still blocked. The render path was refactored in
+that build — `Program._offscreenTarget` is now a `RenderTarget` and every line number below
+moved — but none of the structure any of these depend on changed.
 
 ---
 
@@ -36,27 +40,28 @@ write all work; the *picture* is wrong.
 **What happens.** A secondary viewport shows a raw starfield above a hard horizon and a
 featureless grey ball, where the main view at the same position shows sky, clouds and terrain.
 
-**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4067-4171`),
-a much shorter path than the main one. The loop that calls it ends at `Program.cs:4205`, and every
+**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:3967-4070`),
+a much shorter path than the main one. The loop that calls it ends at `Program.cs:4113`, and every
 pass that makes a planet look like a planet is after that line and only ever sees the main
 viewport: the planet renderer, the light and shadow passes, the ocean, and
-`_planetTransparenciesRenderer.Render` (`:4375`) — the sole call site of the atmosphere and cloud
+`_planetTransparenciesRenderer.Render` (`:4254`) — the sole call site of the atmosphere and cloud
 compute passes anywhere in the game.
 
 Two details worth keeping, because they explain the exact image:
 
-- The starfield is drawn because stars *are* in the reduced path (`Program.cs:4115-4121`).
+- The starfield is drawn because stars *are* in the reduced path (`Program.cs:4009-4015`).
 - The grey ball is not terrain. It is `StaticCelestial.RenderSphere` → `DistantSphereRenderer`, a
   sphere scaled to `MeanRadius` with no heightfield. It appears because
-  `Camera.NearbyCelestial` is only ever assigned inside `OnFrameCelestials`, which runs for the
-  frame viewport — always the main one. The check that suppresses the planet you are standing on
+  `Camera.NearbyCelestial` is only ever assigned inside `OnFrameCelestials`
+  (`Program.cs:2316-2345`), which runs for the frame viewport — always the main one. The check
+  that suppresses the planet you are standing on
   compares `camera.NearbyCelestial == orbiter`, and a secondary camera's is permanently `null`, so
   it never matches. The same `null` zeroes that viewport's lighting data.
 
 **Why a mod cannot fix it.** `PlanetTransparenciesRenderer`, `OceanRenderer` and
 `OverallBloomRenderer` are constructed holding `Program._offscreenTarget`
-(`Program.cs:1161, 1176, 1185`), which *is* `MainViewport.OffscreenTarget` — the same object
-(`Program.cs:1464-1467`). The `Viewport` they accept per call only selects a shader dynamic offset;
+(`Program.cs:1061, 1076, 1085`), which *is* `MainViewport.OffscreenTarget` — the same object
+(`Program.cs:1385`). The `Viewport` they accept per call only selects a shader dynamic offset;
 the image they write into was baked into their descriptor sets at construction. Redirecting them
 means rebuilding Vulkan resources, which is not something a mod can do sensibly even with Harmony.
 
@@ -146,7 +151,7 @@ rather than the mod's gizmo tracers.
 
 **Why it is blocked.** The XML tag is real — `<PlumeTrail Id="DefaultPlumeTrail"/>` inside a
 `<ReactionPlume>` — but the emitter only produces anything when
-`current.State.DutyCycle > 0f && flag` (`KSA/KSA/Vehicle.cs:5105`), where `DutyCycle` is
+`current.State.DutyCycle > 0f && flag` (`KSA/KSA/Vehicle.cs:5216`), where `DutyCycle` is
 accumulated by a **burning rocket core**. Our rounds have no motor, no propellant and no staging,
 and a real motor would apply real thrust to the launcher, since the round bodies are its subparts.
 

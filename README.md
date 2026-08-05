@@ -34,7 +34,7 @@ consisting of nothing but the Pantsir builds and launches.
 More systems are the point of the split, not a promise — see
 [Adding a weapon system](#adding-a-weapon-system).
 
-> Built against KSA build `2026.8.3.5117`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.8.5.5168`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game does. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
@@ -43,7 +43,7 @@ More systems are the point of the split, not a promise — see
 
 ### What you need first
 
-- **Kitten Space Agency.** Built against build `2026.8.3.5117`; a different build may need a
+- **Kitten Space Agency.** Built against build `2026.8.5.5168`; a different build may need a
   rebuild of the mod. **Windows and Linux both work** — the mod is a portable .NET assembly with
   no native code, so the single release archive is the same on either.
 - **[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader.

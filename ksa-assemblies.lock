@@ -1,13 +1,13 @@
 # KSA assemblies this repository is known to build against.
 # Regenerate with ./tools/check-assemblies.sh <dir> --update after a KSA update,
 # and refresh the private ksa-game-assemblies repo to match - see CLAUDE.md.
-build 2026.8.3.5117
+build 2026.8.5.5168
 e0a1528ded4ef8efcb8002b99704cb8614b7db840d2cb39b5e45eda52d63bc68  BepuUtilities.dll
-d854513d48741174b8c3f61ee89d111878f65c02ff5f2037c02cfaea00d4854c  Brutal.Concurrency.dll
-f0274391f32ae48817ec0d9506b2e76eb42fc513e8a59bbbb9d282340f8a2fc6  Brutal.Core.Common.dll
-fba275c0c5abd9ef05bdcb99dc2df4ef80950ffda36526d862321e9673fbe7c3  Brutal.Core.Numerics.dll
-5e2a63d8ed40adb2073e1da2b2075902ff1e483ab85108eb02e6316aadc52db8  Brutal.Core.Strings.dll
-d960736d08e0170349261740ac5afe7e87e4cb723825a48161f1adc06d6853bb  Brutal.ImGui.dll
-f8fe6f25a2edb577d4d7d6a0dca9829766e6fc72c44853a8ef58425f0638f6ca  Brutal.ImGui.Abstractions.dll
-5a3ebd348969cc3590eefeb952d3d34f6e766a19bb0b5a50eccaa167781d3d3f  KSA.dll
+180d540e24ade19ca679c73370e8fc49c6d723cae9c10f6b03e5a26238410fc7  Brutal.Concurrency.dll
+6ede11dea39633a0f431229975ffc40725182e76ba403f9064538545f0c1c8d7  Brutal.Core.Common.dll
+441d7f4f181922411c33601ba7c9c6ead105964464f9f190288d2394c8dbd9ae  Brutal.Core.Numerics.dll
+51e3d918223f0717b4cb4df98dece69e729d35e27b95fdb81cfa8aaeccef5968  Brutal.Core.Strings.dll
+821dee3ea56f2728df6eed787a5883c3ca4c9a21013072cc34583c0f021fc2c9  Brutal.ImGui.dll
+877b12f8efe0997cdd0221ad9dd61bd5cf86b01f78dedb001c614e1f8d9ea336  Brutal.ImGui.Abstractions.dll
+9000bc69069afc21b0c13a0e4e8408efc84b2365777d2c2132839115b692fb66  KSA.dll
 e8e321f5ef60d1f1ce53598616148a779f863879f7b9b303be4512895f27c956  StarMap.API.dll

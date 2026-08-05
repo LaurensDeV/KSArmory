@@ -131,7 +131,7 @@ Split unrelated work into separate commits rather than one large one: the change
 from these, so a commit that does three things describes none of them well.
 
 **Do not commit a behaviour fix as a fix until it has been verified in game.** Compiling, passing
-the 295 tests, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
+the 353 tests, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
 the gap between the maths and what KSA actually does, and that gap is only visible in flight. The
 round-body zigzag cost three such commits: a sim-step-gating change and an offset-extrapolation
 change, both shipped as fixes for a cause not yet diagnosed, and neither was it. The answer was in
@@ -155,7 +155,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.8.3.5117`
+- **KSA build these notes were taken against**: `2026.8.5.5168`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -247,7 +247,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 149 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 191 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -490,7 +490,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-650,000 lines to the files defining the 43 types this mod actually uses.
+660,000 lines to the files defining the 70 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
@@ -510,7 +510,7 @@ CI is split the same way the source is:
   `palette.py` is re-run and the textures diffed, so hand-edited PNGs are caught before the next
   model build silently reverts them. Plus shellcheck, XML well-formedness and a check that no
   `.dll` is tracked.
-- **`build` (hosted)** — the real build, the 295 tests, `validate-parts.py` and the package,
+- **`build` (hosted)** — the real build, the 353 tests, `validate-parts.py` and the package,
   against the checked-out assemblies. If the secret is absent — a fork — the job skips with a
   notice instead of failing on something a contributor cannot fix.
 
