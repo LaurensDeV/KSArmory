@@ -1,3 +1,13 @@
+## [0.8.12](https://github.com/LaurensDeV/KSArmory/compare/v0.8.11...v0.8.12) (2026-08-06)
+
+### Features
+
+* **ui:** report a bug or send feedback from the panel ([18cd754](https://github.com/LaurensDeV/KSArmory/commit/18cd7540e8ed1af3bbdb25cf0b0a698a0ac95dba))
+
+### Fixes
+
+* **ui:** read the response status by reflection ([9276e94](https://github.com/LaurensDeV/KSArmory/commit/9276e94a069efb41f5b2eba9878d14117eaadd6d)), closes [#3](https://github.com/LaurensDeV/KSArmory/issues/3)
+
 ## [0.8.11](https://github.com/LaurensDeV/KSArmory/compare/v0.8.10...v0.8.11) (2026-08-06)
 
 ### Fixes
