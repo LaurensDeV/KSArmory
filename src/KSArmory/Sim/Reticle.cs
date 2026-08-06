@@ -30,15 +30,20 @@ public static class Reticle
     public const float MinBoxHalfSize = 10f;
 
     /// <summary>Half-width of the bracket box, in pixels, for a target of this angular size.</summary>
-    public static float BoxHalfSize(double angularSizeRad, double verticalFovRad, int screenHeight)
+    /// <param name="widths">
+    /// How many target widths across the box is. The brackets have to sit clear of the target so
+    /// it stays visible between them, and a box merely its size reads as a blob — but from close
+    /// enough that the target already fills the frame, the same multiple runs off the screen.
+    /// </param>
+    /// <param name="maxFraction">Largest the box may get, as a fraction of screen height.</param>
+    public static float BoxHalfSize(double angularSizeRad, double verticalFovRad, int screenHeight,
+                                    double widths = 4.0, double maxFraction = 0.4)
     {
         if (!(verticalFovRad > 0.0) || screenHeight <= 0) return 24f;
         if (!double.IsFinite(angularSizeRad) || angularSizeRad <= 0.0) return MinBoxHalfSize;
 
-        // Several target widths across. The brackets have to sit clear of the target so it stays
-        // visible between them, and a box merely the size of the target reads as a blob.
-        double pixels = angularSizeRad / verticalFovRad * screenHeight * 4.0;
-        return (float)Math.Clamp(pixels, MinBoxHalfSize, screenHeight * 0.4);
+        double pixels = angularSizeRad / verticalFovRad * screenHeight * widths;
+        return (float)Math.Clamp(pixels, MinBoxHalfSize, screenHeight * maxFraction);
     }
 
     /// <summary>
@@ -49,7 +54,12 @@ public static class Reticle
     /// like one still slewing rather than like a lock.</para>
     /// </summary>
     /// <returns>How many strokes were written.</returns>
-    public static int Build(float2 centre, float halfSize, bool settled, Span<ReticleStroke> into)
+    /// <param name="ladder">
+    /// Draw the ranging ladder. It is for judging range by eye off the target's apparent size, so
+    /// it earns nothing anywhere the range is already written down.
+    /// </param>
+    public static int Build(float2 centre, float halfSize, bool settled, Span<ReticleStroke> into,
+                            bool ladder = true)
     {
         if (into.Length < MaxStrokes) return 0;
         if (!float.IsFinite(centre.X) || !float.IsFinite(centre.Y) || !(halfSize > 0f)) return 0;
@@ -85,7 +95,7 @@ public static class Reticle
 
         // Ranging ladder down the left of the box, only once the sight has settled — before that
         // there is nothing to range against.
-        if (settled)
+        if (settled && ladder)
         {
             for (int step = 1; step <= 3; step++)
             {

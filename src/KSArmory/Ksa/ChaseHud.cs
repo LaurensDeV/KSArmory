@@ -38,10 +38,14 @@ internal static class ChaseHud
         double range = Vec.Len(at - round.PositionEcl);
         double angular = 2.0 * Math.Atan2(KsaWorld.MeanRadius(target), Math.Max(range, 1.0));
 
-        float half = Reticle.BoxHalfSize(angular, KsaWorld.ViewportFovRad(viewport), height);
+        // Tighter than the gunner's sight, and capped far lower. This view ends a few metres from
+        // the target, where a box several widths across is off the edges of the screen.
+        float half = Reticle.BoxHalfSize(angular, KsaWorld.ViewportFovRad(viewport), height,
+                                         widths: 1.5, maxFraction: 0.14);
 
-        // Closed brackets: the round is committed and there is nothing here still settling.
-        int count = Reticle.Build(centre, half, settled: true, _strokes);
+        // Closed brackets, and no ranging ladder: the range is written beside it in metres, so a
+        // scale for judging it by eye is decoration.
+        int count = Reticle.Build(centre, half, settled: true, _strokes, ladder: false);
         if (count == 0) return;
 
         ImGuiViewportPtr main = ImGui.GetMainViewport();
