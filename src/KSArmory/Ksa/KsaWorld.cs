@@ -155,6 +155,14 @@ internal static class KsaWorld
     /// </summary>
     /// <param name="blockedBy">The first body found in the way, or empty.</param>
     public static bool IsOccluded(double3 eyeEcl, double3 targetEcl, out string blockedBy)
+        => IsOccluded(eyeEcl, targetEcl, 0.0, out blockedBy);
+
+    /// <inheritdoc cref="IsOccluded(double3, double3, out string)"/>
+    /// <param name="terrainMargin">
+    /// Metres to inflate every body by, so a contact skimming the limb counts as hidden.
+    /// </param>
+    public static bool IsOccluded(double3 eyeEcl, double3 targetEcl, double terrainMargin,
+                                  out string blockedBy)
     {
         blockedBy = string.Empty;
         try
@@ -164,7 +172,8 @@ internal static class KsaWorld
             for (int i = 0; i < system.Count; i++)
             {
                 if (system.GetIndex(i) is not Celestial body) continue;
-                if (!LineOfSight.Blocked(eyeEcl, targetEcl, body.GetPositionEcl(), body.MeanRadius))
+                if (!LineOfSight.BlockedByTerrain(eyeEcl, targetEcl, body.GetPositionEcl(),
+                                                  body.MeanRadius, terrainMargin))
                 {
                     continue;
                 }

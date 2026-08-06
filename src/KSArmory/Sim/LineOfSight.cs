@@ -40,4 +40,50 @@ public static class LineOfSight
 
         return Vec.Len2(eye + along * t - centre) < radius * radius;
     }
+
+    /// <summary>
+    /// How far two points at these altitudes can see each other over a sphere of this radius.
+    ///
+    /// <para>The sum of each one's distance to its own horizon. Cheap and closed-form, which is
+    /// the point: it rejects a contact as over the horizon without walking the system's bodies,
+    /// and it gives a number a panel can show — a battery on the deck sees a sea-skimmer at a few
+    /// tens of kilometres and an aircraft at hundreds, and that difference is most of what
+    /// low-level attack is about.</para>
+    ///
+    /// <para>Geometric, not radar: no refraction, so it is slightly pessimistic against the
+    /// four-thirds-earth rule an actual radar horizon uses.</para>
+    /// </summary>
+    public static double HorizonRange(double radius, double eyeAltitude, double targetAltitude)
+    {
+        if (!double.IsFinite(radius) || radius <= 0.0) return double.PositiveInfinity;
+
+        return ToHorizon(radius, eyeAltitude) + ToHorizon(radius, targetAltitude);
+    }
+
+    /// <summary>
+    /// Whether the body hides the target, allowing for terrain the mean sphere does not carry.
+    ///
+    /// <para><paramref name="terrainMargin"/> inflates the sphere, so a contact skimming the limb
+    /// is called hidden rather than visible. Zero is the geometric limb. It is deliberately not a
+    /// height map: a margin is one number to defend, where sampling terrain per contact per scan
+    /// is a cost nobody here has measured.</para>
+    /// </summary>
+    public static bool BlockedByTerrain(double3 eye, double3 target, double3 centre, double radius,
+                                        double terrainMargin)
+    {
+        double inflated = radius + Math.Max(0.0, double.IsFinite(terrainMargin) ? terrainMargin : 0.0);
+
+        return Blocked(eye, target, centre, inflated);
+    }
+
+    // Distance from a point at this altitude to its own horizon: the tangent length from the point
+    // to the sphere. Negative altitude is inside the body and sees nothing.
+    private static double ToHorizon(double radius, double altitude)
+    {
+        if (!double.IsFinite(altitude) || altitude <= 0.0) return 0.0;
+
+        double r = radius + altitude;
+
+        return Math.Sqrt(Math.Max(0.0, r * r - radius * radius));
+    }
 }

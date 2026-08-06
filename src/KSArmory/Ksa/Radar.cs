@@ -34,6 +34,15 @@ internal sealed class Radar(Config config, BatteryConfig policy)
     /// <summary>Set when the operator picks a target by hand; clears on lock loss.</summary>
     public Vehicle? ManualDesignation { get; set; }
 
+    /// <summary>
+    /// Craft the last scan discarded because the planet was in the way.
+    ///
+    /// <para>Counted rather than dropped quietly: a battery that suddenly sees nothing looks
+    /// broken, and this is the difference between "nothing is flying" and "everything is behind
+    /// the world".</para>
+    /// </summary>
+    public int MaskedByTerrain { get; private set; }
+
     // Held between scans so a contact's dwell time survives track rebuilds.
     private readonly Dictionary<Vehicle, double> _dwell = new();
 
@@ -46,6 +55,7 @@ internal sealed class Radar(Config config, BatteryConfig policy)
     public void Scan(Vehicle platform, double3 boresight, double dt)
     {
         Tracks.Clear();
+        MaskedByTerrain = 0;
 
         double3 originEcl = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
@@ -64,6 +74,15 @@ internal sealed class Radar(Config config, BatteryConfig policy)
 
             double3 targetPos = KsaWorld.PositionEcl(candidate);
             double3 targetVel = KsaWorld.VelocityEcl(candidate);
+
+            // Before the threat maths: something on the far side of the world is not a contact,
+            // and assessing it first would spend the work only to discard the answer.
+            if (_sensor.HorizonMasking
+                && KsaWorld.IsOccluded(originEcl, targetPos, _sensor.TerrainMarginMetres, out _))
+            {
+                MaskedByTerrain++;
+                continue;
+            }
 
             // Relative motion, so the ecliptic frame's huge common position and velocity cancel
             // before any of the geometry runs. The maths itself lives in Sim/ and is tested.

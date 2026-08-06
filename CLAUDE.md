@@ -1004,7 +1004,10 @@ should not be weakened without understanding what they buy:
 - The model has no normal or occlusion detail — flat palette swatches only. Faceted lighting is
   the whole look, which suits KSA's art style, but it is a floor not a ceiling.
 - Rounds do not collide with terrain or structures, only their designated target.
-- Radar has no line-of-sight or occlusion check.
+- The radar masks contacts the planet hides, but against the body's **mean sphere**: a craft
+  behind a ridge is still seen, and the limb is geometric rather than the skyline.
+  `SensorProfile.TerrainMarginMetres` inflates the sphere to buy some of that back without
+  sampling a height map per contact per scan, which is a cost nobody has measured.
 - Battery settings live **inside the save**, at `saves/<save>/KSArmory/systems.json`. KSA's save
   format cannot be extended (`UniverseData` is a fixed XML-mapped class) and StarMap has no save or
   load hook — but a save is a *directory*, so the file sits beside the `universe.xml` it belongs

@@ -459,6 +459,15 @@ something arrives early.
       nothing is being tracked, and the kill path must not treat that as zero.
 - [ ] With `TimedFuse` off, nothing about the cannon changed.
 
+### 7.1c Horizon masking
+
+- [ ] Put a drone on the far side of the planet. It does **not** appear on the scope, and the
+      panel says `N behind the horizon` rather than showing an empty list with no explanation.
+- [ ] A drone overhead and a neighbour on the same pad are both still seen. If short-range
+      contacts vanish, the mount is being treated as sitting at mean radius.
+- [ ] Raise `SensorProfile.TerrainMarginMetres` and watch low contacts drop out at shorter range.
+- [ ] With `HorizonMasking` off, everything is visible again exactly as before.
+
 ### 7.2 More than one target at a time
 
 - [ ] Spawn three drones close together. Radar lists all three, ranked by time-to-CPA.

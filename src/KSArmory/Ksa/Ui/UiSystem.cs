@@ -339,6 +339,13 @@ internal sealed partial class Ui
             ImGui.TextDisabled("scope clear");
         }
 
+        // An empty scope with craft in the world reads as a broken radar. Saying how many the
+        // planet is hiding is the difference between that and a working one with nothing in view.
+        if (_battery.Radar.MaskedByTerrain > 0)
+        {
+            ImGui.TextDisabled($"  {_battery.Radar.MaskedByTerrain} behind the horizon");
+        }
+
         for (int i = 0; i < _battery.Radar.Tracks.Count; i++)
         {
             Track t = _battery.Radar.Tracks[i];
