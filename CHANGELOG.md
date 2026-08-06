@@ -1,3 +1,9 @@
+## [0.8.32](https://github.com/LaurensDeV/KSArmory/compare/v0.8.31...v0.8.32) (2026-08-06)
+
+### Features
+
+* **ui:** accelerate the chase camera into the impact ([1784bfb](https://github.com/LaurensDeV/KSArmory/commit/1784bfbb00d18a1a8efd13dff93010306a52f1dd))
+
 ## [0.8.31](https://github.com/LaurensDeV/KSArmory/compare/v0.8.30...v0.8.31) (2026-08-06)
 
 ### Features
