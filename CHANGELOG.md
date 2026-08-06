@@ -1,3 +1,10 @@
+## [0.8.37](https://github.com/LaurensDeV/KSArmory/compare/v0.8.36...v0.8.37) (2026-08-06)
+
+### Features
+
+* **ui:** let the target brackets grow all the way in ([c4e31ea](https://github.com/LaurensDeV/KSArmory/commit/c4e31eadf679a3515ae5df76fcadd07f26bb64fb))
+* **ui:** size the target brackets by the closing, not the target ([2adbcb3](https://github.com/LaurensDeV/KSArmory/commit/2adbcb3821e48bffbfd9620a62cbdfbbe84e3d9c))
+
 ## [0.8.36](https://github.com/LaurensDeV/KSArmory/compare/v0.8.35...v0.8.36) (2026-08-06)
 
 ### Fixes
