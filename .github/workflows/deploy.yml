@@ -53,18 +53,32 @@ jobs:
             exit 0
           fi
 
-          # By digest, never by tag: a moved tag would change what runs without changing the plan.
           token=$(curl -fsSL -u "${{ github.actor }}:$GH_TOKEN" \
             "https://ghcr.io/token?scope=repository:$repo/feedback:pull&service=ghcr.io" \
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
 
-          digest=$(curl -fsSL -o /dev/null -D - -H "Authorization: Bearer $token" \
-            -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json" \
-            "https://ghcr.io/v2/$repo/feedback/manifests/${{ github.sha }}" \
-            | tr -d '\r' | awk '/[Dd]ocker-[Cc]ontent-[Dd]igest/ {print $2}')
+          # The image is only rebuilt when services/feedback changes, so most commits have no
+          # image of their own and falling back to latest is the normal path, not a failure.
+          digest_of() {
+            curl -sSL -o /dev/null -D - -H "Authorization: Bearer $token" \
+              -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json" \
+              "https://ghcr.io/v2/$repo/feedback/manifests/$1" \
+              | tr -d '\r' | awk '/^[Dd]ocker-[Cc]ontent-[Dd]igest:/ {print $2}'
+          }
 
-          [[ -n "$digest" ]] || { echo "::error::no image published for ${{ github.sha }}"; exit 1; }
-          echo "ref=$name@$digest" >> "$GITHUB_OUTPUT"
+          for tag in "${{ github.sha }}" latest; do
+            digest=$(digest_of "$tag")
+            if [[ -n "$digest" ]]; then
+              echo "resolved $tag -> $digest"
+              # Deployed by digest either way, so what runs is pinned even when the tag moves.
+              echo "ref=$name@$digest" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "no image tagged $tag"
+          done
+
+          echo "::error::no image published at all -- run the Feedback image workflow first"
+          exit 1
 
       - name: Install the deploy key
         run: |
