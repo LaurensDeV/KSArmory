@@ -1,3 +1,10 @@
+## [0.8.38](https://github.com/LaurensDeV/KSArmory/compare/v0.8.37...v0.8.38) (2026-08-06)
+
+### Fixes
+
+* **tools:** stop the craft mover moving a craft that was not moved ([9cc2750](https://github.com/LaurensDeV/KSArmory/commit/9cc275043ff6c50bccdb080f28d2c3ebd7bac695))
+* **ui:** draw corners only when the sight is small ([67646f3](https://github.com/LaurensDeV/KSArmory/commit/67646f38f287570f377c1853a7d77273fb597f9f))
+
 ## [0.8.37](https://github.com/LaurensDeV/KSArmory/compare/v0.8.36...v0.8.37) (2026-08-06)
 
 ### Features
