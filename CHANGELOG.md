@@ -1,3 +1,17 @@
+## [0.8.14](https://github.com/LaurensDeV/KSArmory/compare/v0.8.13...v0.8.14) (2026-08-06)
+
+### Features
+
+* **api:** only accept reports against the newest release ([9a3edb5](https://github.com/LaurensDeV/KSArmory/commit/9a3edb5a40899a8def9180e63fcb732b1f009634))
+* **ui:** hide reporting on a game build this was not made for ([7a761e6](https://github.com/LaurensDeV/KSArmory/commit/7a761e6285468a00355c39328fd6e344cd79a9d6))
+* **ui:** say which KSA build reporting was decided against ([c6d2bbd](https://github.com/LaurensDeV/KSArmory/commit/c6d2bbd18bf2de88faef4b1510642efae192c126))
+
+### Fixes
+
+* **api:** stop thanking people for reports that were dropped ([0d7a0f1](https://github.com/LaurensDeV/KSArmory/commit/0d7a0f1a631b88c547bad8d331bf7ac5343396ca))
+* **ci:** grant the release workflow packages: read ([1b04662](https://github.com/LaurensDeV/KSArmory/commit/1b04662c919c81242783e6202cf4eb75e55a6bdf))
+* **ui:** drop the buttons silently on an unsupported build ([940d634](https://github.com/LaurensDeV/KSArmory/commit/940d634cd160f854041b532b8765af817646b83e))
+
 ## [0.8.13](https://github.com/LaurensDeV/KSArmory/compare/v0.8.12...v0.8.13) (2026-08-06)
 
 ### Fixes
