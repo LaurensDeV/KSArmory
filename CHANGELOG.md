@@ -1,3 +1,9 @@
+## [0.8.23](https://github.com/LaurensDeV/KSArmory/compare/v0.8.22...v0.8.23) (2026-08-06)
+
+### Fixes
+
+* **ui:** hold the burst still, and stop taking the view straight back ([8cbd3d0](https://github.com/LaurensDeV/KSArmory/commit/8cbd3d01058ac107b81bf9de654610dd0617da32))
+
 ## [0.8.22](https://github.com/LaurensDeV/KSArmory/compare/v0.8.21...v0.8.22) (2026-08-06)
 
 ### Fixes
