@@ -200,6 +200,11 @@ came out of that reading before the decompiled source settled it.
 `KsaWorld.TryLookFromMainViewport` does it the supported way. `TryLookFromViewport` unfollows,
 because a secondary viewport's camera genuinely follows nothing and has nothing to offset from.
 
+There is a second way to divide by zero here, and it is easier to hit: the controller crosses
+`CameraRotation` with the reference frame's **+Z**, so a view pointing *along* that axis — the
+local zenith under `Surface` — fails the same way. A round launched vertically points exactly
+there. `docs/KSA-CAMERAS.md` has the full account of this and every other controller.
+
 ## Aiming a character attachment
 
 **What we want.** The kitten's shoulder gun to point where the mouse points, the way the
