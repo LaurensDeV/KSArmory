@@ -1,3 +1,9 @@
+## [0.8.13](https://github.com/LaurensDeV/KSArmory/compare/v0.8.12...v0.8.13) (2026-08-06)
+
+### Fixes
+
+* **api:** stop refusing short English as foreign ([b62af57](https://github.com/LaurensDeV/KSArmory/commit/b62af578dde6f6a59609368d8b4f452b85926709))
+
 ## [0.8.12](https://github.com/LaurensDeV/KSArmory/compare/v0.8.11...v0.8.12) (2026-08-06)
 
 ### Features
