@@ -13,10 +13,19 @@ namespace KSArmory;
 /// </summary>
 internal sealed class ChaseCamera
 {
-    // Close enough to see the round, far enough that it is not filling the frame.
-    private const double Behind = 45.0;
-    private const double Above = 9.0;
-    private const double Ahead = 250.0;
+    // Close enough to read the round as an object rather than a dot, far enough that it does not
+    // fill the frame.
+    private const double Behind = 22.0;
+    private const double Above = 5.0;
+    private const double Ahead = 120.0;
+
+    // How far a round must get from the tube before the view is taken. A missile leaves almost
+    // vertically, so "behind it" for the first moment is underneath the vehicle that fired it.
+    private const double ClearOfLauncher = 80.0;
+
+    // And a floor, for anything that gets past that: the eye never sits below the launcher by
+    // more than this, whatever the flight path says.
+    private const double FloorBelowLauncher = 2.0;
 
     // How long to keep looking at a burst. Cutting away the instant it goes off shows the one
     // moment worth watching for no frames at all.
@@ -158,6 +167,11 @@ internal sealed class ChaseCamera
 
         MeasureSlip(battery);
 
+        // The eye is relative to the round, so its height over the launcher is the two together.
+        // Lifting rather than refusing: a view from slightly the wrong place beats none.
+        double overLauncher = Vec.Dot(round.OffsetFromPlatform + eye, up);
+        if (overLauncher < -FloorBelowLauncher) eye += up * (-FloorBelowLauncher - overLauncher);
+
         _holdOffset = eye;
         _holdForward = forward;
         _holdUp = upEcl;
@@ -235,10 +249,16 @@ internal sealed class ChaseCamera
 
         for (int i = rounds.Count - 1; i >= 0; i--)
         {
-            if (rounds[i].State == RoundState.Flying && !_passedOver.Contains(rounds[i]))
-            {
-                return rounds[i];
-            }
+            IProjectile round = rounds[i];
+
+            if (round.State != RoundState.Flying) continue;
+            if (_passedOver.Contains(round)) continue;
+
+            // Still in the launcher's lap. Not skipped for good -- it is picked up as soon as it
+            // is clear, which is a beat later.
+            if (Vec.Len(round.TravelSinceLaunch) < ClearOfLauncher) continue;
+
+            return round;
         }
 
         return null;
