@@ -38,10 +38,12 @@ internal static class ChaseHud
         double range = Vec.Len(at - round.PositionEcl);
         double angular = 2.0 * Math.Atan2(KsaWorld.MeanRadius(target), Math.Max(range, 1.0));
 
-        // Tighter than the gunner's sight, and capped far lower. This view ends a few metres from
-        // the target, where a box several widths across is off the edges of the screen.
+        // Tight around the target rather than several widths across, and free to keep growing all
+        // the way in: the brackets swelling is what conveys the closing speed, and a low cap makes
+        // a large craft stop scaling early while a small one carries on -- which reads as the
+        // thing working for some targets and not others.
         float half = Reticle.BoxHalfSize(angular, KsaWorld.ViewportFovRad(viewport), height,
-                                         widths: 1.5, maxFraction: 0.14);
+                                         widths: 1.2, maxFraction: 0.45);
 
         // Closed brackets, and no ranging ladder: the range is written beside it in metres, so a
         // scale for judging it by eye is decoration.
