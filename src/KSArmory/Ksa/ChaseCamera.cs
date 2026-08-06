@@ -134,6 +134,8 @@ internal sealed class ChaseCamera
             return;
         }
 
+        MeasureSlip(battery);
+
         _holdOffset = eye;
         _holdForward = forward;
         _holdUp = upEcl;
@@ -156,6 +158,39 @@ internal sealed class ChaseCamera
         }
 
         return Newest(battery);
+    }
+
+    // Diagnostic, not correction. The camera is placed against the analytic position and the body
+    // is drawn against the physics one; if that difference moves frame to frame, the round
+    // shivers no matter what the camera does. Logged as a range so a wobble is distinguishable
+    // from a constant offset, which is the whole question.
+    private double3 _lastSlip;
+    private double _slipMin = double.MaxValue;
+    private double _slipMax;
+    private double _slipStep;
+    private int _slipFrames;
+
+    private void MeasureSlip(DefenceBattery battery)
+    {
+        if (!KsaWorld.TryDrawSlip(battery.Platform, out double3 slip)) return;
+
+        double magnitude = Vec.Len(slip);
+        _slipMin = Math.Min(_slipMin, magnitude);
+        _slipMax = Math.Max(_slipMax, magnitude);
+
+        if (_slipFrames > 0) _slipStep = Math.Max(_slipStep, Vec.Len(slip - _lastSlip));
+
+        _lastSlip = slip;
+
+        if (++_slipFrames < 60) return;
+
+        Log.Info($"chase: draw slip {_slipMin:F2}-{_slipMax:F2} m, "
+                 + $"worst frame-to-frame change {_slipStep:F3} m");
+
+        _slipFrames = 0;
+        _slipMin = double.MaxValue;
+        _slipMax = 0.0;
+        _slipStep = 0.0;
     }
 
     private static bool AnythingFlying(DefenceBattery battery)
