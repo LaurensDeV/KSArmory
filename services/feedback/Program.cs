@@ -36,10 +36,7 @@ public static class Program
     // a burst, short enough that a real recurring bug can be reported again tomorrow.
     private static readonly TimeSpan DuplicateWindow = TimeSpan.FromHours(6);
 
-    private static readonly Dictionary<string, DateTimeOffset> _recent = [];
-    private static readonly Lock _gate = new();
-    private static int _filedToday;
-    private static DateOnly _today = DateOnly.FromDateTime(DateTime.UtcNow);
+    private static readonly Ledger _ledger = new(MaxIssuesPerDay, DuplicateWindow);
 
     public static void Main(string[] args)
     {
@@ -185,13 +182,25 @@ public static class Program
             }
 
             string fingerprint = Guard.Fingerprint(report.Summary, report.Detail);
-            if (!TryReserve(fingerprint, out string refusal))
-            {
-                log.LogInformation("declined a report: {Reason}", refusal);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
-                // Not an error the caller can act on, and not worth telling a flooder which limit
-                // it hit. The mod says the report was received either way.
-                return Results.Accepted();
+            switch (_ledger.Reserve(fingerprint, now, out string? already))
+            {
+                case Reservation.Duplicate:
+                    // True, and nothing is lost: the same report is already filed. The reporter
+                    // gets the issue it became when we know it.
+                    log.LogInformation("duplicate report, not filed again");
+                    return already is null
+                               ? Results.Accepted()
+                               : Results.Accepted(already, new { url = already });
+
+                case Reservation.Ceiling:
+                    // A real report being dropped, so it is said. Answering "received" here would
+                    // thank someone for a report nobody will ever read.
+                    log.LogWarning("the day's issue ceiling is spent; a report was refused");
+                    return Results.Json(
+                        new { error = "this endpoint is at its limit for today - please try tomorrow, or open an issue on GitHub" },
+                        statusCode: StatusCodes.Status503ServiceUnavailable);
             }
 
             string? token = config["GITHUB_TOKEN"];
@@ -200,6 +209,7 @@ public static class Program
             {
                 // Configuration, not the caller's problem. Say so in the log and nowhere else.
                 log.LogError("GITHUB_TOKEN or GITHUB_REPOSITORY is not set");
+                _ledger.Release(fingerprint);
                 return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
             }
 
@@ -221,6 +231,10 @@ public static class Program
             if (!response.IsSuccessStatusCode)
             {
                 log.LogError("github rejected the issue: {Status}", response.StatusCode);
+
+                // Given back rather than counted: an outage at GitHub must not spend the day's
+                // ceiling on issues that were never created.
+                _ledger.Release(fingerprint);
                 return Results.StatusCode(StatusCodes.Status502BadGateway);
             }
 
@@ -230,6 +244,8 @@ public static class Program
             string url = created.RootElement.TryGetProperty("html_url", out JsonElement u)
                              ? u.GetString() ?? ""
                              : "";
+
+            _ledger.Commit(fingerprint, now, url);
 
             return Results.Accepted(url, new { url });
         })
@@ -356,44 +372,6 @@ public static class Program
     /// <summary>
     /// Takes one of the day's issue slots, unless this report is a duplicate or the day is spent.
     /// </summary>
-    private static bool TryReserve(string fingerprint, out string refusal)
-    {
-        lock (_gate)
-        {
-            DateTimeOffset now = DateTimeOffset.UtcNow;
-
-            DateOnly today = DateOnly.FromDateTime(now.UtcDateTime);
-            if (today != _today)
-            {
-                _today = today;
-                _filedToday = 0;
-            }
-
-            foreach (string stale in _recent.Where(e => now - e.Value > DuplicateWindow)
-                                            .Select(e => e.Key).ToList())
-            {
-                _recent.Remove(stale);
-            }
-
-            if (_recent.ContainsKey(fingerprint))
-            {
-                refusal = "already filed recently";
-                return false;
-            }
-
-            if (_filedToday >= MaxIssuesPerDay)
-            {
-                refusal = "the day's issue ceiling is spent";
-                return false;
-            }
-
-            _recent[fingerprint] = now;
-            _filedToday++;
-            refusal = string.Empty;
-            return true;
-        }
-    }
-
     /// <summary>A complaint to return, or null when the report is acceptable.</summary>
     private static string? Validate(Report report)
     {

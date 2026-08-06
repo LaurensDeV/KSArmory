@@ -139,6 +139,12 @@ internal sealed class FeedbackClient
                 Fail("too many reports from here - try again later");
                 return;
 
+            case 503:
+                // The endpoint says when it cannot file, rather than thanking someone for a
+                // report nobody will read.
+                Fail(Reason(body) ?? "the endpoint cannot file reports right now - please try later");
+                return;
+
             case 400:
                 Fail(string.IsNullOrWhiteSpace(body) ? "the report was rejected" : Trim(body));
                 return;

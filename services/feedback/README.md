@@ -175,6 +175,28 @@ that rule is gone.
 A report can still be rude or useless, and that is triage rather than
 engineering. What it cannot be is dangerous to render.
 
+## What a reporter is told
+
+Every refusal the endpoint makes is one the person typing can act on, except the one that does not
+need acting on.
+
+| | Answer | What the panel shows |
+| --- | --- | --- |
+| Filed | 202 with the issue URL | thank you, and a link |
+| Same report within 6 h | 202 with the existing URL | thank you, and the same link |
+| Five reports in an hour from one address | 429 | too many reports from here |
+| Version older than the newest release | 426 | update the mod first |
+| Not English, or abusive | 422 with the reason | that reason, verbatim |
+| **The day's 60 issues are spent** | **503** | **try tomorrow, or open an issue on GitHub** |
+
+The last row used to answer 202. That thanked someone for a report that was discarded, wiped what
+they had typed, and left no way to tell it apart from success — the missing issue link being the
+only difference. A duplicate answering 202 is fine, because it is true: the report is already
+filed, and the reporter now gets a link to it.
+
+A reservation is also **given back** when filing fails, so an outage at GitHub cannot spend the
+day's ceiling on issues that were never created.
+
 ## Configuration
 
 | Variable | |
