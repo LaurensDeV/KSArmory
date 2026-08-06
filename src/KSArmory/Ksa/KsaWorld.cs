@@ -1641,11 +1641,15 @@ internal static class KsaWorld
     /// <summary>
     /// A ring lying flat about <paramref name="normalEcl"/>, in metres.
     ///
+    /// <para>Drawn from line segments rather than through <c>GizmosRenderer.DrawCircle</c>, which
+    /// builds a full circle from twelve of them — a dodecagon, and plainly one at any size worth
+    /// looking at.</para>
+    ///
     /// <para>For marking a place on the ground. A sphere large enough to read as "this craft" is
     /// by construction large enough to hide it.</para>
     /// </summary>
     public static void DrawCircleEcl(double3 centreEcl, double3 normalEcl, double radius,
-                                     float4 colour)
+                                     float4 colour, int segments = 64)
     {
         if (Program.GizmosRenderer is null) return;
         if (!Vec.IsFinite(centreEcl) || !(radius > 0.0)) return;
@@ -1658,9 +1662,48 @@ internal static class KsaWorld
         double3 a = Vec.Unit(Vec.Cross(up, seed)) * radius;
         double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
 
-        if (!TryEclToEgo(centreEcl, out double3 ego)) return;
+        if (!TryEclToEgo(centreEcl, out double3 centreEgo)) return;
 
-        Program.GizmosRenderer.DrawCircle(ego, a, b, colour);
+        int steps = Math.Clamp(segments, 8, 256);
+        double3 previous = centreEgo + a;
+
+        for (int i = 1; i <= steps; i++)
+        {
+            double angle = Math.Tau * i / steps;
+            double3 next = centreEgo + (a * Math.Cos(angle)) + (b * Math.Sin(angle));
+
+            Program.GizmosRenderer.DrawLine(previous, next, colour);
+            previous = next;
+        }
+    }
+
+    /// <summary>
+    /// A flat annulus: two rings and the spokes between them, so it reads as a band on the ground
+    /// rather than a hairline that disappears at a shallow angle.
+    /// </summary>
+    public static void DrawRingEcl(double3 centreEcl, double3 normalEcl, double innerRadius,
+                                   double outerRadius, float4 colour)
+    {
+        if (!(outerRadius > innerRadius) || !(innerRadius > 0.0)) return;
+
+        DrawCircleEcl(centreEcl, normalEcl, innerRadius, colour);
+        DrawCircleEcl(centreEcl, normalEcl, outerRadius, colour);
+
+        double3 up = Vec.Unit(normalEcl);
+        if (Vec.Len2(up) < 0.5) return;
+
+        double3 seed = Math.Abs(up.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);
+        double3 a = Vec.Unit(Vec.Cross(up, seed));
+        double3 b = Vec.Unit(Vec.Cross(up, a));
+
+        // Few enough to read as a band rather than a wheel.
+        for (int i = 0; i < 12; i++)
+        {
+            double angle = Math.Tau * i / 12.0;
+            double3 dir = (a * Math.Cos(angle)) + (b * Math.Sin(angle));
+
+            DrawLineEcl(centreEcl + dir * innerRadius, centreEcl + dir * outerRadius, colour);
+        }
     }
 
     public static void DrawLineEcl(double3 startEcl, double3 endEcl, float4 colour)
