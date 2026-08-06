@@ -1,3 +1,9 @@
+## [0.8.24](https://github.com/LaurensDeV/KSArmory/compare/v0.8.23...v0.8.24) (2026-08-06)
+
+### Fixes
+
+* **ui:** keep the chase view off the reference axis ([cf3f6cc](https://github.com/LaurensDeV/KSArmory/commit/cf3f6cc5d0717af6d1c725a171fdd7e7e73553ae))
+
 ## [0.8.23](https://github.com/LaurensDeV/KSArmory/compare/v0.8.22...v0.8.23) (2026-08-06)
 
 ### Fixes
