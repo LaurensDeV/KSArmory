@@ -22,6 +22,19 @@ internal static class ChaseHud
     private static readonly ImColor8 Target = new(255, 90, 60, 235);
     private static readonly ImColor8 Shadow = new(0, 0, 0, 170);
 
+    // From the floor at the moment the view is taken to a good part of the screen at impact. The
+    // same root curve the camera closes on, so the two move together.
+    private static float BracketHalfSize(double closing, int screenHeight)
+    {
+        float grown = screenHeight * 0.32f;
+
+        if (!double.IsFinite(closing)) return Reticle.MinBoxHalfSize;
+
+        double t = 1.0 - Math.Sqrt(Math.Clamp(closing, 0.0, 1.0));
+
+        return (float)(Reticle.MinBoxHalfSize + ((grown - Reticle.MinBoxHalfSize) * t));
+    }
+
     public static void Draw(ChaseCamera chase)
     {
         if (chase.Round is not { } round) return;
@@ -36,14 +49,11 @@ internal static class ChaseHud
         }
 
         double range = Vec.Len(at - round.PositionEcl);
-        double angular = 2.0 * Math.Atan2(KsaWorld.MeanRadius(target), Math.Max(range, 1.0));
 
-        // Tight around the target rather than several widths across, and free to keep growing all
-        // the way in: the brackets swelling is what conveys the closing speed, and a low cap makes
-        // a large craft stop scaling early while a small one carries on -- which reads as the
-        // thing working for some targets and not others.
-        float half = Reticle.BoxHalfSize(angular, KsaWorld.ViewportFovRad(viewport), height,
-                                         widths: 1.2, maxFraction: 0.45);
+        // Sized by how far through the flight the round is, not by how large the target looks.
+        // Apparent size makes a big craft start big and a kitten stay small -- the brackets then
+        // report what is being shot at, when what should be read off them is how close it is.
+        float half = BracketHalfSize(chase.Closing, height);
 
         // Closed brackets, and no ranging ladder: the range is written beside it in metres, so a
         // scale for judging it by eye is decoration.

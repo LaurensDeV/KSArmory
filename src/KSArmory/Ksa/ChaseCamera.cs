@@ -67,6 +67,16 @@ internal sealed class ChaseCamera
     /// <summary>The round being chased, or null.</summary>
     public IProjectile? Round => _round;
 
+    /// <summary>
+    /// How much of the flight is left, as a fraction of what was left when the view was taken.
+    /// One on the first frame, zero at impact, and NaN when there is no closing solution.
+    ///
+    /// <para>Shared with the overlay so the brackets grow on the same curve the camera closes on,
+    /// rather than on the target's apparent size — which makes a large craft start large and a
+    /// kitten stay small, when what should be read off it is the distance.</para>
+    /// </summary>
+    public double Closing { get; private set; } = double.NaN;
+
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
@@ -184,6 +194,8 @@ internal sealed class ChaseCamera
         double toGo = TimeToTarget(round);
 
         if (_flightAtTake <= 0.0 || !double.IsFinite(_flightAtTake)) _flightAtTake = toGo;
+
+        Closing = _flightAtTake > 0.0 ? Math.Clamp(toGo / _flightAtTake, 0.0, 1.0) : double.NaN;
 
         double behind = ChaseView.StandOff(toGo, _flightAtTake, CloseUntil, Behind, BehindAtImpact);
         double above = ChaseView.StandOff(toGo, _flightAtTake, CloseUntil, Above, AboveAtImpact);
