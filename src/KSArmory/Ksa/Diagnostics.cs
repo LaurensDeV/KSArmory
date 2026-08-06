@@ -205,6 +205,7 @@ internal static class Diagnostics
     private static void DumpRadar(DefenceBattery battery)
     {
         Log.Debug($"radar: {battery.Radar.Tracks.Count} track(s), " +
+                 $"maskedByTerrain={battery.Radar.MaskedByTerrain}, " +
                  $"locked={(battery.Radar.Locked is null ? "none" : KsaWorld.DisplayName(battery.Radar.Locked.Vehicle))}, " +
                  $"firingSolution={battery.Radar.HasFiringSolution}, roundsInFlight={battery.Rounds.Count}");
 
