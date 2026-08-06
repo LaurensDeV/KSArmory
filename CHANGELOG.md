@@ -1,3 +1,9 @@
+## [0.8.26](https://github.com/LaurensDeV/KSArmory/compare/v0.8.25...v0.8.26) (2026-08-06)
+
+### Fixes
+
+* **ui:** hold the burst against the ground, not against the ecliptic ([1f580ce](https://github.com/LaurensDeV/KSArmory/commit/1f580ceaaa770a6f6e318943845a9536d8386540))
+
 ## [0.8.25](https://github.com/LaurensDeV/KSArmory/compare/v0.8.24...v0.8.25) (2026-08-06)
 
 ### Fixes
