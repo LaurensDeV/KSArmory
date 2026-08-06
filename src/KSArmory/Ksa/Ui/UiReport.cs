@@ -36,16 +36,9 @@ internal partial class Ui
         ImGui.Separator();
 
         // Both or neither. Leaving feedback open on an unsupported build would just make it the
-        // way to file a bug report.
+        // way to file a bug report. Nothing takes their place: the reason is in the log, which is
+        // where an explanation belongs rather than in a panel the player reads every session.
         if (ReportDraft.GameIsSupported(Build.KsaBuild, Build.KsaRunning)) DrawReportButtons();
-        else DrawReportUnavailable();
-    }
-
-    // Said, not silent. A player who used the buttons yesterday and cannot find them today would
-    // otherwise reasonably conclude the mod is broken.
-    private void DrawReportUnavailable()
-    {
-        ImGui.TextDisabled($"Reporting is off: built for KSA {Build.KsaBuild}, running {Build.KsaRunning}");
     }
 
     // Roughly the separator plus the spacing either side of it. Exact enough: being a pixel out

@@ -30,3 +30,7 @@ __pycache__/
 .terraform.tfstate.lock.info
 backend.hcl
 infra/**/.env
+
+# StarMap writes this beside whatever directory it was launched from; it belongs to the
+# loader install, not here. setup-starmap.sh skips it for the same reason.
+StarMapConfig.json
