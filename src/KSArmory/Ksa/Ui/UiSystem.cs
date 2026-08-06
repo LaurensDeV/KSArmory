@@ -291,6 +291,10 @@ internal sealed partial class Ui
             ImGui.Checkbox("Cannon", ref _policy.GunsEnabled);
         }
 
+        // A view control, so it sits with the other thing that decides what you are looking at.
+        ImGui.Checkbox("Chase this system's rounds", ref _policy.ChaseRounds);
+        ImGui.TextDisabled("  rides the camera behind a round it fires; the view comes back after");
+
         DrawOpticView();
 
         if (ImGui.Button("FIRE")) _battery.FireAtLock();

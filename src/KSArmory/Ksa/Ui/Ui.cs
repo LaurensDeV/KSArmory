@@ -346,6 +346,9 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
             DrawCraftMover();
             ImGui.Separator();
 
+            DrawLogging();
+            ImGui.Separator();
+
             DrawPaneGroup(null, PaneGroup.Debug);
             ImGui.TreePop();
         }

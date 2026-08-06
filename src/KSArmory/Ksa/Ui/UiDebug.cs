@@ -13,13 +13,6 @@ internal sealed partial class Ui
 {
     private void DrawBurstTool()
     {
-        // A view control rather than a debug toy, but this is where the other things that watch
-        // an engagement live, and it takes the main view outright -- which is worth finding next
-        // to the tools that also take something over.
-        ImGui.Checkbox("Chase rounds with the camera", ref _config.ChaseRounds);
-        ImGui.TextDisabled("  rides the newest round in flight; the view comes back after");
-        ImGui.Separator();
-
         ImGui.Checkbox("Explosions on click", ref _config.BurstTool);
 
         if (_config.BurstTool)
@@ -149,10 +142,12 @@ internal sealed partial class Ui
         ImGui.TextDisabled("Arm before they arrive.");
         ImGui.TextDisabled("Head-on dives steepest and holds its speed best in atmosphere.");
 
-        ImGui.Separator();
+    }
 
-        // Writes the battery's whole world view to KSArmory.log, including why each nearby
-        // vehicle was or was not tracked. Far more useful than staring at an empty screen.
+    // Logging and the world dump. Nothing to do with spawning targets, which is where these used
+    // to live: they belong with the other developer switches.
+    private void DrawLogging()
+    {
         if (ImGui.Checkbox("Verbose log", ref _config.VerboseLog))
         {
             Log.Threshold = _config.VerboseLog ? Log.Level.Debug : Log.Level.Info;
@@ -160,6 +155,8 @@ internal sealed partial class Ui
         }
         ImGui.TextDisabled("  developer detail; off in release builds");
 
+        // Writes the battery's whole world view to the log, including why each nearby vehicle was
+        // or was not tracked. Far more useful than staring at an empty screen.
         if (ImGui.Button("Write diagnostic dump"))
         {
             Diagnostics.Dump(_battery, _config, _policy);
@@ -170,7 +167,6 @@ internal sealed partial class Ui
             Diagnostics.ResetTimer();
         }
         ImGui.TextDisabled("  -> Logs/KSArmory.log");
-
     }
 
     private void DrawLog()

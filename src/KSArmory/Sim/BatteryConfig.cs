@@ -44,6 +44,15 @@ public sealed class BatteryConfig
     public bool AutoEngage;
 
     /// <summary>
+    /// Ride the main view behind this system's rounds.
+    ///
+    /// <para>Per battery rather than per session: with several sites alive, whose missiles are
+    /// worth watching is exactly the sort of thing two of them disagree about. There is still only
+    /// one main view, so the last one to fire with this on gets it.</para>
+    /// </summary>
+    public bool ChaseRounds;
+
+    /// <summary>
     /// Which weapons may engage, independently of the master arm.
     ///
     /// <para>Two layers on one mount: without a switch each, whichever reaches further takes

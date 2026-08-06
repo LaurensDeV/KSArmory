@@ -19,6 +19,8 @@ public sealed class BatterySettings
     public bool Armed { get; set; }
     public bool AutoEngage { get; set; }
     public bool ProtectControlledVehicle { get; set; } = true;
+
+    public bool ChaseRounds { get; set; }
     public bool MissilesEnabled { get; set; } = true;
     public bool GunsEnabled { get; set; } = true;
     public int RoundsPerTarget { get; set; } = 2;
@@ -47,6 +49,7 @@ public sealed class BatterySettings
             Armed = config.Armed,
             AutoEngage = config.AutoEngage,
             ProtectControlledVehicle = config.ProtectControlledVehicle,
+            ChaseRounds = config.ChaseRounds,
             MissilesEnabled = config.MissilesEnabled,
             GunsEnabled = config.GunsEnabled,
             RoundsPerTarget = config.RoundsPerTarget,
@@ -81,6 +84,7 @@ public sealed class BatterySettings
         config.Armed = Armed;
         config.AutoEngage = AutoEngage;
         config.ProtectControlledVehicle = ProtectControlledVehicle;
+        config.ChaseRounds = ChaseRounds;
         config.MissilesEnabled = MissilesEnabled;
         config.GunsEnabled = GunsEnabled;
         config.RoundsPerTarget = Math.Max(1, RoundsPerTarget);
@@ -114,6 +118,7 @@ public sealed class BatterySettings
         return Armed != other.Armed
                || AutoEngage != other.AutoEngage
                || ProtectControlledVehicle != other.ProtectControlledVehicle
+               || ChaseRounds != other.ChaseRounds
                || MissilesEnabled != other.MissilesEnabled
                || GunsEnabled != other.GunsEnabled
                || RoundsPerTarget != other.RoundsPerTarget
