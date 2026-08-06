@@ -1,3 +1,9 @@
+## [0.8.16](https://github.com/LaurensDeV/KSArmory/compare/v0.8.15...v0.8.16) (2026-08-06)
+
+### Features
+
+* **radar:** stop the radar seeing through the planet ([2222f02](https://github.com/LaurensDeV/KSArmory/commit/2222f02fa0f7e0dd0bfcb59bd35711dd0eaa27d7))
+
 ## [0.8.15](https://github.com/LaurensDeV/KSArmory/compare/v0.8.14...v0.8.15) (2026-08-06)
 
 ### Features
