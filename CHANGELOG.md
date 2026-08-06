@@ -1,3 +1,9 @@
+## [0.8.20](https://github.com/LaurensDeV/KSArmory/compare/v0.8.19...v0.8.20) (2026-08-06)
+
+### Fixes
+
+* **ui:** finish the camera restore before re-attaching the follow ([0687f27](https://github.com/LaurensDeV/KSArmory/commit/0687f2789db9f2462f19ec144bca0a9fd6a5ddf3))
+
 ## [0.8.19](https://github.com/LaurensDeV/KSArmory/compare/v0.8.18...v0.8.19) (2026-08-06)
 
 ### Fixes
