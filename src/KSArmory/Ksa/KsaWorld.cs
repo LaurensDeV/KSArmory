@@ -1368,6 +1368,25 @@ internal static class KsaWorld
     /// can drive one the player has opened, which is the difference between borrowing a window
     /// and stealing the main camera.</para>
     /// </summary>
+    /// <summary>
+    /// Whether the main view is still in the mode a borrower left it in.
+    ///
+    /// <para>False means the player has taken it back, which is a decision rather than a fault:
+    /// whoever holds it should let go rather than fight, because trading writes over the camera
+    /// mode is what puts it into Fixed while still following.</para>
+    /// </summary>
+    public static bool MainViewIsFixed()
+    {
+        try
+        {
+            return Program.MainViewport?.Mode == CameraMode.Fixed;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>What the main view was doing before something borrowed it.</summary>
     public readonly record struct MainView(IFollowable? Following, CameraMode Mode, bool Valid);
 
@@ -1408,13 +1427,32 @@ internal static class KsaWorld
         {
             if (Program.MainViewport is not { } viewport) return false;
 
-            // Unfollow BEFORE Fixed, every time. FixedController.OnFrame runs only for a camera
-            // that follows something, and crosses with its own zero-default CameraRotation, so the
-            // pair takes the game down on the next frame with a DivideByZeroException raised
-            // nowhere near here. See docs/BLOCKED-ON-KSA.md.
+            // Unfollow BEFORE Fixed, and only enter Fixed once the unfollow is confirmed.
+            // FixedController.OnFrame crosses its own zero-default CameraRotation for a camera
+            // that follows something, so the pair takes the game down on the next frame with a
+            // DivideByZeroException raised nowhere near here. Swallowing a failed unfollow and
+            // setting Fixed anyway is how that happens: on a secondary viewport the camera
+            // follows nothing so it never bites, and this is the main one, which always does.
             if (viewport.Mode != CameraMode.Fixed)
             {
-                try { viewport.GetCamera()?.Unfollow(changeControl: false); } catch { }
+                if (viewport.GetCamera() is not { } following) return false;
+
+                try
+                {
+                    following.Unfollow(changeControl: false);
+                }
+                catch (Exception e)
+                {
+                    Log.Warn($"refusing the main view: unfollow failed ({e.Message})");
+                    return false;
+                }
+
+                if (following.Following is not null)
+                {
+                    Log.Warn("refusing the main view: it is still following something");
+                    return false;
+                }
+
                 viewport.SetCameraMode(CameraMode.Fixed);
             }
 

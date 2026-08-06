@@ -10,8 +10,8 @@ namespace KSArmory;
 /// over a featureless grey ball — every pass that makes a planet look like a planet runs only for
 /// the frame viewport. See <c>docs/BLOCKED-ON-KSA.md</c>.</para>
 ///
-/// <para>Borrowing it is the dangerous part, so the rule is that every exit restores: the round
-/// detonating, the battery going away, the player switching it off, and anything throwing.</para>
+/// <para>Borrowing it is the dangerous part, so every exit hands it back: the round ending, the
+/// battery going away, the switch going off, or a write failing.</para>
 /// </summary>
 internal sealed class ChaseCamera
 {
@@ -26,9 +26,6 @@ internal sealed class ChaseCamera
     /// <summary>The round being chased, or null.</summary>
     public IProjectile? Round => _round;
 
-    /// <summary>True while the main view is borrowed.</summary>
-    public bool Active => _round is not null;
-
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
@@ -40,9 +37,15 @@ internal sealed class ChaseCamera
         Log.Debug(() => "chase: released the main view");
     }
 
-    /// <summary>
-    /// Picks up the newest round in flight and follows it for one frame.
-    /// </summary>
+    // Lets go without touching the view, for when the player has already taken it.
+    private void StandDown()
+    {
+        _round = null;
+        _saved = default;
+        Log.Debug(() => "chase: the view was taken over, standing down");
+    }
+
+    /// <summary>Follows one round for one frame.</summary>
     public void Apply(DefenceBattery battery, bool enabled)
     {
         if (!enabled || battery.Platform is null)
@@ -51,14 +54,25 @@ internal sealed class ChaseCamera
             return;
         }
 
-        IProjectile? round = Newest(battery);
+        // The player wins. Changing the camera mode by hand while this holds the view is a
+        // decision, so it stands down rather than dragging the view back every frame -- and
+        // fighting over the mode is what put the camera into Fixed while still following, which
+        // takes the game down inside FixedController.
+        if (_round is not null && !KsaWorld.MainViewIsFixed())
+        {
+            StandDown();
+            return;
+        }
+
+        IProjectile? round = Current(battery);
         if (round is null)
         {
             Release();
             return;
         }
 
-        // Remembered on the frame the view is taken, before anything is written to it.
+        // Read before the first write: setting Fixed clears the follow, so a reading taken
+        // afterwards describes the borrowed state.
         if (_round is null)
         {
             _saved = KsaWorld.RememberMainView();
@@ -70,6 +84,7 @@ internal sealed class ChaseCamera
         _round = round;
 
         double3 at = battery.DrawnRoundEcl(round);
+
         // Away from the planet, which is the direction gravity is not. A zero here (deep space)
         // is handled by TryPose falling back to any perpendicular rather than rolling the view.
         double3 up = -Vec.Unit(KsaWorld.GravityAt(battery.Platform, at));
@@ -80,13 +95,21 @@ internal sealed class ChaseCamera
             return;
         }
 
-        // A failed write is not a reason to keep the view: the player would be left at whatever
-        // the last good frame was, with the round gone.
+        // A refused write must not leave the view held: the player would be stranded wherever the
+        // last good frame put them.
         if (!KsaWorld.TryLookFromMainViewport(eye, forward, upEcl)) Release();
     }
 
-    // The newest, because that is the one just launched and the one worth watching. A round that
-    // has detonated is dropped by the battery, so this naturally moves on.
+    // The round already being ridden while it still flies, otherwise the newest in the air.
+    // Re-picking every frame swaps between rounds of one salvo twice a second, which is
+    // unwatchable and was the first thing anyone said about it.
+    private IProjectile? Current(DefenceBattery battery)
+    {
+        if (_round is { State: RoundState.Flying } held && battery.Rounds.Contains(held)) return held;
+
+        return Newest(battery);
+    }
+
     private static IProjectile? Newest(DefenceBattery battery)
     {
         IReadOnlyList<IProjectile> rounds = battery.Rounds;
