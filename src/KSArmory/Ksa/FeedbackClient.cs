@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
@@ -72,7 +71,7 @@ internal sealed class FeedbackClient
             try
             {
                 using HttpResponseMessage response = await Http.PostAsJsonAsync(Endpoint, wire);
-                Finish(response, await response.Content.ReadAsStringAsync());
+                Finish(StatusOf(response), await response.Content.ReadAsStringAsync());
             }
             catch (TaskCanceledException)
             {
@@ -91,37 +90,58 @@ internal sealed class FeedbackClient
         });
     }
 
-    private void Finish(HttpResponseMessage response, string body)
+    // Read by reflection, and that is not paranoia: calling the property directly threw
+    // MissingMethodException for get_StatusCode in game, against a System.Net.Http that plainly
+    // declares it. Whatever the runtime resolves the type to, reflection asks the object it
+    // actually has. The location is logged once so the cause can eventually be named.
+    private static int StatusOf(HttpResponseMessage response)
+    {
+        Type type = response.GetType();
+
+        if (!_reportedAssembly)
+        {
+            _reportedAssembly = true;
+            Log.Info($"http type {type.FullName} from {type.Assembly.Location} "
+                     + $"({type.Assembly.GetName().Version})");
+        }
+
+        object? value = type.GetProperty("StatusCode")?.GetValue(response);
+        return value is null ? 0 : Convert.ToInt32(value);
+    }
+
+    private static bool _reportedAssembly;
+
+    private void Finish(int status, string body)
     {
         // Every one of these is a thing the endpoint deliberately says. Reporting them as "failed"
         // would hide the only part the player can act on.
-        switch (response.StatusCode)
+        switch (status)
         {
-            case HttpStatusCode.Accepted:
+            case 202:
                 Sent = true;
                 IssueUrl = Url(body);
                 Status = IssueUrl is null ? "thank you - report received" : "thank you - report filed";
                 Log.Info($"report accepted{(IssueUrl is null ? "" : $": {IssueUrl}")}");
                 return;
 
-            case HttpStatusCode.UpgradeRequired:
+            case 426:
                 Fail("this version is too old to report against - please update the mod first");
                 return;
 
-            case HttpStatusCode.UnprocessableEntity:
+            case 422:
                 Fail("that reads as abusive - please rewrite it");
                 return;
 
-            case HttpStatusCode.TooManyRequests:
+            case 429:
                 Fail("too many reports from here - try again later");
                 return;
 
-            case HttpStatusCode.BadRequest:
+            case 400:
                 Fail(string.IsNullOrWhiteSpace(body) ? "the report was rejected" : Trim(body));
                 return;
 
             default:
-                Fail($"the endpoint answered {(int)response.StatusCode}");
+                Fail($"the endpoint answered {status}");
                 return;
         }
     }

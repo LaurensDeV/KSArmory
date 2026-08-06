@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-107 types and 268 members across 6 assemblies.
+107 types and 271 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -103,6 +103,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.ImGuiApi.ImGuiIOPtr GetIO()`
 - `Brutal.ImGuiApi.ImGuiViewportPtr GetMainViewport()`
 - `Brutal.Numerics.float2 CalcTextSize(Brutal.ImGuiApi.ImString, bool, float)`
+- `Brutal.Numerics.float2 GetContentRegionAvail()`
 - `Brutal.Numerics.float2 GetMousePos()`
 - `bool Begin(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Begin(Brutal.ImGuiApi.ImString, ref bool, Brutal.ImGuiApi.ImGuiWindowFlags)`
@@ -123,6 +124,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool SmallButton(Brutal.ImGuiApi.ImString)`
 - `bool TableNextColumn()`
 - `bool TreeNode(Brutal.ImGuiApi.ImString)`
+- `float GetFrameHeight()`
+- `void Dummy(ref Brutal.Numerics.float2)`
 - `void End()`
 - `void EndTabBar()`
 - `void EndTabItem()`

@@ -577,3 +577,29 @@ ilspycmd -t KSA.Camera Import/KSA.dll
 - Official wiki, part modding — <https://kittenspaceagency.wiki.gg/wiki/Help:Modding>
 - SpaceDock (KSA mods) — <https://spacedock.info/ksa>
 - Forums — <https://forums.ahwoo.com/>
+
+## A BCL property can be missing at runtime, and the assembly is not the reason
+
+`HttpResponseMessage.StatusCode` throws `MissingMethodException` in game:
+
+```
+Method not found: 'System.Net.HttpStatusCode System.Net.Http.HttpResponseMessage.get_StatusCode()'
+```
+
+Everything about that is checkable and all of it checks out. The runtime loads
+`C:\Program Files\Kitten Space Agency\System.Net.Http.dll` (10.0.0.0) — logged from inside the
+mod, not assumed — and decompiling that exact file shows `public HttpStatusCode StatusCode`
+present and untrimmed. No second copy is deployed beside the mod, and the game ships
+`System.Net.Primitives.dll` too.
+
+So the assembly is right and the member is there. What is left is **type identity**: the exception
+names the full signature including its return type, which is what a mismatch on `HttpStatusCode`
+between the compile-time reference and StarMap's load context would look like.
+
+**Read it by reflection.** `type.GetProperty("StatusCode").GetValue(response)` asks the object what
+it actually has, and works. `Ksa/FeedbackClient.cs` does exactly that and logs the assembly it
+found, so if a future build fixes this the log will say so.
+
+The general shape is worth remembering: a BCL member whose **return type comes from a different
+BCL assembly** is the one at risk. Nothing about the call site looks dangerous, it compiles
+against the reference assemblies without complaint, and it fails only in game.

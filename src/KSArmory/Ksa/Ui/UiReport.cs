@@ -21,6 +21,26 @@ internal partial class Ui
     // is only there to say what attaching it will cost.
     private long _logBytes;
 
+    // Pinned to the bottom of the panel, not left to float after whatever was drawn above. The
+    // system list and the debug tree both change height, so without this the buttons move every
+    // time a craft is crewed or a section is folded.
+    private void DrawReportFooter()
+    {
+        float footer = ImGui.GetFrameHeight() + Spacing;
+        float slack = ImGui.GetContentRegionAvail().Y - footer;
+
+        // Only ever pushes down. When the window is shorter than its contents the buttons sit
+        // directly after them and the window scrolls, rather than being dragged up over the list.
+        if (slack > 0f) ImGui.Dummy(new float2(0f, slack));
+
+        ImGui.Separator();
+        DrawReportButtons();
+    }
+
+    // Roughly the separator plus the spacing either side of it. Exact enough: being a pixel out
+    // moves the buttons by a pixel, and being wrong the other way would clip them.
+    private const float Spacing = 12f;
+
     // The two buttons that open it, kind already chosen.
     private void DrawReportButtons()
     {

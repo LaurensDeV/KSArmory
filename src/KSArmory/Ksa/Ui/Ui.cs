@@ -114,8 +114,7 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
             DrawSystemList();
             ImGui.Separator();
             DrawPaneToggles();
-            ImGui.Separator();
-            DrawReportButtons();
+            DrawReportFooter();
         }
 
         ImGui.End();
