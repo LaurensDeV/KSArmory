@@ -1,3 +1,9 @@
+## [0.8.28](https://github.com/LaurensDeV/KSArmory/compare/v0.8.27...v0.8.28) (2026-08-06)
+
+### Features
+
+* **ui:** start the chase once the round is clear of the launcher ([a9dadfd](https://github.com/LaurensDeV/KSArmory/commit/a9dadfdf3e03574c93d918e658c5860a02dab82d))
+
 ## [0.8.27](https://github.com/LaurensDeV/KSArmory/compare/v0.8.26...v0.8.27) (2026-08-06)
 
 ### Fixes
