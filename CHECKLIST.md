@@ -395,12 +395,14 @@ so a real-world failure points at frame timing or the target-state sampling, not
 
 Do these deliberately — a failure here is the kind that ruins a save.
 
-- [ ] **5.1** With **Never target the vehicle I'm flying** ticked, it never locks or fires on
+- [x] **5.1** With **Never target the vehicle I'm flying** ticked, it never locks or fires on
       your own craft.
-- [ ] **5.2** A round fired at a close target does not destroy your own launcher platform
+- [x] **5.2** A round fired at a close target does not destroy your own launcher platform
       (the fuse arms 0.6 s after launch specifically to prevent this).
-- [ ] **5.3** **Safe all** removes rounds in flight with no detonation.
-- [ ] **5.4** Master arm off means nothing launches, even with a valid lock and auto-engage on.
+- [x] **5.3** **Safe all** removes rounds in flight with no detonation, **and disarms**.
+      Found in testing: it used to only clear the air, so an armed battery with a lock
+      fired again immediately and the button appeared to do nothing.
+- [x] **5.4** Master arm off means nothing launches, even with a valid lock and auto-engage on.
 
 ---
 

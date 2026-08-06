@@ -1059,11 +1059,26 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
     }
 
     /// <summary>Removes every round in flight without detonating them.</summary>
+    /// <summary>
+    /// Makes the battery safe: rounds in flight are removed without detonating, and the master arm
+    /// goes off.
+    ///
+    /// <para>Disarming is the point. Clearing the air while armed and auto-engaging simply fires
+    /// again on the next lock, which is the opposite of what anyone reaching for a button called
+    /// "safe" wants at the moment they reach for it.</para>
+    /// </summary>
     public void SafeAll()
     {
         int n = _rounds.Count;
         _rounds.Clear();
-        if (n > 0) Announce($"{n} round(s) safed");
+
+        bool wasArmed = _policy.Armed;
+        _policy.Armed = false;
+
+        if (n > 0 || wasArmed)
+        {
+            Announce($"safe - {n} round(s) removed{(wasArmed ? ", master arm off" : "")}");
+        }
     }
 
 
