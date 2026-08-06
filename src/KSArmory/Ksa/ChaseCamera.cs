@@ -146,6 +146,11 @@ internal sealed class ChaseCamera
 
         if (_round is null)
         {
+            // Only if the view is already on this craft. Otherwise a site somewhere else takes the
+            // camera off whatever is being watched, which is a hijack however good the shot --
+            // and with several systems armed, whichever fired last would win the view.
+            if (!KsaWorld.MainViewFollows(battery.Platform)) return;
+
             _saved = KsaWorld.RememberMainView();
             if (!_saved.Valid)
             {

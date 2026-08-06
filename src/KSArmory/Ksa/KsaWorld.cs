@@ -1387,6 +1387,26 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Whether the main view is currently following this craft.
+    ///
+    /// <para>Asked before anything borrows the view: a battery on the far side of the world taking
+    /// the camera off whatever the player is watching is a hijack, however good the shot.</para>
+    /// </summary>
+    public static bool MainViewFollows(Vehicle? craft)
+    {
+        if (craft is null) return false;
+
+        try
+        {
+            return ReferenceEquals(Program.MainViewport?.GetCamera()?.Following, craft);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Index of the main viewport, for the projection helpers that take one.</summary>
     public static int MainViewportIndex
     {
