@@ -36,6 +36,7 @@ internal sealed class BatteryRoster(Config config)
     // session, so there was nothing older to come back to.
     private long _savedAt;
 
+
     public int Count => _entries.Count;
 
     /// <summary>Every crewed system, in no particular order.</summary>

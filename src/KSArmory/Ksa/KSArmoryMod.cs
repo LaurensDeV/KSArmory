@@ -266,7 +266,11 @@ public sealed class KSArmoryMod
         // Settings are written down a couple of times a second rather than on every edit: the
         // panel has no change notification, and a comparison against what is already stored is
         // far cheaper than working out which widget was touched.
-        if (++_settingsTick % 30 == 0) _roster.Remember();
+        // Every frame, not every thirtieth. Half a second is long enough to save and load inside,
+        // and a load inside that window loses the settings twice over: they were never written for
+        // that save, and the check then fires afterwards and writes the freshly-defaulted ones
+        // over the file. It is a file timestamp, not work.
+        _roster.Remember();
 }
 
     [StarMapUnload]
