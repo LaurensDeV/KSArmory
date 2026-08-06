@@ -73,6 +73,15 @@ internal sealed class Slug : IProjectile
     /// </summary>
     public double FuseSeconds { get; set; }
 
+    /// <summary>
+    /// True when the timed fuse fired rather than the proximity one.
+    ///
+    /// <para>Recorded because the two are indistinguishable from the outside: a burst is a burst,
+    /// and "did the flak setting do anything" is otherwise a judgement call made by eye at a
+    /// kilometre.</para>
+    /// </summary>
+    public bool BurstOnTime { get; private set; }
+
     public double MissDistance { get; private set; }
     public double ClosestApproach { get; private set; } = double.MaxValue;
     public double DetonationElapsedInFrame { get; private set; }
@@ -162,6 +171,7 @@ internal sealed class Slug : IProjectile
                 MissDistance = double.PositiveInfinity;
             }
 
+            BurstOnTime = true;
             State = RoundState.Detonated;
             return;
         }

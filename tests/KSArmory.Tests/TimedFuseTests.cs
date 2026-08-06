@@ -144,4 +144,30 @@ public class TimedFuseTests
         // A round flying for exactly that long at muzzle speed reaches the point aimed at.
         Assert.Equal(Vec.Len(aim), flightTime * 1_000.0, 1.0);
     }
+
+    [Fact]
+    public void ATimedBurstSaysItWasTimed()
+    {
+        // The only way anyone can tell the setting did anything: a burst looks identical either
+        // way, and at a kilometre it is not a judgement a player can make by eye.
+        Slug slug = Fired(new double3(1_000, 0, 0), 1.0);
+
+        while (slug.State == RoundState.Flying) slug.Update(0.1, null, Vec.Zero, Vec.Zero, Vec.Zero, Shell(true));
+
+        Assert.True(slug.BurstOnTime);
+    }
+
+    [Fact]
+    public void AProximityBurstDoesNot()
+    {
+        var target = new TargetState(new double3(500, 0, 0), Vec.Zero, 5.0);
+        Slug slug = Fired(new double3(1_000, 0, 0), 5.0);
+
+        while (slug.State == RoundState.Flying)
+        {
+            slug.Update(0.05, target, Vec.Zero, Vec.Zero, Vec.Zero, Shell(true));
+        }
+
+        Assert.False(slug.BurstOnTime);
+    }
 }

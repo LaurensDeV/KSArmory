@@ -1158,7 +1158,13 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         }
 
         double3 burst = round.PositionEcl;
-        Announce($"round {round.Tube} detonated, miss distance {round.MissDistance:F0} m");
+        // Which fuse fired, because a burst looks the same either way and the flak setting is
+        // otherwise unanswerable from a log or a bug report.
+        string fuse = round is Slug { BurstOnTime: true } timed
+                          ? $" (timed, {timed.FuseSeconds:F2} s)"
+                          : string.Empty;
+
+        Announce($"round {round.Tube} detonated{fuse}, miss distance {round.MissDistance:F0} m");
 
         // Which effect is decided after the blast sweep, once it is known whether anything died.
         _burstKilled = false;
