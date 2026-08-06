@@ -81,18 +81,21 @@ resource "docker_service" "caddy" {
     parallelism    = 1
   }
 
+  # Host, not ingress. The routing mesh SNATs every connection, so Caddy sees the gateway's
+  # address instead of the client's and the service behind it rate-limits the whole internet as
+  # one address. A single node has no use for the mesh anyway.
   endpoint_spec {
     ports {
       target_port    = 80
       published_port = 80
       protocol       = "tcp"
-      publish_mode   = "ingress"
+      publish_mode   = "host"
     }
     ports {
       target_port    = 443
       published_port = 443
       protocol       = "tcp"
-      publish_mode   = "ingress"
+      publish_mode   = "host"
     }
   }
 
