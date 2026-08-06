@@ -27,7 +27,10 @@ internal sealed class ChaseCamera
     // Closing runs on time to impact rather than distance, and is normalised against the time
     // left when the chase began -- so it starts easing the moment the view is taken, whatever the
     // range, instead of sitting at arm's length until the last second.
-    private const double CloseUntil = 0.35;
+    // Zero, so the camera is still moving when the round goes off. Stopping the closing early
+    // leaves it parked for the last moment, and a camera that stops just before the impact reads
+    // as the shot being over before it happens.
+    private const double CloseUntil = 0.0;
 
     // What the flight had left when the view was taken. The whole curve is measured against it.
     private double _flightAtTake;
