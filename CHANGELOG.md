@@ -1,3 +1,9 @@
+## [0.8.27](https://github.com/LaurensDeV/KSArmory/compare/v0.8.26...v0.8.27) (2026-08-06)
+
+### Fixes
+
+* **ui:** follow the next launch after a burst, not never again ([48070c2](https://github.com/LaurensDeV/KSArmory/commit/48070c2a7d452fdd77a20e7070c234eb96ef8c51))
+
 ## [0.8.26](https://github.com/LaurensDeV/KSArmory/compare/v0.8.25...v0.8.26) (2026-08-06)
 
 ### Fixes
