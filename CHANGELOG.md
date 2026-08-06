@@ -1,3 +1,9 @@
+## [0.8.34](https://github.com/LaurensDeV/KSArmory/compare/v0.8.33...v0.8.34) (2026-08-06)
+
+### Features
+
+* **ui:** bracket the target while chasing a round ([ddf2e41](https://github.com/LaurensDeV/KSArmory/commit/ddf2e414a74dab1a5b77c1472ac64373341fa6cf))
+
 ## [0.8.33](https://github.com/LaurensDeV/KSArmory/compare/v0.8.32...v0.8.33) (2026-08-06)
 
 ### Fixes
