@@ -1,3 +1,9 @@
+## [0.8.22](https://github.com/LaurensDeV/KSArmory/compare/v0.8.21...v0.8.22) (2026-08-06)
+
+### Fixes
+
+* **ui:** stop the chase shivering, grabbing back, and cutting away ([572a516](https://github.com/LaurensDeV/KSArmory/commit/572a516e382cfdaa3bc226e668e07077077e7ac6))
+
 ## [0.8.21](https://github.com/LaurensDeV/KSArmory/compare/v0.8.20...v0.8.21) (2026-08-06)
 
 ### Fixes
