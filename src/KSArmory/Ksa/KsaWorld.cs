@@ -1368,6 +1368,98 @@ internal static class KsaWorld
     /// can drive one the player has opened, which is the difference between borrowing a window
     /// and stealing the main camera.</para>
     /// </summary>
+    /// <summary>What the main view was doing before something borrowed it.</summary>
+    public readonly record struct MainView(IFollowable? Following, CameraMode Mode, bool Valid);
+
+    /// <summary>
+    /// Records the main view so it can be handed back.
+    ///
+    /// <para>Taken before the first write, not after. Setting Fixed clears the follow, so a
+    /// reading taken afterwards describes the borrowed state and restoring from it leaves the
+    /// player at a fixed point in space with no way home.</para>
+    /// </summary>
+    public static MainView RememberMainView()
+    {
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return default;
+
+            return new MainView(viewport.GetCamera()?.Following, viewport.Mode, true);
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not read the main view: {e.Message}");
+            return default;
+        }
+    }
+
+    /// <summary>
+    /// Points the main view from a place, in Fixed mode.
+    ///
+    /// <para>Unlike a secondary viewport this one keeps its sky, clouds and terrain: the passes
+    /// that draw them only ever run for the frame viewport, which is always this one.</para>
+    /// </summary>
+    public static bool TryLookFromMainViewport(double3 eyeEcl, double3 forwardEcl, double3 upEcl)
+    {
+        if (!Vec.IsFinite(eyeEcl) || !Vec.IsFinite(forwardEcl)) return false;
+        if (Vec.Len2(forwardEcl) < 1e-12) return false;
+
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return false;
+
+            // Unfollow BEFORE Fixed, every time. FixedController.OnFrame runs only for a camera
+            // that follows something, and crosses with its own zero-default CameraRotation, so the
+            // pair takes the game down on the next frame with a DivideByZeroException raised
+            // nowhere near here. See docs/BLOCKED-ON-KSA.md.
+            if (viewport.Mode != CameraMode.Fixed)
+            {
+                try { viewport.GetCamera()?.Unfollow(changeControl: false); } catch { }
+                viewport.SetCameraMode(CameraMode.Fixed);
+            }
+
+            if (viewport.BaseCamera is not { } camera) return false;
+
+            camera.LookAt(eyeEcl, eyeEcl + Vec.Unit(forwardEcl) * 1000.0, upEcl);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not drive the main view: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Puts the main view back the way it was found.
+    ///
+    /// <para>Mode first, then the follow. The other order re-creates the one state that crashes:
+    /// a camera in Fixed mode that is following something.</para>
+    /// </summary>
+    public static bool RestoreMainView(MainView saved)
+    {
+        if (!saved.Valid) return false;
+
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return false;
+
+            if (viewport.Mode != saved.Mode) viewport.SetCameraMode(saved.Mode);
+
+            if (saved.Following is { } following && viewport.GetCamera() is { } camera)
+            {
+                camera.SetFollow(following, tidalLocking: true, changeControl: false, alert: false);
+            }
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not restore the main view: {e.Message}");
+            return false;
+        }
+    }
+
     public static bool TryLookFromViewport(int index, double3 eyeEcl, double3 forwardEcl,
                                            double3 upEcl, double dt)
     {

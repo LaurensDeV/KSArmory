@@ -1283,6 +1283,14 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
     // why round bodies are anchored to the tube rather than to the orbit position. The particle
     // system takes Ecl, so the drawn position is converted back through the camera rather than
     // the analytic one being handed over.
+    /// <summary>
+    /// Where a round is <em>drawn</em>, for anything that has to appear beside it.
+    ///
+    /// <para>The same conversion the burst uses, and for the same reason: a camera placed at the
+    /// analytic position sits metres from the body it is chasing.</para>
+    /// </summary>
+    public double3 DrawnRoundEcl(IProjectile round) => DrawnBurstEcl(round, round.PositionEcl);
+
     private double3 DrawnBurstEcl(IProjectile round, double3 analyticEcl)
     {
         if (Platform is not { } platform) return analyticEcl;

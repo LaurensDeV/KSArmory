@@ -13,6 +13,13 @@ internal sealed partial class Ui
 {
     private void DrawBurstTool()
     {
+        // A view control rather than a debug toy, but this is where the other things that watch
+        // an engagement live, and it takes the main view outright -- which is worth finding next
+        // to the tools that also take something over.
+        ImGui.Checkbox("Chase rounds with the camera", ref _config.ChaseRounds);
+        ImGui.TextDisabled("  rides the newest round in flight; the view comes back after");
+        ImGui.Separator();
+
         ImGui.Checkbox("Explosions on click", ref _config.BurstTool);
 
         if (_config.BurstTool)

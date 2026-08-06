@@ -38,6 +38,7 @@ public sealed class KSArmoryMod
 
     // Holds the main view on one system without handing it the controls.
     private readonly WatchCamera _watch = new();
+    private readonly ChaseCamera _chase = new();
 
     // Development tool: pick a craft up and set it down somewhere else.
     private readonly CraftMover _mover = new();
@@ -165,6 +166,17 @@ public sealed class KSArmoryMod
             // overwritten before anything renders.
             _watch.Apply(dt);
 
+            // After the watch camera: both write the view, and the chase takes it outright, so
+            // letting the watch nudge afterwards would fight it every frame.
+            if (_roster.For(_ui.Focused) is { } chased)
+            {
+                _chase.Apply(chased.Battery, _config.ChaseRounds && KsaWorld.InFlight);
+            }
+            else
+            {
+                _chase.Release();
+            }
+
             // After the panel, so a click on a window is not also a click on the world behind it.
             if (KsaWorld.InFlight)
             {
@@ -264,6 +276,7 @@ public sealed class KSArmoryMod
         }
         _warp.Clear();
         _watch.Release();
+        _chase.Release();
         _mover.Release();
 
         _roster?.Clear();

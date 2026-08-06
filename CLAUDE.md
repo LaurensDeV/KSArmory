@@ -274,6 +274,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Detonation.cs` | the fireball where a warhead goes off, through KSA's particle system |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
 | `Ksa/Markers.cs` | on-screen brackets over every weapons system, labelled on hover or when pinned |
+| `Ksa/ChaseCamera.cs` | rides the main view behind a round, and gives it back |
 | `Ksa/WatchCamera.cs` | nudges the main view round onto one system, then lets go |
 | `Ksa/Track.cs` | a radar contact bound to a KSA vehicle |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |

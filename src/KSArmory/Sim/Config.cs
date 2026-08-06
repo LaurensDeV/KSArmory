@@ -137,6 +137,14 @@ public sealed class Config
     /// <para>One switch above all the others because there are as many overlays as there are
     /// crewed systems, and four of everything around four craft is not four times as useful.</para>
     /// </summary>
+    /// <summary>
+    /// Ride the main view behind whatever the focused system last fired.
+    ///
+    /// <para>Session-wide rather than per battery: there is one main view, so two sites cannot
+    /// disagree about who has it.</para>
+    /// </summary>
+    public bool ChaseRounds;
+
     public bool DrawOverlays;
 
     /// <summary>
