@@ -362,9 +362,13 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
             // A button, never a tick box. A checkmark reads as "this setting is on", so a window
             // arriving instead is unannounced and the tick says nothing about where it went.
             // Opening a window is an action; tick boxes are for state.
-            if (pane.Open) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
-            if (ImGui.Button(pane.Open ? $"{pane.Title} (open)" : pane.Title)) pane.Open = !pane.Open;
-            if (pane.Open) ImGui.PopStyleColor();
+            // Read once: the button toggles pane.Open, so testing it again after would pop a
+            // colour that was never pushed, or leak one that was.
+            bool open = pane.Open;
+
+            if (open) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
+            if (ImGui.Button(open ? $"{pane.Title} (open)" : pane.Title)) pane.Open = !open;
+            if (open) ImGui.PopStyleColor();
         }
     }
 

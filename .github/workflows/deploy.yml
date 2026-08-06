@@ -1,0 +1,107 @@
+name: Deploy
+
+# Applies infra/services: Caddy and the feedback service on the VPS.
+#
+# It runs here rather than from a laptop for one specific reason: pulling the image needs a token
+# with package read on this repository, and `secrets.GITHUB_TOKEN` is exactly that, issued per run
+# and expiring with it. A personal token would have to be created, stored and rotated to do a job
+# the runner already does for free.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image digest to deploy. Blank uses the latest build of this ref."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Apply
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+      url: https://api.ksarmory.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.12.5
+
+      - name: Resolve the image
+        id: image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          name="ghcr.io/$repo/feedback"
+
+          if [[ -n "${{ inputs.image }}" ]]; then
+            echo "ref=${{ inputs.image }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # By digest, never by tag: a moved tag would change what runs without changing the plan.
+          token=$(curl -fsSL -u "${{ github.actor }}:$GH_TOKEN" \
+            "https://ghcr.io/token?scope=repository:$repo/feedback:pull&service=ghcr.io" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+
+          digest=$(curl -fsSL -o /dev/null -D - -H "Authorization: Bearer $token" \
+            -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json" \
+            "https://ghcr.io/v2/$repo/feedback/manifests/${{ github.sha }}" \
+            | tr -d '\r' | awk '/[Dd]ocker-[Cc]ontent-[Dd]igest/ {print $2}')
+
+          [[ -n "$digest" ]] || { echo "::error::no image published for ${{ github.sha }}"; exit 1; }
+          echo "ref=$name@$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Install the deploy key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # Non-fatal: ssh_opts uses accept-new, so a missed scan degrades to trust-on-first-use.
+          ssh-keyscan -T 15 -H 45.133.178.13 >> ~/.ssh/known_hosts || true
+
+      - name: Tofu init
+        working-directory: infra/services
+        run: |
+          tofu init -input=false \
+            -backend-config="bucket=${{ secrets.R2_BUCKET }}" \
+            -backend-config="endpoints={s3=\"https://${{ secrets.CF_ACCOUNT_ID }}.r2.cloudflarestorage.com\"}" \
+            -backend-config="access_key=${{ secrets.R2_ACCESS_KEY_ID }}" \
+            -backend-config="secret_key=${{ secrets.R2_SECRET_ACCESS_KEY }}"
+
+      - name: Tofu apply
+        working-directory: infra/services
+        env:
+          TF_VAR_feedback_image: ${{ steps.image.outputs.ref }}
+          TF_VAR_ghcr_username: ${{ github.actor }}
+          TF_VAR_ghcr_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_github_token: ${{ secrets.KSARMORY_ISSUES_TOKEN }}
+          TF_VAR_min_mod_version: ${{ vars.MIN_MOD_VERSION }}
+        run: tofu apply -auto-approve -input=false -lock-timeout=5m
+
+      # Proves the thing that matters: TLS terminates and the service behind it answers.
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://api.ksarmory.com/health || echo 000)
+            [[ "$code" == "200" ]] && { echo "healthy"; exit 0; }
+            echo "attempt $i: HTTP $code"
+            sleep 15
+          done
+          echo "::error::api.ksarmory.com/health never returned 200"
+          exit 1
