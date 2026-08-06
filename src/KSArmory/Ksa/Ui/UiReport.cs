@@ -34,7 +34,18 @@ internal partial class Ui
         if (slack > 0f) ImGui.Dummy(new float2(0f, slack));
 
         ImGui.Separator();
-        DrawReportButtons();
+
+        // Both or neither. Leaving feedback open on an unsupported build would just make it the
+        // way to file a bug report.
+        if (ReportDraft.GameIsSupported(Build.KsaBuild, Build.KsaRunning)) DrawReportButtons();
+        else DrawReportUnavailable();
+    }
+
+    // Said, not silent. A player who used the buttons yesterday and cannot find them today would
+    // otherwise reasonably conclude the mod is broken.
+    private void DrawReportUnavailable()
+    {
+        ImGui.TextDisabled($"Reporting is off: built for KSA {Build.KsaBuild}, running {Build.KsaRunning}");
     }
 
     // Roughly the separator plus the spacing either side of it. Exact enough: being a pixel out
@@ -69,6 +80,10 @@ internal partial class Ui
 
     private void DrawReportWindow()
     {
+        // Checked here as well as at the buttons: the window outlives the click that opened it,
+        // and hiding only the buttons would leave a way to send from one already on screen.
+        if (!ReportDraft.GameIsSupported(Build.KsaBuild, Build.KsaRunning)) _reportOpen = false;
+
         if (!_reportOpen) return;
 
         // ###id so the heading can say which kind it is without the window losing its place.

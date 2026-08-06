@@ -14,6 +14,48 @@ internal static class Build
     /// <summary>Version string for the panel, e.g. <c>0.8.1</c> or <c>0.8.1+dev</c>.</summary>
     public static string Version { get; } = Resolve();
 
+    /// <summary>
+    /// The KSA build this was compiled against, stamped in from <c>ksa-assemblies.lock</c> at
+    /// build time, or null if the stamp is missing.
+    /// </summary>
+    public static string? KsaBuild { get; } = ResolveKsaBuild();
+
+    /// <summary>
+    /// The KSA build actually running, read off the loaded assembly. No file and no network: the
+    /// game's own version is its assembly version.
+    /// </summary>
+    public static string? KsaRunning { get; } = ResolveKsaRunning();
+
+    private static string? ResolveKsaRunning()
+    {
+        try
+        {
+            return typeof(KSA.Vehicle).Assembly.GetName().Version?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveKsaBuild()
+    {
+        try
+        {
+            foreach (AssemblyMetadataAttribute meta in typeof(Build).Assembly
+                         .GetCustomAttributes<AssemblyMetadataAttribute>())
+            {
+                if (meta.Key == "KsaBuild") return meta.Value;
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static string Resolve()
     {
         try

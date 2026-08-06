@@ -35,6 +35,44 @@ public sealed class ReportDraft
     public static string Wire(ReportKind kind) => kind == ReportKind.Bug ? "bug" : "idea";
 
     /// <summary>
+    /// Whether reporting is offered at all, given the game build this was compiled against and
+    /// the one it is running on.
+    ///
+    /// <para>Any difference closes it, newer or older alike. A report against a build this mod
+    /// was never compiled for describes a combination nobody can reproduce or fix, and KSA's
+    /// internals move between builds — that is the whole reason this repository pins one.</para>
+    ///
+    /// <para>It gates <em>both</em> buttons. Leaving feedback open would make it the way to file
+    /// a bug report, which is the thing being prevented.</para>
+    ///
+    /// <para>An unknown build on either side is treated as matching: refusing on missing
+    /// information would silently remove the buttons for anyone whose game did not answer, and a
+    /// stray report is cheaper than a player with no way to say anything.</para>
+    /// </summary>
+    public static bool GameIsSupported(string? builtFor, string? running)
+    {
+        if (string.IsNullOrWhiteSpace(builtFor) || string.IsNullOrWhiteSpace(running)) return true;
+
+        return Normalise(builtFor) == Normalise(running);
+    }
+
+    // "2026.8.5.5168" and "2026.8.5.5168.0" are the same build said two ways: the lock writes four
+    // components and an assembly version always reports four, but a Version can render a trailing
+    // zero the lock never had.
+    private static string Normalise(string version)
+    {
+        string trimmed = version.Trim().TrimStart('v', 'V');
+
+        while (trimmed.EndsWith(".0", StringComparison.Ordinal)
+               && trimmed.Count(c => c == '.') > 2)
+        {
+            trimmed = trimmed[..^2];
+        }
+
+        return trimmed;
+    }
+
+    /// <summary>
     /// Why this cannot be sent yet, or null when it can.
     ///
     /// <para>One reason at a time, in the order someone fills the form in: telling them the detail

@@ -73,4 +73,21 @@
     <Reference Include="$(KsaDllDir)BepuUtilities.dll" Private="false" />
   </ItemGroup>
 
+  <!--
+    The KSA build this was compiled against, taken from ksa-assemblies.lock rather than written
+    down a second time. The panel compares it to the build actually running.
+  -->
+  <PropertyGroup>
+    <KsaLockPath>$(MSBuildThisFileDirectory)../../ksa-assemblies.lock</KsaLockPath>
+    <KsaBuildLine Condition="Exists('$(KsaLockPath)')">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(KsaLockPath)')), 'build[ \t]+[0-9][^\r\n]*').Value)</KsaBuildLine>
+    <KsaBuild Condition="'$(KsaBuildLine)' != ''">$(KsaBuildLine.Substring(6).Trim())</KsaBuild>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(KsaBuild)' != ''">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>KsaBuild</_Parameter1>
+      <_Parameter2>$(KsaBuild)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>

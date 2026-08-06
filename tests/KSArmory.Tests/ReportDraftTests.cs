@@ -90,4 +90,41 @@ public class ReportDraftTests
     [InlineData(ReportKind.Idea, "idea")]
     public void TheKindMatchesWhatTheEndpointLabels(ReportKind kind, string wire)
         => Assert.Equal(wire, ReportDraft.Wire(kind));
+
+    [Fact]
+    public void TheBuildItWasMadeForIsSupported()
+        => Assert.True(ReportDraft.GameIsSupported("2026.8.5.5168", "2026.8.5.5168"));
+
+    [Theory]
+    [InlineData("2026.9.1.5200")]  // newer
+    [InlineData("2026.8.4.5100")]  // older
+    [InlineData("2027.1.1.1")]
+    public void AnyOtherBuildIsNot(string running)
+    {
+        // Both directions. KSA's internals move between builds, which is why this repository pins
+        // one at all, so a report from either side describes something nobody can reproduce.
+        Assert.False(ReportDraft.GameIsSupported("2026.8.5.5168", running));
+    }
+
+    [Fact]
+    public void ATrailingZeroIsTheSameBuild()
+    {
+        // The lock writes four components; a Version renders four and can add a fifth zero. They
+        // are the same build said two ways, and treating them as different would turn reporting
+        // off for everyone.
+        Assert.True(ReportDraft.GameIsSupported("2026.8.5.5168", "2026.8.5.5168.0"));
+        Assert.True(ReportDraft.GameIsSupported("2026.8.5.5168.0", "2026.8.5.5168"));
+    }
+
+    [Theory]
+    [InlineData(null, "2026.8.5.5168")]
+    [InlineData("2026.8.5.5168", null)]
+    [InlineData(null, null)]
+    [InlineData("", "  ")]
+    public void NotKnowingIsNotAReasonToRefuse(string? builtFor, string? running)
+    {
+        // Refusing on missing information would remove the buttons for anyone whose game did not
+        // answer, with nothing they could do about it. A stray report is the cheaper mistake.
+        Assert.True(ReportDraft.GameIsSupported(builtFor, running));
+    }
 }

@@ -63,7 +63,7 @@ internal sealed class FeedbackClient
             draft.Detail.Trim(),
             string.IsNullOrWhiteSpace(log) ? null : log,
             Build.Version,
-            null,
+            Build.KsaRunning,
             Platform());
 
         _ = Task.Run(async () =>
