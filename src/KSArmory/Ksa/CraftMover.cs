@@ -246,7 +246,7 @@ internal sealed class CraftMover
         // sloping terrain, and the line from the craft to it.
         double3 up = Up(_held, groundEcl);
 
-        KsaWorld.DrawRingEcl(groundEcl, up, MarkerRadius * 0.72, MarkerRadius, TargetColour);
+        KsaWorld.DrawTorusEcl(groundEcl, up, MarkerRadius, MarkerRadius * 0.14, TargetColour);
         KsaWorld.DrawLineEcl(groundEcl, groundEcl + up * (MarkerRadius * 0.8), TargetColour);
         KsaWorld.DrawLineEcl(heldEcl, groundEcl, TargetColour);
     }
@@ -260,7 +260,7 @@ internal sealed class CraftMover
 
         // Dropped to the craft's base, so it lies on the ground rather than cutting through the
         // middle of the hull.
-        KsaWorld.DrawRingEcl(atEcl - up * (radius / 1.4), up, radius * 0.82, radius, colour);
+        KsaWorld.DrawTorusEcl(atEcl - up * (radius / 1.4), up, radius, radius * 0.10, colour);
     }
 
     private static double3 Up(Vehicle craft, double3 atEcl)

@@ -1648,8 +1648,13 @@ internal static class KsaWorld
     /// <para>For marking a place on the ground. A sphere large enough to read as "this craft" is
     /// by construction large enough to hide it.</para>
     /// </summary>
+    /// <param name="drape">
+    /// Follow the terrain under each segment. A ring holds one radius, which is flat in space: on
+    /// a slope half of it ends up underground and the rest hangs in the air.
+    /// </param>
     public static void DrawCircleEcl(double3 centreEcl, double3 normalEcl, double radius,
-                                     float4 colour, int segments = 64)
+                                     float4 colour, int segments = 64, bool drape = true,
+                                     double clearance = 0.5)
     {
         if (Program.GizmosRenderer is null) return;
         if (!Vec.IsFinite(centreEcl) || !(radius > 0.0)) return;
@@ -1662,32 +1667,119 @@ internal static class KsaWorld
         double3 a = Vec.Unit(Vec.Cross(up, seed)) * radius;
         double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
 
-        if (!TryEclToEgo(centreEcl, out double3 centreEgo)) return;
-
         int steps = Math.Clamp(segments, 8, 256);
-        double3 previous = centreEgo + a;
+        double3 previous = OnGround(centreEcl + a, drape, clearance);
 
         for (int i = 1; i <= steps; i++)
         {
             double angle = Math.Tau * i / steps;
-            double3 next = centreEgo + (a * Math.Cos(angle)) + (b * Math.Sin(angle));
+            double3 next = OnGround(centreEcl + (a * Math.Cos(angle)) + (b * Math.Sin(angle)),
+                                    drape, clearance);
 
-            Program.GizmosRenderer.DrawLine(previous, next, colour);
+            DrawLineEcl(previous, next, colour);
             previous = next;
         }
     }
 
-    /// <summary>
-    /// A flat annulus: two rings and the spokes between them, so it reads as a band on the ground
-    /// rather than a hairline that disappears at a shallow angle.
-    /// </summary>
-    public static void DrawRingEcl(double3 centreEcl, double3 normalEcl, double innerRadius,
-                                   double outerRadius, float4 colour)
+    // Lifted clear of the surface by a little: a line exactly on the terrain z-fights with it and
+    // disappears in patches, which looks worse than being slightly above it.
+    private static double3 OnGround(double3 atEcl, bool drape, double clearance)
     {
-        if (!(outerRadius > innerRadius) || !(innerRadius > 0.0)) return;
+        if (!drape || !TrySnapToGround(atEcl, out double3 ground)) return atEcl;
 
-        DrawCircleEcl(centreEcl, normalEcl, innerRadius, colour);
-        DrawCircleEcl(centreEcl, normalEcl, outerRadius, colour);
+        return ground + Vec.Unit(ground - NearestBodyCentre(ground)) * clearance;
+    }
+
+    private static double3 NearestBodyCentre(double3 nearEcl)
+    {
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return Vec.Zero;
+
+            double3 centre = Vec.Zero;
+            double best = double.MaxValue;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not Celestial body) continue;
+
+                double3 at = body.GetPositionEcl();
+                double distance = Vec.Len(nearEcl - at);
+                if (distance >= best) continue;
+
+                best = distance;
+                centre = at;
+            }
+
+            return centre;
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
+
+    /// <summary>
+    /// Puts a point on the ground beneath it: same direction from the body's centre, radius taken
+    /// from the terrain there.
+    ///
+    /// <para>What makes a ring drawn on a slope follow the slope. A ring at one radius is flat in
+    /// space, so on anything but level ground half of it is buried and the other half floats.</para>
+    /// </summary>
+    public static bool TrySnapToGround(double3 nearEcl, out double3 onGroundEcl)
+    {
+        onGroundEcl = nearEcl;
+
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return false;
+
+            Celestial? nearest = null;
+            double best = double.MaxValue;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not Celestial body) continue;
+
+                double distance = Vec.Len(nearEcl - body.GetPositionEcl());
+                if (distance >= best) continue;
+
+                best = distance;
+                nearest = body;
+            }
+
+            if (nearest is null) return false;
+
+            double3 centre = nearest.GetPositionEcl();
+            double3 dirCce = Vec.Unit(nearEcl - centre);
+            if (Vec.Len2(dirCce) < 0.5) return false;
+
+            double height = nearest.GetTerrainHeightFromDirCce(dirCce, accurate: true);
+            if (!double.IsFinite(height)) return false;
+
+            onGroundEcl = centre + dirCce * (nearest.MeanRadius + height);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// A torus: a ring of solid spheres, draped onto the terrain.
+    ///
+    /// <para>Spheres because they are the only solid thing the gizmo renderer draws — <c>Render</c>
+    /// is <c>RenderSpheres</c> then <c>RenderLines</c>, with no filled polygon anywhere. Enough of
+    /// them around the ring, each wider than the gap to the next, and the result reads as a tube
+    /// rather than as beads.</para>
+    /// </summary>
+    /// <param name="tubeRadius">Thickness of the ring itself.</param>
+    public static void DrawTorusEcl(double3 centreEcl, double3 normalEcl, double ringRadius,
+                                    double tubeRadius, float4 colour, bool drape = true)
+    {
+        if (Program.GizmosRenderer is null) return;
+        if (!Vec.IsFinite(centreEcl) || !(ringRadius > 0.0) || !(tubeRadius > 0.0)) return;
 
         double3 up = Vec.Unit(normalEcl);
         if (Vec.Len2(up) < 0.5) return;
@@ -1696,13 +1788,49 @@ internal static class KsaWorld
         double3 a = Vec.Unit(Vec.Cross(up, seed));
         double3 b = Vec.Unit(Vec.Cross(up, a));
 
-        // Few enough to read as a band rather than a wheel.
-        for (int i = 0; i < 12; i++)
-        {
-            double angle = Math.Tau * i / 12.0;
-            double3 dir = (a * Math.Cos(angle)) + (b * Math.Sin(angle));
+        // Spaced closer together than they are wide, or it beads. Bounded so a large ring cannot
+        // ask for thousands of spheres.
+        int steps = (int)Math.Clamp(Math.Ceiling(Math.Tau * ringRadius / tubeRadius), 16, 160);
 
-            DrawLineEcl(centreEcl + dir * innerRadius, centreEcl + dir * outerRadius, colour);
+        for (int i = 0; i < steps; i++)
+        {
+            double angle = Math.Tau * i / steps;
+            double3 at = centreEcl + ((a * Math.Cos(angle)) + (b * Math.Sin(angle))) * ringRadius;
+
+            // Each bead sits on the ground under it, so the ring follows a slope instead of
+            // burying one side and floating the other.
+            if (drape && TrySnapToGround(at, out double3 ground)) at = ground;
+
+            if (TryEclToEgo(at, out double3 ego))
+            {
+                Program.GizmosRenderer.DrawSphere(ego, (float)tubeRadius, colour);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A filled-looking band on the ground.
+    ///
+    /// <para>Packed rings rather than a surface, because the gizmo renderer draws lines and
+    /// spheres and nothing else — <c>Render</c> is <c>RenderSpheres</c> then <c>RenderLines</c>.
+    /// There is no filled primitive to ask for, so a solid annulus is approximated by drawing
+    /// enough concentric rings that the gaps close.</para>
+    /// </summary>
+    public static void DrawRingEcl(double3 centreEcl, double3 normalEcl, double innerRadius,
+                                   double outerRadius, float4 colour, int bands = 5)
+    {
+        if (!(outerRadius > innerRadius) || !(innerRadius > 0.0)) return;
+
+        int count = Math.Clamp(bands, 2, 24);
+
+        for (int i = 0; i < count; i++)
+        {
+            double radius = innerRadius + ((outerRadius - innerRadius) * i / (count - 1.0));
+
+            // Segments scale with radius so the outer rings are no coarser than the inner ones.
+            int segments = (int)Math.Clamp(radius * 4.0, 32, 128);
+
+            DrawCircleEcl(centreEcl, normalEcl, radius, colour, segments);
         }
     }
 
