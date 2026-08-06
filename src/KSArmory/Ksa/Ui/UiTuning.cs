@@ -94,6 +94,25 @@ internal sealed partial class Ui
 
     }
 
+    // The cannon's own munition, which is a different profile from the missile above. Without a
+    // control here TimedFuse would ship set to false with nothing able to turn it on -- the exact
+    // way a new profile field goes unreachable behind hand-enumerated sliders.
+    private void DrawCannonFuse()
+    {
+        if (!_profile.HasCannon || _profile.GunMunition is not { } named) return;
+
+        MunitionProfile shell = Arsenal.MunitionNamed(named);
+
+        ImGui.Separator();
+        ImGui.TextDisabled($"Cannon: {shell.DisplayName}");
+
+        ImGui.Checkbox("Timed airburst (flak)", ref shell.TimedFuse);
+
+        ImGui.TextDisabled(shell.TimedFuse
+                               ? "  shells burst at the lead solution's flight time"
+                               : "  shells burst on proximity only");
+    }
+
     private void DrawTuning()
     {
         if (!ImGui.TreeNode("Radar")) { DrawGuidanceNode(); return; }
@@ -162,6 +181,8 @@ internal sealed partial class Ui
             ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget, 1, _profile.TubeCount);
             ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
             ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);
+
+            DrawCannonFuse();
             ImGui.TreePop();
         }
 
