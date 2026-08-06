@@ -270,3 +270,23 @@ field with no accessor, so reaching it today needs reflection.
 
 **Raised with:** blackrack (KSA graphics programmer) suggested the XML tag; the follow-up question
 about submitting an emitter directly is outstanding.
+
+## A thermal or FLIR channel on the optical head
+
+**What we want.** The optical head showing a heat picture rather than a daylight one — engines and
+exhaust bright against a cold sky, the way a real electro-optical turret is used at night.
+
+**Why it may be blocked, and what has not been checked.** This cannot be faked by tinting the
+normal image: the heat has to come from the objects, so it needs a second render target and a
+*replacement* shader that knows which surfaces are hot. Whether a StarMap mod can reach either has
+**not been established** — `tools/apidump`'s type search does not filter, so the one attempt to
+answer this produced noise rather than a finding. It is recorded here as an open question, not as a
+verdict.
+
+**What would unblock it.** A public render-target or material/shader hook. Failing that, nothing:
+of the effects a weapons mod normally spends shaders on, this is the only one that applies here.
+Explosions and smoke already go through KSA's XML particle system, tracers are `GizmosRenderer`
+lines, and there are no scorch decals to draw because kills are binary.
+
+**Not blocking the optical head itself.** Main-viewport takeover, HUD symbology and zoom all sit on
+`Ksa/Sight.cs` painting over the existing camera, and none of them need a shader.

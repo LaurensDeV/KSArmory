@@ -293,7 +293,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-API-SURFACE.md` | **generated** — the 271 members an upgrade has to preserve |
-| `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
+| `docs/AUDIT-2026-08.md` | a 26-agent review of where the code and tools mislead — a snapshot, kept for its reasoning; its top three have landed, so read `TODO.md` for the order |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |

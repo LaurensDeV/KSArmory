@@ -38,8 +38,22 @@ public static class BallisticLead
     public static bool TrySolve(double3 shooterPos, double3 shooterVelocity,
                                 double3 targetPos, double3 targetVelocity,
                                 double muzzleSpeed, double3 gravityEcl, out double3 aimPoint)
+        => TrySolve(shooterPos, shooterVelocity, targetPos, targetVelocity, muzzleSpeed, gravityEcl,
+                    out aimPoint, out _);
+
+    /// <summary>
+    /// The same solve, also reporting the time of flight it converged on.
+    ///
+    /// <para>Handed out rather than recomputed by the caller: a timed fuse set from a second,
+    /// separately derived number would burst somewhere the gun was not aiming.</para>
+    /// </summary>
+    public static bool TrySolve(double3 shooterPos, double3 shooterVelocity,
+                                double3 targetPos, double3 targetVelocity,
+                                double muzzleSpeed, double3 gravityEcl, out double3 aimPoint,
+                                out double flightTimeSeconds)
     {
         aimPoint = targetPos;
+        flightTimeSeconds = 0.0;
         if (!(muzzleSpeed > 0.0) || !double.IsFinite(muzzleSpeed)) return false;
         if (!Vec.IsFinite(shooterPos) || !Vec.IsFinite(targetPos)
             || !Vec.IsFinite(shooterVelocity) || !Vec.IsFinite(targetVelocity))
@@ -64,6 +78,7 @@ public static class BallisticLead
         // way. Sign matters: gravity points down, so subtracting raises the aim.
         double3 intercept = targetPos + targetVelocityRelative * flightTime;
         aimPoint = intercept - gravityEcl * (0.5 * flightTime * flightTime);
+        flightTimeSeconds = flightTime;
 
         return Vec.IsFinite(aimPoint);
     }

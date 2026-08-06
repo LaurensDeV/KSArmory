@@ -121,6 +121,18 @@ public sealed class MunitionProfile
     /// <summary>Proximity fuse trigger radius (m).</summary>
     public float FuseRadius = 15f;
 
+    /// <summary>
+    /// Burst at a set time of flight rather than only on proximity — flak.
+    ///
+    /// <para>The time is not here: it belongs to the shot, not to the munition, because it is the
+    /// flight time to where the target is going and that differs every trigger pull. The gun sets
+    /// it from the same lead solution it aimed with.</para>
+    ///
+    /// <para>The proximity fuse still runs. A shell that meets something on the way should not
+    /// sail through it waiting for a clock.</para>
+    /// </summary>
+    public bool TimedFuse;
+
     /// <summary>Fuse stays safe for this long after launch, so we never kill the platform.</summary>
     public float FuseArmSeconds = 0.6f;
 

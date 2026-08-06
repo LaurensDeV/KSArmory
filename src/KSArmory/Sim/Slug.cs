@@ -65,6 +65,14 @@ internal sealed class Slug : IProjectile
     /// <summary>Always true. There is no seeker to be blinded, so nothing gates its flight.</summary>
     public bool SeekerInView => true;
 
+    /// <summary>
+    /// Time of flight this shell was fused for, or zero for none.
+    ///
+    /// <para>Set at the trigger from the lead solution, so it bursts where the target is going
+    /// rather than where it was.</para>
+    /// </summary>
+    public double FuseSeconds { get; set; }
+
     public double MissDistance { get; private set; }
     public double ClosestApproach { get; private set; } = double.MaxValue;
     public double DetonationElapsedInFrame { get; private set; }
@@ -127,6 +135,35 @@ internal sealed class Slug : IProjectile
         if (munition.DragK > 0f && airspeed > 1e-6 && mediumDensityRatio > 0.0)
         {
             accel -= localVelocity * (munition.DragK * airspeed * mediumDensityRatio);
+        }
+
+        // Before proximity: a shell fused for a time bursts then, whether or not anything is near,
+        // which is the whole point of flak. A live target still gets a miss distance measured at
+        // the burst, so lethality is decided the same way as any other detonation.
+        if (FuseSeconds > 0.0 && Age >= FuseSeconds)
+        {
+            double tBurst = Math.Max(0.0, h - (Age - FuseSeconds));
+
+            PositionEcl += VelocityEcl * tBurst;
+            DetonationElapsedInFrame = elapsedInFrame + tBurst - frameSeconds;
+
+            if (target is { } fused)
+            {
+                double3 at = fused.PositionEcl
+                             + fused.VelocityEcl * (elapsedInFrame + tBurst - frameSeconds);
+
+                MissDistance = Vec.Len(at - PositionEcl);
+                ClosestApproach = Math.Min(ClosestApproach, MissDistance);
+            }
+            else
+            {
+                // Nothing to be near. Not zero, which would read as a direct hit to anything
+                // deciding lethality from it.
+                MissDistance = double.PositiveInfinity;
+            }
+
+            State = RoundState.Detonated;
+            return;
         }
 
         if (target is { } t)

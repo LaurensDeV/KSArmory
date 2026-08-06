@@ -445,6 +445,20 @@ Added after the system was working. These are not "probably fine", they are "nev
 `KSArmory_Prefab_Launcher6` on load, the craft — or the whole save — may fail. Nobody has
 tried this once, and it is the only failure here that could cost you work.
 
+### 7.1b Timed airburst (flak)
+
+Nothing has seen this in game. `MunitionProfile.TimedFuse` makes the cannon fuse each shell for the
+flight time of the lead solution it was aimed with; the proximity fuse still fires first if
+something arrives early.
+
+- [ ] Enable `TimedFuse` on the gun munition and fire at a crossing drone. Shells burst **at** the
+      target's predicted position rather than flying past it.
+- [ ] The burst is visible. A 0.16 kg shell scales to a 0.2 effect, floored for drawing only —
+      whether that reads at all at engagement range is unknown.
+- [ ] A burst with the target already dead does not count as a hit. `MissDistance` is infinity when
+      nothing is being tracked, and the kill path must not treat that as zero.
+- [ ] With `TimedFuse` off, nothing about the cannon changed.
+
 ### 7.2 More than one target at a time
 
 - [ ] Spawn three drones close together. Radar lists all three, ranked by time-to-CPA.

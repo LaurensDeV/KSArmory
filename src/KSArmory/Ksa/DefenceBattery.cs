@@ -133,6 +133,10 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
     // AimPointEcl, which is the only place the choice is made.
     private bool _ringIsOnGunLead;
 
+    // Time of flight from the gun's last lead solve, for a timed fuse. Zero when there is no
+    // solution, which is also what stops a shell being fused for a flight nobody computed.
+    private double _gunFlightTime;
+
     /// <summary>Rounds left in the cannon belt.</summary>
     public int GunAmmo => _guns.Ammo;
 
@@ -639,6 +643,10 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         {
             slug.Aimpoint = Aimpoint.OnVehicle(track.Vehicle, track.PositionEcl, track.VelocityEcl,
                                                KsaWorld.MeanRadius(track.Vehicle));
+
+            // Flak: burst at the intercept the ring was laid on. Without a solve there is no time
+            // to burn, and the shell falls back to its proximity fuse.
+            if (shell.TimedFuse) slug.FuseSeconds = _gunFlightTime;
         }
         _rounds.Add(slug);
     }
