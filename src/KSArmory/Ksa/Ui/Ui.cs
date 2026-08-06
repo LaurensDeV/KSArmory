@@ -114,6 +114,8 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
             DrawSystemList();
             ImGui.Separator();
             DrawPaneToggles();
+            ImGui.Separator();
+            DrawReportButtons();
         }
 
         ImGui.End();
@@ -125,6 +127,9 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
             DrawManageWindow();
             DrawPanes();
         }
+
+        // Not gated on a crewed system: the thing being reported may be that there isn't one.
+        DrawReportWindow();
     }
 
     // What the mod recognises on the craft being flown. Reports only -- nothing depends on this

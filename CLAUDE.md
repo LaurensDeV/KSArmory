@@ -253,6 +253,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
+| `Sim/ReportDraft.cs` | a bug report or idea being written, and whether it is worth sending |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |
@@ -265,6 +266,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Ui/UiSystem.cs` | what one system is, sees and is doing |
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
+| `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
+| `Ksa/FeedbackClient.cs` | posts a report to the endpoint, off the frame thread |
 | `Ksa/Visuals.cs` | gizmo rendering |
 | `Ksa/Detonation.cs` | the fireball where a warhead goes off, through KSA's particle system |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
@@ -288,7 +291,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tests/Feedback.Tests/` | its text rules and the log gate, needing neither the game nor the model |
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 266 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 268 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of what to build next and where the code and tools mislead; the ranked list at the end is the backlog |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
