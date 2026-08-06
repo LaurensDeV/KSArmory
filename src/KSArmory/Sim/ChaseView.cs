@@ -94,8 +94,10 @@ public static class ChaseView
     /// appears to hang still, because everything in frame scales together. Drawing in as the
     /// range falls makes the last second read as an arrival rather than a cut.</para>
     ///
-    /// <para>Eased rather than linear, so the closing is gentle at range and quickest where the
-    /// engagement is decided.</para>
+    /// <para>Eased so the closing <em>accelerates</em> into the impact: it hangs back for most of
+    /// the flight and then comes in hard over the last moment. A symmetric ease is flat at both
+    /// ends, which makes it slowest exactly where the engagement is decided — the opposite of
+    /// what carries the arrival.</para>
     /// </summary>
     /// <param name="range">Distance from the round to what it is aimed at.</param>
     /// <param name="far">At or beyond this range, the full stand-off.</param>
@@ -107,11 +109,18 @@ public static class ChaseView
 
         double t = Math.Clamp((range - near) / (far - near), 0.0, 1.0);
 
-        // Smoothstep: flat at both ends, so neither the far cruise nor the final closing snaps.
-        t = t * t * (3.0 - (2.0 * t));
+        // A root curve: its slope grows without bound as the range runs out, so the camera holds
+        // station and then rushes in. The exponent is the whole character of the move -- lower
+        // closes later and harder.
+        t = Math.Pow(t, Sharpness);
 
         return nearDistance + ((farDistance - nearDistance) * t);
     }
+
+    // Below one, so the closing accelerates rather than easing off. Half is a square root: still
+    // three-quarters of the way out at the midpoint, and inside a third of the stand-off with a
+    // tenth of the flight left.
+    private const double Sharpness = 0.5;
 
     private static double3 AnyPerpendicular(double3 axis)
     {

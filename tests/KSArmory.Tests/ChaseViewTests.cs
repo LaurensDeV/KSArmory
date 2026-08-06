@@ -171,4 +171,20 @@ public class ChaseViewTests
         Assert.True(middle < first - 1.0, $"had not started closing: {middle}");
         Assert.Equal(7.0, last, 1e-9);
     }
+
+    [Fact]
+    public void TheClosingAcceleratesIntoTheImpact()
+    {
+        // tomservo's point: a symmetric ease is flat at both ends, so it is slowest exactly where
+        // the arrival happens. The last tenth of the flight must move the camera further than the
+        // first tenth does.
+        double atStart = ChaseView.StandOff(10.0, 10.0, 0.0, 26.0, 7.0)
+                         - ChaseView.StandOff(9.0, 10.0, 0.0, 26.0, 7.0);
+
+        double atImpact = ChaseView.StandOff(1.0, 10.0, 0.0, 26.0, 7.0)
+                          - ChaseView.StandOff(0.0, 10.0, 0.0, 26.0, 7.0);
+
+        Assert.True(atImpact > atStart * 2.0,
+                    $"closing does not accelerate: {atStart:F2} m early against {atImpact:F2} m late");
+    }
 }
