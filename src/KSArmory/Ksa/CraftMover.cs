@@ -224,7 +224,7 @@ internal sealed class CraftMover
             double3 atEcl = KsaWorld.PositionEcl(candidate);
             if (!KsaWorld.BeginDraw(candidate, atEcl)) return;
 
-            KsaWorld.DrawSphereEcl(atEcl, Ring(candidate), HoverColour);
+            DrawFootprint(candidate, atEcl, HoverColour);
             return;
         }
 
@@ -233,18 +233,40 @@ internal sealed class CraftMover
         double3 heldEcl = KsaWorld.PositionEcl(_held);
         if (!KsaWorld.BeginDraw(_held, heldEcl)) return;
 
-        // A ring on the craft being held, so it is obvious which one the next click moves.
-        KsaWorld.DrawSphereEcl(heldEcl, Ring(_held), HeldColour);
+        // A ring around its feet, so it is obvious which one the next click moves without the
+        // marker sitting over the craft it is marking.
+        DrawFootprint(_held, heldEcl, HeldColour);
 
         if (!TryTarget(out double3 groundEcl, out _, out _, out _)) return;
 
         // The round trip: where the marker lands, projected back, against where the pointer is.
         if (++_aimTrace % 120 == 0) Log.Debug(() => $"aim: {KsaWorld.DescribeCursorRay(groundEcl)}");
 
-        KsaWorld.DrawSphereEcl(groundEcl, (float)MarkerRadius, TargetColour);
+        // Where it would land: a ring on the ground, a short stalk so the spot reads against
+        // sloping terrain, and the line from the craft to it.
+        double3 up = Up(_held, groundEcl);
+
+        KsaWorld.DrawCircleEcl(groundEcl, up, MarkerRadius, TargetColour);
+        KsaWorld.DrawLineEcl(groundEcl, groundEcl + up * (MarkerRadius * 0.8), TargetColour);
         KsaWorld.DrawLineEcl(heldEcl, groundEcl, TargetColour);
     }
 
-    private static float Ring(Vehicle craft)
-        => (float)Math.Max(KsaWorld.MeanRadius(craft) * 1.4, 5.0);
+    // A ring at the craft's feet rather than a sphere around it. A sphere big enough to read as
+    // "this one" is by construction big enough to hide what it is pointing at.
+    private static void DrawFootprint(Vehicle craft, double3 atEcl, float4 colour)
+    {
+        double radius = Math.Max(KsaWorld.MeanRadius(craft) * 1.4, 5.0);
+        double3 up = Up(craft, atEcl);
+
+        // Dropped to the craft's base, so it lies on the ground rather than cutting through the
+        // middle of the hull.
+        KsaWorld.DrawCircleEcl(atEcl - up * (radius / 1.4), up, radius, colour);
+    }
+
+    private static double3 Up(Vehicle craft, double3 atEcl)
+    {
+        double3 up = -Vec.Unit(KsaWorld.GravityAt(craft, atEcl));
+
+        return Vec.Len2(up) < 0.5 ? new double3(0, 0, 1) : up;
+    }
 }

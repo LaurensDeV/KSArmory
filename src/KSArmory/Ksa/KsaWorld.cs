@@ -1638,6 +1638,31 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// A ring lying flat about <paramref name="normalEcl"/>, in metres.
+    ///
+    /// <para>For marking a place on the ground. A sphere large enough to read as "this craft" is
+    /// by construction large enough to hide it.</para>
+    /// </summary>
+    public static void DrawCircleEcl(double3 centreEcl, double3 normalEcl, double radius,
+                                     float4 colour)
+    {
+        if (Program.GizmosRenderer is null) return;
+        if (!Vec.IsFinite(centreEcl) || !(radius > 0.0)) return;
+
+        double3 up = Vec.Unit(normalEcl);
+        if (Vec.Len2(up) < 0.5) return;
+
+        // Any two axes square to the normal. Which two does not matter for a circle.
+        double3 seed = Math.Abs(up.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);
+        double3 a = Vec.Unit(Vec.Cross(up, seed)) * radius;
+        double3 b = Vec.Unit(Vec.Cross(up, a)) * radius;
+
+        if (!TryEclToEgo(centreEcl, out double3 ego)) return;
+
+        Program.GizmosRenderer.DrawCircle(ego, a, b, colour);
+    }
+
     public static void DrawLineEcl(double3 startEcl, double3 endEcl, float4 colour)
     {
         if (Program.GizmosRenderer is null) return;
