@@ -84,6 +84,7 @@ else
 fi
 
 run "Sim/ is free of KSA types"     ./tools/check-boundary.sh
+run "No unasked-for network"        ./tools/check-network.sh
 run "Part XML is well formed"       ./tools/check-xml.sh
 run "Asset paths resolve"           ./tools/validate-parts.py --offline
 run "Comment rules"                 ./tools/check-comments.sh

@@ -8,6 +8,15 @@ name: Deploy
 # the runner already does for free.
 
 on:
+  # Called by release.yml rather than triggered by the release event: semantic-release publishes
+  # with GITHUB_TOKEN, and GitHub does not raise workflow triggers from that token, so a
+  # `release: published` trigger here would never once fire.
+  workflow_call:
+    inputs:
+      image:
+        type: string
+        required: false
+        default: ""
   workflow_dispatch:
     inputs:
       image:
@@ -80,6 +89,28 @@ jobs:
           echo "::error::no image published at all -- run the Feedback image workflow first"
           exit 1
 
+      - name: Resolve the oldest version reports are accepted from
+        id: floor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # An override wins, for the case where the newest release is broken and reports about
+          # it are exactly what is wanted.
+          if [[ -n "${{ vars.MIN_MOD_VERSION }}" ]]; then
+            echo "floor=${{ vars.MIN_MOD_VERSION }}" >> "$GITHUB_OUTPUT"
+            echo "floor pinned to ${{ vars.MIN_MOD_VERSION }} by the MIN_MOD_VERSION variable"
+            exit 0
+          fi
+
+          # Empty is not a failure: before the first release there is nothing to be behind.
+          latest=$(gh release view -R "${{ github.repository }}" --json tagName -q .tagName 2>/dev/null || true)
+          latest=${latest#v}
+
+          echo "floor=$latest" >> "$GITHUB_OUTPUT"
+          echo "floor is ${latest:-<none>}, from the newest release"
+
       - name: Install the deploy key
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
@@ -105,7 +136,7 @@ jobs:
           TF_VAR_ghcr_username: ${{ github.actor }}
           TF_VAR_ghcr_token: ${{ secrets.GITHUB_TOKEN }}
           TF_VAR_github_token: ${{ secrets.KSARMORY_ISSUES_TOKEN }}
-          TF_VAR_min_mod_version: ${{ vars.MIN_MOD_VERSION }}
+          TF_VAR_min_mod_version: ${{ steps.floor.outputs.floor }}
         run: tofu apply -auto-approve -input=false -lock-timeout=5m
 
       # Proves the thing that matters: TLS terminates and the service behind it answers.

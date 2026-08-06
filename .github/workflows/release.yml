@@ -195,3 +195,10 @@ jobs:
           echo "::notice::SpaceDock upload skipped. Set the repository variables"
           echo "::notice::SPACEDOCK_MOD_ID and SPACEDOCK_USERNAME, and the secret SPACEDOCK_PASSWORD."
 
+  # The endpoint refuses reports from versions older than the newest release, and it learns that
+  # number at deploy time -- so a release that does not redeploy leaves it a version behind.
+  endpoint:
+    needs: version
+    if: ${{ needs.version.outputs.published == 'true' }}
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

@@ -188,6 +188,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/model/build.sh                     # rebuild the Pantsir mesh and textures (needs Blender)
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
+./tools/check-network.sh                   # the mod only reaches the network when Send is clicked
 ./tools/check-comments.sh                  # history in comments, XML docs on privates, ratios
 ./tools/check-docs.sh                      # layout table, API counts and KSA build vs reality
 ./tools/package.sh                         # release zip into dist/ -- no symbols, no game DLLs
@@ -496,6 +497,18 @@ left null — `Trains` is then false, the drives are skipped and `IsLaid` stays 
 control cannot deadlock waiting for something that will never move.
 `ArsenalTests.AFixedLauncherIsJustAProfileWithNothingThatMoves` pins that shape, and
 `DriveFailureTests` pins the difference between that and a drive the engine refused.
+
+**The mod reaches the network exactly once, and only because a player clicked Send.** There is no
+version ping, no update check, no usage count — anything of that shape would be a request nobody
+agreed to, arriving as a surprise in someone's firewall log. The click is the permission, which is
+why there is no consent dialog to dismiss: the window says what will be sent before it is sent.
+`tools/check-network.sh` enforces it textually, the way `check-boundary.sh` guards the Sim/Ksa
+split, and it fails the build if any networking type appears outside `Ksa/FeedbackClient.cs`.
+
+That is also why **the "report only against the latest version" rule lives on the server**. The mod
+sends its version inside the report it was already sending, and the endpoint answers 426 with the
+number needed. Asking the game to check whether it is current would mean a request at startup, for
+a rule the server can apply for free.
 
 **A control that opens a window is a button, never a tick box.** A checkmark reads as "this
 setting is on", so a window arriving instead is unannounced and the tick says nothing about where
