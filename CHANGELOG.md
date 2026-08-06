@@ -1,3 +1,13 @@
+## [0.8.39](https://github.com/LaurensDeV/KSArmory/compare/v0.8.38...v0.8.39) (2026-08-06)
+
+### Features
+
+* **tools:** draw the placement markers as smooth bands ([e9eedf1](https://github.com/LaurensDeV/KSArmory/commit/e9eedf15e9be04ef0b535549a95443ac1cba4613))
+
+### Fixes
+
+* **tools:** ring the craft's feet instead of burying it in a sphere ([e000ebb](https://github.com/LaurensDeV/KSArmory/commit/e000ebb19df948a69ff0de4cc3d112be1ff24191))
+
 ## [0.8.38](https://github.com/LaurensDeV/KSArmory/compare/v0.8.37...v0.8.38) (2026-08-06)
 
 ### Fixes
