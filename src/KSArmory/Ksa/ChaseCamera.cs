@@ -33,10 +33,11 @@ internal sealed class ChaseCamera
     private double3 _holdUp;
     private double _holding;
 
-    // Set when the player takes the view back, cleared only once the sky is empty. Without it a
-    // stand-down is undone by the next round of the same salvo, which reads as the camera being
-    // stuck and fighting back.
-    private bool _standingDown;
+    // Rounds that have already had their turn: the siblings still in the air when the view was
+    // given up. Waiting for the sky to empty instead does not work -- a salvo's second missile
+    // outlives the target its first one killed and flies to its full life, so the sky is never
+    // empty and nothing is ever followed again.
+    private readonly List<IProjectile> _passedOver = [];
 
     /// <summary>The round being chased, or null.</summary>
     public IProjectile? Round => _round;
@@ -63,7 +64,7 @@ internal sealed class ChaseCamera
     {
         if (!enabled || battery.Platform is null)
         {
-            _standingDown = false;
+            _passedOver.Clear();
             Release();
             return;
         }
@@ -80,14 +81,9 @@ internal sealed class ChaseCamera
             return;
         }
 
-        if (_standingDown)
-        {
-            if (AnythingFlying(battery)) return;
-
-            _standingDown = false;
-            Log.Info("chase: the sky is clear, ready for the next round");
-            return;
-        }
+        // Anything still in the air from the last engagement that has since stopped can be
+        // forgotten; the list only has to outlive the rounds it names.
+        _passedOver.RemoveAll(r => r.State != RoundState.Flying);
 
         // The player taking the view back is a decision, not a fault.
         if (_round is not null && !KsaWorld.MainViewIsFixed())
@@ -95,7 +91,7 @@ internal sealed class ChaseCamera
             _round = null;
             _holding = 0.0;
             _saved = default;   // dropped, not restored: the view is already theirs
-            _standingDown = true;
+            PassOverEverythingFlying(battery);
             Log.Info("chase: the view was taken over by hand, standing down");
             return;
         }
@@ -114,7 +110,7 @@ internal sealed class ChaseCamera
 
                 _round = null;
                 _holding = LingerSeconds;
-                _standingDown = true;
+                PassOverEverythingFlying(battery);
                 Log.Info("chase: holding on the burst");
                 return;
             }
@@ -219,25 +215,30 @@ internal sealed class ChaseCamera
         _slipStep = 0.0;
     }
 
-    private static bool AnythingFlying(DefenceBattery battery)
+    // Everything in the air right now has had its chance. The next launch has not.
+    private void PassOverEverythingFlying(DefenceBattery battery)
     {
         IReadOnlyList<IProjectile> rounds = battery.Rounds;
 
         for (int i = 0; i < rounds.Count; i++)
         {
-            if (rounds[i].State == RoundState.Flying) return true;
+            if (rounds[i].State == RoundState.Flying && !_passedOver.Contains(rounds[i]))
+            {
+                _passedOver.Add(rounds[i]);
+            }
         }
-
-        return false;
     }
 
-    private static IProjectile? Newest(DefenceBattery battery)
+    private IProjectile? Newest(DefenceBattery battery)
     {
         IReadOnlyList<IProjectile> rounds = battery.Rounds;
 
         for (int i = rounds.Count - 1; i >= 0; i--)
         {
-            if (rounds[i].State == RoundState.Flying) return rounds[i];
+            if (rounds[i].State == RoundState.Flying && !_passedOver.Contains(rounds[i]))
+            {
+                return rounds[i];
+            }
         }
 
         return null;
