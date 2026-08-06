@@ -22,6 +22,8 @@ internal sealed class ChaseCamera
     // moment worth watching for no frames at all.
     private const double LingerSeconds = 3.0;
 
+    private readonly RoundFollowable _followed = new();
+
     private KsaWorld.MainView _saved;
     private IProjectile? _round;
 
@@ -49,7 +51,9 @@ internal sealed class ChaseCamera
         // and is exactly when the view still has to be given back.
         if (!_saved.Valid) return;
 
+        _followed.Track(null);
         KsaWorld.BeginRestoreMainView(_saved);
+        KsaWorld.RestoreFollow(_saved);
         _saved = default;
         Log.Info("chase: released the main view");
     }
@@ -117,18 +121,26 @@ internal sealed class ChaseCamera
             _saved = KsaWorld.RememberMainView();
             if (!_saved.Valid) return;
 
+            _followed.Track(round);
+
+            if (!KsaWorld.TryFollowOnMainViewport(_followed))
+            {
+                _saved = default;
+                return;
+            }
+
             Log.Info($"chase: taking the main view for round {round.Tube}");
         }
 
         _round = round;
+        _followed.Track(round);
 
-        // Everything platform-relative. OffsetFromPlatform is the round's position measured from
-        // the same craft the controller adds the camera offset to, so no absolute position and no
-        // sampling instant enters into it.
-        double3 relative = round.OffsetFromPlatform;
+        // Measured from the round, because the round is what the camera follows: the engine adds
+        // this to whatever position the round reports during its own frame pass, so nothing here
+        // is sampled at one instant and applied at another.
         double3 up = -Vec.Unit(KsaWorld.GravityAt(battery.Platform, round.PositionEcl));
 
-        if (!ChaseView.TryPose(relative, round.VelocityLocal, up, Behind, Above, Ahead,
+        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, Behind, Above, Ahead,
                                out double3 eye, out double3 forward, out double3 upEcl))
         {
             return;

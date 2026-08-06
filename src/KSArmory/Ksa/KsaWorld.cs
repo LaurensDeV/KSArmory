@@ -1452,6 +1452,54 @@ internal static class KsaWorld
     /// it with the frame's up and normalises, so a zero vector divides by zero — which is the
     /// entire reason this mode has a reputation for crashing.</para>
     /// </summary>
+    /// <summary>
+    /// Puts back whatever the view was following before a mod borrowed it.
+    ///
+    /// <para>Separate from the mode: following something of the mod's own has to be undone even
+    /// when the mode never changed, and leaving a camera pointed at an object the mod is about to
+    /// forget is how a view ends up stuck on a round that no longer exists.</para>
+    /// </summary>
+    public static bool RestoreFollow(MainView saved)
+    {
+        if (!saved.Valid || saved.Following is null) return false;
+
+        try
+        {
+            if (Program.MainViewport?.GetCamera() is not { } camera) return false;
+
+            camera.SetFollow(saved.Following, tidalLocking: true, changeControl: false, alert: false);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not restore what the view was following: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Points the main camera at something of the mod's own, so the engine resolves its position
+    /// in its own frame pass rather than the mod handing over one sampled somewhere else.
+    /// </summary>
+    /// <returns>False if the camera could not be reached; the view is then untouched.</returns>
+    public static bool TryFollowOnMainViewport(IFollowable target)
+    {
+        try
+        {
+            if (Program.MainViewport?.GetCamera() is not { } camera) return false;
+
+            // changeControl false, or Program.ControlledVehicle becomes `target as Vehicle`, which
+            // for anything that is not a vehicle is null -- the player loses their craft.
+            camera.SetFollow(target, tidalLocking: false, changeControl: false, alert: false);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not follow: {e.Message}");
+            return false;
+        }
+    }
+
     /// <param name="offsetFromFollowed">
     /// Where the camera goes <em>relative to the craft the view is following</em>, not an absolute
     /// position. The controller adds it to <c>following.GetPositionEcl()</c> later in the frame,
@@ -1470,6 +1518,10 @@ internal static class KsaWorld
             if (Program.MainViewport is not { } viewport) return false;
             if (viewport.FixedController is not { } controller) return false;
             if (viewport.GetCamera()?.Following is null) return false;
+
+            // The reference frame is Identity for anything that is not a Vehicle, so the axis the
+            // controller crosses against is ecliptic +Z. A view along it divides by zero.
+            if (Math.Abs(Vec.Dot(Vec.Unit(forwardEcl), new double3(0, 0, 1))) > 0.999) return false;
 
             // Set before the mode, every time. A frame drawn in Fixed with a zero rotation is the
             // crash, and setting the mode first leaves exactly that gap.

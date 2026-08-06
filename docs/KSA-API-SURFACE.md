@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-108 types and 274 members across 6 assemblies.
+112 types and 276 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -278,6 +278,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.CameraReferenceFrame
+
+*referenced as a type only*
+
 ### KSA.Celestial
 
 - `Brutal.Numerics.double3 GetSurfacePositionEclFromCce(Brutal.Numerics.double3, bool)`
@@ -376,6 +380,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.IOrientation
+
+*referenced as a type only*
+
 ### KSA.IParentBody
 
 - `Brutal.Numerics.doubleQuat GetCce2Cci()`
@@ -386,6 +394,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 GetPositionEcl()`
 
+### KSA.IRadius
+
+*referenced as a type only*
+
 ### KSA.IVelocity
 
 - `Brutal.Numerics.double3 GetVelocityEcl()`
@@ -393,6 +405,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.JobSystems
 
 - `Brutal.Concurrency.Jobs.JobScheduler VehicleSolvers`
+
+### KSA.KeyHash
+
+- `KSA.KeyHash Make(System.ReadOnlySpan`1<char>)`
 
 ### KSA.KittenEva
 
@@ -449,6 +465,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double Azimuth`
 - `double DistancePower`
 - `double Elevation`
+- `void .ctor(KSA.CameraReferenceFrame)`
 
 ### KSA.Part
 
