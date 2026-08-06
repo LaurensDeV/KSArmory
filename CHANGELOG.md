@@ -1,3 +1,9 @@
+## [0.8.31](https://github.com/LaurensDeV/KSArmory/compare/v0.8.30...v0.8.31) (2026-08-06)
+
+### Features
+
+* **ui:** close the camera on time to impact ([c0f5a9c](https://github.com/LaurensDeV/KSArmory/commit/c0f5a9c4d8f453a5ec262fe5c389c7f4b4ed95e0))
+
 ## [0.8.30](https://github.com/LaurensDeV/KSArmory/compare/v0.8.29...v0.8.30) (2026-08-06)
 
 ### Fixes
