@@ -27,8 +27,34 @@ internal sealed class RoundFollowable : IFollowable
 
     private IProjectile? _round;
 
+    // What to hold still against, once the round has gone off. Not an ecliptic position: that
+    // frame carries ~29.8 km/s that the whole world shares, so a camera pinned to a point in it
+    // watches the ground slide away. Held against the platform instead, which moves with
+    // everything else.
+    private Vehicle? _anchor;
+    private double3 _anchorOffset;
+
     /// <summary>Points this at a round, or at nothing.</summary>
-    public void Track(IProjectile? round) => _round = round;
+    public void Track(IProjectile? round)
+    {
+        _round = round;
+        _anchor = null;
+    }
+
+    /// <summary>
+    /// Stops following the round and holds where it was, relative to the craft that fired it.
+    ///
+    /// <para>For looking at a burst. The position stays put on the ground rather than in the
+    /// ecliptic, which is the difference between the view holding still and the world sliding
+    /// out from under it.</para>
+    /// </summary>
+    public void HoldAgainst(Vehicle? platform, IProjectile round)
+    {
+        _round = null;
+        _anchor = platform;
+        _anchorOffset = round.OffsetFromPlatform;
+        LastPositionEcl = round.PositionEcl;
+    }
 
     /// <summary>Where the round was last seen, for when it stops existing mid-frame.</summary>
     public double3 LastPositionEcl { get; private set; }
@@ -52,6 +78,7 @@ internal sealed class RoundFollowable : IFollowable
     public double3 GetPositionEcl()
     {
         if (_round is { } round) LastPositionEcl = round.PositionEcl;
+        else if (_anchor is { } platform) LastPositionEcl = KsaWorld.PositionEcl(platform) + _anchorOffset;
 
         return LastPositionEcl;
     }

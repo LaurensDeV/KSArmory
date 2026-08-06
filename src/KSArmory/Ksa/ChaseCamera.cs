@@ -103,8 +103,12 @@ internal sealed class ChaseCamera
             // The one being watched has gone off. Hold the last pose on the burst, then stand
             // down for the rest of the engagement rather than cutting to a sibling missile --
             // what just happened is the part worth seeing.
-            if (_round is not null)
+            if (_round is { } spent)
             {
+                // Anchored to the platform, so the view stays on the burst rather than being left
+                // behind by the ecliptic.
+                _followed.HoldAgainst(battery.Platform, spent);
+
                 _round = null;
                 _holding = LingerSeconds;
                 _standingDown = true;
