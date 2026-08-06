@@ -23,6 +23,12 @@ resource "docker_service" "feedback" {
         GITHUB_REPOSITORY = var.github_repository
         GITHUB_TOKEN      = var.github_token
         MIN_MOD_VERSION   = var.min_mod_version
+
+        # The health check runs every 30s and ASP.NET logs eight lines per request at
+        # Information, which is ~23,000 lines a day about nothing. The service's own messages
+        # are logged under its category and are unaffected.
+        Logging__LogLevel__Microsoft                  = "Warning"
+        Logging__LogLevel__Microsoft_Hosting_Lifetime = "Information"
       }
 
       stop_grace_period = "10s"
