@@ -1,3 +1,9 @@
+## [0.8.33](https://github.com/LaurensDeV/KSArmory/compare/v0.8.32...v0.8.33) (2026-08-06)
+
+### Fixes
+
+* **ui:** keep the camera closing until the round goes off ([56ba3fb](https://github.com/LaurensDeV/KSArmory/commit/56ba3fba247128b161a2d9b6ce17ff9517c52c26))
+
 ## [0.8.32](https://github.com/LaurensDeV/KSArmory/compare/v0.8.31...v0.8.32) (2026-08-06)
 
 ### Features
