@@ -1,3 +1,9 @@
+## [0.8.19](https://github.com/LaurensDeV/KSArmory/compare/v0.8.18...v0.8.19) (2026-08-06)
+
+### Fixes
+
+* **ui:** stop the chase camera crashing the game ([26be9c8](https://github.com/LaurensDeV/KSArmory/commit/26be9c8872355acfa23a2bf2e0c41874a184800e))
+
 ## [0.8.18](https://github.com/LaurensDeV/KSArmory/compare/v0.8.17...v0.8.18) (2026-08-06)
 
 ### Features
