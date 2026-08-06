@@ -324,3 +324,36 @@ assumed rather than measured.
 engine raycasts elsewhere — `Part` has `RaycastWatertight` against its own mesh
 (`KSA/KSA/Part.cs:1943`) — so the machinery exists; it is reaching a landmark's geometry that has
 no route.
+
+## Drawing a shape the gizmo renderer does not have
+
+**What we want.** A solid torus on the ground under a craft being placed, and in general any shape
+worth looking at drawn at a world position — a marker, a volume, a footprint — without attaching
+it to a vehicle.
+
+**Why it is blocked.** `GizmosRenderer` draws two things. `Render` is `RenderSpheres` then
+`RenderLines`, and `GizmoType` has exactly `Sphere`, `Line`, `Num`. Everything else it offers is
+built from those: `DrawCircle` is twelve line segments, `DrawWireBox` and `DrawCylinderSides` are
+line loops. There is no filled polygon in it at all.
+
+The engine can *generate* the geometry — `ProcGenMeshLibrary.GenerateTorus` writes positions,
+indices, normals and UVs, alongside sphere, cube and plane generators. What it cannot do from a mod
+is *draw* it: arbitrary geometry has to be uploaded as a `SimpleVkMesh` and submitted inside a
+render pass, and **no StarMap hook carries a command buffer** — the five attributes are all plain
+method postfixes. Patching a private render method with Harmony would work and is not worth it: a
+private method sits outside the API surface `ksa-api-diff.sh` checks, so it breaks silently on a
+KSA update that passes every other gate, and an exception inside the render pass takes the game
+down with nothing pointing at the mod.
+
+**What is possible today, and what it costs.** Real geometry reaches the screen through the asset
+pipeline: a mesh in `Meshes/KSArmory_MeshAtlas.glb`, declared as a `<SubPart>`, positioned by
+writing its transform each frame — which is exactly how the round bodies work, out to a measured
+79.5 km from the launcher. So a real torus is available, at the cost of art, XML, transform code,
+and living on a vehicle's part tree, which is awkward for a marker that should exist whether or not
+a launcher does.
+
+Meanwhile `KsaWorld.DrawTorusEcl` rings solid spheres closely enough to read as a tube, and drapes
+each one onto the terrain under it.
+
+**What would unblock it.** A gizmo primitive with a filled surface, or any hook that hands a mod a
+command buffer.
