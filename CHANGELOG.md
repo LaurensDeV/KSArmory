@@ -1,3 +1,9 @@
+## [0.8.30](https://github.com/LaurensDeV/KSArmory/compare/v0.8.29...v0.8.30) (2026-08-06)
+
+### Fixes
+
+* **ui:** measure the closing range against the target, not the aimpoint ([cb1f42f](https://github.com/LaurensDeV/KSArmory/commit/cb1f42fc60bffd218e9c3fcfef91e2de8bf50ec3))
+
 ## [0.8.29](https://github.com/LaurensDeV/KSArmory/compare/v0.8.28...v0.8.29) (2026-08-06)
 
 ### Features
