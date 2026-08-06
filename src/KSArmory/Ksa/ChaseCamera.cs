@@ -4,14 +4,12 @@ using KSArmory.Sim;
 namespace KSArmory;
 
 /// <summary>
-/// Rides the main view behind a round in flight, and gives it back when the round is gone.
+/// Rides the main view behind a round in flight, holds on the burst, and gives the view back.
 ///
 /// <para>The main view rather than a second one, because a secondary viewport draws a starfield
 /// over a featureless grey ball — every pass that makes a planet look like a planet runs only for
-/// the frame viewport. See <c>docs/BLOCKED-ON-KSA.md</c>.</para>
-///
-/// <para>Borrowing it is the dangerous part, so every exit hands it back: the round ending, the
-/// battery going away, the switch going off, or a write failing.</para>
+/// the frame viewport. See <c>docs/BLOCKED-ON-KSA.md</c>, which also has why the camera keeps
+/// following its craft throughout.</para>
 /// </summary>
 internal sealed class ChaseCamera
 {
@@ -20,8 +18,23 @@ internal sealed class ChaseCamera
     private const double Above = 9.0;
     private const double Ahead = 250.0;
 
+    // How long to keep looking at a burst. Cutting away the instant it goes off shows the one
+    // moment worth watching for no frames at all.
+    private const double LingerSeconds = 3.0;
+
     private KsaWorld.MainView _saved;
     private IProjectile? _round;
+
+    // The last pose, which becomes the pose to hold once the round is gone.
+    private double3 _holdEye;
+    private double3 _holdForward;
+    private double3 _holdUp;
+    private double _holding;
+
+    // Set when the player takes the view back, cleared only once the sky is empty. Without it a
+    // stand-down is undone by the next round of the same salvo, which reads as the camera being
+    // stuck and fighting back.
+    private bool _standingDown;
 
     /// <summary>The round being chased, or null.</summary>
     public IProjectile? Round => _round;
@@ -29,6 +42,8 @@ internal sealed class ChaseCamera
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
+        _holding = 0.0;
+
         if (_round is null) return;
 
         _round = null;
@@ -37,30 +52,41 @@ internal sealed class ChaseCamera
         Log.Info("chase: released the main view");
     }
 
-    // Lets go without touching the view, for when the player has already taken it.
-    private void StandDown()
-    {
-        _round = null;
-        _saved = default;
-        Log.Info("chase: the view was taken over by hand, standing down");
-    }
-
     /// <summary>Follows one round for one frame.</summary>
-    public void Apply(DefenceBattery battery, bool enabled)
+    public void Apply(DefenceBattery battery, bool enabled, double dtPlayer)
     {
         if (!enabled || battery.Platform is null)
         {
+            _standingDown = false;
             Release();
             return;
         }
 
-        // The player wins. Changing the camera mode by hand while this holds the view is a
-        // decision, so it stands down rather than dragging the view back every frame -- and
-        // fighting over the mode is what put the camera into Fixed while still following, which
-        // takes the game down inside FixedController.
+        if (_standingDown)
+        {
+            if (!AnythingFlying(battery)) _standingDown = false;
+            return;
+        }
+
+        // The player taking the view back is a decision, not a fault.
         if (_round is not null && !KsaWorld.MainViewIsFixed())
         {
-            StandDown();
+            _round = null;
+            _holding = 0.0;
+            _saved = default;
+            _standingDown = true;
+            Log.Info("chase: the view was taken over by hand, standing down");
+            return;
+        }
+
+        // Still watching where the last one went off.
+        if (_holding > 0.0)
+        {
+            _holding -= Math.Max(0.0, dtPlayer);
+
+            if (!KsaWorld.TryLookFromMainViewport(_holdEye, _holdForward, _holdUp)) Release();
+            else if (_holding <= 0.0) Release();
+
             return;
         }
 
@@ -71,8 +97,6 @@ internal sealed class ChaseCamera
             return;
         }
 
-        // Read before the first write: setting Fixed clears the follow, so a reading taken
-        // afterwards describes the borrowed state.
         if (_round is null)
         {
             _saved = KsaWorld.RememberMainView();
@@ -83,10 +107,13 @@ internal sealed class ChaseCamera
 
         _round = round;
 
-        double3 at = battery.DrawnRoundEcl(round);
+        // The analytic position, not the drawn one. The drawn position is converted through the
+        // camera, and this moves the camera, so the two chase each other and the round shivers in
+        // frame. A few metres of offset that holds still beats none that does not.
+        double3 at = round.PositionEcl;
 
-        // Away from the planet, which is the direction gravity is not. A zero here (deep space)
-        // is handled by TryPose falling back to any perpendicular rather than rolling the view.
+        // Away from the planet, which is the direction gravity is not. A zero here (deep space) is
+        // handled by TryPose falling back to any perpendicular rather than rolling the view.
         double3 up = -Vec.Unit(KsaWorld.GravityAt(battery.Platform, at));
 
         if (!ChaseView.TryPose(at, round.VelocityLocal, up, Behind, Above, Ahead,
@@ -95,19 +122,41 @@ internal sealed class ChaseCamera
             return;
         }
 
+        _holdEye = eye;
+        _holdForward = forward;
+        _holdUp = upEcl;
+
         // A refused write must not leave the view held: the player would be stranded wherever the
         // last good frame put them.
         if (!KsaWorld.TryLookFromMainViewport(eye, forward, upEcl)) Release();
     }
 
-    // The round already being ridden while it still flies, otherwise the newest in the air.
-    // Re-picking every frame swaps between rounds of one salvo twice a second, which is
-    // unwatchable and was the first thing anyone said about it.
+    // The round already being ridden, while it still flies. When it stops, the view holds where it
+    // was rather than cutting to whatever else is in the air: the burst is the thing worth
+    // watching, and a salvo always has a sibling to jump to.
     private IProjectile? Current(DefenceBattery battery)
     {
-        if (_round is { State: RoundState.Flying } held && battery.Rounds.Contains(held)) return held;
+        if (_round is { } held)
+        {
+            if (held.State == RoundState.Flying && battery.Rounds.Contains(held)) return held;
+
+            _holding = LingerSeconds;
+            return held;
+        }
 
         return Newest(battery);
+    }
+
+    private static bool AnythingFlying(DefenceBattery battery)
+    {
+        IReadOnlyList<IProjectile> rounds = battery.Rounds;
+
+        for (int i = 0; i < rounds.Count; i++)
+        {
+            if (rounds[i].State == RoundState.Flying) return true;
+        }
+
+        return false;
     }
 
     private static IProjectile? Newest(DefenceBattery battery)

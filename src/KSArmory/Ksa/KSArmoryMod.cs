@@ -170,7 +170,7 @@ public sealed class KSArmoryMod
             // letting the watch nudge afterwards would fight it every frame.
             if (_roster.For(_ui.Focused) is { } chased)
             {
-                _chase.Apply(chased.Battery, _config.ChaseRounds && KsaWorld.InFlight);
+                _chase.Apply(chased.Battery, _config.ChaseRounds && KsaWorld.InFlight, dt);
             }
             else
             {
