@@ -1387,34 +1387,6 @@ internal static class KsaWorld
         }
     }
 
-    /// <summary>
-    /// How far a craft's drawn position sits from its analytic one, as a vector in Ecl.
-    ///
-    /// <para>Everything the mod simulates is placed against the analytic position; the engine
-    /// draws against the physics one. On a landed craft the two differ by metres. Anything that
-    /// has to appear beside a drawn thing needs this, and anything that jitters against one is
-    /// usually watching it change.</para>
-    /// </summary>
-    public static bool TryDrawSlip(Vehicle? craft, out double3 slipEcl)
-    {
-        slipEcl = Vec.Zero;
-
-        if (craft is null) return false;
-
-        try
-        {
-            if (!TryVehicleEgo(craft, out double3 ego)) return false;
-            if (!TryEgoToEcl(ego, out double3 drawn)) return false;
-
-            slipEcl = drawn - PositionEcl(craft);
-            return Vec.IsFinite(slipEcl);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     /// <summary>What the main view was doing before something borrowed it.</summary>
     public readonly record struct MainView(IFollowable? Following, CameraMode Mode, bool Valid);
 

@@ -172,13 +172,13 @@ internal sealed class ChaseCamera
         double behind = ChaseView.StandOff(range, CloseFrom, CloseTo, Behind, BehindAtImpact);
         double above = ChaseView.StandOff(range, CloseFrom, CloseTo, Above, AboveAtImpact);
 
+        ReportClosing(round, range, behind);
+
         if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, behind, above, Ahead,
                                out double3 eye, out double3 forward, out double3 upEcl))
         {
             return;
         }
-
-        MeasureSlip(battery);
 
         // The eye is relative to the round, so its height over the launcher is the two together.
         // Lifting rather than refusing: a view from slightly the wrong place beats none.
@@ -209,37 +209,18 @@ internal sealed class ChaseCamera
         return Newest(battery);
     }
 
-    // Diagnostic, not correction. The camera is placed against the analytic position and the body
-    // is drawn against the physics one; if that difference moves frame to frame, the round
-    // shivers no matter what the camera does. Logged as a range so a wobble is distinguishable
-    // from a constant offset, which is the whole question.
-    private double3 _lastSlip;
-    private double _slipMin = double.MaxValue;
-    private double _slipMax;
-    private double _slipStep;
-    private int _slipFrames;
+    // What the closing curve is actually being fed. The stand-off is the visible thing, and the
+    // range is the input nobody can see: an aimpoint that is not resampled reports a distance to
+    // where the target was at launch, which drives the curve from the wrong number.
+    private int _rangeFrames;
 
-    private void MeasureSlip(DefenceBattery battery)
+    private void ReportClosing(IProjectile round, double range, double behind)
     {
-        if (!KsaWorld.TryDrawSlip(battery.Platform, out double3 slip)) return;
+        if (++_rangeFrames < 30) return;
 
-        double magnitude = Vec.Len(slip);
-        _slipMin = Math.Min(_slipMin, magnitude);
-        _slipMax = Math.Max(_slipMax, magnitude);
-
-        if (_slipFrames > 0) _slipStep = Math.Max(_slipStep, Vec.Len(slip - _lastSlip));
-
-        _lastSlip = slip;
-
-        if (++_slipFrames < 60) return;
-
-        Log.Info($"chase: draw slip {_slipMin:F2}-{_slipMax:F2} m, "
-                 + $"worst frame-to-frame change {_slipStep:F3} m");
-
-        _slipFrames = 0;
-        _slipMin = double.MaxValue;
-        _slipMax = 0.0;
-        _slipStep = 0.0;
+        _rangeFrames = 0;
+        Log.Info($"chase: range {(double.IsNaN(range) ? "none" : $"{range:F0} m")}, "
+                 + $"stand-off {behind:F1} m, aimpoint {round.Aimpoint.Kind}");
     }
 
     // How far the round still has to go, or NaN when it is not aimed at anything -- an unguided
