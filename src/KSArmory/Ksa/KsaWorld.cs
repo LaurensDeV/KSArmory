@@ -1387,6 +1387,26 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Whether the main camera has something to follow.
+    ///
+    /// <para>Asked while the view is held in Fixed mode, because a camera that is both is the
+    /// pair that divides by zero. Anything in the game that attaches a follow without also
+    /// changing the mode — a jump-to-vehicle key, say — recreates it without the mod touching
+    /// anything, so holding Fixed means watching for it.</para>
+    /// </summary>
+    public static bool MainViewIsFollowing()
+    {
+        try
+        {
+            return Program.MainViewport?.GetCamera()?.Following is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>What the main view was doing before something borrowed it.</summary>
     public readonly record struct MainView(IFollowable? Following, CameraMode Mode, bool Valid);
 
@@ -1469,12 +1489,15 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Puts the main view back the way it was found.
+    /// Asks the main view to leave Fixed mode. The follow is <em>not</em> restored here.
     ///
-    /// <para>Mode first, then the follow. The other order re-creates the one state that crashes:
-    /// a camera in Fixed mode that is following something.</para>
+    /// <para>Two calls rather than one, because the mode does not change when it is set: the
+    /// viewport applies it on its next frame. Attaching the follow in the same breath therefore
+    /// leaves a camera that is still in Fixed and now following something, which is precisely the
+    /// pair that divides by zero inside FixedController. <see cref="TryFinishRestore"/> attaches
+    /// it once the mode has actually taken.</para>
     /// </summary>
-    public static bool RestoreMainView(MainView saved)
+    public static bool BeginRestoreMainView(MainView saved)
     {
         if (!saved.Valid) return false;
 
@@ -1483,18 +1506,39 @@ internal static class KsaWorld
             if (Program.MainViewport is not { } viewport) return false;
 
             if (viewport.Mode != saved.Mode) viewport.SetCameraMode(saved.Mode);
-
-            if (saved.Following is { } following && viewport.GetCamera() is { } camera)
-            {
-                camera.SetFollow(following, tidalLocking: true, changeControl: false, alert: false);
-            }
-
             return true;
         }
         catch (Exception e)
         {
             Log.Warn($"could not restore the main view: {e.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Re-attaches what the view was following, once it is out of Fixed mode.
+    /// </summary>
+    /// <returns>True when there is nothing left to do — attached, or nothing to attach.</returns>
+    public static bool TryFinishRestore(MainView saved)
+    {
+        if (!saved.Valid || saved.Following is null) return true;
+
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return true;
+
+            // Still Fixed: the mode change has not been applied yet. Attaching now is the crash.
+            if (viewport.Mode == CameraMode.Fixed) return false;
+
+            if (viewport.GetCamera() is not { } camera) return true;
+
+            camera.SetFollow(saved.Following, tidalLocking: true, changeControl: false, alert: false);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not re-follow after the chase: {e.Message}");
+            return true;
         }
     }
 

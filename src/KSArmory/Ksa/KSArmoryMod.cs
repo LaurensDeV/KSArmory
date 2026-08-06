@@ -168,6 +168,10 @@ public sealed class KSArmoryMod
 
             // After the watch camera: both write the view, and the chase takes it outright, so
             // letting the watch nudge afterwards would fight it every frame.
+            // Unconditional: a restore takes more than one frame, and the chase may be off by
+            // the time it finishes.
+            _chase.Tick();
+
             if (_roster.For(_ui.Focused) is { } chased)
             {
                 _chase.Apply(chased.Battery, _config.ChaseRounds && KsaWorld.InFlight);
