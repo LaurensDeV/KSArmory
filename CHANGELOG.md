@@ -1,3 +1,9 @@
+## [0.8.21](https://github.com/LaurensDeV/KSArmory/compare/v0.8.20...v0.8.21) (2026-08-06)
+
+### Fixes
+
+* **ui:** drive the camera the way Fixed mode expects ([4095a91](https://github.com/LaurensDeV/KSArmory/commit/4095a917791a9738be5306e3ed7695e89bad04e8))
+
 ## [0.8.20](https://github.com/LaurensDeV/KSArmory/compare/v0.8.19...v0.8.20) (2026-08-06)
 
 ### Fixes
