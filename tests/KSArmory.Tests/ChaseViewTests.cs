@@ -155,4 +155,20 @@ public class ChaseViewTests
         // An unguided round has nothing to converge on; it must not be filmed from six metres.
         Assert.Equal(22.0, ChaseView.StandOff(double.NaN, 2_000, 50, 22.0, 6.0), 1e-9);
     }
+
+    [Fact]
+    public void ClosingOnTimeStartsTheMomentTheChaseDoes()
+    {
+        // Normalised against the flight remaining when the view was taken, so the camera is
+        // already easing in on the first frame rather than waiting for a distance threshold.
+        const double atTake = 9.0;
+
+        double first = ChaseView.StandOff(atTake, atTake, 0.35, 26.0, 7.0);
+        double middle = ChaseView.StandOff(atTake / 2.0, atTake, 0.35, 26.0, 7.0);
+        double last = ChaseView.StandOff(0.2, atTake, 0.35, 26.0, 7.0);
+
+        Assert.Equal(26.0, first, 1e-9);
+        Assert.True(middle < first - 1.0, $"had not started closing: {middle}");
+        Assert.Equal(7.0, last, 1e-9);
+    }
 }

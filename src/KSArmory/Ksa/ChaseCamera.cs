@@ -24,9 +24,13 @@ internal sealed class ChaseCamera
     private const double BehindAtImpact = 7.0;
     private const double AboveAtImpact = 1.6;
 
-    // Where the closing starts and where it has finished.
-    private const double CloseFrom = 1_500.0;
-    private const double CloseTo = 60.0;
+    // Closing runs on time to impact rather than distance, and is normalised against the time
+    // left when the chase began -- so it starts easing the moment the view is taken, whatever the
+    // range, instead of sitting at arm's length until the last second.
+    private const double CloseUntil = 0.35;
+
+    // What the flight had left when the view was taken. The whole curve is measured against it.
+    private double _flightAtTake;
 
     // How far a round must get from the tube before the view is taken. A missile leaves almost
     // vertically, so "behind it" for the first moment is underneath the vehicle that fired it.
@@ -169,11 +173,14 @@ internal sealed class ChaseCamera
         double3 up = -Vec.Unit(KsaWorld.GravityAt(battery.Platform, round.PositionEcl));
 
         // Closing in as it arrives, which is what conveys the speed.
-        double range = RangeToTarget(round);
-        double behind = ChaseView.StandOff(range, CloseFrom, CloseTo, Behind, BehindAtImpact);
-        double above = ChaseView.StandOff(range, CloseFrom, CloseTo, Above, AboveAtImpact);
+        double toGo = TimeToTarget(round);
 
-        ReportClosing(round, range, behind);
+        if (_flightAtTake <= 0.0 || !double.IsFinite(_flightAtTake)) _flightAtTake = toGo;
+
+        double behind = ChaseView.StandOff(toGo, _flightAtTake, CloseUntil, Behind, BehindAtImpact);
+        double above = ChaseView.StandOff(toGo, _flightAtTake, CloseUntil, Above, AboveAtImpact);
+
+        ReportClosing(round, toGo, behind);
 
         if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, behind, above, Ahead,
                                out double3 eye, out double3 forward, out double3 upEcl))
@@ -215,13 +222,13 @@ internal sealed class ChaseCamera
     // where the target was at launch, which drives the curve from the wrong number.
     private int _rangeFrames;
 
-    private void ReportClosing(IProjectile round, double range, double behind)
+    private void ReportClosing(IProjectile round, double toGo, double behind)
     {
         if (++_rangeFrames < 30) return;
 
         _rangeFrames = 0;
-        Log.Info($"chase: range {(double.IsNaN(range) ? "none" : $"{range:F0} m")}, "
-                 + $"stand-off {behind:F1} m, aimpoint {round.Aimpoint.Kind}");
+        Log.Info($"chase: {(double.IsNaN(toGo) ? "no closing solution" : $"{toGo:F1} s to go")}"
+                 + $" of {_flightAtTake:F1}, stand-off {behind:F1} m");
     }
 
     // How far the round still has to go, or NaN when it is not chasing anything -- an unguided
@@ -231,11 +238,22 @@ internal sealed class ChaseCamera
     // absolute ecliptic position from the moment it was taken, and the world leaves that point
     // behind at ~29.8 km/s: the range to it grows by that much every second while the round is
     // in fact closing. Measured in flight at 208 km and rising on a missile that hit at 16 m.
-    private static double RangeToTarget(IProjectile round)
+    private static double TimeToTarget(IProjectile round)
     {
         if (round.TargetRef is not Vehicle target || !KsaWorld.IsAlive(target)) return double.NaN;
 
-        return Vec.Len(KsaWorld.PositionEcl(target) - round.PositionEcl);
+        double3 toTarget = KsaWorld.PositionEcl(target) - round.PositionEcl;
+        double range = Vec.Len(toTarget);
+        if (range < 1e-6) return 0.0;
+
+        // Closing speed along the line of sight. Differenced here rather than taken from either
+        // velocity alone: both carry the ecliptic's ~29.8 km/s, and it cancels only in the
+        // subtraction.
+        double closing = Vec.Dot(round.VelocityEcl - KsaWorld.VelocityEcl(target),
+                                 toTarget / range);
+
+        // Opening, or barely closing: nothing to count down to.
+        return closing > 1.0 ? range / closing : double.NaN;
     }
 
     // Everything in the air right now has had its chance. The next launch has not.
