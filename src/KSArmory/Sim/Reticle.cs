@@ -29,6 +29,12 @@ public static class Reticle
     /// </summary>
     public const float MinBoxHalfSize = 10f;
 
+    /// <summary>
+    /// Below this half-size the box holds corner brackets alone. The cross and the ladder are
+    /// fractions of the box, so under it they collide with the brackets and with each other.
+    /// </summary>
+    public const float CrossBelow = 20f;
+
     /// <summary>Half-width of the bracket box, in pixels, for a target of this angular size.</summary>
     /// <param name="widths">
     /// How many target widths across the box is. The brackets have to sit clear of the target so
@@ -81,6 +87,12 @@ public static class Reticle
 
         // A broken cross: four ticks pointing inward, stopping short of the middle. A solid one
         // hides the target at exactly the moment it matters.
+        //
+        // Omitted on a small box. Everything here is a fraction of the box, so at the floor the
+        // ticks end 1.2 px short of the brackets -- less than the stroke width -- and twelve lines
+        // merge into a blob that reads as a rendering fault rather than a sight.
+        if (box < CrossBelow) return n;
+
         float gap = settled ? box * 0.28f : box * 0.45f;
         float tick = box * 0.22f;
 

@@ -115,4 +115,49 @@ public class ReticleTests
 
     private static float Distance(float2 p, float2 q)
         => MathF.Sqrt((p.X - q.X) * (p.X - q.X) + (p.Y - q.Y) * (p.Y - q.Y));
+
+    [Fact]
+    public void ASmallBoxIsCornersOnly()
+    {
+        // Every part of the sight is a fraction of the box, so at the floor the cross ends about a
+        // pixel short of the brackets -- less than the stroke width -- and the whole thing merges
+        // into a blob that reads as a rendering fault.
+        Span<ReticleStroke> strokes = new ReticleStroke[Reticle.MaxStrokes];
+
+        int count = Reticle.Build(new float2(100f, 100f), Reticle.MinBoxHalfSize, settled: true,
+                                  strokes);
+
+        Assert.Equal(8, count);
+    }
+
+    [Fact]
+    public void ALargeBoxKeepsTheCross()
+    {
+        Span<ReticleStroke> strokes = new ReticleStroke[Reticle.MaxStrokes];
+
+        int count = Reticle.Build(new float2(100f, 100f), 120f, settled: true, strokes);
+
+        Assert.True(count > 8, $"the cross went missing at a usable size: {count} strokes");
+    }
+
+    [Fact]
+    public void NothingIsDrawnOutsideTheBox()
+    {
+        // Corner arms run inward and cross ticks stop short, so every stroke stays within the box
+        // it was asked for. A stroke outside it would sit over the target rather than around it.
+        Span<ReticleStroke> strokes = new ReticleStroke[Reticle.MaxStrokes];
+        const float half = 120f;
+        var centre = new float2(500f, 400f);
+
+        int count = Reticle.Build(centre, half, settled: true, strokes, ladder: false);
+
+        for (int i = 0; i < count; i++)
+        {
+            foreach (float2 p in new[] { strokes[i].A, strokes[i].B })
+            {
+                Assert.True(Math.Abs(p.X - centre.X) <= half + 0.01f, $"stroke {i} escaped in X");
+                Assert.True(Math.Abs(p.Y - centre.Y) <= half + 0.01f, $"stroke {i} escaped in Y");
+            }
+        }
+    }
 }
