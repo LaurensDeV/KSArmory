@@ -22,6 +22,11 @@ permissions:
   issues: write
   pull-requests: write
 
+  # For the endpoint job below: a called workflow cannot ask for more than its caller holds, and
+  # deploy.yml needs to pull the image from GHCR. Without this the whole file is rejected as
+  # invalid, so no release is cut at all.
+  packages: read
+
 jobs:
   version:
     name: Version and changelog
