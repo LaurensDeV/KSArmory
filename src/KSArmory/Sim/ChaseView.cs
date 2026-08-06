@@ -2,32 +2,17 @@ using Brutal.Numerics;
 
 namespace KSArmory.Sim;
 
-/// <summary>
-/// Where to put a camera that rides behind a round in flight.
-///
-/// <para>The point of it is answering "where did that actually go" — a question the log can only
-/// answer in numbers, and which cost a session of guessing whether the cannon was doing anything
-/// at all.</para>
-/// </summary>
+/// <summary>Where to put a camera that rides behind a round in flight.</summary>
 public static class ChaseView
 {
     /// <summary>
-    /// Eye and forward for a camera trailing a round.
-    ///
-    /// <para><paramref name="velocityLocal"/> is the round's velocity with the frame's motion
-    /// already removed — <c>IProjectile.VelocityLocal</c>, never <c>VelocityEcl</c>. The ecliptic
-    /// carries about 29.8 km/s that every round shares, so a camera placed against the absolute
-    /// velocity points the same way for every round on every heading, which looks like the chase
-    /// being broken rather than the frame being wrong.</para>
-    ///
-    /// <para>The look point is ahead of the round rather than at it, so the round sits low in
-    /// frame and what it is flying at is visible. A camera aimed at the round shows a dot against
-    /// the sky and nothing of the engagement.</para>
+    /// Eye and forward for a camera trailing a round, looking past it at what it is flying at.
     /// </summary>
-    /// <param name="upHint">
-    /// Roughly "up" — away from the planet's centre. Only used to lift the eye and to keep the
-    /// horizon level; a parallel hint is ignored rather than producing a rolled view.
+    /// <param name="velocityLocal">
+    /// <c>IProjectile.VelocityLocal</c>, never <c>VelocityEcl</c>: the ecliptic's ~29.8 km/s is
+    /// shared, so an absolute velocity points every round the same way.
     /// </param>
+    /// <param name="upHint">Away from the planet's centre. A hint; a parallel one is ignored.</param>
     public static bool TryPose(double3 roundEcl, double3 velocityLocal, double3 upHint,
                                double distanceBehind, double heightAbove, double lookAhead,
                                out double3 eyeEcl, out double3 forwardEcl, out double3 upEcl)
@@ -60,10 +45,8 @@ public static class ChaseView
 
         forwardEcl = Vec.Unit(forwardEcl);
 
-        // Never let the view point straight up or straight down the reference frame's axis. KSA's
-        // fixed camera crosses the view direction with that axis and normalises the result, so a
-        // parallel pair is a division by zero -- and a round launched vertically is exactly that
-        // on its first frames. Tilted by the smallest angle that survives it.
+        // KSA's fixed camera crosses the view with the frame's axis and normalises, so a parallel
+        // pair divides by zero -- and a vertically launched round is exactly that at first.
         double3 axis = Vec.Unit(upHint);
         double alongAxis = Vec.Dot(forwardEcl, axis);
 
@@ -81,23 +64,15 @@ public static class ChaseView
         return Vec.IsFinite(eyeEcl) && Vec.IsFinite(forwardEcl);
     }
 
-    // How nearly the view may point along the reference axis. Cosine of about 2.6 degrees off it:
-    // far enough that the cross product has a length to normalise, close enough that a vertical
-    // climb still looks vertical.
+    // About 2.6 degrees off the axis: enough for the cross product to have a length to normalise.
     private const double MaxAlongAxis = 0.999;
 
     /// <summary>
-    /// How far back the camera should sit, closing in as the round converges on what it is
-    /// shooting at.
+    /// How far back the camera sits, closing in as the round converges.
     ///
-    /// <para>Distance is what conveys speed: a camera at a fixed stand-off shows a missile that
-    /// appears to hang still, because everything in frame scales together. Drawing in as the
-    /// range falls makes the last second read as an arrival rather than a cut.</para>
-    ///
-    /// <para>Eased so the closing <em>accelerates</em> into the impact: it hangs back for most of
-    /// the flight and then comes in hard over the last moment. A symmetric ease is flat at both
-    /// ends, which makes it slowest exactly where the engagement is decided — the opposite of
-    /// what carries the arrival.</para>
+    /// <para>A fixed stand-off makes a missile appear to hang still, because everything in frame
+    /// scales together. The easing accelerates into the impact: a symmetric one is flat at both
+    /// ends, so it is slowest exactly where the arrival happens.</para>
     /// </summary>
     /// <param name="range">Distance from the round to what it is aimed at.</param>
     /// <param name="far">At or beyond this range, the full stand-off.</param>
@@ -109,17 +84,13 @@ public static class ChaseView
 
         double t = Math.Clamp((range - near) / (far - near), 0.0, 1.0);
 
-        // A root curve: its slope grows without bound as the range runs out, so the camera holds
-        // station and then rushes in. The exponent is the whole character of the move -- lower
-        // closes later and harder.
+        // A root curve: the slope grows as the range runs out, so it holds station then rushes in.
         t = Math.Pow(t, Sharpness);
 
         return nearDistance + ((farDistance - nearDistance) * t);
     }
 
-    // Below one, so the closing accelerates rather than easing off. Half is a square root: still
-    // three-quarters of the way out at the midpoint, and inside a third of the stand-off with a
-    // tenth of the flight left.
+    // Below one, so the closing accelerates rather than easing off. Lower closes later and harder.
     private const double Sharpness = 0.5;
 
     private static double3 AnyPerpendicular(double3 axis)

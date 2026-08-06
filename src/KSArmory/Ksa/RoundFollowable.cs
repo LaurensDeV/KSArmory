@@ -7,30 +7,22 @@ namespace KSArmory;
 /// <summary>
 /// A round, presented to the engine as something a camera can follow.
 ///
-/// <para>The engine asks whatever the camera follows for its position during its own frame pass,
-/// so following the round directly is what removes the whole class of bug that comes from a mod
-/// computing a camera offset in one pass and the engine applying it in another. Nothing else here
-/// does any work: the position is the round's, and every other member is the least the interface
-/// will accept.</para>
-///
-/// <para>Modelled on <c>KSA.WreckageMarker</c>, which is the engine's own proof that an
-/// <see cref="IFollowable"/> need not be a vehicle, need not be registered anywhere, and can be
-/// handed straight to <c>Camera.SetFollow</c>.</para>
+/// <para>The engine resolves a followed object's position in its own frame pass, so following the
+/// round directly removes the mismatch from a mod computing an offset in one pass and the engine
+/// applying it in another. <c>KSA.WreckageMarker</c> is the engine's own proof that an
+/// <see cref="IFollowable"/> need not be a vehicle or be registered anywhere.</para>
 /// </summary>
 internal sealed class RoundFollowable : IFollowable
 {
-    // Not zero: the engine divides by it when a camera changes focus, and a NaN camera is not a
-    // recoverable state. A metre is about the size of the thing being watched.
+    // Not zero: the engine divides by it when a camera changes focus.
     private const double Radius = 1.0;
 
     private readonly OrbitView _orbitView = new(CameraReferenceFrame.Stars);
 
     private IProjectile? _round;
 
-    // What to hold still against, once the round has gone off. Not an ecliptic position: that
-    // frame carries ~29.8 km/s that the whole world shares, so a camera pinned to a point in it
-    // watches the ground slide away. Held against the platform instead, which moves with
-    // everything else.
+    // What to hold still against once the round has gone off. Not an ecliptic position: that frame
+    // carries ~29.8 km/s the whole world shares, so a camera pinned to a point in it drifts.
     private Vehicle? _anchor;
     private double3 _anchorOffset;
 
@@ -42,11 +34,7 @@ internal sealed class RoundFollowable : IFollowable
     }
 
     /// <summary>
-    /// Stops following the round and holds where it was, relative to the craft that fired it.
-    ///
-    /// <para>For looking at a burst. The position stays put on the ground rather than in the
-    /// ecliptic, which is the difference between the view holding still and the world sliding
-    /// out from under it.</para>
+    /// Holds where the round was, relative to the craft that fired it, for looking at a burst.
     /// </summary>
     public void HoldAgainst(Vehicle? platform, IProjectile round)
     {
@@ -71,10 +59,7 @@ internal sealed class RoundFollowable : IFollowable
 
     public bool ShowAxes { get; set; }
 
-    /// <summary>
-    /// The round's analytic position — the same thing <c>Vehicle.GetPositionEcl</c> reports, so
-    /// the camera sits in the frame everything else here is computed in.
-    /// </summary>
+    /// <summary>The round's analytic position, as <c>Vehicle.GetPositionEcl</c> also reports.</summary>
     public double3 GetPositionEcl()
     {
         if (_round is { } round) LastPositionEcl = round.PositionEcl;
@@ -89,15 +74,12 @@ internal sealed class RoundFollowable : IFollowable
 
     public double3 GetPositionCceFromEcl(double3 positionEcl) => positionEcl - GetPositionEcl();
 
-    /// <summary>
-    /// Identity, so a camera offset stays in ecliptic axes rather than turning with the round.
-    /// </summary>
+    /// <summary>Identity, so a camera offset does not turn with the round.</summary>
     public doubleQuat GetBodyFixed2Ecl() => doubleQuat.Identity;
 
     public double3 GetBodyRates() => double3.Zero;
 
-    // Null rather than a made-up frame. Both are only read for a followable that is a Vehicle,
-    // which this is not, and inventing one would be a claim about orientation this cannot support.
+    // Only read for a followable that is a Vehicle, which this is not.
     public doubleQuat? GetEnu2Cce() => null;
 
     public doubleQuat? GetLvlh2Cce() => null;

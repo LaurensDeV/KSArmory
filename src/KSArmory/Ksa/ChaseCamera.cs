@@ -14,9 +14,8 @@ namespace KSArmory;
 /// </summary>
 internal sealed class ChaseCamera
 {
-    // The stand-off at range, and the one at the moment of arrival. The camera closes between
-    // them as the round converges: a fixed distance makes a missile appear to hang still, because
-    // everything in frame scales together.
+    // The stand-off at range and at arrival; the camera closes between them as the round
+    // converges.
     private const double Behind = 26.0;
     private const double Above = 6.0;
     private const double Ahead = 120.0;
@@ -24,19 +23,15 @@ internal sealed class ChaseCamera
     private const double BehindAtImpact = 7.0;
     private const double AboveAtImpact = 1.6;
 
-    // Closing runs on time to impact rather than distance, and is normalised against the time
-    // left when the chase began -- so it starts easing the moment the view is taken, whatever the
-    // range, instead of sitting at arm's length until the last second.
-    // Zero, so the camera is still moving when the round goes off. Stopping the closing early
-    // leaves it parked for the last moment, and a camera that stops just before the impact reads
-    // as the shot being over before it happens.
+    // Closing runs on time to impact, normalised against the time left when the chase began, so
+    // it starts easing the moment the view is taken.
+    // Zero, so the camera is still moving when the round goes off.
     private const double CloseUntil = 0.0;
 
     // What the flight had left when the view was taken. The whole curve is measured against it.
     private double _flightAtTake;
 
-    // How far a round must get from the tube before the view is taken. A missile leaves almost
-    // vertically, so "behind it" for the first moment is underneath the vehicle that fired it.
+    // A missile leaves almost vertically, so "behind it" at first is under the vehicle.
     private const double ClearOfLauncher = 80.0;
 
     // And a floor, for anything that gets past that: the eye never sits below the launcher by
@@ -58,22 +53,17 @@ internal sealed class ChaseCamera
     private double3 _holdUp;
     private double _holding;
 
-    // Rounds that have already had their turn: the siblings still in the air when the view was
-    // given up. Waiting for the sky to empty instead does not work -- a salvo's second missile
-    // outlives the target its first one killed and flies to its full life, so the sky is never
-    // empty and nothing is ever followed again.
+    // Rounds that have already had their turn. Waiting for the sky to empty instead never fires:
+    // a salvo's second missile outlives the target its first one killed.
     private readonly List<IProjectile> _passedOver = [];
 
     /// <summary>The round being chased, or null.</summary>
     public IProjectile? Round => _round;
 
     /// <summary>
-    /// How much of the flight is left, as a fraction of what was left when the view was taken.
-    /// One on the first frame, zero at impact, and NaN when there is no closing solution.
-    ///
-    /// <para>Shared with the overlay so the brackets grow on the same curve the camera closes on,
-    /// rather than on the target's apparent size — which makes a large craft start large and a
-    /// kitten stay small, when what should be read off it is the distance.</para>
+    /// Flight left as a fraction of what was left when the view was taken: one on the first frame,
+    /// zero at impact, NaN with no closing solution. Shared with the overlay so the brackets grow
+    /// on the same curve.
     /// </summary>
     public double Closing { get; private set; } = double.NaN;
 
@@ -156,9 +146,8 @@ internal sealed class ChaseCamera
 
         if (_round is null)
         {
-            // Only if the view is already on this craft. Otherwise a site somewhere else takes the
-            // camera off whatever is being watched, which is a hijack however good the shot --
-            // and with several systems armed, whichever fired last would win the view.
+            // Only if the view is already on this craft: otherwise a site elsewhere takes the
+            // camera off whatever is being watched.
             if (!KsaWorld.MainViewFollows(battery.Platform)) return;
 
             _saved = KsaWorld.RememberMainView();
@@ -237,9 +226,7 @@ internal sealed class ChaseCamera
         return Newest(battery);
     }
 
-    // What the closing curve is actually being fed. The stand-off is the visible thing, and the
-    // range is the input nobody can see: an aimpoint that is not resampled reports a distance to
-    // where the target was at launch, which drives the curve from the wrong number.
+    // What the closing curve is being fed: the stand-off is visible, the input is not.
     private int _rangeFrames;
 
     private void ReportClosing(IProjectile round, double toGo, double behind)
@@ -251,13 +238,9 @@ internal sealed class ChaseCamera
                  + $" of {_flightAtTake:F1}, stand-off {behind:F1} m");
     }
 
-    // How far the round still has to go, or NaN when it is not chasing anything -- an unguided
-    // shell has nothing to converge on and keeps the full stand-off.
-    //
-    // Measured against the target where it is NOW, not against the aimpoint. An aimpoint holds an
-    // absolute ecliptic position from the moment it was taken, and the world leaves that point
-    // behind at ~29.8 km/s: the range to it grows by that much every second while the round is
-    // in fact closing. Measured in flight at 208 km and rising on a missile that hit at 16 m.
+    // Against the target where it is NOW, not the aimpoint: an aimpoint holds an absolute
+    // ecliptic position, and the world leaves it behind at ~29.8 km/s, so the range to it grows
+    // while the round closes. NaN when nothing is being chased.
     private static double TimeToTarget(IProjectile round)
     {
         if (round.TargetRef is not Vehicle target || !KsaWorld.IsAlive(target)) return double.NaN;
