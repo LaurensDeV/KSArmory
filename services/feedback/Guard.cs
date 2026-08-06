@@ -220,7 +220,11 @@ public static partial class Guard
             [' ', '\n', '\t', '\r', '.', ',', ';', ':', '!', '?', '(', ')', '"', '/'],
             StringSplitOptions.RemoveEmptyEntries);
 
-        if (words.Length < 8) return true;
+        // Long enough that their absence is evidence. Short imperative English carries no function
+        // words at all -- "pls add more guns", "turret wont move", "more ammo please" -- and
+        // refusing those as foreign was worse than reading the occasional report in Dutch, which
+        // is the trade this whole function is supposed to make.
+        if (words.Length < 25) return true;
 
         int markers = words.Count(w => EnglishMarkers.Contains(w.Trim('\'')));
         return markers >= 1 + words.Length / 25;

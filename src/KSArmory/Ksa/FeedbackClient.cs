@@ -129,7 +129,10 @@ internal sealed class FeedbackClient
                 return;
 
             case 422:
-                Fail("that reads as abusive - please rewrite it");
+                // The endpoint refuses for more than one reason and says which. Assuming the
+                // worst of them told a player asking for more guns that their feedback read as
+                // abusive, because the language check answers 422 as well.
+                Fail(Reason(body) ?? "that report was not accepted - please rewrite it");
                 return;
 
             case 429:
@@ -151,6 +154,22 @@ internal sealed class FeedbackClient
         Sent = false;
         Status = why;
         Log.Warn($"report not sent: {why}");
+    }
+
+    // The refusal reason the endpoint sent, as {"error": "..."}.
+    private static string? Reason(string body)
+    {
+        try
+        {
+            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(body);
+            return document.RootElement.TryGetProperty("error", out System.Text.Json.JsonElement error)
+                       ? error.GetString()
+                       : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     // The endpoint answers with {"url": "..."} on success, and with plain text if something in

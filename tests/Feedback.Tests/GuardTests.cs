@@ -87,6 +87,27 @@ public class GuardTests
     }
 
     [Theory]
+    [InlineData("i want more guns pls add more guns")]
+    [InlineData("pls add more guns")]
+    [InlineData("more ammo please")]
+    [InlineData("turret wont move after launch")]
+    [InlineData("add flak cannons next")]
+    public void ShortImperativeEnglishIsNotForeign(string text)
+    {
+        // Every one of these is plain English containing no function word at all. The first was
+        // refused in game, and the player was told their feedback read as abusive.
+        Assert.True(Guard.LooksEnglish(text), text);
+    }
+
+    [Fact]
+    public void ScriptStillDecidesWhateverTheLength()
+    {
+        // Loosening the word test must not loosen the reliable half: a body of Cyrillic is not
+        // English at any length.
+        Assert.False(Guard.LooksEnglish("больше пушек пожалуйста"));
+    }
+
+    [Theory]
     [InlineData("0.10.0", "0.9.0", true)]      // the comparison a string sort gets backwards
     [InlineData("0.9.0", "0.10.0", false)]
     [InlineData("1.0.0", "1.0.0", true)]

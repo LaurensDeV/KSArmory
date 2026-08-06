@@ -58,7 +58,10 @@ internal partial class Ui
         _report.Kind = kind;
         _report.AttachLog = kind == ReportKind.Bug;
 
-        if (!_reportOpen) _feedback.Clear();
+        // Always, so the panel buttons mean "write one" whatever is on screen. Without this,
+        // pressing them while the thank-you is up leaves the thank-you up and they do nothing
+        // visible.
+        _feedback.Clear();
 
         _reportOpen = true;
         _logBytes = LogSize();
@@ -73,26 +76,61 @@ internal partial class Ui
 
         if (ImGui.Begin($"{title}###KSArmoryReport", ref _reportOpen))
         {
-            DrawKindSwitch();
-            ImGui.Separator();
-
-            ImGui.TextDisabled(_report.Kind == ReportKind.Bug
-                                   ? "What went wrong, and what you were doing at the time."
-                                   : "What you would like this to do.");
-
-            ImGui.SetNextItemWidth(420f);
-            Field("Summary", ref _report.Summary, SummaryBytes);
-
-            Field("Detail", ref _report.Detail, DetailBytes, new float2(420f, 120f));
-
-            DrawLogAttachment();
-            ImGui.Separator();
-
-            DrawSendButton();
-            DrawReportStatus();
+            // Once it is filed there is nothing left to do, so the form goes rather than sitting
+            // there inviting a second identical report from someone who is not sure it worked.
+            if (_feedback.Sent) DrawThanks();
+            else DrawReportForm();
         }
 
         ImGui.End();
+    }
+
+    private void DrawReportForm()
+    {
+        DrawKindSwitch();
+        ImGui.Separator();
+
+        ImGui.TextDisabled(_report.Kind == ReportKind.Bug
+                               ? "What went wrong, and what you were doing at the time."
+                               : "What you would like this to do.");
+
+        ImGui.SetNextItemWidth(420f);
+        Field("Summary", ref _report.Summary, SummaryBytes);
+
+        Field("Detail", ref _report.Detail, DetailBytes, new float2(420f, 120f));
+
+        DrawLogAttachment();
+        ImGui.Separator();
+
+        DrawSendButton();
+        DrawReportStatus();
+    }
+
+    private void DrawThanks()
+    {
+        // Cleared here rather than at send: the text is what the thank-you is about until it is
+        // shown, and leaving it would offer the same report back for a second send.
+        _report.Summary = string.Empty;
+        _report.Detail = string.Empty;
+
+        ImGui.TextColored(Green, _feedback.Status ?? "thank you - report filed");
+
+        if (_feedback.IssueUrl is not null)
+        {
+            ImGui.TextDisabled("It is now an issue on GitHub:");
+            ImGui.TextDisabled(_feedback.IssueUrl);
+        }
+
+        ImGui.Separator();
+        ImGui.TextDisabled("Nothing else is needed. Sending it twice does not help.");
+
+        if (ImGui.Button("Close")) _reportOpen = false;
+
+        ImGui.SameLine();
+
+        // Deliberate, and empty: someone with a second thing to report should not have to hunt
+        // for the way back, and should not be handed the previous one to resend.
+        if (ImGui.Button("Write another")) _feedback.Clear();
     }
 
     private void DrawKindSwitch()
