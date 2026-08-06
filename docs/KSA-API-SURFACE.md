@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-107 types and 271 members across 6 assemblies.
+108 types and 274 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -327,6 +327,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.doubleQuat)`
 
+### KSA.FixedController
+
+- `Brutal.Numerics.double3 CameraOffset`
+- `Brutal.Numerics.double3 CameraRotation`
+
 ### KSA.GameSave
 
 - `string get_Id()`
@@ -620,6 +625,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Camera BaseCamera`
 - `KSA.Camera GetCamera()`
 - `KSA.CameraMode Mode`
+- `KSA.FixedController FixedController`
 - `KSA.OrbitController OrbitController`
 - `bool IsOffscreen`
 - `bool Visible`

@@ -1387,26 +1387,6 @@ internal static class KsaWorld
         }
     }
 
-    /// <summary>
-    /// Whether the main camera has something to follow.
-    ///
-    /// <para>Asked while the view is held in Fixed mode, because a camera that is both is the
-    /// pair that divides by zero. Anything in the game that attaches a follow without also
-    /// changing the mode — a jump-to-vehicle key, say — recreates it without the mod touching
-    /// anything, so holding Fixed means watching for it.</para>
-    /// </summary>
-    public static bool MainViewIsFollowing()
-    {
-        try
-        {
-            return Program.MainViewport?.GetCamera()?.Following is not null;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     /// <summary>What the main view was doing before something borrowed it.</summary>
     public readonly record struct MainView(IFollowable? Following, CameraMode Mode, bool Valid);
 
@@ -1433,10 +1413,16 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Points the main view from a place, in Fixed mode.
+    /// Points the main view from a place, using Fixed mode as it is meant to be used.
     ///
-    /// <para>Unlike a secondary viewport this one keeps its sky, clouds and terrain: the passes
-    /// that draw them only ever run for the frame viewport, which is always this one.</para>
+    /// <para>The camera keeps following whatever it followed. <c>FixedController.OnFrame</c> puts
+    /// it at <c>following.GetPositionEcl() + CameraOffset</c> looking along <c>CameraRotation</c>,
+    /// so those two fields are the whole interface — and the offset is measured from the followed
+    /// craft, not from the world.</para>
+    ///
+    /// <para><c>CameraRotation</c> must be non-zero before the mode is set. The controller crosses
+    /// it with the frame's up and normalises, so a zero vector divides by zero — which is the
+    /// entire reason this mode has a reputation for crashing.</para>
     /// </summary>
     public static bool TryLookFromMainViewport(double3 eyeEcl, double3 forwardEcl, double3 upEcl)
     {
@@ -1446,39 +1432,16 @@ internal static class KsaWorld
         try
         {
             if (Program.MainViewport is not { } viewport) return false;
+            if (viewport.FixedController is not { } controller) return false;
+            if (viewport.GetCamera()?.Following is not { } following) return false;
 
-            // Unfollow BEFORE Fixed, and only enter Fixed once the unfollow is confirmed.
-            // FixedController.OnFrame crosses its own zero-default CameraRotation for a camera
-            // that follows something, so the pair takes the game down on the next frame with a
-            // DivideByZeroException raised nowhere near here. Swallowing a failed unfollow and
-            // setting Fixed anyway is how that happens: on a secondary viewport the camera
-            // follows nothing so it never bites, and this is the main one, which always does.
-            if (viewport.Mode != CameraMode.Fixed)
-            {
-                if (viewport.GetCamera() is not { } following) return false;
+            // Set before the mode, every time. A frame drawn in Fixed with a zero rotation is the
+            // crash, and setting the mode first leaves exactly that gap.
+            controller.CameraRotation = Vec.Unit(forwardEcl);
+            controller.CameraOffset = eyeEcl - following.GetPositionEcl();
 
-                try
-                {
-                    following.Unfollow(changeControl: false);
-                }
-                catch (Exception e)
-                {
-                    Log.Warn($"refusing the main view: unfollow failed ({e.Message})");
-                    return false;
-                }
+            if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
 
-                if (following.Following is not null)
-                {
-                    Log.Warn("refusing the main view: it is still following something");
-                    return false;
-                }
-
-                viewport.SetCameraMode(CameraMode.Fixed);
-            }
-
-            if (viewport.BaseCamera is not { } camera) return false;
-
-            camera.LookAt(eyeEcl, eyeEcl + Vec.Unit(forwardEcl) * 1000.0, upEcl);
             return true;
         }
         catch (Exception e)
@@ -1489,13 +1452,10 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Asks the main view to leave Fixed mode. The follow is <em>not</em> restored here.
+    /// Puts the main view back in the mode it was found in.
     ///
-    /// <para>Two calls rather than one, because the mode does not change when it is set: the
-    /// viewport applies it on its next frame. Attaching the follow in the same breath therefore
-    /// leaves a camera that is still in Fixed and now following something, which is precisely the
-    /// pair that divides by zero inside FixedController. <see cref="TryFinishRestore"/> attaches
-    /// it once the mode has actually taken.</para>
+    /// <para>Only the mode. The follow was never taken away, so there is nothing to re-attach and
+    /// no window in which the camera follows in Fixed mode with no rotation set.</para>
     /// </summary>
     public static bool BeginRestoreMainView(MainView saved)
     {
@@ -1512,33 +1472,6 @@ internal static class KsaWorld
         {
             Log.Warn($"could not restore the main view: {e.Message}");
             return false;
-        }
-    }
-
-    /// <summary>
-    /// Re-attaches what the view was following, once it is out of Fixed mode.
-    /// </summary>
-    /// <returns>True when there is nothing left to do — attached, or nothing to attach.</returns>
-    public static bool TryFinishRestore(MainView saved)
-    {
-        if (!saved.Valid || saved.Following is null) return true;
-
-        try
-        {
-            if (Program.MainViewport is not { } viewport) return true;
-
-            // Still Fixed: the mode change has not been applied yet. Attaching now is the crash.
-            if (viewport.Mode == CameraMode.Fixed) return false;
-
-            if (viewport.GetCamera() is not { } camera) return true;
-
-            camera.SetFollow(saved.Following, tidalLocking: true, changeControl: false, alert: false);
-            return true;
-        }
-        catch (Exception e)
-        {
-            Log.Warn($"could not re-follow after the chase: {e.Message}");
-            return true;
         }
     }
 

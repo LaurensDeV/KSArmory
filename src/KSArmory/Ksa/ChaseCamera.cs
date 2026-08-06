@@ -23,10 +23,6 @@ internal sealed class ChaseCamera
     private KsaWorld.MainView _saved;
     private IProjectile? _round;
 
-    // A restore in progress. The follow cannot be re-attached until the viewport has actually
-    // left Fixed mode, which happens on its next frame rather than when the mode is set.
-    private KsaWorld.MainView _restoring;
-
     /// <summary>The round being chased, or null.</summary>
     public IProjectile? Round => _round;
 
@@ -37,21 +33,8 @@ internal sealed class ChaseCamera
 
         _round = null;
         KsaWorld.BeginRestoreMainView(_saved);
-
-        // Finished over the following frames, not now.
-        _restoring = _saved;
         _saved = default;
         Log.Info("chase: released the main view");
-    }
-
-    /// <summary>
-    /// Runs every frame, whether or not the chase is on, so a restore always completes.
-    /// </summary>
-    public void Tick()
-    {
-        if (!_restoring.Valid) return;
-
-        if (KsaWorld.TryFinishRestore(_restoring)) _restoring = default;
     }
 
     // Lets go without touching the view, for when the player has already taken it.
@@ -78,16 +61,6 @@ internal sealed class ChaseCamera
         if (_round is not null && !KsaWorld.MainViewIsFixed())
         {
             StandDown();
-            return;
-        }
-
-        // Something attached a follow while this holds the view in Fixed mode. That pair is fatal
-        // on the next frame, and it can arrive from anywhere in the game, so the view goes back
-        // immediately rather than being held for one more frame.
-        if (_round is not null && KsaWorld.MainViewIsFollowing())
-        {
-            Log.Info("chase: the view acquired a follow, giving it back");
-            Release();
             return;
         }
 

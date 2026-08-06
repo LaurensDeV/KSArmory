@@ -167,34 +167,38 @@ with `RequireLauncherPart` off. Core's medium capsule carries the doors
 
 ---
 
-## Driving the main camera means unfollowing first
+## Driving the main camera: set CameraRotation, do not unfollow
 
-**Not blocked** — recorded because it is a crash, in engine code, with nothing in the message
-pointing at the cause.
+**Not blocked** — recorded because getting it wrong is a crash, in engine code, with nothing in
+the message pointing at the cause, and because the obvious reading of it is backwards.
 
-`FixedController.OnFrame` runs only when the camera it drives is following something, and then
-does:
+`FixedController.OnFrame` runs only when the camera it drives is following something, and then:
 
 ```csharp
 double3 cameraRotation = CameraRotation;                       // public field, defaults to zero
 double3 vector2 = double3.Cross(cameraRotation, vector).Normalized();
+...
+Camera.PositionEcl = following.GetPositionEcl() + CameraOffset;
 ```
 
-A cross product with the zero vector is the zero vector, and normalising that divides by a zero
-length. So putting a viewport into `CameraMode.Fixed` while its camera still follows a craft takes
-the game down on the *next* frame with `DivideByZeroException` inside
-`KSA.Program.OnFrameViewports` — nowhere near the mod that set the mode.
+So Fixed mode is **"follow this, but sit at an offset from it and look along a direction I give
+you"** — `CameraOffset` and `CameraRotation` are the entire interface, and the offset is measured
+from the followed craft rather than from the world. A camera in Fixed mode *should* be following
+something.
 
-`Camera.Unfollow(changeControl: false)` before the switch avoids it and keeps control of the
-vehicle. `KsaWorld.TryLookFromViewport` does this, so no caller has to remember. **Nothing drives
-the main viewport yet** — anything that does must do the same, and must also put back what the
-camera was following.
+It divides by zero only because `CameraRotation` defaults to the zero vector, and crossing that
+with anything and normalising is a division by zero length. **Set `CameraRotation` before setting
+the mode**, and keep it set every frame.
 
-The optical head never met it because the secondary viewport it borrows follows nothing. A player
-who sets a secondary view to follow a craft and then enables the optic view on it would have,
-which is why the guard is in both.
+The tempting misreading is that Fixed and following are an illegal pair, and that the fix is
+`Camera.Unfollow(changeControl: false)` first. That does stop the crash, and it is wrong: the
+camera then has nothing to be offset from, the view has to be restored by re-attaching a follow,
+and *any* other thing in the game that attaches one — a jump-to-vehicle key, a scene teardown —
+puts the camera back into the fatal pair with the rotation still zero. Three separate crashes
+came out of that reading before the decompiled source settled it.
 
----
+`KsaWorld.TryLookFromMainViewport` does it the supported way. `TryLookFromViewport` unfollows,
+because a secondary viewport's camera genuinely follows nothing and has nothing to offset from.
 
 ## Aiming a character attachment
 
