@@ -177,6 +177,10 @@ public sealed class KSArmoryMod
                 _chase.Release();
             }
 
+            // After the camera has been placed, so the brackets are projected through this frame's
+            // view rather than the one before it.
+            if (KsaWorld.InFlight) ChaseHud.Draw(_chase);
+
             // After the panel, so a click on a window is not also a click on the world behind it.
             if (KsaWorld.InFlight)
             {

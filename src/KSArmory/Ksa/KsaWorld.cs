@@ -1387,6 +1387,22 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>Index of the main viewport, for the projection helpers that take one.</summary>
+    public static int MainViewportIndex
+    {
+        get
+        {
+            try
+            {
+                return Program.MainViewport?.Index ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+    }
+
     /// <summary>What the main view was doing before something borrowed it.</summary>
     public readonly record struct MainView(IFollowable? Following, CameraMode Mode, bool Valid);
 

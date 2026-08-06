@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-112 types and 276 members across 6 assemblies.
+112 types and 277 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -646,6 +646,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.OrbitController OrbitController`
 - `bool IsOffscreen`
 - `bool Visible`
+- `int Index`
 - `int get_Height()`
 - `int get_Width()`
 - `void SetCameraMode(KSA.CameraMode)`
