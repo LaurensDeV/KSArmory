@@ -236,15 +236,25 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
         // nothing left to switch off and no state for the button to get out of step with.
         // ASCII on purpose: ImGui's default font carries basic Latin only, so a crosshair glyph
         // would render as a box.
-        if (ImGui.SmallButton("(+)"))
+        // Nothing to turn towards when the view is already on it. Shown as inert rather than
+        // hidden, so the row keeps its shape and the button does not move under the pointer.
+        if (KsaWorld.MainViewFollows(craft))
         {
-            Markers.Show(craft);
-            _watch.Watch(craft);
+            ImGui.TextDisabled("(+)");
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Already looking at it.");
         }
-        if (ImGui.IsItemHovered())
+        else
         {
-            ImGui.SetTooltip("Turn the view towards it and label it for a few seconds.\n"
-                             + "Move the camera yourself at any point and it lets go.");
+            if (ImGui.SmallButton("(+)"))
+            {
+                Markers.Show(craft);
+                _watch.Watch(craft);
+            }
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("Turn the view towards it and label it for a few seconds.\n"
+                                 + "Move the camera yourself at any point and it lets go.");
+            }
         }
 
         ImGui.SameLine();

@@ -439,13 +439,16 @@ Added after the system was working. These are not "probably fine", they are "nev
 
 ### 7.1 Save / load with the part fitted  ← highest risk
 
-- [ ] Build a craft with the Pantsir, save the game, quit to menu, reload. Craft intact, part present.
+- [x] Build a craft with the Pantsir, save the game, quit to menu, reload. Craft intact, part present.
 - [ ] Save *while rounds are in flight*, reload. No exception; rounds simply gone is fine.
 - [ ] A save made with the mod active still loads with the mod **removed** — or fails cleanly.
 
 **Why it matters:** the part goes into the save's part tree. If KSA cannot resolve
-`KSArmory_Prefab_Launcher6` on load, the craft — or the whole save — may fail. Nobody has
-tried this once, and it is the only failure here that could cost you work.
+`KSArmory_Prefab_Launcher6` on load, the craft — or the whole save — may fail.
+
+Confirmed 2026-08-06, after the part Id was renamed that morning: saved, quit to menu, reloaded,
+craft intact with the launcher present. The other two lines below — saving with rounds in flight,
+and loading with the mod removed — are still untried.
 
 ### 7.1b Timed airburst (flak)
 
