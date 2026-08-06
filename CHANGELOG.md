@@ -1,3 +1,9 @@
+## [0.8.29](https://github.com/LaurensDeV/KSArmory/compare/v0.8.28...v0.8.29) (2026-08-06)
+
+### Features
+
+* **ui:** close the chase camera in as the round arrives ([232adee](https://github.com/LaurensDeV/KSArmory/commit/232adee4ff4b968800b04761f49ae507e295aabb))
+
 ## [0.8.28](https://github.com/LaurensDeV/KSArmory/compare/v0.8.27...v0.8.28) (2026-08-06)
 
 ### Features
