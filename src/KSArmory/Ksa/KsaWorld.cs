@@ -1424,21 +1424,29 @@ internal static class KsaWorld
     /// it with the frame's up and normalises, so a zero vector divides by zero — which is the
     /// entire reason this mode has a reputation for crashing.</para>
     /// </summary>
-    public static bool TryLookFromMainViewport(double3 eyeEcl, double3 forwardEcl, double3 upEcl)
+    /// <param name="offsetFromFollowed">
+    /// Where the camera goes <em>relative to the craft the view is following</em>, not an absolute
+    /// position. The controller adds it to <c>following.GetPositionEcl()</c> later in the frame,
+    /// so an offset derived from that position here is measured against a different instant from
+    /// the one it is applied to — which is a frame of the platform's motion, every frame, and
+    /// reads as the thing being watched shivering.
+    /// </param>
+    public static bool TryLookFromMainViewport(double3 offsetFromFollowed, double3 forwardEcl,
+                                               double3 upEcl)
     {
-        if (!Vec.IsFinite(eyeEcl) || !Vec.IsFinite(forwardEcl)) return false;
+        if (!Vec.IsFinite(offsetFromFollowed) || !Vec.IsFinite(forwardEcl)) return false;
         if (Vec.Len2(forwardEcl) < 1e-12) return false;
 
         try
         {
             if (Program.MainViewport is not { } viewport) return false;
             if (viewport.FixedController is not { } controller) return false;
-            if (viewport.GetCamera()?.Following is not { } following) return false;
+            if (viewport.GetCamera()?.Following is null) return false;
 
             // Set before the mode, every time. A frame drawn in Fixed with a zero rotation is the
             // crash, and setting the mode first leaves exactly that gap.
             controller.CameraRotation = Vec.Unit(forwardEcl);
-            controller.CameraOffset = eyeEcl - following.GetPositionEcl();
+            controller.CameraOffset = offsetFromFollowed;
 
             if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
 

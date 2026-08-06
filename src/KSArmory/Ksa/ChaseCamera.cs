@@ -26,7 +26,7 @@ internal sealed class ChaseCamera
     private IProjectile? _round;
 
     // The last pose, which becomes the pose to hold once the round is gone.
-    private double3 _holdEye;
+    private double3 _holdOffset;
     private double3 _holdForward;
     private double3 _holdUp;
     private double _holding;
@@ -43,10 +43,12 @@ internal sealed class ChaseCamera
     public void Release()
     {
         _holding = 0.0;
-
-        if (_round is null) return;
-
         _round = null;
+
+        // Keyed on holding the view, not on having a round: the hold after a burst has no round
+        // and is exactly when the view still has to be given back.
+        if (!_saved.Valid) return;
+
         KsaWorld.BeginRestoreMainView(_saved);
         _saved = default;
         Log.Info("chase: released the main view");
@@ -62,6 +64,18 @@ internal sealed class ChaseCamera
             return;
         }
 
+        // Still watching where the last one went off. Checked before the stand-down, because the
+        // hold is what precedes it.
+        if (_holding > 0.0)
+        {
+            _holding -= Math.Max(0.0, dtPlayer);
+
+            if (!KsaWorld.TryLookFromMainViewport(_holdOffset, _holdForward, _holdUp)) Release();
+            else if (_holding <= 0.0) Release();
+
+            return;
+        }
+
         if (_standingDown)
         {
             if (!AnythingFlying(battery)) _standingDown = false;
@@ -73,26 +87,27 @@ internal sealed class ChaseCamera
         {
             _round = null;
             _holding = 0.0;
-            _saved = default;
+            _saved = default;   // dropped, not restored: the view is already theirs
             _standingDown = true;
             Log.Info("chase: the view was taken over by hand, standing down");
-            return;
-        }
-
-        // Still watching where the last one went off.
-        if (_holding > 0.0)
-        {
-            _holding -= Math.Max(0.0, dtPlayer);
-
-            if (!KsaWorld.TryLookFromMainViewport(_holdEye, _holdForward, _holdUp)) Release();
-            else if (_holding <= 0.0) Release();
-
             return;
         }
 
         IProjectile? round = Current(battery);
         if (round is null)
         {
+            // The one being watched has gone off. Hold the last pose on the burst, then stand
+            // down for the rest of the engagement rather than cutting to a sibling missile --
+            // what just happened is the part worth seeing.
+            if (_round is not null)
+            {
+                _round = null;
+                _holding = LingerSeconds;
+                _standingDown = true;
+                Log.Info("chase: holding on the burst");
+                return;
+            }
+
             Release();
             return;
         }
@@ -107,22 +122,19 @@ internal sealed class ChaseCamera
 
         _round = round;
 
-        // The analytic position, not the drawn one. The drawn position is converted through the
-        // camera, and this moves the camera, so the two chase each other and the round shivers in
-        // frame. A few metres of offset that holds still beats none that does not.
-        double3 at = round.PositionEcl;
+        // Everything platform-relative. OffsetFromPlatform is the round's position measured from
+        // the same craft the controller adds the camera offset to, so no absolute position and no
+        // sampling instant enters into it.
+        double3 relative = round.OffsetFromPlatform;
+        double3 up = -Vec.Unit(KsaWorld.GravityAt(battery.Platform, round.PositionEcl));
 
-        // Away from the planet, which is the direction gravity is not. A zero here (deep space) is
-        // handled by TryPose falling back to any perpendicular rather than rolling the view.
-        double3 up = -Vec.Unit(KsaWorld.GravityAt(battery.Platform, at));
-
-        if (!ChaseView.TryPose(at, round.VelocityLocal, up, Behind, Above, Ahead,
+        if (!ChaseView.TryPose(relative, round.VelocityLocal, up, Behind, Above, Ahead,
                                out double3 eye, out double3 forward, out double3 upEcl))
         {
             return;
         }
 
-        _holdEye = eye;
+        _holdOffset = eye;
         _holdForward = forward;
         _holdUp = upEcl;
 
@@ -131,17 +143,16 @@ internal sealed class ChaseCamera
         if (!KsaWorld.TryLookFromMainViewport(eye, forward, upEcl)) Release();
     }
 
-    // The round already being ridden, while it still flies. When it stops, the view holds where it
-    // was rather than cutting to whatever else is in the air: the burst is the thing worth
-    // watching, and a salvo always has a sibling to jump to.
+    // The round already being ridden, while it still flies. Once it stops, null: the caller holds
+    // the pose it last had rather than recomputing one from a detonated round, whose position has
+    // just jumped to the burst point and whose velocity describes nothing.
     private IProjectile? Current(DefenceBattery battery)
     {
         if (_round is { } held)
         {
             if (held.State == RoundState.Flying && battery.Rounds.Contains(held)) return held;
 
-            _holding = LingerSeconds;
-            return held;
+            return null;
         }
 
         return Newest(battery);
