@@ -13,11 +13,19 @@ namespace KSArmory;
 /// </summary>
 internal sealed class ChaseCamera
 {
-    // Close enough to read the round as an object rather than a dot, far enough that it does not
-    // fill the frame.
-    private const double Behind = 22.0;
-    private const double Above = 5.0;
+    // The stand-off at range, and the one at the moment of arrival. The camera closes between
+    // them as the round converges: a fixed distance makes a missile appear to hang still, because
+    // everything in frame scales together.
+    private const double Behind = 26.0;
+    private const double Above = 6.0;
     private const double Ahead = 120.0;
+
+    private const double BehindAtImpact = 7.0;
+    private const double AboveAtImpact = 1.6;
+
+    // Where the closing starts and where it has finished.
+    private const double CloseFrom = 1_500.0;
+    private const double CloseTo = 60.0;
 
     // How far a round must get from the tube before the view is taken. A missile leaves almost
     // vertically, so "behind it" for the first moment is underneath the vehicle that fired it.
@@ -159,7 +167,12 @@ internal sealed class ChaseCamera
         // is sampled at one instant and applied at another.
         double3 up = -Vec.Unit(KsaWorld.GravityAt(battery.Platform, round.PositionEcl));
 
-        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, Behind, Above, Ahead,
+        // Closing in as it arrives, which is what conveys the speed.
+        double range = RangeToTarget(round);
+        double behind = ChaseView.StandOff(range, CloseFrom, CloseTo, Behind, BehindAtImpact);
+        double above = ChaseView.StandOff(range, CloseFrom, CloseTo, Above, AboveAtImpact);
+
+        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, behind, above, Ahead,
                                out double3 eye, out double3 forward, out double3 upEcl))
         {
             return;
@@ -227,6 +240,16 @@ internal sealed class ChaseCamera
         _slipMin = double.MaxValue;
         _slipMax = 0.0;
         _slipStep = 0.0;
+    }
+
+    // How far the round still has to go, or NaN when it is not aimed at anything -- an unguided
+    // shell has nothing to converge on and keeps the full stand-off.
+    private static double RangeToTarget(IProjectile round)
+    {
+        double3 at = round.Aimpoint.PositionEcl;
+        if (!Vec.IsFinite(at) || Vec.Len2(at) < 1e-6) return double.NaN;
+
+        return Vec.Len(at - round.PositionEcl);
     }
 
     // Everything in the air right now has had its chance. The next launch has not.

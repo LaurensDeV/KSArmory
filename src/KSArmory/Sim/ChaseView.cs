@@ -86,6 +86,33 @@ public static class ChaseView
     // climb still looks vertical.
     private const double MaxAlongAxis = 0.999;
 
+    /// <summary>
+    /// How far back the camera should sit, closing in as the round converges on what it is
+    /// shooting at.
+    ///
+    /// <para>Distance is what conveys speed: a camera at a fixed stand-off shows a missile that
+    /// appears to hang still, because everything in frame scales together. Drawing in as the
+    /// range falls makes the last second read as an arrival rather than a cut.</para>
+    ///
+    /// <para>Eased rather than linear, so the closing is gentle at range and quickest where the
+    /// engagement is decided.</para>
+    /// </summary>
+    /// <param name="range">Distance from the round to what it is aimed at.</param>
+    /// <param name="far">At or beyond this range, the full stand-off.</param>
+    /// <param name="near">At or inside this range, the closest the camera comes.</param>
+    public static double StandOff(double range, double far, double near,
+                                  double farDistance, double nearDistance)
+    {
+        if (!double.IsFinite(range) || !(far > near)) return farDistance;
+
+        double t = Math.Clamp((range - near) / (far - near), 0.0, 1.0);
+
+        // Smoothstep: flat at both ends, so neither the far cruise nor the final closing snaps.
+        t = t * t * (3.0 - (2.0 * t));
+
+        return nearDistance + ((farDistance - nearDistance) * t);
+    }
+
     private static double3 AnyPerpendicular(double3 axis)
     {
         double3 candidate = Math.Abs(axis.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);

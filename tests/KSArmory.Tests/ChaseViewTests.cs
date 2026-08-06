@@ -125,4 +125,34 @@ public class ChaseViewTests
 
         Assert.True(forward.X > 0.9, $"forward drifted to {forward.X}");
     }
+
+    [Fact]
+    public void TheCameraSitsFarBackWhileTheRoundIsStillFar()
+        => Assert.Equal(22.0, ChaseView.StandOff(5_000, 2_000, 50, 22.0, 6.0), 1e-9);
+
+    [Fact]
+    public void AndClosesRightInAtTheEnd()
+        => Assert.Equal(6.0, ChaseView.StandOff(10, 2_000, 50, 22.0, 6.0), 1e-9);
+
+    [Fact]
+    public void TheClosingIsMonotonic()
+    {
+        // A camera that comes in and then backs off again would read as a mistake, not a move.
+        double previous = double.MaxValue;
+
+        for (double range = 3_000; range >= 0; range -= 25)
+        {
+            double distance = ChaseView.StandOff(range, 2_000, 50, 22.0, 6.0);
+
+            Assert.True(distance <= previous + 1e-9, $"backed off at {range} m");
+            previous = distance;
+        }
+    }
+
+    [Fact]
+    public void AnUnknownRangeKeepsTheFullStandOff()
+    {
+        // An unguided round has nothing to converge on; it must not be filmed from six metres.
+        Assert.Equal(22.0, ChaseView.StandOff(double.NaN, 2_000, 50, 22.0, 6.0), 1e-9);
+    }
 }
