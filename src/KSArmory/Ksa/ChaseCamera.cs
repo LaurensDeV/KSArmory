@@ -82,7 +82,10 @@ internal sealed class ChaseCamera
 
         if (_standingDown)
         {
-            if (!AnythingFlying(battery)) _standingDown = false;
+            if (AnythingFlying(battery)) return;
+
+            _standingDown = false;
+            Log.Info("chase: the sky is clear, ready for the next round");
             return;
         }
 
@@ -123,12 +126,19 @@ internal sealed class ChaseCamera
         if (_round is null)
         {
             _saved = KsaWorld.RememberMainView();
-            if (!_saved.Valid) return;
+            if (!_saved.Valid)
+            {
+                // Said, not swallowed. A silent return here is indistinguishable from the chase
+                // being switched off, and looks like rounds simply stopping being followed.
+                Log.Warn("chase: cannot read the main view, not taking it");
+                return;
+            }
 
             _followed.Track(round);
 
             if (!KsaWorld.TryFollowOnMainViewport(_followed))
             {
+                Log.Warn("chase: the view refused to follow the round");
                 _saved = default;
                 return;
             }
