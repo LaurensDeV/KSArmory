@@ -1,3 +1,9 @@
+## [0.8.15](https://github.com/LaurensDeV/KSArmory/compare/v0.8.14...v0.8.15) (2026-08-06)
+
+### Features
+
+* **rounds:** burst the cannon shells on a timed fuse ([3bd441a](https://github.com/LaurensDeV/KSArmory/commit/3bd441a8ff2a688e7380770ab60122ec8c8eef4c))
+
 ## [0.8.14](https://github.com/LaurensDeV/KSArmory/compare/v0.8.13...v0.8.14) (2026-08-06)
 
 ### Features
