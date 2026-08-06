@@ -1,3 +1,9 @@
+## [0.8.35](https://github.com/LaurensDeV/KSArmory/compare/v0.8.34...v0.8.35) (2026-08-06)
+
+### Fixes
+
+* **ui:** shrink the chase brackets and drop the ranging ladder ([b2eee3e](https://github.com/LaurensDeV/KSArmory/commit/b2eee3e79c13b23fd4fe4593fdf515e756211ba0))
+
 ## [0.8.34](https://github.com/LaurensDeV/KSArmory/compare/v0.8.33...v0.8.34) (2026-08-06)
 
 ### Features
