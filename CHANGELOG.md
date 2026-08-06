@@ -1,3 +1,9 @@
+## [0.8.17](https://github.com/LaurensDeV/KSArmory/compare/v0.8.16...v0.8.17) (2026-08-06)
+
+### Features
+
+* **ui:** make the timed airburst reachable ([158f446](https://github.com/LaurensDeV/KSArmory/commit/158f446f434a787c1083df4ec9c9dc52b5deb127))
+
 ## [0.8.16](https://github.com/LaurensDeV/KSArmory/compare/v0.8.15...v0.8.16) (2026-08-06)
 
 ### Features
