@@ -161,6 +161,21 @@ build(ksa): retarget 2026.9.1.5200
 `build` is a patch bump. If the upgrade changed mod behaviour a player would notice, that part
 belongs in its own `fix` or `feat` commit — do not bury it in the retarget.
 
+**Release promptly, because reporting is off until you do.** The panel hides **Report bug** and
+**Feedback** whenever the KSA build stamped into the assembly differs from the one running, and
+the moment RocketWerkz ship a new build that is everyone. It is a silent switch: nobody can report
+that reporting is missing. The mod's log says so at load —
+
+```
+KSArmory 0.8.13 built for KSA 2026.8.5.5168, running 2026.9.1.5200 - reporting off
+```
+
+— and shipping a release built against the new lock restores it, for players who update.
+
+The endpoint has the matching rule from the other side: it refuses reports from mod versions older
+than the newest release, resolved at deploy time, and `release.yml` redeploys it as part of
+publishing. Neither needs touching here.
+
 ## If it goes wrong
 
 - **Compile errors mentioning types that clearly still exist** — `Import/` and the mirror have
