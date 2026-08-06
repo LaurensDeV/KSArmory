@@ -1,3 +1,9 @@
+## [0.8.18](https://github.com/LaurensDeV/KSArmory/compare/v0.8.17...v0.8.18) (2026-08-06)
+
+### Features
+
+* **ui:** ride the camera behind a round in flight ([468271f](https://github.com/LaurensDeV/KSArmory/commit/468271f84c1b06abc0fe3a05e178b6821ba19a59))
+
 ## [0.8.17](https://github.com/LaurensDeV/KSArmory/compare/v0.8.16...v0.8.17) (2026-08-06)
 
 ### Features
