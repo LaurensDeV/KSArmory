@@ -1,4 +1,5 @@
 using Brutal.Numerics;
+using KSA;
 using KSArmory.Sim;
 
 namespace KSArmory;
@@ -223,14 +224,18 @@ internal sealed class ChaseCamera
                  + $"stand-off {behind:F1} m, aimpoint {round.Aimpoint.Kind}");
     }
 
-    // How far the round still has to go, or NaN when it is not aimed at anything -- an unguided
+    // How far the round still has to go, or NaN when it is not chasing anything -- an unguided
     // shell has nothing to converge on and keeps the full stand-off.
+    //
+    // Measured against the target where it is NOW, not against the aimpoint. An aimpoint holds an
+    // absolute ecliptic position from the moment it was taken, and the world leaves that point
+    // behind at ~29.8 km/s: the range to it grows by that much every second while the round is
+    // in fact closing. Measured in flight at 208 km and rising on a missile that hit at 16 m.
     private static double RangeToTarget(IProjectile round)
     {
-        double3 at = round.Aimpoint.PositionEcl;
-        if (!Vec.IsFinite(at) || Vec.Len2(at) < 1e-6) return double.NaN;
+        if (round.TargetRef is not Vehicle target || !KsaWorld.IsAlive(target)) return double.NaN;
 
-        return Vec.Len(at - round.PositionEcl);
+        return Vec.Len(KsaWorld.PositionEcl(target) - round.PositionEcl);
     }
 
     // Everything in the air right now has had its chance. The next launch has not.
