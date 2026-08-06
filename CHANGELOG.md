@@ -1,3 +1,9 @@
+## [0.8.36](https://github.com/LaurensDeV/KSArmory/compare/v0.8.35...v0.8.36) (2026-08-06)
+
+### Fixes
+
+* **ui:** only take the view for the craft it is already on ([6140aa4](https://github.com/LaurensDeV/KSArmory/commit/6140aa4a3bf047fce9dc044ec005b836e912ca73))
+
 ## [0.8.35](https://github.com/LaurensDeV/KSArmory/compare/v0.8.34...v0.8.35) (2026-08-06)
 
 ### Fixes
