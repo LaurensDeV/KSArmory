@@ -253,6 +253,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
+| `Sim/ChaseView.cs` | where to put a camera riding behind a round |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
 | `Sim/ReportDraft.cs` | a bug report or idea being written, and whether it is worth sending |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |

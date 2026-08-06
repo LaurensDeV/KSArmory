@@ -186,8 +186,9 @@ the game down on the *next* frame with `DivideByZeroException` inside
 `KSA.Program.OnFrameViewports` — nowhere near the mod that set the mode.
 
 `Camera.Unfollow(changeControl: false)` before the switch avoids it and keeps control of the
-vehicle. `KsaWorld.TryLookFromMainViewport` and `TryLookFromViewport` both do this, so no caller
-has to remember.
+vehicle. `KsaWorld.TryLookFromViewport` does this, so no caller has to remember. **Nothing drives
+the main viewport yet** — anything that does must do the same, and must also put back what the
+camera was following.
 
 The optical head never met it because the secondary viewport it borrows follows nothing. A player
 who sets a secondary view to follow a craft and then enables the optic view on it would have,
