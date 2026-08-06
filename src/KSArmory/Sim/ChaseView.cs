@@ -59,10 +59,32 @@ public static class ChaseView
         if (Vec.Len2(forwardEcl) < 1e-12) return false;
 
         forwardEcl = Vec.Unit(forwardEcl);
+
+        // Never let the view point straight up or straight down the reference frame's axis. KSA's
+        // fixed camera crosses the view direction with that axis and normalises the result, so a
+        // parallel pair is a division by zero -- and a round launched vertically is exactly that
+        // on its first frames. Tilted by the smallest angle that survives it.
+        double3 axis = Vec.Unit(upHint);
+        double alongAxis = Vec.Dot(forwardEcl, axis);
+
+        if (Math.Abs(alongAxis) > MaxAlongAxis)
+        {
+            double3 sideways = forwardEcl - axis * alongAxis;
+            sideways = Vec.Len2(sideways) < 1e-12 ? AnyPerpendicular(axis) : Vec.Unit(sideways);
+
+            double lean = alongAxis < 0.0 ? -MaxAlongAxis : MaxAlongAxis;
+            forwardEcl = Vec.Unit(axis * lean + sideways * Math.Sqrt(1.0 - (MaxAlongAxis * MaxAlongAxis)));
+        }
+
         upEcl = lift;
 
         return Vec.IsFinite(eyeEcl) && Vec.IsFinite(forwardEcl);
     }
+
+    // How nearly the view may point along the reference axis. Cosine of about 2.6 degrees off it:
+    // far enough that the cross product has a length to normalise, close enough that a vertical
+    // climb still looks vertical.
+    private const double MaxAlongAxis = 0.999;
 
     private static double3 AnyPerpendicular(double3 axis)
     {

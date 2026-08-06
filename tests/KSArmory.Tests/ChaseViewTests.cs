@@ -92,4 +92,37 @@ public class ChaseViewTests
         Assert.False(ChaseView.TryPose(nan, new double3(100, 0, 0), Up, 30, 8, 60, out _, out _, out _));
         Assert.False(ChaseView.TryPose(Vec.Zero, nan, Up, 30, 8, 60, out _, out _, out _));
     }
+
+    [Fact]
+    public void TheViewNeverPointsStraightUpTheReferenceAxis()
+    {
+        // KSA's fixed camera crosses the view direction with the reference frame's axis and
+        // normalises it, so a parallel pair divides by zero and takes the game down. A round
+        // launched vertically points exactly there on its first frames.
+        ChaseView.TryPose(Vec.Zero, new double3(0, 0, 900), Up, 30.0, 8.0, 60.0,
+                          out _, out double3 forward, out _);
+
+        Assert.True(Math.Abs(Vec.Dot(forward, Up)) < 0.9995,
+                    $"view is {Vec.Dot(forward, Up)} along the axis, which crashes the engine");
+    }
+
+    [Fact]
+    public void ADiveDoesNotPointStraightDownEither()
+    {
+        ChaseView.TryPose(Vec.Zero, new double3(0, 0, -900), Up, 30.0, 8.0, 60.0,
+                          out _, out double3 forward, out _);
+
+        Assert.True(Math.Abs(Vec.Dot(forward, Up)) < 0.9995,
+                    $"view is {Vec.Dot(forward, Up)} along the axis");
+    }
+
+    [Fact]
+    public void AnOrdinaryFlightPathIsLeftAlone()
+    {
+        // The tilt must not disturb the common case.
+        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), Up, 30.0, 8.0, 60.0,
+                          out _, out double3 forward, out _);
+
+        Assert.True(forward.X > 0.9, $"forward drifted to {forward.X}");
+    }
 }
