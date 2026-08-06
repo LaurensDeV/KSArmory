@@ -1,3 +1,9 @@
+## [0.8.25](https://github.com/LaurensDeV/KSArmory/compare/v0.8.24...v0.8.25) (2026-08-06)
+
+### Fixes
+
+* **ui:** follow the round itself instead of computing a camera offset ([f07dde2](https://github.com/LaurensDeV/KSArmory/commit/f07dde2f12bdb35dc1662c2563b0b1ec252deb8c))
+
 ## [0.8.24](https://github.com/LaurensDeV/KSArmory/compare/v0.8.23...v0.8.24) (2026-08-06)
 
 ### Fixes
