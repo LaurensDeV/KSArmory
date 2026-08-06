@@ -31,6 +31,10 @@ internal sealed class CraftMover
     private const float MinPickRadius = 14f;
     private const float MaxPickRadius = 140f;
 
+    // Closer than this to where it already is and the click means "leave it". A vehicle is several
+    // metres across, so anything inside this is the same spot as far as anyone aiming is concerned.
+    private const double StayPut = 12.0;
+
     // Radius of the ring drawn where the craft would land, in metres. Fixed rather than scaled to
     // the craft: it marks a spot on the ground, and a big vessel would otherwise hide it.
     private const double MarkerRadius = 12.0;
@@ -150,9 +154,28 @@ internal sealed class CraftMover
     {
         if (_held is not { } craft) return;
 
-        if (!TryTarget(out _, out double lat, out double lon, out string body))
+        // Pointing at the held craft means "leave it". Placing re-derives a position from the
+        // latitude and longitude and the surface rule, which is not where the craft is: on a
+        // launch pad it is metres below, so a click that should change nothing drops it.
+        if (ReferenceEquals(_hovered, craft))
+        {
+            Log.Info($"left {KsaWorld.DisplayName(craft)} where it was");
+            _held = null;
+            return;
+        }
+
+        if (!TryTarget(out double3 target, out double lat, out double lon, out string body))
         {
             Log.Info("nothing under the cursor to set it down on");
+            return;
+        }
+
+        // Or near enough to it. The pick radius is generous, so the cursor can be a little off the
+        // craft and still mean the same thing.
+        if (Vec.Len(target - KsaWorld.PositionEcl(craft)) < StayPut)
+        {
+            Log.Info($"left {KsaWorld.DisplayName(craft)} where it was");
+            _held = null;
             return;
         }
 

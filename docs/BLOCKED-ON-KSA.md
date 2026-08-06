@@ -300,3 +300,27 @@ lines, and there are no scorch decals to draw because kills are binary.
 
 **Not blocking the optical head itself.** Main-viewport takeover, HUD symbology and zoom all sit on
 `Ksa/Sight.cs` painting over the existing camera, and none of them need a shader.
+
+## Where a structure's surface is
+
+**What we want.** A cursor over the launch pad to resolve to the top of the pad, so a craft set
+down there lands on it rather than through it — and so pointing at the pad's corner is not
+answered with the ground beside it.
+
+**Why it is blocked.** The pad is a `LandmarkReference` (`KSA/KSA/LandmarkReference.cs`), which is
+a location with an `IsLaunchPad` flag and nothing else: no bounds, no mesh, no collider, no height.
+Whatever draws it is not reachable from it.
+
+Terrain itself is fine — `Celestial.GetTerrainHeightFromDirCcf` is public and accurate, and the
+cursor already uses it. It is only things standing *on* the terrain that cannot be asked where
+their surfaces are.
+
+So `KsaWorld.LaunchPadHeight` adds a flat 8 m within 40 m of a pad landmark. That is a guess at
+one pad's height over a circle that does not match its shape, which is why the corner of a large
+pad answers with the ground: the corner is outside the circle, and even inside it the height is
+assumed rather than measured.
+
+**What would unblock it.** A raycast against static geometry, or bounds on the landmark. The
+engine raycasts elsewhere — `Part` has `RaycastWatertight` against its own mesh
+(`KSA/KSA/Part.cs:1943`) — so the machinery exists; it is reaching a landmark's geometry that has
+no route.
