@@ -1,3 +1,9 @@
+## [0.8.11](https://github.com/LaurensDeV/KSArmory/compare/v0.8.10...v0.8.11) (2026-08-06)
+
+### Fixes
+
+* **api:** let the service see the real client address ([7b892ac](https://github.com/LaurensDeV/KSArmory/commit/7b892ac8be87b38fc95af1c20c1ea92a67d3571c))
+
 ## [0.8.10](https://github.com/LaurensDeV/KSArmory/compare/v0.8.9...v0.8.10) (2026-08-05)
 
 ### Features
