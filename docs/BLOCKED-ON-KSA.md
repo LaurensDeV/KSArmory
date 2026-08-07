@@ -27,12 +27,43 @@ happen rather than a member that moved.
 - [x] Custom part modules can be registered without patching
 - [x] Public accessor for the volumetric trail renderer
 - [ ] A post-processing or full-screen shader hook a mod can register into
+- [ ] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 
 All seven rechecked against 2026.8.5.5168 and still blocked. The render path was refactored in
 that build — `Program._offscreenTarget` is now a `RenderTarget` and every line number below
 moved — but none of the structure any of these depend on changed.
 
 ---
+
+## A menu bar a mod can add to
+
+**Delete the workaround the moment this changes.** `src/KSArmory/Ksa/Ui/ModMenuEntry.cs` exists
+only because of what follows, is wanted gone, and is on the recheck list above so it is looked at
+every time the game moves.
+
+**What we want.** An entry in KSA's own menu bar, so the panel opens from where a player expects
+rather than from a floating button parked over the flight gauges.
+
+**The engine reason.** `Program` draws the bar inline —
+`ImGui.BeginMenu("File")`, `"Universe"`, `"View"`, `"HUD"` — with no event, no registry and no
+extension point of any kind. StarMap adds nothing either; its attributes are lifecycle hooks and
+none is menu-shaped.
+
+**What the ecosystem does instead**, and why it is unpleasant. MrJeranimo's **ModMenu** Harmony
+*transpiles* `Program.DrawMenuBar`, scans its IL for an `ImGui.EndMenu()` call and splices in its
+own `BeginMenu("Mods")`. Mods opt in with a `[ModMenuEntry]` attribute, which ModMenu matches by
+`GetType().Name` alone — so a mod copies the attribute rather than referencing anything, and we
+do exactly that. It costs no dependency, but the whole arrangement stands on rewriting the IL of
+a private method in a pre-release game.
+
+We also append to the bar directly with `ImGui.BeginMainMenuBar()`, which works because ImGui's
+menu bar is immediate-mode. Measured: it must be called *before* KSA's GUI pass — from
+`[StarMapAfterGui]` the bar has already been ended for the frame and the call returns false. That
+is still ImGui behaviour rather than a supported hook, which is why the floating button stays.
+
+**What would unblock it.** Any public means of contributing a menu: an event on `Program`, a list
+of callbacks, or an asset type. Then both the copied attribute and the `BeginMainMenuBar` append
+go, and the panel opens from a menu the game itself put there.
 
 ## Full-screen post-processing shaders
 

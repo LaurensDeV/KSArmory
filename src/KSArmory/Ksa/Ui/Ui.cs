@@ -103,15 +103,17 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
     /// </summary>
     public void DrawMenuBarEntry()
     {
+        // ModMenu draws our entry for us when it is installed -- see DrawModMenu. Drawing our own
+        // as well would list KSArmory twice in the same bar.
+        if (ModMenuPresence.Installed) return;
+
         try
         {
             if (!ImGui.BeginMainMenuBar()) return;
 
             if (ImGui.BeginMenu("KSArmory"))
             {
-                bool visible = Visible;
-                if (ImGui.MenuItem("Panel", default, ref visible, true)) Visible = visible;
-
+                DrawMenuContents();
                 ImGui.EndMenu();
             }
 
@@ -130,8 +132,34 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
 
     private bool _warnedMenuBar;
 
+    // What sits under the menu, wherever the menu came from: our own bar, or ModMenu's.
+    private void DrawMenuContents()
+    {
+        bool visible = Visible;
+        if (ImGui.MenuItem("Panel", default, ref visible, true)) Visible = visible;
+    }
+
+    /// <summary>
+    /// Called by <b>ModMenu</b>, if the player has it, to fill this mod's entry in its shared
+    /// menu. Found by reflection on the attribute's name — see <see cref="ModMenuEntryAttribute"/>
+    /// for why that means no dependency.
+    ///
+    /// <para>Static because ModMenu resolves an instance only for a couple of hardcoded method
+    /// names; a static one it can always call. <see cref="Current"/> is set when the panel is
+    /// built, and the null check is what happens if ModMenu scans before that.</para>
+    /// </summary>
+    [ModMenuEntry("KSArmory")]
+    public static void DrawModMenu() => Current?.DrawMenuContents();
+
+    /// <summary>The panel ModMenu should drive. There is one.</summary>
+    internal static Ui? Current { get; private set; }
+
     public void Draw()
     {
+        // Set here rather than in a constructor: this is a primary-constructor class, and ModMenu
+        // may scan for the attribute before anything has drawn.
+        Current = this;
+
         RefreshSystems();
         _batteries.Sync(_systems);
 

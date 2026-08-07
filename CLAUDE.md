@@ -273,6 +273,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
+| `Ksa/Ui/ModMenuEntry.cs` | a copied attribute so ModMenu can list us — **wanted gone**, see `docs/BLOCKED-ON-KSA.md` |
 | `Ksa/FeedbackClient.cs` | posts a report to the endpoint, off the frame thread |
 | `Ksa/Visuals.cs` | gizmo rendering |
 | `Ksa/Detonation.cs` | the fireball where a warhead goes off, through KSA's particle system |
