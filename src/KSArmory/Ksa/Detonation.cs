@@ -91,6 +91,72 @@ internal static class Detonation
     /// round's own target or the firing platform both do.
     /// </param>
     /// <param name="scale">Multiplies particle size and speed, so a bigger warhead looks bigger.</param>
+    /// <summary>
+    /// The bang. One-shot and untracked, unlike a motor: a burst is over before anything could
+    /// want to move or stop it.
+    ///
+    /// <para>Core ships no explosion, so this borrows <c>Decouple</c> — which is a pyrotechnic
+    /// separation charge, so it is a real small detonation rather than an unrelated noise pressed
+    /// into service. Point <see cref="Config.BurstSoundId"/> at our own the day one ships.</para>
+    /// </summary>
+    public static void Bang(double3 burstEcl, Vehicle? near, float scale, Config config)
+    {
+        if (!config.BurstSound) return;
+
+        try
+        {
+            if (near is null) return;
+            if (ModLibrary.Get<SoundBehavior>(config.BurstSoundId ?? DefaultBurstId) is not { } sound)
+            {
+                if (!_warnedNoBang)
+                {
+                    _warnedNoBang = true;
+                    Log.Warn($"burst sound '{config.BurstSoundId ?? DefaultBurstId}' does not resolve");
+                }
+                return;
+            }
+
+            Camera camera = GameAudio.GetAudioCamera();
+
+            // Relative to something the camera can locate, then offset: an Ecl point on its own
+            // has nothing to convert against.
+            double3 posEgo = camera.GetPositionEgo(near) + (burstEcl - KsaWorld.PositionEcl(near));
+            double3 velEgo = camera.GetVelocityEgo(near);
+
+            if (!Vec.IsFinite(posEgo)) return;
+
+            var spatial = new SpatialAudio(posEgo, velEgo,
+                                           PhysicalAtmosphereReference.GetAtmosphericPressure(camera));
+
+            // Louder for a bigger warhead, on the same scale the fireball is drawn at, so a 30 mm
+            // shell cannot sound like a 20 kg missile.
+            sound.Play(spatial, Math.Clamp(config.BurstVolume * scale, 0.05f, 1f), out IChannel? channel);
+
+            // And deeper. A big charge puts its energy at low frequencies, so pitch falls as the
+            // warhead grows: a shell cracks, a missile thumps. It is also the only thing that
+            // makes the stand-in bearable - the borrowed sample is a metal separation charge, and
+            // played at its own pitch it reads as dropping a sheet of steel.
+            if (channel is not null)
+            {
+                channel.PitchMultiplier = Math.Clamp(1.18f - (0.32f * scale), 0.8f, 1.2f);
+            }
+        }
+        catch (Exception e)
+        {
+            if (!_warnedNoBang)
+            {
+                _warnedNoBang = true;
+                Log.Warn($"burst sound failed: {e.Message}");
+            }
+        }
+    }
+
+    // Ours, synthesised by tools/sounds.py. Core ships no explosion at all - its whole sound
+    // library is nine entries - and the nearest thing, a decoupler's separation charge, is a
+    // metal detach that reads as dropping a sheet of steel however it is pitched.
+    private const string DefaultBurstId = "KSArmoryBurst";
+    private static bool _warnedNoBang;
+
     public static void Show(string emitterId, double3 burstEcl, Vehicle? near, float scale = 1f)
     {
         string why = TryShow(emitterId, burstEcl, near, scale);
