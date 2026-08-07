@@ -372,19 +372,19 @@ public static class Arsenal
         // No missiles. The gun is the weapon.
         Tubes = [],
 
-        TurretPivot = new(0.68000, 0.00000, 0.00000),
-        GunPivotFromTurret = new(0.66000, 0.86000, 0.00000),
-        GunReferenceElevationRad = 0.26180,          // 15 degrees
+        TurretPivot = new(0.10000, 0.00000, 0.00000),
+        GunPivotFromTurret = new(2.20000, 0.00000, 0.00000),
+        GunReferenceElevationRad = 0.0,           // level: the pose it fights sea-skimmers in
 
         GunMunition = "20MM",
         GunMuzzles =
         [
-            new(0.70706, 2.23309,  0.00000),
-            new(0.65635, 2.24668,  0.09093),
-            new(0.55493, 2.27385,  0.09093),
-            new(0.50421, 2.28744,  0.00000),
-            new(0.55493, 2.27385, -0.09093),
-            new(0.65635, 2.24668, -0.09093),
+            new(-0.19500, 1.98000,  0.00000),
+            new(-0.24750, 1.98000,  0.09093),
+            new(-0.35250, 1.98000,  0.09093),
+            new(-0.40500, 1.98000,  0.00000),
+            new(-0.35250, 1.98000, -0.09093),
+            new(-0.24750, 1.98000, -0.09093),
         ],
 
         // The real mount: 150 degrees either side of the centreline, and -25 to +85 in elevation.

@@ -477,18 +477,21 @@
     -->
     <SubPart Id="KSArmory_Ciws_Turret" InstanceOf="KSArmory_Subpart_CiwsTurret">
       <Transform>
-        <Position X="0.68000" Y="0.00000" Z="0.00000" />
+        <Position X="0.10000" Y="0.00000" Z="0.00000" />
       </Transform>
     </SubPart>
 
     <!--
-      Elevate on the housing's trunnion while riding the traverse, so the mod rewrites both their
-      rotation and their position every frame.
+      The whole head, meaning housing, barrels and the radome above them, swinging on the
+      trunnion between the cheeks while riding the traverse. The mod rewrites both its rotation
+      and its position every frame. The dome carries the track antenna, which stays boresighted
+      with the barrels, so it is one rigid body with them rather than something the traverse
+      holds upright while the barrels alone move.
       Keep in step with GUN_PIVOT in tools/model/ciws.py.
     -->
     <SubPart Id="KSArmory_Ciws_Guns" InstanceOf="KSArmory_Subpart_CiwsGuns">
       <Transform>
-        <Position X="1.34000" Y="0.86000" Z="0.00000" />
+        <Position X="2.30000" Y="0.00000" Z="0.00000" />
       </Transform>
     </SubPart>
 

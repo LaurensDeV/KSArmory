@@ -412,6 +412,12 @@ rather than the bytes, and **revert the atlas** if it says the geometry is uncha
   sweeps the drives and reports the metres one assembly would have to move to leave another.
   It needs neither Blender nor the game — the atlas is a library of bodies in their own local
   frames, so any pose is reconstructible from it plus `muzzles.json`.
+- **It sweeps every articulated vehicle, and a new one has to be added to `vehicles()` by hand.**
+  A body set it does not name is simply not swept, and the tool still prints "clear" — the CIWS
+  had a traverse, an elevating head and no coverage at all for exactly that reason. This is the
+  same shape as the launcher registry and the travel reader before it: a tool that reads the
+  first entry looks correct until there is a second. **When a weapon system stops being the only
+  one, check what still assumes it is.**
 - **A piece can come adrift and every other check still passes.** The mesh is clean, the pivots
   agree, nothing intersects — the part simply stops touching what carried it and hangs in the
   air. `checkswept.py` requires every primitive of the assembled vehicle to reach the chassis
@@ -526,6 +532,14 @@ the magazine holds nothing; it fires entirely through `GunMunition` and `GunMuzz
 tests encoded the opposite — every launcher has a tube, every turret has pods — and both were
 assumptions rather than invariants. What is actually required is that a launcher can shoot with
 *something*, and that a traverse carries something that moves with it.
+
+**Its radome elevates with the gun, and that is the whole articulation.** The dome carries the
+track antenna, which has to stay boresighted with the barrels, so the housing, the barrels and the
+dome are one rigid body swinging on a trunnion between two cheeks that traverse. Splitting them —
+dome held upright by the traverse, barrels elevating alone — is what the first version did, and it
+reads as a mount that articulates in a way no real one does. The clearance that makes it work is
+**a gap in Z**: elevation turns about +Z, so the dome being narrower than the gap between the
+cheeks holds at every pose, and nothing else does.
 
 **And it stacks rather than surface-attaching.** A `<Connector>` with no `<Flags>` is a node
 connector; `ToSurface` is the opt-in for radial. So the CIWS sits on top of any 3 m tank, decoupler

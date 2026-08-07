@@ -55,7 +55,12 @@ SEATED = 0.06
 # Optic/Turret is the head seated in its socket: the ball's centre sits at the pedestal top, so
 # its lower hemisphere is inside by construction. A ball perched on a post instead would clear
 # this check and look wrong.
-ALLOWED = {("KSArmory_Subpart_Optic", "KSArmory_Subpart_Turret"): 0.30,
+ALLOWED = {# The trunnion runs into its bearing, which is the whole point of a trunnion. It is
+           # also the *only* contact the CIWS's two moving groups can ever have: everything else
+           # in the elevating head is narrower than the gap between the cheeks, and elevation
+           # turns about +Z, so a gap in Z cannot be closed by any pose.
+           ("KSArmory_Subpart_CiwsGuns", "KSArmory_Subpart_CiwsTurret"): 0.06,
+           ("KSArmory_Subpart_Optic", "KSArmory_Subpart_Turret"): 0.30,
            ("KSArmory_Subpart_Guns", "KSArmory_Subpart_Turret"): 0.30,
            ("KSArmory_Subpart_Pods", "KSArmory_Subpart_Turret"): 0.22,
            ("KSArmory_Subpart_Chassis", "KSArmory_Subpart_Turret"): 0.10}
@@ -285,39 +290,92 @@ def main():
     args = ap.parse_args()
 
     muzzles = json.loads(Path(args.muzzles).read_text())
-    travel = read_travel()
     bodies = load_bodies(Path(args.atlas))
-
-    turret_pivot = muzzles["turret_pivot"]
-    # Body -> (pivot from the traverse axis, modelled reference elevation). The turret and the
-    # chassis do not elevate; the array's spin is about the traverse axis, so it cannot change
-    # any clearance that the bearing does not already cover.
-    elevating = {
-        "KSArmory_Subpart_Pods": (muzzles["pod_pivot_from_turret"],
-                                    math.radians(muzzles["pod_reference_elevation_deg"])),
-        "KSArmory_Subpart_Guns": (muzzles["gun_pivot_from_turret"],
-                                    math.radians(muzzles["gun_reference_elevation_deg"])),
-    }
-    riding = dict(elevating)
-    riding["KSArmory_Subpart_Turret"] = ((0.0, 0.0, 0.0), 0.0)
-    riding["KSArmory_Subpart_Radar"] = (muzzles["radar_pivot_from_turret"], 0.0)
-    riding["KSArmory_Subpart_Optic"] = (muzzles["eo_pivot_from_turret"], 0.0)
-
-    names = [n for n in sorted(bodies) if n in riding or n == "KSArmory_Subpart_Chassis"]
-    elevations = [travel["MinElevationDeg"] + i * args.step for i in
-                  range(int((travel["MaxElevationDeg"] - travel["MinElevationDeg"]) / args.step) + 1)]
-    bearings = [i * args.bearing_step for i in range(int(360 / args.bearing_step))]
 
     print("no cover stands proud of what it covers")
     problems = check_no_coaxial_lips(bodies)
     print()
 
+    for v in vehicles(muzzles):
+        problems += sweep(bodies, v, args)
+
+    if problems:
+        print(f"FOUND {problems} problem(s): assemblies detached at rest, or passing "
+              f"through each other in travel")
+        return 1
+    print("clear: everything is attached, and nothing passes through anything in its travel")
+    return 0
+
+
+def vehicles(muzzles):
+    """Every articulated vehicle in the atlas, each with its own body set and its own travel.
+
+    One entry per launcher that moves. Sweeping only the first is how a whole vehicle goes
+    unchecked while the tool still reports clean: the CIWS had a traverse, an elevating head and
+    no coverage at all, because this read the Pantsir's body names and stopped.
+    """
+    ciws = muzzles["ciws"]
+    return [
+        {
+            "name": "Pantsir S1",
+            "profile": "PantsirS1",
+            "chassis": "KSArmory_Subpart_Chassis",
+            "turret_pivot": muzzles["turret_pivot"],
+            "riding": {
+                "KSArmory_Subpart_Turret": ((0.0, 0.0, 0.0), 0.0),
+                "KSArmory_Subpart_Pods": (muzzles["pod_pivot_from_turret"],
+                                          math.radians(muzzles["pod_reference_elevation_deg"])),
+                "KSArmory_Subpart_Guns": (muzzles["gun_pivot_from_turret"],
+                                          math.radians(muzzles["gun_reference_elevation_deg"])),
+                # The array's spin is about the traverse axis, so it cannot change any clearance
+                # the bearing does not already cover.
+                "KSArmory_Subpart_Radar": (muzzles["radar_pivot_from_turret"], 0.0),
+                "KSArmory_Subpart_Optic": (muzzles["eo_pivot_from_turret"], 0.0),
+            },
+            "elevating": {"KSArmory_Subpart_Pods", "KSArmory_Subpart_Guns"},
+            "parents": {"KSArmory_Subpart_Optic": "KSArmory_Subpart_Turret",
+                        "KSArmory_Subpart_Pods": "KSArmory_Subpart_Turret",
+                        "KSArmory_Subpart_Guns": "KSArmory_Subpart_Turret",
+                        "KSArmory_Subpart_Radar": "KSArmory_Subpart_Turret",
+                        "KSArmory_Subpart_Turret": "KSArmory_Subpart_Chassis"},
+        },
+        {
+            "name": "Mk 15 Phalanx",
+            "profile": "Ciws",
+            "chassis": "KSArmory_Subpart_CiwsBase",
+            "turret_pivot": ciws["turret_pivot"],
+            "riding": {
+                "KSArmory_Subpart_CiwsTurret": ((0.0, 0.0, 0.0), 0.0),
+                "KSArmory_Subpart_CiwsGuns": (ciws["gun_pivot_from_turret"],
+                                              math.radians(ciws["gun_reference_elevation_deg"])),
+            },
+            "elevating": {"KSArmory_Subpart_CiwsGuns"},
+            "parents": {"KSArmory_Subpart_CiwsGuns": "KSArmory_Subpart_CiwsTurret",
+                        "KSArmory_Subpart_CiwsTurret": "KSArmory_Subpart_CiwsBase"},
+        },
+    ]
+
+
+def sweep(bodies, v, args):
+    """Attachment and travel for one vehicle."""
+    travel = read_travel(v["profile"])
+
+    names = [n for n in sorted(bodies) if n in v["riding"] or n == v["chassis"]]
+    if len(names) < 2:
+        print(f"== {v['name']}: not in the atlas, nothing swept\n")
+        return 0
+
+    steps = int((travel["MaxElevationDeg"] - travel["MinElevationDeg"]) / args.step) + 1
+    elevations = [travel["MinElevationDeg"] + i * args.step for i in range(steps)]
+    bearings = [i * args.bearing_step for i in range(int(360 / args.bearing_step))]
+
+    print(f"== {v['name']}")
     print("the assembled vehicle is one connected piece")
-    problems += check_vehicle_is_connected(bodies, riding, turret_pivot)
+    problems = check_vehicle_is_connected(bodies, v)
     print()
 
     print("attachment at the modelled rest pose")
-    problems += check_attachment(bodies, riding, turret_pivot)
+    problems += check_attachment(bodies, v)
     print()
 
     worst = {}
@@ -326,18 +384,18 @@ def main():
         for b in names[i + 1:]:
             # Both riding the turret: the traverse is one rigid motion applied to the pair, so it
             # cancels and only elevation is free. Against the chassis it does not.
-            pair_bearings = [0.0] if (a in riding and b in riding) else bearings
+            pair_bearings = [0.0] if (a in v["riding"] and b in v["riding"]) else bearings
 
             for bearing in pair_bearings:
                 floor = -1e9 if args.ignore_floor else depression_floor(bearing, travel)
                 for elev in elevations:
                     if elev < floor - 1e-9:
                         continue
-                    depth = pair_depth(bodies, riding, a, b, elev, bearing, turret_pivot, cache)
+                    depth = pair_depth(bodies, v, a, b, elev, bearing, cache)
                     if depth > worst.get((a, b), (0.0,))[0]:
                         worst[(a, b)] = (depth, elev, bearing)
 
-    allowed = {tuple(sorted(k)): v for k, v in ALLOWED.items()}
+    allowed = {tuple(sorted(k)): metres for k, metres in ALLOWED.items()}
     print(f"{len(names)} bodies, elevation {travel['MinElevationDeg']:.0f}"
           f"-{travel['MaxElevationDeg']:.0f}° step {args.step:g}°, bearing step {args.bearing_step:g}°")
     print()
@@ -346,21 +404,16 @@ def main():
         limit = allowed.get(tuple(sorted(pair)), SEATED)
         short = tuple(n.replace("KSArmory_Subpart_", "") for n in pair)
         if depth <= limit:
-            print(f"  ok         {short[0]:<8} / {short[1]:<8} "
+            print(f"  ok         {short[0]:<12} / {short[1]:<12} "
                   f"max interpenetration {depth * 100:5.1f} cm (allowed {limit * 100:.0f})")
             continue
-        print(f"  PASSES THROUGH {short[0]:<8} / {short[1]:<8} "
+        print(f"  PASSES THROUGH {short[0]:<12} / {short[1]:<12} "
               f"{depth * 100:5.1f} cm at elevation {elev:g}°, bearing {bearing:g}°")
         print(f"      see it: ./tools/model/build.sh --pose elev={elev:g},bearing={bearing:g}")
         problems += 1
 
     print()
-    if problems:
-        print(f"FOUND {problems} problem(s): assemblies detached at rest, or passing "
-              f"through each other in travel")
-        return 1
-    print("clear: everything is attached, and nothing passes through anything in its travel")
-    return 0
+    return problems
 
 
 def point_triangle_distance(p, a, b, c):
@@ -524,7 +577,7 @@ def check_no_coaxial_lips(bodies):
     return problems
 
 
-def check_vehicle_is_connected(bodies, riding, turret_pivot):
+def check_vehicle_is_connected(bodies, v):
     """Every primitive of the assembled vehicle must be reachable from the chassis by overlap.
 
     Nothing else sees a piece come adrift. The mesh is clean, the pivots agree, and no pair of
@@ -535,18 +588,16 @@ def check_vehicle_is_connected(bodies, riding, turret_pivot):
 
     Only the assembled vehicle counts. Stowed rounds sit far off the origin until fired.
     """
-    parts = ("KSArmory_Subpart_Chassis", "KSArmory_Subpart_Turret",
-             "KSArmory_Subpart_Pods", "KSArmory_Subpart_Guns", "KSArmory_Subpart_Radar",
-             "KSArmory_Subpart_Optic")
+    parts = (v["chassis"],) + tuple(sorted(v["riding"]))
 
     cache = {}
     prims, owners = [], []
     for name in parts:
         if name not in bodies:
             continue
-        rest = math.degrees(riding[name][1]) if name in riding else 0.0
-        placed = (bodies[name] if name == "KSArmory_Subpart_Chassis"
-                  else placed_body(bodies, riding, name, rest, 0.0, turret_pivot, cache)[0])
+        rest = math.degrees(v["riding"][name][1]) if name in v["riding"] else 0.0
+        placed = (bodies[name] if name == v["chassis"]
+                  else placed_body(bodies, v, name, rest, 0.0, cache)[0])
         prims.extend(placed)
         owners.extend([name] * len(placed))
 
@@ -586,30 +637,23 @@ def check_vehicle_is_connected(bodies, riding, turret_pivot):
     return 1
 
 
-def check_attachment(bodies, riding, turret_pivot):
+def check_attachment(bodies, v):
     """Every articulated body must actually touch what it hangs off, at the modelled rest pose.
 
     A body that floats free is not a rendering fault and no other check sees it: the mesh is
     clean, the pivots agree, and nothing passes through anything. It simply reads as detached,
     which is the one defect a player notices immediately and a tool never does.
     """
-    parents = {"KSArmory_Subpart_Optic": "KSArmory_Subpart_Turret",
-               "KSArmory_Subpart_Pods": "KSArmory_Subpart_Turret",
-               "KSArmory_Subpart_Guns": "KSArmory_Subpart_Turret",
-               "KSArmory_Subpart_Radar": "KSArmory_Subpart_Turret",
-               "KSArmory_Subpart_Turret": "KSArmory_Subpart_Chassis"}
-
     problems = 0
-    for child, parent in sorted(parents.items()):
+    for child, parent in sorted(v["parents"].items()):
         if child not in bodies or parent not in bodies:
             continue
 
         cache = {}
         # The rest pose is elevation == reference, which ElevatingPose makes the identity.
-        kid = placed_body(bodies, riding, child, math.degrees(riding[child][1]), 0.0,
-                          turret_pivot, cache)[0]
-        mum = placed_body(bodies, riding, parent, 0.0, 0.0, turret_pivot, cache)[0] \
-            if parent != "KSArmory_Subpart_Chassis" else bodies[parent]
+        kid = placed_body(bodies, v, child, math.degrees(v["riding"][child][1]), 0.0, cache)[0]
+        mum = (bodies[parent] if parent == v["chassis"]
+               else placed_body(bodies, v, parent, 0.0, 0.0, cache)[0])
 
         touching = any(not aabb_apart(pa, pb) and sat(pa, pb) > 0.0
                        for pa in kid for pb in mum)
@@ -624,19 +668,18 @@ def check_attachment(bodies, riding, turret_pivot):
     return problems
 
 
-def placed_body(bodies, riding, name, elev, bearing, turret_pivot, cache):
+def placed_body(bodies, v, name, elev, bearing, cache):
     """Places one body at one pose, memoised — each body appears in several pairs."""
     key = (name, elev, bearing)
     if key in cache:
         return cache[key]
 
-    if name == "KSArmory_Subpart_Chassis":
+    if name == v["chassis"]:
         prims = bodies[name]
     else:
-        pivot, reference = riding[name]
-        pitch = math.radians(elev) if name in ("KSArmory_Subpart_Pods",
-                                               "KSArmory_Subpart_Guns") else 0.0
-        fn = placement(pivot, reference, pitch, math.radians(bearing), turret_pivot)
+        pivot, reference = v["riding"][name]
+        pitch = math.radians(elev) if name in v["elevating"] else 0.0
+        fn = placement(pivot, reference, pitch, math.radians(bearing), v["turret_pivot"])
         prims = [p.placed(fn) for p in bodies[name]]
 
     lo = [min(p.lo[i] for p in prims) for i in range(3)]
@@ -645,10 +688,10 @@ def placed_body(bodies, riding, name, elev, bearing, turret_pivot, cache):
     return cache[key]
 
 
-def pair_depth(bodies, riding, a, b, elev, bearing, turret_pivot, cache):
+def pair_depth(bodies, v, a, b, elev, bearing, cache):
     """Deepest interpenetration between two bodies at one pose."""
-    pa_all, alo, ahi = placed_body(bodies, riding, a, elev, bearing, turret_pivot, cache)
-    pb_all, blo, bhi = placed_body(bodies, riding, b, elev, bearing, turret_pivot, cache)
+    pa_all, alo, ahi = placed_body(bodies, v, a, elev, bearing, cache)
+    pb_all, blo, bhi = placed_body(bodies, v, b, elev, bearing, cache)
 
     # Whole-body bounds first. Most poses separate two bodies entirely, and skipping those
     # avoids every primitive pair between them.
