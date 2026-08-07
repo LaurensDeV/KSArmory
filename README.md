@@ -1,5 +1,7 @@
 # KSArmory
 
+<img src="branding/logo.png" alt="KSArmory — Kessler Systems Armory" width="620">
+
 Weapon systems for **[Kitten Space Agency](https://ahwoo.com/app/100000/kitten-space-agency)**
 — sensors, fire control, guided and unguided rounds, and the parts to mount them on.
 
@@ -335,16 +337,17 @@ API this is built on.
 
 ## Limitations
 
-- The radar's search volume is a hemisphere about local "up"; it does not follow the turret.
+- The radar's search volume does not follow the turret. Where it points is a per-system setting —
+  local "up", the launcher's own facing, or the tubes — but never the current aim.
 - The optical head's camera view has no sky, clouds or terrain detail: KSA renders secondary
   viewports without the atmosphere pass. [`docs/BLOCKED-ON-KSA.md`](docs/BLOCKED-ON-KSA.md) has
   the mechanism and what would change it.
 - The wheels are geometry. KSA has no wheel or suspension module, so the vehicle is placed rather
   than driven.
 - Rounds only interact with their designated target; they ignore terrain and other craft.
-- Radar has no occlusion or line-of-sight check.
+- The radar hides what the planet hides, but against the body's mean sphere — so a craft behind a
+  ridge is still seen, and the limb is geometric rather than the real skyline.
 - Damage is binary. KSA exposes no partial-damage model, only outright destruction.
-- Settings are not persisted between sessions.
 - One battery per craft: if several launchers are fitted, the first one found wins.
 
 ## Contributing

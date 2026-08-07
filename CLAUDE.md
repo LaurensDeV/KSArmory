@@ -1,8 +1,10 @@
 # CLAUDE.md
 
-A point-defence mod for **Kitten Space Agency** (KSA, RocketWerkz) — a Pantsir-S1 with search
-radar, proportional-navigation interceptors and a proximity-fused warhead. Twelve rounds, two
-pods of six, on an 8×8 chassis the mod generates from a Blender script.
+A point-defence mod for **Kitten Space Agency** (KSA, RocketWerkz). Two weapon systems, both
+generated from Blender scripts: a **Pantsir-S1** — search radar, proportional-navigation
+interceptors, a proximity-fused warhead, twelve rounds in two pods of six on an 8×8 chassis — and
+a **LAU-7 rail** carrying one AIM-9J, which surface-attaches to anything and is the shipped
+example of a launcher with nothing that moves.
 
 ## Read this first
 
@@ -185,7 +187,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/build.sh                           # build the mod (handles the SDK PATH)
 ./tools/test.sh                            # guidance + fuse tests, no game needed
 ./tools/validate-parts.py                  # part XML, launch geometry, registered PartIds; runs in deploy.sh
-./tools/model/build.sh                     # rebuild the Pantsir mesh and textures (needs Blender)
+./tools/model/build.sh                     # rebuild every part's mesh and textures (needs Blender)
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
 ./tools/check-network.sh                   # the mod only reaches the network when Send is clicked
@@ -272,6 +274,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/FeedbackClient.cs` | posts a report to the endpoint, off the frame thread |
 | `Ksa/Visuals.cs` | gizmo rendering |
 | `Ksa/Detonation.cs` | the fireball where a warhead goes off, through KSA's particle system |
+| `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
+| `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
 | `Ksa/Markers.cs` | on-screen brackets over every weapons system, labelled on hover or when pinned |
 | `Ksa/RoundFollowable.cs` | a round, presented to the engine as something a camera can follow |
@@ -282,12 +286,14 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
+| `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
 | `Ksa/Diagnostics.cs` | the periodic world dump — what the battery can see and why |
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the launcher part, the armed character and the warhead effects — at the mod root, mirroring Core |
 | `src/KSArmory/Meshes/`, `Textures/` | generated art; rebuild with `tools/model/build.sh` |
+| `src/KSArmory/Sounds/` | generated audio; rebuild with `tools/sounds.py` |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `infra/dns/` | ksarmory.com's Cloudflare records, as OpenTofu; see `infra/README.md` |
@@ -297,7 +303,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 277 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 291 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
@@ -305,12 +311,17 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
-| `tools/model/` | headless Blender scripts that generate the Pantsir |
+| `tools/model/` | headless Blender scripts that generate the parts |
+| `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
+| `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
 | `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
 | `tools/model/kittengun.py` | the kitten's shoulder cannon — a character attachment, not a part |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
+| `tools/sounds.py` | synthesises the explosion samples; no sampled audio, so no licence to carry |
+| `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
+| `branding/` | the generated logo the README and SpaceDock point at |
 
 ## 3D model pipeline (Blender, headless)
 
@@ -481,16 +492,23 @@ hemisphere regardless of where the tubes are aimed, and the spinning array is co
 
 The mod is built around three profile types and a registry, so a new launcher, round or sensor
 is **data plus art**, not new logic. No fire-control, guidance or drive code names the Pantsir —
-it is named in `Sim/Arsenal.cs`, which is the registry and is meant to, and once in `Sim/Config.cs`
-as the default selection. Anything else naming it is a doc comment citing what it was modelled on.
+it is named in `Sim/Arsenal.cs`, which is the registry and is meant to. Anything else naming it is
+a doc comment citing what it was modelled on. **`tools/model/sidewinder.py` plus the
+`SidewinderRail` entry in `Sim/Arsenal.cs` is the worked example** — a whole second system, and
+neither of them is longer than a page.
 
-1. **Model it.** Copy `tools/model/pantsir.py`, keep the group/pivot conventions, and export
-   into the same atlas. Run `tools/model/checkmesh.py` — it fails the build on the two defects
-   that only show up in game.
+1. **Model it.** A module beside `tools/model/sidewinder.py` exporting into the same atlas,
+   called from `pantsir.py`'s `main()` — **after** everything already there, because the box
+   jitter runs off one seed and inserting a primitive reshuffles every one drawn after it. Run
+   `tools/model/checkmesh.py` and `tools/model/checkswept.py`; between them they catch the
+   defects that are invisible in a preview render and obvious in game.
 2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
    `KSArmoryAssets.xml`, and a `<PartGameData>` with its colliders and mass.
 3. **Register it.** One `LauncherProfile` in `Sim/Arsenal.cs`, naming the munition and sensor it
-   uses, with the geometry `build.sh` prints. Add a `MunitionProfile` too if the round differs.
+   uses, with the geometry `build.sh` prints. Add a `MunitionProfile` and a `SensorProfile` too if
+   the round or the set differ. Then teach `validate-parts.py` to compare that geometry against
+   `muzzles.json` — the generator emitting it and the profile holding it are the same numbers in
+   two files, and every previous instance of that in this repo drifted.
 4. **Nothing else.** `LauncherPart.Find` matches against every registered part Id, and the
    battery selects whichever profile it finds. `ArsenalTests` checks the registry hangs
    together; `validate-parts.py` checks the geometry still matches the mesh, and that every
@@ -538,9 +556,17 @@ the moment a survey recognises a part on it, pins the battery there and forgets 
 dies. Each carries its own `BatteryConfig`, so arming one site, sending it a target or putting it
 on a team says nothing about any other.
 
-**What is deliberately *not* general yet:** `Config` holds a single active profile set, so the
-panel tunes one weapon *type* at a time — two Pantsirs share a flight model, which is the intent,
-but a second weapon system would need the profiles selected per battery rather than per session.
+**A weapon system belongs to the battery running it, not to the session.** `DefenceBattery`
+carries its own `Profile`, `Munition` and `Sensor`, paired by `Arsenal.LoadoutFor` when it
+recognises the part; `Config` deliberately holds none of the three. A session-wide selection is
+what makes two different systems in one world impossible — every reader outside a battery's own
+update gets whichever battery resolved last, silently. The profiles are the shared `Arsenal`
+instances, so panel tuning still reaches every battery running that system, which is the intent.
+
+**What is deliberately *not* general yet:** one battery per *craft*.
+`DefenceBattery.LauncherOrdinal` is pinned to the first launcher found and `BatteryRoster` keys on
+the vehicle, so a craft carrying two Sidewinder rails fires one of them. See `docs/MODULARITY.md`
+change 2.
 
 ## CI and releases
 
@@ -615,7 +641,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-660,000 lines to the files defining the 112 types this mod actually uses.
+660,000 lines to the files defining the 116 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —

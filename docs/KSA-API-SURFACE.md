@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-112 types and 277 members across 6 assemblies.
+116 types and 291 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -228,6 +228,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 GetPositionEcl()`
 - `Brutal.Numerics.double3 GetVelocityEcl()`
+- `Brutal.Numerics.doubleQuat GetBodyFixed2Ecl()`
 - `KSA.AtmosphereReference GetAtmosphereReference()`
 - `KSA.OrbitView OrbitView`
 - `KSA.Rendering.Water.Data.OceanReference GetOceanReference()`
@@ -259,6 +260,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 GetPositionEgo(KSA.IPosition)`
 - `Brutal.Numerics.double3 GetRightEcl()`
 - `Brutal.Numerics.double3 GetUpEcl()`
+- `Brutal.Numerics.double3 GetVelocityEgo(KSA.IVelocity)`
 - `Brutal.Numerics.float2 EclToScreen(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.int2 FramebufferSize`
 - `KSA.Celestial get_NearbyCelestial()`
@@ -287,10 +289,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 GetSurfacePositionEclFromCce(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.doubleQuat GetCce2Ccf()`
 - `KSA.CelestialTemplate get_BodyTemplate()`
+- `double GetAngularVelocity()`
 - `double GetLatitudeFromCce(Brutal.Numerics.double3)`
 - `double GetLongitudeFromCce(Brutal.Numerics.double3)`
 - `double GetTerrainHeightFromDirCce(Brutal.Numerics.double3, bool)`
 - `void AddEmitter(Handle<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData>)`
+- `void RemoveEmitter(Handle<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData>)`
 
 ### KSA.CelestialSystem
 
@@ -336,6 +340,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 CameraOffset`
 - `Brutal.Numerics.double3 CameraRotation`
 
+### KSA.GameAudio
+
+- `KSA.Camera GetAudioCamera()`
+
 ### KSA.GameSave
 
 - `string get_Id()`
@@ -363,6 +371,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Gltf2Reference
 
 *referenced as a type only*
+
+### KSA.IChannel
+
+- `bool IsPlaying()`
+- `void ApplyParameters()`
+- `void SetParameter(KSA.KeyHash, float)`
+- `void SetSpatialAudio(KSA.SpatialAudio)`
+- `void Stop(bool)`
+- `void set_PitchMultiplier(float)`
 
 ### KSA.IFollowable
 
@@ -501,6 +518,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.DistanceReference get_Height()`
 - `bool IsValid()`
 - `double GetAtmosphericDensityAtAltitude(double)`
+- `double GetAtmosphericPressure(KSA.Camera)`
 
 ### KSA.Program
 
@@ -579,6 +597,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.SimTime
 
 *referenced as a type only*
+
+### KSA.SoundBehavior
+
+- `void Play(KSA.SpatialAudio, float, ref KSA.IChannel, bool)`
+
+### KSA.SpatialAudio
+
+- `void .ctor(Brutal.Numerics.double3, Brutal.Numerics.double3, double)`
 
 ### KSA.Transform3D
 

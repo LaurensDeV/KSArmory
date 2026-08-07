@@ -26,12 +26,44 @@ happen rather than a member that moved.
 - [ ] A character attachment's pose survives the frame, so a mod can aim one
 - [x] Custom part modules can be registered without patching
 - [x] Public accessor for the volumetric trail renderer
+- [ ] A post-processing or full-screen shader hook a mod can register into
 
 All seven rechecked against 2026.8.5.5168 and still blocked. The render path was refactored in
 that build — `Program._offscreenTarget` is now a `RenderTarget` and every line number below
 moved — but none of the structure any of these depend on changed.
 
 ---
+
+## Full-screen post-processing shaders
+
+**What we would want it for:** a gunner's sight that actually looks through optics — desaturation,
+a vignette, grain, thermal false-colour. Also the whole class of damage and blast effects that live
+on the framebuffer rather than in the world.
+
+**The engine reason.** `KSA.Rendering.PostProcessing` contains `Cmaa2Renderer` and
+`HableFilmicToneCurve` and nothing else: an anti-aliasing pass and a tone curve, both wired
+directly into `Program`. There is no chain to append to, no asset type for a shader, and nothing
+in the namespace a mod can register with. Searching the corpus for `GlobalPostShader` or any
+equivalent returns nothing, so the extension point does not exist to be called.
+
+**It is nonetheless being done, by patching.** AMPW's **ShaderExtensions** adds `<ShaderEx>`,
+`<PostProcessingShader>`, `<GlobalPostShader>` and `<ImGuiShader>` asset types to KSA, built on
+tsholmes' **KittenExtensions**. His **KSAGEffects** then declares a fragment shader with
+
+```xml
+<GlobalPostShader Id="GEffectFrag" Path="Shaders/GEffectShader.frag" RenderPassId="256" SubpassId="0">
+  <GEffectBuffer Id="GEffectBuffer" Size="1" />
+</GlobalPostShader>
+```
+
+and the shader reads the framebuffer as a genuine Vulkan **subpass input**
+(`layout(set = 1, binding = 0, input_attachment_index = 0) uniform subpassInput Source`), with a
+uniform buffer the mod fills each frame.
+
+**So this is blocked on KSA only in the sense that doing it natively is impossible.** Taking it
+would mean depending on two third-party framework mods, which is a different decision from a
+missing engine feature — this mod currently requires only StarMap. Recorded here so that trade is
+made deliberately rather than discovered.
 
 ## Secondary viewport: no sky, clouds, atmosphere or terrain
 
@@ -286,14 +318,46 @@ about submitting an emitter directly is outstanding.
 **What we want.** The optical head showing a heat picture rather than a daylight one — engines and
 exhaust bright against a cold sky, the way a real electro-optical turret is used at night.
 
-**Why it may be blocked, and what has not been checked.** This cannot be faked by tinting the
-normal image: the heat has to come from the objects, so it needs a second render target and a
-*replacement* shader that knows which surfaces are hot. Whether a StarMap mod can reach either has
-**not been established** — `tools/apidump`'s type search does not filter, so the one attempt to
-answer this produced noise rather than a finding. It is recorded here as an open question, not as a
-verdict.
+**Split it in two, because only one half is blocked.**
 
-**What would unblock it.** A public render-target or material/shader hook. Failing that, nothing:
+*The look* — false colour, white-hot palette, grain, edge lift — is a screen-space remap of the
+image that is already there, and it is reachable today through AMPW's ShaderExtensions
+`<GlobalPostShader>`; see the post-processing entry above for what that costs. It is what most
+games ship and call thermal.
+
+*The physics* — a hot engine bright against cold sky **because it is hot** — is not. A post-process
+subpass reads the composited colour image and has no idea what any pixel was, so anything dark in
+daylight stays dark in "thermal". Real thermal needs per-object temperature reaching the shader,
+which means a replacement material shader or a second render target. ShaderExtensions' `<ShaderEx>`
+adds bindings to *existing* fragment shaders and is the only plausible route; whether it can carry
+per-object data that KSA never computes is **unverified**.
+
+**A weapons mod can cheat well, though, and should know it can.** The hot things in these scenes
+are the ones this mod already simulates: burning motors and fireballs, both of which it knows the
+position and intensity of. False colour underneath, with genuine bright sources composited at the
+motor and burst positions, covers most of what makes a FLIR picture readable here without any
+per-object temperature at all.
+
+**The scoping question is settled, and the answer is workable.** `<PostProcessingShader>` and
+`<GlobalPostShader>` differ only in whether they run before or after ImGui; both are full-screen,
+and ShaderExtensions' README is explicit that "the shaders only target the main window, any other
+windows are ignored". There is no per-viewport post-process.
+
+That is fine here, because `BatteryConfig.OpticViewport` can be the **main** viewport — and should
+be anyway, since a secondary one draws no planet, terrain or atmosphere (see the entry above). With
+the optic on the main view, full-screen *is* the right scope: while you are looking through the
+sight, the main view is the sight.
+
+Two constraints that come with it:
+
+- **A post shader cannot be turned off.** It runs every frame at its stage forever. The documented
+  answer is to pass an amount through a uniform and return the source colour unchanged at zero,
+  which is a one-line early-out and costs a full-screen pass of nothing.
+- **RenderPassId is a bare integer with no registry.** Ordering is only defined for unique
+  renderpass/subpass combinations, and two mods that pick the same number get undefined execution
+  order rather than an error. AMPW's g-effects already occupies 254, 255 and 256.
+
+**What would unblock the physics half.** A public render-target or material/shader hook. Failing that, nothing:
 of the effects a weapons mod normally spends shaders on, this is the only one that applies here.
 Explosions and smoke already go through KSA's XML particle system, tracers are `GizmosRenderer`
 lines, and there are no scorch decals to draw because kills are binary.

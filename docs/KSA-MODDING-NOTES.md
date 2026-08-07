@@ -543,6 +543,46 @@ rather than parts on a vehicle). `KSA.StaticMeshRenderable` has a public constru
 `Transform` field, but needs `IMeshRenderer<InstanceData>` instances owned by the engine's
 render systems.
 
+## Sound: reachable, and shipped the same way art is
+
+Read out of the engine, not tried yet. Recorded because "can a mod make a noise" is otherwise a
+day of decompiling, and the answer turns out to be yes on every axis that matters.
+
+**The API is public and imperative.** `KSA.GameAudio` exposes `PlaySound(SoundEvent, SpatialAudio,
+out IChannel?, IAudio? parent, float volume, bool startPaused)` as a static, plus `Register(IAudio)`
+so a mod object can be driven by the engine's own `UpdateAudio` pass. `CreateFmodSound` takes a
+`SoundFileReference` directly. Underneath is **FMOD**, via `Brutal.Fmod`.
+
+**`SpatialAudio` is in Ego, and carries velocity and pressure.** Its constructor is
+`(double3 posEgo, double3 velEgo, double atmosphericPressure)`. So it wants the same frame the mod
+already converts to for drawing — `KsaWorld.TryEclToEgo` — and *needs* the velocity, which means
+Doppler is the engine's job rather than ours. Pressure is a parameter, so thinning air is modelled.
+
+**A mod can ship its own audio, by relative path, exactly like a mesh atlas.** `Core/Sounds.xml`
+declares `<SoundFile Path="Sounds/EngineDefault.wav">` alongside `<SpatialSoundData>`,
+`<SoundGroup>` and `<SoundBehavior>`, and the files are plain `.wav` and `.ogg` under
+`Core/Sounds/`. That is the same shape as `<MeshAtlas Path="Meshes/…">`, which this mod has
+already proved works from a user mod — so the loader contract is known-good.
+
+**The declarative route is for parts, not for us.** Core hangs engine noise off
+`<SoundEvent Action="On" SoundId="DefaultEngineSoundBehavior" />` inside `<PartGameData>`, driven
+by the part's engine module. A self-simulated round is not a part with an engine, so that path is
+closed and `GameAudio.PlaySound` is the one to use.
+
+## Particle emitters can follow something that moves
+
+`Ksa/Detonation.cs` uses one-shot bursts pinned to a body-fixed point, but the emitter is not
+limited to that. `emitter.Context` has `Astronomical`, `Vehicle` **and** `Part` fields, and
+`emitter.Origin` is a `BubbleOrigin` carrying `BubFrame`, `PositionBub` **and `VelocityBub`** —
+so a continuously-spawning emitter re-anchored each frame is expressible. `SpawnRate`,
+`MaximumParticleCount` and `ParticleInfo.Lifespan` are all writable.
+
+**The trap to expect is spacing, not attachment.** A round at 840 m/s covers 14 m per frame at
+60 fps, so an emitter spawning once per frame at the round's current position draws a dotted line
+of puffs rather than a plume. The general answer is to interpolate spawn positions along the
+frame's travel instead of spawning at its end. Whether `VelocityBub` smears the spawn enough to
+avoid needing that here is **unmeasured** — it is the first thing to check, not the last.
+
 ## Threading
 
 `[StarMapAfterOnFrame]` runs on the main thread (Harmony postfix on `Program.OnFrame`), so

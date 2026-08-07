@@ -473,6 +473,66 @@ something arrives early.
 - [ ] Raise `SensorProfile.TerrainMarginMetres` and watch low contacts drop out at shorter range.
 - [ ] With `HorizonMasking` off, everything is visible again exactly as before.
 
+### 7.1d The Sidewinder rail  ← nothing here has been flown
+
+The second weapon system, and the first that is *fixed* — no turret, no pods, one round, no
+reload. Everything below is a path the Pantsir never takes, so a green suite says little about it.
+
+- [ ] The rail appears in the editor under Structural, and **surface-attaches** to the side of a
+      stack. It is not a command source, so a craft made only of a rail will not fly — expected.
+- [ ] The AIM-9J is **visible on the rail** before firing. A tube launcher hides its rounds inside
+      the containers; a rail cannot, so `TubeVisual.Loaded` is being seen for the first time.
+- [ ] The round sits along the rail, fins in an X straddling it. A roll that puts one fin through
+      the rail means the seating rotation is not the shortest one `RotationFromTo` promises.
+- [ ] It fires. `Trains` is false, so `IsLaid` is true from the start and nothing waits for drives
+      that do not exist — the failure to look for is fire control deadlocking rather than missing.
+- [ ] The round leaves **aimed at what it was fired at**, not along the rail. `LaunchAlongTube`
+      is deliberately false: a rail on a stack points where the stack points, so releasing along
+      it put every designation 92-116 degrees outside the seeker's gimbal limit and the launcher
+      refused every shot. Watch for the opposite failure now — a round departing *through* the
+      craft carrying it.
+- [ ] The search volume follows the craft's attitude, not local up. `BoresightSource` is
+      `PartForward` — pitch the craft over and the cone must go with it.
+- [ ] After the one round is gone the launcher stays empty. `ReloadSeconds` is zero.
+
+- [ ] **A Pantsir and a rail in the same world at once.** Each keeps its own search cone, round and
+      envelope in the panel and in the overlay. This is what moving the profiles onto the battery
+      was for, and a session-scoped profile would show up here as one site drawing the other's
+      numbers — nowhere else.
+
+- [ ] Two rails on one craft: expected to fire **one**. `LauncherOrdinal` is pinned and the roster
+      crews one battery per craft. Recorded so it is not mistaken for a bug.
+
+### 7.1e Drag, and what a round does once it leaves the air
+
+Never deliberately tested. Noticed in a flight log on 2026-08-06:
+
+```
+round 2 expired after 30.0s - closest 617 m, flew 33.0 km, final speed 1010 m/s, lock=False
+```
+
+A 57E6 peaks near 1290 m/s, so this one shed under 300 m/s in thirty seconds and travelled 65 %
+past the system's 20 km engagement envelope. Both look wrong and, on reading the code, neither is:
+`KsaWorld.MediumDensityRatioAt` returns **zero above `air.Height`**, which is correct because there
+is no atmosphere to resist anything, and the envelope decides when the battery *commits* rather
+than how far a round may fly. `MaxFlightSeconds` is what ends it.
+
+So this is here to be confirmed, not to be fixed:
+
+- [ ] A low, flat shot inside the atmosphere **does** bleed speed. If a sea-level round also
+      arrives at 1010 m/s, the density lookup is not finding the body and every round is coasting.
+- [ ] A steep or high shot coasts, and the flight log's final speed is close to its peak.
+- [ ] Somewhere in between, the final speed lands in between. Two points cannot distinguish
+      "drag works" from "drag is all-or-nothing".
+- [ ] `lock=False` on a long shot is the command uplink breaking when the target leaves the
+      sensor volume, which is the documented behaviour — not the round losing its own seeker.
+      Check the panel says the launcher lost the track at about the same moment.
+
+**Why it matters:** a round that quietly loses all its drag flies several times too far and still
+looks plausible in the log. `MediumDensityRatioAt` falls back to **1.0** rather than 0.0 when the
+atmosphere cannot be read, precisely so that failure is a round that stops short rather than one
+that sails on — but nothing has ever exercised the branch.
+
 ### 7.2 More than one target at a time
 
 - [ ] Spawn three drones close together. Radar lists all three, ranked by time-to-CPA.
@@ -537,13 +597,13 @@ Still open below.
 
 ### 7.5b Retest after the time-source fix
 
-- [ ] Pause mid-engagement: rounds hold position, no launches, no dwell accrued. Resume and the
+- [x] Pause mid-engagement: rounds hold position, no launches, no dwell accrued. Resume and the
       engagement continues rather than jumping.
-- [ ] 2×–10× warp with rounds in flight: they still guide and still intercept.
-- [ ] Above ~20× (0.32 s of sim time in one frame): the panel says *rounds stand down*, the
+- [x] 2×–10× warp with rounds in flight: they still guide and still intercept.
+- [x] Above ~20× (0.32 s of sim time in one frame): the panel says *rounds stand down*, the
       rounds vanish, and nothing throws. Dropping them is intended, not a failure.
-- [ ] Warp up and back down repeatedly: the battery recovers each time and re-acquires.
-- [ ] Load a save while rounds are in flight: they are abandoned, not flown into the new world.
+- [x] Warp up and back down repeatedly: the battery recovers each time and re-acquires.
+- [x] Load a save while rounds are in flight: they are abandoned, not flown into the new world.
 
 ---
 
