@@ -90,8 +90,12 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
     /// and persistent: reopening it later in the same frame appends rather than starting a
     /// second bar.</para>
     ///
-    /// <para>"Mods" rather than "KSArmory" as the top-level menu, so several mods doing this
-    /// share one menu instead of each adding their own — ImGui merges menus by label.</para>
+    /// <para>A top-level <c>KSArmory</c> rather than a shared <c>Mods</c>, deliberately. MrJeranimo's
+    /// <b>ModMenu</b> owns that name: it transpiles <c>Program.DrawMenuBar</c> and splices in its
+    /// own <c>BeginMenu("Mods")</c>. Two of those in one bar merge only if ImGui's menu-merging
+    /// covers it, and being wrong means two menus side by side on the machines of exactly the
+    /// people who have both mods. Our own name cannot collide, needs no dependency, and leaves
+    /// registering with ModMenu as something to add later rather than undo.</para>
     ///
     /// <para>Called from <b>before</b> KSA's GUI pass, not after. Measured: from an after-GUI hook
     /// <c>BeginMainMenuBar</c> returns false and nothing appears, because the bar has already been
@@ -103,10 +107,10 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
         {
             if (!ImGui.BeginMainMenuBar()) return;
 
-            if (ImGui.BeginMenu("Mods"))
+            if (ImGui.BeginMenu("KSArmory"))
             {
                 bool visible = Visible;
-                if (ImGui.MenuItem("KSArmory", default, ref visible, true)) Visible = visible;
+                if (ImGui.MenuItem("Panel", default, ref visible, true)) Visible = visible;
 
                 ImGui.EndMenu();
             }
