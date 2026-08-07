@@ -585,7 +585,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
 
         return _policy.MouseAim
                && Platform is not null
-               && KsaWorld.TryCursorDirectionEcl(out double3 dirEcl)
+               && KsaWorld.TryCursorAimEcl(MountEcl, out double3 dirEcl)
                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, dirEcl, out partFrame);
     }
 

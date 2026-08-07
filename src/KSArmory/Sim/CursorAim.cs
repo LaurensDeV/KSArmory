@@ -75,6 +75,37 @@ public static class CursorAim
     }
 
     /// <summary>
+    /// Where the cursor points, seen from the <em>mount</em> rather than from the camera.
+    ///
+    /// <para>A direction on its own does not locate anything. The camera and the launcher stand
+    /// metres or hundreds of metres apart, so a bearing taken at one is a bearing at the other
+    /// only for something infinitely far away. Pointing a drive down the camera's direction is
+    /// therefore exact against the sky and wrong by the whole parallax against anything near —
+    /// which reads in game as a turret that follows the cursor faithfully above the horizon and
+    /// points somewhere else entirely below it, where everything under the pointer is close.</para>
+    ///
+    /// <para>So both frame-carrying terms arrive here and the subtraction happens in one place,
+    /// which is what <c>docs/FRAMES-AND-EPOCHS.md</c> asks of a <c>Sim/</c> entry point.</para>
+    /// </summary>
+    /// <param name="rangeMetres">How far along the ray the thing under the cursor is taken to be.</param>
+    public static bool TryAimFromMount(double3 rayOriginEcl, double3 rayDirectionEcl,
+                                       double rangeMetres, double3 mountEcl,
+                                       out double3 directionEcl)
+    {
+        directionEcl = default;
+
+        if (!Vec.IsFinite(rayOriginEcl) || !Vec.IsFinite(mountEcl)) return false;
+        if (!IsUsableDirection(rayDirectionEcl)) return false;
+        if (!double.IsFinite(rangeMetres) || rangeMetres <= 0.0) return false;
+
+        double3 aimed = rayOriginEcl + Vec.Unit(rayDirectionEcl) * rangeMetres - mountEcl;
+        if (!IsUsableDirection(aimed)) return false;
+
+        directionEcl = Vec.Unit(aimed);
+        return true;
+    }
+
+    /// <summary>
     /// Whether an aim direction is usable — finite and long enough to normalise.
     ///
     /// <para>An unprojection at a degenerate projection matrix returns a zero or non-finite

@@ -141,4 +141,114 @@ public class CursorAimTests
         Assert.False(CursorAim.TryToFramebuffer(new float2(900, 10), new float2(0, 0),
                                                 800, 600, 1600, 1200, out _));
     }
+
+    // ---- The cursor is aimed from the mount, not from the camera ----------
+    //
+    // A direction has no origin, so pointing a drive down the camera's ray is only right for
+    // something infinitely far away. These pin the near case, where it is not.
+
+    /// <summary>
+    /// The whole bug in one assertion: the camera stands off the launcher, the cursor is on
+    /// ground close by, and the bearing from the mount is nothing like the bearing from the eye.
+    /// </summary>
+    [Fact]
+    public void AimingAtSomethingNearAnswersFromTheMountNotTheCamera()
+    {
+        // An orbit camera 60 m above a launcher, cursor on ground 40 m to the side at the
+        // launcher's own level: pointing *below* the mount on screen, which is the case that
+        // was reported and the case where the two origins diverge hardest.
+        double3 mount = new(0, 0, 0);
+        double3 eye = new(0, 60, 0);
+        double3 ground = new(40, 0, 0);
+
+        double3 rayDirection = Vec.Unit(ground - eye);
+        double range = Vec.Len(ground - eye);
+
+        Assert.True(CursorAim.TryAimFromMount(eye, rayDirection, range, mount, out double3 aim));
+
+        // It points at the thing under the cursor, which is the entire requirement.
+        Assert.Equal(0.0, Vec.Len(aim - Vec.Unit(ground - mount)), 9);
+
+        // And that is a different world from what the camera's own direction would have given.
+        double apart = double.RadiansToDegrees(
+            Math.Acos(Math.Clamp(Vec.Dot(aim, rayDirection), -1.0, 1.0)));
+        Assert.True(apart > 30.0,
+            $"the camera's direction and the mount's differ by only {apart:F1} degrees, so this "
+            + "geometry cannot tell the two apart and the test is not guarding anything");
+    }
+
+    /// <summary>
+    /// Why it went unnoticed: against the sky the two answers are the same to well under what a
+    /// drive can resolve. Aiming above the launcher was always going to look perfect.
+    /// </summary>
+    [Fact]
+    public void AimingAtTheSkyIsIndistinguishableFromTheCamerasOwnDirection()
+    {
+        double3 mount = new(0, 0, 0);
+        double3 eye = new(-80, 40, 0);
+        double3 rayDirection = Vec.Unit(new double3(1, 2, 0));
+
+        Assert.True(CursorAim.TryAimFromMount(eye, rayDirection, 20_000.0, mount, out double3 aim));
+
+        double apart = double.RadiansToDegrees(Math.Acos(Math.Clamp(Vec.Dot(aim, rayDirection), -1, 1)));
+        Assert.True(apart < 0.5, $"{apart:F2} degrees apart at 20 km");
+    }
+
+    /// <summary>
+    /// The invariance that says the subtraction is the only thing this does: put the camera at the
+    /// mount and the answer is the ray, whatever range is claimed.
+    /// </summary>
+    [Theory]
+    [InlineData(5.0)]
+    [InlineData(1_000.0)]
+    [InlineData(20_000.0)]
+    public void ACameraAtTheMountJustReturnsTheRay(double range)
+    {
+        double3 mount = new(1_000, -2_000, 3_000);
+        double3 rayDirection = Vec.Unit(new double3(-1, 0.4, 2));
+
+        Assert.True(CursorAim.TryAimFromMount(mount, rayDirection, range, mount, out double3 aim));
+        Assert.Equal(0.0, Vec.Len(aim - rayDirection), 9);
+    }
+
+    /// <summary>
+    /// Moving the whole engagement does not move the answer. Ecl carries 29.8 km/s of ecliptic
+    /// motion into every position, so an aim that is not invariant under a common offset is
+    /// carrying a frame it has no business carrying.
+    /// </summary>
+    [Fact]
+    public void AddingTheSameOffsetToTheCameraAndTheMountChangesNothing()
+    {
+        double3 eye = new(-80, 40, 0);
+        double3 mount = new(0, 0, 0);
+        double3 direction = Vec.Unit(new double3(1, -0.5, 0.2));
+
+        Assert.True(CursorAim.TryAimFromMount(eye, direction, 120.0, mount, out double3 near));
+
+        double3 shift = new(1.4959e11, -2.7e10, 3.3e6);
+        Assert.True(CursorAim.TryAimFromMount(eye + shift, direction, 120.0, mount + shift,
+                                              out double3 shifted));
+
+        Assert.Equal(0.0, Vec.Len(near - shifted), 6);
+    }
+
+    [Fact]
+    public void ARangeOrARayThatCannotBeUsedIsRefusedRatherThanReturningNaN()
+    {
+        double3 eye = new(-80, 40, 0);
+        double3 mount = Vec.Zero;
+        double3 direction = new(0, 1, 0);
+
+        Assert.False(CursorAim.TryAimFromMount(eye, direction, 0.0, mount, out _));
+        Assert.False(CursorAim.TryAimFromMount(eye, direction, -50.0, mount, out _));
+        Assert.False(CursorAim.TryAimFromMount(eye, direction, double.NaN, mount, out _));
+        Assert.False(CursorAim.TryAimFromMount(eye, Vec.Zero, 100.0, mount, out _));
+        Assert.False(CursorAim.TryAimFromMount(new double3(double.NaN, 0, 0), direction, 100.0,
+                                               mount, out _));
+
+        // The one degenerate case that is not an input error: the cursor resolved to the mount
+        // itself, so there is no bearing to be had.
+        Assert.False(CursorAim.TryAimFromMount(eye, Vec.Unit(mount - eye), Vec.Len(mount - eye),
+                                               mount, out _));
+    }
 }

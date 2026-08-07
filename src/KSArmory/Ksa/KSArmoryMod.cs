@@ -159,6 +159,7 @@ public sealed class KSArmoryMod
             // Compensating at draw time cannot work: the drag is one step of platform motion, so
             // any correction carries a dt that changes and returns as jitter. Stepping here makes
             // the offset and the anchor share an epoch by construction.
+            KsaWorld.BeginFrame();
             if (KsaWorld.InFlight) StepSimulation(dt);
 
             _ui.Draw();

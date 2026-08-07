@@ -253,7 +253,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
 | `Sim/Picking.cs` | what the cursor's ray meets, and what is nearest it on screen |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
-| `Sim/CursorAim.cs` | cursor to viewport coordinates, and whether an aim direction is usable |
+| `Sim/CursorAim.cs` | cursor to viewport coordinates, and the bearing from a mount to what it points at |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
@@ -986,13 +986,23 @@ switch — with it on the operator is the sensor, so needing to enable radar tra
 surprising. Auto-engage still decides when to shoot, and `Aiming` counts mouse aim so `IsLaid`
 still makes the drives settle: without that, rounds leave along a tube that is still swinging.
 
-The conversion is the part worth being careful with, and it is **two** corrections rather than
+The conversion is the part worth being careful with, and it is **three** corrections rather than
 one. `Camera.ScreenToEgoRay` divides by *its own* `FramebufferSize` while ImGui reports the cursor
 across every window, so the cursor has to be offset into the viewport **and scaled from viewport
 pixels into framebuffer pixels** — a render or display scale makes those different sizes, and
 getting only the offset right leaves an error that is zero at the top-left corner and grows across
 the screen. `Sim/CursorAim.TryToFramebuffer` does both and is tested against an offset viewport
 rendered at twice its size.
+
+The third is that **a cursor gives a ray, and a drive needs a bearing from the mount.** They are
+not the same thing: the camera stands well away from the launcher, so its direction and the
+launcher's coincide only for something infinitely far away. Against sky they agree; against
+ground a few tens of metres off they disagree by tens of degrees, which reads as a turret that
+follows the cursor perfectly above the horizon and points somewhere else entirely below it. So
+`KsaWorld.TryCursorAimEcl` takes a mount, resolves the ray to a *point* against the terrain, and
+`Sim/CursorAim.TryAimFromMount` does the subtraction. **There is deliberately no direction-only
+form of it** — the two are indistinguishable wherever anyone tests them first, which is at the
+sky.
 
 The ray comes back in Ego, and a *direction* is identical in Ecl because the two differ by a
 translation, so nothing converts it. An **origin** is not: `KsaWorld.TryCursorRayEcl` takes both

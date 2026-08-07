@@ -984,30 +984,6 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// The direction the mouse is pointing, in Ecl. False when the cursor is over no viewport, or
-    /// the unprojection produced nothing usable.
-    ///
-    /// <para>Ecl and Ego differ by a translation, so a <em>direction</em> is the same in both and
-    /// the camera's Ego ray needs no conversion. That equivalence is the same one
-    /// <c>Vehicle.Asmb2Ego</c> relies on — see docs/FRAMES-AND-EPOCHS.md.</para>
-    ///
-    /// <para>Which viewport matters: <c>ScreenToEgoRay</c> divides by the camera's own
-    /// framebuffer, while ImGui reports the cursor across every window. <see cref="CursorAim"/>
-    /// holds that subtraction.</para>
-    /// </summary>
-    /// <summary>
-    /// The cursor's ray, origin and direction taken from the <em>same</em> camera.
-    ///
-    /// <para>That is the whole point of it existing next to
-    /// <see cref="TryCursorDirectionEcl"/>: a direction is identical in Ego and Ecl so it can be
-    /// read off whichever viewport the pointer is over, but an origin cannot. Pairing a direction
-    /// from one camera with a position from another puts the ray a viewport apart from the
-    /// pointer, and everything solved along it lands beside where it was aimed.</para>
-    ///
-    /// <para><c>ScreenToEgoRay</c> returns an origin of zero, because Ego <em>is</em> that
-    /// camera's frame — so the origin in Ecl is that camera's own position.</para>
-    /// </summary>
-    /// <summary>
     /// Reports how the cursor is being turned into a ray, and how far the answer lands from the
     /// pointer once projected back. The round trip is the measurement that matters: it is the
     /// error actually on screen, whatever the intermediate conventions turn out to be.
@@ -1091,42 +1067,64 @@ internal static class KsaWorld
         }
     }
 
-    public static bool TryCursorDirectionEcl(out double3 directionEcl)
+    /// <summary>
+    /// Where the cursor points, as a bearing from <paramref name="mountEcl"/>.
+    ///
+    /// <para>Takes a mount because a bearing without an origin is not an aim. The camera stands
+    /// well away from any launcher on screen, so its direction and the launcher's coincide only
+    /// for something at infinity: against sky they agree, and against ground a few tens of metres
+    /// off they disagree by tens of degrees. There is deliberately no direction-only form of this
+    /// next to it — the two are indistinguishable wherever anyone tests them first.</para>
+    ///
+    /// <para>The ray and the range are solved once a frame and shared, so several batteries on
+    /// mouse aim cost one terrain query between them rather than one each.</para>
+    /// </summary>
+    public static bool TryCursorAimEcl(double3 mountEcl, out double3 directionEcl)
     {
         directionEcl = default;
-        try
-        {
-            float2 cursor = ImGui.GetMousePos();
+        SolveCursorAim();
 
-            for (int i = 0; i < Program.Viewports.Count; i++)
-            {
-                Viewport v = Program.Viewports[i];
-                if (!v.Visible || v.IsOffscreen) continue;
+        return _cursorAimValid
+               && CursorAim.TryAimFromMount(_cursorAimOrigin, _cursorAimDirection, _cursorAimRange,
+                                            mountEcl, out directionEcl);
+    }
 
-                if (v.GetCamera() is not { } camera) continue;
+    /// <summary>
+    /// Drops the frame's cached cursor solve. Called once where the simulation is stepped.
+    /// </summary>
+    public static void BeginFrame() => _cursorAimSolved = false;
 
-                // Framebuffer pixels, not viewport pixels: ScreenToEgoRay divides by the camera's
-                // own framebuffer, and a render or display scale makes those different sizes.
-                if (!CursorAim.TryToFramebuffer(cursor, v.Position, v.Width, v.Height,
-                                                camera.FramebufferSize.X, camera.FramebufferSize.Y,
-                                                out float2 local))
-                {
-                    continue;
-                }
+    // Taken as the range when the ray meets no body: far enough that the camera-to-launcher
+    // parallax is under what the drives can resolve, at 100 m of offset about 0.3 degrees.
+    private const double CursorSkyRange = 20_000.0;
 
-                double3 direction = camera.ScreenToEgoRay(local).Direction;
-                if (!CursorAim.IsUsableDirection(direction)) continue;
+    private static bool _cursorAimSolved;
+    private static bool _cursorAimValid;
+    private static double3 _cursorAimOrigin;
+    private static double3 _cursorAimDirection;
+    private static double _cursorAimRange;
 
-                directionEcl = Vec.Unit(direction);
-                return true;
-            }
+    private static void SolveCursorAim()
+    {
+        if (_cursorAimSolved) return;
 
-            return false;
-        }
-        catch
-        {
-            return false;
-        }
+        _cursorAimSolved = true;
+        _cursorAimValid = false;
+
+        if (!TryCursorRayEcl(out double3 eye, out double3 direction)) return;
+
+        // The terrain-refined hit, not the mean sphere: the sphere is sea level, so over a pad it
+        // sits below the ground and puts the aim point past what the pointer is actually on.
+        double range = TryCursorGroundPoint(out double3 ground, out _, out _, out _)
+                           ? Vec.Len(ground - eye)
+                           : CursorSkyRange;
+
+        if (!double.IsFinite(range) || range <= 0.0) range = CursorSkyRange;
+
+        _cursorAimOrigin = eye;
+        _cursorAimDirection = direction;
+        _cursorAimRange = range;
+        _cursorAimValid = true;
     }
 
     /// <summary>The character this mod declares, whose kitten carries the shoulder cannon.</summary>
