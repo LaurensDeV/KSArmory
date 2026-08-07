@@ -48,6 +48,9 @@ public sealed class KSArmoryMod
     private readonly Designator _designator = new();
     private MotorSound _motors = null!;
     private readonly MotorPlume _plumes = new();
+    private readonly MuzzleFlash _flashes = new();
+    private readonly TracerTrail _tracers = new();
+    private GunSound _gunSound = null!;
     private ScenarioRunner _scenario = null!;
 
     // Last kitten reported, so the character is logged once per EVA rather than every frame.
@@ -71,6 +74,7 @@ public sealed class KSArmoryMod
     {
         _roster = new BatteryRoster(_config);
         _motors = new MotorSound(_config);
+        _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config);
         _scenario.Begin(ScenarioRunner.Requested());
         _ui = new Ui(_config, _roster, _warp, _watch, _mover, _bursts);
@@ -298,7 +302,13 @@ public sealed class KSArmoryMod
         {
             _motors.Update(e.Battery);
             _plumes.Update(e.Battery);
+            _flashes.Update(e.Battery);
+            _tracers.Update(e.Battery);
+            _gunSound.Update(e.Battery);
         }
+
+        _flashes.Sweep(_roster);
+        _gunSound.Sweep(_roster);
 
         // After the batteries have run, so a scenario reads the state this frame produced rather
         // than the one before it.

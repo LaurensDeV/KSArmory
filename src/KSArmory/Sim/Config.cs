@@ -34,6 +34,21 @@ public sealed class Config
     /// <summary>Volume of that motor, before the engine's own distance and pressure falloff.</summary>
     public float MotorVolume = 0.7f;
 
+    /// <summary>The cannon you can hear while they are firing.</summary>
+    public bool CannonSound = true;
+
+    /// <summary>Volume of that gun, before the engine's own distance and pressure falloff.</summary>
+    public float CannonVolume = 0.8f;
+
+    /// <summary>
+    /// The rate the cannon loop was synthesised at, in rounds per minute.
+    ///
+    /// <para>Playback pitch is the gun's own rate over this, clamped. The CIWS is at this rate, so
+    /// it plays the recording untouched; anything else is retuned toward its own cycle without
+    /// being transposed so far that it stops sounding like a gun.</para>
+    /// </summary>
+    public float CannonReferenceRpm = 4500f;
+
     /// <summary>
     /// Draw a plume at the nozzle while a round burns.
     ///

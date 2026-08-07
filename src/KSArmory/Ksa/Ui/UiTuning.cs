@@ -216,6 +216,13 @@ internal sealed partial class Ui
                 ImGui.TextDisabled("  round in vacuum is silent whatever this says");
             }
 
+            ImGui.Checkbox("Cannon sound", ref _config.CannonSound);
+            if (_config.CannonSound)
+            {
+                ImGui.SliderFloat("Cannon volume", ref _config.CannonVolume, 0f, 1f);
+                ImGui.TextDisabled("  pitched from each gun's own rate, so the buzz is its cycle");
+            }
+
             ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
             ImGui.TextDisabled("  brackets over every system; (+) in the list pins a label");
             ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);

@@ -34,7 +34,15 @@ internal sealed class Designator
         if (ImGui.GetIO().WantCaptureMouse) return;
         if (!ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false)) return;
 
-        if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _)) return;
+        if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _))
+        {
+            // Nothing under the cursor is not a reason to hold fire. A gun shoots where it is
+            // pointing rather than at a named place, and the sky is where most of its targets are:
+            // requiring a ground hit left the CIWS unable to fire at anything above the horizon,
+            // which is the one thing a CIWS is for.
+            if (battery.Profile.TubeCount == 0) battery.FireBurst();
+            return;
+        }
 
         battery.FireAt(Lifted(groundEcl, battery));
     }
@@ -51,7 +59,10 @@ internal sealed class Designator
         // Coloured by whether the shot would be taken, because armed, loaded, in range and within
         // the seeker's reach are four separate refusals that all look like a click doing nothing.
         // The last is the one nobody would guess: a fixed launcher can only shoot where it points.
-        bool ready = battery.Ammo > 0 && battery.IsLaid;
+        //
+        // Asked of whichever weapon the launcher carries. Reading the magazine leaves a gun-only
+        // mount marked refused forever, since its magazine is empty by construction.
+        bool ready = battery.ReadyToFire;
         double range = battery.Platform is null ? 0.0 : Vec.Len(at - battery.PlatformEcl);
         bool reaches = range <= battery.Sensor.MaxEngagementRange;
 

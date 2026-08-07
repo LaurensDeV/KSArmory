@@ -663,3 +663,20 @@ and a gun that keeps a small fire burning on its muzzles after it has stopped sh
 symptom of the same fault is invisible until it is fatal: the pool bleeds one emitter per effect
 and eventually nothing in the world can spawn particles at all.
 
+### An emitter cannot throw particles in a direction of your choosing
+
+`ParticleEmitter.EmitterVelocity` is assigned **only** on the vehicle-parented path in
+`ParticleEmitter.UpdateUniforms`, and only when `EmitterRelative` is set. A mod emitter parented to
+a `Celestial` therefore has `EmitterVelocity == float3.Zero` forever: `InheritVelocity` has nothing
+to inherit, and `BubbleOrigin.VelocityBub` never reaches spawning. Particles launched from such an
+emitter stay where they were born.
+
+Directional spawn logic is no substitute. The cone is built about a fixed axis of the emitter's
+frame, and for a body-fixed bubble that axis is a compass bearing rather than anything that follows
+a turret.
+
+So an effect that has to *travel* is built by moving the emitter, one per moving thing, with the
+origin rewritten each frame. `Ksa/MotorPlume.cs` and `Ksa/TracerTrail.cs` are both that shape. The
+cost model follows from it: an emitter per object, out of a shared pool, so anything spawning tens
+of objects a second has to cap how many are decorated.
+

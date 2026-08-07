@@ -155,7 +155,11 @@ public static class Arsenal
         LaunchSpeed = 1100f,
         BoostSeconds = 0f,
         BoostAccel = 0f,
-        MaxFlightSeconds = 5f,
+
+        // Just past the gun's own 1486 m reach, not four times it. At 1100 m/s five seconds is
+        // 5.5 km of flight that can hit nothing, and at 75 rounds a second it keeps 375 shells in
+        // the air to do it: every one stepped, drawn and logged.
+        MaxFlightSeconds = 2f,
 
         DragK = 1.3e-5f,
 

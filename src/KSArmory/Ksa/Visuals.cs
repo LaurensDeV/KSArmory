@@ -17,6 +17,12 @@ internal static class Visuals
 
     private static readonly float4 RoundColour = new(1.0f, 0.95f, 0.6f, 1.0f);
     private static readonly float4 TrailColour = new(0.8f, 0.8f, 0.85f, 0.45f);
+
+    // Shells in the diagnostic overlay. What a player sees is the particle tracer; this is the
+    // line that says where the simulation thinks the round actually is, which is not the same
+    // claim and is worth being able to check separately.
+    private static readonly float4 TracerColour = new(1.0f, 0.72f, 0.18f, 1.0f);
+    private const int TracerSegments = 4;
     private static readonly float4 LoadedTubeColour = new(0.45f, 1.0f, 0.5f, 0.9f);
     private static readonly float4 SpentTubeColour = new(0.3f, 0.3f, 0.32f, 0.6f);
     private static readonly float4 CpaColour = new(0.6f, 0.4f, 1.0f, 0.7f);
@@ -216,12 +222,19 @@ internal static class Visuals
                 KsaWorld.DrawSphereEgo(roundEgo, haveBodies ? 1.2f : 6f, RoundColour);
             }
 
-            for (int i = 1; i < round.TrailOffsets.Count; i++)
+            // A shell gets only the last few segments. Its trail holds 32 points, which at
+            // 1100 m/s is close to 600 m of line, and drawn back to the muzzle it reads as a beam
+            // rather than as a round. Negative tube numbers are what mark the cannon.
+            int from = round.Tube < 0
+                           ? Math.Max(1, round.TrailOffsets.Count - TracerSegments)
+                           : 1;
+
+            for (int i = from; i < round.TrailOffsets.Count; i++)
             {
                 KsaWorld.DrawLineEgo(
                     KsaWorld.AnchorEgo + round.TrailOffsets[i - 1],
                     KsaWorld.AnchorEgo + round.TrailOffsets[i],
-                    TrailColour);
+                    round.Tube < 0 ? TracerColour : TrailColour);
             }
 
             if (round.TrailOffsets.Count > 0)

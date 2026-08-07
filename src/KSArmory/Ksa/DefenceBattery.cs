@@ -155,6 +155,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
     // What the current burst was started against. A burst outlives its trigger by design, so
     // Radar.Locked is routinely null while the tail of one is still leaving the barrel.
     private Track? _burstTrack;
+    private bool _manualTrigger;
 
     // Whether the turret is laid on the cannon's ballistic lead rather than on the target. Set by
     // AimPointEcl, which is the only place the choice is made.
@@ -664,10 +665,17 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         //
         // A null track is the tail of a burst whose target died: the shell is unguided and aimed
         // by the turret, so it still flies, with nothing to fuse against.
+        // The muzzle in the launcher's own frame. Anything drawn against the round -- the tracer,
+        // and a body if one is ever declared -- is placed from this plus the travel since launch,
+        // never from the platform's analytic position, which sits metres off a landed craft.
+        TubeGeometry.TryGunMuzzlePartFrame(Profile, barrel, guns.PositionParentAsmb,
+                                           guns.Asmb2ParentAsmb, out double3 muzzlePart);
+
         Slug slug = new(muzzle, platformVel + axis * shell.LaunchSpeed, track?.Vehicle,
                         -(barrel + 1), PlatformEcl, platformVel)
         {
             Munition = shell,
+            LaunchAnchorPartFrame = muzzlePart,
         };
         if (track is not null)
         {
@@ -701,7 +709,13 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
             return;
         }
 
-        bool wantToFire = _policy.AutoEngage && _policy.Armed && _policy.GunsEnabled
+        // Rechecked rather than trusted from FireBurst: a frame passes between the click and this
+        // step, and arming, the belt and the lay can all move in it.
+        bool manual = _manualTrigger && _policy.Armed && _policy.GunsEnabled
+                      && IsOperational && GunsAreLaid;
+
+        bool wantToFire = manual
+                          || _policy.AutoEngage && _policy.Armed && _policy.GunsEnabled
                           && IsOperational && GunsAreLaid
                           && Radar.Locked is { } locked
                           && ThreatModel.MayEngage(locked, _policy.Iff)
@@ -737,6 +751,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
                 _guns.Fill(Profile.GunAmmo);
                 Announce("cannon belt replaced");
             }
+            _manualTrigger = false;
             return;
         }
         _gunReloadTimer = 0.0;
@@ -747,6 +762,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         if (wantToFire) _burstTrack = Radar.Locked;
 
         int fired = _guns.Step(dt, wantToFire, Profile);
+        _manualTrigger = false;
         if (fired <= 0) return;
 
         // A flickering track keeps its vehicle; a destroyed one does not, and a shell must not
@@ -1043,6 +1059,11 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
     // launcher rather than to the target, a tube, the launch geometry, and the round.
     private bool Commit(Aimpoint aim, string what)
     {
+        // A launcher with no tubes has exactly one weapon, and every gate below is about the
+        // magazine it does not own. Sending it down this path refuses every manual shot on an
+        // empty magazine, which leaves a working cannon with no trigger at all.
+        if (Profile.TubeCount == 0) return FireBurst();
+
         if (!_policy.Armed) { Announce("refused: not armed"); return false; }
         if (Platform is null) { Announce("refused: no platform"); return false; }
         if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
@@ -1149,9 +1170,81 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
                                              Munition.SeekerFovRad, axis, pointEcl - MountEcl);
     }
 
+    /// <summary>
+    /// Opens a cannon burst along wherever the mount is already laid.
+    ///
+    /// <para>The operator is the fire-control solution here: mouse aim puts the barrels under the
+    /// cursor and this pulls the trigger. It solves no lead for that reason — a lead applied on
+    /// top of a shot someone is eyeballing walks the shells off the point they aimed at, and the
+    /// automatic path already computes one for the target it chose.</para>
+    ///
+    /// <para>Every refusal is announced. "Nothing happened" is the same symptom for a safe
+    /// launcher, a switched-off cannon, an empty belt and a mount still slewing.</para>
+    /// </summary>
+    public bool FireBurst()
+    {
+        if (!Profile.HasCannon) { Announce("refused: no cannon fitted"); return false; }
+        if (!_policy.Armed) { Announce("refused: not armed"); return false; }
+        if (Platform is null) { Announce("refused: no platform"); return false; }
+        if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
+        if (!_policy.GunsEnabled) { Announce("refused: cannon switched off"); return false; }
+        if (_guns.IsEmpty) { Announce("refused: belt empty"); return false; }
+        if (!GunsAreLaid) { Announce("refused: cannon still laying"); return false; }
+
+        _manualTrigger = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a manual shot would be taken right now, asked of whichever weapon the launcher
+    /// actually carries. A gun-only launcher reads zero from the magazine forever.
+    /// </summary>
+    public bool ReadyToFire => Profile.TubeCount > 0
+                                   ? Ammo > 0 && IsLaid
+                                   : Profile.HasCannon && !_guns.IsEmpty && GunsAreLaid;
+
+    /// <summary>
+    /// Where the cannon's flash belongs, in Ecl: the centre of the barrel cluster.
+    ///
+    /// <para>Averaged over the muzzles rather than taken from whichever barrel fired last. The six
+    /// sit within 10 cm of each other so the difference cannot be seen, and the average stays on
+    /// the cluster axis as the gun elevates instead of hopping barrel to barrel.</para>
+    /// </summary>
+    public bool TryGunFlashEcl(out double3 ecl, out double3 axisEcl)
+    {
+        ecl = axisEcl = Vec.Zero;
+        if (!Profile.HasCannon || Platform is null || Launcher is null) return false;
+        if (GunsPart is not { } guns) return false;
+
+        double3 sum = Vec.Zero;
+        int found = 0;
+        for (int i = 0; i < Profile.GunMuzzles.Length; i++)
+        {
+            if (!LauncherPart.TryGetGunMuzzleEcl(Platform, Launcher, guns, Profile, i, PlatformEcl,
+                                                 out double3 muzzle, out double3 axis))
+            {
+                continue;
+            }
+
+            sum += muzzle;
+            axisEcl = axis;
+            found++;
+        }
+
+        if (found == 0) return false;
+
+        ecl = sum / found;
+        return Vec.IsFinite(ecl);
+    }
+
     /// <summary>Manual trigger: shoots at whatever the radar currently holds.</summary>
     public bool FireAtLock()
     {
+        // A gun-only mount is aimed rather than locked on to, so its trigger is a trigger. Making
+        // it demand a lock first would leave the one weapon that is meant to be hand-aimed as the
+        // only one that cannot be.
+        if (Profile.TubeCount == 0) return FireBurst();
+
         if (Radar.Locked is null) { Announce("refused: no lock"); return false; }
         return Fire(Radar.Locked);
     }
@@ -1161,6 +1254,17 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         _magazine.Resize(Profile.TubeCount, Profile.MagazineDepth);
         _reloadTimer = 0.0;
 
+        // The belt is ammunition too. Refilling only the tubes leaves a launcher whose whole
+        // armament is a cannon permanently dry, with the button appearing to do nothing -- and
+        // the automatic resupply cannot cover it, since a mount that reloads by hand sets
+        // GunReloadSeconds to zero precisely to switch that off.
+        if (Profile.HasCannon)
+        {
+            _guns.Fill(Profile.GunAmmo);
+            _guns.Reset();
+            _gunReloadTimer = 0.0;
+        }
+
         // A tube whose last round is still flying keeps its body, so the reload is real but nothing
         // reappears on the launcher and it looks like the button did nothing. On a single-rail
         // launcher that is every reload made before the previous round lands.
@@ -1168,6 +1272,12 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         for (int i = 0; i < Profile.TubeCount; i++)
         {
             if (Magazine.IsOccupied(_rounds, i)) held++;
+        }
+
+        if (Profile.TubeCount == 0)
+        {
+            Announce($"belt replaced by hand - {_guns.Ammo} rounds");
+            return;
         }
 
         Announce(held > 0

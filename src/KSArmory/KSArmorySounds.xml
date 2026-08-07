@@ -39,4 +39,50 @@
         <Pitch Min="0.92" Max="1.08" />
     </Sound>
 
+
+    <!--
+      Cyclic cannon fire. Quieter and shorter-ranged than a warhead: a gun is loud where you are
+      standing and a detonation is loud from the next county.
+    -->
+    <SpatialSoundData Id="KSArmoryCannonSpatialData">
+        <VolumeRange Min="25" Max="6000" />
+        <TwoDRange Min="3" Max="14" />
+    </SpatialSoundData>
+
+    <!--
+      A burst of gunfire is THREE sounds, and the engine already knows it: the barrels coming up to
+      speed, steady fire for as long as the trigger is held, and the reports arriving back off the
+      terrain afterwards. One looping sample gets the spin-up on every pass and never gets the
+      tail, which is what makes a synthesised loop read as a texture rather than as an event.
+
+      Cut from a recording by tools/cut-cannon.py, whose cut points are measured off the envelope
+      rather than typed in. See tools/audio/README.md, which also carries the licence question
+      that has to be settled before a release ships these.
+
+      Same shape as Core's DefaultEngineSoundBehavior, which is a CompoundSound for the same
+      reason an engine is: it starts, it runs, it stops.
+    -->
+    <Sound Id="KSArmoryCannonSpin" ChannelId="ExternalChannel">
+        <SoundFile Path="Sounds/KSArmory_Cannon_Spin.wav" Volume="1.0"/>
+        <SpatialSoundData Id="KSArmoryCannonSpatialData" />
+    </Sound>
+
+    <Sound Id="KSArmoryCannonLoop" ChannelId="ExternalChannel">
+        <SoundFile Path="Sounds/KSArmory_Cannon_Loop.wav" Volume="1.0">
+            <Loop />
+        </SoundFile>
+        <SpatialSoundData Id="KSArmoryCannonSpatialData" />
+    </Sound>
+
+    <Sound Id="KSArmoryCannonTail" ChannelId="ExternalChannel">
+        <SoundFile Path="Sounds/KSArmory_Cannon_Tail.wav" Volume="1.0"/>
+        <SpatialSoundData Id="KSArmoryCannonSpatialData" />
+    </Sound>
+
+    <CompoundSound Id="KSArmoryCannon">
+        <StartSound Id="KSArmoryCannonSpin" />
+        <Sound Id="KSArmoryCannonLoop" />
+        <StopSound Id="KSArmoryCannonTail" />
+    </CompoundSound>
+
 </Assets>
