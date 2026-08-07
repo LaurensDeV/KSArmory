@@ -1,3 +1,20 @@
+## [0.8.40](https://github.com/LaurensDeV/KSArmory/compare/v0.8.39...v0.8.40) (2026-08-07)
+
+### Features
+
+* **rounds:** add the LAU-7 Sidewinder rail, and mouse designation ([d96ae69](https://github.com/LaurensDeV/KSArmory/commit/d96ae699cb1e8b71aad91f33d8d943d06dcca031))
+* **sim:** rocket motors you can hear and see, and a bang at the burst ([ad13bef](https://github.com/LaurensDeV/KSArmory/commit/ad13bef60ef394c3b4c33d7f243783f318e6c46d))
+* **tools:** drape the placement markers and make them a torus ([6981d4b](https://github.com/LaurensDeV/KSArmory/commit/6981d4bca99646d2cd79f689a51a8c9a2d2ed5d8))
+* **tools:** fly a scripted engagement with nobody watching ([c0a262a](https://github.com/LaurensDeV/KSArmory/commit/c0a262a72bdf1f29c0b38582ac37040cf90f962d))
+* **tools:** load a save from the mod, so a scenario needs no clicks ([2a981a7](https://github.com/LaurensDeV/KSArmory/commit/2a981a7488487cca846f0082ec65c2096da045ef))
+
+### Fixes
+
+* **build:** ship every asset folder, not just Meshes and Textures ([02382a2](https://github.com/LaurensDeV/KSArmory/commit/02382a2a1f2d4444cd813d49fcedbb4c6cc6b963))
+* **sim:** make Safe all actually make the battery safe ([2ea992c](https://github.com/LaurensDeV/KSArmory/commit/2ea992c5cf440772a907d5c1e5383012c934bf89))
+* **sim:** notice a save before the player can load it ([32d42a2](https://github.com/LaurensDeV/KSArmory/commit/32d42a212e5225685ebb012e9039c884db542632))
+* **ui:** grey out (+) for the craft already being looked at ([d019778](https://github.com/LaurensDeV/KSArmory/commit/d0197780faae115766d69d9b8657777200091410))
+
 ## [0.8.39](https://github.com/LaurensDeV/KSArmory/compare/v0.8.38...v0.8.39) (2026-08-06)
 
 ### Features
