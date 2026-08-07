@@ -45,6 +45,9 @@ public sealed class KSArmoryMod
 
     // Development tool: click the world to set off a warhead there.
     private readonly BurstTool _bursts = new();
+    private readonly Designator _designator = new();
+    private MotorSound _motors = null!;
+    private readonly MotorPlume _plumes = new();
 
     // Last kitten reported, so the character is logged once per EVA rather than every frame.
     private string _lastKittenSeen = string.Empty;
@@ -66,8 +69,9 @@ public sealed class KSArmoryMod
     public void OnFullyLoaded()
     {
         _roster = new BatteryRoster(_config);
+        _motors = new MotorSound(_config);
         _ui = new Ui(_config, _roster, _warp, _watch, _mover, _bursts);
-        Log.Info($"ready - {_config.Launcher.DisplayName}, {_config.Launcher.TubeCount} tubes, safe. "
+        Log.Info($"ready - {string.Join(", ", Arsenal.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
         // Logged, not just shown in the panel. Every link of this chain fails silently inside
@@ -188,6 +192,14 @@ public sealed class KSArmoryMod
                 _mover.Draw(_config);
                 _bursts.Update(_config);
                 _bursts.Draw(_config);
+
+                // Only the system the panel is showing. Every crewed battery reading the same
+                // cursor would fire every launcher in the world at one click.
+                if (_roster.For(_ui.Focused) is { } aimed)
+                {
+                    _designator.Update(aimed.Battery, aimed.Policy);
+                    _designator.Draw(aimed.Battery, aimed.Policy);
+                }
             }
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
@@ -263,6 +275,14 @@ public sealed class KSArmoryMod
         // them. Cheap, and it only reads state.
         foreach (BatteryRoster.Entry e in _roster.All) e.Battery.SyncRoundBodies();
 
+        // After the rounds have been stepped, so a motor is heard where its round now is
+        // rather than where it was at the start of the frame.
+        foreach (BatteryRoster.Entry e in _roster.All)
+        {
+            _motors.Update(e.Battery);
+            _plumes.Update(e.Battery);
+        }
+
         // Settings are written down a couple of times a second rather than on every edit: the
         // panel has no change notification, and a comparison against what is already stored is
         // far cheaper than working out which widget was touched.
@@ -305,7 +325,7 @@ public sealed class KSArmoryMod
         _viewTrace += 1;
         bool trace = _viewTrace % 60 == 0;
 
-        if (!LauncherPart.TryGetOpticViewEcl(platform, launcher, _config.Launcher,
+        if (!LauncherPart.TryGetOpticViewEcl(platform, launcher, battery.Profile,
                                              battery.Turret.BearingRad,
                                              battery.OpticDirectionPartFrame,
                                              battery.PlatformEcl,

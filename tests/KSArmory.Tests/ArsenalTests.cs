@@ -88,18 +88,102 @@ public class ArsenalTests
     [Fact]
     public void ProfilesAreSelectableAndDriveTheTurretLimits()
     {
-        var config = new Config();
-        config.Select(Arsenal.PantsirS1);
+        (MunitionProfile munition, SensorProfile sensor) = Arsenal.LoadoutFor(Arsenal.PantsirS1);
 
-        Assert.Same(Arsenal.PantsirS1, config.Launcher);
-        Assert.Equal("57E6", config.Munition.Name);
-        Assert.Equal("1RS1", config.Sensor.Name);
+        Assert.Equal("57E6", munition.Name);
+        Assert.Equal("1RS1", sensor.Name);
 
         var turret = new Turret();
-        config.Launcher.ConfigureTurret(turret);
+        Arsenal.PantsirS1.ConfigureTurret(turret);
         Assert.Equal(float.DegreesToRadians(Arsenal.PantsirS1.MaxElevationDeg), turret.MaxElevationRad, 9);
         Assert.Equal(float.DegreesToRadians(Arsenal.PantsirS1.ForwardArcDeg), turret.ForwardArcRad, 9);
         Assert.Equal(float.DegreesToRadians(Arsenal.PantsirS1.ForwardPlateauDeg), turret.ForwardPlateauRad, 9);
+    }
+
+    /// <summary>
+    /// The registry ships more than one system, and they have to resolve to different weapons.
+    ///
+    /// <para>Every other assertion in this file is satisfied by a registry of one, which is the
+    /// state the suite was stuck in while the Pantsir was the only entry. This one distinguishes
+    /// "picked the right system" from "picked the only system", and it is what a third entry
+    /// inherits.</para>
+    /// </summary>
+    [Fact]
+    public void TwoRegisteredSystemsResolveToDifferentWeapons()
+    {
+        Assert.True(Arsenal.Launchers.Count >= 2);
+
+        (MunitionProfile pantsirRound, SensorProfile pantsirSet) = Arsenal.LoadoutFor(Arsenal.PantsirS1);
+        (MunitionProfile railRound, SensorProfile railSet) = Arsenal.LoadoutFor(Arsenal.SidewinderRail);
+
+        Assert.NotSame(pantsirRound, railRound);
+        Assert.NotSame(pantsirSet, railSet);
+
+        Assert.Same(Arsenal.SidewinderRail, Arsenal.LauncherForPart(Arsenal.SidewinderRail.PartId));
+        Assert.Same(Arsenal.PantsirS1, Arsenal.LauncherForPart(Arsenal.PantsirS1.PartId));
+    }
+
+    /// <summary>
+    /// The AIM-9J boosts hard and then coasts, which is what a Sidewinder does and what decides
+    /// how it looks in flight.
+    ///
+    /// <para>The Mk 17 is a booster with no sustainer: about 2.2 s of thrust to roughly Mach 2.5,
+    /// then drag for the rest of the flight. Written down because the alternative is not a
+    /// slightly different number but a different weapon — a five-second burn holds speed like the
+    /// Pantsir's two-stage round, which is exactly how this shipped and exactly what looked
+    /// wrong.</para>
+    /// </summary>
+    [Fact]
+    public void TheSidewinderBoostsBrieflyAndThenCoasts()
+    {
+        MunitionProfile round = Arsenal.Missile9J;
+
+        // A booster, not a sustainer. Anything approaching the flight time is the wrong shape.
+        Assert.InRange(round.BoostSeconds, 1.5f, 3.0f);
+        Assert.True(round.BoostSeconds < round.MaxFlightSeconds / 10f);
+
+        // Peak speed at burnout, before drag: about Mach 2.5 at sea level.
+        double peak = round.LaunchSpeed + (round.BoostAccel * round.BoostSeconds);
+        Assert.InRange(peak, 800.0, 900.0);
+
+        // And it must actually bleed that off, or "coasts" means "holds speed forever".
+        Assert.True(round.DragK > 0f);
+    }
+
+    /// <summary>
+    /// The rail is the shipped example of a launcher with nothing that moves, so the shape
+    /// <see cref="AFixedLauncherIsJustAProfileWithNothingThatMoves"/> describes has to hold for a
+    /// real entry rather than only for one the test builds.
+    /// </summary>
+    [Fact]
+    public void TheSidewinderRailIsAFixedLauncherAndSaysSo()
+    {
+        LauncherProfile rail = Arsenal.SidewinderRail;
+
+        Assert.Null(rail.TurretMarker);
+        Assert.Null(rail.PodsMarker);
+        Assert.False(rail.Trains);
+        Assert.False(rail.HasCannon);
+        Assert.Equal(1, rail.TubeCount);
+
+        // A fixed launcher's rounds have no pods to follow, so the tube is the only thing that
+        // says which way they leave. Without a direction they would depart along whatever the
+        // fallback produces, which for a rail is into the craft it is bolted to.
+        Assert.True(rail.Tubes[0].HasOwnDirection);
+
+        // Never refilled: the round count in the panel is the number of rails fitted.
+        Assert.Equal(0f, rail.ReloadSeconds);
+
+        // Leaves along the rail and pushed clear of the mount, rather than pivoting onto the
+        // target at the muzzle. A rail has no walls to hold the round in, so separation is
+        // outward as well as forward -- without it the round departs along the skin of whatever
+        // carries it.
+        Assert.True(rail.LaunchAlongTube);
+        Assert.True(rail.EjectAwayFromMount > 0f);
+        Assert.Equal(0f, rail.LaunchLoft);
+
+        // And coasts before it steers, so the turn onto the target happens clear of the craft.
+        Assert.True(Arsenal.MunitionNamed(rail.Munition).SeparationSeconds > 0f);
     }
 
     [Fact]

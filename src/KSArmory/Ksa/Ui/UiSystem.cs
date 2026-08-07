@@ -76,12 +76,12 @@ internal sealed partial class Ui
 
         if (_battery.Launcher is not null)
         {
-            ImGui.TextColored(Green, $"Launcher: {_config.Launcher.DisplayName} fitted");
+            ImGui.TextColored(Green, $"Launcher: {_profile.DisplayName} fitted");
         }
         else if (_config.RequireLauncherPart)
         {
             ImGui.TextColored(Red, "Launcher: none fitted");
-            ImGui.TextDisabled($"  Add the {_config.Launcher.DisplayName} in the editor,");
+            ImGui.TextDisabled($"  Add the {_profile.DisplayName} in the editor,");
             ImGui.TextDisabled("  or untick 'Require launcher part' below.");
         }
         else
@@ -325,6 +325,14 @@ internal sealed partial class Ui
         {
             ImGui.TextDisabled("  The launcher and the optical head follow the cursor. Auto-engage");
             ImGui.TextDisabled("  still decides when to fire; the drives still have to settle first.");
+        }
+
+        ImGui.Checkbox("Fire at the mouse", ref _policy.MouseFire);
+        if (_policy.MouseFire)
+        {
+            ImGui.TextDisabled("  Click the ground to send a round there. No target and no lock");
+            ImGui.TextDisabled("  needed - the ring shows where, and turns red when it would refuse.");
+            if (!_policy.Armed) ImGui.TextColored(Amber, "  Master arm is off, so clicks do nothing.");
         }
 
         ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);

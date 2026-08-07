@@ -103,31 +103,27 @@ public class WeaponSystemSelectionTests
     [Fact]
     public void SelectingASystemMovesTheLauncherRoundAndSensorTogether()
     {
-        var config = new Config();
+        (MunitionProfile munition, SensorProfile sensor) =
+            Arsenal.LoadoutFor(ThreeLaunchers[2], ThreeMunitions, ThreeSensors);
+        Assert.Equal("round-c", munition.Name);
+        Assert.Equal("set-c", sensor.Name);
 
-        config.Select(ThreeLaunchers[2], ThreeMunitions, ThreeSensors);
-        Assert.Same(ThreeLaunchers[2], config.Launcher);
-        Assert.Equal("round-c", config.Munition.Name);
-        Assert.Equal("set-c", config.Sensor.Name);
-
-        config.Select(ThreeLaunchers[0], ThreeMunitions, ThreeSensors);
-        Assert.Same(ThreeLaunchers[0], config.Launcher);
-        Assert.Equal("round-a", config.Munition.Name);
-        Assert.Equal("set-a", config.Sensor.Name);
+        (munition, sensor) = Arsenal.LoadoutFor(ThreeLaunchers[0], ThreeMunitions, ThreeSensors);
+        Assert.Equal("round-a", munition.Name);
+        Assert.Equal("set-a", sensor.Name);
     }
 
     [Fact]
     public void SwitchingBackAndForthNeverLeavesAMixedPairing()
     {
-        var config = new Config();
-
         for (int i = 0; i < 12; i++)
         {
             LauncherProfile launcher = ThreeLaunchers[i % ThreeLaunchers.Count];
-            config.Select(launcher, ThreeMunitions, ThreeSensors);
+            (MunitionProfile munition, SensorProfile sensor) =
+                Arsenal.LoadoutFor(launcher, ThreeMunitions, ThreeSensors);
 
-            Assert.Equal(launcher.Munition, config.Munition.Name);
-            Assert.Equal(launcher.Sensor, config.Sensor.Name);
+            Assert.Equal(launcher.Munition, munition.Name);
+            Assert.Equal(launcher.Sensor, sensor.Name);
         }
     }
 
@@ -190,10 +186,10 @@ public class WeaponSystemSelectionTests
 
         Assert.Same(rail, Arsenal.LauncherForPart(registry, rail.PartId));
 
-        var config = new Config();
-        config.Select(rail, ThreeMunitions, ThreeSensors);
-        Assert.Equal("round-b", config.Munition.Name);
-        Assert.Equal("set-b", config.Sensor.Name);
+        (MunitionProfile munition, SensorProfile sensor) =
+            Arsenal.LoadoutFor(rail, ThreeMunitions, ThreeSensors);
+        Assert.Equal("round-b", munition.Name);
+        Assert.Equal("set-b", sensor.Name);
     }
 
     /// <summary>
@@ -220,5 +216,38 @@ public class WeaponSystemSelectionTests
         Assert.True(Vec.Dot(direction, Vec.Unit(targetPos - launchPos)) > 0.9, "launch is not toward the target");
         Assert.True(Vec.Dot(direction, boresight) > Vec.Dot(Vec.Unit(targetPos - launchPos), boresight),
             "a launcher that cannot aim did not loft");
+    }
+
+    /// <summary>
+    /// A fixed launcher's tubes resolve against an <em>identity</em> carrying transform, because
+    /// there is no assembly for them to ride and their coordinates are already in the part's frame.
+    ///
+    /// <para>This is the contract <c>LauncherPart</c> relies on to seat and fire a rail's round
+    /// with no pods subpart in existence. It held all along; what did not was the KSA-facing half,
+    /// which treated an absent assembly as a failure and hid the round every frame — that part is
+    /// unreachable from here and has to be flown.</para>
+    /// </summary>
+    [Fact]
+    public void AFixedLaunchersTubeSeatsAndPointsThroughAnIdentityCarrier()
+    {
+        var rail = new LauncherProfile
+        {
+            PartId = "Mod_Prefab_FixedRail",
+            DisplayName = "fixed rail",
+            Munition = "round-a",
+            Sensor = "set-a",
+            Tubes = [new Tube(new double3(0.4, 1.5, 0.0), new double3(0, 1, 0))],
+        };
+
+        double3 axis = TubeGeometry.TubeAxisPartFrame(rail, doubleQuat.Identity, 0);
+        Assert.Equal(new double3(0, 1, 0), axis);
+
+        Assert.True(TubeGeometry.TrySeatedPartFrame(rail, 0, Vec.Zero, doubleQuat.Identity,
+                                                    bodyLength: 3.0, out double3 seated));
+
+        // Half a body back along its own axis from the mouth, so the nose sits at the mouth.
+        Assert.Equal(0.4, seated.X, 9);
+        Assert.Equal(0.0, seated.Y, 9);
+        Assert.Equal(0.0, seated.Z, 9);
     }
 }

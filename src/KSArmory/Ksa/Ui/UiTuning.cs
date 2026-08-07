@@ -117,12 +117,12 @@ internal sealed partial class Ui
     {
         if (!ImGui.TreeNode("Radar")) { DrawGuidanceNode(); return; }
 
-        ImGui.SliderFloat("Range (m)", ref _config.Sensor.Range, 500f, 40000f);
-        ImGui.SliderFloat("Cone half-angle (deg)", ref _config.Sensor.ConeDeg, 5f, 180f);
-        ImGui.SliderFloat("Threat radius (m)", ref _config.Sensor.ThreatRadius, 100f, 10000f);
-        ImGui.SliderFloat("Threat horizon (s)", ref _config.Sensor.ThreatHorizonSeconds, 5f, 120f);
-        ImGui.SliderFloat("Lock time (s)", ref _config.Sensor.LockSeconds, 0f, 5f);
-        ImGui.SliderFloat("Min target speed (m/s)", ref _config.Sensor.MinTargetSpeed, 0f, 200f);
+        ImGui.SliderFloat("Range (m)", ref _sensor.Range, 500f, 40000f);
+        ImGui.SliderFloat("Cone half-angle (deg)", ref _sensor.ConeDeg, 5f, 180f);
+        ImGui.SliderFloat("Threat radius (m)", ref _sensor.ThreatRadius, 100f, 10000f);
+        ImGui.SliderFloat("Threat horizon (s)", ref _sensor.ThreatHorizonSeconds, 5f, 120f);
+        ImGui.SliderFloat("Lock time (s)", ref _sensor.LockSeconds, 0f, 5f);
+        ImGui.SliderFloat("Min target speed (m/s)", ref _sensor.MinTargetSpeed, 0f, 200f);
         ImGui.TreePop();
 
         if (ImGui.TreeNode("Turret"))
@@ -201,6 +201,20 @@ internal sealed partial class Ui
             ImGui.Separator();
             ImGui.Checkbox("Warhead effects", ref _config.DrawExplosions);
             ImGui.TextDisabled("  the fireball, not a debug line -- kept when those are off");
+
+            ImGui.Checkbox("Explosion sound", ref _config.BurstSound);
+            if (_config.BurstSound) ImGui.SliderFloat("Explosion volume", ref _config.BurstVolume, 0f, 1f);
+
+            ImGui.Checkbox("Rocket motor plume", ref _config.MotorPlume);
+            ImGui.TextDisabled("  flame at the nozzle while the motor burns; needs warhead effects on");
+
+            ImGui.Checkbox("Rocket motor sound", ref _config.MotorSound);
+            if (_config.MotorSound)
+            {
+                ImGui.SliderFloat("Motor volume", ref _config.MotorVolume, 0f, 1f);
+                ImGui.TextDisabled("  before the engine's own distance and pressure falloff, so a");
+                ImGui.TextDisabled("  round in vacuum is silent whatever this says");
+            }
 
             ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
             ImGui.TextDisabled("  brackets over every system; (+) in the list pins a label");

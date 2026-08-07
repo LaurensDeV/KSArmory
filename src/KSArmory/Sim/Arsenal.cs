@@ -77,6 +77,64 @@ public static class Arsenal
         ChargeKg = 0.16f,
     };
 
+    /// <summary>
+    /// The AIM-9J: a rail-launched infrared air-to-air missile.
+    ///
+    /// <para>Airframe figures are the real weapon's — 3.05 m, 127 mm, 78 kg, about Mach 2.5 off
+    /// a five-second motor, reaching some 14 km. The seeker is what makes it a different round
+    /// from the 57E6 rather than a smaller one: it homes on the target itself, so unlike a
+    /// command-linked round it keeps guiding after the launcher loses the track — and it can be
+    /// thrown off by a target that leaves its field of view.</para>
+    ///
+    /// <para>The warhead is the one number here that is not the real weapon's reach: 9.4 kg of
+    /// blast-fragmentation gives a lethal envelope far smaller than the 15 m below, but KSA
+    /// destroys or does nothing, so a truthful radius reads as the round missing.</para>
+    /// </summary>
+    public static readonly MunitionProfile Missile9J = new()
+    {
+        Name = "AIM9J",
+        DisplayName = "AIM-9J Sidewinder",
+        BodyMarker = "Aim9",
+
+        // No fin marker: a rail-launched round carries its fins deployed, so there is nothing
+        // to unfold and no second subpart to scale.
+        BodyLength = 3.05f,
+
+        // Off the rail on its own motor rather than ejected: the launch speed is what the rail
+        // imparts, which is nothing.
+        LaunchSpeed = 25f,
+
+        // Mk 17: a *booster*, not a sustainer. It burns for about 2.2 seconds and then the round
+        // coasts the whole rest of the way, bleeding speed to drag — which is why a Sidewinder's
+        // reach depends so heavily on how fast and how high it was launched, and why a long shot
+        // arrives slow. Modelling it as a five-second burn made it hold speed like a Pantsir round
+        // and read as far too quick.
+        //
+        // The 2.2 s and the ~Mach 2.5 peak are the weapon's. The acceleration is those two
+        // divided: the real motor's thrust is roughly constant while the missile sheds propellant,
+        // so its acceleration climbs through the burn, and a flight model with no mass can only
+        // take the average.
+        BoostSeconds = 2.2f,
+        BoostAccel = 370f,
+        MaxFlightSeconds = 40f,
+
+        // Lighter and finer than the 57E6, so it bleeds speed faster once the motor is out.
+        DragK = 4.2e-5f,
+
+        Guidance = GuidanceMode.Seeker,
+        SeekerFovDeg = 40f,
+        NavConstant = 4f,
+        MaxLateralG = 30f,
+
+        // Long enough to be clear of the rail and the craft before anything turns it — at a
+        // standing start under 175 m/s^2 that is about 14 m.
+        SeparationSeconds = 0.4f,
+
+        FuseRadius = 12f,
+        FuseArmSeconds = 1.0f,
+        ChargeKg = 9.4f,
+    };
+
     // ---- Sensors --------------------------------------------------------
 
     /// <summary>
@@ -91,6 +149,36 @@ public static class Arsenal
     {
         Name = "1RS1",
         DisplayName = "1RS1-1E search radar",
+    };
+
+    /// <summary>
+    /// The rail's own infrared search head: short-ranged, narrow, and pointed where the rail is.
+    ///
+    /// <para>Nothing on a Sidewinder rail rotates, so the volume it covers is decided entirely by
+    /// how the part was mounted — <see cref="BoresightMode.PartForward"/> rather than local up,
+    /// which would have a rail on a booster searching whichever way gravity happened to lie.</para>
+    ///
+    /// <para>Horizon masking is left on and the envelope is short: an IR seeker needs the target
+    /// hot and roughly ahead, so this set finds things the Pantsir's radar would have swept up
+    /// long before, and only within the arc the airframe is facing.</para>
+    /// </summary>
+    public static readonly SensorProfile SeekerHeadAim9 = new()
+    {
+        Name = "AIM9SEEK",
+        DisplayName = "AIM-9 seeker head",
+
+        Range = 16000f,
+        ConeDeg = 50f,
+        BoresightSource = BoresightMode.PartForward,
+
+        ThreatRadius = 6000f,
+        ThreatHorizonSeconds = 30f,
+        LockSeconds = 1.0f,
+
+        // Off the rail under its own power, so it needs far less room to arm than a round the
+        // Pantsir ejects and then has to catch.
+        MinEngagementRange = 400f,
+        MaxEngagementRange = 14000f,
     };
 
     // ---- Launchers ------------------------------------------------------
@@ -149,11 +237,65 @@ public static class Arsenal
         TubeRingRadius = 1.231,
     };
 
+    /// <summary>
+    /// A single LAU-7 launch rail carrying one AIM-9J, attached to the side of whatever it is
+    /// bolted to.
+    ///
+    /// <para>The other shape a launcher takes: nothing on it moves. No turret marker and no pods
+    /// marker, so <see cref="LauncherProfile.Trains"/> is false, the drives are skipped and the
+    /// launcher counts as laid from the moment it exists — fire control cannot deadlock waiting
+    /// for gear that will never turn. Where it can shoot is decided by how the craft is pointed,
+    /// which is the trade for it being a rail rather than a vehicle.</para>
+    ///
+    /// <para>One tube and no reload, so a craft carrying this has exactly one shot. Fitting a
+    /// second rail does <em>not</em> give it two: a battery runs the launcher at
+    /// <c>LauncherOrdinal</c>, which is pinned to the first, and the roster crews one battery per
+    /// craft. Unpinning that is the next step and is tracked in <c>docs/MODULARITY.md</c>.</para>
+    ///
+    /// <para>Geometry generated by <c>tools/model/sidewinder.py</c> and checked against the
+    /// exported mesh by <c>tools/validate-parts.py</c>.</para>
+    /// </summary>
+    public static readonly LauncherProfile SidewinderRail = new()
+    {
+        PartId = "KSArmory_Prefab_SidewinderRail",
+        DisplayName = "LAU-7 Sidewinder rail",
+        Munition = "AIM9J",
+        Sensor = "AIM9SEEK",
+
+        // The nose of the seated round and the direction it leaves along. A fixed launcher has no
+        // pods for its tubes to follow, so unlike the Pantsir's parallel bundle this one has to
+        // declare its own axis.
+        Tubes = [new(new(0.40850, 1.52500, 0.00000), new(0, 1, 0))],
+        MuzzleForwardOffset = 0.408,
+
+        // Off the rail, then a turn.
+        //
+        // The round leaves along the rail and pushed clear of the mount, coasts for
+        // MunitionProfile.SeparationSeconds so it is out of the craft's way, and only then steers.
+        // The arc that produces is bounded by the round's own lateral G, which is what stops it
+        // pivoting on the spot the way an immediate turn does.
+        //
+        // A rail on a stack points wherever the stack does, so it cannot be aimed by pointing the
+        // craft: measured in flight, every ground designation sat 92-116 degrees off the rail. That
+        // is a limit on the *seeker*, not on the weapon — a designated place is held by the
+        // operator, so it is steered onto regardless of where the round is looking. See
+        // Interceptor's SeekerInView and FireGate.CanGuideOntoAimpoint.
+        LaunchAlongTube = true,
+        EjectAwayFromMount = 0.55f,
+        LaunchLoft = 0f,
+        MuzzleOffset = 2f,
+
+        // A rail holds what it holds. Zero means the magazine is never refilled, so the round
+        // count in the panel is the number of rails fitted.
+        ReloadSeconds = 0f,
+        SettleSeconds = 0f,
+    };
+
     // ---- Registry -------------------------------------------------------
 
-    public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1];
-    public static readonly IReadOnlyList<MunitionProfile> Munitions = [Missile57E6, Cannon30Mm];
-    public static readonly IReadOnlyList<SensorProfile> Sensors = [SearchRadar1Rs1];
+    public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1, SidewinderRail];
+    public static readonly IReadOnlyList<MunitionProfile> Munitions = [Missile57E6, Cannon30Mm, Missile9J];
+    public static readonly IReadOnlyList<SensorProfile> Sensors = [SearchRadar1Rs1, SeekerHeadAim9];
 
     /// <summary>
     /// The parts this mod recognises on a craft it did not design, keyed by part Id.
@@ -185,6 +327,16 @@ public static class Arsenal
                 new(WeaponRole.Gun, Cannon30Mm.DisplayName),
                 new(WeaponRole.FireControl, "Pantsir-S1 fire control"),
             ],
+        },
+        new ComponentProfile
+        {
+            PartId = SidewinderRail.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = SidewinderRail.DisplayName,
+
+            // The seeker head is the round's, not the rail's, but the rail is what a survey can
+            // see and what the battery searches with -- so this is where it is declared.
+            Provides = [new(WeaponRole.Sensor, SeekerHeadAim9.DisplayName)],
         },
     ];
 
@@ -218,6 +370,27 @@ public static class Arsenal
     public static MunitionProfile MunitionNamed(string name) => Named(Munitions, name, m => m.Name);
 
     public static SensorProfile SensorNamed(string name) => Named(Sensors, name, s => s.Name);
+
+    /// <summary>
+    /// The round and sensor a launcher names, resolved together.
+    ///
+    /// <para>Together because a launcher left holding another system's round is a wrong-weapon
+    /// bug with nothing on screen to show for it. Every caller that adopts a launcher takes all
+    /// three, and this is the one place that pairing is made.</para>
+    /// </summary>
+    public static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(LauncherProfile launcher)
+        => LoadoutFor(launcher, Munitions, Sensors);
+
+    /// <summary>
+    /// The same pairing against explicit registries, so switching between systems is testable
+    /// with several of each registered.
+    /// </summary>
+    internal static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(
+        LauncherProfile launcher,
+        IReadOnlyList<MunitionProfile> munitions,
+        IReadOnlyList<SensorProfile> sensors)
+        => (Named(munitions, launcher.Munition, m => m.Name),
+            Named(sensors, launcher.Sensor, s => s.Name));
 
     /// <summary>
     /// First entry whose key matches, or the first entry as a fallback. Internal rather than

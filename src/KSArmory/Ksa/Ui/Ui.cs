@@ -406,9 +406,11 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
     // Where the turret is pointing, and whether it is still swinging. Also the place the engine's
     // verdict on the transform write surfaces: if KSA refuses it, the drive gives up for the
     // session and this is where that gets said, rather than the turret just silently never moving.
-    // The weapon system the panel is tuning. See Config.Select.
-    private LauncherProfile _profile => _config.Launcher;
-    private MunitionProfile _munition => _config.Munition;
+    // The weapon system of whichever battery the panel is showing. Tuning edits the shared
+    // Arsenal instance, so it reaches every battery running that system.
+    private LauncherProfile _profile => _battery.Profile;
+    private MunitionProfile _munition => _battery.Munition;
+    private SensorProfile _sensor => _battery.Sensor;
 
     // Speeds worth a button. KSA's own roller stops at 0.1x; these go two decades below.
     private static readonly (string Label, double Speed)[] SlowMotionSpeeds =

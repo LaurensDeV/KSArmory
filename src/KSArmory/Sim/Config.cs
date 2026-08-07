@@ -18,32 +18,45 @@ namespace KSArmory;
 public sealed class Config
 {
 
-    /// <summary>
-    /// The weapon system the panel is showing. Set by the battery when it resolves its
-    /// launcher; the profiles are shared instances, so edits apply to every launcher of that
-    /// type, which is what you want when tuning.
-    /// </summary>
-    public LauncherProfile Launcher = Arsenal.PantsirS1;
-    public MunitionProfile Munition = Arsenal.Missile57E6;
-    public SensorProfile Sensor = Arsenal.SearchRadar1Rs1;
-
-    /// <summary>Points every profile at the system this battery actually has fitted.</summary>
-    public void Select(LauncherProfile launcher)
-        => Select(launcher, Arsenal.Munitions, Arsenal.Sensors);
+    // There is deliberately no launcher, round or sensor here. A weapon system belongs to the
+    // battery running it — see DefenceBattery.Profile — because two sites in one world can be
+    // different systems, and a session-wide selection gives every reader whichever battery
+    // updated last. Arsenal.LoadoutFor is what pairs the three.
 
     /// <summary>
-    /// The same selection against explicit registries, so switching between systems is testable
-    /// while the mod ships one. All three fields move together: a launcher left pointing at
-    /// another system's round is a silent wrong-weapon bug.
+    /// Play a rocket motor while a round is boosting.
+    ///
+    /// <para>Session-wide rather than per battery: it is a preference about the game's sound, and
+    /// two sites in one world wanting different answers is not a case anyone has.</para>
     /// </summary>
-    internal void Select(LauncherProfile launcher,
-                         IReadOnlyList<MunitionProfile> munitions,
-                         IReadOnlyList<SensorProfile> sensors)
-    {
-        Launcher = launcher;
-        Munition = Arsenal.Named(munitions, launcher.Munition, m => m.Name);
-        Sensor = Arsenal.Named(sensors, launcher.Sensor, s => s.Name);
-    }
+    public bool MotorSound = true;
+
+    /// <summary>Volume of that motor, before the engine's own distance and pressure falloff.</summary>
+    public float MotorVolume = 0.7f;
+
+    /// <summary>
+    /// Draw a plume at the nozzle while a round burns.
+    ///
+    /// <para>Held-open emitters come from a shared pool, so this is the one effect that can starve
+    /// the rest of the game's particles if a salvo is large enough. Switchable for that reason as
+    /// much as for taste.</para>
+    /// </summary>
+    public bool MotorPlume = true;
+
+    /// <summary>Play a bang when a warhead goes off.</summary>
+    public bool BurstSound = true;
+
+    /// <summary>Its volume, scaled again by the size of the charge before it is played.</summary>
+    public float BurstVolume = 0.9f;
+
+    /// <summary>Which sound, by <c>ModLibrary</c> Id. Null borrows Core's separation charge.</summary>
+    public string? BurstSoundId;
+
+    /// <summary>
+    /// Which sound to use, by <c>ModLibrary</c> Id. Null takes Core's engine loop, which resolves
+    /// on every install; a mod-supplied Id only resolves once that asset actually ships.
+    /// </summary>
+    public string? MotorSoundId;
 
     // ---- Engagement policy ----------------------------------------------
 

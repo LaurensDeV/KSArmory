@@ -171,7 +171,7 @@ internal static class Diagnostics
 
         double3 origin = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
-        double coneCos = Math.Cos(config.Sensor.ConeHalfAngleRad);
+        double coneCos = Math.Cos(battery.Sensor.ConeHalfAngleRad);
 
         foreach (Vehicle v in Scratch)
         {
@@ -186,16 +186,16 @@ internal static class Diagnostics
             double cos = Vec.Dot(Vec.Unit(r), battery.Boresight);
             double offAxisDeg = double.RadiansToDegrees(Math.Acos(Math.Clamp(cos, -1.0, 1.0)));
 
-            double tCa = Vec.TimeOfClosestApproach(r, rel, config.Sensor.ThreatHorizonSeconds);
+            double tCa = Vec.TimeOfClosestApproach(r, rel, battery.Sensor.ThreatHorizonSeconds);
             double cpa = Vec.Len(r + rel * tCa);
 
             string verdict =
                 policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle) ? "SKIP: is controlled vehicle"
-                : range > config.Sensor.Range ? $"REJECT: out of range ({range / 1000.0:F1} > {config.Sensor.Range / 1000.0:F1} km)"
-                : cos < coneCos ? $"REJECT: outside cone ({offAxisDeg:F0} deg > {config.Sensor.ConeDeg:F0})"
-                : relSpeed < config.Sensor.MinTargetSpeed ? $"REJECT: too slow ({relSpeed:F1} < {config.Sensor.MinTargetSpeed:F0} m/s)"
-                : cpa <= config.Sensor.ThreatRadius || range <= config.Sensor.ThreatRadius ? "TRACK: threat"
-                : $"TRACK: not a threat (cpa {cpa:F0} m > {config.Sensor.ThreatRadius:F0})";
+                : range > battery.Sensor.Range ? $"REJECT: out of range ({range / 1000.0:F1} > {battery.Sensor.Range / 1000.0:F1} km)"
+                : cos < coneCos ? $"REJECT: outside cone ({offAxisDeg:F0} deg > {battery.Sensor.ConeDeg:F0})"
+                : relSpeed < battery.Sensor.MinTargetSpeed ? $"REJECT: too slow ({relSpeed:F1} < {battery.Sensor.MinTargetSpeed:F0} m/s)"
+                : cpa <= battery.Sensor.ThreatRadius || range <= battery.Sensor.ThreatRadius ? "TRACK: threat"
+                : $"TRACK: not a threat (cpa {cpa:F0} m > {battery.Sensor.ThreatRadius:F0})";
 
             Log.Debug($"  '{name}': range {range / 1000.0:F2} km, off-axis {offAxisDeg:F0} deg, " +
                      $"rel speed {relSpeed:F0} m/s, cpa {cpa:F0} m in {tCa:F0}s -> {verdict}");

@@ -89,9 +89,19 @@ behaviour:
 least knowable before a second launcher exists that actually needs it.
 
 **1 and 3 have since landed**, both cheaply, because the geometry they rewrite had already moved
-into `Sim/` and was covered — see the section below. **2 has not moved at all**: fire control,
-platform election and the salvo timers are still KSA-facing and still unreachable from the test
-project, so it remains the riskiest of the four despite being the middle-sized one. 4 stays last.
+into `Sim/` and was covered — see the section below. 4 stays last.
+
+**2 has moved halfway.** The half that was quietly blocking everything is done: `Config` no longer
+holds a launcher, round or sensor, and `DefenceBattery.Profile`/`.Munition`/`.Sensor` are the
+battery's own, paired by `Arsenal.LoadoutFor`. Two craft can now be two *different* weapon systems,
+which is what the LAU-7 rail needed and what a shared `Config` made impossible — every reader
+outside a battery's own update got whichever battery resolved last.
+
+What remains of 2 is the part the row actually names: **several launchers on one craft.**
+`DefenceBattery.LauncherOrdinal` is a `const 0` and `BatteryRoster` keys on `Vehicle`, so a craft
+with two Sidewinder rails fires one of them and the other is scenery. Fire control, platform
+election and the salvo timers are still KSA-facing and still unreachable from the test project, so
+that half remains the riskiest of the four despite being the middle-sized one.
 
 Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → `Arsenal` boundary that
 `validate-parts.py` guards, so the generator and the validator move with it. That is the third

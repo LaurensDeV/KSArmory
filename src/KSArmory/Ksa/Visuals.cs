@@ -42,7 +42,7 @@ internal static class Visuals
                                                  out clockRef);
         }
 
-        if (config.DrawRadarVolume) DrawSearchVolume(origin, battery.Boresight, clockRef, config);
+        if (config.DrawRadarVolume) DrawSearchVolume(origin, battery.Boresight, clockRef, battery.Sensor, config);
         if (config.DrawTracks) DrawTracks(battery, origin, config);
         if (config.DrawMissiles) DrawRounds(battery, config);
         if (battery.Launcher is not null && config.DrawTubeMarkers) DrawLoadedTubes(battery, config, origin);
@@ -51,7 +51,7 @@ internal static class Visuals
 
     // Wireframe cone: boresight, a rim, and ribs out to the rim.
     private static void DrawSearchVolume(double3 origin, double3 boresight, double3 clockRef,
-                                         Config config)
+                                         SensorProfile sensor, Config config)
     {
         const int ribs = 12;
 
@@ -59,8 +59,8 @@ internal static class Visuals
         // all radiating from one point, converging at the horizon. Draw a scaled-down shape
         // near the craft instead - it shows the *direction and angle* the radar covers, which
         // is what you actually want to see. The range readout lives in the panel.
-        double range = Math.Min(config.Sensor.Range, config.ConeDisplayMetres);
-        double half = config.Sensor.ConeHalfAngleRad;
+        double range = Math.Min(sensor.Range, config.ConeDisplayMetres);
+        double half = sensor.ConeHalfAngleRad;
 
         double3 axisEnd = origin + boresight * range;
         KsaWorld.DrawLineEcl(origin, axisEnd, ConeColour);
@@ -123,7 +123,7 @@ internal static class Visuals
     // - Ammo tubes are the spent ones.
     private static void DrawLoadedTubes(DefenceBattery battery, Config config, double3 origin)
     {
-        LauncherProfile profile = config.Launcher;
+        LauncherProfile profile = battery.Profile;
         int spent = profile.TubeCount - battery.Ammo;
 
         // Prefer the part's own transform so the markers sit on the actual tubes rather than on
@@ -135,9 +135,10 @@ internal static class Visuals
         // right correctly and simply refuse to go up and down.
         Span<double3> muzzles = stackalloc double3[profile.TubeCount];
         bool exact = battery.Platform is { } platform
-                     && battery.PodsPart is { } pods
+                     && battery.TubesResolved
                      && KsaWorld.HasAnchor
-                     && LauncherPart.TryGetTubeMuzzlesEgo(platform, pods, profile, KsaWorld.AnchorEgo, muzzles);
+                     && LauncherPart.TryGetTubeMuzzlesEgo(platform, battery.PodsPart ?? battery.Launcher, profile,
+                                                       KsaWorld.AnchorEgo, muzzles);
 
         for (int tube = 0; tube < profile.TubeCount; tube++)
         {

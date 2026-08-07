@@ -98,10 +98,10 @@ internal sealed partial class Ui
 
         // Spawning beyond radar range is the easiest way to see nothing happen at all.
         float spawnRange = _spawnSpeed * _spawnSeconds;
-        if (spawnRange > _config.Sensor.Range)
+        if (spawnRange > _sensor.Range)
         {
             ImGui.TextColored(Amber,
-                $"spawns {spawnRange / 1000f:F1} km out - beyond {_config.Sensor.Range / 1000f:F1} km radar range");
+                $"spawns {spawnRange / 1000f:F1} km out - beyond {_sensor.Range / 1000f:F1} km radar range");
             ImGui.TextDisabled("  it will be invisible until it closes to range");
         }
         else
