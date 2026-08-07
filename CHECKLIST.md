@@ -473,7 +473,16 @@ something arrives early.
 - [ ] Raise `SensorProfile.TerrainMarginMetres` and watch low contacts drop out at shorter range.
 - [ ] With `HorizonMasking` off, everything is visible again exactly as before.
 
-### 7.1d The Sidewinder rail  ← nothing here has been flown
+### 7.1d The Sidewinder rail
+
+**Flown unattended on 2026-08-07 by `./tools/scenario.sh head-on`, and it killed the target.**
+The log reads: crewed NewRocket_1 with the LAU-7 rail, armed with 1 round, target away, round
+away, and KSA reporting `Vehicle 'AD Test Drone 1' destroyed by Collision (50.0 g)`. So the
+fixed-launcher path crews, arms, fires and kills.
+
+What that run did *not* settle is everything about appearance -- the screenshot lands after the
+kill, so the round leaving the rail was never seen. The unticked boxes below are the ones a log
+cannot answer.
 
 The second weapon system, and the first that is *fixed* — no turret, no pods, one round, no
 reload. Everything below is a path the Pantsir never takes, so a green suite says little about it.

@@ -27,6 +27,15 @@ SCENARIO="${1:-head-on}"
 KEEP=0
 [[ "${2:-}" == "--keep" ]] && KEEP=1
 
+# The craft to boot into. It must carry a launcher, or the runner waits forever for a battery to
+# crew: the default startVehicle is a plain Rocket and nothing crews on it.
+#
+# settings.toml's startVehicle, not a save. StarMap's GameArguments do carry "-load <name>" through
+# to KSA's terminal commands in principle, but it was measured not to fire -- the game booted its
+# default situation with no save-load line in its own log. Install the craft with
+# tools/install-testcraft.sh.
+SAVE="${KSARMORY_SCENARIO_SAVE:-rocket missile}"
+
 case "$SCENARIO" in
     head-on|overhead|passing) ;;
     *) echo "usage: $0 {head-on|overhead|passing} [--keep]" >&2; exit 2 ;;
@@ -38,12 +47,27 @@ SHOTS="$REPO_ROOT/screenshots"
 
 # Consumed by the mod as it reads it, so a later launch cannot silently re-run this.
 mkdir -p "$USER_DIR/Logs"
-printf '%s\n' "$SCENARIO" > "$USER_DIR/Logs/scenario.txt"
+printf '%s|%s\n' "$SCENARIO" "$SAVE" > "$USER_DIR/Logs/scenario.txt"
+
+# KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is
+# exactly the human this exists to remove. The dialog is the "Always Show" checkbox, persisted as
+# selectSystemOnStart, and with it off the game boots straight into settings.toml's startVehicle.
+# Restored on exit: it is the player's setting, not ours.
+SETTINGS="$USER_DIR/settings.toml"
+DIALOG_WAS=""
+CRAFT_WAS=""
+if [[ -f "$SETTINGS" ]]; then
+    DIALOG_WAS="$(grep -oE '^selectSystemOnStart = (true|false)' "$SETTINGS" | head -1 || true)"
+    CRAFT_WAS="$(grep -oE '^startVehicle = ".*"' "$SETTINGS" | head -1 || true)"
+
+    sed -i 's/^selectSystemOnStart = true/selectSystemOnStart = false/' "$SETTINGS"
+
+fi
 
 echo "== deploying"
 "$REPO_ROOT/tools/deploy.sh" >/dev/null
 
-echo "== launching, scenario '$SCENARIO'"
+echo "== launching, scenario '$SCENARIO', save '$SAVE'"
 : > "$LOG" 2>/dev/null || true
 "$REPO_ROOT/tools/run.sh" --no-build >/dev/null 2>&1 &
 LAUNCHER=$!
@@ -53,6 +77,16 @@ cleanup() {
         cmd.exe /c "taskkill /IM StarMap.exe /F" >/dev/null 2>&1 || true
     fi
     kill "$LAUNCHER" 2>/dev/null || true
+
+
+    # The game rewrites settings.toml on exit, so this has to run after it is gone.
+    if [[ -f "$SETTINGS" ]]; then
+        sleep 1
+        [[ "$DIALOG_WAS" == "selectSystemOnStart = true" ]] &&
+            sed -i 's/^selectSystemOnStart = false/selectSystemOnStart = true/' "$SETTINGS"
+        [[ -n "$CRAFT_WAS" ]] &&
+            sed -i "s|^startVehicle = \".*\"|$CRAFT_WAS|" "$SETTINGS"
+    fi
 }
 trap cleanup EXIT
 

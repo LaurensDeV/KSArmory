@@ -25,6 +25,7 @@ internal sealed class ScenarioRunner
     private enum Phase
     {
         Idle,
+        LoadingSave,
         WaitingForWorld,
         Arming,
         Engaging,
@@ -40,6 +41,8 @@ internal sealed class ScenarioRunner
     private double _sinceSpawn;
     private bool _spawned;
     private bool _capturedLaunch;
+    private double _lastComplaint;
+    private string _save = string.Empty;
 
     // Longest a scenario may take before it is called a failure. Generous: a 20 km engagement at
     // 300 m/s closing is over a minute of flight before anything is decided.
@@ -84,6 +87,14 @@ internal sealed class ScenarioRunner
     {
         if (_phase != Phase.Idle || string.IsNullOrWhiteSpace(request)) return;
 
+        // "name" or "name|save". Skipping the configuration dialog gets the game past a dialog,
+        // not into a scene: settings.toml's startVehicle is only ever read *by* that dialog, so
+        // without one the game sits at a menu and nothing is ever in flight. Loading a save is
+        // the only way in that does not need a click, and GameSaves.LoadSaveGame is public.
+        string[] parts = request.Split('|', 2);
+        _save = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+        request = parts[0];
+
         _name = request.Trim();
         _profile = _name switch
         {
@@ -92,8 +103,8 @@ internal sealed class ScenarioRunner
             _ => TestTarget.Profile.HeadOn,
         };
 
-        _phase = Phase.WaitingForWorld;
-        Report($"{_name}: START profile={_profile}");
+        _phase = Phase.LoadingSave;
+        Report($"{_name}: START profile={_profile} save='{_save}'");
     }
 
     /// <summary>One frame of the scenario. Does nothing unless one was asked for.</summary>
@@ -118,8 +129,43 @@ internal sealed class ScenarioRunner
 
         switch (_phase)
         {
+            case Phase.LoadingSave:
+                // A beat after load: asking the game to swap scenes while it is still building
+                // the first one is not a case anything here can recover from.
+                if (_elapsed < 3.0) return;
+
+                if (_save.Length > 0)
+                {
+                    try
+                    {
+                        GameSaves.LoadSaveGame(_save);
+                        Report($"{_name}: asked for save '{_save}'");
+                    }
+                    catch (Exception e)
+                    {
+                        Finish($"FAIL could not load '{_save}': {e.Message}");
+                        return;
+                    }
+                }
+
+                _phase = Phase.WaitingForWorld;
+                return;
+
             case Phase.WaitingForWorld:
-                if (!KsaWorld.InFlight || entry is null) return;
+                if (!KsaWorld.InFlight || entry is null)
+                {
+                    // Every few seconds, because "TIMEOUT in WaitingForWorld" says which state it
+                    // died in and nothing about which of the two things it was missing.
+                    if (_elapsed - _lastComplaint > 10.0)
+                    {
+                        _lastComplaint = _elapsed;
+                        Report($"{_name}: waiting -- "
+                               + (KsaWorld.InFlight ? "in flight" : "NO CRAFT IN FLIGHT")
+                               + ", " + (entry is null ? "NO BATTERY CREWED" : "battery crewed"));
+                    }
+                    return;
+                }
+
                 if (_elapsed < SettleSeconds) return;
 
                 Report($"{_name}: crewed {KsaWorld.DisplayName(entry.Battery.Platform!)} "
