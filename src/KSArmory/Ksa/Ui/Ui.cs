@@ -81,10 +81,56 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
         new("Log", DrawLog, PaneGroup.Debug),
     ];
 
+    /// <summary>
+    /// Adds <c>Mods → KSArmory</c> to the game's own menu bar.
+    ///
+    /// <para>KSA draws that bar inline in <c>Program</c> with hardcoded menus and offers no
+    /// extension point, and StarMap's attributes are lifecycle hooks with nothing menu-shaped
+    /// among them. What makes this work anyway is that ImGui's main menu bar is immediate-mode
+    /// and persistent: reopening it later in the same frame appends rather than starting a
+    /// second bar.</para>
+    ///
+    /// <para>"Mods" rather than "KSArmory" as the top-level menu, so several mods doing this
+    /// share one menu instead of each adding their own — ImGui merges menus by label.</para>
+    ///
+    /// <para>Called from <b>before</b> KSA's GUI pass, not after. Measured: from an after-GUI hook
+    /// <c>BeginMainMenuBar</c> returns false and nothing appears, because the bar has already been
+    /// ended for the frame. Opening it first instead means KSA's own menus append to ours.</para>
+    /// </summary>
+    public void DrawMenuBarEntry()
+    {
+        try
+        {
+            if (!ImGui.BeginMainMenuBar()) return;
+
+            if (ImGui.BeginMenu("Mods"))
+            {
+                bool visible = Visible;
+                if (ImGui.MenuItem("KSArmory", default, ref visible, true)) Visible = visible;
+
+                ImGui.EndMenu();
+            }
+
+            ImGui.EndMainMenuBar();
+        }
+        catch (Exception e)
+        {
+            // Never take the panel down with it. A menu that does not appear is a cosmetic loss;
+            // an exception here happens inside KSA's own GUI pass.
+            if (_warnedMenuBar) return;
+
+            _warnedMenuBar = true;
+            Log.Warn($"menu bar entry failed, use the floating button: {e.Message}");
+        }
+    }
+
+    private bool _warnedMenuBar;
+
     public void Draw()
     {
         RefreshSystems();
         _batteries.Sync(_systems);
+
 
         if (_managed is not null && _batteries.For(_managed) is null) _managed = null;
         Focused = _managed ?? _batteries.Default();
@@ -94,12 +140,17 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
 
         if (!Visible)
         {
-            // Closing the panel must not strand the operator with no way back.
-            if (ImGui.Begin("KSArmory##reopen", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
+            // Closing the panel must not strand the operator with no way back. Kept even though
+            // Mods -> KSArmory does the same job: appending to KSA's menu bar depends on ImGui
+            // behaviour that has not been proved on anyone else's machine, and a mod with no way
+            // to reopen its own panel is unusable rather than merely untidy.
+            if (_config.FloatingPanelButton
+                && ImGui.Begin("KSArmory##reopen",
+                               ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
             {
                 if (ImGui.Button("KSArmory")) Visible = true;
             }
-            ImGui.End();
+            if (_config.FloatingPanelButton) ImGui.End();
             if (anyCrewed) { DrawManageWindow(); DrawPanes(); }
             return;
         }

@@ -6,6 +6,7 @@
 #   ./tools/scenario.sh overhead
 #   ./tools/scenario.sh passing
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
+#   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
 #
 # The gap this closes is not headless rendering -- KSA ships Windows-only natives and threads its
 # simulation through a Vulkan renderer, so there is no headless to have. It is that verifying a
@@ -25,7 +26,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 SCENARIO="${1:-head-on}"
 KEEP=0
-[[ "${2:-}" == "--keep" ]] && KEEP=1
+SHOTS_ON=0
+for arg in "${@:2}"; do
+    case "$arg" in
+        --keep)  KEEP=1 ;;
+        --shots) SHOTS_ON=1 ;;
+    esac
+done
 
 # The craft to boot into. It must carry a launcher, or the runner waits forever for a battery to
 # crew: the default startVehicle is a plain Rocket and nothing crews on it.
@@ -113,9 +120,15 @@ while (( SECONDS < DEADLINE )); do
 
         case "$line" in
             *CAPTURE*)
-                sleep 1
-                "$REPO_ROOT/tools/screenshot.sh" >/dev/null 2>&1 || true
-                echo "   -> screenshot in screenshots/"
+                # Off unless asked for. screenshot.sh grabs the whole primary screen, not the game
+                # window, so an unattended run photographs whatever happens to be in front -- once
+                # that was a Discord conversation. Verifying by eye is the operator's job; this
+                # harness is for the things a log can answer.
+                if (( SHOTS_ON )); then
+                    sleep 1
+                    "$REPO_ROOT/tools/screenshot.sh" >/dev/null 2>&1 || true
+                    echo "   -> screenshot in screenshots/"
+                fi
                 ;;
             *PASS*)    VERDICT=PASS ;;
             *FAIL*)    VERDICT=FAIL ;;
@@ -136,4 +149,4 @@ case "$VERDICT" in
     *)    echo "scenario '$SCENARIO': $VERDICT" >&2; exit 1 ;;
 esac
 
-ls -t "$SHOTS"/*.png 2>/dev/null | head -3 | sed 's|.*/|  shot: |' || true
+(( SHOTS_ON )) && { ls -t "$SHOTS"/*.png 2>/dev/null | head -3 | sed 's|.*/|  shot: |' || true; }

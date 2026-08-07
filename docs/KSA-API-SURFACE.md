@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-116 types and 292 members across 6 assemblies.
+117 types and 298 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -107,6 +107,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float2 GetMousePos()`
 - `bool Begin(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Begin(Brutal.ImGuiApi.ImString, ref bool, Brutal.ImGuiApi.ImGuiWindowFlags)`
+- `bool BeginMainMenuBar()`
+- `bool BeginMenu(Brutal.ImGuiApi.ImString, bool)`
 - `bool BeginTabBar(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTabBarFlags)`
 - `bool BeginTabItem(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTabItemFlags)`
 - `bool BeginTable(Brutal.ImGuiApi.ImString, int, Brutal.ImGuiApi.ImGuiTableFlags, ref System.Nullable`1<Brutal.Numerics.float2>, float)`
@@ -118,6 +120,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsMouseClicked(Brutal.ImGuiApi.ImGuiMouseButton, bool)`
 - `bool IsMouseDown(Brutal.ImGuiApi.ImGuiMouseButton)`
 - `bool IsWindowHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
+- `bool MenuItem(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImString, ref bool, bool)`
 - `bool RadioButton(Brutal.ImGuiApi.ImString, bool)`
 - `bool SliderFloat(Brutal.ImGuiApi.ImString, ref float, float, float, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool SliderInt(Brutal.ImGuiApi.ImString, ref int, int, int, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
@@ -127,6 +130,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float GetFrameHeight()`
 - `void Dummy(ref Brutal.Numerics.float2)`
 - `void End()`
+- `void EndMainMenuBar()`
+- `void EndMenu()`
 - `void EndTabBar()`
 - `void EndTabItem()`
 - `void EndTable()`
@@ -689,6 +694,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void .ctor()`
 
 ### StarMap.API.StarMapAllModsLoadedAttribute
+
+- `void .ctor()`
+
+### StarMap.API.StarMapBeforeGuiAttribute
 
 - `void .ctor()`
 

@@ -43,6 +43,15 @@ public sealed class Config
     /// </summary>
     public bool MotorPlume = true;
 
+    /// <summary>
+    /// Show the little floating button that reopens the panel.
+    ///
+    /// <para>On by default and worth keeping: the menu-bar entry that replaces it works by
+    /// appending to KSA's own bar, which is ImGui behaviour rather than a supported hook. If that
+    /// ever stops working, a mod with no way to reopen its panel is unusable.</para>
+    /// </summary>
+    public bool FloatingPanelButton = true;
+
     /// <summary>Play a bang when a warhead goes off.</summary>
     public bool BurstSound = true;
 

@@ -27,6 +27,18 @@ fi
 # PowerShell writes to a Windows path; translate afterwards rather than fighting quoting.
 WIN_TMP='C:\Windows\Temp\ksa-shot.png'
 
+# Bring the game forward first. This captures the whole screen, so an unfocused game gives a
+# picture of whatever is on top -- a scenario run once returned a screenshot of Discord, which is
+# a convincing-looking file that says nothing about the game.
+powershell.exe -NoProfile -Command "
+\$sm = Get-Process StarMap -ErrorAction SilentlyContinue | Select-Object -First 1
+if (\$sm -and \$sm.MainWindowHandle -ne 0) {
+  Add-Type -AssemblyName Microsoft.VisualBasic
+  [Microsoft.VisualBasic.Interaction]::AppActivate(\$sm.Id)
+  Start-Sleep -Milliseconds 600
+}
+" >/dev/null 2>&1 || true
+
 powershell.exe -NoProfile -Command "
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing
 \$b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds

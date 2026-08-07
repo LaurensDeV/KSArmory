@@ -131,6 +131,19 @@ public sealed class KSArmoryMod
     /// submits is cleared by the next frame's reset before it is ever drawn. This hook is a
     /// postfix on OnDrawUiViewports, which sits between the reset and the render.
     /// </summary>
+    /// <summary>
+    /// Opens the main menu bar before KSA fills it, so "Mods" sits alongside File and Universe.
+    /// Nothing else belongs here: the overlay and the panel need the world stepped first.
+    /// </summary>
+    [StarMapBeforeGui]
+    public void OnBeforeGui(double dt)
+    {
+        if (_disabled || _ui is null) return;
+
+        try { _ui.DrawMenuBarEntry(); }
+        catch { /* Cosmetic. Never take KSA's GUI pass down for a menu item. */ }
+    }
+
     [StarMapAfterGui]
     public void OnAfterGui(double dt)
     {
