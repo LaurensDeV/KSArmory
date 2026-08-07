@@ -48,6 +48,7 @@ public sealed class KSArmoryMod
     private readonly Designator _designator = new();
     private MotorSound _motors = null!;
     private readonly MotorPlume _plumes = new();
+    private ScenarioRunner _scenario = null!;
 
     // Last kitten reported, so the character is logged once per EVA rather than every frame.
     private string _lastKittenSeen = string.Empty;
@@ -70,6 +71,8 @@ public sealed class KSArmoryMod
     {
         _roster = new BatteryRoster(_config);
         _motors = new MotorSound(_config);
+        _scenario = new ScenarioRunner(_config);
+        _scenario.Begin(ScenarioRunner.Requested());
         _ui = new Ui(_config, _roster, _warp, _watch, _mover, _bursts);
         Log.Info($"ready - {string.Join(", ", Arsenal.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
@@ -282,6 +285,10 @@ public sealed class KSArmoryMod
             _motors.Update(e.Battery);
             _plumes.Update(e.Battery);
         }
+
+        // After the batteries have run, so a scenario reads the state this frame produced rather
+        // than the one before it.
+        _scenario.Update(_roster, dtPlayer);
 
         // Settings are written down a couple of times a second rather than on every edit: the
         // panel has no change notification, and a comparison against what is already stored is

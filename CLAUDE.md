@@ -197,6 +197,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/deploy.sh                          # build and install into the KSA mods folder
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
 ./tools/run.sh --attach                    # follow a game that's already running
+./tools/scenario.sh head-on                # fly one engagement unattended and report pass/fail
 ./tools/ksa-user-dir.sh                    # where KSA keeps Logs/, mods/ and saves on this box
 ./tools/setup-starmap.sh                   # one-off: install StarMap and write its config
 ./tools/check-assemblies.sh --game         # has the installed game moved past the lock?
@@ -284,6 +285,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/WatchCamera.cs` | nudges the main view round onto one system, then lets go |
 | `Ksa/Track.cs` | a radar contact bound to a KSA vehicle |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
+| `Ksa/ScenarioRunner.cs` | flies a scripted engagement with nobody watching, and says what happened |
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
@@ -319,6 +321,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/kittengun.py` | the kitten's shoulder cannon — a character attachment, not a part |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
+| `tools/scenario.sh` | drives one engagement end to end and exits pass/fail; screenshots on cue |
 | `tools/sounds.py` | synthesises the explosion samples; no sampled audio, so no licence to carry |
 | `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
 | `branding/` | the generated logo the README and SpaceDock point at |
