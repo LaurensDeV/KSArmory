@@ -176,9 +176,19 @@ internal sealed class MotorPlume
 
     private static void Give(Live live)
     {
+        // Kill() first, and it is what actually stops it. Celestial.RemoveEmitter only drops the
+        // handle from that body's list; ParticleSystem.UpdateEmitters walks the whole pool, so a
+        // removed emitter keeps being updated. An Endless one never completes its own simulation,
+        // so it spawns for the rest of the session and is never returned to the pool -- which is
+        // seen as particles frozen where the emitter last was, and eventually as nothing in the
+        // world being able to spawn any.
         foreach (var handle in live.Handles)
         {
-            try { live.Body.RemoveEmitter(handle); }
+            try
+            {
+                if (handle.TryGet() is { } emitter) emitter.Kill();
+                live.Body.RemoveEmitter(handle);
+            }
             catch { /* Already gone, which is where we wanted it. */ }
         }
     }

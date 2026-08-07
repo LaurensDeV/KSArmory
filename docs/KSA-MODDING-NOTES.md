@@ -643,3 +643,23 @@ found, so if a future build fixes this the log will say so.
 The general shape is worth remembering: a BCL member whose **return type comes from a different
 BCL assembly** is the one at risk. Nothing about the call site looks dangerous, it compiles
 against the reference assemblies without complaint, and it fails only in game.
+
+## Particles
+
+### An endless emitter must be Kill()ed, not just removed from its parent
+
+`Celestial.RemoveEmitter` removes the handle from that body's list and **nothing else**.
+`ParticleSystem.UpdateEmitters` walks the whole pool, so a removed emitter is still updated, still
+spawns, and still draws. An `Endless` emitter never completes its own simulation, so
+`TryUnregisterEmitter` never fires and it is never returned to the pool: it emits for the rest of
+the session from wherever its origin was left.
+
+`ParticleEmitter.Kill()` is the stop. It forces spawning complete, after which the engine ages the
+last particles out, unregisters and calls `ResetEmitter`, which is what makes the slot acquirable
+again. So the release path is `Kill()` **then** `RemoveEmitter`, in that order.
+
+Seen in game as particles frozen in mid-air along the path of whatever the emitter was following,
+and a gun that keeps a small fire burning on its muzzles after it has stopped shooting. The second
+symptom of the same fault is invisible until it is fatal: the pool bleeds one emitter per effect
+and eventually nothing in the world can spawn particles at all.
+
