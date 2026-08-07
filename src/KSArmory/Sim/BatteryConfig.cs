@@ -75,6 +75,20 @@ public sealed class BatteryConfig
     /// </summary>
     public bool MouseAim;
 
+    /// <summary>
+    /// Click the world to shoot at that spot, with no craft and no track involved.
+    ///
+    /// <para>The operator naming a place rather than the radar naming a target. It is the only way
+    /// to engage what the sensor will not hand you — terrain, or anything the threat model rejects
+    /// for being too slow to count. Master arm still applies; a designation is an order to shoot,
+    /// not permission to.</para>
+    ///
+    /// <para>Deliberately not persisted, unlike <see cref="MouseAim"/>. Restoring a tool that only
+    /// <em>points</em> costs nothing; restoring one that fires means the first click after loading
+    /// a save launches a round at whatever the player happened to be looking at.</para>
+    /// </summary>
+    public bool MouseFire;
+
     // ---- Turret ---------------------------------------------------------
 
     /// <summary>

@@ -1,3 +1,4 @@
+using Brutal.Numerics;
 using Xunit;
 
 namespace KSArmory.Tests;
@@ -77,4 +78,71 @@ public class FireArbitrationTests
     [Fact]
     public void AFailedLeadSolveDoesNotHoldTheMissiles()
         => Assert.True(FireGate.MissilesMayFire(ringIsOnGunLead: false, launchAlongTube: true));
+
+    // ---- What a fixed launcher can be pointed at ------------------------
+
+    // The AIM-9J's gimbal limit, which is the only thing deciding what a rail can shoot at.
+    private static readonly double Fov = double.DegreesToRadians(40.0);
+
+    private static bool CanGuide(double offAxisDeg, GuidanceMode guidance = GuidanceMode.Seeker,
+                                 bool operatorHeld = false)
+    {
+        double a = double.DegreesToRadians(offAxisDeg);
+
+        return FireGate.CanGuideOntoAimpoint(guidance, operatorHeld, Fov,
+                                             launchDirection: new double3(1, 0, 0),
+                                             toAimpoint: new double3(Math.Cos(a), Math.Sin(a), 0) * 6000.0);
+    }
+
+    /// <summary>
+    /// A seeker round leaving a fixed tube can only be sent where its seeker can already see.
+    ///
+    /// <para>Outside the gimbal limit it never steers, so its flight path never changes, so it
+    /// never comes back inside — the round simply flies away for its whole life. Nothing about
+    /// that looks like a failure in game: the launch is normal and the miss is silent, which is
+    /// why the shot is refused at the launcher instead.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(0.0, true)]
+    [InlineData(39.0, true)]
+    [InlineData(41.0, false)]
+    [InlineData(90.0, false)]
+    [InlineData(150.0, false)]
+    public void ASeekerRoundIsOnlySentWhereItsSeekerCanSee(double offAxisDeg, bool expected)
+        => Assert.Equal(expected, CanGuide(offAxisDeg));
+
+    /// <summary>
+    /// A command-linked round has no such limit: the launcher steers it, so where it leaves says
+    /// nothing about whether it can turn. The Pantsir fires every round this way, and applying the
+    /// gate to it would ground the weapon that has been working all along.
+    /// </summary>
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(90.0)]
+    [InlineData(179.0)]
+    public void ACommandLinkedRoundHasNoSuchLimit(double offAxisDeg)
+        => Assert.True(CanGuide(offAxisDeg, GuidanceMode.CommandLink));
+
+    /// <summary>
+    /// Nor does a place the operator designated, whatever the round carries. The seeker limit is
+    /// about a round finding its own target; a designation is held for it, so there is nothing to
+    /// lose sight of. Without this a rail can only shoot where it already points — which, bolted
+    /// to a stack, is along the stack and nowhere anyone would aim.
+    /// </summary>
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(95.0)]
+    [InlineData(116.0)]
+    public void NorDoesAPlaceTheOperatorIsHolding(double offAxisDeg)
+        => Assert.True(CanGuide(offAxisDeg, GuidanceMode.Seeker, operatorHeld: true));
+
+    /// <summary>A degenerate direction is a refusal, not a NaN comparison that quietly passes.</summary>
+    [Fact]
+    public void ADegenerateDirectionIsRefused()
+    {
+        Assert.False(FireGate.CanGuideOntoAimpoint(GuidanceMode.Seeker, false, Fov, Vec.Zero, new double3(1, 0, 0)));
+        Assert.False(FireGate.CanGuideOntoAimpoint(GuidanceMode.Seeker, false, Fov, new double3(1, 0, 0), Vec.Zero));
+        Assert.False(FireGate.CanGuideOntoAimpoint(GuidanceMode.Seeker, false, Fov, new double3(1, 0, 0),
+                                                   new double3(double.NaN, 0, 0)));
+    }
 }

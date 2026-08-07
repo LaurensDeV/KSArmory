@@ -95,6 +95,16 @@ public sealed class MunitionProfile
 
     public float SeekerFovDeg = 55f;
 
+    /// <summary>
+    /// Seconds after launch during which the round does not steer at all.
+    ///
+    /// <para>Separation. A round that starts guiding on its first sub-step turns immediately, and
+    /// for a rail bolted to the side of a craft that means turning into the craft. Coasting clear
+    /// first is also what makes the turn onto the target read as an arc rather than a kink at the
+    /// muzzle.</para>
+    /// </summary>
+    public float SeparationSeconds;
+
     /// <summary>Fraction of local gravity the autopilot compensates for.</summary>
     public float GravityCompensation = 1f;
 

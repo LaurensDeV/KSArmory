@@ -1,3 +1,5 @@
+using Brutal.Numerics;
+
 namespace KSArmory;
 
 /// <summary>Whether the launcher is pointing where it is about to shoot.</summary>
@@ -52,4 +54,35 @@ public static class FireGate
     /// <param name="launchAlongTube">Rounds leave along the tube, so the ring's aim is theirs too.</param>
     public static bool MissilesMayFire(bool ringIsOnGunLead, bool launchAlongTube)
         => !(ringIsOnGunLead && launchAlongTube);
+
+    /// <summary>
+    /// Whether a round leaving along <paramref name="launchDirection"/> can steer onto where it
+    /// was sent.
+    ///
+    /// <para>A seeker only guides while its target is inside its gimbal limit of the round's own
+    /// flight path — and outside it there is no steering, so the flight path never changes, so it
+    /// never comes back inside. The limit is therefore decided at launch and permanently: a round
+    /// released more than <paramref name="seekerFovRad"/> off its aimpoint flies straight on until
+    /// it expires. That is invisible in flight, which is why it is a gate rather than a comment.</para>
+    ///
+    /// <para>Only a launcher whose rounds leave along a fixed tube can get here. One that trains
+    /// has already laid the tube on the target, and a command-linked round is steered by the
+    /// launcher rather than by anything it can see for itself.</para>
+    /// </summary>
+    /// <param name="operatorHeld">
+    /// The aimpoint is a place someone designated rather than something the round has to find.
+    /// It is steered onto like a command-linked round however the round is guided otherwise —
+    /// there is nothing a gimbal limit could lose.
+    /// </param>
+    public static bool CanGuideOntoAimpoint(GuidanceMode guidance, bool operatorHeld,
+                                            double seekerFovRad,
+                                            double3 launchDirection, double3 toAimpoint)
+    {
+        if (guidance == GuidanceMode.CommandLink || operatorHeld) return true;
+
+        if (!Vec.IsFinite(launchDirection) || !Vec.IsFinite(toAimpoint)) return false;
+        if (Vec.Len2(launchDirection) < 1e-12 || Vec.Len2(toAimpoint) < 1e-12) return false;
+
+        return Vec.AngleBetween(toAimpoint, launchDirection) <= seekerFovRad;
+    }
 }

@@ -79,4 +79,46 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="LAU-7 Sidewinder Rail">
+    <EditorTag Value="Structural" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.5" />
+
+    <!-- Attaches by the pylon's base to the side of a stack. -->
+    <Connector Id="_swConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!--
+      No <Control>, unlike the Pantsir: a rail is not a vehicle and has nothing to fly itself
+      with. It bolts to a craft that already has a command source.
+    -->
+
+    <!-- AIM-9J at 78 kg on a LAU-7 rail and its pylon. -->
+    <SolidSphereMass>
+      <Mass Kg="120" />
+      <Radius M="0.80" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_RailCollider">
+      <!-- Rail and pylon, standing off the mounting face at X = 0. -->
+      <Box Id="KSArmory_RailBeamCollider">
+        <LocationAsmb X="0.18" Y="0.03" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.36" />
+        <LengthY M="2.56" />
+        <LengthZ M="0.22" />
+      </Box>
+      <!-- The round on it. -->
+      <Box Id="KSArmory_RailRoundCollider">
+        <LocationAsmb X="0.41" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.34" />
+        <LengthY M="3.09" />
+        <LengthZ M="0.34" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
 </Assets>

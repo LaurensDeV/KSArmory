@@ -1,4 +1,22 @@
 {
+  "sidewinder": {
+    "tubes": [
+      [
+        0.4085,
+        1.525,
+        0.0
+      ]
+    ],
+    "tube_directions": [
+      [
+        0.0,
+        1.0,
+        0.0
+      ]
+    ],
+    "body_length": 3.05,
+    "muzzle_forward_offset": 0.408
+  },
   "tubes": [
     [
       2.95513,

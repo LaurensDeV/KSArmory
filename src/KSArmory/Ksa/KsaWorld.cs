@@ -191,6 +191,88 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Anchors an ecliptic position to the body under it, as an offset in that body's own frame.
+    ///
+    /// <para>The only description of a place that does not move. An ecliptic coordinate is left
+    /// behind at the body's ~29.8 km/s the instant it is written down, and a round sent to one
+    /// reads that whole frame velocity as closing speed.</para>
+    /// </summary>
+    public static bool TryAnchorToGround(double3 pointEcl, out object? body, out double3 anchor)
+    {
+        body = null;
+        anchor = Vec.Zero;
+
+        try
+        {
+            if (Universe.CurrentSystem is not { } system) return false;
+
+            Celestial? nearest = null;
+            double nearestRange = double.MaxValue;
+
+            for (int i = 0; i < system.Count; i++)
+            {
+                if (system.GetIndex(i) is not Celestial candidate) continue;
+
+                double range = Vec.Len(pointEcl - candidate.GetPositionEcl()) - candidate.MeanRadius;
+                if (range >= nearestRange) continue;
+
+                nearest = candidate;
+                nearestRange = range;
+            }
+
+            if (nearest is null) return false;
+
+            body = nearest;
+            anchor = doubleQuat.Conjugate(nearest.GetBodyFixed2Ecl()) * (pointEcl - nearest.GetPositionEcl());
+            return Vec.IsFinite(anchor);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Turns a ground anchor back into a live position and the velocity of the ground there.
+    ///
+    /// <para>The velocity carries the body's orbital motion <em>and</em> its spin. The spin term
+    /// is not decoration: 465 m/s at Earth's equator is 4.6 km of miss over a ten-second flight,
+    /// which would read as the round simply being inaccurate.</para>
+    ///
+    /// <para>Spin is about body-fixed <c>+Z</c>. Read out of the engine, not assumed:
+    /// <c>IParentBody.GetAngularVelocityCci</c> returns <c>(0, 0, GetAngularVelocity())</c> and
+    /// <c>Celestial.GetCcf2Cci</c> turns about <c>double3.UnitZ</c>.</para>
+    /// </summary>
+    public static bool TryGroundAnchorEcl(object? body, double3 anchor,
+                                          out double3 positionEcl, out double3 velocityEcl)
+    {
+        positionEcl = Vec.Zero;
+        velocityEcl = Vec.Zero;
+
+        if (body is not Celestial celestial) return false;
+
+        try
+        {
+            doubleQuat spin = celestial.GetBodyFixed2Ecl();
+            double3 offset = spin * anchor;
+
+            positionEcl = celestial.GetPositionEcl() + offset;
+
+            // Orbital motion, plus the surface sweeping under it. omega x r, with omega taken
+            // about the spin axis the body's own frame defines.
+            double3 axis = Vec.Unit(spin * new double3(0, 0, 1));
+            velocityEcl = celestial.GetVelocityEcl()
+                          + Vec.Cross(axis * celestial.GetAngularVelocity(), offset);
+
+            return Vec.IsFinite(positionEcl) && Vec.IsFinite(velocityEcl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Where the cursor's ray meets a celestial surface, as a place a craft can be put.
     ///
     /// <para>Nearest body hit, not the one being orbited: pointing at a moon on the horizon should

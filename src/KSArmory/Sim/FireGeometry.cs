@@ -30,14 +30,25 @@ public static class FireGeometry
     /// what a launcher with fixed tubes has to do; applied to one that aims, it sends the round
     /// off at a visibly different angle to the tube it just came out of.</para>
     /// </summary>
+    /// <param name="ejectAway">
+    /// Pushes a tube-launched round off its rail, along the boresight. A rail has no walls holding
+    /// the round in, so it separates outward as well as forward; a container-launched round gets
+    /// zero and leaves exactly along its tube.
+    /// </param>
     public static double3 LaunchDirection(
         bool alongTube, double3 tubeAxis, double3 launchPos, double3 targetPos,
-        double3 boresight, double loft)
+        double3 boresight, double loft, double ejectAway = 0.0)
     {
         if (alongTube)
         {
             double3 axis = Vec.Unit(tubeAxis);
-            if (!axis.Equals(Vec.Zero)) return axis;
+            if (!axis.Equals(Vec.Zero))
+            {
+                if (ejectAway <= 0.0) return axis;
+
+                double3 pushed = Vec.Unit(axis + Vec.Unit(boresight) * ejectAway);
+                return pushed.Equals(Vec.Zero) ? axis : pushed;
+            }
         }
 
         double3 toTarget = Vec.Unit(targetPos - launchPos);

@@ -94,6 +94,28 @@
       </MeshView>
     </SubPart>
 
+  <!-- LAU-7 launch rail on its pylon. Nothing on it moves. -->
+  <SubPart Id="KSArmory_Subpart_SidewinderRail">
+    <PartModel Id="KSArmory_Subpart_SidewinderRail_Model">
+      <Mesh Id="KSArmory_Subpart_SidewinderRail" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_SidewinderRail_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One AIM-9J. Seated on the rail while loaded, flown by the mod once it leaves. -->
+  <SubPart Id="KSArmory_Subpart_Aim9">
+    <PartModel Id="KSArmory_Subpart_Aim9_Model">
+      <Mesh Id="KSArmory_Subpart_Aim9" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Aim9_VM" />
+    </MeshView>
+  </SubPart>
+
   <!-- Double-sided hexagonal search array. Turns continuously on its own turntable. -->
   <SubPart Id="KSArmory_Subpart_Optic">
     <PartModel Id="KSArmory_Subpart_Optic_Model">
@@ -357,6 +379,45 @@
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
+    LAU-7 rail with one AIM-9J. The other shape a launcher takes: a part with nothing that moves,
+    which attaches to the side of something else and shoots wherever that something is pointed.
+
+    Geometry from tools/model/sidewinder.py. +X is out of the mounting face, +Y the way the
+    missile points, +Z its right.
+  -->
+  <Part Id="KSArmory_Prefab_SidewinderRail">
+
+    <SubPart Id="KSArmory_Rail_Beam" InstanceOf="KSArmory_Subpart_SidewinderRail" />
+
+    <!-- Attaches by the pylon's base, which is the mesh origin. -->
+    <Connector Id="_swConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!--
+      The round, modelled where the mod will seat it rather than parked and shrunk away like the
+      Pantsir's. A tube launcher hides its rounds inside the containers, so a body nobody has
+      written yet is invisible either way; an open rail is empty. The editor runs no battery at
+      all, and neither does the first frame of a flight, so this is the only thing that puts a
+      missile on the rail in both.
+
+      Position is the seated centre and the rotation is the quarter turn carrying the body mesh's
+      nose from +X onto the tube axis - the same values TrySeatMissile computes, so nothing moves
+      when the mod takes over. Keep in step with sidewinder.py's AXIS_X and BODY_LEN.
+    -->
+    <SubPart Id="KSArmory_Rail_Aim900" InstanceOf="KSArmory_Subpart_Aim9">
+      <Transform>
+        <Position X="0.40850" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
       </Transform>
     </SubPart>
 

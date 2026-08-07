@@ -91,6 +91,25 @@ internal sealed class Magazine
         Array.Fill(_loaded, true);
     }
 
+    /// <summary>
+    /// Puts back a round that <see cref="TryTakeTube"/> handed out but that was never fired.
+    ///
+    /// <para>Needed because a shot cannot be fully judged until it has a tube: the launch geometry
+    /// is per tube, and a seeker round is refused on the angle between where that tube points and
+    /// where it was sent. Without this a refused shot still costs a round, which on a single-rail
+    /// launcher means one misjudged click empties it.</para>
+    /// </summary>
+    public void Return(int tubeIndex)
+    {
+        if (Depth > 0)
+        {
+            if (_reserve < Depth) _reserve++;
+            return;
+        }
+
+        if (tubeIndex >= 0 && tubeIndex < _loaded.Length) _loaded[tubeIndex] = true;
+    }
+
     /// <summary>Puts a round back in every tube, and refills the reserve if there is one.</summary>
     public void RefillAll()
     {

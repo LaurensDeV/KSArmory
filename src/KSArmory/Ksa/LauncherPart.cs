@@ -171,13 +171,13 @@ internal static class LauncherPart
     /// now: the pods traverse and elevate, so the real mouths can be metres from that ring, and
     /// rounds appeared to leave from wherever the ring happened to be rather than from a tube.
     /// </summary>
-    public static bool TryGetTubeMuzzlePartFrame(Part pods, LauncherProfile profile, int tubeIndex, out double3 partFrame)
+    public static bool TryGetTubeMuzzlePartFrame(Part? pods, LauncherProfile profile, int tubeIndex, out double3 partFrame)
     {
         partFrame = Vec.Zero;
         try
         {
             return TubeGeometry.TryMuzzlePartFrame(profile, tubeIndex,
-                                                   pods.PositionParentAsmb, pods.Asmb2ParentAsmb,
+                                                   PodOffset(pods), PodRotation(pods),
                                                    out partFrame);
         }
         catch
@@ -192,13 +192,20 @@ internal static class LauncherPart
     /// In the pods' own frame the tubes lie at the elevation they were modelled at; the pods'
     /// transform then carries that through the launcher's current elevation and traverse.
     /// </summary>
+    // A launcher declaring no pods keeps its tubes in the part's own frame, so an absent assembly
+    // contributes an identity rather than being a failure. Callers still have to separate that
+    // from pods that were *declared* and not found -- see DefenceBattery.TubesResolved.
+    private static doubleQuat PodRotation(Part? pods) => pods?.Asmb2ParentAsmb ?? doubleQuat.Identity;
+
+    private static double3 PodOffset(Part? pods) => pods?.PositionParentAsmb ?? Vec.Zero;
+
     /// <summary>Direction the tubes point, in the launcher part's own frame.</summary>
-    public static bool TryGetTubeAxisPartFrame(Part pods, LauncherProfile profile, int tubeIndex, out double3 axis)
+    public static bool TryGetTubeAxisPartFrame(Part? pods, LauncherProfile profile, int tubeIndex, out double3 axis)
     {
         axis = Vec.Zero;
         try
         {
-            axis = TubeGeometry.TubeAxisPartFrame(profile, pods.Asmb2ParentAsmb, tubeIndex);
+            axis = TubeGeometry.TubeAxisPartFrame(profile, PodRotation(pods), tubeIndex);
             return Vec.IsFinite(axis) && !axis.Equals(Vec.Zero);
         }
         catch
@@ -215,14 +222,14 @@ internal static class LauncherPart
     /// the rest inside — which is where a loaded round belongs, and gives a launch something to
     /// emerge from.</para>
     /// </summary>
-    public static bool TryGetSeatedPartFrame(Part pods, LauncherProfile profile, int tubeIndex,
+    public static bool TryGetSeatedPartFrame(Part? pods, LauncherProfile profile, int tubeIndex,
                                              double bodyLength, out double3 seated)
     {
         seated = Vec.Zero;
         try
         {
             return TubeGeometry.TrySeatedPartFrame(profile, tubeIndex,
-                                                   pods.PositionParentAsmb, pods.Asmb2ParentAsmb,
+                                                   PodOffset(pods), PodRotation(pods),
                                                    bodyLength, out seated);
         }
         catch
@@ -232,7 +239,7 @@ internal static class LauncherPart
     }
 
     /// <summary>Places a loaded round in its tube, at rest, with its fins stowed.</summary>
-    public static bool TrySeatMissile(Part pods, LauncherProfile profile, Part missile, Part? fins,
+    public static bool TrySeatMissile(Part? pods, LauncherProfile profile, Part missile, Part? fins,
                                       int tubeIndex, MunitionProfile munition)
     {
         try
@@ -259,7 +266,7 @@ internal static class LauncherPart
         }
     }
 
-    public static bool TryGetTubeAxisEcl(Vehicle platform, Part launcher, Part pods, LauncherProfile profile,
+    public static bool TryGetTubeAxisEcl(Vehicle platform, Part launcher, Part? pods, LauncherProfile profile,
                                          int tubeIndex, out double3 axisEcl)
     {
         axisEcl = Vec.Zero;
@@ -268,7 +275,7 @@ internal static class LauncherPart
             // Direction THIS tube points in the pods' own frame - its own if it declares one,
             // otherwise the elevation the pods were modelled at. The pods' transform then carries
             // it through the current aim.
-            double3 inPart = pods.Asmb2ParentAsmb * TubeGeometry.TubeAxisPodFrame(profile, tubeIndex);
+            double3 inPart = PodRotation(pods) * TubeGeometry.TubeAxisPodFrame(profile, tubeIndex);
             double3 inVehicle = launcher.Asmb2VehicleAsmb * inPart;
             axisEcl = Vec.Unit(platform.Asmb2Ego * inVehicle);
             return Vec.IsFinite(axisEcl) && !axisEcl.Equals(Vec.Zero);
@@ -280,8 +287,42 @@ internal static class LauncherPart
     }
 
     /// <summary>The same point in Ecl, for the round the simulation actually flies.</summary>
+    /// <summary>
+    /// Where a round's body is actually <em>drawn</em>, in Ecl.
+    ///
+    /// <para>Not <c>PlatformEcl + OffsetFromPlatform</c>, which is the same round measured from
+    /// the platform's <em>analytic</em> orbit position. A body is placed against the vehicle's
+    /// physics origin instead, and on a landed craft those are metres apart - so anything that has
+    /// to sit visually on the round, rather than merely near it, has to be built the way the body
+    /// is. See CLAUDE.md on anchoring to the tube.</para>
+    /// </summary>
+    public static bool TryGetBodyEcl(Vehicle platform, Part launcher,
+                                     double3 launchAnchorPartFrame, double3 travelEcl,
+                                     double3 platformEcl, out double3 ecl)
+    {
+        ecl = Vec.Zero;
+
+        try
+        {
+            doubleQuat ecl2Asmb = doubleQuat.Conjugate(platform.Asmb2Ego);
+            doubleQuat asmb2Part = doubleQuat.Conjugate(launcher.Asmb2VehicleAsmb);
+
+            double3 partFrame = TubeGeometry.BodyPositionPartFrame(launchAnchorPartFrame, travelEcl,
+                                                                   ecl2Asmb, asmb2Part);
+            if (!Vec.IsFinite(partFrame)) return false;
+
+            double3 inVehicle = launcher.PositionVehicleAsmb + (launcher.Asmb2VehicleAsmb * partFrame);
+            ecl = platformEcl + (platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb));
+            return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static bool TryGetTubeMuzzleEcl(
-        Vehicle platform, Part launcher, Part pods, LauncherProfile profile, int tubeIndex,
+        Vehicle platform, Part launcher, Part? pods, LauncherProfile profile, int tubeIndex,
         double3 platformEcl, out double3 ecl)
     {
         ecl = Vec.Zero;
@@ -740,10 +781,16 @@ internal static class LauncherPart
     /// Muzzle of each tube in the render frame, from the part's own transform — so unlike
     /// <see cref="MuzzleEcl"/> these land on the actual tubes.
     /// </summary>
+    /// <param name="carrier">
+    /// The assembly the tubes ride: the pods, or the launcher part itself when the profile
+    /// declares none. Unlike the seating path this works straight in vehicle-assembly
+    /// coordinates, so an absent assembly cannot be stood in for with an identity - there has to
+    /// be a real part to measure the offset from.
+    /// </param>
     /// <returns>False if the transform is unavailable; the caller should skip drawing.</returns>
-    public static bool TryGetTubeMuzzlesEgo(Vehicle platform, Part pods, LauncherProfile profile, double3 platformEgo, Span<double3> into)
+    public static bool TryGetTubeMuzzlesEgo(Vehicle platform, Part? carrier, LauncherProfile profile, double3 platformEgo, Span<double3> into)
     {
-        if (into.Length < profile.TubeCount) return false;
+        if (into.Length < profile.TubeCount || carrier is null) return false;
 
         try
         {
@@ -753,7 +800,7 @@ internal static class LauncherPart
             {
                 // Pod-local -> vehicle assembly -> render frame. The first hop carries the
                 // launcher's current traverse and elevation, so these ride the tubes.
-                double3 vehicleAsmb = pods.PositionVehicleAsmbOffset(profile.Tubes[i].Position);
+                double3 vehicleAsmb = carrier.PositionVehicleAsmbOffset(profile.Tubes[i].Position);
                 double3 ego = vehicleAsmb.Transform(asmb2Ego);
 
                 if (!Vec.IsFinite(ego)) return false;

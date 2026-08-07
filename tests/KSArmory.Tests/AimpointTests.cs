@@ -125,6 +125,141 @@ public class AimpointTests
         Assert.Equal(kind, round.Aimpoint.Kind);
     }
 
+    /// <summary>
+    /// A designated round carries <b>no handle at all</b>, and must still guide and fuse.
+    ///
+    /// <para>Every other test here hands the round a target object as well as an aimpoint, so a
+    /// null one is never exercised — but that is exactly what an operator pointing at a place
+    /// produces, because <see cref="Aimpoint.AtPoint"/> has nothing to name. Guidance keys on the
+    /// per-frame target state rather than on the handle, and this is what holds that: tie steering
+    /// to <c>TargetRef</c> and a designated round flies straight on and expires.</para>
+    /// </summary>
+    [Fact]
+    public void ARoundWithNoTargetHandleStillFliesToItsDesignatedPoint()
+    {
+        var munition = new MunitionProfile
+        {
+            Name = "test", DisplayName = "test",
+            DragK = 0f, FuseArmSeconds = 0f, MaxFlightSeconds = 30f,
+        };
+
+        // Offset across the flight path, so arriving needs steering rather than just coasting.
+        Aimpoint aim = Aimpoint.AtPoint(new double3(3000, 400, 0), 5.0);
+
+        var round = new Interceptor(Vec.Zero, new double3(600, 0, 0), target: null, 1, Vec.Zero, Vec.Zero)
+        {
+            Aimpoint = aim,
+        };
+
+        Assert.Null(round.TargetRef);
+
+        for (int i = 0; i < 3600 && round.State == RoundState.Flying; i++)
+        {
+            round.Update(1.0 / 60.0, aim.ToTargetState(), NoGravity, Vec.Zero, Vec.Zero, munition);
+        }
+
+        Assert.Equal(RoundState.Detonated, round.State);
+        Assert.True(Vec.Len(round.PositionEcl - aim.PositionEcl) <= munition.FuseRadius,
+                    $"burst {Vec.Len(round.PositionEcl - aim.PositionEcl):F1} m from the designated point");
+    }
+
+    /// <summary>
+    /// A place on the ground is still a place when the whole world is moving through the ecliptic.
+    ///
+    /// <para>This is the test the other aimpoint tests are missing, and its absence is why a
+    /// designated shot shipped broken. They all fly from the origin at 600 m/s against a target
+    /// with zero velocity — a universe with no shared motion, in which holding an aimpoint as a
+    /// bare ecliptic coordinate is <em>correct</em>. Add the 29.8 km/s every real body carries and
+    /// the same code turns the frame into closing speed: <c>v = 0 - VelocityEcl</c>, and
+    /// proportional navigation drives the round sideways at full lateral G.</para>
+    ///
+    /// <para>So it is written as an invariance: run the identical engagement in two frames and
+    /// require the same answer. That is the shape <c>docs/FRAMES-AND-EPOCHS.md</c> prescribes for
+    /// anything taking two positions, and the only shape that separates a frame bug from a
+    /// geometry bug.</para>
+    /// </summary>
+    [Fact]
+    public void AGroundAimpointIsChasedTheSameInAnyFrame()
+    {
+        (RoundState state, double miss, double age) still = FlyAtGround(0.0);
+        (RoundState state, double miss, double age) moving = FlyAtGround(29800.0);
+
+        Assert.Equal(RoundState.Detonated, still.state);
+        Assert.Equal(RoundState.Detonated, moving.state);
+
+        Assert.True(still.miss <= 15.0, $"stationary frame missed by {still.miss:F1} m");
+        Assert.True(moving.miss <= 15.0, $"moving frame missed by {moving.miss:F1} m");
+
+        // The whole point: the answer must not depend on the frame. A metre of slack for the
+        // sub-step landing at a slightly different instant; the bug this guards was 251 m at the
+        // fuse and unbounded in the guidance.
+        Assert.Equal(still.miss, moving.miss, 0);
+        Assert.Equal(still.age, moving.age, 2);
+    }
+
+    /// <summary>
+    /// And the same engagement <b>misses</b> when the place is held as a bare ecliptic coordinate.
+    ///
+    /// <para>Without this the invariance test above proves nothing: it would pass just as happily
+    /// against code that never had the bug to begin with. This is the shipped defect reproduced —
+    /// zero velocity on the aimpoint and a position nobody advances — and it has to fail loudly,
+    /// because in flight it read as the round flying off sideways for no visible reason.</para>
+    /// </summary>
+    [Fact]
+    public void HeldAsABareCoordinateTheSameShotMisses()
+    {
+        (RoundState state, double miss, double _) = FlyAtGround(29800.0, anchored: false);
+
+        Assert.True(miss > 1000.0 || state != RoundState.Detonated,
+                    $"a stale ecliptic coordinate was hit to within {miss:F0} m, so this test "
+                    + "cannot tell the frame bug from a working round");
+    }
+
+    // One engagement against a ground point, in a frame moving at `frameSpeed`. Everything real
+    // shares that motion -- the planet, the launcher, the round and the place on the ground -- so
+    // the engagement is identical and only the frame differs.
+    private static (RoundState State, double Miss, double Age) FlyAtGround(double frameSpeed,
+                                                                          bool anchored = true)
+    {
+        var munition = new MunitionProfile
+        {
+            Name = "test", DisplayName = "test",
+            DragK = 0f, FuseArmSeconds = 0f, MaxFlightSeconds = 60f,
+        };
+
+        double3 frame = new(0, frameSpeed, 0);
+        double3 ground = new(3000, 400, 0);
+
+        // Resampled from the world every frame, which is what the KSA side does with a Ground
+        // aimpoint: the place keeps up with its body instead of being left behind by it.
+        // anchored: what the ground actually is. Otherwise the defect -- a coordinate written down
+        // once, with no velocity, which the planet then leaves behind at the frame speed.
+        Aimpoint aim = anchored
+                           ? Aimpoint.OnGround(TargetHandle, Vec.Zero, ground, frame, 5.0)
+                           : Aimpoint.AtPoint(ground, 5.0);
+
+        var round = new Interceptor(Vec.Zero, new double3(600, 0, 0) + frame, TargetHandle, 1,
+                                    Vec.Zero, frame)
+        {
+            Aimpoint = aim,
+        };
+
+        const double dt = 1.0 / 60.0;
+
+        for (int i = 0; i < 3600 && round.State == RoundState.Flying; i++)
+        {
+            ground += frame * dt;
+            if (anchored)
+            {
+                aim = aim.Resampled(ground, frame);
+                round.Aimpoint = aim;
+            }
+            round.Update(dt, aim.ToTargetState(), NoGravity, frame, frame, munition);
+        }
+
+        return (round.State, round.MissDistance, round.Age);
+    }
+
     /// <summary>A slug carries an aimpoint the same way, since it is on the contract.</summary>
     [Fact]
     public void AnUnguidedRoundCarriesAnAimpointToo()

@@ -151,7 +151,7 @@ internal sealed class Interceptor : IProjectile
     /// on its launch frame before any <see cref="Update"/>. Left unseeded, <c>VelocityLocal</c>
     /// degenerates to <see cref="VelocityEcl"/> and the body points along the planet's orbit.
     /// </param>
-    public Interceptor(double3 positionEcl, double3 velocityEcl, object target, int tube,
+    public Interceptor(double3 positionEcl, double3 velocityEcl, object? target, int tube,
                        double3 platformEcl, double3 frameVelocityEcl)
     {
         PositionEcl = positionEcl;
@@ -380,10 +380,22 @@ internal sealed class Interceptor : IProjectile
 
             // Command-linked rounds always steer; a seeker round has a gimbal limit, recomputed
             // each sub-step so losing the target is not permanent.
+            //
+            // A designated place is steered the same way whatever the round carries: the operator
+            // is holding it, so there is nothing for a gimbal limit to lose. Without this a rail
+            // can only shoot where it already points, which for a rail bolted to a stack is
+            // straight along the stack and nowhere useful.
             SeekerInView = munition.Guidance == GuidanceMode.CommandLink
+                           || Aimpoint.Kind == AimpointKind.Ground
                            || Vec.AngleBetween(r, localVelocity) <= munition.SeekerFovRad;
 
-            if (SeekerInView) accel += GuidanceAccel(r, v, localVelocity, gravity, munition);
+            // Nothing steers until it is clear of what launched it. A rail-launched round leaves
+            // along its rail and turns after separation; guiding from the first sub-step turns it
+            // into the craft carrying it.
+            if (SeekerInView && Age >= munition.SeparationSeconds)
+            {
+                accel += GuidanceAccel(r, v, localVelocity, gravity, munition);
+            }
 
             {
                 // The fuse does not ask the seeker's permission; tying them together scored

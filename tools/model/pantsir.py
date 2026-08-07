@@ -1,5 +1,8 @@
 """
-Builds the Pantsir-S1 launcher mesh atlas, headless.
+Builds the mod's mesh atlas, headless.
+
+Every weapon system the mod ships is in here, one atlas, exactly as Core keeps several prefabs
+in one file: the Pantsir-S1 below, and the AIM-9J rail in sidewinder.py, which this imports.
 
 Run through tools/model/build.sh rather than by hand - Blender is a Windows binary and needs
 Windows paths for both the script and its output.
@@ -7,8 +10,8 @@ Windows paths for both the script and its output.
     blender --background --python pantsir.py -- <outdir> <palette.json> <diffuse.png>
 
 Produces in <outdir>:
-    KSArmory_MeshAtlas.glb    two subpart meshes plus their editor-preview variants
-    preview_*.png               four renders, so the shape can be judged without the game
+    KSArmory_MeshAtlas.glb      every subpart mesh plus its editor-preview variant
+    preview_*.png               renders, so the shapes can be judged without the game
 
 ## Coordinate system
 
@@ -45,6 +48,10 @@ import sys
 import bmesh
 import bpy
 from mathutils import Euler, Matrix, Vector
+
+# Blender runs this by path, so its directory is not on sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sidewinder
 
 # ---------------------------------------------------------------------------
 # Arguments
@@ -825,6 +832,8 @@ def export(path):
     optic = join_group("optic", recentre=EO_PIVOT)
     missile = join_group("missile")
     fins = join_group("fins")
+    rail = join_group("sidewinder")
+    aim9 = join_group("aim9")
 
     # KSA looks these up by Id out of the atlas; *_VM is the editor's preview variant, and
     # Core ships one for every subpart. Ours are the same geometry - the part is low-poly
@@ -836,7 +845,9 @@ def export(path):
                       (guns, "KSArmory_Subpart_Guns"),
                       (optic, "KSArmory_Subpart_Optic"),
                       (missile, "KSArmory_Subpart_Missile"),
-                      (fins, "KSArmory_Subpart_Fins")):
+                      (fins, "KSArmory_Subpart_Fins"),
+                      (rail, "KSArmory_Subpart_SidewinderRail"),
+                      (aim9, "KSArmory_Subpart_Aim9")):
         preview = ob.copy()
         preview.data = ob.data.copy()
         preview.name = preview.data.name = ident + "_VM"
@@ -943,12 +954,13 @@ def render_previews(out_dir):
             for ob in objs:
                 ob.hide_render = bool(wanted) and name not in wanted
 
-    # The round is modelled at the origin, which on the vehicle is between the front wheels.
-    # Leave it out of the vehicle shots, then give it one of its own.
+    # The round and the Sidewinder rail are both modelled at the origin, which on the vehicle is
+    # between the front wheels. Leave them out of the vehicle shots and give them their own.
     for name, (loc, look) in VIEWS.items():
         show_only()
-        for ob in _objects["missile"] + _objects["fins"]:
-            ob.hide_render = True
+        for group in ("missile", "fins", "sidewinder", "aim9"):
+            for ob in _objects[group]:
+                ob.hide_render = True
         look_at(cam, loc, look)
         scene.render.filepath = os.path.join(out_dir, f"preview_{name}.png")
         bpy.ops.render.render(write_still=True)
@@ -969,7 +981,41 @@ def render_previews(out_dir):
     scene.render.filepath = os.path.join(out_dir, "preview_missile_axial.png")
     bpy.ops.render.render(write_still=True)
     print("RENDER", scene.render.filepath)
+
+    render_sidewinder(out_dir, cam, show_only)
     show_only()
+
+
+def render_sidewinder(out_dir, cam, show_only):
+    """The rail with its round seated, which is the only view that shows whether it fits.
+
+    The two are modelled in different frames - the rail in part space, the round nose-along-+X
+    like every body mesh - so the runtime seating is reproduced here: the quarter turn about +Z
+    that carries +X onto the tube axis, then the offset to the body line. Restored afterwards,
+    because the export is about to read these objects.
+    """
+    scene = bpy.context.scene
+    seat = (Matrix.Translation(Vector((sidewinder.AXIS_X, 0.0, 0.0)))
+            @ Matrix.Rotation(math.pi / 2, 4, "Z"))
+
+    rest = [(ob, ob.matrix_world.copy()) for ob in _objects["aim9"]]
+    for ob, matrix in rest:
+        ob.matrix_world = seat @ matrix
+
+    show_only("sidewinder", "aim9")
+
+    # Three-quarter, pure side, and straight down the body axis. The last is the only one that
+    # shows the fins' roll against the rail, which is what decides whether one fouls it.
+    for name, loc in (("sidewinder", (3.0, -3.6, 2.2)),
+                      ("sidewinder_side", (0.41, 0.0, -4.6)),
+                      ("sidewinder_end", (0.41, 2.4, 0.0))):
+        look_at(cam, loc, (0.41, 0.0, 0.0))
+        scene.render.filepath = os.path.join(out_dir, f"preview_{name}.png")
+        bpy.ops.render.render(write_still=True)
+        print("RENDER", scene.render.filepath)
+
+    for ob, matrix in rest:
+        ob.matrix_world = matrix
 
 
 # ---------------------------------------------------------------------------
@@ -1036,8 +1082,12 @@ def report_muzzles(out_dir):
     print(f"    OpticPivotFromTurret = ({eo_rel_turret.x:.5f}, {eo_rel_turret.y:.5f}, "
           f"{eo_rel_turret.z:.5f})")
 
+    emitted = {}
+    sidewinder.report(emitted)
+
     with open(os.path.join(out_dir, "muzzles.json"), "w") as fh:
         json.dump({
+            **emitted,
             "tubes": [[round(m.x, 5), round(m.y, 5), round(m.z, 5)] for m in firing],
             "muzzle_forward_offset": round(mean_x, 3),
             "tube_ring_radius": round(ring, 3),
@@ -1058,6 +1108,10 @@ def main():
     new_scene()
     build_chassis()
     build_turret()
+
+    # Last, so the shared box jitter reshuffles nothing above it: the generator runs off one
+    # seed, and inserting a box moves every box drawn after it onto different planes.
+    sidewinder.build(sys.modules[__name__])
 
     # Render *before* export. Exporting recentres the turret and pod meshes onto their slew
     # pivots, which is right for the game and wrong for a picture: afterwards the scene shows

@@ -294,6 +294,77 @@ def check_launcher_geometry():
     return problems, checked
 
 
+def check_rail_geometry():
+    """The same check for the Sidewinder rail, whose tube declares its own direction.
+
+    Scoped to the SidewinderRail initialiser rather than swept over the file: the Pantsir's block
+    sits above it with the same field names, and a whole-file regex reads that one instead and
+    passes whatever the rail says.
+    """
+    muzzles = REPO / "tools" / "model" / "muzzles.json"
+    if not muzzles.is_file():
+        return 0, 0
+
+    expected = json.loads(muzzles.read_text()).get("sidewinder")
+    if expected is None:
+        return 0, 0
+
+    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    problems = 0
+    checked = 0
+
+    found = re.search(r"SidewinderRail\s*=\s*new\(\)\s*\{(.*?)\n\s*\};", text, re.S)
+    if found is None:
+        print("  MISSING Arsenal.SidewinderRail", file=sys.stderr)
+        return 1, 1
+    block = found.group(1)
+
+    # A directed tube: position and axis together, because a fixed launcher has no pods for its
+    # rounds to follow and the axis is the only thing saying which way they leave.
+    checked += 1
+    tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),"
+                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*\]", block)
+    if tube is None:
+        print("  MISSING Arsenal.SidewinderRail.Tubes", file=sys.stderr)
+        problems += 1
+    else:
+        got = [float(v) for v in tube.groups()]
+        want = list(expected["tubes"][0]) + list(expected["tube_directions"][0])
+        if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
+            print(f"  STALE Arsenal.SidewinderRail.Tubes = {tuple(got)}, "
+                  f"mesh says {tuple(want)}", file=sys.stderr)
+            problems += 1
+
+    checked += 1
+    offset = re.search(r"MuzzleForwardOffset\s*=\s*([\d.]+)\s*,", block)
+    if offset is None:
+        print("  MISSING Arsenal.SidewinderRail.MuzzleForwardOffset", file=sys.stderr)
+        problems += 1
+    elif abs(float(offset.group(1)) - expected["muzzle_forward_offset"]) > 5e-4:
+        print(f"  STALE Arsenal.SidewinderRail.MuzzleForwardOffset = {offset.group(1)}, "
+              f"mesh says {expected['muzzle_forward_offset']}", file=sys.stderr)
+        problems += 1
+
+    # The round seats half a body length back from the tube mouth, so a BodyLength that does not
+    # match the mesh hangs the missile off the end of its own rail.
+    checked += 1
+    round_block = re.search(r"Missile9J\s*=\s*new\(\)\s*\{(.*?)\n\s*\};", text, re.S)
+    body = (None if round_block is None
+            else re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", round_block.group(1)))
+    if body is None:
+        print("  MISSING Arsenal.Missile9J.BodyLength", file=sys.stderr)
+        problems += 1
+    elif abs(float(body.group(1)) - expected["body_length"]) > 5e-4:
+        print(f"  STALE Arsenal.Missile9J.BodyLength = {body.group(1)}, "
+              f"mesh says {expected['body_length']}", file=sys.stderr)
+        problems += 1
+
+    if problems == 0:
+        print("  rail geometry: 1 tube and its round match the mesh")
+
+    return problems, checked
+
+
 def check_cross_body_planes():
     """Looks for faces shared between two different subparts, placed as the XML places them.
 
@@ -525,6 +596,10 @@ def main():
 
     print("checking src/KSArmory/Sim/Arsenal.cs against the mesh")
     p, c = check_launcher_geometry()
+    problems += p
+    checked += c
+
+    p, c = check_rail_geometry()
     problems += p
     checked += c
 

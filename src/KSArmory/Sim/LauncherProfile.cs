@@ -179,6 +179,17 @@ public sealed class LauncherProfile
     /// <summary>Bias toward the boresight for launchers that cannot aim. See FireGeometry.</summary>
     public float LaunchLoft = 0.35f;
 
+    /// <summary>
+    /// How hard a round is pushed off its rail as it leaves, as a fraction of the tube axis,
+    /// along the launcher's boresight.
+    ///
+    /// <para>Only applies when rounds leave along the tube. A rail has no tube walls to hold the
+    /// round, so it separates outward as well as forward — without which it departs along the
+    /// skin of whatever it is bolted to. Zero for a launcher whose rounds are ejected from a
+    /// container, which is why it does not change the Pantsir.</para>
+    /// </summary>
+    public float EjectAwayFromMount;
+
     /// <summary>Standoff used when no launcher part is fitted at all (m).</summary>
     public float MuzzleOffset = 8f;
 
