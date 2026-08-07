@@ -43,12 +43,21 @@ dotnet build "$PROJECT" -c Release --nologo -p:Version="$VERSION"
 
 BUILD="$REPO_ROOT/src/KSArmory/bin/Release/net10.0"
 
-mkdir -p "$STAGE/Meshes" "$STAGE/Textures"
+mkdir -p "$STAGE"
 cp "$BUILD/KSArmory.dll" "$STAGE/"
 cp "$BUILD/mod.toml" "$STAGE/"
 cp "$BUILD"/KSArmory*.xml "$STAGE/"
-cp "$BUILD/Meshes"/*.glb "$STAGE/Meshes/"
-cp "$BUILD/Textures"/*.png "$STAGE/Textures/"
+
+# Every asset folder the build produced, discovered rather than listed. A named list ships an
+# archive whose XML declares files that are not in it, and an asset resolving to null is reported
+# by nobody - see the same note in deploy.sh. The stray-DLL gate below is what keeps this honest.
+for path in "$BUILD"/*/; do
+    [[ -d "$path" ]] || continue
+    dir="$(basename "$path")"
+
+    mkdir -p "$STAGE/$dir"
+    cp "$path"/* "$STAGE/$dir/"
+done
 
 # Refuse to ship debug symbols even if the build somehow produced them.
 if compgen -G "$STAGE/*.pdb" >/dev/null || compgen -G "$BUILD/*.pdb" >/dev/null; then

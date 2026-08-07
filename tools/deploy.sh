@@ -63,18 +63,27 @@ fi
 cp "$OUT/mod.toml" "$TARGET/"
 [[ -f "$OUT/KSArmory.pdb" ]] && cp "$OUT/KSArmory.pdb" "$TARGET/"
 
-# Part definitions and the art they reference. Paths here must match the assets array in
-# mod.toml and the <MeshAtlas>/<PbrMaterial> paths inside KSArmoryAssets.xml. A missing
-# texture is a silent in-game failure, so copy the folders wholesale rather than by name.
+# Part definitions and every asset folder they reference. Paths here must match the assets array
+# in mod.toml and the <MeshAtlas>/<PbrMaterial>/<SoundFile> paths inside the XML.
+#
+# Discovered rather than listed. A named list means a new asset folder deploys nothing while the
+# XML declaring it still loads, and an asset that resolves to null is reported by nobody - which
+# is exactly what happened when Sounds/ was added and both this script and package.sh still said
+# "Meshes Textures".
 cp "$OUT"/KSArmory*.xml "$TARGET/"
-for dir in Meshes Textures; do
-    if [[ -d "$OUT/$dir" ]]; then
-        mkdir -p "$TARGET/$dir"
-        cp "$OUT/$dir"/* "$TARGET/$dir/"
-    else
-        echo "warning: $dir/ missing from the build output -- the part will render untextured" >&2
-    fi
+found_assets=0
+for path in "$OUT"/*/; do
+    [[ -d "$path" ]] || continue
+    dir="$(basename "$path")"
+
+    mkdir -p "$TARGET/$dir"
+    cp "$path"/* "$TARGET/$dir/"
+    found_assets=1
 done
+
+if [[ $found_assets -eq 0 ]]; then
+    echo "warning: no asset folders in the build output -- the part will render untextured" >&2
+fi
 
 # An older layout put the XML under Assets/. Leaving it there means two copies of the part
 # fighting for the same Id.

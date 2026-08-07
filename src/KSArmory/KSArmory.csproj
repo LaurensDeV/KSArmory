@@ -11,6 +11,14 @@
 
     <!-- Stamped into the assembly and used to name the release archive. -->
     <Version>0.8.39</Version>
+
+    <!--
+      AssemblyCompanyAttribute, which is what Windows shows under the DLL's file properties. The
+      in-fiction manufacturer of this mod's hardware; KSA itself has no manufacturer field on a
+      part, so this and the README are the only places it exists.
+    -->
+    <Company>Kessler Systems</Company>
+    <Product>KSArmory</Product>
   </PropertyGroup>
 
   <!--
@@ -41,6 +49,10 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Textures\**\*.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- Synthesised by tools/sounds.py, committed so a plain build needs no numpy. -->
+    <None Update="Sounds\**\*.wav">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
