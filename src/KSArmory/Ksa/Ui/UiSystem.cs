@@ -93,7 +93,10 @@ internal sealed partial class Ui
         else ImGui.TextColored(Green, "MASTER ARM: SAFE");
 
         ImGui.SameLine();
-        ImGui.Text($"   Rounds: {_battery.Ammo}/{_profile.TubeCount}");
+        // A gun-only launcher has no tubes, and "Rounds: 0/0" reads as broken rather than as a
+        // weapon that never had any. Show whichever magazine the launcher actually has.
+        if (_profile.TubeCount > 0) ImGui.Text($"   Rounds: {_battery.Ammo}/{_profile.TubeCount}");
+        if (_profile.HasCannon) ImGui.Text($"   Belt:   {_battery.GunAmmo}/{_profile.GunAmmo}");
 
         if (_profile.HasCannon)
         {

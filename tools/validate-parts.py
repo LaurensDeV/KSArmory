@@ -441,6 +441,13 @@ def check_subpart_positions():
         match = re.search(rf'{field}\s*=\s*"([^"]+)"', text)
         return match.group(1) if match else None
 
+    # Every launcher, not the first one the regex happens to find. Reading `text` whole checked
+    # the Pantsir and silently ignored every other profile -- which is how a CIWS shipped with
+    # markers that matched none of its own subparts, and drives that therefore never resolved.
+    profiles = re.findall(
+        r"public static readonly LauncherProfile (\w+) = new\(\)\s*\{(.*?)\n\s*\};",
+        text, re.S)
+
     turret_pivot = vector("TurretPivot")
     if turret_pivot is None:
         print("  MISSING Arsenal.TurretPivot", file=sys.stderr)
@@ -471,11 +478,40 @@ def check_subpart_positions():
     # The profile this check is about. It reads one launcher's numbers, and with several
     # registered it has to be told which -- otherwise it silently reads whichever appears first
     # and compares one launcher's markers against another's geometry.
-    part_id = marker("PartId")
-    placed = by_part.get(part_id, {})
-    if not placed:
-        print(f"  no placed subparts for {part_id}", file=sys.stderr)
-        return 1, 1
+    problems = checked = 0
+
+    for profile_name, body in profiles:
+        def field(f, scope=body):
+            m = re.search(rf'{f}\s*=\s*"([^"]+)"', scope)
+            return m.group(1) if m else None
+
+        part_id = field("PartId")
+        placed = by_part.get(part_id, {})
+        if not placed:
+            # A launcher whose part places no subparts has nothing to check. The rail is one:
+            # its only moving thing is a round, which the mod positions rather than the XML.
+            continue
+
+        problems_here, checked_here = _check_markers(profile_name, body, placed, assemblies)
+        problems += problems_here
+        checked += checked_here
+
+    return problems, checked
+
+
+def _check_markers(profile_name, body, placed, assemblies):
+    """Every declared assembly of one launcher resolves to exactly one of its own subparts.
+
+    And sits where the profile says. Each launcher is measured against its OWN TurretPivot, which
+    is the other half of what reading the whole file got wrong.
+    """
+    def vector(f):
+        m = re.search(rf"{f}\s*=\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", body)
+        return [float(v) for v in m.groups()] if m else None
+
+    def marker(f):
+        m = re.search(rf'{f}\s*=\s*"([^"]+)"', body)
+        return m.group(1) if m else None
 
     problems = checked = 0
     for marker_field, offset_field in assemblies:
@@ -487,7 +523,7 @@ def check_subpart_positions():
         checked += 1
         if len(hits) != 1:
             found = ", ".join(sorted(hits)) or "nothing"
-            print(f"  {marker_field} '{name}' matches {found} -- "
+            print(f"  {profile_name}.{marker_field} '{name}' matches {found} -- "
                   f"LauncherPart.FindSubPart needs exactly one", file=sys.stderr)
             problems += 1
             continue
@@ -498,6 +534,7 @@ def check_subpart_positions():
             problems += 1
             continue
 
+        turret_pivot = vector("TurretPivot") or [0.0, 0.0, 0.0]
         want = [pivot + delta for pivot, delta in zip(turret_pivot, offset)]
         got = placed[hits[0]]
         if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):

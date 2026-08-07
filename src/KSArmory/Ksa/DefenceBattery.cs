@@ -544,7 +544,9 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         if (_salvoTimer > 0.0) _salvoTimer = Math.Max(0.0, _salvoTimer - dt);
 
         // Reload cycle.
-        if (_magazine.IsEmpty && Profile.ReloadSeconds > 0f)
+        // TubeCount, not just IsEmpty: a launcher with no tubes is empty by definition and
+        // would otherwise cycle a reload forever, announcing one every few seconds.
+        if (Profile.TubeCount > 0 && _magazine.IsEmpty && Profile.ReloadSeconds > 0f)
         {
             if (_reloadTimer <= 0.0) _reloadTimer = Profile.ReloadSeconds;
             _reloadTimer -= dt;
@@ -1051,7 +1053,12 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         // can fail, so a tube is never claimed without a round.
         if (!_magazine.TryTakeTube(_rounds, out int tube))
         {
-            Announce("refused: no free tube");
+            // A launcher with no tubes has none to be free. Saying so is the difference between
+            // "this weapon carries no missiles" and "wait a moment", which is what the generic
+            // message reads as.
+            Announce(Profile.TubeCount == 0
+                         ? $"refused: {Profile.DisplayName} carries no missiles"
+                         : "refused: no free tube");
             return false;
         }
 

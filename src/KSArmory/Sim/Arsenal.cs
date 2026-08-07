@@ -366,8 +366,8 @@ public static class Arsenal
         Munition = "20MM",
         Sensor = "VPS2",
 
-        TurretMarker = "CiwsTurret",
-        GunsMarker = "CiwsGuns",
+        TurretMarker = "Ciws_Turret",
+        GunsMarker = "Ciws_Guns",
 
         // No missiles. The gun is the weapon.
         Tubes = [],
@@ -403,6 +403,10 @@ public static class Arsenal
         GunMinRange = 100f,
         GunMaxRange = 1486f,
         GunReloadSeconds = 0f,
+
+        // No missile magazine to refill. Left at the profile's 12 s default the
+        // battery reloads forever, because a magazine with no tubes is always empty.
+        ReloadSeconds = 0f,
     };
 
     // ---- Registry -------------------------------------------------------
