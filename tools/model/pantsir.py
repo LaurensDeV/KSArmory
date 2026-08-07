@@ -51,6 +51,7 @@ from mathutils import Euler, Matrix, Vector
 
 # Blender runs this by path, so its directory is not on sys.path.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ciws
 import sidewinder
 
 # ---------------------------------------------------------------------------
@@ -834,6 +835,9 @@ def export(path):
     fins = join_group("fins")
     rail = join_group("sidewinder")
     aim9 = join_group("aim9")
+    ciwsbase = join_group("ciwsbase")
+    ciwsturret = join_group("ciwsturret", recentre=ciws.TURRET_PIVOT)
+    ciwsguns = join_group("ciwsguns", recentre=ciws.GUN_PIVOT)
 
     # KSA looks these up by Id out of the atlas; *_VM is the editor's preview variant, and
     # Core ships one for every subpart. Ours are the same geometry - the part is low-poly
@@ -847,7 +851,10 @@ def export(path):
                       (missile, "KSArmory_Subpart_Missile"),
                       (fins, "KSArmory_Subpart_Fins"),
                       (rail, "KSArmory_Subpart_SidewinderRail"),
-                      (aim9, "KSArmory_Subpart_Aim9")):
+                      (aim9, "KSArmory_Subpart_Aim9"),
+                      (ciwsbase, "KSArmory_Subpart_CiwsBase"),
+                      (ciwsturret, "KSArmory_Subpart_CiwsTurret"),
+                      (ciwsguns, "KSArmory_Subpart_CiwsGuns")):
         preview = ob.copy()
         preview.data = ob.data.copy()
         preview.name = preview.data.name = ident + "_VM"
@@ -958,7 +965,8 @@ def render_previews(out_dir):
     # between the front wheels. Leave them out of the vehicle shots and give them their own.
     for name, (loc, look) in VIEWS.items():
         show_only()
-        for group in ("missile", "fins", "sidewinder", "aim9"):
+        for group in ("missile", "fins", "sidewinder", "aim9",
+                      "ciwsbase", "ciwsturret", "ciwsguns"):
             for ob in _objects[group]:
                 ob.hide_render = True
         look_at(cam, loc, look)
@@ -983,6 +991,16 @@ def render_previews(out_dir):
     print("RENDER", scene.render.filepath)
 
     render_sidewinder(out_dir, cam, show_only)
+
+    # The CIWS is 4.7 m and stands on its own origin, so it needs no reassembly - unlike the rail,
+    # whose round is modelled in a different frame.
+    show_only("ciwsbase", "ciwsturret", "ciwsguns")
+    for name, loc in (("ciws", (5.6, 9.8, 5.6)), ("ciws_side", (2.4, 0.0, -13.5))):
+        look_at(cam, loc, (2.4, 0.0, 0.0))
+        scene.render.filepath = os.path.join(out_dir, f"preview_{name}.png")
+        bpy.ops.render.render(write_still=True)
+        print("RENDER", scene.render.filepath)
+
     show_only()
 
 
@@ -1084,6 +1102,7 @@ def report_muzzles(out_dir):
 
     emitted = {}
     sidewinder.report(emitted)
+    ciws.report(emitted)
 
     with open(os.path.join(out_dir, "muzzles.json"), "w") as fh:
         json.dump({
@@ -1112,6 +1131,7 @@ def main():
     # Last, so the shared box jitter reshuffles nothing above it: the generator runs off one
     # seed, and inserting a box moves every box drawn after it onto different planes.
     sidewinder.build(sys.modules[__name__])
+    ciws.build(sys.modules[__name__])
 
     # Render *before* export. Exporting recentres the turret and pod meshes onto their slew
     # pivots, which is right for the game and wrong for a picture: afterwards the scene shows

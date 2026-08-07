@@ -236,10 +236,18 @@ def placement(pivot_from_turret, reference_rad, elevation_rad, bearing_rad, turr
     return fn
 
 
-def read_travel():
-    """Elevation travel and the forward depression floor, from the C# rather than a fourth copy."""
+def read_travel(profile="PantsirS1"):
+    """Elevation travel and the forward depression floor, from the C# rather than a fourth copy.
+
+    Scoped to one profile's initialiser. Swept over the whole file it takes whichever launcher
+    appears first, so adding a CIWS that depresses to -25 sent the Pantsir -- which cannot go
+    below level -- through poses its drives will never command, and reported the collisions.
+    """
     defaults = (MOD / "Sim" / "LauncherProfile.cs").read_text()
-    overrides = (MOD / "Sim" / "Arsenal.cs").read_text()
+    arsenal = (MOD / "Sim" / "Arsenal.cs").read_text()
+
+    block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
+    overrides = block.group(1) if block else ""
 
     def value(field, fallback):
         match = re.search(rf"{field}\s*=\s*(-?[\d.]+)f\s*[,;]", overrides)

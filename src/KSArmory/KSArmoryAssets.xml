@@ -94,6 +94,37 @@
       </MeshView>
     </SubPart>
 
+  <!-- Phalanx-pattern CIWS. Base is fixed; the housing traverses and the guns elevate on it. -->
+  <SubPart Id="KSArmory_Subpart_CiwsBase">
+    <PartModel Id="KSArmory_Subpart_CiwsBase_Model">
+      <Mesh Id="KSArmory_Subpart_CiwsBase" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_CiwsBase_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Subpart_CiwsTurret">
+    <PartModel Id="KSArmory_Subpart_CiwsTurret_Model">
+      <Mesh Id="KSArmory_Subpart_CiwsTurret" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_CiwsTurret_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Subpart_CiwsGuns">
+    <PartModel Id="KSArmory_Subpart_CiwsGuns_Model">
+      <Mesh Id="KSArmory_Subpart_CiwsGuns" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_CiwsGuns_VM" />
+    </MeshView>
+  </SubPart>
+
   <!-- LAU-7 launch rail on its pylon. Nothing on it moves. -->
   <SubPart Id="KSArmory_Subpart_SidewinderRail">
     <PartModel Id="KSArmory_Subpart_SidewinderRail_Model">
@@ -420,6 +451,54 @@
         <Rotation Z="1.57080" />
       </Transform>
     </SubPart>
+
+  </Part>
+
+  <!--
+    Phalanx-pattern CIWS, 4.7 m on a 3 m stack node.
+
+    The first part here that STACKS rather than surface-attaching. A connector with no <Flags> is
+    a node connector; ToSurface is the opt-in for radial. So this one sits on top of a tank, a
+    decoupler or an adapter the way an engine sits under one, and the flange flares from the 3 m
+    node to the mount's own 2.8 m base.
+
+    One connector, at the bottom. Nothing stacks on top of a gun.
+
+    Geometry from tools/model/ciws.py. +X is up the stack, +Y the way the gun faces at rest.
+  -->
+  <Part Id="KSArmory_Prefab_Ciws">
+
+    <SubPart Id="KSArmory_Ciws_Base" InstanceOf="KSArmory_Subpart_CiwsBase" />
+
+    <!--
+      Traverses about the stack centreline. Its mesh is exported recentred on the pivot, so KSA
+      spins it in place; the offset comes back here.
+      Keep in step with TURRET_PIVOT in tools/model/ciws.py.
+    -->
+    <SubPart Id="KSArmory_Ciws_Turret" InstanceOf="KSArmory_Subpart_CiwsTurret">
+      <Transform>
+        <Position X="0.68000" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Elevate on the housing's trunnion while riding the traverse, so the mod rewrites both their
+      rotation and their position every frame.
+      Keep in step with GUN_PIVOT in tools/model/ciws.py.
+    -->
+    <SubPart Id="KSArmory_Ciws_Guns" InstanceOf="KSArmory_Subpart_CiwsGuns">
+      <Transform>
+        <Position X="1.34000" Y="0.86000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
+    <Connector Id="_ciwsConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation X="3.14159" Z="3.14159" />
+      </Transform>
+    </Connector>
 
   </Part>
 

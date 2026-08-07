@@ -453,14 +453,29 @@ def check_subpart_positions():
                   ("RadarMarker", "RadarPivotFromTurret"),
                   ("OpticMarker", "OpticPivotFromTurret"))
 
-    placed = {}
+    # Per part, not across the whole mod. LauncherPart.FindSubPart searches one launcher's own
+    # subparts, so a marker only has to be unique within its part -- and once a second launcher
+    # exists, a global check calls "Turret" ambiguous for a configuration that runs correctly.
+    by_part = {}
     for path in sorted(MOD.glob("KSArmory*.xml")):
         for part in ET.parse(path).getroot().findall("Part"):
+            here = {}
             for sub in part.findall("SubPart"):
                 position = sub.find("Transform/Position")
                 if position is None or sub.get("Id") is None:
                     continue
-                placed[sub.get("Id")] = [float(position.get(axis, "0")) for axis in "XYZ"]
+                here[sub.get("Id")] = [float(position.get(axis, "0")) for axis in "XYZ"]
+            if here:
+                by_part[part.get("Id")] = here
+
+    # The profile this check is about. It reads one launcher's numbers, and with several
+    # registered it has to be told which -- otherwise it silently reads whichever appears first
+    # and compares one launcher's markers against another's geometry.
+    part_id = marker("PartId")
+    placed = by_part.get(part_id, {})
+    if not placed:
+        print(f"  no placed subparts for {part_id}", file=sys.stderr)
+        return 1, 1
 
     problems = checked = 0
     for marker_field, offset_field in assemblies:

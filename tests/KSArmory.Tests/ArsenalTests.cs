@@ -66,22 +66,52 @@ public class ArsenalTests
         foreach (LauncherProfile launcher in Arsenal.Launchers)
         {
             Assert.Equal(launcher.Tubes.Length, launcher.TubeCount);
-            Assert.True(launcher.TubeCount > 0, $"{launcher.DisplayName} has no tubes");
+        }
+    }
+
+    /// <summary>
+    /// A launcher must be able to shoot with <em>something</em>: tubes, a cannon, or both.
+    ///
+    /// <para>This replaces an assertion that every launcher has at least one tube, which was true
+    /// only while every launcher carried missiles. A CIWS is a gun and nothing else, and
+    /// <c>TubeCount</c> of zero is a supported shape rather than a broken profile — but a launcher
+    /// with neither is a part that can never fire, and nothing else would report that.</para>
+    /// </summary>
+    [Fact]
+    public void EveryLauncherCanActuallyShootWithSomething()
+    {
+        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        {
+            Assert.True(launcher.TubeCount > 0 || launcher.HasCannon,
+                        $"{launcher.DisplayName} has neither tubes nor a cannon");
         }
     }
 
     [Fact]
     public void ATurretedLauncherDeclaresThePiecesItAnimates()
     {
-        // Traverse without pods would leave the tubes behind when the turret moved, and the
-        // pod pivot is meaningless without a turret pivot to measure it from.
+        // A traverse has to carry something, or it turns and nothing follows. What it carries can
+        // be pods or a cannon -- a CIWS traverses a gun and has no launcher assembly at all -- but
+        // whichever it declares needs a trunnion offset, because a pivot measured from nothing is
+        // an assembly that swings around the mount instead of elevating in place.
         foreach (LauncherProfile launcher in Arsenal.Launchers)
         {
             if (launcher.TurretMarker is null) continue;
 
-            Assert.NotNull(launcher.PodsMarker);
-            Assert.True(Vec.Len(launcher.PodPivotFromTurret) > 0.0,
-                        $"{launcher.DisplayName} elevates but has no trunnion offset");
+            Assert.True(launcher.PodsMarker is not null || launcher.GunsMarker is not null,
+                        $"{launcher.DisplayName} traverses but carries nothing that moves with it");
+
+            if (launcher.PodsMarker is not null)
+            {
+                Assert.True(Vec.Len(launcher.PodPivotFromTurret) > 0.0,
+                            $"{launcher.DisplayName} elevates pods with no trunnion offset");
+            }
+
+            if (launcher.GunsMarker is not null)
+            {
+                Assert.True(Vec.Len(launcher.GunPivotFromTurret) > 0.0,
+                            $"{launcher.DisplayName} elevates guns with no trunnion offset");
+            }
         }
     }
 

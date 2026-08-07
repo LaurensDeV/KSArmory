@@ -4,7 +4,8 @@ A point-defence mod for **Kitten Space Agency** (KSA, RocketWerkz). Two weapon s
 generated from Blender scripts: a **Pantsir-S1** — search radar, proportional-navigation
 interceptors, a proximity-fused warhead, twelve rounds in two pods of six on an 8×8 chassis — and
 a **LAU-7 rail** carrying one AIM-9J, which surface-attaches to anything and is the shipped
-example of a launcher with nothing that moves.
+example of a launcher with nothing that moves, and a **Mk 15 Phalanx CIWS** that stacks on a 3 m
+node and is the one with no missiles at all.
 
 ## Read this first
 
@@ -316,6 +317,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/` | headless Blender scripts that generate the parts |
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
 | `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
+| `tools/model/ciws.py` | the Phalanx CIWS: a gun with no missiles, on a 3 m stack node |
 | `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
 | `tools/model/kittengun.py` | the kitten's shoulder cannon — a character attachment, not a part |
@@ -517,6 +519,16 @@ neither of them is longer than a page.
    together; `validate-parts.py` checks the geometry still matches the mesh, and that every
    registered `PartId` is declared in the XML — a profile naming a part that exists nowhere
    used to pass every gate and simply find no launcher in game.
+
+**A launcher need not carry missiles.** The CIWS declares `Tubes = []`, so `TubeCount` is zero and
+the magazine holds nothing; it fires entirely through `GunMunition` and `GunMuzzles`. Two registry
+tests encoded the opposite — every launcher has a tube, every turret has pods — and both were
+assumptions rather than invariants. What is actually required is that a launcher can shoot with
+*something*, and that a traverse carries something that moves with it.
+
+**And it stacks rather than surface-attaching.** A `<Connector>` with no `<Flags>` is a node
+connector; `ToSurface` is the opt-in for radial. So the CIWS sits on top of any 3 m tank, decoupler
+or adapter, and has one connector because nothing stacks on a gun.
 
 A launcher that does not train is the same `LauncherProfile` with `TurretMarker` and `PodsMarker`
 left null — `Trains` is then false, the drives are skipped and `IsLaid` stays true, so fire

@@ -121,4 +121,48 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx CIWS">
+    <EditorTag Value="Structural" />
+    <Diameter M="3" />
+
+    <!--
+      No Radial or NoFaceSnapping tag and no ToSurface flag on the connector: this part STACKS.
+      It mates with the top node of any 3 m tank, decoupler or adapter.
+    -->
+    <Connector Id="_ciwsConnectorBase" />
+
+    <!-- A Mk 15 is about 6.2 tonnes with a full magazine. -->
+    <SolidSphereMass>
+      <Mass Kg="6200" />
+      <Radius M="1.20" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_CiwsCollider">
+      <!-- Flange and pedestal, resting on the mounting face at X = 0. -->
+      <Box Id="KSArmory_CiwsBaseCollider">
+        <LocationAsmb X="0.34" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.70" />
+        <LengthY M="2.80" />
+        <LengthZ M="2.80" />
+      </Box>
+      <!-- The traversing housing. -->
+      <Box Id="KSArmory_CiwsHousingCollider">
+        <LocationAsmb X="1.53" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="1.90" />
+        <LengthY M="1.95" />
+        <LengthZ M="1.95" />
+      </Box>
+      <!-- Radome. -->
+      <Box Id="KSArmory_CiwsRadomeCollider">
+        <LocationAsmb X="3.64" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="2.20" />
+        <LengthY M="1.62" />
+        <LengthZ M="1.62" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
 </Assets>
