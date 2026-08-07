@@ -586,7 +586,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         return _policy.MouseAim
                && Platform is not null
                && KsaWorld.TryCursorDirectionEcl(out double3 dirEcl)
-               && LauncherPart.TryDirectionToPartFrame(Platform, dirEcl, out partFrame);
+               && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, dirEcl, out partFrame);
     }
 
     private double3 OpticAimPartFrame()
@@ -596,7 +596,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
         if (TryCursorAimPartFrame(out double3 cursorFrame)) return cursorFrame;
 
         if (Radar.Locked is { } locked && Platform is not null
-            && LauncherPart.TryDirectionToPartFrame(Platform, locked.PositionEcl - MountEcl,
+            && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, locked.PositionEcl - MountEcl,
                                                     out double3 toTarget))
         {
             return toTarget;
@@ -799,7 +799,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
             Track? aim = Radar.Locked ?? MostUrgentThreat();
 
             if (aim is not null && Platform is not null
-                && LauncherPart.TryDirectionToPartFrame(Platform, AimPointEcl(aim) - MountEcl, out double3 partFrame))
+                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, AimPointEcl(aim) - MountEcl, out double3 partFrame))
             {
                 Turret.Track(partFrame);
             }

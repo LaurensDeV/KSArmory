@@ -170,7 +170,12 @@ internal static class Visuals
                                  horizontal * Math.Cos(bearing),
                                  horizontal * Math.Sin(bearing));
 
-        if (!LauncherPart.TryDirectionFromPartFrame(platform, facingPart, out double3 facingEcl)) return;
+        // Through the launcher's own mounting, not the vehicle's alone. The barrels are drawn in
+        // the part frame; a line converted from the vehicle frame is out by the part's rotation,
+        // which on a stack mount is a half turn -- so the line pointed the opposite way to the gun
+        // it was supposed to be reporting.
+        if (battery.Launcher is not { } launcher) return;
+        if (!LauncherPart.TryLauncherDirectionEcl(platform, launcher, facingPart, out double3 facingEcl)) return;
 
         double3 from = battery.MountEcl + battery.Boresight * 3.2;
         KsaWorld.DrawLineEcl(from, from + facingEcl * 45.0, TurretColour);

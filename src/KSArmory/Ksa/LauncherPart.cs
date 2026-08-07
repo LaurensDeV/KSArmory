@@ -679,8 +679,11 @@ internal static class LauncherPart
     /// <summary>
     /// Rotates a direction in the <em>launcher part's</em> frame out into Ecl, through the part's
     /// mounting and then the vehicle's attitude. Distinct from
-    /// <see cref="TryDirectionFromPartFrame"/>, which starts from the vehicle assembly frame; the
-    /// two agree only while the launcher is mounted unrotated relative to the assembly.
+    /// The inverse of <see cref="TryDirectionToPartFrame"/>. Both apply the launcher's own
+    /// mounting, and there is deliberately no variant that stops at the vehicle assembly frame:
+    /// the two frames differ by the part's rotation, which is nothing on a surface mount and a
+    /// half turn on a stack one, and anything reading a launcher direction through the wrong one
+    /// points backwards without saying so.
     /// </summary>
     public static bool TryLauncherDirectionEcl(Vehicle platform, Part launcher, double3 partFrame,
                                                out double3 directionEcl)
@@ -698,20 +701,6 @@ internal static class LauncherPart
         }
     }
 
-    /// <summary>Rotates a direction in the part's frame back out into Ecl.</summary>
-    public static bool TryDirectionFromPartFrame(Vehicle vehicle, double3 partFrame, out double3 directionEcl)
-    {
-        directionEcl = Vec.Zero;
-        try
-        {
-            directionEcl = vehicle.Asmb2Ego * partFrame;
-            return Vec.IsFinite(directionEcl);
-        }
-        catch
-        {
-            return false;
-        }
-    }
 
     /// <summary>
     /// Rotates a world direction into the part's own frame, so it can be turned into a bearing.
@@ -719,12 +708,32 @@ internal static class LauncherPart
     /// <c>Asmb2Ego</c> is the vehicle's assembly-to-render rotation, and Ego is a pure
     /// translation of Ecl — so for a *direction* the two frames are identical and this is exact.
     /// </summary>
-    public static bool TryDirectionToPartFrame(Vehicle vehicle, double3 directionEcl, out double3 partFrame)
+    /// <param name="launcher">
+    /// The launcher, so its own mounting within the vehicle is undone as well.
+    ///
+    /// <para>Without it this stops at the vehicle frame and hands <see cref="Turret.Track"/> a
+    /// direction in the wrong axes — and that drive's axes are the launcher <em>part</em>'s. The
+    /// reverse conversion, <see cref="TryLauncherDirectionEcl"/>, has always applied the mounting,
+    /// so aim and boresight disagreed by exactly the part's rotation.</para>
+    ///
+    /// <para>Invisible while every launcher surface-attached unrotated. A stack-mounted CIWS
+    /// carries a connector rotation of a half turn, which aimed its gun 180 degrees out — the
+    /// failure docs/AUDIT-2026-08.md predicted and said to fix before a second mount was
+    /// modelled. Null is tolerated and means the vehicle frame, which is what a caller with no
+    /// launcher resolved yet can honestly ask for.</para>
+    /// </param>
+    public static bool TryDirectionToPartFrame(Vehicle vehicle, Part? launcher,
+                                               double3 directionEcl, out double3 partFrame)
     {
         partFrame = Vec.Zero;
         try
         {
-            partFrame = doubleQuat.Conjugate(vehicle.Asmb2Ego) * directionEcl;
+            double3 inVehicle = doubleQuat.Conjugate(vehicle.Asmb2Ego) * directionEcl;
+
+            partFrame = launcher is null
+                            ? inVehicle
+                            : doubleQuat.Conjugate(launcher.Asmb2VehicleAsmb) * inVehicle;
+
             return Vec.IsFinite(partFrame);
         }
         catch

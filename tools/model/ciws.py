@@ -151,11 +151,13 @@ def _build_barrels(m):
     d, p = m.elevated_frame(GUN_ELEV)
     pivot = _vec(GUN_PIVOT)
 
-    # The gun housing: chunky, because on the real mount it is a substantial box hanging off the
-    # front rather than a sleeve the barrels pass through.
+    # The gun housing, and it has to be substantial. Everything in this group elevates together --
+    # that was always true -- but a small box tucked behind the drum makes only the barrels read as
+    # moving, so the mount looks like it articulates in a way it does not. Size is what conveys
+    # which parts are one body.
     root = _add(pivot, _scale(d, 0.02))
-    m.box((0.56, 0.78, 0.62), _tuple(_add(root, _scale(d, 0.34))), m.pitched(GUN_ELEV), "hull_dark")
-    m.cyl(0.24, 0.30, _tuple(_add(root, _scale(d, 0.74))), m.pitched(GUN_ELEV),
+    m.box((0.74, 1.02, 0.86), _tuple(_add(root, _scale(d, 0.40))), m.pitched(GUN_ELEV), "hull_dark")
+    m.cyl(0.30, 0.34, _tuple(_add(root, _scale(d, 0.86))), m.pitched(GUN_ELEV),
           "steel_dark", verts=16)
 
     # Muzzle clamp, which on the real gun holds the barrels together at the far end.
