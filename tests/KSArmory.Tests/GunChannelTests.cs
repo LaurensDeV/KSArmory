@@ -158,4 +158,55 @@ public class GunChannelTests
                     $"cannon reach {pantsir.GunMaxRange} m leaves a hole below the missile's "
                     + $"{sensor.MinEngagementRange} m minimum");
     }
+
+    /// <summary>
+    /// A burst cannot outlive the belt.
+    ///
+    /// <para>The firing loop stops on ammunition, so a burst interrupted by the last round used to
+    /// leave <c>BurstRemaining</c> standing with nothing left to fire it. <c>Firing</c> then stayed
+    /// true for the rest of the session, and everything that asks the gun whether it is firing
+    /// stayed on with it: in game the muzzle flash was never handed back and sat on the mount as a
+    /// permanent fireball.</para>
+    /// </summary>
+    [Fact]
+    public void ABurstInterruptedByAnEmptyBeltStopsFiring()
+    {
+        LauncherProfile profile = Profile(burst: 60, rpm: 4500f);
+        var gun = new GunChannel();
+        gun.Fill(3);
+
+        // Long enough to owe more rounds than the belt holds, which is the whole case.
+        Assert.Equal(3, gun.Step(0.05, wantToFire: true, profile));
+
+        Assert.True(gun.IsEmpty);
+        Assert.Equal(0, gun.BurstRemaining);
+        Assert.False(gun.Firing, "the gun reports firing with an empty belt and no burst to run");
+
+        // And it stays stopped rather than reporting a burst it can never deliver.
+        for (int i = 0; i < 20; i++)
+        {
+            Assert.Equal(0, gun.Step(0.05, wantToFire: true, profile));
+            Assert.False(gun.Firing);
+        }
+    }
+
+    /// <summary>
+    /// Refilling after that leaves the gun able to fire again, rather than resuming the burst the
+    /// empty belt cut short.
+    /// </summary>
+    [Fact]
+    public void ARefilledBeltStartsAFreshBurstRatherThanResumingTheOldOne()
+    {
+        LauncherProfile profile = Profile(burst: 60, rpm: 4500f);
+        var gun = new GunChannel();
+        gun.Fill(3);
+        gun.Step(0.05, wantToFire: true, profile);
+
+        gun.Fill(120);
+        gun.Reset();
+
+        Assert.False(gun.Firing);
+        Assert.True(gun.Step(0.05, wantToFire: true, profile) > 0, "a refilled gun did not fire");
+        Assert.True(gun.BurstRemaining is > 0 and < 60, "the burst did not restart from full");
+    }
 }

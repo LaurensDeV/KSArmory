@@ -81,6 +81,12 @@ internal sealed class GunChannel
             Cooldown += interval;
         }
 
+        // A burst cannot outlive the belt. The loop above stops on Ammo, so a burst interrupted by
+        // the last round left BurstRemaining standing forever: Firing stayed true with nothing
+        // being fired, and everything downstream that asks whether the gun is firing -- the muzzle
+        // flash, the sound, the panel -- stayed on for the rest of the session.
+        if (Ammo <= 0) BurstRemaining = 0;
+
         // Between bursts the gun pauses, which is what makes it read as a gun rather than a hose.
         if (BurstRemaining <= 0 && fired > 0)
         {
