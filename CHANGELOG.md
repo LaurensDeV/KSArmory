@@ -1,3 +1,23 @@
+## [0.8.42](https://github.com/LaurensDeV/KSArmory/compare/v0.8.41...v0.8.42) (2026-08-08)
+
+### Features
+
+* **camera:** level the horizon on a view the mod is driving ([1eac3ca](https://github.com/LaurensDeV/KSArmory/commit/1eac3ca2bc3b9b43e9bacd920771900bbf7a0d77))
+* **camera:** put the optic on the main view, and fly onto a round ([1d05ebd](https://github.com/LaurensDeV/KSArmory/commit/1d05ebd5e9597c8a6061b1d012796c8135ae4ae0))
+* **radar:** let a sensor see a round in the air ([3ffad80](https://github.com/LaurensDeV/KSArmory/commit/3ffad80deaed6ab4da953ea59c7d47dc71263ecb))
+* **rounds:** let a round burn in stages ([59967d7](https://github.com/LaurensDeV/KSArmory/commit/59967d74d4664ae0b6086926b34bbc2dc025255a))
+* **rounds:** let a round say what step it can be flown at ([4b638fa](https://github.com/LaurensDeV/KSArmory/commit/4b638fa87f616d8388175c8a7e53cf77cb2bd19a))
+
+### Fixes
+
+* **aim:** let the cursor land on a craft with no mesh ([2a54bec](https://github.com/LaurensDeV/KSArmory/commit/2a54beca5d7a2b00843f35323808720f881d26ba))
+* **aim:** put the cursor's aim point where the cursor is ([63ad0ca](https://github.com/LaurensDeV/KSArmory/commit/63ad0cae1fcc5f5aa8edb4945655b20eec39ae83))
+* **effects:** draw cannon fire as a stream, not as beads ([0806555](https://github.com/LaurensDeV/KSArmory/commit/08065550a24b553177e195ba9e333a95d88117f8))
+* **effects:** stop each system tearing down every other system's effects ([91c15ca](https://github.com/LaurensDeV/KSArmory/commit/91c15ca6c609492737ea93f70c0590feca2f640a))
+* **rounds:** make a designated ground shot do something ([70578f5](https://github.com/LaurensDeV/KSArmory/commit/70578f5b22c7a72c92f1feda503476c310cb379f))
+* **rounds:** make a gun round hit what it strikes, and only that ([8cf6aa4](https://github.com/LaurensDeV/KSArmory/commit/8cf6aa44cdfe36fbfb2f656a5942dce58f365ecb))
+* **sim:** bring team names back with the systems that name them ([8dec444](https://github.com/LaurensDeV/KSArmory/commit/8dec444aa113a5a055a3c16f6a708992ae3068cc))
+
 ## [0.8.41](https://github.com/LaurensDeV/KSArmory/compare/v0.8.40...v0.8.41) (2026-08-08)
 
 ### Features
