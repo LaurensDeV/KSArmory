@@ -35,8 +35,12 @@ internal static class SimClock
     }
 
     /// <summary>
-    /// Largest step that can still be integrated at full fidelity. Derived from the
+    /// Largest step a round with no opinion can be integrated across. Derived from the
     /// interceptor's own sub-step budget rather than picked, so tightening one tightens both.
+    ///
+    /// <para>A default, not a limit: <see cref="MunitionProfile.MaxFaithfulStepSeconds"/> is what
+    /// actually decides, and a round that does not manoeuvre can take far longer steps. Passing it
+    /// in is what lets a weapon fly for minutes without holding the world down for all of them.</para>
     /// </summary>
     public const double MaxStep = Interceptor.MaxFaithfulStep;
 
@@ -46,7 +50,8 @@ internal static class SimClock
     /// <param name="stepSeconds">Simulated seconds the world just advanced by.</param>
     /// <param name="paused">Whether the game is paused.</param>
     /// <param name="dt">Seconds to advance by; zero unless the result is <see cref="State.Run"/>.</param>
-    public static State Classify(double stepSeconds, bool paused, out double dt)
+    public static State Classify(double stepSeconds, bool paused, out double dt,
+                                 double maxStep = MaxStep)
     {
         dt = 0.0;
 
@@ -57,9 +62,10 @@ internal static class SimClock
         // A non-finite or negative step is not something to reason about. Neither is zero.
         if (!double.IsFinite(stepSeconds) || stepSeconds <= 0.0) return State.Idle;
 
-        // Past MaxStep the interceptor's sub-step clamp starts stretching each step, and a round
-        // at 700 m/s begins skipping over its own fuse radius. Refusing is the honest answer.
-        if (stepSeconds > MaxStep) return State.Skipped;
+        // Past the step this round can take, the interceptor's sub-step clamp starts stretching
+        // each one and the curvature dropped from the fuse solve grows as the square. Refusing is
+        // the honest answer.
+        if (stepSeconds > maxStep) return State.Skipped;
 
         dt = stepSeconds;
         return State.Run;

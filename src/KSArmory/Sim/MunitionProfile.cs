@@ -123,6 +123,28 @@ public sealed class MunitionProfile
     public float MaxFlightSeconds = 30f;
 
     /// <summary>
+    /// Longest simulation step this round can be integrated across at full fidelity, in seconds.
+    /// </summary>
+    ///
+    /// <remarks>
+    /// Per round, because the limit is a property of how hard it manoeuvres rather than of how
+    /// fast it goes. The fuse is an analytic closest-approach solve over each sub-step, so a round
+    /// cannot tunnel through its own fuse radius at any speed; what a long step drops is the
+    /// curvature, and that error is about half the lateral acceleration times the step squared.
+    /// A 35 g endgame round at 0.32 s loses roughly its own fuse radius, which is why 0.32 is the
+    /// default. A round coasting ballistically loses centimetres.
+    ///
+    /// It matters because the world is slowed to keep this step, so a weapon that flies for
+    /// minutes holds the player's timewarp down for all of them and eventually trips the policy's
+    /// own abandon guard. Raising it for a round that does not manoeuvre costs nothing and is what
+    /// makes a long-range weapon playable.
+    ///
+    /// Nobody has measured what step a real intercept degrades at. 0.32 s has flight hours behind
+    /// it; treat that as the reason to keep the default rather than as a licence to raise it.
+    /// </remarks>
+    public float MaxFaithfulStepSeconds = (float)Interceptor.MaxFaithfulStep;
+
+    /// <summary>
     /// How far this round can usefully be sent, in metres.
     ///
     /// <para>On the round rather than on the set that finds the target or the launcher that throws

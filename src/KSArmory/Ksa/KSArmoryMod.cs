@@ -292,7 +292,7 @@ public sealed class KSArmoryMod
             // is the *next* thousand frames doing the same thing silently.
             if (double.IsFinite(dtSim) && dtSim > 0.0)
             {
-                double step = Math.Min(dtSim, Interceptor.MaxFaithfulStep);
+                double step = Math.Min(dtSim, FaithfulStepInFlight());
                 foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step);
             }
         }
@@ -423,6 +423,26 @@ public sealed class KSArmoryMod
                  + $"Rounds in flight will lag the world.");
     }
 
+    // The shortest step any round in the air needs, which is what the world is held down to and
+    // what the integration is clamped at. Nothing flying means nothing to protect.
+    private double FaithfulStepInFlight()
+    {
+        double faithful = double.MaxValue;
+
+        if (_roster is not null)
+        {
+            foreach (WeaponSystems.Entry e in _roster.All)
+            {
+                foreach (IProjectile round in e.Battery.Rounds)
+                {
+                    faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
+                }
+            }
+        }
+
+        return faithful is double.MaxValue ? Interceptor.MaxFaithfulStep : faithful;
+    }
+
     // Keeps the world slow enough to simulate what is in the air, and gives the speed back when
     // it lands. WarpPolicy holds the reasoning and all of the arithmetic.
     private void ApplyWarpPolicy(double dtSim)
@@ -430,15 +450,25 @@ public sealed class KSArmoryMod
         if (_roster is null) return;
 
         // Any round anywhere: the step has to be small enough for the busiest battery, not for
-        // the one the panel happens to be showing.
+        // the one the panel happens to be showing. And small enough for the fussiest round in the
+        // air, which is the one that manoeuvres hardest: a ballistic weapon alongside an
+        // interceptor must not let the interceptor be stepped over.
         bool anyInFlight = false;
+        double faithful = double.MaxValue;
+
         foreach (WeaponSystems.Entry e in _roster.All)
         {
-            if (e.Battery.Rounds.Count > 0) { anyInFlight = true; break; }
+            foreach (IProjectile round in e.Battery.Rounds)
+            {
+                anyInFlight = true;
+                faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
+            }
         }
 
+        if (!anyInFlight) faithful = Interceptor.MaxFaithfulStep;
+
         WarpDecision d = _warp.Decide(dtSim, KsaWorld.SimulationSpeed,
-                                      anyInFlight, _config.LimitWarpInFlight);
+                                      anyInFlight, _config.LimitWarpInFlight, faithful);
 
         switch (d.Action)
         {

@@ -102,7 +102,14 @@ internal sealed class WarpPolicy
     /// <param name="currentSpeed">The world's timewarp factor right now.</param>
     /// <param name="roundsInFlight">Whether anything is airborne that has to be integrated.</param>
     /// <param name="enabled">The player's setting; false disables the whole mechanism.</param>
-    public WarpDecision Decide(double dtSim, double currentSpeed, bool roundsInFlight, bool enabled)
+    /// <param name="faithfulStep">
+    /// Longest step the rounds in the air can be integrated across, which is the smallest such
+    /// step among them. Defaults to the interceptor's, which is what a hard-manoeuvring endgame
+    /// round needs; a ballistic weapon can take far longer ones and holding the world down to
+    /// this for a flight lasting minutes is what trips the abandon guard below.
+    /// </param>
+    public WarpDecision Decide(double dtSim, double currentSpeed, bool roundsInFlight, bool enabled,
+                               double faithfulStep = Interceptor.MaxFaithfulStep)
     {
         if (!enabled) return Release(currentSpeed, "warp limiting turned off");
         if (!roundsInFlight) return Release(currentSpeed, "nothing in the air");
@@ -156,12 +163,12 @@ internal sealed class WarpPolicy
         // another writer produces -- our value lands, one good frame passes, the speed goes back up
         // -- so clearing the override count on it means the count never reaches its threshold. The
         // budget is per salvo and only Release clears it.
-        if (dtSim <= Interceptor.MaxFaithfulStep) return WarpDecision.Nothing;
+        if (dtSim <= faithfulStep) return WarpDecision.Nothing;
 
         // Self-calibrating: the frame time is dtSim/currentSpeed, so the speed that lands on the
         // target step needs no knowledge of the frame rate. That also makes a slow frame and a
         // high warp the same problem, which to a round they are.
-        double target = currentSpeed * (Interceptor.MaxFaithfulStep * Margin) / dtSim;
+        double target = currentSpeed * (faithfulStep * Margin) / dtSim;
         if (!double.IsFinite(target) || target <= 0.0 || target >= currentSpeed)
         {
             return WarpDecision.Nothing;

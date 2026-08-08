@@ -390,4 +390,60 @@ public class WarpPolicyTests
         Assert.Equal(WarpAction.Yield, last.Action);
         Assert.True(policy.Yielded);
     }
+
+    // ---- The step is the round's, not a constant -------------------------
+    //
+    // The world is slowed to whatever step the rounds in the air need. For a hard-manoeuvring
+    // interceptor that is a fraction of a second, which costs the player their timewarp for a
+    // twenty-second engagement. For a round that coasts ballistically it can be far longer, and
+    // holding the world down for a flight lasting minutes is what trips Abandon below.
+
+    [Fact]
+    public void ARoundThatToleratesALongerStepBuysBackMoreSpeed()
+    {
+        var tight = new WarpPolicy();
+        var loose = new WarpPolicy();
+
+        // Long enough that both have to slow. At a step the loose round tolerates it is not
+        // slowed at all, which is the point of the whole change but makes the two incomparable.
+        const double Step = 20.0;
+
+        WarpDecision a = tight.Decide(Step, 100.0, roundsInFlight: true, enabled: true, Faithful);
+        WarpDecision b = loose.Decide(Step, 100.0, roundsInFlight: true, enabled: true, Faithful * 20.0);
+
+        Assert.Equal(WarpAction.Slow, a.Action);
+        Assert.Equal(WarpAction.Slow, b.Action);
+        Assert.True(b.Speed > a.Speed,
+            $"a round tolerating twenty times the step was held to {b.Speed:F1}x against "
+            + $"{a.Speed:F1}x, so the step it declares is not reaching the decision");
+    }
+
+    [Fact]
+    public void AStepTheRoundToleratesIsNotReducedAtAll()
+    {
+        var policy = new WarpPolicy();
+
+        // Twice the interceptor's limit, which for an interceptor would be reduced.
+        WarpDecision d = policy.Decide(Faithful * 2.0, 10.0, roundsInFlight: true, enabled: true,
+                                       Faithful * 4.0);
+
+        Assert.Equal(WarpAction.None, d.Action);
+    }
+
+    /// <summary>
+    /// The default is the interceptor's, so every caller that does not care is unchanged.
+    /// </summary>
+    [Fact]
+    public void OmittingTheStepIsTheSameAsAskingForTheInterceptors()
+    {
+        var a = new WarpPolicy();
+        var b = new WarpPolicy();
+
+        WarpDecision withDefault = a.Decide(Faithful * 3.0, 50.0, roundsInFlight: true, enabled: true);
+        WarpDecision explicitly = b.Decide(Faithful * 3.0, 50.0, roundsInFlight: true, enabled: true,
+                                           Interceptor.MaxFaithfulStep);
+
+        Assert.Equal(withDefault.Action, explicitly.Action);
+        Assert.Equal(withDefault.Speed, explicitly.Speed, 9);
+    }
 }
