@@ -94,28 +94,45 @@ internal sealed partial class Ui
 
     }
 
-    // The cannon's own munition, which is a different profile from the missile above. Without a
-    // control here TimedFuse would ship set to false with nothing able to turn it on -- the exact
-    // way a new profile field goes unreachable behind hand-enumerated sliders.
-    private void DrawCannonFuse()
+    // Rounds this system throws that the guidance node does not already tune. Sliders enumerated
+    // by hand only ever reach the first weapon's round, which leaves every field on a second
+    // armament's round unreachable from the panel.
+    private void DrawOtherArmamentRounds()
     {
-        if (!_profile.HasCannon || _profile.GunMunition is not { } named) return;
+        IReadOnlyList<Armament> armaments = _fit.Armaments;
+        for (int i = 0; i < armaments.Count; i++)
+        {
+            Armament arm = armaments[i];
+            if (arm.Munition == _munition.Name) continue;
 
-        MunitionProfile shell = Arsenal.MunitionNamed(named);
+            MunitionProfile round = Arsenal.MunitionNamed(arm.Munition);
 
-        ImGui.Separator();
-        ImGui.TextDisabled($"Cannon: {shell.DisplayName}");
+            ImGui.Separator();
+            ImGui.TextDisabled($"{arm.Label}: {round.DisplayName}");
 
-        ImGui.Checkbox("Timed airburst (flak)", ref shell.TimedFuse);
-
-        ImGui.TextDisabled(shell.TimedFuse
-                               ? "  shells burst at the lead solution's flight time"
-                               : "  shells burst on proximity only");
+            ImGui.Checkbox($"Timed airburst (flak)##{arm.Label}", ref round.TimedFuse);
+            ImGui.TextDisabled(round.TimedFuse
+                                   ? "  rounds burst at the lead solution's flight time"
+                                   : "  rounds burst on proximity only");
+        }
     }
 
     private void DrawTuning()
     {
-        if (!ImGui.TreeNode("Radar")) { DrawGuidanceNode(); return; }
+        DrawSensorNode();
+        DrawDriveNodes();
+        DrawGuidanceNode();
+    }
+
+    private void DrawSensorNode()
+    {
+        if (!_fit.Searches)
+        {
+            ImGui.TextDisabled("No sensor: nothing to tune, and nothing to detect with.");
+            return;
+        }
+
+        if (!ImGui.TreeNode("Radar")) return;
 
         ImGui.SliderFloat("Range (m)", ref _sensor.Range, 500f, 40000f);
         ImGui.SliderFloat("Cone half-angle (deg)", ref _sensor.ConeDeg, 5f, 180f);
@@ -124,45 +141,64 @@ internal sealed partial class Ui
         ImGui.SliderFloat("Lock time (s)", ref _sensor.LockSeconds, 0f, 5f);
         ImGui.SliderFloat("Min target speed (m/s)", ref _sensor.MinTargetSpeed, 0f, 200f);
         ImGui.TreePop();
+    }
 
-        if (ImGui.TreeNode("Turret"))
+    // The drives, each node existing only if the system has that gear. A rate slider for an axis
+    // that does not turn is indistinguishable from one the engine is refusing.
+    private void DrawDriveNodes()
+    {
+        WeaponFit fit = _fit;
+
+        if (fit.Aims && ImGui.TreeNode("Turret"))
         {
             ImGui.Checkbox("Track with turret", ref _policy.TurretTracking);
-            ImGui.SliderFloat("Traverse rate (deg/s)", ref _profile.SlewRateDeg, 5f, 180f);
-            ImGui.SliderFloat("Elevation rate (deg/s)", ref _profile.ElevationRateDeg, 5f, 120f);
+            if (fit.Traverses) ImGui.SliderFloat("Traverse rate (deg/s)", ref _profile.SlewRateDeg, 5f, 180f);
+            if (fit.Elevates) ImGui.SliderFloat("Elevation rate (deg/s)", ref _profile.ElevationRateDeg, 5f, 120f);
             ImGui.SliderFloat("Settle before firing (s)", ref _profile.SettleSeconds, 0f, 2f);
-            ImGui.Checkbox("Eject along the tube", ref _profile.LaunchAlongTube);
-            ImGui.TextDisabled("  off: slew to the target on launch, plus loft");
 
             ImGui.Separator();
             ImGui.TextDisabled("Drive it by hand - neither needs a target:");
-            ImGui.Checkbox("Spin continuously", ref _policy.TurretSpin);
+            if (fit.Traverses) ImGui.Checkbox("Spin continuously", ref _policy.TurretSpin);
             ImGui.Checkbox("Manual aim", ref _policy.TurretManual);
-            ImGui.SliderFloat("Bearing (deg)", ref _policy.TurretManualBearingDeg, -180f, 180f);
-            ImGui.SliderFloat("Elevation (deg)", ref _policy.TurretManualElevationDeg, 0f, 82f);
-            ImGui.TextDisabled("  Elevation applies to spin as well as manual aim.");
+            if (fit.Traverses) ImGui.SliderFloat("Bearing (deg)", ref _policy.TurretManualBearingDeg, -180f, 180f);
+            if (fit.Elevates)
+            {
+                ImGui.SliderFloat("Elevation (deg)", ref _policy.TurretManualElevationDeg, 0f, 82f);
+                ImGui.TextDisabled("  Elevation applies to spin as well as manual aim.");
+            }
+            ImGui.TreePop();
+        }
 
-            ImGui.Separator();
+        if (fit.SweepsASearchArray && ImGui.TreeNode("Search array"))
+        {
             ImGui.SliderFloat("Search array (rpm)", ref _profile.SearchRadarRpm, 0f, 60f);
             ImGui.Checkbox("Stop the search array", ref _policy.SearchRadarStopped);
             ImGui.TreePop();
         }
-
-        DrawGuidanceNode();
     }
 
     private void DrawGuidanceNode()
     {
         if (ImGui.TreeNode("Guidance"))
         {
-            ImGui.SliderFloat("Nav constant N", ref _munition.NavConstant, 1f, 8f);
-            ImGui.SliderFloat("Max lateral (g)", ref _munition.MaxLateralG, 5f, 80f);
-            ImGui.SliderFloat("Seeker FOV (deg)", ref _munition.SeekerFovDeg, 10f, 90f);
-            ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
-            ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
-            ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
+            // Steering, boost and the seeker are only read by rounds the guidance model flies.
+            // A ballistic round ignores every one of them, and a slider that changes nothing is
+            // worse than no slider: it reads as the setting having no effect.
+            if (_fit.Steers)
+            {
+                ImGui.SliderFloat("Nav constant N", ref _munition.NavConstant, 1f, 8f);
+                ImGui.SliderFloat("Max lateral (g)", ref _munition.MaxLateralG, 5f, 80f);
+                ImGui.SliderFloat("Seeker FOV (deg)", ref _munition.SeekerFovDeg, 10f, 90f);
+                ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
+                ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
+                ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
+            }
+
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
             ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 90f);
+
+            ImGui.Checkbox("Eject along the tube", ref _profile.LaunchAlongTube);
+            ImGui.TextDisabled("  off: slew to the target on launch, plus loft");
             ImGui.TreePop();
         }
 
@@ -178,11 +214,12 @@ internal sealed partial class Ui
             ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
                                + $"blast {_munition.BlastRadius:F0} m, "
                                + $"fireball {_munition.FireballRadius:F0} m");
-            ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget, 1, _profile.TubeCount);
+            ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget,
+                            1, Math.Max(1, _fit.SalvoCapacity));
             ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
             ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);
 
-            DrawCannonFuse();
+            DrawOtherArmamentRounds();
             ImGui.TreePop();
         }
 

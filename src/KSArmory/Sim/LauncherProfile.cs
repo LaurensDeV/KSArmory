@@ -43,6 +43,16 @@ public sealed class LauncherProfile
     public required string Munition { get; init; }
     public required string Sensor { get; init; }
 
+    /// <summary>
+    /// What each armament is called in front of an operator. These name the status row, the
+    /// switch that lets the armament engage and its tuning section, so a launcher that lobs
+    /// bombs says "Bombs" everywhere without the panel knowing what a bomb is.
+    /// </summary>
+    public string TubeArmamentLabel { get; init; } = "Missiles";
+
+    /// <inheritdoc cref="TubeArmamentLabel"/>
+    public string GunArmamentLabel { get; init; } = "Cannon";
+
     // ---- Subparts the mod animates. Null means this system has no such piece. ----
 
     /// <summary>Traverses in azimuth. Null for a launcher that cannot train.</summary>

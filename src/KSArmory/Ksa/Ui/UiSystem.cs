@@ -92,17 +92,18 @@ internal sealed partial class Ui
         if (_policy.Armed) ImGui.TextColored(Red, "MASTER ARM: ARMED");
         else ImGui.TextColored(Green, "MASTER ARM: SAFE");
 
-        ImGui.SameLine();
-        // A gun-only launcher has no tubes, and "Rounds: 0/0" reads as broken rather than as a
-        // weapon that never had any. Show whichever magazine the launcher actually has.
-        if (_profile.TubeCount > 0) ImGui.Text($"   Rounds: {_battery.Ammo}/{_profile.TubeCount}");
-        if (_profile.HasCannon) ImGui.Text($"   Belt:   {_battery.GunAmmo}/{_profile.GunAmmo}");
-
-        if (_profile.HasCannon)
+        // One reading per armament the system is fitted with. A launcher with no tubes and one
+        // with no cannon both describe themselves here without this knowing which it is, so
+        // "Rounds: 0/0" against a weapon that never had a magazine cannot arise.
+        IReadOnlyList<Armament> readings = _fit.Armaments;
+        for (int i = 0; i < readings.Count; i++)
         {
+            Armament arm = readings[i];
+            (int remaining, bool firing) = LiveState(_battery, arm);
+
             ImGui.SameLine();
-            if (_battery.GunsFiring) ImGui.TextColored(Red, $"   Cannon: {_battery.GunAmmo} FIRING");
-            else ImGui.Text($"   Cannon: {_battery.GunAmmo}");
+            if (firing) ImGui.TextColored(Red, $"   {arm.Describe(remaining, firing)}");
+            else ImGui.Text($"   {arm.Describe(remaining, firing)}");
         }
 
         if (_battery.ReloadRemaining > 0.0)
@@ -191,7 +192,15 @@ internal sealed partial class Ui
     // only borrow one, so this is a picker rather than a switch.
     private void DrawOpticView()
     {
-        if (_battery.OpticPart is null) return;
+        if (!_fit.HasOpticalHead) return;
+
+        // Declared and unresolved is a fault worth saying out loud. Testing the subpart alone
+        // cannot tell it apart from a system that never had a head, and both then show nothing.
+        if (_battery.OpticPart is null)
+        {
+            ImGui.TextColored(Amber, "Optical head: subpart not found");
+            return;
+        }
 
         // Only windows the player can actually see. KSA keeps offscreen viewports of its own -
         // the thumbnail renderer is one - and offering those means picking a view that shows
@@ -236,7 +245,15 @@ internal sealed partial class Ui
     {
         if (_battery.Launcher is null) return;
 
-        if (_battery.TurretPart is null)
+        // A launcher with nothing to lay is not a launcher whose drives are missing, and saying
+        // "subpart not found" at one of them reads as a fault on a system that is working.
+        if (!_fit.Aims)
+        {
+            ImGui.TextDisabled("Mount: fixed - it shoots where the craft points");
+            return;
+        }
+
+        if (_fit.Traverses && _battery.TurretPart is null)
         {
             ImGui.TextColored(Amber, "Turret: subpart not found (fixed forward)");
             return;
@@ -286,12 +303,15 @@ internal sealed partial class Ui
         ImGui.Checkbox("Master arm", ref _policy.Armed);
         ImGui.SameLine();
         ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
-        ImGui.SameLine();
-        ImGui.Checkbox("Missiles", ref _policy.MissilesEnabled);
-        if (_profile.HasCannon)
+
+        // One switch per armament fitted. A switch for a weapon the system does not carry reads as
+        // one that is turned off rather than as one that is not there.
+        IReadOnlyList<Armament> switches = _fit.Armaments;
+        for (int i = 0; i < switches.Count; i++)
         {
+            Armament arm = switches[i];
             ImGui.SameLine();
-            ImGui.Checkbox("Cannon", ref _policy.GunsEnabled);
+            ImGui.Checkbox(arm.Label, ref Armament.EnabledIn(_policy, arm.Kind));
         }
 
         // A view control, so it sits with the other thing that decides what you are looking at.
@@ -349,6 +369,12 @@ internal sealed partial class Ui
 
     private void DrawTrackList()
     {
+        if (!_fit.Searches)
+        {
+            ImGui.TextDisabled("No sensor: nothing to hold a track, and nothing to designate.");
+            return;
+        }
+
         if (_battery.Radar.Tracks.Count == 0)
         {
             ImGui.TextDisabled("scope clear");

@@ -293,8 +293,11 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
             ImGui.TableNextColumn();
             if (entry is { } e)
             {
+                // That row's own load, never the focused system's. The panes read whichever
+                // system is focused and a row is not it, so borrowing the focused launcher here
+                // reports one installation's magazine against another's name.
                 ImGui.TextColored(e.Policy.Armed ? Red : Grey,
-                                  $"{(e.Policy.Armed ? "ARMED" : "safe")}  {e.Battery.Ammo}/{_profile.TubeCount}");
+                                  $"{(e.Policy.Armed ? "ARMED" : "safe")}  {Tally(e.Battery)}");
             }
             else
             {
@@ -386,6 +389,13 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
         ImGui.End();
 
         if (!open) _managed = null;
+    }
+
+    // What one system is holding, in a table cell: every armament it carries, however many that is.
+    private static string Tally(DefenceBattery battery)
+    {
+        WeaponFit fit = WeaponFit.Of(battery.Profile, battery.Sensor);
+        return string.Join("  ", fit.Armaments.Select(a => a.Tally(LiveState(battery, a).Remaining)));
     }
 
     private static string Describe(WeaponInventory inv)
@@ -494,6 +504,19 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
     private LauncherProfile _profile => _battery.Profile;
     private MunitionProfile _munition => _battery.Munition;
     private SensorProfile _sensor => _battery.Sensor;
+
+    // What the focused system is fitted with, which is what decides which controls exist. Read
+    // fresh every time: the profiles it is derived from are the same instances the tuning sliders
+    // edit, so anything held across frames answers for the load the system started with.
+    private WeaponFit _fit => WeaponFit.Of(_battery.Profile, _battery.Sensor);
+
+    // The battery's own counters, paired with the armament they belong to. This is the one place
+    // left that names an armament kind: a battery exposes a counter per weapon rather than a
+    // lookup, so something has to bridge the description to them.
+    private static (int Remaining, bool Firing) LiveState(DefenceBattery battery, Armament arm)
+        => arm.Kind == ArmamentKind.Belt
+            ? (battery.GunAmmo, battery.GunsFiring)
+            : (battery.Ammo, false);
 
     // Speeds worth a button. KSA's own roller stops at 0.1x; these go two decades below.
     private static readonly (string Label, double Speed)[] SlowMotionSpeeds =
