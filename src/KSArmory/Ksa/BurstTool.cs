@@ -15,16 +15,6 @@ internal sealed class BurstTool
 {
     private static readonly float4 MarkerColour = new(1.0f, 0.6f, 0.2f, 0.9f);
 
-    private double3 _lastBurstEcl;
-    private bool _haveLast;
-
-    /// <summary>Where the last burst went off, for the panel to report.</summary>
-    public bool TryLastBurst(out double3 ecl)
-    {
-        ecl = _lastBurstEcl;
-        return _haveLast;
-    }
-
     public void Update(Config config)
     {
         if (!config.BurstTool) return;
@@ -44,8 +34,6 @@ internal sealed class BurstTool
         double radius = Warhead.FireballRadius(config.BurstChargeKg);
         double3 at = groundEcl + up * Math.Max(radius, 2.0);
 
-        _lastBurstEcl = at;
-        _haveLast = true;
 
         Detonation.Show(config.BurstFireball ? Detonation.Fireball : Detonation.Airburst,
                         at, KsaWorld.ControlledVehicle,

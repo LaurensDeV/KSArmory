@@ -48,14 +48,6 @@ internal static class Log
     public static Level Threshold { get; set; } = Level.Info;
 #endif
 
-    /// <summary>True when this build was compiled with debug symbols and assertions.</summary>
-    public static bool IsDebugBuild =>
-#if DEBUG
-        true;
-#else
-        false;
-#endif
-
     /// <summary>Full path of the log file, or null if no writable location was found.</summary>
     public static string? FilePath
     {

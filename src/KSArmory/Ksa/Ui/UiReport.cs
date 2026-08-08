@@ -276,7 +276,7 @@ internal partial class Ui
         else
         {
             float2? size = multiline;
-            changed = ImGui.InputTextMultiline(label, buffer, ref size, ImGuiInputTextFlags.None,
+            changed = ImGui.InputTextMultiline(label, buffer, in size, ImGuiInputTextFlags.None,
                                                null, default);
         }
 

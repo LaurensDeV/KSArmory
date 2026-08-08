@@ -1133,13 +1133,6 @@ internal static class KsaWorld
 
 
     /// <summary>
-    /// Whether the game resolved a character by this Id. False for one this mod declares but
-    /// whose XML never loaded — an asset file missing from <c>mod.toml</c> is not reported
-    /// anywhere, so this is the only way to find out before something dereferences it.
-    /// </summary>
-    public static bool IsCharacterRegistered(string characterId)
-        => Resolves<CharacterReference>(characterId);
-
     /// <summary>Ids of the armed character's declarations, and whether the game resolved each.</summary>
     ///
     /// <para>The chain fails silently at every link. An unresolved attachment is skipped inside
@@ -1885,32 +1878,6 @@ internal static class KsaWorld
             {
                 Program.GizmosRenderer.DrawSphere(ego, (float)tubeRadius, colour);
             }
-        }
-    }
-
-    /// <summary>
-    /// A filled-looking band on the ground.
-    ///
-    /// <para>Packed rings rather than a surface, because the gizmo renderer draws lines and
-    /// spheres and nothing else — <c>Render</c> is <c>RenderSpheres</c> then <c>RenderLines</c>.
-    /// There is no filled primitive to ask for, so a solid annulus is approximated by drawing
-    /// enough concentric rings that the gaps close.</para>
-    /// </summary>
-    public static void DrawRingEcl(double3 centreEcl, double3 normalEcl, double innerRadius,
-                                   double outerRadius, float4 colour, int bands = 5)
-    {
-        if (!(outerRadius > innerRadius) || !(innerRadius > 0.0)) return;
-
-        int count = Math.Clamp(bands, 2, 24);
-
-        for (int i = 0; i < count; i++)
-        {
-            double radius = innerRadius + ((outerRadius - innerRadius) * i / (count - 1.0));
-
-            // Segments scale with radius so the outer rings are no coarser than the inner ones.
-            int segments = (int)Math.Clamp(radius * 4.0, 32, 128);
-
-            DrawCircleEcl(centreEcl, normalEcl, radius, colour, segments);
         }
     }
 

@@ -25,7 +25,6 @@ public sealed class KSArmoryMod
     private Ui? _ui;
     private int _faults;
     private int _viewTrace;
-    private int _settingsTick;
 
     // Overrun bookkeeping. See ReportOverrun.
     private const int OverrunReportEvery = 120;

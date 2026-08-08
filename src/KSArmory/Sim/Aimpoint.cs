@@ -73,9 +73,6 @@ internal readonly record struct Aimpoint(
     /// <summary>Whether something in the world has to still exist for this to be valid.</summary>
     public bool NeedsHandle => Kind != AimpointKind.Point;
 
-    /// <summary>Whether the kinematics have to be re-read from the world every frame.</summary>
-    public bool IsResampled => Kind != AimpointKind.Point;
-
     /// <summary>This aimpoint as the per-frame sample the flight model consumes.</summary>
     public TargetState ToTargetState() => new(PositionEcl, VelocityEcl, Radius);
 

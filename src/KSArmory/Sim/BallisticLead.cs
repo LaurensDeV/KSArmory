@@ -82,8 +82,4 @@ public static class BallisticLead
 
         return Vec.IsFinite(aimPoint);
     }
-
-    /// <summary>Flight time to a stationary point, for readouts and for arming decisions.</summary>
-    public static double FlightTime(double range, double muzzleSpeed)
-        => muzzleSpeed > 0.0 ? range / muzzleSpeed : double.PositiveInfinity;
 }

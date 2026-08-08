@@ -91,9 +91,6 @@ public sealed class ReportDraft
         return null;
     }
 
-    /// <summary>Whether the draft as it stands would be accepted.</summary>
-    public bool CanSend => Problem(Summary, Detail) is null;
-
     /// <summary>
     /// The last <paramref name="limit"/> characters of a log, cut at a line boundary.
     ///
