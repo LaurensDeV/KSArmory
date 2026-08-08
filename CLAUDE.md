@@ -725,10 +725,11 @@ GitHub Release.
 **The changelog is written for players, not for this repository.** Those same notes are what
 SpaceDock shows, so only `feat`, `fix`, `perf` and `build` appear in it; a refactor or a docs
 change tells a player nothing and is in `git log` for anyone who wants it. That is a reason to
-label a commit by what a player can observe rather than by which files it touched. **Never edit a version by hand** — it will be overwritten. `feat` is a minor,
-`fix`/`perf`/`build`/`revert` a patch, `!` or a `BREAKING CHANGE:` footer a major; `docs`,
-`chore`, `ci`, `test`, `style` and `refactor` cut no release. A commit that does not parse is
-treated as no release, so a stray `wip` cannot publish anything.
+label a commit by what a player can observe rather than by which files it touched. **Never edit a
+version by hand** — it will be overwritten. `feat`/`fix`/`perf`/`build`/`revert` all cut a
+**patch**, `!` or a `BREAKING CHANGE:` footer a major; `docs`, `chore`, `ci`, `test`, `style` and
+`refactor` cut no release. A commit that does not parse is treated as no release, so a stray `wip`
+cannot publish anything.
 
 That workflow is in two jobs: the first decides the version and creates the release, the second
 builds the archive, attaches it, and **publishes it to SpaceDock**. Both hosted. The release commit
