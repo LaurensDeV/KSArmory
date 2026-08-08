@@ -1172,12 +1172,14 @@ internal static class KsaWorld
                 // Standing inside one is not aiming at it: from in there the sphere's only hit
                 // ahead is its far side, which is behind the operator's own launcher.
                 if (Vec.Len(eye - centre) <= radius) continue;
-                if (!Picking.TryHitSphere(eye, direction, centre, radius, out _)) continue;
+                if (!Picking.TryHitSphere(eye, direction, centre, radius, out double3 onSphere)) continue;
 
                 if (craft.Parts is not { } tree) continue;
 
                 double4x4 asmb2Ego = craft.GetMatrixAsmb2Ego(camera);
                 ReadOnlySpan<Part> parts = tree.Parts;
+
+                bool onMesh = false;
 
                 for (int i = 0; i < parts.Length; i++)
                 {
@@ -1187,7 +1189,20 @@ internal static class KsaWorld
                         continue;
                     }
 
+                    onMesh = true;
                     if (hit > 0.0 && hit < range) range = hit;
+                }
+
+                // A kitten has no mesh to hit: its only part is Core's KittenBackPackPart, whose
+                // subpart is declared empty, and the body itself is drawn by the character
+                // renderer rather than by a part. The engine picks one by its bounding sphere for
+                // exactly that reason. Craft that do carry geometry are still held to the
+                // triangle, because their sphere stands metres clear of the hull and snapping to
+                // it is what put the aim beside everything it was pointed at.
+                if (!onMesh && !HasPickableMesh(parts))
+                {
+                    double toSphere = Vec.Len(onSphere - eye);
+                    if (toSphere > 0.0 && toSphere < range) range = toSphere;
                 }
             }
 
@@ -1197,6 +1212,23 @@ internal static class KsaWorld
         {
             return false;
         }
+    }
+
+    // Whether a ray could ever hit this craft. Mirrors what RayCastEgo actually tests -- one level
+    // of SubParts, each needing a MeshViewModule -- so the answer cannot disagree with the cast.
+    internal static bool HasPickableMesh(ReadOnlySpan<Part> parts)
+    {
+        for (int i = 0; i < parts.Length; i++)
+        {
+            ReadOnlySpan<Part> subs = parts[i].SubParts;
+
+            for (int j = 0; j < subs.Length; j++)
+            {
+                if (subs[j].Modules.HasAny<MeshViewModule>()) return true;
+            }
+        }
+
+        return false;
     }
 
     private static readonly List<Vehicle> _pickScratch = [];

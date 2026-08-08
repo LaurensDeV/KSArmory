@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-115 types and 303 members across 6 assemblies.
+116 types and 304 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -444,6 +444,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.MeshViewModule
+
+*referenced as a type only*
+
 ### KSA.Mod
 
 - `string get_Id()`
@@ -493,6 +497,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 get_Scale()`
 - `Brutal.Numerics.doubleQuat get_Asmb2ParentAsmb()`
 - `Brutal.Numerics.doubleQuat get_Asmb2VehicleAsmb()`
+- `KSA.ModuleList Modules`
 - `System.ReadOnlySpan`1<KSA.Part> get_SubParts()`
 - `bool RayCastEgo(ref Brutal.Numerics.double4x4, KSA.Ray, ref double, ref double, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref KSA.Part, ref KSA.Part)`
 - `string get_Id()`
