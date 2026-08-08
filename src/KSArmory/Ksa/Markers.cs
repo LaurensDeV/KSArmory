@@ -28,8 +28,8 @@ internal static class Markers
 
     // Half-width of the bracket, in pixels. Constant: this is an icon, not a bounding box, and
     // sizing it to the craft would make a distant site a sub-pixel dot -- which is the one case
-    // it exists for.
-    private const float Half = 11f;
+    // it exists for. Shared with the gunner's sight, which is meant to read as the same mark.
+    private const float Half = Reticle.IconHalfSize;
     private const float Corner = 4f;
 
     // Pointer distance, in pixels, that counts as hovering a marker.

@@ -78,18 +78,22 @@ public class ReticleTests
         Assert.Equal(0, Reticle.Build(Centre, 40f, true, new ReticleStroke[4]));
     }
 
-    /// <summary>A closer target subtends more, so its brackets stand wider.</summary>
+    /// <summary>
+    /// The sight's mark is an icon, so it stays the size it is however close the target gets. A
+    /// box sized to the target's apparent width grows without bound on a boresighted view, where
+    /// the target is always centred and always closing, and ends up covering the picture it is
+    /// drawn on.
+    /// </summary>
     [Fact]
-    public void TheBoxGrowsAsTheTargetCloses()
+    public void TheSightsMarkIsAFixedIconRatherThanABoundingBox()
     {
-        double fov = double.DegreesToRadians(60);
+        // Small enough that the cross and the ladder drop out, leaving the eight corner strokes
+        // that make it read as the same mark the on-screen system brackets use.
+        Assert.True(Reticle.IconHalfSize < Reticle.CrossBelow);
 
-        float far = Reticle.BoxHalfSize(2.0 * Math.Atan2(5.0, 8000.0), fov, 600);
-        float near = Reticle.BoxHalfSize(2.0 * Math.Atan2(5.0, 400.0), fov, 600);
-
-        Assert.True(near > far, $"near {near:F1} px is no wider than far {far:F1} px");
-        Assert.Equal(Reticle.MinBoxHalfSize, far);
-        Assert.True(near <= 600 * 0.4f, "the box must not swallow the whole view");
+        int count = Reticle.Build(Centre, Reticle.IconHalfSize, settled: true,
+                                  new ReticleStroke[Reticle.MaxStrokes]);
+        Assert.Equal(8, count);
     }
 
     private static float Spread(ReticleStroke[] strokes, int count)

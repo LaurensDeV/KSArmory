@@ -9,10 +9,8 @@ public readonly record struct ReticleStroke(float2 A, float2 B);
 /// The gunner's sight, as strokes on a screen.
 ///
 /// <para>Geometry only — no drawing, no ImGui, no camera. The layout is the part worth being sure
-/// of: brackets that close as the head settles, a gap at the centre so the target is never
-/// covered by the thing pointing at it, and a ladder scaled to the target's apparent size.
-/// Nothing here takes a range — the ladder tracks how large the target looks, which only reads
-/// as distance once you know what you are looking at.</para>
+/// of: brackets that close as the head settles, and a gap at the centre so the target is never
+/// covered by the thing pointing at it.</para>
 ///
 /// <para>Modelled on the Pantsir's optical channel: corner brackets rather than a full box, a
 /// broken cross rather than a solid one, and a scale that grows as the target closes.</para>
@@ -30,27 +28,22 @@ public static class Reticle
     public const float MinBoxHalfSize = 10f;
 
     /// <summary>
+    /// Half-width of the small fixed bracket (px), shared by the sight and the on-screen system
+    /// markers so the two cannot drift apart.
+    ///
+    /// <para>Constant on purpose: this is an icon, not a bounding box. Sized to the target's
+    /// apparent width instead, a box four widths across fills most of the screen the moment
+    /// anything gets close — which is exactly when the sight is being looked through. It is below
+    /// <see cref="CrossBelow"/>, so the cross and the ladder drop out and what is left is the
+    /// eight corner strokes.</para>
+    /// </summary>
+    public const float IconHalfSize = 11f;
+
+    /// <summary>
     /// Below this half-size the box holds corner brackets alone. The cross and the ladder are
     /// fractions of the box, so under it they collide with the brackets and with each other.
     /// </summary>
     public const float CrossBelow = 20f;
-
-    /// <summary>Half-width of the bracket box, in pixels, for a target of this angular size.</summary>
-    /// <param name="widths">
-    /// How many target widths across the box is. The brackets have to sit clear of the target so
-    /// it stays visible between them, and a box merely its size reads as a blob — but from close
-    /// enough that the target already fills the frame, the same multiple runs off the screen.
-    /// </param>
-    /// <param name="maxFraction">Largest the box may get, as a fraction of screen height.</param>
-    public static float BoxHalfSize(double angularSizeRad, double verticalFovRad, int screenHeight,
-                                    double widths = 4.0, double maxFraction = 0.4)
-    {
-        if (!(verticalFovRad > 0.0) || screenHeight <= 0) return 24f;
-        if (!double.IsFinite(angularSizeRad) || angularSizeRad <= 0.0) return MinBoxHalfSize;
-
-        double pixels = angularSizeRad / verticalFovRad * screenHeight * widths;
-        return (float)Math.Clamp(pixels, MinBoxHalfSize, screenHeight * maxFraction);
-    }
 
     /// <summary>
     /// Lays out the sight around a point.

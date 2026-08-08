@@ -60,7 +60,7 @@ Do not push yet if you want to inspect the diff first — it is local either way
 ./tools/ksa-api-diff.sh ../ksa-game-assemblies
 ```
 
-This reads `docs/KSA-API-SURFACE.md` — the 298 members this mod genuinely binds to, extracted
+This reads `docs/KSA-API-SURFACE.md` — the 299 members this mod genuinely binds to, extracted
 from the compiled assembly's metadata — against the new corpus, and answers two questions:
 
 **Missing members.** Mechanical and precise. Each one is a break you must fix. `MOVED` means it
@@ -121,7 +121,12 @@ the next person is misled.
 - `ksa-assemblies.lock` — the `build` line, by hand. **This is the one CI enforces.**
 - `../ksa-game-assemblies/current/KSA_BUILD`
 - CLAUDE.md, the **KSA build** line under *Environment*.
-- `docs/KSA-MODDING-NOTES.md`, if it names the build.
+- `docs/KSA-MODDING-NOTES.md` and `docs/KSA-CAMERAS.md`, which each name the build they were read
+  against. `tools/check-docs.sh` fails if any of these disagrees with the lock.
+
+`docs/KSA-CAMERAS.md` cites `file:line` throughout, and line numbers move on every update. Do not
+try to refresh them all — spot-check the handful a fix actually depended on, and leave the rest
+carrying the build number that says how old they are.
 
 Then regenerate the surface, because fixing breakages usually changes what the mod binds to:
 

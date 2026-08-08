@@ -45,10 +45,6 @@ internal interface IRoundsInFlight : IWeaponPlatform
 }
 
 /// <summary>
-/// The optical head and the contact it brackets: enough to paint a sight over the camera the head
-/// drives, and no way to move either.
-/// </summary>
-/// <summary>
 /// What an effect anchored to a weapon needs: the rounds, the platform they are measured from,
 /// the launcher part they are placed against, and whether effects are wanted at all.
 ///
@@ -74,7 +70,16 @@ internal interface IEffectSource : IRoundsInFlight
     bool GunsFiring { get; }
 }
 
-internal interface IOpticalHead
+/// <summary>
+/// The optical head, the contact it brackets, and where it is looking: enough to paint a sight
+/// over the camera the head drives and to point that camera, with no way to move the head itself.
+///
+/// <para>Carries <see cref="IWeaponPlatform"/> because a camera on the head has to be measured
+/// from the craft the head is bolted to. KSA's <c>FixedController</c> places a camera at
+/// <c>following.GetPositionEcl() + CameraOffset</c> during its own frame pass, so the offset must
+/// be a pure separation from the followed craft and never a position sampled here.</para>
+/// </summary>
+internal interface IOpticalHead : IWeaponPlatform
 {
     Part? OpticPart { get; }
 
@@ -83,6 +88,16 @@ internal interface IOpticalHead
 
     /// <summary>The contact the sensor is holding, or null.</summary>
     Track? LockedTrack { get; }
+
+    /// <summary>Local "up" at the launcher, which is what keeps a sight's horizon level.</summary>
+    double3 Boresight { get; }
+
+    /// <summary>
+    /// Where the head is looking from and along what, both in Ecl. False when the launcher, the
+    /// head or the pose cannot be resolved — the caller then draws and drives nothing rather than
+    /// pointing a camera at the origin.
+    /// </summary>
+    bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl);
 }
 
 /// <summary>

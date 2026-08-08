@@ -31,6 +31,31 @@ internal sealed class ChaseCamera
     // What the flight had left when the view was taken. The whole curve is measured against it.
     private double _flightAtTake;
 
+    // The stand-off actually in force, kept so it can be held through a frame with no closing
+    // solution rather than snapping back to the full distance.
+    private double _behind = Behind;
+    private double _above = Above;
+
+    // How long the view takes to travel from where the player had it onto the round.
+    private const double TransitionSeconds = 1.2;
+
+    // Progress along that: 0 at the player's pose, 1 riding the round. Starts finished, so a chase
+    // that could not read a starting pose simply cuts, as it always did.
+    private double _blend = 1.0;
+
+    // The pose being eased out of -- where the view was, and a point on what it was looking at.
+    // Both held as separations from the craft so they keep up with it: the ecliptic is inertial
+    // and the craft crosses it at ~29.8 km/s, so a point stored in it falls half a kilometre
+    // behind every frame and the transition would start from open space.
+    private double3 _fromOffset;
+    private double3 _fromLookOffset;
+
+    // The axis KSA's FixedController builds its basis around. A followable that is not a Vehicle
+    // or a Celestial gets the Identity reference frame -- its declared CameraReferenceFrame is not
+    // read at all -- so for RoundFollowable it is ecliptic +Z, which is a different direction from
+    // local "up" at every site but one. See docs/KSA-CAMERAS.md.
+    private static readonly double3 EngineAxis = new(0, 0, 1);
+
     // A missile leaves almost vertically, so "behind it" at first is under the vehicle.
     private const double ClearOfLauncher = 80.0;
 
@@ -61,6 +86,14 @@ internal sealed class ChaseCamera
     public IProjectile? Round => _round;
 
     /// <summary>
+    /// True while this holds the main view, including the hold on a burst after the round is
+    /// gone. Read by <see cref="SightCamera"/>, which yields to it and stops painting: watching a
+    /// round arrive is worth more than the sight for the seconds it lasts, and the sight resumes
+    /// on its own afterwards.
+    /// </summary>
+    public bool HoldsMainView => _saved.Valid;
+
+    /// <summary>
     /// Flight left as a fraction of what was left when the view was taken: one on the first frame,
     /// zero at impact, NaN with no closing solution. Shared with the overlay so the brackets grow
     /// on the same curve.
@@ -72,6 +105,16 @@ internal sealed class ChaseCamera
     {
         _holding = 0.0;
         _round = null;
+
+        // All three belong to the engagement that has just ended. The blend left finished would
+        // cut straight to the round next time instead of travelling onto it; the flight time is
+        // what the whole stand-off curve is measured against, so carrying it over calibrates the
+        // next chase against an engagement it has nothing to do with -- the second chase of a
+        // session opens at about 11 m instead of the 26 it is meant to.
+        _blend = 1.0;
+        _flightAtTake = 0.0;
+        _behind = Behind;
+        _above = Above;
 
         // Keyed on holding the view, not on having a round: the hold after a burst has no round
         // and is exactly when the view still has to be given back.
@@ -85,7 +128,15 @@ internal sealed class ChaseCamera
     }
 
     /// <summary>Follows one round for one frame.</summary>
-    public void Apply(IRoundsInFlight battery, bool enabled, double dtPlayer)
+    /// <param name="dtPlayer">Wall clock, for how long a burst is lingered on. A viewing duration.</param>
+    /// <param name="dtSim">
+    /// The simulated step. <b>The transition runs on this, not on player time.</b> It is a camera
+    /// move whose whole job is to arrive on a round, so it has to advance at the rate the round
+    /// does: on player time it runs at full speed through the panel's slow-motion buttons and on
+    /// through a pause, sliding the view across a world that is not moving. Same rule, and the
+    /// same reason, as fire control — see CLAUDE.md.
+    /// </param>
+    public void Apply(IRoundsInFlight battery, bool enabled, double dtPlayer, double dtSim)
     {
         if (!enabled || battery.Platform is null)
         {
@@ -159,6 +210,15 @@ internal sealed class ChaseCamera
                 return;
             }
 
+            // Read where the player had the view BEFORE anything is attached to the round.
+            // Camera.SetFollow sets PositionEcl to the followed object plus 2.5 mean radii, and
+            // a round's mean radius is one metre -- so the instant the follow is swapped the
+            // camera is 2.5 m from the missile. Reading afterwards gives that, not the player's
+            // pose, and the transition then eases from its own destination: no travel at all,
+            // just the aim swinging from a point already at the round. That is the whole of
+            // "teleported very hard forward".
+            bool hasPose = KsaWorld.TryMainCameraPose(out double3 wasEcl, out double3 wasForward);
+
             _followed.Track(round);
 
             if (!KsaWorld.TryFollowOnMainViewport(_followed))
@@ -166,6 +226,34 @@ internal sealed class ChaseCamera
                 Log.Warn("chase: the view refused to follow the round");
                 _saved = default;
                 return;
+            }
+
+            if (hasPose)
+            {
+                // Undo the jump SetFollow just made. This frame's view matrix was built in the
+                // viewport pass, which is over, and the controller does not pick up the offset
+                // until the next frame -- so without this one frame renders from beside the
+                // missile before the transition has begun.
+                KsaWorld.TryPlaceMainCamera(wasEcl);
+
+                // At the target's distance, because that is what the player is looking at and
+                // what the chase ends up looking past the round at. Put at the *round's* distance
+                // instead it sits a hundred metres away in mid-air, while the point the chase
+                // aims for is kilometres off in much the same direction — so the aim swings
+                // through tens of degrees getting from one to the other, measured at 43 degrees
+                // of sweep peaking at 87 deg/s with the round off screen for half the transition.
+                // Two points at the same depth barely move apart at all.
+                double depth = round.TargetRef is Vehicle craft && KsaWorld.IsAlive(craft)
+                               ? Vec.Len(KsaWorld.PositionEcl(craft) - wasEcl)
+                               : Math.Max(Vec.Len(round.PositionEcl - wasEcl), Ahead);
+
+                _fromOffset = wasEcl - battery.PlatformEcl;
+                _fromLookOffset = (wasEcl + Vec.Unit(wasForward) * depth) - battery.PlatformEcl;
+                _blend = 0.0;
+            }
+            else
+            {
+                _blend = 1.0;
             }
 
             Log.Info($"chase: taking the main view for round {round.Tube}");
@@ -186,12 +274,24 @@ internal sealed class ChaseCamera
 
         Closing = _flightAtTake > 0.0 ? Math.Clamp(toGo / _flightAtTake, 0.0, 1.0) : double.NaN;
 
-        double behind = ChaseView.StandOff(toGo, _flightAtTake, CloseUntil, Behind, BehindAtImpact);
-        double above = ChaseView.StandOff(toGo, _flightAtTake, CloseUntil, Above, AboveAtImpact);
+        // A target that dies mid-flight takes the closing solution with it, and StandOff answers
+        // the full distance for a range that is not finite -- which throws the camera from ~12 m
+        // back to 26 in one frame, about 900 m/s. A salvo whose first round kills the target while
+        // a later one is being chased is the ordinary case, not a corner. Holding the last good
+        // stand-off leaves the view where it was, which is what a camera watching a round with
+        // nothing left to chase should do.
+        if (double.IsFinite(toGo))
+        {
+            _behind = ChaseView.StandOff(toGo, _flightAtTake, CloseUntil, Behind, BehindAtImpact);
+            _above = ChaseView.StandOff(toGo, _flightAtTake, CloseUntil, Above, AboveAtImpact);
+        }
+
+        double behind = _behind;
+        double above = _above;
 
         ReportClosing(round, toGo, behind);
 
-        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, behind, above, Ahead,
+        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, EngineAxis, behind, above, Ahead,
                                out double3 eye, out double3 forward, out double3 upEcl))
         {
             return;
@@ -201,6 +301,29 @@ internal sealed class ChaseCamera
         // Lifting rather than refusing: a view from slightly the wrong place beats none.
         double overLauncher = Vec.Dot(round.OffsetFromPlatform + eye, up);
         if (overLauncher < -FloorBelowLauncher) eye += up * (-FloorBelowLauncher - overLauncher);
+
+        // Travelling onto that pose rather than cutting to it. Only the position really moves:
+        // the player is looking at the target and the chase looks along a round flying at it, so
+        // the two aim points are close and the view barely turns. Both ends are rebuilt from this
+        // frame's samples, so the pair describes one instant however far along it is.
+        if (_blend < 1.0)
+        {
+            _blend = Math.Min(1.0, _blend + (Math.Max(0.0, dtSim) / TransitionSeconds));
+
+            if (ChaseView.TryBlend(battery.PlatformEcl + _fromOffset,
+                                   battery.PlatformEcl + _fromLookOffset,
+                                   round.PositionEcl + eye, round.PositionEcl + eye + forward * Ahead,
+                                   EngineAxis, _blend,
+                                   out double3 blendedEcl, out double3 blendedForward))
+            {
+                eye = blendedEcl - round.PositionEcl;
+                forward = blendedForward;
+            }
+            else
+            {
+                _blend = 1.0;
+            }
+        }
 
         _holdOffset = eye;
         _holdForward = forward;

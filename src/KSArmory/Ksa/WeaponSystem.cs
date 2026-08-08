@@ -88,6 +88,25 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// <summary>True once the head has caught up with what it was told to look at.</summary>
     public bool OpticOnTarget => _optic.OnTarget;
 
+    /// <summary>
+    /// Where the head is looking from and along what, both in Ecl.
+    ///
+    /// <para>Anchored to <see cref="PlatformEcl"/>, this frame's sample, so a caller differencing
+    /// the eye against it gets a separation carrying no epoch at all. That is what lets the sight
+    /// hand KSA an offset the engine applies during its own pass.</para>
+    /// </summary>
+    public bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl)
+    {
+        eyeEcl = forwardEcl = Vec.Zero;
+
+        if (Platform is not { } platform || Launcher is not { } launcher) return false;
+        if (OpticPart is null) return false;
+
+        return LauncherPart.TryGetOpticViewEcl(platform, launcher, Profile, Turret.BearingRad,
+                                               OpticDirectionPartFrame, PlatformEcl,
+                                               out eyeEcl, out forwardEcl);
+    }
+
     /// <summary>The search array's current angle. Cosmetic - the radar model is a cone search.</summary>
     public double RadarSpinRad { get; private set; }
 

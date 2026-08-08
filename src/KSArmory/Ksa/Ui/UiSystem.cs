@@ -205,19 +205,23 @@ internal sealed partial class Ui
         // Only windows the player can actually see. KSA keeps offscreen viewports of its own -
         // the thumbnail renderer is one - and offering those means picking a view that shows
         // nothing, which is indistinguishable from the feature being broken.
+        //
+        // There are at most two of them: KSA's own View > Add Camera crashes the game outright on
+        // the fourth window, so nothing here may tell a player to go and open more. See crash 15
+        // in docs/KSA-CAMERAS.md.
         KsaWorld.CollectUsableViewports(_viewports);
+
+        int main = KsaWorld.MainViewportIndex;
 
         ImGui.Text("Optical head view:");
         ImGui.SameLine();
 
-        if (_viewports.Count == 0)
-        {
-            ImGui.TextDisabled("open a camera window in KSA (View menu), then pick it here");
-            _policy.OpticViewport = -1;
-            return;
-        }
-
         if (ImGui.RadioButton("off", _policy.OpticViewport < 0)) _policy.OpticViewport = -1;
+
+        // The main view first, because it is the one that works. It is offered whatever else is
+        // open and needs nothing opening, so the head is usable on a bare game.
+        ImGui.SameLine();
+        if (ImGui.RadioButton("main view", _policy.OpticViewport == main)) _policy.OpticViewport = main;
 
         foreach (int index in _viewports)
         {
@@ -228,14 +232,25 @@ internal sealed partial class Ui
             }
         }
 
-        if (_policy.OpticViewport >= 0)
+        if (_policy.OpticViewport == main)
+        {
+            // Named explicitly because neither reflex works. Driving the view puts it in Fixed
+            // mode, and FixedController reads no input at all, so the mouse is inert; Shift+C
+            // routes through Viewport.NextCameraMode, whose switch has no Fixed case and returns
+            // false. The View menu sets a mode outright, which is why it is the one that works.
+            ImGui.TextDisabled("  borrowed while selected. KSA's View > Orbit Camera takes it");
+            ImGui.TextDisabled("  back and switches this off - the mouse and Shift+C will not");
+        }
+        else if (_policy.OpticViewport >= 0)
         {
             ImGui.TextDisabled("  no sky or terrain detail here - KSA renders secondary views");
             ImGui.TextDisabled("  without the atmosphere pass. See docs/BLOCKED-ON-KSA.md");
         }
 
-        // A window closed under us, so stop writing to something that is no longer shown.
-        if (_policy.OpticViewport >= 0 && !_viewports.Contains(_policy.OpticViewport))
+        // A window closed under us, so stop writing to something that is no longer shown. The
+        // main view is exempt: it is never in the collected list, and it cannot be closed.
+        if (_policy.OpticViewport >= 0 && _policy.OpticViewport != main
+            && !_viewports.Contains(_policy.OpticViewport))
         {
             _policy.OpticViewport = -1;
         }

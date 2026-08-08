@@ -38,6 +38,12 @@ public sealed class KSArmoryMod
     // Holds the main view on one system without handing it the controls.
     private readonly WatchCamera _watch = new();
     private readonly ChaseCamera _chase = new();
+    private readonly SightCamera _sight = new();
+
+    // The simulated step this frame, stashed for the cameras. Zero while paused, and scaled by
+    // timewarp and by the panel's slow-motion buttons -- which is exactly what a camera move that
+    // is supposed to track a round has to run on. Player time keeps ticking through a pause.
+    private double _lastSimStep;
 
     // Development tool: pick a craft up and set it down somewhere else.
     private readonly CraftMover _mover = new();
@@ -202,7 +208,8 @@ public sealed class KSArmoryMod
             // letting the watch nudge afterwards would fight it every frame.
             if (_roster.For(_ui.Focused) is { } chased)
             {
-                _chase.Apply(chased.Battery, chased.Policy.ChaseRounds && KsaWorld.InFlight, dt);
+                _chase.Apply(chased.Battery, chased.Policy.ChaseRounds && KsaWorld.InFlight,
+                             dt, _lastSimStep);
             }
             else
             {
@@ -231,11 +238,25 @@ public sealed class KSArmoryMod
             }
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
-            if (KsaWorld.InFlight && _roster.For(_ui.Focused) is { } focused
-                && focused.Policy.OpticViewport >= 0)
+            if (KsaWorld.InFlight && _roster.For(_ui.Focused) is { } focused)
             {
                 TakeOpticView(focused.Battery, focused.Policy, dt);
-                Sight.Draw(focused.Battery, _config, focused.Policy);
+
+                // Asked of the claim, not of the setting: the sight yields the main view to the
+                // chase without releasing it, and painting through that leaves its bracket over a
+                // picture of something else, stacked under the chase's own.
+                if (ViewClaim.SightPaints(focused.Policy.OpticViewport >= 0,
+                                          focused.Policy.OpticViewport == KsaWorld.MainViewportIndex,
+                                          _sight.Holding, _chase.HoldsMainView))
+                {
+                    Sight.Draw(focused.Battery, _config, focused.Policy);
+                }
+            }
+            else
+            {
+                // Nothing is being shown, so nothing may be holding the player's view on its
+                // behalf. Skipping this is how a sight survives the craft it was looking through.
+                _sight.Release();
             }
         }
         catch (Exception e)
@@ -275,6 +296,10 @@ public sealed class KSArmoryMod
             // Consumed, not peeked: the engine answers with the last step, so asking twice without
             // it having stepped returns the same one. See KsaWorld.ConsumeSimStep.
             double dtSim = KsaWorld.ConsumeSimStep();
+
+            // Kept for the cameras, which run later in this same hook. The step is consumed
+            // exactly once per frame, so they cannot ask for it themselves.
+            _lastSimStep = double.IsFinite(dtSim) && dtSim > 0.0 ? dtSim : 0.0;
 
             // No step reported, no step taken - never substitute an estimate. The engine reports
             // nothing exactly when it advanced nothing, so an estimate would integrate the round
@@ -348,6 +373,7 @@ public sealed class KSArmoryMod
         _warp.Clear();
         _watch.Release();
         _chase.Release();
+        _sight.Release();
         _mover.Release();
 
         // Pooled emitters and audio channels are the game's, not ours, and nothing else gives them
@@ -368,26 +394,42 @@ public sealed class KSArmoryMod
         Log.Info("unloaded");
     }
 
-    // Puts the view on the launcher's optical head. Returns quietly when the launcher has none or
-    // the head cannot be resolved: the toggle is allowed to be on for a craft that cannot honour
-    // it, and stealing the camera to nowhere would be worse than ignoring it.
+    // Puts the view on the launcher's optical head, on whichever window the player chose.
+    //
+    // The main view and a secondary one are driven by different mechanisms and cannot share one:
+    // a secondary camera follows nothing, so it is positioned outright, while the main camera is
+    // following the player's craft and KSA places it at following.GetPositionEcl() + CameraOffset
+    // during its own pass. The main view is also the only one that draws a planet - see
+    // docs/BLOCKED-ON-KSA.md - so it is the one worth having and the one that has to be given back.
     private void TakeOpticView(WeaponSystem battery, SystemConfig policy, double dt)
     {
-        if (battery.Platform is not { } platform || battery.Launcher is not { } launcher) return;
+        bool wantsMainView = policy.OpticViewport == KsaWorld.MainViewportIndex;
+
+        // Asked every frame, including when the optic is off: that is what hands the view back
+        // after the player switches it off, and what lets the sight resume once the chase is done.
+        ViewAction did = _sight.Apply(battery, wantsMainView, outranked: _chase.HoldsMainView);
+
+        // Taking the view back by hand switches the optic off, rather than merely releasing it
+        // once. The setting is what asks for the view, so leaving it on means the very next frame
+        // takes it straight back -- which reads as the mod refusing to let go.
+        if (did == ViewAction.StandDown)
+        {
+            policy.OpticViewport = -1;
+            return;
+        }
+
+        if (wantsMainView || policy.OpticViewport < 0) return;
+
         if (battery.OpticPart is null) return;
+        if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward))
+        {
+            _viewTrace += 1;
+            if (_viewTrace % 60 == 0) Log.Debug(() => "camera: could not resolve the optical head's eye");
+            return;
+        }
 
         _viewTrace += 1;
         bool trace = _viewTrace % 60 == 0;
-
-        if (!LauncherPart.TryGetOpticViewEcl(platform, launcher, battery.Profile,
-                                             battery.Turret.BearingRad,
-                                             battery.OpticDirectionPartFrame,
-                                             battery.PlatformEcl,
-                                             out double3 eye, out double3 forward))
-        {
-            if (trace) Log.Debug(() => "camera: could not resolve the optical head's eye");
-            return;
-        }
 
         // Local "up" at the launcher, which is what the boresight already is — so the horizon
         // sits level rather than rolling with the ecliptic.

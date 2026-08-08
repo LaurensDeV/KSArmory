@@ -259,6 +259,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
 | `Sim/ChaseView.cs` | where to put a camera riding behind a round |
+| `Sim/ViewClaim.cs` | who may hold the player's main view, and what that means for the loser |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
 | `Sim/ReportDraft.cs` | a bug report or idea being written, and whether it is worth sending |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
@@ -285,6 +286,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/GunSound.cs` | the cannon you can hear, one looping channel pitched by its fire rate |
 | `Ksa/TracerTrail.cs` | tracers, an emitter riding a shell rather than thrown from the muzzle |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
+| `Ksa/SightCamera.cs` | borrows the main view to look through the optical head, and gives it back |
 | `Ksa/Markers.cs` | on-screen brackets over every weapons system, labelled on hover or when pinned |
 | `Ksa/RoundFollowable.cs` | a round, presented to the engine as something a camera can follow |
 | `Ksa/ChaseHud.cs` | brackets around what a chased round is flying at |
@@ -313,7 +315,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 298 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 299 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
@@ -1037,6 +1039,68 @@ from `GetMainCamera()` puts the ray a viewport away from the cursor.
 The overlay itself — search volume, tracks, tracers, drive facing — is diagnostic and off by
 default (`Config.DrawOverlays`, under **Debug → Draw debug lines**). Round *bodies* are real
 subparts and are unaffected.
+
+**The optical head drives the main view, because it is the only one that draws a planet.** A
+secondary viewport renders a starfield over a featureless grey ball — the planet, lighting, ocean
+and atmosphere passes all run only for the frame viewport, which is KSA's and is recorded in
+`docs/BLOCKED-ON-KSA.md`. So `Ksa/SightCamera.cs` borrows the player's view instead, and the
+secondary path stays as the option for watching a site while flying something else.
+
+**Two things borrow that view, and the loser waits rather than tidying up.** `Sim/ViewClaim.cs` is
+the ladder: the player reclaiming the view outranks everything, then the chase camera, then the
+sight. The rung that is not obvious is **Yield** — a sight that is no longer wanted must *not*
+restore while the chase is driving. Both keep their own recording of what the view was doing, and
+they were made in order, so restoring the older one undoes a takeover that happened this frame and
+leaves the chase holding a recording of the *sight* to hand back at the end. The player is then
+returned to a borrowed pose that nothing is driving. `ViewClaimTests` fails against that shape,
+which is the shape this was first written as.
+
+**A view a mod is driving cannot be taken back by mouse or keyboard**, so anything that borrows it
+owes the player a way out and has to say what it is. `FixedController` reads no input at all, and
+`Shift+C` routes through `Viewport.NextCameraMode`, whose switch has no `Fixed` case and returns
+false — so both reflexes are dead and only KSA's **View** menu sets a mode outright. The panel
+says so beside the control, and **off** is the mod's own route back. `docs/KSA-CAMERAS.md` has the
+evidence. This is why the chase camera releasing itself matters: it holds for seconds, where the
+sight holds until told otherwise.
+
+**A camera move that tracks a round runs on simulated time too.** The rule in *Fire control runs
+on simulated time* is not only about fire control: the chase transition advances on the step, so
+it holds still through a pause and slows with the panel's slow-motion buttons, which is the whole
+point of having them. On player time it slides the view across a world that is not moving.
+Lingering on a burst is the exception and stays on wall clock — that is a viewing duration, not
+something tracking an object.
+
+**Attaching the view to a round moves the camera before the mod gets a say.** `Camera.SetFollow`
+sets `PositionEcl` to the followed object plus 2.5 mean radii *before* switching what is followed,
+and a round's mean radius is one metre — so the camera lands next to the missile, and the stored
+offset is re-read against a different body frame on the way out, which measured 9.8 m to 164 m of
+displacement depending on the craft's attitude. Read the pose you mean to ease away from **before**
+the follow swap, and put the camera back afterwards: this frame's view matrix is already built and
+the controller does not pick the offset up until the next one.
+
+**The chase travels onto the round rather than cutting to it, and only its position really moves.**
+The player is looking at the target and the chase looks along a round flying at it, so the two aim
+points are close and the view barely turns — which is the whole reason it reads as calm.
+`ChaseView.TryBlend` takes those aims as two **points**, not two directions: directions turn at a
+wildly uneven rate and collapse to zero length when opposed, which is a round fired back over the
+launcher. Both ends are rebuilt from this frame's samples, held as separations from the craft and
+the round; a point stored in the ecliptic at the take falls half a kilometre behind per frame.
+
+**`ChaseView.TryPose` decides where the chase stands and is not the transition's business.** The
+transition lerps towards whatever it says. Changing the pose to improve the transition changes the
+shot everyone actually watches, and that is a separate decision.
+
+**Reclaiming it has to switch the setting off, not just release the view once.** The setting is
+what asks for it, so a borrower that stands down and leaves the request standing takes the view
+straight back on the next frame — one frame of the player's camera, then the mod's again, which
+reads as it refusing to let go. `StandDown` therefore restores what the view was *following*,
+because the mod changed that, and leaves the *mode* alone, because the player chose it.
+
+The camera follows the launcher's own craft while the sight holds it, whatever the player was
+following. `FixedController` places the camera at `following.GetPositionEcl() + CameraOffset`
+during its own pass, so the offset handed over must be a pure separation: `eye − PlatformEcl`,
+both from one sample. Measured from any other craft it carries a frame of that craft's motion
+every frame and the sight shivers. Same reason `ChaseCamera` follows the round it rides.
 
 **Only one weapon can own the bearing, and the cannon win the overlap.** The turret lays on the
 gun's *ballistic lead* whenever `FireGate.GunsHaveTheEngagement`, and rounds leave along the tube

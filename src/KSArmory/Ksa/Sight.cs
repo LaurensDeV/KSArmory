@@ -23,15 +23,16 @@ internal static class Sight
         if (battery.LockedTrack is not { } track) return;
 
         if (!KsaWorld.TryProjectIntoViewport(policy.OpticViewport, track.PositionEcl,
-                                             out float2 centre, out int width, out int height))
+                                             out float2 centre, out _, out _))
         {
             return;
         }
 
-        double angular = 2.0 * Math.Atan2(KsaWorld.MeanRadius(track.Vehicle),
-                                          Math.Max(track.Range, 1.0));
-        float half = KSArmory.Reticle.BoxHalfSize(angular, KsaWorld.ViewportFovRad(policy.OpticViewport),
-                                                  height);
+        // The same small bracket the on-screen system markers use, and deliberately not sized to
+        // how large the target looks. The sight is boresighted on what it is watching, so an
+        // apparent-size box grows without bound as the target closes and ends up covering the
+        // view it is drawn on.
+        const float half = KSArmory.Reticle.IconHalfSize;
 
         // Settled means the head is actually on it, not merely that the radar has a lock — the
         // brackets closing is the operator's cue that the sight has caught up.
@@ -81,7 +82,5 @@ internal static class Sight
             }
         }
         ImGui.End();
-
-        _ = width;
     }
 }

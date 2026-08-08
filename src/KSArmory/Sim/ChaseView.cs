@@ -13,7 +13,13 @@ public static class ChaseView
     /// shared, so an absolute velocity points every round the same way.
     /// </param>
     /// <param name="upHint">Away from the planet's centre. A hint; a parallel one is ignored.</param>
+    /// <param name="engineAxisEcl">
+    /// The axis the engine's camera controller cannot cross — <em>not</em>
+    /// <paramref name="upHint"/>, which stays the local vertical and decides the lift. See
+    /// <see cref="LeanOffAxis"/> for why the two are different directions.
+    /// </param>
     public static bool TryPose(double3 roundEcl, double3 velocityLocal, double3 upHint,
+                               double3 engineAxisEcl,
                                double distanceBehind, double heightAbove, double lookAhead,
                                out double3 eyeEcl, out double3 forwardEcl, out double3 upEcl)
     {
@@ -43,25 +49,40 @@ public static class ChaseView
 
         if (Vec.Len2(forwardEcl) < 1e-12) return false;
 
-        forwardEcl = Vec.Unit(forwardEcl);
-
-        // KSA's fixed camera crosses the view with the frame's axis and normalises, so a parallel
-        // pair divides by zero -- and a vertically launched round is exactly that at first.
-        double3 axis = Vec.Unit(upHint);
-        double alongAxis = Vec.Dot(forwardEcl, axis);
-
-        if (Math.Abs(alongAxis) > MaxAlongAxis)
-        {
-            double3 sideways = forwardEcl - axis * alongAxis;
-            sideways = Vec.Len2(sideways) < 1e-12 ? AnyPerpendicular(axis) : Vec.Unit(sideways);
-
-            double lean = alongAxis < 0.0 ? -MaxAlongAxis : MaxAlongAxis;
-            forwardEcl = Vec.Unit(axis * lean + sideways * Math.Sqrt(1.0 - (MaxAlongAxis * MaxAlongAxis)));
-        }
-
+        forwardEcl = LeanOffAxis(Vec.Unit(forwardEcl), engineAxisEcl);
         upEcl = lift;
 
         return Vec.IsFinite(eyeEcl) && Vec.IsFinite(forwardEcl);
+    }
+
+    /// <summary>
+    /// Tilts a view direction away from the axis the engine's camera cannot cross.
+    ///
+    /// <para>KSA's fixed camera builds its basis by crossing the view with that axis and
+    /// normalising, so a parallel pair divides by zero — and a vertically launched round points
+    /// very near it. Every direction handed to the engine goes through here.</para>
+    ///
+    /// <para><b>The axis is ecliptic +Z, not the local vertical.</b> The controller crosses against
+    /// the camera reference frame's +Z, and a followable that is not a vehicle or a celestial gets
+    /// the Identity frame with its declared reference frame ignored entirely. Leaning off local up
+    /// instead guards a singularity that is not there and leaves the real one open, and
+    /// <c>KsaWorld.TryLookFromMainViewport</c> then refuses the write and the chase drops the view
+    /// in mid-flight. See <c>docs/KSA-CAMERAS.md</c>.</para>
+    /// </summary>
+    public static double3 LeanOffAxis(double3 forward, double3 axisHint)
+    {
+        double3 axis = Vec.Unit(axisHint);
+        if (Vec.Len2(axis) < 0.5) return forward;
+
+        double alongAxis = Vec.Dot(forward, axis);
+        if (Math.Abs(alongAxis) <= MaxAlongAxis) return forward;
+
+        double3 sideways = forward - axis * alongAxis;
+        sideways = Vec.Len2(sideways) < 1e-12 ? AnyPerpendicular(axis) : Vec.Unit(sideways);
+
+        double lean = alongAxis < 0.0 ? -MaxAlongAxis : MaxAlongAxis;
+
+        return Vec.Unit(axis * lean + sideways * Math.Sqrt(1.0 - (MaxAlongAxis * MaxAlongAxis)));
     }
 
     // About 2.6 degrees off the axis: enough for the cross product to have a length to normalise.
@@ -92,6 +113,54 @@ public static class ChaseView
 
     // Below one, so the closing accelerates rather than easing off. Lower closes later and harder.
     private const double Sharpness = 0.5;
+
+    /// <summary>
+    /// Eases a camera from where the player had it onto the chase pose, without cutting.
+    ///
+    /// <para>Both ends are looking at much the same thing — the player at the target, the chase
+    /// along a round that is flying at it — so <b>only the position really travels</b> and the aim
+    /// barely moves. That is what makes this calm, and it is why the aim is given as two
+    /// <em>points</em> rather than two directions: interpolating directions turns at a wildly
+    /// uneven rate and collapses to zero length when they oppose, where two points near the same
+    /// target are nearly the same point.</para>
+    ///
+    /// <para><b>Both ends must be positions sampled this frame</b>, not stored ones. They are
+    /// anchored to different moving things, and the ecliptic is inertial — a point captured at the
+    /// start and held still falls half a kilometre behind per frame.</para>
+    /// </summary>
+    /// <param name="t">Progress, 0 at the player's pose and 1 at the chase. Clamped.</param>
+    public static bool TryBlend(double3 fromEcl, double3 fromLookAtEcl,
+                                double3 toEcl, double3 toLookAtEcl,
+                                double3 engineAxisEcl, double t,
+                                out double3 eyeEcl, out double3 forwardEcl)
+    {
+        eyeEcl = toEcl;
+        forwardEcl = Vec.Unit(toLookAtEcl - toEcl);
+
+        if (!Vec.IsFinite(fromEcl) || !Vec.IsFinite(toEcl)) return false;
+        if (!Vec.IsFinite(fromLookAtEcl) || !Vec.IsFinite(toLookAtEcl) || !double.IsFinite(t))
+        {
+            return false;
+        }
+
+        double e = Smoothstep(Math.Clamp(t, 0.0, 1.0));
+
+        eyeEcl = fromEcl + ((toEcl - fromEcl) * e);
+
+        double3 lookAt = fromLookAtEcl + ((toLookAtEcl - fromLookAtEcl) * e);
+        double3 forward = lookAt - eyeEcl;
+
+        if (Vec.Len2(forward) < 1e-6) return false;
+
+        // The same tilt the settled pose gets, for the same reason: a view along the axis KSA's
+        // fixed camera crosses against divides by zero, and a transition can sweep through it.
+        forwardEcl = LeanOffAxis(Vec.Unit(forward), engineAxisEcl);
+
+        return Vec.IsFinite(eyeEcl) && Vec.Len2(forwardEcl) > 0.5;
+    }
+
+    // Flat at both ends, so the camera leaves and arrives without a kick at either.
+    private static double Smoothstep(double t) => t * t * (3.0 - (2.0 * t));
 
     private static double3 AnyPerpendicular(double3 axis)
     {

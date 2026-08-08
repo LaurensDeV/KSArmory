@@ -914,9 +914,15 @@ internal static class KsaWorld
         {
             if (Program.Viewports is not { } viewports) return;
 
-            // Index 0 is the view the player flies from; taking it is a different feature.
-            for (int i = 1; i < viewports.Count; i++)
+            // The view the player flies from is listed separately by the panel, because taking it
+            // is a different mechanism: it is followed and driven through FixedController, where
+            // a secondary camera follows nothing and is positioned outright. Asked of the engine
+            // rather than assumed to be index 0 — if the two ever disagree it would appear twice.
+            int main = MainViewportIndex;
+
+            for (int i = 0; i < viewports.Count; i++)
             {
+                if (i == main) continue;
                 if (viewports[i] is { Visible: true, IsOffscreen: false }) into.Add(i);
             }
         }
@@ -1295,6 +1301,62 @@ internal static class KsaWorld
 
     // Keeps an edge indicator clear of the very border, where it would be half off-screen.
     private const float EdgeMargin = 28f;
+
+    /// <summary>
+    /// Where the main view's scene camera is and what it is looking along, both this frame.
+    ///
+    /// <para>The base camera, not <c>GetMainCamera()</c>: that answers with the <em>map</em> camera
+    /// in map mode, which sits millions of metres out. The base camera is the one Fixed mode drives
+    /// and therefore the one being taken over, and in map mode it still holds the last pose the
+    /// player had in the world.</para>
+    /// </summary>
+    public static bool TryMainCameraPose(out double3 positionEcl, out double3 forwardEcl)
+    {
+        positionEcl = forwardEcl = Vec.Zero;
+
+        try
+        {
+            if (Program.MainViewport?.BaseCamera is not { } camera) return false;
+
+            positionEcl = camera.EgoToEcl(Vec.Zero);
+            forwardEcl = camera.GetForwardEcl();
+
+            return Vec.IsFinite(positionEcl) && Vec.Len2(forwardEcl) > 1e-12;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not read the main camera pose: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Puts the main view's camera at a place, now, without waiting for a controller pass.
+    ///
+    /// <para>For undoing the jump <c>Camera.SetFollow</c> makes: it sets
+    /// <c>PositionEcl = target.GetPositionEcl() + 2.5 * MeanRadius * forward</c> before switching
+    /// what is followed, so attaching the view to a round puts the camera 2.5 m from it. The
+    /// frame's view matrix is built in the viewport pass, which is over by the time a mod's hook
+    /// runs, so that jump is rendered — and the controller does not take over until the next
+    /// frame.</para>
+    /// </summary>
+    public static bool TryPlaceMainCamera(double3 positionEcl)
+    {
+        if (!Vec.IsFinite(positionEcl)) return false;
+
+        try
+        {
+            if (Program.MainViewport?.BaseCamera is not { } camera) return false;
+
+            camera.PositionEcl = positionEcl;
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not place the main camera: {e.Message}");
+            return false;
+        }
+    }
 
     /// <summary>Where the camera is, in Ecl. Zero if there is none.</summary>
     public static double3 CameraPositionEcl()
