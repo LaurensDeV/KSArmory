@@ -77,6 +77,30 @@ public sealed class SystemSettings
     /// viewport index in the session that saved it, and restoring it would point a new session's
     /// camera at a window that may not exist.</para>
     /// </summary>
+    /// <summary>
+    /// Puts every team this system names back on the session's roster of team names.
+    ///
+    /// <para>The names are session-wide and the memberships are per system, so only half of a
+    /// two-sided world survives a reload on its own: each system remembers it is on "Red" and the
+    /// world has forgotten that "Red" is a team. Every contact then classifies Unknown, and
+    /// engaging the unknown is permissive by default, so a carefully divided world comes back as
+    /// a free-for-all with the panel still showing the old allegiances.</para>
+    /// </summary>
+    public void DeclareTeams(List<string> teamNames)
+    {
+        Declare(teamNames, OwnTeam);
+        foreach (string t in AlliedTeams) Declare(teamNames, t);
+        foreach (string t in NeutralTeams) Declare(teamNames, t);
+    }
+
+    private static void Declare(List<string> into, string? team)
+    {
+        if (string.IsNullOrWhiteSpace(team)) return;
+        if (into.Contains(team, StringComparer.OrdinalIgnoreCase)) return;
+
+        into.Add(team);
+    }
+
     public void ApplyTo(SystemConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);

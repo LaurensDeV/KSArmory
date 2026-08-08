@@ -6,6 +6,13 @@ namespace KSArmory;
 /// Remembers each system's settings, in a folder of the mod's own <b>inside the save</b>:
 /// <c>saves/&lt;save&gt;/KSArmory/systems.json</c>.
 ///
+/// <para><b>Keyed on the craft's display name, which is not unique.</b> A squadron built from one
+/// blueprint shares an Id, so those craft share one entry: they all restore the same settings and
+/// the last one saved overwrites the rest. There is no fix here to make, because a
+/// <c>Vehicle</c> reference does not survive a save and the Id is the only thing that does. The
+/// collision is reported when the roster crews the second craft, which is where it is visible.
+/// </para>
+///
 /// <para>KSA's save format cannot be extended — <c>UniverseData</c> is a fixed XML-mapped class —
 /// and StarMap has no save or load hook. But a save is a <em>directory</em>, so the next best
 /// thing to being in the save is being in it, beside the <c>universe.xml</c> it belongs to. The

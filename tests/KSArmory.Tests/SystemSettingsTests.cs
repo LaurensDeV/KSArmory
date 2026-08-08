@@ -189,4 +189,60 @@ public class SystemSettingsTests
             System.Text.Json.JsonSerializer
                 .Deserialize<Dictionary<string, Dictionary<string, SystemSettings>>>(legacy));
     }
+
+    // ---- Teams survive a reload only if both halves come back ------------
+    //
+    // The memberships are stored per system and the names are session-wide. Restoring one without
+    // the other leaves every system certain of its allegiance in a world that has forgotten the
+    // teams exist, which classifies every contact Unknown, which is engageable by default: a
+    // two-sided world silently becomes a free-for-all with the panel still showing the old sides.
+
+    [Fact]
+    public void RestoringASystemPutsItsTeamsBackOnTheSessionRoster()
+    {
+        var config = new SystemConfig();
+        config.Iff.OwnTeam = "Red";
+        config.Iff.AlliedTeams.Add("Crimson");
+        config.Iff.NeutralTeams.Add("Trader");
+
+        SystemSettings saved = SystemSettings.From(config);
+
+        List<string> names = [];
+        saved.DeclareTeams(names);
+
+        Assert.Contains("Red", names);
+        Assert.Contains("Crimson", names);
+        Assert.Contains("Trader", names);
+    }
+
+    [Fact]
+    public void DeclaringTeamsTwiceDoesNotDuplicateThem()
+    {
+        var config = new SystemConfig();
+        config.Iff.OwnTeam = "Red";
+
+        SystemSettings saved = SystemSettings.From(config);
+
+        List<string> names = [];
+        saved.DeclareTeams(names);
+        saved.DeclareTeams(names);
+
+        // Two systems on the same side is the normal case, and each declares on restore.
+        Assert.Single(names);
+
+        // And the match is how the radar matches names, which ignores case.
+        var other = new SystemConfig();
+        other.Iff.OwnTeam = "red";
+        SystemSettings.From(other).DeclareTeams(names);
+        Assert.Single(names);
+    }
+
+    [Fact]
+    public void ASystemWithNoTeamDeclaresNothing()
+    {
+        List<string> names = [];
+        SystemSettings.From(new SystemConfig()).DeclareTeams(names);
+
+        Assert.Empty(names);
+    }
 }
