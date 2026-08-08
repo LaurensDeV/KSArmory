@@ -124,6 +124,7 @@ if [[ -f ksa-assemblies.lock ]]; then
         done <<< "CLAUDE.md
 docs/KSA-MODDING-NOTES.md
 docs/BLOCKED-ON-KSA.md
+docs/KSA-CAMERAS.md
 README.md"
     fi
 fi

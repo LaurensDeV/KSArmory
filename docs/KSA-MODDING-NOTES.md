@@ -380,8 +380,9 @@ Each XML node maps to a C# pair:
 
 **Registering a new module type with the engine's hot-path updater is not solved here.** The
 registration lists are internal, so a genuinely new part module needs Harmony patching into
-them. Simulating behaviour in a `[StarMapAfterOnFrame]` hook avoids all of that — which is the
-approach this repo takes.
+them. Simulating the behaviour from a StarMap hook instead avoids all of that, and is what this
+repo does — from `[StarMapAfterGui]` rather than the frame hook, because a postfix on `OnFrame`
+lands *after* the render it was meant to feed. See `docs/FRAMES-AND-EPOCHS.md`.
 
 ## Authoring a part with no new art
 
@@ -579,9 +580,13 @@ so a continuously-spawning emitter re-anchored each frame is expressible. `Spawn
 
 **The trap to expect is spacing, not attachment.** A round at 840 m/s covers 14 m per frame at
 60 fps, so an emitter spawning once per frame at the round's current position draws a dotted line
-of puffs rather than a plume. The general answer is to interpolate spawn positions along the
-frame's travel instead of spawning at its end. Whether `VelocityBub` smears the spawn enough to
-avoid needing that here is **unmeasured** — it is the first thing to check, not the last.
+of puffs rather than a plume.
+
+`VelocityBub` does **not** smear the spawn and cannot be made to — see the last section of this
+file for why. What works is moving the emitter itself: the particles are left behind at the
+positions it occupied, and the frame's travel becomes the streak rather than a gap in one.
+`Ksa/TracerTrail.cs` and `Ksa/MotorPlume.cs` are both that shape, and they pay for it with one
+pooled emitter per moving thing — which is why the tracer only decorates a few shells at a time.
 
 ## Threading
 

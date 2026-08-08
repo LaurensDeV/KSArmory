@@ -361,9 +361,11 @@ The quickest start on any platform:
 ./tools/doctor.sh   # checks this machine and prints the fix for anything missing
 ```
 
-Worth knowing up front: **most of this repository is testable with nothing but the .NET SDK.**
+Worth knowing up front: **most of this repository is testable without launching the game.**
 Everything under `src/KSArmory/Sim/` is free of KSA types by construction, so guidance, threat
-classification, tube geometry and the fuse can all be worked on without owning the game.
+classification, tube geometry and the fuse can all be worked on headlessly. Building it still
+needs KSA's assemblies — `double3` comes from `Brutal.Core.Numerics.dll` — which is what
+`./tools/doctor.sh` checks for first.
 
 The rest of this section is the longer version.
 

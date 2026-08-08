@@ -24,7 +24,8 @@ the same way, which is why they are cited: check before relying on one.
 Grounded **only** in the decompiled engine at
 `../ksa-game-assemblies/current/src`.
 All citations are relative to that root. Nothing here is taken from any mod's own code or docs.
-Build: whatever `current/` holds — not verified against a version string.
+Build: **2026.8.5.5168**. Line numbers move on every KSA update, so a citation that does not land
+on what it claims means this file is behind the corpus, not that the corpus is wrong.
 
 ---
 
@@ -652,8 +653,47 @@ Ordered by how easily a mod trips it. Reminder: **there is no try/catch in the f
 | 12 | `FlyController.cs:601`, `:639`, `:647` | invalid frame/target combination passed to its `GetFrame2Ecl` | `InvalidOperationException` / `NotImplementedException` |
 | 13 | `OrbitController.cs:211` | out-of-range `CameraReferenceFrame` reaching `AlertCameraReference` | `IndexOutOfRangeException` |
 | 14 | `Camera.cs:486` (`UpdateProjection`) | a non-invertible projection (ortho half-height and aspect are guarded, so this needs `AspectRatio` = 0/NaN, i.e. a zero-height framebuffer) | `Exception("Tried to assign non-invertible projection matrix")` |
+| 15 | `Program.cs:3285` (**View → Add Camera**) | a **fourth** camera window. No mod needed — see below. | `InvalidOperationException` ("Sequence contains no matching element") |
+
+**#15 needs no mod at all, and a player can reach it in three clicks.** The guard and the search
+disagree about the offscreen thumbnail viewport:
+
+```csharp
+if (VisibleViewportCount < ViewportCount && ImGui.MenuItem("Add Camera"u8, ""u8))
+{
+    Viewports.First((Viewport v) => !v.Visible && !v.IsOffscreen).Visible = true;
+}
+```
+
+`ViewportCount` is a fixed 4 (`Program.cs:238`) and one of the four is `ThumbnailViewport`, with
+`IsOffscreen = true` (`Program.cs:864`). `VisibleViewportCount` counts `v.Visible` only
+(`Program.cs:435`), so the hidden thumbnail viewport still counts as *room left* — but the search
+excludes it. With the main view plus two added cameras there are three visible, `3 < 4` offers the
+menu item, and the only remaining viewport is the offscreen one, so `First` matches nothing and
+throws. There is no try/catch in the frame loop, so the process dies.
+
+**So the usable ceiling is three windows: the main view and two others.** `DockingPort.cs:181`
+does the same search and gets it right by testing both flags. The fix upstream is a matching
+guard — `Count(v => v.Visible || v.IsOffscreen)`, or `FirstOrDefault` with a null check.
+
+Observed in flight on 2026.08.08 while adding a fourth camera window, with the stack ending
+`Enumerable.First → Program.DrawMenuBar → OnDrawUiThreadSafe → App.Run`. The frame carried
+`DrawMenuBar_Patch1`, ModMenu's Harmony transpile, but the throwing statement is KSA's own inside
+the View menu and the splice only inserts a `BeginMenu`/`EndMenu` pair — nothing in it touches the
+viewport list. **This is a reason to prefer the main-view optic** (`Ksa/SightCamera.cs`) over
+asking a player to open windows they have very few of.
 
 Non-crashing misbehaviour worth the same attention:
+
+- **A viewport in `Fixed` mode cannot be recovered by the player from the keyboard or the mouse.**
+  `FixedController` reads no input of any kind — no `Input.`, no key, no mouse — so a camera a mod
+  is driving ignores every reflex a player has. `Shift+C` does not help either: it routes through
+  `Viewport.NextCameraMode` (`Viewport.cs:347-363`), whose switch covers Orbit, Free and IVA and
+  whose `default` returns `false`, so the key falls through to `FixedController.OnKey` and is
+  dropped. The only routes out are the **View menu**, which calls `SetCameraMode` outright
+  (`Program.cs:3271-3281`), and whatever the mod itself offers. **Anything that takes the main
+  view must say so and offer its own way back** — `Ksa/SightCamera.cs` releases from the panel,
+  and the panel names the View menu because no reflex works.
 
 - `Camera.ClampCamera` on a secondary viewport uses the **main** viewport's altitude
   (`Camera.cs:636-650` vs `Program.cs:4555-4558`, `:2349-2360`) — it can teleport a secondary camera
@@ -754,7 +794,7 @@ _renderedViewportIndex = _mainViewportIndex;                            // Progr
 
 **The reported symptom is accurate and structural, not a state bug.** It is two separate facts:
 
-#### A.1 What `RenderViewport` actually runs (`Program.cs:3967-4064`)
+#### A.1 What `RenderViewport` actually runs (`Program.cs:3967-4070`)
 
 Complete list, in order:
 
@@ -775,7 +815,7 @@ Complete list, in order:
 | `SuperMeshRenderSystem.RenderTranslucencyPass` | `4051` |
 | `OrbitLinePass.Run` (if `DrawUI`) | `4054` |
 | `GizmoPass.Run` | `4056` |
-| `RenderAaPreparePasses` + `RenderFinalComposite` into `viewport.MainTarget` | `4059-4066` |
+| `RenderAaPreparePasses` + `RenderFinalComposite` into `viewport.MainTarget` | `4059-4069` |
 
 That is: **stars, distant-body sprites, distant-body spheres, vehicle meshes, orbit lines, part gizmos.**
 Nothing else.

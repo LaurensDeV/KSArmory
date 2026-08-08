@@ -79,7 +79,7 @@ four failure shapes apart.
 
 ## Adding a weapon
 
-In KSP this is a `.cfg` and a model, with no compiler. Here it is four steps, and step three needs
+In KSP this is a `.cfg` and a model, with no compiler. Here it is five steps, and step three needs
 a rebuild:
 
 1. **Model it.** Copy `tools/model/pantsir.py`, keep the group and pivot conventions, export into
@@ -90,9 +90,13 @@ a rebuild:
 3. **Register it.** One `LauncherProfile` in `Sim/Arsenal.cs`, naming the munition and sensor it
    uses, with the geometry `tools/model/build.sh` prints. Add a `MunitionProfile` if the round
    differs.
-4. **Nothing else.** `LauncherPart.Find` matches every registered part Id and the battery selects
-   whichever profile it finds. `ArsenalTests` checks the registry hangs together;
-   `tools/validate-parts.py` checks the geometry still matches the mesh.
+4. **Teach the validator.** `tools/validate-parts.py` compares the profile's geometry against
+   `muzzles.json`, and it is scoped per launcher — a new one gets no check until you add it. The
+   generator emitting those numbers and the profile holding them are the same numbers in two
+   files, and every previous instance of that in this repo drifted.
+5. **Nothing else.** `LauncherPart.Find` matches every registered part Id and the weapon system
+   selects whichever profile it finds. `ArsenalTests` checks the registry hangs together, and
+   `validate-parts.py` also checks that every registered `PartId` is declared in the XML.
 
 **A launcher that does not train** is the same profile with `TurretMarker` and `PodsMarker` left
 null. The drives are then skipped and `IsLaid` stays true, so fire control cannot deadlock waiting
@@ -132,11 +136,14 @@ Two rules that are not negotiable, both because breaking them has already cost r
 
 ## What you do not need
 
-You can do a great deal of useful work with **nothing but the .NET SDK** — no game, no assemblies,
-no Blender. Everything under `src/KSArmory/Sim/` is free of KSA types by construction: the test
-project links it wholesale and references no KSA assembly, so a `using KSA;` there fails the test
-build. Guidance, fuses, threat modelling, lead solutions, IFF and the drives all live there and fly
-whole engagements headlessly.
+You do not need **the game running, Blender, or a Windows box**. Everything under
+`src/KSArmory/Sim/` is free of KSA types by construction: the test project links it wholesale and
+references no KSA assembly, so a `using KSA;` there fails the test build. Guidance, fuses, threat
+modelling, lead solutions, IFF and the drives all live there and fly whole engagements headlessly.
+
+What you *do* still need is **KSA's assemblies**, even for that half: `double3` comes from
+`Brutal.Core.Numerics.dll`, so the test project references it and `tools/test.sh` will not run
+without it. `./tools/doctor.sh` says what is missing and how to get it.
 
 That is the easiest place to start, and the tests will tell you the truth without the game
 installed.

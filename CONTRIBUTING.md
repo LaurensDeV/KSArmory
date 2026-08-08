@@ -30,16 +30,20 @@ Then:
 
 | To do this | You need |
 | --- | --- |
-| Run the tests, change anything under `Sim/` | .NET 10 only |
-| Compile the game-facing half | .NET 10 + KSA's assemblies |
+| Run the tests, change anything under `Sim/` | .NET 10 + KSA's assemblies |
+| Compile the game-facing half | the same |
 | Actually play the mod | the above, plus KSA and [StarMap](https://github.com/StarMapLoader/StarMap) |
 | Rebuild the 3D model | plus Blender 5.2 |
 
-**A large amount of this repository is testable with nothing but the .NET SDK.** Everything under
+**A large amount of this repository is testable without the game running.** Everything under
 `src/KSArmory/Sim/` is free of KSA types *by construction* — the test project links it and
 references no game assembly, so a stray `using KSA;` there fails the test build rather than
 slipping through. If you are fixing guidance, threat classification, tube geometry or the fuse,
-you do not need the game at all.
+you never have to launch KSA.
+
+You do still need its assemblies to *build* that half: `double3` comes from
+`Brutal.Core.Numerics.dll` and appears throughout `Sim/`, so the test project references it and
+`tools/test.sh` errors out without it.
 
 ### Getting KSA's assemblies
 

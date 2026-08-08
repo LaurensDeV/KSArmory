@@ -6,10 +6,11 @@
 > `Ksa/WeaponSystemRoles.cs` rather than the whole class. **The old names are kept below on
 > purpose**, because the argument is about why they were wrong and rewriting them would erase it.
 
-A plan, not a refactor. It answers four questions asked of `Ksa/DefenceBattery.cs`: whether it is
-one thing or several, what the right word is if not "battery", which parts of a split would move
-logic into `Sim/` and therefore become testable, and what a split could break without anyone
-noticing.
+A plan, not a refactor. It answers four questions put to `Ksa/DefenceBattery.cs` — the brief that
+asked them is in git history, and everything it observed is restated below. The questions:
+whether the class is one thing or several, what the right word is if not "battery", which parts of
+a split would move logic into `Sim/` and therefore become testable, and what a split could break
+without anyone noticing.
 
 **Nothing here was flown.** Every claim is a claim about the source, which by this repository's own
 rule makes the two defects below diagnoses rather than fixes.
@@ -25,7 +26,9 @@ independently.
 
 ## What is measured
 
-Confirmed against the source at `ac36c3a`, not re-derived from the brief:
+Confirmed against the source at `ac36c3a`, not taken on trust from the brief. These are the
+numbers as they stood then; the class has grown since, which strengthens rather than weakens the
+argument:
 
 - `Ksa/DefenceBattery.cs` is 1,650 lines with a public surface of 52. It owns platform election
   and pinning, part discovery for five subparts, drive latching, the turret and optic drives,
@@ -76,9 +79,9 @@ second ladder.
 
 ## Is it one thing or several?
 
-The candidate reading in the brief is a *mount*, a *magazine and its rounds*, a *fire-control
-loop*, and an *installation*. Tested against the code it is close, and wrong in one place that
-matters.
+The candidate reading the brief proposed is a *mount*, a *magazine and its rounds*, a
+*fire-control loop*, and an *installation*. Tested against the code it is close, and wrong in one
+place that matters.
 
 ### The reading that survives is five parts, not four
 
@@ -90,8 +93,8 @@ matters.
 | **The flight** | `_rounds`, `UpdateRounds`, `SampleTarget`, `Detonate`, the blast sweep, `_pendingKills`, `AttributeRoundsToTracks` | shells | missiles |
 | **Installation** | `BatteryConfig`, `Platform`, `PlatformPinned`, `PlatformEcl`, `PlatformStepEcl`, `Radar`, `Boresight`, the profiles, the event log, `Reset`, `AbandonFlight`, `SafeAll` | one | one |
 
-**The magazine and the rounds are two things, and the CIWS is what proves it.** The brief's
-reading pairs them; the code cannot. `_rounds` holds `Slug`s fired by the gun channel and
+**The magazine and the rounds are two things, and the CIWS is what proves it.** That reading pairs
+them; the code cannot. `_rounds` holds `Slug`s fired by the gun channel and
 `Interceptor`s fired by the missile channel, in one list, deliberately: `AttributeRoundsToTracks`,
 the blast sweep, the round-body `flying` span and the negative-tube-number convention all depend
 on there being exactly one author of it. A CIWS has no magazine and a great many rounds in the
@@ -114,7 +117,7 @@ work.** The gun channel is nearly self-contained: `UpdateGunFireControl` compose
 channel is not a channel at all: it *is* the class. `Holding()`, `Commit`, `FireAtLock`,
 `ReadyToFire`, `Reload` and `UpdateFireControl`'s reload gate all speak for the missiles by
 default, and each one carries a `Profile.TubeCount == 0` or `Profile.TubeCount > 0` special case
-so a gun-only launcher can slip past. There are five such tests in the class. The four of the same shape that stood in
+so a gun-only launcher can slip past. The four of the same shape that stood in
 `Ui/UiSystem.cs` are gone: the panel reads `Sim/WeaponFit.cs` and asks the system what it is
 fitted with, which is the shape item 1 proposes for fire control.
 
@@ -291,11 +294,11 @@ this list one at a time as they land.
 
 1. **Extract the fire-control ladder into `Sim/`, one per channel, with the launch cycle timers.**
    The largest testability gain on the list and the smallest structural risk: no object moves, a
-   private method becomes a pure function over its inputs. It removes five `TubeCount` special
-   cases from the class, two of which are the ones defect 1's fix added to `Holding()` rather than
-   removing, and gives fire control the per-armament answer `Sim/WeaponFit.cs` already gives the
-   panel. It is also
-   the half of a third weapon channel that can be built without touching `Ksa/` structure at all.
+   private method becomes a pure function over its inputs. It removes the `TubeCount == 0` special
+   cases scattered through the class — there are more of them now than when this was written, two
+   of them added by defect 1's fix rather than removed by it — and gives fire control the
+   per-armament answer `Sim/WeaponFit.cs` already gives the panel. It is also the half of a third
+   weapon channel that can be built without touching `Ksa/` structure at all.
 2. **Extract the blast sweep into `Sim/`.** The only irreversible thing the class does and the
    only one with no test. Closes `docs/AUDIT-2026-08.md` defects 4 and 5 by construction. Pure
    arithmetic over a list the class already collects into a scratch buffer.

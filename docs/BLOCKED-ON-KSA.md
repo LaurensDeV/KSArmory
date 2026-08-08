@@ -22,16 +22,19 @@ happen rather than a member that moved.
 - [x] Wheel, suspension or steering module exists
 - [x] Partial or component damage exists alongside `DestroyVehicleFromEvent`
 - [x] Per-mod vehicle library path, or a way to register saved craft
-- [ ] `UncompressedVehicleSave.Load` honours `Character`, making a kitten launchable
-- [ ] A character attachment's pose survives the frame, so a mod can aim one
+- [x] `UncompressedVehicleSave.Load` honours `Character`, making a kitten launchable
+- [x] A character attachment's pose survives the frame, so a mod can aim one
 - [x] Custom part modules can be registered without patching
 - [x] Public accessor for the volumetric trail renderer
-- [ ] A post-processing or full-screen shader hook a mod can register into
-- [ ] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
+- [x] A post-processing or full-screen shader hook a mod can register into
+- [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 
-All seven rechecked against 2026.8.5.5168 and still blocked. The render path was refactored in
+All eleven rechecked against 2026.8.5.5168 and still blocked. The render path was refactored in
 that build — `Program._offscreenTarget` is now a `RenderTarget` and every line number below
-moved — but none of the structure any of these depend on changed.
+moved — but none of the structure any of these depend on changed. `UncompressedVehicleSave.cs`
+still does not mention `Character` at all; `KittenRenderable` still writes an attachment's
+transform and submits its draw in consecutive statements; `KSA.Rendering.PostProcessing` is still
+an anti-aliasing pass and a tone curve.
 
 ---
 
@@ -54,7 +57,8 @@ none is menu-shaped.
 own `BeginMenu("Mods")`. Mods opt in with a `[ModMenuEntry]` attribute, which ModMenu matches by
 `GetType().Name` alone — so a mod copies the attribute rather than referencing anything, and we
 do exactly that. It costs no dependency, but the whole arrangement stands on rewriting the IL of
-a private method in a pre-release game.
+a game method in a pre-release build. `DrawMenuBar` being public buys nothing here: calling it
+draws the bar, it does not contribute to one.
 
 We also append to the bar directly with `ImGui.BeginMainMenuBar()`, which works because ImGui's
 menu bar is immediate-mode. Measured: it must be called *before* KSA's GUI pass — from
@@ -145,8 +149,11 @@ means rebuilding Vulkan resources, which is not something a mod can do sensibly 
 is indexed by `viewport.Index`, and the sunbloom buffers by viewport count. This is unfinished
 rather than impossible.
 
-**Workaround in the mod.** Take over the *main* viewport instead. Fully public API, full render
-quality, and it borrows the player's view while active.
+**Workaround in the mod, and it is the shipped default.** `Ksa/SightCamera.cs` takes over the
+*main* viewport instead — fully public API, full render quality, borrowed while the optic is
+selected and handed straight back when it is not. The panel still offers a secondary window, for
+watching a site while flying something else, and warns there that the picture is wrong. Whichever
+of these entries unblocks first, that option stops needing the warning.
 
 ---
 
@@ -224,7 +231,7 @@ log: a working craft logs `finished loading vehicle … part count 1`, and this 
 vehicle library path — the same fix as the entry above.
 
 **Workaround in the mod.** EVA a kitten out of a crewed capsule: `EVADoor.CreateKittenEva` is the
-only path that builds one, and it sets `Program.ControlledVehicle`, so the battery mounts on it
+only path that builds one, and it sets `Program.ControlledVehicle`, so a weapon system mounts on it
 with `RequireLauncherPart` off. Core's medium capsule carries the doors
 (`CoreCommandA_Subpart_MediumCapsuleCrewDoorA`/`B`).
 
@@ -299,9 +306,9 @@ Nor is there a part to fall back on: a kitten's only part is Core's `KittenBackP
 `ExtraTransform` the renderer composes rather than overwrites — or a public accessor for the
 avatar plus a hook between `UpdateRenderData` and the render submit.
 
-**Consequence in the mod.** The gun is a fixed ornament. `Config.MouseAim` still aims the
-*battery* at the cursor and rounds leave along that direction, so the weapon works; only the
-model does not turn.
+**Consequence in the mod.** The gun is a fixed ornament. `Config.MouseAim` still aims the *weapon
+system* at the cursor and rounds leave along that direction, so the weapon works; only the model
+does not turn.
 
 ---
 
@@ -416,9 +423,9 @@ pad answers with the ground: the corner is outside the circle, and even inside i
 assumed rather than measured.
 
 **What would unblock it.** A raycast against static geometry, or bounds on the landmark. The
-engine raycasts elsewhere — `Part` has `RaycastWatertight` against its own mesh
-(`KSA/KSA/Part.cs:1943`) — so the machinery exists; it is reaching a landmark's geometry that has
-no route.
+engine raycasts elsewhere — `Part.RayCastEgo` is public and goes per-triangle against the real
+mesh via `Ray.RaycastWatertight` (`KSA/KSA/Part.cs:1943`) — so the machinery exists; it is
+reaching a landmark's geometry that has no route.
 
 ## Drawing a shape the gizmo renderer does not have
 

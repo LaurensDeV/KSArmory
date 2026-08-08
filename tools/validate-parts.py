@@ -175,10 +175,10 @@ def check_file(path, core_subparts, core_materials):
 
 
 def check_launcher_geometry():
-    """Verifies LauncherPart.cs still agrees with the mesh the tubes were modelled in.
+    """Verifies the Pantsir's profile still agrees with the mesh its tubes were modelled in.
 
     The launch positions exist twice: once in tools/model/pantsir.py, which places the
-    containers, and once in LauncherPart.cs, which draws markers on them and spawns rounds
+    containers, and once in Sim/Arsenal.cs, which draws markers on them and spawns rounds
     from them. Nothing at build or run time connects the two, and a silent disagreement puts
     the launch markers in mid-air beside the vehicle. So compare them here.
 
