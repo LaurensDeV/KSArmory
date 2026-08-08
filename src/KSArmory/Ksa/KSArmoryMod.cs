@@ -314,6 +314,11 @@ public sealed class KSArmoryMod
             _gunSound.Update(e.Battery);
         }
 
+        // Every effect that holds a pooled emitter or a channel, so a craft destroyed mid-salvo
+        // does not keep one for the session.
+        _motors.Sweep(_roster);
+        _plumes.Sweep(_roster);
+        _tracers.Sweep(_roster);
         _flashes.Sweep(_roster);
         _gunSound.Sweep(_roster);
 
@@ -344,6 +349,17 @@ public sealed class KSArmoryMod
         _watch.Release();
         _chase.Release();
         _mover.Release();
+
+        // Pooled emitters and audio channels are the game's, not ours, and nothing else gives them
+        // back: unloading while anything is burning or firing would keep them for the process.
+        _motors?.StopAll();
+        _gunSound?.StopAll();
+        _plumes?.ReleaseAll();
+        _tracers?.ReleaseAll();
+        _flashes?.ReleaseAll();
+
+        // Markers pin the craft they are showing, so a destroyed one stays reachable otherwise.
+        Markers.Forget();
 
         _roster?.Clear();
         KsaWorld.ResetSimStepTracking();

@@ -53,6 +53,7 @@ internal sealed class TracerTrail
 
     private sealed class Live
     {
+        public required IEffectSource Owner;
         public required Celestial Body;
         public required List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> Handles;
     }
@@ -68,7 +69,7 @@ internal sealed class TracerTrail
     {
         if (!battery.PlumesEnabled || battery.Platform is not { } platform)
         {
-            ReleaseAll();
+            ReleaseOwnedBy(battery);
             return;
         }
 
@@ -114,12 +115,45 @@ internal sealed class TracerTrail
 
         // Anything holding an emitter that the battery has stopped reporting, or that has stopped
         // flying. Without this a reaped shell keeps its emitter for the rest of the session.
-        foreach (IProjectile round in _tracing.Keys)
+        foreach (KeyValuePair<IProjectile, Live> kv in _tracing)
         {
-            if (round.State != RoundState.Flying || !battery.Rounds.Contains(round))
+            if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
+            if (kv.Key.State != RoundState.Flying || !battery.Rounds.Contains(kv.Key))
             {
-                _finished.Add(round);
+                _finished.Add(kv.Key);
             }
+        }
+
+        foreach (IProjectile round in _finished) Release(round);
+        _finished.Clear();
+    }
+
+    /// <summary>Hands back the emitters of any system the roster has forgotten.</summary>
+    public void Sweep(WeaponSystems roster)
+    {
+        foreach (KeyValuePair<IProjectile, Live> kv in _tracing)
+        {
+            bool present = false;
+            foreach (WeaponSystems.Entry e in roster.All)
+            {
+                if (ReferenceEquals(e.Battery, kv.Value.Owner)) { present = true; break; }
+            }
+            if (!present) _finished.Add(kv.Key);
+        }
+
+        foreach (IProjectile round in _finished) Release(round);
+        _finished.Clear();
+    }
+
+    // Which system's round this is. The tables are keyed on the round, and Update is called once
+    // per system, so without an owner every system's sweep treats every other system's rounds as
+    // orphans: with two systems firing, each release the other's the instant it runs, and the
+    // shared emitter pool churns once per system per frame.
+    private void ReleaseOwnedBy(IEffectSource battery)
+    {
+        foreach (KeyValuePair<IProjectile, Live> kv in _tracing)
+        {
+            if (ReferenceEquals(kv.Value.Owner, battery)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Release(round);
@@ -151,6 +185,7 @@ internal sealed class TracerTrail
         {
             if (Acquire(platform) is not { } fresh) return false;
 
+            fresh.Owner = battery;
             live = fresh;
             _tracing[round] = live;
         }
@@ -208,7 +243,7 @@ internal sealed class TracerTrail
                 body.AddEmitter(handle);
             }
 
-            return new Live { Body = body, Handles = [.. handles] };
+            return new Live { Owner = null!, Body = body, Handles = [.. handles] };
         }
         catch (Exception e)
         {

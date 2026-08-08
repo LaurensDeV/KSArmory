@@ -23,6 +23,7 @@ internal sealed class MotorPlume
 
     private sealed class Live
     {
+        public required IEffectSource Owner;
         public required Celestial Body;
         public required List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> Handles;
     }
@@ -37,7 +38,7 @@ internal sealed class MotorPlume
     {
         if (!battery.PlumesEnabled || battery.Platform is not { } platform)
         {
-            ReleaseAll();
+            ReleaseOwnedBy(battery);
             return;
         }
 
@@ -47,11 +48,48 @@ internal sealed class MotorPlume
             else _finished.Add(round);
         }
 
-        // Anything holding an emitter that the battery has stopped reporting. A round reaped
+        // Anything of THIS battery's holding an emitter it has stopped reporting. A round reaped
         // mid-burn never reaches the branch above, and its emitter would never come back.
-        foreach (IProjectile round in _burning.Keys)
+        foreach (KeyValuePair<IProjectile, Live> kv in _burning)
         {
-            if (!battery.Rounds.Contains(round)) _finished.Add(round);
+            if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
+            if (!battery.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
+        }
+
+        foreach (IProjectile round in _finished) Release(round);
+        _finished.Clear();
+    }
+
+    /// <summary>
+    /// Hands back the emitters of any system the roster has forgotten. A craft destroyed with
+    /// rounds burning never reaches <see cref="Update"/> again, and they would be held for the
+    /// session.
+    /// </summary>
+    public void Sweep(WeaponSystems roster)
+    {
+        foreach (KeyValuePair<IProjectile, Live> kv in _burning)
+        {
+            bool present = false;
+            foreach (WeaponSystems.Entry e in roster.All)
+            {
+                if (ReferenceEquals(e.Battery, kv.Value.Owner)) { present = true; break; }
+            }
+            if (!present) _finished.Add(kv.Key);
+        }
+
+        foreach (IProjectile round in _finished) Release(round);
+        _finished.Clear();
+    }
+
+    // Which system's round this is. The tables are keyed on the round, and Update is called once
+    // per system, so without an owner every system's sweep treats every other system's rounds as
+    // orphans: with two systems firing, each release the other's the instant it runs, and the
+    // shared emitter pool churns once per system per frame.
+    private void ReleaseOwnedBy(IEffectSource battery)
+    {
+        foreach (KeyValuePair<IProjectile, Live> kv in _burning)
+        {
+            if (ReferenceEquals(kv.Value.Owner, battery)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Release(round);
@@ -76,6 +114,7 @@ internal sealed class MotorPlume
         {
             if (Acquire(platform) is not { } fresh) return;
 
+            fresh.Owner = battery;
             live = fresh;
             _burning[round] = live;
         }
@@ -154,7 +193,7 @@ internal sealed class MotorPlume
                 body.AddEmitter(handle);
             }
 
-            return new Live { Body = body, Handles = [.. handles] };
+            return new Live { Owner = null!, Body = body, Handles = [.. handles] };
         }
         catch (Exception e)
         {

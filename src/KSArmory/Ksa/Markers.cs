@@ -70,6 +70,18 @@ internal static class Markers
         Locked.Remove(craft);
     }
 
+    /// <summary>
+    /// Drops every label. These are static and hold a <c>Vehicle</c> each, so a locked one keeps a
+    /// destroyed craft reachable for the rest of the process unless the panel happens to draw
+    /// again and prune it.
+    /// </summary>
+    public static void Forget()
+    {
+        Showing.Clear();
+        Locked.Clear();
+        Expired.Clear();
+    }
+
     private static void KeepUpFor(Vehicle craft, double seconds)
     {
         Showing[craft] = Showing.TryGetValue(craft, out double left) ? Math.Max(left, seconds)

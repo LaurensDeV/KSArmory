@@ -31,7 +31,11 @@ internal sealed class MotorSound(Config config)
     private static readonly KeyHash ThrottleHash = KeyHash.Make("Throttle");
     private const float FullThrottle = 1f;
 
-    private readonly Dictionary<IProjectile, IChannel> _burning = [];
+    // Owner alongside the channel. The table is keyed on the round, and Update is called once
+    // per system, so without an owner every system's sweep treats every other system's rounds as
+    // orphans: with two systems firing, each release the other's the instant it runs, and the
+    // shared emitter pool churns once per system per frame.
+    private readonly Dictionary<IProjectile, (IRoundsInFlight Owner, IChannel Channel)> _burning = [];
     private readonly List<IProjectile> _finished = [];
 
     private static bool _warnedMissing;
@@ -41,7 +45,7 @@ internal sealed class MotorSound(Config config)
     {
         if (!_config.MotorSound || battery.Platform is not { } platform)
         {
-            StopAll();
+            SilenceOwnedBy(battery);
             return;
         }
 
@@ -54,15 +58,16 @@ internal sealed class MotorSound(Config config)
 
         foreach (IProjectile round in battery.Rounds)
         {
-            if (Burning(round)) Follow(round, platformEgo, platformVelEgo, pressure);
+            if (Burning(round)) Follow(round, battery, platformEgo, platformVelEgo, pressure);
             else Silence(round);
         }
 
         // A round that left the battery's list without burning out - reaped, or the whole salvo
         // abandoned - never gets a Silence call above, so its channel would play forever.
-        foreach (IProjectile round in _burning.Keys)
+        foreach (KeyValuePair<IProjectile, (IRoundsInFlight Owner, IChannel Channel)> kv in _burning)
         {
-            if (!battery.Rounds.Contains(round)) _finished.Add(round);
+            if (!ReferenceEquals(kv.Value.Owner, battery)) continue;
+            if (!battery.Rounds.Contains(kv.Key)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Silence(round);
@@ -72,8 +77,36 @@ internal sealed class MotorSound(Config config)
     /// <summary>Cuts every channel. Safe at any time.</summary>
     public void StopAll()
     {
-        foreach (IChannel channel in _burning.Values) Cut(channel);
+        foreach ((_, IChannel channel) in _burning.Values) Cut(channel);
         _burning.Clear();
+    }
+
+    /// <summary>Cuts the channels of any system the roster has forgotten.</summary>
+    public void Sweep(WeaponSystems roster)
+    {
+        foreach (KeyValuePair<IProjectile, (IRoundsInFlight Owner, IChannel Channel)> kv in _burning)
+        {
+            bool present = false;
+            foreach (WeaponSystems.Entry e in roster.All)
+            {
+                if (ReferenceEquals(e.Battery, kv.Value.Owner)) { present = true; break; }
+            }
+            if (!present) _finished.Add(kv.Key);
+        }
+
+        foreach (IProjectile round in _finished) Silence(round);
+        _finished.Clear();
+    }
+
+    private void SilenceOwnedBy(IRoundsInFlight battery)
+    {
+        foreach (KeyValuePair<IProjectile, (IRoundsInFlight Owner, IChannel Channel)> kv in _burning)
+        {
+            if (ReferenceEquals(kv.Value.Owner, battery)) _finished.Add(kv.Key);
+        }
+
+        foreach (IProjectile round in _finished) Silence(round);
+        _finished.Clear();
     }
 
     // The round's own profile, never the battery's. Cannon shells share the battery's round list
@@ -85,7 +118,8 @@ internal sealed class MotorSound(Config config)
            && round.Munition.BoostSeconds > 0f
            && round.Age <= round.Munition.BoostSeconds;
 
-    private void Follow(IProjectile round, double3 platformEgo, double3 platformVelEgo, double pressure)
+    private void Follow(IProjectile round, IRoundsInFlight battery,
+                        double3 platformEgo, double3 platformVelEgo, double pressure)
     {
         // Built from the round's offset from its platform, never from an absolute Ecl position
         // converted on its own. The offset is the one quantity the mod already keeps epoch-clean,
@@ -97,11 +131,11 @@ internal sealed class MotorSound(Config config)
 
         var spatial = new SpatialAudio(posEgo, velEgo, pressure);
 
-        if (_burning.TryGetValue(round, out IChannel? channel))
+        if (_burning.TryGetValue(round, out (IRoundsInFlight Owner, IChannel Channel) held))
         {
             try
             {
-                if (channel.IsPlaying()) { channel.SetSpatialAudio(spatial); return; }
+                if (held.Channel.IsPlaying()) { held.Channel.SetSpatialAudio(spatial); return; }
             }
             catch
             {
@@ -111,14 +145,14 @@ internal sealed class MotorSound(Config config)
             _burning.Remove(round);
         }
 
-        if (Start(spatial, _config) is { } started) _burning[round] = started;
+        if (Start(spatial, _config) is { } started) _burning[round] = (battery, started);
     }
 
     private void Silence(IProjectile round)
     {
-        if (!_burning.Remove(round, out IChannel? channel)) return;
+        if (!_burning.Remove(round, out (IRoundsInFlight Owner, IChannel Channel) held)) return;
 
-        Cut(channel);
+        Cut(held.Channel);
     }
 
     private static IChannel? Start(SpatialAudio spatial, Config config)
