@@ -22,6 +22,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     private readonly List<IProjectile> _rounds = [];
     private readonly List<Vehicle> _blastScratch = [];
 
+    // Craft an unguided round could run into, rebuilt at most once a frame.
+    private readonly List<TargetState> _contactScratch = [];
+    private bool _contactsFresh;
+
     // Rounds in the air that are somebody else's, rebuilt every frame. A field rather than a
     // local, so filtering costs no allocation on a path every system runs every frame.
     private readonly List<IContact> _incoming = [];
@@ -1475,6 +1479,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
         double3 platformVelocityEcl = KsaWorld.VelocityEcl(Platform!);
 
+        // A burst is dozens of shells and the world does not move between them, so the candidate
+        // list is built at most once here rather than once per round.
+        _contactsFresh = false;
+
         for (int i = _rounds.Count - 1; i >= 0; i--)
         {
             IProjectile round = _rounds[i];
@@ -1487,6 +1495,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
             // The platform's velocity defines the local frame: it carries the parent body's
             // orbital and rotational motion, which is not airspeed and not a heading.
+            // Everything it could run into, which is not the same list as what it was aimed at,
+            // and the geometry that decides whether it truly met any of them.
+            if (round is Slug slug)
+            {
+                slug.Contacts = ContactCandidates();
+                slug.Hull = HullTest.Shared;
+            }
+
             round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl,
                          round.Munition, mediumDensity);
 
@@ -1556,7 +1572,32 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         return new TargetState(
             KsaWorld.PositionEcl(target),
             KsaWorld.VelocityEcl(target),
-            KsaWorld.MeanRadius(target));
+            KsaWorld.MeanRadius(target),
+            target);
+    }
+
+    // Every craft a round could run into this frame, the platform excepted: a mount does not
+    // shoot the craft it is bolted to, and a shell is armed 33 m from the muzzle anyway.
+    //
+    // Built at most once a frame rather than once per round -- a burst is dozens of shells and the
+    // world does not move between them.
+    private List<TargetState> ContactCandidates()
+    {
+        if (_contactsFresh) return _contactScratch;
+
+        _contactsFresh = true;
+        _contactScratch.Clear();
+
+        KsaWorld.CollectVehicles(_blastScratch);
+        foreach (Vehicle v in _blastScratch)
+        {
+            if (ReferenceEquals(v, Platform)) continue;
+
+            _contactScratch.Add(new TargetState(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                                KsaWorld.MeanRadius(v), v));
+        }
+
+        return _contactScratch;
     }
 
     // Applies a warhead burst. KSA has no partial-damage model exposed, so the effect is binary:
@@ -1635,9 +1676,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // the ecliptic frame, so the blast finds nothing. Advance the world to match the burst.
         double elapsed = round.DetonationElapsedInFrame;
 
-        // The intended target is settled by the fuse, which did the extrapolation properly.
+        // What the round actually met, falling back to what it was aimed at. A kinetic round names
+        // its victim: fire control decides what to shoot at, it does not decide what a shell in
+        // the air passes through, and scoring a strike on a bystander against the target's lethal
+        // range destroys something the round never reached.
+        //
+        // The separation itself is settled by the fuse, which did the extrapolation properly.
         // Trust that number rather than re-deriving it.
-        if (round.TargetRef is Vehicle intended && KsaWorld.IsAlive(intended))
+        if ((round.StruckBody ?? round.TargetRef) is Vehicle intended && KsaWorld.IsAlive(intended))
         {
             double lethalRange = round.Munition.LethalRadius + KsaWorld.MeanRadius(intended);
             if (round.MissDistance <= lethalRange)

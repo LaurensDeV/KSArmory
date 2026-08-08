@@ -56,6 +56,34 @@ internal sealed class Slug : IProjectile
 
     public object? TargetRef { get; private set; }
 
+    /// <summary>
+    /// Everything this round can run into, refreshed by the caller each frame.
+    ///
+    /// <para>A shell does not know what it was fired at. Fusing only against a designated target
+    /// means a hand-aimed burst passes clean through a hull and expires, and a commanded one flies
+    /// through a bystander untouched — so what a gun hits would depend on what fire control
+    /// happened to be thinking about, which is not a property a kinetic round has.</para>
+    ///
+    /// <para>World samples, end-of-frame: <see cref="Step"/> back-dates them to the round's own
+    /// epoch, the same way it does the designated target.</para>
+    /// </summary>
+    public IReadOnlyList<TargetState> Contacts { get; set; } = [];
+
+    /// <summary>
+    /// What decides whether this round actually met a body, supplied by the caller each frame.
+    ///
+    /// <para>Null in a world with no geometry to ask — the test project is one — and then the
+    /// bounding sphere stands, which is what a round did before there was anything better.</para>
+    ///
+    /// <para>Deliberately not on <see cref="IProjectile"/>. Requiring a strike is what makes this
+    /// round kinetic; a proximity-fused warhead must keep bursting near things, and putting the
+    /// hook on the interface is an invitation to wire it into one.</para>
+    /// </summary>
+    public IHullTest? Hull { get; set; }
+
+    /// <inheritdoc cref="IProjectile.StruckBody"/>
+    public object? StruckBody { get; private set; }
+
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
 
@@ -176,36 +204,64 @@ internal sealed class Slug : IProjectile
             return;
         }
 
+        // Back-dating to this round's epoch: the samples are end-of-frame, the round is mid-step.
+        // Without it every separation below carries a whole frame of the planet's motion.
+        double backdate = elapsedInFrame - frameSeconds;
+
         if (target is { } t)
         {
-            // Back-dated to this round's epoch: the sample is end-of-frame, the round is mid-step.
-            // Without it the line of sight carries a whole frame of the planet's motion.
-            double3 targetPos = t.PositionEcl + t.VelocityEcl * (elapsedInFrame - frameSeconds);
-            double3 r = targetPos - PositionEcl;
-            double3 v = t.VelocityEcl - VelocityEcl;
+            ClosestApproach = Math.Min(
+                ClosestApproach,
+                Vec.Len(t.PositionEcl + t.VelocityEcl * backdate - PositionEcl));
+        }
 
-            ClosestApproach = Math.Min(ClosestApproach, Vec.Len(r));
+        if (Age >= munition.FuseArmSeconds)
+        {
+            bool struck = false;
+            double soonest = double.MaxValue;
+            double at = 0.0;
+            object? hitBody = null;
 
-            if (Age >= munition.FuseArmSeconds)
+            // Earliest, not first found: between two bodies a round hits the one it reaches, and
+            // list order is whatever the caller's enumeration happened to be.
+            void Consider(TargetState body)
             {
-                // Analytic closest approach across the sub-step, so a fast round cannot step over
-                // a small target. This is what lets FuseRadius go to zero for a contact hit.
-                double trigger = munition.FuseRadius + t.Radius;
-                double tCa = Vec.TimeOfClosestApproach(r, v, h);
-                double miss = Vec.Len(r + v * tCa);
+                if (!Vec.IsFinite(body.PositionEcl) || !Vec.IsFinite(body.VelocityEcl)) return;
 
-                if (miss <= trigger)
+                double3 r = body.PositionEcl + body.VelocityEcl * backdate - PositionEcl;
+                double3 v = body.VelocityEcl - VelocityEcl;
+
+                // The designated target already contributes its own; anything else would report
+                // the nearest bystander as how close the round came to what it was shooting at.
+                if (target is null) ClosestApproach = Math.Min(ClosestApproach, Vec.Len(r));
+
+                if (ContactSweep.TryStrike(r, v, h, munition.FuseRadius, body.Radius,
+                                           Hull, body.Handle,
+                                           out double when, out double miss)
+                    && when < soonest)
                 {
-                    PositionEcl += VelocityEcl * tCa;
-                    MissDistance = miss;
-                    ClosestApproach = Math.Min(ClosestApproach, miss);
-
-                    // Negative: the world sample is end-of-step, so the caller advances the world
-                    // backward by this much to place the burst.
-                    DetonationElapsedInFrame = elapsedInFrame + tCa - frameSeconds;
-                    State = RoundState.Detonated;
-                    return;
+                    struck = true;
+                    soonest = when;
+                    at = miss;
+                    hitBody = body.Handle;
                 }
+            }
+
+            if (target is { } designated) Consider(designated);
+            for (int i = 0; i < Contacts.Count; i++) Consider(Contacts[i]);
+
+            if (struck)
+            {
+                PositionEcl += VelocityEcl * soonest;
+                MissDistance = at;
+                StruckBody = hitBody;
+                ClosestApproach = Math.Min(ClosestApproach, at);
+
+                // Negative: the world sample is end-of-step, so the caller advances the world
+                // backward by this much to place the burst.
+                DetonationElapsedInFrame = elapsedInFrame + soonest - frameSeconds;
+                State = RoundState.Detonated;
+                return;
             }
         }
 

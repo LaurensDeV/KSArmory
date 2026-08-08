@@ -207,8 +207,18 @@ internal static class Diagnostics
                 : cpa <= battery.Sensor.ThreatRadius || range <= battery.Sensor.ThreatRadius ? "TRACK: threat"
                 : $"TRACK: not a threat (cpa {cpa:F0} m > {battery.Sensor.ThreatRadius:F0})";
 
+            // How far the analytic position sits from where the craft is drawn. Rounds are fused
+            // against the first and struck against the second, so this is the error budget of a
+            // contact fuse: noise against a bounding sphere, and the whole answer against a hull.
+            string slip = "n/a";
+            if (KsaWorld.HasAnchor && KsaWorld.TryVehicleEgo(v, out double3 drawnEgo))
+            {
+                slip = $"{Vec.Len(drawnEgo - (KsaWorld.AnchorEgo + r)):F2} m";
+            }
+
             Log.Debug($"  '{name}': range {range / 1000.0:F2} km, off-axis {offAxisDeg:F0} deg, " +
-                     $"rel speed {relSpeed:F0} m/s, cpa {cpa:F0} m in {tCa:F0}s -> {verdict}");
+                     $"rel speed {relSpeed:F0} m/s, cpa {cpa:F0} m in {tCa:F0}s, " +
+                     $"analytic-vs-drawn {slip} -> {verdict}");
         }
     }
 

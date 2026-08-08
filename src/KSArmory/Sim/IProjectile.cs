@@ -106,6 +106,15 @@ internal interface IProjectile
     /// </summary>
     double DetonationElapsedInFrame { get; }
 
+    /// <summary>
+    /// The body this round physically met, or null if it met nothing.
+    ///
+    /// <para>Null is the answer for a proximity-fused warhead, which is not required to touch
+    /// anything: what it kills is settled by its miss distance. A round that names a body has
+    /// struck that one, whatever fire control was aiming at.</para>
+    /// </summary>
+    object? StruckBody { get; }
+
     // ---- Behaviour -------------------------------------------------------
 
     /// <summary>

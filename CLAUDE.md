@@ -237,6 +237,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
+| `Sim/ContactSweep.cs` | the contact rule: whether a round runs into a body over one step |
+| `Sim/IHullTest.cs` | **the seam a kinetic round asks whether it truly touched something** |
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives |
@@ -271,6 +273,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
+| `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSystem.cs` | what one system is, sees and is doing |
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
@@ -943,6 +946,32 @@ the same thing silently.
 **Kills are binary.** KSA exposes no partial-damage model, only
 `Universe.DestroyVehicleFromEvent`. `LethalRadius` destroys; between lethal and `BlastRadius`
 the mod logs a near miss and the target survives.
+
+**A shell has to touch what it kills; a warhead does not.** That difference is the weapon's
+implementation, not a profile field — `Slug` asks `Sim/IHullTest.cs` and `Interceptor` never
+does, so a proximity-fused missile keeps bursting near an airframe, which is what it is for.
+The hook is deliberately *not* on `IProjectile`, because putting it there is an invitation to
+wire it into the missile.
+
+Three rules hold that together, and each was a bug first:
+
+- **The sphere only rejects; the hull decides.** A craft's `MeanRadius` is the half-diagonal of
+  its bounding box — a number built for orbital clearance margins, standing ten metres clear of
+  a rocket's skin. Used as a contact radius it destroys things the shell visibly missed, at a
+  logged miss distance of 8 m. It stays as the broad phase because a sphere containing the mesh
+  cannot produce a false negative, and because it is what stops a round at 1100 m/s tunnelling.
+- **A hull test that cannot answer falls back to the sphere, never to "no hit".** A craft the
+  engine will not resolve would otherwise become silently bulletproof, which is worse than
+  firing early and far harder to notice.
+- **A round names what it struck.** Fire control decides what to shoot at; it does not decide
+  what a shell in the air passes through. Scoring a strike on a bystander against the *target's*
+  lethal range destroys something the round never reached.
+
+`Ksa/HullTest.cs` needs no camera: `Vehicle.GetMatrixAsmb2Ego` takes the frame origin as an
+argument, so passing the round-relative separation puts the whole per-triangle cast in a
+metres-scale frame centred on the round. What it is fed is the *analytic* position while the mesh
+is drawn at the *physics* one; the verbose world dump prints that gap per craft, because it was
+noise against a 22 m trigger and is the entire error budget against a hull.
 
 **A warhead is one number: `MunitionProfile.ChargeKg`.** Lethal radius, blast radius and the size
 of the fireball are all read off it in `Sim/Warhead.cs`, as the **cube root** — Hopkinson–Cranz,

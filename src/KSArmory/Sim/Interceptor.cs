@@ -9,8 +9,14 @@ internal enum RoundState
     Expired,
 }
 
-/// <summary>Sampled target state for one frame, in the ecliptic frame.</summary>
-internal readonly record struct TargetState(double3 PositionEcl, double3 VelocityEcl, double Radius);
+/// <summary>
+/// Sampled target state for one frame, in the ecliptic frame.
+///
+/// <para><paramref name="Handle"/> is opaque and defaulted: <c>Sim/</c> only ever compares it or
+/// hands it back, and a caller with nothing to identify leaves it out.</para>
+/// </summary>
+internal readonly record struct TargetState(double3 PositionEcl, double3 VelocityEcl, double Radius,
+                                            object? Handle = null);
 
 /// <summary>
 /// A single anti-air round.
@@ -63,6 +69,12 @@ internal sealed class Interceptor : IProjectile
     public RoundState State { get; private set; } = RoundState.Flying;
 
     /// <summary>Miss distance recorded at detonation (m). Meaningful once detonated.</summary>
+    /// <summary>
+    /// Always null. This round is proximity-fused, so it kills by being near rather than by
+    /// arriving, and its lethality is decided from <see cref="MissDistance"/>.
+    /// </summary>
+    public object? StruckBody => null;
+
     public double MissDistance { get; private set; }
 
     /// <summary>
