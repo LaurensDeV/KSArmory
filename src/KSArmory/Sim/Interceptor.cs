@@ -410,12 +410,12 @@ internal sealed class Interceptor : IProjectile
                         // Detonate where the round actually is at closest approach.
                         PositionEcl += VelocityEcl * tCa;
                         MissDistance = miss;
-                        // Reported on the same epoch as the geometry that produced it. The
-                        // battery advances the world forward by this much to place the burst
-                        // (DefenceBattery.Detonate and the blast sweep), so it has to be measured
-                        // from the target's back-dated instant too. Correcting the extrapolation
-                        // above without correcting this leaves the blast wrong by V*frameSeconds
-                        // in the opposite direction - the two are one change, not two.
+                        // Reported on the same epoch as the geometry that produced it. Whatever
+                        // applies the warhead advances the world forward by this much to place
+                        // the burst and to sweep it, so it has to be measured from the target's
+                        // back-dated instant too. Correcting the extrapolation above without
+                        // correcting this leaves the blast wrong by V*frameSeconds in the
+                        // opposite direction: the two are one change, not two.
                         DetonationElapsedInFrame = elapsedInFrame + tCa - frameSeconds;
                         State = RoundState.Detonated;
                         return;

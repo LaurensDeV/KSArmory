@@ -19,9 +19,9 @@ public sealed class Config
 {
 
     // There is deliberately no launcher, round or sensor here. A weapon system belongs to the
-    // battery running it — see DefenceBattery.Profile — because two sites in one world can be
-    // different systems, and a session-wide selection gives every reader whichever battery
-    // updated last. Arsenal.LoadoutFor is what pairs the three.
+    // installation running it, because two sites in one world can be different systems, and a
+    // session-wide selection gives every reader whichever installation updated last.
+    // Arsenal.LoadoutFor is what pairs the three.
 
     /// <summary>
     /// Play a rocket motor while a round is boosting.

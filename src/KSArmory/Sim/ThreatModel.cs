@@ -5,10 +5,9 @@ namespace KSArmory;
 /// <summary>
 /// Decides what counts as a threat and which one to shoot at first.
 ///
-/// <para>Two jobs, both pure arithmetic over relative motion, both stranded
-/// inside KSA-facing classes where nothing could test them. The search-volume and CPA maths
-/// came out of <c>Ksa/Radar.cs</c>; the ranking and salvo rules out of
-/// <c>Ksa/DefenceBattery.cs</c>.</para>
+/// <para>Two jobs: the search volume and the CPA geometry, then the ranking and the salvo rules.
+/// Both are pure arithmetic over relative motion, so they live here rather than beside the
+/// sensor and fire control that call them, where nothing under <c>Ksa/</c> can be tested.</para>
 ///
 /// <para>Everything works in <em>relative</em> position and velocity — target minus battery —
 /// so the ecliptic frame's ~1.5e11 m offset and ~29.8 km/s of common motion cancel before any

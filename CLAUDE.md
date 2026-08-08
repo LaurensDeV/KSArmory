@@ -316,6 +316,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
+| `docs/BATTERY-SPLIT.md` | what `DefenceBattery` should be split into, what to call it instead, and in what order |
+| `docs/PROMPT-modularity-review.md` | the brief that review was written from |
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
