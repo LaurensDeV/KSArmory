@@ -507,8 +507,10 @@ than off the track — it is a search set, so it never stops and never aims. Its
 clocked 30° apart because hexagons rotated alike put their flats on the same planes, and the
 faces lean toward each other far enough for those planes to overlap.
 
-Still fixed: **boresight is local "up"**, not the launcher's facing — the radar sweeps a
-hemisphere regardless of where the tubes are aimed, and the spinning array is cosmetic.
+The Pantsir's boresight is local "up" — its set sweeps a hemisphere regardless of where the tubes
+are aimed, and the spinning array is cosmetic. That is its `SensorProfile`'s choice rather than a
+limit: `BoresightMode` also offers `PartForward`, which the Sidewinder rail uses because a seeker
+head looks where the rail points, and `TurretAxis`, which follows the traverse.
 
 ## Adding a weapon system
 
@@ -806,7 +808,7 @@ not move. `docs/FRAMES-AND-EPOCHS.md` has why, and `BallisticLead` is the one th
 **Weapon performance lives on profiles, not in `Config`.** `Config` is the *player's* settings:
 armed, auto-engage, what to draw. Range, guidance, fuse and launcher geometry belong to a
 weapon system and vary per system, so they sit on `SensorProfile`, `MunitionProfile` and
-`LauncherProfile`. The panel edits whichever profiles `Config.Select` last pointed at, so live
+`LauncherProfile`. The panel edits the profiles of whichever system it is showing, so live
 tuning still works — it just tunes that system rather than the whole mod.
 
 **Rounds are drawn as real subparts, anchored to the tube they left.** Twelve `Missile`
@@ -979,8 +981,8 @@ reachable without patching.
 the `LauncherProfile` in `Sim/Arsenal.cs` is pasted from what it prints.
 `validate-parts.py` **fails if any of them disagree** — this is the third piece of geometry in
 the repo duplicated across a boundary, and the first two both drifted. Change the pods, rerun
-`tools/model/build.sh`, paste the block. If the tube count changes, `Config.TubeCount` changes
-with it.
+`tools/model/build.sh`, paste the block. The tube count is `LauncherProfile.Tubes.Length`, so it
+follows the block you paste.
 
 **A system will not fire while its launcher is slewing.** `WeaponSystem.IsLaid` requires
 both axes on target for `TurretSettleSeconds` first. Before that gate existed it launched the
@@ -1089,8 +1091,8 @@ should not be weakened without understanding what they buy:
 - The guns elevate on the same solution as the pods — one turret, one aim. What they do not have
   is a firing solution of their own, so the cannon cannot engage a different target from the
   missiles.
-- Radar boresight is local "up" regardless of where the launcher is aimed, so the search volume
-  does not follow the turret.
+- The Pantsir's search volume does not follow its turret, because its profile boresights on local
+  "up". `BoresightMode.TurretAxis` exists and nothing registered uses it yet.
 - The model has no normal or occlusion detail — flat palette swatches only. Faceted lighting is
   the whole look, which suits KSA's art style, but it is a floor not a ceiling.
 - Rounds do not collide with terrain or structures, only their designated target.

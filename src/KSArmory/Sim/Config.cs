@@ -12,8 +12,8 @@ namespace KSArmory;
 /// live on <see cref="SensorProfile"/>, <see cref="MunitionProfile"/> and
 /// <see cref="LauncherProfile"/>, because those vary per weapon system and this does not.</para>
 ///
-/// <para><see cref="Active"/> points at whichever system the panel is currently tuning, so the
-/// sliders keep editing live values by reference.</para>
+/// <para>The panel edits the profiles of whichever system it is showing, by reference, so tuning
+/// reaches every system running that same loadout rather than only the one on screen.</para>
 /// </summary>
 public sealed class Config
 {

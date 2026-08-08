@@ -47,8 +47,9 @@ public sealed class SystemConfig
     /// Ride the main view behind this system's rounds.
     ///
     /// <para>Per battery rather than per session: with several sites alive, whose missiles are
-    /// worth watching is exactly the sort of thing two of them disagree about. There is still only
-    /// one main view, so the last one to fire with this on gets it.</para>
+    /// worth watching is exactly the sort of thing two of them disagree about. There is one main
+    /// view, and the frame hook offers it only to the system the panel is showing, so setting this
+    /// on any other does nothing until that system is focused.</para>
     /// </summary>
     public bool ChaseRounds;
 
