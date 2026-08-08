@@ -26,6 +26,13 @@ internal interface IContact
 
     string DisplayName { get; }
 
+    /// <summary>
+    /// The name the team roster is matched against, which is not always what the contact is
+    /// called. A round's is its <em>shooter's</em> craft name, so it inherits that side's
+    /// allegiance without anything having to know a round from a craft.
+    /// </summary>
+    string TeamKey { get; }
+
     /// <summary>Radius, which the blast and the reticle both size from.</summary>
     double MeanRadius { get; }
 
@@ -51,6 +58,8 @@ internal sealed class VehicleContact(Vehicle vehicle) : IContact
     public object Handle => Vehicle;
 
     public string DisplayName => KsaWorld.DisplayName(Vehicle);
+
+    public string TeamKey => DisplayName;
 
     public double MeanRadius => KsaWorld.MeanRadius(Vehicle);
 

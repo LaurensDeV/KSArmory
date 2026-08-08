@@ -21,6 +21,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     private readonly SystemConfig _policy = policy;
     private readonly List<IProjectile> _rounds = [];
     private readonly List<Vehicle> _blastScratch = [];
+
+    // Rounds in the air that are somebody else's, rebuilt every frame. A field rather than a
+    // local, so filtering costs no allocation on a path every system runs every frame.
+    private readonly List<IContact> _incoming = [];
     private readonly List<Vehicle> _pendingKills = [];
     private readonly List<SystemEvent> _events = [];
 
@@ -402,13 +406,33 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// world sample must run regardless. See <see cref="SampleWorld"/> for what conflating the
     /// two cost.</para>
     /// </summary>
-    public void Update(double dt)
+    /// <param name="airborne">
+    /// Every round in the world, so this system can see the ones that are not its own. Filtered
+    /// here rather than in the radar: which rounds are mine is the system's business, and a
+    /// sensor that had to know would be a sensor that knows what a weapon is.
+    /// </param>
+    public void Update(double dt, IReadOnlyList<IContact>? airborne = null)
     {
         if (Platform is null) return;
 
         _clock += dt;
 
-        Radar.Scan(Platform, Boresight, dt);
+        _incoming.Clear();
+        if (airborne is not null)
+        {
+            for (int i = 0; i < airborne.Count; i++)
+            {
+                // Never our own salvo. Teams would usually cover this, but a system with no team
+                // set reads every contact as Unknown, which is engageable -- and a launcher
+                // shooting down its own missiles as they leave the tubes is not a corner case to
+                // discover in flight.
+                if (airborne[i].Handle is IProjectile r && _rounds.Contains(r)) continue;
+
+                _incoming.Add(airborne[i]);
+            }
+        }
+
+        Radar.Scan(Platform, Boresight, dt, _incoming);
         AttributeRoundsToTracks();
         UpdateTurret(dt);
 

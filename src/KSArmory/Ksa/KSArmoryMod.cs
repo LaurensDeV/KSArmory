@@ -45,6 +45,9 @@ public sealed class KSArmoryMod
     // is supposed to track a round has to run on. Player time keeps ticking through a pause.
     private double _lastSimStep;
 
+    // Every round in the world, as things a sensor can hold. Rebuilt each simulated step.
+    private readonly List<IContact> _airborne = [];
+
     // Development tool: pick a craft up and set it down somewhere else.
     private readonly CraftMover _mover = new();
 
@@ -318,7 +321,12 @@ public sealed class KSArmoryMod
             if (double.IsFinite(dtSim) && dtSim > 0.0)
             {
                 double step = Math.Min(dtSim, FaithfulStepInFlight());
-                foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step);
+
+                // Gathered once, not once per system: every crewed system scans the same sky, and
+                // building this per system would be quadratic in how many are in the world.
+                CollectAirborne();
+
+                foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step, _airborne);
             }
         }
 
@@ -450,6 +458,33 @@ public sealed class KSArmoryMod
         {
             policy.OpticViewport = -1;
             Log.Warn("camera: could not drive that view; released it");
+        }
+    }
+
+    // Every round any crewed system has in the air, wrapped as contacts so a radar can see them.
+    //
+    // A round carries its shooter's craft name rather than its own, which is what makes it
+    // inherit that side's allegiance: a launcher's own salvo reads as friendly to everything on
+    // its team without anything having to know a round from a craft.
+    private void CollectAirborne()
+    {
+        _airborne.Clear();
+        if (_roster is null) return;
+
+        foreach (WeaponSystems.Entry e in _roster.All)
+        {
+            WeaponSystem system = e.Battery;
+            if (system.Platform is not { } platform) continue;
+
+            string name = KsaWorld.DisplayName(platform);
+            IReadOnlyList<IProjectile> rounds = system.Rounds;
+
+            for (int i = 0; i < rounds.Count; i++)
+            {
+                if (rounds[i].State != RoundState.Flying) continue;
+
+                _airborne.Add(new RoundContact(rounds[i], name, platform));
+            }
         }
     }
 

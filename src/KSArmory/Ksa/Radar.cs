@@ -56,7 +56,13 @@ internal sealed class Radar(Config config, SystemConfig policy)
     /// <param name="platform">The vehicle carrying the battery.</param>
     /// <param name="boresight">Unit vector the radar is pointed along, in Ecl.</param>
     /// <param name="dt">Seconds since the previous scan.</param>
-    public void Scan(Vehicle platform, double3 boresight, double dt)
+    /// <param name="airborne">
+    /// Contacts that are not craft -- rounds somebody else has in the air. Assessed through the
+    /// same threat model and the same IFF as anything else: a sensor should not care what kind of
+    /// thing it is looking at, only where it is going and whose it is.
+    /// </param>
+    public void Scan(Vehicle platform, double3 boresight, double dt,
+                     IReadOnlyList<IContact>? airborne = null)
     {
         Tracks.Clear();
         MaskedByTerrain = 0;
@@ -71,42 +77,12 @@ internal sealed class Radar(Config config, SystemConfig policy)
             if (ReferenceEquals(candidate, platform)) continue;
             if (_policy.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
 
-            // Classified before the geometry, so a friendly still appears on the panel as a
-            // contact and is simply never handed to fire control.
-            string? team = TeamOf(candidate);
-            Allegiance allegiance = _policy.Iff.Classify(team);
+            Consider(new VehicleContact(candidate), originEcl, originVel, boresight, dt);
+        }
 
-            double3 targetPos = KsaWorld.PositionEcl(candidate);
-            double3 targetVel = KsaWorld.VelocityEcl(candidate);
-
-            // Before the threat maths: something on the far side of the world is not a contact,
-            // and assessing it first would spend the work only to discard the answer.
-            if (_sensor.HorizonMasking
-                && KsaWorld.IsOccluded(originEcl, targetPos, _sensor.TerrainMarginMetres, out _))
-            {
-                MaskedByTerrain++;
-                continue;
-            }
-
-            // Relative motion, so the ecliptic frame's huge common position and velocity cancel
-            // before any of the geometry runs. The maths itself lives in Sim/ and is tested.
-            if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
-                                       boresight, _sensor, out var a)) continue;
-
-            Tracks.Add(new Track
-            {
-                Contact = new VehicleContact(candidate),
-                PositionEcl = targetPos,
-                VelocityEcl = targetVel,
-                Range = a.Range,
-                ClosingSpeed = a.ClosingSpeed,
-                ClosestApproach = a.ClosestApproach,
-                TimeToClosestApproach = a.TimeToClosestApproach,
-                HeldSeconds = _dwell.GetValueOrDefault<object, double>(candidate) + dt,
-                IsThreat = a.IsThreat && _policy.Iff.MayEngage(allegiance),
-                Team = team,
-                Allegiance = allegiance,
-            });
+        if (airborne is not null)
+        {
+            for (int i = 0; i < airborne.Count; i++) Consider(airborne[i], originEcl, originVel, boresight, dt);
         }
 
         // Refresh dwell bookkeeping, dropping anything we no longer see.
@@ -120,11 +96,50 @@ internal sealed class Radar(Config config, SystemConfig policy)
 
     // KSA has no team field, so the craft's name is the only assignment available without extra
     // UI. Longest match wins, so "Red Team" beats "Red" when both are listed.
-    private string? TeamOf(Vehicle v)
+    // One contact, through the same geometry, masking and IFF a craft gets. Anything that only a
+    // craft can answer is already behind IContact, so there is nothing here that knows the
+    // difference.
+    private void Consider(IContact contact, double3 originEcl, double3 originVel,
+                          double3 boresight, double dt)
+    {
+        if (!contact.IsAlive) return;
+
+        string? team = TeamOf(contact.TeamKey);
+        Allegiance allegiance = _policy.Iff.Classify(team);
+
+        double3 targetPos = contact.PositionEcl;
+        double3 targetVel = contact.VelocityEcl;
+
+        if (_sensor.HorizonMasking
+            && KsaWorld.IsOccluded(originEcl, targetPos, _sensor.TerrainMarginMetres, out _))
+        {
+            MaskedByTerrain++;
+            return;
+        }
+
+        if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
+                                   boresight, _sensor, out var a)) return;
+
+        Tracks.Add(new Track
+        {
+            Contact = contact,
+            PositionEcl = targetPos,
+            VelocityEcl = targetVel,
+            Range = a.Range,
+            ClosingSpeed = a.ClosingSpeed,
+            ClosestApproach = a.ClosestApproach,
+            TimeToClosestApproach = a.TimeToClosestApproach,
+            HeldSeconds = _dwell.GetValueOrDefault(contact.Handle) + dt,
+            IsThreat = a.IsThreat && _policy.Iff.MayEngage(allegiance),
+            Team = team,
+            Allegiance = allegiance,
+        });
+    }
+
+    private string? TeamOf(string name)
     {
         if (_config.TeamNames.Count == 0) return null;
 
-        string name = KsaWorld.DisplayName(v);
         string? best = null;
 
         foreach (string team in _config.TeamNames)
