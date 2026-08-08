@@ -79,6 +79,20 @@ public sealed class MunitionProfile
     /// <summary>Round self-destructs this long after launch.</summary>
     public float MaxFlightSeconds = 30f;
 
+    /// <summary>
+    /// How far this round can usefully be sent, in metres.
+    ///
+    /// <para>On the round rather than on the set that finds the target or the launcher that throws
+    /// it: reach is a property of what is flying. It lived on <see cref="SensorProfile"/>, which
+    /// made a gun-only mount describe its cannon's reach as its radar's, and put the same number
+    /// in two files for the CIWS. Detection range is still the sensor's and is a different
+    /// question: a set that sees 36 km feeding a round that flies 20 is the normal case.</para>
+    /// </summary>
+    public float MinRange;
+
+    /// <inheritdoc cref="MinRange"/>
+    public float MaxRange = 20000f;
+
     // ---- Guidance -------------------------------------------------------
     /// <summary>Proportional-navigation constant. 3-5 is the classic range.</summary>
     public float NavConstant = 4f;

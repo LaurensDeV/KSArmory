@@ -35,6 +35,9 @@ public static class Arsenal
     /// </summary>
     public static readonly MunitionProfile Missile57E6 = new()
     {
+        MinRange = 1200f,
+        MaxRange = 20000f,   // the 57E6's own reach
+
         Name = "57E6",
         DisplayName = "57E6 two-stage SAM",
         BodyMarker = "Missile",
@@ -55,6 +58,9 @@ public static class Arsenal
     /// </summary>
     public static readonly MunitionProfile Cannon30Mm = new()
     {
+        MinRange = 200f,
+        MaxRange = 4000f,   // the 2A38M's effective reach
+
         Name = "30MM",
         DisplayName = "2A38M 30 mm cannon",
 
@@ -92,6 +98,9 @@ public static class Arsenal
     /// </summary>
     public static readonly MunitionProfile Missile9J = new()
     {
+        MinRange = 400f,
+        MaxRange = 14000f,   // the AIM-9J's, which is what the rail throws
+
         Name = "AIM9J",
         DisplayName = "AIM-9J Sidewinder",
         BodyMarker = "Aim9",
@@ -149,6 +158,9 @@ public static class Arsenal
     /// </summary>
     public static readonly MunitionProfile Cannon20Mm = new()
     {
+        MinRange = 100f,
+        MaxRange = 1486f,   // the M61A2's, and the number the CIWS is built around
+
         Name = "20MM",
         DisplayName = "M61A2 20 mm",
 
@@ -210,8 +222,6 @@ public static class Arsenal
 
         // Off the rail under its own power, so it needs far less room to arm than a round the
         // Pantsir ejects and then has to catch.
-        MinEngagementRange = 400f,
-        MaxEngagementRange = 14000f,
     };
 
     /// <summary>
@@ -234,8 +244,6 @@ public static class Arsenal
         ThreatHorizonSeconds = 15f,
         LockSeconds = 0.6f,
 
-        MinEngagementRange = 100f,
-        MaxEngagementRange = 1486f,
     };
 
     // ---- Launchers ------------------------------------------------------
@@ -404,8 +412,6 @@ public static class Arsenal
         GunRoundsPerMinute = 4500f,
         GunBurstRounds = 60,
         GunBurstGapSeconds = 0.35f,
-        GunMinRange = 100f,
-        GunMaxRange = 1486f,
         GunReloadSeconds = 0f,
 
         // No missile magazine to refill. Left at the profile's 12 s default the

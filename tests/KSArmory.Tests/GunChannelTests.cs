@@ -151,12 +151,16 @@ public class GunChannelTests
     public void TheCannonEnvelopeOverlapsTheMissileMinimum()
     {
         LauncherProfile pantsir = Arsenal.PantsirS1;
-        SensorProfile sensor = Arsenal.SensorNamed(pantsir.Sensor);
+        MunitionProfile missile = Arsenal.MunitionNamed(pantsir.Munition);
+        MunitionProfile shell = Arsenal.MunitionNamed(pantsir.GunMunition!);
 
         Assert.True(pantsir.HasCannon);
-        Assert.True(pantsir.GunMaxRange >= sensor.MinEngagementRange,
-                    $"cannon reach {pantsir.GunMaxRange} m leaves a hole below the missile's "
-                    + $"{sensor.MinEngagementRange} m minimum");
+
+        // Each round carries its own reach, so the two envelopes are now directly comparable
+        // rather than one being read off the sensor.
+        Assert.True(shell.MaxRange >= missile.MinRange,
+                    $"cannon reach {shell.MaxRange} m leaves a hole below the missile's "
+                    + $"{missile.MinRange} m minimum");
     }
 
     /// <summary>

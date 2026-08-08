@@ -119,6 +119,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// <inheritdoc cref="Profile"/>
     public MunitionProfile Munition { get; private set; } = Arsenal.MunitionNamed(Arsenal.Launchers[0].Munition);
 
+    // The cannon's round, which is a different profile from the missile above and carries its own
+    // reach. Falls back to the missile so a launcher with no cannon still answers.
+    private MunitionProfile Shell => Profile.GunMunition is { } named
+                                         ? Arsenal.MunitionNamed(named)
+                                         : Munition;
+
     /// <inheritdoc cref="Profile"/>
     public SensorProfile Sensor { get; private set; } = Arsenal.SensorNamed(Arsenal.Launchers[0].Sensor);
 
@@ -466,13 +472,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         if (Radar.Locked is not { } locked) return "no lock";
         if (!ThreatModel.MayEngage(locked, _policy.Iff)) return "target is not engageable (IFF)";
         if (!ThreatModel.HasSalvoCapacity(locked, _policy.RoundsPerTarget)) return "salvo committed";
-        if (!ThreatModel.InEngagementEnvelope(locked, Sensor))
+        if (!ThreatModel.InEngagementEnvelope(locked, Munition))
         {
             // With the numbers: "out of reach" is read as too far, and the usual cause is a
             // target that came inside the minimum instead.
             return $"target out of reach ({locked.Range / 1000.0:F1} km, envelope "
-                   + $"{Sensor.MinEngagementRange / 1000f:F1}-"
-                   + $"{Sensor.MaxEngagementRange / 1000f:F1} km)";
+                   + $"{Munition.MinRange / 1000f:F1}-"
+                   + $"{Munition.MaxRange / 1000f:F1} km)";
         }
 
         return null;
@@ -602,7 +608,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // Detection reaches 36 km; the round reaches 20 km. Without this the battery empties
         // itself at contacts it cannot possibly catch, which is what every 8.7 km crossing shot
         // that expired at 22 s was doing.
-        if (!ThreatModel.InEngagementEnvelope(target, Sensor)) return;
+        if (!ThreatModel.InEngagementEnvelope(target, Munition)) return;
 
         Fire(target);
     }
@@ -681,7 +687,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     // with the missiles either switched off or unable to reach.
     private bool GunsHaveTheEngagement(Track aim)
         => FireGate.GunsHaveTheEngagement(Profile.HasCannon, _policy.GunsEnabled, !_guns.IsEmpty,
-                                          aim.Range, Profile.GunMinRange, Profile.GunMaxRange);
+                                          aim.Range, Shell.MinRange, Shell.MaxRange);
 
     // Fired along the barrel: the lead is in where the turret is pointing, so aiming the shell
     // itself as well would apply it twice.
@@ -760,8 +766,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
                           && IsOperational && GunsAreLaid
                           && Radar.Locked is { } locked
                           && ThreatModel.MayEngage(locked, _policy.Iff)
-                          && locked.Range >= Profile.GunMinRange
-                          && locked.Range <= Profile.GunMaxRange;
+                          && locked.Range >= Shell.MinRange
+                          && locked.Range <= Shell.MaxRange;
 
         // Say why the cannon are silent. Every gate below is invisible from outside, and "no
         // shooting" is the same symptom for all of them.
@@ -776,7 +782,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
                        + $"cd={_guns.Cooldown:F3} armed={_policy.Armed} auto={_policy.AutoEngage} "
                        + $"enabled={_policy.GunsEnabled} laid={GunsAreLaid} drive={_drives.Works(DriveChannel.Guns)} "
                        + $"part={(GunsPart is not null)} range={range} "
-                       + $"envelope={Profile.GunMinRange:F0}-{Profile.GunMaxRange:F0} m";
+                       + $"envelope={Shell.MinRange:F0}-{Shell.MaxRange:F0} m";
             });
         }
 

@@ -145,7 +145,7 @@ public class IffTests
     public void AFriendlyInsideTheEnvelopeIsStillRefused()
     {
         IffPolicy policy = Blue();
-        var sensor = new SensorProfile { Name = "s", DisplayName = "s" };
+        var munition = new MunitionProfile { Name = "m", DisplayName = "m" };
 
         var friendly = new TrackState
         {
@@ -158,8 +158,8 @@ public class IffTests
             Team = "Red", Allegiance = policy.Classify("Red"),
         };
 
-        Assert.True(ThreatModel.InEngagementEnvelope(friendly, sensor));
-        Assert.True(ThreatModel.InEngagementEnvelope(hostile, sensor));
+        Assert.True(ThreatModel.InEngagementEnvelope(friendly, munition));
+        Assert.True(ThreatModel.InEngagementEnvelope(hostile, munition));
 
         Assert.False(ThreatModel.MayEngage(friendly, policy));
         Assert.True(ThreatModel.MayEngage(hostile, policy));

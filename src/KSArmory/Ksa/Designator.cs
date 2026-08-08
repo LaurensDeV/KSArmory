@@ -70,7 +70,7 @@ internal sealed class Designator
         // mount marked refused forever, since its magazine is empty by construction.
         bool ready = battery.ReadyToFire;
         double range = battery.Platform is null ? 0.0 : Vec.Len(at - battery.PlatformEcl);
-        bool reaches = range <= battery.Sensor.MaxEngagementRange;
+        bool reaches = range <= battery.Munition.MaxRange;
 
         float4 colour = ready && reaches && battery.CanGuideOnto(at) ? MarkerColour : RefusedColour;
 

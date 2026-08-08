@@ -96,13 +96,11 @@ public sealed class SensorProfile
     /// </summary>
     public float TerrainMarginMetres;
 
-    public float MinEngagementRange = 1200f;
 
     /// <summary>
     /// Furthest a target may be and still be engaged (m). Detection reaches much further than the
     /// round flies, so without this the battery empties its tubes at contacts it cannot reach.
     /// </summary>
-    public float MaxEngagementRange = 20000f;
 
     public float ConeHalfAngleRad => float.DegreesToRadians(ConeDeg);
 }

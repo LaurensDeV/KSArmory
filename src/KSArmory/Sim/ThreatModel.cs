@@ -137,8 +137,8 @@ internal static class ThreatModel
     /// well as a ceiling: inside about a kilometre the round is still boosting and cannot be
     /// brought round.</para>
     /// </summary>
-    public static bool InEngagementEnvelope(TrackState track, SensorProfile sensor)
-        => track.Range >= sensor.MinEngagementRange && track.Range <= sensor.MaxEngagementRange;
+    public static bool InEngagementEnvelope(TrackState track, MunitionProfile munition)
+        => track.Range >= munition.MinRange && track.Range <= munition.MaxRange;
 
     /// <summary>
     /// Whether this contact may be fired on at all, before any geometry is considered.

@@ -231,8 +231,6 @@ public sealed class LauncherProfile
     /// usable, so the two together leave no gap; the outer is where a 30 mm round still arrives
     /// with enough speed to matter.
     /// </summary>
-    public float GunMinRange = 200f;
-    public float GunMaxRange = 4000f;
 
     /// <summary>Seconds to feed a fresh belt. Zero disables cannon resupply.</summary>
     public float GunReloadSeconds = 20f;
