@@ -1,3 +1,23 @@
+## [0.8.41](https://github.com/LaurensDeV/KSArmory/compare/v0.8.40...v0.8.41) (2026-08-08)
+
+### Features
+
+* **rounds:** add the Mk 15 Phalanx CIWS, a gun that stacks ([2e0ab41](https://github.com/LaurensDeV/KSArmory/commit/2e0ab41d37348dd92efcbb8987b5dfa024ddb9e8))
+* **rounds:** give the cannon a trigger, a flash, tracers and a voice ([9e3f191](https://github.com/LaurensDeV/KSArmory/commit/9e3f191d0cb0bf3cc1d443e56595ee01bf105489))
+* **ui:** let ModMenu list us, without depending on it ([0a0ed94](https://github.com/LaurensDeV/KSArmory/commit/0a0ed944c6d594513e2679ecda30009dc64f3028))
+* **ui:** name our menu KSArmory rather than Mods ([2ef65e0](https://github.com/LaurensDeV/KSArmory/commit/2ef65e04e17d28b5f71c0c93664af7ffc697cadf))
+* **ui:** open the panel from the game's menu bar ([b8be350](https://github.com/LaurensDeV/KSArmory/commit/b8be3500195d7147c6e40c031e4aecacd28d922d))
+
+### Fixes
+
+* **effects:** stop a pooled emitter rather than only unregistering it ([5e6cc1d](https://github.com/LaurensDeV/KSArmory/commit/5e6cc1d05d04c10a07ee2bdf9491804dd8af0f3a))
+* **model:** swing the CIWS radome with its gun ([7b1e5b9](https://github.com/LaurensDeV/KSArmory/commit/7b1e5b9e398786ee5d3a74b5f66b08d80a480730))
+* **rounds:** resolve the CIWS drives, and stop it reloading forever ([4076215](https://github.com/LaurensDeV/KSArmory/commit/4076215bc96a9d1e461f57e8861db83edb55b31d))
+* **rounds:** say why a gun-only system holds fire, and arm its fuse ([e74fba9](https://github.com/LaurensDeV/KSArmory/commit/e74fba93816f3afa69f19f42f912831a23a3d045))
+* **rounds:** stop a burst outliving the belt ([6c80fd6](https://github.com/LaurensDeV/KSArmory/commit/6c80fd6786c37a6d0b30ec349e18154bdc201c23))
+* **turret:** aim the cursor from the mount, not from the camera ([4a0f82c](https://github.com/LaurensDeV/KSArmory/commit/4a0f82cb5e5f96c4a3a559f32b5d12789cf7145b))
+* **turret:** aim through the launcher's own mounting ([7b9c765](https://github.com/LaurensDeV/KSArmory/commit/7b9c765c9ff76f2459c1bdb4c010379732f599dd))
+
 ## [0.8.40](https://github.com/LaurensDeV/KSArmory/compare/v0.8.39...v0.8.40) (2026-08-07)
 
 ### Features
