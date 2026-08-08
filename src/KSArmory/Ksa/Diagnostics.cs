@@ -216,7 +216,7 @@ internal static class Diagnostics
     {
         Log.Debug($"radar: {battery.Radar.Tracks.Count} track(s), " +
                  $"maskedByTerrain={battery.Radar.MaskedByTerrain}, " +
-                 $"locked={(battery.Radar.Locked is null ? "none" : KsaWorld.DisplayName(battery.Radar.Locked.Vehicle))}, " +
+                 $"locked={(battery.Radar.Locked is null ? "none" : battery.Radar.Locked.Contact.DisplayName)}, " +
                  $"firingSolution={battery.Radar.HasFiringSolution}, roundsInFlight={battery.Rounds.Count}");
 
         foreach (IProjectile round in battery.Rounds)

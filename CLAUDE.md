@@ -293,7 +293,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/ChaseCamera.cs` | rides the main view behind a round, and gives it back |
 | `Ksa/LevelHorizonController.cs` | KSA's fixed camera controller, with an up vector it does not otherwise offer |
 | `Ksa/WatchCamera.cs` | nudges the main view round onto one system, then lets go |
-| `Ksa/Track.cs` | a radar contact bound to a KSA vehicle |
+| `Ksa/Contact.cs` | **what a sensor can hold** — a craft, or anything else that can be seen |
+| `Ksa/Track.cs` | one contact, with the kinematics the threat model reasons about |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
 | `Ksa/ScenarioRunner.cs` | flies a scripted engagement with nobody watching, and says what happened |
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |

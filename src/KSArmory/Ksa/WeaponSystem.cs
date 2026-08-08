@@ -583,7 +583,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         foreach (IProjectile round in _rounds)
         {
             if (round.TargetRef is not Vehicle target) continue;
-            Track? t = Radar.Tracks.Find(x => ReferenceEquals(x.Vehicle, target));
+            Track? t = Radar.Tracks.Find(x => ReferenceEquals(x.Contact.Handle, target));
             if (t is not null) t.RoundsAssigned++;
         }
     }
@@ -737,7 +737,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         TubeGeometry.TryGunMuzzlePartFrame(Profile, barrel, guns.PositionParentAsmb,
                                            guns.Asmb2ParentAsmb, out double3 muzzlePart);
 
-        Slug slug = new(muzzle, platformVel + axis * shell.LaunchSpeed, track?.Vehicle,
+        Slug slug = new(muzzle, platformVel + axis * shell.LaunchSpeed, track?.Contact.Handle,
                         -(barrel + 1), PlatformEcl, platformVel)
         {
             Munition = shell,
@@ -745,8 +745,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         };
         if (track is not null)
         {
-            slug.Aimpoint = Aimpoint.OnVehicle(track.Vehicle, track.PositionEcl, track.VelocityEcl,
-                                               KsaWorld.MeanRadius(track.Vehicle));
+            slug.Aimpoint = Aimpoint.OnVehicle(track.Contact.Handle, track.PositionEcl, track.VelocityEcl,
+                                               track.Contact.MeanRadius);
 
             // Flak: burst at the intercept the ring was laid on. Without a solve there is no time
             // to burn, and the shell falls back to its proximity fuse.
@@ -833,7 +833,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
         // A flickering track keeps its vehicle; a destroyed one does not, and a shell must not
         // carry a reference to it.
-        if (_burstTrack is { } held && !KsaWorld.IsAlive(held.Vehicle)) _burstTrack = null;
+        if (_burstTrack is { } held && !held.Contact.IsAlive) _burstTrack = null;
 
         for (int i = 0; i < fired; i++) FireGun(_burstTrack);
         Log.Debug(() => $"cannon: {fired} round(s) away, {_guns.Ammo} left");
@@ -1087,16 +1087,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// </summary>
     public bool Fire(Track track)
     {
-        if (!KsaWorld.IsAlive(track.Vehicle)) { Announce("refused: target gone"); return false; }
+        if (!track.Contact.IsAlive) { Announce("refused: target gone"); return false; }
         if (!ThreatModel.MayEngage(track, _policy.Iff))
         {
-            Announce($"refused: {KsaWorld.DisplayName(track.Vehicle)} is {track.Allegiance}");
+            Announce($"refused: {track.Contact.DisplayName} is {track.Allegiance}");
             return false;
         }
 
-        return Commit(Aimpoint.OnVehicle(track.Vehicle, track.PositionEcl, track.VelocityEcl,
-                                         KsaWorld.MeanRadius(track.Vehicle)),
-                      $"{KsaWorld.DisplayName(track.Vehicle)} ({track.Range / 1000.0:F1} km)");
+        return Commit(Aimpoint.OnVehicle(track.Contact.Handle, track.PositionEcl, track.VelocityEcl,
+                                         track.Contact.MeanRadius),
+                      $"{track.Contact.DisplayName} ({track.Range / 1000.0:F1} km)");
     }
 
     /// <summary>

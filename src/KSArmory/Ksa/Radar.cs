@@ -32,7 +32,11 @@ internal sealed class Radar(Config config, SystemConfig policy)
     public Track? Locked { get; private set; }
 
     /// <summary>Set when the operator picks a target by hand; clears on lock loss.</summary>
-    public Vehicle? ManualDesignation { get; set; }
+    /// <summary>
+    /// What the operator picked from the track list, as an <see cref="IContact.Handle"/>. An
+    /// object rather than a craft: a contact need not be one.
+    /// </summary>
+    public object? ManualDesignation { get; set; }
 
     /// <summary>
     /// Craft the last scan discarded because the planet was in the way.
@@ -44,7 +48,7 @@ internal sealed class Radar(Config config, SystemConfig policy)
     public int MaskedByTerrain { get; private set; }
 
     // Held between scans so a contact's dwell time survives track rebuilds.
-    private readonly Dictionary<Vehicle, double> _dwell = new();
+    private readonly Dictionary<object, double> _dwell = new();
 
     /// <summary>
     /// Rebuilds the track list from the current world state.
@@ -91,14 +95,14 @@ internal sealed class Radar(Config config, SystemConfig policy)
 
             Tracks.Add(new Track
             {
-                Vehicle = candidate,
+                Contact = new VehicleContact(candidate),
                 PositionEcl = targetPos,
                 VelocityEcl = targetVel,
                 Range = a.Range,
                 ClosingSpeed = a.ClosingSpeed,
                 ClosestApproach = a.ClosestApproach,
                 TimeToClosestApproach = a.TimeToClosestApproach,
-                HeldSeconds = _dwell.GetValueOrDefault(candidate) + dt,
+                HeldSeconds = _dwell.GetValueOrDefault<object, double>(candidate) + dt,
                 IsThreat = a.IsThreat && _policy.Iff.MayEngage(allegiance),
                 Team = team,
                 Allegiance = allegiance,
@@ -107,7 +111,7 @@ internal sealed class Radar(Config config, SystemConfig policy)
 
         // Refresh dwell bookkeeping, dropping anything we no longer see.
         _dwell.Clear();
-        foreach (Track t in Tracks) _dwell[t.Vehicle] = t.HeldSeconds;
+        foreach (Track t in Tracks) _dwell[t.Contact.Handle] = t.HeldSeconds;
 
         ThreatModel.SortByPriority(Tracks);
 
@@ -140,7 +144,7 @@ internal sealed class Radar(Config config, SystemConfig policy)
         // An operator designation wins as long as the contact is still on scope.
         if (ManualDesignation is not null)
         {
-            Track? designated = Tracks.Find(t => ReferenceEquals(t.Vehicle, ManualDesignation));
+            Track? designated = Tracks.Find(t => ReferenceEquals(t.Contact.Handle, ManualDesignation));
             if (designated is not null)
             {
                 Locked = designated;

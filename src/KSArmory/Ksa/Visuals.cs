@@ -155,14 +155,14 @@ internal static class Visuals
 
             // Ask the engine where this vehicle is being drawn rather than deriving it, so the
             // marker sits on the craft and not on its analytic position.
-            if (config.DrawTrackMarkers && KsaWorld.TryVehicleEgo(track.Vehicle, out double3 trackEgo))
+            if (config.DrawTrackMarkers && track.Contact.TryDrawEgo(out double3 trackEgo))
                 KsaWorld.DrawSphereEgo(trackEgo, marker, colour);
 
             if (!track.IsThreat && !isLock) continue;
 
             // End the line on the engine's position for the contact, not its analytic one, so
             // it touches the craft rather than pointing near it.
-            if (KsaWorld.TryEclToEgo(origin, out double3 originEgo) && KsaWorld.TryVehicleEgo(track.Vehicle, out double3 endEgo))
+            if (KsaWorld.TryEclToEgo(origin, out double3 originEgo) && track.Contact.TryDrawEgo(out double3 endEgo))
             {
                 KsaWorld.DrawLineEgo(originEgo, endEgo, colour);
             }

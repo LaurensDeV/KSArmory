@@ -159,7 +159,7 @@ internal sealed partial class Ui
         {
             float4 colour = _battery.Radar.HasFiringSolution ? Red : Amber;
             ImGui.TextColored(colour, _battery.Radar.HasFiringSolution ? "LOCKED" : "acquiring...");
-            ImGui.Text($"  {KsaWorld.DisplayName(locked.Vehicle)}");
+            ImGui.Text($"  {locked.Contact.DisplayName}");
             ImGui.Text($"  range {locked.Range / 1000.0:F2} km   closing {locked.ClosingSpeed:F0} m/s");
             ImGui.Text($"  CPA {locked.ClosestApproach:F0} m in {locked.TimeToClosestApproach:F1}s");
         }
@@ -413,14 +413,14 @@ internal sealed partial class Ui
                 : t.Allegiance == Allegiance.Hostile ? "H" : "?";
 
             ImGui.TextColored(colour,
-                $"{(isLock ? ">" : " ")}[{mark}] {KsaWorld.DisplayName(t.Vehicle)}  " +
+                $"{(isLock ? ">" : " ")}[{mark}] {t.Contact.DisplayName}  " +
                 $"{t.Range / 1000.0:F2} km  cpa {t.ClosestApproach:F0} m  " +
                 $"{(t.RoundsAssigned > 0 ? $"[{t.RoundsAssigned} away]" : "")}");
 
             ImGui.SameLine();
             if (ImGui.Button($"designate##{i}"))
             {
-                _battery.Radar.ManualDesignation = t.Vehicle;
+                _battery.Radar.ManualDesignation = t.Contact.Handle;
             }
         }
 
