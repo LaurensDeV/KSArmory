@@ -410,12 +410,32 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
                                        ? "no launcher part on this craft"
                                        : "not operational";
 
-        if (_magazine.IsEmpty && _reloadTimer > 0.0) return $"reloading ({_reloadTimer:F0} s)";
+        // Which weapon this ladder is about. The rungs below are the missile sequence, and a
+        // launcher with no tubes fails "out of rounds" at every one of them forever: its magazine
+        // is empty by construction and its belt is what shoots. Reported as holding fire while the
+        // cannon are audibly firing, which is how it was found.
+        WeaponFit fit = WeaponFit.Of(Profile, Sensor);
+        bool hasTubes = fit.FirstOf(ArmamentKind.Tubes) is not null;
+
+        if (hasTubes && _magazine.IsEmpty && _reloadTimer > 0.0)
+        {
+            return $"reloading ({_reloadTimer:F0} s)";
+        }
+
         if (!_policy.Armed) return "safe -- master arm is off";
         if (!_policy.AutoEngage) return "auto-engage is off";
-        if (!_policy.MissilesEnabled) return "missiles are switched off";
-        if (Ammo <= 0) return "out of rounds";
-        if (_salvoTimer > 0.0) return "between salvos";
+
+        if (hasTubes)
+        {
+            if (!_policy.MissilesEnabled) return "missiles are switched off";
+            if (Ammo <= 0) return "out of rounds";
+            if (_salvoTimer > 0.0) return "between salvos";
+        }
+        else
+        {
+            if (!_policy.GunsEnabled) return "cannon are switched off";
+            if (_guns.IsEmpty) return "belt empty";
+        }
 
         if (!Radar.HasFiringSolution)
         {
@@ -424,10 +444,19 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
                        : $"no firing solution yet ({Radar.Tracks.Count} track(s))";
         }
 
-        if (!IsLaid) return "drives still settling";
-        if (!FireGate.MissilesMayFire(_ringIsOnGunLead, Profile.LaunchAlongTube))
+        // Each weapon settles on its own gear, so a system with no pods must not be asked whether
+        // its pods have stopped moving.
+        if (hasTubes)
         {
-            return "the cannon has the bearing";
+            if (!IsLaid) return "drives still settling";
+            if (!FireGate.MissilesMayFire(_ringIsOnGunLead, Profile.LaunchAlongTube))
+            {
+                return "the cannon has the bearing";
+            }
+        }
+        else if (!GunsAreLaid)
+        {
+            return "drives still settling";
         }
 
         if (Radar.Locked is not { } locked) return "no lock";
@@ -617,17 +646,25 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
     private double3 AimPointEcl(Track aim)
     {
         _ringIsOnGunLead = false;
+        _gunFlightTime = 0.0;
         if (!GunsHaveTheEngagement(aim)) return aim.PositionEcl;
 
         MunitionProfile shell = Arsenal.MunitionNamed(Profile.GunMunition!);
         double3 gravity = Platform is null ? Vec.Zero : KsaWorld.GravityAt(Platform, MountEcl);
 
+        // The flight time comes back from the same solve that produced the aim point, which is
+        // what a timed fuse needs: a burst time derived separately would go off somewhere the gun
+        // is not pointing. Without it FuseSeconds stays zero and Slug falls back to proximity, so
+        // the panel's timed-airburst switch has nothing to act on.
         if (!BallisticLead.TrySolve(MountEcl, KsaWorld.VelocityEcl(Platform!),
                                     aim.PositionEcl, aim.VelocityEcl,
-                                    shell.LaunchSpeed, gravity, out double3 lead))
+                                    shell.LaunchSpeed, gravity, out double3 lead,
+                                    out double flightTime))
         {
             return aim.PositionEcl;
         }
+
+        _gunFlightTime = flightTime;
 
         // Recorded rather than recomputed at the missile gate: a solve that fails leaves the ring
         // on the target, which the missiles can use, so only the write that actually happened
