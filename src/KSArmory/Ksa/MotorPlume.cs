@@ -105,8 +105,8 @@ internal sealed class MotorPlume
 
     private static bool Burning(IProjectile round)
         => round.State == RoundState.Flying
-           && round.Munition.BoostSeconds > 0f
-           && round.Age <= round.Munition.BoostSeconds;
+           && round.Munition.TotalBoostSeconds > 0f
+           && round.Age <= round.Munition.TotalBoostSeconds;
 
     private void Follow(IProjectile round, IEffectSource battery, Vehicle platform)
     {

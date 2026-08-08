@@ -327,10 +327,10 @@ internal sealed class Interceptor : IProjectile
             : gravity;
 
         // Boost motor: axial thrust along the flight path.
-        if (Age <= munition.BoostSeconds)
+        if (Age <= munition.TotalBoostSeconds)
         {
             double3 axis = Vec.Unit(localVelocity);
-            if (!axis.Equals(Vec.Zero)) accel += axis * munition.BoostAccel;
+            if (!axis.Equals(Vec.Zero)) accel += axis * munition.BoostAccelAt(Age);
         }
 
         // Quadratic drag on airspeed, so a coasting round bleeds speed instead of holding it.

@@ -70,11 +70,54 @@ public sealed class MunitionProfile
 
     public float LaunchSpeed = 45f;
 
-    /// <summary>Seconds of powered flight after launch.</summary>
+    /// <summary>Seconds of powered flight after launch, in the first stage.</summary>
     public float BoostSeconds = 2.4f;
 
-    /// <summary>Axial acceleration during boost (m/s^2).</summary>
+    /// <summary>Axial acceleration during that stage (m/s^2).</summary>
     public float BoostAccel = 520f;
+
+    /// <summary>
+    /// Stages after the first, burned in order.
+    /// </summary>
+    ///
+    /// <remarks>
+    /// Empty for a single-stage round, which is every round the mod ships. A booster and a
+    /// sustainer are genuinely different accelerations for different durations, and averaging them
+    /// into one gets the burnout speed roughly right and the trajectory wrong: the 57E6 is a
+    /// two-stage missile and is described as one in this file while being flown as a single burn.
+    ///
+    /// Kept separate from <see cref="BoostSeconds"/> rather than folding the first stage in, so
+    /// every profile that does not care reads exactly as it did.
+    /// </remarks>
+    public BoostStage[] Stages = [];
+
+    /// <summary>Total seconds of powered flight, across every stage.</summary>
+    public float TotalBoostSeconds
+    {
+        get
+        {
+            float total = BoostSeconds;
+            for (int i = 0; i < Stages.Length; i++) total += Stages[i].Seconds;
+            return total;
+        }
+    }
+
+    /// <summary>
+    /// Axial acceleration at <paramref name="age"/> seconds after launch, zero once burnt out.
+    /// </summary>
+    public float BoostAccelAt(double age)
+    {
+        if (age <= BoostSeconds) return age < 0.0 ? 0f : BoostAccel;
+
+        double from = BoostSeconds;
+        for (int i = 0; i < Stages.Length; i++)
+        {
+            from += Stages[i].Seconds;
+            if (age <= from) return Stages[i].Accel;
+        }
+
+        return 0f;
+    }
 
     /// <summary>Round self-destructs this long after launch.</summary>
     public float MaxFlightSeconds = 30f;
@@ -181,3 +224,11 @@ public sealed class MunitionProfile
     public float SeekerFovRad => float.DegreesToRadians(SeekerFovDeg);
     public double MaxLateralAccel => MaxLateralG * 9.80665;
 }
+
+/// <summary>
+/// One burn in a multi-stage round: how long it lasts and how hard it pushes.
+///
+/// <para>A separate type rather than two parallel arrays, because a stage whose duration and
+/// acceleration can be indexed apart is a stage that can be half-edited.</para>
+/// </summary>
+public readonly record struct BoostStage(float Seconds, float Accel);

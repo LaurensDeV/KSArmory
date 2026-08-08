@@ -115,8 +115,8 @@ internal sealed class MotorSound(Config config)
     // which its own BoostSeconds of zero already says.
     private static bool Burning(IProjectile round)
         => round.State == RoundState.Flying
-           && round.Munition.BoostSeconds > 0f
-           && round.Age <= round.Munition.BoostSeconds;
+           && round.Munition.TotalBoostSeconds > 0f
+           && round.Age <= round.Munition.TotalBoostSeconds;
 
     private void Follow(IProjectile round, IRoundsInFlight battery,
                         double3 platformEgo, double3 platformVelEgo, double pressure)
