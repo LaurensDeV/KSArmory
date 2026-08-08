@@ -8,10 +8,10 @@ namespace KSArmory;
 /// contacts as threats using their closest point of approach rather than raw closing
 /// speed, so a target crossing the site is engaged just as readily as one flying at it.
 /// </summary>
-internal sealed class Radar(Config config, BatteryConfig policy)
+internal sealed class Radar(Config config, SystemConfig policy)
 {
     private readonly Config _config = config;
-    private readonly BatteryConfig _policy = policy;
+    private readonly SystemConfig _policy = policy;
 
     /// <summary>
     /// What this set can see.

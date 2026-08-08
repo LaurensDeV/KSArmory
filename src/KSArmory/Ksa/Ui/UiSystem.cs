@@ -330,7 +330,7 @@ internal sealed partial class Ui
         if (ImGui.Button("Reset settings") && _battery.Platform is { } craft)
         {
             SettingsStore.Forget(KsaWorld.DisplayName(craft));
-            new BatterySettings().ApplyTo(_policy);
+            new SystemSettings().ApplyTo(_policy);
             _batteries.WriteNow();
             Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
         }

@@ -232,8 +232,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Warhead.cs` | explosive charge to lethal, blast and fireball radius |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
 | `Sim/Config.cs` | session-wide settings — team names, drawing, logging |
-| `Sim/BatteryConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
-| `Sim/BatterySettings.cs` | those settings flattened, so they can be written down and read back |
+| `Sim/SystemConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
+| `Sim/SystemSettings.cs` | those settings flattened, so they can be written down and read back |
 | `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
@@ -265,8 +265,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |
 | `Ksa/KsaWorld.cs` | most KSA contact is funnelled here — keep it that way |
-| `Ksa/BatteryRoster.cs` | one battery per weapons system, crewed and forgotten with the craft |
-| `Ksa/DefenceBattery.cs` | fire control, salvo logic, warhead effects, drives |
+| `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed and forgotten with the craft |
+| `Ksa/WeaponSystem.cs` | fire control, salvo logic, warhead effects, drives |
+| `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
@@ -280,7 +281,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Detonation.cs` | the fireball where a warhead goes off, through KSA's particle system |
 | `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
 | `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |
-| `Ksa/MuzzleFlash.cs` | the flash at the cannon's muzzles, one pooled emitter per firing battery |
+| `Ksa/MuzzleFlash.cs` | the flash at the cannon's muzzles, one pooled emitter per firing system |
 | `Ksa/GunSound.cs` | the cannon you can hear, one looping channel pitched by its fire rate |
 | `Ksa/TracerTrail.cs` | tracers, an emitter riding a shell rather than thrown from the muzzle |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
@@ -295,7 +296,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
-| `Ksa/Diagnostics.cs` | the periodic world dump — what the battery can see and why |
+| `Ksa/Diagnostics.cs` | the periodic world dump — what the system can see and why |
 | `Ksa/Build.cs` | what build this is, read off the assembly rather than written down |
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON beside the log |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
@@ -316,7 +317,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
-| `docs/BATTERY-SPLIT.md` | what `DefenceBattery` should be split into, what to call it instead, and in what order |
+| `docs/BATTERY-SPLIT.md` | what `WeaponSystem` should be split into, what to call it instead, and in what order |
 | `docs/PROMPT-modularity-review.md` | the brief that review was written from |
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
@@ -530,7 +531,7 @@ neither of them is longer than a page.
    `muzzles.json` — the generator emitting it and the profile holding it are the same numbers in
    two files, and every previous instance of that in this repo drifted.
 4. **Nothing else.** `LauncherPart.Find` matches against every registered part Id, and the
-   battery selects whichever profile it finds. `ArsenalTests` checks the registry hangs
+   system selects whichever profile it finds. `ArsenalTests` checks the registry hangs
    together; `validate-parts.py` checks the geometry still matches the mesh, and that every
    registered `PartId` is declared in the XML — a profile naming a part that exists nowhere
    used to pass every gate and simply find no launcher in game.
@@ -576,33 +577,33 @@ setting is on", so a window arriving instead is unannounced and the tick says no
 it went. Opening a window is an action; tick boxes are for state — armed, auto-engage, what to
 draw, a tool being active. Tint the button if open/closed is worth showing.
 
-**A setting belongs to a battery or to the session, and which one is the whole distinction.**
-`BatteryConfig` holds what can differ between two launchers in the same world — armed,
+**A setting belongs to a system or to the session, and which one is the whole distinction.**
+`SystemConfig` holds what can differ between two launchers in the same world — armed,
 auto-engage, which weapons are live, turret mode, the optical head's viewport, whether the craft
 being flown is protected, and **the IFF policy**, because two sites on opposite sides is exactly
 the case. `Config` holds what cannot: the
 roster of team names, what gets drawn, how much is logged. The test to apply is not importance but
 whether two sites could sensibly disagree — a name labels a craft the same way whoever is looking
-at it, and what that name *means* is each battery's own.
+at it, and what that name *means* is each system's own.
 
 Weapon *performance* is neither: range, guidance and fuse live on the profiles, because two
 Pantsirs on opposite sides of the map share a flight model and disagree about whether they are
 armed.
 
-**Every weapons system in the world runs its own battery.** `Ksa/BatteryRoster.cs` crews a craft
-the moment a survey recognises a part on it, pins the battery there and forgets it when the craft
-dies. Each carries its own `BatteryConfig`, so arming one site, sending it a target or putting it
+**Every weapons system in the world runs its own fire control.** `Ksa/WeaponSystems.cs` crews a craft
+the moment a survey recognises a part on it, pins the system there and forgets it when the craft
+dies. Each carries its own `SystemConfig`, so arming one site, sending it a target or putting it
 on a team says nothing about any other.
 
-**A weapon system belongs to the battery running it, not to the session.** `DefenceBattery`
+**A weapon system belongs to the installation running it, not to the session.** `WeaponSystem`
 carries its own `Profile`, `Munition` and `Sensor`, paired by `Arsenal.LoadoutFor` when it
 recognises the part; `Config` deliberately holds none of the three. A session-wide selection is
-what makes two different systems in one world impossible — every reader outside a battery's own
-update gets whichever battery resolved last, silently. The profiles are the shared `Arsenal`
-instances, so panel tuning still reaches every battery running that system, which is the intent.
+what makes two different systems in one world impossible — every reader outside a system's own
+update gets whichever system resolved last, silently. The profiles are the shared `Arsenal`
+instances, so panel tuning still reaches every system running that loadout, which is the intent.
 
-**What is deliberately *not* general yet:** one battery per *craft*.
-`DefenceBattery.LauncherOrdinal` is pinned to the first launcher found and `BatteryRoster` keys on
+**What is deliberately *not* general yet:** one system per *craft*.
+`WeaponSystem.LauncherOrdinal` is pinned to the first launcher found and `WeaponSystems` keys on
 the vehicle, so a craft carrying two Sidewinder rails fires one of them. See `docs/MODULARITY.md`
 change 2.
 
@@ -787,7 +788,7 @@ integration in `Interceptor`, nothing else.
 only at draw time. `Ego` is a pure translation of `Ecl`, so this is exact — see the notes.
 
 **Threat classification uses closest point of approach, not closing speed.** That is what makes
-targets *passing by* engageable and not just ones flying straight at the battery. This was an
+targets *passing by* engageable and not just ones flying straight at the launcher. This was an
 explicit requirement.
 
 **`Sim/` must stay free of KSA types**, and this enforces itself — see the Layout note. When
@@ -830,12 +831,12 @@ elevation. So a one-click "everything placed and ready" scenario would mean writ
 Program Files. Instead: `tools/install-testcraft.sh` writes a craft into the *user's* vehicle
 folder (which is writable), and `TestTarget` spawns drones on demand from the panel.
 
-**A battery mounts to the craft carrying the launcher part, and stays there.** It does not
+**A system mounts to the craft carrying the launcher part, and stays there.** It does not
 follow the player's control. It used to, from before the part existed, and that meant taking the
-target's seat re-homed the battery onto the target — which then could not be shot at, because
+target's seat re-homed the system onto the target — which then could not be shot at, because
 the kill path refuses to destroy its own platform. Four confirmed 22 m hits looked like misses.
-`PinPlatform` is how `BatteryRoster` mounts each battery on creation, and nothing moves it after:
-`ResolvePlatform` returns early for a pinned platform, so without that every battery would elect
+`PinPlatform` is how `WeaponSystems` mounts each system on creation, and nothing moves it after:
+`ResolvePlatform` returns early for a pinned platform, so without that every system would elect
 the craft being flown and they would all pile onto it.
 
 **A round's drawn offset is `PositionEcl − platformEcl`, measured *after* the step against the
@@ -889,7 +890,7 @@ differencing against the older reference is what cancels it. **Collapsing them i
 looks like a tidy-up and puts the entire overlay beside the craft.** That has now happened
 twice. `DrawAnchorTests` fails if it happens again — read `DrawAnchor.cs` before touching it.
 
-**The battery runs on simulated time, never on player time.** StarMap's frame hook hands you
+**Fire control runs on simulated time, never on player time.** StarMap's frame hook hands you
 `currentPlayerTime` and a player-time delta, and both are deliberately ignored. Player time is
 wall-clock, which is wrong twice over and both were seen in game: it keeps running while the
 game is **paused**, so the radar accumulated dwell, matured a firing solution and launched into
@@ -968,7 +969,7 @@ Run `./tools/validate-parts.py` after touching any of it: a bad Id or path is a 
 in-game failure. It now also checks mesh Ids against the atlas and texture paths against disk.
 
 **The part is inert; the behaviour is in C#.** KSA sees structure with mass and a collider.
-`LauncherPart.Find` looks for it on the vehicle and the battery mounts there. This sidesteps
+`LauncherPart.Find` looks for it on the vehicle and the system mounts there. This sidesteps
 registering a custom module type into the engine's internal update lists, which is not
 reachable without patching.
 
@@ -980,7 +981,7 @@ the repo duplicated across a boundary, and the first two both drifted. Change th
 `tools/model/build.sh`, paste the block. If the tube count changes, `Config.TubeCount` changes
 with it.
 
-**The battery will not fire while the launcher is slewing.** `DefenceBattery.IsLaid` requires
+**A system will not fire while its launcher is slewing.** `WeaponSystem.IsLaid` requires
 both axes on target for `TurretSettleSeconds` first. Before that gate existed it launched the
 instant it had a lock, out of tubes still pointing somewhere else — guidance recovered and the
 intercepts still landed, so nothing measured it and only watching it caught it.
@@ -1043,8 +1044,17 @@ range, because a lead solve that fails leaves the ring on the target, which the 
 Proportional navigation recovered from the off-axis launch well enough that only arithmetic found
 it, which is the whole reason the condition is now a tested function rather than an assumption.
 
-**The class is `DefenceBattery`, not `Battery`.** `KSA.Battery` already exists as the game's
-electrical battery, and these files have `using KSA;`.
+**The class is `WeaponSystem`, not `Battery` and no longer `DefenceBattery`.** Two reasons, and
+only the first is about names colliding: `KSA.Battery` is the game's electrical battery and these
+files have `using KSA;`. The second is that a battery is an air-defence *fire unit*, several
+launchers under one fire control, which a rail bolted to a booster and a gun on a stack node are
+not. `docs/BATTERY-SPLIT.md` has the argument, and the word for a launcher that engages on its own
+if a craft ever carries two.
+
+**Consumers take a role, not the system.** `Ksa/WeaponSystemRoles.cs` names what each one actually
+needs: rounds in flight, an effect source, an optical head, a manual trigger, a read-only view.
+Ten of the thirteen consumers take one. The three that do not are the frame hook, the panel and the
+scenario runner, which command it rather than read it.
 
 ## Testing
 
@@ -1073,7 +1083,7 @@ should not be weakened without understanding what they buy:
 
 - Round bodies survive at long range: measured in flight to **79.5 km with 0.0 m drift**, never
   dropping the subpart link and never culled or clamped. The gizmo tracers stay on as a fallback
-  anyway, and `DefenceBattery.RoundBodiesWork` still turns the whole thing off if a write is
+  anyway, and `WeaponSystem.RoundBodiesWork` still turns the whole thing off if a write is
   refused — the engine is under no obligation to keep behaving this way.
 - The guns elevate on the same solution as the pods — one turret, one aim. What they do not have
   is a firing solution of their own, so the cannon cannot engage a different target from the
@@ -1099,4 +1109,4 @@ should not be weakened without understanding what they buy:
   **Settings are written when the game writes its save**, detected by watching `universe.xml`'s
   timestamp — not continuously. A continuous write is what stops a reload restoring anything: the
   file is always already up to date with the session, so there is nothing older to go back to.
-  What is *not* persisted is battery *state* — ammo, tracks, rounds in flight all start fresh.
+  What is *not* persisted is system *state* — ammo, tracks, rounds in flight all start fresh.

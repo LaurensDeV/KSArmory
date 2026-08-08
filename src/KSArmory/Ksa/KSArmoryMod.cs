@@ -21,7 +21,7 @@ public sealed class KSArmoryMod
     private readonly Config _config = new();
 
     // One battery per weapons system, each with its own policy; Config stays shared.
-    private BatteryRoster? _roster;
+    private WeaponSystems? _roster;
     private Ui? _ui;
     private int _faults;
     private int _viewTrace;
@@ -72,7 +72,7 @@ public sealed class KSArmoryMod
     [StarMapAllModsLoaded]
     public void OnFullyLoaded()
     {
-        _roster = new BatteryRoster(_config);
+        _roster = new WeaponSystems(_config);
         _motors = new MotorSound(_config);
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config);
@@ -176,7 +176,7 @@ public sealed class KSArmoryMod
                 }
                 else
                 {
-                    foreach (BatteryRoster.Entry e in _roster.All) Visuals.Draw(e.Battery, _config);
+                    foreach (WeaponSystems.Entry e in _roster.All) Visuals.Draw(e.Battery, _config);
                 }
             }
 
@@ -245,7 +245,7 @@ public sealed class KSArmoryMod
         // Every frame, before the clock gate. This reads where the world is, and the whole
         // overlay is drawn against it — leaving it inside the gated step froze the drawing's
         // frame of reference whenever the simulation did not advance.
-        foreach (BatteryRoster.Entry e in _roster.All) e.Battery.SampleWorld();
+        foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SampleWorld();
 
         // Reported off the *controlled* vehicle, not the battery's platform: whether a gun
         // renders has nothing to do with whether the battery mounted, and gating it on that hid
@@ -286,7 +286,7 @@ public sealed class KSArmoryMod
             if (double.IsFinite(dtSim) && dtSim > 0.0)
             {
                 double step = Math.Min(dtSim, Interceptor.MaxFaithfulStep);
-                foreach (BatteryRoster.Entry e in _roster.All) e.Battery.Update(step);
+                foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step);
             }
         }
 
@@ -294,11 +294,11 @@ public sealed class KSArmoryMod
         // simulating, and it has to happen on every rendered frame or the rounds sit still
         // through any frame that advanced no simulated time while the world moved past
         // them. Cheap, and it only reads state.
-        foreach (BatteryRoster.Entry e in _roster.All) e.Battery.SyncRoundBodies();
+        foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SyncRoundBodies();
 
         // After the rounds have been stepped, so a motor is heard where its round now is
         // rather than where it was at the start of the frame.
-        foreach (BatteryRoster.Entry e in _roster.All)
+        foreach (WeaponSystems.Entry e in _roster.All)
         {
             _motors.Update(e.Battery);
             _plumes.Update(e.Battery);
@@ -348,7 +348,7 @@ public sealed class KSArmoryMod
     // Puts the view on the launcher's optical head. Returns quietly when the launcher has none or
     // the head cannot be resolved: the toggle is allowed to be on for a craft that cannot honour
     // it, and stealing the camera to nowhere would be worse than ignoring it.
-    private void TakeOpticView(DefenceBattery battery, BatteryConfig policy, double dt)
+    private void TakeOpticView(WeaponSystem battery, SystemConfig policy, double dt)
     {
         if (battery.Platform is not { } platform || battery.Launcher is not { } launcher) return;
         if (battery.OpticPart is null) return;
@@ -409,7 +409,7 @@ public sealed class KSArmoryMod
         // Any round anywhere: the step has to be small enough for the busiest battery, not for
         // the one the panel happens to be showing.
         bool anyInFlight = false;
-        foreach (BatteryRoster.Entry e in _roster.All)
+        foreach (WeaponSystems.Entry e in _roster.All)
         {
             if (e.Battery.Rounds.Count > 0) { anyInFlight = true; break; }
         }
@@ -436,7 +436,7 @@ public sealed class KSArmoryMod
                 break;
 
             case WarpAction.Abandon:
-                foreach (BatteryRoster.Entry e in _roster.All) e.Battery.AbandonFlight(d.Why);
+                foreach (WeaponSystems.Entry e in _roster.All) e.Battery.AbandonFlight(d.Why);
                 break;
 
             case WarpAction.None:

@@ -147,7 +147,7 @@ KsaWorld.TryVehicleEgo(platform, out double3 platformEgo);          // where it 
 KsaWorld.TryEgoToEcl(platformEgo + round.OffsetFromPlatform, out double3 burst);
 ```
 
-`DefenceBattery.DrawnBurstEcl` does this and logs the correction when it exceeds a metre. The rule
+`WeaponSystem.DrawnBurstEcl` does this and logs the correction when it exceeds a metre. The rule
 generalises: **anything handed to the engine to place must be derived from where things are drawn,
 not from where the simulation says they are** — the two frames agree on directions and differ on
 positions, which is the same asymmetry `TryCursorRayEcl` exists for.

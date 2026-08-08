@@ -33,12 +33,12 @@ per-frame update lists are internal and are not reachable without patching the g
 reflex — write a class, name it in a config, let the game drive it — has no equivalent.
 
 What this mod does instead: the part is **inert structure with mass and a collider**.
-`Ksa/LauncherPart.cs` looks for it on a vehicle by part Id, and `Ksa/DefenceBattery.cs` runs the
+`Ksa/LauncherPart.cs` looks for it on a vehicle by part Id, and `Ksa/WeaponSystem.cs` runs the
 behaviour from the mod's own frame hook. A part is a *thing to find*, not a thing that acts.
 
 The consequence you will feel: **behaviour is not per-part-instance by default.** If you want two
 launchers on one craft to behave differently, that is something you build, not something the
-engine gives you. `Sim/BatteryConfig.cs` and `Ksa/BatteryRoster.cs` are that machinery.
+engine gives you. `Sim/SystemConfig.cs` and `Ksa/WeaponSystems.cs` are that machinery.
 
 `docs/BLOCKED-ON-KSA.md` lists this and everything else the mod wants and cannot have, with the
 engine reason for each. If RocketWerkz ever ship a module system, that file is where the change

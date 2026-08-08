@@ -1,5 +1,9 @@
 # Prompt: structural modularity review
 
+**Executed. Kept for the record, and deliberately not renamed**: it quotes what was observed
+before the work, so rewriting `DefenceBattery` to `WeaponSystem` in it would make it describe a
+state that never existed. `docs/BATTERY-SPLIT.md` is what came out of it.
+
 Paste this into a fresh session. It is deliberately a *review* brief, not an instruction to
 refactor: the point is to find out what the coupling costs before anything is moved.
 

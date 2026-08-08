@@ -62,7 +62,7 @@ public readonly record struct Armament
     /// armaments out of a list holds copies and a reference into one of those would be a
     /// reference to a temporary.</para>
     /// </summary>
-    public static ref bool EnabledIn(BatteryConfig policy, ArmamentKind kind)
+    public static ref bool EnabledIn(SystemConfig policy, ArmamentKind kind)
     {
         if (kind == ArmamentKind.Belt) return ref policy.GunsEnabled;
         return ref policy.MissilesEnabled;

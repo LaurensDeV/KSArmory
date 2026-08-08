@@ -15,7 +15,7 @@ namespace KSArmory;
 /// two Pantsirs on opposite sides of the map share a flight model and disagree about whether
 /// they are armed.</para>
 /// </summary>
-public sealed class BatteryConfig
+public sealed class SystemConfig
 {
     // ---- Engagement policy ----------------------------------------------
 

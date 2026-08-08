@@ -194,7 +194,7 @@ internal static class LauncherPart
     /// </summary>
     // A launcher declaring no pods keeps its tubes in the part's own frame, so an absent assembly
     // contributes an identity rather than being a failure. Callers still have to separate that
-    // from pods that were *declared* and not found -- see DefenceBattery.TubesResolved.
+    // from pods that were *declared* and not found -- see WeaponSystem.TubesResolved.
     private static doubleQuat PodRotation(Part? pods) => pods?.Asmb2ParentAsmb ?? doubleQuat.Identity;
 
     private static double3 PodOffset(Part? pods) => pods?.PositionParentAsmb ?? Vec.Zero;

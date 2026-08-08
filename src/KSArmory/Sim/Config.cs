@@ -4,7 +4,7 @@ namespace KSArmory;
 /// Settings that belong to the session rather than to any one battery: the roster of team names,
 /// what gets drawn, how much is logged.
 ///
-/// <para>What an individual installation is allowed to do lives on <see cref="BatteryConfig"/>.
+/// <para>What an individual installation is allowed to do lives on <see cref="SystemConfig"/>.
 /// The line between them is whether the answer can differ between two launchers in the same
 /// world — arming and which side it is on can, the team names themselves cannot.</para>
 ///
@@ -103,7 +103,7 @@ public sealed class Config
     /// extra UI: a craft called "Red Hunter" is on team "Red" if that is listed here. Empty means
     /// no craft is ever classified and everything stays Unknown.</para>
     ///
-    /// <para>Session-wide, unlike <see cref="BatteryConfig.Iff"/>: a team name labels a craft the
+    /// <para>Session-wide, unlike <see cref="SystemConfig.Iff"/>: a team name labels a craft the
     /// same way whoever is looking at it, and it is which side each battery takes that differs.</para>
     /// </summary>
     public readonly List<string> TeamNames = [];

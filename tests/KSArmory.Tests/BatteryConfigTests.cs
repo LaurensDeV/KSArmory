@@ -10,13 +10,13 @@ namespace KSArmory.Tests;
 /// <see cref="Config"/> arms every site on the map at once, or lets one installation's team list
 /// disagree with another's, and neither shows up as an error.</para>
 /// </summary>
-public class BatteryConfigTests
+public class SystemConfigTests
 {
     [Fact]
     public void TwoBatteriesArmIndependently()
     {
-        var north = new BatteryConfig();
-        var south = new BatteryConfig();
+        var north = new SystemConfig();
+        var south = new SystemConfig();
 
         north.Armed = true;
 
@@ -27,8 +27,8 @@ public class BatteryConfigTests
     [Fact]
     public void AndEngageIndependently()
     {
-        var north = new BatteryConfig { AutoEngage = true, MissilesEnabled = false };
-        var south = new BatteryConfig();
+        var north = new SystemConfig { AutoEngage = true, MissilesEnabled = false };
+        var south = new SystemConfig();
 
         Assert.True(north.AutoEngage);
         Assert.False(south.AutoEngage);
@@ -39,8 +39,8 @@ public class BatteryConfigTests
     [Fact]
     public void AndAimIndependently()
     {
-        var north = new BatteryConfig();
-        var south = new BatteryConfig();
+        var north = new SystemConfig();
+        var south = new SystemConfig();
 
         north.TurretManual = true;
         north.TurretManualBearingDeg = 90f;
@@ -60,7 +60,7 @@ public class BatteryConfigTests
     [Fact]
     public void AFreshBatteryIsSafe()
     {
-        var battery = new BatteryConfig();
+        var battery = new SystemConfig();
 
         Assert.False(battery.Armed);
         Assert.False(battery.AutoEngage);
@@ -81,8 +81,8 @@ public class BatteryConfigTests
         var world = new Config();
         world.TeamNames.Add("Red");
 
-        var north = new BatteryConfig();
-        var south = new BatteryConfig();
+        var north = new SystemConfig();
+        var south = new SystemConfig();
         north.Iff.OwnTeam = "Blue";
         south.Iff.OwnTeam = "Red";
 
@@ -93,7 +93,7 @@ public class BatteryConfigTests
         // on one team however many batteries are looking at it, and each decides for itself
         // what that means.
         Assert.Contains("Red", world.TeamNames);
-        Assert.Null(typeof(BatteryConfig).GetField("TeamNames"));
+        Assert.Null(typeof(SystemConfig).GetField("TeamNames"));
         Assert.Null(typeof(Config).GetProperty("Iff"));
     }
 }

@@ -27,13 +27,13 @@ internal sealed class GunSound(Config config)
 
     private const string CannonId = "KSArmoryCannon";
 
-    private readonly Dictionary<DefenceBattery, IChannel> _firing = [];
-    private readonly List<DefenceBattery> _stopped = [];
+    private readonly Dictionary<IEffectSource, IChannel> _firing = [];
+    private readonly List<IEffectSource> _stopped = [];
 
     private static bool _warnedMissing;
 
     /// <summary>Starts, moves and stops the gun of every battery that is firing.</summary>
-    public void Update(DefenceBattery battery)
+    public void Update(IEffectSource battery)
     {
         if (!_config.CannonSound || !battery.GunsFiring || battery.Platform is not { } platform)
         {
@@ -74,19 +74,19 @@ internal sealed class GunSound(Config config)
     /// Cuts the channel of any battery the roster has forgotten. A craft destroyed mid-burst never
     /// reaches <see cref="Update"/> again, and its channel would play for the rest of the session.
     /// </summary>
-    public void Sweep(BatteryRoster roster)
+    public void Sweep(WeaponSystems roster)
     {
-        foreach (DefenceBattery battery in _firing.Keys)
+        foreach (IEffectSource battery in _firing.Keys)
         {
             bool present = false;
-            foreach (BatteryRoster.Entry e in roster.All)
+            foreach (WeaponSystems.Entry e in roster.All)
             {
                 if (ReferenceEquals(e.Battery, battery)) { present = true; break; }
             }
             if (!present) _stopped.Add(battery);
         }
 
-        foreach (DefenceBattery battery in _stopped) Silence(battery);
+        foreach (IEffectSource battery in _stopped) Silence(battery);
         _stopped.Clear();
     }
 
@@ -97,14 +97,14 @@ internal sealed class GunSound(Config config)
         _firing.Clear();
     }
 
-    private void Silence(DefenceBattery battery)
+    private void Silence(IEffectSource battery)
     {
         if (!_firing.Remove(battery, out IChannel? channel)) return;
 
         Cut(channel);
     }
 
-    private static IChannel? Start(SpatialAudio spatial, DefenceBattery battery, Config config)
+    private static IChannel? Start(SpatialAudio spatial, IEffectSource battery, Config config)
     {
         try
         {

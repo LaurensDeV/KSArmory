@@ -6,11 +6,11 @@ namespace KSArmory.Tests;
 /// Settings surviving a session. The round trip is the contract: what was chosen is what comes
 /// back, and anything a newer version added arrives at its default rather than at zero.
 /// </summary>
-public class BatterySettingsTests
+public class SystemSettingsTests
 {
-    private static BatteryConfig Configured()
+    private static SystemConfig Configured()
     {
-        BatteryConfig c = new()
+        SystemConfig c = new()
         {
             Armed = true,
             AutoEngage = true,
@@ -39,10 +39,10 @@ public class BatterySettingsTests
     [Fact]
     public void EverythingChosenComesBack()
     {
-        BatteryConfig saved = Configured();
-        BatteryConfig loaded = new();
+        SystemConfig saved = Configured();
+        SystemConfig loaded = new();
 
-        BatterySettings.From(saved).ApplyTo(loaded);
+        SystemSettings.From(saved).ApplyTo(loaded);
 
         Assert.True(loaded.Armed);
         Assert.True(loaded.AutoEngage);
@@ -73,8 +73,8 @@ public class BatterySettingsTests
     [Fact]
     public void AMissingSettingArrivesAtItsDefaultNotAtZero()
     {
-        BatterySettings older = new();
-        BatteryConfig loaded = new() { MissilesEnabled = false, TurretTracking = false };
+        SystemSettings older = new();
+        SystemConfig loaded = new() { MissilesEnabled = false, TurretTracking = false };
 
         older.ApplyTo(loaded);
 
@@ -92,8 +92,8 @@ public class BatterySettingsTests
     [Fact]
     public void ApplyingTwiceDoesNotDuplicateTeams()
     {
-        BatterySettings settings = BatterySettings.From(Configured());
-        BatteryConfig loaded = new();
+        SystemSettings settings = SystemSettings.From(Configured());
+        SystemConfig loaded = new();
 
         settings.ApplyTo(loaded);
         settings.ApplyTo(loaded);
@@ -109,23 +109,23 @@ public class BatterySettingsTests
     [Fact]
     public void UnchangedSettingsCompareEqual()
     {
-        BatteryConfig config = Configured();
+        SystemConfig config = Configured();
 
-        Assert.False(BatterySettings.From(config).Differs(BatterySettings.From(config)));
+        Assert.False(SystemSettings.From(config).Differs(SystemSettings.From(config)));
 
         config.RoundsPerTarget += 1;
-        Assert.True(BatterySettings.From(config).Differs(BatterySettings.From(Configured())));
+        Assert.True(SystemSettings.From(config).Differs(SystemSettings.From(Configured())));
     }
 
     [Fact]
     public void AChangedTeamListCounts()
     {
-        BatteryConfig config = Configured();
-        BatterySettings before = BatterySettings.From(config);
+        SystemConfig config = Configured();
+        SystemSettings before = SystemSettings.From(config);
 
         config.Iff.AlliedTeams.Add("Amber");
 
-        Assert.True(BatterySettings.From(config).Differs(before));
+        Assert.True(SystemSettings.From(config).Differs(before));
     }
 
     /// <summary>
@@ -135,10 +135,10 @@ public class BatterySettingsTests
     [Fact]
     public void TheOpticViewportIsNotRestored()
     {
-        BatteryConfig saved = new() { OpticViewport = 3 };
-        BatteryConfig loaded = new();
+        SystemConfig saved = new() { OpticViewport = 3 };
+        SystemConfig loaded = new();
 
-        BatterySettings.From(saved).ApplyTo(loaded);
+        SystemSettings.From(saved).ApplyTo(loaded);
 
         Assert.Equal(-1, loaded.OpticViewport);
     }
@@ -151,15 +151,15 @@ public class BatterySettingsTests
     [Fact]
     public void SettingsRoundTripNestedByCraftWithinSave()
     {
-        Dictionary<string, Dictionary<string, BatterySettings>> stored = new()
+        Dictionary<string, Dictionary<string, SystemSettings>> stored = new()
         {
-            ["Campaign"] = new() { ["AA Defence Site"] = BatterySettings.From(Configured()) },
-            ["Sandbox"] = new() { ["AA Defence Site"] = new BatterySettings { Armed = false } },
+            ["Campaign"] = new() { ["AA Defence Site"] = SystemSettings.From(Configured()) },
+            ["Sandbox"] = new() { ["AA Defence Site"] = new SystemSettings { Armed = false } },
         };
 
         string json = System.Text.Json.JsonSerializer.Serialize(stored);
         var back = System.Text.Json.JsonSerializer
-            .Deserialize<Dictionary<string, Dictionary<string, BatterySettings>>>(json)!;
+            .Deserialize<Dictionary<string, Dictionary<string, SystemSettings>>>(json)!;
 
         // The same craft name, two saves, two answers -- which is the whole point.
         Assert.True(back["Campaign"]["AA Defence Site"].Armed);
@@ -175,10 +175,10 @@ public class BatterySettingsTests
     public void TheOlderFlatFileStillDeserialises()
     {
         string legacy = System.Text.Json.JsonSerializer.Serialize(
-            new Dictionary<string, BatterySettings> { ["Old Site"] = BatterySettings.From(Configured()) });
+            new Dictionary<string, SystemSettings> { ["Old Site"] = SystemSettings.From(Configured()) });
 
         var flat = System.Text.Json.JsonSerializer
-            .Deserialize<Dictionary<string, BatterySettings>>(legacy)!;
+            .Deserialize<Dictionary<string, SystemSettings>>(legacy)!;
 
         Assert.True(flat["Old Site"].Armed);
         Assert.Equal(4, flat["Old Site"].RoundsPerTarget);
@@ -187,6 +187,6 @@ public class BatterySettingsTests
         // rather than merely tidy.
         Assert.ThrowsAny<System.Text.Json.JsonException>(() =>
             System.Text.Json.JsonSerializer
-                .Deserialize<Dictionary<string, Dictionary<string, BatterySettings>>>(legacy));
+                .Deserialize<Dictionary<string, Dictionary<string, SystemSettings>>>(legacy));
     }
 }

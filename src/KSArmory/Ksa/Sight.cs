@@ -17,10 +17,10 @@ internal static class Sight
 
     private static readonly ReticleStroke[] _strokes = new ReticleStroke[KSArmory.Reticle.MaxStrokes];
 
-    public static void Draw(DefenceBattery battery, Config config, BatteryConfig policy)
+    public static void Draw(IOpticalHead battery, Config config, SystemConfig policy)
     {
         if (policy.OpticViewport < 0 || battery.OpticPart is null) return;
-        if (battery.Radar.Locked is not { } track) return;
+        if (battery.LockedTrack is not { } track) return;
 
         if (!KsaWorld.TryProjectIntoViewport(policy.OpticViewport, track.PositionEcl,
                                              out float2 centre, out int width, out int height))

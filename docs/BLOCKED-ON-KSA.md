@@ -374,7 +374,7 @@ per-object temperature at all.
 and ShaderExtensions' README is explicit that "the shaders only target the main window, any other
 windows are ignored". There is no per-viewport post-process.
 
-That is fine here, because `BatteryConfig.OpticViewport` can be the **main** viewport — and should
+That is fine here, because `SystemConfig.OpticViewport` can be the **main** viewport — and should
 be anyway, since a secondary one draws no planet, terrain or atmosphere (see the entry above). With
 the optic on the main view, full-screen *is* the right scope: while you are looking through the
 sight, the main view is the sight.

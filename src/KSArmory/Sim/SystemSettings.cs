@@ -3,18 +3,18 @@ namespace KSArmory;
 /// <summary>
 /// One battery's settings, flattened so they can be written down and read back.
 ///
-/// <para>A separate type from <see cref="BatteryConfig"/> rather than serialising that directly.
-/// <c>BatteryConfig</c> is what the panel edits and the fire control reads; it gains fields freely
+/// <para>A separate type from <see cref="SystemConfig"/> rather than serialising that directly.
+/// <c>SystemConfig</c> is what the panel edits and the fire control reads; it gains fields freely
 /// and holds an <see cref="IffPolicy"/> with collections behind properties. Persisting it as-is
 /// would make every field a file-format decision, and a rename would silently drop a setting
 /// someone had chosen.</para>
 ///
-/// <para>Everything here is a plain field with a default that matches <c>BatteryConfig</c>'s, so a
+/// <para>Everything here is a plain field with a default that matches <c>SystemConfig</c>'s, so a
 /// file written by an older version loads with the new settings at their defaults rather than at
 /// zero — which for <c>MissilesEnabled</c> or <c>TurretTracking</c> would silently disarm half a
 /// battery.</para>
 /// </summary>
-public sealed class BatterySettings
+public sealed class SystemSettings
 {
     public bool Armed { get; set; }
     public bool AutoEngage { get; set; }
@@ -40,11 +40,11 @@ public sealed class BatterySettings
     public List<string> NeutralTeams { get; set; } = [];
 
     /// <summary>Reads a battery's current settings.</summary>
-    public static BatterySettings From(BatteryConfig config)
+    public static SystemSettings From(SystemConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        return new BatterySettings
+        return new SystemSettings
         {
             Armed = config.Armed,
             AutoEngage = config.AutoEngage,
@@ -73,11 +73,11 @@ public sealed class BatterySettings
     /// <summary>
     /// Puts these settings onto a battery.
     ///
-    /// <para><see cref="BatteryConfig.OpticViewport"/> is deliberately not carried: it names a
+    /// <para><see cref="SystemConfig.OpticViewport"/> is deliberately not carried: it names a
     /// viewport index in the session that saved it, and restoring it would point a new session's
     /// camera at a window that may not exist.</para>
     /// </summary>
-    public void ApplyTo(BatteryConfig config)
+    public void ApplyTo(SystemConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
 
@@ -111,7 +111,7 @@ public sealed class BatterySettings
     /// <summary>
     /// Whether two settings differ, so nothing is written when nothing has changed.
     /// </summary>
-    public bool Differs(BatterySettings other)
+    public bool Differs(SystemSettings other)
     {
         if (other is null) return true;
 

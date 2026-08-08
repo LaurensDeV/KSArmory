@@ -28,7 +28,7 @@ internal static class Visuals
     private static readonly float4 CpaColour = new(0.6f, 0.4f, 1.0f, 0.7f);
     private static readonly float4 TurretColour = new(0.4f, 1.0f, 0.9f, 0.8f);
 
-    public static void Draw(DefenceBattery battery, Config config)
+    public static void Draw(IWeaponSystemView battery, Config config)
     {
         if (battery.Platform is null) return;
 
@@ -91,7 +91,7 @@ internal static class Visuals
         }
     }
 
-    private static void DrawTracks(DefenceBattery battery, double3 origin, Config config)
+    private static void DrawTracks(IWeaponSystemView battery, double3 origin, Config config)
     {
         foreach (Track track in battery.Radar.Tracks)
         {
@@ -127,7 +127,7 @@ internal static class Visuals
 
     // Marks which tubes still hold a round. Rounds are fired in tube order, so the first TubeCount
     // - Ammo tubes are the spent ones.
-    private static void DrawLoadedTubes(DefenceBattery battery, Config config, double3 origin)
+    private static void DrawLoadedTubes(IWeaponSystemView battery, Config config, double3 origin)
     {
         LauncherProfile profile = battery.Profile;
         int spent = profile.TubeCount - battery.Ammo;
@@ -165,7 +165,7 @@ internal static class Visuals
     // cosmetics: it separates "the slew maths is wrong" from "the engine ignored the transform
     // write". If the line sweeps onto the target and the mesh does not follow it, the maths is fine
     // and Asmb2ParentAsmb is not being honoured.
-    private static void DrawTurretFacing(DefenceBattery battery)
+    private static void DrawTurretFacing(IWeaponSystemView battery)
     {
         if (battery.Platform is not { } platform) return;
 
@@ -187,7 +187,7 @@ internal static class Visuals
         KsaWorld.DrawLineEcl(from, from + facingEcl * 45.0, TurretColour);
     }
 
-    private static void DrawRounds(DefenceBattery battery, Config config)
+    private static void DrawRounds(IWeaponSystemView battery, Config config)
     {
         // A 6 m tracer sphere was the right size when it *was* the round. Now that the rounds
         // are real 3 m bodies, that sphere simply swallows them - so it is only drawn when

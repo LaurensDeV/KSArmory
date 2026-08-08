@@ -85,7 +85,7 @@ internal sealed class ChaseCamera
     }
 
     /// <summary>Follows one round for one frame.</summary>
-    public void Apply(DefenceBattery battery, bool enabled, double dtPlayer)
+    public void Apply(IRoundsInFlight battery, bool enabled, double dtPlayer)
     {
         if (!enabled || battery.Platform is null)
         {
@@ -214,7 +214,7 @@ internal sealed class ChaseCamera
     // The round already being ridden, while it still flies. Once it stops, null: the caller holds
     // the pose it last had rather than recomputing one from a detonated round, whose position has
     // just jumped to the burst point and whose velocity describes nothing.
-    private IProjectile? Current(DefenceBattery battery)
+    private IProjectile? Current(IRoundsInFlight battery)
     {
         if (_round is { } held)
         {
@@ -260,7 +260,7 @@ internal sealed class ChaseCamera
     }
 
     // Everything in the air right now has had its chance. The next launch has not.
-    private void PassOverEverythingFlying(DefenceBattery battery)
+    private void PassOverEverythingFlying(IRoundsInFlight battery)
     {
         IReadOnlyList<IProjectile> rounds = battery.Rounds;
 
@@ -273,7 +273,7 @@ internal sealed class ChaseCamera
         }
     }
 
-    private IProjectile? Newest(DefenceBattery battery)
+    private IProjectile? Newest(IRoundsInFlight battery)
     {
         IReadOnlyList<IProjectile> rounds = battery.Rounds;
 

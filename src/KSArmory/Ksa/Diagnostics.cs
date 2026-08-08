@@ -17,7 +17,7 @@ internal static class Diagnostics
     private static double _nextDumpAt;
 
     /// <summary>Emit a dump every <paramref name="intervalSeconds"/> while enabled.</summary>
-    public static void Tick(DefenceBattery battery, Config config, BatteryConfig policy,
+    public static void Tick(IWeaponSystemView battery, Config config, SystemConfig policy,
                             double clock, double intervalSeconds)
     {
         if (clock < _nextDumpAt) return;
@@ -27,7 +27,7 @@ internal static class Diagnostics
 
     public static void ResetTimer() => _nextDumpAt = 0.0;
 
-    public static void Dump(DefenceBattery battery, Config config, BatteryConfig policy)
+    public static void Dump(IWeaponSystemView battery, Config config, SystemConfig policy)
     {
         try
         {
@@ -44,7 +44,7 @@ internal static class Diagnostics
         }
     }
 
-    private static void DumpPlatform(DefenceBattery battery)
+    private static void DumpPlatform(IWeaponSystemView battery)
     {
         if (battery.Platform is not { } platform)
         {
@@ -83,7 +83,7 @@ internal static class Diagnostics
 
     // Checks the pieces the gizmo overlay depends on. If the renderer or camera is missing, nothing
     // we submit can ever appear.
-    private static void DumpRendering(DefenceBattery battery)
+    private static void DumpRendering(IWeaponSystemView battery)
     {
         bool hasRenderer = Program.GizmosRenderer is not null;
         Log.Debug($"render: GizmosRenderer={(hasRenderer ? "ok" : "NULL")}");
@@ -158,7 +158,7 @@ internal static class Diagnostics
 
     // Lists every loaded vehicle with the numbers the radar filters on, and says which filter
     // rejected it. This is the fastest way to see why the track list is empty.
-    private static void DumpVehicles(DefenceBattery battery, Config config, BatteryConfig policy)
+    private static void DumpVehicles(IWeaponSystemView battery, Config config, SystemConfig policy)
     {
         KsaWorld.CollectVehicles(Scratch);
 
@@ -202,7 +202,7 @@ internal static class Diagnostics
         }
     }
 
-    private static void DumpRadar(DefenceBattery battery)
+    private static void DumpRadar(IWeaponSystemView battery)
     {
         Log.Debug($"radar: {battery.Radar.Tracks.Count} track(s), " +
                  $"maskedByTerrain={battery.Radar.MaskedByTerrain}, " +

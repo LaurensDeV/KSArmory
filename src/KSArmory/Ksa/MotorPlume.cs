@@ -33,7 +33,7 @@ internal sealed class MotorPlume
     private static bool _warned;
 
     /// <summary>Starts, moves and ends the plume of every round this battery has burning.</summary>
-    public void Update(DefenceBattery battery)
+    public void Update(IEffectSource battery)
     {
         if (!battery.PlumesEnabled || battery.Platform is not { } platform)
         {
@@ -70,7 +70,7 @@ internal sealed class MotorPlume
            && round.Munition.BoostSeconds > 0f
            && round.Age <= round.Munition.BoostSeconds;
 
-    private void Follow(IProjectile round, DefenceBattery battery, Vehicle platform)
+    private void Follow(IProjectile round, IEffectSource battery, Vehicle platform)
     {
         if (!_burning.TryGetValue(round, out Live? live))
         {

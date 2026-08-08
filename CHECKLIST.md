@@ -554,7 +554,7 @@ salvo allocation have literally never run against a contested list.
 **The arithmetic is now covered.** `ThreatModelTests` ranks contested lists, checks non-threats
 never outrank threats, and walks twelve tubes across three targets to prove the first does not
 take the whole magazine — 19 tests, headless. That became possible by moving the logic out of
-`Ksa/Radar.cs` and `Ksa/DefenceBattery.cs` into `Sim/ThreatModel.cs`.
+`Ksa/Radar.cs` and `Ksa/WeaponSystem.cs` into `Sim/ThreatModel.cs`.
 
 It does **not** retire these boxes. The tests prove the maths; they say nothing about KSA
 handing us the vehicles we expect, tracks surviving a rebuild, or the lock promoting cleanly

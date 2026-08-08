@@ -9,7 +9,7 @@ namespace KSArmory.Tests;
 /// <para>These exist because CHECKLIST.md §7.2 says track prioritisation and round attribution
 /// "have literally never run against a contested list" — every engagement so far has been a
 /// single drone. The logic was unreachable from a test while it sat in <c>Ksa/Radar.cs</c> and
-/// <c>Ksa/DefenceBattery.cs</c>; moving it to <c>Sim/ThreatModel.cs</c> is what made this
+/// <c>Ksa/WeaponSystem.cs</c>; moving it to <c>Sim/ThreatModel.cs</c> is what made this
 /// possible, the same way <c>FireGeometry</c> made the launch-angle bug testable.</para>
 ///
 /// <para>The in-game checks are still worth doing — these prove the arithmetic, not that KSA

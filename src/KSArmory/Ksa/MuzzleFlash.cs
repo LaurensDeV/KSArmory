@@ -37,13 +37,13 @@ internal sealed class MuzzleFlash
         public required List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> Flash;
     }
 
-    private readonly Dictionary<DefenceBattery, Live> _firing = [];
-    private readonly List<DefenceBattery> _stopped = [];
+    private readonly Dictionary<IEffectSource, Live> _firing = [];
+    private readonly List<IEffectSource> _stopped = [];
 
     private static bool _warned;
 
     /// <summary>Starts, moves and ends the flash for every battery whose cannon are firing.</summary>
-    public void Update(DefenceBattery battery)
+    public void Update(IEffectSource battery)
     {
         bool wanted = battery.PlumesEnabled
                       && battery.GunsFiring
@@ -65,19 +65,19 @@ internal sealed class MuzzleFlash
     /// <para>A craft destroyed mid-burst never reaches <see cref="Update"/> again, so without this
     /// its emitter is held for the rest of the session and the pool bleeds one per kill.</para>
     /// </summary>
-    public void Sweep(BatteryRoster roster)
+    public void Sweep(WeaponSystems roster)
     {
-        foreach (DefenceBattery battery in _firing.Keys)
+        foreach (IEffectSource battery in _firing.Keys)
         {
             bool present = false;
-            foreach (BatteryRoster.Entry e in roster.All)
+            foreach (WeaponSystems.Entry e in roster.All)
             {
                 if (ReferenceEquals(e.Battery, battery)) { present = true; break; }
             }
             if (!present) _stopped.Add(battery);
         }
 
-        foreach (DefenceBattery battery in _stopped) Release(battery);
+        foreach (IEffectSource battery in _stopped) Release(battery);
         _stopped.Clear();
     }
 
@@ -88,7 +88,7 @@ internal sealed class MuzzleFlash
         _firing.Clear();
     }
 
-    private void Follow(DefenceBattery battery)
+    private void Follow(IEffectSource battery)
     {
         if (battery.Platform is not { } platform) return;
         if (!battery.TryGunFlashEcl(out double3 ecl, out _)) return;
@@ -179,7 +179,7 @@ internal sealed class MuzzleFlash
         return [.. handles];
     }
 
-    private void Release(DefenceBattery battery)
+    private void Release(IEffectSource battery)
     {
         if (!_firing.Remove(battery, out Live? live)) return;
 

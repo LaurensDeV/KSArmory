@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
+internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -20,15 +20,15 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
     private const double MaxTrackableWarp = Interceptor.MaxFaithfulStep * 60.0;
 
     private readonly Config _config = config;
-    private readonly BatteryRoster _batteries = roster;
+    private readonly WeaponSystems _batteries = roster;
     private readonly WarpPolicy _warp = warp;
 
     // The system the panes read. Not fixed, and not set here: Focus points them at whichever
     // system is being drawn and this file calls it before anything else runs. The panes live in
     // UiSystem.cs and UiTuning.cs and simply use them, so a pane reached by any other path will
     // quietly describe the wrong installation.
-    private DefenceBattery _battery = null!;
-    private BatteryConfig _policy = null!;
+    private WeaponSystem _battery = null!;
+    private SystemConfig _policy = null!;
     private readonly WatchCamera _watch = watch;
     private readonly CraftMover _mover = mover;
     private readonly BurstTool _bursts = bursts;
@@ -279,7 +279,7 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
         {
             (KSA.Vehicle craft, WeaponInventory inv) = _systems[i];
             bool isFocused = ReferenceEquals(craft, Focused);
-            BatteryRoster.Entry? entry = _batteries.For(craft);
+            WeaponSystems.Entry? entry = _batteries.For(craft);
 
             ImGui.PushID(i);
             ImGui.TableNextRow();
@@ -392,7 +392,7 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
     }
 
     // What one system is holding, in a table cell: every armament it carries, however many that is.
-    private static string Tally(DefenceBattery battery)
+    private static string Tally(WeaponSystem battery)
     {
         WeaponFit fit = WeaponFit.Of(battery.Profile, battery.Sensor);
         return string.Join("  ", fit.Armaments.Select(a => a.Tally(LiveState(battery, a).Remaining)));
@@ -513,7 +513,7 @@ internal sealed partial class Ui(Config config, BatteryRoster roster, WarpPolicy
     // The battery's own counters, paired with the armament they belong to. This is the one place
     // left that names an armament kind: a battery exposes a counter per weapon rather than a
     // lookup, so something has to bridge the description to them.
-    private static (int Remaining, bool Firing) LiveState(DefenceBattery battery, Armament arm)
+    private static (int Remaining, bool Firing) LiveState(WeaponSystem battery, Armament arm)
         => arm.Kind == ArmamentKind.Belt
             ? (battery.GunAmmo, battery.GunsFiring)
             : (battery.Ammo, false);

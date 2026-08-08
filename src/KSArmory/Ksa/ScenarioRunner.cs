@@ -108,7 +108,7 @@ internal sealed class ScenarioRunner
     }
 
     /// <summary>One frame of the scenario. Does nothing unless one was asked for.</summary>
-    public void Update(BatteryRoster roster, double dt)
+    public void Update(WeaponSystems roster, double dt)
     {
         if (_phase is Phase.Idle or Phase.Done) return;
         if (!double.IsFinite(dt) || dt <= 0.0) return;
@@ -121,8 +121,8 @@ internal sealed class ScenarioRunner
             return;
         }
 
-        BatteryRoster.Entry? entry = null;
-        foreach (BatteryRoster.Entry e in roster.All)
+        WeaponSystems.Entry? entry = null;
+        foreach (WeaponSystems.Entry e in roster.All)
         {
             if (e.Battery.Platform is not null && e.Battery.Launcher is not null) { entry = e; break; }
         }
@@ -192,9 +192,9 @@ internal sealed class ScenarioRunner
         }
     }
 
-    private void Engage(BatteryRoster.Entry entry, double dt)
+    private void Engage(WeaponSystems.Entry entry, double dt)
     {
-        DefenceBattery battery = entry.Battery;
+        WeaponSystem battery = entry.Battery;
 
         if (!_spawned)
         {

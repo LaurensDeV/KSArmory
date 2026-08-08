@@ -10,7 +10,7 @@ namespace KSArmory;
 /// <para>This is the only way to engage something the sensor cannot hand you: terrain, a spot
 /// ahead of a target, or anything the threat model rejects for being too slow or too cold. A
 /// designation carries no allegiance and no track, so the IFF and liveness gates are not skipped
-/// so much as inapplicable — <see cref="DefenceBattery.FireAt"/> says which gates still run.</para>
+/// so much as inapplicable — <see cref="WeaponSystem.FireAt"/> says which gates still run.</para>
 ///
 /// <para>Per battery rather than per session, like every other tool that acts on one
 /// installation: two sites in the same world are aimed by different people at different things.</para>
@@ -26,7 +26,7 @@ internal sealed class Designator
     private const double MarkerMin = 4.0;
 
     /// <summary>Fires at the ground under the cursor when the tool is on and the world is clicked.</summary>
-    public void Update(DefenceBattery battery, BatteryConfig policy)
+    public void Update(IManualFire battery, SystemConfig policy)
     {
         if (!policy.MouseFire) return;
 
@@ -48,7 +48,7 @@ internal sealed class Designator
     }
 
     /// <summary>Marks where a shot would go, so the tool is aimable before it is fired.</summary>
-    public void Draw(DefenceBattery battery, BatteryConfig policy)
+    public void Draw(IManualFire battery, SystemConfig policy)
     {
         if (!policy.MouseFire) return;
         if (ImGui.GetIO().WantCaptureMouse) return;
@@ -76,7 +76,7 @@ internal sealed class Designator
 
     // Off the surface by the round's own fireball, so a burst reads as something in the air rather
     // than half-buried in the ground it was aimed at.
-    private static double3 Lifted(double3 groundEcl, DefenceBattery battery)
+    private static double3 Lifted(double3 groundEcl, IManualFire battery)
     {
         double3 up = battery.Platform is { } craft ? KsaWorld.LocalUp(craft) : Vec.Unit(groundEcl);
 

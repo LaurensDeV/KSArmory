@@ -39,8 +39,8 @@ timed airburst. A CIWS cannon is not a `MunitionProfile`.
 ### Different launchers — modular in count, rigid in articulation
 
 Discovery is `Arsenal.LauncherForPart(part.Id)` (`LauncherPart.Find`); nothing hardcodes an
-Id. Tube count is fully derived — `Magazine`, the `stackalloc` in `DefenceBattery.Fire` and
-the body sync all size off `profile.TubeCount`, and `DefenceBattery.ResolveLauncher` re-sizes the
+Id. Tube count is fully derived — `Magazine`, the `stackalloc` in `WeaponSystem.Fire` and
+the body sync all size off `profile.TubeCount`, and `WeaponSystem.ResolveLauncher` re-sizes the
 magazine when a *different* profile is recognised. A non-training launcher (`TurretMarker = null`)
 is a supported shape.
 
@@ -64,13 +64,13 @@ A **static site already works** — it is a landed vehicle that does not move. *
 works structurally, since a part on a vehicle is a part on a vehicle. Two things break in
 behaviour:
 
-- **`Boresight = KsaWorld.LocalUp(Platform)`** (`DefenceBattery.SampleWorld`). The search cone points
+- **`Boresight = KsaWorld.LocalUp(Platform)`** (`WeaponSystem.SampleWorld`). The search cone points
   radially outward regardless of vehicle attitude. On a truck that is the sky; on a pitched-over
   booster or anything in orbit it is pointed at nothing. This is already listed under "Not done" in
   CLAUDE.md, but its significance changes completely once the launcher is on something that
   manoeuvres.
-- **One battery per *world*, not per craft.** `DefenceBattery` is a single instance
-  (`KSArmoryMod`) and `DefenceBattery.ResolvePlatform` elects exactly one
+- **One battery per *world*, not per craft.** `WeaponSystem` is a single instance
+  (`KSArmoryMod`) and `WeaponSystem.ResolvePlatform` elects exactly one
   platform. A static site *and* a rocket-mounted launcher gives you one of them, silently. `Config`
   likewise holds one active profile set, re-`Select`ed every frame by whichever battery won.
 
@@ -81,7 +81,7 @@ behaviour:
 | # | Change | Size | Mostly lands in | Unlocks |
 | --- | --- | --- | --- | --- |
 | 1 | ~~`TubeOffsets` becomes `Tube(position, direction)`~~ | **landed** | `Sim/LauncherProfile.cs` | any launcher whose tubes are not parallel |
-| 2 | `DefenceBattery` becomes a list, one per launcher part found | medium | `Ksa/DefenceBattery.cs` | static site + vehicle + rocket at once |
+| 2 | `WeaponSystem` becomes a list, one per launcher part found | medium | `Ksa/WeaponSystem.cs` | static site + vehicle + rocket at once |
 | 3 | ~~`BoresightMode` on `SensorProfile`~~ | **landed** | `Sim/SensorProfile.cs` | a launcher on anything that pitches |
 | 4 | Articulation as a list of drives rather than three named roles | large | `Sim/TubeGeometry.cs`, `Sim/LauncherProfile.cs` | drums, rails, per-tube motion |
 
@@ -92,13 +92,13 @@ least knowable before a second launcher exists that actually needs it.
 into `Sim/` and was covered — see the section below. 4 stays last.
 
 **2 has moved halfway.** The half that was quietly blocking everything is done: `Config` no longer
-holds a launcher, round or sensor, and `DefenceBattery.Profile`/`.Munition`/`.Sensor` are the
+holds a launcher, round or sensor, and `WeaponSystem.Profile`/`.Munition`/`.Sensor` are the
 battery's own, paired by `Arsenal.LoadoutFor`. Two craft can now be two *different* weapon systems,
 which is what the LAU-7 rail needed and what a shared `Config` made impossible — every reader
 outside a battery's own update got whichever battery resolved last.
 
 What remains of 2 is the part the row actually names: **several launchers on one craft.**
-`DefenceBattery.LauncherOrdinal` is a `const 0` and `BatteryRoster` keys on `Vehicle`, so a craft
+`WeaponSystem.LauncherOrdinal` is a `const 0` and `WeaponSystems` keys on `Vehicle`, so a craft
 with two Sidewinder rails fires one of them and the other is scenery. Fire control, platform
 election and the salvo timers are still KSA-facing and still unreachable from the test project, so
 that half remains the riskiest of the four despite being the middle-sized one.
@@ -249,7 +249,7 @@ The gap is what it shoots *at*: see below.
 ### What the architecture genuinely cannot express
 
 **Targets must be whole vehicles.** `TargetState` is medium-agnostic — position, velocity, radius —
-but `TargetRef` is cast to `Vehicle` in five places in `DefenceBattery`. There is no way to aim at
+but `TargetRef` is cast to `Vehicle` in five places in `WeaponSystem`. There is no way to aim at
 a *part*, a *point on the ground*, or a static structure. An anti-tank RPG wanting a specific
 component, or a bomb wanting a coordinate, cannot say so. Contained to those five places, but real.
 

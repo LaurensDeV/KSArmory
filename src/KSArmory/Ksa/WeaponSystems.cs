@@ -3,8 +3,8 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// One <see cref="DefenceBattery"/> per weapons system in the world, each with its own
-/// <see cref="BatteryConfig"/>.
+/// One <see cref="WeaponSystem"/> per weapons system in the world, each with its own
+/// <see cref="SystemConfig"/>.
 ///
 /// <para>Every craft carrying a recognised part is crewed, permanently and independently: a
 /// battery is pinned to the craft it was created for and never moves, so arming one site, sending
@@ -16,9 +16,9 @@ namespace KSArmory;
 /// appear when a system is surveyed and are dropped when the craft dies — a battery outliving its
 /// platform would keep a destroyed vehicle alive in this dictionary for the session.</para>
 /// </summary>
-internal sealed class BatteryRoster(Config config)
+internal sealed class WeaponSystems(Config config)
 {
-    internal sealed record Entry(DefenceBattery Battery, BatteryConfig Policy);
+    internal sealed record Entry(WeaponSystem Battery, SystemConfig Policy);
 
     private readonly Config _config = config;
     private readonly Dictionary<Vehicle, Entry> _entries = [];
@@ -57,13 +57,13 @@ internal sealed class BatteryRoster(Config config)
             Vehicle craft = systems[i].Craft;
             if (!KsaWorld.IsAlive(craft) || _entries.ContainsKey(craft)) continue;
 
-            BatteryConfig policy = new();
+            SystemConfig policy = new();
 
             // Whatever this craft was last set to. Applied before the battery exists so its first
             // frame runs on the restored settings rather than on defaults it then overwrites.
             SettingsStore.For(KsaWorld.DisplayName(craft))?.ApplyTo(policy);
 
-            DefenceBattery battery = new(_config, policy);
+            WeaponSystem battery = new(_config, policy);
 
             // Pinned on creation, so ResolvePlatform leaves it alone. Without this every battery
             // would independently elect the craft being flown and they would all pile onto it.

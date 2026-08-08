@@ -1,5 +1,11 @@
 # Splitting `DefenceBattery`, and what to call it instead
 
+> **Item 4 has landed.** `DefenceBattery` is now `WeaponSystem`, `BatteryRoster` is
+> `WeaponSystems`, and `BatteryConfig` and `BatterySettings` are `SystemConfig` and
+> `SystemSettings`. Item 8 landed with it: the consumers take roles from
+> `Ksa/WeaponSystemRoles.cs` rather than the whole class. **The old names are kept below on
+> purpose**, because the argument is about why they were wrong and rewriting them would erase it.
+
 A plan, not a refactor. It answers four questions asked of `Ksa/DefenceBattery.cs`: whether it is
 one thing or several, what the right word is if not "battery", which parts of a split would move
 logic into `Sim/` and therefore become testable, and what a split could break without anyone
@@ -299,7 +305,7 @@ this list one at a time as they land.
    and the decision is the user's: the field is one assignment in `AimPointEcl` away from working,
    and the panel currently offers a setting that does nothing. Whichever way it goes, item 1 is
    what stops the next one of these hiding for as long.
-4. **Rename: `DefenceBattery` to `WeaponSystem`, `BatteryRoster` to `WeaponSystems`,
+4. ~~**Rename:**~~ **Done.** `DefenceBattery` to `WeaponSystem`, `BatteryRoster` to `WeaponSystems`,
    `BatteryConfig` and `BatterySettings` to `SystemConfig` and `SystemSettings`.** Cheap,
    mechanical across 19 files, no on-disk format change. Ride it on item 1's commit so it lands
    with a change that makes it true rather than on its own.
@@ -314,7 +320,8 @@ this list one at a time as they land.
    same item. **Alone, with a flight after it.**
 7. **The turret mode ladder into `Sim/`.** Named in `docs/MODULARITY.md` as what the `FireGate`
    extraction left behind. Below the seam because the seam changes what its inputs are.
-8. **Narrow the effects consumers to a rounds-in-flight interface.** `MotorSound`, `MotorPlume`,
+8. ~~**Narrow the effects consumers to a rounds-in-flight interface.**~~ **Done**, and wider than
+   proposed: ten consumers now take one of six roles. See `Ksa/WeaponSystemRoles.cs`. `MotorSound`, `MotorPlume`,
    `TracerTrail` and `ChaseCamera` need five members; give them five. Tidiness, but it is the
    cheapest item here and it is what stops the next effect class taking a dependency on
    everything.

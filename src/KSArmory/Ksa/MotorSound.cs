@@ -37,7 +37,7 @@ internal sealed class MotorSound(Config config)
     private static bool _warnedMissing;
 
     /// <summary>Starts, moves and stops the motor of every round this battery has in the air.</summary>
-    public void Update(DefenceBattery battery)
+    public void Update(IRoundsInFlight battery)
     {
         if (!_config.MotorSound || battery.Platform is not { } platform)
         {

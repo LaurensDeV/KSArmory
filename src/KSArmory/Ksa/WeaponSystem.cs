@@ -4,7 +4,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>Something worth telling the operator about, surfaced in the panel.</summary>
-internal readonly record struct BatteryEvent(double AtSeconds, string Message);
+internal readonly record struct SystemEvent(double AtSeconds, string Message);
 
 /// <summary>
 /// The air-defence battery: a six-round launcher, its radar, and the fire-control logic
@@ -12,16 +12,17 @@ internal readonly record struct BatteryEvent(double AtSeconds, string Message);
 /// whatever the player is flying but can be pinned so the site keeps defending itself
 /// after the player switches away.
 /// </summary>
-internal sealed class DefenceBattery(Config config, BatteryConfig policy)
+internal sealed class WeaponSystem(Config config, SystemConfig policy)
+    : IWeaponSystemView, IManualFire, IOpticalHead, IEffectSource
 {
     private readonly Config _config = config;
 
     // This installation's own settings. Shared Config stays for the session-wide ones.
-    private readonly BatteryConfig _policy = policy;
+    private readonly SystemConfig _policy = policy;
     private readonly List<IProjectile> _rounds = [];
     private readonly List<Vehicle> _blastScratch = [];
     private readonly List<Vehicle> _pendingKills = [];
-    private readonly List<BatteryEvent> _events = [];
+    private readonly List<SystemEvent> _events = [];
 
     private Vehicle? _lastPlatform;
     private double _salvoTimer;
@@ -36,12 +37,15 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
 
     public Radar Radar { get; } = new(config, policy);
 
+    /// <summary>What the set is holding, for a reader that has no business with the set.</summary>
+    public Track? LockedTrack => Radar.Locked;
+
     /// <summary>Rounds left in the launcher.</summary>
     public int Ammo => _magazine.Ammo;
 
     public IReadOnlyList<IProjectile> Rounds => _rounds;
 
-    public IReadOnlyList<BatteryEvent> Events => _events;
+    public IReadOnlyList<SystemEvent> Events => _events;
 
     /// <summary>Seconds left on the reload cycle, or zero when not reloading.</summary>
     public double ReloadRemaining => _reloadTimer;
@@ -1624,7 +1628,7 @@ internal sealed class DefenceBattery(Config config, BatteryConfig policy)
 
     private void Announce(string message)
     {
-        _events.Add(new BatteryEvent(_clock, message));
+        _events.Add(new SystemEvent(_clock, message));
         Log.Info(message);
     }
 

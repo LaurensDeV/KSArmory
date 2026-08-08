@@ -44,7 +44,7 @@ internal sealed class TracerTrail
     private static bool _warned;
 
     /// <summary>Starts, moves and ends the tracer of every shell this battery has in the air.</summary>
-    public void Update(DefenceBattery battery)
+    public void Update(IEffectSource battery)
     {
         if (!battery.PlumesEnabled || battery.Platform is not { } platform)
         {
@@ -95,7 +95,7 @@ internal sealed class TracerTrail
         _tracing.Clear();
     }
 
-    private bool Follow(IProjectile round, DefenceBattery battery, Vehicle platform)
+    private bool Follow(IProjectile round, IEffectSource battery, Vehicle platform)
     {
         if (battery.Launcher is not { } launcher) return false;
 

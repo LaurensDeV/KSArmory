@@ -228,7 +228,7 @@ public class WeaponFitTests
     [Fact]
     public void EachArmamentDrivesItsOwnSwitchAndNotTheOther()
     {
-        BatteryConfig policy = new();
+        SystemConfig policy = new();
         WeaponFit fit = WeaponFit.Of(Battery(), Sensor());
 
         Armament.EnabledIn(policy, fit.Armaments[0].Kind) = false;

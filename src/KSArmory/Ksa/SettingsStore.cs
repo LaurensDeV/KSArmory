@@ -35,7 +35,7 @@ internal static class SettingsStore
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
-    private static Dictionary<string, BatterySettings> _stored = [];
+    private static Dictionary<string, SystemSettings> _stored = [];
 
     // Which file _stored came from. Re-read when it changes: that is a different save's settings,
     // and holding the previous one's would write them into it.
@@ -52,10 +52,10 @@ internal static class SettingsStore
     }
 
     /// <summary>What was last written down for a craft in the open save, or null.</summary>
-    public static BatterySettings? For(string craftId)
+    public static SystemSettings? For(string craftId)
     {
         Load();
-        return _stored.TryGetValue(craftId, out BatterySettings? s) ? s : null;
+        return _stored.TryGetValue(craftId, out SystemSettings? s) ? s : null;
     }
 
     /// <summary>
@@ -63,14 +63,14 @@ internal static class SettingsStore
     /// called as often as the caller likes.
     /// </summary>
     /// <returns>True if the store changed and needs saving.</returns>
-    public static bool Remember(string craftId, BatteryConfig config)
+    public static bool Remember(string craftId, SystemConfig config)
     {
         if (string.IsNullOrWhiteSpace(craftId)) return false;
 
         Load();
-        BatterySettings now = BatterySettings.From(config);
+        SystemSettings now = SystemSettings.From(config);
 
-        if (_stored.TryGetValue(craftId, out BatterySettings? was) && !now.Differs(was)) return false;
+        if (_stored.TryGetValue(craftId, out SystemSettings? was) && !now.Differs(was)) return false;
 
         _stored[craftId] = now;
         return true;
@@ -139,7 +139,7 @@ internal static class SettingsStore
         }
     }
 
-    private static Dictionary<string, BatterySettings> ReadOrEmpty(string path)
+    private static Dictionary<string, SystemSettings> ReadOrEmpty(string path)
     {
         try
         {
@@ -148,7 +148,7 @@ internal static class SettingsStore
             string json = File.ReadAllText(path);
             return string.IsNullOrWhiteSpace(json)
                        ? []
-                       : JsonSerializer.Deserialize<Dictionary<string, BatterySettings>>(json, Options)
+                       : JsonSerializer.Deserialize<Dictionary<string, SystemSettings>>(json, Options)
                          ?? [];
         }
         catch
