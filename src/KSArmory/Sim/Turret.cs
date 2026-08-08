@@ -76,8 +76,16 @@ public sealed class Turret
         if (offAxis >= ForwardArcRad || ForwardArcRad <= 0.0) return MinElevationRad;
         if (offAxis <= ForwardPlateauRad) return Math.Max(MinElevationRad, ForwardMinElevationRad);
 
+        // Eases between this launcher's two floors, not between the forward one and level. A mount
+        // that may depress below level has no cutout to ease out of, and easing toward zero gives
+        // it one anyway: the floor rises across the band and then steps back down at the arc edge,
+        // 25 degrees in a single frame on the CIWS, applied as a clamp so it is not even rate
+        // limited. Reduces to the old expression wherever MinElevationRad is zero, which is every
+        // launcher that only elevates.
         double t = (offAxis - ForwardPlateauRad) / (ForwardArcRad - ForwardPlateauRad);
-        return Math.Max(MinElevationRad, ForwardMinElevationRad * (1.0 - t * t));
+        double eased = MinElevationRad + (ForwardMinElevationRad - MinElevationRad) * (1.0 - t * t);
+
+        return Math.Max(MinElevationRad, eased);
     }
 
     /// <summary>Angle still to cover in traverse, signed. Zero when there is no command.</summary>

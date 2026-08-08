@@ -752,6 +752,30 @@ internal static class LauncherPart
     /// Falls back to the vehicle origin when there is no camera (loading screens), which costs
     /// at most a couple of metres on a kilometre-scale engagement.
     /// </summary>
+    /// <summary>
+    /// A point given in the launcher part's own frame, in Ecl.
+    ///
+    /// <para>Same centre-of-mass correction as the tubes: <paramref name="platformEcl"/> is the
+    /// centre of mass and <c>PositionVehicleAsmb</c> is measured from the assembly origin.</para>
+    /// </summary>
+    public static bool TryPartPointEcl(Vehicle platform, Part launcher, double3 partFrame,
+                                       double3 platformEcl, out double3 ecl)
+    {
+        ecl = Vec.Zero;
+
+        try
+        {
+            double3 inVehicle = launcher.PositionVehicleAsmb + launcher.Asmb2VehicleAsmb * partFrame;
+            ecl = platformEcl + platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb);
+
+            return Vec.IsFinite(ecl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static double3 ResolveOriginEcl(Vehicle vehicle, Part? launcher)
     {
         double3 vehicleEcl = KsaWorld.PositionEcl(vehicle);
@@ -762,7 +786,14 @@ internal static class LauncherPart
             Camera camera = Program.GetMainCamera();
             if (camera is null) return vehicleEcl;
 
-            double3 vehicleEgo = camera.EclToEgo(vehicleEcl);
+            // Where the craft is *drawn*, not where its orbit says it is. EclToEgo is only the
+            // last of GetPositionEgo's three cases: a craft sharing the followed craft's physics
+            // bubble is drawn at a physics-derived position instead, and that differs from the
+            // analytic one by metres on the ground. The mount is used to take a bearing at
+            // something the player picked off the screen, so it has to be where the launcher
+            // appears. The engine agrees -- its own GetMatrixAsmb2Ego(Camera) overload is exactly
+            // GetMatrixAsmb2Ego(camera.GetPositionEgo(this)). Identical for the followed craft.
+            double3 vehicleEgo = camera.GetPositionEgo(vehicle);
             double4x4 asmb2Ego = vehicle.GetMatrixAsmb2Ego(vehicleEgo);
             double3 partEgo = launcher.PositionEgo(ref asmb2Ego);
 

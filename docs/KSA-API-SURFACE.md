@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-118 types and 304 members across 6 assemblies.
+115 types and 303 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -294,7 +294,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 GetSurfacePositionEclFromCce(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.doubleQuat GetCce2Ccf()`
-- `KSA.CelestialTemplate get_BodyTemplate()`
 - `double GetAngularVelocity()`
 - `double GetLatitudeFromCce(Brutal.Numerics.double3)`
 - `double GetLongitudeFromCce(Brutal.Numerics.double3)`
@@ -307,10 +306,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Astronomical GetIndex(int)`
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 - `int get_Count()`
-
-### KSA.CelestialTemplate
-
-- `System.Collections.Generic.List`1<KSA.LocationReference> Locations`
 
 ### KSA.CharacterAttachmentReference
 
@@ -445,14 +440,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.CharacterReference Character`
 - `void .ctor(KSA.CelestialSystem, string, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 
-### KSA.LandmarkReference
-
-- `bool IsLaunchPad`
-
-### KSA.LocationReference
-
-- `Brutal.Numerics.double3 get_ForwardCcf()`
-
 ### KSA.LookupCollection`1
 
 *referenced as a type only*
@@ -507,6 +494,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat get_Asmb2ParentAsmb()`
 - `Brutal.Numerics.doubleQuat get_Asmb2VehicleAsmb()`
 - `System.ReadOnlySpan`1<KSA.Part> get_SubParts()`
+- `bool RayCastEgo(ref Brutal.Numerics.double4x4, KSA.Ray, ref double, ref double, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref KSA.Part, ref KSA.Part)`
 - `string get_Id()`
 - `void ResetCachedPosMatrixValues()`
 - `void set_Asmb2ParentAsmb(Brutal.Numerics.doubleQuat)`
@@ -551,6 +539,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Ray
 
 - `Brutal.Numerics.double3 Direction`
+- `Brutal.Numerics.double3 Origin`
 
 ### KSA.Rendering.Particles.ParticleEmitterReference
 
@@ -639,6 +628,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 get_CenterOfMassAsmb()`
 - `Brutal.Numerics.double4x4 GetMatrixAsmb2Ego(Brutal.Numerics.double3)`
+- `Brutal.Numerics.double4x4 GetMatrixAsmb2Ego(KSA.Camera)`
 - `Brutal.Numerics.doubleQuat get_Asmb2Ego()`
 - `Brutal.Numerics.doubleQuat get_Body2Cce()`
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`

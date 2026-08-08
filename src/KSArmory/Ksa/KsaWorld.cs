@@ -301,6 +301,12 @@ internal static class KsaWorld
                 if (system.GetIndex(i) is not Celestial body) continue;
 
                 double3 centre = body.GetPositionEcl();
+
+                // Only from outside. TryHitSphere answers with the far-side exit when the origin
+                // is within the sphere -- correct for pointing at a planet from space, and a point
+                // through the planet when picking ground you are standing on.
+                if (Vec.Len(eye - centre) <= body.MeanRadius) continue;
+
                 if (!Picking.TryHitSphere(eye, direction, centre, body.MeanRadius, out double3 hit))
                 {
                     continue;
@@ -326,7 +332,12 @@ internal static class KsaWorld
             // that error is zero at ground level and grows with every metre of elevation, which
             // is what made the marker drift furthest over the pad.
             double3 centreEcl = nearest.GetPositionEcl();
-            for (int pass = 0; pass < 3; pass++)
+            double lastMoved = double.MaxValue;
+
+            // Six rather than three: the guard below exits the moment a pass stops improving, so
+            // the extra passes are only spent where they are converging, and at shallow depression
+            // angles three is well short of the answer.
+            for (int pass = 0; pass < 6; pass++)
             {
                 double3 dirCce = Vec.Unit(nearestHit - centreEcl);
                 if (!Vec.IsFinite(dirCce) || Vec.Len(dirCce) < 0.5) break;
@@ -334,15 +345,36 @@ internal static class KsaWorld
                 double height = nearest.GetTerrainHeightFromDirCce(dirCce, accurate: true);
                 if (!double.IsFinite(height)) break;
 
-                double radius = nearest.MeanRadius + height + LaunchPadHeight(nearest, dirCce);
+                // Terrain only. A launch pad is 8 m of pedestal 40 m across, and adding it here
+                // models it as an 8 m thicker planet: at 5 km the resolved point moves 2.8 km, and
+                // sweeping the cursor over the pad edge swings the bearing from the mount through
+                // 168 degrees between one pixel and the next. Where a structure's surface is has
+                // no answer in this engine -- see docs/BLOCKED-ON-KSA.md -- and a wrong one that
+                // reaches to the horizon is worse than none.
+                double radius = nearest.MeanRadius + height;
+
+                // Never inflate the sphere out past the eye. Terrain under the cursor being higher
+                // than the eye is ordinary -- a hillside, a pad, or simply standing on ground the
+                // pass sampled a few hundred metres away -- and from inside, the "hit" is the exit
+                // on the far side of the planet. Up to a diameter of it, which fire control then
+                // accepts and shoots at. The last good answer is closer than none.
+                if (radius >= Vec.Len(eye - centreEcl)) break;
+
                 if (!Picking.TryHitSphere(eye, direction, centreEcl, radius, out double3 refined))
                 {
                     // Grazing: the raised surface is missed where the mean sphere was caught.
-                    // The last good answer is closer than none.
                     break;
                 }
 
+                // The passes are a fixed-point iteration whose gain is the terrain slope over the
+                // tangent of the depression angle. Above one it walks away from the answer rather
+                // than onto it, and from ground level that is most of the screen. Keep the better
+                // sample: taking the step and then breaking returns the pass that walked away.
+                double moved = Vec.Len(refined - nearestHit);
+                if (moved >= lastMoved) break;
+
                 nearestHit = refined;
+                lastMoved = moved;
             }
 
             double3 cce = nearestHit - centreEcl;
@@ -355,31 +387,6 @@ internal static class KsaWorld
         catch
         {
             return false;
-        }
-    }
-
-    // Mirrors Vehicle.GetInitialKinematicStateForLocation, which is private and is what actually
-    // places the craft: within 40 m of a launch-pad landmark it stands 8 m up, on the pad. These
-    // numbers are the engine's, not ours -- if they move, the marker and the landing part company.
-    private static double LaunchPadHeight(Celestial body, double3 dirCce)
-    {
-        try
-        {
-            if (body.BodyTemplate is not { } template) return 0.0;
-
-            double3 dirCcf = dirCce.Transform(body.GetCce2Ccf());
-
-            foreach (LocationReference location in template.Locations)
-            {
-                if (location is not LandmarkReference { IsLaunchPad: true } pad) continue;
-                if (Vec.Len(pad.ForwardCcf - dirCcf) * body.MeanRadius < 40.0) return 8.0;
-            }
-
-            return 0.0;
-        }
-        catch
-        {
-            return 0.0;
         }
     }
 
@@ -1111,15 +1118,88 @@ internal static class KsaWorld
         _anchored = false;
     }
 
-    // Taken as the range when the ray meets no body: far enough that the camera-to-launcher
-    // parallax is under what the drives can resolve, at 100 m of offset about 0.3 degrees.
-    private const double CursorSkyRange = 20_000.0;
+    // Taken as the range when the ray meets no body. Only one thing reads it -- the parallax
+    // between the camera and the mount, which is the standoff over this -- and that error is
+    // systematic, always toward the camera's side, and shrinks as the view zooms in. At 100 m of
+    // standoff, 20 km gives 0.29 degrees and 200 km gives 0.03, under a third of a pixel at
+    // 1080p. Nothing else consumes it: the designator resolves its own ground point.
+    private const double CursorSkyRange = 200_000.0;
 
     private static bool _cursorAimSolved;
     private static bool _cursorAimValid;
     private static double3 _cursorAimOrigin;
     private static double3 _cursorAimDirection;
     private static double _cursorAimRange;
+
+    // How far along the ray the nearest craft is, if it meets one.
+    //
+    // The bounding sphere only rejects; the mesh decides. A craft's sphere is far wider than the
+    // craft, so close up it covers a large part of the screen and the aim snaps to it long before
+    // the cursor is over anything. Part.RayCastEgo is watertight and per-triangle against the real
+    // mesh -- it is what KSA highlights parts with -- so it answers the question the player is
+    // actually asking. It is also a walk over every part, which is why the sphere runs first: one
+    // dot product skips a craft the ray is nowhere near.
+    //
+    // The ray is Ego, and the distance it reports is along it from the camera, so it is the range
+    // wanted here with no conversion. Ego is a pure translation of Ecl, so the direction is the
+    // same in both -- only an origin would need care.
+    private static bool TryCursorCraftRange(double3 eye, double3 direction, out double range)
+    {
+        range = double.MaxValue;
+
+        try
+        {
+            if (Program.MainViewport?.GetCamera() is not { } camera) return false;
+
+            Ray ray = new() { Origin = default, Direction = Vec.Unit(direction) };
+
+            CollectVehicles(_pickScratch);
+
+            Vehicle? own = ControlledVehicle;
+
+            foreach (Vehicle craft in _pickScratch)
+            {
+                // The craft being flown is usually the one carrying the launcher, and it sits
+                // under the cursor for most of an orbit view. Snapping the aim onto it would whip
+                // the turret round to point at its own hull every time the pointer crossed it.
+                if (ReferenceEquals(craft, own)) continue;
+
+                double radius = MeanRadius(craft);
+                if (!(radius > 0.0)) continue;
+
+                double3 centre = PositionEcl(craft);
+
+                // Standing inside one is not aiming at it: from in there the sphere's only hit
+                // ahead is its far side, which is behind the operator's own launcher.
+                if (Vec.Len(eye - centre) <= radius) continue;
+                if (!Picking.TryHitSphere(eye, direction, centre, radius, out _)) continue;
+
+                if (craft.Parts is not { } tree) continue;
+
+                double4x4 asmb2Ego = craft.GetMatrixAsmb2Ego(camera);
+                ReadOnlySpan<Part> parts = tree.Parts;
+
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    if (!parts[i].RayCastEgo(in asmb2Ego, ray, out double hit, out _,
+                                             out _, out _, out _, out _, out _, out _))
+                    {
+                        continue;
+                    }
+
+                    if (hit > 0.0 && hit < range) range = hit;
+                }
+            }
+
+            return range < double.MaxValue;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static readonly List<Vehicle> _pickScratch = [];
 
     private static void SolveCursorAim()
     {
@@ -1135,6 +1215,15 @@ internal static class KsaWorld
         double range = TryCursorGroundPoint(out double3 ground, out _, out _, out _)
                            ? Vec.Len(ground - eye)
                            : CursorSkyRange;
+
+        // Whatever the ray meets first, which need not be the planet. Tested only against
+        // celestials, a cursor held on a craft resolves to the ground *behind* it and the aim goes
+        // through it -- by however far the craft stands off the terrain, which for anything flying
+        // is the whole point of aiming at it.
+        if (TryCursorCraftRange(eye, direction, out double onCraft) && onCraft < range)
+        {
+            range = onCraft;
+        }
 
         if (!double.IsFinite(range) || range <= 0.0) range = CursorSkyRange;
 

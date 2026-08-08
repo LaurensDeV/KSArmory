@@ -12,12 +12,13 @@ namespace KSArmory;
 /// invisible until someone opens a second view, and then reads as the gun aiming at a point
 /// offset from the cursor by a fixed amount.</para>
 ///
-/// <para>And the viewport's pixels are not necessarily the camera's. The unprojection divides by
-/// <c>FramebufferSize</c>, which a render scale or a display scale can make a different size from
-/// the window it is shown in — so the cursor has to be scaled into framebuffer pixels as well as
-/// offset into the viewport. Getting only the offset right leaves an error that is zero at the
-/// top-left corner and grows across the screen, which reads as "close, but not under the
-/// pointer".</para>
+/// <para>The scale into framebuffer pixels is insurance rather than a correction. In KSA it is
+/// exactly one and cannot be otherwise: <c>Viewport.SetSize</c> assigns <c>Size</c> and calls
+/// <c>Camera.Resize</c>, which assigns <c>FramebufferSize</c>, in the same statement, and there is
+/// no render-scale path. It stays because an unprojection that divides by a framebuffer is
+/// entitled to be given framebuffer pixels, and were the two ever to diverge the error would be
+/// zero at the top-left corner and grow across the screen — which reads as "close, but not under
+/// the pointer" and would be found the hard way.</para>
 ///
 /// <para>No KSA types: the caller supplies the rectangle and unprojects the answer.</para>
 /// </summary>

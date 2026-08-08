@@ -190,6 +190,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     // AimPointEcl, which is the only place the choice is made.
     private bool _ringIsOnGunLead;
 
+    // Whether the ring is laid on the operator's cursor. The same problem as _ringIsOnGunLead and
+    // the same answer: rounds leave along the tube, so a missile that auto-engage commits to the
+    // radar's lock while the tube follows the cursor departs at whatever angle those two differ
+    // by -- which is unbounded, and up to 180 degrees.
+    private bool _ringIsOnCursor;
+
     // Time of flight from the gun's last lead solve, for a timed fuse. Zero when there is no
     // solution, which is also what stops a shell being fused for a flight nobody computed.
     private double _gunFlightTime;
@@ -277,7 +283,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     // Slewing onto something, rather than stowed or driven from the panel. Mouse aim counts:
     // the drives are chasing a cursor, so fire control must still wait for them to settle or
     // rounds leave along a tube that is still swinging.
-    private bool Aiming => (_policy.TurretTracking || _policy.MouseAim)
+    // Designating counts as aiming. Firing at the cursor without it leaves the launcher wherever
+    // it was already pointing -- stowed, on a radar track, or on the gun's lead -- and the round
+    // departs along that and is hauled round by guidance over kilometres of arc. On a launcher
+    // that cannot train, that off-axis start is a limit on the seeker and is expected; on one with
+    // a turret it is simply a turret nobody told.
+    private bool Aiming => (_policy.TurretTracking || _policy.MouseAim || _policy.MouseFire)
                            && !_policy.TurretManual && !_policy.TurretSpin;
 
     public void PinPlatform(Vehicle? v)
@@ -482,6 +493,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             {
                 return "the cannon has the bearing";
             }
+
+            // The operator owns the ring, so an automatic launch would leave along the cursor and
+            // turn onto whatever the radar locked. Held rather than re-aimed: the cursor is a
+            // deliberate command, and taking the ring back to shoot would fight the player.
+            if (!FireGate.MissilesMayFire(_ringIsOnCursor, Profile.LaunchAlongTube))
+            {
+                return "the cursor has the bearing";
+            }
         }
         else if (!GunsAreLaid)
         {
@@ -638,13 +657,44 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     // there is one, otherwise along the turret's own facing.
     // Where the cursor points, in the launcher part's frame. False unless mouse aim is on and the
     // cursor is over a viewport whose camera gives a usable ray.
+    // Where a bearing to something should be measured from: the trunnion the tubes swing on, not
+    // the launcher part's origin.
+    //
+    // The drive lays the bore *parallel* to (target - origin), and that bore passes through the
+    // trunnion. Measured from the part origin the tube bundle sits 2.5 to 3.3 m off that line at
+    // every bearing and elevation; measured from the trunnion it is on it exactly, because that is
+    // how the model is built. Parallel but displaced misses by the perpendicular part of the
+    // displacement -- a fixed distance, so a shrinking angle: 1.7 degrees at 100 m, 0.17 at 1 km,
+    // nothing at 20. Which is why it reads as slightly off up close and fine far away.
+    private double3 AimOriginEcl
+    {
+        get
+        {
+            if (Platform is null || Launcher is null || !Profile.Trains) return MountEcl;
+
+            // Whichever assembly is doing the aiming. A gun-only mount has no pods to swing.
+            double3 pivot = PodsPart is not null ? Profile.PodPivotFromTurret
+                                                 : Profile.GunPivotFromTurret;
+
+            double3 trunnion = Profile.TurretPivot
+                               + (TubeGeometry.TurretRotation(Turret.BearingRad) * pivot);
+
+            return LauncherPart.TryPartPointEcl(Platform, Launcher, trunnion, PlatformEcl,
+                                                out double3 ecl)
+                       ? ecl
+                       : MountEcl;
+        }
+    }
+
     private bool TryCursorAimPartFrame(out double3 partFrame)
     {
         partFrame = default;
 
-        return _policy.MouseAim
+        // The designator too, not only the aim switch: a tool that sends a round at the cursor
+        // has to point the launcher at it first, or the round leaves along a stale bearing.
+        return (_policy.MouseAim || _policy.MouseFire)
                && Platform is not null
-               && KsaWorld.TryCursorAimEcl(MountEcl, out double3 dirEcl)
+               && KsaWorld.TryCursorAimEcl(AimOriginEcl, out double3 dirEcl)
                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, dirEcl, out partFrame);
     }
 
@@ -849,6 +899,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     // the two.
     private void UpdateTurret(double dt)
     {
+        // Cleared here rather than in the branches that do not set it, so a rung added later
+        // cannot leave a stale claim on the ring.
+        _ringIsOnCursor = false;
+
         if (_policy.TurretSpin)
         {
             // Command a bearing that runs away at the slew rate, so the turret chases it
@@ -870,6 +924,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             // *is* the sensor, so needing to enable radar tracking first would be surprising. The
             // drives stay rate-limited, so this points towards the cursor rather than snapping.
             _ringIsOnGunLead = false;
+            _ringIsOnCursor = true;
             Turret.Track(cursorFrame);
         }
         else if (!_policy.TurretTracking)
@@ -1113,6 +1168,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
         double range = Platform is null ? 0.0 : Vec.Len(pointEcl - PlatformEcl);
 
+        // The round's own reach. The panel colours the marker by this, but nothing refused on it,
+        // so a designation the cursor solve put beyond the horizon was committed and a round spent
+        // flying at somewhere it could never arrive. Said out loud, because a designation that is
+        // simply too far is an ordinary thing for an operator to do and worth being told about.
+        if (range > Munition.MaxRange)
+        {
+            Announce($"refused: {range / 1000.0:F1} km is beyond the round's {Munition.MaxRange / 1000.0:F0} km reach");
+            return false;
+        }
+
         // Anchored to the body it sits on, never held as the coordinate it was when it was named.
         Aimpoint aim = KsaWorld.TryAnchorToGround(pointEcl, out object? body, out double3 anchor)
                            ? Aimpoint.OnGround(body!, anchor, pointEcl, Vec.Zero)
@@ -1186,8 +1251,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // A seeker round released outside its own gimbal limit never steers and never recovers, so
         // this is the last point at which that is still a refusal rather than a round flying away
         // for its whole life. The tube goes back: the shot was never taken.
+        // Operator-held waives the gimbal limit, because a launcher that cannot be pointed has no
+        // way to bring a designated place inside it -- the rail's measured 92-116 degrees off is
+        // that, and is a limit on the seeker rather than a fault. A launcher that *trains* has no
+        // such excuse: waiving it there lets a round leave along a stale tube and says nothing.
         double3 toAim = aim.PositionEcl - launchPos;
-        if (!FireGate.CanGuideOntoAimpoint(Munition.Guidance, aim.Kind == AimpointKind.Ground,
+        if (!FireGate.CanGuideOntoAimpoint(Munition.Guidance,
+                                           aim.Kind == AimpointKind.Ground && !Profile.Trains,
                                            Munition.SeekerFovRad, launchDir, toAim))
         {
             _magazine.Return(tube);
@@ -1229,10 +1299,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             return true;
         }
 
-        // operatorHeld: this asks about a designation, which is exactly the case a gimbal limit
-        // does not apply to. It stays because a launcher firing at a *track* off a fixed tube is
-        // still bound by it.
-        return FireGate.CanGuideOntoAimpoint(Munition.Guidance, operatorHeld: true,
+        // Same rule the shot itself is held to, so the ring answers the question the trigger will.
+        // Held true regardless, it read green however far off the tube the click was -- which is
+        // the one thing this preview exists to say.
+        return FireGate.CanGuideOntoAimpoint(Munition.Guidance, operatorHeld: !Profile.Trains,
                                              Munition.SeekerFovRad, axis, pointEcl - MountEcl);
     }
 

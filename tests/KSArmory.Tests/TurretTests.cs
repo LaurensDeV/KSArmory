@@ -129,6 +129,58 @@ public class TurretTests
     }
 
     /// <summary>
+    /// A mount that may depress below level has no forward cutout to ease out of, so the floor
+    /// must arrive at its own minimum by the edge of the arc. Easing toward level instead invents
+    /// a cutout it does not have: the floor climbs across the band and then drops back the moment
+    /// the arc ends. The clamp is applied against the current bearing and is not rate limited, so
+    /// that is a step in one frame — on the Mk 15, which depresses to −25°, a 25° one.
+    /// </summary>
+    [Fact]
+    public void DepressionFloor_HasNoStepForAMountThatDepressesBelowLevel()
+    {
+        var turret = new Turret
+        {
+            MinElevationRad = double.DegreesToRadians(-25),
+            ForwardMinElevationRad = double.DegreesToRadians(-25),
+        };
+
+        // Nothing is in the way of this mount anywhere, so the floor is its minimum throughout.
+        Assert.Equal(turret.MinElevationRad, turret.DepressionFloorAt(0.0), 9);
+        Assert.Equal(turret.MinElevationRad, turret.DepressionFloorAt(turret.ForwardArcRad), 9);
+
+        // Including across the band the easing runs over, which is where it used to lift.
+        double justInside = turret.DepressionFloorAt(turret.ForwardArcRad * 0.999);
+        double justOutside = turret.DepressionFloorAt(turret.ForwardArcRad * 1.001);
+
+        Assert.Equal(turret.MinElevationRad, justInside, 6);
+        Assert.True(Math.Abs(justInside - justOutside) < 1e-6,
+                    $"floor steps {double.RadiansToDegrees(Math.Abs(justInside - justOutside)):F1} deg "
+                    + "at the edge of the forward arc");
+    }
+
+    /// <summary>
+    /// The two floors are ends of the same easing, so a mount with a genuine cutout still gets one
+    /// — this must not have been bought by flattening the case the floor exists for.
+    /// </summary>
+    [Fact]
+    public void DepressionFloor_StillProtectsAMountThatCannotDepressAtAll()
+    {
+        var turret = new Turret();
+
+        Assert.True(turret.DepressionFloorAt(0.0) > turret.DepressionFloorAt(Math.PI / 2),
+                    "the forward arc is no longer protected");
+
+        // Monotonic across the band: it only ever falls as the turret traverses off the bow.
+        double previous = turret.DepressionFloorAt(0.0);
+        for (double f = 0.0; f <= 1.2; f += 0.02)
+        {
+            double floor = turret.DepressionFloorAt(turret.ForwardArcRad * f);
+            Assert.True(floor <= previous + 1e-9, $"floor rose at {f:F2} of the arc");
+            previous = floor;
+        }
+    }
+
+    /// <summary>
     /// The bodywork the floor protects does not taper, so the floor must not either. A curve that
     /// starts falling at the bow has given most of its height away by the time the tubes are
     /// abeam the obstruction, which is where the tubes are longest across it.

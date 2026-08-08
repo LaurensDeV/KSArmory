@@ -56,11 +56,11 @@ public class FireArbitrationTests
     /// </summary>
     [Fact]
     public void MissilesHoldWhileTheRingIsOnTheGunLead()
-        => Assert.False(FireGate.MissilesMayFire(ringIsOnGunLead: true, launchAlongTube: true));
+        => Assert.False(FireGate.MissilesMayFire(ringIsElsewhere: true, launchAlongTube: true));
 
     [Fact]
     public void MissilesFireWhenTheRingIsOnTheTarget()
-        => Assert.True(FireGate.MissilesMayFire(ringIsOnGunLead: false, launchAlongTube: true));
+        => Assert.True(FireGate.MissilesMayFire(ringIsElsewhere: false, launchAlongTube: true));
 
     /// <summary>
     /// A launcher that does not release along the tube is unaffected by where the ring points, so
@@ -68,7 +68,7 @@ public class FireArbitrationTests
     /// </summary>
     [Fact]
     public void ALauncherThatDoesNotFireAlongTheTubeIsUnaffected()
-        => Assert.True(FireGate.MissilesMayFire(ringIsOnGunLead: true, launchAlongTube: false));
+        => Assert.True(FireGate.MissilesMayFire(ringIsElsewhere: true, launchAlongTube: false));
 
     /// <summary>
     /// A failed ballistic solve leaves the ring on the target, which is exactly what the missiles
@@ -77,7 +77,7 @@ public class FireArbitrationTests
     /// </summary>
     [Fact]
     public void AFailedLeadSolveDoesNotHoldTheMissiles()
-        => Assert.True(FireGate.MissilesMayFire(ringIsOnGunLead: false, launchAlongTube: true));
+        => Assert.True(FireGate.MissilesMayFire(ringIsElsewhere: false, launchAlongTube: true));
 
     // ---- What a fixed launcher can be pointed at ------------------------
 
