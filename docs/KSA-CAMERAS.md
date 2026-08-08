@@ -685,6 +685,24 @@ asking a player to open windows they have very few of.
 
 Non-crashing misbehaviour worth the same attention:
 
+- **A mod cannot set the camera's roll in `Fixed` mode — but it can replace the controller.**
+  `FixedController.OnFrame` derives up as `normalize(a − (a·f)f)`, where `a` is
+  `UnitZ.Transform(GetFrame2Ecl(following, …))`. `GetFrame2Ecl` dispatches on the followed
+  object's **runtime type** first: a `Vehicle` gets local vertical under `Surface`/`Orbit`, a
+  `Celestial` gets its spin axis or pole, and **anything else falls to `Identity` with the
+  reference frame not read at all** — so for a mod's own `IFollowable` the axis is ecliptic +Z and
+  the horizon is level only where the ecliptic pole, the local vertical and the view happen to be
+  coplanar. Roll rate under a sweep is `ω̇·cot θ` with θ the angle from that axis, so a view
+  passing near the pole rolls hard: measured at up to 1094 °/s across a sweep of site
+  orientations. Nothing on `Camera`, `OrbitView`, `CameraOffset`, `CameraRotation`,
+  `TidalLocking` or `Parent` overrides it, and `Camera.LocalRotation` written directly is
+  overwritten by the controller in the viewport pass before any mod hook runs.
+
+  The seam that does work: `Viewport.FixedController` is a **public, writable field**,
+  `FixedController` is public and unsealed with a public constructor, and `OnFrame` is virtual.
+  A subclass assigned into that field supplies its own up. `Ksa/LevelHorizonController.cs` is
+  that, and it is the only unclaimed extension point this mod stands on.
+
 - **A viewport in `Fixed` mode cannot be recovered by the player from the keyboard or the mouse.**
   `FixedController` reads no input of any kind — no `Input.`, no key, no mouse — so a camera a mod
   is driving ignores every reflex a player has. `Shift+C` does not help either: it routes through

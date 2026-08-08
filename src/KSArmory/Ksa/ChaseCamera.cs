@@ -50,12 +50,6 @@ internal sealed class ChaseCamera
     private double3 _fromOffset;
     private double3 _fromLookOffset;
 
-    // The axis KSA's FixedController builds its basis around. A followable that is not a Vehicle
-    // or a Celestial gets the Identity reference frame -- its declared CameraReferenceFrame is not
-    // read at all -- so for RoundFollowable it is ecliptic +Z, which is a different direction from
-    // local "up" at every site but one. See docs/KSA-CAMERAS.md.
-    private static readonly double3 EngineAxis = new(0, 0, 1);
-
     // A missile leaves almost vertically, so "behind it" at first is under the vehicle.
     private const double ClearOfLauncher = 80.0;
 
@@ -291,7 +285,7 @@ internal sealed class ChaseCamera
 
         ReportClosing(round, toGo, behind);
 
-        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, EngineAxis, behind, above, Ahead,
+        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, up, behind, above, Ahead,
                                out double3 eye, out double3 forward, out double3 upEcl))
         {
             return;
@@ -313,7 +307,7 @@ internal sealed class ChaseCamera
             if (ChaseView.TryBlend(battery.PlatformEcl + _fromOffset,
                                    battery.PlatformEcl + _fromLookOffset,
                                    round.PositionEcl + eye, round.PositionEcl + eye + forward * Ahead,
-                                   EngineAxis, _blend,
+                                   up, _blend,
                                    out double3 blendedEcl, out double3 blendedForward))
             {
                 eye = blendedEcl - round.PositionEcl;
@@ -327,11 +321,11 @@ internal sealed class ChaseCamera
 
         _holdOffset = eye;
         _holdForward = forward;
-        _holdUp = upEcl;
+        _holdUp = up;
 
         // A refused write must not leave the view held: the player would be stranded wherever the
         // last good frame put them.
-        if (!KsaWorld.TryLookFromMainViewport(eye, forward, upEcl)) Release();
+        if (!KsaWorld.TryLookFromMainViewport(eye, forward, up)) Release();
     }
 
     // The round already being ridden, while it still flies. Once it stops, null: the caller holds

@@ -1661,6 +1661,60 @@ internal static class KsaWorld
     /// the one it is applied to — which is a frame of the platform's motion, every frame, and
     /// reads as the thing being watched shivering.
     /// </param>
+    // The engine's own controller, kept so it can be put back. Static because there is one main
+    // viewport and the swap outlives any single borrower of it.
+    private static FixedController? _stockFixedController;
+
+    // Puts LevelHorizonController on the main viewport, once, and answers with whichever
+    // controller is now in place. Null only if the viewport has no controller at all.
+    //
+    // If the swap itself fails the engine's own is returned and everything carries on with the
+    // roll it always had -- this is an extension point nobody promised, so it has to be allowed
+    // to stop working.
+    private static FixedController? LevelTheHorizon(Viewport viewport)
+    {
+        if (viewport.FixedController is LevelHorizonController already) return already;
+
+        try
+        {
+            if (viewport.BaseCamera is not { } camera) return viewport.FixedController;
+
+            var level = new LevelHorizonController(camera);
+
+            _stockFixedController ??= viewport.FixedController;
+            viewport.FixedController = level;
+
+            Log.Info("camera: levelling the horizon on the main view");
+
+            return level;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not level the horizon, using KSA's own controller: {e.Message}");
+            return viewport.FixedController;
+        }
+    }
+
+    /// <summary>Puts KSA's own fixed controller back, if it was ever swapped out.</summary>
+    public static void RestoreStockController()
+    {
+        if (_stockFixedController is not { } stock) return;
+
+        try
+        {
+            if (Program.MainViewport is { } viewport) viewport.FixedController = stock;
+            Log.Info("camera: gave the fixed controller back");
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not restore the fixed controller: {e.Message}");
+        }
+        finally
+        {
+            _stockFixedController = null;
+        }
+    }
+
     public static bool TryLookFromMainViewport(double3 offsetFromFollowed, double3 forwardEcl,
                                                double3 upEcl)
     {
@@ -1670,17 +1724,27 @@ internal static class KsaWorld
         try
         {
             if (Program.MainViewport is not { } viewport) return false;
-            if (viewport.FixedController is not { } controller) return false;
             if (viewport.GetCamera()?.Following is null) return false;
 
-            // The reference frame is Identity for anything that is not a Vehicle, so the axis the
-            // controller crosses against is ecliptic +Z. A view along it divides by zero.
-            if (Math.Abs(Vec.Dot(Vec.Unit(forwardEcl), new double3(0, 0, 1))) > 0.999) return false;
+            FixedController? controller = LevelTheHorizon(viewport);
+            if (controller is null) return false;
+
+            // Only when the engine is deriving up for itself, which it does whenever the level
+            // controller could not be installed. Its axis is then ecliptic +Z, and a view along
+            // that divides by zero. Ours has no such direction: it falls back for a view along
+            // the up it was given rather than refusing, so the chase is never dropped mid-flight.
+            if (controller is not LevelHorizonController
+                && Math.Abs(Vec.Dot(Vec.Unit(forwardEcl), new double3(0, 0, 1))) > 0.999)
+            {
+                return false;
+            }
 
             // Set before the mode, every time. A frame drawn in Fixed with a zero rotation is the
             // crash, and setting the mode first leaves exactly that gap.
             controller.CameraRotation = Vec.Unit(forwardEcl);
             controller.CameraOffset = offsetFromFollowed;
+
+            if (controller is LevelHorizonController level) level.UpEcl = upEcl;
 
             if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
 
@@ -1706,6 +1770,12 @@ internal static class KsaWorld
         try
         {
             if (Program.MainViewport is not { } viewport) return false;
+
+            // Forget the up we were supplying. The controller stays installed for the session --
+            // nothing but a mod puts a viewport in Fixed mode, so there is nothing to disturb --
+            // but with no up it behaves exactly as KSA's own does, rather than holding one from
+            // an engagement that is over.
+            if (viewport.FixedController is LevelHorizonController level) level.UpEcl = Vec.Zero;
 
             if (viewport.Mode != saved.Mode) viewport.SetCameraMode(saved.Mode);
             return true;

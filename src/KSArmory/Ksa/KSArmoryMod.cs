@@ -374,6 +374,10 @@ public sealed class KSArmoryMod
         _watch.Release();
         _chase.Release();
         _sight.Release();
+
+        // After the cameras have let go, so nothing is mid-write when the controller is swapped
+        // back. Leaving ours installed would outlive the mod for the rest of the session.
+        KsaWorld.RestoreStockController();
         _mover.Release();
 
         // Pooled emitters and audio channels are the game's, not ours, and nothing else gives them

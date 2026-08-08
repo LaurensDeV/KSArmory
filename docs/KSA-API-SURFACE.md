@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-117 types and 299 members across 6 assemblies.
+118 types and 304 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -266,6 +266,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 GetRightEcl()`
 - `Brutal.Numerics.double3 GetUpEcl()`
 - `Brutal.Numerics.double3 GetVelocityEgo(KSA.IVelocity)`
+- `Brutal.Numerics.doubleQuat LookAtRotation(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `Brutal.Numerics.float2 EclToScreen(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.int2 FramebufferSize`
 - `KSA.Celestial get_NearbyCelestial()`
@@ -323,6 +324,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.Controller
+
+- `KSA.Camera Camera`
+
 ### KSA.DefaultVehicleSaves
 
 - `KSA.VehicleSave FindSave(string)`
@@ -344,6 +349,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 CameraOffset`
 - `Brutal.Numerics.double3 CameraRotation`
+- `void .ctor(KSA.Camera, string)`
+- `void OnFrame(KSA.Viewport, double)`
 
 ### KSA.GameAudio
 
@@ -615,6 +622,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Transform3D
 
 - `Brutal.Numerics.double3 get_PositionEcl()`
+- `Brutal.Numerics.doubleQuat LocalRotation`
 - `void set_PositionEcl(Brutal.Numerics.double3)`
 
 ### KSA.Universe

@@ -291,6 +291,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/RoundFollowable.cs` | a round, presented to the engine as something a camera can follow |
 | `Ksa/ChaseHud.cs` | brackets around what a chased round is flying at |
 | `Ksa/ChaseCamera.cs` | rides the main view behind a round, and gives it back |
+| `Ksa/LevelHorizonController.cs` | KSA's fixed camera controller, with an up vector it does not otherwise offer |
 | `Ksa/WatchCamera.cs` | nudges the main view round onto one system, then lets go |
 | `Ksa/Track.cs` | a radar contact bound to a KSA vehicle |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
@@ -315,7 +316,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 299 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 304 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
@@ -684,7 +685,7 @@ member that keeps its name and signature and changes its *meaning* — a differe
 frame, different units, a reordered enum — compiles clean and is wrong in flight. This
 repository has shipped that bug three times from its own code, and a KSA update can reintroduce
 any of them. That is what the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from
-660,000 lines to the files defining the 117 types this mod actually uses.
+660,000 lines to the files defining the 118 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
@@ -1054,6 +1055,24 @@ they were made in order, so restoring the older one undoes a takeover that happe
 leaves the chase holding a recording of the *sight* to hand back at the end. The player is then
 returned to a borrowed pose that nothing is driving. `ViewClaimTests` fails against that shape,
 which is the shape this was first written as.
+
+**The camera's roll is the engine's, and getting it needs the one extension point KSA leaves
+open.** `FixedController` derives up by crossing the view with the camera reference frame's +Z,
+and `GetFrame2Ecl` dispatches on the followed object's *type* — a followable that is not a
+`Vehicle` or a `Celestial` gets the Identity frame and its declared `CameraReferenceFrame` is
+never read. `RoundFollowable` is one, so the axis is ecliptic +Z and the horizon arrives rolled by
+the site's angle from that pole, snapping to it the instant the view is taken.
+`Ksa/LevelHorizonController.cs` subclasses the controller and supplies the up vector instead —
+`Viewport.FixedController` is a public writable field and `OnFrame` is virtual, so this is
+subclassing rather than patching. **Following the launching craft instead does not work**: its
+frame would give local vertical, but `PrepareFrame` advances vehicle positions before the viewport
+pass while a round's is integrated after it, so the engine would add a frame-newer platform
+position to an offset built against the older one — ~500 m per frame, which is what
+`RoundFollowable` exists to prevent.
+
+That controller is the one place the mod stands on something nobody promised. It is bound through
+`docs/KSA-API-SURFACE.md`, so a signature change is caught; if it ever cannot be installed the
+engine's own stays and the roll comes back, which is a worse picture and not a crash.
 
 **A view a mod is driving cannot be taken back by mouse or keyboard**, so anything that borrows it
 owes the player a way out and has to say what it is. `FixedController` reads no input at all, and
