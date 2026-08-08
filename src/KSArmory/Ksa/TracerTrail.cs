@@ -31,6 +31,26 @@ internal sealed class TracerTrail
     // How many shells carry one at a time. Eight reads as a stream without the pool noticing.
     private const int MaxTracers = 8;
 
+    // Spacing, as a fraction of how long a shell lives. Every emitter is busy for the whole of
+    // its shell's flight, so filling all of them at the head of a burst spends the lot in about a
+    // tenth of a second: eight tracers leave together and then nothing does for the two seconds
+    // they take to expire, which reads as the rounds having all left while the gun is still
+    // firing. Adopting one every life/MaxTracers keeps the stream even and the slots busy.
+    private const double SpacingOfLife = 1.0;
+
+    // How old a shell may be when an emitter adopts it.
+    //
+    // An emitter marks where its shell is by being moved there, so handing a freed one to a shell
+    // that is already downrange teleports it: the streak stops where the old shell died and
+    // resumes beside a newer one, which on screen is a tracer swinging round to wherever the gun
+    // is now pointing. Only a shell that has just left the barrel may be adopted, so an emitter
+    // starts at the muzzle and follows one shell out.
+    //
+    // Two frames rather than a tenth of a second. At 1100 m/s a tenth is 110 m, so a tracer that
+    // was picked up at the far end of that window lit up a hundred metres clear of the gun and
+    // appeared to spawn out of nothing.
+    private const double AdoptWithinSeconds = 0.04;
+
     private sealed class Live
     {
         public required Celestial Body;
@@ -62,16 +82,34 @@ internal sealed class TracerTrail
         // Keep the ones already lit before taking on new ones. Swapping which shells are traced
         // every frame would strobe rather than draw streaks.
         int lit = 0;
+        double newest = double.MaxValue;
         foreach (IProjectile round in _candidates)
         {
-            if (_tracing.ContainsKey(round) && Follow(round, battery, platform)) lit++;
+            if (!_tracing.ContainsKey(round)) continue;
+            if (Follow(round, battery, platform)) lit++;
+            newest = Math.Min(newest, round.Age);
         }
 
-        foreach (IProjectile round in _candidates)
+        // Newest first. The battery appends rounds as they are fired, so scanning forwards finds
+        // the OLDEST shell still inside the age window, which is the one furthest from the muzzle:
+        // the tracer then lights up already downrange instead of at the barrel.
+        for (int i = _candidates.Count - 1; i >= 0; i--)
         {
+            IProjectile round = _candidates[i];
+
             if (lit >= MaxTracers) break;
             if (_tracing.ContainsKey(round)) continue;
-            if (Follow(round, battery, platform)) lit++;
+            if (round.Age > AdoptWithinSeconds) continue;
+
+            // Measured off the youngest shell already traced rather than off a clock: the spacing
+            // wanted is between tracers, and their own ages are what that is.
+            double spacing = round.Munition.MaxFlightSeconds * SpacingOfLife / MaxTracers;
+            if (newest < spacing) break;
+
+            if (!Follow(round, battery, platform)) continue;
+
+            lit++;
+            newest = round.Age;
         }
 
         // Anything holding an emitter that the battery has stopped reporting, or that has stopped

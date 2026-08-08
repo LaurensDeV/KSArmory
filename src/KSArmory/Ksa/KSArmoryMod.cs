@@ -168,6 +168,14 @@ public sealed class KSArmoryMod
 
             _ui.Draw();
 
+            // Outside the overlay switch on purpose: a shell has no subpart body, so this is the
+            // round itself rather than an annotation of it, and behind a debug switch a firing
+            // cannon puts almost nothing on screen.
+            if (KsaWorld.InFlight)
+            {
+                foreach (WeaponSystems.Entry e in _roster.All) Visuals.DrawShellStream(e.Battery);
+            }
+
             if (KsaWorld.InFlight && _config.DrawOverlays)
             {
                 if (_config.DrawOverlayForFocusedOnly)

@@ -434,22 +434,22 @@
         <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
         <EmitterSize Value="0.18"/>
         <EmitterExtents X="0.12" Y="0" Z="0"/>
-        <SpawnRate Value="140"/>
+        <SpawnRate Value="220"/>
         <Force X="0" Y="0" Z="0" />
         <InheritVelocity Value="false"/>
         <GravityStrength Value="0.0"/>
         <ParticleColor X="20" Y="11" Z="3" W="1"/>
         <ParticleColorShift X="0.3" Y="0.2" Z="0"/>
-        <ParticleLifespan X="0.03" Y="0.09"/>
+        <ParticleLifespan X="0.04" Y="0.11"/>
         <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleSize X="0.16" Y="0.52"/>
+        <ParticleSize X="0.22" Y="0.62"/>
         <ParticleVelocity X="7" Y="7" Z="7"/>
         <ParticleVelocityShift Value="0.7"/>
         <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
 
         <!-- Propellant smoke, which is what says the gun has been firing rather than just fired. -->
         <ParticleEmitters>
-            <MaxParticles Value="40" />
+            <MaxParticles Value="96" />
             <Mesh Id="Plane"/>
             <Renderer>Billboard</Renderer>
             <MaterialId Value="KSArmorySmokeMaterial"/>
@@ -461,15 +461,20 @@
             <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
             <EmitterSize Value="0.25"/>
             <EmitterExtents X="0.15" Y="0" Z="0"/>
-            <SpawnRate Value="26"/>
+            <!--
+              The smoke is most of what a firing gun looks like, and it wants to accumulate: each
+              puff is faint, and a burst piles them into a haze that hangs at the muzzles and
+              drifts. A short lifespan gives single puffs that vanish and reads as nothing at all.
+            -->
+            <SpawnRate Value="55"/>
             <Force X="0" Y="0" Z="0" />
             <InheritVelocity Value="false"/>
-            <GravityStrength Value="-0.05"/>
-            <ParticleColor X="0.34" Y="0.31" Z="0.28" W="0.32"/>
-            <ParticleLifespan X="0.5" Y="1.3"/>
+            <GravityStrength Value="-0.03"/>
+            <ParticleColor X="0.36" Y="0.33" Z="0.30" W="0.30"/>
+            <ParticleLifespan X="0.9" Y="2.4"/>
             <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-            <ParticleSize X="0.35" Y="1.3"/>
-            <ParticleVelocity X="2.2" Y="2.2" Z="2.2"/>
+            <ParticleSize X="0.5" Y="1.8"/>
+            <ParticleVelocity X="2.0" Y="2.0" Z="2.0"/>
             <ParticleVelocityShift Value="0.9"/>
             <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
         </ParticleEmitters>
@@ -493,7 +498,7 @@
       been, and a mark that falls is a mark in the wrong place.
     -->
     <ParticleEmitter Id="KSArmoryTracer">
-        <MaxParticles Value="24" />
+        <MaxParticles Value="64" />
         <Mesh Id="ParticleSphere"/>
         <Renderer>SimpleColor</Renderer>
         <Updaters>SimpleMovement</Updaters>
@@ -502,19 +507,28 @@
         <Updaters>Age</Updaters>
         <SpawnMode>Endless</SpawnMode>
         <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
-        <EmitterSize Value="0.05"/>
-        <EmitterExtents X="0.04" Y="0" Z="0"/>
-        <SpawnRate Value="120"/>
+        <EmitterSize Value="0.02"/>
+        <EmitterExtents X="0.02" Y="0" Z="0"/>
+
+        <!--
+          Dense and brief, and both numbers follow from the shell's speed. At 1100 m/s the emitter
+          moves 18 m between frames, so 120 spawns a second leaves a particle every 9 m: a string
+          of beads rather than a streak, and at any size big enough to see they read as fireballs
+          flying in formation. 900 a second puts one every 1.2 m, which merges. The lifespan is
+          then the streak's LENGTH divided by that speed: 0.05 s is 55 m of tail.
+        -->
+        <SpawnRate Value="900"/>
+        <ParticleLifespan X="0.035" Y="0.06"/>
+        <ParticleSize X="0.10" Y="0.20"/>
+
         <Force X="0" Y="0" Z="0" />
         <InheritVelocity Value="false"/>
         <GravityStrength Value="0.0"/>
-        <ParticleColor X="16" Y="6" Z="1.2" W="1"/>
+        <ParticleColor X="18" Y="7" Z="1.5" W="1"/>
         <ParticleColorShift X="0.2" Y="0.08" Z="0"/>
-        <ParticleLifespan X="0.10" Y="0.22"/>
         <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
-        <ParticleSize X="0.7" Y="1.3"/>
-        <ParticleVelocity X="1.5" Y="1.5" Z="1.5"/>
-        <ParticleVelocityShift Value="0.6"/>
+        <ParticleVelocity X="0.8" Y="0.8" Z="0.8"/>
+        <ParticleVelocityShift Value="0.5"/>
         <ParticleExtra X="0.6" Y="0" Z="0" W="0"/>
     </ParticleEmitter>
 

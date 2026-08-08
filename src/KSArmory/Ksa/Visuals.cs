@@ -23,6 +23,18 @@ internal static class Visuals
     // claim and is worth being able to check separately.
     private static readonly float4 TracerColour = new(1.0f, 0.72f, 0.18f, 1.0f);
     private const int TracerSegments = 4;
+
+    // Every shell in the air, not just the traced ones. Warm and dim: it must read as a stream of
+    // rounds without competing with the tracers running through it.
+    private static readonly float4 ShellColour = new(0.95f, 0.78f, 0.45f, 0.75f);
+
+    // How long a shell is drawn, along its own flight.
+    //
+    // A round is not a point and drawing it as one is what makes it a ball: at 1100 m/s it crosses
+    // 18 m in a single frame, so what a camera records is a streak and what a sphere shows is a
+    // marble hanging in the air. Roughly one frame of travel, which is the length the blur would
+    // actually have.
+    private const double ShellStreakMetres = 14.0;
     private static readonly float4 LoadedTubeColour = new(0.45f, 1.0f, 0.5f, 0.9f);
     private static readonly float4 SpentTubeColour = new(0.3f, 0.3f, 0.32f, 0.6f);
     private static readonly float4 CpaColour = new(0.6f, 0.4f, 1.0f, 0.7f);
@@ -53,6 +65,47 @@ internal static class Visuals
         if (config.DrawMissiles) DrawRounds(battery, config);
         if (battery.Launcher is not null && config.DrawTubeMarkers) DrawLoadedTubes(battery, config, origin);
         if (config.DrawTurretFacing) DrawTurretFacing(battery);
+    }
+
+    /// <summary>
+    /// The shells themselves, drawn whether or not the diagnostic overlay is on.
+    ///
+    /// <para>A tracer is one round in nineteen, which is how a belt is loaded and what
+    /// <see cref="TracerTrail"/> can afford: an emitter is held for its shell's whole flight and
+    /// there are eight of them against a hundred and fifty rounds in the air. The other eighteen
+    /// were drawn as nothing, so a firing CIWS showed a handful of bright streaks through empty
+    /// sky rather than a stream of fire.</para>
+    ///
+    /// <para>A short segment along each shell's own flight, not a point and not a trail. A point
+    /// reads as a ball because a round moves further between frames than any believable radius; a
+    /// trail back to the muzzle reads as a laser. One frame of travel is what a camera would have
+    /// caught.</para>
+    /// </summary>
+    public static void DrawShellStream(WeaponSystem system)
+    {
+        if (system.Rounds.Count == 0 || system.Platform is not { } platform) return;
+        if (!KsaWorld.BeginDraw(platform, system.PlatformEcl)) return;
+
+        foreach (IProjectile round in system.Rounds)
+        {
+            // Negative tube numbers mark the cannon; the magazine owns zero and up, and a missile
+            // has a real subpart body of its own.
+            if (round.Tube >= 0 || round.State != RoundState.Flying) continue;
+
+            // Local, never VelocityEcl: the latter carries 29.8 km/s of ecliptic motion and would
+            // lay every streak along the same direction whatever the gun did.
+            double3 along = Vec.Unit(round.VelocityLocal);
+            if (!Vec.IsFinite(along)) continue;
+
+            // Never longer than the round has actually flown. The streak is drawn backwards from
+            // the shell, so a full-length one on a round that has just left the barrel starts 14 m
+            // behind the muzzle, which is inside the mount and out the other side of it.
+            double streak = Math.Min(ShellStreakMetres, Vec.Len(round.TravelSinceLaunch));
+            if (streak < 0.1) continue;
+
+            double3 nose = KsaWorld.AnchorEgo + round.OffsetFromPlatform;
+            KsaWorld.DrawLineEgo(nose - (along * streak), nose, ShellColour);
+        }
     }
 
     // Wireframe cone: boresight, a rim, and ribs out to the rim.
