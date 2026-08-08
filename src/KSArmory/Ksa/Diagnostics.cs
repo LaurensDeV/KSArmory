@@ -14,18 +14,28 @@ internal static class Diagnostics
 {
     private static readonly List<Vehicle> Scratch = [];
 
-    private static double _nextDumpAt;
+    // Next dump due, per system. Every system feeds this its own clock, which starts at zero when
+    // that system is crewed, so one shared deadline is always tripped by whichever was crewed
+    // first and pushed out past every other system's clock before any of them reach it. The others
+    // then never dump, and nothing says so. The log is the mod's only debugging channel, and the
+    // system worth dumping is rarely the oldest one.
+    private static readonly Dictionary<IWeaponSystemView, double> NextDumpAt = [];
 
     /// <summary>Emit a dump every <paramref name="intervalSeconds"/> while enabled.</summary>
     public static void Tick(IWeaponSystemView battery, Config config, SystemConfig policy,
                             double clock, double intervalSeconds)
     {
-        if (clock < _nextDumpAt) return;
-        _nextDumpAt = clock + intervalSeconds;
+        if (NextDumpAt.TryGetValue(battery, out double due) && clock < due) return;
+
+        NextDumpAt[battery] = clock + intervalSeconds;
         Dump(battery, config, policy);
     }
 
-    public static void ResetTimer() => _nextDumpAt = 0.0;
+    /// <summary>Makes every system dump on its next tick.</summary>
+    public static void ResetTimer() => NextDumpAt.Clear();
+
+    /// <summary>Forgets a system, so its entry does not outlive the craft it was crewed on.</summary>
+    public static void Forget(IWeaponSystemView battery) => NextDumpAt.Remove(battery);
 
     public static void Dump(IWeaponSystemView battery, Config config, SystemConfig policy)
     {

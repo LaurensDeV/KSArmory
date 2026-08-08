@@ -1092,7 +1092,18 @@ internal static class KsaWorld
     /// <summary>
     /// Drops the frame's cached cursor solve. Called once where the simulation is stepped.
     /// </summary>
-    public static void BeginFrame() => _cursorAimSolved = false;
+    public static void BeginFrame()
+    {
+        _cursorAimSolved = false;
+
+        // And the draw anchor, which every Draw*Ecl call converts through. Left standing from an
+        // earlier frame it is the platform's position then, not now, and the overlay lands beside
+        // the craft by whatever the world has moved since: about 500 m per frame near Earth, and
+        // unbounded once a frame passes without any pass establishing one. Cleared here so a
+        // caller that forgets BeginDraw draws nothing, which is visible, rather than drawing in
+        // the wrong place, which is not.
+        _anchored = false;
+    }
 
     // Taken as the range when the ray meets no body: far enough that the camera-to-launcher
     // parallax is under what the drives can resolve, at 100 m of offset about 0.3 degrees.

@@ -54,6 +54,12 @@ internal sealed class Designator
         if (ImGui.GetIO().WantCaptureMouse) return;
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _)) return;
 
+        // Its own anchor. Every other overlay establishes one and this borrowed whichever was last
+        // set, which with the shipped defaults is often none at all: overlays off, no shells in
+        // the air, and nothing else drawing.
+        if (battery.Platform is not { } platform) return;
+        if (!KsaWorld.BeginDraw(platform, battery.PlatformEcl)) return;
+
         double3 at = Lifted(groundEcl, battery);
 
         // Coloured by whether the shot would be taken, because armed, loaded, in range and within

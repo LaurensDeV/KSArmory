@@ -1446,9 +1446,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     private void Detonate(IProjectile round)
     {
         // KSA exposes no component damage, so a round aimed at a *part* arrives, reports and
-        // destroys nothing. A coordinate round carries no handle and falls through to the blast
-        // sweep below, which is what makes an airburst over a position do anything at all.
-        if (round.Aimpoint.Kind != AimpointKind.Vehicle && round.Aimpoint.Handle is not null)
+        // destroys nothing. Every other kind falls through to the blast sweep below, which is what
+        // makes an airburst over a position do anything at all.
+        //
+        // The kind, not the handle. A handle used to stand in for "is a Part", which was true of
+        // the three kinds that existed then and false of Ground, which carries the body it sits
+        // on: designated shots then arrived, announced, and did nothing whatsoever.
+        if (round.Aimpoint.Kind == AimpointKind.Part)
         {
             Announce($"round {round.Tube} arrived at its {round.Aimpoint.Kind} aimpoint");
             return;

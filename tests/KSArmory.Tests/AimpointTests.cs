@@ -94,6 +94,7 @@ public class AimpointTests
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
+    [InlineData(3)]
     public void ARoundArrivesAtEveryKindOfAimpoint(int index)
     {
         AimpointKind kind = (AimpointKind)index;
@@ -108,6 +109,7 @@ public class AimpointTests
         {
             AimpointKind.Vehicle => Aimpoint.OnVehicle(TargetHandle, where, Vec.Zero, 5.0),
             AimpointKind.Part => Aimpoint.OnPart(TargetHandle, where, Vec.Zero, 0.5),
+            AimpointKind.Ground => Aimpoint.OnGround(TargetHandle, where, where, Vec.Zero, 5.0),
             _ => Aimpoint.AtPoint(where, 5.0),
         };
 

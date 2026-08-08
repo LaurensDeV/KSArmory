@@ -82,6 +82,11 @@ internal sealed class WeaponSystems(Config config)
         foreach (Vehicle craft in _scratch)
         {
             _entries[craft].Battery.Reset();
+
+            // Anything keyed on the system rather than on the craft has to be told, or its entry
+            // outlives the craft and keeps a destroyed vehicle reachable for the session.
+            Diagnostics.Forget(_entries[craft].Battery);
+
             _entries.Remove(craft);
             Log.Info("a crewed system was destroyed");
         }

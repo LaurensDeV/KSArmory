@@ -19,6 +19,15 @@ public class ArsenalTests
         {
             Assert.Equal(launcher.Munition, Arsenal.MunitionNamed(launcher.Munition).Name);
             Assert.Equal(launcher.Sensor, Arsenal.SensorNamed(launcher.Sensor).Name);
+
+            // The cannon's round as well as the missile's. Arsenal.Named falls back to element
+            // zero, which for munitions is a 20 kg missile at 45 m/s under a rocket boost: a gun
+            // naming a shell that does not exist compiles, loads, passes every other gate and
+            // fires warheads out of its barrel.
+            if (launcher.GunMunition is { } shell)
+            {
+                Assert.Equal(shell, Arsenal.MunitionNamed(shell).Name);
+            }
         }
     }
 
