@@ -448,12 +448,35 @@ something arrives early.
 
 ### 7.1c Horizon masking
 
+The controls for this were unreachable until now — `HorizonMasking` and the limb margin had no
+panel control and no profile set them — so every box below has been untestable rather than
+untested. They are under *Tuning → Radar*.
+
 - [ ] Put a drone on the far side of the planet. It does **not** appear on the scope, and the
       panel says `N behind the horizon` rather than showing an empty list with no explanation.
 - [ ] A drone overhead and a neighbour on the same pad are both still seen. If short-range
       contacts vanish, the mount is being treated as sitting at mean radius.
-- [ ] Raise `SensorProfile.TerrainMarginMetres` and watch low contacts drop out at shorter range.
-- [ ] With `HorizonMasking` off, everything is visible again exactly as before.
+- [ ] Raise **Limb margin** and watch low contacts drop out at shorter range.
+- [ ] With **Horizon masking** off, everything is visible again exactly as before.
+
+### 7.1c2 Terrain masking, and what it costs
+
+Ships at zero samples, which is the mean sphere alone. **The point of flying this is the frame
+time**, not the behaviour: the behaviour is covered by `TerrainMaskTests` against a synthetic
+ridge, and the cost is the thing no test can answer.
+
+- [ ] Note the frame time with **Terrain samples** at 0. Raise it to 16, then 64, with a dozen
+      contacts up. Write down all three. That measurement is the whole reason this is a number
+      and not a switch, and `SensorProfile.TerrainSamples`' default should be set from it.
+- [ ] A drone low behind a ridge disappears from the scope; the same drone climbing reappears.
+      If it never disappears, the samples are not reaching the ridge — try more of them, since
+      they are spread over the whole band that passes under the body's highest terrain.
+- [ ] A launcher on a slope still sees along its own ground. If it goes blind at close range,
+      **Terrain clearance** is too low and the height map is finding the hill the site stands on.
+- [ ] Contacts high above the ground cost nothing: raising the sample count with everything at
+      altitude does not move the frame time. That is `TryBandBelow` doing its job, and if the cost
+      *does* move, it is not.
+- [ ] Nothing throws over a body with no height map, and over a moon.
 
 ### 7.1d The Sidewinder rail
 

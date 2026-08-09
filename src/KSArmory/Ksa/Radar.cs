@@ -117,6 +117,17 @@ internal sealed class Radar(Config config, SystemConfig policy)
         if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
                                    boresight, _sensor, out var a)) return;
 
+        // The skyline, and last of all the rejects. Every sample is a height-map fetch, so it is
+        // only worth spending on a contact that range, cone and the planet's own bulk have all
+        // already let through.
+        if (_sensor.HorizonMasking
+            && KsaWorld.IsHiddenByTerrain(originEcl, targetPos, _sensor.TerrainSamples,
+                                          _sensor.TerrainClearanceMetres, out _))
+        {
+            MaskedByTerrain++;
+            return;
+        }
+
         Tracks.Add(new Track
         {
             Contact = contact,

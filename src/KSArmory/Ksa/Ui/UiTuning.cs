@@ -137,7 +137,37 @@ internal sealed partial class Ui
         ImGui.SliderFloat("Threat horizon (s)", ref _sensor.ThreatHorizonSeconds, 5f, 120f);
         ImGui.SliderFloat("Lock time (s)", ref _sensor.LockSeconds, 0f, 5f);
         ImGui.SliderFloat("Min target speed (m/s)", ref _sensor.MinTargetSpeed, 0f, 200f);
+
+        DrawHorizonControls();
+
         ImGui.TreePop();
+    }
+
+    // What the world hides from this set. The sample count is the cost knob and is shown as one:
+    // every sample is a height-map fetch spent once per contact per scan, and nobody has measured
+    // what that costs in a frame.
+    private void DrawHorizonControls()
+    {
+        ImGui.Checkbox("Horizon masking", ref _sensor.HorizonMasking);
+
+        if (!_sensor.HorizonMasking)
+        {
+            ImGui.TextDisabled("  the set sees through the planet");
+            return;
+        }
+
+        ImGui.SliderFloat("Limb margin (m)", ref _sensor.TerrainMarginMetres, 0f, 5000f);
+        ImGui.SliderInt("Terrain samples", ref _sensor.TerrainSamples, 0, 64);
+
+        if (_sensor.TerrainSamples <= 0)
+        {
+            ImGui.TextDisabled("  mean sphere only - a contact behind a ridge is still seen");
+        }
+        else
+        {
+            ImGui.SliderFloat("Terrain clearance (m)", ref _sensor.TerrainClearanceMetres, 0f, 300f);
+            ImGui.TextDisabled($"  up to {_sensor.TerrainSamples} height lookups per contact per scan");
+        }
     }
 
     // The drives, each node existing only if the system has that gear. A rate slider for an axis

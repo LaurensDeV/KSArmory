@@ -85,12 +85,34 @@ public sealed class SensorProfile
     /// <summary>
     /// Metres of terrain to assume above the mean sphere, for masking only.
     ///
-    /// <para>The body is a smooth sphere here, so the limb is the geometric one and a contact
-    /// behind a ridge counts as visible. Inflating the sphere buys back some of that without
-    /// sampling a height map per contact per scan, whose cost is unmeasured. Zero is the geometric
-    /// limb.</para>
+    /// <para>Inflating the sphere is the cheap approximation to a skyline: it costs nothing per
+    /// contact and cannot produce a false negative, so it stays in front of
+    /// <see cref="TerrainSamples"/> whether or not that is on. Zero is the geometric limb.</para>
     /// </summary>
     public float TerrainMarginMetres;
+
+    /// <summary>
+    /// Height-map lookups this set may spend deciding whether a ridge hides one contact.
+    ///
+    /// <para>Zero is the mean sphere alone, and is the default because <em>the cost has not been
+    /// measured in game</em>. Each lookup is a texture fetch with a block decode, and this runs
+    /// once per contact per scan — so the honest way to raise it is to raise it and watch the
+    /// frame time, which is why it is a number and not a switch.</para>
+    ///
+    /// <para>The samples are spread across the part of the line that passes below the body's
+    /// highest terrain, not across its whole length, so a contact well above the ground costs
+    /// nothing whatever this says.</para>
+    /// </summary>
+    public int TerrainSamples;
+
+    /// <summary>
+    /// How far terrain must stand above the line of sight before it counts as blocking (m).
+    ///
+    /// <para>Both ends of that line routinely sit on the ground, and a coarse height map read a few
+    /// hundred metres from a launcher that is standing on a hill will find the hill. Without a
+    /// margin a site on any slope is blind along its own ground.</para>
+    /// </summary>
+    public float TerrainClearanceMetres = 30f;
 
     public float ConeHalfAngleRad => float.DegreesToRadians(ConeDeg);
 }

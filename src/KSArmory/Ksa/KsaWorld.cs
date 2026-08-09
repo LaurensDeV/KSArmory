@@ -191,6 +191,68 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Whether the skyline of the body under the eye hides the target, against the real height
+    /// field.
+    ///
+    /// <para>Terrain only, and for one body. <see cref="IsOccluded"/> runs over every body in the
+    /// system and stays in front of this: a ridge on another world only matters when that world is
+    /// between the two points, which the sphere has already caught. So this is asked once the
+    /// cheap rejects have all passed, and never for a contact they threw out.</para>
+    /// </summary>
+    /// <param name="samples">Height lookups this look may cost. Zero asks none.</param>
+    public static bool IsHiddenByTerrain(double3 eyeEcl, double3 targetEcl, int samples,
+                                         double clearance, out string blockedBy)
+    {
+        blockedBy = string.Empty;
+        if (samples <= 0) return false;
+
+        try
+        {
+            if (NearestBody(eyeEcl) is not { } body) return false;
+
+            double3 centre = body.GetPositionEcl();
+
+            if (!TerrainMask.Blocked(eyeEcl, targetEcl, centre, body.MeanRadius,
+                                     body.MaxTerrainHeightApprox, samples, clearance,
+                                     new TerrainHeights(body)))
+            {
+                return false;
+            }
+
+            blockedBy = body.Id ?? string.Empty;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // The body whose surface the point is nearest, by depth below the mean sphere rather than by
+    // distance: a sensor low over a moon is far closer to the ground it is looking across than to
+    // the planet that moon orbits.
+    private static Celestial? NearestBody(double3 pointEcl)
+    {
+        if (Universe.CurrentSystem is not { } system) return null;
+
+        Celestial? nearest = null;
+        double nearestDepth = double.MaxValue;
+
+        for (int i = 0; i < system.Count; i++)
+        {
+            if (system.GetIndex(i) is not Celestial body) continue;
+
+            double depth = Vec.Len(pointEcl - body.GetPositionEcl()) - body.MeanRadius;
+            if (depth >= nearestDepth) continue;
+
+            nearest = body;
+            nearestDepth = depth;
+        }
+
+        return nearest;
+    }
+
+    /// <summary>
     /// Anchors an ecliptic position to the body under it, as an offset in that body's own frame.
     ///
     /// <para>The only description of a place that does not move. An ecliptic coordinate is left

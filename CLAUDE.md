@@ -257,6 +257,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
+| `Sim/ITerrainHeights.cs` | **the seam a sensor looks over the real skyline through** |
+| `Sim/TerrainMask.cs` | whether a ridge hides a contact, and how few samples that can cost |
 | `Sim/Picking.cs` | what the cursor's ray meets, and what is nearest it on screen |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
 | `Sim/SightPicture.cs` | where the sight's horizontal lies, and which way a contact off the glass went |
@@ -282,6 +284,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
 | `Ksa/GroundTest.cs` | the surface under a round, off the engine's own height field |
+| `Ksa/TerrainHeights.cs` | one body's height field, sampled coarsely and many times per scan |
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSystem.cs` | what one system is, sees and is doing |
@@ -330,7 +333,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 310 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 311 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
@@ -1325,10 +1328,21 @@ should not be weakened without understanding what they buy:
   misses still carries on into space. Structures are not collided with at all: where a launch
   pad's surface is has no answer in this engine, so a bomb dropped on one bursts at ground level
   beside it.
-- The radar masks contacts the planet hides, but against the body's **mean sphere**: a craft
-  behind a ridge is still seen, and the limb is geometric rather than the skyline.
-  `SensorProfile.TerrainMarginMetres` inflates the sphere to buy some of that back without
-  sampling a height map per contact per scan, which is a cost nobody has measured.
+- The radar can mask against the real skyline, and ships not doing it.
+  `SensorProfile.TerrainSamples` is the number of height-map lookups one contact may cost, and it
+  defaults to **zero** — the mean sphere alone, with `TerrainMarginMetres` inflating it. The cost
+  has never been measured in a frame, and a number that says exactly what it spends is a more
+  honest thing to ship off than a switch.
+
+  The order the rejects run in is what makes it affordable at all, and it is the opposite of the
+  order they read in: range, cone and the planet's own bulk all reject first, and only what
+  survives all three is sampled. `TerrainMask.TryBandBelow` then narrows it again in closed form
+  to the part of the line that passes under the body's highest terrain, so a contact well above
+  the ground costs nothing whatever the count says. A sphere containing the terrain cannot produce
+  a false negative, which is why the cheap test can stand in front of the exact one.
+
+  An unreadable height field makes **no claim** rather than reading as flat ground: flat would put
+  every sensor's horizon back at the mean sphere, planet-wide, with nothing to announce it.
 - Battery settings live **inside the save**, at `saves/<save>/KSArmory/systems.json`. KSA's save
   format cannot be extended (`UniverseData` is a fixed XML-mapped class) and StarMap has no save or
   load hook — but a save is a *directory*, so the file sits beside the `universe.xml` it belongs
