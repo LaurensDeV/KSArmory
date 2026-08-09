@@ -52,6 +52,7 @@ internal sealed class ChaseCamera
     // along which axis it is not.
     private double3 _probeWantEcl;
     private double3 _probeHadEcl;
+    private double3 _probeTravel;
     private bool _probing;
 
     // The pose being eased out of -- where the view was, and a point on what it was looking at.
@@ -125,7 +126,7 @@ internal sealed class ChaseCamera
         // and is exactly when the view still has to be given back.
         if (!_saved.Valid) return;
 
-        _followed.Track(null);
+        _followed.Track(null, null);
         KsaWorld.BeginRestoreMainView(_saved);
         KsaWorld.RestoreFollow(_saved);
         _saved = default;
@@ -141,7 +142,8 @@ internal sealed class ChaseCamera
     /// through a pause, sliding the view across a world that is not moving. Same rule, and the
     /// same reason, as fire control — see CLAUDE.md.
     /// </param>
-    public void Apply(IRoundsInFlight battery, bool enabled, double dtPlayer, double dtSim)
+    public void Apply(IRoundsInFlight battery, bool enabled, double dtPlayer, double dtSim,
+                      bool freezeTransition = false)
     {
         if (!enabled || battery.Platform is null)
         {
@@ -224,7 +226,7 @@ internal sealed class ChaseCamera
             // "teleported very hard forward".
             bool hasPose = KsaWorld.TryMainCameraPose(out double3 wasEcl, out double3 wasForward);
 
-            _followed.Track(round);
+            _followed.Track(round, battery.Platform);
 
             if (!KsaWorld.TryFollowOnMainViewport(_followed))
             {
@@ -267,7 +269,7 @@ internal sealed class ChaseCamera
         }
 
         _round = round;
-        _followed.Track(round);
+        _followed.Track(round, battery.Platform);
 
         // Measured from the round, because the round is what the camera follows: the engine adds
         // this to whatever position the round reports during its own frame pass, so nothing here
@@ -313,7 +315,24 @@ internal sealed class ChaseCamera
         // the player is looking at the target and the chase looks along a round flying at it, so
         // the two aim points are close and the view barely turns. Both ends are rebuilt from this
         // frame's samples, so the pair describes one instant however far along it is.
-        if (_blend < 1.0)
+        if (_blend < 1.0 && freezeTransition)
+        {
+            // Held where the transition started, so the only thing moving is the world. See
+            // Config.FreezeChaseTransition for what this is separating.
+            double3 fromRoundHeld = _fromOffset - round.OffsetFromPlatform;
+
+            if (ChaseView.TryBlend(fromRoundHeld, _fromLookOffset - round.OffsetFromPlatform,
+                                   fromRoundHeld, _fromLookOffset - round.OffsetFromPlatform,
+                                   up, 0.0,
+                                   out double3 heldOffset, out double3 heldForward))
+            {
+                eye = heldOffset;
+                forward = heldForward;
+
+                ProbeBlend(round, eye, up, dtSim);
+            }
+        }
+        else if (_blend < 1.0)
         {
             _blend = Math.Min(1.0, _blend + (_blendStep.Next(dtSim) / TransitionSeconds));
 
@@ -444,20 +463,44 @@ internal sealed class ChaseCamera
 
         // What the engine currently has, in the same frame: its position is live off the round, so
         // this is the offset it is actually using -- the one the mod wrote last frame.
-        double3 had = KsaWorld.CameraPositionEcl() - round.PositionEcl;
+        double3 cameraEcl = KsaWorld.CameraPositionEcl();
+        double3 had = cameraEcl - round.PositionEcl;
+
+        // The camera's own travel through the world, which is what crosses terrain cells. Taken
+        // against the round so the planet's motion is not in it, then put back.
+        double3 cameraStep = _probing ? (had - _probeHadEcl) + round.TravelSinceLaunch - _probeTravel
+                                      : Vec.Zero;
 
         if (_probing)
         {
             double3 wantStep = eye - _probeWantEcl;
             double3 hadStep = had - _probeHadEcl;
 
+            // Where the camera is over the ground and how fast it is crossing it. Terrain is
+            // re-tiled on a lattice whose ground cell scales with the body's radius, so the same
+            // travel crosses 3.7 times as many cells on the Moon as on Earth -- and low and fast
+            // is when a transition does it.
+            string overGround = "n/a";
+            if (GroundTest.Shared.TryGround(cameraEcl, out double3 centreEcl, out double surface))
+            {
+                double3 outward = Vec.Unit(cameraEcl - centreEcl);
+                double altitude = Vec.Len(cameraEcl - centreEcl) - surface;
+
+                double3 across = cameraStep - outward * Vec.Dot(cameraStep, outward);
+                double speed = dtSim > 0.0 ? Vec.Len(across) / dtSim : 0.0;
+
+                overGround = $"{altitude:F0} m up, {speed:F0} m/s across";
+            }
+
             Log.Debug($"  blend {_blend:F3} step {dtSim * 1000.0:F2} ms | "
                      + $"want {Vec.Len(wantStep):F3} m (up {Vec.Dot(wantStep, up):F3}) | "
-                     + $"had {Vec.Len(hadStep):F3} m (up {Vec.Dot(hadStep, up):F3})");
+                     + $"had {Vec.Len(hadStep):F3} m (up {Vec.Dot(hadStep, up):F3}) | "
+                     + $"{overGround}");
         }
 
         _probeWantEcl = eye;
         _probeHadEcl = had;
+        _probeTravel = round.TravelSinceLaunch;
         _probing = true;
     }
 }

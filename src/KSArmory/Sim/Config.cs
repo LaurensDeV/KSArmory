@@ -198,6 +198,19 @@ public sealed class Config
     public bool DrawTurretFacing = true;
 
     /// <summary>
+    /// Diagnostic: hold the chase camera still through its transition instead of flying it onto
+    /// the round. It still takes the view and still aims, it simply does not travel.
+    ///
+    /// <para>This is a discriminator, not a setting anyone wants on. The transition jitters on an
+    /// airless body and the camera's measured altitude over the ground alternates by ±145 m a
+    /// frame while the offset the mod asks for is smooth — so either the camera's travel is
+    /// provoking it, or the whole scene is juddering against a camera that rides a
+    /// mod-simulated round stepped on a different clock from the world. Freezing the travel
+    /// separates the two in one flight.</para>
+    /// </summary>
+    public bool FreezeChaseTransition;
+
+    /// <summary>
     /// Bracket every weapons system on screen, with an arrow at the edge for one out of view.
     ///
     /// <para>Session-wide rather than per battery: it draws every system in the world, including

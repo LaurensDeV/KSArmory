@@ -212,7 +212,7 @@ public sealed class KSArmoryMod
             if (_roster.For(_ui.Focused) is { } chased)
             {
                 _chase.Apply(chased.Battery, chased.Policy.ChaseRounds && KsaWorld.InFlight,
-                             dt, _lastSimStep);
+                             dt, _lastSimStep, _config.FreezeChaseTransition);
             }
             else
             {

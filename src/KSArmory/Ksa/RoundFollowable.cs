@@ -26,10 +26,16 @@ internal sealed class RoundFollowable : IFollowable
     private Vehicle? _anchor;
     private double3 _anchorOffset;
 
-    /// <summary>Points this at a round, or at nothing.</summary>
-    public void Track(IProjectile? round)
+    // The craft the round left, so its position can be resolved the way a round *body* is: this
+    // is read by the engine in its own frame pass, and re-reading the platform there is what puts
+    // the answer in the engine's epoch rather than the mod's.
+    private Vehicle? _platform;
+
+    /// <summary>Points this at a round on the craft that fired it, or at nothing.</summary>
+    public void Track(IProjectile? round, Vehicle? platform)
     {
         _round = round;
+        _platform = round is null ? null : platform;
         _anchor = null;
     }
 
@@ -59,10 +65,28 @@ internal sealed class RoundFollowable : IFollowable
 
     public bool ShowAxes { get; set; }
 
-    /// <summary>The round's analytic position, as <c>Vehicle.GetPositionEcl</c> also reports.</summary>
+    /// <summary>
+    /// Where the round is, resolved the way a round <em>body</em> is: the platform re-read here,
+    /// plus the round's offset from it.
+    ///
+    /// <para>Not <c>round.PositionEcl</c>. The engine calls this in its own frame pass, before the
+    /// mod has stepped anything, and the mod's integrated position belongs to a different instant
+    /// from every celestial and vehicle the engine has just placed. A camera on it therefore sits
+    /// one simulated step out of register with the scene — 715 m on a 24 ms frame against 238 m on
+    /// a 9 ms one, alternating with the display's pacing, which measured as the camera's height
+    /// over the ground swinging ±145 m every frame.</para>
+    ///
+    /// <para>This pairing is the one with flight evidence behind it: round bodies are placed from
+    /// exactly these two terms and were measured at 79.5 km with 0.0 m drift, steady while the
+    /// camera on the same round was not.</para>
+    /// </summary>
     public double3 GetPositionEcl()
     {
-        if (_round is { } round) LastPositionEcl = round.PositionEcl;
+        if (_round is { } round && _platform is { } craft && KsaWorld.IsAlive(craft))
+        {
+            LastPositionEcl = KsaWorld.PositionEcl(craft) + round.OffsetFromPlatform;
+        }
+        else if (_round is { } loose) LastPositionEcl = loose.PositionEcl;
         else if (_anchor is { } platform) LastPositionEcl = KsaWorld.PositionEcl(platform) + _anchorOffset;
 
         return LastPositionEcl;

@@ -162,6 +162,14 @@ internal sealed partial class Ui
             Diagnostics.Dump(_battery, _config, _policy);
         }
         ImGui.SameLine();
+        ImGui.Checkbox("Freeze chase transition", ref _config.FreezeChaseTransition);
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Diagnostic. The chase takes the view and aims, but does not fly onto\n"
+                             + "the round. If the picture still jitters with the camera held still,\n"
+                             + "the camera's travel is not what is causing it.");
+        }
+
         if (ImGui.Checkbox("Keep dumping", ref _config.DiagnosticDump))
         {
             Diagnostics.ResetTimer();

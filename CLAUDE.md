@@ -1117,6 +1117,20 @@ pass while a round's is integrated after it, so the engine would add a frame-new
 position to an offset built against the older one — ~500 m per frame, which is what
 `RoundFollowable` exists to prevent.
 
+**And what `RoundFollowable` reports has to be resolved the way a round *body* is**, not from the
+round's own integrated position. The engine calls `GetPositionEcl` in its own frame pass, before
+the mod has stepped anything, so `round.PositionEcl` belongs to a different instant from every
+celestial and vehicle just placed — and a camera on it sits one simulated step out of register with
+the scene. That is 715 m on a 24 ms frame against 238 m on a 9 ms one, and the display's frame
+pacing alternates between exactly those, so the camera's height over the ground swung **±145 m
+every frame**. Resolving through `platform + OffsetFromPlatform` is the pairing round bodies
+already prove — measured at 79.5 km with 0.0 m drift, steady on the same round whose camera was
+not — and it is what made the reticule stop shuddering through a transition on the Moon.
+
+It only shows on a small body. The same error exists on Earth and is dwarfed there: what makes it
+visible is that a camera translation displaces an object by roughly `1/range`, and the terrain a
+chase transition flies over is three and a half times closer on the Moon.
+
 That controller is the one place the mod stands on something nobody promised. It is bound through
 `docs/KSA-API-SURFACE.md`, so a signature change is caught; if it ever cannot be installed the
 engine's own stays and the roll comes back, which is a worse picture and not a crash.
