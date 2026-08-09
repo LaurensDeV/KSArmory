@@ -820,7 +820,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         }
 
         MunitionProfile shell = Arsenal.MunitionNamed(Profile.GunMunition!);
+
+        // A round leaves with the craft's motion; it flies in the ground's. The two differ only
+        // once a launcher is moving, and then the second is what airspeed and heading mean.
         double3 platformVel = KsaWorld.VelocityEcl(Platform);
+        double3 frameVel = KsaWorld.GroundVelocityAt(Platform, PlatformEcl);
 
         // Negative tube numbers mark the cannon: the magazine owns 0..TubeCount-1, and a shell
         // must never be mistaken for a missile that could claim a tube back.
@@ -834,7 +838,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
                                            guns.Asmb2ParentAsmb, out double3 muzzlePart);
 
         Slug slug = new(muzzle, platformVel + axis * shell.LaunchSpeed, track?.Contact.Handle,
-                        -(barrel + 1), PlatformEcl, platformVel)
+                        -(barrel + 1), PlatformEcl, frameVel)
         {
             Munition = shell,
             LaunchAnchorPartFrame = muzzlePart,
@@ -1102,9 +1106,21 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
                 continue;
             }
 
-            // Point it along the flight path, falling back to straight up for a round that has
-            // somehow stopped - better than the undefined direction of a zero vector.
-            double3 heading = Vec.Len2(round.VelocityLocal) > 1e-6 ? round.VelocityLocal : Boresight;
+            // Along the airflow once there is enough of it to mean anything, easing off the tube
+            // the round left before that. A store released rather than fired has no airspeed at
+            // the moment it lets go, so the tube is the only thing that says which way it points.
+            //
+            // The tube, emphatically not Boresight. A PartForward sensor boresights on the part's
+            // +X -- its mounting face's outward normal -- while a tube points along +Y, so the two
+            // are perpendicular by construction on every craft at every attitude. Using the
+            // boresight drew a released store across its own axis. Falling back to it is still
+            // right when the tube cannot be resolved: some direction beats none.
+            double3 release = LauncherPart.TryGetTubeAxisEcl(platform, launcher, PodsPart, Profile,
+                                                             index, out double3 tubeEcl)
+                                  ? tubeEcl
+                                  : Boresight;
+
+            double3 heading = BodyAttitude.Heading(round.VelocityLocal, release);
 
             if (!LauncherPart.TryPlaceMissile(platform, launcher, _missileBodies[index],
                                               round.LaunchAnchorPartFrame, round.TravelSinceLaunch,
@@ -1283,6 +1299,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         }
 
         double3 platformVel = KsaWorld.VelocityEcl(Platform);
+        double3 frameVel = KsaWorld.GroundVelocityAt(Platform, PlatformEcl);
 
         // From the tube itself, using where the pods are aimed. The ring about the boresight
         // below is a fallback for a launcher with no pods: it ignores traverse and elevation.
@@ -1353,13 +1370,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // platformVel is the frame the round launches into. Passing it here is what makes the body
         // orientable on its very first drawn frame - see the Interceptor constructor.
         _rounds.Add(Munition.Guidance == GuidanceMode.None
-            ? new Slug(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, platformVel)
+            ? new Slug(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, frameVel)
             {
                 Munition = Munition,
                 LaunchAnchorPartFrame = launchAnchorPartFrame,
                 Aimpoint = aim,
             }
-            : new Interceptor(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, platformVel)
+            : new Interceptor(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, frameVel)
             {
                 LaunchAnchorPartFrame = launchAnchorPartFrame,
                 Aimpoint = aim,
@@ -1544,7 +1561,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     {
         if (_rounds.Count == 0) return;
 
-        double3 platformVelocityEcl = KsaWorld.VelocityEcl(Platform!);
+        // The ground under the launcher, not the launcher. Identical for a site standing still on
+        // it, which every launcher was until the bomb rack -- and the difference is the whole
+        // behaviour of a store released from something moving. See KsaWorld.GroundVelocityAt.
+        double3 platformVelocityEcl = KsaWorld.GroundVelocityAt(Platform!, PlatformEcl);
 
         // A burst is dozens of shells and the world does not move between them, so the candidate
         // list is built at most once here rather than once per round.

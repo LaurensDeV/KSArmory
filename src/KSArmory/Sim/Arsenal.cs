@@ -201,14 +201,16 @@ public static class Arsenal
     {
         Name = "MK82",
         DisplayName = "Mk 82 500 lb bomb",
-        BodyMarker = "Bomb",
+        BodyMarker = "Mk82",
         BodyLength = 2.22f,
 
         Guidance = GuidanceMode.None,
 
-        // Released, not launched. It leaves with the aircraft's velocity and the ejector's shove,
-        // which the launcher's EjectAwayFromMount supplies.
-        LaunchSpeed = 0f,
+        // Released, not launched: what it mostly leaves with is the aircraft's velocity. The few
+        // metres a second are the ejector cartridge, which throws a store down hard enough to
+        // clear the airflow under the wing -- and without them the launcher's EjectAwayFromMount
+        // is a direction multiplied by zero, which is what it was.
+        LaunchSpeed = 4f,
         BoostSeconds = 0f,
         BoostAccel = 0f,
 

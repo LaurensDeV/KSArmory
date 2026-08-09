@@ -127,7 +127,7 @@ internal static class Diagnostics
                  $"operational={battery.IsOperational} ammo={battery.Ammo}");
         Log.Debug($"  posEcl  = {Fmt(pos)}  |pos| = {Vec.Len(pos):E3}");
         Log.Debug($"  velEcl  = {Fmt(vel)}  speed = {Vec.Len(vel):F1} m/s");
-        Log.Debug($"  bore    = {Fmt(battery.Boresight)}  (local up)");
+        Log.Debug($"  bore    = {Fmt(battery.Boresight)}  ({battery.Sensor.BoresightSource})");
         Log.Debug($"  mount   = {Fmt(battery.MountEcl)}  offset from hull = {Vec.Len(battery.MountEcl - pos):F2} m");
 
         // Whether the engine has parked this craft or is still solving it. On an airless body it

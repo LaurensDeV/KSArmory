@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-118 types and 306 members across 6 assemblies.
+118 types and 307 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -411,6 +411,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.IParentBody
 
+- `Brutal.Numerics.double3 GetAngularVelocityCce()`
 - `Brutal.Numerics.doubleQuat GetCce2Cci()`
 - `System.Collections.Generic.List`1<KSA.IOrbiter> get_Children()`
 - `double get_Mu()`

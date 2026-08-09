@@ -246,6 +246,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives |
 | `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
+| `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
 | `Sim/DriveStatus.cs` | which drives the engine is still accepting writes for, latched per channel |
 | `Sim/GunChannel.cs` | the cannon's belt, burst position and next-round timing |
@@ -833,6 +834,14 @@ armed, auto-engage, what to draw. Range, guidance, fuse and launcher geometry be
 weapon system and vary per system, so they sit on `SensorProfile`, `MunitionProfile` and
 `LauncherProfile`. The panel edits the profiles of whichever system it is showing, so live
 tuning still works — it just tunes that system rather than the whole mod.
+
+**A round flies in the ground's frame, not the launcher's.** `KsaWorld.GroundVelocityAt` is the
+parent body's own motion plus its spin at that radius, and it is what a round's airspeed, its drag
+and the direction it points are all measured against. For every launcher up to the bomb rack that
+was the same number as the launching craft's velocity, because every launcher stood still on the
+ground — so nothing changed for any of them. A store released from something **moving** is the
+first case that separates the two. A round still *inherits* the craft's velocity at launch; it
+just no longer measures its airspeed against it.
 
 **Rounds are drawn as real subparts, anchored to the tube they left.** Twelve `Missile`
 subparts, scaled to nothing until fired, with their transform written each frame. Two rules,

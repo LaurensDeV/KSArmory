@@ -633,6 +633,42 @@ internal static class KsaWorld
     /// Gravitational acceleration at <paramref name="positionEcl"/> from the platform's parent body,
     /// in Ecl. Returns zero if the parent or its gravity parameter is unavailable.
     /// </summary>
+    /// <summary>
+    /// How fast the ground under a point is moving, in the ecliptic frame: the parent body's own
+    /// motion plus its spin at that radius.
+    ///
+    /// <para>This is the frame a round flies in — its airspeed, what its drag acts against, and
+    /// what it points along. For every launcher until the bomb rack it was the same thing as the
+    /// launching craft's velocity, because every launcher sat still on the ground. A store
+    /// released from something <em>moving</em> is the first case that separates them, and taking
+    /// the craft leaves a bomb with no airspeed at all at release: the only motion it then has
+    /// relative to its launcher is gravity, so it points straight down the instant it lets go and
+    /// the aircraft flies out from under it.</para>
+    /// </summary>
+    public static double3 GroundVelocityAt(Vehicle platform, double3 positionEcl)
+    {
+        try
+        {
+            if (platform.Parent is not Celestial body) return VelocityEcl(platform);
+
+            // Cce, not the Cci that GetBodyRates answers with: the separation below is a Cce
+            // vector, and the two frames differ by the body's axial tilt -- 23.4 degrees on Earth,
+            // which at 465 m/s of surface speed invents up to 190 m/s of velocity out of nothing.
+            double3 spin = ((IParentBody)body).GetAngularVelocityCce();
+            double3 fromCentre = positionEcl - body.GetPositionEcl();
+
+            if (!Vec.IsFinite(spin) || !Vec.IsFinite(fromCentre)) return VelocityEcl(platform);
+
+            return body.GetVelocityEcl() + Vec.Cross(spin, fromCentre);
+        }
+        catch
+        {
+            // The craft's own velocity is what this was before there was anything better, and it
+            // is exactly right for the landed launcher that is still the common case.
+            return VelocityEcl(platform);
+        }
+    }
+
     public static double3 GravityAt(Vehicle platform, double3 positionEcl)
     {
         try
