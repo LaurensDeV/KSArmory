@@ -193,6 +193,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
 ./tools/check-network.sh                   # the mod only reaches the network when Send is clicked
+./tools/check-tunables.py                  # every setting has a control that reaches it
 ./tools/check-comments.sh                  # history in comments, XML docs on privates, ratios
 ./tools/check-docs.sh                      # layout table, API counts and KSA build vs reality
 ./tools/package.sh                         # release zip into dist/ -- no symbols, no game DLLs
@@ -254,6 +255,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BallisticLead.cs` | where an unguided round must be aimed to arrive where the target will be |
 | `Sim/Aimpoint.cs` | what a round is shooting at — craft, component or coordinate |
 | `Sim/ThreatModel.cs` | CPA threat classification, priority, engagement envelope |
+| `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
@@ -604,6 +606,31 @@ a rule the server can apply for free.
 setting is on", so a window arriving instead is unannounced and the tick says nothing about where
 it went. Opening a window is an action; tick boxes are for state — armed, auto-engage, what to
 draw, a tool being active. Tint the button if open/closed is worth showing.
+
+**A setting nobody can reach is not a setting, and that is enforced.** The panel enumerates its
+controls by hand, so a field added to `SensorProfile`, `MunitionProfile` or `SystemConfig` is read
+by the code, described in the docs, shipped in the archive, and untouchable. Nothing fails and
+nothing appears in any log. `SensorProfile.HorizonMasking` and `TerrainMarginMetres` shipped that
+way, with a whole section of `CHECKLIST.md` asking for them to be toggled.
+
+`tools/check-tunables.py` fails the build on it. Textual, like `check-boundary.sh`, and for the
+same reason: the panel is under `Ksa/` and the test project cannot reference it. It requires a
+**write** rather than a mention — every control is followed by a line reading the value back to
+explain itself, so a check accepting any occurrence passes with the slider deleted and the
+explanation left behind. Two escape hatches, both of which name their reason: `EXEMPT` for a
+member no control could sensibly reach — generated geometry, a derived value, an identity string —
+and `VIA` for one the panel drives through a helper, which names the helper so deleting the
+control still fails.
+
+**A weapon's discrimination fields are off at zero, and zero is the default.**
+`ReferenceCrossSectionM2`, `NotchSpeed`, `ClutterFloorMetres` and `TerrainSamples` all start at
+nothing, so a profile that says nothing about them behaves exactly as it did before they existed.
+Each is a real capability with a real cost rather than an upgrade: a Doppler notch rejects clutter
+*and* loses the target crossing exactly abeam, which is the one geometry `ThreatRadius` exists to
+keep engageable, and a clutter floor of any size makes a short-range set useless at the job it is
+for. Detection range goes as the **fourth** root of cross-section — a target a hundredth the size
+is seen at a third of the range, not a hundredth — so a round is a far smaller target than the
+craft that threw it with nothing having to know a round from a craft.
 
 **A setting belongs to a system or to the session, and which one is the whole distinction.**
 `SystemConfig` holds what can differ between two launchers in the same world — armed,

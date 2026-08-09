@@ -358,6 +358,14 @@ internal sealed partial class Ui
         ImGui.Checkbox("Chase this system's rounds", ref _policy.ChaseRounds);
         ImGui.TextDisabled("  rides the camera behind a round it fires; the view comes back after");
 
+        // Only where it answers the right question. A guided round goes where it is steered, so a
+        // ballistic pipper over one is a ring in the wrong place with nothing to say so.
+        if (!_fit.Steers)
+        {
+            ImGui.Checkbox("Bomb sight", ref _policy.DrawBombSight);
+            ImGui.TextDisabled("  where a store released now would land, flown rather than solved");
+        }
+
         DrawOpticView();
 
         if (ImGui.Button("FIRE")) _battery.FireAtLock();

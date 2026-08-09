@@ -138,9 +138,44 @@ internal sealed partial class Ui
         ImGui.SliderFloat("Lock time (s)", ref _sensor.LockSeconds, 0f, 5f);
         ImGui.SliderFloat("Min target speed (m/s)", ref _sensor.MinTargetSpeed, 0f, 200f);
 
+        DrawDiscriminationControls();
         DrawHorizonControls();
 
         ImGui.TreePop();
+    }
+
+    // What the set can tell targets apart by. All three are off at zero, which is where they ship:
+    // together they are the substrate chaff needs, and separately each is a real capability with a
+    // real cost the player should be choosing rather than inheriting.
+    private void DrawDiscriminationControls()
+    {
+        ImGui.SliderFloat("Reference RCS (m2)", ref _sensor.ReferenceCrossSectionM2, 0f, 2000f);
+
+        if (_sensor.ReferenceCrossSectionM2 <= 0f)
+        {
+            ImGui.TextDisabled("  the set reaches the same distance whatever it looks at");
+        }
+        else
+        {
+            // Shown because the fourth-root law is not something anyone should have to take on
+            // trust while dragging a slider: it is what makes a small target reachable at all.
+            double small = ThreatModel.DetectionRange(
+                _sensor, new ThreatModel.ContactSignature(1.0, double.PositiveInfinity));
+
+            ImGui.TextDisabled($"  a 1 m contact at {small / 1000.0:F1} km of {_sensor.Range / 1000f:F1}");
+        }
+
+        ImGui.SliderFloat("Doppler notch (m/s)", ref _sensor.NotchSpeed, 0f, 100f);
+        if (_sensor.NotchSpeed > 0f)
+        {
+            ImGui.TextDisabled("  rejects clutter, and loses a target crossing exactly abeam");
+        }
+
+        ImGui.SliderFloat("Clutter floor (m)", ref _sensor.ClutterFloorMetres, 0f, 2000f);
+        if (_sensor.ClutterFloorMetres > 0f)
+        {
+            ImGui.TextDisabled("  nothing below this over the mean sphere is seen at all");
+        }
     }
 
     // What the world hides from this set. The sample count is the cost knob and is shown as one:
@@ -219,10 +254,18 @@ internal sealed partial class Ui
                 ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
                 ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
                 ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
+                ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
+                ImGui.TextDisabled("  a round leaves along the tube and is clear before it turns");
             }
 
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
             ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 90f);
+
+            // The envelope the battery commits inside, which is not how far the round can fly:
+            // the set sees 36 km and the round reaches 20, and firing at everything detected
+            // spends the magazine on contacts the rounds expire short of.
+            ImGui.SliderFloat("Min engagement range (m)", ref _munition.MinRange, 0f, 5000f);
+            ImGui.SliderFloat("Max engagement range (m)", ref _munition.MaxRange, 500f, 40000f);
 
             ImGui.Checkbox("Eject along the tube", ref _profile.LaunchAlongTube);
             ImGui.TextDisabled("  off: slew to the target on launch, plus loft");

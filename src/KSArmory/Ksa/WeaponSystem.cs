@@ -1675,7 +1675,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         if (round.Munition.Guidance == GuidanceMode.CommandLink && Platform is not null)
         {
             double3 toTarget = KsaWorld.PositionEcl(target) - PlatformEcl;
-            if (!ThreatModel.InSensorVolume(toTarget, Boresight, Sensor)) return null;
+            var signature = new ThreatModel.ContactSignature(KsaWorld.MeanRadius(target),
+                                                             double.PositiveInfinity);
+
+            if (!ThreatModel.InSensorVolume(toTarget, Boresight, Sensor, signature)) return null;
         }
 
         return new TargetState(

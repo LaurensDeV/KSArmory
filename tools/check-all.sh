@@ -86,6 +86,7 @@ run "Sim/ is free of KSA types"     ./tools/check-boundary.sh
 run "No unasked-for network"        ./tools/check-network.sh
 run "Part XML is well formed"       ./tools/check-xml.sh
 run "Asset paths resolve"           ./tools/validate-parts.py --offline
+run "Every setting is reachable"    ./tools/check-tunables.py
 run "Comment rules"                 ./tools/check-comments.sh
 run "Documented facts"              ./tools/check-docs.sh
 run "No artefacts tracked"          ./tools/check-tracked.sh

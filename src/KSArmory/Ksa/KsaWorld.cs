@@ -228,6 +228,30 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// The mean sphere of the body under a point: its centre and its radius.
+    ///
+    /// <para>A radius of zero means no body could be resolved, which every caller has to read as
+    /// "no ground here" rather than as ground at the origin.</para>
+    /// </summary>
+    public static void MeanSphereUnder(double3 pointEcl, out double3 centreEcl, out double radius)
+    {
+        centreEcl = Vec.Zero;
+        radius = 0.0;
+
+        try
+        {
+            if (NearestBody(pointEcl) is not { } body) return;
+
+            centreEcl = body.GetPositionEcl();
+            radius = body.MeanRadius;
+        }
+        catch
+        {
+            radius = 0.0;
+        }
+    }
+
     // The body whose surface the point is nearest, by depth below the mean sphere rather than by
     // distance: a sensor low over a moon is far closer to the ground it is looking across than to
     // the planet that moon orbits.

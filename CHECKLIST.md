@@ -478,6 +478,26 @@ ridge, and the cost is the thing no test can answer.
       *does* move, it is not.
 - [ ] Nothing throws over a body with no height map, and over a moon.
 
+### 7.1c3 Telling targets apart — size, Doppler and clutter
+
+All three ship at zero, which is the behaviour every earlier section was flown against. The
+arithmetic is in `RadarSignatureTests`; what a flight adds is whether the numbers land anywhere
+useful against real craft, whose `MeanRadius` is a bounding half-diagonal rather than a skin.
+
+- [ ] Read the **Reference RCS** line with it at zero: the set reaches the same distance whatever
+      it looks at, and the track list matches what earlier sections recorded.
+- [ ] Set it to roughly a drone's own cross-section and confirm a drone is still detected at about
+      the profile range. Wildly short means `MeanRadius` is much larger than assumed and the
+      reference needs to be too.
+- [ ] With it set, fire a round and watch a *second* system see it. A round should appear at a
+      fraction of the range a craft does, not at the same range and not never.
+- [ ] **Doppler notch** to 40 m/s, then fly a drone across the site rather than at it. It drops off
+      the scope near the beam and comes back either side. That loss is the feature.
+- [ ] Confirm the same drone flown straight at the site is unaffected.
+- [ ] **Clutter floor** to a few hundred metres: low contacts vanish, high ones do not. Then put it
+      back to zero, because the Pantsir exists to kill things down there.
+- [ ] All three back at zero: the track list is exactly what section 3.3 recorded.
+
 ### 7.1d The Sidewinder rail
 
 **`./tools/scenario.sh head-on` flies this unattended and kills the target.** The log shows the
