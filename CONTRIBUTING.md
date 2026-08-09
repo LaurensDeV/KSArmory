@@ -117,6 +117,11 @@ directory listing rather than trusting `is_file()`.
 
 ## Before you open a PR
 
+**Open it against `dev`, not `main`.** `main` is the release branch: a push to it cuts a version
+and publishes it to SpaceDock. Everything lands on `dev` first and rides to `main` in a merge when
+a release is wanted. CI runs on every branch and every pull request either way, so nothing is less
+gated for being on `dev`.
+
 ```bash
 ./tools/check-all.sh          # everything CI runs, about 8 seconds
 ```

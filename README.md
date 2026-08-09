@@ -361,6 +361,13 @@ The quickest start on any platform:
 ./tools/doctor.sh   # checks this machine and prints the fix for anything missing
 ```
 
+**Work goes on `dev`. `main` is the release branch.** A push to `main` cuts a release and
+publishes it to SpaceDock, so branch off `dev`, open pull requests against `dev`, and push there as
+often as you like — CI runs on every branch and every pull request, so the build, the tests and all
+seventeen checks gate each push either way. Releasing is then a deliberate act: `dev` is merged
+into `main` and semantic-release cuts one release covering everything that accumulated. It is a
+merge rather than a squash, because the changelog is built from the individual commit subjects.
+
 Worth knowing up front: **most of this repository is testable without launching the game.**
 Everything under `src/KSArmory/Sim/` is free of KSA types by construction, so guidance, threat
 classification, tube geometry and the fuse can all be worked on headlessly. Building it still

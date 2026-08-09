@@ -134,6 +134,10 @@ one.
 Split unrelated work into separate commits rather than one large one: the changelog is generated
 from these, so a commit that does three things describes none of them well.
 
+**Commit to `dev`, not to `main`.** `main` is the release branch and a push to it cuts a release
+and publishes to SpaceDock — see [CI and releases](#ci-and-releases). Everything lands on `dev`
+first and rides to `main` in a merge when a release is wanted.
+
 **Do not commit a behaviour fix as a fix until it has been verified in game.** Compiling, passing
 the suite, and having a plausible mechanism are not evidence — this mod's hardest bugs live in
 the gap between the maths and what KSA actually does, and that gap is only visible in flight. The
@@ -328,7 +332,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 306 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 307 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a 26-agent review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what we want and cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
@@ -734,6 +738,18 @@ CI is split the same way the source is:
 
 shellcheck runs at `-S warning`. At the default level it flags every `source tools/env.sh` as
 unfollowable, which it is, and CI would fail on nothing.
+
+**Work happens on `dev`; `main` is the release branch.** Push to `dev` as often as you like — CI
+runs on every branch and every pull request, so the build, the tests and all seventeen checks still
+gate each push, and nothing is released. A release is then a deliberate act: merge `dev` into
+`main`, and semantic-release cuts one release covering everything that accumulated.
+
+This exists because releasing per push produced four versions in a day, each a patch, most of them
+fixes for the previous one. A release is what a player downloads; it should be worth downloading.
+
+**Merge, do not squash.** semantic-release reads the individual commits to build the changelog, so
+a squash collapses a fortnight of features and fixes into one line and loses the notes. A merge
+commit keeps every subject, and the release notes list them all.
 
 **Versioning is automatic and commit messages are the input.** semantic-release runs on every
 push to `main`, reads the Conventional Commits since the last tag, and cuts the release: version,
