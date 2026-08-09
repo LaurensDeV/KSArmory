@@ -259,6 +259,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
 | `Sim/Picking.cs` | what the cursor's ray meets, and what is nearest it on screen |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
+| `Sim/SightPicture.cs` | where the sight's horizontal lies, and which way a contact off the glass went |
+| `Sim/SightZoom.cs` | the head's magnification, as the field of view it asks a camera for |
 | `Sim/CursorAim.cs` | cursor to viewport coordinates, and the bearing from a mount to what it points at |
 | `Sim/WeaponFit.cs` | **what a weapons system is fitted with** — the panel asks this rather than testing profile fields |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
@@ -328,7 +330,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 307 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 310 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
@@ -1110,6 +1112,32 @@ secondary viewport renders a starfield over a featureless grey ball — the plan
 and atmosphere passes all run only for the frame viewport, which is KSA's and is recorded in
 `docs/BLOCKED-ON-KSA.md`. So `Ksa/SightCamera.cs` borrows the player's view instead, and the
 secondary path stays as the option for watching a site while flying something else.
+
+**The sight magnifies by rewriting the field of view every frame, and it has to.** The player's own
+zoom keys route through `Camera.ChangeFieldOfView`, which clamps to 15°–120°, so one keypress
+throws away anything narrower and says nothing about having done so; only rewriting puts it back.
+`Camera.SetFieldOfView` is the unclamped one and takes **degrees**, while `GetFieldOfView` answers
+in **radians** — a factor of 57.3 between the two directions, which is why both are wrapped in
+`KsaWorld` rather than called anywhere else. Unclamped also means unguarded:
+`CreatePerspectiveFieldOfViewReverseZ` *throws* for a field of zero or more than half a turn, out
+of the frame hook, so `SightZoom.MinFovDeg` is a crash guard rather than a preference.
+
+**And a magnification, never an angle.** `SystemConfig.OpticMagnification` is a factor on whatever
+field the player already had, so the same setting is the same instrument to two people with
+different preferences. The relation is optical — `tan(fov/2) = tan(base/2) / m` — so halving the
+angle is 2.06×, not 2×, and the gap grows without bound as the field narrows: what a linear rule
+would call 16× is 20.7×. `MainView` carries the field it borrowed for the same reason it carries
+the follow: handing back everything except the zoom leaves the player at 3° with no control that
+reaches it, because their own keys clamp at 15° and cannot widen past it.
+
+**Two reticules, because one ring can only be laid on one solution.** The turret points at the
+cannon's ballistic lead whenever `FireGate.GunsHaveTheEngagement`, and at the target otherwise, so
+the pipper and the target bracket separate exactly when the lead matters and the line between them
+is the lead being taken. `Ksa/Sight.cs` reads where the ring was actually sent back off fire
+control rather than solving again: a second solve takes the target's position from a later instant
+and paints a pipper the turret was never sent to. The pipper's *size* is what the shell covers at
+that range, off `Warhead.LethalRadius`, so the ring closing on the bracket is the shot coming
+together.
 
 **Two things borrow that view, and the loser waits rather than tidying up.** `Sim/ViewClaim.cs` is
 the ladder: the player reclaiming the view outranks everything, then the chase camera, then the

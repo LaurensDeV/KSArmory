@@ -101,6 +101,38 @@ internal interface IOpticalHead : IWeaponPlatform
 }
 
 /// <summary>
+/// Everything the gunner's sight paints: the head and its contact, plus the weapons that could
+/// take the shot and where each is pointing.
+///
+/// <para>Wider than <see cref="IOpticalHead"/> and deliberately still narrower than the system.
+/// A sight reports; it has no way to arm, fire, slew or re-platform anything it is drawn over,
+/// which is what makes it safe to paint every frame from the draw hook.</para>
+/// </summary>
+internal interface ISightPicture : IOpticalHead, IWeaponLoadout
+{
+    /// <summary>Rounds in the tubes.</summary>
+    int Ammo { get; }
+
+    /// <summary>Rounds left in the cannon belt.</summary>
+    int GunAmmo { get; }
+
+    /// <summary>Where rounds leave from, which is what every lead is measured from.</summary>
+    double3 MountEcl { get; }
+
+    /// <summary>True when the tubes have settled on what they are pointing at.</summary>
+    bool IsLaid { get; }
+
+    /// <summary>True when the cannon have. Asked separately because they share only the traverse.</summary>
+    bool GunsAreLaid { get; }
+
+    /// <inheritdoc cref="WeaponSystem.TryRingAimEcl"/>
+    bool TryRingAimEcl(out double3 aimEcl, out bool isGunLead);
+
+    /// <summary>Time of flight the gun's lead solved for, or zero if it did not solve.</summary>
+    double GunFlightSeconds { get; }
+}
+
+/// <summary>
 /// A weapon an operator aims at a place by hand. It answers whether the shot would be taken
 /// before a round is spent, and then takes it.
 /// </summary>

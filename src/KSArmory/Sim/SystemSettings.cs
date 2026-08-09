@@ -31,6 +31,8 @@ public sealed class SystemSettings
     public float TurretManualElevationDeg { get; set; } = 55f;
     public bool TurretSpin { get; set; }
     public bool SearchRadarStopped { get; set; }
+    public float OpticMagnification { get; set; } = 1f;
+    public bool SightSymbology { get; set; } = true;
 
     public string? OwnTeam { get; set; }
     public bool EngageUnknown { get; set; } = true;
@@ -60,6 +62,8 @@ public sealed class SystemSettings
             TurretManualElevationDeg = config.TurretManualElevationDeg,
             TurretSpin = config.TurretSpin,
             SearchRadarStopped = config.SearchRadarStopped,
+            OpticMagnification = config.OpticMagnification,
+            SightSymbology = config.SightSymbology,
 
             OwnTeam = config.Iff.OwnTeam,
             EngageUnknown = config.Iff.EngageUnknown,
@@ -119,6 +123,8 @@ public sealed class SystemSettings
         config.TurretManualElevationDeg = TurretManualElevationDeg;
         config.TurretSpin = TurretSpin;
         config.SearchRadarStopped = SearchRadarStopped;
+        config.OpticMagnification = SightZoom.Clamp(OpticMagnification);
+        config.SightSymbology = SightSymbology;
 
         config.Iff.OwnTeam = OwnTeam;
         config.Iff.EngageUnknown = EngageUnknown;
@@ -153,6 +159,8 @@ public sealed class SystemSettings
                || Math.Abs(TurretManualElevationDeg - other.TurretManualElevationDeg) > 1e-3f
                || TurretSpin != other.TurretSpin
                || SearchRadarStopped != other.SearchRadarStopped
+               || Math.Abs(OpticMagnification - other.OpticMagnification) > 1e-3f
+               || SightSymbology != other.SightSymbology
                || !string.Equals(OwnTeam, other.OwnTeam, StringComparison.Ordinal)
                || EngageUnknown != other.EngageUnknown
                || EngageNeutral != other.EngageNeutral

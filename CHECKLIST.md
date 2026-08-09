@@ -592,6 +592,56 @@ Still open below.
 - [x] Warp up and back down repeatedly: the battery recovers each time and re-acquires.
 - [x] Load a save while rounds are in flight: they are abandoned, not flown into the new world.
 
+### 7.6 The gunner's sight — symbology, zoom and the two reticules
+
+Never flown. The maths is covered by `SightZoomTests` and `SightPictureTests`, and the maths is
+not what is in doubt: every item below is a question about whether KSA honours a write or draws
+what the mod thinks it drew.
+
+**Zoom is the one with a crash behind it.** `Camera.SetFieldOfView` does not clamp and
+`UpdateProjection` throws for a field of zero or more than half a turn, out of the frame hook.
+`SightZoom.MinFovDeg` guards it; that guard has never been reached in game.
+
+- [ ] Put the optical head on the **main view** and step the magnification 1× → 16×. The picture
+      narrows each time. If it snaps back to something wide within a frame, the mod's write is
+      losing to KSA's own and the field is being reset rather than kept.
+- [ ] At 16× the readout says `x16` and a field of about 3°. If it says 3° and looks unzoomed, the
+      write is being ignored; if it says 172° the radians-versus-degrees conversion has come back.
+- [ ] Press the game's own zoom keys while magnified. Expected: the picture jumps to 15° for at
+      most a frame and the mod puts it back. A permanent jump means the per-frame rewrite is not
+      running.
+- [ ] Switch the optic **off**. The field returns to whatever it was before — not to 50°, and not
+      left at 3°. Left narrow is the failure that strands a player: their own keys clamp at 15°
+      and cannot widen past it.
+- [ ] Take the view back through KSA's **View → Orbit Camera**. Same again: the field comes back
+      with it. This is the `StandDown` path rather than the release one, and they restore
+      separately.
+- [ ] Let the chase camera take the view mid-salvo while the sight is magnified, then let it
+      finish. The sight's zoom is still there afterwards.
+
+**The two reticules.** Only visible on a target inside the cannon's 200–4000 m envelope, which is
+the same band section 7.1b needs — fly one engagement and check both.
+
+- [ ] Inside the band, a **second ring** appears away from the target bracket, with a line joining
+      them. That gap is the lead. Outside the band there is one reticule and no line.
+- [ ] The ring sits where the shells actually go. Fire and watch: tracers should pass through it.
+- [ ] The status block says `GUN HAS THE RING` while it does, and `MSL HAS THE RING` otherwise.
+      Missiles are held in the first state by `FireGate.MissilesMayFire`, so the two must agree.
+- [ ] The ring grows as the target closes. It is sized to what the shell covers, not to an icon.
+
+**Symbology.**
+
+- [ ] The horizontal reference crosses the picture and **tilts** as the head elevates, rather than
+      lying flat across the screen. Flat means it is being drawn in screen space, which is right
+      only at the one pose anyone checks first.
+- [ ] Looking straight up, the reference disappears rather than drawing a stroke in an arbitrary
+      direction.
+- [ ] Slew onto a target hard enough to lose it off the edge at high magnification: a **chevron**
+      appears at that edge pointing after it, with the range beside it. Behind the camera counts —
+      the chevron must point backwards correctly, not at its mirror image.
+- [ ] Master arm, missile count and belt count in the top-left track the panel.
+- [ ] **Sight symbology** off leaves the target bracket and takes everything else away.
+
 ---
 
 ## Reporting back

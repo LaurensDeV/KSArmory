@@ -247,6 +247,8 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  without the atmosphere pass. See docs/BLOCKED-ON-KSA.md");
         }
 
+        if (_policy.OpticViewport >= 0) DrawSightLine();
+
         // The chosen window has gone, so stop writing to something that is no longer shown. The
         // main view is exempt: it is never in the collected list, and it cannot be closed.
         if (_policy.OpticViewport >= 0 && _policy.OpticViewport != main
@@ -254,6 +256,29 @@ internal sealed partial class Ui
         {
             _policy.OpticViewport = -1;
         }
+    }
+
+    // Magnification and symbology. Detents rather than a slider: a real sight has optical stops,
+    // and a factor arrived at by dragging is one nobody can return to.
+    private void DrawSightLine()
+    {
+        ImGui.Text("Magnification:");
+
+        foreach (float detent in SightZoom.Detents)
+        {
+            ImGui.SameLine();
+            bool selected = Math.Abs(_policy.OpticMagnification - detent) < 1e-3f;
+            if (ImGui.RadioButton($"x{detent:0.#}##zoom", selected)) _policy.OpticMagnification = detent;
+        }
+
+        // Only on the main view. A secondary viewport's camera is positioned outright rather than
+        // driven through the borrowed-view path, so nothing writes its field of view.
+        if (_policy.OpticViewport != KsaWorld.MainViewportIndex)
+        {
+            ImGui.TextDisabled("  the main view only - nothing sets a secondary view's zoom");
+        }
+
+        ImGui.Checkbox("Sight symbology", ref _policy.SightSymbology);
     }
 
     private void DrawTurretLine()

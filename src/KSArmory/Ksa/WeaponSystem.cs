@@ -12,7 +12,7 @@ internal readonly record struct SystemEvent(double AtSeconds, string Message);
 /// part, and pinned there so the site keeps defending itself after the player switches away.
 /// </summary>
 internal sealed class WeaponSystem(Config config, SystemConfig policy)
-    : IWeaponSystemView, IManualFire, IOpticalHead, IEffectSource
+    : IWeaponSystemView, IManualFire, IOpticalHead, ISightPicture, IEffectSource
 {
     private readonly Config _config = config;
 
@@ -218,6 +218,27 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     // Time of flight from the gun's last lead solve, for a timed fuse. Zero when there is no
     // solution, which is also what stops a shell being fused for a flight nobody computed.
     private double _gunFlightTime;
+
+    // Where the ring was actually sent this frame, kept so the sight can draw it. Reported rather
+    // than re-solved at draw time: a second solve would take the target's position from a later
+    // instant and put the pipper somewhere the turret was never sent.
+    private double3 _ringAimEcl;
+    private bool _ringAimValid;
+
+    /// <summary>
+    /// Where the launcher is laid, and whether that is the cannon's ballistic lead rather than the
+    /// target itself. False when it is stowed, driven by hand or following the cursor.
+    /// </summary>
+    public bool TryRingAimEcl(out double3 aimEcl, out bool isGunLead)
+    {
+        aimEcl = _ringAimEcl;
+        isGunLead = _ringIsOnGunLead;
+
+        return _ringAimValid;
+    }
+
+    /// <summary>Time of flight the gun's lead solved for, or zero if it did not solve.</summary>
+    public double GunFlightSeconds => _gunFlightTime;
 
     /// <summary>Rounds left in the cannon belt.</summary>
     public int GunAmmo => _guns.Ammo;
@@ -768,6 +789,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     {
         _ringIsOnGunLead = false;
         _gunFlightTime = 0.0;
+        _ringAimEcl = aim.PositionEcl;
+        _ringAimValid = true;
+
         if (!GunsHaveTheEngagement(aim)) return aim.PositionEcl;
 
         MunitionProfile shell = Arsenal.MunitionNamed(Profile.GunMunition!);
@@ -791,6 +815,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // on the target, which the missiles can use, so only the write that actually happened
         // decides whether they are held.
         _ringIsOnGunLead = true;
+        _ringAimEcl = lead;
+
         return lead;
     }
 
@@ -952,6 +978,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // Cleared here rather than in the branches that do not set it, so a rung added later
         // cannot leave a stale claim on the ring.
         _ringIsOnCursor = false;
+        _ringAimValid = false;
 
         if (_policy.TurretSpin)
         {

@@ -46,15 +46,22 @@ internal sealed class SightCamera
         Log.Info("sight: released the main view");
     }
 
+    /// <summary>
+    /// The field the view was showing before this took it, which is what a magnification is
+    /// measured against. Zero while the view is not held.
+    /// </summary>
+    public double BaseFovDeg => _saved.Valid ? _saved.FovDeg : 0.0;
+
     /// <summary>Points the main view through the optical head for one frame.</summary>
     /// <param name="wanted">The optic is switched to the main view on the system being shown.</param>
     /// <param name="outranked">Something with a stronger claim holds the view — the chase.</param>
+    /// <param name="magnification">How far the head's optics are wound in.</param>
     /// <returns>
     /// What was done, so the caller can act on it. <see cref="ViewAction.StandDown"/> is the one
     /// that matters: releasing alone is not enough, because the setting still asks for the view
     /// and the next frame would take it straight back.
     /// </returns>
-    public ViewAction Apply(IOpticalHead head, bool wanted, bool outranked)
+    public ViewAction Apply(IOpticalHead head, bool wanted, bool outranked, double magnification)
     {
         // Declared up front rather than in the condition: the resolve short-circuits, and the
         // drive below has to be reachable on the one path where it succeeded.
@@ -71,9 +78,10 @@ internal sealed class SightCamera
         switch (action)
         {
             case ViewAction.StandDown:
-                // The mode is the player's and stays as they set it. The *follow* is the mod's to
-                // change and is put back, or they are left orbiting a launcher they never chose to
-                // look at.
+                // The mode is the player's and stays as they set it. The *follow* and the field of
+                // view are the mod's to change and are put back, or they are left orbiting a
+                // launcher they never chose to look at, through a three-degree straw.
+                KsaWorld.TrySetMainViewFov(_saved.FovDeg);
                 KsaWorld.RestoreFollow(_saved);
                 _saved = default;
                 _followed = null;
@@ -111,6 +119,11 @@ internal sealed class SightCamera
         // A refused write must not leave the view held: the player would be stranded wherever the
         // last good frame put them, in a mode they never chose.
         if (!KsaWorld.TryLookFromMainViewport(offsetFromCraft, forward, head.Boresight)) Release();
+
+        // Every frame, and after the pose. The player's own zoom keys go through
+        // ChangeFieldOfView, which clamps to 15 degrees, so one keypress silently throws away
+        // anything narrower and only rewriting puts it back.
+        else KsaWorld.TrySetMainViewFov(SightZoom.FovDegreesFor(_saved.FovDeg, magnification));
 
         return action;
     }

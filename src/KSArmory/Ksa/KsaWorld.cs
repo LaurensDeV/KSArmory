@@ -1013,17 +1013,73 @@ internal static class KsaWorld
     }
 
     /// <summary>Vertical field of view of a viewport's camera (rad), for scaling an overlay.</summary>
+    /// <remarks>
+    /// <c>GetFieldOfView</c> hands back <c>_fovRadians</c> unconverted while
+    /// <c>SetFieldOfView</c> takes degrees. Reading one and writing the other without noticing is
+    /// a factor of 57.3, which is why the two directions are wrapped here rather than called
+    /// directly.
+    /// </remarks>
     public static double ViewportFovRad(int index)
     {
         try
         {
             Camera camera = Program.Viewports[index].GetCamera();
-            // GetFieldOfView reports degrees; everything here works in radians.
-            return camera is null ? 1.0 : double.DegreesToRadians(camera.GetFieldOfView());
+            return camera is null ? 1.0 : camera.GetFieldOfView();
         }
         catch
         {
             return 1.0;
+        }
+    }
+
+    /// <summary>The main view's own field of view (deg), or the engine's default if unreadable.</summary>
+    public static double MainViewFovDeg()
+    {
+        try
+        {
+            if (Program.MainViewport?.GetCamera() is not { } camera) return SightZoom.DefaultFovDeg;
+
+            double degrees = double.RadiansToDegrees(camera.GetFieldOfView());
+
+            return double.IsFinite(degrees) && degrees > 0.0 && degrees < 180.0
+                ? degrees
+                : SightZoom.DefaultFovDeg;
+        }
+        catch
+        {
+            return SightZoom.DefaultFovDeg;
+        }
+    }
+
+    /// <summary>
+    /// Narrows or widens the main view.
+    ///
+    /// <para>Clamped here and not merely by the caller: <c>SetFieldOfView</c> does not clamp, and
+    /// <c>UpdateProjection</c> throws <c>ArgumentOutOfRangeException</c> for a field of zero or
+    /// more than half a turn — out of the frame hook, which takes the mod down with it.</para>
+    ///
+    /// <para>Has to be rewritten every frame it is wanted. The player's zoom keys route through
+    /// <c>ChangeFieldOfView</c>, which clamps to 15°–120°, so a single keypress throws away
+    /// anything narrower than 15° and there is no notification that it happened.</para>
+    /// </summary>
+    public static bool TrySetMainViewFov(double degrees)
+    {
+        if (!double.IsFinite(degrees)) return false;
+
+        try
+        {
+            if (Program.MainViewport?.GetCamera() is not { } camera) return false;
+
+            float wanted = (float)Math.Clamp(degrees, SightZoom.MinFovDeg, SightZoom.MaxFovDeg);
+            if (Math.Abs(double.RadiansToDegrees(camera.GetFieldOfView()) - wanted) < 1e-3) return true;
+
+            camera.SetFieldOfView(wanted);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not set the field of view: {e.Message}");
+            return false;
         }
     }
 
@@ -1722,7 +1778,13 @@ internal static class KsaWorld
     }
 
     /// <summary>What the main view was doing before something borrowed it.</summary>
-    public readonly record struct MainView(IFollowable? Following, CameraMode Mode, bool Valid);
+    /// <param name="FovDeg">
+    /// The field of view it was set to. Carried because the sight magnifies, and a borrower that
+    /// hands back everything except the zoom leaves the player at 3° with no control that reaches
+    /// it — their own zoom keys clamp at 15° and cannot widen past it.
+    /// </param>
+    public readonly record struct MainView(IFollowable? Following, CameraMode Mode, double FovDeg,
+                                           bool Valid);
 
     /// <summary>
     /// Records the main view so it can be handed back.
@@ -1737,7 +1799,7 @@ internal static class KsaWorld
         {
             if (Program.MainViewport is not { } viewport) return default;
 
-            return new MainView(viewport.GetCamera()?.Following, viewport.Mode, true);
+            return new MainView(viewport.GetCamera()?.Following, viewport.Mode, MainViewFovDeg(), true);
         }
         catch (Exception e)
         {
@@ -1929,6 +1991,10 @@ internal static class KsaWorld
             // disturb -- but with no up it behaves exactly as KSA's own does, rather than holding
             // one from an engagement that is over.
             if (viewport.FixedController is LevelHorizonController level) level.UpEcl = Vec.Zero;
+
+            // Before the mode, so a frame drawn during the handover is drawn at the player's own
+            // field rather than at the sight's.
+            TrySetMainViewFov(saved.FovDeg);
 
             if (viewport.Mode != saved.Mode) viewport.SetCameraMode(saved.Mode);
             return true;

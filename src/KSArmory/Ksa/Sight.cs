@@ -8,40 +8,36 @@ namespace KSArmory;
 ///
 /// <para>An ImGui overlay rather than gizmos: gizmos are drawn in the world and would sit *in*
 /// the scene at the target's distance, scaling and occluding with it. A sight is on the glass.</para>
+///
+/// <para><b>Two reticules, because one ring can only be laid on one solution.</b> The launcher
+/// points at the cannon's ballistic lead whenever the guns have the engagement, and at the target
+/// itself otherwise — so the pipper and the target bracket are in different places precisely when
+/// the lead matters, and the line between them is the lead being taken. Where they are drawn is
+/// read back from fire control rather than solved again here: a second solve would take the
+/// target's position from a later instant and paint a pipper the turret was never sent to.</para>
 /// </summary>
 internal static class Sight
 {
     private static readonly ImColor8 Reticle = new(90, 255, 120, 235);
     private static readonly ImColor8 Pending = new(255, 200, 60, 200);
+    private static readonly ImColor8 Gun = new(255, 120, 90, 235);
+    private static readonly ImColor8 Armed = new(255, 90, 90, 240);
     private static readonly ImColor8 Shadow = new(0, 0, 0, 140);
 
     private static readonly ReticleStroke[] _strokes = new ReticleStroke[KSArmory.Reticle.MaxStrokes];
 
-    public static void Draw(IOpticalHead battery, Config config, SystemConfig policy)
+    // Half the horizontal reference's angular span. Wider than any field the sight offers, so the
+    // line always reaches both edges rather than stopping short at low magnification.
+    private const double ReferenceHalfAngleRad = 0.7;
+
+    // How far out the reference points are placed. Far enough to read as a direction, near enough
+    // that a camera on the ground is not looking at two points beyond the horizon.
+    private const double ReferenceDistanceMetres = 30000.0;
+
+    public static void Draw(ISightPicture battery, SystemConfig policy)
     {
         if (policy.OpticViewport < 0 || battery.OpticPart is null) return;
-        if (battery.LockedTrack is not { } track) return;
 
-        if (!KsaWorld.TryProjectIntoViewport(policy.OpticViewport, track.PositionEcl,
-                                             out float2 centre, out _, out _))
-        {
-            return;
-        }
-
-        // The same small bracket the on-screen system markers use, and deliberately not sized to
-        // how large the target looks. The sight is boresighted on what it is watching, so an
-        // apparent-size box grows without bound as the target closes and ends up covering the
-        // view it is drawn on.
-        const float half = KSArmory.Reticle.IconHalfSize;
-
-        // Settled means the head is actually on it, not merely that the radar has a lock — the
-        // brackets closing is the operator's cue that the sight has caught up.
-        bool settled = battery.OpticOnTarget;
-        int count = KSArmory.Reticle.Build(centre, half, settled, _strokes);
-        if (count == 0) return;
-
-        // A transparent, click-through window over the whole screen. The strokes carry absolute
-        // screen coordinates, and ImGui clips a draw list to its own window.
         ImGuiViewportPtr main = ImGui.GetMainViewport();
         ImGui.SetNextWindowPos(main.Pos, ImGuiCond.Always);
         ImGui.SetNextWindowSize(main.Size, ImGuiCond.Always);
@@ -58,29 +54,197 @@ internal static class Sight
         if (ImGui.Begin("##KSArmorySight", flags))
         {
             ImDrawListPtr draw = ImGui.GetWindowDrawList();
-            ImColor8 colour = settled ? Reticle : Pending;
+            float2 centre = new(main.Pos.X + main.Size.X * 0.5f, main.Pos.Y + main.Size.Y * 0.5f);
 
-            for (int i = 0; i < count; i++)
+            if (policy.SightSymbology)
             {
-                // Drawn twice: a dark stroke under a bright one, so the sight stays readable
-                // against both sky and terrain without a panel behind it.
-                draw.AddLine(_strokes[i].A + new float2(1f, 1f), _strokes[i].B + new float2(1f, 1f),
-                             Shadow, 2.5f);
-                draw.AddLine(_strokes[i].A, _strokes[i].B, colour, 1.6f);
+                DrawReferenceLine(draw, battery);
+                DrawBoresight(draw, centre);
             }
 
-            string label = $"{track.Range / 1000.0:F2} km   {track.ClosingSpeed:F0} m/s";
-            float2 at = new(centre.X - half, centre.Y + half + 6f);
-            draw.AddText(at + new float2(1f, 1f), Shadow, label);
-            draw.AddText(at, colour, label);
+            DrawTarget(draw, battery, main, centre);
 
-            if (!settled)
-            {
-                float2 slew = new(centre.X - half, centre.Y - half - 18f);
-                draw.AddText(slew + new float2(1f, 1f), Shadow, "SLEWING");
-                draw.AddText(slew, colour, "SLEWING");
-            }
+            if (policy.SightSymbology) DrawStatus(draw, battery, policy, main);
         }
         ImGui.End();
     }
+
+    // The head's own axis, which is the middle of the view because the camera is boresighted on it.
+    // Small and always present: at high magnification with no target the picture is otherwise
+    // featureless, and there is nothing to say the sight is even running.
+    private static void DrawBoresight(ImDrawListPtr draw, float2 centre)
+    {
+        const float gap = 5f;
+        const float arm = 9f;
+
+        Line(draw, new float2(centre.X - gap - arm, centre.Y), new float2(centre.X - gap, centre.Y), Reticle);
+        Line(draw, new float2(centre.X + gap, centre.Y), new float2(centre.X + gap + arm, centre.Y), Reticle);
+        Line(draw, new float2(centre.X, centre.Y - gap - arm), new float2(centre.X, centre.Y - gap), Reticle);
+        Line(draw, new float2(centre.X, centre.Y + gap), new float2(centre.X, centre.Y + gap + arm), Reticle);
+    }
+
+    // The horizontal through the site, drawn from two places that genuinely sit on it. A line laid
+    // flat across the screen would only be right where the camera happens to be level, and the
+    // whole reason to draw one is that it is not.
+    private static void DrawReferenceLine(ImDrawListPtr draw, ISightPicture battery)
+    {
+        if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward)) return;
+
+        if (!SightPicture.TryReferenceLine(eye, forward, battery.Boresight,
+                                           ReferenceHalfAngleRad, ReferenceDistanceMetres,
+                                           out double3 leftEcl, out double3 rightEcl))
+        {
+            return;
+        }
+
+        if (!KsaWorld.TryProjectIntoViewport(KsaWorld.MainViewportIndex, leftEcl, out float2 a, out _, out _)) return;
+        if (!KsaWorld.TryProjectIntoViewport(KsaWorld.MainViewportIndex, rightEcl, out float2 b, out _, out _)) return;
+
+        // Broken at the middle so the reference never crosses whatever is being watched, which at
+        // zero elevation is exactly where the target sits.
+        float2 mid = new((a.X + b.X) * 0.5f, (a.Y + b.Y) * 0.5f);
+        Line(draw, a, Towards(a, mid, 0.82f), Pending);
+        Line(draw, b, Towards(b, mid, 0.82f), Pending);
+    }
+
+    // The target bracket, the gun pipper, and the lead between them.
+    private static void DrawTarget(ImDrawListPtr draw, ISightPicture battery, ImGuiViewportPtr main,
+                                   float2 centre)
+    {
+        if (battery.LockedTrack is not { } track) return;
+
+        if (!KsaWorld.TryProjectOrClamp(track.PositionEcl, out float2 at, out bool inView)) return;
+
+        bool settled = battery.OpticOnTarget;
+        ImColor8 colour = settled ? Reticle : Pending;
+
+        if (!inView)
+        {
+            // Off the glass entirely, which magnification makes routine rather than exceptional.
+            DrawEdgeCue(draw, centre, at, colour, track);
+            return;
+        }
+
+        // The same small bracket the on-screen system markers use, and deliberately not sized to
+        // how large the target looks. The sight is boresighted on what it is watching, so an
+        // apparent-size box grows without bound as the target closes and ends up covering the
+        // view it is drawn on.
+        const float half = KSArmory.Reticle.IconHalfSize;
+
+        int count = KSArmory.Reticle.Build(at, half, settled, _strokes);
+        for (int i = 0; i < count; i++) Line(draw, _strokes[i].A, _strokes[i].B, colour);
+
+        DrawPipper(draw, battery, main, at, track);
+
+        string label = $"{track.Range / 1000.0:F2} km   {track.ClosingSpeed:F0} m/s";
+        Text(draw, new float2(at.X - half, at.Y + half + 6f), label, colour);
+
+        if (!settled) Text(draw, new float2(at.X - half, at.Y - half - 18f), "SLEWING", colour);
+    }
+
+    // Where the shells will actually be. Sized to what the round covers at that range rather than
+    // to a fixed icon, so the ring closing on the bracket is the shot coming together.
+    private static void DrawPipper(ImDrawListPtr draw, ISightPicture battery, ImGuiViewportPtr main,
+                                   float2 targetAt, Track track)
+    {
+        if (!battery.TryRingAimEcl(out double3 aimEcl, out bool isGunLead) || !isGunLead) return;
+        if (!KsaWorld.TryProjectIntoViewport(KsaWorld.MainViewportIndex, aimEcl, out float2 at, out _, out _)) return;
+
+        MunitionProfile shell = Arsenal.MunitionNamed(battery.Profile.GunMunition ?? battery.Munition.Name);
+
+        float radius = SightZoom.ApparentPixels(Warhead.LethalRadius(shell.ChargeKg), track.Range,
+                                                double.RadiansToDegrees(KsaWorld.ViewportFovRad(KsaWorld.MainViewportIndex)),
+                                                main.Size.Y);
+        radius = Math.Clamp(radius, 6f, 90f);
+
+        // The lead itself. Drawn from the bracket to the pipper because that separation *is* the
+        // lead being taken, and at 4 km against a crosser it is most of the screen.
+        Line(draw, targetAt, at, Gun);
+
+        draw.AddCircle(at + new float2(1f, 1f), radius, Shadow, 0, 2.5f);
+        draw.AddCircle(at, radius, Gun, 0, 1.6f);
+        draw.AddCircleFilled(at, 2.0f, Gun);
+
+        if (battery.GunFlightSeconds > 0.0)
+        {
+            Text(draw, new float2(at.X + radius + 6f, at.Y - 7f),
+                 $"TOF {battery.GunFlightSeconds:F1} s", Gun);
+        }
+    }
+
+    // A chevron on the edge, pointing the way the contact went.
+    private static void DrawEdgeCue(ImDrawListPtr draw, float2 centre, float2 at, ImColor8 colour,
+                                    Track track)
+    {
+        if (!SightPicture.TryPointing(centre, at, out float2 towards)) return;
+
+        float2 side = new(-towards.Y, towards.X);
+        float2 tip = new(at.X + towards.X * 10f, at.Y + towards.Y * 10f);
+        float2 left = new(at.X - towards.X * 6f + side.X * 8f, at.Y - towards.Y * 6f + side.Y * 8f);
+        float2 right = new(at.X - towards.X * 6f - side.X * 8f, at.Y - towards.Y * 6f - side.Y * 8f);
+
+        Line(draw, tip, left, colour);
+        Line(draw, tip, right, colour);
+        Line(draw, left, right, colour);
+
+        Text(draw, new float2(at.X - 24f, at.Y + 14f), $"{track.Range / 1000.0:F1} km", colour);
+    }
+
+    // The block a gunner reads without looking away from the target: what is on, what is loaded,
+    // and how far in the optics are wound.
+    private static void DrawStatus(ImDrawListPtr draw, ISightPicture battery, SystemConfig policy,
+                                   ImGuiViewportPtr main)
+    {
+        float2 at = new(main.Pos.X + 24f, main.Pos.Y + 24f);
+        const float line = 17f;
+
+        Text(draw, at, battery.Profile.DisplayName, Reticle);
+        at.Y += line;
+
+        Text(draw, at, policy.Armed ? "ARMED" : "SAFE", policy.Armed ? Armed : Reticle);
+        at.Y += line;
+
+        if (battery.Profile.TubeCount > 0)
+        {
+            bool ready = battery.Ammo > 0 && battery.IsLaid;
+            Text(draw, at, $"MSL {battery.Ammo}", ready ? Reticle : Pending);
+            at.Y += line;
+        }
+
+        if (battery.Profile.HasCannon)
+        {
+            bool ready = battery.GunAmmo > 0 && battery.GunsAreLaid;
+            Text(draw, at, $"GUN {battery.GunAmmo}", ready ? Gun : Pending);
+            at.Y += line;
+        }
+
+        // Which weapon owns the bearing. Only one can: the ring is laid on the gun's lead or on the
+        // target, and a missile released in the first state leaves along a tube pointing elsewhere.
+        if (battery.TryRingAimEcl(out _, out bool isGunLead))
+        {
+            Text(draw, at, isGunLead ? "GUN HAS THE RING" : "MSL HAS THE RING",
+                 isGunLead ? Gun : Reticle);
+        }
+
+        double fovDeg = double.RadiansToDegrees(KsaWorld.ViewportFovRad(KsaWorld.MainViewportIndex));
+        string zoom = $"x{SightZoom.Clamp(policy.OpticMagnification):0.#}   {fovDeg:F1} deg";
+        Text(draw, new float2(main.Pos.X + main.Size.X - 150f, main.Pos.Y + 24f), zoom, Reticle);
+    }
+
+    // Drawn twice: a dark stroke under a bright one, so the sight stays readable against both sky
+    // and terrain without a panel behind it.
+    private static void Line(ImDrawListPtr draw, float2 a, float2 b, ImColor8 colour)
+    {
+        draw.AddLine(a + new float2(1f, 1f), b + new float2(1f, 1f), Shadow, 2.5f);
+        draw.AddLine(a, b, colour, 1.6f);
+    }
+
+    private static void Text(ImDrawListPtr draw, float2 at, string what, ImColor8 colour)
+    {
+        draw.AddText(at + new float2(1f, 1f), Shadow, what);
+        draw.AddText(at, colour, what);
+    }
+
+    private static float2 Towards(float2 from, float2 to, float fraction)
+        => new(from.X + (to.X - from.X) * fraction, from.Y + (to.Y - from.Y) * fraction);
 }
