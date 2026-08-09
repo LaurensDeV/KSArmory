@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-118 types and 311 members across 6 assemblies.
+118 types and 313 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -101,6 +101,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ImGuiApi.ImGui
 
+- `Brutal.ImGuiApi.ImDrawListPtr GetBackgroundDrawList(Brutal.ImGuiApi.ImGuiViewportPtr)`
 - `Brutal.ImGuiApi.ImDrawListPtr GetWindowDrawList()`
 - `Brutal.ImGuiApi.ImGuiIOPtr GetIO()`
 - `Brutal.ImGuiApi.ImGuiViewportPtr GetMainViewport()`
@@ -270,6 +271,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 GetVelocityEgo(KSA.IVelocity)`
 - `Brutal.Numerics.doubleQuat LookAtRotation(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `Brutal.Numerics.float2 EclToScreen(Brutal.Numerics.double3, bool)`
+- `Brutal.Numerics.float2 EgoToScreen(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.int2 FramebufferSize`
 - `KSA.Celestial get_NearbyCelestial()`
 - `KSA.IFollowable get_Following()`

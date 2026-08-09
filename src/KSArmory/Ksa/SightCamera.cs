@@ -34,15 +34,42 @@ internal sealed class SightCamera
     /// <summary>True while this holds the main view, which is what the chase has to outrank.</summary>
     public bool Holding => _saved.Valid;
 
+    // Frames the restore has been attempted and refused. A scene change is the case: leaving
+    // flight is exactly when the viewport may not be readable, and it is also the one moment the
+    // view has to be handed back.
+    private int _refusedFrames;
+
+    // Long enough to cover a scene load, short enough that a viewport which is never coming back
+    // does not leave this trying for the session.
+    private const int GiveUpAfterFrames = 180;
+
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
         if (!_saved.Valid) return;
 
-        KsaWorld.BeginRestoreMainView(_saved);
-        KsaWorld.RestoreFollow(_saved);
+        // A refused restore keeps the recording and tries again. Dropping it on the first attempt
+        // is what strands the player: the view stays in Fixed mode at the optic's pose and field,
+        // and the only description of what it was doing has been thrown away. Nothing is
+        // recoverable after that, in any scene.
+        bool mode = KsaWorld.BeginRestoreMainView(_saved);
+        bool follow = _saved.Following is null || KsaWorld.RestoreFollow(_saved);
+
+        if (!mode || !follow)
+        {
+            _refusedFrames++;
+            if (_refusedFrames == 1 || _refusedFrames == GiveUpAfterFrames)
+            {
+                Log.Warn($"sight: could not hand the main view back (mode={mode} follow={follow}), "
+                         + (_refusedFrames == 1 ? "will keep trying" : "giving up"));
+            }
+
+            if (_refusedFrames < GiveUpAfterFrames) return;
+        }
+
         _saved = default;
         _followed = null;
+        _refusedFrames = 0;
         Log.Info("sight: released the main view");
     }
 

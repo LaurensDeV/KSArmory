@@ -397,6 +397,14 @@ Where latent bugs are most likely.
 - [ ] **6.1** **Timewarp** — raise sim speed with rounds in flight. Nothing should NaN, crash,
       or spam the log. Rounds behaving oddly under warp is acceptable; a crash isn't.
 - [ ] **6.2** **Scene change** — go flight → editor → flight. Panel recovers, no exceptions.
+
+      **Reported broken**: with the optical head driving the main view, switching to the vehicle
+      editor leaves the view in a bad state. Cause not established. `SightCamera.Release` used to
+      log success whatever happened and then throw away the recording of what the view had been
+      doing, so a restore refused mid-scene-change was unrecoverable *and* silent. It now keeps
+      the recording, retries, and says which half was refused — read `KSArmory.log` for
+      `could not hand the main view back` on the next attempt, because that line decides whether
+      this is a refused write or the mod restoring onto the wrong viewport.
 - [ ] **6.2b** **Camera switching mid-engagement** — fire a salvo, then switch the camera to the
       drone and back. The cone, track markers and tracers must stay locked to the craft and to
       each other. *(`GetPositionEgo` takes a different branch depending on what the camera
@@ -535,6 +543,25 @@ does, so a green suite says little about it.
 - [ ] Two rails on one craft: expected to fire **one**. `LauncherOrdinal` is pinned and the roster
       crews one battery per craft. Recorded so it is not mistaken for a bug.
 
+### 7.1f The Mk 82 bomb rack
+
+**Reported not working in flight**, with no detail yet, so nothing here is a diagnosis.
+
+Two things shipped together and either could be it: `feat(rounds): drop a bomb` and
+`feat(rounds): show where a bomb would land`. They fail in different places — one is a round that
+never leaves or never arrives, the other is a ring in the wrong place over a round that is fine.
+
+What to record next time, in this order, because each answers a different half:
+
+- [ ] Does the rack **release** at all? The trigger fires without a lock and auto-engage refuses
+      it outright and says why, so the panel's *Holding fire* line is the first thing to read.
+- [ ] Does the bomb **fall away from the aircraft**, nose-down, rather than sideways or through it?
+- [ ] Does it **burst on the ground** rather than passing through? `HitsTerrain` is set for this
+      round and nothing else, so this is the only round that exercises `Ksa/GroundTest.cs`.
+- [ ] Does the **ring** sit where it lands? A ring in the wrong place with a bomb that arrives
+      correctly is the sight; a bomb that goes nowhere near the ring is the round.
+- [ ] The log line for the release, and the whole `KSArmory.log`.
+
 ### 7.1e Drag, and what a round does once it leaves the air
 
 Never deliberately tested. A flight log reads:
@@ -637,9 +664,31 @@ Still open below.
 
 ### 7.6 The gunner's sight — symbology, zoom and the two reticules
 
-Never flown. The maths is covered by `SightZoomTests` and `SightPictureTests`, and the maths is
-not what is in doubt: every item below is a question about whether KSA honours a write or draws
-what the mod thinks it drew.
+**Flown once. Zoom works and hands the view back; two faults found, both addressed and neither
+re-flown.**
+
+- The overlay was a full-screen ImGui window submitted after the panel, so it drew **over** the
+  panel. It is now on `ImGui.GetBackgroundDrawList()`, which renders beneath every window and is
+  what the game uses for its own main-viewport overlays.
+- At 16× the bracket sat **off the target**, which was also jittering up and down. The sight
+  projected `track.PositionEcl` — the analytic position — while the craft is drawn at the physics
+  one. `KsaWorld.TryVehicleEgo` documents that exact mistake ("lines drawn to it visibly miss the
+  craft"); at 3° of field the gap is tens of pixels rather than the noise it is at 50°. The
+  bracket and the pipper now both come off the drawn position.
+
+  **The jitter is a hypothesis riding on the same change**, not a separate fix: the analytic
+  sample is the mod's and one step old, the camera is placed by the engine this frame, and the
+  display's 8.33/25.0 ms pacing makes that difference alternate. If it still jitters after this,
+  the cause is elsewhere and the measurement to take is the bracket's screen position per frame.
+
+The maths is covered by `SightZoomTests` and `SightPictureTests`, and the maths is not what is in
+doubt: every item below is a question about whether KSA honours a write or draws what the mod
+thinks it drew.
+
+- [x] The zoom narrows the picture through the detents, and the readout agrees.
+- [x] Switching the optic off puts the field back.
+- [ ] The overlay stays **under** the panel at every zoom and elevation.
+- [ ] The bracket sits **on** the target at 16×, and holds still.
 
 **Zoom is the one with a crash behind it.** `Camera.SetFieldOfView` does not clamp and
 `UpdateProjection` throws for a field of zero or more than half a turn, out of the frame hook.

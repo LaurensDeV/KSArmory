@@ -1597,6 +1597,68 @@ internal static class KsaWorld
     private const float EdgeMargin = 28f;
 
     /// <summary>
+    /// The same projection, for a position already in the render frame.
+    ///
+    /// <para>For anything drawn <em>over</em> a craft rather than beside it. A craft's analytic
+    /// position and the place its mesh is drawn differ by metres on the ground, which is noise
+    /// against a 22 m fuse and is the entire budget for a bracket: at 3° of field a metre is
+    /// several pixels, so a sight fed the analytic position sits visibly off the target it is
+    /// supposed to be on. <see cref="TryVehicleEgo"/> is where the drawn position comes from.</para>
+    /// </summary>
+    public static bool TryProjectEgoOrClamp(double3 posEgo, out float2 screen, out bool inView)
+    {
+        screen = default;
+        inView = false;
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return false;
+            if (viewport.GetCamera() is not { } camera) return false;
+
+            int w = viewport.Width, h = viewport.Height;
+            if (w <= 0 || h <= 0) return false;
+
+            // Ego is camera-relative, so the separation to the target *is* the position. The
+            // basis is read in Ecl because Ego is a pure translation of it and the two agree
+            // exactly for a direction -- which is also why no second conversion is needed here,
+            // and a second conversion would be through a second camera that need not agree.
+            bool ahead = Vec.Dot(posEgo, camera.GetForwardEcl()) > 0.0;
+
+            if (ahead)
+            {
+                float2 local = camera.EgoToScreen(posEgo, ignoreBehind: true);
+                if (float.IsFinite(local.X) && float.IsFinite(local.Y)
+                    && local.X >= 0f && local.Y >= 0f && local.X <= w && local.Y <= h)
+                {
+                    inView = true;
+                    screen = new float2(viewport.Position.X + local.X, viewport.Position.Y + local.Y);
+                    return true;
+                }
+            }
+
+            double right = Vec.Dot(posEgo, camera.GetRightEcl());
+            double up = Vec.Dot(posEgo, camera.GetUpEcl());
+            if (!double.IsFinite(right) || !double.IsFinite(up)) return false;
+            if (Math.Abs(right) < 1e-9 && Math.Abs(up) < 1e-9) return false;
+
+            // Screen Y grows downward, so the camera's up is negated.
+            double len = Math.Sqrt(right * right + up * up);
+            double dx = right / len, dy = -up / len;
+
+            double halfW = w * 0.5 - EdgeMargin, halfH = h * 0.5 - EdgeMargin;
+            double scale = Math.Min(Math.Abs(dx) > 1e-9 ? halfW / Math.Abs(dx) : double.MaxValue,
+                                    Math.Abs(dy) > 1e-9 ? halfH / Math.Abs(dy) : double.MaxValue);
+
+            screen = new float2((float)(viewport.Position.X + w * 0.5 + dx * scale),
+                                (float)(viewport.Position.Y + h * 0.5 + dy * scale));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Where the main view's scene camera is and what it is looking along, both this frame.
     ///
     /// <para>The base camera, not <c>GetMainCamera()</c>: that answers with the <em>map</em> camera

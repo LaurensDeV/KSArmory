@@ -38,35 +38,25 @@ internal static class Sight
     {
         if (policy.OpticViewport < 0 || battery.OpticPart is null) return;
 
+        // The background list, not a window of the mod's own. A full-screen window is submitted
+        // after the panel and therefore draws over it, so the reference line and the status block
+        // cut across whatever the operator is reading. This list renders beneath every window,
+        // which is what a sight on the glass wants and is what the game itself uses for its own
+        // main-viewport overlays.
+        ImDrawListPtr draw = ImGui.GetBackgroundDrawList();
+
         ImGuiViewportPtr main = ImGui.GetMainViewport();
-        ImGui.SetNextWindowPos(main.Pos, ImGuiCond.Always);
-        ImGui.SetNextWindowSize(main.Size, ImGuiCond.Always);
-        ImGui.SetNextWindowBgAlpha(0f);
+        float2 centre = new(main.Pos.X + main.Size.X * 0.5f, main.Pos.Y + main.Size.Y * 0.5f);
 
-        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
-                                       | ImGuiWindowFlags.NoInputs
-                                       | ImGuiWindowFlags.NoNav
-                                       | ImGuiWindowFlags.NoFocusOnAppearing
-                                       | ImGuiWindowFlags.NoBringToFrontOnFocus
-                                       | ImGuiWindowFlags.NoSavedSettings
-                                       | ImGuiWindowFlags.NoBackground;
-
-        if (ImGui.Begin("##KSArmorySight", flags))
+        if (policy.SightSymbology)
         {
-            ImDrawListPtr draw = ImGui.GetWindowDrawList();
-            float2 centre = new(main.Pos.X + main.Size.X * 0.5f, main.Pos.Y + main.Size.Y * 0.5f);
-
-            if (policy.SightSymbology)
-            {
-                DrawReferenceLine(draw, battery);
-                DrawBoresight(draw, centre);
-            }
-
-            DrawTarget(draw, battery, main, centre);
-
-            if (policy.SightSymbology) DrawStatus(draw, battery, policy, main);
+            DrawReferenceLine(draw, battery);
+            DrawBoresight(draw, centre);
         }
-        ImGui.End();
+
+        DrawTarget(draw, battery, main, centre);
+
+        if (policy.SightSymbology) DrawStatus(draw, battery, policy, main);
     }
 
     // The head's own axis, which is the middle of the view because the camera is boresighted on it.
@@ -113,7 +103,11 @@ internal static class Sight
     {
         if (battery.LockedTrack is not { } track) return;
 
-        if (!KsaWorld.TryProjectOrClamp(track.PositionEcl, out float2 at, out bool inView)) return;
+        // Where the craft is *drawn*, which is not where it is simulated. A bracket is the one
+        // thing that has to sit exactly on the target, and the analytic-versus-physics gap is
+        // metres on the ground -- noise at 50° of field and tens of pixels at 3°.
+        if (!track.Contact.TryDrawEgo(out double3 targetEgo)) return;
+        if (!KsaWorld.TryProjectEgoOrClamp(targetEgo, out float2 at, out bool inView)) return;
 
         bool settled = battery.OpticOnTarget;
         ImColor8 colour = settled ? Reticle : Pending;
@@ -134,7 +128,7 @@ internal static class Sight
         int count = KSArmory.Reticle.Build(at, half, settled, _strokes);
         for (int i = 0; i < count; i++) Line(draw, _strokes[i].A, _strokes[i].B, colour);
 
-        DrawPipper(draw, battery, main, at, track);
+        DrawPipper(draw, battery, main, at, track, targetEgo);
 
         string label = $"{track.Range / 1000.0:F2} km   {track.ClosingSpeed:F0} m/s";
         Text(draw, new float2(at.X - half, at.Y + half + 6f), label, colour);
@@ -145,10 +139,18 @@ internal static class Sight
     // Where the shells will actually be. Sized to what the round covers at that range rather than
     // to a fixed icon, so the ring closing on the bracket is the shot coming together.
     private static void DrawPipper(ImDrawListPtr draw, ISightPicture battery, ImGuiViewportPtr main,
-                                   float2 targetAt, Track track)
+                                   float2 targetAt, Track track, double3 targetEgo)
     {
         if (!battery.TryRingAimEcl(out double3 aimEcl, out bool isGunLead) || !isGunLead) return;
-        if (!KsaWorld.TryProjectIntoViewport(KsaWorld.MainViewportIndex, aimEcl, out float2 at, out _, out _)) return;
+
+        // The lead as a separation from the target, carried onto the target's *drawn* position.
+        // The solve is measured from the analytic one, so projecting it directly would put the
+        // pipper and the bracket in two different frames and show their gap as a lead that is not
+        // there.
+        double3 leadEgo = targetEgo + (aimEcl - track.PositionEcl);
+
+        if (!KsaWorld.TryProjectEgoOrClamp(leadEgo, out float2 at, out bool leadInView)) return;
+        if (!leadInView) return;
 
         MunitionProfile shell = Arsenal.MunitionNamed(battery.Profile.GunMunition ?? battery.Munition.Name);
 
