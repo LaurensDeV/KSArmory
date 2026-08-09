@@ -43,6 +43,17 @@ internal sealed class ChaseCamera
     // that could not read a starting pose simply cuts, as it always did.
     private double _blend = 1.0;
 
+    // The transition's own clock. The engine's step beats with the display's frame pacing, and a
+    // cosmetic ease is the one consumer entitled to even that out -- see Sim/SmoothedStep.cs.
+    private readonly SmoothedStep _blendStep = new();
+
+    // Where the camera meant to be, and where the engine actually had it, last frame. Logged per
+    // frame through a transition: the whole question is whether the eye is advancing evenly, and
+    // along which axis it is not.
+    private double3 _probeWantEcl;
+    private double3 _probeHadEcl;
+    private bool _probing;
+
     // The pose being eased out of -- where the view was, and a point on what it was looking at.
     // Both held as separations from the craft so they keep up with it: the ecliptic is inertial
     // and the craft crosses it at ~29.8 km/s, so a point stored in it falls half a kilometre
@@ -244,6 +255,8 @@ internal sealed class ChaseCamera
                 _fromOffset = wasEcl - battery.PlatformEcl;
                 _fromLookOffset = (wasEcl + Vec.Unit(wasForward) * depth) - battery.PlatformEcl;
                 _blend = 0.0;
+                _blendStep.Reset();
+                _probing = false;
             }
             else
             {
@@ -302,16 +315,28 @@ internal sealed class ChaseCamera
         // frame's samples, so the pair describes one instant however far along it is.
         if (_blend < 1.0)
         {
-            _blend = Math.Min(1.0, _blend + (Math.Max(0.0, dtSim) / TransitionSeconds));
+            _blend = Math.Min(1.0, _blend + (_blendStep.Next(dtSim) / TransitionSeconds));
 
-            if (ChaseView.TryBlend(battery.PlatformEcl + _fromOffset,
-                                   battery.PlatformEcl + _fromLookOffset,
-                                   round.PositionEcl + eye, round.PositionEcl + eye + forward * Ahead,
+            // Offsets from the round, never a pair of ecliptic positions. PlatformEcl is sampled
+            // before the round is stepped and round.PositionEcl after it, so differencing the two
+            // ends in the ecliptic carries one whole step of the planet's motion -- 715 m on a
+            // 24 ms frame against 286 m on a 9 ms one. That difference alternates with the
+            // display's frame pacing and swung the camera vertically every frame, measured at
+            // +-270 m. OffsetFromPlatform is the round measured against the same frame's platform
+            // sample, which is the pairing that cancels it; TryBlend is a lerp of points, so
+            // running it in this translated frame is the same answer.
+            double3 fromRound = _fromOffset - round.OffsetFromPlatform;
+            double3 fromLookRound = _fromLookOffset - round.OffsetFromPlatform;
+
+            if (ChaseView.TryBlend(fromRound, fromLookRound,
+                                   eye, eye + forward * Ahead,
                                    up, _blend,
-                                   out double3 blendedEcl, out double3 blendedForward))
+                                   out double3 blendedOffset, out double3 blendedForward))
             {
-                eye = blendedEcl - round.PositionEcl;
+                eye = blendedOffset;
                 forward = blendedForward;
+
+                ProbeBlend(round, eye, up, dtSim);
             }
             else
             {
@@ -409,5 +434,30 @@ internal sealed class ChaseCamera
         }
 
         return null;
+    }
+
+    // What the eye did this frame, split along the local vertical, measured as an offset from the
+    // round so the planet's motion is not in it. Debug-only and only while a transition runs.
+    private void ProbeBlend(IProjectile round, double3 eye, double3 up, double dtSim)
+    {
+        if (Log.Threshold > Log.Level.Debug) return;
+
+        // What the engine currently has, in the same frame: its position is live off the round, so
+        // this is the offset it is actually using -- the one the mod wrote last frame.
+        double3 had = KsaWorld.CameraPositionEcl() - round.PositionEcl;
+
+        if (_probing)
+        {
+            double3 wantStep = eye - _probeWantEcl;
+            double3 hadStep = had - _probeHadEcl;
+
+            Log.Debug($"  blend {_blend:F3} step {dtSim * 1000.0:F2} ms | "
+                     + $"want {Vec.Len(wantStep):F3} m (up {Vec.Dot(wantStep, up):F3}) | "
+                     + $"had {Vec.Len(hadStep):F3} m (up {Vec.Dot(hadStep, up):F3})");
+        }
+
+        _probeWantEcl = eye;
+        _probeHadEcl = had;
+        _probing = true;
     }
 }

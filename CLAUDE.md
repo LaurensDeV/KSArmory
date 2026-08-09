@@ -260,6 +260,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/CursorAim.cs` | cursor to viewport coordinates, and the bearing from a mount to what it points at |
 | `Sim/WeaponFit.cs` | **what a weapons system is fitted with** — the panel asks this rather than testing profile fields |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
+| `Sim/SmoothedStep.cs` | the step evened out, for the one consumer that wants a smooth clock |
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
 | `Sim/ChaseView.cs` | where to put a camera riding behind a round |
@@ -1150,6 +1151,31 @@ points are close and the view barely turns — which is the whole reason it read
 wildly uneven rate and collapse to zero length when opposed, which is a round fired back over the
 launcher. Both ends are rebuilt from this frame's samples, held as separations from the craft and
 the round; a point stored in the ecliptic at the take falls half a kilometre behind per frame.
+
+**The transition's two ends are offsets from the round, never a pair of ecliptic positions.**
+`PlatformEcl` is sampled in `SampleWorld` before the round is stepped and `round.PositionEcl` read
+after it, so differencing them across the blend carried one whole step of the planet's motion —
+715 m on a 24 ms frame against 286 m on a 9 ms one. That difference alternates with the display's
+frame pacing, and the camera reversed its vertical direction **every frame**, measured in flight at
+±270 m against an intended path that climbed steadily. `Interceptor.OffsetFromPlatform` is the
+round measured against the *same* frame's platform sample, which is the pairing that cancels it;
+`TryBlend` is a lerp of points, so running it in that translated frame is the same answer with none
+of the carrier. `ChaseBlendFrameTests` runs both forms on identical inputs and fails if the old one
+stops reproducing the fault.
+
+Two wrong fixes came first, because the cause was guessed at rather than measured. What found it
+was logging what the camera *meant* to do beside what the engine *had*, per frame, through a
+transition — which is what `ChaseCamera.ProbeBlend` still does under a verbose log.
+
+**The transition runs on an evened-out step, and it is the only thing that may.** KSA's step is a
+report rather than a clock — `dtPlayer × achievedFraction × simSpeed` — and `dtPlayer` carries the
+display's frame pacing. On a 120 Hz screen at a nominal 60 fps it beats 1-3-1-3, measured in flight
+as an alternation between **8.33 ms and 25.0 ms**, exactly one and three vsync intervals. Fed
+straight into the blend that is a camera advancing three times as far along its path on alternate
+frames. `Sim/SmoothedStep.cs` averages it for the ease and for nothing else — anything integrating
+the world must take the step as it comes. Both properties that made simulated time the right input
+survive, because it is still the step being averaged: a paused world contributes nothing and a
+warped one scales the whole average.
 
 **`ChaseView.TryPose` decides where the chase stands and is not the transition's business.** The
 transition lerps towards whatever it says. Changing the pose to improve the transition changes the
