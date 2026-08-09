@@ -123,6 +123,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     // advancing on it turns the array three times as far on alternate frames. See Sim/SmoothedStep.
     private readonly SmoothedStep _spinStep = new();
 
+    // The drives' clock. A traverse is a rate-limited slew, so its angle advances by rate x step
+    // -- and the engine's step carries the display's frame pacing, which moves the turret three
+    // times as far on alternate frames while the hull it sits on does not. That reads as a
+    // stuttering turret. Total time is preserved, so it still arrives and settles when it would
+    // have, and IsLaid is unaffected in aggregate.
+    private readonly SmoothedStep _driveStep = new();
+
     /// <summary>Azimuth drive state. Pure maths, no KSA types — see <see cref="Turret"/>.</summary>
     public Turret Turret { get; } = new();
 
@@ -938,6 +945,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     // the two.
     private void UpdateTurret(double dt)
     {
+        // Evened out for the drives only. Everything that integrates the world -- rounds, fuses,
+        // the belt -- takes the step as the engine reports it.
+        dt = _driveStep.Next(dt);
+
         // Cleared here rather than in the branches that do not set it, so a rung added later
         // cannot leave a stale claim on the ring.
         _ringIsOnCursor = false;

@@ -1263,6 +1263,12 @@ should not be weakened without understanding what they buy:
   "up". `BoresightMode.TurretAxis` exists and nothing registered uses it yet.
 - The model has no normal or occlusion detail — flat palette swatches only. Faceted lighting is
   the whole look, which suits KSA's art style, but it is a floor not a ceiling.
+- A round body's drawn position has a floor of a few millimetres at range, and it is the engine's.
+  Part transforms are packed to `float` at the part's own **Ego** magnitude — its distance from the
+  camera — so the quantum is ~3 µm at a 26 m chase stand-off, 0.6 mm at 10 km and 9.5 mm at 80 km.
+  A chased round is immune because the camera is metres from it; another round in the same salvo is
+  not. Sub-pixel at any range anyone watches from, and nothing the mod can do about it.
+
 - Rounds collide with terrain only when their profile asks. `MunitionProfile.HitsTerrain` is set
   for the bomb and nothing else, because it costs a terrain sample per round per frame and a CIWS
   burst is 150 shells in the air — so a shell still passes through a hill and a missile that
