@@ -27,6 +27,15 @@
   <MeshAtlas Path="Meshes/KSArmory_MeshAtlas.glb" />
 
   <!--
+    A SubPart's Id must not be a mesh's Id. The atlas registers every mesh under its glTF node
+    name, so declaring a SubPart under that same name registers two different assets against one
+    Id and the loader keeps whichever it saw first. It loaded and ran anyway; what caught it was
+    SpaceDock's importer, warning KSAM-0602. Hence KSArmory_<name>_SubPart against the atlas's
+    KSArmory_Subpart_<name>, which is the same split Core uses - LightSubPart against
+    LightPartMesh. validate-parts.py fails if the two namespaces ever touch again.
+  -->
+
+  <!--
     One material for the whole vehicle. Every face is UV-mapped to the centre of a flat swatch
     in a 4x4 palette, so surface variety comes from UVs rather than from painted texels - see
     tools/model/palette.py. AoRoughMetal is R=occlusion, G=roughness, B=metalness, matching the
@@ -39,7 +48,7 @@
   </PbrMaterial>
 
   <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
-  <SubPart Id="KSArmory_Subpart_Chassis">
+  <SubPart Id="KSArmory_Chassis_SubPart">
     <PartModel Id="KSArmory_Subpart_Chassis_Model">
       <Mesh Id="KSArmory_Subpart_Chassis" />
       <Material Id="KSArmory_Material" />
@@ -50,7 +59,7 @@
   </SubPart>
 
   <!-- Turret: twin 30 mm cannon, tracking array, search radar, trunnions. Traverses. -->
-  <SubPart Id="KSArmory_Subpart_Turret">
+  <SubPart Id="KSArmory_Turret_SubPart">
     <PartModel Id="KSArmory_Subpart_Turret_Model">
       <Mesh Id="KSArmory_Subpart_Turret" />
       <Material Id="KSArmory_Material" />
@@ -65,7 +74,7 @@
     mod puts one in the air, at which point it writes the body's position and orientation every
     frame from the round it is simulating. Twelve of them so a full salvo can be in flight.
   -->
-  <SubPart Id="KSArmory_Subpart_Missile">
+  <SubPart Id="KSArmory_Missile_SubPart">
     <PartModel Id="KSArmory_Subpart_Missile_Model">
       <Mesh Id="KSArmory_Subpart_Missile" />
       <Material Id="KSArmory_Material" />
@@ -82,9 +91,9 @@
 
       This template must exist even though nothing instances it directly - the SubPart entries
       further down name it with InstanceOf, and without it the game throws
-      "PartTemplate is null for 'KSArmory_Subpart_Fins'" and takes the session with it.
+      "PartTemplate is null for 'KSArmory_Fins_SubPart'" and takes the session with it.
     -->
-    <SubPart Id="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Fins_SubPart">
       <PartModel Id="KSArmory_Subpart_Fins_Model">
         <Mesh Id="KSArmory_Subpart_Fins" />
         <Material Id="KSArmory_Material" />
@@ -95,7 +104,7 @@
     </SubPart>
 
   <!-- Phalanx-pattern CIWS. Base is fixed; the housing traverses and the guns elevate on it. -->
-  <SubPart Id="KSArmory_Subpart_CiwsBase">
+  <SubPart Id="KSArmory_CiwsBase_SubPart">
     <PartModel Id="KSArmory_Subpart_CiwsBase_Model">
       <Mesh Id="KSArmory_Subpart_CiwsBase" />
       <Material Id="KSArmory_Material" />
@@ -105,7 +114,7 @@
     </MeshView>
   </SubPart>
 
-  <SubPart Id="KSArmory_Subpart_CiwsTurret">
+  <SubPart Id="KSArmory_CiwsTurret_SubPart">
     <PartModel Id="KSArmory_Subpart_CiwsTurret_Model">
       <Mesh Id="KSArmory_Subpart_CiwsTurret" />
       <Material Id="KSArmory_Material" />
@@ -115,7 +124,7 @@
     </MeshView>
   </SubPart>
 
-  <SubPart Id="KSArmory_Subpart_CiwsGuns">
+  <SubPart Id="KSArmory_CiwsGuns_SubPart">
     <PartModel Id="KSArmory_Subpart_CiwsGuns_Model">
       <Mesh Id="KSArmory_Subpart_CiwsGuns" />
       <Material Id="KSArmory_Material" />
@@ -126,7 +135,7 @@
   </SubPart>
 
   <!-- LAU-7 launch rail on its pylon. Nothing on it moves. -->
-  <SubPart Id="KSArmory_Subpart_SidewinderRail">
+  <SubPart Id="KSArmory_SidewinderRail_SubPart">
     <PartModel Id="KSArmory_Subpart_SidewinderRail_Model">
       <Mesh Id="KSArmory_Subpart_SidewinderRail" />
       <Material Id="KSArmory_Material" />
@@ -137,7 +146,7 @@
   </SubPart>
 
   <!-- One AIM-9J. Seated on the rail while loaded, flown by the mod once it leaves. -->
-  <SubPart Id="KSArmory_Subpart_Aim9">
+  <SubPart Id="KSArmory_Aim9_SubPart">
     <PartModel Id="KSArmory_Subpart_Aim9_Model">
       <Mesh Id="KSArmory_Subpart_Aim9" />
       <Material Id="KSArmory_Material" />
@@ -148,7 +157,7 @@
   </SubPart>
 
   <!-- 14-inch ejector rack on its pylon. Nothing on it moves. -->
-  <SubPart Id="KSArmory_Subpart_BombRack">
+  <SubPart Id="KSArmory_BombRack_SubPart">
     <PartModel Id="KSArmory_Subpart_BombRack_Model">
       <Mesh Id="KSArmory_Subpart_BombRack" />
       <Material Id="KSArmory_Material" />
@@ -159,7 +168,7 @@
   </SubPart>
 
   <!-- One Mk 82. Hangs on the rack while loaded, flown by the mod once it is released. -->
-  <SubPart Id="KSArmory_Subpart_Mk82">
+  <SubPart Id="KSArmory_Mk82_SubPart">
     <PartModel Id="KSArmory_Subpart_Mk82_Model">
       <Mesh Id="KSArmory_Subpart_Mk82" />
       <Material Id="KSArmory_Material" />
@@ -170,7 +179,7 @@
   </SubPart>
 
   <!-- Double-sided hexagonal search array. Turns continuously on its own turntable. -->
-  <SubPart Id="KSArmory_Subpart_Optic">
+  <SubPart Id="KSArmory_Optic_SubPart">
     <PartModel Id="KSArmory_Subpart_Optic_Model">
       <Mesh Id="KSArmory_Subpart_Optic" />
       <Material Id="KSArmory_Material" />
@@ -180,7 +189,7 @@
     </MeshView>
   </SubPart>
 
-  <SubPart Id="KSArmory_Subpart_Radar">
+  <SubPart Id="KSArmory_Radar_SubPart">
     <PartModel Id="KSArmory_Subpart_Radar_Model">
       <Mesh Id="KSArmory_Subpart_Radar" />
       <Material Id="KSArmory_Material" />
@@ -191,7 +200,7 @@
   </SubPart>
 
   <!-- Twin 30 mm cannon, one each side. Pitch on their own trunnion, outboard of the pods. -->
-  <SubPart Id="KSArmory_Subpart_Guns">
+  <SubPart Id="KSArmory_Guns_SubPart">
     <PartModel Id="KSArmory_Subpart_Guns_Model">
       <Mesh Id="KSArmory_Subpart_Guns" />
       <Material Id="KSArmory_Material" />
@@ -202,7 +211,7 @@
   </SubPart>
 
   <!-- Twelve missile containers in two pods. Elevates on the turret's trunnions. -->
-  <SubPart Id="KSArmory_Subpart_Pods">
+  <SubPart Id="KSArmory_Pods_SubPart">
     <PartModel Id="KSArmory_Subpart_Pods_Model">
       <Mesh Id="KSArmory_Subpart_Pods" />
       <Material Id="KSArmory_Material" />
@@ -214,7 +223,7 @@
 
   <Part Id="KSArmory_Prefab_Launcher6">
 
-    <SubPart Id="KSArmory_Launcher_Chassis" InstanceOf="KSArmory_Subpart_Chassis" />
+    <SubPart Id="KSArmory_Launcher_Chassis" InstanceOf="KSArmory_Chassis_SubPart" />
 
     <!--
       The turret mesh is exported centred on its slew axis, so this puts it back on the deck.
@@ -222,7 +231,7 @@
       Asmb2ParentAsmb each frame would swing it around the chassis rather than spin it in place.
       Keep this in step with TURRET_PIVOT in tools/model/pantsir.py.
     -->
-    <SubPart Id="KSArmory_Launcher_Turret" InstanceOf="KSArmory_Subpart_Turret">
+    <SubPart Id="KSArmory_Launcher_Turret" InstanceOf="KSArmory_Turret_SubPart">
       <Transform>
         <Position X="0.00000" Y="-1.42000" Z="0.00000" />
       </Transform>
@@ -235,7 +244,7 @@
       value here is only the rest pose, with the turret facing forward.
       Keep in step with POD_PIVOT in tools/model/pantsir.py.
     -->
-    <SubPart Id="KSArmory_Launcher_Pods" InstanceOf="KSArmory_Subpart_Pods">
+    <SubPart Id="KSArmory_Launcher_Pods" InstanceOf="KSArmory_Pods_SubPart">
       <Transform>
         <Position X="2.62000" Y="-2.05000" Z="0.00000" />
       </Transform>
@@ -246,7 +255,7 @@
       both rotation and position rewritten every frame.
       Keep in step with GUN_PIVOT in tools/model/pantsir.py.
     -->
-    <SubPart Id="KSArmory_Launcher_Guns" InstanceOf="KSArmory_Subpart_Guns">
+    <SubPart Id="KSArmory_Launcher_Guns" InstanceOf="KSArmory_Guns_SubPart">
       <Transform>
         <Position X="3.70000" Y="-1.35000" Z="0.00000" />
       </Transform>
@@ -257,7 +266,7 @@
       so like the pods it gets both its rotation and its position rewritten every frame.
       Keep in step with RADAR_PIVOT in tools/model/pantsir.py.
     -->
-    <SubPart Id="KSArmory_Launcher_Radar" InstanceOf="KSArmory_Subpart_Radar">
+    <SubPart Id="KSArmory_Launcher_Radar" InstanceOf="KSArmory_Radar_SubPart">
       <Transform>
         <Position X="4.05000" Y="-2.52000" Z="0.00000" />
       </Transform>
@@ -268,7 +277,7 @@
       rotation each frame; the value here is only where its ball sits with the turret forward.
       Keep in step with EO_PIVOT in tools/model/pantsir.py.
     -->
-    <SubPart Id="KSArmory_Launcher_Optic" InstanceOf="KSArmory_Subpart_Optic">
+    <SubPart Id="KSArmory_Launcher_Optic" InstanceOf="KSArmory_Optic_SubPart">
       <Transform>
         <Position X="4.10000" Y="-0.35000" Z="0.44000" />
       </Transform>
@@ -285,73 +294,73 @@
 
 
     <!-- Twelve rounds, parked below the vehicle and shrunk away until fired. -->
-    <SubPart Id="KSArmory_Launcher_Missile00" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile00" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile01" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile01" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile02" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile02" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile03" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile03" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile04" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile04" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile05" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile05" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile06" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile06" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile07" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile07" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile08" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile08" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile09" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile09" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile10" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile10" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile11" InstanceOf="KSArmory_Subpart_Missile">
+    <SubPart Id="KSArmory_Launcher_Missile11" InstanceOf="KSArmory_Missile_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
@@ -362,73 +371,73 @@
     <!-- Fin sets, one per round. Modelled about the same origin as the round body so they can
          share its transform, and scaled radially by the mod: flat against the casing while
          stowed in the tube, flicked out to full span once the round is clear. -->
-    <SubPart Id="KSArmory_Launcher_Fins00" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins00" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins01" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins01" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins02" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins02" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins03" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins03" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins04" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins04" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins05" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins05" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins06" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins06" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins07" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins07" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins08" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins08" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins09" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins09" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins10" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins10" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins11" InstanceOf="KSArmory_Subpart_Fins">
+    <SubPart Id="KSArmory_Launcher_Fins11" InstanceOf="KSArmory_Fins_SubPart">
       <Transform>
         <Position X="-4.00000" Y="0.00000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
@@ -446,7 +455,7 @@
   -->
   <Part Id="KSArmory_Prefab_SidewinderRail">
 
-    <SubPart Id="KSArmory_Rail_Beam" InstanceOf="KSArmory_Subpart_SidewinderRail" />
+    <SubPart Id="KSArmory_Rail_Beam" InstanceOf="KSArmory_SidewinderRail_SubPart" />
 
     <!-- Attaches by the pylon's base, which is the mesh origin. -->
     <Connector Id="_swConnectorBase">
@@ -467,7 +476,7 @@
       nose from +X onto the tube axis - the same values TrySeatMissile computes, so nothing moves
       when the mod takes over. Keep in step with sidewinder.py's AXIS_X and BODY_LEN.
     -->
-    <SubPart Id="KSArmory_Rail_Aim900" InstanceOf="KSArmory_Subpart_Aim9">
+    <SubPart Id="KSArmory_Rail_Aim900" InstanceOf="KSArmory_Aim9_SubPart">
       <Transform>
         <Position X="0.40850" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
@@ -484,7 +493,7 @@
   -->
   <Part Id="KSArmory_Prefab_BombRack">
 
-    <SubPart Id="KSArmory_Rack_Beam" InstanceOf="KSArmory_Subpart_BombRack" />
+    <SubPart Id="KSArmory_Rack_Beam" InstanceOf="KSArmory_BombRack_SubPart" />
 
     <!-- Attaches by the pylon's base, which is the mesh origin. -->
     <Connector Id="_brConnectorBase">
@@ -499,7 +508,7 @@
       nose from +X onto the tube axis - the same values TrySeatMissile computes, so nothing moves
       when the mod takes over. Keep in step with bombrack.py's AXIS_X and BODY_LEN.
     -->
-    <SubPart Id="KSArmory_Rack_Mk8200" InstanceOf="KSArmory_Subpart_Mk82">
+    <SubPart Id="KSArmory_Rack_Mk8200" InstanceOf="KSArmory_Mk82_SubPart">
       <Transform>
         <Position X="0.40650" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
@@ -522,14 +531,14 @@
   -->
   <Part Id="KSArmory_Prefab_Ciws">
 
-    <SubPart Id="KSArmory_Ciws_Base" InstanceOf="KSArmory_Subpart_CiwsBase" />
+    <SubPart Id="KSArmory_Ciws_Base" InstanceOf="KSArmory_CiwsBase_SubPart" />
 
     <!--
       Traverses about the stack centreline. Its mesh is exported recentred on the pivot, so KSA
       spins it in place; the offset comes back here.
       Keep in step with TURRET_PIVOT in tools/model/ciws.py.
     -->
-    <SubPart Id="KSArmory_Ciws_Turret" InstanceOf="KSArmory_Subpart_CiwsTurret">
+    <SubPart Id="KSArmory_Ciws_Turret" InstanceOf="KSArmory_CiwsTurret_SubPart">
       <Transform>
         <Position X="0.10000" Y="0.00000" Z="0.00000" />
       </Transform>
@@ -543,7 +552,7 @@
       holds upright while the barrels alone move.
       Keep in step with GUN_PIVOT in tools/model/ciws.py.
     -->
-    <SubPart Id="KSArmory_Ciws_Guns" InstanceOf="KSArmory_Subpart_CiwsGuns">
+    <SubPart Id="KSArmory_Ciws_Guns" InstanceOf="KSArmory_CiwsGuns_SubPart">
       <Transform>
         <Position X="2.30000" Y="0.00000" Z="0.00000" />
       </Transform>

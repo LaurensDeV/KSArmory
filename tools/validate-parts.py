@@ -574,6 +574,105 @@ def check_assets_declared():
     return problems, checked
 
 
+def check_asset_id_collisions():
+    """No Id may name two different assets, counting the meshes the atlas registers.
+
+    A <MeshAtlas> registers every mesh under its glTF node name, so declaring a SubPart -- or
+    anything else -- under that same name puts two assets on one Id and the loader keeps whichever
+    it saw first. Nothing fails: the mod loads, the part renders, the game runs. SpaceDock's
+    importer is what caught it (KSAM-0602), after two releases had shipped with it.
+    """
+    problems = checked = 0
+
+    # Across the whole mod, not per file: the loader registers one namespace for all of them, and
+    # the importer's rule is "declared more than once within this mod". Two files each internally
+    # consistent can still collide with each other.
+    from_atlas = set()
+    declared = {}
+
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        try:
+            root = ET.parse(path).getroot()
+        except ET.ParseError:
+            continue
+
+        for el in root.iter("MeshAtlas"):
+            atlas = path.parent / el.get("Path", "")
+            if atlas.is_file():
+                from_atlas |= set(atlas_mesh_names(atlas))
+
+        # Top-level only. An Id deeper in the tree is a *reference* -- <Mesh Id>, <StartSound Id>,
+        # a nested <SubPart Id> naming an instance -- and only the direct children of <Assets>
+        # register a name. Walking the whole tree flags every reference as a redeclaration.
+        for el in root:
+            ident = el.get("Id")
+            if ident is None:
+                continue
+
+            # A *GameData entry is a companion keyed on another asset's Id -- that is how KSA
+            # pairs a part's art with its physics, and Core does the same. It is a different
+            # registry, so it is not a redeclaration.
+            if el.tag.endswith("GameData"):
+                continue
+
+            checked += 1
+
+            if ident in declared:
+                where, first = declared[ident]
+                print(f"  DUPLICATE Id \"{ident}\" on <{first}> in {where} and <{el.tag}> "
+                      f"in {path.name}", file=sys.stderr)
+                problems += 1
+            elif ident in from_atlas:
+                print(f"  DUPLICATE Id \"{ident}\" on <{el.tag}> in {path.name} — the atlas "
+                      f"already registers a mesh under that name", file=sys.stderr)
+                problems += 1
+
+            declared[ident] = (path.name, el.tag)
+
+    if problems == 0:
+        print(f"  {checked} asset id(s), none declared twice")
+
+    return problems, checked
+
+
+def check_body_markers():
+    """Verifies every MunitionProfile body and fin marker matches a declared subpart instance.
+
+    A round's drawn body is found by substring: LauncherPart takes every subpart whose instance Id
+    *contains* the marker. A marker matching nothing is completely silent -- the round launches,
+    flies, fuses and detonates exactly as the log says, and the body simply never leaves the rail.
+    That shipped once, as BodyMarker "Bomb" against a subpart declared KSArmory_Rack_Mk8200.
+    """
+    source = MOD / "Sim" / "Arsenal.cs"
+
+    instances = set()
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        instances |= set(re.findall(r'<SubPart\s+Id="([^"]+)"\s+InstanceOf=', path.read_text()))
+
+    problems = checked = 0
+    text = source.read_text()
+
+    for munition, body in re.findall(r'(\w+)\s*=\s*new\(\)\s*\{(.*?)\n\s*\};', text, re.S):
+        for field in ("BodyMarker", "FinMarker"):
+            found = re.search(rf'{field}\s*=\s*"([^"]+)"', body)
+            if found is None:
+                continue
+
+            marker = found.group(1)
+            checked += 1
+
+            if not any(marker.lower() in name.lower() for name in instances):
+                print(f"  MISSING subpart for {munition}.{field} = \"{marker}\" — no declared "
+                      f"subpart instance contains it, so the round body never moves",
+                      file=sys.stderr)
+                problems += 1
+
+    if problems == 0 and checked:
+        print(f"  body markers: {checked} match a declared subpart")
+
+    return problems, checked
+
+
 def check_registered_part_ids():
     """Verifies every registered LauncherProfile.PartId is declared in the asset XML.
 
@@ -644,6 +743,16 @@ def main():
 
     print("checking every registered PartId is declared in the XML")
     p, c = check_registered_part_ids()
+    problems += p
+    checked += c
+
+    print("checking no asset id is declared twice")
+    p, c = check_asset_id_collisions()
+    problems += p
+    checked += c
+
+    print("checking every body marker names a subpart that exists")
+    p, c = check_body_markers()
     problems += p
     checked += c
 
