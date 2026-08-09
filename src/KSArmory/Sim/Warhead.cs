@@ -10,20 +10,20 @@ namespace KSArmory;
 /// whose lethal radius exceeds its blast radius.</para>
 ///
 /// <para>The scaled distances below are a game model, not a munitions table. They are pinned to
-/// the 57E6's existing numbers so the flight behaviour that has been tested stays as it was, and
-/// a new round now gets consistent numbers from one figure rather than three guesses.</para>
+/// the 57E6's flown numbers, so a new round gets consistent radii from one figure rather than
+/// three guesses.</para>
 /// </summary>
 public static class Warhead
 {
     /// <summary>
     /// Metres per kg^(1/3) at which fragments still kill. Chosen so a 20 kg warhead reaches 20 m,
-    /// which is what the 57E6 was flown and tested with.
+    /// which is the 57E6's calibrated figure.
     /// </summary>
     public const double LethalScaledDistance = 7.368;
 
     /// <summary>
     /// The same for the outer radius, where a hit is worth reporting and nothing is destroyed.
-    /// Three times the lethal distance, again from the 57E6's tested pair.
+    /// Three times the lethal distance, again from the 57E6's calibrated pair.
     /// </summary>
     public const double BlastScaledDistance = 22.104;
 
@@ -51,7 +51,7 @@ public static class Warhead
     ///
     /// <para>The cube root is right for reach and wrong for visibility: a 0.16 kg cannon shell
     /// scales to 0.2, which turns the authored burst into 5 cm particles — perfectly proportionate
-    /// and invisible at any range anyone watches from. An effect nobody can see is the same as no
+    /// and invisible at any range anyone watches from. An effect too small to see is the same as no
     /// effect, and this is decoration, so it gets a floor. The damage radii do not.</para>
     /// </summary>
     public const double MinimumEffectScale = 0.6;

@@ -132,8 +132,8 @@ RADAR_R = 0.95                           # hexagon circumradius, so ~1.7 m acros
 RADAR_SPLAY = math.radians(21.0)         # lean of each face off vertical
 
 # Rotation of each hexagon about its own axis, so it stands on a flat edge rather than on a
-# corner. Blender's 6-vertex cylinder starts on a corner; verified by measuring the exported
-# mesh, not by reasoning about the euler, which is how it got set wrong the first time.
+# corner. Blender's 6-vertex cylinder starts on a corner; check this by measuring the exported
+# mesh rather than by reasoning about the euler.
 RADAR_CLOCK = math.pi / 6
 RADAR_PIVOT = (4.05, RADAR_MAST_Y, 0.0)  # spin axis, parallel to the part's X
 
@@ -165,8 +165,8 @@ GUN_Z = 1.85
 # frame rings), because the sponsons sit inside the disc the bundle sweeps about its trunnion.
 SPONSON_INNER_Z = 1.58
 # Above the turret deck, which tops out at X 3.38. The cradle is 0.52 tall, so a centre below
-# 3.64 puts it inside the turret body - invisible while the guns were welded into that mesh, and
-# a swept intersection once they became a body that rotates on its own trunnion.
+# 3.64 puts it inside the turret body, which is a swept intersection for a body that rotates on
+# its own trunnion.
 GUN_MOUNT = (3.70, -1.35)                # (X, Y) - clear of the deck, and clear of the cab
 
 # The cannon elevate about a line across the vehicle through both mounts, as the pods do about
@@ -200,7 +200,7 @@ _jitter = random.Random(0x9A5D)
 #
 # Faces are given real UV *area* rather than being collapsed onto the swatch centre. A face
 # whose loops all share one UV has a zero UV derivative, so the tangent basis degenerates,
-# normalize() on it returns NaN, and NaN * 0 poisons the shading even though our normal map is
+# normalize() on it returns NaN, and NaN * 0 poisons the shading even though the normal map is
 # flat. In game that is a vehicle crawling with white speckle; Blender's preview does not show
 # it because the preview material has no normal map wired in.
 #
@@ -350,9 +350,9 @@ def fin(chord, span_len, thick, loc, roll, swatch="missile", taper=0.42, sweep=0
     # _finish calls transform_apply, which acts on the *selection* rather than on the active
     # object alone. The add-primitive operators leave their new object as the sole selection, so
     # everything built through box() and cyl() satisfies that by accident. An object created
-    # with bpy.data.objects.new is not selected at all, so the apply would land on whatever was
-    # selected beforehand and leave this fin's rotation and offset unbaked - which is exactly
-    # how the fins came out sitting off the body axis.
+    # with bpy.data.objects.new is not selected at all, so the apply lands on whatever was
+    # selected beforehand and leaves this fin's rotation and offset unbaked, which puts the fin
+    # off the body axis.
     bpy.ops.object.select_all(action="DESELECT")
     ob.select_set(True)
     return _finish(ob, swatch)
@@ -532,12 +532,12 @@ def build_turret():
     #
     # Their inboard face sits outboard of the tube bundle's widest point. Reaching in to the
     # cheek instead puts them inside the disc the bundle sweeps about its own trunnion, and the
-    # tubes then pass through them at every elevation - the bundle is 20 cm across and was fully
-    # immersed. Elevation turns about Z and the traverse is shared, so a gap in Z is the only
-    # one that holds at every pose. tools/model/checkswept.py is what proves it.
+    # 20 cm bundle then passes through them at every elevation, fully immersed. Elevation turns
+    # about Z and the traverse is shared, so a gap in Z is the only one that holds at every pose.
+    # tools/model/checkswept.py is what proves it.
     #
     # Added last on purpose. The box jitter runs off one seed, so inserting a primitive
-    # reshuffles every one after it - putting these earlier moved the tracking radar's faces
+    # reshuffles every one after it - putting these earlier drives the tracking radar's faces
     # into a 1.79 mm near-coplanar pair.
     for z in (-1.0, 1.0):
         span((2.90, GUN_MOUNT[0]), (GUN_MOUNT[1] - 0.34, GUN_MOUNT[1] + 0.34),
@@ -716,9 +716,9 @@ def build_missile():
     #
     # They fold. A real 57E6 stows with its fins flat against the casing so the round fits the
     # tube, and they snap out once it is clear. The mod animates that by scaling this group
-    # radially - Part.Scale is per-axis and applies about the part's own origin, verified in
-    # game before any of this was modelled - so the fins collapse onto the body axis at a scale
-    # of nearly zero and flick out to full span after launch.
+    # radially - Part.Scale is per-axis and applies about the part's own origin - so the fins
+    # collapse onto the body axis at a scale of nearly zero and flick out to full span after
+    # launch.
     #
     # That works only because this group shares the missile's origin exactly: the collapse is
     # towards the origin, which has to be the body axis. Do not recentre it.

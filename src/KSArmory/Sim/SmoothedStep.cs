@@ -6,8 +6,8 @@ namespace KSArmory;
 ///
 /// <para>KSA's step is not a clock, it is a report: <c>dtPlayer × achievedFraction × simSpeed</c>,
 /// and <c>dtPlayer</c> carries the display's frame pacing. On a 120 Hz screen at a nominal 60 fps
-/// that beats 1-3-1-3 — measured in flight as an alternation between <b>8.33 ms and 25.0 ms</b>,
-/// exactly one and three vsync intervals. Anything that integrates the world must use it as it
+/// that beats 1-3-1-3 — an alternation between <b>8.33 ms and 25.0 ms</b>, exactly one and three
+/// vsync intervals. Anything that integrates the world must use it as it
 /// comes, and every other consumer in this mod does.</para>
 ///
 /// <para>A cosmetic ease is the exception. Advancing one by the raw step moves it three times as

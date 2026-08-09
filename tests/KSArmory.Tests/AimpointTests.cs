@@ -168,12 +168,12 @@ public class AimpointTests
     /// <summary>
     /// A place on the ground is still a place when the whole world is moving through the ecliptic.
     ///
-    /// <para>This is the test the other aimpoint tests are missing, and its absence is why a
-    /// designated shot shipped broken. They all fly from the origin at 600 m/s against a target
-    /// with zero velocity — a universe with no shared motion, in which holding an aimpoint as a
-    /// bare ecliptic coordinate is <em>correct</em>. Add the 29.8 km/s every real body carries and
-    /// the same code turns the frame into closing speed: <c>v = 0 - VelocityEcl</c>, and
-    /// proportional navigation drives the round sideways at full lateral G.</para>
+    /// <para>The other aimpoint tests cannot see this. They all fly from the origin at 600 m/s
+    /// against a target with zero velocity — a universe with no shared motion, in which holding an
+    /// aimpoint as a bare ecliptic coordinate is <em>correct</em>. Add the 29.8 km/s every real
+    /// body carries and the same code turns the frame into closing speed:
+    /// <c>v = 0 - VelocityEcl</c>, and proportional navigation drives the round sideways at full
+    /// lateral G.</para>
     ///
     /// <para>So it is written as an invariance: run the identical engagement in two frames and
     /// require the same answer. That is the shape <c>docs/FRAMES-AND-EPOCHS.md</c> prescribes for
@@ -193,8 +193,8 @@ public class AimpointTests
         Assert.True(moving.miss <= 15.0, $"moving frame missed by {moving.miss:F1} m");
 
         // The whole point: the answer must not depend on the frame. A metre of slack for the
-        // sub-step landing at a slightly different instant; the bug this guards was 251 m at the
-        // fuse and unbounded in the guidance.
+        // sub-step landing at a slightly different instant; a frame-dependent answer is 251 m out
+        // at the fuse and unbounded in the guidance.
         Assert.Equal(still.miss, moving.miss, 0);
         Assert.Equal(still.age, moving.age, 2);
     }
@@ -203,9 +203,9 @@ public class AimpointTests
     /// And the same engagement <b>misses</b> when the place is held as a bare ecliptic coordinate.
     ///
     /// <para>Without this the invariance test above proves nothing: it would pass just as happily
-    /// against code that never had the bug to begin with. This is the shipped defect reproduced —
-    /// zero velocity on the aimpoint and a position nobody advances — and it has to fail loudly,
-    /// because in flight it read as the round flying off sideways for no visible reason.</para>
+    /// against code that never had the bug. The failing form is zero velocity on the aimpoint and
+    /// a position nothing advances, and it has to fail loudly here, because on screen it reads as
+    /// the round flying off sideways for no visible reason.</para>
     /// </summary>
     [Fact]
     public void HeldAsABareCoordinateTheSameShotMisses()
@@ -234,8 +234,8 @@ public class AimpointTests
 
         // Resampled from the world every frame, which is what the KSA side does with a Ground
         // aimpoint: the place keeps up with its body instead of being left behind by it.
-        // anchored: what the ground actually is. Otherwise the defect -- a coordinate written down
-        // once, with no velocity, which the planet then leaves behind at the frame speed.
+        // anchored: what the ground actually is. Otherwise the failing form -- a coordinate written
+        // down once, with no velocity, which the planet then leaves behind at the frame speed.
         Aimpoint aim = anchored
                            ? Aimpoint.OnGround(TargetHandle, Vec.Zero, ground, frame, 5.0)
                            : Aimpoint.AtPoint(ground, 5.0);

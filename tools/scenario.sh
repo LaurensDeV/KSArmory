@@ -10,8 +10,8 @@
 #
 # The gap this closes is not headless rendering -- KSA ships Windows-only natives and threads its
 # simulation through a Vulkan renderer, so there is no headless to have. It is that verifying a
-# behaviour change needed a person to click things. The game still draws to a window; nobody has
-# to look at it.
+# behaviour change otherwise needs a person to click things. The game still draws to a window;
+# nobody has to look at it.
 #
 # The mod reads the scenario from a one-line file beside its log, drives the engagement, and writes
 # SCENARIO lines. This waits for the verdict, screenshots whenever the mod says CAPTURE, and exits
@@ -38,8 +38,8 @@ done
 # crew: the default startVehicle is a plain Rocket and nothing crews on it.
 #
 # settings.toml's startVehicle, not a save. StarMap's GameArguments do carry "-load <name>" through
-# to KSA's terminal commands in principle, but it was measured not to fire -- the game booted its
-# default situation with no save-load line in its own log. Install the craft with
+# to KSA's terminal commands in principle, but it does not fire: the game boots its default
+# situation with no save-load line in its own log. Install the craft with
 # tools/install-testcraft.sh.
 SAVE="${KSARMORY_SCENARIO_SAVE:-rocket missile}"
 
@@ -59,7 +59,7 @@ printf '%s|%s\n' "$SCENARIO" "$SAVE" > "$USER_DIR/Logs/scenario.txt"
 # KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is
 # exactly the human this exists to remove. The dialog is the "Always Show" checkbox, persisted as
 # selectSystemOnStart, and with it off the game boots straight into settings.toml's startVehicle.
-# Restored on exit: it is the player's setting, not ours.
+# Restored on exit: it is the player's setting, not the harness's.
 SETTINGS="$USER_DIR/settings.toml"
 DIALOG_WAS=""
 CRAFT_WAS=""
@@ -121,9 +121,9 @@ while (( SECONDS < DEADLINE )); do
         case "$line" in
             *CAPTURE*)
                 # Off unless asked for. screenshot.sh grabs the whole primary screen, not the game
-                # window, so an unattended run photographs whatever happens to be in front -- once
-                # that was a Discord conversation. Verifying by eye is the operator's job; this
-                # harness is for the things a log can answer.
+                # window, so an unattended run photographs whatever happens to be in front.
+                # Verifying by eye is the operator's job; this harness is for the things a log
+                # can answer.
                 if (( SHOTS_ON )); then
                     sleep 1
                     "$REPO_ROOT/tools/screenshot.sh" >/dev/null 2>&1 || true

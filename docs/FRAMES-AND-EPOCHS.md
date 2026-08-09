@@ -1,10 +1,9 @@
 # Frames, epochs and the ecliptic carrier
 
-Every hard bug this mod has had comes from the same place, and it is worth stating once rather
-than rediscovering: **near Earth, every position and velocity carries ~29.8 km/s of ecliptic
-motion.** That is ~600 m per frame at 60 fps. Any two quantities differenced across even a
-fraction of a step leak a piece of it, and the result looks like a completely different bug each
-time — a jitter, a constant offset, a guidance error, a drift.
+**Near Earth, every position and velocity carries ~29.8 km/s of ecliptic motion.** That is ~600 m
+per frame at 60 fps. Any two quantities differenced across even a fraction of a step leak a piece
+of it, and the result looks like a completely different bug each time — a jitter, a constant
+offset, a guidance error, a drift. One cause, four disguises.
 
 The arithmetic is always the same:
 
@@ -16,12 +15,12 @@ The arithmetic is always the same:
 | one 20 ms frame, at 10× warp | 6 km |
 
 **A cause is identified when its magnitude divides out to a number of milliseconds that matches
-something real in the frame.** That single habit found four bugs in one night after eight wrong
-theories found none.
+something real in the frame.** A magnitude on its own identifies nothing: the division against the
+carrier speed is the diagnosis.
 
 ## The epoch contract
 
-This is what KSA actually does, read from the decompiled source, not inferred:
+This is what KSA does, read from the decompiled source rather than inferred:
 
 - `Universe.ApplyVehicleSolvers` sets `_lastSimStep = _nextSimStep` and then calls
   `CurrentSystem.UpdatePerFrameData()` back to back (`Universe.cs:1699-1701`), which is where every
@@ -44,23 +43,25 @@ simulation is called from — see "Porting to a different loader" in `docs/KSA-M
 ## Rules that follow
 
 **Simulate in the same pass that draws.** The simulation runs in `OnAfterGui`, immediately before
-`Visuals.Draw`. With it in the frame hook, every draw used an offset produced one frame earlier
-against an anchor sampled now — measured at 0.999 steps of ecliptic motion with 0.4 m across it,
-on all 221 samples. Compensating at draw time cannot work: the drag is one step of platform
-motion, so any correction carries a `dt` that changes and returns as jitter. That was tried.
+`Visuals.Draw`. Run from the frame hook instead, every draw uses an offset produced one frame
+earlier against an anchor sampled now: 0.999 steps of ecliptic motion along the direction of
+travel and 0.4 m across it, over 221 samples. Compensating at draw time cannot work — the drag is
+one step of platform motion, so any correction carries a `dt` that changes and comes back as
+jitter.
 
 **The drawn offset is `PositionEcl - platformEcl`, measured after the step, no extrapolation.**
 Both terms then advance in lockstep and the difference is the round's own flight. The two other
-arrangements both leak `v·dstep` — 30 m per ms of frame wobble, 507 m when the sim speed changes.
-Run side by side in flight they agreed to 0.6 m, which is what proved they shared a cause rather
-than being alternatives. See `OffsetPhaseTests`.
+arrangements — differencing before the step, or extrapolating the platform sample forward — both
+leak `v·dstep`: 30 m per ms of frame wobble, 507 m when the simulation speed changes. They agree
+with each other to 0.6 m, because they are one error rather than two alternatives. See
+`OffsetPhaseTests`.
 
 **Back-date the target sample to the round's epoch before aiming at it.** The sample is
 end-of-step; the round's pre-step position is start-of-step. Extrapolating the sample *forward*
-from an already-forward value left every line of sight carrying `+V_target_ecl·dt`, and
-proportional navigation — working perfectly — flew a clean intercept on a ghost 450–680 m away.
-The detonation instant must move with it, or the blast sweep breaks by `V·dt` the other way. They
-are one change.
+from an already-forward value leaves every line of sight carrying `+V_target_ecl·dt`, and
+proportional navigation then flies a clean intercept on a ghost 450–680 m away: correct guidance
+onto the wrong point. The detonation instant must move with it, or the blast sweep breaks by `V·dt`
+the other way. They are one change.
 
 **Consume the step; never peek at it twice.** `GetLastSimStep()` answers "the last step", not "a
 step since you last asked". `KsaWorld.ConsumeSimStep` deduplicates on the step's own `NextTime`.
@@ -70,19 +71,20 @@ step since you last asked". `KsaWorld.ConsumeSimStep` deduplicates on the step's
 On the frame the speed drops to zero the engine still applies one real step: the platform sample
 advances, and a mod that skips on the flag leaves the round behind by a full step. Because the
 offset is a difference of integrated positions, that step stays in **permanently**, and every
-pause adds another. Reported from play as "every single time it teleports further and further".
+pause adds another. The symptom is a round that jumps further from its platform on every pause.
 
 **Fire control runs after the round update.** A round integrated in its own launch frame is
 differenced against a platform sample that has not moved yet, so one frame of ecliptic motion is
-baked into `TravelSinceLaunch` for the rest of its life — measured at 658.78 m of travel at an age
-of 0.04 s on a round doing 124 m/s.
+baked into `TravelSinceLaunch` for the rest of its life — 658.78 m of travel at an age of 0.04 s
+on a round doing 124 m/s.
 
 **A `Sim/` entry point takes both frame-carrying terms and differences them itself. It never
 accepts a difference computed in `Ksa/`.** Every rule above is a subtraction that has to happen at
 the right place and the right instant, and a signature taking `relativeVelocity` moves exactly
-that subtraction to a call site no test can reach. `BallisticLead.TrySolve` did, and its
-regression test asserted the *solver* was sensitive to the common term — which it always had been.
-The bug was the caller, and the test passed unchanged against it.
+that subtraction to a call site no test can reach. A regression test written against such a solver
+asserts that the *solver* is sensitive to the common term — which it always is — and so passes
+unchanged while the caller is the thing that is wrong. `BallisticLead.TrySolve` is the shape to
+avoid.
 
 `Interceptor.Update` is the shape to copy: it takes `platformEcl` and computes the offset itself.
 Test such a function for **invariance** — add the same arbitrary velocity to both inputs and
@@ -92,16 +94,16 @@ term is removed, the other proves the relative term still matters; neither alone
 ## Diagnosing
 
 **Measure vectors, not magnitudes.** Comparing two *separations* mixes the error with the closing
-geometry: the same constant displacement read as anything from −0.45 to +0.99 steps. Since Ego is
-a pure translation of Ecl, the round→target vector is identical in both frames, so differencing
-them isolates the drawing error with the geometry removed. That one change turned a wandering
-number into `0.999 steps along the motion, 0.4 m across`.
+geometry: one constant displacement reads as anything from −0.45 to +0.99 steps depending on where
+the target is. Since Ego is a pure translation of Ecl, the round→target vector is identical in both
+frames, so differencing them isolates the drawing error with the geometry removed — which is what
+turns a wandering number into `0.999 steps along the motion, 0.4 m across`.
 
 **Check which renderer is being judged.** Rounds are drawn twice: gizmo tracers from
 `AnchorEgo + OffsetFromPlatform`, and missile bodies as subparts through the launcher's part
-frame. They can disagree — for several hours the gizmo path was provably correct at 0.000 m while
-the bodies were 650 m out. If a symptom and a measurement disagree, first ask whether they are
-even describing the same object.
+frame. They can disagree, and by a lot — the gizmo path correct to 0.000 m while the bodies are
+650 m out. If a symptom and a measurement disagree, first ask whether they are even describing the
+same object.
 
 **Constant vs accumulating tells you where it lives.** A mismatched epoch gives a *fixed* offset.
 Only re-applying something into an integrated quantity compounds. "It gets worse every time" is a
@@ -110,29 +112,27 @@ much stronger clue than the magnitude.
 **`Interceptor.MissDistance` is not a miss distance.** It is a threshold crossing whose look-ahead
 horizon is the integration sub-step (`Vec.TimeOfClosestApproach(r, v, h)`), so it is bounded by
 the fuse radius whatever the round actually does, and it converges *upward* toward that radius as
-the step shrinks. It reported 10–15 m while rounds were missing by 450–680 m. `FuseRadius` sits
-below `LethalRadius`, so every trigger is lethal and the log says "destroyed" regardless. **The
-honest number is the `tgt` trace in `SyncRoundBodies`**, which is the one same-instant range in
-the codebase.
+the step shrinks. It reads 10–15 m while rounds miss by 450–680 m. `FuseRadius` sits below
+`LethalRadius`, so every trigger is lethal and the log says "destroyed" regardless. **The honest
+number is the `tgt` trace in `SyncRoundBodies`**, which is the one same-instant range in the
+codebase.
 
 ## Tests
 
 A test that never varies the step cannot see any of this: at a constant `dt` the right and wrong
-phases are indistinguishable. The suite passed against two broken implementations for months for
-exactly that reason, and CLAUDE.md recorded the wrong ordering as correct with "do not fix it".
+phases are indistinguishable, so a suite can pass against a broken implementation indefinitely and
+say nothing.
 
 - Vary the step the way changing simulation speed does.
 - Advance the platform sample *before* the update that uses it.
 - Write target samples as end-of-step values (`position + velocity * dt`).
-- **Check every regression test fails against the old code.** All eight offset tests were checked
-  against both predecessors before being kept.
-
+- **Check every regression test fails against the old code.** A test kept without that check is
+  not evidence of anything.
 
 ## Handing a position to something that draws for itself
 
-The particle emitters take a world position and place themselves. That makes them the first thing
-in this mod that draws without going through `DrawAnchor`, and it reintroduces the oldest trap in
-this file from a new direction.
+The particle emitters take a world position and place themselves, so they draw without going
+through `DrawAnchor` — and the trap above then arrives from a new direction.
 
 A warhead's burst is at `round.PositionEcl` — the analytic position the simulation integrates. The
 round and its target are *drawn* against the platform's **physics** origin, which is not the same
@@ -140,7 +140,7 @@ place: `KsaWorld.TryVehicleEgo` says outright that deriving a draw position from
 "visibly misses the craft". Placing the burst at the analytic position therefore puts the
 explosion somewhere the engagement did not visibly happen.
 
-The fix is to convert the *drawn* position back:
+Convert the *drawn* position back instead:
 
 ```csharp
 KsaWorld.TryVehicleEgo(platform, out double3 platformEgo);          // where it is drawn

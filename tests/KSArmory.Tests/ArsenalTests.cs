@@ -81,10 +81,9 @@ public class ArsenalTests
     /// <summary>
     /// A launcher must be able to shoot with <em>something</em>: tubes, a cannon, or both.
     ///
-    /// <para>This replaces an assertion that every launcher has at least one tube, which was true
-    /// only while every launcher carried missiles. A CIWS is a gun and nothing else, and
-    /// <c>TubeCount</c> of zero is a supported shape rather than a broken profile — but a launcher
-    /// with neither is a part that can never fire, and nothing else would report that.</para>
+    /// <para>Not "every launcher has a tube": a CIWS is a gun and nothing else, and
+    /// <c>TubeCount</c> of zero is a supported shape rather than a broken profile. A launcher with
+    /// neither is a part that can never fire, and nothing else would report that.</para>
     /// </summary>
     [Fact]
     public void EveryLauncherCanActuallyShootWithSomething()
@@ -142,10 +141,9 @@ public class ArsenalTests
     /// <summary>
     /// The registry ships more than one system, and they have to resolve to different weapons.
     ///
-    /// <para>Every other assertion in this file is satisfied by a registry of one, which is the
-    /// state the suite was stuck in while the Pantsir was the only entry. This one distinguishes
-    /// "picked the right system" from "picked the only system", and it is what a third entry
-    /// inherits.</para>
+    /// <para>Every other assertion in this file is satisfied by a registry of one. This is the one
+    /// that distinguishes "picked the right system" from "picked the only system", and it is what
+    /// a further entry inherits.</para>
     /// </summary>
     [Fact]
     public void TwoRegisteredSystemsResolveToDifferentWeapons()
@@ -169,8 +167,7 @@ public class ArsenalTests
     /// <para>The Mk 17 is a booster with no sustainer: about 2.2 s of thrust to roughly Mach 2.5,
     /// then drag for the rest of the flight. Written down because the alternative is not a
     /// slightly different number but a different weapon — a five-second burn holds speed like the
-    /// Pantsir's two-stage round, which is exactly how this shipped and exactly what looked
-    /// wrong.</para>
+    /// Pantsir's two-stage round and reads as far too quick.</para>
     /// </summary>
     [Fact]
     public void TheSidewinderBoostsBrieflyAndThenCoasts()
@@ -283,7 +280,7 @@ public class ArsenalTests
     ///
     /// <para>A launcher missing here loads, resolves its tubes, matches <c>LauncherForPart</c> and
     /// is then invisible: the panel says "no weapons systems" about a craft carrying it, with
-    /// nothing in any log. That shipped once, and the only symptom was a part that did nothing.</para>
+    /// nothing in any log and nothing on screen but a part that does nothing.</para>
     /// </summary>
     [Fact]
     public void EveryRegisteredLauncherIsAlsoARecognisedComponent()

@@ -34,12 +34,13 @@ internal sealed class Interceptor : IProjectile
     private const int TrailCapacity = 32;
     private const double TrailIntervalSeconds = 0.05;
 
-    /// <summary>Fixed integration step. Frames are subdivided to this, which keeps the
-    /// guidance stable and stops fast targets tunnelling through the fuse radius.</summary>
     /// <summary>
-    /// Shared with every other <see cref="IProjectile"/>: <see cref="SimClock"/> refuses steps
-    /// beyond what these allow, and that guard is only correct if everything integrates to the
-    /// same resolution.
+    /// Fixed integration step. Frames are subdivided to this, which keeps the guidance stable and
+    /// stops fast targets tunnelling through the fuse radius.
+    ///
+    /// <para>Shared with every other <see cref="IProjectile"/>: <see cref="SimClock"/> refuses
+    /// steps beyond what these allow, and that guard is only correct if everything integrates to
+    /// the same resolution.</para>
     /// </summary>
     internal const double SubStep = 0.005;
 
@@ -68,13 +69,13 @@ internal sealed class Interceptor : IProjectile
 
     public RoundState State { get; private set; } = RoundState.Flying;
 
-    /// <summary>Miss distance recorded at detonation (m). Meaningful once detonated.</summary>
     /// <summary>
     /// Always null. This round is proximity-fused, so it kills by being near rather than by
     /// arriving, and its lethality is decided from <see cref="MissDistance"/>.
     /// </summary>
     public object? StruckBody => null;
 
+    /// <summary>Miss distance recorded at detonation (m). Meaningful once detonated.</summary>
     public double MissDistance { get; private set; }
 
     /// <summary>
@@ -221,8 +222,8 @@ internal sealed class Interceptor : IProjectile
     /// Pass zero for a frame that is already local.
     /// </param>
     /// <param name="platformEcl">
-    /// The platform's position at the start of this update, i.e. the same instant every other
-    /// world position was sampled. Used only to express the round's offset for drawing.
+    /// The platform's position as sampled this frame, i.e. the same instant every other world
+    /// position was sampled. Used only to express the round's offset for drawing.
     /// </param>
     public void Update(
         double dt, TargetState? target, double3 gravity,
@@ -239,32 +240,6 @@ internal sealed class Interceptor : IProjectile
 
         _frameVelocityEcl = frameVelocityEcl;
 
-        // Measured BEFORE the round is integrated, against the platform sampled at the start of
-        // this same frame. Both are therefore at the same instant already, and the expression
-        // contains no dt at all - which is the whole point, because it is dt that jitters.
-        //
-        // Measured in game, over frames that visibly jumped:
-        //
-        //     platform moved 639.09 m | v * current step 621.85 m | v * previous step 639.1 m
-        //
-        // The platform's displacement between two samples matches the step reported at the
-        // EARLIER frame, not the current one - the step and the sample are one frame out of
-        // phase. Extrapolating the platform forward by `frameVelocityEcl * dt` therefore
-        // re-projects it by a dt that no longer describes the interval it is meant to, and every
-        // wobble in the frame time comes out multiplied by ~29.8 km/s of ecliptic motion. A
-        // 0.6 ms wobble is 17 m; changing the sim speed swings the step by 17 ms, which is 500 m
-        // in a single frame. That is the jump.
-        //
-        // Without the dt term the difference between consecutive frames is
-        //
-        //     (v + local) * dt  -  v * dt   =   local * dt
-        //
-        // the round flying and nothing else, whatever dt does. The cancellation needs the
-        // platform to have moved by exactly `v * dt` over the interval we integrated across, and
-        // the measurement above is what establishes that it does.
-        //
-        // Costs one frame of visual lag, which is imperceptible and, unlike the alternatives,
-        // constant. See CLAUDE.md, which documented this form before the code drifted off it.
         int steps = Math.Clamp((int)Math.Ceiling(dt / SubStep), 1, MaxSubSteps);
         double h = dt / steps;
         double elapsed = 0.0;
@@ -279,25 +254,17 @@ internal sealed class Interceptor : IProjectile
         // extrapolation whatsoever.
         //
         // Write the update index as k: the platform sample is Q(k), and the round integrates from
-        // P(k-1) to P(k). Measured in game over thousands of frames, to within 5 m on all but two
-        // of them:
+        // P(k-1) to P(k). The two advance in lockstep, to within 5 m on all but two frames in
+        // thousands:
         //
         //     ( P(k) - P(k-1) ) - ( Q(k) - Q(k-1) )  =  localVelocity * dt
         //
-        // So P(k) and Q(k) advance in lockstep, and P(k) - Q(k) therefore changes by exactly the
-        // round's own flight each frame. That is the whole requirement, and it is the reason this
-        // form cannot jitter.
+        // so P(k) - Q(k) changes by exactly the round's own flight each frame. That is the whole
+        // requirement, and it is the reason this form cannot jitter.
         //
-        // Both forms tried before pair mismatched instants and both leak the same term:
-        //
-        //   P(k-1) - Q(k)                     the round's motion at frame k-1 against the
-        //                                     platform's at frame k
-        //   P(k) - ( Q(k) + v*dt )            re-projects Q by a dt that has already changed
-        //
-        // Each differences to `local*dt - v*dstep`, and at ~29.8 km/s a 1 ms wobble in the step
-        // is 30 m while a speed change swinging it 17 ms is 500 m - in a single frame. Measured
-        // side by side in flight they agreed to 0.6 m, which is what proved they share a cause
-        // rather than being alternatives.
+        // Any other pairing of instants - P(k-1) against Q(k), or P(k) against an extrapolated
+        // Q(k) + v*dt - leaks `local*dt - v*dstep`. At ~29.8 km/s a 1 ms wobble in the step is
+        // 30 m, and a simulation-speed change swinging it by 17 ms is 500 m in a single frame.
         OffsetFromPlatform = PositionEcl - platformEcl;
 
         _trailTimer += dt;
@@ -361,25 +328,18 @@ internal sealed class Interceptor : IProjectile
             //
             // KSA writes every vehicle's Ecl state once per frame, at the top of OnFrame, to the
             // state at GetLastSimStep().NextTime - the END of the step this update is about to
-            // integrate the round across. The platform sample is used that way and is correct.
-            // The target sample was not: it was extrapolated FORWARD from an end-of-step value
-            // while being differenced against the round's PRE-step position, so every line of
-            // sight carried a constant
+            // integrate the round across. Differenced against the round's PRE-step position, that
+            // leaves every line of sight carrying a constant
             //
             //     r = r_true + targetVelocityEcl * frameSeconds
             //
-            // and proportional navigation, doing its job perfectly, flew a clean intercept on a
-            // ghost displaced by one frame of the planet's ~29.8 km/s of ecliptic motion.
+            // and proportional navigation, doing its job perfectly, flies a clean intercept on a
+            // ghost displaced by one frame of the planet's ~29.8 km/s of ecliptic motion: 450-680 m,
+            // against the 10-15 m MissDistance reports.
             //
-            // That is 450-680 m, not the 10-15 m MissDistance reports. MissDistance could never
-            // show it: it is a threshold crossing with a one-sub-step horizon, so it is bounded by
-            // the fuse radius whatever the round actually does. Confirmed three ways - headlessly,
-            // where the miss vector came out 0.96-0.999 aligned with the ecliptic carrier and
-            // back-dating collapsed the true closest approach onto MissDistance at every step
-            // size; from a flight log, where fitting the same-instant `tgt` trace gave a closest
-            // approach of 679 m against |V_ecl| * dt = 676 m; and by predicting the outcome of the
-            // endgame sub-step experiment that had already been run and reverted - a whole-frame
-            // bias cannot be helped by subdividing the frame, it only converges harder on the
+            // MissDistance cannot show that. It is a threshold crossing with a one-sub-step
+            // horizon, so it is bounded by the fuse radius whatever the round actually does. Nor
+            // can a finer sub-step: a whole-frame bias only makes the round converge harder on the
             // same wrong point.
             //
             // Subtracting frameSeconds puts the target back at the instant the round is actually
@@ -410,7 +370,7 @@ internal sealed class Interceptor : IProjectile
             }
 
             {
-                // The fuse does not ask the seeker's permission; tying them together scored
+                // The fuse does not ask the seeker's permission; tying them together scores
                 // direct hits as misses.
                 if (Age >= munition.FuseArmSeconds)
                 {
@@ -425,9 +385,9 @@ internal sealed class Interceptor : IProjectile
                         // Reported on the same epoch as the geometry that produced it. Whatever
                         // applies the warhead advances the world forward by this much to place
                         // the burst and to sweep it, so it has to be measured from the target's
-                        // back-dated instant too. Correcting the extrapolation above without
-                        // correcting this leaves the blast wrong by V*frameSeconds in the
-                        // opposite direction: the two are one change, not two.
+                        // back-dated instant too. Measured from the sampled instant instead, the
+                        // blast lands V*frameSeconds out in the opposite direction: the
+                        // back-dating above and this are one rule, not two.
                         DetonationElapsedInFrame = elapsedInFrame + tCa - frameSeconds;
                         State = RoundState.Detonated;
                         return;

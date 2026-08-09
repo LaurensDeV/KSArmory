@@ -5,9 +5,9 @@ namespace KSArmory.Tests;
 /// <summary>
 /// Evening out the engine's step for a cosmetic ease.
 ///
-/// <para>The numbers here are the ones measured in flight: on a 120 Hz screen at a nominal 60 fps
-/// the step beats between 8.33 ms and 25.0 ms, one and three vsync intervals, and the chase
-/// transition advanced three times as far on alternate frames.</para>
+/// <para>The numbers here are the measured ones: on a 120 Hz screen at a nominal 60 fps the step
+/// beats between 8.33 ms and 25.0 ms, one and three vsync intervals, which advances a raw-stepped
+/// transition three times as far on alternate frames.</para>
 /// </summary>
 public class SmoothedStepTests
 {
@@ -15,7 +15,7 @@ public class SmoothedStepTests
     private const double Long = 3.0 / 120.0;         // 25.0 ms
     private const double Mean = (Short + Long) / 2;
 
-    // The beat as it was logged, long enough for the average to settle.
+    // The display's beat, long enough for the average to settle.
     private static double[] Beat(int frames)
     {
         double[] steps = new double[frames];

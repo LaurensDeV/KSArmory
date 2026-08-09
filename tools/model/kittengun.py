@@ -197,7 +197,7 @@ CHARACTER_SPACE = 100.0
 # Rig space, read off Core's own attachments rather than assumed: X is lateral, Y is up, Z is
 # forward. Both Core attachments are symmetric about X (centre X = 0) and offset along Y -- the
 # helmet sits +27.8 above Head_M. This file authors X forward, Y left, Z up, so the axes have to
-# be permuted on the way out: our X -> their Z, our Y -> their X, our Z -> their Y.
+# be permuted on the way out: file X -> rig Z, file Y -> rig X, file Z -> rig Y.
 #
 # Baked, not expressed as <Rotation> in the XML, for two reasons. The engine composes an
 # attachment's axes as RotZ(-90) * RotX(-90) *before* the bone matrix while the body composes the

@@ -74,15 +74,11 @@ public sealed class SensorProfile
     public float MinTargetSpeed = 15f;
 
     /// <summary>
-    /// Closest a target may be and still be engaged (m). Inside this the round has not finished
-    /// boosting and the launcher cannot bring it round.
-    /// </summary>
-    /// <summary>
     /// Whether the planet blocks this sensor.
     ///
     /// <para>On, because a radar that sees through a world engages things it could never detect,
-    /// and every range figure below is meaningless against a target on the far side. Off restores
-    /// the old behaviour for anyone comparing.</para>
+    /// and every range figure below is meaningless against a target on the far side. Off lets it
+    /// see straight through the body, which is only useful for comparing the two.</para>
     /// </summary>
     public bool HorizonMasking = true;
 
@@ -90,17 +86,11 @@ public sealed class SensorProfile
     /// Metres of terrain to assume above the mean sphere, for masking only.
     ///
     /// <para>The body is a smooth sphere here, so the limb is the geometric one and a contact
-    /// behind a ridge is reported visible. Inflating the sphere buys back some of that without
-    /// sampling a height map per contact per scan, which is a cost nobody has measured. Zero is
-    /// the geometric limb.</para>
+    /// behind a ridge counts as visible. Inflating the sphere buys back some of that without
+    /// sampling a height map per contact per scan, whose cost is unmeasured. Zero is the geometric
+    /// limb.</para>
     /// </summary>
     public float TerrainMarginMetres;
-
-
-    /// <summary>
-    /// Furthest a target may be and still be engaged (m). Detection reaches much further than the
-    /// round flies, so without this the battery empties its tubes at contacts it cannot reach.
-    /// </summary>
 
     public float ConeHalfAngleRad => float.DegreesToRadians(ConeDeg);
 }

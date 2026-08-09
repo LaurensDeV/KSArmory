@@ -226,12 +226,6 @@ public sealed class LauncherProfile
     public int GunBurstRounds = 12;
     public float GunBurstGapSeconds = 0.55f;
 
-    /// <summary>
-    /// Where the cannon are worth firing. The inner limit is where the missiles stop being
-    /// usable, so the two together leave no gap; the outer is where a 30 mm round still arrives
-    /// with enough speed to matter.
-    /// </summary>
-
     /// <summary>Seconds to feed a fresh belt. Zero disables cannon resupply.</summary>
     public float GunReloadSeconds = 20f;
 

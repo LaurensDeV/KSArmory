@@ -11,8 +11,8 @@ public static class Picking
     /// <summary>
     /// Where a ray first meets a sphere, or false if it misses or the sphere is behind it.
     ///
-    /// <para>The near root, not the far one: standing outside a planet and pointing at it, the
-    /// answer wanted is the surface facing you, not the far side.</para>
+    /// <para>The near root, not the far one: from outside a planet, pointing at it, the answer
+    /// wanted is the surface facing the viewer rather than the far side.</para>
     /// </summary>
     public static bool TryHitSphere(double3 origin, double3 direction,
                                     double3 centre, double radius, out double3 hit)

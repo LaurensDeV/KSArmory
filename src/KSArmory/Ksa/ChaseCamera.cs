@@ -40,7 +40,7 @@ internal sealed class ChaseCamera
     private const double TransitionSeconds = 1.2;
 
     // Progress along that: 0 at the player's pose, 1 riding the round. Starts finished, so a chase
-    // that could not read a starting pose simply cuts, as it always did.
+    // that could not read a starting pose simply cuts.
     private double _blend = 1.0;
 
     // The transition's own clock. The engine's step beats with the display's frame pacing, and a
@@ -48,8 +48,8 @@ internal sealed class ChaseCamera
     private readonly SmoothedStep _blendStep = new();
 
     // Where the camera meant to be, and where the engine actually had it, last frame. Logged per
-    // frame through a transition: the whole question is whether the eye is advancing evenly, and
-    // along which axis it is not.
+    // frame through a transition, to show whether the eye is advancing evenly and along which
+    // axis it is not.
     private double3 _probeWantEcl;
     private double3 _probeHadEcl;
     private double3 _probeTravel;
@@ -222,8 +222,7 @@ internal sealed class ChaseCamera
             // a round's mean radius is one metre -- so the instant the follow is swapped the
             // camera is 2.5 m from the missile. Reading afterwards gives that, not the player's
             // pose, and the transition then eases from its own destination: no travel at all,
-            // just the aim swinging from a point already at the round. That is the whole of
-            // "teleported very hard forward".
+            // just the aim swinging from a point already at the round.
             bool hasPose = KsaWorld.TryMainCameraPose(out double3 wasEcl, out double3 wasForward);
 
             _followed.Track(round, battery.Platform);
@@ -246,10 +245,10 @@ internal sealed class ChaseCamera
                 // At the target's distance, because that is what the player is looking at and
                 // what the chase ends up looking past the round at. Put at the *round's* distance
                 // instead it sits a hundred metres away in mid-air, while the point the chase
-                // aims for is kilometres off in much the same direction — so the aim swings
-                // through tens of degrees getting from one to the other, measured at 43 degrees
-                // of sweep peaking at 87 deg/s with the round off screen for half the transition.
-                // Two points at the same depth barely move apart at all.
+                // aims for is kilometres off in much the same direction, so the aim swings
+                // through tens of degrees getting from one to the other: 43 degrees of sweep
+                // peaking at 87 deg/s, with the round off screen for half the transition. Two
+                // points at the same depth barely move apart at all.
                 double depth = round.TargetRef is Vehicle craft && KsaWorld.IsAlive(craft)
                                ? Vec.Len(KsaWorld.PositionEcl(craft) - wasEcl)
                                : Math.Max(Vec.Len(round.PositionEcl - wasEcl), Ahead);
@@ -339,11 +338,11 @@ internal sealed class ChaseCamera
             // Offsets from the round, never a pair of ecliptic positions. PlatformEcl is sampled
             // before the round is stepped and round.PositionEcl after it, so differencing the two
             // ends in the ecliptic carries one whole step of the planet's motion -- 715 m on a
-            // 24 ms frame against 286 m on a 9 ms one. That difference alternates with the
-            // display's frame pacing and swung the camera vertically every frame, measured at
-            // +-270 m. OffsetFromPlatform is the round measured against the same frame's platform
-            // sample, which is the pairing that cancels it; TryBlend is a lerp of points, so
-            // running it in this translated frame is the same answer.
+            // 24 ms frame against 286 m on a 9 ms one. That difference beats against the display's
+            // frame pacing and swings the camera +-270 m vertically every frame.
+            // OffsetFromPlatform is the round measured against the same frame's platform sample,
+            // which is the pairing that cancels it; TryBlend is a lerp of points, so running it in
+            // this translated frame is the same answer.
             double3 fromRound = _fromOffset - round.OffsetFromPlatform;
             double3 fromLookRound = _fromLookOffset - round.OffsetFromPlatform;
 

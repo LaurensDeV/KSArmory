@@ -18,9 +18,9 @@ public static class Arsenal
 {
     // ---- Munitions ------------------------------------------------------
 
-    /// <summary>57E6: the Pantsir's two-stage round. Boosts hard, then coasts on the sustainer.</summary>
     /// <summary>
-    /// The 57E6, as flown by the real Pantsir-S1.
+    /// The 57E6, as flown by the real Pantsir-S1: a two-stage round that boosts hard and then
+    /// coasts on the sustainer.
     ///
     /// <para>The defaults on <see cref="MunitionProfile"/> are this round, so the figures live
     /// there. What matters here is which of them are real and which are ours: peak speed
@@ -77,9 +77,10 @@ public static class Arsenal
 
         FuseRadius = 3f,
         FuseArmSeconds = 0.05f,
-        // Chosen to keep the 4 m lethal radius the cannon was tuned with. Its blast radius grows
-        // from 6 m to about 12 m as a result -- that one only decides whether a near miss is
-        // logged, and one law cannot reproduce a pair authored at a different ratio.
+        // Chosen to give the cannon a 4 m lethal radius. The same law then puts its blast radius
+        // at about 12 m rather than the 6 m a hand-authored pair would use -- that one only
+        // decides whether a near miss is logged, and one law cannot reproduce a pair authored at
+        // a different ratio.
         ChargeKg = 0.16f,
     };
 
@@ -116,8 +117,8 @@ public static class Arsenal
         // Mk 17: a *booster*, not a sustainer. It burns for about 2.2 seconds and then the round
         // coasts the whole rest of the way, bleeding speed to drag — which is why a Sidewinder's
         // reach depends so heavily on how fast and how high it was launched, and why a long shot
-        // arrives slow. Modelling it as a five-second burn made it hold speed like a Pantsir round
-        // and read as far too quick.
+        // arrives slow. A five-second burn would have it hold speed like a Pantsir round and read
+        // as far too quick.
         //
         // The 2.2 s and the ~Mach 2.5 peak are the weapon's. The acceleration is those two
         // divided: the real motor's thrust is roughly constant while the missile sheds propellant,
@@ -183,14 +184,6 @@ public static class Arsenal
     // ---- Sensors --------------------------------------------------------
 
     /// <summary>
-    /// The 1RS1-1E search set, with the engagement envelope of the system it feeds.
-    ///
-    /// <para>Detection reaches much further than the round flies — 36 km against 20 km — so the
-    /// envelope is a separate limit rather than a consequence of detection range. Without it the
-    /// battery fires at everything it can see and the rounds expire short, which is precisely
-    /// what every long crossing shot did.</para>
-    /// </summary>
-    /// <summary>
     /// A 500 lb general-purpose bomb: no seeker, no motor, no fuse but the ground.
     ///
     /// <para>Modelled on the Mk 82 — 227 kg all up, of which 87 kg is filler. The drag constant is
@@ -208,8 +201,8 @@ public static class Arsenal
 
         // Released, not launched: what it mostly leaves with is the aircraft's velocity. The few
         // metres a second are the ejector cartridge, which throws a store down hard enough to
-        // clear the airflow under the wing -- and without them the launcher's EjectAwayFromMount
-        // is a direction multiplied by zero, which is what it was.
+        // clear the airflow under the wing -- and at zero the launcher's EjectAwayFromMount is a
+        // direction multiplied by nothing.
         LaunchSpeed = 4f,
         BoostSeconds = 0f,
         BoostAccel = 0f,
@@ -234,6 +227,14 @@ public static class Arsenal
         HitsTerrain = true,
     };
 
+    /// <summary>
+    /// The 1RS1-1E search set, with the engagement envelope of the system it feeds.
+    ///
+    /// <para>Detection reaches much further than the round flies — 36 km against 20 km — so the
+    /// envelope is a separate limit rather than a consequence of detection range. Without it the
+    /// battery fires at everything it can see and the rounds expire short of a long crossing
+    /// target.</para>
+    /// </summary>
     public static readonly SensorProfile SearchRadar1Rs1 = new()
     {
         Name = "1RS1",
@@ -402,10 +403,10 @@ public static class Arsenal
         // pivoting on the spot the way an immediate turn does.
         //
         // A rail on a stack points wherever the stack does, so it cannot be aimed by pointing the
-        // craft: measured in flight, every ground designation sat 92-116 degrees off the rail. That
-        // is a limit on the *seeker*, not on the weapon — a designated place is held by the
-        // operator, so it is steered onto regardless of where the round is looking. See
-        // Interceptor's SeekerInView and FireGate.CanGuideOntoAimpoint.
+        // craft: a ground designation sits 92-116 degrees off the rail. That is a limit on the
+        // *seeker*, not on the weapon — a designated place is held by the operator, so it is
+        // steered onto regardless of where the round is looking. See Interceptor's SeekerInView
+        // and FireGate.CanGuideOntoAimpoint.
         LaunchAlongTube = true,
         EjectAwayFromMount = 0.55f,
         LaunchLoft = 0f,
@@ -417,21 +418,6 @@ public static class Arsenal
         SettleSeconds = 0f,
     };
 
-    /// <summary>
-    /// Mk 15 Phalanx: a gun and nothing else, on a 3 m stack node.
-    ///
-    /// <para><b>The first launcher here that carries no missiles at all.</b> <c>Tubes</c> is empty,
-    /// so <see cref="LauncherProfile.TubeCount"/> is zero and the magazine holds nothing — every
-    /// path that reaches for a round has to cope with there being none, which until now was
-    /// untravelled ground rather than a supported shape.</para>
-    ///
-    /// <para>It still trains: the housing traverses and the barrels elevate, so
-    /// <see cref="LauncherProfile.Trains"/> is true and fire control waits for it to settle. What
-    /// it has no pods marker for is a launcher assembly, because there is not one.</para>
-    ///
-    /// <para>Traverse and elevation limits are the real mount's. Geometry generated by
-    /// <c>tools/model/ciws.py</c>.</para>
-    /// </summary>
     /// <summary>
     /// A 14-inch ejector rack carrying one Mk 82. Nothing on it moves and nothing about it aims:
     /// the aircraft is the launcher, and the operator's judgement is the fire control.
@@ -460,6 +446,20 @@ public static class Arsenal
         SettleSeconds = 0f,
     };
 
+    /// <summary>
+    /// Mk 15 Phalanx: a gun and nothing else, on a 3 m stack node.
+    ///
+    /// <para><b>The one launcher here that carries no missiles at all.</b> <c>Tubes</c> is empty,
+    /// so <see cref="LauncherProfile.TubeCount"/> is zero and the magazine holds nothing — every
+    /// path that reaches for a round has to cope with there being none.</para>
+    ///
+    /// <para>It still trains: the housing traverses and the barrels elevate, so
+    /// <see cref="LauncherProfile.Trains"/> is true and fire control waits for it to settle. What
+    /// it has no pods marker for is a launcher assembly, because there is not one.</para>
+    ///
+    /// <para>Traverse and elevation limits are the real mount's. Geometry generated by
+    /// <c>tools/model/ciws.py</c>.</para>
+    /// </summary>
     public static readonly LauncherProfile Ciws = new()
     {
         PartId = "KSArmory_Prefab_Ciws",
@@ -586,10 +586,9 @@ public static class Arsenal
     /// <summary>
     /// The same lookup against an explicit registry.
     ///
-    /// <para>Exists so the selection logic can be tested with <em>several</em> launchers
-    /// registered. With one entry every registry assertion is trivially satisfied and cannot
-    /// distinguish "picks the right one" from "picks the only one" — and the mod ships with one
-    /// launcher, so that is the state the suite would otherwise be stuck in forever.</para>
+    /// <para>Exists so the selection logic can be tested against a registry of any size. With one
+    /// entry every registry assertion is trivially satisfied and cannot distinguish "picks the
+    /// right one" from "picks the only one".</para>
     /// </summary>
     internal static LauncherProfile? LauncherForPart(IReadOnlyList<LauncherProfile> from, string? partId)
     {

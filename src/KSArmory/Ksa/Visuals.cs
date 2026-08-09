@@ -72,9 +72,9 @@ internal static class Visuals
     ///
     /// <para>A tracer is one round in nineteen, which is how a belt is loaded and what
     /// <see cref="TracerTrail"/> can afford: an emitter is held for its shell's whole flight and
-    /// there are eight of them against a hundred and fifty rounds in the air. The other eighteen
-    /// were drawn as nothing, so a firing CIWS showed a handful of bright streaks through empty
-    /// sky rather than a stream of fire.</para>
+    /// there are eight of them against a hundred and fifty rounds in the air. Without this the
+    /// other eighteen are drawn as nothing, and a firing CIWS reads as a handful of bright streaks
+    /// through empty sky rather than as a stream of fire.</para>
     ///
     /// <para>A short segment along each shell's own flight, not a point and not a trail. A point
     /// reads as a ball because a round moves further between frames than any believable radius; a
@@ -117,7 +117,7 @@ internal static class Visuals
         // Drawing the cone at its true range makes it useless to look at: 20 km of thin lines
         // all radiating from one point, converging at the horizon. Draw a scaled-down shape
         // near the craft instead - it shows the *direction and angle* the radar covers, which
-        // is what you actually want to see. The range readout lives in the panel.
+        // is what the overlay is for. The range readout lives in the panel.
         double range = Math.Min(sensor.Range, config.ConeDisplayMetres);
         double half = sensor.ConeHalfAngleRad;
 
@@ -167,8 +167,8 @@ internal static class Visuals
                 KsaWorld.DrawLineEgo(originEgo, endEgo, colour);
             }
 
-            // Where this contact will pass us, if it holds course. Opt-in: the prediction can
-            // land kilometres from anything on screen, where it just looks like a stray dot.
+            // Where this contact passes the launcher, if it holds course. Opt-in: the prediction
+            // can land kilometres from anything on screen, where it just looks like a stray dot.
             if (config.DrawClosestApproach)
             {
                 double3 cpa = track.PositionEcl + (track.VelocityEcl - KsaWorld.VelocityEcl(battery.Platform!))
@@ -231,8 +231,8 @@ internal static class Visuals
 
         // Through the launcher's own mounting, not the vehicle's alone. The barrels are drawn in
         // the part frame; a line converted from the vehicle frame is out by the part's rotation,
-        // which on a stack mount is a half turn -- so the line pointed the opposite way to the gun
-        // it was supposed to be reporting.
+        // which on a stack mount is a half turn, pointing the line the opposite way to the gun it
+        // reports.
         if (battery.Launcher is not { } launcher) return;
         if (!LauncherPart.TryLauncherDirectionEcl(platform, launcher, facingPart, out double3 facingEcl)) return;
 
@@ -242,9 +242,8 @@ internal static class Visuals
 
     private static void DrawRounds(IWeaponSystemView battery, Config config)
     {
-        // A 6 m tracer sphere was the right size when it *was* the round. Now that the rounds
-        // are real 3 m bodies, that sphere simply swallows them - so it is only drawn when
-        // there is nothing better to show, or when asked for.
+        // A 6 m tracer sphere swallows the real 3 m round bodies, so it is only drawn when there
+        // is nothing better to show, or when asked for.
         bool haveBodies = battery.RoundBodiesWork && battery.RoundBodyCount > 0;
 
         foreach (IProjectile round in battery.Rounds)
@@ -256,10 +255,10 @@ internal static class Visuals
             // What is actually on screen, measured where it is actually drawn.
             //
             // The same comparison made in Detonate is a frame stale: that runs in the frame
-            // hook, while the draw anchor is established here in the GUI hook, so it carried a
-            // whole step of ecliptic motion - ~660 m - and reported it as a rendering error.
-            // Here the anchor and the target's draw position come from the same pass, so a
-            // difference is real. It should be the miss distance, not hundreds of metres.
+            // hook, while the draw anchor is established here in the GUI hook, so it carries a
+            // whole step of ecliptic motion, ~660 m, and reads as a rendering error. Here the
+            // anchor and the target's draw position come from the same pass, so a difference is
+            // real. It should be the miss distance, not hundreds of metres.
             if (Log.Threshold <= Log.Level.Debug && ++_drawTrace % 30 == 0
                 && round.TargetRef is Vehicle drawn && KsaWorld.IsAlive(drawn)
                 && KsaWorld.TryVehicleEgo(drawn, out double3 targetEgo))

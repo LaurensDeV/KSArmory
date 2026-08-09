@@ -146,8 +146,8 @@ internal static class Diagnostics
 
                 // Samples, not frames: this is fed once per system per frame, so two crewed
                 // systems double it. And the dump interval is simulated time, so at 0.01x the
-                // window is a hundred times longer in wall clock and can span a speed change --
-                // which makes the spread of such a line meaningless. Read it at one speed.
+                // window is a hundred times longer in wall clock and can span a speed change,
+                // which makes the spread meaningless. The line only compares at one speed.
                 Log.Debug($"  step    = {_stepMin * 1000.0:F2}..{_stepMax * 1000.0:F2} ms over "
                          + $"{_stepSamples} samples, spread {spread * 1000.0:F2} ms "
                          + $"({(_stepMax > 0.0 ? spread / _stepMax * 100.0 : 0.0):F1}%), "
@@ -189,7 +189,7 @@ internal static class Diagnostics
     }
 
     // Checks the pieces the gizmo overlay depends on. If the renderer or camera is missing, nothing
-    // we submit can ever appear.
+    // submitted can ever appear.
     private static void DumpRendering(IWeaponSystemView battery)
     {
         bool hasRenderer = Program.GizmosRenderer is not null;
@@ -224,7 +224,7 @@ internal static class Diagnostics
 
                 // GetPositionEgo only takes its exact, physics-based path when the camera is
                 // following this vehicle (or one sharing its bubble). Otherwise it falls back
-                // to the analytic position and the anchor buys us nothing.
+                // to the analytic position and the anchor buys nothing.
                 object? following = camera.Following;
                 string followName = following switch
                 {

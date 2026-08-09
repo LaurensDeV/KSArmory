@@ -98,8 +98,8 @@ public class HorizonTests
     [Fact]
     public void ANegativeMarginCannotOpenUpTheHorizon()
     {
-        // Otherwise a mistyped setting would let a sensor see through the planet, which is the
-        // bug this whole change exists to stop.
+        // Otherwise a mistyped setting lets a sensor see straight through the planet, which is
+        // what the masking exists to stop.
         var centre = Vec.Zero;
         var eye = new double3(Earth + 10.0, 0, 0);
         var far = new double3(-(Earth + 10.0), 0, 0);

@@ -3,17 +3,16 @@
 What the engine does with cameras, read out of the decompiled sources rather than inferred from
 this mod's behaviour. Every claim carries a `file:line` into `../ksa-game-assemblies/current/src`.
 
-**Read this before writing to a camera.** `Ksa/KsaWorld.cs` and `docs/BLOCKED-ON-KSA.md` both
-carried a confident and wrong account of Fixed mode for as long as this mod has driven a camera,
-and it cost four crashes across one afternoon: the belief was that Fixed and following are an
-illegal pair, when Fixed *requires* something to follow and the fault was an unset
-`CameraRotation`. Neither the mod's code nor its docs are evidence about the engine.
+**Read this before writing to a camera.** Fixed mode *requires* something to follow: Fixed with a
+non-null `Following` is the working combination, and a crash in that state is an unset
+`CameraRotation` (§4.5, trap 1) rather than an illegal pairing. Neither this mod's code nor its
+docs are evidence about the engine — only the corpus is.
 
-Nine citations were checked against the source by hand, spanning both halves — the per-viewport
-render loop, `NearbyCelestial` assignment, `ClampCamera`, `SetFieldOfView`, `GetFrame2Ecl`,
+Nine citations are verified against the source, spanning both halves — the per-viewport render loop,
+`NearbyCelestial` assignment, `ClampCamera`, `SetFieldOfView`, `GetFrame2Ecl`,
 `OrbitController.OnFrame`'s early return, the unguarded `OrbitView` dereference, `MeanRadius` as a
-divisor, and `changeControl`. All nine said what they were said to say. The rest are unverified in
-the same way, which is why they are cited: check before relying on one.
+divisor, and `changeControl`. The rest are unverified, which is why they are cited: check before
+relying on one.
 
 ---
 
@@ -115,8 +114,8 @@ the other three do not.
 and does nothing (`Viewport.cs:347-363`). **A viewport in `Fixed` mode can only be taken out of it by
 an explicit `SetCameraMode` call** — the player's camera-mode key cannot.
 
-Writing `Viewport.Mode` **directly** bypasses `OnSwitchOff`/`OnSwitchOn` entirely. That is how you
-skip `FixedController`'s `TimedAlert`, but it also skips `MapController`'s `Camera.NoRotation`
+Writing `Viewport.Mode` **directly** bypasses `OnSwitchOff`/`OnSwitchOn` entirely. That is the route
+past `FixedController`'s `TimedAlert`, but it also skips `MapController`'s `Camera.NoRotation`
 bookkeeping (`MapController.cs:535`, `:573`) and `IVAController`'s seat/`LastFollowing` setup.
 
 ---
@@ -480,7 +479,7 @@ There is **no `Program.GetFixedController()`** — `Program` exposes accessors o
   **part module on a vehicle**, not a character attachment (`IVASeat.cs:7`, `:53-69`).
 - `CharacterAvatar` (`KSA/KSA/CharacterAvatar.cs:11`) is a pure render description — core mesh, fur,
   attachments, expressions, animations, personality. **It has no camera, no head transform, no look
-  direction, and no reference to `Camera` at all.** Grepping the file for `Camera` finds nothing.
+  direction, and no reference to `Camera` at all.** The identifier `Camera` does not occur in the file.
 - Bone transforms exist: `AnimatedRenderable.GetBoneTransform(int)` and `GetBonePosition(int)`
   (`KSA/KSA/AnimatedRenderable.cs:214-231`), returning `Skeleton.WorldTransformList[i] * Transform`.
   But `Transform` is set to a **camera-relative (Ego) `float4x4`** during rendering
@@ -511,7 +510,7 @@ the camera driving the kitten's movement frame, not the other way round.
   `Vehicle.GetBodyFixed2Ecl()` is `Body2Cce` (`Vehicle.cs:1221-1224`); `Asmb2Cce`/`Body2Ego`/`Asmb2Ego`
   are all the same quaternion (`Vehicle.cs:460-494`).
 - Or declaring an `<IVASeat>` on a mod part and using real IVA mode — but that requires the seat to be
-  on a vehicle's part tree, and `IVAController` fights you if the vehicle has no seats
+  on a vehicle's part tree, and `IVAController` refuses a vehicle with no seats
   (`IVAController.cs:164-168`).
 
 `KittenEva.UpdateHighlight` (`:199-226`) is worth noting: kitten hover-picking is disabled unless
@@ -567,8 +566,8 @@ class (`WreckageMarker.cs:6-123`) that is *not* an `Astronomical`, is never regi
 (`Universe.cs:1722-1732`). Its `GetPositionEcl` (`:85-93`) recomputes from either a body-fixed
 coordinate or an orbit sample each call, and `GetVelocityEcl` (`:105-108`) just returns the parent's.
 Every consumer of `Camera.Following` in the tree is interface-typed or uses `as`/`is` — nothing
-downcasts to `Astronomical` unguarded (checked: `Astronomical.cs:458-461`, `Program.cs:3377-3378`,
-`LocationMusicPlayer.cs:30-45`, `PhysicalAtmosphereReference.cs:61-64`,
+downcasts to `Astronomical` unguarded (the call sites are `Astronomical.cs:458-461`,
+`Program.cs:3377-3378`, `LocationMusicPlayer.cs:30-45`, `PhysicalAtmosphereReference.cs:61-64`,
 `KSA.Rendering.Lighting/CascadedShadowSystem.cs:303-319`, `Universe.cs:1952-1962`).
 
 #### Requirements on a mod's `IFollowable`, from the call sites
@@ -676,12 +675,11 @@ throws. There is no try/catch in the frame loop, so the process dies.
 does the same search and gets it right by testing both flags. The fix upstream is a matching
 guard — `Count(v => v.Visible || v.IsOffscreen)`, or `FirstOrDefault` with a null check.
 
-Observed in flight on 2026.08.08 while adding a fourth camera window, with the stack ending
-`Enumerable.First → Program.DrawMenuBar → OnDrawUiThreadSafe → App.Run`. The frame carried
-`DrawMenuBar_Patch1`, ModMenu's Harmony transpile, but the throwing statement is KSA's own inside
-the View menu and the splice only inserts a `BeginMenu`/`EndMenu` pair — nothing in it touches the
-viewport list. **This is a reason to prefer the main-view optic** (`Ksa/SightCamera.cs`) over
-asking a player to open windows they have very few of.
+The stack is `Enumerable.First → Program.DrawMenuBar → OnDrawUiThreadSafe → App.Run`. ModMenu's
+Harmony transpile of `DrawMenuBar` appears in it as `DrawMenuBar_Patch1` and is not the cause: the
+throwing statement is KSA's own inside the View menu, and the splice only inserts a
+`BeginMenu`/`EndMenu` pair, touching nothing in the viewport list. **This is a reason to prefer the
+main-view optic** (`Ksa/SightCamera.cs`) over asking a player to open windows they have very few of.
 
 Non-crashing misbehaviour worth the same attention:
 
@@ -693,10 +691,10 @@ Non-crashing misbehaviour worth the same attention:
   reference frame not read at all** — so for a mod's own `IFollowable` the axis is ecliptic +Z and
   the horizon is level only where the ecliptic pole, the local vertical and the view happen to be
   coplanar. Roll rate under a sweep is `ω̇·cot θ` with θ the angle from that axis, so a view
-  passing near the pole rolls hard: measured at up to 1094 °/s across a sweep of site
-  orientations. Nothing on `Camera`, `OrbitView`, `CameraOffset`, `CameraRotation`,
-  `TidalLocking` or `Parent` overrides it, and `Camera.LocalRotation` written directly is
-  overwritten by the controller in the viewport pass before any mod hook runs.
+  passing near the pole rolls hard — up to 1094 °/s across a sweep of site orientations. Nothing on
+  `Camera`, `OrbitView`, `CameraOffset`, `CameraRotation`, `TidalLocking` or `Parent` overrides it,
+  and `Camera.LocalRotation` written directly is overwritten by the controller in the viewport pass
+  before any mod hook runs.
 
   The seam that does work: `Viewport.FixedController` is a **public, writable field**,
   `FixedController` is public and unsealed with a public constructor, and `OnFrame` is virtual.
@@ -730,37 +728,37 @@ Non-crashing misbehaviour worth the same attention:
 
 ### 8. Unresolved
 
-Things I could not establish from the source, and what would settle each:
+Not established from the source, and what would settle each:
 
-1. **Whether `TidalLocking` has any effect.** It is written, saved and displayed but I found no reader
-   that changes behaviour (`Camera.cs:160`, `:612`, `:849-852`; consumers at `Program.cs:3288`,
+1. **Whether `TidalLocking` has any effect.** It is written, saved and displayed, and no reader in the
+   corpus changes behaviour on it (`Camera.cs:160`, `:612`, `:849-852`; consumers at `Program.cs:3288`,
    `DockingEvent.cs:23`, `Universe.cs:2237`, `MapController.cs:254` all just pass it through). Settle by
    toggling it in game and watching whether a landed craft's camera stops following the surface.
 2. **Whether a `Celestial` can have a null `Orbit`.** `Celestial.Orbit` is `{get;set;}`
    (`Celestial.cs:71`) and `IOrbiter.Orbit` is declared non-nullable (`IOrbiter.cs:16`). If it can be
    null, `GetCarousel2Cce` NREs. Settle by dumping `Orbit` for every body in `Universe.CurrentSystem`.
 3. **Whether `Vehicle.GetPositionEcl()` and the drawn position ever disagree by enough to matter for a
-   camera.** I established that `GetPositionEcl` is the analytic value (`Vehicle.cs:2449-2455`) and that
-   `Camera.GetPositionEgo` has a physics branch (`Camera.cs:237-243`), but I did not trace how far apart
-   `PositionPhys`-in-bubble and the analytic state can drift. Settle by logging both for a landed craft.
+   camera.** `GetPositionEcl` is the analytic value (`Vehicle.cs:2449-2455`) and `Camera.GetPositionEgo`
+   has a physics branch (`Camera.cs:237-243`); how far apart `PositionPhys`-in-bubble and the analytic
+   state can drift is untraced. Settle by logging both for a landed craft.
 4. **Whether `KittenEva` instances actually carry `IVASeat` modules** in shipped content. The class
    supports parts (`KittenEva.cs:47-56`) but the part templates are game content XML, which is not in
    the decompiled corpus. Settle by inspecting `Content/Core/**` in the install.
 5. **Whether writing `Viewport.Visible = true` on viewports 2/3 is enough**, or whether something else
    (a render target rebuild, `NewSize`) must happen first. `DockingPort.cs:185-186` sets `Visible` and
-   `NewSize` together and the rebuild happens in `OnFrameViewports` (`Program.cs:2275-2282`), but I did
-   not confirm the first frame renders correctly. Settle by trying it.
+   `NewSize` together and the rebuild happens in `OnFrameViewports` (`Program.cs:2275-2282`); whether
+   the first frame renders correctly is unconfirmed. Settle by trying it.
 6. **What happens to a `Fixed` viewport when the game is paused or time-warping.** `Viewport.OnFrame`
    gets `dtPlayer` (`Program.cs:2284`) and `FixedController.OnFrame` does not use `dt` at all, so it
    should keep tracking — but `Following.GetPositionEcl()` is only refreshed when the solvers run
-   (`Program.cs:1911-1912`). Not verified in flight.
+   (`Program.cs:1911-1912`). Unverified in flight.
 7. **`Camera.NoRotation` semantics for `Fixed`.** Nothing sets `BaseCamera.NoRotation = true` except
    `MapController` on `MapCamera` (`MapController.cs:535`), and `OrbitController` clears it every frame
-   (`OrbitController.cs:617`, `:625`). Whether a mod would ever want it true in `Fixed` mode I could not
-   determine from the source.
-8. **Whether the StarMap loader offers any hook earlier than the `Program.OnFrame` postfix** — I only
-   found the four attributes in `StarMap.API/StarMap.API/` (`BeforeGui`, `AfterGui`, `AfterOnFrame`,
-   plus lifecycle) and their patches in `ProgramPatcher.cs`. `BeforeGui` is a prefix on
+   (`OrbitController.cs:617`, `:625`). Whether a mod would ever want it true in `Fixed` mode is not
+   determinable from the source.
+8. **Whether the StarMap loader offers any hook earlier than the `Program.OnFrame` postfix.** The
+   loader's whole surface is the four attributes in `StarMap.API/StarMap.API/` (`BeforeGui`, `AfterGui`,
+   `AfterOnFrame`, plus lifecycle) and their patches in `ProgramPatcher.cs`. `BeforeGui` is a prefix on
    `OnDrawUiFrame`, which is **after** `OnFrameViewports` (`Program.cs:1989` vs `:1993`), so it is no
    earlier for this purpose. A Harmony prefix on `Viewport.OnFrame` from the mod itself would be, but
    that is a patch, not an API.
@@ -810,7 +808,7 @@ _renderedViewportIndex = _mainViewportIndex;                            // Progr
 
 ### A. Why a secondary viewport shows stars, a hard horizon and a grey ball
 
-**The reported symptom is accurate and structural, not a state bug.** It is two separate facts:
+**That picture is structural, not a state bug.** It is two separate facts:
 
 #### A.1 What `RenderViewport` actually runs (`Program.cs:3967-4070`)
 
@@ -1303,27 +1301,27 @@ Per-viewport picking must use `viewport.GetCamera().ScreenToEgoRay(...)` directl
   transitions `PlanetAtmosphereRenderer.AmbientTarget`, `SkyColorRgbTransmittanceR` and
   `SkyTransmittanceGb` (`Program.cs:3991-3993`, `4034-4036`) and runs `_sunbloomRenderer.Render`
   (`:4040`), which samples them. Whether any visible sky tint results, or only the sun-flare/bloom effect,
-  needs the shader source (`SunbloomRenderer`'s GLSL) or an in-game look. I did not read the `.vert`/`.frag`
-  files — they are game content, not in the decompiled `src` tree.
+  needs the shader source (`SunbloomRenderer`'s GLSL) or an in-game look. The `.vert`/`.frag` files are
+  game content and are not in the decompiled `src` tree.
 - **Whether `Brutal.ShaderC` compiles at load or caches SPIR-V to disk.** `ShaderReference.Compile` calls
-  `ShaderModuleUtils.FromFile` (`ShaderReference.cs:105`); I did not open
-  `Brutal.Render.Common`/`Brutal.ShaderC` to see whether `FromFile` has a pipeline/SPIR-V cache. The
-  observable fact — that GLSL source ships with the game and is compiled by shaderc at runtime — is
-  established either way. Reading `Brutal.Render.Common/.../ShaderModuleUtils.cs` would settle it.
+  `ShaderModuleUtils.FromFile` (`ShaderReference.cs:105`); whether `FromFile` has a pipeline/SPIR-V cache
+  is untraced in `Brutal.Render.Common`/`Brutal.ShaderC`. The observable fact — that GLSL source ships
+  with the game and is compiled by shaderc at runtime — holds either way. Reading
+  `Brutal.Render.Common/.../ShaderModuleUtils.cs` would settle it.
 - **Whether a mod's `<Shader>` element actually survives `ModLibrary.LoadAll()` from a non-Core mod.**
   The XML element exists (`AssetBundle.cs:21`) and `ShaderReference` resolves `ModPath` against its owning
-  `Mod` (`ShaderReference.cs:88-92`), but I did not trace `ModLibrary.LoadAll` / `DoLoad` ordering to
-  confirm shaders from a late-loading mod are compiled before pipelines that might reference them. Testing
-  it in game, or reading `KSA/KSA/ModLibrary.cs` load ordering, would settle it.
+  `Mod` (`ShaderReference.cs:88-92`). `ModLibrary.LoadAll` / `DoLoad` ordering is untraced, so whether
+  shaders from a late-loading mod are compiled before pipelines that might reference them is unconfirmed.
+  Testing it in game, or reading `KSA/KSA/ModLibrary.cs` load ordering, would settle it.
 - **Whether `0Harmony.dll` is redistributed with StarMap or expected beside it.** `StarMap.Core` uses
   `HarmonyLib` (`ProgramPatcher.cs:3`) but no Harmony assembly is in the mirrored game/loader DLL set
   (`current/dll/`). Checking the actual StarMap install directory would settle it.
 - **Exact pixel threshold at which the distant sphere replaces the sprite for the home body.**
   `num4 > 2.0` flags the sphere and `num4 > 6.0` suppresses the sprite
   (`StaticCelestialDistanceRendering.cs:371-375`); `SpriteSphereBlend` governs the crossfade
-  (`:381`, `DistantSphereRenderer.cs:80`). I did not read `SpriteSphereBlend`'s body.
+  (`:381`, `DistantSphereRenderer.cs:80`), and its body is unread.
 - **What `RenderedViewport` is during `UpdateRenderingResources`'s `SunShadowSystem.UpdateUniforms` /
   `_cascadedShadowSystem.UpdateUniforms` calls (`Program.cs:3865-3866`).** By inspection it is the main
   viewport (`RenderGame` restores `_renderedViewportIndex = _mainViewportIndex` at `:4114` and
   `UpdateRenderingResources` runs before `RenderGame`), but `_renderedViewportIndex` is also written by
-  `RenderViewport` (`:3969`) and I did not trace the very first frame. It does not change any conclusion.
+  `RenderViewport` (`:3969`) and the very first frame is untraced. It does not change any conclusion.

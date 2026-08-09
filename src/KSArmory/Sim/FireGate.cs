@@ -40,8 +40,8 @@ public static class FireGate
     /// <para>The envelopes overlap — 200–4000 m for the cannon against 1200–20000 m for the
     /// missiles — and inside that band the turret can only point at one solution. A missile
     /// launched along the tube in that state leaves ~18° off for a 300 m/s crosser. Proportional
-    /// navigation recovers, which is exactly why nothing measured it: the intercepts still
-    /// landed, out of a launcher aimed somewhere else.</para>
+    /// navigation recovers well enough that the intercept still lands, so nothing on screen shows
+    /// the round leaving a launcher aimed somewhere else.</para>
     ///
     /// <para>The cannon win the overlap rather than the missiles because the lead is only applied
     /// when the guns can actually take the shot, and a missile held for one pass is cheaper than

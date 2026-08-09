@@ -1,6 +1,6 @@
 # KSA modding notes
 
-Everything here was read out of the shipped assemblies of **KSA build 2026.8.5.5168** with
+Everything here comes out of the shipped assemblies of **KSA build 2026.8.5.5168**, read with
 `tools/apidump`, or out of the StarMap sources. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
@@ -36,8 +36,8 @@ EntryAssembly = "KSArmory"     # StarMap loads "<EntryAssembly>.dll"
 ```
 
 StarMap loads that assembly and instantiates **the first type carrying `[StarMapMod]`** — the
-class name is irrelevant, despite what some docs say. It then dispatches to attributed methods.
-Signatures are validated, and a mismatch means the hook is silently skipped:
+class name is irrelevant. It then dispatches to attributed methods. Signatures are validated,
+and a mismatch means the hook is silently skipped:
 
 | Attribute | Required signature | When |
 | --- | --- | --- |
@@ -65,8 +65,8 @@ not port automatically is **when the hooks fire**, and that is load-bearing:
 | Simulated, not player, time available | Everything steps on `Universe.GetLastSimStep()`. A loader that only offers a wall-clock delta is not sufficient — see `SimClock`. |
 
 The first is the dangerous one: a loader without a pre-render hook leaves the mod **compiling,
-loading and silently drawing nothing**, with no error anywhere. If that happens, the fallback is
-Harmony-patching `Program.OnDrawUiViewports` directly, which is what StarMap does on our behalf.
+loading and silently drawing nothing**, with no error anywhere. The fallback there is
+Harmony-patching `Program.OnDrawUiViewports` directly, which is what StarMap does for the mod.
 
 **Only the code half needs a loader.** `mod.toml`'s `assets` array, the part XML, meshes and
 textures are KSA's own content system: without any loader the part still appears in the editor and
@@ -169,17 +169,17 @@ with no rotation. That means you can do all your maths in `Ecl` and convert once
 Absolute `Ecl` coordinates run to ~1e11 m; `double` still resolves ~20 µm there, so differencing
 two world positions is safe.
 
-#### Ecl is absolute — three bugs came from forgetting that
+#### Ecl is absolute
 
 Near Earth, ecliptic **position** sweeps past at ~29.8 km/s and ecliptic **velocity** is dominated
 by that same solar orbit. Anything that treats an Ecl value as local is wrong, and the failures
 look nothing alike:
 
-| Symptom | Cause |
+| Mistake | What it looks like |
 | --- | --- |
-| Missiles flew 84 km in a straight line, drag-limited to ~1.1 km/s, seeker lock broken instantly | Used `VelocityEcl` as airspeed and as a heading. Drag saw Mach 87; the seeker compared line-of-sight against Earth's orbital vector |
-| Telemetry read "flew 650 km, speed 29 km/s" | Measured distance and speed against the absolute frame |
-| Whole gizmo overlay drawn ~500 m from the craft | Differenced an Ecl position captured during the frame update against one re-read at draw time — one frame apart, and 29800/60 = 497 m |
+| `VelocityEcl` used as airspeed and as a heading | Drag sees Mach 87 and the seeker compares line-of-sight against Earth's orbital vector, so a missile flies 84 km in a straight line, drag-limited to ~1.1 km/s, with seeker lock broken instantly |
+| Distance and speed measured against the absolute frame | Telemetry reads "flew 650 km, speed 29 km/s" |
+| An Ecl position captured during the frame update differenced against one re-read at draw time | The two are one frame apart, and 29800/60 = 497 m, so the whole gizmo overlay draws ~500 m from the craft |
 
 Rules that follow:
 
@@ -189,16 +189,16 @@ Rules that follow:
 - **Never difference Ecl positions captured at different instants.** Capture one reference at the
   same moment as everything else and difference against that.
 
-The regression test `EngagementIsUnchanged_WhenCarriedByAFastMovingFrame` pins the first two: an
-engagement offset by 29.8 km/s must produce an identical result.
+`EngagementIsUnchanged_WhenCarriedByAFastMovingFrame` pins the first two mistakes: an engagement
+offset by 29.8 km/s must produce an identical result.
 
 #### Drawing gizmos on a craft
 
 Use `camera.GetPositionEgo(vehicle)` as an anchor and add Ecl offsets to it. Do **not** use
 `camera.EclToEgo(vehicle.GetPositionEcl())` as an anchor for geometry captured at another time.
 
-Part-relative geometry should go through the part's own transform rather than being rebuilt from
-a boresight and an arbitrary perpendicular — the latter gives a correctly-sized ring at a random
+Part-relative geometry goes through the part's own transform rather than being rebuilt from a
+boresight and an arbitrary perpendicular — the latter gives a correctly-sized ring at a random
 rotation:
 
 ```csharp
@@ -235,7 +235,7 @@ foreach (var h in handles) { var e = h.TryGet(); ...; body.AddEmitter(h); }
 `GetAndInitializeEmitters` resolves through `ModLibrary`, so **a mod's own emitter Id works as well
 as Core's** — no editing Core, no borrowing its assets.
 
-Four things worth knowing:
+Worth knowing:
 
 - **Host it on a `Celestial`, not on a vehicle,** for anything in mid-air. `Vehicle.AddEmitter` and
   `Celestial.AddEmitter` are both public, and the obvious host for a warhead — the target — is the
@@ -252,9 +252,9 @@ Four things worth knowing:
   `<Opacity>` (Core's own uses 0.05) accumulates instead — individual particles stop being visible
   and what is left is the density where they overlap.
 - **Nest child emitters inline, not by Id.** Core's `Debug_SphericalBurst` composes with
-  `<ParticleEmitters Id="Billboard"/>`, but doing that from a mod threw *"Invalid renderer type"* —
+  `<ParticleEmitters Id="Billboard"/>`, but that form from a mod throws *"Invalid renderer type"* —
   the hardcoded message `ParticleSystem` uses when an emitter in the tree has no renderer, i.e. the
-  by-Id child did not resolve back to its definition. Inline `<ParticleEmitters>` blocks are the
+  by-Id child does not resolve back to its definition. Inline `<ParticleEmitters>` blocks are the
   form every emitter Core uses in play, and they work.
 - **`Volumetric` is the screen-space renderer and is OFF by default.**
   `ParticleSystem.WriteCommandsColorTranslucent` only issues its draw commands when
@@ -392,9 +392,8 @@ mod's XML can instance Core's subparts and materials by Id — **no mesh atlas, 
 Blender**.
 
 **Confirmed in-game.** A mod's `<SubPart InstanceOf="CoreStructuralA_Subpart_TubeA">` renders
-with Core's material, shipping no art at all. This repo's launcher was built entirely that way
-before it became a Pantsir, and it is still the right answer for anything that can be assembled
-out of Core's kit. `tools/validate-parts.py` checks every reference resolves.
+with Core's material, shipping no art at all. That is the right answer for anything that can be
+assembled out of Core's kit. `tools/validate-parts.py` checks every reference resolves.
 
 ## Shipping your own art
 
@@ -450,8 +449,7 @@ library of bodies in their own local frames**, and placement lives entirely in t
 `tools/model/checkswept.py`.
 - **`AoRoughMetal` is R=occlusion, G=roughness, B=metalness** (glTF ORM). Core's own
   `Textures/default_pbr.png` is `(255, 180, 0)` and `EmptyAoRoughMetallic.png` is
-  `(255, 255, 0)`: unoccluded, rough, non-metal. *An earlier revision of these notes had this
-  backwards.*
+  `(255, 255, 0)`: unoccluded, rough, non-metal.
 - A slot can reference a `<Texture Id>` from `DefaultAssets.xml` instead of a path —
   `<Normal Id="EmptyNormal"/>`.
 - **Put the Assets XML at the mod root**, next to `Meshes/` and `Textures/`. Whether relative
@@ -546,8 +544,7 @@ render systems.
 
 ## Sound: reachable, and shipped the same way art is
 
-Read out of the engine, not tried yet. Recorded because "can a mod make a noise" is otherwise a
-day of decompiling, and the answer turns out to be yes on every axis that matters.
+A mod can make a noise, on every axis that matters.
 
 **The API is public and imperative.** `KSA.GameAudio` exposes `PlaySound(SoundEvent, SpatialAudio,
 out IChannel?, IAudio? parent, float volume, bool startPaused)` as a static, plus `Register(IAudio)`
@@ -556,16 +553,17 @@ so a mod object can be driven by the engine's own `UpdateAudio` pass. `CreateFmo
 
 **`SpatialAudio` is in Ego, and carries velocity and pressure.** Its constructor is
 `(double3 posEgo, double3 velEgo, double atmosphericPressure)`. So it wants the same frame the mod
-already converts to for drawing — `KsaWorld.TryEclToEgo` — and *needs* the velocity, which means
-Doppler is the engine's job rather than ours. Pressure is a parameter, so thinning air is modelled.
+already converts to for drawing — `KsaWorld.TryEclToEgo` — and *needs* the velocity, which makes
+Doppler the engine's job rather than the mod's. Pressure is a parameter, so thinning air is
+modelled.
 
 **A mod can ship its own audio, by relative path, exactly like a mesh atlas.** `Core/Sounds.xml`
 declares `<SoundFile Path="Sounds/EngineDefault.wav">` alongside `<SpatialSoundData>`,
 `<SoundGroup>` and `<SoundBehavior>`, and the files are plain `.wav` and `.ogg` under
-`Core/Sounds/`. That is the same shape as `<MeshAtlas Path="Meshes/…">`, which this mod has
-already proved works from a user mod — so the loader contract is known-good.
+`Core/Sounds/`. That is the same shape as `<MeshAtlas Path="Meshes/…">`, which works from a user
+mod — so the loader contract is known-good.
 
-**The declarative route is for parts, not for us.** Core hangs engine noise off
+**The declarative route is for parts only.** Core hangs engine noise off
 `<SoundEvent Action="On" SoundId="DefaultEngineSoundBehavior" />` inside `<PartGameData>`, driven
 by the part's engine module. A self-simulated round is not a part with an engine, so that path is
 closed and `GameAudio.PlaySound` is the one to use.
@@ -631,10 +629,10 @@ ilspycmd -t KSA.Camera Import/KSA.dll
 Method not found: 'System.Net.HttpStatusCode System.Net.Http.HttpResponseMessage.get_StatusCode()'
 ```
 
-Everything about that is checkable and all of it checks out. The runtime loads
-`C:\Program Files\Kitten Space Agency\System.Net.Http.dll` (10.0.0.0) — logged from inside the
-mod, not assumed — and decompiling that exact file shows `public HttpStatusCode StatusCode`
-present and untrimmed. No second copy is deployed beside the mod, and the game ships
+Everything about that is checkable, and all of it checks out. The runtime loads
+`C:\Program Files\Kitten Space Agency\System.Net.Http.dll` (10.0.0.0) — the mod logs which
+assembly it gets — and that file decompiles to `public HttpStatusCode StatusCode`, present and
+untrimmed. No second copy is deployed beside the mod, and the game ships
 `System.Net.Primitives.dll` too.
 
 So the assembly is right and the member is there. What is left is **type identity**: the exception
@@ -645,9 +643,9 @@ between the compile-time reference and StarMap's load context would look like.
 it actually has, and works. `Ksa/FeedbackClient.cs` does exactly that and logs the assembly it
 found, so if a future build fixes this the log will say so.
 
-The general shape is worth remembering: a BCL member whose **return type comes from a different
-BCL assembly** is the one at risk. Nothing about the call site looks dangerous, it compiles
-against the reference assemblies without complaint, and it fails only in game.
+The general shape: a BCL member whose **return type comes from a different BCL assembly** is the
+one at risk. Nothing about the call site looks dangerous, it compiles against the reference
+assemblies without complaint, and it fails only in game.
 
 ## Particles
 
@@ -663,10 +661,10 @@ the session from wherever its origin was left.
 last particles out, unregisters and calls `ResetEmitter`, which is what makes the slot acquirable
 again. So the release path is `Kill()` **then** `RemoveEmitter`, in that order.
 
-Seen in game as particles frozen in mid-air along the path of whatever the emitter was following,
-and a gun that keeps a small fire burning on its muzzles after it has stopped shooting. The second
-symptom of the same fault is invisible until it is fatal: the pool bleeds one emitter per effect
-and eventually nothing in the world can spawn particles at all.
+Skipping the `Kill()` shows in game as particles frozen in mid-air along the path the emitter was
+following, and as a gun keeping a small fire burning on its muzzles after it stops shooting. The
+third consequence of the same fault is invisible until it is fatal: the pool bleeds one emitter
+per effect, and eventually nothing in the world can spawn particles at all.
 
 ### An emitter cannot throw particles in a direction of your choosing
 

@@ -80,7 +80,7 @@ internal sealed class Slug : IProjectile
     /// What decides whether this round actually met a body, supplied by the caller each frame.
     ///
     /// <para>Null in a world with no geometry to ask — the test project is one — and then the
-    /// bounding sphere stands, which is what a round did before there was anything better.</para>
+    /// target's bounding sphere is what decides it.</para>
     ///
     /// <para>Deliberately not on <see cref="IProjectile"/>. Requiring a strike is what makes this
     /// round kinetic; a proximity-fused warhead must keep bursting near things, and putting the

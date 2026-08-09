@@ -20,8 +20,8 @@ internal sealed class MotorSound(Config config)
 {
     private readonly Config _config = config;
 
-    // Core's engine loop. Ours until the mod ships its own sample; it resolves on every install,
-    // which a mod-supplied Id does not until the asset is actually there.
+    // Core's engine loop, standing in until the mod ships its own sample: it resolves on every
+    // install, which a mod-supplied Id does not until the asset is actually there.
     private const string DefaultMotorId = "DefaultEngineSoundBehavior";
 
     // Core's engine loop is driven by a Throttle parameter, and everything about how it sounds
@@ -33,8 +33,8 @@ internal sealed class MotorSound(Config config)
 
     // Owner alongside the channel. The table is keyed on the round, and Update is called once
     // per system, so without an owner every system's sweep treats every other system's rounds as
-    // orphans: with two systems firing, each release the other's the instant it runs, and the
-    // shared emitter pool churns once per system per frame.
+    // orphans: with two systems firing, each cuts the other's the instant it runs, and every
+    // channel is stopped and restarted once per system per frame.
     private readonly Dictionary<IProjectile, (IRoundsInFlight Owner, IChannel Channel)> _burning = [];
     private readonly List<IProjectile> _finished = [];
 
@@ -194,7 +194,7 @@ internal sealed class MotorSound(Config config)
     private static void Cut(IChannel channel)
     {
         try { channel.Stop(); }
-        catch { /* Already gone, which is the state we wanted. */ }
+        catch { /* A channel the engine has already reclaimed is already stopped. */ }
     }
 
     private static Camera? SafeAudioCamera()

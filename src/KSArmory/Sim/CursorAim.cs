@@ -18,7 +18,7 @@ namespace KSArmory;
 /// no render-scale path. It stays because an unprojection that divides by a framebuffer is
 /// entitled to be given framebuffer pixels, and were the two ever to diverge the error would be
 /// zero at the top-left corner and grow across the screen — which reads as "close, but not under
-/// the pointer" and would be found the hard way.</para>
+/// the pointer".</para>
 ///
 /// <para>No KSA types: the caller supplies the rectangle and unprojects the answer.</para>
 /// </summary>

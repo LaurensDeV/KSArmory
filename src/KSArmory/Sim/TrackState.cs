@@ -9,10 +9,6 @@ namespace KSArmory;
 /// the game. The identity of a contact is a <c>KSA.Vehicle</c> and cannot cross into
 /// <c>Sim/</c>; its kinematics are ordinary arithmetic and belong here. <c>Ksa/Track.cs</c>
 /// derives from this and adds the vehicle.</para>
-///
-/// <para>This is the same move that produced <see cref="FireGeometry"/>: the maths was
-/// unverifiable while it sat inside a KSA-facing class, and the launch-angle bug was only
-/// testable afterwards.</para>
 /// </summary>
 internal class TrackState
 {

@@ -31,10 +31,9 @@ internal sealed class Radar(Config config, SystemConfig policy)
     /// <summary>The track currently designated for engagement, if any.</summary>
     public Track? Locked { get; private set; }
 
-    /// <summary>Set when the operator picks a target by hand; clears on lock loss.</summary>
     /// <summary>
-    /// What the operator picked from the track list, as an <see cref="IContact.Handle"/>. An
-    /// object rather than a craft: a contact need not be one.
+    /// What the operator picked from the track list, as an <see cref="IContact.Handle"/>, cleared
+    /// when that contact leaves it. An object rather than a craft: a contact need not be one.
     /// </summary>
     public object? ManualDesignation { get; set; }
 
@@ -85,7 +84,7 @@ internal sealed class Radar(Config config, SystemConfig policy)
             for (int i = 0; i < airborne.Count; i++) Consider(airborne[i], originEcl, originVel, boresight, dt);
         }
 
-        // Refresh dwell bookkeeping, dropping anything we no longer see.
+        // Refresh dwell bookkeeping, dropping anything no longer seen.
         _dwell.Clear();
         foreach (Track t in Tracks) _dwell[t.Contact.Handle] = t.HeldSeconds;
 
@@ -94,8 +93,6 @@ internal sealed class Radar(Config config, SystemConfig policy)
         UpdateLock();
     }
 
-    // KSA has no team field, so the craft's name is the only assignment available without extra
-    // UI. Longest match wins, so "Red Team" beats "Red" when both are listed.
     // One contact, through the same geometry, masking and IFF a craft gets. Anything that only a
     // craft can answer is already behind IContact, so there is nothing here that knows the
     // difference.
@@ -136,6 +133,8 @@ internal sealed class Radar(Config config, SystemConfig policy)
         });
     }
 
+    // KSA has no team field, so the craft's name is the only assignment available without extra
+    // UI. Longest match wins, so "Red Team" beats "Red" when both are listed.
     private string? TeamOf(string name)
     {
         if (_config.TeamNames.Count == 0) return null;

@@ -48,8 +48,8 @@ internal static class Detonation
 
     // Reported once per distinct reason rather than per round: a twelve-round salvo would
     // otherwise bury the engagement it belongs to. Keyed by emitter Id, not a single flag,
-    // because the variant changes with a graphics setting and the new one has told nobody
-    // anything yet.
+    // because the variant changes with a graphics setting and each variant is worth describing
+    // on its own.
     private static readonly HashSet<string> _describedBursts = [];
 
     /// <summary>
@@ -83,21 +83,8 @@ internal static class Detonation
     }
 
     /// <summary>
-    /// Shows a burst at a point in Ecl. Silently does nothing if the effect cannot be placed —
-    /// this is decoration, and a warhead that killed its target has already done its job.
-    /// </summary>
-    /// <param name="near">
-    /// Any craft close to the burst, used only to find which body to hang the effect on. The
-    /// round's own target or the firing platform both do.
-    /// </param>
-    /// <param name="scale">Multiplies particle size and speed, so a bigger warhead looks bigger.</param>
-    /// <summary>
     /// The bang. One-shot and untracked, unlike a motor: a burst is over before anything could
     /// want to move or stop it.
-    ///
-    /// <para>Core ships no explosion, so this borrows <c>Decouple</c> — which is a pyrotechnic
-    /// separation charge, so it is a real small detonation rather than an unrelated noise pressed
-    /// into service. Point <see cref="Config.BurstSoundId"/> at our own the day one ships.</para>
     /// </summary>
     public static void Bang(double3 burstEcl, Vehicle? near, float scale, Config config)
     {
@@ -133,9 +120,7 @@ internal static class Detonation
             sound.Play(spatial, Math.Clamp(config.BurstVolume * scale, 0.05f, 1f), out IChannel? channel);
 
             // And deeper. A big charge puts its energy at low frequencies, so pitch falls as the
-            // warhead grows: a shell cracks, a missile thumps. It is also the only thing that
-            // makes the stand-in bearable - the borrowed sample is a metal separation charge, and
-            // played at its own pitch it reads as dropping a sheet of steel.
+            // warhead grows: a shell cracks, a missile thumps.
             if (channel is not null)
             {
                 channel.PitchMultiplier = Math.Clamp(1.18f - (0.32f * scale), 0.8f, 1.2f);
@@ -151,12 +136,21 @@ internal static class Detonation
         }
     }
 
-    // Ours, synthesised by tools/sounds.py. Core ships no explosion at all - its whole sound
-    // library is nine entries - and the nearest thing, a decoupler's separation charge, is a
-    // metal detach that reads as dropping a sheet of steel however it is pitched.
+    // The mod's own, synthesised by tools/sounds.py. Core ships no explosion at all - its whole
+    // sound library is nine entries - and the nearest thing, a decoupler's separation charge, is
+    // a metal detach that reads as dropping a sheet of steel however it is pitched.
     private const string DefaultBurstId = "KSArmoryBurst";
     private static bool _warnedNoBang;
 
+    /// <summary>
+    /// Shows a burst at a point in Ecl. Silently does nothing if the effect cannot be placed:
+    /// this is decoration, and a warhead that killed its target has already done its job.
+    /// </summary>
+    /// <param name="near">
+    /// Any craft close to the burst, used only to find which body to hang the effect on. The
+    /// round's own target or the firing platform both do.
+    /// </param>
+    /// <param name="scale">Multiplies particle size and speed, so a bigger warhead looks bigger.</param>
     public static void Show(string emitterId, double3 burstEcl, Vehicle? near, float scale = 1f)
     {
         string why = TryShow(emitterId, burstEcl, near, scale);

@@ -136,13 +136,14 @@ def check_file(path, core_subparts, core_materials):
             continue
         checked += 1
 
-        # Our own Ids must resolve in our own file, whether or not Core's library could be read.
+        # The mod's own Ids must resolve in its own file, whether or not Core's library could be
+        # read.
         #
         # The Core check below is skipped when that library is unavailable - offline, or a
-        # different install layout - and that skip used to swallow this case too. A SubPart
-        # instancing an KSArmory_* template that does not exist passed validation and then
-        # killed the game on load with "PartTemplate is null". Nothing about that needs Core to
-        # detect: if we named it, we declare it.
+        # different install layout - and this case must not be skipped with it. A SubPart
+        # instancing a KSArmory_* template that does not exist kills the game on load with
+        # "PartTemplate is null", and detecting that needs no Core: a name used here is declared
+        # here.
         if source.startswith("KSArmory_") and source not in local_subparts:
             print(f"  UNDECLARED SubPart InstanceOf=\"{source}\" - no such template in this file",
                   file=sys.stderr)
@@ -298,9 +299,9 @@ def check_fixed_launcher_geometry(profile, munition, key, label):
     """Checks one fixed launcher's tube against what the model script emitted.
 
     Fixed launchers declare their own tube axis, because they have no pods for their rounds to
-    follow. Parameterised rather than written per launcher: the rail was the only one for a while
-    and a check that reads whichever initialiser it finds first passes whatever the second one
-    says. Scoping the regex to the named block is the same reason.
+    follow. Parameterised rather than written per launcher: a check that reads whichever
+    initialiser it finds first passes whatever every other one says. Scoping the regex to the
+    named block is the same reason.
     """
     muzzles = REPO / "tools" / "model" / "muzzles.json"
     if not muzzles.is_file():
@@ -442,9 +443,9 @@ def check_subpart_positions():
         match = re.search(rf'{field}\s*=\s*"([^"]+)"', text)
         return match.group(1) if match else None
 
-    # Every launcher, not the first one the regex happens to find. Reading `text` whole checked
-    # the Pantsir and silently ignored every other profile -- which is how a CIWS shipped with
-    # markers that matched none of its own subparts, and drives that therefore never resolved.
+    # Every launcher, not the first one the regex happens to find. Reading `text` whole checks
+    # one profile and silently ignores the rest, which lets a launcher carry markers matching
+    # none of its own subparts and drives that therefore never resolve.
     profiles = re.findall(
         r"public static readonly LauncherProfile (\w+) = new\(\)\s*\{(.*?)\n\s*\};",
         text, re.S)
@@ -462,8 +463,8 @@ def check_subpart_positions():
                   ("OpticMarker", "OpticPivotFromTurret"))
 
     # Per part, not across the whole mod. LauncherPart.FindSubPart searches one launcher's own
-    # subparts, so a marker only has to be unique within its part -- and once a second launcher
-    # exists, a global check calls "Turret" ambiguous for a configuration that runs correctly.
+    # subparts, so a marker only has to be unique within its part -- and with several launchers
+    # registered, a global check calls "Turret" ambiguous for a configuration that runs correctly.
     by_part = {}
     for path in sorted(MOD.glob("KSArmory*.xml")):
         for part in ET.parse(path).getroot().findall("Part"):
@@ -579,8 +580,8 @@ def check_asset_id_collisions():
 
     A <MeshAtlas> registers every mesh under its glTF node name, so declaring a SubPart -- or
     anything else -- under that same name puts two assets on one Id and the loader keeps whichever
-    it saw first. Nothing fails: the mod loads, the part renders, the game runs. SpaceDock's
-    importer is what caught it (KSAM-0602), after two releases had shipped with it.
+    it saw first. Nothing fails: the mod loads, the part renders, the game runs. Only an importer
+    that enforces uniqueness, such as SpaceDock's, rejects it.
     """
     problems = checked = 0
 
@@ -701,8 +702,8 @@ def check_registered_part_ids():
 
 
 def main():
-    # Without the game installed, everything that depends only on our own files can still be
-    # checked -- and on Linux that includes case, which is the difference between a mod that
+    # Without the game installed, everything that depends only on the mod's own files can still
+    # be checked -- and on Linux that includes case, which is the difference between a mod that
     # loads on both platforms and one that only loads on Windows.
     parser = argparse.ArgumentParser(
         description="Check the part XML, the launch geometry and the registry against each other.")

@@ -156,8 +156,8 @@ public class OrbitAimTests
     /// <summary>
     /// The test that lets the player take the view back. A write lands exactly, so the stored
     /// angles read back the same next frame unless something else moved them — and anything else
-    /// is the player. Without this the turn drags the camera back for its whole run, which is
-    /// what "it just keeps permanently trying" was.
+    /// is the player. Without it the turn drags the camera back for its whole run, which reads as
+    /// the mod refusing to stop trying.
     /// </summary>
     [Fact]
     public void AnUntouchedViewReadsBackAsTheSameAim()

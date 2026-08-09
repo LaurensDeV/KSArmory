@@ -175,25 +175,21 @@ internal static class TestTarget
             // Vehicle.MeanRadius is BoundingSphereRadiusBody, which only ever gets set by
             // UpdateCollisionGeometry, which is private and reachable only through this call.
             // A vehicle assembled here and never handed through it keeps a radius of zero - and
-            // the camera scales its zoom by MeanRadius, so a spawned drone could not be zoomed
-            // in or out at all. It also feeds the flight plan's impact clearance margin.
+            // the camera scales its zoom by MeanRadius, so such a drone cannot be zoomed in or
+            // out at all. It also feeds the flight plan's impact clearance margin.
             //
             // KSA's own runtime spawn path reaches this the same way, after the part tree is
-            // attached; ours has to say so explicitly.
+            // attached; a vehicle assembled here has to ask for it explicitly.
             try
             {
                 // Rebuild the part tree's derived data, then the vehicle's, in that order: the
                 // second reads the SubstanceStores and inert mass properties the first rebuilds.
-                //
                 // Between them they are what a tree assembled from a save has never been through.
-                // UpdateAfterPartTreeModification reaches UpdateCollisionGeometry, which is
-                // private and is the only thing that sets the bounding sphere - and the camera
-                // scales its zoom by MeanRadius, so without it a drone has a radius of zero.
                 //
-                // Neither has anything to do with whether the drone can be *controlled*. That was
-                // the first theory and measurement disproved it: RecomputeAllDerivedData rebuilds
-                // substance stores, static mass, motor stacks and seats, and never touches
-                // Controls. The real cause is a class, not a cache - see CreateDroneVehicle.
+                // Neither bears on whether the drone can be *controlled*: RecomputeAllDerivedData
+                // rebuilds substance stores, static mass, motor stacks and seats, and never
+                // touches Controls. Controllability is a matter of class, not of cache - see
+                // CreateDroneVehicle.
                 drone.Parts.RecomputeAllDerivedData();
                 drone.UpdateAfterPartTreeModification();
             }
@@ -203,11 +199,9 @@ internal static class TestTarget
                          + "the camera will not zoom on it");
             }
 
-            // What the camera needs, measured rather than assumed.
-            //
-            // Zoom scales by MeanRadius and is stored per craft in OrbitView.DistancePower. A
-            // spawned drone that cannot be zoomed has one of the two wrong, and guessing which
-            // has already cost a build.
+            // What the camera needs, logged rather than assumed. Zoom scales by MeanRadius and is
+            // stored per craft in OrbitView.DistancePower, so a spawned drone that cannot be
+            // zoomed has one of the two wrong.
             try
             {
                 double radius = drone.MeanRadius;
@@ -266,16 +260,9 @@ internal static class TestTarget
     /// <summary>Stock craft that ship with the game, usable as drones.</summary>
     public static readonly string[] StockCraft = ["Gemini7", "Hunter", "Banjo", "Polaris", "Rocket"];
 
-    // Builds the drone's parts, preferring one of KSA's own craft. Cloning the launcher platform
-    // works and is always structurally valid, but it means shooting air-defence sites at air-
-    // defence sites, which is both silly to watch and actively confusing — a drone carrying a
-    // launcher looks like it should be fighting back, and being a clone it shares the guards that
-    // protect the player's craft. A stock vessel is an obviously separate thing. Falls back to the
-    // clone if the library craft will not load. Everything about a vehicle that plausibly bears on
-    // whether the camera can frame it. Written as one function used for both the spawned drone and
-    // the craft already in the scene, so the two are described identically and the difference is
-    // the only thing that stands out. A stock Hunter zooms and a clone of it does not, with the
-    // same MeanRadius, so whatever is responsible is one of the other fields.
+    // Everything about a vehicle that plausibly bears on whether the camera can frame it. One
+    // function for both the spawned drone and the craft already in the scene, so the two are
+    // described identically and only the difference between them stands out.
     private static string Describe(Vehicle v)
     {
         try
@@ -312,8 +299,7 @@ internal static class TestTarget
     // Control modules the tree has, which is exactly what Vehicle.IsControllable tests. Zero
     // modules and zero controls means the save's parts arrived without their modules at all.
     // Modules present but no controls means they exist and the hot-path list was never built. Those
-    // need different fixes, and the difference is invisible from IsControllable alone - which is
-    // why the first attempt at this rebuilt the list and changed nothing.
+    // need different fixes, and the difference is invisible from IsControllable alone.
     private static int ControlCount(Vehicle v)
     {
         try { return v.Parts?.Controls.NumModules ?? -1; } catch { return -1; }
@@ -325,16 +311,14 @@ internal static class TestTarget
     private readonly record struct DroneBlueprint(PartTree Parts, string Character);
 
     // Builds the drone in whichever class KSA itself would have used for this save. Kittens are not
-    // craft. KittenEva is a Vehicle subclass that overrides IsControllable to a constant true, and
-    // the stock Hunter, Banjo and Polaris are all instances of it. Measured in game, they carry no
-    // control module at all — which is exactly what the base Vehicle.IsControllable requires. So a
-    // Hunter rebuilt through Vehicle.CreateVehicle is a plain vehicle wearing a kitten's part tree:
-    // it matches the stock one in every measurable respect — same radius, same half extents, same
-    // zoom power, same part count, same zero control modules — and can never be controlled or
-    // zoomed, because the property that would have said otherwise belongs to a class it is not an
-    // instance of. That is why rebuilding the part tree's caches changed nothing, twice. There was
-    // never anything wrong with the part tree. KSA chooses between the two the same way, on whether
-    // the save names a character — see VehicleTemplate, which branches on Character != null.
+    // craft: KittenEva is a Vehicle subclass that overrides IsControllable to a constant true, and
+    // the stock Hunter, Banjo and Polaris are instances of it carrying no control module at all,
+    // which is exactly what the base Vehicle.IsControllable requires. So a Hunter rebuilt through
+    // Vehicle.CreateVehicle is a plain vehicle wearing a kitten's part tree: it matches the stock
+    // one in every measurable respect, same radius, half extents, zoom power, part count and zero
+    // control modules, and can never be controlled or zoomed, because the property that would say
+    // otherwise belongs to a class it is not an instance of. KSA chooses between the two on whether
+    // the save names a character, see VehicleTemplate, which branches on Character != null.
     private static Vehicle CreateDroneVehicle(
         DroneBlueprint blueprint, CelestialSystem system, Vehicle platform,
         IParentBody parent, string id, Orbit orbit)
@@ -361,6 +345,12 @@ internal static class TestTarget
                                      parent, id, blueprint.Parts.Root, orbit);
     }
 
+    // The drone's parts, preferring one of KSA's own craft. Cloning the launcher platform is always
+    // structurally valid, but it means shooting air-defence sites at air-defence sites, which is
+    // both silly to watch and actively confusing: a drone carrying a launcher looks like it should
+    // be fighting back, and being a clone it shares the guards that protect the player's craft. A
+    // stock vessel is an obviously separate thing. Falls back to the clone if the library craft
+    // will not load.
     private static DroneBlueprint BuildDroneParts(Vehicle platform, string? craftName)
     {
         if (!string.IsNullOrEmpty(craftName))
@@ -368,8 +358,7 @@ internal static class TestTarget
             try
             {
                 // Both are genuinely nullable in KSA - FindSave returns VehicleSave? and Load
-                // returns PartTree? - so declaring them non-null was the warning, not the
-                // checks below, which were already right.
+                // returns PartTree? - so the checks below are load-bearing rather than defensive.
                 VehicleSave? save = DefaultVehicleSaves.FindSave(craftName);
                 if (save is not null)
                 {

@@ -114,8 +114,8 @@ internal sealed partial class Ui
         }
 
         // The battery runs on simulated time, so a paused or heavily warped game is not a fault
-        // but it does explain a silent battery. Saying so beats the report this came from,
-        // which was "tracking is completely messed up".
+        // but it does explain a silent battery. Unsaid, that state is indistinguishable from
+        // tracking being broken.
         if (KsaWorld.IsPaused)
         {
             ImGui.Text("Paused - the battery is stopped with the world");
@@ -247,7 +247,7 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  without the atmosphere pass. See docs/BLOCKED-ON-KSA.md");
         }
 
-        // A window closed under us, so stop writing to something that is no longer shown. The
+        // The chosen window has gone, so stop writing to something that is no longer shown. The
         // main view is exempt: it is never in the collected list, and it cannot be closed.
         if (_policy.OpticViewport >= 0 && _policy.OpticViewport != main
             && !_viewports.Contains(_policy.OpticViewport))
@@ -329,7 +329,7 @@ internal sealed partial class Ui
             ImGui.Checkbox(arm.Label, ref Armament.EnabledIn(_policy, arm.Kind));
         }
 
-        // A view control, so it sits with the other thing that decides what you are looking at.
+        // A view control, so it sits with the other thing that decides what is on screen.
         ImGui.Checkbox("Chase this system's rounds", ref _policy.ChaseRounds);
         ImGui.TextDisabled("  rides the camera behind a round it fires; the view comes back after");
 

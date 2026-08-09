@@ -38,9 +38,9 @@ internal static class KsaWorld
     /// The simulated seconds to integrate now, or zero if the engine has applied no new step
     /// since the last call. <b>Consuming</b> — call once per update and use the result.
     ///
-    /// <para><see cref="SimStepSeconds"/> reports the <em>last</em> step, not one since you last
-    /// asked, so asking twice without the engine stepping returns it twice. Integrating it twice
-    /// adds motion the world never made, and it compounds because it lands in
+    /// <para><see cref="SimStepSeconds"/> reports the <em>last</em> step, not one since the
+    /// previous call, so asking twice without the engine stepping returns it twice. Integrating
+    /// it twice adds motion the world never made, and it compounds because it lands in
     /// <c>PositionEcl</c>.</para>
     /// </summary>
     public static double ConsumeSimStep()
@@ -90,7 +90,7 @@ internal static class KsaWorld
         return true;
     }
 
-    /// <summary>True once the vehicle has been destroyed or unloaded out from under us.</summary>
+    /// <summary>True once the vehicle has been destroyed or unloaded.</summary>
     public static bool IsAlive(Vehicle? v) => v is { IsDisposed: false };
 
     /// <summary>
@@ -100,10 +100,10 @@ internal static class KsaWorld
     /// The latter is a per-frame scratch buffer refilled by <c>RefreshVehiclesInFrame()</c>
     /// at a point in the tick that does not line up with a Harmony postfix on OnFrame - it
     /// reads back empty from there, which silently blinds the radar. The system's collection
-    /// is the authoritative list and is valid whenever we are called.
+    /// is the authoritative list and is valid from any hook.
     ///
-    /// Copies immediately: the result must not be held across frames, and we must not be
-    /// iterating engine state while destroying vehicles.
+    /// Copies immediately: the result must not be held across frames, and engine state must not
+    /// be under iteration while vehicles are being destroyed.
     /// </summary>
     public static void CollectVehicles(List<Vehicle> into)
     {
@@ -304,7 +304,7 @@ internal static class KsaWorld
 
                 // Only from outside. TryHitSphere answers with the far-side exit when the origin
                 // is within the sphere -- correct for pointing at a planet from space, and a point
-                // through the planet when picking ground you are standing on.
+                // through the planet when picking ground the camera is standing on.
                 if (Vec.Len(eye - centre) <= body.MeanRadius) continue;
 
                 if (!Picking.TryHitSphere(eye, direction, centre, body.MeanRadius, out double3 hit))
@@ -325,18 +325,18 @@ internal static class KsaWorld
             // The mean sphere is not the surface. A ray at a mountain -- or at a launch pad --
             // meets the real surface well before the sphere, so the answer taken from that first
             // hit lands past where the pointer is. Re-intersect against the height under the
-            // answer until it stops moving; three passes is plenty short of a cliff edge.
+            // answer until it stops moving.
             //
             // The height goes into the *radius*, never added to the point afterwards. Raising a
             // hit radially moves it off the ray, and a point off the ray is not under the cursor:
-            // that error is zero at ground level and grows with every metre of elevation, which
-            // is what made the marker drift furthest over the pad.
+            // that error is zero at ground level and grows with every metre of elevation, so it
+            // is worst over high ground such as a pad.
             double3 centreEcl = nearest.GetPositionEcl();
             double lastMoved = double.MaxValue;
 
-            // Six rather than three: the guard below exits the moment a pass stops improving, so
-            // the extra passes are only spent where they are converging, and at shallow depression
-            // angles three is well short of the answer.
+            // Six passes: the guard below exits the moment one stops improving, so the extra
+            // passes are only spent where they are converging, and at shallow depression angles
+            // three is well short of the answer.
             for (int pass = 0; pass < 6; pass++)
             {
                 double3 dirCce = Vec.Unit(nearestHit - centreEcl);
@@ -638,12 +638,11 @@ internal static class KsaWorld
     /// motion plus its spin at that radius.
     ///
     /// <para>This is the frame a round flies in — its airspeed, what its drag acts against, and
-    /// what it points along. For every launcher until the bomb rack it was the same thing as the
-    /// launching craft's velocity, because every launcher sat still on the ground. A store
-    /// released from something <em>moving</em> is the first case that separates them, and taking
-    /// the craft leaves a bomb with no airspeed at all at release: the only motion it then has
-    /// relative to its launcher is gravity, so it points straight down the instant it lets go and
-    /// the aircraft flies out from under it.</para>
+    /// what it points along. It equals the launching craft's velocity only while that craft sits
+    /// still on the ground; a store released from something <em>moving</em> is what separates
+    /// them. Taking the craft instead leaves a bomb with no airspeed at all at release: the only
+    /// motion it then has relative to its launcher is gravity, so it points straight down the
+    /// instant it lets go and the aircraft flies out from under it.</para>
     /// </summary>
     public static double3 GroundVelocityAt(Vehicle platform, double3 positionEcl)
     {
@@ -663,8 +662,8 @@ internal static class KsaWorld
         }
         catch
         {
-            // The craft's own velocity is what this was before there was anything better, and it
-            // is exactly right for the landed launcher that is still the common case.
+            // The craft's own velocity, which is exactly right for a launcher standing on the
+            // ground and the closest available answer for any other.
             return VelocityEcl(platform);
         }
     }
@@ -811,7 +810,7 @@ internal static class KsaWorld
     /// <para>KSA renders vehicles via <c>camera.GetPositionEgo(vehicle)</c>, which returns
     /// <c>-PositionCce</c> for the followed craft and uses <c>KinematicStates.PositionPhys</c>
     /// for others in the same bubble — the physics position in both cases. Anchoring to that and
-    /// adding Ecl offsets (exact, since Ego is a pure translation of Ecl) puts our overlay
+    /// adding Ecl offsets (exact, since Ego is a pure translation of Ecl) puts the overlay
     /// exactly where the game draws the craft.</para>
     /// </summary>
     /// <param name="anchorEcl">
@@ -834,10 +833,6 @@ internal static class KsaWorld
             // See DrawAnchor for why these are sampled at different instants, and why
             // collapsing them into one puts the whole overlay beside the craft.
             //
-            // EclToEgo rather than GetPositionEgo: the latter picks a different branch depending
-            // on what the camera follows, so the anchor shifts basis mid-engagement when the
-            // player switches view. EclToEgo is a pure translation and behaves identically
-            // whatever the camera is doing.
             // GetPositionEgo, not EclToEgo. Its branching on what the camera follows is the
             // engine answering correctly per case — exact for the followed craft, physics-based
             // for others in its bubble — and it is the same call KSA renders vehicles with.
@@ -861,9 +856,9 @@ internal static class KsaWorld
 
 
     /// <summary>
-    /// The anchor's position in the render frame, straight from the engine. Drawing here uses
-    /// none of our own arithmetic, so it isolates "is the anchor right" from "is the Ecl offset
-    /// maths right".
+    /// The anchor's position in the render frame, straight from the engine. Drawing here involves
+    /// no arithmetic of the mod's own, so it isolates "is the anchor right" from "is the Ecl
+    /// offset maths right".
     /// </summary>
     public static double3 AnchorEgo => _anchor.Ego;
 
@@ -1234,7 +1229,7 @@ internal static class KsaWorld
                 // renderer rather than by a part. The engine picks one by its bounding sphere for
                 // exactly that reason. Craft that do carry geometry are still held to the
                 // triangle, because their sphere stands metres clear of the hull and snapping to
-                // it is what put the aim beside everything it was pointed at.
+                // it puts the aim beside everything it is pointed at.
                 if (!onMesh && !HasPickableMesh(parts))
                 {
                     double toSphere = Vec.Len(onSphere - eye);
@@ -1364,7 +1359,7 @@ internal static class KsaWorld
     /// <c>ignoreBehind: false</c>. That is right for the gunner's sight, whose head is pointed at
     /// its target and so cannot be looking away from it, and wrong for a marker over an arbitrary
     /// craft: <c>EgoToScreen</c> only tests the point against the camera's forward when asked, so
-    /// without it a site *behind* you draws a bracket in front of you.</para>
+    /// without it a site *behind* the camera draws a bracket in front of it.</para>
     /// </summary>
     public static bool TryProjectAhead(double3 pointEcl, out float2 screen)
     {
@@ -1585,7 +1580,7 @@ internal static class KsaWorld
         }
         catch
         {
-            // A tree being rebuilt underneath us during staging or docking. Next frame will see
+            // A tree being rebuilt underneath the read, during staging or docking. Next frame sees
             // the finished one; reporting a half-built craft would be worse than reporting none.
             into.Clear();
         }
@@ -1888,8 +1883,9 @@ internal static class KsaWorld
 
             // Only when the engine is deriving up for itself, which it does whenever the level
             // controller could not be installed. Its axis is then ecliptic +Z, and a view along
-            // that divides by zero. Ours has no such direction: it falls back for a view along
-            // the up it was given rather than refusing, so the chase is never dropped mid-flight.
+            // that divides by zero. LevelHorizonController has no such direction: it falls back
+            // for a view along the up it was given rather than refusing, so the chase is never
+            // dropped mid-flight.
             if (controller is not LevelHorizonController
                 && Math.Abs(Vec.Dot(Vec.Unit(forwardEcl), new double3(0, 0, 1))) > 0.999)
             {
@@ -1928,10 +1924,10 @@ internal static class KsaWorld
         {
             if (Program.MainViewport is not { } viewport) return false;
 
-            // Forget the up we were supplying. The controller stays installed for the session --
-            // nothing but a mod puts a viewport in Fixed mode, so there is nothing to disturb --
-            // but with no up it behaves exactly as KSA's own does, rather than holding one from
-            // an engagement that is over.
+            // Forget the up that was being supplied. The controller stays installed for the
+            // session -- nothing but a mod puts a viewport in Fixed mode, so there is nothing to
+            // disturb -- but with no up it behaves exactly as KSA's own does, rather than holding
+            // one from an engagement that is over.
             if (viewport.FixedController is LevelHorizonController level) level.UpEcl = Vec.Zero;
 
             if (viewport.Mode != saved.Mode) viewport.SetCameraMode(saved.Mode);
@@ -1963,8 +1959,8 @@ internal static class KsaWorld
             // scene from wherever its camera happens to be, which is the whole point.
             // Unfollow before Fixed for the same reason as the main view: FixedController
             // divides by zero on its own default CameraRotation whenever the camera it drives is
-            // following something. This viewport's camera normally follows nothing, which is why
-            // the optical head never met it -- but a player can set one to follow a craft.
+            // following something. This viewport's camera normally follows nothing, but a player
+            // can set one to follow a craft.
             if (viewport.Mode != CameraMode.Fixed)
             {
                 try { viewport.GetCamera()?.Unfollow(changeControl: false); } catch { }

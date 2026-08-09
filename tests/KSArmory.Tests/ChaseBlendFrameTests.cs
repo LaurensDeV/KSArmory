@@ -7,11 +7,11 @@ namespace KSArmory.Tests;
 /// <summary>
 /// The chase transition's two ends have to be measured at one instant.
 ///
-/// <para>Measured in flight: the real camera reversed its vertical direction every frame, ±270 m,
-/// while the intended path climbed steadily. The cause was the from-end built from a platform
-/// sample taken before the round was stepped and the to-end from the round's position after it —
-/// one step of the planet's motion, 715 m on a 24 ms frame against 286 m on a 9 ms one, alternating
-/// with the display's frame pacing.</para>
+/// <para>A from-end built from a platform sample taken before the round was stepped, against a
+/// to-end from the round's position after it, leaks one step of the planet's motion — 715 m on a
+/// 24 ms frame against 286 m on a 9 ms one, alternating with the display's frame pacing. The camera
+/// then reverses its vertical direction every frame by ±270 m while the intended path climbs
+/// steadily.</para>
 /// </summary>
 public class ChaseBlendFrameTests
 {
@@ -22,8 +22,8 @@ public class ChaseBlendFrameTests
     private static readonly double3 Up = new(0, 1, 0);
 
     /// <summary>
-    /// The blend run the way <c>ChaseCamera</c> now runs it: every input an offset measured
-    /// against the same platform sample as the round.
+    /// The blend as <c>ChaseCamera</c> runs it: every input an offset measured against the same
+    /// platform sample as the round.
     /// </summary>
     private static double3 BlendedOffset(double3 fromOffset, double3 offsetFromPlatform,
                                          double3 eye, double blend)
@@ -37,7 +37,7 @@ public class ChaseBlendFrameTests
     }
 
     /// <summary>
-    /// The blend as it shipped: absolute positions, with the platform read a step earlier than the
+    /// The cross-instant form: absolute positions, with the platform read a step earlier than the
     /// round. Written out so the two can be run on identical inputs.
     /// </summary>
     private static double3 BlendedAcrossInstants(double3 platformBeforeStep, double3 fromOffset,
@@ -109,7 +109,8 @@ public class ChaseBlendFrameTests
         Assert.True(worstFixed < 20.0,
                     $"the fixed blend still jumps {worstFixed:F1} m in one frame");
 
-        // And the shipped form must be shown to fail on the same inputs, or this proves nothing.
+        // And the cross-instant form must be shown to fail on the same inputs, or this proves
+        // nothing.
         Assert.True(worstShipped > 100.0,
                     $"the cross-instant blend only moved {worstShipped:F1} m — the test is not "
                     + "reproducing the bug it was written for");

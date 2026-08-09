@@ -6,10 +6,9 @@ namespace KSArmory.Tests;
 /// <summary>
 /// Launch geometry, and the orientation of a round's body.
 ///
-/// Both of these were wrong in-game in ways that were only visible by watching: rounds left the
-/// tube at a slightly different angle to the tube, and a body oriented off the wrong velocity
-/// points every round the same way. Neither shows up in a hit-or-miss test, because guidance
-/// recovers from both.
+/// Both fail in ways only visible by watching: a round leaving at a slightly different angle to
+/// the tube it came out of, and a body oriented off the wrong velocity pointing every round the
+/// same way. Neither shows up in a hit-or-miss test, because guidance recovers from both.
 /// </summary>
 public class FireGeometryTests
 {
@@ -80,8 +79,8 @@ public class FireGeometryTests
     [Fact]
     public void Fallback_AndTubeAxisGenuinelyDisagree()
     {
-        // The guard on the whole change: these two are *not* the same shot. If they ever
-        // converge, this test is no longer proving anything.
+        // These two are *not* the same shot. If they ever converge, every other assertion about
+        // which one a launcher uses stops proving anything.
         double3 axis = TubeAxis();
         double3 target = new(500, 4000, 0);
 

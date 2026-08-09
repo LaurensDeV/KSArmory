@@ -1,8 +1,8 @@
 namespace KSArmory;
 
 /// <summary>
-/// Our own copy of MrJeranimo's <c>ModMenuEntryAttribute</c>, so <b>ModMenu</b> lists this mod
-/// under its shared <c>Mods</c> menu when a player has it installed.
+/// A copy of MrJeranimo's <c>ModMenuEntryAttribute</c>, so <b>ModMenu</b> lists this mod under
+/// its shared <c>Mods</c> menu when a player has it installed.
 ///
 /// <para><b>This is a copy on purpose and it is not a dependency.</b> ModMenu scans every loaded
 /// assembly and matches the attribute by <c>GetType().Name</c> alone, never by assembly identity —

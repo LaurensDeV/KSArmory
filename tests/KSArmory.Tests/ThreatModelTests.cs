@@ -6,14 +6,12 @@ namespace KSArmory.Tests;
 /// <summary>
 /// Threat classification, track ranking and salvo allocation.
 ///
-/// <para>These exist because CHECKLIST.md §7.2 says track prioritisation and round attribution
-/// "have literally never run against a contested list" — every engagement so far has been a
-/// single drone. The logic was unreachable from a test while it sat in <c>Ksa/Radar.cs</c> and
-/// <c>Ksa/WeaponSystem.cs</c>; moving it to <c>Sim/ThreatModel.cs</c> is what made this
-/// possible, the same way <c>FireGeometry</c> made the launch-angle bug testable.</para>
+/// <para>A flown engagement is nearly always a single contact, so track prioritisation and round
+/// attribution are the parts least exercised in the game and the parts a headless contested list
+/// exercises properly. That is what keeping them in <c>Sim/</c> buys.</para>
 ///
-/// <para>The in-game checks are still worth doing — these prove the arithmetic, not that KSA
-/// hands us the vehicles we expect.</para>
+/// <para>The in-game checks are still worth doing: these prove the arithmetic, not that KSA hands
+/// over the vehicles the mod expects.</para>
 /// </summary>
 public class ThreatModelTests
 {
@@ -58,7 +56,7 @@ public class ThreatModelTests
     [Fact]
     public void ATargetDriftingWithUsIsIgnored()
     {
-        // A docked craft shares our motion. Relative speed below MinTargetSpeed, so not a
+        // A docked craft shares the battery's motion. Relative speed below MinTargetSpeed, so not a
         // contact at all - otherwise the battery would track everything parked next to it.
         SensorProfile s = Sensor();
         Assert.False(ThreatModel.TryAssess(new double3(2000, 0, 0), new double3(1, 0, 0), Up, s, out _));
@@ -174,9 +172,8 @@ public class ThreatModelTests
         // whether the radar can physically see a contact; TryAssess also decides whether it is
         // worth engaging. A command-linked round's uplink depends on the first only.
         //
-        // Conflating them meant that declining to engage the vehicle the player is flying also
-        // cut the uplink to rounds already in the air at it - a safety rule turning into a
-        // guaranteed miss.
+        // Conflated, declining to engage the vehicle the player is flying also cuts the uplink to
+        // rounds already in the air at it - a safety rule turning into a guaranteed miss.
         SensorProfile s = Sensor();
         double3 r = new(4000, 0, 0);                 // in range, on boresight
 

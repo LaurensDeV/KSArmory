@@ -49,8 +49,8 @@ internal interface IRoundsInFlight : IWeaponPlatform
 /// the launcher part they are placed against, and whether effects are wanted at all.
 ///
 /// <para>The plume, the tracers and the muzzle flash between them read five members of a class
-/// with fifty-two. Taking the whole thing is what let a release-contract bug be written three
-/// times over.</para>
+/// with fifty-two. Narrowing the surface to those five is what keeps the emitter release contract
+/// visible to whoever writes the next effect.</para>
 /// </summary>
 internal interface IEffectSource : IRoundsInFlight
 {

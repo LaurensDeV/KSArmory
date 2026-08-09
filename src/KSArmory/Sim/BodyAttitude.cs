@@ -7,8 +7,8 @@ namespace KSArmory;
 ///
 /// <para>Along the airflow, once there is any — but a round released rather than fired has none
 /// at the moment it lets go, and normalising a near-zero vector yields whatever direction the
-/// residual happened to have. Every round before the bomb left its tube at between 25 and 1100
-/// m/s and so was never near that; a bomb starts at nothing and builds up.</para>
+/// residual happened to have. Every other round leaves its tube at between 25 and 1100 m/s and is
+/// never near that; a bomb starts at nothing and builds up.</para>
 ///
 /// <para>The band is not only a guard against noise. A real store leaves its rack pointing where
 /// the rack pointed and noses over as its fins gain authority, which is a second or two rather

@@ -8,9 +8,7 @@ namespace KSArmory;
 ///
 /// <para>Every craft carrying a recognised part is crewed, permanently and independently: a
 /// battery is pinned to the craft it was created for and never moves, so arming one site, sending
-/// it a target or putting it on a team says nothing about any other. Before this there was a
-/// single battery that elected one launcher, and every other system in the world was listed but
-/// dead.</para>
+/// it a target or putting it on a team says nothing about any other.</para>
 ///
 /// <para>Keyed by <see cref="Vehicle"/> reference, which is what a craft compares by. Entries
 /// appear when a system is surveyed and are dropped when the craft dies — a battery outliving its
@@ -31,9 +29,9 @@ internal sealed class WeaponSystems(Config config)
     private string _scope = string.Empty;
 
     // When the open save was last written. Settings are written to disk on the frame this
-    // advances -- i.e. when the player saves -- and at no other time. Writing continuously is
-    // what stopped a reload restoring anything: the file was always already up to date with the
-    // session, so there was nothing older to come back to.
+    // advances -- i.e. when the player saves -- and at no other time. Writing continuously stops
+    // a reload restoring anything: the file is then always already up to date with the session,
+    // so there is nothing older to come back to.
     private long _savedAt;
 
 

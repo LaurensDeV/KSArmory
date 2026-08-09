@@ -166,10 +166,9 @@ internal static class LauncherPart
     /// Where a tube's mouth is, in the launcher part's own frame, given where the pods are
     /// currently aimed.
     ///
-    /// <see cref="MuzzleEcl"/> builds a ring about the boresight instead, which was a fair
-    /// approximation while the launcher was a fixed bundle of tubes pointing up. It is not one
-    /// now: the pods traverse and elevate, so the real mouths can be metres from that ring, and
-    /// rounds appeared to leave from wherever the ring happened to be rather than from a tube.
+    /// <see cref="MuzzleEcl"/> builds a ring about the boresight instead, which coincides with the
+    /// mouths only on a fixed bundle of tubes: once the pods traverse and elevate the real mouths
+    /// sit metres off that ring, and rounds leave from the ring rather than from a tube.
     /// </summary>
     public static bool TryGetTubeMuzzlePartFrame(Part? pods, LauncherProfile profile, int tubeIndex, out double3 partFrame)
     {
@@ -678,12 +677,12 @@ internal static class LauncherPart
 
     /// <summary>
     /// Rotates a direction in the <em>launcher part's</em> frame out into Ecl, through the part's
-    /// mounting and then the vehicle's attitude. Distinct from
-    /// The inverse of <see cref="TryDirectionToPartFrame"/>. Both apply the launcher's own
-    /// mounting, and there is deliberately no variant that stops at the vehicle assembly frame:
-    /// the two frames differ by the part's rotation, which is nothing on a surface mount and a
-    /// half turn on a stack one, and anything reading a launcher direction through the wrong one
-    /// points backwards without saying so.
+    /// mounting and then the vehicle's attitude. The inverse of
+    /// <see cref="TryDirectionToPartFrame"/>: both apply the launcher's own mounting, and there is
+    /// deliberately no variant that stops at the vehicle assembly frame. The two frames differ by
+    /// the part's rotation, which is nothing on a surface mount and a half turn on a stack one, so
+    /// anything reading a launcher direction through the wrong one points backwards without saying
+    /// so.
     /// </summary>
     public static bool TryLauncherDirectionEcl(Vehicle platform, Part launcher, double3 partFrame,
                                                out double3 directionEcl)
@@ -712,15 +711,14 @@ internal static class LauncherPart
     /// The launcher, so its own mounting within the vehicle is undone as well.
     ///
     /// <para>Without it this stops at the vehicle frame and hands <see cref="Turret.Track"/> a
-    /// direction in the wrong axes — and that drive's axes are the launcher <em>part</em>'s. The
-    /// reverse conversion, <see cref="TryLauncherDirectionEcl"/>, has always applied the mounting,
-    /// so aim and boresight disagreed by exactly the part's rotation.</para>
+    /// direction in the wrong axes: that drive's axes are the launcher <em>part</em>'s, and the
+    /// reverse conversion <see cref="TryLauncherDirectionEcl"/> applies the mounting, so dropping
+    /// it here leaves aim and boresight disagreeing by exactly the part's rotation.</para>
     ///
-    /// <para>Invisible while every launcher surface-attached unrotated. A stack-mounted CIWS
-    /// carries a connector rotation of a half turn, which aimed its gun 180 degrees out — the
-    /// failure docs/AUDIT-2026-08.md predicted and said to fix before a second mount was
-    /// modelled. Null is tolerated and means the vehicle frame, which is what a caller with no
-    /// launcher resolved yet can honestly ask for.</para>
+    /// <para>That rotation is nothing on a launcher surface-attached unrotated and a half turn on
+    /// a stack-mounted one, which points a CIWS 180 degrees out. Null is tolerated and means the
+    /// vehicle frame, which is what a caller with no launcher resolved yet can honestly ask
+    /// for.</para>
     /// </param>
     public static bool TryDirectionToPartFrame(Vehicle vehicle, Part? launcher,
                                                double3 directionEcl, out double3 partFrame)

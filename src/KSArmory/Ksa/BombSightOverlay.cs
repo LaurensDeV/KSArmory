@@ -23,8 +23,6 @@ internal sealed class BombSightOverlay
     // coarse step quantises the impact point to that and the ring hops between two places.
     private const double IntegrationStep = 0.05;
 
-    // Big enough to read as a place on the ground from release altitude, and it is the store's own
-    // lethal radius, so what it circles is what the bomb actually reaches.
     private const int ArcRibs = 48;
 
     private static readonly float4 ArcColour = new(1.0f, 0.75f, 0.15f, 1f);
@@ -118,6 +116,8 @@ internal sealed class BombSightOverlay
         // off gravity because that is the one direction the mod already resolves everywhere.
         double3 up = Vec.Unit(KsaWorld.GravityAt(platform, _impactEcl) * -1.0);
         if (Vec.Len2(up) < 0.5) return;
+
+        // The store's own lethal radius, so what the ring circles is what the bomb reaches.
         double radius = Warhead.LethalRadius(battery.Munition.ChargeKg);
 
         KsaWorld.DrawCircleEcl(_impactEcl, up, radius, RingColour);

@@ -15,7 +15,7 @@ public class BallisticLeadTests
 
     /// <summary>
     /// The whole point. Flying the solution forward must put the round and the target in the same
-    /// place; aiming at where the target *is* cannot, and that is what the gun was doing.
+    /// place, which aiming at where the target *is* cannot do.
     /// </summary>
     [Fact]
     public void TheSolutionPutsTheRoundAndACrossingTargetInTheSamePlace()
@@ -44,7 +44,7 @@ public class BallisticLeadTests
         double3 target = new(4000, 0, 0);
         double3 velocity = new(0, 300, 0);
 
-        // What the turret did before the lead existed: point straight at the contact.
+        // The unled aim: point straight at the contact.
         double flight = Vec.Len(target - shooter) / MuzzleSpeed;
         double3 roundAt = shooter + Vec.Unit(target - shooter) * (MuzzleSpeed * flight);
         double3 targetAt = target + velocity * flight;
@@ -102,8 +102,8 @@ public class BallisticLeadTests
     ///
     /// <para>This is an <em>invariance</em> assertion, and the pair below is a sensitivity one:
     /// together they say the common term is removed and that the relative term still matters.
-    /// The test this replaced asserted only sensitivity, on a pre-differenced argument, so it
-    /// passed unchanged against the bug it was written for — which lived at the call site.</para>
+    /// Sensitivity alone, asserted on a pre-differenced argument, passes either way — the
+    /// subtraction that decides it then lives at a call site no test reaches.</para>
     /// </summary>
     [Theory]
     [InlineData(0.0, 29_800.0, 0.0)]          // the planet's motion around its star

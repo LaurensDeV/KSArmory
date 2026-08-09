@@ -22,7 +22,7 @@ internal enum AimpointKind
     /// of orbital motion plus up to 465 m/s of spin. Held as a <see cref="Point"/> it is left
     /// behind at 180 km per six seconds of flight, and — worse — the round reads a 29.8 km/s
     /// closing velocity that is entirely the frame, so proportional navigation slams it sideways
-    /// at full lateral G. Both were seen in flight.</para>
+    /// at full lateral G.</para>
     /// </summary>
     Ground,
 

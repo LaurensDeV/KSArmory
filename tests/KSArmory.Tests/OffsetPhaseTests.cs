@@ -7,8 +7,8 @@ namespace KSArmory.Tests;
 /// The drawn offset, tested against the phase relationship the engine actually has.
 ///
 /// <para>The platform sample arriving at update k has advanced by <c>v * dt(k)</c> — the step used
-/// by <em>that same</em> update, not the one before it. Measured in the frame hook over thousands
-/// of frames, this held to within 5 m on all but two of them:</para>
+/// by <em>that same</em> update, not the one before it. Over thousands of frames this holds to
+/// within 5 m on all but two of them:</para>
 ///
 /// <code>
 /// ( P(k) - P(k-1) ) - ( Q(k) - Q(k-1) )  ==  localVelocity * dt(k)
@@ -32,8 +32,8 @@ public class OffsetPhaseTests
 
     /// <summary>
     /// Flies a round across the given steps, advancing the platform to its sample for each frame
-    /// <em>before</em> the update that uses it — the phase measured in game — and returns the
-    /// offset the renderer would have used on each frame.
+    /// <em>before</em> the update that uses it — the phase the engine has — and returns the offset
+    /// the renderer would have used on each frame.
     /// </summary>
     private static List<double3> Fly(IReadOnlyList<double> steps)
     {
@@ -55,8 +55,8 @@ public class OffsetPhaseTests
         foreach (double dt in steps)
         {
             // The platform sample for frame k, having advanced by exactly the step this frame's
-            // update is about to be given. Reversing these two lines reproduces the older suite's
-            // assumption, and every assertion below then passes against code that jumps in game.
+            // update is about to be given. Reversing these two lines encodes the opposite phase,
+            // and every assertion below then passes against code that jumps in game.
             platform += OrbitalVelocity * dt;
 
             round.Update(dt, target: null, gravity: double3.Zero,
@@ -99,10 +99,9 @@ public class OffsetPhaseTests
     [Fact]
     public void ChangingSimulationSpeedDoesNotThrowTheRoundAcrossTheSky()
     {
-        // The reported symptom: "the rockets jump around if i change the time step". Dropping
-        // from 1x to 0.25x takes the engine's step from ~22 ms to ~5.6 ms in one frame, and any
-        // form carrying a `v * dstep` term displaces the round by 29800 * 0.0169 = ~500 m on that
-        // single frame. Measured in game at 507.37 m before this was fixed.
+        // Dropping from 1x to 0.25x takes the engine's step from ~22 ms to ~5.6 ms in one frame,
+        // and any form carrying a `v * dstep` term displaces the round by 29800 * 0.0169 = ~500 m
+        // on that single frame -- measured at 507.37 m, which is a round jumping across the sky.
         var steps = new List<double>();
         for (int i = 0; i < 40; i++) steps.Add(0.0225);   // 1x
         for (int i = 0; i < 40; i++) steps.Add(0.0056);   // 0.25x

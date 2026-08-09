@@ -6,7 +6,7 @@ namespace KSArmory;
 /// The file matters: StarMap mods only reach stdout, which lands in whatever terminal launched
 /// the game and is awkward to read (and impossible to read after the fact). KSA's own
 /// <c>KittenSpaceAgency.log</c> is written by its internal logger, which mods cannot reach.
-/// So we keep our own, in the same folder, where it can be tailed from outside the game.
+/// So this mod keeps its own, in the same folder, where it can be tailed from outside the game.
 /// </summary>
 internal static class Log
 {
@@ -117,8 +117,8 @@ internal static class Log
         }
     }
 
-    // Picks a log location once: KSA's own Logs folder if we can find it, otherwise the user's temp
-    // directory.
+    // Picks a log location once: KSA's own Logs folder if it can be found, otherwise the user's
+    // temp directory.
     private static void EnsureResolved()
     {
         if (_resolved) return;

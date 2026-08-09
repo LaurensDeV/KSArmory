@@ -18,8 +18,8 @@ namespace KSArmory.Tests;
 /// </summary>
 public class RoundOffsetStabilityTests
 {
-    // Earth-like: an enormous ecliptic position with a large common velocity, which is the
-    // regime every one of this repository's frame-of-reference bugs has lived in.
+    // Earth-like: an enormous ecliptic position with a large common velocity, which is the regime
+    // a frame-of-reference error shows up in at all.
     private static readonly double3 PlatformStart = new(1.4959e11, 0, 0);
     private static readonly double3 OrbitalVelocity = new(0, 29800, 0);
 
@@ -83,8 +83,8 @@ public class RoundOffsetStabilityTests
     {
         // Real frames are not evenly spaced. If the offset depends on the frame time, an
         // ordinary 16/20 ms alternation makes the round jump back and forth by
-        // 29800 * 0.004 = ~120 m every frame - which is exactly what "super quick zigzag,
-        // slightly randomized" looks like.
+        // 29800 * 0.004 = ~120 m every frame, which reads on screen as a fast, slightly
+        // irregular zigzag.
         var frameTimes = new List<double>();
         for (int i = 0; i < 120; i++) frameTimes.Add(i % 2 == 0 ? 0.016 : 0.020);
 
@@ -111,11 +111,10 @@ public class RoundOffsetStabilityTests
         // it is a statement about where the round is relative to the platform *now*, and now is
         // the same for both.
         //
-        // Any version that measures the offset after stepping fails this, because it then has to
-        // reconcile a round at the end of the step with a platform at the start - and every way
-        // of doing that multiplies dt by a ~29.8 km/s ecliptic velocity. A 4 ms difference is
-        // 119 m. That is the zigzag, and no simulated flight in this file caught it, because
-        // over successive frames the error telescopes and cancels.
+        // Any version that reconciles a round at the end of the step with a platform at the start
+        // fails this: every way of doing it multiplies dt by a ~29.8 km/s ecliptic velocity, and a
+        // 4 ms difference is 119 m. A simulated flight cannot see that - over successive frames the
+        // error telescopes and cancels - which is why it is stated directly here.
         MunitionProfile munition = Munition();
         double3 up = new(1, 0, 0);
         double3 velocity = OrbitalVelocity + up * 300.0;
@@ -127,9 +126,9 @@ public class RoundOffsetStabilityTests
         Interceptor longFrame = Fresh();
 
         // Each is given the platform sample belonging to ITS OWN frame - the platform has moved
-        // by v * dt by the time an update of length dt runs. Handing both the same sample is the
-        // fiction that made the older forms look dt-independent: it holds the platform still
-        // while the round flies, so the ecliptic motion has nothing to cancel against.
+        // by v * dt by the time an update of length dt runs. Handing both the same sample is a
+        // fiction that makes any form look dt-independent: it holds the platform still while the
+        // round flies, so the ecliptic motion has nothing to cancel against.
         shortFrame.Update(0.016, null, double3.Zero, OrbitalVelocity,
                           PlatformStart + OrbitalVelocity * 0.016, munition);
         longFrame.Update(0.020, null, double3.Zero, OrbitalVelocity,
@@ -147,17 +146,6 @@ public class RoundOffsetStabilityTests
             $"a 4 ms difference in frame time moved the drawn offset by {difference:F1} m — "
             + "that is ecliptic motion leaking in, not the round flying");
     }
-
-    // Removed: TheDrawnOffsetDoesNotDependOnWhenThePlatformWasSampled.
-    //
-    // It asserted that the drawn offset must be independent of which instant the platform was
-    // sampled at, which is true only of an accumulated offset. The offset is derived from the
-    // round's own position instead, and deliberately *is* paired with a platform sample — that
-    // pairing is what DrawAnchor exists to reconcile, and the build that draws dead centre in
-    // game is the one that does it this way.
-    //
-    // The test was written the same day as the accumulation it was defending, and both were
-    // wrong. Keeping it would have forced the design the game rejects.
 
     [Fact]
     public void TravelSinceLaunchStartsAtZeroAndGrowsSmoothly()

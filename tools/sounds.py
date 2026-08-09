@@ -16,8 +16,8 @@ MIT like the rest of the repository, diffs as text, and takes a parameter.
 Four layers, because a single noise burst reads as static and a single sine reads as a drum:
 
     crack     thirty milliseconds of barely-filtered noise. The shock front, and the reason the
-              whole thing reads as a detonation rather than a thud - a first pass at this had 6%
-              of its energy above 2 kHz and sounded, correctly, dull.
+              whole thing reads as a detonation rather than a thud - below about 6% of its
+              energy above 2 kHz it reads, correctly, as dull.
     punch     a sine sweeping 90 Hz down to 25 Hz in a quarter second. This is the part you feel,
               and the part a small charge should not have much of.
     body      broadband noise through a one-pole low-pass, fast attack and exponential decay.
@@ -172,16 +172,16 @@ def cannon(seed, rounds_per_minute=CANNON_REFERENCE_RPM, cycles=150,
     Length is `cycles` whole rounds rather than a round number of seconds, so the end of the file
     lands exactly one period after the last pulse and a restart continues the rhythm.
 
-    ## Two things this got wrong before, both audible and both measurable
+    ## Two ways this goes wrong, both audible and both measurable
 
-    **Nothing between 250 Hz and 2 kHz.** The first pass was a bright click over a low thump, which
-    put 65% of its energy below 250 Hz and 6% across the three octaves where a gun actually lives.
-    That reads as a boom and a fizz with a hole in the middle, and it sounded exactly like that.
+    **Nothing between 250 Hz and 2 kHz.** A bright click over a low thump puts 65% of its energy
+    below 250 Hz and 6% across the three octaves where a gun actually lives, which reads as a boom
+    and a fizz with a hole in the middle.
 
-    **Pure sine resonances ring.** The second pass filled the middle with four decaying sinusoids
-    per round, at fixed frequencies, repeating 75 times a second. Coherent repetition of a fixed
-    pitch is an organ pipe, not a mechanism: it read as hollow and high. Every layer here is
-    noise driven through a band instead, so each round has body without having a *note*.
+    **Pure sine resonances ring.** Filling the middle with decaying sinusoids at fixed frequencies,
+    repeating 75 times a second, is coherent repetition of a fixed pitch: an organ pipe rather than
+    a mechanism, hollow and high. Every layer here is noise driven through a band instead, so each
+    round has body without having a *note*.
 
     The weights are fitted to a recording of real gunfire, octave band by octave band, because
     nobody in this loop can hear the result. Mean band error 1.6 points, against 5.8 for the
@@ -277,10 +277,9 @@ def main():
         write(out / f"KSArmory_Burst{i:02d}.wav", explosion(seed=1000 + i))
 
     # Not written by default. The shipped cannon is cut from a recording by tools/cut-cannon.py,
-    # because a synthesised one was auditioned three times and never stopped sounding synthetic --
-    # measurement got its octave balance to within 1.6 points of real gunfire and it still read as
-    # a texture rather than as a gun. This stays as the fallback for the case where the recording's
-    # licence turns out not to permit redistribution; see tools/audio/README.md.
+    # because a synthesised one reads as a texture rather than as a gun even with its octave
+    # balance within 1.6 points of real gunfire. This stays as the fallback for the case where the
+    # recording's licence turns out not to permit redistribution; see tools/audio/README.md.
     if args.synth_cannon:
         print("cannon (synthesised fallback):")
         write(out / "KSArmory_Cannon.wav", cannon(seed=2000))

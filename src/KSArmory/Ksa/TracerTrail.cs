@@ -11,7 +11,7 @@ namespace KSArmory;
 /// <para>Same shape as <see cref="MotorPlume"/> and for the same reason — a mod-simulated round is
 /// not something the engine can parent to, so the origin is rewritten each frame instead.</para>
 ///
-/// <para><b>A muzzle-anchored emitter cannot do this, and it was tried.</b> The engine assigns
+/// <para><b>A muzzle-anchored emitter cannot do this.</b> The engine assigns
 /// <c>ParticleEmitter.EmitterVelocity</c> only for a vehicle-parented emitter, so from a celestial
 /// parent <c>InheritVelocity</c> has nothing to inherit and <c>BubbleOrigin.VelocityBub</c> never
 /// reaches spawning: particles launched at the barrel hang there instead of flying down the bore.
@@ -46,9 +46,9 @@ internal sealed class TracerTrail
     // is now pointing. Only a shell that has just left the barrel may be adopted, so an emitter
     // starts at the muzzle and follows one shell out.
     //
-    // Two frames rather than a tenth of a second. At 1100 m/s a tenth is 110 m, so a tracer that
-    // was picked up at the far end of that window lit up a hundred metres clear of the gun and
-    // appeared to spawn out of nothing.
+    // Two frames rather than a tenth of a second. At 1100 m/s a tenth is 110 m, so a tracer
+    // adopted at the far end of that window lights up a hundred metres clear of the gun and
+    // appears to spawn out of nothing.
     private const double AdoptWithinSeconds = 0.04;
 
     private sealed class Live
@@ -278,7 +278,7 @@ internal sealed class TracerTrail
                 if (handle.TryGet() is { } emitter) emitter.Kill();
                 live.Body.RemoveEmitter(handle);
             }
-            catch { /* A body torn down under us has already taken its emitters with it. */ }
+            catch { /* A body torn down mid-frame has already taken its emitters with it. */ }
         }
     }
 }

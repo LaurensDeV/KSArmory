@@ -7,9 +7,8 @@
 #     ./tools/check-all.sh --list       # name the checks and exit
 #
 # This is the script `.githooks/pre-push` runs and the one `ci.yml` calls, so the two cannot
-# drift. That is the same one-script-two-callers discipline check-commit-msg.sh uses, and it
-# exists because there used to be three different "before you open a PR" lists in three files,
-# none of which matched CI.
+# drift. That is the same one-script-two-callers discipline check-commit-msg.sh uses: one list,
+# so "before you open a PR" and "what CI runs" cannot mean different things.
 #
 # Checks needing the game assemblies are skipped with a notice rather than failing: a contributor
 # without KSA can still run most of this, and saying which ones were skipped is the difference

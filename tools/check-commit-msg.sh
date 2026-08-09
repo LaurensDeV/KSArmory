@@ -25,7 +25,7 @@ fail=0
 check() {
     local header="$1" origin="$2"
 
-    # Machine-generated and in-progress commits are none of our business: merges, reverts,
+    # Machine-generated and in-progress commits are out of scope: merges, reverts,
     # semantic-release's own release commit, and the fixup/squash markers rebase consumes.
     case "$header" in
         Merge\ *|Revert\ *|fixup!\ *|squash!\ *|amend!\ *) return 0 ;;
@@ -54,9 +54,8 @@ check() {
 # Warns when a commit will cut a release that changes nothing a player installs.
 #
 # `feat` means "feature" to semantic-release whatever the scope says, so `feat(tools)` on a
-# developer script cuts a release and publishes an archive identical to the
-# last one but for the version string. That happened twice in one day: 0.1.1, 0.2.0 and 0.3.0
-# differ only in <Version>, and anyone who upgraded got nothing.
+# developer script cuts a release and publishes an archive identical to the last one but for the
+# version string. Anyone who upgrades to it gets nothing.
 #
 # A warning rather than a rule, and scope is deliberately not used to decide. A packaging fix in
 # tools/package.sh changes the artifact without touching src/ at all, so any mechanical rule

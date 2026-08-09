@@ -26,8 +26,8 @@ public enum Allegiance
 /// deliberately not the same as hostile.</para>
 ///
 /// <para>The defaults are permissive on purpose — <see cref="EngageUnknown"/> is true — so a world
-/// where nobody has assigned teams behaves exactly as it did before teams existed. Turning it off
-/// is what makes a hostiles-only engagement possible.</para>
+/// with no teams assigned engages everything. Turning it off is what makes a hostiles-only
+/// engagement possible.</para>
 /// </summary>
 public sealed class IffPolicy
 {

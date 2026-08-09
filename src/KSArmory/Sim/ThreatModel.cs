@@ -62,8 +62,7 @@ internal static class ThreatModel
             // The second half is redundant *today* and deliberately kept. TimeOfClosestApproach
             // clamps to [0, horizon], so the search starts at now and its minimum can never
             // exceed the value at now — which is the range. Hence cpa <= range always, and
-            // `range <= ThreatRadius` cannot flip a false to a true. Verified by deleting it
-            // and watching all 92 tests still pass.
+            // `range <= ThreatRadius` cannot flip a false to a true.
             //
             // It stays because the invariant belongs to the clamp, not to this rule. Allowing a
             // negative tCa — to model a target that has already passed — is a plausible future
@@ -80,8 +79,8 @@ internal static class ThreatModel
     /// <para>Deliberately excludes the threat and policy filters that <see cref="TryAssess"/>
     /// applies. A command-linked round needs to know whether the launcher can still *see* its
     /// target, which is a question about the radar. Whether the operator wants to shoot at it
-    /// is a separate question, and answering them with the same test meant that declining to
-    /// engage a contact also cut the uplink to rounds already flying at it.</para>
+    /// is a separate question, and one test answering both cuts the uplink to rounds already
+    /// flying at a contact the operator has declined to engage.</para>
     /// </summary>
     public static bool InSensorVolume(double3 r, double3 boresight, SensorProfile sensor)
     {
@@ -132,10 +131,9 @@ internal static class ThreatModel
     /// Whether the target is inside the weapon's reach — not merely detected.
     ///
     /// <para>A search radar sees far further than the round flies: 36 km against 20 km for the
-    /// Pantsir. Firing at everything detected wastes the magazine on contacts that expire
-    /// short, which is exactly what happened to every long crossing shot. There is a floor as
-    /// well as a ceiling: inside about a kilometre the round is still boosting and cannot be
-    /// brought round.</para>
+    /// Pantsir. Firing at everything detected wastes the magazine on contacts the rounds expire
+    /// short of. There is a floor as well as a ceiling: inside about a kilometre the round is
+    /// still boosting and cannot be brought round.</para>
     /// </summary>
     public static bool InEngagementEnvelope(TrackState track, MunitionProfile munition)
         => track.Range >= munition.MinRange && track.Range <= munition.MaxRange;

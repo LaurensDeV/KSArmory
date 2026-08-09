@@ -4,19 +4,19 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// One test per bug that actually shipped and had to be found in-game.
+/// One test per way an ecliptic value can be used as if it were local.
 ///
-/// Every one of these came from the same mistake: an ecliptic value used as if it were local.
 /// Near Earth, Ecl position sweeps past at ~29.8 km/s and Ecl velocity is dominated by that same
-/// solar orbit, so the errors are hundreds of metres to tens of kilometres — big enough to look
-/// like a completely different bug each time. They are cheap to assert and expensive to rediscover.
+/// solar orbit, so the errors are hundreds of metres to tens of kilometres — big enough that each
+/// one looks like a completely different fault. They are cheap to assert and expensive to
+/// rediscover.
 /// </summary>
 public class FrameRegressionTests
 {
     private static readonly object TargetHandle = new();
     private static readonly double3 NoGravity = new(0, 0, 0);
 
-    /// <summary>Roughly Earth's orbital velocity — the magnitude that caused every one of these.</summary>
+    /// <summary>Roughly Earth's orbital velocity — the magnitude every one of these multiplies.</summary>
     private static readonly double3 SolarFrame = new(29800, 0, 0);
 
     private static MunitionProfile Vacuum() =>
@@ -27,9 +27,9 @@ public class FrameRegressionTests
         new(new double3(0, 0, 0), velocity, TargetHandle, tube: 1, platformEcl, frameVelocityEcl);
 
     /// <summary>
-    /// Shipped bug: rounds were drawn ~500 m from where they were, with trails smeared across
-    /// kilometres, because their absolute Ecl position was differenced against an anchor
-    /// captured a frame earlier. The offset the renderer uses must not depend on frame velocity.
+    /// An absolute Ecl position differenced against an anchor captured a frame earlier draws a
+    /// round ~500 m from where it is, with its trail smeared across kilometres. The offset the
+    /// renderer uses must not depend on frame velocity.
     /// </summary>
     [Fact]
     public void OffsetFromPlatform_IsUnaffectedByFrameVelocity()
@@ -49,12 +49,10 @@ public class FrameRegressionTests
 
         for (int i = 0; i < 10; i++)
         {
-            // Advanced BEFORE the update that uses it. Measured in the game's own frame hook, the
-            // platform sample arriving at update k has already moved by v * dt(k) - the step that
-            // same update is given, not the previous one. Advancing it afterwards instead encodes
-            // the opposite phase, and passes against two implementations that visibly threw the
-            // round hundreds of metres sideways whenever the frame time moved. See
-            // OffsetPhaseTests for the measurement.
+            // Advanced BEFORE the update that uses it: the platform sample arriving at update k has
+            // already moved by v * dt(k) - the step that same update is given, not the previous
+            // one. Advancing it afterwards encodes the opposite phase, which a constant step cannot
+            // tell apart from this one. See OffsetPhaseTests for the measurement.
             platform += SolarFrame * dt;
 
             still.Update(dt, target, NoGravity, frameVelocityEcl: default, platformEcl: default, munition);
@@ -67,7 +65,7 @@ public class FrameRegressionTests
     }
 
     /// <summary>
-    /// Same bug, trail edition: 32 points over 1.6 s of absolute positions would be spread over
+    /// The trail, for the same reason: 32 points over 1.6 s of absolute positions spread over
     /// ~48 km of the planet's motion. Consecutive trail points must stay a plausible flight
     /// distance apart.
     /// </summary>
@@ -100,9 +98,9 @@ public class FrameRegressionTests
     }
 
     /// <summary>
-    /// Shipped bug: detonations at 22 m killed nothing, because the blast compared the round's
-    /// end-of-frame position against world positions sampled at the frame start. The elapsed
-    /// value that lets the caller reconcile those must be a real offset inside the step.
+    /// A blast that compares the round's end-of-frame position against world positions sampled at
+    /// the frame start kills nothing at 22 m. The elapsed value that lets the caller reconcile the
+    /// two must be a real offset inside the step.
     /// </summary>
     [Fact]
     public void DetonationElapsed_LiesWithinTheUpdateStep()
@@ -131,19 +129,17 @@ public class FrameRegressionTests
         Assert.Equal(RoundState.Detonated, round.State);
 
         // Negative, and that is the point: the value is measured against the world sample, which
-        // is the END of the step. A burst can only happen at or before that instant, so the
-        // caller advances the world BACKWARD by this much. The old assertion of [0, dt] encoded
-        // the assumption that samples arrive at the start of the step, which the engine source
-        // disproves (Universe refreshes vehicle Ecl state at the top of OnFrame to
-        // GetLastSimStep().NextTime).
+        // is the END of the step - Universe refreshes vehicle Ecl state at the top of OnFrame to
+        // GetLastSimStep().NextTime. A burst can only happen at or before that instant, so the
+        // caller advances the world BACKWARD by this much.
         //
-        // What must still hold is that it names an instant inside the step just integrated.
+        // What must hold is that it names an instant inside the step just integrated.
         Assert.InRange(round.DetonationElapsedInFrame, -dt, 0.0);
     }
 
     /// <summary>
-    /// Shipped bug: the seeker compared line-of-sight against absolute Ecl velocity, which near
-    /// Earth points along the planet's orbit. Lock broke on the very first step of every shot.
+    /// A seeker that compares line-of-sight against absolute Ecl velocity, which near Earth points
+    /// along the planet's orbit, breaks lock on the first step of every shot.
     /// </summary>
     [Fact]
     public void Seeker_KeepsLock_WhenTheFrameIsFastMoving()
@@ -161,8 +157,8 @@ public class FrameRegressionTests
     }
 
     /// <summary>
-    /// Shipped bug: drag was applied to absolute Ecl speed, so a round "flying" at 29.8 km/s saw
-    /// Mach 87 of it and was scrubbed down to ~1.1 km/s in 22 s. Airspeed must be local.
+    /// Drag applied to absolute Ecl speed has a round "flying" at 29.8 km/s see Mach 87 of it and
+    /// scrubs it to ~1.1 km/s in 22 s. Airspeed must be local.
     /// </summary>
     [Fact]
     public void Drag_ActsOnAirspeed_NotAbsoluteSpeed()
@@ -186,8 +182,8 @@ public class FrameRegressionTests
     }
 
     /// <summary>
-    /// Reported telemetry must describe the round, not the planet. Distance flown was once
-    /// reporting 650 km for a 22 s flight, which is simply Earth moving around the Sun.
+    /// Telemetry must describe the round, not the planet: measured absolutely, distance flown
+    /// comes out at 650 km for a 22 s flight, which is Earth moving around the Sun.
     /// </summary>
     [Fact]
     public void DistanceFlown_MeasuresLocalMotion()

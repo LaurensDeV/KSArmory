@@ -201,7 +201,7 @@ internal sealed class MuzzleFlash
                 if (handle.TryGet() is { } emitter) emitter.Kill();
                 live.Body.RemoveEmitter(handle);
             }
-            catch { /* A body torn down under us has already taken its emitters with it. */ }
+            catch { /* A body torn down mid-frame has already taken its emitters with it. */ }
         }
     }
 }

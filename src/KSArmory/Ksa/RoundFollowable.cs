@@ -73,12 +73,11 @@ internal sealed class RoundFollowable : IFollowable
     /// mod has stepped anything, and the mod's integrated position belongs to a different instant
     /// from every celestial and vehicle the engine has just placed. A camera on it therefore sits
     /// one simulated step out of register with the scene — 715 m on a 24 ms frame against 238 m on
-    /// a 9 ms one, alternating with the display's pacing, which measured as the camera's height
-    /// over the ground swinging ±145 m every frame.</para>
+    /// a 9 ms one, alternating with the display's pacing, which swings the camera's height over
+    /// the ground by ±145 m every frame.</para>
     ///
-    /// <para>This pairing is the one with flight evidence behind it: round bodies are placed from
-    /// exactly these two terms and were measured at 79.5 km with 0.0 m drift, steady while the
-    /// camera on the same round was not.</para>
+    /// <para>Round bodies are placed from exactly these two terms and hold 0.0 m of drift out to
+    /// 79.5 km, which is what this pairing buys.</para>
     /// </summary>
     public double3 GetPositionEcl()
     {

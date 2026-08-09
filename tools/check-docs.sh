@@ -5,9 +5,9 @@
 #     ./tools/check-docs.sh            # check, and fail on a mismatch
 #     ./tools/check-docs.sh --report   # report only, never fail
 #
-# Every number here has been wrong at least once, in a file whose own rule is that a stale line
-# is worse than a missing one. They drift because they are hand-copied from output that moves:
-# the test count, the API surface, the layout table, the KSA build.
+# Every number here is hand-copied from output that moves - the test count, the API surface, the
+# layout table, the KSA build - so it drifts, in files whose own rule is that a stale line is
+# worse than a missing one.
 #
 # The rule this enforces in practice: do not write a generated figure into prose without a check
 # that reads it back. Judgement-bearing prose is out of scope and always will be - this catches
@@ -30,13 +30,12 @@ fail() {
 # --- the layout table lists every source file -------------------------------
 #
 # A file absent from the table is invisible to anyone reading CLAUDE.md to find their way around,
-# which is the table's only job. Sight.cs - a headline feature - was missing for two releases.
+# which is the table's only job.
 
 echo "Layout table covers src/"
 
 # Table rows only, not the whole file. Searching all of CLAUDE.md passes a file that prose
-# happens to name while its row is missing, which is the failure this check exists to catch --
-# it did, for WarpPolicy.cs, in the same session the check was written.
+# happens to name while its row is missing, which is the failure this check exists to catch.
 rows="$(grep '^|' CLAUDE.md || true)"
 
 missing=""
@@ -75,7 +74,7 @@ if [[ -f docs/KSA-API-SURFACE.md ]]; then
 
     # Exclusions are anchored to the path, not matched anywhere in the line: the layout row that
     # carries the member count also names KSA-API-SURFACE.md, so a loose -v drops the one line
-    # this check exists for. It did, and the check passed against a count it never read.
+    # this check exists for and it then passes against a count it never read.
     if [[ -n "$members" ]]; then
         while IFS= read -r hit; do
             [[ -z "$hit" ]] && continue
@@ -95,9 +94,9 @@ fi
 
 # --- no hand-written test count ---------------------------------------------
 #
-# Deliberately not checked against a number: 19 [MemberData] theories expand at run time, so
-# Fact+InlineData counts 315 against the runner's 353 and no static count can ever be right.
-# The fix is not a cleverer count - it is not writing one down. Guidance prose says "the suite".
+# Deliberately not checked against a number: [MemberData] theories expand at run time, so a
+# static Fact+InlineData count never matches the runner's and no written-down figure can be
+# right. The fix is not a cleverer count - it is not writing one down. Prose says "the suite".
 #
 # docs/ is exempt: MODULARITY.md's "117 -> 203 tests" is a historical measurement and true.
 

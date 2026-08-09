@@ -294,8 +294,8 @@ public class WeaponFitTests
     }
 
     /// <summary>
-    /// The gun-only system is the one that broke the assumptions the panel used to make, so it is
-    /// pinned by name rather than only by the invented shape above.
+    /// The gun-only system is the one a panel written around missiles gets wrong, so it is pinned
+    /// by name rather than only by the invented shape above.
     /// </summary>
     [Fact]
     public void TheCiwsIsDescribedAsABeltAndNothingElse()

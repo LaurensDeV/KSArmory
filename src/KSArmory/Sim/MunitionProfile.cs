@@ -57,7 +57,6 @@ public sealed class MunitionProfile
     public string? FinMarker { get; init; }
 
     // ---- Boost ----------------------------------------------------------
-    /// <summary>Speed the round leaves the rail at, relative to the platform (m/s).</summary>
     /// <summary>
     /// Length of the round's body mesh (m). The mesh is modelled about its centre — see
     /// build_missile in tools/model/pantsir.py — so a round placed at a tube mouth sits half
@@ -75,6 +74,7 @@ public sealed class MunitionProfile
     /// <summary>Fin span while stowed, as a fraction of full. Small enough to clear the bore.</summary>
     public float FinStowedScale = 0.06f;
 
+    /// <summary>Speed the round leaves the rail at, relative to the platform (m/s).</summary>
     public float LaunchSpeed = 45f;
 
     /// <summary>Seconds of powered flight after launch, in the first stage.</summary>
@@ -146,8 +146,8 @@ public sealed class MunitionProfile
     /// own abandon guard. Raising it for a round that does not manoeuvre costs nothing and is what
     /// makes a long-range weapon playable.
     ///
-    /// Nobody has measured what step a real intercept degrades at. 0.32 s has flight hours behind
-    /// it; treat that as the reason to keep the default rather than as a licence to raise it.
+    /// The step at which a real intercept starts to degrade is unmeasured. 0.32 s is the value the
+    /// shipped rounds fly at, so treat it as a default to keep rather than a licence to raise it.
     /// </remarks>
     public float MaxFaithfulStepSeconds = (float)Interceptor.MaxFaithfulStep;
 
@@ -155,10 +155,10 @@ public sealed class MunitionProfile
     /// How far this round can usefully be sent, in metres.
     ///
     /// <para>On the round rather than on the set that finds the target or the launcher that throws
-    /// it: reach is a property of what is flying. It lived on <see cref="SensorProfile"/>, which
-    /// made a gun-only mount describe its cannon's reach as its radar's, and put the same number
-    /// in two files for the CIWS. Detection range is still the sensor's and is a different
-    /// question: a set that sees 36 km feeding a round that flies 20 is the normal case.</para>
+    /// it: reach is a property of what is flying. On <see cref="SensorProfile"/> it would have a
+    /// gun-only mount describing its cannon's reach as its radar's, and the CIWS carrying the same
+    /// number in two files. Detection range is still the sensor's and is a different question: a
+    /// set that sees 36 km feeding a round that flies 20 is the normal case.</para>
     /// </summary>
     public float MinRange;
 
@@ -172,13 +172,13 @@ public sealed class MunitionProfile
     /// <summary>Lateral acceleration limit (g). Airframes cap out; ours does too.</summary>
     public float MaxLateralG = 35f;
 
-    /// <summary>Seeker gimbal limit, half-angle off the round's velocity vector (degrees).</summary>
     /// <summary>
     /// How the round is steered. <see cref="GuidanceMode.CommandLink"/> ignores
     /// <see cref="SeekerFovDeg"/> entirely.
     /// </summary>
     public GuidanceMode Guidance = GuidanceMode.CommandLink;
 
+    /// <summary>Seeker gimbal limit, half-angle off the round's velocity vector (degrees).</summary>
     public float SeekerFovDeg = 55f;
 
     /// <summary>
@@ -229,7 +229,8 @@ public sealed class MunitionProfile
     /// </summary>
     public bool TimedFuse;
 
-    /// <summary>Fuse stays safe for this long after launch, so we never kill the platform.</summary>
+    /// <summary>Fuse stays safe for this long after launch, so a round cannot kill its own
+    /// platform.</summary>
     public float FuseArmSeconds = 0.6f;
 
     /// <summary>

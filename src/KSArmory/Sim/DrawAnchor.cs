@@ -19,10 +19,9 @@ namespace KSArmory;
 /// frame's ecliptic motion — near Earth about 500 m at 60 fps — and differencing against the
 /// older reference is what cancels it.</para>
 ///
-/// <para><b>Do not "simplify" this by using one instant for both.</b> That has been done twice:
-/// once by re-reading the platform at draw time (overlay landed 500 m off the craft), and once
-/// by deriving <see cref="Ego"/> from <see cref="Ecl"/> (same result). Both looked like tidier
-/// code and both put the whole overlay beside the launcher.</para>
+/// <para><b>Do not "simplify" this by using one instant for both.</b> Re-reading the platform at
+/// draw time, or deriving <see cref="Ego"/> from <see cref="Ecl"/>, both look like tidier code and
+/// both put the whole overlay 500 m beside the launcher.</para>
 ///
 /// <para>Kept free of KSA types so the mapping can be tested headlessly — see
 /// <c>DrawAnchorTests</c>.</para>

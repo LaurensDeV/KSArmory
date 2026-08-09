@@ -144,8 +144,8 @@ internal sealed partial class Ui
 
     }
 
-    // Logging and the world dump. Nothing to do with spawning targets, which is where these used
-    // to live: they belong with the other developer switches.
+    // Logging and the world dump: developer switches, so they sit with the others rather than
+    // with the target spawner.
     private void DrawLogging()
     {
         if (ImGui.Checkbox("Verbose log", ref _config.VerboseLog))

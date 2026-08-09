@@ -148,15 +148,15 @@ public class CursorAimTests
     // something infinitely far away. These pin the near case, where it is not.
 
     /// <summary>
-    /// The whole bug in one assertion: the camera stands off the launcher, the cursor is on
-    /// ground close by, and the bearing from the mount is nothing like the bearing from the eye.
+    /// The whole distinction in one assertion: the camera stands off the launcher, the cursor is
+    /// on ground close by, and the bearing from the mount is nothing like the one from the eye.
     /// </summary>
     [Fact]
     public void AimingAtSomethingNearAnswersFromTheMountNotTheCamera()
     {
         // An orbit camera 60 m above a launcher, cursor on ground 40 m to the side at the
-        // launcher's own level: pointing *below* the mount on screen, which is the case that
-        // was reported and the case where the two origins diverge hardest.
+        // launcher's own level: pointing *below* the mount on screen, which is where the two
+        // origins diverge hardest.
         double3 mount = new(0, 0, 0);
         double3 eye = new(0, 60, 0);
         double3 ground = new(40, 0, 0);

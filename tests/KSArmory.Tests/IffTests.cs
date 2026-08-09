@@ -94,8 +94,7 @@ public class IffTests
     }
 
     /// <summary>
-    /// The default is permissive, so a world where nobody has assigned teams behaves exactly as it
-    /// did before teams existed.
+    /// The default is permissive, so a world with no teams assigned engages everything.
     /// </summary>
     [Fact]
     public void UnknownIsEngagedByDefault()

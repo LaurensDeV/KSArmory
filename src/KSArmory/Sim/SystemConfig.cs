@@ -20,8 +20,8 @@ public sealed class SystemConfig
     // ---- Engagement policy ----------------------------------------------
 
     /// <summary>
-    /// Who this battery will shoot at. Defaults to engaging anything unrecognised, so a world
-    /// where nobody has assigned teams behaves as it did before teams existed.
+    /// Who this battery will shoot at. Defaults to engaging anything unrecognised, so a world with
+    /// no teams assigned engages everything.
     ///
     /// <para>Per battery, because two sites in one world are exactly what taking opposite sides
     /// means. The team <em>names</em> stay on <see cref="Config.TeamNames"/>.</para>

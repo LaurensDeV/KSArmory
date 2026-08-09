@@ -1,12 +1,12 @@
 # Blocked on KSA
 
 Things this mod wants and **cannot build**, because the game does not expose what they need. Not a
-backlog — `CLAUDE.md`'s *Not done* section is the backlog, and everything in it is ours to do.
-Everything here waits on RocketWerkz.
+backlog — `CLAUDE.md`'s *Not done* section is the backlog, and everything in it is this mod's own
+work. Everything here waits on RocketWerkz.
 
-Each entry says what was actually read in the decompiled corpus, so a claim can be rechecked after
-a KSA update rather than taken on trust. **Recheck this file when the game moves** — the whole
-point of it is that some of these will quietly become possible.
+Each entry cites what the decompiled corpus says, so a claim can be rechecked after a KSA update
+rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
+that some of these will quietly become possible.
 
 Findings are against KSA **2026.8.5.5168**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
@@ -29,12 +29,12 @@ happen rather than a member that moved.
 - [x] A post-processing or full-screen shader hook a mod can register into
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 
-All eleven rechecked against 2026.8.5.5168 and still blocked. The render path was refactored in
-that build — `Program._offscreenTarget` is now a `RenderTarget` and every line number below
-moved — but none of the structure any of these depend on changed. `UncompressedVehicleSave.cs`
-still does not mention `Character` at all; `KittenRenderable` still writes an attachment's
-transform and submits its draw in consecutive statements; `KSA.Rendering.PostProcessing` is still
-an anti-aliasing pass and a tone curve.
+All eleven rechecked against 2026.8.5.5168 and still blocked. The line numbers below are against
+that build's render path, in which `Program._offscreenTarget` is a `RenderTarget`; none of the
+structure these entries depend on differs from the build before it. `UncompressedVehicleSave.cs`
+does not mention `Character` at all; `KittenRenderable` writes an attachment's transform and
+submits its draw in consecutive statements; `KSA.Rendering.PostProcessing` is an anti-aliasing
+pass and a tone curve.
 
 ---
 
@@ -44,8 +44,8 @@ an anti-aliasing pass and a tone curve.
 only because of what follows, is wanted gone, and is on the recheck list above so it is looked at
 every time the game moves.
 
-**What we want.** An entry in KSA's own menu bar, so the panel opens from where a player expects
-rather than from a floating button parked over the flight gauges.
+**Wanted.** An entry in KSA's own menu bar, so the panel opens from where a player expects rather
+than from a floating button parked over the flight gauges.
 
 **The engine reason.** `Program` draws the bar inline —
 `ImGui.BeginMenu("File")`, `"Universe"`, `"View"`, `"HUD"` — with no event, no registry and no
@@ -55,13 +55,13 @@ none is menu-shaped.
 **What the ecosystem does instead**, and why it is unpleasant. MrJeranimo's **ModMenu** Harmony
 *transpiles* `Program.DrawMenuBar`, scans its IL for an `ImGui.EndMenu()` call and splices in its
 own `BeginMenu("Mods")`. Mods opt in with a `[ModMenuEntry]` attribute, which ModMenu matches by
-`GetType().Name` alone — so a mod copies the attribute rather than referencing anything, and we
-do exactly that. It costs no dependency, but the whole arrangement stands on rewriting the IL of
-a game method in a pre-release build. `DrawMenuBar` being public buys nothing here: calling it
-draws the bar, it does not contribute to one.
+`GetType().Name` alone — so a mod copies the attribute rather than referencing anything, which is
+all `Ksa/Ui/ModMenuEntry.cs` is. It costs no dependency, but the whole arrangement stands on
+rewriting the IL of a game method in a pre-release build. `DrawMenuBar` being public buys nothing
+here: calling it draws the bar, it does not contribute to one.
 
-We also append to the bar directly with `ImGui.BeginMainMenuBar()`, which works because ImGui's
-menu bar is immediate-mode. Measured: it must be called *before* KSA's GUI pass — from
+The mod also appends to the bar directly with `ImGui.BeginMainMenuBar()`, which works because
+ImGui's menu bar is immediate-mode. It must be called *before* KSA's GUI pass: from
 `[StarMapAfterGui]` the bar has already been ended for the frame and the call returns false. That
 is still ImGui behaviour rather than a supported hook, which is why the floating button stays.
 
@@ -71,9 +71,9 @@ go, and the panel opens from a menu the game itself put there.
 
 ## Full-screen post-processing shaders
 
-**What we would want it for:** a gunner's sight that actually looks through optics — desaturation,
-a vignette, grain, thermal false-colour. Also the whole class of damage and blast effects that live
-on the framebuffer rather than in the world.
+**Wanted.** A gunner's sight that actually looks through optics — desaturation, a vignette, grain,
+thermal false-colour. Also the whole class of damage and blast effects that live on the framebuffer
+rather than in the world.
 
 **The engine reason.** `KSA.Rendering.PostProcessing` contains `Cmaa2Renderer` and
 `HableFilmicToneCurve` and nothing else: an anti-aliasing pass and a tone curve, both wired
@@ -97,14 +97,14 @@ uniform buffer the mod fills each frame.
 
 **So this is blocked on KSA only in the sense that doing it natively is impossible.** Taking it
 would mean depending on two third-party framework mods, which is a different decision from a
-missing engine feature — this mod currently requires only StarMap. Recorded here so that trade is
-made deliberately rather than discovered.
+missing engine feature — this mod currently requires only StarMap. Recorded here so the trade is a
+deliberate one.
 
 ## Secondary viewport: no sky, clouds, atmosphere or terrain
 
-**What we want.** The launcher's electro-optical head drives a second camera window, so the sight
-can be watched while flying something else. The head, the tracking, the reticule and the camera
-write all work; the *picture* is wrong.
+**Wanted.** The launcher's electro-optical head drives a second camera window, so the sight can be
+watched while flying something else. The head, the tracking, the reticule and the camera write all
+work; the *picture* is wrong.
 
 **What happens.** A secondary viewport shows a raw starfield above a hard horizon and a
 featureless grey ball, where the main view at the same position shows sky, clouds and terrain.
@@ -116,7 +116,7 @@ viewport: the planet renderer, the light and shadow passes, the ocean, and
 `_planetTransparenciesRenderer.Render` (`:4254`) — the sole call site of the atmosphere and cloud
 compute passes anywhere in the game.
 
-Two details worth keeping, because they explain the exact image:
+Two details explain the exact image:
 
 - The starfield is drawn because stars *are* in the reduced path (`Program.cs:4009-4015`).
 - The grey ball is not terrain. It is `StaticCelestial.RenderSphere` → `DistantSphereRenderer`, a
@@ -145,7 +145,7 @@ means rebuilding Vulkan resources, which is not something a mod can do sensibly 
    set per viewport.
 4. Run the planet, atmosphere and lighting passes inside the per-viewport loop.
 
-**Note the architecture already supports per-viewport where it was intended to** — `_lightingData`
+**The architecture already supports per-viewport wherever it was designed to** — `_lightingData`
 is indexed by `viewport.Index`, and the sunbloom buffers by viewport count. This is unfinished
 rather than impossible.
 
@@ -159,7 +159,7 @@ of these entries unblocks first, that option stops needing the warning.
 
 ## Wheels, suspension and steering
 
-**What we want.** The Pantsir sits on an 8×8 chassis. The wheels should turn, steer and carry the
+**Wanted.** The Pantsir sits on an 8×8 chassis. The wheels should turn, steer and carry the
 vehicle; ideally it should drive.
 
 **Why it is blocked.** KSA has no wheel, suspension, steering or landing-gear module of any kind.
@@ -173,8 +173,8 @@ then the wheels are geometry and the vehicle is placed rather than driven.
 
 ## Partial damage
 
-**What we want.** A round that lands close enough to hurt but not destroy should degrade the
-target — knock out a sensor, break a part.
+**Wanted.** A round that lands close enough to hurt but not destroy should degrade the target —
+knock out a sensor, break a part.
 
 **Why it is blocked.** KSA exposes only `Universe.DestroyVehicleFromEvent`. There is no component
 or partial damage model to drive.
@@ -188,8 +188,8 @@ continuous-rod warhead would read as the round doing nothing at all.
 
 ## A self-contained test scenario
 
-**What we want.** One click that places a launcher, a target and a scenario, so the mod can be
-tried without the player assembling anything.
+**Wanted.** One click that places a launcher, a target and a scenario, so the mod can be tried
+without the player assembling anything.
 
 **Why it is blocked.** `LoadVehicleFromLibrary` in a system XML resolves through
 `DefaultVehicleSaves`, whose `SaveFolderPath` is **hardcoded** to `Content/Core/defaultvehicles`
@@ -205,8 +205,8 @@ folder, which is writable, and `TestTarget` spawns drones on demand from the pan
 
 ## A launchable kitten
 
-**What we want.** A `KittenEva` on the pad, so the on-foot weapon can be tested without flying a
-capsule up and climbing out of it every time.
+**Wanted.** A `KittenEva` on the pad, so the on-foot weapon can be tested without flying a capsule
+up and climbing out of it every time.
 
 **Why it is blocked.** The same hardcoded folder as above, reached from a second direction. A
 vehicle save becomes a kitten rather than a craft purely because `VehicleSaveData` carries a
@@ -251,10 +251,10 @@ double3 vector2 = double3.Cross(cameraRotation, vector).Normalized();
 Camera.PositionEcl = following.GetPositionEcl() + CameraOffset;
 ```
 
-So Fixed mode is **"follow this, but sit at an offset from it and look along a direction I give
-you"** — `CameraOffset` and `CameraRotation` are the entire interface, and the offset is measured
-from the followed craft rather than from the world. A camera in Fixed mode *should* be following
-something.
+So Fixed mode is **"follow this, but sit at an offset from it and look along a direction the
+caller supplies"** — `CameraOffset` and `CameraRotation` are the entire interface, and the offset
+is measured from the followed craft rather than from the world. A camera in Fixed mode *should* be
+following something.
 
 It divides by zero only because `CameraRotation` defaults to the zero vector, and crossing that
 with anything and normalising is a division by zero length. **Set `CameraRotation` before setting
@@ -264,8 +264,7 @@ The tempting misreading is that Fixed and following are an illegal pair, and tha
 `Camera.Unfollow(changeControl: false)` first. That does stop the crash, and it is wrong: the
 camera then has nothing to be offset from, the view has to be restored by re-attaching a follow,
 and *any* other thing in the game that attaches one — a jump-to-vehicle key, a scene teardown —
-puts the camera back into the fatal pair with the rotation still zero. Three separate crashes
-came out of that reading before the decompiled source settled it.
+puts the camera back into the fatal pair with the rotation still zero.
 
 `KsaWorld.TryLookFromMainViewport` does it the supported way. `TryLookFromViewport` unfollows,
 because a secondary viewport's camera genuinely follows nothing and has nothing to offset from.
@@ -277,8 +276,8 @@ there. `docs/KSA-CAMERAS.md` has the full account of this and every other contro
 
 ## Aiming a character attachment
 
-**What we want.** The kitten's shoulder gun to point where the mouse points, the way the
-launcher's turret and optical head do.
+**Wanted.** The kitten's shoulder gun to point where the mouse points, the way the launcher's
+turret and optical head do.
 
 **Why it is blocked.** Not visibility — `CharacterAvatar.Attachments` and its
 `CosmeticAttachments` list are both public, and the mesh is a `StaticMeshRenderable` with a
@@ -314,7 +313,7 @@ does not turn.
 
 ## Custom part modules
 
-**What we want.** Rounds as real part-based vehicles, with the engine integrating them.
+**Wanted.** Rounds as real part-based vehicles, with the engine integrating them.
 
 **Why it is blocked.** Registering a custom module type means getting it into engine-internal
 update lists, which is not reachable without Harmony patching the engine.
@@ -327,14 +326,15 @@ corrupt a save — but it is a workaround, not a choice made freely.
 
 ## Plume trails on mod-simulated rounds
 
-**What we want.** Smoke trails behind the missiles, using the game's own volumetric trail renderer
+**Wanted.** Smoke trails behind the missiles, using the game's own volumetric trail renderer
 rather than the mod's gizmo tracers.
 
 **Why it is blocked.** The XML tag is real — `<PlumeTrail Id="DefaultPlumeTrail"/>` inside a
 `<ReactionPlume>` — but the emitter only produces anything when
 `current.State.DutyCycle > 0f && flag` (`KSA/KSA/Vehicle.cs:5216`), where `DutyCycle` is
-accumulated by a **burning rocket core**. Our rounds have no motor, no propellant and no staging,
-and a real motor would apply real thrust to the launcher, since the round bodies are its subparts.
+accumulated by a **burning rocket core**. The mod's rounds have no motor, no propellant and no
+staging, and a real motor would apply real thrust to the launcher, since the round bodies are its
+subparts.
 
 The encouraging half: the emitter's position comes from
 `state.FxExhaustLocationVehicleAsmb = FxLocationAsmb.Transform(matrix)` where `matrix` is
@@ -348,12 +348,12 @@ public class, so a mod could hold one emitter per round and submit it each frame
 propellant, no thrust. The only obstacle is that `Program._volumetricTrailRenderer` is a private
 field with no accessor, so reaching it today needs reflection.
 
-**Raised with:** blackrack (KSA graphics programmer) suggested the XML tag; the follow-up question
-about submitting an emitter directly is outstanding.
+**Outstanding with RocketWerkz.** blackrack (KSA graphics programmer) suggested the XML tag;
+whether an emitter can be submitted directly is unanswered.
 
 ## A thermal or FLIR channel on the optical head
 
-**What we want.** The optical head showing a heat picture rather than a daylight one — engines and
+**Wanted.** The optical head showing a heat picture rather than a daylight one — engines and
 exhaust bright against a cold sky, the way a real electro-optical turret is used at night.
 
 **Split it in two, because only one half is blocked.**
@@ -370,13 +370,12 @@ which means a replacement material shader or a second render target. ShaderExten
 adds bindings to *existing* fragment shaders and is the only plausible route; whether it can carry
 per-object data that KSA never computes is **unverified**.
 
-**A weapons mod can cheat well, though, and should know it can.** The hot things in these scenes
-are the ones this mod already simulates: burning motors and fireballs, both of which it knows the
-position and intensity of. False colour underneath, with genuine bright sources composited at the
-motor and burst positions, covers most of what makes a FLIR picture readable here without any
-per-object temperature at all.
+**A weapons mod can cheat well here.** The hot things in these scenes are the ones this mod already
+simulates: burning motors and fireballs, both of which it knows the position and intensity of.
+False colour underneath, with genuine bright sources composited at the motor and burst positions,
+covers most of what makes a FLIR picture readable here without any per-object temperature at all.
 
-**The scoping question is settled, and the answer is workable.** `<PostProcessingShader>` and
+**Post-processing is full-screen only, and that scope works here.** `<PostProcessingShader>` and
 `<GlobalPostShader>` differ only in whether they run before or after ImGui; both are full-screen,
 and ShaderExtensions' README is explicit that "the shaders only target the main window, any other
 windows are ignored". There is no per-viewport post-process.
@@ -405,9 +404,9 @@ lines, and there are no scorch decals to draw because kills are binary.
 
 ## Where a structure's surface is
 
-**What we want.** A cursor over the launch pad to resolve to the top of the pad, so a craft set
-down there lands on it rather than through it — and so pointing at the pad's corner is not
-answered with the ground beside it.
+**Wanted.** A cursor over the launch pad to resolve to the top of the pad, so a craft set down
+there lands on it rather than through it — and so pointing at the pad's corner is not answered
+with the ground beside it.
 
 **Why it is blocked.** The pad is a `LandmarkReference` (`KSA/KSA/LandmarkReference.cs`), which is
 a location with an `IsLaunchPad` flag and nothing else: no bounds, no mesh, no collider, no height.
@@ -429,9 +428,9 @@ reaching a landmark's geometry that has no route.
 
 ## Drawing a shape the gizmo renderer does not have
 
-**What we want.** A solid torus on the ground under a craft being placed, and in general any shape
-worth looking at drawn at a world position — a marker, a volume, a footprint — without attaching
-it to a vehicle.
+**Wanted.** A solid torus on the ground under a craft being placed, and in general any shape worth
+looking at drawn at a world position — a marker, a volume, a footprint — without attaching it to a
+vehicle.
 
 **Why it is blocked.** `GizmosRenderer` draws two things. `Render` is `RenderSpheres` then
 `RenderLines`, and `GizmoType` has exactly `Sphere`, `Line`, `Num`. Everything else it offers is

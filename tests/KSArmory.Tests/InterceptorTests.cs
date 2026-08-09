@@ -76,8 +76,8 @@ public class InterceptorTests
     }
 
     /// <summary>
-    /// The case the brief called out: a target passing by rather than flying at us.
-    /// Pure pursuit tail-chases and misses here; proportional navigation must lead.
+    /// A target passing by rather than flying at the battery. Pure pursuit tail-chases and misses
+    /// here; proportional navigation must lead.
     /// </summary>
     [Fact]
     public void CrossingTarget_IsLed_AndIntercepted()
@@ -141,14 +141,14 @@ public class InterceptorTests
     }
 
     /// <summary>
-    /// Regression: the round must behave identically when the whole engagement is carried
-    /// along by a fast-moving frame.
+    /// The round must behave identically when the whole engagement is carried along by a
+    /// fast-moving frame.
     ///
-    /// Ecliptic velocities near Earth are dominated by ~29.8 km/s of solar orbit. Treating that
-    /// as the round's own airspeed and heading made drag see Mach 87, broke the seeker lock on
-    /// the first step (the line of sight is nowhere near Earth's orbital vector), and sent the
-    /// round coasting 84 km in a straight line. Positions were unaffected because those are
-    /// differences — only the places using absolute velocity as a heading were wrong.
+    /// Ecliptic velocities near Earth are dominated by ~29.8 km/s of solar orbit. Taken as the
+    /// round's own airspeed and heading, that has drag see Mach 87, breaks the seeker lock on the
+    /// first step (the line of sight is nowhere near Earth's orbital vector), and sends the round
+    /// coasting 84 km in a straight line. Positions are unaffected because those are differences:
+    /// only somewhere using an absolute velocity as a heading can go wrong.
     /// </summary>
     [Fact]
     public void EngagementIsUnchanged_WhenCarriedByAFastMovingFrame()

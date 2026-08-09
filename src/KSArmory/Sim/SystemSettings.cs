@@ -71,13 +71,6 @@ public sealed class SystemSettings
     }
 
     /// <summary>
-    /// Puts these settings onto a battery.
-    ///
-    /// <para><see cref="SystemConfig.OpticViewport"/> is deliberately not carried: it names a
-    /// viewport index in the session that saved it, and restoring it would point a new session's
-    /// camera at a window that may not exist.</para>
-    /// </summary>
-    /// <summary>
     /// Puts every team this system names back on the session's roster of team names.
     ///
     /// <para>The names are session-wide and the memberships are per system, so only half of a
@@ -101,6 +94,13 @@ public sealed class SystemSettings
         into.Add(team);
     }
 
+    /// <summary>
+    /// Puts these settings onto a battery.
+    ///
+    /// <para><see cref="SystemConfig.OpticViewport"/> is deliberately not carried: it names a
+    /// viewport index in the session that saved it, and restoring it would point a new session's
+    /// camera at a window that may not exist.</para>
+    /// </summary>
     public void ApplyTo(SystemConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);

@@ -12,9 +12,6 @@ namespace KSArmory;
 /// </summary>
 internal sealed partial class Ui
 {
-    // Teams and IFF. The whole subsystem shipped tested and unreachable: nothing outside
-    // Config.cs ever wrote Config.Iff or Config.TeamNames, so every session anyone has played
-    // ran with no teams declared and every contact Unknown.
     private void DrawIff()
     {
         ImGui.TextDisabled("KSA has no team field. A craft joins a team when the team's name");

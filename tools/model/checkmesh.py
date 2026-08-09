@@ -31,9 +31,9 @@ from collections import defaultdict
 PLANE_QUANT = 2.0e-4
 
 # Ignore conflicts smaller than this (m^2). A patch this size is about 5 cm across on an
-# eight-metre vehicle, and everything the tool reported below it on this model turned out to be
-# a graze between two pieces of one triangulated disc rather than two surfaces in conflict.
-# Raise it back if something small but visible ever slips through.
+# eight-metre vehicle, and on this model everything below it is a graze between two pieces of one
+# triangulated disc rather than two surfaces in conflict. Lower it if something small but visible
+# slips through.
 MIN_AREA = 2.5e-3
 
 # Parallel faces separated by a gap inside this band are treated as fighting. The upper bound

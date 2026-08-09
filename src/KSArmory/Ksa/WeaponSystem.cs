@@ -7,10 +7,9 @@ namespace KSArmory;
 internal readonly record struct SystemEvent(double AtSeconds, string Message);
 
 /// <summary>
-/// The air-defence battery: a six-round launcher, its radar, and the fire-control logic
-/// that decides when to commit rounds. Mounted on a platform vehicle, which is normally
-/// whatever the player is flying but can be pinned so the site keeps defending itself
-/// after the player switches away.
+/// One weapons system: its launcher, its sensor, and the fire-control logic that decides when
+/// to commit rounds. Mounted on a platform vehicle, normally the craft carrying the launcher
+/// part, and pinned there so the site keeps defending itself after the player switches away.
 /// </summary>
 internal sealed class WeaponSystem(Config config, SystemConfig policy)
     : IWeaponSystemView, IManualFire, IOpticalHead, IEffectSource
@@ -299,7 +298,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         assembliesResolved: Profile.GunsMarker is null || GunsPart is not null,
         settled: Turret.IsLaid(Profile.SettleSeconds));
 
-    // Slewing onto a track, rather than stowed or driven from the panel.
     // Slewing onto something, rather than stowed or driven from the panel. Mouse aim counts:
     // the drives are chasing a cursor, so fire control must still wait for them to settle or
     // rounds leave along a tube that is still swinging.
@@ -419,8 +417,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     ///
     /// <para>Separate from <see cref="SampleWorld"/> on purpose: this is gated on the simulation
     /// clock, so it does not run while paused or on a frame that advanced no time, whereas the
-    /// world sample must run regardless. See <see cref="SampleWorld"/> for what conflating the
-    /// two cost.</para>
+    /// world sample must run regardless.</para>
     /// </summary>
     /// <param name="airborne">
     /// Every round in the world, so this system can see the ones that are not its own. Filtered
@@ -438,10 +435,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         {
             for (int i = 0; i < airborne.Count; i++)
             {
-                // Never our own salvo. Teams would usually cover this, but a system with no team
-                // set reads every contact as Unknown, which is engageable -- and a launcher
-                // shooting down its own missiles as they leave the tubes is not a corner case to
-                // discover in flight.
+                // Never this system's own salvo. Teams would usually cover this, but one with no team
+                // set reads every contact as Unknown, which is engageable -- and a launcher must
+                // not shoot down its own missiles as they leave the tubes.
                 if (airborne[i].Handle is IProjectile r && _rounds.Contains(r)) continue;
 
                 _incoming.Add(airborne[i]);
@@ -456,8 +452,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // next one. TravelSinceLaunch differences two platform-relative offsets, which cancels the
         // platform's ~29.8 km/s only while the sample advances alongside the round. Integrating a
         // new round in its own launch frame leaves the sample still for one step, so a frame of
-        // ecliptic motion lands in travel permanently - measured at 658.78 m of travel at an age
-        // of 0.04 s on a round doing 124 m/s.
+        // ecliptic motion lands in travel permanently: 658.78 m of travel at an age of 0.04 s on
+        // a round doing 124 m/s.
         //
         // The cost is one frame before a new round moves, which is correct anyway: it is still in
         // the tube on the frame the trigger is pulled.
@@ -475,10 +471,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// <summary>
     /// Why the missiles are not launching, or null when nothing is stopping them.
     ///
-    /// <para>Every gate returned quietly and looked identical from outside: an unarmed battery, a
-    /// battery with no lock and a battery whose drives have not settled all sit there doing
-    /// nothing. Naming the first gate that says no is the difference between reading the panel
-    /// and reading the source.</para>
+    /// <para>Every gate returns quietly and looks identical from outside: an unarmed system, one
+    /// with no lock and one whose drives have not settled all sit there doing nothing. Naming the
+    /// first gate that says no is the difference between reading the panel and reading the
+    /// source.</para>
     /// </summary>
     public string? Hold { get; private set; } = "not started";
 
@@ -492,8 +488,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
         // Which weapon this ladder is about. The rungs below are the missile sequence, and a
         // launcher with no tubes fails "out of rounds" at every one of them forever: its magazine
-        // is empty by construction and its belt is what shoots. Reported as holding fire while the
-        // cannon are audibly firing, which is how it was found.
+        // is empty by construction and its belt is what shoots. Asking the missile ladder about
+        // one reports it holding fire while its cannon are audibly firing.
         WeaponFit fit = WeaponFit.Of(Profile, Sensor);
         bool hasTubes = fit.FirstOf(ArmamentKind.Tubes) is not null;
 
@@ -565,7 +561,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
     // Decides which craft the battery is mounted on. The launcher is a physical part, so the
     // battery belongs to the craft carrying it and stays there rather than following control.
-    // Preference order: an explicit pin, then the craft you are flying if it has a launcher, then
+    // Preference order: an explicit pin, then the controlled craft if it has a launcher, then
     // whatever the battery is already on, then any loaded craft with one. Falls back to the
     // controlled vehicle only when the part requirement is switched off.
     private void ResolvePlatform()
@@ -577,7 +573,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             PlatformPinned = false;
         }
 
-        // Flying a craft that carries a launcher: that is the one you mean.
+        // A controlled craft that carries a launcher is the one meant.
         Vehicle? controlled = KsaWorld.ControlledVehicle;
         if (KsaWorld.IsAlive(controlled) && LauncherPart.IsMounted(controlled))
         {
@@ -600,7 +596,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         }
 
         // No launcher anywhere. With the part requirement off the battery still works from the
-        // hull of whatever you are flying, which is how it is tested without opening the editor.
+        // hull of the controlled craft, which is how it is tested without opening the editor.
         SetPlatform(_config.RequireLauncherPart ? null : controlled);
     }
 
@@ -652,8 +648,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     {
         string? hold = Holding();
 
-        // Logged on change, not every frame: "why is it not shooting" is the question this mod
-        // gets asked most, and a panel line only answers it for whoever is looking at the panel.
+        // Logged on change, not every frame: a panel line answers "why is it not shooting" only
+        // for whoever is looking at the panel.
         if (hold != Hold)
         {
             Announce(hold is null ? "clear to fire" : $"holding fire: {hold}");
@@ -685,8 +681,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         if (!ThreatModel.HasSalvoCapacity(target, _policy.RoundsPerTarget)) return;
 
         // Detection reaches 36 km; the round reaches 20 km. Without this the battery empties
-        // itself at contacts it cannot possibly catch, which is what every 8.7 km crossing shot
-        // that expired at 22 s was doing.
+        // itself at contacts it cannot possibly catch: an 8.7 km crossing shot expires at 22 s
+        // having never closed.
         if (!ThreatModel.InEngagementEnvelope(target, Munition)) return;
 
         // A round that cannot steer has no business being launched at a track: it would leave the
@@ -1112,9 +1108,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             //
             // The tube, emphatically not Boresight. A PartForward sensor boresights on the part's
             // +X -- its mounting face's outward normal -- while a tube points along +Y, so the two
-            // are perpendicular by construction on every craft at every attitude. Using the
-            // boresight drew a released store across its own axis. Falling back to it is still
-            // right when the tube cannot be resolved: some direction beats none.
+            // are perpendicular by construction on every craft at every attitude, so the boresight
+            // draws a released store across its own axis. Falling back to it is still right when
+            // the tube cannot be resolved: some direction beats none.
             double3 release = LauncherPart.TryGetTubeAxisEcl(platform, launcher, PodsPart, Profile,
                                                              index, out double3 tubeEcl)
                                   ? tubeEcl
@@ -1158,9 +1154,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
                 // The drawn offset against the true one. OffsetFromPlatform is accumulated from
                 // local velocity; PositionEcl - PlatformEcl is the same quantity taken directly.
-                // They should agree. At detonation they have been seen 800 m apart while the
-                // fuse and the blast agreed to the decimal, so the round is killing the target
-                // and being rendered somewhere else entirely. This shows where that opens up.
+                // They should agree. 800 m apart at detonation while the fuse and the blast agree
+                // to the decimal means the round is killing the target and being rendered
+                // somewhere else entirely. This shows where that opens up.
                 double drift = Vec.Len(r.OffsetFromPlatform - (r.PositionEcl - PlatformEcl));
 
                 Log.Debug(() =>
@@ -1241,7 +1237,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// <summary>
     /// Commits one round to a position in the world rather than to a craft.
     ///
-    /// <para>The gates a track brings with it — alive, and on a side we may engage — have no
+    /// <para>The gates a track brings with it — alive, and on a side that may be engaged — have no
     /// meaning for a coordinate, and there is deliberately no substitute: an operator pointing at
     /// a place has said what they want. Everything after the aimpoint is identical, which is why
     /// this and <see cref="Fire(Track)"/> share <c>Commit</c> rather than being written twice.</para>
@@ -1252,10 +1248,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
         double range = Platform is null ? 0.0 : Vec.Len(pointEcl - PlatformEcl);
 
-        // The round's own reach. The panel colours the marker by this, but nothing refused on it,
-        // so a designation the cursor solve put beyond the horizon was committed and a round spent
-        // flying at somewhere it could never arrive. Said out loud, because a designation that is
-        // simply too far is an ordinary thing for an operator to do and worth being told about.
+        // The round's own reach. Without this gate a designation the cursor solve puts beyond the
+        // horizon is committed, and the round is spent flying at somewhere it can never arrive.
+        // Said out loud, because a designation that is simply too far is an ordinary thing for an
+        // operator to do and worth being told about.
         if (range > Munition.MaxRange)
         {
             Announce($"refused: {range / 1000.0:F1} km is beyond the round's {Munition.MaxRange / 1000.0:F0} km reach");
@@ -1344,8 +1340,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // this is the last point at which that is still a refusal rather than a round flying away
         // for its whole life. The tube goes back: the shot was never taken.
         // Operator-held waives the gimbal limit, because a launcher that cannot be pointed has no
-        // way to bring a designated place inside it -- the rail's measured 92-116 degrees off is
-        // that, and is a limit on the seeker rather than a fault. A launcher that *trains* has no
+        // way to bring a designated place inside it -- the rail's 92 to 116 degrees off is that,
+        // and is a limit on the seeker rather than a fault. A launcher that *trains* has no
         // such excuse: waiving it there lets a round leave along a stale tube and says nothing.
         double3 toAim = aim.PositionEcl - launchPos;
         if (!FireGate.CanGuideOntoAimpoint(Munition.Guidance,
@@ -1361,8 +1357,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
         double3 launchVel = platformVel + launchDir * Munition.LaunchSpeed;
 
-        // platformVel is the frame the round launches into. Passing it here is what makes the body
-        // orientable on its very first drawn frame - see the Interceptor constructor.
         // Unguided rounds are slugs: no seeker, lock, boost, fins or command link, so an
         // Interceptor with its steering switched off would be that whole flight model behind
         // guards. Which implementation a munition gets is decided here and only here.
@@ -1407,7 +1401,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         }
 
         // Same rule the shot itself is held to, so the ring answers the question the trigger will.
-        // Held true regardless, it read green however far off the tube the click was -- which is
+        // Held true regardless it would read green however far off the tube the click is, which is
         // the one thing this preview exists to say.
         return FireGate.CanGuideOntoAimpoint(Munition.Guidance, operatorHeld: !Profile.Trains,
                                              Munition.SeekerFovRad, axis, pointEcl - MountEcl);
@@ -1418,7 +1412,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     ///
     /// <para>The operator is the fire-control solution here: mouse aim puts the barrels under the
     /// cursor and this pulls the trigger. It solves no lead for that reason — a lead applied on
-    /// top of a shot someone is eyeballing walks the shells off the point they aimed at, and the
+    /// top of a shot the operator is eyeballing walks the shells off the point aimed at, and the
     /// automatic path already computes one for the target it chose.</para>
     ///
     /// <para>Every refusal is announced. "Nothing happened" is the same symptom for a safe
@@ -1562,8 +1556,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         if (_rounds.Count == 0) return;
 
         // The ground under the launcher, not the launcher. Identical for a site standing still on
-        // it, which every launcher was until the bomb rack -- and the difference is the whole
-        // behaviour of a store released from something moving. See KsaWorld.GroundVelocityAt.
+        // it, and the difference is the whole behaviour of a store released from something moving.
+        // See KsaWorld.GroundVelocityAt.
         double3 platformVelocityEcl = KsaWorld.GroundVelocityAt(Platform!, PlatformEcl);
 
         // A burst is dozens of shells and the world does not move between them, so the candidate
@@ -1697,9 +1691,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // destroys nothing. Every other kind falls through to the blast sweep below, which is what
         // makes an airburst over a position do anything at all.
         //
-        // The kind, not the handle. A handle used to stand in for "is a Part", which was true of
-        // the three kinds that existed then and false of Ground, which carries the body it sits
-        // on: designated shots then arrived, announced, and did nothing whatsoever.
+        // The kind, not the handle. Ground carries the body it sits on, so a handle being present
+        // does not mean the aimpoint is a part, and testing the handle makes every designated shot
+        // arrive, announce, and do nothing whatsoever.
         if (round.Aimpoint.Kind == AimpointKind.Part)
         {
             Announce($"round {round.Tube} arrived at its {round.Aimpoint.Kind} aimpoint");
@@ -1718,7 +1712,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // Which effect is decided after the blast sweep, once it is known whether anything died.
         _burstKilled = false;
 
-        // Three measurements of the same event, because "the burst went off beside the drone"
+        // Three measurements of the same event, because "the burst went off beside the target"
         // needs a number to be actionable.
         //
         //   fuse    - what the fuse decided, between sub-steps. The kill is judged on this.
@@ -1729,10 +1723,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         //             frame-sampled position. If this is the one that disagrees, the simulation
         //             is right and the drawing is wrong.
         //
-        // An earlier version of this line compared the round advanced into the frame against a
-        // target sampled at the frame start, and reported a 73 m gap that was nothing but the
-        // ecliptic velocity times 2.8 ms. Comparing across instants is the mistake this whole
-        // file exists to avoid; do not reintroduce it here.
+        // Both sides of each of these must be taken at one instant. A round advanced into the
+        // frame differenced against a target sampled at the frame start reports a gap that is
+        // nothing but ecliptic velocity times the step: 73 m across 2.8 ms. Comparing across
+        // instants is the mistake this whole file exists to avoid.
         if (round.TargetRef is Vehicle logTarget && KsaWorld.IsAlive(logTarget))
         {
             double intoFrame = round.DetonationElapsedInFrame;
@@ -1746,8 +1740,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             // works in; KSA draws a vehicle at its physics position, which is not the same place.
             // KsaWorld.TryVehicleEgo says so outright: deriving a draw position from
             // GetPositionEcl "visibly misses the craft". If this number is large while fuse and
-            // atBurst agree, the round is killing the target and being painted somewhere else -
-            // which is exactly what has been reported.
+            // atBurst agree, the round is killing the target and being painted somewhere else.
             double onScreen = -1.0;
             if (KsaWorld.HasAnchor && KsaWorld.TryVehicleEgo(logTarget, out double3 targetEgo))
                 onScreen = Vec.Len(KsaWorld.AnchorEgo + round.OffsetFromPlatform - targetEgo);
@@ -1777,7 +1770,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             if (round.MissDistance <= lethalRange)
             {
                 // Say why a lethal hit did not kill. Taking control of the target makes it
-                // immune, which looks exactly like the round missing unless we announce it.
+                // immune, which looks exactly like the round missing unless it is announced.
                 if (ReferenceEquals(intended, Platform))
                 {
                     Announce($"hit on {KsaWorld.DisplayName(intended)} ignored - it is now the battery's own platform");
@@ -1816,7 +1809,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         }
 
         // After the sweep, so a kill and a miss look different. Sized off the charge, which is
-        // also what the damage radii come from -- so what you see and what died cannot drift
+        // also what the damage radii come from -- so what is seen and what died cannot drift
         // apart, and a 30 mm shell cannot paint a missile's fireball.
         if (_config.DrawExplosions)
         {
@@ -1825,8 +1818,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
                             (float)Warhead.EffectScale(round.Munition.ChargeKg));
         }
 
-        // Outside the drawing switch: a burst you cannot see but can hear is still information,
-        // and the effects tick box is about what is drawn.
+        // Outside the drawing switch: a burst that cannot be seen but can be heard is still
+        // information, and the effects tick box is about what is drawn.
         Detonation.Bang(DrawnBurstEcl(round, burst), round.TargetRef as Vehicle ?? Platform,
                         (float)Warhead.EffectScale(round.Munition.ChargeKg), _config);
     }
@@ -1857,8 +1850,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         return drawn;
     }
 
-    // Destroys queued targets after the blast sweep, so we never mutate the engine's vehicle
-    // collection while walking it.
+    // Destroys queued targets after the blast sweep, so the engine's vehicle collection is never
+    // mutated while it is being walked.
     private void ApplyPendingKills()
     {
         if (_pendingKills.Count == 0) return;

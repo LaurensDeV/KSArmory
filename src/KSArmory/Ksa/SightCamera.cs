@@ -9,8 +9,9 @@ namespace KSArmory;
 /// <para><b>The main view rather than a second one, because a secondary viewport draws no planet.</b>
 /// Every pass that makes one look like a planet — the planet renderer, the light and shadow
 /// passes, the ocean, the atmosphere and cloud compute — runs only for the frame viewport, so a
-/// sight on a secondary window shows a starfield over a featureless grey ball. That is KSA's, not
-/// ours, and taking the main view is the workaround `docs/BLOCKED-ON-KSA.md` names.</para>
+/// sight on a secondary window shows a starfield over a featureless grey ball. That is the
+/// engine's own limit, and taking the main view is the workaround `docs/BLOCKED-ON-KSA.md`
+/// names.</para>
 ///
 /// <para><b>It follows the launcher's own craft, whatever the player was following.</b>
 /// <c>FixedController</c> places the camera at <c>following.GetPositionEcl() + CameraOffset</c>
@@ -70,8 +71,9 @@ internal sealed class SightCamera
         switch (action)
         {
             case ViewAction.StandDown:
-                // The mode is theirs and stays as they set it. The *follow* was ours to change and
-                // is put back, or they are left orbiting a launcher they never chose to look at.
+                // The mode is the player's and stays as they set it. The *follow* is the mod's to
+                // change and is put back, or they are left orbiting a launcher they never chose to
+                // look at.
                 KsaWorld.RestoreFollow(_saved);
                 _saved = default;
                 _followed = null;
@@ -98,7 +100,7 @@ internal sealed class SightCamera
         // The panel moved to a system on another craft without the view ever being released. The
         // recording still describes what the player was doing, so this re-points rather than
         // releasing -- but it has to happen before the offset below is written, because that
-        // offset means nothing measured from the craft we were following a moment ago.
+        // offset means nothing measured from the craft the view followed a moment ago.
         if (!ReferenceEquals(_followed, head.Platform) && !Follow(head.Platform)) return action;
 
         // The separation, not either position. Both terms come from this frame's one sample of the

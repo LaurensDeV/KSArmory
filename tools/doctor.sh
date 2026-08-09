@@ -73,8 +73,8 @@ fi
 
 head_ ".NET SDK"
 
-# env.sh returns non-zero and explains itself when there is no net10; swallow its output so we
-# can print our own, then report.
+# env.sh returns non-zero and explains itself when there is no net10; swallow its output so this
+# script can print its own, then report.
 if (source tools/env.sh) >/dev/null 2>&1; then
     # shellcheck disable=SC1091
     source tools/env.sh >/dev/null 2>&1
@@ -170,8 +170,8 @@ head_ "Optional (only needed for some work)"
 if [[ "$PLATFORM" == "wsl" ]]; then
     # Only search roots that exist, and swallow find's exit code. find returns non-zero for any
     # missing root, and under `pipefail` that fails the whole pipeline even when grep matched -
-    # which reported StarMap missing on a machine that had it, purely because /mnt/c/Games did
-    # not exist. tools/run.sh documents the same trap; it is easy to walk back into.
+    # so an absent /mnt/c/Games reports StarMap missing on a machine that has it. tools/run.sh
+    # carries the same trap.
     STARMAP_ROOTS=()
     for root in "${STARMAP_DIR:-}" /mnt/c/Users /mnt/c/Games /mnt/c/StarMap "/mnt/c/Program Files"; do
         [[ -n "$root" && -d "$root" ]] && STARMAP_ROOTS+=("$root")

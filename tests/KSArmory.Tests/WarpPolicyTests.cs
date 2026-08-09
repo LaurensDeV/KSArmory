@@ -2,12 +2,7 @@ using Xunit;
 
 namespace KSArmory.Tests;
 
-/// <summary>
-/// The rules for keeping the world slow enough to simulate what is in the air.
-///
-/// <para>Every one of these fails against the behaviour this replaced, which clamped the step and
-/// returned nothing — there was no decision to assert on at all.</para>
-/// </summary>
+/// <summary>The rules for keeping the world slow enough to simulate what is in the air.</summary>
 public class WarpPolicyTests
 {
     private const double Faithful = Interceptor.MaxFaithfulStep;
@@ -105,7 +100,7 @@ public class WarpPolicyTests
         WarpDecision held = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
         Assert.Equal(WarpAction.Slow, held.Action);
 
-        // The world is now sitting at what we asked for, and the last round has landed.
+        // The world is now sitting at the speed that was asked for, and the last round has landed.
         WarpDecision back = policy.Decide(StepAt(held.Speed), held.Speed,
                                           roundsInFlight: false, enabled: true);
 
@@ -128,8 +123,8 @@ public class WarpPolicyTests
     }
 
     /// <summary>
-    /// A player who moves the speed while it is held has overridden us. Restoring then would undo
-    /// a deliberate choice — the one way this feature could take control and not give it back.
+    /// A player who moves the speed while it is held has overridden the policy. Restoring then
+    /// would undo a deliberate choice — the one way this could take control and not give it back.
     /// </summary>
     [Fact]
     public void APlayerWhoChangesSpeedWhileHeldIsNotOverridden()
@@ -147,8 +142,8 @@ public class WarpPolicyTests
 
     /// <summary>
     /// If the world will not take the speed at all, there is nothing honest left to do. KSA
-    /// rejects a speed change outright while its own auto-warp runs, and a salvo the player is
-    /// told about beats the 124 km miss that clamping produced in flight.
+    /// rejects a speed change outright while its own auto-warp runs, and a lost salvo the player is
+    /// told about beats the 124 km closest approach that clamping produces.
     /// </summary>
     [Fact]
     public void AWorldThatNeverTakesTheSpeedEndsInAbandon()
@@ -206,8 +201,8 @@ public class WarpPolicyTests
     }
 
     /// <summary>
-    /// Once a step measured at the speed we asked for arrives and is still too long, reducing
-    /// again is correct — that is the slow-frame case, not the stale-step one.
+    /// Once a step measured at the requested speed arrives and is still too long, reducing again is
+    /// correct — that is the slow-frame case, not the stale-step one.
     /// </summary>
     [Fact]
     public void AFreshStepThatStillOverrunsDoesReduceAgain()
@@ -228,8 +223,8 @@ public class WarpPolicyTests
 
     /// <summary>
     /// The player's warp control and KSA's auto-warp write the same field this does. Trading
-    /// writes with them frame by frame is a loop neither side wins, and in flight it produced a
-    /// 10x/3.2x oscillation that ran for the whole salvo. The mod is the guest; it stands down.
+    /// writes with them frame by frame is a loop neither side wins: it settles into a 10x/3.2x
+    /// oscillation that runs for the whole salvo. The mod is the guest; it stands down.
     /// </summary>
     [Fact]
     public void SomethingElseDrivingTheSpeedMakesItStandDown()
@@ -355,12 +350,10 @@ public class WarpPolicyTests
     }
 
     /// <summary>
-    /// The fight against another writer *produces* good frames: our value lands, one frame runs
-    /// inside the limit, and the speed goes straight back up. A stand-down budget cleared by a
-    /// good step therefore never reaches its threshold, and the loop runs for the whole salvo.
-    ///
-    /// <para>This is the shape of the log it was taken from — 28 hold lines across three salvos,
-    /// each reading "120.0x still overruns" a few frames after the previous request landed.</para>
+    /// The fight against another writer *produces* good frames: the requested value lands, one
+    /// frame runs inside the limit, and the speed goes straight back up. A stand-down budget
+    /// cleared by a good step therefore never reaches its threshold, and the loop runs for the
+    /// whole salvo.
     /// </summary>
     [Fact]
     public void AnAlternatingFightStillEndsInStandingDown()
@@ -374,13 +367,13 @@ public class WarpPolicyTests
         {
             double asked = last.Action == WarpAction.Slow ? last.Speed : 11.5;
 
-            // Our write lands, then the settle step passes.
+            // The request lands, then the settle step passes.
             policy.Decide(StepAt(asked), asked, roundsInFlight: true, enabled: true);
             policy.Decide(StepAt(asked), asked, roundsInFlight: true, enabled: true);
 
-            // Then a genuinely idle frame: holding, settled, and the step inside the limit. This
-            // is the one that reaches the good-step branch, and clearing the budget there is what
-            // made the loop run forever. Without this call the test cannot see the defect at all.
+            // Then a genuinely idle frame: holding, settled, and the step inside the limit. This is
+            // the one that reaches the good-step branch, and clearing the budget there is what
+            // makes the loop run forever. Without this call the test cannot see that at all.
             policy.Decide(StepAt(asked), asked, roundsInFlight: true, enabled: true);
 
             // Something else puts the speed straight back up.
@@ -404,8 +397,8 @@ public class WarpPolicyTests
         var tight = new WarpPolicy();
         var loose = new WarpPolicy();
 
-        // Long enough that both have to slow. At a step the loose round tolerates it is not
-        // slowed at all, which is the point of the whole change but makes the two incomparable.
+        // Long enough that both have to slow. At a step the loose round tolerates it is not slowed
+        // at all, which is the intent but leaves the two with nothing to compare.
         const double Step = 20.0;
 
         WarpDecision a = tight.Decide(Step, 100.0, roundsInFlight: true, enabled: true, Faithful);

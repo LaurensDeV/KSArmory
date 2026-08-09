@@ -1,8 +1,8 @@
 # Contributing
 
 Thanks for looking. This is a mod for a **pre-release game with no official code-modding API**, so
-some of the setup is unusual and a couple of the rules below exist because breaking them cost
-whole evenings.
+some of the setup is unusual, and a couple of the rules below are load-bearing rather than
+stylistic.
 
 **Modded Kerbal Space Program before?** Read
 [docs/FROM-KSP-MODDING.md](docs/FROM-KSP-MODDING.md) first. Most of what you know transfers; three
@@ -75,10 +75,10 @@ Windows-only API — so the same archive works everywhere and there is nothing t
 | `tools/run.sh` (launch the game) | no — run `StarMap.exe` | yes | no |
 | Blender model pipeline | set `BLENDER` | yes | no |
 
-The gaps are honest ones rather than oversights: `run.sh` drives a Windows `StarMap.exe` through
-WSL interop, and the model scripts drive a Windows Blender binary. StarMap does ship a portable
-`StarMap.dll` that `dotnet StarMap.dll` should run on Linux — **that path is untested here**, and
-confirming it would be a genuinely useful contribution.
+The gaps are structural: `run.sh` drives a Windows `StarMap.exe` through WSL interop, and the
+model scripts drive a Windows Blender binary. StarMap does ship a portable `StarMap.dll` that
+`dotnet StarMap.dll` should run on Linux — **that path is untested here**, and confirming it
+would be a genuinely useful contribution.
 
 ### On Windows
 
@@ -96,20 +96,19 @@ Two things to know, both already handled but worth understanding:
 - **Line endings.** Git for Windows defaults to `core.autocrlf=true`, which would rewrite every
   script to CRLF and make bash fail with `$'\r': command not found` — a message that names neither
   the file nor the cause. `.gitattributes` forces LF on scripts and sources, so a fresh clone is
-  correct whatever your global Git config says. `doctor.sh` checks it anyway, because a clone made
-  *before* that file existed is still broken.
+  correct whatever your global Git config says. `doctor.sh` checks the working tree anyway, since
+  an existing clone can still hold CRLF.
 - **Paths.** The build finds a KSA install at `C:\Program Files\Kitten Space Agency` by itself.
-  Several of the older helper scripts still assume WSL's `/mnt/c` rather than Git Bash's `/c`; the
-  ones that matter for building take `KSA_DIR` or `KSA_DLL_DIR`, so set those if a script cannot
-  find your install.
+  Several helper scripts assume WSL's `/mnt/c` rather than Git Bash's `/c`; the ones that matter
+  for building take `KSA_DIR` or `KSA_DLL_DIR`, so set those if a script cannot find your install.
 
 **Launch the game by running `StarMap.exe` directly.** `tools/run.sh` exists to reach a Windows
 StarMap *from WSL*, which is a problem a Windows developer does not have. `./tools/deploy.sh` puts
 the mod where KSA will load it, and works from Git Bash.
 
-> The Windows-native path has been **reasoned through and made correct, but not executed on a
-> Windows machine** — this repository is developed from WSL. If you hit something it gets wrong,
-> that is a bug worth reporting rather than something you are doing wrong.
+> The Windows-native path is **not exercised on a Windows machine** — this repository is developed
+> from WSL. If you hit something it gets wrong, that is a bug worth reporting rather than something
+> you are doing wrong.
 
 **Case sensitivity bites across platforms.** A mismatched filename loads on Windows and fails on
 Linux, so CI runs `validate-parts.py --offline` on Linux specifically, comparing against the real
@@ -126,10 +125,9 @@ gated for being on `dev`.
 ./tools/check-all.sh          # everything CI runs, about 8 seconds
 ```
 
-That is the whole list, and it is the same script CI calls — so the two cannot drift, which is
-what three hand-maintained lists in three files could not manage. `./tools/check-all.sh --list`
-names the checks; `--with-sweep` adds the drive sweep, which is left out by default because it
-is ~43 s against the rest of the set's ~7 s.
+That is the whole list, and it is the same script CI calls, so the two cannot drift.
+`./tools/check-all.sh --list` names the checks; `--with-sweep` adds the drive sweep, which is left
+out by default because it is ~43 s against the rest of the set's ~7 s.
 
 `./tools/install-hooks.sh` wires it to `pre-push`, so you get it without remembering. Push
 anyway with `git push --no-verify`.
@@ -167,19 +165,19 @@ belongs in git and in `docs/`, not in a comment. Keep it to a sentence or two, a
 not strictly necessary, delete it. See "Comments and documentation" in `CLAUDE.md`.
 
 **A regression test only counts if it fails against the old code.** Check that it does, every
-time. Tests here have three times been written for a bug, passed against it, and looked like
-proof — usually by asserting at the wrong instant. Reintroduce the bug, watch the test go red, put
-it back.
+time. A test written for a bug can pass against the bug — usually by asserting at the wrong
+instant — which looks like proof and is worth nothing. Reintroduce the bug, watch the test go red,
+put it back.
 
 **Read [`docs/FRAMES-AND-EPOCHS.md`](docs/FRAMES-AND-EPOCHS.md) before touching rounds, drawing or
 timing.** Near Earth every position carries ~29.8 km/s of ecliptic motion, so two values a fraction
-of a frame apart differ by hundreds of metres. Every hard bug this mod has had is that, wearing a
-different disguise each time.
+of a frame apart differ by hundreds of metres. A frame or epoch mismatch is the failure mode that
+hides best here, and it wears a different disguise each time.
 
 ## Finding your way around
 
 - [`CLAUDE.md`](CLAUDE.md) — the full map: layout, design decisions, traps, the KSA-update
-  procedure. Long, but it is the accumulated cost of everything that has gone wrong.
+  procedure. Long, and the single most useful file to read before changing anything.
 - [`docs/FRAMES-AND-EPOCHS.md`](docs/FRAMES-AND-EPOCHS.md) — frames, epochs, and how to tell the
   four failure shapes apart.
 - [`docs/KSA-MODDING-NOTES.md`](docs/KSA-MODDING-NOTES.md) — the reverse-engineered game API.

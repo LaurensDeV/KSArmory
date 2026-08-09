@@ -6,10 +6,9 @@ namespace KSArmory;
 /// The geometry of getting a round out of a tube: which way it leaves, and which way its body
 /// points once it is out.
 ///
-/// <para>Split out of <see cref="LauncherPart"/> so the test project can link it. Everything
-/// here is pure vector maths on values the caller has already resolved, which means the two
-/// mistakes this file exists to prevent — launching off the rail, and orienting a body off the
-/// wrong velocity — can be caught without the game running.</para>
+/// <para>Pure vector maths on values the caller has already resolved, which is what lets the two
+/// mistakes it guards — launching off the rail, and orienting a body off the wrong velocity — be
+/// caught without the game running.</para>
 ///
 /// <para>Must stay free of KSA types, like <see cref="Interceptor"/>, <see cref="Vec"/> and
 /// <see cref="Turret"/>.</para>

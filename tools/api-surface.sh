@@ -13,8 +13,8 @@
 # the few dozen members the mod actually touches - anything here that changed is a breaking
 # change, anything not here cannot be. The upgrade-ksa skill drives off it.
 #
-# Safe to commit: names and signatures of our own dependencies, saying nothing about how KSA
-# implements them, exactly like the hashes in ksa-assemblies.lock.
+# Safe to commit: names and signatures of this mod's own dependencies, saying nothing about how
+# KSA implements them, exactly like the hashes in ksa-assemblies.lock.
 #
 set -euo pipefail
 
@@ -35,8 +35,8 @@ echo "building the mod first (the surface is read from the compiled assembly)...
 "$REPO_ROOT/tools/build.sh" >/dev/null
 [[ -f "$MOD_DLL" ]] || { echo "error: $MOD_DLL not found; run ./tools/build.sh" >&2; exit 1; }
 
-# Build the extractor rather than `dotnet run` it: run rebuilds on every invocation and its
-# argument forwarding is fragile enough to have already swallowed one.
+# Build the extractor rather than `dotnet run` it: run rebuilds on every invocation, and its
+# argument forwarding can swallow an argument.
 dotnet build -c Release -v quiet --nologo "$REPO_ROOT/tools/apisurface/ApiSurface.csproj" >/dev/null
 EXTRACTOR="$REPO_ROOT/tools/apisurface/bin/Release/net10.0/apisurface"
 [[ -x "$EXTRACTOR" ]] || { echo "error: apisurface did not build" >&2; exit 1; }

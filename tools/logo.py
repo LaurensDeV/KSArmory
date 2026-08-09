@@ -7,7 +7,7 @@ cannot be re-cut at a different size, colour or lockup without starting again. R
 output, change a number.
 
     ./tools/logo.py                     # what ships, into branding/
-    ./tools/logo.py --all               # ...plus the faces that were not chosen
+    ./tools/logo.py --all               # ...plus the alternative faces
     ./tools/logo.py --out /tmp/logo     # somewhere else
 
 Output goes to branding/ rather than dist/, which is gitignored release scratch: the wordmark is
@@ -151,14 +151,14 @@ def main():
     ap = argparse.ArgumentParser(description="Generate the KSArmory wordmark.")
     ap.add_argument("--out", default="branding")
     ap.add_argument("--all", action="store_true",
-                    help="also render the faces that were not chosen, for reconsidering")
+                    help="also render the alternative faces, for comparison")
     args = ap.parse_args()
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
     # Bahnschrift is Microsoft's DIN: the face on engineering drawings, which is the register a
-    # defence contractor's mark wants. Agency FB was the other candidate and is louder.
+    # defence contractor's mark wants. Agency FB is the louder alternative.
     print("wordmarks:")
     wordmark(out, "logo.png", "bahnschrift.ttf", "SemiBold")
     wordmark(out, "logo-light.png", "bahnschrift.ttf", "SemiBold", dark=False)

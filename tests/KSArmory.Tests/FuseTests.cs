@@ -6,10 +6,10 @@ namespace KSArmory.Tests;
 /// <summary>
 /// The proximity fuse, and its independence from the seeker.
 ///
-/// <para>From a flight log: <b>30 of 30</b> rounds that expired had lost lock, and 11 of them
-/// had passed within 60 m of the target without detonating — the closest at 31 m, against a
-/// 22 m fuse radius. Another round detonated at 38 m. The difference was whether the seeker
-/// still held the target.</para>
+/// <para>A fuse gated on the seeker scores hits as misses: a round passing 31 m from a target
+/// with a 22 m fuse radius flies on to expiry, while one that still holds lock bursts at 38 m.
+/// The only difference between them is the seeker, which has no bearing on whether the warhead
+/// should go off.</para>
 ///
 /// <para>The cause is geometric and unavoidable: the line of sight to a target swings fastest
 /// at the endgame, so it leaves a 55° seeker cone right when the round is closest — exactly
@@ -21,8 +21,8 @@ public class FuseTests
     /// <summary>
     /// A round with guidance disabled, so the flypast geometry is exactly what the test sets.
     /// With navigation on, proportional navigation steers the round into the target whatever
-    /// offset it is given - the first version of these tests did that and "proved" the fuse
-    /// worked at 120 m, which was really just the seeker doing its job.
+    /// offset it is given, which "proves" the fuse works at 120 m when it is really the seeker
+    /// doing its job.
     /// </summary>
     private static MunitionProfile Munition(float navConstant = 0f) => new()
     {
@@ -95,7 +95,7 @@ public class FuseTests
     public void ClosestApproachIsRecordedEvenWhenTheSeekerHasLostTheTarget()
     {
         // The log reports this number on every expiry, and it is how a near miss is told from a
-        // clean miss. Tying it to the seeker made it stop updating at the moment it mattered.
+        // clean miss. Tied to the seeker it stops updating at the moment it matters.
         Interceptor round = FlyPast(missDistance: 120.0);
 
         Assert.True(round.ClosestApproach < 200.0,
@@ -111,8 +111,8 @@ public class FuseTests
         //
         // A crossing target is different: it starts wide of the flight path and the seeker
         // drops it immediately, long before the two converge. The round then coasts through the
-        // target and, with the fuse living inside the lock check, sails on to expiry. That is a
-        // hit scored as a miss - and every expired round in the flight log had lost lock.
+        // target and, with the fuse living inside the lock check, sails on to expiry: a hit scored
+        // as a miss.
         MunitionProfile munition = Munition();
 
         double3 roundVelocity = new(0, 0, 700);
@@ -134,15 +134,6 @@ public class FuseTests
 
         Assert.Equal(RoundState.Detonated, round.State);
     }
-
-    // Removed: TravelStaysConsistentWithPositionThroughDetonation.
-    //
-    // It required the accumulated travel to equal the actual displacement exactly, which only
-    // holds while travel is accumulated. The offset is measured against the platform at the
-    // start of each step instead, so travel deliberately lags the position by one step — that
-    // lag is what keeps the drawn round free of any dt term, and therefore free of jitter.
-    //
-    // Written the same day as the accumulation it defended, and removed with it.
 
     [Fact]
     public void TheFuseDoesNotFireBeforeItIsArmed()

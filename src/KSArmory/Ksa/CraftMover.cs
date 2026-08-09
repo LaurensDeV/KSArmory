@@ -74,8 +74,6 @@ internal sealed class CraftMover
         if (!KsaWorld.IsAlive(_held)) _held = null;
         if (!KsaWorld.IsAlive(_hovered)) _hovered = null;
 
-        // Whether a click ever reaches this hook at all is not obvious: ImGui, KSA's own input
-        // and this mod all read the same mouse. Reported once a second while the tool is on.
         bool wantCapture = ImGui.GetIO().WantCaptureMouse;
         bool clicked = ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false);
         bool down = ImGui.IsMouseDown(ImGuiMouseButton.Left);

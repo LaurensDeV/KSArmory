@@ -94,8 +94,8 @@ public class GuardTests
     [InlineData("add flak cannons next")]
     public void ShortImperativeEnglishIsNotForeign(string text)
     {
-        // Every one of these is plain English containing no function word at all. The first was
-        // refused in game, and the player was told their feedback read as abusive.
+        // Every one of these is plain English containing no function word at all. Refusing them
+        // tells a player their feedback read as abusive.
         Assert.True(Guard.LooksEnglish(text), text);
     }
 

@@ -12,8 +12,7 @@
 # renamed member is a build error and you find it in seconds. A member that kept its name and
 # changed its *meaning* - different units, a different frame of reference, an enum whose
 # members were reordered, a method that started returning normalised values - compiles clean and
-# is then wrong in flight. Those are only visible in the source, and this repository has already
-# been bitten by exactly that class of thing in its own code.
+# is then wrong in flight. Those are only visible in the source.
 #
 # ILSpy's output is deterministic for a given assembly and ilspycmd version, verified by
 # decompiling twice and diffing, so a diff between two runs is real change and not churn.
@@ -22,9 +21,9 @@
 #
 #   - Upgrading ilspycmd. Pin one version across updates.
 #   - Changing which assemblies are in current/dll. The decompiler resolves cross-assembly
-#     types against its -r path, so a type that was an unresolved reference before comes out
-#     with a real name after. Widening the mirror from 8 assemblies to 44 moved KSA.dll from
-#     250,187 lines to 224,074 without the game changing at all.
+#     types against its -r path, so widening the set turns unresolved references into real
+#     names: going from 8 assemblies to 44 takes KSA.dll from 250,187 lines to 224,074 with no
+#     change in the game at all.
 #
 # If you have to do either, do it in its own commit with nothing else in it, so the next real
 # update still diffs cleanly against something.
@@ -94,10 +93,10 @@ for name in "${NAMES[@]}"; do
     #
     # StackAllocInitializers=false is not a preference. ILSpy 10.1 throws "given Block is
     # invalid!" on KSA.PartModelRenderer.DepthData.CreateCsmPipeline, and in project mode one
-    # unhandled method aborts the entire assembly - which silently cost us KSA.dll, the only one
-    # that really matters, on the first run. Disabling the pattern emits that method as plain
-    # IL-faithful C# and the other 1321 files come out fine. Applied to every assembly rather
-    # than just KSA so the corpus stays consistent to diff.
+    # unhandled method aborts the entire assembly - silently taking KSA.dll, the only one that
+    # really matters, with it. Disabling the pattern emits that method as plain IL-faithful C#
+    # and the other 1321 files come out fine. Applied to every assembly rather than just KSA so
+    # the corpus stays consistent to diff.
     if ! err="$(ilspycmd -p -o "$out" -r "$DLL_DIR" -ds StackAllocInitializers=false "$dll" 2>&1 >/dev/null)"; then
         echo "  FAILED $name" >&2
         printf '%s\n' "$err" | head -3 | sed 's/^/      /' >&2

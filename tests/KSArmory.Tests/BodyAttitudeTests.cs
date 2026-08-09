@@ -5,9 +5,10 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Which way a round points. Every round before the bomb left its tube at 25 m/s or more and had
-/// an airflow from the first frame; a store that is released rather than fired has none, and the
-/// old rule accepted any airspeed above a millimetre a second as a heading.
+/// Which way a round points. Every round but a bomb leaves its tube at 25 m/s or more and has an
+/// airflow from the first frame; a store that is released rather than fired has none, and a rule
+/// that takes any airspeed above a millimetre a second as a heading points it wherever the
+/// residual happened to lie.
 /// </summary>
 public class BodyAttitudeTests
 {
@@ -15,8 +16,8 @@ public class BodyAttitudeTests
     private static readonly double3 Down = new(0, 0, -1);
 
     /// <summary>
-    /// The reported bug. A bomb at the instant of release has centimetres per second of airspeed
-    /// in whatever direction the ejector left it, and pointing along that put it sideways.
+    /// A bomb at the instant of release has centimetres per second of airspeed in whatever
+    /// direction the ejector left it, and pointing along that puts it sideways.
     /// </summary>
     [Fact]
     public void AStoreWithNoAirflowKeepsTheHeadingItLeftOn()
@@ -94,10 +95,11 @@ public class BodyAttitudeTests
     /// The invariant the whole thing rests on: a store released with no airspeed must be drawn at
     /// the attitude it was seated at, or it snaps the instant it lets go.
     ///
-    /// <para>What broke it was passing the sensor's boresight as the release heading. A
+    /// <para>The seat it must not move from is the tube's, not the sensor's boresight. A
     /// <c>PartForward</c> sensor boresights on the part's +X — the mounting face's outward normal
     /// — while a tube points along +Y, so the two are perpendicular on every craft at every
-    /// attitude. The bomb was drawn across its own axis for the whole of its fall.</para>
+    /// attitude, and a bomb released along the boresight is drawn across its own axis for the
+    /// whole of its fall.</para>
     /// </summary>
     [Fact]
     public void AReleasedStoreIsDrawnWhereItWasSeated()
@@ -113,7 +115,7 @@ public class BodyAttitudeTests
         Assert.True(Vec.AngleBetween(Turn(seated), Turn(released)) < 1e-9,
                     "a released store must not move from where it was seated");
 
-        // And the value that was being passed instead is exactly across it, which is the bug.
+        // And the boresight, the other value to hand here, is exactly across it.
         doubleQuat boresighted =
             FireGeometry.RotationFromNose(BodyAttitude.Heading(Vec.Zero, TubeGeometry.TraverseAxis));
 

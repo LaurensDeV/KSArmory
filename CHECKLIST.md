@@ -1,64 +1,51 @@
 # Test checklist
 
-## Status — 2026-08-02: the system works end to end in-game
+## Status: the system works end to end in game
 
-Confirmed working: the part loads and renders from Core's meshes, launches standalone, radar
-searches and classifies threats, the launcher slews and fires salvos, proportional navigation
-**intercepts at 22–23 m**, the proximity fuse detonates, the blast destroys the target, and the
+Confirmed against KSA `2026.8.5.5168`: the part loads and renders, the craft launches standalone,
+the radar searches and classifies threats, the launcher slews and fires salvos, proportional
+navigation intercepts, the proximity fuse detonates, the blast destroys the target, and the
 overlay draws correctly on the craft.
 
-**Re-flown on 2026-08-05 against KSA 2026.8.5.5168 and still working.** Two engagements — a
-crossing target and a head-on one, both from 9 km — gave four detonations at **15, 17, 18 and
-20 m** and two kills, with no warning or error in the log. All 30 launcher subparts resolved and
-`drive=True part=True` held throughout, so the engine is still accepting the per-frame subpart
-transform writes.
+Two engagements, a crossing target and a head-on one, both from 9 km, gave four detonations at
+**15, 17, 18 and 20 m** and two kills, with no warning or error in the log. All 30 launcher
+subparts resolved and `drive=True part=True` held throughout, so the engine accepts the per-frame
+subpart transform writes.
 
-Two things that run did **not** exercise, so they stay unproven on this build: everything ran at
-`sim 1.00x` with every step classified `running`, so the timewarp and step-overrun path is
+Two things those runs do not exercise, so they stay unproven on this build: everything ran at
+`sim 1.00x` with every step classified `running`, leaving the timewarp and step-overrun path
 untested; and the cannon never left `want=False`, because both engagements sat well outside its
 200–4000 m envelope.
 
-Bugs found and fixed along the way, all worth knowing about (see
-`docs/KSA-MODDING-NOTES.md`):
-
-| Bug | Cause |
-| --- | --- |
-| Radar saw nothing | `Program.VehiclesInFrame` reads empty from a StarMap hook |
-| Drones spawned at the solar barycentre | `CreateVehicle` needs `parent.Children.Add` + `AddToTask` |
-| Nothing ever rendered | gizmos submitted after the frame's render, wiped by the next reset |
-| Rounds flew 84 km, lock broken instantly | absolute Ecl velocity used as airspeed and heading |
-| Overlay drawn 500 m off the craft | Ecl positions differenced one frame apart, at 29.8 km/s |
-| Detonations killed nothing | blast compared end-of-frame burst against frame-start positions |
+The failure modes worth recognising before starting, and how to tell them apart, are in
+`docs/KSA-MODDING-NOTES.md` and `docs/FRAMES-AND-EPOCHS.md`.
 
 Known wart: the **miss distance slider on test targets is nominal, not achieved**. The ballistic
-solve is a vacuum solution and KSA models atmosphere, so drones undershoot — a requested 1500 m
+solve is a vacuum solution and KSA models atmosphere, so drones undershoot: a requested 1500 m
 pass arrives at roughly 4000 m.
 
 Remaining untested: sections 5 (safety) and 6 (robustness) below.
 
-## Status — the Pantsir model renders in-game
+## Status: the Pantsir model renders in game
 
-The launcher is no longer a 0.9 m tube bundle borrowing Core's meshes. It is a full Pantsir-S1:
-an 8×8 vehicle 8 m long and 5.6 m tall, **12 rounds instead of 6**, built from
-`tools/model/pantsir.py` and shipping **its own mesh atlas and textures**.
+The launcher is a full Pantsir-S1: an 8×8 vehicle 8 m long and 5.6 m tall carrying twelve rounds,
+built from `tools/model/pantsir.py` and shipping **its own mesh atlas and textures**.
 
-**Confirmed 2026-08-02.** The vehicle renders correctly and is recognisable. That settles the
-biggest open question in this file: **a user mod can ship its own `<MeshAtlas>` and
-`<PbrMaterial>`, with PNG textures, resolved relative to the mod root.** The tube markers land
-on the container mouths, so the generated launch geometry agrees with the mesh in-game and not
-just in `validate-parts.py`.
+The vehicle renders correctly and is recognisable, which settles the biggest open question in this
+file: **a user mod can ship its own `<MeshAtlas>` and `<PbrMaterial>`, with PNG textures, resolved
+relative to the mod root.** The tube markers land on the container mouths, so the generated launch
+geometry agrees with the mesh in game and not just in `validate-parts.py`.
 
-One defect found and fixed: the whole vehicle **flickered with white speckle** — z-fighting
-between coplanar faces where boxes abutted on a shared plane. `box()` now inflates every
-primitive by 8 mm. **Blender's preview render does not reproduce this**, so it is game-only.
-Needs a re-check after redeploying.
+Coplanar faces where two boxes abut on a shared plane z-fight, and the whole vehicle then flickers
+with white speckle. `box()` inflates every primitive by 8 mm to separate them, and **Blender's
+preview render does not reproduce the defect**, so the game is the only place it can be checked.
 
-Still untested after the model change:
+Still untested:
 
-- **Mass and size** — 30 t and 8 m, versus 185 kg and 0.9 m. Colliders, attachment, pad physics.
+- **Mass and size** — 30 t and 8 m. Colliders, attachment, pad physics.
 - **Round count** — `12/12` in the panel, twelve markers, a full twelve-round salvo.
 
-Everything about guidance, radar, fuse and the draw anchor is untouched and stays ticked.
+Guidance, radar, fuse and the draw anchor are unaffected by the model and stay ticked.
 
 ---
 
@@ -67,37 +54,37 @@ fails* line says what it means and where to look.
 
 ---
 
-## Where I expect trouble
+## Where trouble is expected
 
-Ranked by how likely I think a failure is. Worth reading before you start.
+Ranked by how likely a failure is. Worth reading before you start.
 
 | Risk | What might break | Covered by |
 | --- | --- | --- |
 | ~~High~~ | ~~The mod's own `<MeshAtlas>` / `<PbrMaterial>` paths don't resolve~~ — **settled, it renders.** | [2.2](#22-the-part-renders) |
-| **Medium** | 30 t and 8 m of part where there used to be 185 kg and 0.9 m: colliders, editor attachment, pad physics. | [2.3](#23-the-part-attaches), [2.4](#24-the-part-behaves-physically) |
+| **Medium** | 30 t and 8 m of part on a stack: colliders, editor attachment, pad physics. | [2.3](#23-the-part-attaches), [2.4](#24-the-part-behaves-physically) |
 | **Medium** | `mod.toml` serving as both content manifest and StarMap manifest. Plausible, untested. | [1.1](#11-the-mod-loads) |
-| **Medium** | `Program.VehiclesInFrame` may not contain what I assume, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
+| **Medium** | `Program.VehiclesInFrame` may not contain the loaded vehicles, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
 | **Medium** | Boresight is local "up" derived from the parent body; if `Vehicle.Parent` misbehaves the cone points somewhere daft. | [3.2](#32-the-search-cone-is-drawn) |
-| **Low** | Guidance and fuse maths — covered by 13 headless tests, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
+| **Low** | Guidance and fuse maths — covered by the headless suite, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
 | **Low** | `DestroyVehicleFromEvent` may behave oddly with `Cause = Collision`. | [4.4](#44-the-warhead-kills) |
 
 ---
 
 ## 0. Before the game
 
-Use the wrapper scripts, not bare `dotnet`. The mod targets **net10.0** and your system SDK is
-8.x, which cannot build it — the scripts put the right SDK on PATH for you.
+Use the wrapper scripts, not bare `dotnet`. The mod targets **net10.0** and a distro `dotnet` 8
+cannot build it — the scripts put the right SDK on PATH for you.
 
 - [x] **0.1** `./tools/sync-import.sh` — Import/ populated, no errors.
 - [x] **0.2** `./tools/build.sh` — succeeds.
-- [x] **0.3** `./tools/test.sh` — 13 passed.
+- [x] **0.3** `./tools/test.sh` — the suite passes.
 - [x] **0.4** `./tools/validate-parts.py` — "OK: 26 asset reference(s) resolve".
 - [ ] **0.5** `./tools/deploy.sh` — prints an install path containing `KSArmory.dll`,
       `mod.toml`, **two XML files at the root**, `Meshes/KSArmory_MeshAtlas.glb` and three
-      PNGs under `Textures/`. If an `Assets/` folder is still there from an older deploy, the
-      script should have deleted it — two copies of the part would fight over one Id.
-- [ ] **0.6** Re-run `./tools/deploy.sh` — it must now say it **registered the mod in
-      manifest.toml**. Your first run predates that step, so the entry is missing.
+      PNGs under `Textures/`. An `Assets/` folder left by a previous layout must have been
+      deleted by the script — two copies of the part would fight over one Id.
+- [ ] **0.6** Re-run `./tools/deploy.sh` — it must say it **registered the mod in
+      manifest.toml**.
 - [ ] **0.7** `./tools/setup-starmap.sh` — installs StarMap and writes `StarMapConfig.json`.
       One-off; skip if already done.
 
@@ -148,13 +135,13 @@ If you cannot find it, ignore it — the log files cover everything on this chec
 - [x] `KittenSpaceAgency.log` contains `INFO found mod 'KSArmory'`.
 - [x] StarMap prints `Loaded mod: KSArmory from manifest`.
 - [x] `Logs/KSArmory.log` contains `loading (mod id: KSArmory)`.
-- [ ] Then `ready - 12 tubes, safe.` (was 6 before the Pantsir model landed)
+- [ ] Then `ready - 12 tubes, safe.`
 
-**Passed 2026-08-02.** Both StarMap hooks fire. Note `[StarMapAllModsLoaded]` lands about
-**21 s** after `[StarMapImmediateLoad]` — it waits for the game to finish loading, so the
-`ready` line appearing late is normal, not a hang.
+Both StarMap hooks fire. `[StarMapAllModsLoaded]` lands about **21 s** after
+`[StarMapImmediateLoad]` — it waits for the game to finish loading, so the `ready` line appearing
+late is normal, not a hang.
 
-**If it fails:** no `KSArmory.log` at all means StarMap never ran our entry class. Check
+**If it fails:** no `KSArmory.log` at all means StarMap never ran the mod's entry class. Check
 `mod.toml`'s `EntryAssembly = "KSArmory"` matches the DLL name, and that StarMapConfig.json
 points at the right KSA folder. An exception mentioning TOML means the `assets` array in
 `mod.toml` isn't tolerated there; move the part XML into a second mod folder and keep
@@ -165,10 +152,10 @@ points at the right KSA folder. An exception mentioning TOML means the `assets` 
 - [x] Nothing in `KittenSpaceAgency.log` about failing to load `KSArmoryAssets.xml` or
       `KSArmoryGameData.xml`.
 
-**Passed 2026-08-02.** Re-check after any XML edit.
+Re-check after any XML edit.
 
-**If it fails:** the schema differs from what I inferred from Core's files. Compare against
-`Content/Core/CoreStructuralAAssets.xml`, which is the file I modelled it on.
+**If it fails:** the schema differs from Core's. Compare against
+`Content/Core/CoreStructuralAAssets.xml`, which the mod's XML is modelled on.
 
 ---
 
@@ -177,8 +164,7 @@ points at the right KSA folder. An exception mentioning TOML means the `assets` 
 ### 2.1 The part appears in the editor
 
 - [x] Open the vehicle editor.
-- [x] Under **Structural**, find **Pantsir-S1 Point Defence System**. (Renamed from "AA-6
-      Point Defence Launcher".)
+- [x] Under **Structural**, find **Pantsir-S1 Point Defence System**.
 
 **If it fails:** the `PartGameData` didn't register. Check the `EditorTag Value="Structural"`
 and that `mod.toml`'s `assets` paths match where deploy.sh put the files — they are now at the
@@ -186,9 +172,8 @@ mod root, **not** under `Assets/`.
 
 ### 2.2 The part renders
 
-**This is the highest-risk item in the whole list, and it is untested again.** The mod used to
-ship no art at all and borrow Core's meshes by Id, which worked. It now carries its own mesh
-atlas and textures, which is a different loader path and has never been exercised.
+**The highest-risk item in the whole list.** The mod carries its own mesh atlas and textures, so
+this is the only thing that exercises the loader path resolving them relative to the mod root.
 
 - [x] The part is a **green 8×8 military truck**: four axles, a cab at the front, and a turret
       at the back carrying two pods of six missile tubes elevated to about 55°.
@@ -196,11 +181,10 @@ atlas and textures, which is a different loader path and has never been exercise
 - [x] A large pale grey panel (the search radar) stands at the very back, leaning aft.
 - [x] A pale grey array faces forward at the front of the turret, with a small dome beside it.
 - [x] Colours are right: olive green body, near-black tyres, grey radar faces, dark glazing.
-- [ ] **No flickering speckle** on flat surfaces — cab roof, hood, deck, turret sides. That was
-      z-fighting from coplanar faces; `box()` now inflates every primitive by 8 mm. Blender's
-      preview render does not reproduce it, so the game is the only place it can be checked.
-- [ ] Rough size: **8 m long, 3 m wide, 5.6 m to the tube mouths.** It is a big part now — it
-      used to be 0.9 m across.
+- [ ] **No flickering speckle** on flat surfaces — cab roof, hood, deck, turret sides. Coplanar
+      faces z-fight; `box()` inflates every primitive by 8 mm to prevent it, and Blender's
+      preview render does not reproduce the defect, so the game is the only place to check.
+- [ ] Rough size: **8 m long, 3 m wide, 5.6 m to the tube mouths.**
 
 **If it fails, the symptom tells you which half broke:**
 
@@ -230,7 +214,7 @@ the Ids must match exactly between the two files.
 
 ### 2.4 The part behaves physically
 
-- [ ] Craft mass increases by **~30 t** per launcher (it is a whole vehicle now, not a pod).
+- [ ] Craft mass increases by **~30 t** per launcher (it is a whole vehicle, not a pod).
 - [ ] It doesn't clip weirdly or fall through the launchpad. The hull collider starts at the
       ground plane, so it should rest on its wheels rather than sink to the axles.
 - [ ] Craft launches without the part exploding or detaching.
@@ -249,7 +233,7 @@ the Ids must match exactly between the two files.
 
 **If it fails:** `Launcher: none fitted` while the part *is* on the craft means
 `LauncherPart.Find` isn't matching — `Part.Id` may not equal the `PartGameData` Id. Untick
-**Require launcher part** to keep testing everything else, and tell me.
+**Require launcher part** to keep testing everything else, and report it.
 
 ### 3.1b The turret slews
 
@@ -261,7 +245,7 @@ here is instrumented so the answer is readable either way.
       `LauncherPart.cs` needs to match whatever is actually there.
 - [ ] The panel shows `Turret: N deg` and not `subpart not found` or `engine refused`.
 - [ ] A **cyan line** points out from above the vehicle. That is where the drive *thinks* it is
-      aimed — it comes from our own maths, not from the engine.
+      aimed — it comes from the mod's own maths, not from the engine.
 - [ ] Spawn a test target. The cyan line sweeps round to follow it, taking about a second.
 - [ ] **The turret mesh follows the cyan line.** This is the actual test.
 - [ ] The twelve tube markers stay on the container mouths as it turns.
@@ -320,7 +304,7 @@ filters out anything below *Min target speed* (default 15 m/s).
 
 **If it fails:** empty track list with a vessel clearly nearby means `Program.VehiclesInFrame`
 isn't returning loaded vehicles. Try widening *Cone half-angle* to 180 and *Range* to max
-first — that rules out geometry before we blame the API.
+first — that rules out geometry before blaming the API.
 
 ### 3.4 Threat classification
 
@@ -342,7 +326,7 @@ Do all of this at `simspeed 1`.
 
 - [ ] Tick **Master arm**. Header turns red, `MASTER ARM: ARMED`.
 - [ ] With a lock, press **FIRE**.
-- [ ] `Rounds` drops to 5/6; one muzzle dot turns grey.
+- [ ] `Rounds` drops to 11/12; one muzzle dot turns grey.
 - [ ] A tracer leaves that tube with a trail behind it.
 - [ ] Console logs `[KSArmory] round N away at <target> (X.X km)`.
 
@@ -380,8 +364,8 @@ so a real-world failure points at frame timing or the target-state sampling, not
 - [ ] Tick **Auto engage**, present a threat, and let it work unattended.
 - [ ] It fires *Rounds per target* rounds (default 2), spaced by *Salvo spacing* (0.45 s).
 - [ ] It does **not** dump all twelve at one target.
-- [ ] After 6 rounds, `Rounds: 0/6` and a reload progress bar appears.
-- [ ] After *Reload time* (12 s), back to 6/6 and `launcher reloaded`.
+- [ ] After twelve rounds, `Rounds: 0/12` and a reload progress bar appears.
+- [ ] After *Reload time* (12 s), back to 12/12 and `launcher reloaded`.
 
 ### 4.6 Manual designation
 
@@ -400,23 +384,23 @@ Do these deliberately — a failure here is the kind that ruins a save.
 - [x] **5.2** A round fired at a close target does not destroy your own launcher platform
       (the fuse arms 0.6 s after launch specifically to prevent this).
 - [x] **5.3** **Safe all** removes rounds in flight with no detonation, **and disarms**.
-      Found in testing: it used to only clear the air, so an armed battery with a lock
-      fired again immediately and the button appeared to do nothing.
+      Without the disarm, an armed system holding a lock fires again immediately and the
+      button appears to do nothing.
 - [x] **5.4** Master arm off means nothing launches, even with a valid lock and auto-engage on.
 
 ---
 
 ## 6. Robustness
 
-Where I'd expect latent bugs.
+Where latent bugs are most likely.
 
 - [ ] **6.1** **Timewarp** — raise sim speed with rounds in flight. Nothing should NaN, crash,
       or spam the log. Rounds behaving oddly under warp is acceptable; a crash isn't.
 - [ ] **6.2** **Scene change** — go flight → editor → flight. Panel recovers, no exceptions.
 - [ ] **6.2b** **Camera switching mid-engagement** — fire a salvo, then switch the camera to the
       drone and back. The cone, track markers and tracers must stay locked to the craft and to
-      each other. *(Regression: `GetPositionEgo` takes a different branch depending on what the
-      camera follows, which used to shift the whole overlay and make hits look like misses. The
+      each other. *(`GetPositionEgo` takes a different branch depending on what the camera
+      follows, so a mismatch there shifts the whole overlay and makes hits look like misses. The
       log is the arbiter — miss distances stay ~22 m either way.)*
 - [ ] **6.3** **Target dies mid-flight** — destroy the target another way while rounds chase it.
       They should lose lock and expire, not throw.
@@ -424,18 +408,18 @@ Where I'd expect latent bugs.
 - [ ] **6.5** **Pin platform** — press *Pin to this vehicle*, switch control elsewhere. The
       pinned craft keeps defending itself.
 - [ ] **6.6** **Staging away the launcher** — `Launcher: none fitted` appears, firing refuses.
-- [ ] **6.7** **Two launchers** on one craft — should work, still one battery of 6 (by design).
+- [ ] **6.7** **Two launchers** on one craft — should work, still one system of twelve (by design).
 - [ ] **6.8** **Long session** — leave auto-engage on for a while. No unbounded log growth, no
       frame-rate decay.
 - [ ] **6.9** **Fault handling** — if anything throws, the console shows
       `[KSArmory] ERROR … (n/10)`. After 10 it disables itself rather than spamming. If you
-      see this, **copy those lines** — that's the most useful thing you can send me.
+      see this, **copy those lines** — they are the most useful thing to report.
 
 ---
 
 ## 7. Gaps — never exercised at all
 
-Added after the system was working. These are not "probably fine", they are "never once run".
+Paths that have never once run. These are not "probably fine".
 
 ### 7.1 Save / load with the part fitted  ← highest risk
 
@@ -446,13 +430,11 @@ Added after the system was working. These are not "probably fine", they are "nev
 **Why it matters:** the part goes into the save's part tree. If KSA cannot resolve
 `KSArmory_Prefab_Launcher6` on load, the craft — or the whole save — may fail.
 
-Confirmed 2026-08-06, after the part Id was renamed that morning: saved, quit to menu, reloaded,
-craft intact with the launcher present. The other two lines below — saving with rounds in flight,
-and loading with the mod removed — are still untried.
+Saving with rounds in flight, and loading with the mod removed, are the two still untried.
 
 ### 7.1b Timed airburst (flak)
 
-Nothing has seen this in game. `MunitionProfile.TimedFuse` makes the cannon fuse each shell for the
+Untested in game. `MunitionProfile.TimedFuse` makes the cannon fuse each shell for the
 flight time of the lead solution it was aimed with; the proximity fuse still fires first if
 something arrives early.
 
@@ -475,53 +457,51 @@ something arrives early.
 
 ### 7.1d The Sidewinder rail
 
-**Flown unattended on 2026-08-07 by `./tools/scenario.sh head-on`, and it killed the target.**
-The log reads: crewed NewRocket_1 with the LAU-7 rail, armed with 1 round, target away, round
-away, and KSA reporting `Vehicle 'AD Test Drone 1' destroyed by Collision (50.0 g)`. So the
-fixed-launcher path crews, arms, fires and kills.
+**`./tools/scenario.sh head-on` flies this unattended and kills the target.** The log shows the
+LAU-7 rail crewed, armed with 1 round, target away, round away, and KSA reporting
+`Vehicle 'AD Test Drone 1' destroyed by Collision (50.0 g)`. So the fixed-launcher path crews,
+arms, fires and kills.
 
-What that run did *not* settle is everything about appearance -- the screenshot lands after the
-kill, so the round leaving the rail was never seen. The unticked boxes below are the ones a log
-cannot answer.
+What a log cannot answer is appearance: the screenshot lands after the kill, so it never shows the
+round leaving the rail. The unticked boxes below are those.
 
-The second weapon system, and the first that is *fixed* — no turret, no pods, one round, no
-reload. Everything below is a path the Pantsir never takes, so a green suite says little about it.
+A *fixed* launcher — no turret, no pods, one round, no reload — takes paths the Pantsir never
+does, so a green suite says little about it.
 
 - [ ] The rail appears in the editor under Structural, and **surface-attaches** to the side of a
       stack. It is not a command source, so a craft made only of a rail will not fly — expected.
 - [ ] The AIM-9J is **visible on the rail** before firing. A tube launcher hides its rounds inside
-      the containers; a rail cannot, so `TubeVisual.Loaded` is being seen for the first time.
+      the containers; a rail cannot, so `TubeVisual.Loaded` is exercised here and nowhere else.
 - [ ] The round sits along the rail, fins in an X straddling it. A roll that puts one fin through
       the rail means the seating rotation is not the shortest one `RotationFromTo` promises.
 - [ ] It fires. `Trains` is false, so `IsLaid` is true from the start and nothing waits for drives
       that do not exist — the failure to look for is fire control deadlocking rather than missing.
-- [ ] The round leaves **aimed at what it was fired at**, not along the rail. `LaunchAlongTube`
-      is deliberately false: a rail on a stack points where the stack points, so releasing along
-      it put every designation 92-116 degrees outside the seeker's gimbal limit and the launcher
-      refused every shot. Watch for the opposite failure now — a round departing *through* the
-      craft carrying it.
+- [ ] The round leaves **along the rail** and is clear of the craft before it turns.
+      `LaunchAlongTube` is true and the round coasts for `MunitionProfile.SeparationSeconds`
+      before steering, so the arc it then flies is bounded by its own lateral g. Watch for a
+      round departing *through* the craft carrying it.
 - [ ] The search volume follows the craft's attitude, not local up. `BoresightSource` is
       `PartForward` — pitch the craft over and the cone must go with it.
 - [ ] After the one round is gone the launcher stays empty. `ReloadSeconds` is zero.
 
 - [ ] **A Pantsir and a rail in the same world at once.** Each keeps its own search cone, round and
-      envelope in the panel and in the overlay. This is what moving the profiles onto the battery
-      was for, and a session-scoped profile would show up here as one site drawing the other's
-      numbers — nowhere else.
+      envelope in the panel and in the overlay. Profiles belong to the system for exactly this
+      case: a session-scoped profile shows up here as one site drawing the other's numbers, and
+      nowhere else.
 
 - [ ] Two rails on one craft: expected to fire **one**. `LauncherOrdinal` is pinned and the roster
       crews one battery per craft. Recorded so it is not mistaken for a bug.
 
 ### 7.1e Drag, and what a round does once it leaves the air
 
-Never deliberately tested. Noticed in a flight log on 2026-08-06:
+Never deliberately tested. A flight log reads:
 
 ```
 round 2 expired after 30.0s - closest 617 m, flew 33.0 km, final speed 1010 m/s, lock=False
 ```
 
-A 57E6 peaks near 1290 m/s, so this one shed under 300 m/s in thirty seconds and travelled 65 %
-past the system's 20 km engagement envelope. Both look wrong and, on reading the code, neither is:
+A 57E6 peaks near 1290 m/s, so that round shed under 300 m/s in thirty seconds and travelled 65 %
+past the system's 20 km engagement envelope. Both look wrong and neither is:
 `KsaWorld.MediumDensityRatioAt` returns **zero above `air.Height`**, which is correct because there
 is no atmosphere to resist anything, and the envelope decides when the battery *commits* rather
 than how far a round may fly. `MaxFlightSeconds` is what ends it.
@@ -551,13 +531,13 @@ that sails on — but nothing has ever exercised the branch.
 **Why:** every engagement so far has been one drone. Track prioritisation, round attribution and
 salvo allocation have literally never run against a contested list.
 
-**The arithmetic is now covered.** `ThreatModelTests` ranks contested lists, checks non-threats
+**The arithmetic is covered.** `ThreatModelTests` ranks contested lists, checks non-threats
 never outrank threats, and walks twelve tubes across three targets to prove the first does not
-take the whole magazine — 19 tests, headless. That became possible by moving the logic out of
-`Ksa/Radar.cs` and `Ksa/WeaponSystem.cs` into `Sim/ThreatModel.cs`.
+take the whole magazine. It is headless because the logic lives in `Sim/ThreatModel.cs` rather
+than in `Ksa/Radar.cs` and `Ksa/WeaponSystem.cs`.
 
 It does **not** retire these boxes. The tests prove the maths; they say nothing about KSA
-handing us the vehicles we expect, tracks surviving a rebuild, or the lock promoting cleanly
+handing over the vehicles expected, tracks surviving a rebuild, or the lock promoting cleanly
 when a target dies mid-engagement. Run them still — expect fewer surprises.
 
 ### 7.3 Blast catching a third party
@@ -566,19 +546,18 @@ when a target dies mid-engagement. Run them still — expect fewer surprises.
 
 **Why:** the splash path (as opposed to the intended-target path) has never destroyed anything.
 
-### 7.4 Recently changed, unproven
+### 7.4 Unproven
 
-Confirmed in flight and no longer open: the model repairs of August 2026 - pod frame rings and
-spine, the search array's turntable, the gun sponsons tied back to their cheeks, the tube covers,
-the raised optical head - all seen and judged correct over several sessions. `checkswept.py` now
-guards the class, so a regression is caught before a build rather than by eye.
+Closed: the pod frame rings and spine, the search array's turntable, the gun sponsons tied back to
+their cheeks, the tube covers and the raised optical head all render correctly. `checkswept.py`
+guards that class of defect, so a regression is caught before a build rather than by eye.
 
 Still open below.
 
 - [ ] **Pods clear the bodywork off the bow** - traverse into the forward sector at low elevation
-      and confirm the tubes lift rather than passing through the APU box. The depression floor was
-      widened to hold its full height across the sector it protects; only flight proves the arc is
-      wide enough.
+      and confirm the tubes lift rather than passing through the APU box. The depression floor
+      holds its full height across the sector it protects; only flight proves the arc is wide
+      enough.
 - [ ] **A refused drive holds fire** - cannot be forced on demand, since it needs KSA to reject a
       transform write. If it ever happens the panel says which assembly froze and whether the
       launcher is holding fire; report the line rather than trying to reproduce it.
@@ -598,13 +577,12 @@ Still open below.
 
 - [ ] A round fired at a low target passes through terrain rather than hitting it. Expected —
       rounds only test against their target — but confirm it does not throw.
-- [x] **Timewarp during flight: confirmed broken, and fixed.** Reported from play as tracking
-      being "completely messed up" by changing simulation speed, and as the battery still
-      firing while **paused**. One cause: the mod stepped on StarMap's *player-time* delta,
-      which is wall-clock — it runs through a pause and stays at 1× under warp. It now steps on
-      `Universe.GetElapsedSimTime()` via `Sim/SimClock.cs`.
+- [x] **Timewarp during flight.** Fire control steps on `Universe.GetElapsedSimTime()` via
+      `Sim/SimClock.cs`, never on StarMap's *player-time* delta: player time is wall-clock, so it
+      runs through a pause and stays at 1× under warp, which breaks tracking and lets a paused
+      system fire.
 
-### 7.5b Retest after the time-source fix
+### 7.5b Timewarp and pause, on simulated time
 
 - [x] Pause mid-engagement: rounds hold position, no launches, no dwell accrued. Resume and the
       engagement continues rather than jumping.

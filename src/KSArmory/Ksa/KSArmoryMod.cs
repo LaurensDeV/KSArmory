@@ -33,8 +33,6 @@ public sealed class KSArmoryMod
     private bool _disabled;
     private readonly WarpPolicy _warp = new();
 
-    // The short-lived marker the systems list drops on a craft.
-
     // Holds the main view on one system without handing it the controls.
     private readonly WatchCamera _watch = new();
     private readonly ChaseCamera _chase = new();
@@ -149,15 +147,6 @@ public sealed class KSArmoryMod
     }
 
     /// <summary>
-    /// Panel and world overlay.
-    ///
-    /// The gizmo drawing has to happen here, not in the frame hook. KSA's whole frame runs
-    /// inside OnFrame: it calls GizmosRenderer.ResetInstances() near the top, draws the UI,
-    /// then renders. A postfix on OnFrame therefore lands *after* the render, so anything it
-    /// submits is cleared by the next frame's reset before it is ever drawn. This hook is a
-    /// postfix on OnDrawUiViewports, which sits between the reset and the render.
-    /// </summary>
-    /// <summary>
     /// Opens the main menu bar before KSA fills it, so "Mods" sits alongside File and Universe.
     /// Nothing else belongs here: the overlay and the panel need the world stepped first.
     /// </summary>
@@ -170,6 +159,15 @@ public sealed class KSArmoryMod
         catch { /* Cosmetic. Never take KSA's GUI pass down for a menu item. */ }
     }
 
+    /// <summary>
+    /// Panel and world overlay.
+    ///
+    /// The gizmo drawing has to happen here, not in the frame hook. KSA's whole frame runs
+    /// inside OnFrame: it calls GizmosRenderer.ResetInstances() near the top, draws the UI,
+    /// then renders. A postfix on OnFrame therefore lands *after* the render, so anything it
+    /// submits is cleared by the next frame's reset before it is ever drawn. This hook is a
+    /// postfix on OnDrawUiViewports, which sits between the reset and the render.
+    /// </summary>
     [StarMapAfterGui]
     public void OnAfterGui(double dt)
     {
@@ -295,14 +293,14 @@ public sealed class KSArmoryMod
     {
         if (_roster is null) return;
 
-        // Every frame, before the clock gate. This reads where the world is, and the whole
-        // overlay is drawn against it — leaving it inside the gated step froze the drawing's
-        // frame of reference whenever the simulation did not advance.
+        // Every frame, before the clock gate. This reads where the world is and the whole
+        // overlay is drawn against it, so inside the gated step the drawing's frame of
+        // reference freezes on every frame that advances no simulated time.
         foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SampleWorld();
 
         // Reported off the *controlled* vehicle, not the battery's platform: whether a gun
-        // renders has nothing to do with whether the battery mounted, and gating it on that hid
-        // the answer behind an unrelated tick box.
+        // renders has nothing to do with whether the battery mounted, so gating it on that
+        // would hide the answer behind an unrelated condition.
         ReportControlledKitten();
 
         // Gate on the step the engine applied, not on the pause flag. Universe.IsPaused() is
@@ -337,9 +335,9 @@ public sealed class KSArmoryMod
 
             ApplyWarpPolicy(dtSim);
 
-            // Still clamped, and it still discards time: the frame that overran cannot be
-            // un-run, and the policy above only takes effect from the next one. What it stops
-            // is the *next* thousand frames doing the same thing silently.
+            // Clamped, and the clamp discards time: the frame that overran cannot be un-run,
+            // and the policy above only takes effect from the next one. What it stops is the
+            // *next* thousand frames doing the same thing silently.
             if (double.IsFinite(dtSim) && dtSim > 0.0)
             {
                 double step = Math.Min(dtSim, FaithfulStepInFlight());
@@ -374,8 +372,6 @@ public sealed class KSArmoryMod
             else SightFor(e.Battery).Clear();
         }
 
-        // Every effect that holds a pooled emitter or a channel, so a craft destroyed mid-salvo
-        // does not keep one for the session.
         // A sight outlives nothing: without this the dictionary keeps a system for the session
         // after its craft has gone, which is the leak every pooled effect below sweeps for.
         if (_sights.Count > _roster.Count)
@@ -384,6 +380,8 @@ public sealed class KSArmoryMod
             foreach (WeaponSystems.Entry e in _roster.All) SightFor(e.Battery);
         }
 
+        // Every effect that holds a pooled emitter or a channel, so a craft destroyed mid-salvo
+        // does not keep one for the session.
         _motors.Sweep(_roster);
         _plumes.Sweep(_roster);
         _tracers.Sweep(_roster);
@@ -394,13 +392,11 @@ public sealed class KSArmoryMod
         // than the one before it.
         _scenario.Update(_roster, dtPlayer);
 
-        // Settings are written down a couple of times a second rather than on every edit: the
-        // panel has no change notification, and a comparison against what is already stored is
-        // far cheaper than working out which widget was touched.
-        // Every frame, not every thirtieth. Half a second is long enough to save and load inside,
-        // and a load inside that window loses the settings twice over: they were never written for
-        // that save, and the check then fires afterwards and writes the freshly-defaulted ones
-        // over the file. It is a file timestamp, not work.
+        // The panel has no change notification, so settings are written by comparing against what
+        // is already stored. Every frame rather than on a timer: a save and a load both fit inside
+        // half a second, and a load in that window loses the settings twice over, once because
+        // they were never written for that save and again when a later check writes the
+        // freshly-defaulted ones over the file. It is a file timestamp, not work.
         _roster.Remember();
 }
 
@@ -419,11 +415,11 @@ public sealed class KSArmoryMod
         _sight.Release();
 
         // After the cameras have let go, so nothing is mid-write when the controller is swapped
-        // back. Leaving ours installed would outlive the mod for the rest of the session.
+        // back. The mod's own controller would otherwise outlive it for the rest of the session.
         KsaWorld.RestoreStockController();
         _mover.Release();
 
-        // Pooled emitters and audio channels are the game's, not ours, and nothing else gives them
+        // Pooled emitters and audio channels belong to the game and nothing else gives them
         // back: unloading while anything is burning or firing would keep them for the process.
         _motors?.StopAll();
         _gunSound?.StopAll();

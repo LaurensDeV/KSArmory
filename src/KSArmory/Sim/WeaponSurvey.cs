@@ -104,11 +104,11 @@ public sealed class WeaponInventory
     }
 
     /// <summary>Whether this craft is a weapons system at all.</summary>
-    ///
-    /// <para>Anything recognised counts, for now. The intended gate is an explicit fire-control
-    /// part: it gives a craft's settings an owner, and it stops a piece of debris that happens to
-    /// carry a launcher from becoming a battery of its own. That part does not exist yet, and
-    /// gating on it today would find nothing.</para>
+    /// <remarks>
+    /// Anything recognised counts. The intended gate is an explicit fire-control part: it gives a
+    /// craft's settings an owner, and it stops a piece of debris that happens to carry a launcher
+    /// from becoming a battery of its own. No such part exists, so gating on it would find nothing.
+    /// </remarks>
     public bool IsWeaponSystem => Components.Count > 0;
 
     public static readonly WeaponInventory Empty = new() { Components = [] };
@@ -118,9 +118,8 @@ public sealed class WeaponInventory
 /// Walks a craft's parts and reports which of them this mod recognises.
 ///
 /// <para>No KSA types: the caller flattens the part tree into <see cref="SurveyedPart"/> and
-/// applies the answer. That is what makes the matching and grouping testable, which matters
-/// because the alternative — discovering a mis-assembled craft in flight — is the failure mode
-/// this mod keeps meeting.</para>
+/// applies the answer. That is what makes the matching and grouping testable, and the alternative
+/// is discovering a mis-assembled craft in flight.</para>
 /// </summary>
 public static class WeaponSurvey
 {

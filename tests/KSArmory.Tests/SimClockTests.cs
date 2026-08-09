@@ -5,14 +5,13 @@ namespace KSArmory.Tests;
 /// <summary>
 /// What the battery does with the simulation step KSA reports.
 ///
-/// <para>Two behaviours here came from play. The battery fired while the game was paused, and
-/// tracking fell apart when the simulation speed changed — both because the mod stepped on
-/// StarMap's player-time delta, which is wall-clock and so keeps running through a pause and
-/// stays at 1× under warp.</para>
+/// <para>Stepping on StarMap's player-time delta is wrong twice over: it is wall-clock, so it
+/// keeps running through a pause and the battery matures a firing solution into a frozen world,
+/// and it stays at 1× under warp, so the world outruns the rounds.</para>
 ///
-/// <para>The third came from a flight log: rounds zigzagging laterally with the vertical axis
-/// clean. Reading the step KSA applied, rather than differencing a clock around it, is what
-/// removes the phase error behind that — see <see cref="SimClock"/>.</para>
+/// <para>And it has to be the step KSA applied rather than a clock differenced around it.
+/// Differencing lands a step out of phase, which shows up as rounds zigzagging laterally with the
+/// vertical axis clean — see <see cref="SimClock"/>.</para>
 /// </summary>
 public class SimClockTests
 {
@@ -26,8 +25,8 @@ public class SimClockTests
     [Fact]
     public void APausedGameAdvancesNothingEvenIfAStepIsReported()
     {
-        // Belt and braces. If a future build ever reported a step while paused, the mod must
-        // still not accumulate dwell and fire - which is exactly the bug that was seen.
+        // Belt and braces. If a build ever reports a step while paused, the mod must still not
+        // accumulate dwell and fire into a frozen world.
         Assert.Equal(SimClock.State.Idle, SimClock.Classify(0.05, paused: true, out double dt));
         Assert.Equal(0.0, dt);
     }
