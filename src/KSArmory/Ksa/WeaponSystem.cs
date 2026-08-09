@@ -118,6 +118,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// <summary>The search array's current angle. Cosmetic - the radar model is a cone search.</summary>
     public double RadarSpinRad { get; private set; }
 
+    // The array's own clock. Its angle is decoration -- a search set never stops and never aims,
+    // so nothing reads it back -- and the engine's step beats with the display's frame pacing, so
+    // advancing on it turns the array three times as far on alternate frames. See Sim/SmoothedStep.
+    private readonly SmoothedStep _spinStep = new();
+
     /// <summary>Azimuth drive state. Pure maths, no KSA types — see <see cref="Turret"/>.</summary>
     public Turret Turret { get; } = new();
 
@@ -1022,7 +1027,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             if (!_policy.SearchRadarStopped)
             {
                 RadarSpinRad = Turret.WrapPi(
-                    RadarSpinRad + Profile.SearchRadarRpm * (Math.Tau / 60.0) * dt);
+                    RadarSpinRad + Profile.SearchRadarRpm * (Math.Tau / 60.0) * _spinStep.Next(dt));
             }
             if (!LauncherPart.TryApplyRadarSpin(RadarPart, Profile, Turret.BearingRad, RadarSpinRad))
             {
