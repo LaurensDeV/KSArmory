@@ -25,6 +25,12 @@ internal enum AimpointKind
     /// at full lateral G. Both were seen in flight.</para>
     /// </summary>
     Ground,
+
+    /// <summary>
+    /// Nothing at all. An unguided round has no aimpoint to miss: where it lands was settled by
+    /// where the launcher was pointing and how fast it was moving when the operator let it go.
+    /// </summary>
+    None,
 }
 
 /// <summary>
@@ -45,6 +51,9 @@ internal readonly record struct Aimpoint(
     double Radius,
     double3 Anchor = default)
 {
+    /// <summary>Nothing to arrive at. What a bomb is released with.</summary>
+    public static readonly Aimpoint Nothing = new(AimpointKind.None, null, default, default, 0.0);
+
     /// <summary>A moving craft or component, tracked by handle.</summary>
     public static Aimpoint OnVehicle(object handle, double3 positionEcl, double3 velocityEcl, double radius)
         => new(AimpointKind.Vehicle, handle, positionEcl, velocityEcl, radius);

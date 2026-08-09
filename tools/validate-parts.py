@@ -294,18 +294,19 @@ def check_launcher_geometry():
     return problems, checked
 
 
-def check_rail_geometry():
-    """The same check for the Sidewinder rail, whose tube declares its own direction.
+def check_fixed_launcher_geometry(profile, munition, key, label):
+    """Checks one fixed launcher's tube against what the model script emitted.
 
-    Scoped to the SidewinderRail initialiser rather than swept over the file: the Pantsir's block
-    sits above it with the same field names, and a whole-file regex reads that one instead and
-    passes whatever the rail says.
+    Fixed launchers declare their own tube axis, because they have no pods for their rounds to
+    follow. Parameterised rather than written per launcher: the rail was the only one for a while
+    and a check that reads whichever initialiser it finds first passes whatever the second one
+    says. Scoping the regex to the named block is the same reason.
     """
     muzzles = REPO / "tools" / "model" / "muzzles.json"
     if not muzzles.is_file():
         return 0, 0
 
-    expected = json.loads(muzzles.read_text()).get("sidewinder")
+    expected = json.loads(muzzles.read_text()).get(key)
     if expected is None:
         return 0, 0
 
@@ -313,9 +314,9 @@ def check_rail_geometry():
     problems = 0
     checked = 0
 
-    found = re.search(r"SidewinderRail\s*=\s*new\(\)\s*\{(.*?)\n\s*\};", text, re.S)
+    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
     if found is None:
-        print("  MISSING Arsenal.SidewinderRail", file=sys.stderr)
+        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
         return 1, 1
     block = found.group(1)
 
@@ -325,42 +326,42 @@ def check_rail_geometry():
     tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),"
                      r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*\]", block)
     if tube is None:
-        print("  MISSING Arsenal.SidewinderRail.Tubes", file=sys.stderr)
+        print(f"  MISSING Arsenal.{profile}.Tubes", file=sys.stderr)
         problems += 1
     else:
         got = [float(v) for v in tube.groups()]
         want = list(expected["tubes"][0]) + list(expected["tube_directions"][0])
         if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
-            print(f"  STALE Arsenal.SidewinderRail.Tubes = {tuple(got)}, "
+            print(f"  STALE Arsenal.{profile}.Tubes = {tuple(got)}, "
                   f"mesh says {tuple(want)}", file=sys.stderr)
             problems += 1
 
     checked += 1
     offset = re.search(r"MuzzleForwardOffset\s*=\s*([\d.]+)\s*,", block)
     if offset is None:
-        print("  MISSING Arsenal.SidewinderRail.MuzzleForwardOffset", file=sys.stderr)
+        print(f"  MISSING Arsenal.{profile}.MuzzleForwardOffset", file=sys.stderr)
         problems += 1
     elif abs(float(offset.group(1)) - expected["muzzle_forward_offset"]) > 5e-4:
-        print(f"  STALE Arsenal.SidewinderRail.MuzzleForwardOffset = {offset.group(1)}, "
+        print(f"  STALE Arsenal.{profile}.MuzzleForwardOffset = {offset.group(1)}, "
               f"mesh says {expected['muzzle_forward_offset']}", file=sys.stderr)
         problems += 1
 
     # The round seats half a body length back from the tube mouth, so a BodyLength that does not
-    # match the mesh hangs the missile off the end of its own rail.
+    # match the mesh hangs it off the end of its own rail.
     checked += 1
-    round_block = re.search(r"Missile9J\s*=\s*new\(\)\s*\{(.*?)\n\s*\};", text, re.S)
+    round_block = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
     body = (None if round_block is None
             else re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", round_block.group(1)))
     if body is None:
-        print("  MISSING Arsenal.Missile9J.BodyLength", file=sys.stderr)
+        print(f"  MISSING Arsenal.{munition}.BodyLength", file=sys.stderr)
         problems += 1
     elif abs(float(body.group(1)) - expected["body_length"]) > 5e-4:
-        print(f"  STALE Arsenal.Missile9J.BodyLength = {body.group(1)}, "
+        print(f"  STALE Arsenal.{munition}.BodyLength = {body.group(1)}, "
               f"mesh says {expected['body_length']}", file=sys.stderr)
         problems += 1
 
     if problems == 0:
-        print("  rail geometry: 1 tube and its round match the mesh")
+        print(f"  {label} geometry: 1 tube and its round match the mesh")
 
     return problems, checked
 
@@ -651,7 +652,11 @@ def main():
     problems += p
     checked += c
 
-    p, c = check_rail_geometry()
+    p, c = check_fixed_launcher_geometry("SidewinderRail", "Missile9J", "sidewinder", "rail")
+    problems += p
+    checked += c
+
+    p, c = check_fixed_launcher_geometry("BombRack", "BombMk82", "bombrack", "rack")
     problems += p
     checked += c
 

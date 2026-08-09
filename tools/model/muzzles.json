@@ -63,6 +63,24 @@
     "gun_reference_elevation_deg": 0.0,
     "total_height": 4.7
   },
+  "bombrack": {
+    "tubes": [
+      [
+        0.4065,
+        1.11,
+        0.0
+      ]
+    ],
+    "tube_directions": [
+      [
+        0.0,
+        1.0,
+        0.0
+      ]
+    ],
+    "body_length": 2.22,
+    "muzzle_forward_offset": 0.407
+  },
   "tubes": [
     [
       2.95513,

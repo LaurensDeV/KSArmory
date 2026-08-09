@@ -20,6 +20,13 @@ internal sealed class Slug : IProjectile
     private double3 _frameVelocityEcl;
     private double _trailTimer;
 
+    // The ground under the round, sampled once a frame. Held rather than re-read because the
+    // terrain query is the expensive call and a sphere of this radius is the surface for the few
+    // metres of ground track one frame covers.
+    private double3 _groundCentre;
+    private double _groundRadius;
+    private bool _haveGround;
+
     public Slug(double3 positionEcl, double3 velocityEcl, object? target, int tube,
                 double3 platformEcl, double3 frameVelocityEcl)
     {
@@ -84,6 +91,18 @@ internal sealed class Slug : IProjectile
     /// <inheritdoc cref="IProjectile.StruckBody"/>
     public object? StruckBody { get; private set; }
 
+    /// <summary>
+    /// Where the ground is, supplied by the caller for a round the terrain stops.
+    ///
+    /// <para>Null for everything aimed upwards, which is every other round in the arsenal: a shell
+    /// passes through a hill because nothing has ever asked where the hill was, and paying for that
+    /// answer across a 150-shell burst buys nothing. A bomb has no other way to arrive.</para>
+    /// </summary>
+    public IGroundTest? Ground { get; set; }
+
+    /// <summary>True when it was the ground that stopped this round rather than a body or a fuse.</summary>
+    public bool HitGround { get; private set; }
+
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
 
@@ -127,6 +146,10 @@ internal sealed class Slug : IProjectile
 
         // Unguided: losing the target leaves it flying with nothing to fuse against.
         if (target is null) TargetRef = null;
+
+        _haveGround = munition.HitsTerrain && Ground is not null
+                      && Ground.TryGround(PositionEcl, out _groundCentre, out _groundRadius)
+                      && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
 
         int steps = Math.Min(Interceptor.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / Interceptor.SubStep)));
         double h = dt / steps;
@@ -268,7 +291,29 @@ internal sealed class Slug : IProjectile
         VelocityEcl += accel * h;
 
         double3 stepEcl = VelocityEcl * h;
+        double3 before = PositionEcl;
         PositionEcl += stepEcl;
+
+        if (_haveGround)
+        {
+            double was = Vec.Len(before - _groundCentre) - _groundRadius;
+            double now = Vec.Len(PositionEcl - _groundCentre) - _groundRadius;
+
+            if (now <= 0.0)
+            {
+                // Back to where it crossed, so the burst is on the surface rather than up to a
+                // sub-step underneath it. Linear across the step: the round's own drop over 1.5 m
+                // is not where the curvature lives.
+                double f = was > 0.0 ? was / (was - now) : 0.0;
+
+                PositionEcl = before + stepEcl * Math.Clamp(f, 0.0, 1.0);
+                MissDistance = 0.0;
+                HitGround = true;
+                DetonationElapsedInFrame = elapsedInFrame + h * Math.Clamp(f, 0.0, 1.0) - frameSeconds;
+                State = RoundState.Detonated;
+                return;
+            }
+        }
 
         // Local, not absolute: absolute displacement reports ~30 km per second of the planet's
         // orbit regardless of what the round did.

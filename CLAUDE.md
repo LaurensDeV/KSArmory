@@ -4,8 +4,9 @@ A point-defence mod for **Kitten Space Agency** (KSA, RocketWerkz). Two weapon s
 generated from Blender scripts: a **Pantsir-S1** — search radar, proportional-navigation
 interceptors, a proximity-fused warhead, twelve rounds in two pods of six on an 8×8 chassis — and
 a **LAU-7 rail** carrying one AIM-9J, which surface-attaches to anything and is the shipped
-example of a launcher with nothing that moves, and a **Mk 15 Phalanx CIWS** that stacks on a 3 m
-node and is the one with no missiles at all.
+example of a launcher with nothing that moves, a **Mk 15 Phalanx CIWS** that stacks on a 3 m
+node and is the one with no missiles at all, and a **Mk 82 bomb rack**, which is the one that
+neither aims nor fires: it lets a bomb go and the ground does the rest.
 
 ## Read this first
 
@@ -239,6 +240,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
 | `Sim/ContactSweep.cs` | the contact rule: whether a round runs into a body over one step |
 | `Sim/IHullTest.cs` | **the seam a kinetic round asks whether it truly touched something** |
+| `Sim/IGroundTest.cs` | where the ground is under a round, for the one round the terrain stops |
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives |
@@ -274,6 +276,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
+| `Ksa/GroundTest.cs` | the surface under a round, off the engine's own height field |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSystem.cs` | what one system is, sees and is doing |
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
@@ -334,6 +337,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
 | `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
 | `tools/model/ciws.py` | the Phalanx CIWS: a gun with no missiles, on a 3 m stack node |
+| `tools/model/bombrack.py` | the ejector rack and its Mk 82: a launcher that drops rather than fires |
 | `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
 | `tools/model/kittengun.py` | the kitten's shoulder cannon — a character attachment, not a part |
@@ -535,16 +539,26 @@ neither of them is longer than a page.
    defects that are invisible in a preview render and obvious in game.
 2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
    `KSArmoryAssets.xml`, and a `<PartGameData>` with its colliders and mass.
-3. **Register it.** One `LauncherProfile` in `Sim/Arsenal.cs`, naming the munition and sensor it
-   uses, with the geometry `build.sh` prints. Add a `MunitionProfile` and a `SensorProfile` too if
-   the round or the set differ. Then teach `validate-parts.py` to compare that geometry against
-   `muzzles.json` — the generator emitting it and the profile holding it are the same numbers in
-   two files, and every previous instance of that in this repo drifted.
-4. **Nothing else.** `LauncherPart.Find` matches against every registered part Id, and the
-   system selects whichever profile it finds. `ArsenalTests` checks the registry hangs
-   together; `validate-parts.py` checks the geometry still matches the mesh, and that every
-   registered `PartId` is declared in the XML — a profile naming a part that exists nowhere
-   used to pass every gate and simply find no launcher in game.
+3. **Register it — in `Sim/Arsenal.cs`, and in *both* registries.** One `LauncherProfile`, naming
+   the munition and sensor it uses, with the geometry `build.sh` prints; add a `MunitionProfile`
+   and a `SensorProfile` too if the round or the set differ. Then teach `validate-parts.py` to
+   compare that geometry against `muzzles.json` — the generator emitting it and the profile
+   holding it are the same numbers in two files, and every previous instance of that in this repo
+   drifted.
+
+   **And a `ComponentProfile` in `Arsenal.Components`.** The two registries are keyed on the same
+   part Id and do different jobs: `Launchers` says how the thing shoots, `Components` is what
+   `WeaponSurvey` reads to decide a craft is a weapons system *at all*. A launcher missing from
+   `Components` loads, resolves its tubes, matches `LauncherForPart` and is then completely
+   invisible — the panel says "no weapons systems" about a craft carrying it, and nothing appears
+   in any log. This list said "nothing else" when the bomb rack was built, and that is exactly
+   what happened. `ArsenalTests.EveryRegisteredLauncherIsAlsoARecognisedComponent` now fails
+   against it.
+4. **Then nothing else.** `LauncherPart.Find` matches against every registered part Id, and the
+   system selects whichever profile it finds. `ArsenalTests` checks the two registries agree and
+   that each hangs together; `validate-parts.py` checks the geometry still matches the mesh, and
+   that every registered `PartId` is declared in the XML — a profile naming a part that exists
+   nowhere used to pass every gate and simply find no launcher in game.
 
 **A launcher need not carry missiles.** The CIWS declares `Tubes = []`, so `TubeCount` is zero and
 the magazine holds nothing; it fires entirely through `GunMunition` and `GunMuzzles`. Two registry
@@ -1209,7 +1223,12 @@ should not be weakened without understanding what they buy:
   "up". `BoresightMode.TurretAxis` exists and nothing registered uses it yet.
 - The model has no normal or occlusion detail — flat palette swatches only. Faceted lighting is
   the whole look, which suits KSA's art style, but it is a floor not a ceiling.
-- Rounds do not collide with terrain or structures, only their designated target.
+- Rounds collide with terrain only when their profile asks. `MunitionProfile.HitsTerrain` is set
+  for the bomb and nothing else, because it costs a terrain sample per round per frame and a CIWS
+  burst is 150 shells in the air — so a shell still passes through a hill and a missile that
+  misses still carries on into space. Structures are not collided with at all: where a launch
+  pad's surface is has no answer in this engine, so a bomb dropped on one bursts at ground level
+  beside it.
 - The radar masks contacts the planet hides, but against the body's **mean sphere**: a craft
   behind a ridge is still seen, and the limb is geometric rather than the skyline.
   `SensorProfile.TerrainMarginMetres` inflates the sphere to buy some of that back without

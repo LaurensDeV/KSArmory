@@ -496,6 +496,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         if (hasTubes)
         {
             if (!_policy.MissilesEnabled) return "missiles are switched off";
+            if (Munition.Guidance == GuidanceMode.None) return "unguided - release it by hand";
             if (Ammo <= 0) return "out of rounds";
             if (_salvoTimer > 0.0) return "between salvos";
         }
@@ -675,6 +676,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // itself at contacts it cannot possibly catch, which is what every 8.7 km crossing shot
         // that expired at 22 s was doing.
         if (!ThreatModel.InEngagementEnvelope(target, Munition)) return;
+
+        // A round that cannot steer has no business being launched at a track: it would leave the
+        // rail and fall, and the log would record a shot at something it was never going to reach.
+        // WhyNotFiring says the same thing to the operator.
+        if (Munition.Guidance == GuidanceMode.None) return;
 
         Fire(target);
     }
@@ -1183,6 +1189,24 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     }
 
     /// <summary>
+    /// Lets one round go with nothing to aim it at.
+    ///
+    /// <para>A bomb is released rather than fired: it carries no seeker and no uplink, so where it
+    /// lands was decided by where the aircraft was and what it was doing at the moment the operator
+    /// let it go. Passing it an aimpoint would be a lie the flight model then ignores.</para>
+    /// </summary>
+    public bool Release()
+    {
+        if (Munition.Guidance != GuidanceMode.None)
+        {
+            Announce($"refused: the {Munition.DisplayName} is guided - give it something to shoot at");
+            return false;
+        }
+
+        return Commit(Aimpoint.Nothing, Munition.DisplayName);
+    }
+
+    /// <summary>
     /// Commits one round to a position in the world rather than to a craft.
     ///
     /// <para>The gates a track brings with it — alive, and on a side we may engage — have no
@@ -1272,8 +1296,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         bool alongTube = fromTube && Profile.LaunchAlongTube
                          && LauncherPart.TryGetTubeAxisEcl(Platform, Launcher!, PodsPart, Profile, tube, out tubeAxis);
 
+        // Nothing to point at is not the origin of the ecliptic. A released round takes the tube's
+        // own direction, and the no-tube fallback takes the boresight -- reading aim.PositionEcl
+        // through an empty aimpoint sends it at the Sun.
+        double3 aimForGeometry = aim.Kind == AimpointKind.None
+                                     ? launchPos + Boresight
+                                     : aim.PositionEcl;
+
         double3 launchDir = FireGeometry.LaunchDirection(
-            alongTube, tubeAxis, launchPos, aim.PositionEcl, Boresight, Profile.LaunchLoft,
+            alongTube, tubeAxis, launchPos, aimForGeometry, Boresight, Profile.LaunchLoft,
             Profile.EjectAwayFromMount);
 
         // A seeker round released outside its own gimbal limit never steers and never recovers, so
@@ -1299,14 +1330,29 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
         // platformVel is the frame the round launches into. Passing it here is what makes the body
         // orientable on its very first drawn frame - see the Interceptor constructor.
-        _rounds.Add(new Interceptor(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, platformVel)
-        {
-            LaunchAnchorPartFrame = launchAnchorPartFrame,
-            Aimpoint = aim,
-        });
+        // Unguided rounds are slugs: no seeker, lock, boost, fins or command link, so an
+        // Interceptor with its steering switched off would be that whole flight model behind
+        // guards. Which implementation a munition gets is decided here and only here.
+        //
+        // platformVel is the frame the round launches into. Passing it here is what makes the body
+        // orientable on its very first drawn frame - see the Interceptor constructor.
+        _rounds.Add(Munition.Guidance == GuidanceMode.None
+            ? new Slug(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, platformVel)
+            {
+                Munition = Munition,
+                LaunchAnchorPartFrame = launchAnchorPartFrame,
+                Aimpoint = aim,
+            }
+            : new Interceptor(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, platformVel)
+            {
+                LaunchAnchorPartFrame = launchAnchorPartFrame,
+                Aimpoint = aim,
+            });
         _salvoTimer = Profile.SalvoSpacing;
 
-        Announce($"round {tube + 1} away at {what}");
+        Announce(aim.Kind == AimpointKind.None
+                     ? $"round {tube + 1} released - {what}"
+                     : $"round {tube + 1} away at {what}");
         return true;
     }
 
@@ -1409,6 +1455,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // only one that cannot be.
         if (Profile.TubeCount == 0) return FireBurst();
 
+        // A bomb is released, not launched at something: it cannot steer, so a lock would tell it
+        // nothing and demanding one leaves the trigger dead. Same reasoning as the gun-only mount
+        // above -- what is being hand-aimed here is the aircraft.
+        if (Munition.Guidance == GuidanceMode.None) return Release();
+
         if (Radar.Locked is null) { Announce("refused: no lock"); return false; }
         return Fire(Radar.Locked);
     }
@@ -1501,6 +1552,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             {
                 slug.Contacts = ContactCandidates();
                 slug.Hull = HullTest.Shared;
+                slug.Ground = GroundTest.Shared;
             }
 
             round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl,

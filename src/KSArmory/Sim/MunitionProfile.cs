@@ -16,6 +16,13 @@ public enum GuidanceMode
     /// This is how the 57E6 and most short-range point-defence rounds actually work.
     /// </summary>
     CommandLink,
+
+    /// <summary>
+    /// The round does not steer at all — a bomb, or an unguided rocket. It leaves the tube and
+    /// follows its ballistics from there, so there is nothing to lose lock on and no gimbal limit
+    /// to release it outside of.
+    /// </summary>
+    None,
 }
 
 /// <summary>
@@ -233,6 +240,19 @@ public sealed class MunitionProfile
     /// choice: it follows from what it carries. <see cref="Warhead"/> has the scaling.</para>
     /// </summary>
     public float ChargeKg = 20f;
+
+    /// <summary>
+    /// Whether the ground stops this round.
+    ///
+    /// <para>Off for everything that flies at aircraft, which is why a shell passes through a hill
+    /// and a missile that misses carries on into space. That is cheap and, for a weapon aimed
+    /// upwards, invisible. A bomb has nothing else to arrive at, so it is the one round for which
+    /// the terrain is the whole point.</para>
+    ///
+    /// <para>It costs a terrain sample per round per frame, which is why it is opt-in rather than
+    /// how every round behaves: a CIWS burst is 150 shells in the air and a rack holds one bomb.</para>
+    /// </summary>
+    public bool HitsTerrain;
 
     /// <summary>Radius inside which a detonation is unconditionally lethal (m).</summary>
     public float LethalRadius => (float)Warhead.LethalRadius(ChargeKg);

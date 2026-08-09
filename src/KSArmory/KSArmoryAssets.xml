@@ -147,6 +147,28 @@
     </MeshView>
   </SubPart>
 
+  <!-- 14-inch ejector rack on its pylon. Nothing on it moves. -->
+  <SubPart Id="KSArmory_Subpart_BombRack">
+    <PartModel Id="KSArmory_Subpart_BombRack_Model">
+      <Mesh Id="KSArmory_Subpart_BombRack" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_BombRack_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One Mk 82. Hangs on the rack while loaded, flown by the mod once it is released. -->
+  <SubPart Id="KSArmory_Subpart_Mk82">
+    <PartModel Id="KSArmory_Subpart_Mk82_Model">
+      <Mesh Id="KSArmory_Subpart_Mk82" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Mk82_VM" />
+    </MeshView>
+  </SubPart>
+
   <!-- Double-sided hexagonal search array. Turns continuously on its own turntable. -->
   <SubPart Id="KSArmory_Subpart_Optic">
     <PartModel Id="KSArmory_Subpart_Optic_Model">
@@ -448,6 +470,38 @@
     <SubPart Id="KSArmory_Rail_Aim900" InstanceOf="KSArmory_Subpart_Aim9">
       <Transform>
         <Position X="0.40850" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
+    14-inch ejector rack, radially mounted like the rail.
+
+    The bomb hangs from it rather than being parked and shrunk away like the Pantsir's rounds: an
+    open rack with nothing on it reads as broken, and the editor runs no fire control at all.
+  -->
+  <Part Id="KSArmory_Prefab_BombRack">
+
+    <SubPart Id="KSArmory_Rack_Beam" InstanceOf="KSArmory_Subpart_BombRack" />
+
+    <!-- Attaches by the pylon's base, which is the mesh origin. -->
+    <Connector Id="_brConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!--
+      Position is the seated centre and the rotation is the quarter turn carrying the body mesh's
+      nose from +X onto the tube axis - the same values TrySeatMissile computes, so nothing moves
+      when the mod takes over. Keep in step with bombrack.py's AXIS_X and BODY_LEN.
+    -->
+    <SubPart Id="KSArmory_Rack_Mk8200" InstanceOf="KSArmory_Subpart_Mk82">
+      <Transform>
+        <Position X="0.40650" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
       </Transform>
     </SubPart>

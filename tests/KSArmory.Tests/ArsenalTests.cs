@@ -276,4 +276,40 @@ public class ArsenalTests
 
         Assert.False(WeaponSurvey.Survey(parts, Arsenal.Components).IsWeaponSystem);
     }
+
+    /// <summary>
+    /// Every launcher is also a component, because they are two registries keyed on the same part
+    /// Id and only one of them decides whether a craft is a weapons system at all.
+    ///
+    /// <para>A launcher missing here loads, resolves its tubes, matches <c>LauncherForPart</c> and
+    /// is then invisible: the panel says "no weapons systems" about a craft carrying it, with
+    /// nothing in any log. That shipped once, and the only symptom was a part that did nothing.</para>
+    /// </summary>
+    [Fact]
+    public void EveryRegisteredLauncherIsAlsoARecognisedComponent()
+    {
+        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        {
+            Assert.True(Arsenal.Components.Any(c => c.PartId == launcher.PartId),
+                        $"{launcher.DisplayName} ({launcher.PartId}) is registered as a launcher "
+                        + "but not as a component, so no craft carrying it becomes a weapons system");
+        }
+    }
+
+    /// <summary>
+    /// And the reverse: a component naming a launcher role must name a launcher that exists, or
+    /// the survey reports a system the loadout cannot be resolved for.
+    /// </summary>
+    [Fact]
+    public void EveryLauncherComponentNamesARegisteredLauncher()
+    {
+        foreach (ComponentProfile component in Arsenal.Components)
+        {
+            if (component.Role != WeaponRole.Launcher) continue;
+
+            Assert.True(Arsenal.Launchers.Any(l => l.PartId == component.PartId),
+                        $"component {component.DisplayName} ({component.PartId}) claims to be a "
+                        + "launcher, but no LauncherProfile has that part Id");
+        }
+    }
 }

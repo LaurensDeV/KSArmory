@@ -84,7 +84,10 @@ public static class FireGate
                                             double seekerFovRad,
                                             double3 launchDirection, double3 toAimpoint)
     {
-        if (guidance == GuidanceMode.CommandLink || operatorHeld) return true;
+        // An unguided round is not being steered anywhere, so there is nothing here to refuse:
+        // where it goes was settled by the tube. Command link is steered by the launcher, and an
+        // operator-held shot has no other way to reach a place the launcher cannot be pointed at.
+        if (guidance != GuidanceMode.Seeker || operatorHeld) return true;
 
         if (!Vec.IsFinite(launchDirection) || !Vec.IsFinite(toAimpoint)) return false;
         if (Vec.Len2(launchDirection) < 1e-12 || Vec.Len2(toAimpoint) < 1e-12) return false;
