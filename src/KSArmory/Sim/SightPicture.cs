@@ -30,49 +30,58 @@ public static class SightPicture
     }
 
     /// <summary>
-    /// Two points at zero elevation, <paramref name="halfAngleRad"/> either side of where the head
-    /// is looking. Their projection is the sight's horizontal reference.
+    /// Points at zero elevation spanning <paramref name="halfAngleRad"/> either side of where the
+    /// head is looking. Their projection is the sight's horizontal reference.
     ///
     /// <para>Points rather than a screen-space line: a line drawn flat across the view is only
     /// right where the camera happens to be level, and the whole reason to draw one is the case
-    /// where it is not. Projecting two places that genuinely sit on the horizontal plane gets the
-    /// tilt for free, including whatever the engine's own roll is doing.</para>
+    /// where it is not. Projecting places that genuinely sit on the horizontal plane gets the tilt
+    /// for free, including whatever the engine's own roll is doing.</para>
     ///
-    /// <para>False when the head is looking along its own up, where the horizontal plane projects
+    /// <para><b>An arc rather than two ends.</b> Level places lie on a circle around the eye, and
+    /// the straight chord between two of them dips below level in the middle — by a quarter of the
+    /// distance across a wide span, which is kilometres. Several short segments follow the circle
+    /// instead, and the span is the caller's to match to the field of view.</para>
+    ///
+    /// <para>Zero when the head is looking along its own up, where the horizontal plane projects
     /// to a point and there is no line to draw.</para>
     /// </summary>
     /// <param name="distance">
-    /// How far out to place them. Far enough that they read as direction rather than as two
-    /// objects, and near enough to stay in front of the camera.
+    /// How far out to place them. Far enough that they read as direction rather than as objects,
+    /// and near enough to stay in front of the camera.
     /// </param>
-    public static bool TryReferenceLine(double3 eyeEcl, double3 forwardEcl, double3 upEcl,
-                                        double halfAngleRad, double distance,
-                                        out double3 leftEcl, out double3 rightEcl)
+    /// <returns>How many points were written, in order across the picture.</returns>
+    public static int ReferenceArc(double3 eyeEcl, double3 forwardEcl, double3 upEcl,
+                                   double halfAngleRad, double distance, Span<double3> into)
     {
-        leftEcl = rightEcl = Vec.Zero;
-
-        if (!Vec.IsFinite(eyeEcl) || !Vec.IsFinite(forwardEcl) || !Vec.IsFinite(upEcl)) return false;
-        if (!double.IsFinite(halfAngleRad) || !double.IsFinite(distance) || distance <= 0.0) return false;
-        if (Vec.Len2(forwardEcl) < 1e-18 || Vec.Len2(upEcl) < 1e-18) return false;
+        if (into.Length < 2) return 0;
+        if (!Vec.IsFinite(eyeEcl) || !Vec.IsFinite(forwardEcl) || !Vec.IsFinite(upEcl)) return 0;
+        if (!double.IsFinite(halfAngleRad) || !double.IsFinite(distance) || distance <= 0.0) return 0;
+        if (Vec.Len2(forwardEcl) < 1e-18 || Vec.Len2(upEcl) < 1e-18) return 0;
 
         double3 up = Vec.Unit(upEcl);
         double3 forward = Vec.Unit(forwardEcl);
 
         double3 right = Vec.Cross(forward, up);
-        if (Vec.Len2(right) < 1e-12) return false;
+        if (Vec.Len2(right) < 1e-12) return 0;
         right = Vec.Unit(right);
 
         // Forward with the vertical taken out. Deriving it from the cross product rather than by
         // rejecting `up` out of `forward` keeps the three axes exactly orthogonal, which is what
-        // makes both endpoints land at the same elevation.
+        // makes every point land at the same elevation.
         double3 flat = Vec.Unit(Vec.Cross(up, right));
 
-        double across = Math.Tan(Math.Clamp(halfAngleRad, 0.0, 1.4));
+        double half = Math.Clamp(halfAngleRad, 1e-4, 1.4);
 
-        leftEcl = eyeEcl + Vec.Unit(flat - right * across) * distance;
-        rightEcl = eyeEcl + Vec.Unit(flat + right * across) * distance;
+        for (int i = 0; i < into.Length; i++)
+        {
+            double angle = -half + 2.0 * half * i / (into.Length - 1);
 
-        return Vec.IsFinite(leftEcl) && Vec.IsFinite(rightEcl);
+            into[i] = eyeEcl + (flat * Math.Cos(angle) + right * Math.Sin(angle)) * distance;
+            if (!Vec.IsFinite(into[i])) return 0;
+        }
+
+        return into.Length;
     }
 
     /// <summary>

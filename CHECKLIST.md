@@ -399,12 +399,13 @@ Where latent bugs are most likely.
 - [ ] **6.2** **Scene change** — go flight → editor → flight. Panel recovers, no exceptions.
 
       **Reported broken**: with the optical head driving the main view, switching to the vehicle
-      editor leaves the view in a bad state. Cause not established. `SightCamera.Release` used to
-      log success whatever happened and then throw away the recording of what the view had been
-      doing, so a restore refused mid-scene-change was unrecoverable *and* silent. It now keeps
-      the recording, retries, and says which half was refused — read `KSArmory.log` for
-      `could not hand the main view back` on the next attempt, because that line decides whether
-      this is a refused write or the mod restoring onto the wrong viewport.
+      editor leaves the view in a bad state. The log settled it — the restore did *not* fail, it
+      succeeded: `sight: released the main view` with no warning. So the mod was writing a camera
+      mode and a followed craft belonging to the flight scene onto the editor, which had already
+      loaded. It now **forgets** rather than restores when it is no longer in flight, on the
+      grounds that the new scene brings its own camera and a dead scene's is not worth handing
+      back. Restoring is still what happens when the optic is switched off *in* flight, which is
+      the case the recording is actually for.
 - [ ] **6.2b** **Camera switching mid-engagement** — fire a salvo, then switch the camera to the
       drone and back. The cone, track markers and tracers must stay locked to the craft and to
       each other. *(`GetPositionEgo` takes a different branch depending on what the camera
@@ -687,8 +688,23 @@ thinks it drew.
 
 - [x] The zoom narrows the picture through the detents, and the readout agrees.
 - [x] Switching the optic off puts the field back.
-- [ ] The overlay stays **under** the panel at every zoom and elevation.
-- [ ] The bracket sits **on** the target at 16×, and holds still.
+Second flight: the overlay is under the panel and the bracket is closer, and two more faults.
+
+- The reference **vanished whenever the head moved or elevated**. Its two ends were placed a fixed
+  ±40° off the look direction and both had to project inside the viewport or the line was dropped.
+  At 3° of field they are most of a right angle outside it, and at 50° they sit right on the
+  horizontal edge — which is why it survived only while the head was still. The span now tracks
+  the camera's own field, the projection keeps out-of-bounds coordinates and lets the draw list
+  clip, and only a point *behind* the camera is dropped.
+- It is an **arc rather than two ends** for a reason that only appears once the span is wide:
+  level places lie on a circle, and a straight chord across ±40° sags 3.4 km below level at 30 km.
+- The bracket was still **off centre at 16×**. Not the bracket this time — the head is *commanded*
+  at the target's analytic position, so the camera boresights a few metres off where the craft is
+  drawn. It now takes the drawn position, the same as the bracket.
+
+- [x] The overlay stays **under** the panel.
+- [ ] The reference survives the head slewing and elevating, and only disappears looking straight up.
+- [ ] The target sits at **screen centre** at 16× once the head has settled, and holds still.
 
 **Zoom is the one with a crash behind it.** `Camera.SetFieldOfView` does not clamp and
 `UpdateProjection` throws for a field of zero or more than half a turn, out of the frame hook.

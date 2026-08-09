@@ -1597,6 +1597,40 @@ internal static class KsaWorld
     private const float EdgeMargin = 28f;
 
     /// <summary>
+    /// Where a world point lands on the main viewport, <em>including off the edge of it</em>.
+    ///
+    /// <para>For a shape whose ends are outside the picture but whose middle is inside — the
+    /// sight's horizontal reference is the case, and it is the whole shape. Rejecting a point for
+    /// being off-screen throws the line away exactly when it spans the view, which is always: the
+    /// reference reaches past both edges by design, and at 3° of field it reaches a long way past.
+    /// The draw list clips what it is given, so out-of-bounds coordinates are the caller's
+    /// friend.</para>
+    ///
+    /// <para>A point <em>behind</em> the camera is still refused, because a projection maps it to
+    /// the opposite side of the screen and a line drawn to it runs the wrong way.</para>
+    /// </summary>
+    public static bool TryProjectUnbounded(double3 pointEcl, out float2 screen)
+    {
+        screen = default;
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return false;
+            if (viewport.GetCamera() is not { } camera) return false;
+
+            // ignoreBehind answers NaN rather than a mirrored point, which is the refusal.
+            float2 local = camera.EclToScreen(pointEcl, ignoreBehind: true);
+            if (!float.IsFinite(local.X) || !float.IsFinite(local.Y)) return false;
+
+            screen = new float2(viewport.Position.X + local.X, viewport.Position.Y + local.Y);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The same projection, for a position already in the render frame.
     ///
     /// <para>For anything drawn <em>over</em> a craft rather than beside it. A craft's analytic

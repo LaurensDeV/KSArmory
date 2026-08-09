@@ -43,6 +43,26 @@ internal sealed class SightCamera
     // does not leave this trying for the session.
     private const int GiveUpAfterFrames = 180;
 
+    /// <summary>
+    /// Lets go without writing anything, for when the scene the recording describes has gone.
+    ///
+    /// <para>Leaving flight is the case. The recording names a camera mode and a craft to follow
+    /// that belonged to the flight scene, and restoring them once the editor is up writes a dead
+    /// scene's camera onto the live one — which is a view the player cannot account for and did
+    /// not ask for. The new scene sets up its own camera, so there is nothing here worth handing
+    /// back; the same reason <see cref="ChaseCamera"/> drops its own recording when the player
+    /// takes the view outright.</para>
+    /// </summary>
+    public void Forget()
+    {
+        if (!_saved.Valid) return;
+
+        _saved = default;
+        _followed = null;
+        _refusedFrames = 0;
+        Log.Info("sight: the scene changed, letting go of the main view without restoring it");
+    }
+
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {

@@ -767,11 +767,25 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // this it keeps staring at a radar track while the tubes point somewhere else entirely.
         if (TryCursorAimPartFrame(out double3 cursorFrame)) return cursorFrame;
 
-        if (Radar.Locked is { } locked && Platform is not null
-            && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, locked.PositionEcl - MountEcl,
-                                                    out double3 toTarget))
+        // Where the target is *drawn*, not where fire control has it. The two differ by metres,
+        // which is nothing to a turret laying a 20 m warhead and is the whole picture to a sight:
+        // at 16x the field is three degrees, so the gap that a launcher can ignore puts the target
+        // a third of the way to the edge. Falls back to the analytic position rather than refusing
+        // — a head that stops following because a craft cannot be placed is worse than one that
+        // follows a few metres out.
+        if (Radar.Locked is { } locked && Platform is not null)
         {
-            return toTarget;
+            double3 targetEcl = locked.PositionEcl;
+            if (locked.Contact.TryDrawEgo(out double3 ego) && KsaWorld.TryEgoToEcl(ego, out double3 drawn))
+            {
+                targetEcl = drawn;
+            }
+
+            if (LauncherPart.TryDirectionToPartFrame(Platform, Launcher, targetEcl - MountEcl,
+                                                     out double3 toTarget))
+            {
+                return toTarget;
+            }
         }
 
         return TubeGeometry.TurretRotation(Turret.BearingRad) * TubeGeometry.OpticRestDirection;

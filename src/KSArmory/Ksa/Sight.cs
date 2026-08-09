@@ -26,12 +26,12 @@ internal static class Sight
 
     private static readonly ReticleStroke[] _strokes = new ReticleStroke[KSArmory.Reticle.MaxStrokes];
 
-    // Half the horizontal reference's angular span. Wider than any field the sight offers, so the
-    // line always reaches both edges rather than stopping short at low magnification.
-    private const double ReferenceHalfAngleRad = 0.7;
+    // Points along the horizontal reference. Enough that the arc follows the level circle rather
+    // than cutting the chord across it, which at a wide field dips kilometres below level.
+    private const int ArcPoints = 9;
 
     // How far out the reference points are placed. Far enough to read as a direction, near enough
-    // that a camera on the ground is not looking at two points beyond the horizon.
+    // that a camera on the ground is not looking at points beyond the horizon.
     private const double ReferenceDistanceMetres = 30000.0;
 
     public static void Draw(ISightPicture battery, SystemConfig policy)
@@ -73,28 +73,45 @@ internal static class Sight
         Line(draw, new float2(centre.X, centre.Y + gap), new float2(centre.X, centre.Y + gap + arm), Reticle);
     }
 
-    // The horizontal through the site, drawn from two places that genuinely sit on it. A line laid
+    // The horizontal through the site, drawn from places that genuinely sit on it. A line laid
     // flat across the screen would only be right where the camera happens to be level, and the
     // whole reason to draw one is that it is not.
     private static void DrawReferenceLine(ImDrawListPtr draw, ISightPicture battery)
     {
         if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward)) return;
 
-        if (!SightPicture.TryReferenceLine(eye, forward, battery.Boresight,
-                                           ReferenceHalfAngleRad, ReferenceDistanceMetres,
-                                           out double3 leftEcl, out double3 rightEcl))
+        // Sized to the field the camera is actually showing. A fixed span puts both ends far
+        // outside a magnified picture, and at 3° that is most of a right angle away -- behind the
+        // camera at any elevation, which is a reference line that vanishes the moment it is
+        // needed.
+        double fovRad = KsaWorld.ViewportFovRad(KsaWorld.MainViewportIndex);
+        double half = Math.Clamp(fovRad, 0.02, 1.2);
+
+        Span<double3> arc = stackalloc double3[ArcPoints];
+        int n = SightPicture.ReferenceArc(eye, forward, battery.Boresight, half,
+                                          ReferenceDistanceMetres, arc);
+        if (n < 2) return;
+
+        Span<float2> at = stackalloc float2[ArcPoints];
+        Span<bool> ok = stackalloc bool[ArcPoints];
+
+        // Off the edge of the picture is expected and kept -- the draw list clips. Only a point
+        // behind the camera is dropped, and then the segments touching it are skipped rather than
+        // the whole line, so the reference survives the head swinging past the vertical.
+        for (int i = 0; i < n; i++) ok[i] = KsaWorld.TryProjectUnbounded(arc[i], out at[i]);
+
+        int middle = n / 2;
+
+        for (int i = 0; i + 1 < n; i++)
         {
-            return;
+            if (!ok[i] || !ok[i + 1]) continue;
+
+            // Broken either side of the middle so the reference never crosses whatever is being
+            // watched, which at zero elevation is exactly where the target sits.
+            if (i == middle || i + 1 == middle) continue;
+
+            Line(draw, at[i], at[i + 1], Pending);
         }
-
-        if (!KsaWorld.TryProjectIntoViewport(KsaWorld.MainViewportIndex, leftEcl, out float2 a, out _, out _)) return;
-        if (!KsaWorld.TryProjectIntoViewport(KsaWorld.MainViewportIndex, rightEcl, out float2 b, out _, out _)) return;
-
-        // Broken at the middle so the reference never crosses whatever is being watched, which at
-        // zero elevation is exactly where the target sits.
-        float2 mid = new((a.X + b.X) * 0.5f, (a.Y + b.Y) * 0.5f);
-        Line(draw, a, Towards(a, mid, 0.82f), Pending);
-        Line(draw, b, Towards(b, mid, 0.82f), Pending);
     }
 
     // The target bracket, the gun pipper, and the lead between them.

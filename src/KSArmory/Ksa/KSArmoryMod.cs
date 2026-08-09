@@ -275,11 +275,18 @@ public sealed class KSArmoryMod
                     Sight.Draw(focused.Battery, focused.Policy);
                 }
             }
-            else
+            else if (KsaWorld.InFlight)
             {
                 // Nothing is being shown, so nothing may be holding the player's view on its
                 // behalf. Skipping this is how a sight survives the craft it was looking through.
                 _sight.Release();
+            }
+            else
+            {
+                // Out of flight the recording describes a scene that no longer exists, and
+                // restoring a dead scene's camera mode and follow onto the editor is a view the
+                // player cannot account for. The new scene brings its own camera.
+                _sight.Forget();
             }
         }
         catch (Exception e)
