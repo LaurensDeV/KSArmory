@@ -1,3 +1,15 @@
+## [0.8.43](https://github.com/LaurensDeV/KSArmory/compare/v0.8.42...v0.8.43) (2026-08-09)
+
+### Features
+
+* **rounds:** drop a bomb ([da35ac2](https://github.com/LaurensDeV/KSArmory/commit/da35ac27756dcea6680284ace91bbbf4fdce32cd))
+
+### Fixes
+
+* **camera:** measure the chase transition at one instant ([96dec54](https://github.com/LaurensDeV/KSArmory/commit/96dec54c74286dd9f558812bae8e4c8f11dcb72e))
+* **camera:** put the chased round in the engine's epoch ([15021cb](https://github.com/LaurensDeV/KSArmory/commit/15021cb1b2a080cb8532a0b1511a84bc21713a7b))
+* **radar:** turn the search array on an even clock ([0da3634](https://github.com/LaurensDeV/KSArmory/commit/0da36345e392b5b0c8a9a4fb050dac0fcf825a31))
+
 ## [0.8.42](https://github.com/LaurensDeV/KSArmory/compare/v0.8.41...v0.8.42) (2026-08-08)
 
 ### Features
