@@ -175,13 +175,21 @@ def check_file(path, core_subparts, core_materials):
     return problems, checked
 
 
-def check_launcher_geometry():
-    """Verifies the Pantsir's profile still agrees with the mesh its tubes were modelled in.
+def check_turret_launcher_geometry(profile, key, label):
+    """Verifies one turreted launcher's profile still agrees with the mesh it was modelled in.
 
-    The launch positions exist twice: once in tools/model/pantsir.py, which places the
-    containers, and once in Sim/Arsenal.cs, which draws markers on them and spawns rounds
-    from them. Nothing at build or run time connects the two, and a silent disagreement puts
-    the launch markers in mid-air beside the vehicle. So compare them here.
+    The launch positions exist twice: once in the model script, which places the containers and
+    the barrels, and once in Sim/Arsenal.cs, which draws markers on them and spawns rounds from
+    them. Nothing at build or run time connects the two, and a silent disagreement puts the
+    launch markers in mid-air beside the vehicle. So compare them here.
+
+    `key` names the muzzles.json block; None means the top-level one, which is the Pantsir's.
+    Every regex is scoped to the profile's own initialiser for the same reason
+    check_fixed_launcher_geometry is: an unscoped search binds to whichever launcher appears
+    first in the file and passes whatever every other one says.
+
+    Fields absent from the block are skipped rather than missing, because a turret is not
+    obliged to carry all of them -- the CIWS has no tubes and no pods.
 
     Skips quietly if the model has not been built in this checkout -- muzzles.json is written
     by tools/model/build.sh, which needs Blender.
@@ -192,7 +200,11 @@ def check_launcher_geometry():
         print("  (no tools/model/muzzles.json -- run tools/model/build.sh to enable this check)")
         return 0, 0
 
-    expected = json.loads(muzzles.read_text())
+    document = json.loads(muzzles.read_text())
+    expected = document if key is None else document.get(key)
+    if expected is None:
+        return 0, 0
+
     text = source.read_text()
 
     problems = 0
@@ -200,74 +212,85 @@ def check_launcher_geometry():
 
     import math
 
-    scalars = [("MuzzleForwardOffset", expected["muzzle_forward_offset"]),
-               ("TubeRingRadius", expected["tube_ring_radius"])]
-    for field, key in (("PodReferenceElevationRad", "pod_reference_elevation_deg"),
-                       ("GunReferenceElevationRad", "gun_reference_elevation_deg")):
-        if key in expected:
-            scalars.append((field, math.radians(expected[key])))
+    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    if found is None:
+        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        return 1, 1
+    text = found.group(1)
+
+    scalars = []
+    for field, name in (("MuzzleForwardOffset", "muzzle_forward_offset"),
+                        ("TubeRingRadius", "tube_ring_radius")):
+        if name in expected:
+            scalars.append((field, expected[name]))
+    for field, name in (("PodReferenceElevationRad", "pod_reference_elevation_deg"),
+                        ("GunReferenceElevationRad", "gun_reference_elevation_deg")):
+        if name in expected:
+            scalars.append((field, math.radians(expected[name])))
 
     for field, want in scalars:
         checked += 1
         match = re.search(rf"{field}\s*=\s*([0-9.]+)\s*,", text)
         if match is None:
-            print(f"  MISSING Arsenal.{field}", file=sys.stderr)
+            print(f"  MISSING Arsenal.{profile}.{field}", file=sys.stderr)
             problems += 1
         elif abs(float(match.group(1)) - want) > 5e-4:
-            print(f"  STALE Arsenal.{field} = {match.group(1)}, "
+            print(f"  STALE Arsenal.{profile}.{field} = {match.group(1)}, "
                   f"mesh says {want:.5f}", file=sys.stderr)
             problems += 1
 
     # Every slew pivot. Getting one wrong swings that assembly around the chassis rather than
     # spinning it in place, and the runtime writes the stale value back every frame -- so in game
     # it looks like the model change never happened.
-    for field, key in (("PodPivotFromTurret", "pod_pivot_from_turret"),
-                       ("TurretPivot", "turret_pivot"),
-                       ("GunPivotFromTurret", "gun_pivot_from_turret"),
-                       ("RadarPivotFromTurret", "radar_pivot_from_turret"),
-                       ("OpticPivotFromTurret", "eo_pivot_from_turret")):
-        if key not in expected:
+    for field, name in (("PodPivotFromTurret", "pod_pivot_from_turret"),
+                        ("TurretPivot", "turret_pivot"),
+                        ("GunPivotFromTurret", "gun_pivot_from_turret"),
+                        ("RadarPivotFromTurret", "radar_pivot_from_turret"),
+                        ("OpticPivotFromTurret", "eo_pivot_from_turret")):
+        if name not in expected:
             continue
         checked += 1
         match = re.search(rf"{field}\s*=\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", text)
         if match is None:
-            print(f"  MISSING Arsenal.{field}", file=sys.stderr)
+            print(f"  MISSING Arsenal.{profile}.{field}", file=sys.stderr)
             problems += 1
         else:
             got = [float(v) for v in match.groups()]
-            if any(abs(a - b) > 5e-4 for a, b in zip(got, expected[key])):
-                print(f"  STALE Arsenal.{field} = {tuple(got)}, "
-                      f"mesh says {tuple(expected[key])}", file=sys.stderr)
+            if any(abs(a - b) > 5e-4 for a, b in zip(got, expected[name])):
+                print(f"  STALE Arsenal.{profile}.{field} = {tuple(got)}, "
+                      f"mesh says {tuple(expected[name])}", file=sys.stderr)
                 problems += 1
 
     # Scope this to the Tubes initialiser. The pivots beside it are also `new(x, y, z),` and
-    # sweeping the whole file picks those up as extra tubes.
+    # sweeping the whole profile picks those up as extra tubes.
     #
     # Only the bare `new(x, y, z)` form is a generated tube position. A tube that declares its own
     # direction is written `new(new double3(...), new double3(...))` and is hand-authored for a
     # splayed launcher -- the generator only knows parallel bundles, because it reads them off a
     # mesh that has parallel tubes. Such a tube is skipped here rather than mismatched.
-    block = re.search(r"Tubes\s*=\s*\[(.*?)\n\s*\]", text, re.S)
+    block = re.search(r"Tubes\s*=\s*\[(.*?)\]", text, re.S)
     found = [] if block is None else [
         tuple(float(v) for v in m)
         for m in re.findall(r"new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", block.group(1))]
-    want = [tuple(t) for t in expected["tubes"]]
-    checked += len(want)
+    want = [tuple(t) for t in expected.get("tubes", [])]
+    checked += max(len(want), 1)
 
     if block is None:
-        print("  MISSING Arsenal Tubes", file=sys.stderr)
+        print(f"  MISSING Arsenal.{profile}.Tubes", file=sys.stderr)
         return problems + 1, checked
 
     if found != want:
-        print(f"  STALE Arsenal Tubes: {len(found)} entries, "
+        print(f"  STALE Arsenal.{profile}.Tubes: {len(found)} entries, "
               f"mesh has {len(want)}", file=sys.stderr)
         for i, (a, b) in enumerate(zip(found + [None] * len(want), want)):
             if a != b:
                 print(f"    tube {i}: file {a}, mesh {b}", file=sys.stderr)
         print("    rerun ./tools/model/build.sh and paste the block it prints", file=sys.stderr)
         problems += 1
+    elif want:
+        print(f"  {label} launch geometry: {len(want)} tubes match the mesh")
     else:
-        print(f"  launch geometry: {len(want)} tubes match the mesh")
+        print(f"  {label} carries no missiles, and the mesh models none")
 
     # The cannon barrels, the same way and for the same reason.
     if "gun_muzzles" in expected:
@@ -275,7 +298,7 @@ def check_launcher_geometry():
         want_guns = [tuple(m) for m in expected["gun_muzzles"]]
         checked += len(want_guns)
         if guns is None:
-            print("  MISSING Arsenal GunMuzzles", file=sys.stderr)
+            print(f"  MISSING Arsenal.{profile}.GunMuzzles", file=sys.stderr)
             problems += 1
         else:
             found_guns = [
@@ -283,14 +306,14 @@ def check_launcher_geometry():
                 for m in re.findall(r"new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)",
                                     guns.group(1))]
             if found_guns != want_guns:
-                print(f"  STALE Arsenal GunMuzzles: {len(found_guns)} entries, "
+                print(f"  STALE Arsenal.{profile}.GunMuzzles: {len(found_guns)} entries, "
                       f"mesh has {len(want_guns)}", file=sys.stderr)
                 for i, (a, b) in enumerate(zip(found_guns + [None] * len(want_guns), want_guns)):
                     if a != b:
                         print(f"    barrel {i}: file {a}, mesh {b}", file=sys.stderr)
                 problems += 1
             else:
-                print(f"  cannon geometry: {len(want_guns)} barrels match the mesh")
+                print(f"  {label} cannon geometry: {len(want_guns)} barrels match the mesh")
 
     return problems, checked
 
@@ -758,7 +781,11 @@ def main():
     checked += c
 
     print("checking src/KSArmory/Sim/Arsenal.cs against the mesh")
-    p, c = check_launcher_geometry()
+    p, c = check_turret_launcher_geometry("PantsirS1", None, "Pantsir")
+    problems += p
+    checked += c
+
+    p, c = check_turret_launcher_geometry("Ciws", "ciws", "CIWS")
     problems += p
     checked += c
 
