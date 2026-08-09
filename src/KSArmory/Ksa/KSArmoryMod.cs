@@ -45,6 +45,20 @@ public sealed class KSArmoryMod
     // is supposed to track a round has to run on. Player time keeps ticking through a pause.
     private double _lastSimStep;
 
+    // One per system, made on demand and forgotten with the craft. A dictionary rather than a
+    // field on WeaponSystem because a sight is drawing, and WeaponSystem is deliberately free of
+    // anything that only exists to be looked at.
+    private readonly Dictionary<WeaponSystem, BombSightOverlay> _sights = [];
+
+    private BombSightOverlay SightFor(WeaponSystem battery)
+    {
+        if (_sights.TryGetValue(battery, out BombSightOverlay? sight)) return sight;
+
+        sight = new BombSightOverlay();
+        _sights[battery] = sight;
+        return sight;
+    }
+
     // Every round in the world, as things a sensor can hold. Rebuilt each simulated step.
     private readonly List<IContact> _airborne = [];
 
@@ -182,6 +196,14 @@ public sealed class KSArmoryMod
             if (KsaWorld.InFlight)
             {
                 foreach (WeaponSystems.Entry e in _roster.All) Visuals.DrawShellStream(e.Battery);
+            }
+
+            // Outside the debug overlay switch, and deliberately: this is a sight the operator
+            // aims with, not an annotation of how the mod is thinking. Same reasoning as the
+            // shell stream above.
+            foreach (WeaponSystems.Entry e in _roster.All)
+            {
+                if (e.Policy.DrawBombSight) SightFor(e.Battery).Draw(e.Battery);
             }
 
             if (KsaWorld.InFlight && _config.DrawOverlays)
@@ -345,10 +367,23 @@ public sealed class KSArmoryMod
             _flashes.Update(e.Battery);
             _tracers.Update(e.Battery);
             _gunSound.Update(e.Battery);
+
+            // Its own switch and its own solve, per system: it costs a few hundred integration
+            // steps and two aircraft can sensibly disagree about wanting one.
+            if (e.Policy.DrawBombSight) SightFor(e.Battery).Update(e.Battery, _lastSimStep);
+            else SightFor(e.Battery).Clear();
         }
 
         // Every effect that holds a pooled emitter or a channel, so a craft destroyed mid-salvo
         // does not keep one for the session.
+        // A sight outlives nothing: without this the dictionary keeps a system for the session
+        // after its craft has gone, which is the leak every pooled effect below sweeps for.
+        if (_sights.Count > _roster.Count)
+        {
+            _sights.Clear();
+            foreach (WeaponSystems.Entry e in _roster.All) SightFor(e.Battery);
+        }
+
         _motors.Sweep(_roster);
         _plumes.Sweep(_roster);
         _tracers.Sweep(_roster);

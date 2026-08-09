@@ -247,6 +247,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
 | `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
+| `Sim/BombSight.cs` | where a store released now would land, flown rather than solved |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
 | `Sim/DriveStatus.cs` | which drives the engine is still accepting writes for, latched per channel |
 | `Sim/GunChannel.cs` | the cannon's belt, burst position and next-round timing |
@@ -279,6 +280,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
 | `Ksa/GroundTest.cs` | the surface under a round, off the engine's own height field |
+| `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSystem.cs` | what one system is, sees and is doing |
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
@@ -834,6 +836,15 @@ armed, auto-engage, what to draw. Range, guidance, fuse and launcher geometry be
 weapon system and vary per system, so they sit on `SensorProfile`, `MunitionProfile` and
 `LauncherProfile`. The panel edits the profiles of whichever system it is showing, so live
 tuning still works — it just tunes that system rather than the whole mod.
+
+**The bomb sight is flown, not solved.** `Sim/BombSight.cs` steps the *same* `Slug` the bomb will
+be, through the same gravity, the same air density and the same ground — so the ring sits wherever
+the round will actually go, including anything about the flight model that is wrong. A closed form
+exists only without drag, and this round's drag grows as it falls into thicker air; a sight derived
+from a tidier model than the round obeys is a sight that lies at the moment it matters. It is
+re-solved a few times a second rather than per frame, and the integration step is a *separate*
+number from the refresh interval — sharing them put 55 m of fall between terrain samples and the
+ring hopped between two places.
 
 **A round flies in the ground's frame, not the launcher's.** `KsaWorld.GroundVelocityAt` is the
 parent body's own motion plus its spin at that radius, and it is what a round's airspeed, its drag

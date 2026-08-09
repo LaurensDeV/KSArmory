@@ -37,6 +37,14 @@ public sealed class SystemConfig
     /// </summary>
     public bool ProtectControlledVehicle = true;
 
+    /// <summary>
+    /// Draw the bomb sight: where a store released now would land, and the arc it would take.
+    ///
+    /// <para>Per system rather than session-wide, because two aircraft in one world can sensibly
+    /// disagree about wanting one — and it costs a few hundred integration steps to solve.</para>
+    /// </summary>
+    public bool DrawBombSight = true;
+
     /// <summary>Master arm. Nothing launches while this is false.</summary>
     public bool Armed;
 
