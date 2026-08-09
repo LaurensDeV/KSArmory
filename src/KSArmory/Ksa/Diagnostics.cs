@@ -25,17 +25,75 @@ internal static class Diagnostics
     public static void Tick(IWeaponSystemView battery, Config config, SystemConfig policy,
                             double clock, double intervalSeconds)
     {
+        SampleRadialMotion(battery);
+        SampleStep();
+
         if (NextDumpAt.TryGetValue(battery, out double due) && clock < due) return;
 
         NextDumpAt[battery] = clock + intervalSeconds;
         Dump(battery, config, policy);
     }
 
+    // How far the platform's analytic position moves radially between frames, worst case since the
+    // last dump. A craft the engine has put on rails is exactly static and reads zero; one still
+    // live in the physics solver rests on its contacts and bobs along the contact normal, which is
+    // the local vertical. Everything anchored to the platform inherits that -- including a round,
+    // and so the camera riding it.
+    private static readonly Dictionary<IWeaponSystemView, (double Last, double Worst)> Radial = [];
+
+    // The simulated step's spread since the last dump. The chase transition advances its blend by
+    // dt/TransitionSeconds each frame, so an uneven step advances the camera unevenly *along the
+    // blend path* -- which for a target overhead on an airless body is very nearly straight up.
+    private static double _stepMin = double.MaxValue;
+    private static double _stepMax;
+    private static double _stepWorstJump;
+    private static double _stepLast;
+    private static int _stepSamples;
+
+    private static void SampleStep()
+    {
+        double step = KsaWorld.SimStepSeconds;
+        if (!double.IsFinite(step) || step <= 0.0) return;
+
+        if (_stepLast > 0.0) _stepWorstJump = Math.Max(_stepWorstJump, Math.Abs(step - _stepLast));
+
+        _stepLast = step;
+        _stepMin = Math.Min(_stepMin, step);
+        _stepMax = Math.Max(_stepMax, step);
+        _stepSamples++;
+    }
+
+    private static void SampleRadialMotion(IWeaponSystemView battery)
+    {
+        if (battery.Platform is not { } platform) return;
+
+        try
+        {
+            if (platform.Parent is not IPosition parent) return;
+
+            double radius = Vec.Len(KsaWorld.PositionEcl(platform) - parent.GetPositionEcl());
+            if (!double.IsFinite(radius)) return;
+
+            Radial.TryGetValue(battery, out (double Last, double Worst) seen);
+
+            double moved = seen.Last > 0.0 ? Math.Abs(radius - seen.Last) : 0.0;
+            Radial[battery] = (radius, Math.Max(seen.Worst, moved));
+        }
+        catch
+        {
+            // The parent chain is rebuilt during staging and SOI changes.
+        }
+    }
+
     /// <summary>Makes every system dump on its next tick.</summary>
     public static void ResetTimer() => NextDumpAt.Clear();
 
     /// <summary>Forgets a system, so its entry does not outlive the craft it was crewed on.</summary>
-    public static void Forget(IWeaponSystemView battery) => NextDumpAt.Remove(battery);
+    public static void Forget(IWeaponSystemView battery)
+    {
+        NextDumpAt.Remove(battery);
+        Radial.Remove(battery);
+    }
 
     public static void Dump(IWeaponSystemView battery, Config config, SystemConfig policy)
     {
@@ -71,6 +129,41 @@ internal static class Diagnostics
         Log.Debug($"  velEcl  = {Fmt(vel)}  speed = {Vec.Len(vel):F1} m/s");
         Log.Debug($"  bore    = {Fmt(battery.Boresight)}  (local up)");
         Log.Debug($"  mount   = {Fmt(battery.MountEcl)}  offset from hull = {Vec.Len(battery.MountEcl - pos):F2} m");
+
+        // Whether the engine has parked this craft or is still solving it. On an airless body it
+        // can barely ever be parked: PhysicsStates forces MotionlessTime to zero every step
+        // without an atmosphere, so the one-second gate onto rails is unreachable and only Bepu's
+        // 255-step sleeper is left, with no drag to get it there.
+        try
+        {
+            (double _, double worst) = Radial.TryGetValue(battery, out (double, double) seen)
+                                           ? seen
+                                           : (0.0, 0.0);
+
+            if (_stepSamples > 0)
+            {
+                double spread = _stepMax - _stepMin;
+
+                Log.Debug($"  step    = {_stepMin * 1000.0:F2}..{_stepMax * 1000.0:F2} ms over "
+                         + $"{_stepSamples} frames, spread {spread * 1000.0:F2} ms "
+                         + $"({(_stepMax > 0.0 ? spread / _stepMax * 100.0 : 0.0):F1}%), "
+                         + $"worst jump {_stepWorstJump * 1000.0:F2} ms");
+            }
+
+            _stepMin = double.MaxValue;
+            _stepMax = 0.0;
+            _stepWorstJump = 0.0;
+            _stepSamples = 0;
+
+            Log.Debug($"  physics = {platform.Situation}, onRails={platform.Situation.IsOnRails()}, "
+                     + $"worst radial move between frames {worst * 1000.0:F3} mm");
+
+            Radial[battery] = (Radial.TryGetValue(battery, out (double Last, double _) k) ? k.Last : 0.0, 0.0);
+        }
+        catch
+        {
+            Log.Warn("  physics = unavailable");
+        }
 
         try
         {
