@@ -144,8 +144,12 @@ internal static class Diagnostics
             {
                 double spread = _stepMax - _stepMin;
 
+                // Samples, not frames: this is fed once per system per frame, so two crewed
+                // systems double it. And the dump interval is simulated time, so at 0.01x the
+                // window is a hundred times longer in wall clock and can span a speed change --
+                // which makes the spread of such a line meaningless. Read it at one speed.
                 Log.Debug($"  step    = {_stepMin * 1000.0:F2}..{_stepMax * 1000.0:F2} ms over "
-                         + $"{_stepSamples} frames, spread {spread * 1000.0:F2} ms "
+                         + $"{_stepSamples} samples, spread {spread * 1000.0:F2} ms "
                          + $"({(_stepMax > 0.0 ? spread / _stepMax * 100.0 : 0.0):F1}%), "
                          + $"worst jump {_stepWorstJump * 1000.0:F2} ms");
             }

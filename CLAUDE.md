@@ -1263,6 +1263,12 @@ should not be weakened without understanding what they buy:
   "up". `BoresightMode.TurretAxis` exists and nothing registered uses it yet.
 - The model has no normal or occlusion detail — flat palette swatches only. Faceted lighting is
   the whole look, which suits KSA's art style, but it is a floor not a ceiling.
+- A round that is **not** the one being chased still shows a very slight stutter, millimetres of
+  shift, most visible at 0.01x where it recurs about every 500 ms. Not measured to a cause. Ruled
+  out: the engine coalescing sim steps at low speed — the dump shows a step arriving every frame,
+  0.16 ms at 0.01x — and the drives, the array and the chase blend, all of which were the frame
+  pacing and are fixed. The chased round cannot show it, because the camera moves with it.
+
 - A round body's drawn position has a floor of a few millimetres at range, and it is the engine's.
   Part transforms are packed to `float` at the part's own **Ego** magnitude — its distance from the
   camera — so the quantum is ~3 µm at a 26 m chase stand-off, 0.6 mm at 10 km and 9.5 mm at 80 km.
