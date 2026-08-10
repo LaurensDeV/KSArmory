@@ -402,6 +402,42 @@ lines, and there are no scorch decals to draw because kills are binary.
 **Not blocking the optical head itself.** Main-viewport takeover, HUD symbology and zoom all sit on
 `Ksa/Sight.cs` painting over the existing camera, and none of them need a shader.
 
+## Configuring a part in the vehicle editor
+
+**Wanted.** What a fuel tank gets: a section in the editor's part inspector with the part's own
+settings, saved with the craft. For a launcher that would be a loadout — which round a rail
+carries, how many, what the fuse does.
+
+**Why it is blocked.** Three layers, and the third is the one that decides it.
+
+- **The inspector has no extension point.** Its sections are written out longhand against concrete
+  module types — `part.SubtreeModules.Get<Tank>()` then a Propellant block
+  (`KSA/KSA/VehicleEditor.cs:5957-5961`), the same shape for decouplers and the rest. There is no
+  registry, no per-module draw callback, nothing keyed on a mod.
+- **A mod cannot register a module type** to be drawn for in the first place. See *Custom part
+  modules* above.
+- **A saved craft has nowhere to put it.** `PartTree` (`KSA/KSA/PartTree.cs:35-67`) is a fixed set
+  of typed `ModuleStateful<…>.StateList` fields, one per module type the engine knows. It is the
+  same closed shape as `UniverseData`, so per-part mod state cannot ride the vehicle file.
+
+**What is not blocked, and why it is still not built.** The editor itself is readable:
+`Program.Editor` is a public static (`KSA/KSA/Program.cs:200`) and `VehicleEditor.Selected`,
+`Highlighted` and `EditingPart` are public `Part?` (`VehicleEditor.cs:579-585`). So the mod could
+detect the editor, see the selected part and draw its own window beside KSA's.
+
+It would be a window whose settings cannot be saved with the craft, which is worse than no window:
+a loadout chosen in the editor and silently gone on load is a bug report waiting to happen. The
+mod's own store keys per *craft* by display name, and there is no per-part key that survives the
+round trip.
+
+It also has nothing to configure yet. Weapon *performance* lives on shared profiles, so a per-part
+control there would be the wrong scope, and per-installation *policy* — armed, auto-engage, IFF —
+is a flight decision the panel already covers and already persists. The day a rail can carry more
+than one kind of round, that is an editor decision and this becomes worth solving.
+
+**What would unblock it.** An extensible per-part blob in the vehicle save that survives a
+round trip, or a registerable module type — either one makes the rest follow.
+
 ## Filtering the part picker by mod or manufacturer
 
 **Wanted.** A shared **Weapons** category that several weapon mods can put parts into, with a way
