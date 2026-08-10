@@ -409,15 +409,16 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
             if (ImGui.BeginTabBar("##systemtabs"))
             {
+                // First, and the only one a craft always has: what it is made of. Every other tab
+                // is about a weapons system, which a craft carrying one director does not have.
+                if (ImGui.BeginTabItem("Components")) { DrawComponents(craft); ImGui.EndTabItem(); }
+
                 if (armed)
                 {
-                    if (ImGui.BeginTabItem("Status")) { DrawSystemPane(); ImGui.EndTabItem(); }
                     if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
                     if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
                     if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
                 }
-
-                if (ImGui.BeginTabItem("Components")) { DrawComponents(craft); ImGui.EndTabItem(); }
                 ImGui.EndTabBar();
             }
         }

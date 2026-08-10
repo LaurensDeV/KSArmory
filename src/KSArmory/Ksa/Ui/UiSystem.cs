@@ -72,9 +72,170 @@ internal sealed partial class Ui
         double3 at = c.PositionVehicleAsmb;
         ImGui.TextDisabled($"at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
 
-        if (role == WeaponRole.Camera) DrawCameraComponent(nth);
+        switch (role)
+        {
+            case WeaponRole.Camera: DrawCameraComponent(nth); break;
+            case WeaponRole.FireControl: DrawFireControlComponent(); break;
+            case WeaponRole.Launcher: DrawLauncherComponent(c, nth); break;
+            case WeaponRole.Gun: DrawGunComponent(c); break;
+            case WeaponRole.Sensor: DrawSensorComponent(c); break;
+        }
 
         ImGui.TreePop();
+    }
+
+    // Whether a row is the one fire control is actually running.
+    //
+    // Every launcher part registers as a Launcher and *provides* its gun and sensor rows, so a
+    // craft carrying two of them lists two of each while WeaponSystems crews one -- LauncherOrdinal
+    // is a const 0. Matching the crewed profile by name rather than counting rows is what keeps a
+    // second Pantsir's cannon from reporting the first one's belt.
+    private bool IsCrewed(FoundComponent c)
+        => string.Equals(c.DisplayName, _profile.DisplayName, StringComparison.Ordinal);
+
+    // Said once per row that is fitted and not run, rather than left to be inferred from a row
+    // full of blanks. Without it the panel shows three loaded rails and fires one.
+    private void NotRun()
+    {
+        ImGui.TextColored(Amber, "fitted, not run");
+        ImGui.TextDisabled("  one weapons system per craft: another part of this kind is crewed");
+    }
+
+    // The launcher: what it holds, how it is laid, and the switches that belong to it.
+    private void DrawLauncherComponent(FoundComponent c, int nth)
+    {
+        if (!IsCrewed(c)) { NotRun(); return; }
+
+        if (_battery.Launcher is null)
+        {
+            ImGui.TextColored(Red, "not resolved");
+            ImGui.TextDisabled("  the part is fitted but its subparts were not found");
+            return;
+        }
+
+        DrawArmamentTally(ArmamentKind.Tubes);
+
+        if (_battery.ReloadRemaining > 0.0)
+        {
+            ImGui.Text($"Reloading: {_battery.ReloadRemaining:F1}s");
+            ImGui.ProgressBar(
+                (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
+        }
+
+        DrawTurretLine();
+
+        if (ImGui.Button("Reload")) _battery.Reload();
+        ImGui.SameLine();
+        if (ImGui.Button("Safe all")) _battery.SafeAll();
+
+        // A view control, so it sits with the weapon whose rounds it would ride.
+        ImGui.Checkbox("Chase this launcher's rounds", ref _policy.ChaseRounds);
+        ImGui.TextDisabled("  rides the camera behind a round it fires; the view comes back after");
+
+        // Only where it answers the right question. A guided round goes where it is steered, so a
+        // ballistic pipper over one is a ring in the wrong place with nothing to say so.
+        if (_fit.Drops)
+        {
+            ImGui.Checkbox("Bomb sight", ref _policy.DrawBombSight);
+            ImGui.TextDisabled("  where a store released now would land, flown rather than solved");
+        }
+    }
+
+    // The cannon: its belt, and whether it is live.
+    private void DrawGunComponent(FoundComponent c)
+    {
+        if (!IsCrewedProvider(c)) { NotRun(); return; }
+
+        DrawArmamentTally(ArmamentKind.Belt);
+        ImGui.TextDisabled(_battery.GunsAreLaid ? "  laid" : "  not laid");
+    }
+
+    // The set: what it is holding right now. Its numbers are on the Tuning tab, because they
+    // belong to the profile and every system running that loadout shares them.
+    private void DrawSensorComponent(FoundComponent c)
+    {
+        if (!IsCrewedProvider(c))
+        {
+            ImGui.TextDisabled("its own set; not the one fire control reads");
+            return;
+        }
+
+        DrawRadarState();
+    }
+
+    // A provided row belongs to whichever part declared it, and only the crewed part's provided
+    // rows describe the running system. Matched on the profile's own sensor and gun names.
+    private bool IsCrewedProvider(FoundComponent c)
+    {
+        if (string.Equals(c.DisplayName, Arsenal.SensorNamed(_profile.Sensor).DisplayName,
+                          StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return _fit.FirstOf(ArmamentKind.Belt) is { } gun
+               && string.Equals(c.DisplayName, gun.Label, StringComparison.Ordinal);
+    }
+
+    // Everything about releasing a weapon, on the part that decides it.
+    private void DrawFireControlComponent()
+    {
+        ImGui.Checkbox("Master arm", ref _policy.Armed);
+        ImGui.SameLine();
+        ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
+
+        // One switch per armament fitted. A switch for a weapon the system does not carry reads as
+        // one that is turned off rather than as one that is not there.
+        IReadOnlyList<Armament> switches = _fit.Armaments;
+        for (int i = 0; i < switches.Count; i++)
+        {
+            ImGui.SameLine();
+            ImGui.Checkbox(switches[i].Label, ref Armament.EnabledIn(_policy, switches[i].Kind));
+        }
+
+        if (ImGui.Button("FIRE")) _battery.FireAtLock();
+        ImGui.SameLine();
+        if (ImGui.Button("Reset settings") && _battery.Platform is { } craft)
+        {
+            SettingsStore.Forget(KsaWorld.DisplayName(craft));
+            new SystemSettings().ApplyTo(_policy);
+            _batteries.WriteNow();
+            Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Back to defaults, and forgotten from the settings file.\n"
+                             + "This resets the whole installation, not this component.");
+        }
+
+        ImGui.Checkbox("Never target the vehicle I'm flying", ref _policy.ProtectControlledVehicle);
+
+        ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);
+        if (_policy.MouseAim)
+        {
+            ImGui.TextDisabled("  The launcher and the optical head follow the cursor. Auto-engage");
+            ImGui.TextDisabled("  still decides when to fire; the drives still have to settle first.");
+        }
+
+        ImGui.Checkbox("Fire at the mouse", ref _policy.MouseFire);
+        if (_policy.MouseFire)
+        {
+            ImGui.TextDisabled("  Click the ground to send a round there. No target and no lock");
+            ImGui.TextDisabled("  needed - the ring shows where, and turns red when it would refuse.");
+            if (!_policy.Armed) ImGui.TextColored(Amber, "  Master arm is off, so clicks do nothing.");
+        }
+    }
+
+    // One armament's reading, or nothing when the system carries none of that kind.
+    private void DrawArmamentTally(ArmamentKind kind)
+    {
+        if (_fit.FirstOf(kind) is not { } arm) return;
+
+        (int remaining, bool firing) = LiveState(_battery, arm);
+
+        if (firing) ImGui.TextColored(Red, arm.Describe(remaining, firing));
+        else ImGui.Text(arm.Describe(remaining, firing));
     }
 
     // The nth director's own controls, under the nth camera row.
@@ -92,13 +253,6 @@ internal sealed partial class Ui
         }
 
         DrawOpticView(_headScratch[nth]);
-    }
-
-    private void DrawSystemPane()
-    {
-        DrawStatus();
-        ImGui.Separator();
-        DrawWeapons();
     }
 
     // The two facts that belong to the installation rather than to any part of it, plus a word
@@ -131,49 +285,6 @@ internal sealed partial class Ui
 
         DrawClockWarning();
         ImGui.Separator();
-    }
-
-    private void DrawStatus()
-    {
-        if (_battery.Platform is null)
-        {
-            ImGui.TextColored(Grey, "No platform - take control of a vehicle.");
-            return;
-        }
-
-        // One reading per armament the system is fitted with. A launcher with no tubes and one
-        // with no cannon both describe themselves here without this knowing which it is, so
-        // "Rounds: 0/0" against a weapon that never had a magazine cannot arise.
-        IReadOnlyList<Armament> readings = _fit.Armaments;
-        for (int i = 0; i < readings.Count; i++)
-        {
-            Armament arm = readings[i];
-            (int remaining, bool firing) = LiveState(_battery, arm);
-
-            if (i > 0) ImGui.SameLine();
-            if (firing) ImGui.TextColored(Red, arm.Describe(remaining, firing));
-            else ImGui.Text(arm.Describe(remaining, firing));
-        }
-
-        // Only the failure. A launcher that resolved is named by the window's Components tab and
-        // by the tally above it, so saying so again is a line that is always there and never read.
-        if (_battery.Launcher is null)
-        {
-            ImGui.TextColored(Red, "Launcher: not resolved");
-            ImGui.TextDisabled($"  {_profile.DisplayName} is fitted but its parts were not found");
-        }
-
-        if (_battery.ReloadRemaining > 0.0)
-        {
-            ImGui.Text($"Reloading: {_battery.ReloadRemaining:F1}s");
-            ImGui.ProgressBar(
-                (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
-        }
-
-        DrawTurretLine();
-
-        DrawRadarState();
-
     }
 
     // Only when the clock is a problem. Fire control runs on simulated time, so a paused or
@@ -503,74 +614,6 @@ internal sealed partial class Ui
             double elevError = Math.Abs(float.RadiansToDegrees((float)_battery.Turret.ElevationErrorRad));
             ImGui.TextColored(Amber, $"{aim} - slewing ({Math.Max(error, elevError):F0} deg to go)");
         }
-    }
-
-    private void DrawWeapons()
-    {
-        ImGui.Checkbox("Master arm", ref _policy.Armed);
-        ImGui.SameLine();
-        ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
-
-        // One switch per armament fitted. A switch for a weapon the system does not carry reads as
-        // one that is turned off rather than as one that is not there.
-        IReadOnlyList<Armament> switches = _fit.Armaments;
-        for (int i = 0; i < switches.Count; i++)
-        {
-            Armament arm = switches[i];
-            ImGui.SameLine();
-            ImGui.Checkbox(arm.Label, ref Armament.EnabledIn(_policy, arm.Kind));
-        }
-
-        // A view control, so it sits with the other thing that decides what is on screen.
-        ImGui.Checkbox("Chase this system's rounds", ref _policy.ChaseRounds);
-        ImGui.TextDisabled("  rides the camera behind a round it fires; the view comes back after");
-
-        // Only where it answers the right question. A guided round goes where it is steered, so a
-        // ballistic pipper over one is a ring in the wrong place with nothing to say so.
-        if (_fit.Drops)
-        {
-            ImGui.Checkbox("Bomb sight", ref _policy.DrawBombSight);
-            ImGui.TextDisabled("  where a store released now would land, flown rather than solved");
-        }
-
-        if (ImGui.Button("FIRE")) _battery.FireAtLock();
-        ImGui.SameLine();
-        if (ImGui.Button("Reload")) _battery.Reload();
-        ImGui.SameLine();
-        if (ImGui.Button("Safe all")) _battery.SafeAll();
-
-        ImGui.SameLine();
-        if (ImGui.Button("Reset settings") && _battery.Platform is { } craft)
-        {
-            SettingsStore.Forget(KsaWorld.DisplayName(craft));
-            new SystemSettings().ApplyTo(_policy);
-            _batteries.WriteNow();
-            Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
-        }
-
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Back to defaults, and forgotten from the settings file.\n"
-                             + "Settings persist across restarts now, so this is the way back.");
-        }
-
-        ImGui.Checkbox("Never target the vehicle I'm flying", ref _policy.ProtectControlledVehicle);
-
-        ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);
-        if (_policy.MouseAim)
-        {
-            ImGui.TextDisabled("  The launcher and the optical head follow the cursor. Auto-engage");
-            ImGui.TextDisabled("  still decides when to fire; the drives still have to settle first.");
-        }
-
-        ImGui.Checkbox("Fire at the mouse", ref _policy.MouseFire);
-        if (_policy.MouseFire)
-        {
-            ImGui.TextDisabled("  Click the ground to send a round there. No target and no lock");
-            ImGui.TextDisabled("  needed - the ring shows where, and turns red when it would refuse.");
-            if (!_policy.Armed) ImGui.TextColored(Amber, "  Master arm is off, so clicks do nothing.");
-        }
-
     }
 
     private void DrawTrackList()
