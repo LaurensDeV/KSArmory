@@ -26,6 +26,23 @@ public sealed class PointingDrive
     /// <summary>True once the head is within a degree of where it was told to look.</summary>
     public bool OnTarget => ErrorRad < 0.0175;
 
+    /// <summary>
+    /// Puts the head at a direction outright, for a caller enforcing a limit the <em>path</em>
+    /// has to respect.
+    ///
+    /// <para>Clamping the command is not enough. This turns by the shortest rotation onto it, and
+    /// the shortest way from one bearing to the opposite one at low elevation goes over the top or
+    /// under the bottom — so a head whose ends are both legal sweeps through its own mount getting
+    /// between them. Re-clamping what it actually reached each step is what keeps it out.</para>
+    /// </summary>
+    public void Hold(double3 direction)
+    {
+        double3 held = Vec.Unit(direction);
+        if (!Vec.IsFinite(held) || Vec.Len2(held) < 0.5) return;
+
+        Direction = held;
+    }
+
     public void Reset()
     {
         Direction = OpticGeometry.RestDirection;

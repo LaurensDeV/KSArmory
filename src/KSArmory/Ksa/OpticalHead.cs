@@ -47,8 +47,21 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// <summary>Its own set. A director is a sensor in its own right, not a weapon's eye.</summary>
     public Radar Radar { get; } = new(config, policy);
 
-    /// <summary>Where its search volume points, in Ecl.</summary>
+    /// <summary>
+    /// Local "up" at the director, which is what keeps the sight's horizon level and the camera
+    /// the right way up. <see cref="IOpticalHead.Boresight"/>'s contract, and <em>not</em> where
+    /// the set is looking — a director bolted to a hull's side has a mount normal pointing
+    /// sideways, and a horizon drawn against that lies by however far the two differ.
+    /// </summary>
     public double3 Boresight { get; private set; } = new(0, 0, 1);
+
+    /// <summary>
+    /// Where its search volume points, in Ecl: out of the surface it is bolted to.
+    ///
+    /// <para>Separate from <see cref="Boresight"/> because they answer different questions. This
+    /// is the direction the sensor sweeps about; that one is which way is up.</para>
+    /// </summary>
+    public double3 SensorBoresight { get; private set; } = new(0, 0, 1);
 
     /// <summary>What it is watching.</summary>
     public Track? LockedTrack => Radar.Locked;
@@ -99,7 +112,8 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             OpticPart = null;
         }
 
-        Boresight = ResolveBoresight();
+        SensorBoresight = ResolveSensorBoresight();
+        Boresight = Platform is { } up ? KsaWorld.LocalUp(up) : Boresight;
     }
 
     /// <summary>Scans, slews and writes the head's transform. One simulated step.</summary>
@@ -108,9 +122,14 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         if (Platform is not { IsDisposed: false } platform || Director is null) return;
 
         Radar.Sensor = Sensor;
-        Radar.Scan(platform, Boresight, dt, airborne);
+        Radar.Scan(platform, SensorBoresight, dt, airborne);
 
         _drive.Update(_driveStep.Next(dt), AimPartFrame(), Profile.SlewRateRad);
+
+        // The travel again, on what the drive actually reached. Clamping only the command leaves
+        // the head free to take the shortest rotation between two legal directions, and between
+        // opposite bearings at low elevation that arc goes straight through the mast.
+        _drive.Hold(OpticGeometry.ClampToTravel(Profile, _drive.Direction));
 
         if (OpticPart is not { } head || !_driveWorks) return;
 
@@ -215,9 +234,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     // Out of the surface it is bolted to, which for a director on a deck is the sky. Every failure
     // falls back to local up rather than a zero vector: a cone with no direction sees nothing.
-    private double3 ResolveBoresight()
+    private double3 ResolveSensorBoresight()
     {
-        if (Platform is not { } platform) return Boresight;
+        if (Platform is not { } platform) return SensorBoresight;
 
         if (Director is { } director
             && LauncherPart.TryLauncherDirectionEcl(platform, director, OpticGeometry.MountNormal,
