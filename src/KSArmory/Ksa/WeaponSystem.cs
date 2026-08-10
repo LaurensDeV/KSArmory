@@ -749,6 +749,33 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         }
     }
 
+    // Where a bearing for the *optical head* should be measured from: the head's own pivot.
+    //
+    // The same displaced-parallel error <see cref="AimOriginEcl"/> exists for, and it bites far
+    // harder here for one reason: a launcher is judged by where its rounds arrive, and a sight is
+    // judged by where the picture is pointing. The head stands 4.1 m up and 1.1 m forward of the
+    // part origin, so a command measured from the origin lays the head parallel to the right
+    // bearing and displaced off it -- half a degree at 700 m, and at 16x half a degree is a sixth
+    // of the picture.
+    //
+    // OpticEyeForward is deliberately not added. It runs along the aim itself, so it moves the eye
+    // up and down the line rather than off it, and contributes exactly nothing to this.
+    private double3 OpticOriginEcl
+    {
+        get
+        {
+            if (Platform is null || Launcher is null || !Profile.Trains) return MountEcl;
+
+            double3 pivot = Profile.TurretPivot
+                            + (TubeGeometry.TurretRotation(Turret.BearingRad) * Profile.OpticPivotFromTurret);
+
+            return LauncherPart.TryPartPointEcl(Platform, Launcher, pivot, PlatformEcl,
+                                                out double3 ecl)
+                       ? ecl
+                       : MountEcl;
+        }
+    }
+
     private bool TryCursorAimPartFrame(out double3 partFrame)
     {
         partFrame = default;
@@ -781,7 +808,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
                 targetEcl = drawn;
             }
 
-            if (LauncherPart.TryDirectionToPartFrame(Platform, Launcher, targetEcl - MountEcl,
+            if (LauncherPart.TryDirectionToPartFrame(Platform, Launcher, targetEcl - OpticOriginEcl,
                                                      out double3 toTarget))
             {
                 return toTarget;

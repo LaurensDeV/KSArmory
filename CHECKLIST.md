@@ -702,9 +702,31 @@ Second flight: the overlay is under the panel and the bracket is closer, and two
   at the target's analytic position, so the camera boresights a few metres off where the craft is
   drawn. It now takes the drawn position, the same as the bracket.
 
+Third flight settled the centring fault by measuring it at two ranges, which is the only thing
+that could have: the boresight cross sat far above the target at **0.72 km** and almost on it at
+**9.03 km**. A fixed distance subtending a shrinking angle, so the cause is geometric and not
+screen-space — and the direction is right too, because the displacement is mostly the 4.10 m
+*up* the traverse axis, which is why the cross is above rather than beside.
+
+The optical head was commanded a bearing measured from the launcher part's origin while the head
+itself stands 4.14 m away from it, so it was laid *parallel* to the right bearing and displaced
+off it. `WeaponSystem.AimOriginEcl` already carries that whole diagnosis in a comment — for the
+tube drives, which were fixed for it. The optic never was. Predicted 9.9% of the vertical field at
+0.72 km against 0.8% at 9.03 km, a ratio of 12.5.
+
+**What this retires:** the framebuffer-versus-viewport-pixels theory, which predicted an offset
+that is a constant fraction of the screen at every range. It is not that, and the algebra said so
+too — a scale error there would displace the *bracket* and leave the cross correct.
+
 - [x] The overlay stays **under** the panel.
 - [ ] The reference survives the head slewing and elevating, and only disappears looking straight up.
-- [ ] The target sits at **screen centre** at 16× once the head has settled, and holds still.
+- [ ] The target sits at **screen centre** at 16× once the head has settled — check it at **both**
+      long and short range, because only the short one could ever have shown this.
+- [ ] It holds still. Still unconfirmed either way, and now separable: with the systematic offset
+      gone, anything left moving is the epoch question rather than this.
+- [ ] Known and not yet fixed: `PointingDrive.OnTarget` is a fixed 1° window, which at 16× is a
+      third of the vertical field. The brackets close and `SLEWING` clears while the head can
+      still be visibly off, so "settled" is not evidence of anything at magnification.
 
 **Zoom is the one with a crash behind it.** `Camera.SetFieldOfView` does not clamp and
 `UpdateProjection` throws for a field of zero or more than half a turn, out of the frame hook.
