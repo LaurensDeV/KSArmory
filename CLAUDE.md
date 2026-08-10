@@ -234,6 +234,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Warhead.cs` | explosive charge to lethal, blast and fireball radius |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
 | `Sim/OpticProfile.cs` | one optical head — a part in its own right, not launcher gear |
+| `Sim/OpticGeometry.cs` | where a director's head sits, and how far down it can look |
 | `Sim/Config.cs` | session-wide settings — team names, drawing, logging |
 | `Sim/SystemConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
 | `Sim/SystemSettings.cs` | those settings flattened, so they can be written down and read back |
