@@ -44,12 +44,6 @@ internal sealed partial class Ui
             ImGui.SameLine();
             if (ImGui.Button(label)) KsaWorld.SetSimulationSpeed(speed);
         }
-
-        // Testing gear: it lets a craft with no launcher on it shoot.
-        ImGui.Checkbox("Require launcher part", ref _config.RequireLauncherPart);
-        ImGui.TextDisabled(_config.RequireLauncherPart
-            ? "  a craft is a weapons system only if it carries a registered part"
-            : "  any controlled craft can shoot; for testing without building one");
     }
 
     // Everything that belongs to the session, in one window: what is drawn, what is heard, the

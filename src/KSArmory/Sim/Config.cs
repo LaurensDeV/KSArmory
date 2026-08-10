@@ -133,11 +133,6 @@ public sealed class Config
     /// </summary>
     public bool MoveCraftWithMouse;
 
-    /// <summary>
-    /// Require a launcher part before the battery works. Turn this off to run the system on any
-    /// craft, which is useful for testing without opening the editor.
-    /// </summary>
-    public bool RequireLauncherPart = true;
 
     // ---- Diagnostics ----------------------------------------------------
 

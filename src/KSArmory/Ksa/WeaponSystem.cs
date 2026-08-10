@@ -258,7 +258,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     public double3 PlatformEcl { get; private set; }
 
     /// <summary>True when the battery has everything it needs to shoot.</summary>
-    public bool IsOperational => Platform is not null && (Launcher is not null || !_config.RequireLauncherPart);
+    public bool IsOperational => Platform is not null && Launcher is not null;
 
     /// <summary>
     /// True when the launcher is actually pointing where it is about to shoot, so rounds do not
@@ -473,9 +473,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     private string? Holding()
     {
         if (Platform is null) return "no platform";
-        if (!IsOperational) return _config.RequireLauncherPart && Launcher is null
-                                       ? "no launcher part on this craft"
-                                       : "not operational";
+        // Platform was answered above, so this is the launcher and nothing else.
+        if (!IsOperational) return "no launcher resolved on this craft";
 
         // Which weapon this ladder is about. The rungs below are the missile sequence, and a
         // launcher with no tubes fails "out of rounds" at every one of them forever: its magazine
@@ -586,9 +585,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             }
         }
 
-        // No launcher anywhere. With the part requirement off the battery still works from the
-        // hull of the controlled craft, which is how it is tested without opening the editor.
-        SetPlatform(_config.RequireLauncherPart ? null : controlled);
+        // No launcher anywhere. Mounting on the controlled craft instead is what PinPlatform
+        // exists to prevent: the kill path refuses to destroy its own platform, so a system that
+        // followed the player would make whatever they fly both unkillable and unable to shoot.
+        SetPlatform(null);
     }
 
     private void SetPlatform(Vehicle? v)

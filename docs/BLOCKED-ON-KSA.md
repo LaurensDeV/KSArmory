@@ -203,40 +203,6 @@ folder, which is writable, and `TestTarget` spawns drones on demand from the pan
 
 ---
 
-## A launchable kitten
-
-**Wanted.** A `KittenEva` on the pad, so the on-foot weapon can be tested without flying a capsule
-up and climbing out of it every time.
-
-**Why it is blocked.** The same hardcoded folder as above, reached from a second direction. A
-vehicle save becomes a kitten rather than a craft purely because `VehicleSaveData` carries a
-`Character` attribute — `VehicleTemplate.CreateInto` branches on it and calls
-`KittenEva.CreateKittenEva`. But only `VehicleTemplate` reads that attribute, and
-`VehicleTemplate.OnDataLoad` sources its save from `DefaultVehicleSaves.FindSave`. Core's own
-kittens live there: `Content/Core/defaultvehicles/Hunter/vehicle.xml` is four lines of XML with
-`Character="HunterKitten"`.
-
-The user's vehicle folder is loaded by an entirely different path. `UncompressedVehicleSave.Load`
-builds a `PartTree` and returns it, and **never looks at `Character`** — so no craft a mod or a
-player can write will ever become a `KittenEva`, whatever its XML says.
-
-The failure is silent and looks like a mod bug. The craft loads as a plain `Vehicle` wearing
-`KittenBackPackPart`, whose `<SubPart Id="KittenBackPackSubPart"/>` is declared empty — no model,
-no mesh, no material, because a kitten's body is drawn by `KittenRenderable` and that only exists
-on a `KittenEva`. So it spawns, is controllable, and is **invisible**. The only clue is KSA's own
-log: a working craft logs `finished loading vehicle … part count 1`, and this one stops at
-`started loading vehicle`.
-
-**What would unblock it.** `UncompressedVehicleSave.Load` honouring `Character`, or a per-mod
-vehicle library path — the same fix as the entry above.
-
-**Workaround in the mod.** EVA a kitten out of a crewed capsule: `EVADoor.CreateKittenEva` is the
-only path that builds one, and it sets `Program.ControlledVehicle`, so a weapon system mounts on it
-with `RequireLauncherPart` off. Core's medium capsule carries the doors
-(`CoreCommandA_Subpart_MediumCapsuleCrewDoorA`/`B`).
-
----
-
 ## Driving the main camera: set CameraRotation, do not unfollow
 
 **Not blocked** — recorded because getting it wrong is a crash, in engine code, with nothing in
@@ -273,43 +239,6 @@ There is a second way to divide by zero here, and it is easier to hit: the contr
 `CameraRotation` with the reference frame's **+Z**, so a view pointing *along* that axis — the
 local zenith under `Surface` — fails the same way. A round launched vertically points exactly
 there. `docs/KSA-CAMERAS.md` has the full account of this and every other controller.
-
-## Aiming a character attachment
-
-**Wanted.** The kitten's shoulder gun to point where the mouse points, the way the launcher's
-turret and optical head do.
-
-**Why it is blocked.** Not visibility — `CharacterAvatar.Attachments` and its
-`CosmeticAttachments` list are both public, and the mesh is a `StaticMeshRenderable` with a
-settable `Transform`. The problem is reaching it and, more fundamentally, *when*.
-
-`KittenEva._renderable` is private and `KittenRenderable._characterAvatar` is private inside it,
-so the avatar is unreachable without reflection. And reflection would not help, because
-`KittenRenderable.UpdateRenderData` writes the transform and submits the draw in consecutive
-statements:
-
-```csharp
-cosmeticAttachment.Mesh.Transform = cosmeticAttachment.Transform * (float4x7 * boneTransform3);
-cosmeticAttachment.Mesh.Draw();
-```
-
-That runs inside `Vehicle.UpdateRenderData`, called from `Program.cs:3884` during render — after
-the GUI hook a mod gets. Any transform a mod writes is overwritten in the same frame it is read.
-This is the difference from the launcher, where the mod writes `Part.SubParts` transforms that
-the engine reads later in its own pass.
-
-Nor is there a part to fall back on: a kitten's only part is Core's `KittenBackPackPart`, whose
-`KittenBackPackSubPart` is declared with no model at all.
-
-**What would unblock it.** A settable pose on the attachment that survives the frame — an
-`ExtraTransform` the renderer composes rather than overwrites — or a public accessor for the
-avatar plus a hook between `UpdateRenderData` and the render submit.
-
-**Consequence in the mod.** The gun is a fixed ornament. `Config.MouseAim` still aims the *weapon
-system* at the cursor and rounds leave along that direction, so the weapon works; only the model
-does not turn.
-
----
 
 ## Custom part modules
 

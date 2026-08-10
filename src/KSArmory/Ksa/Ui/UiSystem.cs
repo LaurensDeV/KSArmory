@@ -112,21 +112,18 @@ internal sealed partial class Ui
         string platform = KsaWorld.DisplayName(_battery.Platform);
         bool flyingIt = ReferenceEquals(_battery.Platform, KsaWorld.ControlledVehicle);
         ImGui.Text($"Platform: {platform}");
-        if (!flyingIt) ImGui.TextDisabled("  (you are flying something else; the battery stays here)");
+        if (!flyingIt) ImGui.TextDisabled("  not the craft you are flying");
 
         if (_battery.Launcher is not null)
         {
             ImGui.TextColored(Green, $"Launcher: {_profile.DisplayName} fitted");
         }
-        else if (_config.RequireLauncherPart)
-        {
-            ImGui.TextColored(Red, "Launcher: none fitted");
-            ImGui.TextDisabled($"  Add the {_profile.DisplayName} in the editor,");
-            ImGui.TextDisabled("  or untick 'Require launcher part' under Debug.");
-        }
         else
         {
-            ImGui.TextColored(Amber, "Launcher: none (part requirement off)");
+            // A system is only crewed once the survey recognises a part on the craft, so this is
+            // a part that is fitted and whose launcher would not resolve -- not a missing one.
+            ImGui.TextColored(Red, "Launcher: not resolved");
+            ImGui.TextDisabled($"  {_profile.DisplayName} is fitted but its parts were not found");
         }
 
         if (_policy.Armed) ImGui.TextColored(Red, "MASTER ARM: ARMED");
