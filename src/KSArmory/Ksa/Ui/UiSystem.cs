@@ -465,8 +465,6 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  where a store released now would land, flown rather than solved");
         }
 
-        DrawOpticView(_battery.Platform);
-
         if (ImGui.Button("FIRE")) _battery.FireAtLock();
         ImGui.SameLine();
         if (ImGui.Button("Reload")) _battery.Reload();
