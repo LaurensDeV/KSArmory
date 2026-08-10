@@ -450,15 +450,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     private void DrawPaneToggles()
     {
-        // The world and what it looks and sounds like. Above Debug and not collapsed, because
-        // these are settings someone playing with the mod actually changes.
-        if (ImGui.TreeNode("World"))
-        {
-            DrawWorld();
-            ImGui.Separator();
-            DrawPaneGroup(null, PaneGroup.Session);
-            ImGui.TreePop();
-        }
+        // Not behind a tree: two buttons and one setting, all of which someone playing with the
+        // mod changes. A fold for three lines is a fold to open every session.
+        DrawPaneGroup(null, PaneGroup.Session);
+        DrawWarpHold();
 
         // Collapsed, and last: these answer questions about the mod, not about the engagement.
         if (ImGui.TreeNode("Debug"))
@@ -472,6 +467,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 ImGui.TextDisabled("  Display has the individual switches");
             }
 
+            ImGui.Separator();
+
+            DrawWorldClock();
             ImGui.Separator();
 
             DrawBurstTool();

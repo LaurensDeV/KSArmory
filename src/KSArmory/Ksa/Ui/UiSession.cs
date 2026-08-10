@@ -15,22 +15,10 @@ namespace KSArmory;
 /// </summary>
 internal sealed partial class Ui
 {
-    // The world's clock, and the one thing that holds it down. Neither belongs to a system: two
-    // installations cannot run at different speeds.
-    private void DrawWorld()
+    // The one session setting that changes what the weapons do rather than how they are watched,
+    // which is why it sits with the panes rather than under Debug.
+    private void DrawWarpHold()
     {
-        ImGui.Text($"Sim speed: {KsaWorld.SimulationSpeed:0.###}x");
-
-        // Slow motion, well below what the game's speed control reaches. An engagement is over in
-        // a couple of seconds of real time and the interesting part — the round leaving the tube,
-        // the endgame turn, the fuse — happens far faster than it can be watched. Nothing in KSA
-        // stops the simulation running at a hundredth of real time; its roller is built in tenths.
-        foreach ((string label, double speed) in SlowMotionSpeeds)
-        {
-            ImGui.SameLine();
-            if (ImGui.Button(label)) KsaWorld.SetSimulationSpeed(speed);
-        }
-
         ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);
         ImGui.TextDisabled($"  Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only");
         ImGui.TextDisabled("  while something is in the air, and given back after.");
@@ -38,10 +26,26 @@ internal sealed partial class Ui
         {
             ImGui.TextDisabled("  Off: rounds under warp will lag the world and miss.");
         }
+    }
 
-        // What counts as a weapons system, decided before any system exists -- so it cannot
-        // belong to one. DrawStatus tells the operator to untick this; until now there was
-        // nothing to untick, and check-tunables does not cover Config.
+    // Slow motion, well below what the game's speed control reaches. An engagement is over in a
+    // couple of seconds of real time and the interesting part — the round leaving the tube, the
+    // endgame turn, the fuse — happens far faster than it can be watched. Nothing in KSA stops the
+    // simulation running at a hundredth of real time; its roller is simply built in tenths.
+    //
+    // Under Debug because the game has a speed control of its own: this one exists for looking at
+    // what the mod did, which is what everything else in that group is for.
+    private void DrawWorldClock()
+    {
+        ImGui.Text($"Sim speed: {KsaWorld.SimulationSpeed:0.###}x");
+
+        foreach ((string label, double speed) in SlowMotionSpeeds)
+        {
+            ImGui.SameLine();
+            if (ImGui.Button(label)) KsaWorld.SetSimulationSpeed(speed);
+        }
+
+        // Testing gear: it lets a craft with no launcher on it shoot.
         ImGui.Checkbox("Require launcher part", ref _config.RequireLauncherPart);
         ImGui.TextDisabled(_config.RequireLauncherPart
             ? "  a craft is a weapons system only if it carries a registered part"

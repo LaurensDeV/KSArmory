@@ -82,7 +82,7 @@ internal sealed partial class Ui
         {
             ImGui.TextColored(Red, "Launcher: none fitted");
             ImGui.TextDisabled($"  Add the {_profile.DisplayName} in the editor,");
-            ImGui.TextDisabled("  or untick 'Require launcher part' under World.");
+            ImGui.TextDisabled("  or untick 'Require launcher part' under Debug.");
         }
         else
         {
