@@ -31,6 +31,17 @@
   <EditorTagDef Id="Weapons" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
                 DiameterFilterlist="true" />
 
+  <!--
+    Beside it rather than inside it, because a camera is not a weapon. It shoots at nothing, it is
+    useful on a craft that carries no armament at all, and filing it under Weapons would say the
+    opposite of what it is.
+
+    Same three flags and the same reasoning: a director has to be able to root a craft, since an
+    observation post is a hull with one of these on it and nothing else.
+  -->
+  <EditorTagDef Id="Sensors" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
+                DiameterFilterlist="true" />
+
   <PartGameData Id="KSArmory_Prefab_Launcher6" DisplayName="Pantsir-S1 Point Defence System">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
@@ -177,7 +188,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_Optic" DisplayName="EO Director">
-    <EditorTag Value="Weapons" />
+    <EditorTag Value="Sensors" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.6" />
