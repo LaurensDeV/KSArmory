@@ -141,4 +141,61 @@ public class OpticGeometryTests
         Assert.Equal(p.HeadPivot.X, OpticGeometry.EyePartFrame(p, Vec.Zero).X, 9);
         Assert.Equal(0.0, OpticGeometry.ElevationRad(Vec.Zero), 9);
     }
+
+    // A direction at a bearing and elevation about the mount.
+    private static double3 At(double bearingDeg, double elevationDeg)
+    {
+        double b = double.DegreesToRadians(bearingDeg);
+        double e = double.DegreesToRadians(elevationDeg);
+
+        return Vec.Unit(new double3(Math.Sin(e), Math.Cos(e) * Math.Cos(b), Math.Cos(e) * Math.Sin(b)));
+    }
+
+    /// <summary>
+    /// Dead astern is where a shortest-arc rotation gives up: the aim is exactly opposite the rest
+    /// direction, so there is no axis and any perpendicular is equally correct. The one picked
+    /// flips as the aim creeps past, and the head snaps through half a turn on the spot — which in
+    /// game is the whole picture inverting as the elevation crosses zero.
+    /// </summary>
+    [Fact]
+    public void TheHeadDoesNotRollOverLookingDeadAstern()
+    {
+        double3 previous = OpticGeometry.Rotation(At(-180.0, -4.0)) * OpticGeometry.MountNormal;
+        double worst = 0.0;
+
+        for (double elevation = -4.0; elevation <= 4.0; elevation += 0.25)
+        {
+            double3 up = OpticGeometry.Rotation(At(-180.0, elevation)) * OpticGeometry.MountNormal;
+
+            worst = Math.Max(worst, Vec.AngleBetween(previous, up));
+            previous = up;
+        }
+
+        // A quarter of a degree of aim must not move the head's own up by more than a few degrees.
+        Assert.True(worst < 0.2,
+            $"the head rolled {double.RadiansToDegrees(worst):F1} deg in one quarter-degree step");
+    }
+
+    /// <summary>
+    /// And the roll it settles on is the useful one: the ball's up as near the mount's normal as
+    /// the aim allows, so the window is never on its side for no reason.
+    /// </summary>
+    [Fact]
+    public void TheHeadKeepsItsUpAsNearTheMountNormalAsItCan()
+    {
+        foreach ((double bearing, double elevation) in
+                 new[] { (0.0, 0.0), (90.0, 10.0), (-180.0, -15.0), (37.0, 60.0) })
+        {
+            double3 aim = At(bearing, elevation);
+            doubleQuat rotation = OpticGeometry.Rotation(aim);
+
+            // The window still points along the aim, which is the part that must never move.
+            Assert.Equal(0.0, Vec.AngleBetween(rotation * OpticGeometry.RestDirection, aim), 9);
+
+            // And its up is in the plane containing the aim and the normal, on the normal's side.
+            double3 up = rotation * OpticGeometry.MountNormal;
+            Assert.True(Vec.Dot(Vec.Unit(Vec.RejectFrom(up, aim)),
+                                Vec.Unit(Vec.RejectFrom(OpticGeometry.MountNormal, aim))) > 0.999);
+        }
+    }
 }

@@ -1206,6 +1206,14 @@ shrinking angle: a tenth of the picture at a few hundred metres and nothing at 9
 `WeaponSystem.AimOriginEcl` is the same correction for the tube drives and carries the full
 reasoning.
 
+**A pointing head needs its roll chosen, not inferred.** `OpticGeometry.Rotation` carries the
+rest direction onto the aim and then rolls about the aim by a *signed* angle, so the ball's own up
+stays as near the mount's normal as the aim allows. A shortest-arc rotation instead has no axis
+looking dead astern — the aim is exactly opposite the rest direction, any perpendicular is equally
+correct, and the one picked flips as the aim creeps past, snapping the whole picture through half
+a turn. The roll is built about a *named* axis for the same reason at 180°: a shortest arc there
+picks a perpendicular that tips the aim off target, which is a wrecked bearing rather than a roll.
+
 **The head is its own part, and a launcher carries none.** `Ksa/OpticalHead.cs` is crewed per
 director fitted rather than per weapons system, finds its own targets through its own
 `SensorProfile`, and needs no weapon on the craft at all — so a hull with one director on it is an
