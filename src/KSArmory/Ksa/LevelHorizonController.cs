@@ -48,6 +48,20 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
     // roll continuous where the wanted up is no use.
     private double3 _lastUp;
 
+    /// <summary>
+    /// Drop everything carried from frame to frame, for a view that is being handed back.
+    ///
+    /// <para>The controller stays installed for the session, so without this a borrower taking the
+    /// view again resumes a roll from the last engagement and the probe reports the take itself as
+    /// a jump — the one warning that must not cry wolf.</para>
+    /// </summary>
+    public void Forget()
+    {
+        _lastUp = Vec.Zero;
+        _probed = false;
+        _grossReported = 0;
+    }
+
     // How fast a levelled picture rights itself (rad/s). See the correction in OnFrame.
     private const double LevelRateRad = Math.PI;
 
@@ -66,7 +80,7 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
         // resume a stale roll the moment stabilising is switched back on.
         if (Vec.Len2(Vec.Unit(UpEcl)) < 0.5)
         {
-            _lastUp = Vec.Zero;
+            Forget();
             base.OnFrame(inViewport, inDeltaTime);
             return;
         }

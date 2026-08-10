@@ -2233,6 +2233,7 @@ internal static class KsaWorld
             {
                 level.UpEcl = Vec.Zero;
                 level.Pose = null;
+                level.Forget();
             }
 
             // Before the mode, so a frame drawn during the handover is drawn at the player's own
