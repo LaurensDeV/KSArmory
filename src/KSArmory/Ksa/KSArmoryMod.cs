@@ -231,8 +231,11 @@ public sealed class KSArmoryMod
             // letting the watch nudge afterwards would fight it every frame.
             if (_roster.For(_ui.Focused) is { } chased)
             {
+                // The sight's own base field, which is zero unless it is holding the view. The
+                // chase outranks the sight but inherits its picture, so without this a transition
+                // begun while magnified is flown at 16x.
                 _chase.Apply(chased.Battery, chased.Policy.ChaseRounds && KsaWorld.InFlight,
-                             dt, _lastSimStep, _config.FreezeChaseTransition);
+                             dt, _lastSimStep, _config.FreezeChaseTransition, _sight.BaseFovDeg);
             }
             else
             {

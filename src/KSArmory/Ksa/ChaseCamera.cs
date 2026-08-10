@@ -142,8 +142,15 @@ internal sealed class ChaseCamera
     /// through a pause, sliding the view across a world that is not moving. Same rule, and the
     /// same reason, as fire control — see CLAUDE.md.
     /// </param>
+    /// <param name="unzoomedFovDeg">
+    /// The field the player's own view was set to, or zero if nothing has changed it. The sight
+    /// magnifies by up to 16x and yields the view rather than releasing it, so a chase that
+    /// inherits the picture untouched flies the whole transition down a three-degree straw. Held
+    /// every frame rather than set once, for the same reason the sight holds its own: the player's
+    /// zoom keys clamp at 15 degrees and would otherwise wrench it back mid-flight.
+    /// </param>
     public void Apply(IRoundsInFlight battery, bool enabled, double dtPlayer, double dtSim,
-                      bool freezeTransition = false)
+                      bool freezeTransition = false, double unzoomedFovDeg = 0.0)
     {
         if (!enabled || battery.Platform is null)
         {
@@ -151,6 +158,10 @@ internal sealed class ChaseCamera
             Release();
             return;
         }
+
+        // Before any of the pose writes below, so the frame that takes the view is already drawn
+        // at the right field rather than one frame of it being drawn magnified.
+        if (HoldsMainView && unzoomedFovDeg > 0.0) KsaWorld.TrySetMainViewFov(unzoomedFovDeg);
 
         // Still watching where the last one went off. Checked before the stand-down, because the
         // hold is what precedes it.
@@ -216,6 +227,11 @@ internal sealed class ChaseCamera
                 Log.Warn("chase: cannot read the main view, not taking it");
                 return;
             }
+
+            // After the recording and before the first pose, so the take-over frame is already
+            // drawn wide. The recording keeps whatever the sight had wound the field to, which is
+            // what hands the magnification straight back to it when this stands down.
+            if (unzoomedFovDeg > 0.0) KsaWorld.TrySetMainViewFov(unzoomedFovDeg);
 
             // Read where the player had the view BEFORE anything is attached to the round.
             // Camera.SetFollow sets PositionEcl to the followed object plus 2.5 mean radii, and

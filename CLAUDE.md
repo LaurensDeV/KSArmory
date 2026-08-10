@@ -1169,6 +1169,30 @@ and paints a pipper the turret was never sent to. The pipper's *size* is what th
 that range, off `Warhead.LethalRadius`, so the ring closing on the bracket is the shot coming
 together.
 
+**A borrower that outranks another inherits its picture, not just its claim.** The chase outranks
+the sight and the sight *yields* rather than releasing, so a transition begun at 16× is flown down
+a three-degree straw unless the chase says otherwise. It holds the player's own field for as long
+as it drives, and its recording keeps whatever the sight had wound the field to — which is what
+hands the magnification straight back when it stands down. The general rule: **what one borrower
+changed about the view is part of what the next one inherits**, and the field of view is the first
+thing that is neither the pose nor the follow.
+
+**The camera's aim is resolved inside the engine's frame pass, not written a frame early.** The
+mod's whole update and draw is a postfix on `OnDrawUiViewports`, which runs *after* the viewport
+pass that builds the frame's matrices — so a pose written there is consumed on the **next** frame,
+and the scene is drawn along a direction solved against an older world. That gap is one frame of
+the target's angular motion **times the simulation speed**: invisible paused, a couple of pixels at
+1×, and a third of the picture at 16× magnification under warp. `Ksa/LevelHorizonController.cs` is
+the only mod code that runs inside that pass, so `IViewPose` asks for the pose again there. A
+refusal leaves the written fields alone, and nothing on that path may throw — it is inside the
+engine's loop.
+
+**And a sight is aimed from the sight, not from the hull.** `WeaponSystem.OpticOriginEcl` measures
+the head's bearing from the head's own pivot, because a command measured from the launcher part's
+origin lays the head *parallel* to the right bearing and displaced off it by 4.14 m — a fixed
+distance, so a shrinking angle: a tenth of the picture at 700 m and nothing at 9 km.
+`AimOriginEcl` is the same correction for the tube drives and carries the full reasoning.
+
 **Two things borrow that view, and the loser waits rather than tidying up.** `Sim/ViewClaim.cs` is
 the ladder: the player reclaiming the view outranks everything, then the chase camera, then the
 sight. The rung that is not obvious is **Yield** — a sight that is no longer wanted must *not*
