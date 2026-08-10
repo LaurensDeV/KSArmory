@@ -34,6 +34,16 @@ public sealed class OpticConfig : ISensorPolicy
     /// </summary>
     public bool Tracking = true;
 
+    /// <summary>
+    /// Point the head wherever the cursor is.
+    ///
+    /// <para>Ahead of everything else, including the tracking switch: with this on the operator
+    /// <em>is</em> the sensor, so needing to turn tracking off first would be surprising. The
+    /// drive stays rate-limited either way, so this aims <em>towards</em> the cursor rather than
+    /// snapping to it, and the travel limits still apply.</para>
+    /// </summary>
+    public bool MouseAim;
+
     /// <summary>Drive the head by hand instead of from its own sensor.</summary>
     public bool Manual;
     public float ManualBearingDeg;

@@ -203,6 +203,12 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     {
         double3 rest = OpticGeometry.RestDirection;
 
+        // First, ahead of the tracking switch: with mouse aim on the operator is the sensor.
+        if (TryCursorAimPartFrame(out double3 cursorFrame))
+        {
+            return OpticGeometry.ClampToTravel(Profile, cursorFrame);
+        }
+
         if (_policy.Manual)
         {
             return OpticGeometry.ClampToTravel(Profile, ManualAim());
@@ -231,6 +237,33 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
                                                     out double3 partFrame)
             ? OpticGeometry.ClampToTravel(Profile, partFrame)
             : rest;
+    }
+
+    // Where the cursor points, in the director's own part frame. False unless mouse aim is on and
+    // the cursor is over a viewport whose camera gives a usable ray.
+    //
+    // From the head's pivot rather than from the part's origin, and as a *bearing* rather than a
+    // ray: a cursor gives a direction from the camera, which coincides with the head only while
+    // the head is driving the view. Watching a site from the orbit camera and pointing at
+    // something on the ground is the case where the two differ, and there they differ by tens of
+    // degrees. KsaWorld.TryCursorAimEcl resolves the ray to a point and does the subtraction.
+    private bool TryCursorAimPartFrame(out double3 partFrame)
+    {
+        partFrame = default;
+
+        if (!_policy.MouseAim || Platform is not { } platform || Director is not { } director)
+        {
+            return false;
+        }
+
+        if (!LauncherPart.TryPartPointEcl(platform, director, Profile.HeadPivot, PlatformEcl,
+                                          out double3 pivotEcl))
+        {
+            return false;
+        }
+
+        return KsaWorld.TryCursorAimEcl(pivotEcl, out double3 dirEcl)
+               && LauncherPart.TryDirectionToPartFrame(platform, director, dirEcl, out partFrame);
     }
 
     // Bearing and elevation about the mount, for driving it by hand.

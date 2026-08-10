@@ -256,6 +256,13 @@ internal sealed partial class Ui
         ImGui.Checkbox("Track with the director", ref policy.Tracking);
         ImGui.SameLine();
         ImGui.Checkbox("Aim by hand", ref policy.Manual);
+        ImGui.SameLine();
+        ImGui.Checkbox("Mouse aim", ref policy.MouseAim);
+
+        if (policy.MouseAim)
+        {
+            ImGui.TextDisabled("  the head follows the cursor, ahead of tracking and of the sliders");
+        }
 
         if (policy.Manual)
         {
