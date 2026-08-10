@@ -165,7 +165,14 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _batteries.Sync(_systems);
 
 
-        if (_managed is not null && _batteries.For(_managed) is null) _managed = null;
+        // Dropped when the craft has nothing left to manage -- a battery *or* a director. Testing
+        // the battery alone clears the selection on the frame after a camera-only craft is picked,
+        // so the window opens and shuts again before it is ever drawn.
+        if (_managed is not null
+            && _batteries.For(_managed) is null && _heads.FirstOn(_managed) is null)
+        {
+            _managed = null;
+        }
         Focused = _managed ?? _batteries.Default();
 
         // Nothing crewed: the panes all read a battery, so there is nothing for them to show.
