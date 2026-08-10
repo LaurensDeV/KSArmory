@@ -106,6 +106,15 @@ internal sealed class ChaseCamera
     /// </summary>
     public double Closing { get; private set; } = double.NaN;
 
+    // The field to fly at. The sight's own base while it is holding underneath this, and otherwise
+    // whatever the view was showing when this took it -- which is the player's, since nothing else
+    // had touched it. Either way the answer is "the field the player chose", never the sight's
+    // magnified one: the chase outranks the sight and would otherwise inherit its picture.
+    private double Field(double unzoomedFovDeg)
+        => unzoomedFovDeg > 0.0 ? unzoomedFovDeg
+         : _saved.Valid ? _saved.FovDeg
+         : SightZoom.DefaultFovDeg;
+
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
@@ -143,14 +152,15 @@ internal sealed class ChaseCamera
     /// same reason, as fire control — see CLAUDE.md.
     /// </param>
     /// <param name="unzoomedFovDeg">
-    /// The field the player's own view was set to, or zero if nothing has changed it. The sight
-    /// magnifies by up to 16x and yields the view rather than releasing it, so a chase that
-    /// inherits the picture untouched flies the whole transition down a three-degree straw. Held
-    /// every frame rather than set once, for the same reason the sight holds its own: the player's
-    /// zoom keys clamp at 15 degrees and would otherwise wrench it back mid-flight.
+    /// The field the player's own view was set to, or zero if nothing has changed it. Required,
+    /// because the sight magnifies by up to 16× and <em>yields</em> the view rather than releasing
+    /// it — so a chase that inherits the picture untouched flies the whole transition down a
+    /// three-degree straw. Stated every frame rather than set once, for the same reason the sight
+    /// states its own: the player's zoom keys clamp at 15° and would otherwise wrench it back
+    /// mid-flight.
     /// </param>
     public void Apply(IRoundsInFlight battery, bool enabled, double dtPlayer, double dtSim,
-                      bool freezeTransition = false, double unzoomedFovDeg = 0.0)
+                      bool freezeTransition, double unzoomedFovDeg)
     {
         if (!enabled || battery.Platform is null)
         {
@@ -159,9 +169,6 @@ internal sealed class ChaseCamera
             return;
         }
 
-        // Before any of the pose writes below, so the frame that takes the view is already drawn
-        // at the right field rather than one frame of it being drawn magnified.
-        if (HoldsMainView && unzoomedFovDeg > 0.0) KsaWorld.TrySetMainViewFov(unzoomedFovDeg);
 
         // Still watching where the last one went off. Checked before the stand-down, because the
         // hold is what precedes it.
@@ -169,7 +176,7 @@ internal sealed class ChaseCamera
         {
             _holding -= Math.Max(0.0, dtPlayer);
 
-            if (!KsaWorld.TryLookFromMainViewport(_holdOffset, _holdForward, _holdUp)) Release();
+            if (!KsaWorld.TryLookFromMainViewport(_holdOffset, _holdForward, _holdUp, Field(unzoomedFovDeg))) Release();
             else if (_holding <= 0.0) Release();
 
             return;
@@ -227,11 +234,6 @@ internal sealed class ChaseCamera
                 Log.Warn("chase: cannot read the main view, not taking it");
                 return;
             }
-
-            // After the recording and before the first pose, so the take-over frame is already
-            // drawn wide. The recording keeps whatever the sight had wound the field to, which is
-            // what hands the magnification straight back to it when this stands down.
-            if (unzoomedFovDeg > 0.0) KsaWorld.TrySetMainViewFov(unzoomedFovDeg);
 
             // Read where the player had the view BEFORE anything is attached to the round.
             // Camera.SetFollow sets PositionEcl to the followed object plus 2.5 mean radii, and
@@ -384,7 +386,7 @@ internal sealed class ChaseCamera
 
         // A refused write must not leave the view held: the player would be stranded wherever the
         // last good frame put them.
-        if (!KsaWorld.TryLookFromMainViewport(eye, forward, up)) Release();
+        if (!KsaWorld.TryLookFromMainViewport(eye, forward, up, Field(unzoomedFovDeg))) Release();
     }
 
     // The round already being ridden, while it still flies. Once it stops, null: the caller holds

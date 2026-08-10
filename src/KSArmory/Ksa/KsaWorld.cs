@@ -2111,13 +2111,18 @@ internal static class KsaWorld
         }
     }
 
+    /// <param name="fovDeg">
+    /// The field this borrower wants. Required, and deliberately not optional: a borrower that
+    /// says nothing about the field inherits whatever the last one left behind, and the sight
+    /// leaves 3°. Making it part of driving the view is what stops that being possible.
+    /// </param>
     /// <param name="pose">
     /// Somewhere the controller may ask again, inside the engine's own viewport pass. Null is the
     /// right answer for anything that does not need to be in phase with the frame, and passing it
     /// every call is what takes the previous borrower's source back off the controller.
     /// </param>
     public static bool TryLookFromMainViewport(double3 offsetFromFollowed, double3 forwardEcl,
-                                               double3 upEcl, IViewPose? pose = null)
+                                               double3 upEcl, double fovDeg, IViewPose? pose = null)
     {
         if (!Vec.IsFinite(offsetFromFollowed) || !Vec.IsFinite(forwardEcl)) return false;
         if (Vec.Len2(forwardEcl) < 1e-12) return false;
@@ -2154,6 +2159,11 @@ internal static class KsaWorld
                 // its source installed, or the controller goes on asking a sight that has let go.
                 level.Pose = pose;
             }
+
+            // With the pose and not after it. A borrower supplying a pose source restates the
+            // field in phase every frame, so this is the take-over frame's value and the fallback
+            // if that source ever refuses.
+            TrySetMainViewFov(fovDeg);
 
             if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
 

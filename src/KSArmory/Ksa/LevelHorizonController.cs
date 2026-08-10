@@ -88,7 +88,7 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
         try
         {
             if (!source.TryPose(following.GetPositionEcl(), out double3 offset,
-                                out double3 forward, out double3 up))
+                                out double3 forward, out double3 up, out double fovDeg))
             {
                 return;
             }
@@ -98,6 +98,10 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
             CameraOffset = offset;
             CameraRotation = forward;
             UpEcl = up;
+
+            // Clamped rather than refused. The engine's own setter does not clamp and the
+            // projection throws outside (0, pi) -- from in here, which is the engine's loop.
+            KsaWorld.TrySetMainViewFov(fovDeg);
         }
         catch
         {
@@ -110,8 +114,8 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
 /// Where the view should be, asked at the instant the engine uses the answer rather than a frame
 /// before it.
 ///
-/// <para>The one thing that cannot be done from a GUI hook, because that hook runs after the
-/// viewport pass has already built the frame's matrices.</para>
+/// <para>The one thing that cannot be done from a GUI hook, because all three of StarMap's hooks
+/// run after the viewport pass has already built the frame's matrices.</para>
 /// </summary>
 internal interface IViewPose
 {
@@ -121,6 +125,12 @@ internal interface IViewPose
     /// the GUI hook carries a frame of its motion, which is the fault this interface exists to
     /// remove rather than a second copy of it.
     /// </param>
+    /// <param name="fovDeg">
+    /// The field this borrower wants, every frame and without exception. Part of the pose rather
+    /// than something set on the side, because a borrower that says nothing about the field
+    /// inherits whatever the last one left — and the sight leaves 3°, so a chase that inherits it
+    /// flies down a straw. Answering the field it wants is the only way not to have an opinion.
+    /// </param>
     bool TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
-                 out double3 upEcl);
+                 out double3 upEcl, out double fovDeg);
 }

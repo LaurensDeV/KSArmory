@@ -30,6 +30,11 @@ internal sealed class SightCamera : IViewPose
     // into a system the panel has moved off.
     private IOpticalHead? _head;
 
+    // How far the optics are wound in, from the last frame the panel was read. Held for the same
+    // reason as the head: the pose is answered inside the engine's pass, which has no route to the
+    // system's own settings.
+    private double _magnification = 1.0;
+
     /// <summary>
     /// Where the view goes, asked from inside the engine's own frame pass.
     ///
@@ -39,9 +44,10 @@ internal sealed class SightCamera : IViewPose
     /// it again here costs a part-transform read and removes the whole term.</para>
     /// </summary>
     public bool TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
-                        out double3 upEcl)
+                        out double3 upEcl, out double fovDeg)
     {
         offsetFromFollowed = forwardEcl = upEcl = Vec.Zero;
+        fovDeg = 0.0;
 
         if (_head is not { } head || !_saved.Valid) return false;
         if (head.Platform is null || head.OpticPart is null) return false;
@@ -53,6 +59,7 @@ internal sealed class SightCamera : IViewPose
 
         offsetFromFollowed = eye - followedEcl;
         upEcl = head.Boresight;
+        fovDeg = SightZoom.FovDegreesFor(_saved.FovDeg, _magnification);
 
         return true;
     }
@@ -203,13 +210,17 @@ internal sealed class SightCamera : IViewPose
         // Handing itself over as the pose source is what puts the aim in phase with the frame; the
         // values written here are the fallback the controller keeps if that ever refuses.
         _head = head;
+        _magnification = magnification;
 
-        if (!KsaWorld.TryLookFromMainViewport(offsetFromCraft, forward, head.Boresight, this)) Release();
-
-        // Every frame, and after the pose. The player's own zoom keys go through
-        // ChangeFieldOfView, which clamps to 15 degrees, so one keypress silently throws away
-        // anything narrower and only rewriting puts it back.
-        else KsaWorld.TrySetMainViewFov(SightZoom.FovDegreesFor(_saved.FovDeg, magnification));
+        // The field is not written here. It is part of the pose now, answered inside the engine's
+        // viewport pass along with everything else, so a write from this hook would be a stale
+        // copy of the same number one frame early.
+        if (!KsaWorld.TryLookFromMainViewport(offsetFromCraft, forward, head.Boresight,
+                                              SightZoom.FovDegreesFor(_saved.FovDeg, magnification),
+                                              this))
+        {
+            Release();
+        }
 
         return action;
     }

@@ -1170,12 +1170,17 @@ that range, off `Warhead.LethalRadius`, so the ring closing on the bracket is th
 together.
 
 **A borrower that outranks another inherits its picture, not just its claim.** The chase outranks
-the sight and the sight *yields* rather than releasing, so a transition begun at 16× is flown down
-a three-degree straw unless the chase says otherwise. It holds the player's own field for as long
-as it drives, and its recording keeps whatever the sight had wound the field to — which is what
-hands the magnification straight back when it stands down. The general rule: **what one borrower
-changed about the view is part of what the next one inherits**, and the field of view is the first
-thing that is neither the pose nor the follow.
+the sight and the sight *yields* rather than releasing, so a transition begun at 16× would be flown
+down a three-degree straw. The general rule: **what one borrower changed about the view is part of
+what the next one inherits**, and the field of view is the first thing that is neither the pose nor
+the follow.
+
+So the field is **part of driving the view rather than something set beside it**.
+`KsaWorld.TryLookFromMainViewport` requires it and `IViewPose.TryPose` answers it, both without a
+default — a borrower with no opinion has to state the field it wants anyway, which is what makes
+inheriting one impossible rather than merely unlikely. The only writes outside that path are
+restores. `ChaseCamera.Field` is where "the player's own" is resolved: the sight's base while it
+holds underneath, otherwise what the view was showing when the chase took it.
 
 **The camera's aim is resolved inside the engine's frame pass, not written a frame early.** The
 mod's whole update and draw is a postfix on `OnDrawUiViewports`, which runs *after* the viewport
