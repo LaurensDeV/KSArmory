@@ -44,6 +44,15 @@ public sealed class OpticConfig : ISensorPolicy
     /// </summary>
     public bool MouseAim;
 
+    /// <summary>
+    /// How far from the middle of the view the cursor must be before it moves the head (px).
+    ///
+    /// <para>Zero would make a millimetre of offset a standing order to drift, because a head
+    /// driving its own picture chases the cursor and carries the view with it. See
+    /// <see cref="CursorAim.OutsideDeadZone"/>.</para>
+    /// </summary>
+    public float MouseDeadZonePx = 60f;
+
     /// <summary>Drive the head by hand instead of from its own sensor.</summary>
     public bool Manual;
     public float ManualBearingDeg;

@@ -59,9 +59,45 @@ internal static class Sight
             DrawBoresight(draw, centre);
         }
 
+        // Outside the symbology switch: this is a control's own state rather than an annotation
+        // of one, and a drag with nothing showing where its rest area ends is a control you have
+        // to learn by feel.
+        if (policy.MouseAim && policy.Viewport == KsaWorld.MainViewportIndex)
+        {
+            DrawDragIndicator(draw, policy, centre);
+        }
+
         DrawTarget(draw, battery, main, centre, weapon);
 
         if (policy.Symbology && weapon is not null) DrawStatus(draw, weapon, policy, main);
+    }
+
+    // Where the cursor is against the rest area, drawn from the same numbers the head acts on --
+    // a ring that lies about when it will move is worse than no ring.
+    private static void DrawDragIndicator(ImDrawListPtr draw, OpticConfig policy, float2 centre)
+    {
+        if (!KsaWorld.TryCursorFromViewCentre(policy.MouseDeadZonePx, out float2 fromCentre,
+                                              out bool commands))
+        {
+            return;
+        }
+
+        float radius = Math.Max(4f, policy.MouseDeadZonePx);
+        ImColor8 colour = commands ? Gun : Pending;
+
+        draw.AddCircle(centre + new float2(1f, 1f), radius, Shadow, 0, 2.5f);
+        draw.AddCircle(centre, radius, colour, 0, 1.4f);
+
+        if (!SightPicture.TryPointing(centre, centre + fromCentre, out float2 towards)) return;
+
+        // From the edge of the ring rather than from the middle, so the line reads as the command
+        // it is -- how far past resting the cursor has gone -- and never covers the boresight.
+        float2 from = new(centre.X + towards.X * radius, centre.Y + towards.Y * radius);
+        float2 to = centre + fromCentre;
+
+        if (commands) Line(draw, from, to, colour);
+
+        draw.AddCircleFilled(to, 3f, colour);
     }
 
     // The head's own axis, which is the middle of the view because the camera is boresighted on it.

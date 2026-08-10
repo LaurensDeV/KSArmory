@@ -262,6 +262,15 @@ internal sealed partial class Ui
         if (policy.MouseAim)
         {
             ImGui.TextDisabled("  the head follows the cursor, ahead of tracking and of the sliders");
+
+            // Only meaningful on the main view: the rest area exists because a head driving its
+            // own picture chases a cursor its own turning keeps off centre, and pointing at a site
+            // from another view has no such loop.
+            if (policy.Viewport == KsaWorld.MainViewportIndex)
+            {
+                ImGui.SliderFloat("Rest area (px)", ref policy.MouseDeadZonePx, 0f, 200f);
+                ImGui.TextDisabled("  inside the ring the head holds; outside it follows");
+            }
         }
 
         if (policy.Manual)

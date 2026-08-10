@@ -117,4 +117,34 @@ public static class CursorAim
         => Vec.IsFinite(direction) && Vec.Len(direction) > 1e-9;
 
     private static bool IsFinite(float2 v) => float.IsFinite(v.X) && float.IsFinite(v.Y);
+
+    /// <summary>
+    /// Whether the cursor is far enough from the middle of the view to be a command, and how far.
+    ///
+    /// <para><b>A dead zone is not a nicety here.</b> Pointing a head that is itself driving the
+    /// picture is a feedback loop: the head turns towards the cursor, the view turns with the
+    /// head, and the cursor stays off centre — so it keeps turning. Without a rest area a
+    /// millimetre of offset is a standing order to drift, and the view never settles.</para>
+    ///
+    /// <para>The offset is returned unscaled, in pixels, because the caller draws it as well as
+    /// acting on it and the two must be the same number or the indicator lies about when the head
+    /// will move.</para>
+    /// </summary>
+    public static bool OutsideDeadZone(float2 cursor, float2 centre, float deadZonePx,
+                                       out float2 fromCentre)
+    {
+        fromCentre = default;
+
+        if (!float.IsFinite(cursor.X) || !float.IsFinite(cursor.Y)) return false;
+        if (!float.IsFinite(centre.X) || !float.IsFinite(centre.Y)) return false;
+
+        float dx = cursor.X - centre.X;
+        float dy = cursor.Y - centre.Y;
+
+        fromCentre = new float2(dx, dy);
+
+        float radius = float.IsFinite(deadZonePx) ? Math.Max(0f, deadZonePx) : 0f;
+
+        return MathF.Sqrt(dx * dx + dy * dy) > radius;
+    }
 }

@@ -1118,6 +1118,34 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Where the cursor sits relative to the middle of the main view, in screen pixels.
+    ///
+    /// <para>The middle rather than the viewport's origin, because this is what a head being
+    /// dragged is measured against: it is at rest when the cursor is in the middle of the picture
+    /// it is producing.</para>
+    /// </summary>
+    public static bool TryCursorFromViewCentre(float deadZonePx, out float2 fromCentre,
+                                               out bool commands)
+    {
+        fromCentre = default;
+        commands = false;
+
+        try
+        {
+            ImGuiViewportPtr main = ImGui.GetMainViewport();
+            float2 centre = new(main.Pos.X + main.Size.X * 0.5f, main.Pos.Y + main.Size.Y * 0.5f);
+
+            commands = CursorAim.OutsideDeadZone(ImGui.GetMousePos(), centre, deadZonePx,
+                                                 out fromCentre);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>The main view's own field of view (deg), or the engine's default if unreadable.</summary>
     public static double MainViewFovDeg()
     {

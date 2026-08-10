@@ -256,6 +256,17 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             return false;
         }
 
+        // At rest in the middle of its own picture. Without this the head chases a cursor that
+        // its own turning keeps off centre, and the view never settles -- see
+        // CursorAim.OutsideDeadZone. Only while this head is the one driving the view: pointing
+        // at a site from an orbit camera has no such loop and no reason for a rest area.
+        if (_policy.Viewport == KsaWorld.MainViewportIndex
+            && KsaWorld.TryCursorFromViewCentre(_policy.MouseDeadZonePx, out _, out bool commands)
+            && !commands)
+        {
+            return false;
+        }
+
         if (!LauncherPart.TryPartPointEcl(platform, director, Profile.HeadPivot, PlatformEcl,
                                           out double3 pivotEcl))
         {
