@@ -402,6 +402,39 @@ lines, and there are no scorch decals to draw because kills are binary.
 **Not blocking the optical head itself.** Main-viewport takeover, HUD symbology and zoom all sit on
 `Ksa/Sight.cs` painting over the existing camera, and none of them need a shader.
 
+## Filtering the part picker by mod or manufacturer
+
+**Wanted.** A shared **Weapons** category that several weapon mods can put parts into, with a way
+to narrow it to one maker — "Kessler Armory Systems" — so a player running three of them can find
+this mod's four parts among thirty.
+
+The category half is already possible and is built: `EditorTag` is a string-wrapping record struct
+rather than an enum, `EditorTagDefinition.OnDataLoad` calls `VehicleEditor.RegisterTag`, and the
+picker draws a row for every registered tag not flagged `NotaCategory`. Core's own
+`Content/Core/CoreEditorTagsGameData.xml` says so in a comment addressed to modders. It is the
+*filter within* a category that has nowhere to go.
+
+**Why it is blocked.** Three things are missing and none has a workaround:
+
+- **No manufacturer, vendor or author field** anywhere on `PartTemplate` or `PartGameData`
+  (`KSA/KSA/PartTemplate.cs`). The only text a part carries is `DisplayName` and its `Id`.
+- **No search box.** The picker's only input is a *diameter* combo, keyed on the selected tag
+  (`KSA/KSA/VehicleEditor.cs:256`, `:274`). The grid filter is exactly
+  `HasEditorTag(_selectedTag)` and nothing else (`:315`).
+- **The owning mod is known and never used.** `SerializedId.Mod` is set on every asset at load
+  (`KSA/KSA/SerializedId.cs`), so the data exists — but `VehicleEditor` never reads it. The
+  category state is `private static EditorTag _selectedTag` (`:51`), so a mod cannot drive the
+  selection either.
+
+The only mechanism available is *more tags*: a second `EditorTagDef` per maker, giving a
+"Kessler Armory Systems" row beside "Weapons". That is not built, deliberately. With four parts
+that row contains exactly the same four parts as the Weapons row, so it is a duplicate category
+earning nothing; it starts earning the day a second weapons mod ships and a player has both.
+
+**What would unblock it.** A manufacturer or maker attribute on `PartGameData` that the picker
+filters on, or a search box over `DisplayName`, or simply exposing the owning mod the engine is
+already tracking.
+
 ## Where a structure's surface is
 
 **Wanted.** A cursor over the launch pad to resolve to the top of the pad, so a craft set down

@@ -697,6 +697,56 @@ def check_body_markers():
     return problems, checked
 
 
+def check_editor_tags(core_dir):
+    """Verifies every <EditorTag> a part names is defined, here or by Core.
+
+    A tag with no <EditorTagDef> is a *warning* in KSA's own log and nothing else: the part still
+    loads, still appears under All, and simply has no category of its own. So a typo -- or Core
+    renaming a tag under us -- costs a part its place in the picker with nothing failing.
+
+    The flags are the other half and matter more. A tag carries RootPartWhitelist,
+    FaceSnapTargetWhitelist and DiameterFilterlist, so moving a part between tags silently changes
+    whether it can be a craft's root part and what can attach to it.
+
+    Skips the Core half offline: those definitions live in the game install.
+    """
+    problems = 0
+    checked = 0
+
+    declared = set()
+    used = {}
+
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        text = path.read_text()
+        declared.update(re.findall(r'<EditorTagDef\s+Id="([^"]+)"', text))
+        for tag in re.findall(r'<EditorTag\s+Value="([^"]+)"', text):
+            used.setdefault(tag, path.name)
+
+    if core_dir is not None:
+        for path in Path(core_dir).rglob("*.xml"):
+            try:
+                declared.update(re.findall(r'<EditorTagDef\s+Id="([^"]+)"', path.read_text()))
+            except (OSError, UnicodeDecodeError):
+                continue
+
+    for tag, where in sorted(used.items()):
+        checked += 1
+        if core_dir is None and tag not in declared:
+            continue                       # offline: Core's own tags are not readable
+        if tag in declared:
+            continue
+
+        print(f"  UNDECLARED EditorTag \"{tag}\" in {where} -- no <EditorTagDef> defines it",
+              file=sys.stderr)
+        problems += 1
+
+    if problems == 0 and checked:
+        scope = "ours" if core_dir is None else "ours and Core's"
+        print(f"  editor tags: {checked} tag(s) used, all declared ({scope})")
+
+    return problems, checked
+
+
 def check_registered_part_ids():
     """Verifies every registered LauncherProfile.PartId is declared in the asset XML.
 
@@ -767,6 +817,11 @@ def main():
 
     print("checking every registered PartId is declared in the XML")
     p, c = check_registered_part_ids()
+    problems += p
+    checked += c
+
+    print("checking every editor tag a part names is defined")
+    p, c = check_editor_tags(None if offline else CORE)
     problems += p
     checked += c
 

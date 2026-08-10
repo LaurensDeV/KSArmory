@@ -13,8 +13,26 @@
 -->
 <Assets>
 
+  <!--
+    Its own category in the part picker, rather than filed under Structural where a Phalanx mount
+    sits next to girders. EditorTag is a string rather than an enum and the picker draws a row per
+    registered tag, so this is a supported extension: Core's own CoreEditorTagsGameData.xml says
+    so in a comment addressed to modders.
+
+    The three flags are copied from Structural and are not decoration. Structural carries
+    RootPartWhitelist, FaceSnapTargetWhitelist and DiameterFilterlist, and moving a part off it
+    without them silently drops the launcher's ability to be a craft's root part, stops anything
+    face-snapping to it, and removes it from diameter filtering. None of that fails loudly.
+
+    Named for the job rather than for this mod on purpose. The lookup is keyed on the string, so a
+    second weapons mod declaring "Weapons" shares this tab instead of adding a near-duplicate.
+    There is no way to filter within a tab by mod or manufacturer; docs/BLOCKED-ON-KSA.md has why.
+  -->
+  <EditorTagDef Id="Weapons" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
+                DiameterFilterlist="true" />
+
   <PartGameData Id="KSArmory_Prefab_Launcher6" DisplayName="Pantsir-S1 Point Defence System">
-    <EditorTag Value="Structural" />
+    <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="3" />
@@ -80,7 +98,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_BombRack" DisplayName="Mk 82 Bomb Rack">
-    <EditorTag Value="Structural" />
+    <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.5" />
@@ -117,7 +135,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="LAU-7 Sidewinder Rail">
-    <EditorTag Value="Structural" />
+    <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.5" />
@@ -159,7 +177,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx CIWS">
-    <EditorTag Value="Structural" />
+    <EditorTag Value="Weapons" />
     <Diameter M="3" />
 
     <!--
