@@ -44,6 +44,28 @@ internal sealed class OpticalHeads(Config config)
         into.Sort((a, b) => a.Head.Ordinal.CompareTo(b.Head.Ordinal));
     }
 
+    /// <summary>
+    /// The head whose picture the player is being shown, or the first if none has claimed a view.
+    ///
+    /// <para>The frame hook drives exactly one head, so asking for the first made every control
+    /// under a second director inert — settable, saved, and with nothing reading them. Asking
+    /// which one holds a viewport makes the row the player is looking at the row that works.</para>
+    /// </summary>
+    public Entry? Driving(Vehicle? craft)
+    {
+        Entry? claimed = null;
+
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
+        {
+            if (!ReferenceEquals(kv.Key.Craft, craft)) continue;
+            if (kv.Value.Policy.Viewport < 0) continue;
+
+            if (claimed is null || kv.Value.Head.Ordinal < claimed.Head.Ordinal) claimed = kv.Value;
+        }
+
+        return claimed ?? FirstOn(craft);
+    }
+
     /// <summary>The first head on a craft, or null if it carries none.</summary>
     public Entry? FirstOn(Vehicle? craft)
     {

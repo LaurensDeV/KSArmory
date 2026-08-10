@@ -23,13 +23,17 @@ internal sealed partial class Ui
 
         ImGui.TextDisabled($"{_surveyed.Count} part(s) on the craft");
 
-        if (!inv.IsWeaponSystem)
+        // IsInstallation, not IsWeaponSystem: a craft carrying one director and no armament is
+        // something this mod recognises, and it is the case this pane most needs to describe.
+        if (!inv.IsInstallation)
         {
             ImGui.TextColored(Grey, "  Nothing this mod recognises.");
-            ImGui.TextDisabled("  A craft becomes a weapons system by carrying a part from");
-            ImGui.TextDisabled("  Arsenal.Components. Only the launcher is registered so far.");
+            ImGui.TextDisabled("  A craft becomes an installation by carrying a part from");
+            ImGui.TextDisabled("  Arsenal.Components.");
             return;
         }
+
+        _heads.On(craft, _headScratch);
 
         // One group per role, read off the enum rather than listed here. A hand-written list
         // silently omits a role added later, which reads as the survey not finding one.
@@ -38,20 +42,56 @@ internal sealed partial class Ui
             int n = inv.CountOf(role);
             if (n == 0) continue;
 
-            if (!ImGui.TreeNode($"{GroupName(role)} ({n})")) continue;
+            ImGui.SeparatorText(GroupName(role));
 
+            int nth = 0;
             for (int i = 0; i < inv.Components.Count; i++)
             {
                 FoundComponent c = inv.Components[i];
                 if (c.Role != role) continue;
 
-                double3 at = c.PositionVehicleAsmb;
-                ImGui.Text(c.DisplayName);
-                ImGui.TextDisabled($"  at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
-            }
+                // Per component, not per label. Several of one kind draw identical controls, and
+                // ImGui keys a widget on its label within the current id scope -- so without this
+                // the second director's tick boxes are the first's.
+                ImGui.PushID(i);
+                DrawComponentRow(c, role, nth, n);
+                ImGui.PopID();
 
-            ImGui.TreePop();
+                nth++;
+            }
         }
+    }
+
+    // One component: where it sits, and whatever it is that the panel can drive.
+    private void DrawComponentRow(FoundComponent c, WeaponRole role, int nth, int of)
+    {
+        string label = of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
+
+        if (!ImGui.TreeNode(label)) return;
+
+        double3 at = c.PositionVehicleAsmb;
+        ImGui.TextDisabled($"at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
+
+        if (role == WeaponRole.Camera) DrawCameraComponent(nth);
+
+        ImGui.TreePop();
+    }
+
+    // The nth director's own controls, under the nth camera row.
+    //
+    // Bound by position: KsaWorld.SurveyParts and OpticParts.FindAll both walk the craft's part
+    // span in index order, so the nth camera component is the nth head. A survey that ever
+    // stopped agreeing would silently pair a row with the wrong instrument, so a shortfall is
+    // reported rather than assumed away.
+    private void DrawCameraComponent(int nth)
+    {
+        if (nth >= _headScratch.Count)
+        {
+            ImGui.TextColored(Amber, "not crewed - no head resolved for this part");
+            return;
+        }
+
+        DrawOpticView(_headScratch[nth]);
     }
 
     private void DrawSystemPane()
@@ -176,15 +216,8 @@ internal sealed partial class Ui
     // Which of the game's camera views an optical director drives, and how far its optics are
     // wound in. The head is a part in its own right, so this reads the head fitted to the craft
     // being shown rather than anything belonging to the weapons system.
-    private void DrawOpticView(KSA.Vehicle? craft)
+    private void DrawOpticView(OpticalHeads.Entry entry)
     {
-        if (_heads.FirstOn(craft) is not { } entry)
-        {
-            ImGui.TextDisabled("No optical director on this craft. Fit one from Sensors in the");
-            ImGui.TextDisabled("editor to get a sight; a launcher no longer carries its own.");
-            return;
-        }
-
         OpticConfig policy = entry.Policy;
 
         // Declared and unresolved is a fault worth saying out loud. A head that is fitted and
@@ -210,7 +243,7 @@ internal sealed partial class Ui
         // The main view first, because it is the one that works. It is offered whatever else is
         // open and needs nothing opening, so the head is usable on a bare game.
         ImGui.SameLine();
-        if (ImGui.RadioButton("main view", policy.Viewport == main)) policy.Viewport = main;
+        if (ImGui.RadioButton("main view", policy.Viewport == main)) TakeMainView(policy, main);
 
         foreach (int index in _viewports)
         {
@@ -275,6 +308,21 @@ internal sealed partial class Ui
 
     // Magnification and symbology. Detents rather than a slider: a real sight has optical stops,
     // and a factor arrived at by dragging is one nobody can return to.
+    // There is one main view, so one head at a time may be pointed at it. Secondary viewports
+    // need no exclusion -- each is its own window and two heads can fill two of them.
+    private void TakeMainView(OpticConfig policy, int main)
+    {
+        foreach (OpticalHeads.Entry other in _headScratch)
+        {
+            if (!ReferenceEquals(other.Policy, policy) && other.Policy.Viewport == main)
+            {
+                other.Policy.Viewport = -1;
+            }
+        }
+
+        policy.Viewport = main;
+    }
+
     private void DrawSightLine(OpticConfig policy, int main)
     {
         ImGui.Text("Magnification:");

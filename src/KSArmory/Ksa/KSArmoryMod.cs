@@ -273,7 +273,7 @@ public sealed class KSArmoryMod
             }
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
-            if (KsaWorld.InFlight && _heads?.FirstOn(_ui.Focused) is { } head)
+            if (KsaWorld.InFlight && _heads?.Driving(_ui.Focused) is { } head)
             {
                 TakeOpticView(head.Head, head.Policy, dt);
 

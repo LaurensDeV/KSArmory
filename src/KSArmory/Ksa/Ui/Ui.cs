@@ -41,6 +41,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly List<int> _viewports = [];
     private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
     private readonly List<SurveyedPart> _surveyed = [];
+    private readonly List<OpticalHeads.Entry> _headScratch = [];
     private readonly List<KSA.Vehicle> _craftScratch = [];
     private KSA.Vehicle? _managed;
     private string _ownTeamEntry = string.Empty;
@@ -386,8 +387,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         // Point the panes at *this* window's craft. Focus was worked out at the top of the frame
         // from last frame's selection, so the window that opens on the click that selected it
         // would otherwise show -- and edit -- the previously focused battery for one frame.
-        // A craft can carry a director and no armament at all, and every tab but two reads a
-        // battery. Rather than refusing to open -- which leaves the operator with a listed craft
+        // A craft can carry a director and no armament at all, and every tab but Components reads
+        // a battery. Rather than refusing to open -- which leaves the operator with a listed craft
         // and no way into its camera -- the window opens with what that craft actually has.
         bool armed = Focus(craft);
         if (!armed && _heads.FirstOn(craft) is null)
@@ -409,7 +410,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                     if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
                 }
 
-                if (ImGui.BeginTabItem("Director")) { DrawOpticView(craft); ImGui.EndTabItem(); }
                 if (ImGui.BeginTabItem("Components")) { DrawComponents(craft); ImGui.EndTabItem(); }
                 ImGui.EndTabBar();
             }
