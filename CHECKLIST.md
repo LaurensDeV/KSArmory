@@ -740,8 +740,9 @@ own axis is used, because a target sliding towards the middle is what slewing lo
 
 - [x] Paused, at 1×, and at high warp: the cross stays on the target at all three. **Confirmed in
       flight** — both centring faults are closed.
-- [ ] Start a chase transition **from 16×**. It flies at the player's own field, not down a
+- [x] Start a chase transition **from 16×**. It flies at the player's own field, not down a
       three-degree straw, and the magnification comes back when the chase stands down.
+      **Confirmed in flight.**
 - [ ] It holds still. Still unconfirmed either way, and now separable: with both systematic offsets
       gone, anything left moving is the epoch question rather than either of these.
 - [ ] Known and not yet fixed: `PointingDrive.OnTarget` is a fixed 1° window, which at 16× is a
