@@ -421,8 +421,14 @@ def check_cross_body_planes():
             if sub.get("Id") and model is not None and model.get("Id"):
                 mesh_of[sub.get("Id")] = model.get("Id")
 
-        placements = {}
+        gltf, binary = checkmesh.read_glb(str(glb))
+
+        # One part at a time. Two bodies can only z-fight if they are drawn together, and bodies
+        # belonging to different parts never are -- they are separate things a player attaches
+        # separately. Pooling them reports every pair of parts whose mounting faces both sit at
+        # X = 0, which is all of them by construction.
         for part in root.findall("Part"):
+            placements = {}
             for sub in part.findall("SubPart"):
                 mesh = mesh_of.get(sub.get("InstanceOf"))
                 if mesh is None:
@@ -434,11 +440,11 @@ def check_cross_body_planes():
                 # its own copies at rest, which is how they are stowed.
                 placements.setdefault(mesh, origin)
 
-        gltf, binary = checkmesh.read_glb(str(glb))
-        checked += len(placements)
-        for area, (a, b) in checkmesh.cross_body_overlaps(gltf, binary, placements):
-            print(f"  COPLANAR {area * 1e4:.1f} cm² shared by {a} and {b}", file=sys.stderr)
-            problems += 1
+            checked += len(placements)
+            for area, (a, b) in checkmesh.cross_body_overlaps(gltf, binary, placements):
+                print(f"  COPLANAR {area * 1e4:.1f} cm² shared by {a} and {b} "
+                      f"in {part.get('Id')}", file=sys.stderr)
+                problems += 1
 
     return problems, checked
 
@@ -747,6 +753,83 @@ def check_editor_tags(core_dir):
     return problems, checked
 
 
+def check_optic_geometry():
+    """Verifies the optical head's pivot agrees in all three places it is written down.
+
+    tools/model/optic.py recentres the head's mesh on it, Sim/Arsenal.cs aims from it, and the
+    asset XML puts the body back at it. A disagreement between the first two swings the head
+    around the mast instead of turning it in place; between the first and third it draws the head
+    somewhere the mod is not aiming from, and the picture points somewhere the model does not.
+
+    Nothing at build or run time connects the three, which is the whole reason for this.
+    """
+    muzzles = REPO / "tools" / "model" / "muzzles.json"
+    if not muzzles.is_file():
+        return 0, 0
+
+    expected = json.loads(muzzles.read_text()).get("optic")
+    if expected is None:
+        return 0, 0
+
+    problems = 0
+    checked = 0
+
+    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    found = re.search(r"EoDirector\s*=\s*new\(\)\s*\{(.*?)\n\s*\};", text, re.S)
+    if found is None:
+        print("  MISSING Arsenal.EoDirector", file=sys.stderr)
+        return 1, 1
+    block = found.group(1)
+
+    checked += 1
+    pivot = re.search(r"HeadPivot\s*=\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", block)
+    want = expected["head_pivot"]
+    if pivot is None:
+        print("  MISSING Arsenal.EoDirector.HeadPivot", file=sys.stderr)
+        problems += 1
+    else:
+        got = [float(v) for v in pivot.groups()]
+        if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
+            print(f"  STALE Arsenal.EoDirector.HeadPivot = {tuple(got)}, "
+                  f"mesh says {tuple(want)}", file=sys.stderr)
+            problems += 1
+
+    checked += 1
+    eye = re.search(r"EyeForward\s*=\s*([\d.]+)f\s*,", block)
+    if eye is None:
+        print("  MISSING Arsenal.EoDirector.EyeForward", file=sys.stderr)
+        problems += 1
+    elif abs(float(eye.group(1)) - expected["eye_forward"]) > 5e-4:
+        print(f"  STALE Arsenal.EoDirector.EyeForward = {eye.group(1)}, "
+              f"mesh says {expected['eye_forward']}", file=sys.stderr)
+        problems += 1
+
+    # And the third copy: where the asset XML actually puts the body.
+    checked += 1
+    placed = None
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        for part in ET.parse(path).getroot().findall("Part"):
+            for sub in part.findall("SubPart"):
+                if sub.get("Id") != "KSArmory_Optic_Head":
+                    continue
+                position = sub.find("Transform/Position")
+                placed = ([float(position.get(axis, "0")) for axis in "XYZ"]
+                          if position is not None else [0.0, 0.0, 0.0])
+
+    if placed is None:
+        print("  MISSING <SubPart Id=\"KSArmory_Optic_Head\"> in the asset XML", file=sys.stderr)
+        problems += 1
+    elif any(abs(a - b) > 5e-4 for a, b in zip(placed, want)):
+        print(f"  STALE <SubPart Id=\"KSArmory_Optic_Head\"> at {tuple(placed)}, "
+              f"mesh says {tuple(want)}", file=sys.stderr)
+        problems += 1
+
+    if problems == 0:
+        print("  optic geometry: the head's pivot matches in all three places")
+
+    return problems, checked
+
+
 def check_registered_part_ids():
     """Verifies every registered LauncherProfile.PartId is declared in the asset XML.
 
@@ -849,6 +932,11 @@ def main():
     checked += c
 
     p, c = check_fixed_launcher_geometry("BombRack", "BombMk82", "bombrack", "rack")
+    problems += p
+    checked += c
+
+    print("checking the optical head's pivot against the mesh and the XML")
+    p, c = check_optic_geometry()
     problems += p
     checked += c
 

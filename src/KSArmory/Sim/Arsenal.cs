@@ -508,13 +508,60 @@ public static class Arsenal
         ReloadSeconds = 0f,
     };
 
+    /// <summary>
+    /// The EO director's own sensor. Narrow and short-ranged next to a search radar, because it
+    /// is a telescope rather than a set: it sees what it is pointed at, in detail, and finds
+    /// nothing on its own beyond a few kilometres.
+    ///
+    /// <para><see cref="BoresightMode.PartForward"/>, so its volume follows the craft's attitude
+    /// rather than pointing at the sky — a director bolted to the side of a hull looks out of
+    /// that side.</para>
+    /// </summary>
+    public static readonly SensorProfile EoSensor = new()
+    {
+        Name = "EO",
+        DisplayName = "EO director",
+        Range = 12000f,
+        ConeDeg = 75f,
+        BoresightSource = BoresightMode.PartForward,
+        ThreatRadius = 4000f,
+        ThreatHorizonSeconds = 30f,
+        LockSeconds = 0.6f,
+
+        // It watches rather than engages, so it has no reason to ignore something slow. A search
+        // set does, because a docked craft is not a threat; a sight pointed at one is doing its
+        // job.
+        MinTargetSpeed = 0f,
+    };
+
+    /// <summary>
+    /// A standalone electro-optical director. Geometry from <c>tools/model/optic.py</c>.
+    /// </summary>
+    public static readonly OpticProfile EoDirector = new()
+    {
+        PartId = "KSArmory_Prefab_Optic",
+        DisplayName = "EO Director",
+        Sensor = EoSensor.Name,
+
+        BaseMarker = "Optic_Base",
+        HeadMarker = "Optic_Head",
+
+        HeadPivot = new(0.63000, 0.00000, 0.00000),
+        EyeForward = 0.300f,
+        MinElevationDeg = -20f,
+        MaxElevationDeg = 85f,
+    };
+
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1, SidewinderRail, Ciws, BombRack];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [Missile57E6, Cannon30Mm, Missile9J, Cannon20Mm, BombMk82];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
-        [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight];
+        [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight, EoSensor];
+
+    /// <summary>Optical heads, which are parts in their own right rather than launcher gear.</summary>
+    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector];
 
     /// <summary>
     /// The parts this mod recognises on a craft it did not design, keyed by part Id.
@@ -546,6 +593,16 @@ public static class Arsenal
                 new(WeaponRole.Gun, Cannon30Mm.DisplayName),
                 new(WeaponRole.FireControl, "Pantsir-S1 fire control"),
             ],
+        },
+        new ComponentProfile
+        {
+            PartId = EoDirector.PartId,
+            Role = WeaponRole.Camera,
+            DisplayName = EoDirector.DisplayName,
+
+            // A part in its own right, so nothing is declared for it: the survey walks parts and
+            // finds this one directly. Provides exists for prefabs whose gear is subparts.
+            Provides = [new(WeaponRole.Sensor, EoSensor.DisplayName)],
         },
         new ComponentProfile
         {

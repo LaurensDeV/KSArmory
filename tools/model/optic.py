@@ -56,8 +56,8 @@ MAST_R = 0.125
 MAST_BOTTOM = 0.02
 MAST_TOP = 0.44
 
-# Where the head turns. High enough that the ball clears the flange at every elevation, which is
-# what makes this a two-body part with no clearance problem worth sweeping.
+# Where the head turns. High enough that the ball clears the flange at every elevation, so the
+# only pose the two bodies contend for is the one MIN_ELEVATION_DEG below rules out.
 HEAD_PIVOT = (0.63, 0.0, 0.0)
 
 HEAD_R = 0.215
@@ -71,6 +71,13 @@ LENS_DEPTH = 0.05
 # the line of sight and contributes nothing to where the picture points -- see
 # WeaponSystem.OpticOriginEcl for why that distinction is load-bearing.
 EYE_FORWARD = 0.30
+
+# How far down it can look. The lens and its hood stand about 0.29 m off the pivot, and the mast
+# reaches to within 0.19 m of it, so a head pointed straight down puts its window through its own
+# mount. No geometry fixes that -- a ball on a mast cannot see past what holds it up -- so it is a
+# limit, which is what a real director has for the same reason.
+MIN_ELEVATION_DEG = -20.0
+MAX_ELEVATION_DEG = 85.0
 
 TOTAL_HEIGHT = HEAD_PIVOT[0] + HEAD_R
 
@@ -100,11 +107,9 @@ def _build_base(m):
     m.cyl(MAST_R, MAST_TOP - MAST_BOTTOM, ((MAST_BOTTOM + MAST_TOP) / 2, 0.0, 0.0),
           m.axis_x(), "hull", verts=18)
 
-    # Yoke shoulders either side of the pivot, so the head reads as carried rather than floating.
-    # Short of the pivot in X and clear of the ball in Z.
-    for side in (-1, 1):
-        m.cyl(0.075, 0.10, (HEAD_PIVOT[0] - 0.02, 0.0, side * (HEAD_R + 0.075)),
-              m.axis_y(), "steel_dark", verts=12)
+    # No yoke. Shoulders either side of the pivot would sit inside the shell the lens and hood
+    # sweep, adding a second clearance constraint to a part whose only real one is how far it can
+    # look down. The mast reaches into the ball instead, which carries it with nothing beside it.
 
 
 def _build_head(m):
@@ -133,6 +138,8 @@ def report(muzzles):
     print()
     print(f"        HeadPivot = new({HEAD_PIVOT[0]:.5f}, {HEAD_PIVOT[1]:.5f}, {HEAD_PIVOT[2]:.5f}),")
     print(f"        EyeForward = {EYE_FORWARD:.3f}f,")
+    print(f"        MinElevationDeg = {MIN_ELEVATION_DEG:.0f}f,")
+    print(f"        MaxElevationDeg = {MAX_ELEVATION_DEG:.0f}f,")
     print()
     print(f"    (total height {TOTAL_HEIGHT:.2f} m)")
 
@@ -140,5 +147,7 @@ def report(muzzles):
         "head_pivot": [round(v, 5) for v in HEAD_PIVOT],
         "eye_forward": round(EYE_FORWARD, 5),
         "head_radius": round(HEAD_R, 5),
+        "min_elevation_deg": MIN_ELEVATION_DEG,
+        "max_elevation_deg": MAX_ELEVATION_DEG,
         "total_height": round(TOTAL_HEIGHT, 5),
     }

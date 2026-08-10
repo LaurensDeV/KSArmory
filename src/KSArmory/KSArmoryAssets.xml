@@ -156,6 +156,31 @@
     </MeshView>
   </SubPart>
 
+  <!-- The optical director's flange and mast. Fixed: the head above it turns. -->
+  <SubPart Id="KSArmory_OpticBase_SubPart">
+    <PartModel Id="KSArmory_Subpart_OpticBase_Model">
+      <Mesh Id="KSArmory_Subpart_OpticBase" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_OpticBase_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    The gimballed ball. Aimed freely rather than about named axes, so the mod writes its rotation
+    outright every frame; its mesh is recentred on the pivot and put back by <Position> below.
+  -->
+  <SubPart Id="KSArmory_OpticHead_SubPart">
+    <PartModel Id="KSArmory_Subpart_OpticHead_Model">
+      <Mesh Id="KSArmory_Subpart_OpticHead" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_OpticHead_VM" />
+    </MeshView>
+  </SubPart>
+
   <!-- 14-inch ejector rack on its pylon. Nothing on it moves. -->
   <SubPart Id="KSArmory_BombRack_SubPart">
     <PartModel Id="KSArmory_Subpart_BombRack_Model">
@@ -483,6 +508,39 @@
       </Transform>
     </SubPart>
 
+  </Part>
+
+  <!--
+    Electro-optical director, radially mounted like the rail.
+
+    The sight, as its own part. It finds its own targets, drives the player's view and needs no
+    weapon on the craft at all: a hull with one of these on it is an observation post.
+
+    Geometry from tools/model/optic.py. +X is out of the mounting face, +Y along the host, +Z its
+    right.
+  -->
+  <Part Id="KSArmory_Prefab_Optic">
+
+    <SubPart Id="KSArmory_Optic_Base" InstanceOf="KSArmory_OpticBase_SubPart" />
+
+    <!--
+      The gimballed ball. Its mesh is exported recentred on the pivot so KSA turns it in place,
+      and the offset comes back here.
+      Keep in step with HEAD_PIVOT in tools/model/optic.py.
+    -->
+    <SubPart Id="KSArmory_Optic_Head" InstanceOf="KSArmory_OpticHead_SubPart">
+      <Transform>
+        <Position X="0.63000" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Attaches by the flange's underside, which is the mesh origin. -->
+    <Connector Id="_opConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
   </Part>
 
   <!--

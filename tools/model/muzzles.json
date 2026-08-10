@@ -71,6 +71,8 @@
     ],
     "eye_forward": 0.3,
     "head_radius": 0.215,
+    "min_elevation_deg": -20.0,
+    "max_elevation_deg": 85.0,
     "total_height": 0.845
   },
   "bombrack": {

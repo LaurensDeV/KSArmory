@@ -176,6 +176,48 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_Optic" DisplayName="EO Director">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.6" />
+
+    <!-- Attaches by the flange's underside to the side or top of a stack. -->
+    <Connector Id="_opConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!--
+      No <Control>, unlike the Pantsir: a sight is not a vehicle. It bolts to a craft that
+      already has a command source, or to one that never flies.
+    -->
+
+    <!-- A naval EO director of this size is a couple of hundred kilogrammes with its mount. -->
+    <SolidSphereMass>
+      <Mass Kg="180" />
+      <Radius M="0.40" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_OpticCollider">
+      <!-- Flange and mast, standing off the mounting face at X = 0. -->
+      <Box Id="KSArmory_OpticMastCollider">
+        <LocationAsmb X="0.22" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.44" />
+        <LengthY M="0.60" />
+        <LengthZ M="0.60" />
+      </Box>
+      <!-- The head, at every elevation it can reach. -->
+      <Box Id="KSArmory_OpticHeadCollider">
+        <LocationAsmb X="0.63" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.43" />
+        <LengthY M="0.47" />
+        <LengthZ M="0.43" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx CIWS">
     <EditorTag Value="Weapons" />
     <Diameter M="3" />
