@@ -48,6 +48,9 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
     // roll continuous where the wanted up is no use.
     private double3 _lastUp;
 
+    // How fast a levelled picture rights itself (rad/s). See the correction in OnFrame.
+    private const double LevelRateRad = Math.PI;
+
     public override void OnFrame(Viewport inViewport, double inDeltaTime)
     {
         AskThePoseSource();
@@ -68,7 +71,12 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
             return;
         }
 
-        if (!SightPicture.TryStableUp(forward, UpEcl, _lastUp, out double3 up))
+        // How fast the wanted up may pull the carried one. Fast enough that levelling looks
+        // immediate on any ordinary slew, slow enough that it cannot snap: at 180 deg/s a frame
+        // moves it three degrees, which is below what anyone sees as a jump.
+        double step = LevelRateRad * Math.Clamp(inDeltaTime, 0.0, 0.1);
+
+        if (!SightPicture.TryStableUp(forward, UpEcl, _lastUp, step, out double3 up))
         {
             base.OnFrame(inViewport, inDeltaTime);
             return;

@@ -16,6 +16,9 @@ public class SightPictureTests
 {
     private static readonly double3 Up = new(0, 0, 1);
 
+    // One frame of correction at the controller's rate: 180 deg/s at 60 fps.
+    private const double Step = Math.PI / 60.0;
+
     [Fact]
     public void ElevationIsZeroAlongTheHorizontalAndAQuarterTurnStraightUp()
     {
@@ -221,7 +224,7 @@ public class SightPictureTests
             double a = double.DegreesToRadians(off);
             double3 forward = Vec.Unit(new double3(Math.Sin(a), 0, -Math.Cos(a)));
 
-            Assert.True(SightPicture.TryStableUp(forward, preferred, last, out double3 up));
+            Assert.True(SightPicture.TryStableUp(forward, preferred, last, Step, out double3 up));
 
             if (Vec.Len2(previousUp) > 0.5)
             {
@@ -245,15 +248,45 @@ public class SightPictureTests
             $"a degree of aim moved the roll {worstRatio:F1} degrees at worst");
     }
 
+    /// <summary>
+    /// With nothing carried there is nothing to correct, so the wanted up is taken outright. That
+    /// is what makes the first frame of a levelled view level rather than arbitrary.
+    /// </summary>
     [Fact]
-    public void ThePreferredUpIsUsedWhereverItIsUsable()
+    public void WithNothingCarriedThePreferredUpIsTakenOutright()
     {
         double3 forward = new(1, 0, 0);
         double3 preferred = new(0, 0, 1);
 
-        Assert.True(SightPicture.TryStableUp(forward, preferred, new double3(0, 1, 0), out double3 up));
+        Assert.True(SightPicture.TryStableUp(forward, preferred, Vec.Zero, Step, out double3 up));
 
         Assert.Equal(0.0, Vec.AngleBetween(up, preferred), 9);
+    }
+
+    /// <summary>
+    /// And a carried one is pulled towards it a frame at a time rather than snapping, which is
+    /// what levelling *is*: a control loop, not a lookup.
+    /// </summary>
+    [Fact]
+    public void ACarriedUpIsCorrectedTowardsThePreferredOverSeveralFrames()
+    {
+        double3 forward = new(1, 0, 0);
+        double3 preferred = new(0, 0, 1);
+        double3 up = new(0, 1, 0);          // a quarter turn out
+
+        Assert.True(SightPicture.TryStableUp(forward, preferred, up, Step, out double3 after));
+
+        double moved = Vec.AngleBetween(up, after);
+        Assert.True(moved > 0.0 && moved <= Step + 1e-9,
+            $"one frame moved the roll {double.RadiansToDegrees(moved):F2} deg");
+
+        // And it gets there, rather than creeping forever.
+        for (int frame = 0; frame < 200; frame++)
+        {
+            SightPicture.TryStableUp(forward, preferred, up, Step, out up);
+        }
+
+        Assert.Equal(0.0, Vec.AngleBetween(up, preferred), 6);
     }
 
     [Fact]
@@ -261,7 +294,7 @@ public class SightPictureTests
     {
         double3 forward = Vec.Unit(new double3(1, 0.4, -0.2));
 
-        Assert.True(SightPicture.TryStableUp(forward, new double3(0, 0, 1), Vec.Zero, out double3 up));
+        Assert.True(SightPicture.TryStableUp(forward, new double3(0, 0, 1), Vec.Zero, Step, out double3 up));
 
         Assert.Equal(0.0, Vec.Dot(up, forward), 9);
         Assert.Equal(1.0, Vec.Len(up), 9);
@@ -276,7 +309,52 @@ public class SightPictureTests
     {
         double3 forward = new(0, 0, 1);
 
-        Assert.False(SightPicture.TryStableUp(forward, forward, Vec.Zero, out _));
-        Assert.False(SightPicture.TryStableUp(Vec.Zero, new double3(0, 0, 1), Vec.Zero, out _));
+        Assert.False(SightPicture.TryStableUp(forward, forward, Vec.Zero, Step, out _));
+        Assert.False(SightPicture.TryStableUp(Vec.Zero, new double3(0, 0, 1), Vec.Zero, Step, out _));
+    }
+
+    /// <summary>
+    /// The invariant that forbids the whole class, rather than one geometry of it: the answer can
+    /// never move further in a frame than it was allowed to.
+    ///
+    /// <para>Three versions of this flipped the picture, each at a different view angle, because
+    /// each chose between two answers and the choice could change from one frame to the next. A
+    /// bound on the movement itself cannot be satisfied by a rule that switches — which is the
+    /// point of asserting it here rather than asserting the absence of the three faults.</para>
+    /// </summary>
+    [Fact]
+    public void TheAnswerNeverMovesFurtherInOneFrameThanItWasAllowed()
+    {
+        double3 preferred = new(0, 0, 1);
+        double worst = 0.0;
+
+        // Every view angle from along the up to across it, and every carried roll around each,
+        // including the ones that sat exactly on the thresholds the earlier versions used.
+        for (double off = 0.0; off <= 180.0; off += 1.0)
+        {
+            double a = double.DegreesToRadians(off);
+            double3 forward = Vec.Unit(new double3(Math.Sin(a), 0, Math.Cos(a)));
+
+            for (double roll = 0.0; roll < 360.0; roll += 15.0)
+            {
+                double r = double.DegreesToRadians(roll);
+
+                // A carried up at that roll about the view, which is the shape one always has.
+                if (!SightPicture.TryStableUp(forward, preferred, Vec.Zero, Step, out double3 seed))
+                {
+                    continue;
+                }
+
+                double3 carried = Vec.Unit(doubleQuat.CreateFromAxisAngle(forward, r) * seed);
+
+                if (!SightPicture.TryStableUp(forward, preferred, carried, Step, out double3 up)) continue;
+
+                worst = Math.Max(worst, Vec.AngleBetween(carried, up));
+            }
+        }
+
+        Assert.True(worst <= Step + 1e-9,
+            $"the roll moved {double.RadiansToDegrees(worst):F2} deg against an allowance of "
+            + $"{double.RadiansToDegrees(Step):F2}");
     }
 }

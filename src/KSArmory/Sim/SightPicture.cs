@@ -112,76 +112,78 @@ public static class SightPicture
     }
 
     /// <summary>
-    /// How near a view may come to its own up before that up is useless for building a basis:
-    /// 30°, which is a far wider cone than it looks and is a measured number rather than a taste.
+    /// The up to build a view basis from: last frame's, corrected towards the one wanted by at
+    /// most <paramref name="maxStepRad"/>, and by less than that the worse a reference it is.
     ///
-    /// <para>The roll comes from the part of the up vector perpendicular to the view, and that
-    /// part shrinks as the two line up — to 4.5% of unit length at 2.6°. Its <em>direction</em> is
-    /// then wildly sensitive: the amplification is 1/sin, so a degree of aim swings the roll 22°
-    /// at 2.6° from the up, 6° at 9.4°, and 2° at 30°. Measured in flight at 1.09° of aim against
-    /// 6.16° of roll with the view 9.4° off vertical, which is 1/sin(9.4°) to two figures.</para>
+    /// <para><b>Corrected rather than chosen.</b> Two earlier versions picked between the wanted
+    /// up and the carried one at a threshold, and both flipped the picture — because switching
+    /// rule is discontinuous wherever the switch is, and the two rules disagree by however far the
+    /// carried one has drifted. Moving the threshold moves the flip; it does not remove it.
+    /// Measured at 89° of roll for 1.3° of aim, with the view sitting exactly on the cutoff.</para>
     ///
-    /// <para>So this is where the answer stops being worth having, not where it stops existing.
-    /// Inside the cone the previous frame's up is both stable and continuous, which is the whole
-    /// reason there is a previous frame's up to fall back to.</para>
-    /// </summary>
-    public const double UpUnusableAbove = 0.866;
-
-    /// <summary>
-    /// The up to build a view basis from: the one wanted, or the one used last frame when the
-    /// view has swung too near it.
+    /// <para>So there is no cutoff. The reference is always the carried one, and the wanted one
+    /// only ever pulls it — quickly where it is a good reference, not at all where the view lies
+    /// along it and it says nothing. A stabilised head is a control loop, not a lookup.</para>
     ///
-    /// <para><b>Continuity is the whole job.</b> A view looking along its own up has no roll — any
-    /// perpendicular is equally correct — so anything that *switches rule* at that point flips the
-    /// picture through half a turn as the view creeps past. Carrying the previous frame's answer
-    /// through the singularity is what makes it pass rather than snap, and it works because the
-    /// view can only creep: it is a rate-limited head.</para>
-    ///
-    /// <para><b>Sweeping through the up direction genuinely reverses which way world-up points in
-    /// the picture</b>, and taking that literally is the flip. So the answer nearer last frame's is
-    /// the one kept, even where that means the horizon reads inverted afterwards: a stabilised
-    /// camera holds its roll through the pole and comes out upside down, rather than snapping
-    /// half a turn on one frame in the middle. The reference line stays a true horizontal either
-    /// way — it is drawn from places that sit on it, not from the up vector.</para>
-    ///
-    /// <para>False only when nothing is usable, which is a view along its own up on the very frame
-    /// it was taken. There is nothing continuous to be had there — nothing to be continuous
-    /// with.</para>
+    /// <para><paramref name="lastUp"/> zero seeds it: with nothing carried there is nothing to
+    /// correct, so the wanted one is taken outright. False only when neither is usable, which is a
+    /// view along its own up on the very frame it was taken.</para>
     /// </summary>
     /// <param name="up">
-    /// Orthogonal to <paramref name="forwardEcl"/>, so the caller can hand it straight back as
-    /// <paramref name="lastUp"/> next frame without it drifting into the view.
+    /// Orthogonal to <paramref name="forwardEcl"/>, so the caller hands it straight back next
+    /// frame without it drifting into the view.
     /// </param>
     public static bool TryStableUp(double3 forwardEcl, double3 preferredUp, double3 lastUp,
-                                   out double3 up)
+                                   double maxStepRad, out double3 up)
     {
         up = Vec.Zero;
 
         double3 forward = Vec.Unit(forwardEcl);
         if (Vec.Len2(forward) < 0.5) return false;
 
-        if (!Usable(forward, preferredUp, out up) && !Usable(forward, lastUp, out up)) return false;
+        bool wanted = Across(forward, preferredUp, out double3 target, out double authority);
+        bool carried = Across(forward, lastUp, out double3 held, out _);
 
-        // The nearer of the two ways round. Both are the same line and the picture cares which end
-        // of it is up, so choosing the one last frame used is what carries the roll through.
-        double3 previous = Vec.Unit(lastUp);
-        if (Vec.Len2(previous) > 0.5 && Vec.Dot(up, previous) < 0.0) up = -up;
+        // Nothing carried yet, or nothing to carry towards: whichever exists is the answer.
+        if (!carried) { up = target; return wanted; }
+        if (!wanted) { up = held; return true; }
 
+        // How far the wanted up may pull this frame. Scaled by how much of it lies across the
+        // view: none of it does when the view is along it, and that is exactly when its direction
+        // is meaningless — so it stops pulling instead of being switched away from.
+        double step = Math.Max(0.0, maxStepRad) * authority;
+        double apart = Vec.AngleBetween(held, target);
+
+        if (apart <= step || step <= 0.0)
+        {
+            up = apart <= step ? target : held;
+            return true;
+        }
+
+        double3 axis = Vec.Cross(held, target);
+        if (Vec.Len2(axis) < 1e-18) { up = held; return true; }
+
+        up = Vec.Unit(doubleQuat.CreateFromAxisAngle(Vec.Unit(axis), step) * held);
         return true;
     }
 
-    private static bool Usable(double3 forward, double3 candidate, out double3 up)
+    // The part of a candidate lying across the view, and how much of it there is. The length is
+    // the sine of the angle between them, which is precisely how good a roll reference it is.
+    private static bool Across(double3 forward, double3 candidate, out double3 across,
+                               out double authority)
     {
-        up = Vec.Zero;
+        across = Vec.Zero;
+        authority = 0.0;
 
         double3 unit = Vec.Unit(candidate);
         if (Vec.Len2(unit) < 0.5) return false;
-        if (Math.Abs(Vec.Dot(forward, unit)) > UpUnusableAbove) return false;
 
-        double3 across = Vec.RejectFrom(unit, forward);
-        if (Vec.Len2(across) < 1e-12) return false;
+        double3 rejected = Vec.RejectFrom(unit, forward);
+        double length = Vec.Len(rejected);
+        if (length < 1e-6) return false;
 
-        up = Vec.Unit(across);
+        across = rejected / length;
+        authority = length;
         return true;
     }
 }
