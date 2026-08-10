@@ -722,8 +722,25 @@ too — a scale error there would displace the *bracket* and leave the cross cor
 - [ ] The reference survives the head slewing and elevating, and only disappears looking straight up.
 - [ ] The target sits at **screen centre** at 16× once the head has settled — check it at **both**
       long and short range, because only the short one could ever have shown this.
-- [ ] It holds still. Still unconfirmed either way, and now separable: with the systematic offset
-      gone, anything left moving is the epoch question rather than this.
+**Then a second fault underneath it, separated by the one experiment that could:** with the
+simulation **paused** the cross sits exactly on the target, and the offset grows with simulation
+speed. Geometry does not care about time, so that residue is a lag, and pausing is what proved the
+parallax fix had landed.
+
+The mod's whole update and draw is a postfix on `OnDrawUiViewports`, which runs *after* the
+viewport pass that builds the frame's matrices. So a camera aimed from there is consumed on the
+**next** frame: the view is drawn along a direction solved one frame ago while the target is drawn
+where it is now. One frame of the target's angular motion, times the simulation speed — 1.8% of
+the field at 1× for a 42 m/s target at 0.65 km, and 30% of it at 16×, which is what was seen.
+
+`LevelHorizonController.OnFrame` is the only mod code that runs *inside* that pass, so the pose is
+asked for again there through `IViewPose`. While the head is settled it is tracking, so the view
+is re-solved onto the target's own position at that instant; while it is still slewing the head's
+own axis is used, because a target sliding towards the middle is what slewing looks like.
+
+- [ ] Paused, at 1×, and at high warp: the cross stays on the target at all three.
+- [ ] It holds still. Still unconfirmed either way, and now separable: with both systematic offsets
+      gone, anything left moving is the epoch question rather than either of these.
 - [ ] Known and not yet fixed: `PointingDrive.OnTarget` is a fixed 1° window, which at 16× is a
       third of the vertical field. The brackets close and `SLEWING` clears while the head can
       still be visibly off, so "settled" is not evidence of anything at magnification.

@@ -98,6 +98,9 @@ internal interface IOpticalHead : IWeaponPlatform
     /// pointing a camera at the origin.
     /// </summary>
     bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl);
+
+    /// <inheritdoc cref="WeaponSystem.TryOpticViewEclAt"/>
+    bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl);
 }
 
 /// <summary>

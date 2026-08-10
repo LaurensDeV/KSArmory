@@ -38,8 +38,16 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
     /// </summary>
     public double3 UpEcl;
 
+    /// <summary>
+    /// Somewhere to ask where the view should be, at the instant the answer is used. Null keeps
+    /// the fields, which is what everything but the sight wants.
+    /// </summary>
+    public IViewPose? Pose;
+
     public override void OnFrame(Viewport inViewport, double inDeltaTime)
     {
+        AskThePoseSource();
+
         double3 forward = Vec.Unit(CameraRotation);
         double3 up = Vec.Unit(UpEcl);
 
@@ -59,4 +67,60 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
         Camera.PositionEcl = following.GetPositionEcl() + CameraOffset;
         Camera.LocalRotation = Camera.LookAtRotation(forward, up);
     }
+
+    // Re-reads the pose here, which is the only moment in the frame that is in phase with the
+    // matrices the scene is drawn through.
+    //
+    // Everything else the mod does runs from the GUI hook, a postfix on OnDrawUiViewports -- after
+    // this pass. A camera aimed from there is consumed on the *next* frame, so the view is drawn
+    // along a direction solved one frame ago while the target is drawn where it is now. The gap is
+    // one frame of the target's angular motion, and it scales with simulation speed: invisible
+    // paused, a couple of pixels at 1x, and a third of the picture at 16x on a close target.
+    //
+    // Refusals and faults leave the fields alone, so the worst case is the pose the GUI hook
+    // wrote. This runs inside the engine's own loop, which is the whole point and also why
+    // nothing here may throw.
+    private void AskThePoseSource()
+    {
+        if (Pose is not { } source) return;
+        if (Camera.Following is not { } following) return;
+
+        try
+        {
+            if (!source.TryPose(following.GetPositionEcl(), out double3 offset,
+                                out double3 forward, out double3 up))
+            {
+                return;
+            }
+
+            if (!Vec.IsFinite(offset) || Vec.Len2(forward) < 0.5) return;
+
+            CameraOffset = offset;
+            CameraRotation = forward;
+            UpEcl = up;
+        }
+        catch
+        {
+            // Keep whatever was written a frame ago rather than dropping the view.
+        }
+    }
+}
+
+/// <summary>
+/// Where the view should be, asked at the instant the engine uses the answer rather than a frame
+/// before it.
+///
+/// <para>The one thing that cannot be done from a GUI hook, because that hook runs after the
+/// viewport pass has already built the frame's matrices.</para>
+/// </summary>
+internal interface IViewPose
+{
+    /// <param name="followedEcl">
+    /// Where the followed craft is <em>now</em>, from the engine. The offset must be measured
+    /// against this and nothing else: a separation taken from a sample of the same craft made in
+    /// the GUI hook carries a frame of its motion, which is the fault this interface exists to
+    /// remove rather than a second copy of it.
+    /// </param>
+    bool TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
+                 out double3 upEcl);
 }

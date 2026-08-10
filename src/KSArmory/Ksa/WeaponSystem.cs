@@ -103,15 +103,44 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// hand KSA an offset the engine applies during its own pass.</para>
     /// </summary>
     public bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl)
+        => TryOpticViewEclAt(PlatformEcl, out eyeEcl, out forwardEcl);
+
+    /// <summary>
+    /// The same view, resolved against a platform position sampled by the caller.
+    ///
+    /// <para>For the one caller that runs inside the engine's viewport pass, where "now" is a
+    /// different instant from the mod's own sample and the difference is a frame of the planet's
+    /// motion.</para>
+    ///
+    /// <para>While the head is settled it is <em>tracking</em>, so the view is re-solved onto the
+    /// target's own position at this instant rather than left along the axis the drive was turned
+    /// to a frame ago. That difference is one frame of the target's angular travel, which scales
+    /// with simulation speed and is most of the picture at magnification. While it is still
+    /// slewing the head's own axis is used, because a target sliding towards the middle is what
+    /// slewing looks like and hiding it would be a lie.</para>
+    /// </summary>
+    public bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl)
     {
         eyeEcl = forwardEcl = Vec.Zero;
 
         if (Platform is not { } platform || Launcher is not { } launcher) return false;
         if (OpticPart is null) return false;
 
-        return LauncherPart.TryGetOpticViewEcl(platform, launcher, Profile, Turret.BearingRad,
-                                               OpticDirectionPartFrame, PlatformEcl,
-                                               out eyeEcl, out forwardEcl);
+        if (!LauncherPart.TryGetOpticViewEcl(platform, launcher, Profile, Turret.BearingRad,
+                                             OpticDirectionPartFrame, platformEcl,
+                                             out eyeEcl, out forwardEcl))
+        {
+            return false;
+        }
+
+        if (!_optic.OnTarget || Radar.Locked is not { } locked) return true;
+        if (!locked.Contact.TryDrawEgo(out double3 ego)) return true;
+        if (!KsaWorld.TryEgoToEcl(ego, out double3 drawnEcl)) return true;
+
+        double3 toTarget = drawnEcl - eyeEcl;
+        if (Vec.Len2(toTarget) > 1.0) forwardEcl = Vec.Unit(toTarget);
+
+        return true;
     }
 
     /// <summary>The search array's current angle. Cosmetic - the radar model is a cone search.</summary>

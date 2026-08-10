@@ -21,9 +21,41 @@ namespace KSArmory;
 /// every frame, which at 29.8 km/s reads as the sight shivering. Same reason
 /// <see cref="ChaseCamera"/> follows the round it is riding.</para>
 /// </summary>
-internal sealed class SightCamera
+internal sealed class SightCamera : IViewPose
 {
     private KsaWorld.MainView _saved;
+
+    // The head being looked through, kept only so the pose can be re-resolved inside the engine's
+    // viewport pass. Null whenever the view is not held, which is what stops that pass reaching
+    // into a system the panel has moved off.
+    private IOpticalHead? _head;
+
+    /// <summary>
+    /// Where the view goes, asked from inside the engine's own frame pass.
+    ///
+    /// <para>The pose written from the GUI hook is a frame old by the time it is drawn, and that
+    /// frame is one frame of the <em>target's</em> angular motion — a couple of pixels at 1x, and a
+    /// third of the picture at 16x under warp, because it scales with simulation speed. Resolving
+    /// it again here costs a part-transform read and removes the whole term.</para>
+    /// </summary>
+    public bool TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
+                        out double3 upEcl)
+    {
+        offsetFromFollowed = forwardEcl = upEcl = Vec.Zero;
+
+        if (_head is not { } head || !_saved.Valid) return false;
+        if (head.Platform is null || head.OpticPart is null) return false;
+
+        // Against the position the engine has just placed the craft at, not the mod's own sample.
+        // Pairing the eye with an older platform sample would put a frame of the planet's motion
+        // back into the separation, which is the same fault in a different term.
+        if (!head.TryOpticViewEclAt(followedEcl, out double3 eye, out forwardEcl)) return false;
+
+        offsetFromFollowed = eye - followedEcl;
+        upEcl = head.Boresight;
+
+        return true;
+    }
 
     // The craft the view was pointed at, which is what every offset written below is measured
     // from. Held because the panel can move to another system without the view being released,
@@ -59,6 +91,7 @@ internal sealed class SightCamera
 
         _saved = default;
         _followed = null;
+        _head = null;
         _refusedFrames = 0;
         Log.Info("sight: the scene changed, letting go of the main view without restoring it");
     }
@@ -89,6 +122,7 @@ internal sealed class SightCamera
 
         _saved = default;
         _followed = null;
+        _head = null;
         _refusedFrames = 0;
         Log.Info("sight: released the main view");
     }
@@ -132,6 +166,7 @@ internal sealed class SightCamera
                 KsaWorld.RestoreFollow(_saved);
                 _saved = default;
                 _followed = null;
+                _head = null;
                 Log.Info("sight: the view was taken over by hand, standing down");
                 return action;
 
@@ -165,7 +200,11 @@ internal sealed class SightCamera
 
         // A refused write must not leave the view held: the player would be stranded wherever the
         // last good frame put them, in a mode they never chose.
-        if (!KsaWorld.TryLookFromMainViewport(offsetFromCraft, forward, head.Boresight)) Release();
+        // Handing itself over as the pose source is what puts the aim in phase with the frame; the
+        // values written here are the fallback the controller keeps if that ever refuses.
+        _head = head;
+
+        if (!KsaWorld.TryLookFromMainViewport(offsetFromCraft, forward, head.Boresight, this)) Release();
 
         // Every frame, and after the pose. The player's own zoom keys go through
         // ChangeFieldOfView, which clamps to 15 degrees, so one keypress silently throws away

@@ -2111,8 +2111,13 @@ internal static class KsaWorld
         }
     }
 
+    /// <param name="pose">
+    /// Somewhere the controller may ask again, inside the engine's own viewport pass. Null is the
+    /// right answer for anything that does not need to be in phase with the frame, and passing it
+    /// every call is what takes the previous borrower's source back off the controller.
+    /// </param>
     public static bool TryLookFromMainViewport(double3 offsetFromFollowed, double3 forwardEcl,
-                                               double3 upEcl)
+                                               double3 upEcl, IViewPose? pose = null)
     {
         if (!Vec.IsFinite(offsetFromFollowed) || !Vec.IsFinite(forwardEcl)) return false;
         if (Vec.Len2(forwardEcl) < 1e-12) return false;
@@ -2141,7 +2146,14 @@ internal static class KsaWorld
             controller.CameraRotation = Vec.Unit(forwardEcl);
             controller.CameraOffset = offsetFromFollowed;
 
-            if (controller is LevelHorizonController level) level.UpEcl = upEcl;
+            if (controller is LevelHorizonController level)
+            {
+                level.UpEcl = upEcl;
+
+                // Every call, including with null. A borrower that stops driving must not leave
+                // its source installed, or the controller goes on asking a sight that has let go.
+                level.Pose = pose;
+            }
 
             if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
 
@@ -2172,7 +2184,11 @@ internal static class KsaWorld
             // session -- nothing but a mod puts a viewport in Fixed mode, so there is nothing to
             // disturb -- but with no up it behaves exactly as KSA's own does, rather than holding
             // one from an engagement that is over.
-            if (viewport.FixedController is LevelHorizonController level) level.UpEcl = Vec.Zero;
+            if (viewport.FixedController is LevelHorizonController level)
+            {
+                level.UpEcl = Vec.Zero;
+                level.Pose = null;
+            }
 
             // Before the mode, so a frame drawn during the handover is drawn at the player's own
             // field rather than at the sight's.
