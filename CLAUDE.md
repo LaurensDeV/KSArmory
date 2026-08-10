@@ -350,6 +350,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
+| `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
 | `tools/model/` | headless Blender scripts that generate the parts |
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
 | `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
@@ -555,6 +556,13 @@ neither of them is longer than a page.
    defects that are invisible in a preview render and obvious in game.
 2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
    `KSArmoryAssets.xml`, and a `<PartGameData>` with its colliders and mass.
+
+   **A shipped part's subpart list is append-only.** KSA pairs a saved part with its current
+   definition positionally, bounding the loop by the save and indexing the definition, so removing
+   a `<SubPart>` throws `IndexOutOfRangeException` from inside `Popup.DrawAll` and **terminates the
+   game** on every save holding that part. Adding and renaming are both free. Leave a stub to hold
+   the count, or repair the saves with `tools/repair-saves.py`;
+   `docs/KSA-MODDING-NOTES.md` has the loop.
 3. **Register it — in `Sim/Arsenal.cs`, and in *both* registries.** One `LauncherProfile`, naming
    the munition and sensor it uses, with the geometry `build.sh` prints; add a `MunitionProfile`
    and a `SensorProfile` too if the round or the set differ. Then teach `validate-parts.py` to

@@ -384,6 +384,40 @@ them. Simulating the behaviour from a StarMap hook instead avoids all of that, a
 repo does — from `[StarMapAfterGui]` rather than the frame hook, because a postfix on `OnFrame`
 lands *after* the render it was meant to feed. See `docs/FRAMES-AND-EPOCHS.md`.
 
+### Removing a subpart breaks every save holding that part, and kills the process
+
+**A saved part is paired with its current definition by *position*, and the loop is bounded by
+the save while it indexes the definition** — `KSA.PartTree.Deserialize`:
+
+```csharp
+for (int i = 0; i < nextNode2.SubPartInstances?.Count; i++)
+{
+    Part part2 = nextNode.SubParts[i];                     // the definition, as it is now
+    PartInstance partInstance2 = nextNode2.SubPartInstances[i];   // the save
+```
+
+So the three edits are not symmetric:
+
+| Edit | Result |
+| --- | --- |
+| **add** a subpart | fine — the loop stops at the save's shorter count, and the new one starts unconfigured |
+| **rename** a subpart | fine — `InstanceOf` is written into the save and never read back |
+| **remove** a subpart | `IndexOutOfRangeException` on load, **every time**, for every save holding it |
+
+And it is not survivable. `UncompressedSave.Load` runs from `Popup.DrawAll` inside
+`OnDrawUiFrame`, and nothing between there and `Program.Main` catches it, so the game does not
+refuse the save — it terminates. There is no version field, no name match and no warning; the
+same positional pairing means a **reorder** silently applies one subpart's saved state to
+another.
+
+Craft files in the vehicle library are unaffected: they store no `<SubPartRef>` at all.
+
+**So a shipped part's subpart list is append-only.** Before removing one, either accept that
+existing saves die, or leave the `<SubPart>` declared as an inert stub to hold the count.
+`tools/repair-saves.py` drops the surplus entries from saves written before a removal, which is
+the fix for a mod still in development; it reads the current definitions out of the asset XML, so
+it needs no record of what changed.
+
 ## Authoring a part with no new art
 
 **Asset Ids resolve in one global library across mods** (`SerializedId` / `ILibraryData`, with
