@@ -395,7 +395,12 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
 
         bool open = true;
-        if (ImGui.Begin($"{KsaWorld.DisplayName(craft)}###KSArmorySystem", ref open))
+
+        // The title is the craft's identity, so the pane below it does not repeat either half.
+        // ###id keeps the window in place while the visible part changes.
+        string flying = ReferenceEquals(craft, KsaWorld.ControlledVehicle) ? "" : " - not flying";
+
+        if (ImGui.Begin($"{KsaWorld.DisplayName(craft)}{flying}###KSArmorySystem", ref open))
         {
             if (ImGui.BeginTabBar("##systemtabs"))
             {

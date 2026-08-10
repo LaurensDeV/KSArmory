@@ -109,25 +109,12 @@ internal sealed partial class Ui
             return;
         }
 
-        string platform = KsaWorld.DisplayName(_battery.Platform);
-        bool flyingIt = ReferenceEquals(_battery.Platform, KsaWorld.ControlledVehicle);
-        ImGui.Text($"Platform: {platform}");
-        if (!flyingIt) ImGui.TextDisabled("  not the craft you are flying");
-
-        if (_battery.Launcher is not null)
-        {
-            ImGui.TextColored(Green, $"Launcher: {_profile.DisplayName} fitted");
-        }
-        else
-        {
-            // A system is only crewed once the survey recognises a part on the craft, so this is
-            // a part that is fitted and whose launcher would not resolve -- not a missing one.
-            ImGui.TextColored(Red, "Launcher: not resolved");
-            ImGui.TextDisabled($"  {_profile.DisplayName} is fitted but its parts were not found");
-        }
-
-        if (_policy.Armed) ImGui.TextColored(Red, "MASTER ARM: ARMED");
-        else ImGui.TextColored(Green, "MASTER ARM: SAFE");
+        // First, because it is the question this pane exists to answer. Every gate in fire control
+        // returns quietly, so an unarmed system, one with no lock and one whose drives are still
+        // settling all look identical from outside -- and this is the only line that separates
+        // them. It also states the master arm, which is why there is no separate label for it.
+        if (_battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
+        else ImGui.TextColored(Green, "Clear to fire");
 
         // One reading per armament the system is fitted with. A launcher with no tubes and one
         // with no cannon both describe themselves here without this knowing which it is, so
@@ -138,9 +125,17 @@ internal sealed partial class Ui
             Armament arm = readings[i];
             (int remaining, bool firing) = LiveState(_battery, arm);
 
-            ImGui.SameLine();
-            if (firing) ImGui.TextColored(Red, $"   {arm.Describe(remaining, firing)}");
-            else ImGui.Text($"   {arm.Describe(remaining, firing)}");
+            if (i > 0) ImGui.SameLine();
+            if (firing) ImGui.TextColored(Red, arm.Describe(remaining, firing));
+            else ImGui.Text(arm.Describe(remaining, firing));
+        }
+
+        // Only the failure. A launcher that resolved is named by the window's Components tab and
+        // by the tally above it, so saying so again is a line that is always there and never read.
+        if (_battery.Launcher is null)
+        {
+            ImGui.TextColored(Red, "Launcher: not resolved");
+            ImGui.TextDisabled($"  {_profile.DisplayName} is fitted but its parts were not found");
         }
 
         if (_battery.ReloadRemaining > 0.0)
@@ -150,12 +145,12 @@ internal sealed partial class Ui
                 (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
         }
 
-        // The battery runs on simulated time, so a paused or heavily warped game is not a fault
-        // but it does explain a silent battery. Unsaid, that state is indistinguishable from
+        // Fire control runs on simulated time, so a paused or heavily warped game is not a fault
+        // but it does explain a silent system. Unsaid, that state is indistinguishable from
         // tracking being broken.
         if (KsaWorld.IsPaused)
         {
-            ImGui.Text("Paused - the battery is stopped with the world");
+            ImGui.Text("Paused - stopped with the world");
         }
         else if (_warp.Holding)
         {
@@ -199,13 +194,7 @@ internal sealed partial class Ui
             ImGui.Text($"  CPA {locked.ClosestApproach:F0} m in {locked.TimeToClosestApproach:F1}s");
         }
 
-        ImGui.Text($"In flight: {_battery.Rounds.Count}");
-
-        // The most-asked question about this mod, answered where it is asked. Every gate in fire
-        // control returns quietly, so an unarmed battery, one with no lock and one whose drives
-        // are still settling all look identical from outside.
-        if (_battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
-        else ImGui.TextColored(Green, "Clear to fire");
+        if (_battery.Rounds.Count > 0) ImGui.Text($"In flight: {_battery.Rounds.Count}");
     }
 
     // Which of the game's camera views the optical head drives. KSA opens the views; a mod can
