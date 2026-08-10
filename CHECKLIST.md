@@ -719,7 +719,8 @@ that is a constant fraction of the screen at every range. It is not that, and th
 too — a scale error there would displace the *bracket* and leave the cross correct.
 
 - [x] The overlay stays **under** the panel.
-- [ ] The reference survives the head slewing and elevating, and only disappears looking straight up.
+- [x] The reference survives the head slewing and elevating, and only disappears looking straight
+      up. **Confirmed in flight.**
 - [ ] The target sits at **screen centre** at 16× once the head has settled — check it at **both**
       long and short range, because only the short one could ever have shown this.
 **Then a second fault underneath it, separated by the one experiment that could:** with the
