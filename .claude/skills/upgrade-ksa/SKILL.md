@@ -90,7 +90,56 @@ Pay particular attention to anything touching:
   depends on the cache being invalidated exactly as it is now.
 - **Anything the mod calls once per frame** — the cost model matters as much as the semantics.
 
-## 4. Build, fix, test
+### The named contracts
+
+These are the specific behaviours the mod is built on that **no tool can check**. Each is a fact
+about what the engine does rather than what it declares, so `ksa-api-diff.sh` sees nothing, the
+build succeeds and the tests pass. Read the cited file when the diff touches it, and confirm the
+claim still holds.
+
+| Contract | Where | What breaks if it moves |
+| --- | --- | --- |
+| `SetFieldOfView` takes **degrees**, `GetFieldOfView` answers in **radians** | `Camera.cs` | A factor of 57.3 between the two directions. Both are wrapped in `KsaWorld` for this reason. |
+| `SetFieldOfView` does not clamp, and the projection **throws** outside `(0, π)` | `Camera.cs`, `ReverseDepthBufferUtils.cs` | An exception out of the frame hook. `SightZoom.MinFovDeg` is the guard. |
+| `ChangeFieldOfView` clamps to 15–120° | `Camera.cs` | The player's zoom keys silently discard any narrower field. The whole reason the sight rewrites the field every frame. |
+| `OnFrameViewports` runs **before** `OnDrawUiViewports` | `Program.cs` | `LevelHorizonController.OnFrame` stops being in phase with the frame, and `IViewPose` goes back to aiming the camera a frame late — which scales with simulation speed. |
+| `FixedController` reads no input; `NextCameraMode` has no `Fixed` case | `FixedController.cs`, `Viewport.cs` | The panel's advice on reclaiming the view becomes wrong. |
+| `EditorTag` is an open string, and `EditorTagDefinition` registers itself | `EditorTag.cs`, `EditorTagDefinition.cs` | The Weapons category silently disappears and the parts fall back to *All*. |
+| Core's flags on `Radial`, `NoFaceSnapping` | `Content/Core/CoreEditorTagsGameData.xml` | Attachment behaviour changes with nothing failing. |
+| `GetTerrainHeightFromDirCce`, `MaxTerrainHeightApprox` | `Celestial.cs` | Terrain masking and the bomb's ground test both answer against the wrong surface. |
+| `GetPositionEgo` returns the **drawn** position, not the analytic one | `Camera.cs` | The sight's bracket and the head's aim go back to missing the target by metres. |
+
+Add a row whenever a fix depends on the engine *doing* something rather than *declaring* it.
+
+## 4. Diff Core's XML, because the compiler never sees it
+
+`ksa-api-diff.sh` reads compiled metadata. The mod also binds to KSA's **XML serialisation
+contract** — `PartGameData`, `EditorTagDef`, `Connector`/`Flags`, `MeshAtlas`, `PbrMaterial`, the
+particle and sound definitions, the character attachment. None of that compiles against anything,
+so a renamed element or attribute produces no error at all: the part loads with the field at its
+default, or does not load, and the only trace is a line in KSA's own log.
+
+Core's own content is the reference schema, and it ships in the install:
+
+```bash
+diff -ru "<old install>/Content/Core" "/mnt/c/Program Files/Kitten Space Agency/Content/Core" \
+    --include='*.xml' | head -200
+```
+
+No old install to hand? The mirror's previous commit has the assemblies but not Core's content, so
+the fallback is to read the deserialised types directly — `PartGameData.cs`, `PartTemplate.cs`,
+`EditorTagDefinition.cs` — and compare their `[XmlElement]` and `[XmlAttribute]` names against what
+`src/KSArmory/KSArmory*.xml` actually writes.
+
+What to look for, in order of how quietly it fails:
+
+- **A renamed or removed attribute** the mod sets. Silently defaults.
+- **A new required element** on a type the mod declares. Usually a load error, so at least loud.
+- **A renamed Core Id** the mod references — a mesh, a material, an editor tag.
+  `./tools/validate-parts.py` catches this class, but **only run against the install**; with
+  `--offline` it cannot see Core at all and passes regardless.
+
+## 5. Build, fix, test
 
 ```bash
 ./tools/build.sh
@@ -106,23 +155,38 @@ cd tools/apidump && dotnet run -- ../../Import members KSA.Vehicle
 ```
 
 The tests do not touch KSA, so they passing proves the simulation still works, **not** that
-the game binding does. Anything found in step 3 that survives into runtime behaviour needs a
-line in `CHECKLIST.md`.
+the game binding does. Step 8 is where that is settled. Anything found in step 3 that survives
+into runtime behaviour needs a line in `CHECKLIST.md`.
 
-## 5. Record the new build in all four places
-
-Three are prose and one is enforced. Miss the enforced one and CI fails; miss the others and
-the next person is misled.
+## 6. Record the new build everywhere it is written down
 
 ```bash
 ./tools/check-assemblies.sh --update      # rewrites the digests in ksa-assemblies.lock
 ```
 
-- `ksa-assemblies.lock` — the `build` line, by hand. **This is the one CI enforces.**
-- `../ksa-game-assemblies/current/KSA_BUILD`
-- CLAUDE.md, the **KSA build** line under *Environment*.
-- `docs/KSA-MODDING-NOTES.md` and `docs/KSA-CAMERAS.md`, which each name the build they were read
-  against. `tools/check-docs.sh` fails if any of these disagrees with the lock.
+Two the tooling owns:
+
+- `ksa-assemblies.lock` — the `build` line, **by hand**. Every other check reads it, so it is the
+  source of truth for the rest.
+- `../ksa-game-assemblies/current/KSA_BUILD` — in the private repository.
+
+Then **five prose files**, every one of them enforced. `tools/check-docs.sh` fails if a file
+mentions any build number and does not mention the lock's, so a missed one is a red CI run rather
+than a quiet lie — but only if you run it, which is step 7.
+
+- `CLAUDE.md` — the **KSA build** line under *Environment*
+- `README.md`
+- `docs/KSA-MODDING-NOTES.md`
+- `docs/KSA-CAMERAS.md`
+- `docs/BLOCKED-ON-KSA.md`
+
+The last three each name the build they were read against, which is what makes their claims
+datable. Do not sweep the number through with `sed` and call it done: a doc that says it was read
+against the new build is asserting someone read it against the new build.
+
+`CHECKLIST.md` also carries build numbers, in the status lines recording what was flown. Those are
+**history and must not be updated** — "confirmed against 2026.8.5.5168" stays true. It is not in
+the enforced list for exactly that reason.
 
 `docs/KSA-CAMERAS.md` cites `file:line` throughout, and line numbers move on every update. Do not
 try to refresh them all — spot-check the handful a fix actually depended on, and leave the rest
@@ -134,23 +198,54 @@ Then regenerate the surface, because fixing breakages usually changes what the m
 ./tools/api-surface.sh
 ```
 
-## 6. Verify the whole chain
+## 7. Verify the whole chain
 
 ```bash
-./tools/build.sh && ./tools/test.sh
-./tools/validate-parts.py
-./tools/check-assemblies.sh          # the lock now matches
-./tools/api-surface.sh --check       # the surface now matches
-./tools/check-boundary.sh
+./tools/check-all.sh                 # all 18, and the pre-push hook runs it anyway
+./tools/validate-parts.py            # against the install, NOT --offline, so Core is readable
 ./tools/model/checkswept.py          # nothing adrift or passing through anything
 ```
+
+`check-all.sh` is the one that matters and is easy to skip in favour of the handful of checks that
+feel related. It carries `check-docs.sh`, which is what proves step 6 was done properly — fixing
+five build numbers and never running the check that reads them is the obvious way to get this
+wrong.
 
 Then work through the recheck list at the top of **`docs/BLOCKED-ON-KSA.md`** and tick what has
 changed. Nothing else in this procedure will surface those: they are calls the engine does not
 make and modules it does not have, so `ksa-api-diff.sh` sees nothing, and a build that succeeds
 proves nothing about them. This is the one moment any of them can become possible.
 
-## 7. Push, private repository first
+## 8. Fly it
+
+**A green suite is not evidence.** The tests link `Sim/` and reference no KSA assembly at all, so
+they pass identically whether the game binding works or is completely broken — which is the exact
+failure an upgrade produces. Nothing above this line has run a single line of KSA.
+
+```bash
+./tools/scenario.sh head-on          # a whole engagement, unattended, pass/fail
+```
+
+That flies search, lock, slew, salvo, guidance, fuse and kill against the real game and exits
+non-zero if the target survives. It is the cheapest proof the binding still works, and it needs
+nobody at the keyboard.
+
+Then look at it, because a scenario checks the outcome and not the picture:
+
+```bash
+./tools/run.sh                       # build, deploy, launch, follow the mod's log
+```
+
+Worth a minute each, because each rests on a contract from step 3 that no tool checks: the turret
+traverses and the pods elevate (subpart transform writes); round bodies leave the tubes and are
+not stuck at the launcher (the anchor); the overlay sits on the craft rather than beside it (the
+draw anchor); the optical head centres its target at 16× (the frame ordering and the camera
+basis); the parts still appear under **Weapons** in the editor (the editor tag).
+
+Anything that misbehaves goes in `CHECKLIST.md` as a finding against the new build, not in the
+retarget commit as a silent fix.
+
+## 9. Push, private repository first
 
 ```bash
 git -C ../ksa-game-assemblies push        # MUST be first
@@ -189,5 +284,9 @@ publishing. Neither needs touching here.
   changed. Both rewrite everything. Redo the corpus with the pinned ilspycmd and the same set.
 - **CI fails on the lock but it builds locally** — the private repository was not pushed, or was
   pushed after this one.
-- **Tests pass and the game misbehaves** — expected, and exactly what step 3 is for. The tests
-  never load KSA.
+- **Tests pass and the game misbehaves** — expected, and exactly what steps 3 and 8 are for. The
+  tests never load KSA, so they cannot tell you anything about it either way.
+- **`check-docs.sh` fails on a build number after you updated them** — there are five prose files,
+  not three. `README.md` and `docs/BLOCKED-ON-KSA.md` are the two that get forgotten.
+- **A part loads but behaves differently, with nothing in any log** — an XML attribute was renamed
+  and is now sitting at its default. Step 4.
