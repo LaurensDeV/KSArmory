@@ -52,6 +52,46 @@ internal sealed partial class Ui
             : "  any controlled craft can shoot; for testing without building one");
     }
 
+    // Everything that belongs to the session, in one window: what is drawn, what is heard, the
+    // one setting that changes how the weapons behave, and the developer tools.
+    //
+    // A window rather than a tree on the main panel, because the panel is a list of the systems in
+    // the world and that list is the only thing on it that changes as the world does. Debug is a
+    // section in here and not a window of its own: it is the same session, and two windows of
+    // settings is one more than anyone wants open.
+    private void DrawSettingsPane()
+    {
+        if (ImGui.CollapsingHeader("Display", ImGuiTreeNodeFlags.DefaultOpen)) DrawDisplayPane();
+        if (ImGui.CollapsingHeader("Sound")) DrawSoundPane();
+
+        ImGui.SeparatorText("Weapons");
+        DrawWarpHold();
+
+        // Collapsed, and last: these answer questions about the mod, not about the engagement.
+        if (!ImGui.CollapsingHeader("Debug")) return;
+
+        // The overlay is diagnostic drawing, so its master switch belongs here rather than only
+        // under Display -- which is where an operator goes to tune it, not to find it.
+        ImGui.Checkbox("Draw debug lines", ref _config.DrawOverlays);
+        ImGui.TextDisabled("  search cone, tracks, round tracers, drive facing");
+        if (_config.DrawOverlays) ImGui.TextDisabled("  Display has the individual switches");
+
+        ImGui.Separator();
+        DrawWorldClock();
+        ImGui.Separator();
+        DrawBurstTool();
+        ImGui.Separator();
+
+        // Inline rather than a pane of its own. It is one tick box and a line of state, and a
+        // window holding that is a window to open, move and close for nothing.
+        DrawCraftMover();
+        ImGui.Separator();
+        DrawLogging();
+        ImGui.Separator();
+
+        DrawPaneGroup(null, PaneGroup.Debug);
+    }
+
     // Everything drawn in the world. One screen, so one set of switches.
     private void DrawDisplayPane()
     {

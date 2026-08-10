@@ -84,8 +84,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     // appear in, which runs roughly from what an operator touches most to what they touch once.
     private Pane[] Panes => _panes ??=
     [
-        new("Display", DrawDisplayPane, PaneGroup.Session),
-        new("Sound", DrawSoundPane, PaneGroup.Session),
+        new("KSArmory settings", DrawSettingsPane, PaneGroup.Session),
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -204,7 +203,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 if (ImGui.Button("KSArmory")) Visible = true;
             }
             if (_config.FloatingPanelButton) ImGui.End();
-            if (anyCrewed) { DrawManageWindow(); DrawPanes(); }
+            if (anyCrewed) DrawManageWindow();
+            DrawPanes();
             return;
         }
 
@@ -225,13 +225,11 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         // Outside the main window's Begin/End: each of these is its own top-level window, so
         // they must not be nested inside another one.
-        if (anyCrewed)
-        {
-            DrawManageWindow();
+        if (anyCrewed) DrawManageWindow();
 
-            // Not on anyCrewed: every pane body reads `_battery`.
-            if (_crewed) DrawPanes();
-        }
+        // Outside the crewed gate: these are the session's windows, and the settings one has to
+        // open on a world with nothing in it. Each body checks for itself what it needs.
+        DrawPanes();
 
         // Not gated on a crewed system: the thing being reported may be that there isn't one.
         DrawReportWindow();
@@ -450,42 +448,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     private void DrawPaneToggles()
     {
-        // Not behind a tree: two buttons and one setting, all of which someone playing with the
-        // mod changes. A fold for three lines is a fold to open every session.
+        // One button. Everything session-wide lives in the window behind it, so the main panel is
+        // the list of systems and nothing else -- which is the only thing on it that changes as
+        // the world does.
         DrawPaneGroup(null, PaneGroup.Session);
-        DrawWarpHold();
-
-        // Collapsed, and last: these answer questions about the mod, not about the engagement.
-        if (ImGui.TreeNode("Debug"))
-        {
-            // The overlay is diagnostic drawing, so its master switch belongs here rather than
-            // only under Display -- which is where an operator goes to tune it, not to find it.
-            ImGui.Checkbox("Draw debug lines", ref _config.DrawOverlays);
-            ImGui.TextDisabled("  search cone, tracks, round tracers, drive facing");
-            if (_config.DrawOverlays)
-            {
-                ImGui.TextDisabled("  Display has the individual switches");
-            }
-
-            ImGui.Separator();
-
-            DrawWorldClock();
-            ImGui.Separator();
-
-            DrawBurstTool();
-            ImGui.Separator();
-
-            // Inline rather than a pane of its own. It is one tick box and a line of state, and
-            // a window holding that is a window to open, move and close for nothing.
-            DrawCraftMover();
-            ImGui.Separator();
-
-            DrawLogging();
-            ImGui.Separator();
-
-            DrawPaneGroup(null, PaneGroup.Debug);
-            ImGui.TreePop();
-        }
     }
 
     private void DrawPaneGroup(string? heading, PaneGroup group)
