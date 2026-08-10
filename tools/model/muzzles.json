@@ -63,6 +63,16 @@
     "gun_reference_elevation_deg": 0.0,
     "total_height": 4.7
   },
+  "optic": {
+    "head_pivot": [
+      0.63,
+      0.0,
+      0.0
+    ],
+    "eye_forward": 0.3,
+    "head_radius": 0.215,
+    "total_height": 0.845
+  },
   "bombrack": {
     "tubes": [
       [

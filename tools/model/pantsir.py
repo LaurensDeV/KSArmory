@@ -53,6 +53,7 @@ from mathutils import Euler, Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ciws
 import bombrack
+import optic
 import sidewinder
 
 # ---------------------------------------------------------------------------
@@ -831,7 +832,7 @@ def export(path):
     pods = join_group("pods", recentre=POD_PIVOT)
     radar = join_group("radar", recentre=RADAR_PIVOT)
     guns = join_group("guns", recentre=GUN_PIVOT)
-    optic = join_group("optic", recentre=EO_PIVOT)
+    eohead = join_group("optic", recentre=EO_PIVOT)
     missile = join_group("missile")
     fins = join_group("fins")
     rail = join_group("sidewinder")
@@ -841,6 +842,8 @@ def export(path):
     ciwsguns = join_group("ciwsguns", recentre=ciws.GUN_PIVOT)
     rack = join_group("bombrack")
     mk82 = join_group("mk82")
+    opticbase = join_group("opticbase")
+    optichead = join_group("optichead", recentre=optic.HEAD_PIVOT)
 
     # KSA looks these up by Id out of the atlas; *_VM is the editor's preview variant, and
     # Core ships one for every subpart. Ours are the same geometry - the part is low-poly
@@ -850,7 +853,7 @@ def export(path):
                       (pods, "KSArmory_Subpart_Pods"),
                       (radar, "KSArmory_Subpart_Radar"),
                       (guns, "KSArmory_Subpart_Guns"),
-                      (optic, "KSArmory_Subpart_Optic"),
+                      (eohead, "KSArmory_Subpart_Optic"),
                       (missile, "KSArmory_Subpart_Missile"),
                       (fins, "KSArmory_Subpart_Fins"),
                       (rail, "KSArmory_Subpart_SidewinderRail"),
@@ -859,7 +862,9 @@ def export(path):
                       (ciwsturret, "KSArmory_Subpart_CiwsTurret"),
                       (ciwsguns, "KSArmory_Subpart_CiwsGuns"),
                       (rack, "KSArmory_Subpart_BombRack"),
-                      (mk82, "KSArmory_Subpart_Mk82")):
+                      (mk82, "KSArmory_Subpart_Mk82"),
+                      (opticbase, "KSArmory_Subpart_OpticBase"),
+                      (optichead, "KSArmory_Subpart_OpticHead")):
         preview = ob.copy()
         preview.data = ob.data.copy()
         preview.name = preview.data.name = ident + "_VM"
@@ -971,7 +976,7 @@ def render_previews(out_dir):
     for name, (loc, look) in VIEWS.items():
         show_only()
         for group in ("missile", "fins", "sidewinder", "aim9", "bombrack", "mk82",
-                      "ciwsbase", "ciwsturret", "ciwsguns"):
+                      "ciwsbase", "ciwsturret", "ciwsguns", "opticbase", "optichead"):
             for ob in _objects[group]:
                 ob.hide_render = True
         look_at(cam, loc, look)
@@ -1108,6 +1113,7 @@ def report_muzzles(out_dir):
     emitted = {}
     sidewinder.report(emitted)
     ciws.report(emitted)
+    optic.report(emitted)
     bombrack.report(emitted)
 
     with open(os.path.join(out_dir, "muzzles.json"), "w") as fh:
@@ -1139,6 +1145,7 @@ def main():
     sidewinder.build(sys.modules[__name__])
     ciws.build(sys.modules[__name__])
     bombrack.build(sys.modules[__name__])
+    optic.build(sys.modules[__name__])
 
     # Render *before* export. Exporting recentres the turret and pod meshes onto their slew
     # pivots, which is right for the game and wrong for a picture: afterwards the scene shows
