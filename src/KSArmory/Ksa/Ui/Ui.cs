@@ -30,6 +30,11 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     // quietly describe the wrong installation.
     private WeaponSystem _battery = null!;
     private SystemConfig _policy = null!;
+
+    // Whether the two above are safe to read this frame. A craft can be worth a window without
+    // being a weapons system -- one director and no armament is the case -- and everything under
+    // Debug and every pane reads a battery.
+    private bool _crewed;
     private readonly WatchCamera _watch = watch;
     private readonly CraftMover _mover = mover;
     private readonly BurstTool _bursts = bursts;
@@ -175,10 +180,13 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
         Focused = _managed ?? _batteries.Default();
 
-        // Nothing crewed: the panes all read a battery, so there is nothing for them to show.
-        // Crewed *or* carrying a director: the manage window has something to show either way,
-        // and gating on a battery is what hides a camera-only craft's only control.
-        bool anyCrewed = Focus(Focused) || _heads.FirstOn(Focused) is not null;
+        // Two different questions, and collapsing them into one is a null dereference. The manage
+        // window has something to show for a battery *or* a director, so it asks the second; the
+        // panes all read `_battery`, which `Focus` leaves unassigned when it answers false, so they
+        // must ask the first.
+        _crewed = Focus(Focused);
+
+        bool anyCrewed = _crewed || _heads.FirstOn(Focused) is not null;
 
         if (!Visible)
         {
@@ -217,7 +225,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         if (anyCrewed)
         {
             DrawManageWindow();
-            DrawPanes();
+
+            // Not on anyCrewed: every pane body reads `_battery`.
+            if (_crewed) DrawPanes();
         }
 
         // Not gated on a crewed system: the thing being reported may be that there isn't one.

@@ -47,7 +47,7 @@ internal sealed partial class Ui
     // A burst overhead, where it cannot be missed.
     private void FireTestBurst(string emitterId)
     {
-        if (_battery.Platform is not { } platform)
+        if (!_crewed || _battery.Platform is not { } platform)
         {
             Log.Info("no platform to burst over");
             return;
@@ -86,6 +86,8 @@ internal sealed partial class Ui
 
     private void DrawTestTargets()
     {
+        if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }
+
         if (_battery.Platform is null)
         {
             ImGui.TextDisabled("no platform");
@@ -157,10 +159,12 @@ internal sealed partial class Ui
 
         // Writes the battery's whole world view to the log, including why each nearby vehicle was
         // or was not tracked. Far more useful than staring at an empty screen.
+        ImGui.BeginDisabled(!_crewed);
         if (ImGui.Button("Write diagnostic dump"))
         {
             Diagnostics.Dump(_battery, _config, _policy);
         }
+        ImGui.EndDisabled();
         ImGui.SameLine();
         ImGui.Checkbox("Freeze chase transition", ref _config.FreezeChaseTransition);
         if (ImGui.IsItemHovered())
@@ -179,6 +183,8 @@ internal sealed partial class Ui
 
     private void DrawLog()
     {
+        if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }
+
         var events = _battery.Events;
         for (int i = events.Count - 1; i >= 0; i--)
         {
