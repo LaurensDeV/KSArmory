@@ -560,11 +560,6 @@ public static class Arsenal
 
     /// <summary>Optical heads, which are parts in their own right rather than launcher gear.</summary>
     ///
-    /// <para>Deliberately absent from <see cref="Components"/> until something crews one.
-    /// <c>WeaponInventory.IsWeaponSystem</c> is "any recognised component at all", so registering
-    /// a camera there makes a craft carrying nothing else a weapons system — which then finds no
-    /// launcher, falls back to the first profile in the registry, and reports a head it cannot
-    /// resolve while reloading a magazine it does not have.</para>
     public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector];
 
     /// <summary>
@@ -596,6 +591,16 @@ public static class Arsenal
                 new(WeaponRole.Gun, Cannon30Mm.DisplayName),
                 new(WeaponRole.FireControl, "Pantsir-S1 fire control"),
             ],
+        },
+        new ComponentProfile
+        {
+            PartId = EoDirector.PartId,
+            Role = WeaponRole.Camera,
+            DisplayName = EoDirector.DisplayName,
+
+            // A part in its own right, so nothing is declared for it: the survey walks parts and
+            // finds this one directly. Provides exists for prefabs whose gear is subparts.
+            Provides = [new(WeaponRole.Sensor, EoSensor.DisplayName)],
         },
         new ComponentProfile
         {

@@ -73,6 +73,11 @@ internal sealed class WeaponSystems(Config config)
             Vehicle craft = systems[i].Craft;
             if (!KsaWorld.IsAlive(craft) || _entries.ContainsKey(craft)) continue;
 
+            // The panel lists everything this mod recognises, including a craft carrying only an
+            // optical director. Only the ones that shoot get a battery: crewing the rest gives
+            // them a launcher-less system running on whichever profile is first in the registry.
+            if (!systems[i].Inventory.IsWeaponSystem) continue;
+
             // Settings are keyed on the display name, which craft from one blueprint share. They
             // will restore each other's and overwrite each other on save, and nothing else would
             // ever say so.

@@ -193,9 +193,9 @@ internal sealed partial class Ui
     // Which of the game's camera views an optical director drives, and how far its optics are
     // wound in. The head is a part in its own right, so this reads the head fitted to the craft
     // being shown rather than anything belonging to the weapons system.
-    private void DrawOpticView()
+    private void DrawOpticView(KSA.Vehicle? craft)
     {
-        if (_heads.FirstOn(_battery.Platform) is not { } entry)
+        if (_heads.FirstOn(craft) is not { } entry)
         {
             ImGui.TextDisabled("No optical director on this craft. Fit one from Sensors in the");
             ImGui.TextDisabled("editor to get a sight; a launcher no longer carries its own.");
@@ -382,7 +382,7 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  where a store released now would land, flown rather than solved");
         }
 
-        DrawOpticView();
+        DrawOpticView(_battery.Platform);
 
         if (ImGui.Button("FIRE")) _battery.FireAtLock();
         ImGui.SameLine();

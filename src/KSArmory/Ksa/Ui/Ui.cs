@@ -169,7 +169,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         Focused = _managed ?? _batteries.Default();
 
         // Nothing crewed: the panes all read a battery, so there is nothing for them to show.
-        bool anyCrewed = Focus(Focused);
+        // Crewed *or* carrying a director: the manage window has something to show either way,
+        // and gating on a battery is what hides a camera-only craft's only control.
+        bool anyCrewed = Focus(Focused) || _heads.FirstOn(Focused) is not null;
 
         if (!Visible)
         {
@@ -241,7 +243,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             KSA.Vehicle craft = _craftScratch[i];
             KsaWorld.SurveyParts(craft, _surveyed);
             WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Arsenal.Components);
-            if (inv.IsWeaponSystem) _systems.Add((craft, inv));
+            if (inv.IsInstallation) _systems.Add((craft, inv));
         }
     }
 
@@ -255,9 +257,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         if (_systems.Count == 0)
         {
-            ImGui.TextColored(Grey, "No weapons systems.");
-            ImGui.TextDisabled("A craft becomes one by carrying a part this mod recognises.");
-            ImGui.TextDisabled("Recognised parts are listed under Components once it is one.");
+            ImGui.TextColored(Grey, "Nothing of this mod's is fitted to anything.");
+            ImGui.TextDisabled("Fit a launcher from Weapons, or an EO director from Sensors.");
+            ImGui.TextDisabled("A craft with only a director is listed too - it is not a weapon,");
+            ImGui.TextDisabled("but it has a camera worth pointing.");
             return;
         }
 
@@ -364,7 +367,11 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         // Point the panes at *this* window's craft. Focus was worked out at the top of the frame
         // from last frame's selection, so the window that opens on the click that selected it
         // would otherwise show -- and edit -- the previously focused battery for one frame.
-        if (!Focus(craft))
+        // A craft can carry a director and no armament at all, and every tab but two reads a
+        // battery. Rather than refusing to open -- which leaves the operator with a listed craft
+        // and no way into its camera -- the window opens with what that craft actually has.
+        bool armed = Focus(craft);
+        if (!armed && _heads.FirstOn(craft) is null)
         {
             _managed = null;
             return;
@@ -375,10 +382,15 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         {
             if (ImGui.BeginTabBar("##systemtabs"))
             {
-                if (ImGui.BeginTabItem("Status")) { DrawSystemPane(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
+                if (armed)
+                {
+                    if (ImGui.BeginTabItem("Status")) { DrawSystemPane(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
+                }
+
+                if (ImGui.BeginTabItem("Director")) { DrawOpticView(craft); ImGui.EndTabItem(); }
                 if (ImGui.BeginTabItem("Components")) { DrawComponents(craft); ImGui.EndTabItem(); }
                 ImGui.EndTabBar();
             }

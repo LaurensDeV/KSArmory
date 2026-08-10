@@ -109,7 +109,19 @@ public sealed class WeaponInventory
     /// craft's settings an owner, and it stops a piece of debris that happens to carry a launcher
     /// from becoming a battery of its own. No such part exists, so gating on it would find nothing.
     /// </remarks>
-    public bool IsWeaponSystem => Components.Count > 0;
+    public bool IsWeaponSystem => CountOf(WeaponRole.Launcher) > 0
+                                  || CountOf(WeaponRole.Gun) > 0
+                                  || CountOf(WeaponRole.FireControl) > 0;
+
+    /// <summary>
+    /// Whether this mod recognises anything on the craft at all, weapon or not.
+    ///
+    /// <para>What the panel lists, as opposed to what it crews. A craft carrying only an optical
+    /// director has something of this mod's on it and something worth showing, and is emphatically
+    /// not a weapons system: crewing one gives it a battery with no launcher, which then reports a
+    /// head it cannot find and reloads a magazine it does not have.</para>
+    /// </summary>
+    public bool IsInstallation => Components.Count > 0;
 
     public static readonly WeaponInventory Empty = new() { Components = [] };
 }
