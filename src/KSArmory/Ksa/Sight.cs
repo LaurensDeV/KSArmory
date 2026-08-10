@@ -77,7 +77,7 @@ internal static class Sight
     private static void DrawDragIndicator(ImDrawListPtr draw, OpticConfig policy, float2 centre)
     {
         if (!KsaWorld.TryCursorFromViewCentre(policy.MouseDeadZonePx, out float2 fromCentre,
-                                              out bool commands))
+                                              out bool commands, out _))
         {
             return;
         }

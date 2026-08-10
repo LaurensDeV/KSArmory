@@ -147,4 +147,27 @@ public static class CursorAim
 
         return MathF.Sqrt(dx * dx + dy * dy) > radius;
     }
+
+    /// <summary>
+    /// How hard the cursor is commanding: nothing at the edge of the rest area, everything
+    /// <paramref name="fullAtPx"/> beyond it.
+    ///
+    /// <para><b>Measured from the edge of the rest area, not from the middle of the view.</b> From
+    /// the middle, a large rest area means the cursor is already far out the instant it leaves the
+    /// ring, so the head goes from still to full rate in a pixel — the bigger the rest area, the
+    /// worse the jolt, which is the opposite of what a rest area is for. From the edge, the
+    /// command always starts at nothing wherever the ring is drawn.</para>
+    /// </summary>
+    public static double CommandStrength(float2 fromCentre, float deadZonePx, float fullAtPx)
+    {
+        if (!float.IsFinite(fromCentre.X) || !float.IsFinite(fromCentre.Y)) return 0.0;
+
+        double distance = Math.Sqrt((double)fromCentre.X * fromCentre.X
+                                    + (double)fromCentre.Y * fromCentre.Y);
+
+        double rest = float.IsFinite(deadZonePx) ? Math.Max(0.0, deadZonePx) : 0.0;
+        double span = float.IsFinite(fullAtPx) ? Math.Max(1.0, fullAtPx) : 1.0;
+
+        return Math.Clamp((distance - rest) / span, 0.0, 1.0);
+    }
 }

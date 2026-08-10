@@ -136,7 +136,11 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         Radar.Sensor = Sensor;
         Radar.Scan(platform, SensorBoresight, dt, airborne);
 
-        _drive.Update(_driveStep.Next(dt), AimPartFrame(), Profile.SlewRateRad);
+        // AimPartFrame first: it is what works out how hard the cursor is commanding, and the
+        // rate below is that command.
+        double3 aim = AimPartFrame();
+
+        _drive.Update(_driveStep.Next(dt), aim, Profile.SlewRateRad * _mouseRate);
 
         // The travel again, on what the drive actually reached. Clamping only the command leaves
         // the head free to take the shortest rotation between two legal directions, and between
@@ -244,6 +248,10 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             : rest;
     }
 
+    // How much of the slew rate the cursor is asking for, from the last aim. One, and so no
+    // limit of its own, whenever the head is not being dragged.
+    private double _mouseRate = 1.0;
+
     // Where the cursor points, in the director's own part frame. False unless mouse aim is on and
     // the cursor is over a viewport whose camera gives a usable ray.
     //
@@ -261,15 +269,27 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             return false;
         }
 
-        // At rest in the middle of its own picture. Without this the head chases a cursor that
-        // its own turning keeps off centre, and the view never settles -- see
-        // CursorAim.OutsideDeadZone. Only while this head is the one driving the view: pointing
-        // at a site from an orbit camera has no such loop and no reason for a rest area.
-        if (_policy.Viewport == KsaWorld.MainViewportIndex
-            && KsaWorld.TryCursorFromViewCentre(_policy.MouseDeadZonePx, out _, out bool commands)
-            && !commands)
+        // At rest in the middle of its own picture, and slower the nearer to resting it is.
+        // Without the first the head chases a cursor that its own turning keeps off centre and
+        // the view never settles; without the second it goes from still to full rate in a pixel.
+        // Only while this head drives the view: pointing at a site from an orbit camera has no
+        // such loop and no reason for either.
+        _mouseRate = 1.0;
+
+        if (_policy.Viewport == KsaWorld.MainViewportIndex)
         {
-            return false;
+            if (!KsaWorld.TryCursorFromViewCentre(_policy.MouseDeadZonePx, out float2 fromCentre,
+                                                  out bool commands, out float halfHeight)
+                || !commands)
+            {
+                return false;
+            }
+
+            // Measured from the ring's edge, so the command starts at nothing wherever the ring
+            // is drawn -- and against what is left of the screen, so the same drag means the same
+            // thing at any window size or rest area.
+            _mouseRate = CursorAim.CommandStrength(fromCentre, _policy.MouseDeadZonePx,
+                                                   Math.Max(1f, halfHeight - _policy.MouseDeadZonePx));
         }
 
         if (!LauncherPart.TryPartPointEcl(platform, director, Profile.HeadPivot, PlatformEcl,

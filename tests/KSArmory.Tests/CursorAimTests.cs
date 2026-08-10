@@ -251,4 +251,60 @@ public class CursorAimTests
         Assert.False(CursorAim.TryAimFromMount(eye, Vec.Unit(mount - eye), Vec.Len(mount - eye),
                                                mount, out _));
     }
+
+    /// <summary>
+    /// The command starts at nothing wherever the ring is drawn, which is the whole reason it is
+    /// measured from the ring's edge rather than from the middle of the view. Measured from the
+    /// middle, a large rest area puts the cursor far out the instant it leaves the ring, so the
+    /// head goes from still to full rate in a pixel — worse the bigger the rest area, which is
+    /// backwards.
+    /// </summary>
+    [Fact]
+    public void TheCommandStartsAtNothingWhereverTheRestAreaEnds()
+    {
+        foreach (float rest in new[] { 0f, 20f, 60f, 200f })
+        {
+            // Just outside the ring, whatever its size.
+            float2 justOut = new(rest + 0.5f, 0f);
+
+            double strength = CursorAim.CommandStrength(justOut, rest, 400f);
+
+            Assert.True(strength < 0.01,
+                $"a rest area of {rest:F0} px commanded {strength:F3} half a pixel outside it");
+        }
+    }
+
+    [Fact]
+    public void ItReachesEverythingAtTheFullDistanceAndNoFurther()
+    {
+        Assert.Equal(1.0, CursorAim.CommandStrength(new float2(60f + 400f, 0f), 60f, 400f), 9);
+        Assert.Equal(1.0, CursorAim.CommandStrength(new float2(5000f, 0f), 60f, 400f), 9);
+        Assert.Equal(0.5, CursorAim.CommandStrength(new float2(60f + 200f, 0f), 60f, 400f), 9);
+    }
+
+    [Fact]
+    public void InsideTheRestAreaItCommandsNothing()
+    {
+        Assert.Equal(0.0, CursorAim.CommandStrength(new float2(10f, 0f), 60f, 400f), 9);
+        Assert.Equal(0.0, CursorAim.CommandStrength(default, 60f, 400f), 9);
+    }
+
+    [Fact]
+    public void TheRestAreaIsARadiusRatherThanABox()
+    {
+        // A corner at the same distance as a straight-out point commands the same amount.
+        float diagonal = 60f / MathF.Sqrt(2f);
+
+        Assert.False(CursorAim.OutsideDeadZone(new float2(diagonal - 1f, diagonal - 1f), default,
+                                               60f, out _));
+        Assert.True(CursorAim.OutsideDeadZone(new float2(diagonal + 1f, diagonal + 1f), default,
+                                              60f, out _));
+    }
+
+    [Fact]
+    public void ItInventsNothingFromAnUnusableCursor()
+    {
+        Assert.False(CursorAim.OutsideDeadZone(new float2(float.NaN, 0f), default, 60f, out _));
+        Assert.Equal(0.0, CursorAim.CommandStrength(new float2(float.NaN, 0f), 60f, 400f), 9);
+    }
 }

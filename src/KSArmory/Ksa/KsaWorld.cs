@@ -1125,17 +1125,24 @@ internal static class KsaWorld
     /// dragged is measured against: it is at rest when the cursor is in the middle of the picture
     /// it is producing.</para>
     /// </summary>
+    /// <param name="halfHeightPx">
+    /// Half the view's height, which is how far the cursor can travel before it runs out of
+    /// screen. What a command is measured against, so the same drag means the same thing whatever
+    /// the window size.
+    /// </param>
     public static bool TryCursorFromViewCentre(float deadZonePx, out float2 fromCentre,
-                                               out bool commands)
+                                               out bool commands, out float halfHeightPx)
     {
         fromCentre = default;
         commands = false;
+        halfHeightPx = 1f;
 
         try
         {
             ImGuiViewportPtr main = ImGui.GetMainViewport();
             float2 centre = new(main.Pos.X + main.Size.X * 0.5f, main.Pos.Y + main.Size.Y * 0.5f);
 
+            halfHeightPx = Math.Max(1f, main.Size.Y * 0.5f);
             commands = CursorAim.OutsideDeadZone(ImGui.GetMousePos(), centre, deadZonePx,
                                                  out fromCentre);
             return true;
