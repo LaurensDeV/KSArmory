@@ -295,6 +295,12 @@ internal sealed partial class Ui
         }
 
         ImGui.Checkbox("Sight symbology", ref policy.Symbology);
+        ImGui.SameLine();
+        ImGui.Checkbox("Level the horizon", ref policy.StabiliseHorizon);
+
+        ImGui.TextDisabled(policy.StabiliseHorizon
+            ? "  held against the site's vertical; near straight up or down it carries"
+            : "  KSA's own roll: canted away from the ecliptic pole, never inverted");
     }
 
     private void DrawTurretLine()

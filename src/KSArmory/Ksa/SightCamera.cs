@@ -35,6 +35,9 @@ internal sealed class SightCamera : IViewPose
     // system's own settings.
     private double _magnification = 1.0;
 
+    // Whether the picture is held level, from the last frame the panel was read.
+    private bool _stabilise = true;
+
     /// <summary>
     /// Where the view goes, asked from inside the engine's own frame pass.
     ///
@@ -58,7 +61,8 @@ internal sealed class SightCamera : IViewPose
         if (!head.TryOpticViewEclAt(followedEcl, out double3 eye, out forwardEcl)) return false;
 
         offsetFromFollowed = eye - followedEcl;
-        upEcl = head.Boresight;
+        // Zero is the contract for "no opinion", which hands the roll back to KSA's own rule.
+        upEcl = _stabilise ? head.Boresight : Vec.Zero;
         fovDeg = SightZoom.FovDegreesFor(_saved.FovDeg, _magnification);
 
         return true;
@@ -149,7 +153,8 @@ internal sealed class SightCamera : IViewPose
     /// that matters: releasing alone is not enough, because the setting still asks for the view
     /// and the next frame would take it straight back.
     /// </returns>
-    public ViewAction Apply(IOpticalHead head, bool wanted, bool outranked, double magnification)
+    public ViewAction Apply(IOpticalHead head, bool wanted, bool outranked, double magnification,
+                            bool stabilise)
     {
         // Declared up front rather than in the condition: the resolve short-circuits, and the
         // drive below has to be reachable on the one path where it succeeded.
@@ -211,11 +216,13 @@ internal sealed class SightCamera : IViewPose
         // values written here are the fallback the controller keeps if that ever refuses.
         _head = head;
         _magnification = magnification;
+        _stabilise = stabilise;
 
         // The field is not written here. It is part of the pose now, answered inside the engine's
         // viewport pass along with everything else, so a write from this hook would be a stale
         // copy of the same number one frame early.
-        if (!KsaWorld.TryLookFromMainViewport(offsetFromCraft, forward, head.Boresight,
+        if (!KsaWorld.TryLookFromMainViewport(offsetFromCraft, forward,
+                                              _stabilise ? head.Boresight : Vec.Zero,
                                               SightZoom.FovDegreesFor(_saved.FovDeg, magnification),
                                               this))
         {

@@ -58,6 +58,16 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
         // to the engine's rule there. Switching rule is what flips the picture: a view along its
         // own up has no roll, so the two conventions disagree by half a turn, and creeping past
         // that point swaps between them. See SightPicture.TryStableUp.
+        // No up given at all is the caller saying it has no opinion, which is KSA's own rule and
+        // not a singular case to carry through. Forgetting the last one matters: keeping it would
+        // resume a stale roll the moment stabilising is switched back on.
+        if (Vec.Len2(Vec.Unit(UpEcl)) < 0.5)
+        {
+            _lastUp = Vec.Zero;
+            base.OnFrame(inViewport, inDeltaTime);
+            return;
+        }
+
         if (!SightPicture.TryStableUp(forward, UpEcl, _lastUp, out double3 up))
         {
             base.OnFrame(inViewport, inDeltaTime);

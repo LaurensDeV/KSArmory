@@ -47,4 +47,18 @@ public sealed class OpticConfig : ISensorPolicy
 
     /// <summary>Draw the sight's own symbology over the view the head is driving.</summary>
     public bool Symbology = true;
+
+    /// <summary>
+    /// Hold the picture level against the site's own vertical, rather than taking KSA's roll.
+    ///
+    /// <para>On by default because a sight that rolls with the ecliptic is disorienting to aim
+    /// through: the engine derives up by crossing the view with the camera frame's +Z, so a site
+    /// well off that pole gets a permanently canted horizon.</para>
+    ///
+    /// <para>Off is not a lesser setting. Stabilising has a real cost near the vertical, where a
+    /// world up makes a poor roll reference and the picture is held by carrying the previous
+    /// frame's — so it stays smooth and can come out inverted after passing through. KSA's own
+    /// rule never does that, and on a craft that manoeuvres hard it can be the one you want.</para>
+    /// </summary>
+    public bool StabiliseHorizon = true;
 }
