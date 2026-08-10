@@ -110,4 +110,68 @@ public static class SightPicture
 
         return true;
     }
+
+    /// <summary>
+    /// How near a view may come to its own up before that up is useless for building a basis.
+    /// About 2.6°, which is far enough out that the cross product still has usable length.
+    /// </summary>
+    public const double UpUnusableAbove = 0.999;
+
+    /// <summary>
+    /// The up to build a view basis from: the one wanted, or the one used last frame when the
+    /// view has swung too near it.
+    ///
+    /// <para><b>Continuity is the whole job.</b> A view looking along its own up has no roll — any
+    /// perpendicular is equally correct — so anything that *switches rule* at that point flips the
+    /// picture through half a turn as the view creeps past. Carrying the previous frame's answer
+    /// through the singularity is what makes it pass rather than snap, and it works because the
+    /// view can only creep: it is a rate-limited head.</para>
+    ///
+    /// <para><b>Sweeping through the up direction genuinely reverses which way world-up points in
+    /// the picture</b>, and taking that literally is the flip. So the answer nearer last frame's is
+    /// the one kept, even where that means the horizon reads inverted afterwards: a stabilised
+    /// camera holds its roll through the pole and comes out upside down, rather than snapping
+    /// half a turn on one frame in the middle. The reference line stays a true horizontal either
+    /// way — it is drawn from places that sit on it, not from the up vector.</para>
+    ///
+    /// <para>False only when nothing is usable, which is a view along its own up on the very frame
+    /// it was taken. There is nothing continuous to be had there — nothing to be continuous
+    /// with.</para>
+    /// </summary>
+    /// <param name="up">
+    /// Orthogonal to <paramref name="forwardEcl"/>, so the caller can hand it straight back as
+    /// <paramref name="lastUp"/> next frame without it drifting into the view.
+    /// </param>
+    public static bool TryStableUp(double3 forwardEcl, double3 preferredUp, double3 lastUp,
+                                   out double3 up)
+    {
+        up = Vec.Zero;
+
+        double3 forward = Vec.Unit(forwardEcl);
+        if (Vec.Len2(forward) < 0.5) return false;
+
+        if (!Usable(forward, preferredUp, out up) && !Usable(forward, lastUp, out up)) return false;
+
+        // The nearer of the two ways round. Both are the same line and the picture cares which end
+        // of it is up, so choosing the one last frame used is what carries the roll through.
+        double3 previous = Vec.Unit(lastUp);
+        if (Vec.Len2(previous) > 0.5 && Vec.Dot(up, previous) < 0.0) up = -up;
+
+        return true;
+    }
+
+    private static bool Usable(double3 forward, double3 candidate, out double3 up)
+    {
+        up = Vec.Zero;
+
+        double3 unit = Vec.Unit(candidate);
+        if (Vec.Len2(unit) < 0.5) return false;
+        if (Math.Abs(Vec.Dot(forward, unit)) > UpUnusableAbove) return false;
+
+        double3 across = Vec.RejectFrom(unit, forward);
+        if (Vec.Len2(across) < 1e-12) return false;
+
+        up = Vec.Unit(across);
+        return true;
+    }
 }

@@ -44,20 +44,27 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
     /// </summary>
     public IViewPose? Pose;
 
+    // The up actually used last frame, already orthogonal to that frame's view. What keeps the
+    // roll continuous where the wanted up is no use.
+    private double3 _lastUp;
+
     public override void OnFrame(Viewport inViewport, double inDeltaTime)
     {
         AskThePoseSource();
 
         double3 forward = Vec.Unit(CameraRotation);
-        double3 up = Vec.Unit(UpEcl);
 
-        // Nothing to improve on: no up given, or a view so nearly along it that there is no
-        // sideways left to build a basis from. The engine's rule is at least defined there.
-        if (Vec.Len2(up) < 0.5 || Vec.Len2(forward) < 0.5 || Math.Abs(Vec.Dot(forward, up)) > 0.9995)
+        // The previous frame's answer is carried through the singularity rather than handing back
+        // to the engine's rule there. Switching rule is what flips the picture: a view along its
+        // own up has no roll, so the two conventions disagree by half a turn, and creeping past
+        // that point swaps between them. See SightPicture.TryStableUp.
+        if (!SightPicture.TryStableUp(forward, UpEcl, _lastUp, out double3 up))
         {
             base.OnFrame(inViewport, inDeltaTime);
             return;
         }
+
+        _lastUp = up;
 
         if (Camera.Following is not { } following) return;
 

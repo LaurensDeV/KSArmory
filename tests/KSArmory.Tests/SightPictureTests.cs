@@ -196,4 +196,72 @@ public class SightPictureTests
         Assert.False(SightPicture.TryPointing(new float2(10f, 10f), new float2(10f, 10f), out _));
         Assert.False(SightPicture.TryPointing(new float2(float.NaN, 0f), new float2(10f, 10f), out _));
     }
+
+    /// <summary>
+    /// The fault this exists for, and the only one that matters: a view creeping past its own up
+    /// must not have its roll jump. Anything that <em>switches rule</em> at the singularity flips
+    /// the picture through half a turn, which in game is the whole view inverting as the head's
+    /// elevation crosses zero looking straight down a rocket.
+    /// </summary>
+    [Fact]
+    public void TheRollDoesNotJumpAsTheViewCreepsPastItsOwnUp()
+    {
+        double3 preferred = new(0, 0, 1);
+
+        // Sweeping through straight down, a quarter of a degree at a time.
+        double3 last = Vec.Zero;
+        double3 previousUp = Vec.Zero;
+        double worst = 0.0;
+
+        for (double off = -6.0; off <= 6.0; off += 0.25)
+        {
+            double a = double.DegreesToRadians(off);
+            double3 forward = Vec.Unit(new double3(Math.Sin(a), 0, -Math.Cos(a)));
+
+            Assert.True(SightPicture.TryStableUp(forward, preferred, last, out double3 up));
+
+            if (Vec.Len2(previousUp) > 0.5) worst = Math.Max(worst, Vec.AngleBetween(previousUp, up));
+
+            previousUp = up;
+            last = up;
+        }
+
+        Assert.True(worst < 0.2,
+            $"the roll jumped {double.RadiansToDegrees(worst):F1} deg in one quarter-degree step");
+    }
+
+    [Fact]
+    public void ThePreferredUpIsUsedWhereverItIsUsable()
+    {
+        double3 forward = new(1, 0, 0);
+        double3 preferred = new(0, 0, 1);
+
+        Assert.True(SightPicture.TryStableUp(forward, preferred, new double3(0, 1, 0), out double3 up));
+
+        Assert.Equal(0.0, Vec.AngleBetween(up, preferred), 9);
+    }
+
+    [Fact]
+    public void TheAnswerIsAlwaysOrthogonalToTheView()
+    {
+        double3 forward = Vec.Unit(new double3(1, 0.4, -0.2));
+
+        Assert.True(SightPicture.TryStableUp(forward, new double3(0, 0, 1), Vec.Zero, out double3 up));
+
+        Assert.Equal(0.0, Vec.Dot(up, forward), 9);
+        Assert.Equal(1.0, Vec.Len(up), 9);
+    }
+
+    /// <summary>
+    /// Both unusable is a view along its own up on the very frame it was taken: there is nothing
+    /// continuous to be had, because there is nothing to be continuous with.
+    /// </summary>
+    [Fact]
+    public void WithNothingUsableItRefusesRatherThanInventingARoll()
+    {
+        double3 forward = new(0, 0, 1);
+
+        Assert.False(SightPicture.TryStableUp(forward, forward, Vec.Zero, out _));
+        Assert.False(SightPicture.TryStableUp(Vec.Zero, new double3(0, 0, 1), Vec.Zero, out _));
+    }
 }
