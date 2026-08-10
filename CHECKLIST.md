@@ -663,6 +663,30 @@ Still open below.
 - [x] Warp up and back down repeatedly: the battery recovers each time and re-acquires.
 - [x] Load a save while rounds are in flight: they are abandoned, not flown into the new world.
 
+### 7.6b The EO director — the sight as a part of its own
+
+**Never flown.** The head is no longer launcher gear: it is a part anything can carry, it finds
+its own targets through its own sensor, and it drives the view with no weapon involved. A Pantsir
+that has not been given one has no sight at all, which is the intended state and not a fault.
+
+Everything in 7.6 below was flown against a head bolted to the Pantsir's turret. The maths it
+proved still holds — the same `PointingDrive`, the same in-phase resolve, the same zoom — but the
+thing it was proved on no longer exists, so the items are worth re-running rather than trusted.
+
+- [ ] `EO Director` appears under **Sensors** in the editor and surface-attaches.
+- [ ] A craft carrying **only** a director and a command source tracks a target and shows the
+      bracket. That is the whole point of the split and nothing before could do it.
+- [ ] Its panel pane says **Director view**, and *off / main view* drives the picture.
+- [ ] **Track with the director** off parks the head; **Aim by hand** drives it from the sliders.
+- [ ] The elevation slider stops at **−20°**. Below that the window would pass through its own
+      mast, which is a fact about the model rather than a preference.
+- [ ] On an unarmed craft: bracket, horizontal reference, edge cue and zoom, and **no** arm state,
+      ammo or gun pipper. On a craft with a Pantsir *and* a director, all of it.
+- [ ] A **Pantsir with no director** reports no sight rather than a broken one.
+- [ ] Two directors on one craft are two heads, each pointed independently.
+- [ ] Known and not yet built: a head's settings are **not persisted**, so magnification and
+      viewport reset on reload.
+
 ### 7.6 The gunner's sight — symbology, zoom and the two reticules
 
 **Flown once. Zoom works and hands the view back; two faults found, both addressed and neither
