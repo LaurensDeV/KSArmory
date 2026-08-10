@@ -63,6 +63,17 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// </summary>
     public double3 SensorBoresight { get; private set; } = new(0, 0, 1);
 
+    /// <summary>
+    /// What the camera rolls against: the head's own up unless levelling is asked for.
+    ///
+    /// <para>Rigid with the head is the default because it is what a camera bolted to a craft
+    /// does — it rolls with the vehicle and looking sideways stays sideways. It also has no
+    /// singularity worth the name: the head's up is built to stay near the mount's normal and is
+    /// continuous everywhere the travel allows, so there is nothing to carry and nothing to
+    /// flip.</para>
+    /// </summary>
+    public double3 RollReferenceEcl { get; private set; } = new(0, 0, 1);
+
     /// <summary>What it is watching.</summary>
     public Track? LockedTrack => Radar.Locked;
 
@@ -114,6 +125,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         SensorBoresight = ResolveSensorBoresight();
         Boresight = Platform is { } up ? KsaWorld.LocalUp(up) : Boresight;
+        RollReferenceEcl = ResolveRollReference();
     }
 
     /// <summary>Scans, slews and writes the head's transform. One simulated step.</summary>
@@ -230,6 +242,23 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         double across = Math.Cos(elevation);
 
         return new double3(Math.Sin(elevation), across * Math.Cos(bearing), across * Math.Sin(bearing));
+    }
+
+    // The head's own up, carried into Ecl -- or local vertical when the operator wants the
+    // picture levelled. Falls back to local up rather than a zero vector, which the controller
+    // reads as "no opinion" and would hand to KSA's rule.
+    private double3 ResolveRollReference()
+    {
+        if (Platform is not { } platform) return RollReferenceEcl;
+
+        if (_policy.StabiliseHorizon) return Boresight;
+
+        double3 headUp = OpticGeometry.Rotation(_drive.Direction) * OpticGeometry.MountNormal;
+
+        return Director is { } director
+               && LauncherPart.TryLauncherDirectionEcl(platform, director, headUp, out double3 ecl)
+            ? ecl
+            : KsaWorld.LocalUp(platform);
     }
 
     // Out of the surface it is bolted to, which for a director on a deck is the sky. Every failure

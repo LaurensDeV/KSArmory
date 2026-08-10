@@ -51,14 +51,16 @@ public sealed class OpticConfig : ISensorPolicy
     /// <summary>
     /// Hold the picture level against the site's own vertical, rather than taking KSA's roll.
     ///
-    /// <para>On by default because a sight that rolls with the ecliptic is disorienting to aim
-    /// through: the engine derives up by crossing the view with the camera frame's +Z, so a site
-    /// well off that pole gets a permanently canted horizon.</para>
+    /// <para><b>Off by default</b>, because a camera bolted to a craft rolls with it: looking
+    /// sideways stays sideways, and nothing re-levels the picture underneath the operator. That is
+    /// also the version with no singularity — the head's own up is continuous everywhere its
+    /// travel reaches.</para>
     ///
-    /// <para>Off is not a lesser setting. Stabilising has a real cost near the vertical, where a
-    /// world up makes a poor roll reference and the picture is held by carrying the previous
-    /// frame's — so it stays smooth and can come out inverted after passing through. KSA's own
-    /// rule never does that, and on a craft that manoeuvres hard it can be the one you want.</para>
+    /// <para>On holds the picture against the site's true vertical, which is what a ground site
+    /// wants and what makes a horizon reference mean something. The cost is near the vertical:
+    /// world up is a poor roll reference there, so the roll is carried from frame to frame and the
+    /// picture can come out inverted after passing through. That is the trade, and it is why this
+    /// is a switch.</para>
     /// </summary>
-    public bool StabiliseHorizon = true;
+    public bool StabiliseHorizon;
 }

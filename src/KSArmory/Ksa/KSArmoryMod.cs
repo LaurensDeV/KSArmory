@@ -482,7 +482,7 @@ public sealed class KSArmoryMod
         // Asked every frame, including when the optic is off: that is what hands the view back
         // after the player switches it off, and what lets the sight resume once the chase is done.
         ViewAction did = _sight.Apply(battery, wantsMainView, outranked: _chase.HoldsMainView,
-                                      policy.Magnification, policy.StabiliseHorizon);
+                                      policy.Magnification);
 
         // Taking the view back by hand switches the optic off, rather than merely releasing it
         // once. The setting is what asks for the view, so leaving it on means the very next frame

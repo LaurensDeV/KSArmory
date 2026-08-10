@@ -300,7 +300,7 @@ internal sealed partial class Ui
 
         ImGui.TextDisabled(policy.StabiliseHorizon
             ? "  held against the site's vertical; near straight up or down it carries"
-            : "  KSA's own roll: canted away from the ecliptic pole, never inverted");
+            : "  rigid with the head - it rolls with the craft, and sideways stays sideways");
     }
 
     private void DrawTurretLine()

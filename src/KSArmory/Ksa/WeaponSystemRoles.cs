@@ -93,8 +93,20 @@ internal interface IOpticalHead : IWeaponPlatform
     /// <summary>The contact the sensor is holding, or null.</summary>
     Track? LockedTrack { get; }
 
-    /// <summary>Local "up" at the launcher, which is what keeps a sight's horizon level.</summary>
+    /// <summary>
+    /// Local "up", which is what the sight's horizontal reference is drawn against. Always the
+    /// site's true vertical — a horizon measured against anything else is not a horizon.
+    /// </summary>
     double3 Boresight { get; }
+
+    /// <summary>
+    /// What the camera should take its roll from, which is <em>not</em> the same question.
+    ///
+    /// <para>Rigid with the head unless the operator asks for a levelled picture: a camera bolted
+    /// to a craft rolls with it, so looking sideways stays sideways. Levelling is the opinionated
+    /// choice and is the one behind a switch.</para>
+    /// </summary>
+    double3 RollReferenceEcl { get; }
 
     /// <summary>
     /// Where the head is looking from and along what, both in Ecl. False when the launcher, the
