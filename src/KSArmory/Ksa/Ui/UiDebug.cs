@@ -179,6 +179,16 @@ internal sealed partial class Ui
             Diagnostics.ResetTimer();
         }
         ImGui.TextDisabled("  -> Logs/KSArmory.log");
+
+        // A diagnostic about the render rate rather than a state of any weapon: it means the
+        // frames are outrunning the simulation clock, which is what explains stuttering round
+        // bodies. Reads the selected system, so it needs one.
+        if (_crewed && _battery.FramesWithoutSimStep > 0)
+        {
+            ImGui.TextColored(Amber,
+                $"Frames with no sim step: {_battery.FramesWithoutSimStep}");
+            ImGui.TextDisabled("  the render rate is outrunning the simulation clock");
+        }
     }
 
     private void DrawLog()

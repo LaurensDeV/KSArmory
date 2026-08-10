@@ -145,56 +145,68 @@ internal sealed partial class Ui
                 (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
         }
 
-        // Fire control runs on simulated time, so a paused or heavily warped game is not a fault
-        // but it does explain a silent system. Unsaid, that state is indistinguishable from
-        // tracking being broken.
+        DrawClockWarning();
+
+        DrawTurretLine();
+
+        DrawRadarState();
+
+        if (_battery.Rounds.Count > 0) ImGui.Text($"In flight: {_battery.Rounds.Count}");
+    }
+
+    // Only when the clock is a problem. Fire control runs on simulated time, so a paused or
+    // heavily warped world explains a silent system -- and unsaid, that is indistinguishable from
+    // tracking being broken. The ordinary cases say nothing: the game has its own speed readout,
+    // and repeating it here is a line that is always present and never news.
+    private void DrawClockWarning()
+    {
         if (KsaWorld.IsPaused)
         {
-            ImGui.Text("Paused - stopped with the world");
+            ImGui.TextDisabled("Paused - stopped with the world");
+            return;
         }
-        else if (_warp.Holding)
+
+        if (_warp.Yielded)
+        {
+            ImGui.TextColored(Red, "Warp not held - something else is driving the speed control");
+            ImGui.TextDisabled("  Rounds in flight will lag the world and miss.");
+            return;
+        }
+
+        if (_warp.Holding)
         {
             ImGui.TextColored(Amber,
                 $"Warp held at {KsaWorld.SimulationSpeed:0.#}x - {_warp.HeldSpeed:F0}x returns "
                 + "when the rounds land");
-        }
-        else if (_warp.Yielded)
-        {
-            ImGui.TextColored(Red, "Warp not held - something else is driving the speed control");
-            ImGui.TextDisabled("  Rounds in flight will lag the world and miss.");
-        }
-        else if (KsaWorld.SimulationSpeed > 1.0)
-        {
-            double warp = KsaWorld.SimulationSpeed;
-            ImGui.Text(warp > MaxTrackableWarp && !_config.LimitWarpInFlight
-                ? $"Warp {warp:F0}x - too fast to guide; rounds will lag the world"
-                : $"Warp {warp:F0}x");
+            return;
         }
 
-        // Should stay at zero. If it does not, the render rate is outrunning the simulation
-        // clock and that is worth knowing, because it explains stuttering round bodies.
-        if (_battery.FramesWithoutSimStep > 0)
+        if (KsaWorld.SimulationSpeed > MaxTrackableWarp && !_config.LimitWarpInFlight)
         {
-            ImGui.TextColored(Amber, $"Frames with no sim step: {_battery.FramesWithoutSimStep}");
+            ImGui.TextColored(Amber,
+                $"Warp {KsaWorld.SimulationSpeed:F0}x - too fast to guide; rounds will lag");
         }
+    }
 
-        DrawTurretLine();
-
-        var locked = _battery.Radar.Locked;
-        if (locked is null)
+    // What the set is holding. Two lines rather than four: the name, the range and the closing
+    // speed are one fact about one contact, and CPA is the separate one -- it is what decides
+    // engageability, so it earns its own line and nothing else does.
+    private void DrawRadarState()
+    {
+        if (_battery.Radar.Locked is not { } locked)
         {
             ImGui.TextColored(Grey, "Radar: no threat");
-        }
-        else
-        {
-            float4 colour = _battery.Radar.HasFiringSolution ? Red : Amber;
-            ImGui.TextColored(colour, _battery.Radar.HasFiringSolution ? "LOCKED" : "acquiring...");
-            ImGui.Text($"  {locked.Contact.DisplayName}");
-            ImGui.Text($"  range {locked.Range / 1000.0:F2} km   closing {locked.ClosingSpeed:F0} m/s");
-            ImGui.Text($"  CPA {locked.ClosestApproach:F0} m in {locked.TimeToClosestApproach:F1}s");
+            return;
         }
 
-        if (_battery.Rounds.Count > 0) ImGui.Text($"In flight: {_battery.Rounds.Count}");
+        bool solution = _battery.Radar.HasFiringSolution;
+
+        ImGui.TextColored(solution ? Red : Amber, solution ? "LOCKED" : "acquiring...");
+        ImGui.SameLine();
+        ImGui.Text($"{locked.Contact.DisplayName}   {locked.Range / 1000.0:F2} km, "
+                   + $"closing {locked.ClosingSpeed:F0} m/s");
+        ImGui.TextDisabled($"  CPA {locked.ClosestApproach:F0} m in "
+                           + $"{locked.TimeToClosestApproach:F1}s");
     }
 
     // Which of the game's camera views the optical head drives. KSA opens the views; a mod can
