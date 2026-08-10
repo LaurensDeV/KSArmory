@@ -72,13 +72,27 @@ internal sealed partial class Ui
         double3 at = c.PositionVehicleAsmb;
         ImGui.TextDisabled($"at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
 
-        switch (role)
+        // A director is its own instrument and needs no weapons system. Everything else here
+        // describes one, and reads `_battery` -- which Focus leaves unassigned on a craft that
+        // carries no armament. A craft with one director and a provided sensor row reaches this
+        // with nothing crewed, so the guard is on the path rather than in each handler.
+        if (role == WeaponRole.Camera)
         {
-            case WeaponRole.Camera: DrawCameraComponent(nth); break;
-            case WeaponRole.FireControl: DrawFireControlComponent(); break;
-            case WeaponRole.Launcher: DrawLauncherComponent(c, nth); break;
-            case WeaponRole.Gun: DrawGunComponent(c); break;
-            case WeaponRole.Sensor: DrawSensorComponent(c); break;
+            DrawCameraComponent(nth);
+        }
+        else if (!_crewed)
+        {
+            ImGui.TextDisabled("no weapons system on this craft");
+        }
+        else
+        {
+            switch (role)
+            {
+                case WeaponRole.FireControl: DrawFireControlComponent(); break;
+                case WeaponRole.Launcher: DrawLauncherComponent(c); break;
+                case WeaponRole.Gun: DrawGunComponent(c); break;
+                case WeaponRole.Sensor: DrawSensorComponent(c); break;
+            }
         }
 
         ImGui.TreePop();
@@ -102,7 +116,7 @@ internal sealed partial class Ui
     }
 
     // The launcher: what it holds, how it is laid, and the switches that belong to it.
-    private void DrawLauncherComponent(FoundComponent c, int nth)
+    private void DrawLauncherComponent(FoundComponent c)
     {
         if (!IsCrewed(c)) { NotRun(); return; }
 

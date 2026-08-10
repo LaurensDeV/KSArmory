@@ -116,6 +116,15 @@ internal sealed partial class Ui
 
     private void DrawTuning()
     {
+        // Said once, at the top, and it is the most surprising thing about this tab. These
+        // sliders edit the shared Arsenal profiles, so they reach every system in the world
+        // running this loadout -- which is the intent, and is invisible from a window titled
+        // with one craft's name. It is also why they are not on the component rows: a number
+        // under a named part on a named craft reads as belonging to that one.
+        ImGui.TextDisabled($"What a {_profile.DisplayName} is, not what this one is doing.");
+        ImGui.TextDisabled("Changes reach every system in the world running it.");
+        ImGui.Separator();
+
         DrawSensorNode();
         DrawDriveNodes();
         DrawGuidanceNode();
