@@ -296,7 +296,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSession.cs` | the world clock, and what the session draws and hears |
-| `Ksa/Ui/UiSystem.cs` | what one system is, sees and is doing |
+| `Ksa/Ui/UiSystem.cs` | one row per component: what each part is, sees and is doing |
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
@@ -597,6 +597,26 @@ That is also why **the "report only against the latest version" rule lives on th
 sends its version inside the report it was already sending, and the endpoint answers 426 with the
 number needed. Asking the game to check whether it is current would mean a request at startup, for
 a rule the server can apply for free.
+
+**The panel is organised by what owns a thing, and there are four owners.** A control's home
+follows from which one it belongs to, and that is the only rule needed to place a new one:
+
+| Owner | Where it lives | Test |
+| --- | --- | --- |
+| the **session** | the settings window, off the main panel | two sites could not sensibly disagree — one screen, one pair of ears, one clock |
+| a **component** | that part's row under **Components** | it describes or drives one part of one installation |
+| the **installation** | the header strip above the tabs | it is about the whole system and no part of it — whether it is shooting, and what is in the air |
+| a **shared profile** | the **Tuning** tab | it says what a Pantsir *is*, so editing it reaches every Pantsir in the world |
+
+The last is why the tuning numbers did not move onto the component rows with everything else: a
+slider under a named part on a named craft reads as belonging to that craft, and these do not. The
+tab says so at the top, because it is the most surprising thing about it.
+
+The header strip is above the tab bar rather than inside a row for a reason worth keeping: every
+gate in fire control returns quietly, so an unarmed system, one with no lock, one still settling
+and one whose drives the engine refused all look identical from outside. `Holding fire: <why>` is
+the only thing that separates them, and it is no use behind a fold or on a tab nobody is looking
+at.
 
 **A control that opens a window is a button, never a tick box.** A checkmark reads as "this
 setting is on", so a window arriving instead is unannounced and the tick says nothing about where

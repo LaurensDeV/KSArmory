@@ -198,15 +198,6 @@ internal sealed partial class Ui
         ImGui.SameLine();
         ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
 
-        // One switch per armament fitted. A switch for a weapon the system does not carry reads as
-        // one that is turned off rather than as one that is not there.
-        IReadOnlyList<Armament> switches = _fit.Armaments;
-        for (int i = 0; i < switches.Count; i++)
-        {
-            ImGui.SameLine();
-            ImGui.Checkbox(switches[i].Label, ref Armament.EnabledIn(_policy, switches[i].Kind));
-        }
-
         if (ImGui.Button("FIRE")) _battery.FireAtLock();
         ImGui.SameLine();
         if (ImGui.Button("Reset settings") && _battery.Platform is { } craft)
@@ -250,6 +241,11 @@ internal sealed partial class Ui
 
         if (firing) ImGui.TextColored(Red, arm.Describe(remaining, firing));
         else ImGui.Text(arm.Describe(remaining, firing));
+
+        // Beside its own reading rather than with the master arm. Whether this weapon is live is
+        // a fact about this weapon; what fire control decides is whether anything may shoot.
+        ImGui.SameLine();
+        ImGui.Checkbox($"live##{kind}", ref Armament.EnabledIn(_policy, kind));
     }
 
     // The nth director's own controls, under the nth camera row.

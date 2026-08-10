@@ -26,6 +26,32 @@ pass arrives at roughly 4000 m.
 
 Remaining untested: sections 5 (safety) and 6 (robustness) below.
 
+## 0. The panel, after it was rebuilt around components
+
+Nothing here has been flown. The whole window moved in one evening and every item is a claim
+made from reading.
+
+- [ ] **Components** is the first tab and the only one a craft always has. Rows are grouped by
+      role, each one folds open, and the position line is still there.
+- [ ] A **Camera** row holds everything the Director tab used to. Two directors on one craft are
+      two rows that aim independently, and taking the main view on one drops it from the other.
+- [ ] A **Launcher** row holds the tally, the reload bar, the mount readout, `live`, Reload,
+      Safe all, chase and the bomb sight. A **Gun** row holds its belt and its own `live`.
+- [ ] A **Sensor** row holds the lock and the contact. The director's own sensor row says it is
+      not the one fire control reads.
+- [ ] A **Fire control** row holds master arm, auto-engage, FIRE, Reset settings and the mouse
+      controls.
+- [ ] A second launcher of the same kind says **fitted, not run** rather than showing blanks.
+- [ ] The strip above the tabs shows *Clear to fire* / *Holding fire* from **every** tab, plus
+      rounds in flight and a word about the clock only when it is the problem.
+- [ ] A craft carrying **only a director** opens the window, lists its Camera and Sensor rows,
+      and says *no weapons system on this craft* on the rest — **without faulting**. This is the
+      case that crashed twice tonight; both were null `_battery` reads on an uncrewed path.
+- [ ] *KSArmory settings* holds Display, Sound, the warp hold and Debug. The main panel is the
+      craft list and nothing else.
+- [ ] **Tuning** says at the top that it edits every system running that loadout.
+
+
 ## Status: the Pantsir model renders in game
 
 The launcher is a full Pantsir-S1: an 8×8 vehicle 8 m long and 5.6 m tall carrying twelve rounds,
@@ -286,7 +312,7 @@ after installing the craft.
 > the craft file did not load. If the menu item is live but the craft is missing from the
 > dropdown, the folder was read but that save was rejected.
 
-**Use the built-in spawner.** The panel has a **Test targets** section: set time-to-pass,
+**Use the built-in spawner.** *KSArmory settings → Debug → Test targets*: set time-to-pass,
 speed and miss distance, then press **Overhead**, **Head-on** or **Passing by**. A drone
 appears that far out on exactly that course, so a 60 s / 400 m/s overhead pass spawns 24 km
 away and arrives in a minute. Drones are clones of your own craft, so no second craft needed.
@@ -459,7 +485,7 @@ something arrives early.
 
 The controls for this were unreachable until now — `HorizonMasking` and the limb margin had no
 panel control and no profile set them — so every box below has been untestable rather than
-untested. They are under *Tuning → Radar*.
+untested. They are under a system's *Tuning → Radar*.
 
 - [ ] Put a drone on the far side of the planet. It does **not** appear on the scope, and the
       panel says `N behind the horizon` rather than showing an empty list with no explanation.
@@ -686,7 +712,8 @@ and looking sideways stays sideways. **Level the horizon** is the opt-in.
 - [ ] `EO Director` appears under **Sensors** in the editor and surface-attaches.
 - [ ] A craft carrying **only** a director and a command source tracks a target and shows the
       bracket. That is the whole point of the split and nothing before could do it.
-- [ ] Its panel pane says **Director view**, and *off / main view* drives the picture.
+- [ ] Its **Camera** row under *Components* says **Director view**, and *off / main view*
+      drives the picture.
 - [ ] **Track with the director** off parks the head; **Aim by hand** drives it from the sliders.
 - [ ] The elevation slider stops at **−20°**. Below that the window would pass through its own
       mast, which is a fact about the model rather than a preference.
