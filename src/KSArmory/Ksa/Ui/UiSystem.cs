@@ -82,7 +82,7 @@ internal sealed partial class Ui
         {
             ImGui.TextColored(Red, "Launcher: none fitted");
             ImGui.TextDisabled($"  Add the {_profile.DisplayName} in the editor,");
-            ImGui.TextDisabled("  or untick 'Require launcher part' below.");
+            ImGui.TextDisabled("  or untick 'Require launcher part' under World.");
         }
         else
         {
@@ -139,8 +139,6 @@ internal sealed partial class Ui
                 : $"Warp {warp:F0}x");
         }
 
-        DrawSlowMotion();
-
         // Should stay at zero. If it does not, the render rate is outrunning the simulation
         // clock and that is worth knowing, because it explains stuttering round bodies.
         if (_battery.FramesWithoutSimStep > 0)
@@ -171,21 +169,6 @@ internal sealed partial class Ui
         // are still settling all look identical from outside.
         if (_battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
         else ImGui.TextColored(Green, "Clear to fire");
-    }
-
-    // Slow motion, well below what the game's speed control reaches. An engagement is over in a
-    // couple of seconds of real time and the interesting part — the round leaving the tube, the
-    // endgame turn, the fuse — happens far faster than it can be watched. Nothing in KSA stops the
-    // simulation running at a hundredth of real time; its roller is simply built in tenths.
-    private void DrawSlowMotion()
-    {
-        ImGui.Text($"Sim speed: {KsaWorld.SimulationSpeed:0.###}x");
-
-        foreach ((string label, double speed) in SlowMotionSpeeds)
-        {
-            ImGui.SameLine();
-            if (ImGui.Button(label)) KsaWorld.SetSimulationSpeed(speed);
-        }
     }
 
     // Which of the game's camera views the optical head drives. KSA opens the views; a mod can
@@ -522,13 +505,6 @@ internal sealed partial class Ui
             if (!_policy.Armed) ImGui.TextColored(Amber, "  Master arm is off, so clicks do nothing.");
         }
 
-        ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);
-        ImGui.TextDisabled($"  Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only");
-        ImGui.TextDisabled("  while something is in the air, and given back after.");
-        if (!_config.LimitWarpInFlight)
-        {
-            ImGui.TextColored(Amber, "  Off: rounds under warp will lag the world and miss.");
-        }
     }
 
     private void DrawTrackList()

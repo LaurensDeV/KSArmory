@@ -64,7 +64,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     // What a pane is about. Anything belonging to one installation is a tab in that system's own
     // window; Debug is for whoever is working on the mod rather than playing with it.
-    private enum PaneGroup { Debug }
+    private enum PaneGroup { Session, Debug }
 
     // One pop-out window: what it is called, whether it is open, and what it draws. A class
     // rather than a struct so Open is shared with the button that toggles it.
@@ -83,6 +83,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     // appear in, which runs roughly from what an operator touches most to what they touch once.
     private Pane[] Panes => _panes ??=
     [
+        new("Display", DrawDisplayPane, PaneGroup.Session),
+        new("Sound", DrawSoundPane, PaneGroup.Session),
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -448,6 +450,16 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     private void DrawPaneToggles()
     {
+        // The world and what it looks and sounds like. Above Debug and not collapsed, because
+        // these are settings someone playing with the mod actually changes.
+        if (ImGui.TreeNode("World"))
+        {
+            DrawWorld();
+            ImGui.Separator();
+            DrawPaneGroup(null, PaneGroup.Session);
+            ImGui.TreePop();
+        }
+
         // Collapsed, and last: these answer questions about the mod, not about the engagement.
         if (ImGui.TreeNode("Debug"))
         {
