@@ -636,6 +636,19 @@ public static class Arsenal
     /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
     public static LauncherProfile? LauncherForPart(string? partId) => LauncherForPart(Launchers, partId);
 
+    /// <summary>The optical head a part Id names, or null if it names none.</summary>
+    public static OpticProfile? OpticForPart(string? partId)
+    {
+        if (string.IsNullOrEmpty(partId)) return null;
+
+        for (int i = 0; i < Optics.Count; i++)
+        {
+            if (Optics[i].PartId == partId) return Optics[i];
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// The same lookup against an explicit registry.
     ///

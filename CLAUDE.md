@@ -286,6 +286,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
+| `Ksa/OpticPart.cs` | finds a director on a craft, and turns its head |
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
 | `Ksa/GroundTest.cs` | the surface under a round, off the engine's own height field |
 | `Ksa/TerrainHeights.cs` | one body's height field, sampled coarsely and many times per scan |

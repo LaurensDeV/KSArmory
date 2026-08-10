@@ -1,6 +1,21 @@
 namespace KSArmory;
 
 /// <summary>
+/// What a sensor needs from whoever owns it: whose side a contact is on, and whether the craft
+/// being flown is off limits.
+///
+/// <para>An interface because a <c>Radar</c> is driven by a weapons system and by an optical
+/// director, and neither should inherit the other's settings to get one. It is also the whole of
+/// what a sensor asks about policy — everything else it reads is on its own profile.</para>
+/// </summary>
+public interface ISensorPolicy
+{
+    IffPolicy Iff { get; }
+
+    bool ProtectControlledVehicle { get; }
+}
+
+/// <summary>
 /// One battery's own settings — what <em>this</em> installation is allowed to do.
 ///
 /// <para>Split from <see cref="Config"/> because these are the only settings that stop making
@@ -15,7 +30,7 @@ namespace KSArmory;
 /// two Pantsirs on opposite sides of the map share a flight model and disagree about whether
 /// they are armed.</para>
 /// </summary>
-public sealed class SystemConfig
+public sealed class SystemConfig : ISensorPolicy
 {
     // ---- Engagement policy ----------------------------------------------
 
@@ -36,6 +51,10 @@ public sealed class SystemConfig
     /// that impossible.</para>
     /// </summary>
     public bool ProtectControlledVehicle = true;
+
+    // Explicit, so the field above can keep the name. A tick box binds to it by reference, which
+    // a property cannot offer.
+    bool ISensorPolicy.ProtectControlledVehicle => ProtectControlledVehicle;
 
     /// <summary>
     /// Draw the bomb sight: where a store released now would land, and the arc it would take.
