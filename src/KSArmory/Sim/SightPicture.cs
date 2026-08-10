@@ -112,10 +112,20 @@ public static class SightPicture
     }
 
     /// <summary>
-    /// How near a view may come to its own up before that up is useless for building a basis.
-    /// About 2.6°, which is far enough out that the cross product still has usable length.
+    /// How near a view may come to its own up before that up is useless for building a basis:
+    /// 30°, which is a far wider cone than it looks and is a measured number rather than a taste.
+    ///
+    /// <para>The roll comes from the part of the up vector perpendicular to the view, and that
+    /// part shrinks as the two line up — to 4.5% of unit length at 2.6°. Its <em>direction</em> is
+    /// then wildly sensitive: the amplification is 1/sin, so a degree of aim swings the roll 22°
+    /// at 2.6° from the up, 6° at 9.4°, and 2° at 30°. Measured in flight at 1.09° of aim against
+    /// 6.16° of roll with the view 9.4° off vertical, which is 1/sin(9.4°) to two figures.</para>
+    ///
+    /// <para>So this is where the answer stops being worth having, not where it stops existing.
+    /// Inside the cone the previous frame's up is both stable and continuous, which is the whole
+    /// reason there is a previous frame's up to fall back to.</para>
     /// </summary>
-    public const double UpUnusableAbove = 0.999;
+    public const double UpUnusableAbove = 0.866;
 
     /// <summary>
     /// The up to build a view basis from: the one wanted, or the one used last frame when the

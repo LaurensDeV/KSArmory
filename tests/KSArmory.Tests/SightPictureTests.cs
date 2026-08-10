@@ -208,26 +208,41 @@ public class SightPictureTests
     {
         double3 preferred = new(0, 0, 1);
 
-        // Sweeping through straight down, a quarter of a degree at a time.
+        // Sweeping through straight down, a quarter of a degree at a time. Starting well outside
+        // the cone on purpose: a head arrives at the pole from somewhere, and with no previous
+        // answer at all there is nothing to be continuous with -- which the refusal test covers.
         double3 last = Vec.Zero;
         double3 previousUp = Vec.Zero;
         double worst = 0.0;
+        double worstRatio = 0.0;
 
-        for (double off = -6.0; off <= 6.0; off += 0.25)
+        for (double off = -60.0; off <= 60.0; off += 0.25)
         {
             double a = double.DegreesToRadians(off);
             double3 forward = Vec.Unit(new double3(Math.Sin(a), 0, -Math.Cos(a)));
 
             Assert.True(SightPicture.TryStableUp(forward, preferred, last, out double3 up));
 
-            if (Vec.Len2(previousUp) > 0.5) worst = Math.Max(worst, Vec.AngleBetween(previousUp, up));
+            if (Vec.Len2(previousUp) > 0.5)
+            {
+                double rolled = Vec.AngleBetween(previousUp, up);
+                worst = Math.Max(worst, rolled);
+
+                // The measured fault was amplification rather than a jump: a quarter degree of aim
+                // swinging the roll by tens. Pinning the ratio is what stops a future threshold
+                // being set back to where the answer exists but is worthless.
+                worstRatio = Math.Max(worstRatio, rolled / double.DegreesToRadians(0.25));
+            }
 
             previousUp = up;
             last = up;
         }
 
-        Assert.True(worst < 0.2,
+        Assert.True(worst < 0.05,
             $"the roll jumped {double.RadiansToDegrees(worst):F1} deg in one quarter-degree step");
+
+        Assert.True(worstRatio < 2.5,
+            $"a degree of aim moved the roll {worstRatio:F1} degrees at worst");
     }
 
     [Fact]
