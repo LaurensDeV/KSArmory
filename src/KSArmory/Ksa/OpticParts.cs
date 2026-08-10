@@ -10,7 +10,7 @@ namespace KSArmory;
 /// a part in its own right, on any craft, with or without a weapon anywhere near it — so it is
 /// found by walking the craft rather than by looking inside a launcher.</para>
 /// </summary>
-internal static class OpticPart
+internal static class OpticParts
 {
     /// <summary>
     /// Every director on a vehicle, in part order, appended to <paramref name="into"/>.
