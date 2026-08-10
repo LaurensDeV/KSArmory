@@ -203,10 +203,15 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     {
         double3 rest = OpticGeometry.RestDirection;
 
-        // First, ahead of the tracking switch: with mouse aim on the operator is the sensor.
-        if (TryCursorAimPartFrame(out double3 cursorFrame))
+        // Mouse aim owns the head outright rather than being the first of several rungs: with it
+        // on the operator is the sensor, so falling through to tracking -- or to the rest
+        // direction -- would swing the head away the moment the cursor stopped commanding
+        // anything. Holding is where it already is, which is the drive's own direction.
+        if (_policy.MouseAim)
         {
-            return OpticGeometry.ClampToTravel(Profile, cursorFrame);
+            return TryCursorAimPartFrame(out double3 cursorFrame)
+                ? OpticGeometry.ClampToTravel(Profile, cursorFrame)
+                : _drive.Direction;
         }
 
         if (_policy.Manual)
