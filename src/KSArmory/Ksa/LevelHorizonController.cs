@@ -96,11 +96,16 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
     private double3 _probeUp;
     private double3 _probeWanted;
     private bool _probed;
+    private int _grossReported;
+
+    // A single frame cannot roll this far honestly: the head is rate-limited and the camera is
+    // built from it. Past this it is a fault, and a fault worth a line in *any* log -- a
+    // diagnostic that only records when someone remembered to switch it on records nothing on
+    // the run that mattered, which is what happened the first time this was asked for.
+    private const double GrossRollJump = 0.35;
 
     private void Probe(double3 forward, double3 up)
     {
-        if (Log.Threshold > Log.Level.Debug) return;
-
         if (_probed)
         {
             double turned = Vec.AngleBetween(_probeForward, forward);
@@ -109,15 +114,29 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
             // A rate-limited head cannot move far in a frame, so anything past a few degrees is a
             // discontinuity rather than motion. The two are reported together because which of
             // them jumped says which half is at fault: the aim, or the roll built on it.
-            if (rolled > 0.09 || turned > 0.09)
+            bool gross = rolled > GrossRollJump || turned > GrossRollJump;
+
+            if (gross || rolled > 0.09 || turned > 0.09)
             {
-                Log.Debug(() =>
+                string line =
                     $"sight roll: turned {double.RadiansToDegrees(turned):F2} deg, "
                     + $"rolled {double.RadiansToDegrees(rolled):F2} deg | "
                     + $"fwd {forward.X:F3},{forward.Y:F3},{forward.Z:F3} "
                     + $"up {up.X:F3},{up.Y:F3},{up.Z:F3} "
                     + $"wanted {_probeWanted.X:F3},{_probeWanted.Y:F3},{_probeWanted.Z:F3} "
-                    + $"| dot(fwd,wanted) {Vec.Dot(forward, Vec.Unit(UpEcl)):F5}");
+                    + $"| dot(fwd,wanted) {Vec.Dot(forward, Vec.Unit(UpEcl)):F5}";
+
+                // Rate-limited rather than gated on a switch, so a gross jump is always on record
+                // and a run of them is still one line rather than sixty a second.
+                if (gross && _grossReported < 12)
+                {
+                    _grossReported++;
+                    Log.Warn(line);
+                }
+                else if (Log.Threshold <= Log.Level.Debug)
+                {
+                    Log.Debug(() => line);
+                }
             }
         }
 
