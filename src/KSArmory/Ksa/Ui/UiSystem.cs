@@ -190,49 +190,55 @@ internal sealed partial class Ui
 
     // Which of the game's camera views the optical head drives. KSA opens the views; a mod can
     // only borrow one, so this is a picker rather than a switch.
+    // Which of the game's camera views an optical director drives, and how far its optics are
+    // wound in. The head is a part in its own right, so this reads the head fitted to the craft
+    // being shown rather than anything belonging to the weapons system.
     private void DrawOpticView()
     {
-        if (!_fit.HasOpticalHead) return;
-
-        // Declared and unresolved is a fault worth saying out loud. Testing the subpart alone
-        // cannot tell it apart from a system that never had a head, and both then show nothing.
-        if (_battery.OpticPart is null)
+        if (_heads.FirstOn(_battery.Platform) is not { } entry)
         {
-            ImGui.TextColored(Amber, "Optical head: subpart not found");
+            ImGui.TextDisabled("No optical director on this craft. Fit one from Sensors in the");
+            ImGui.TextDisabled("editor to get a sight; a launcher no longer carries its own.");
             return;
         }
 
-        // Only windows the player can actually see. KSA keeps offscreen viewports of its own -
-        // the thumbnail renderer is one - and offering those means picking a view that shows
-        // nothing, which is indistinguishable from the feature being broken.
-        //
-        // There are at most two of them: KSA's own View > Add Camera crashes the game outright on
-        // the fourth window, so nothing here may tell a player to go and open more. See crash 15
-        // in docs/KSA-CAMERAS.md.
+        OpticConfig policy = entry.Policy;
+
+        // Declared and unresolved is a fault worth saying out loud. A head that is fitted and
+        // cannot be found looks exactly like one that is not fitted, and both then show nothing.
+        if (entry.Head.OpticPart is null)
+        {
+            ImGui.TextColored(Amber, "Optical director: head subpart not found");
+            return;
+        }
+
+        // Only windows the player can actually see. KSA keeps offscreen viewports of its own, and
+        // offering those means picking a view that shows nothing, which is indistinguishable from
+        // the feature being broken.
         KsaWorld.CollectUsableViewports(_viewports);
 
         int main = KsaWorld.MainViewportIndex;
 
-        ImGui.Text("Optical head view:");
+        ImGui.Text("Director view:");
         ImGui.SameLine();
 
-        if (ImGui.RadioButton("off", _policy.OpticViewport < 0)) _policy.OpticViewport = -1;
+        if (ImGui.RadioButton("off", policy.Viewport < 0)) policy.Viewport = -1;
 
         // The main view first, because it is the one that works. It is offered whatever else is
         // open and needs nothing opening, so the head is usable on a bare game.
         ImGui.SameLine();
-        if (ImGui.RadioButton("main view", _policy.OpticViewport == main)) _policy.OpticViewport = main;
+        if (ImGui.RadioButton("main view", policy.Viewport == main)) policy.Viewport = main;
 
         foreach (int index in _viewports)
         {
             ImGui.SameLine();
-            if (ImGui.RadioButton(KsaWorld.DescribeViewport(index), _policy.OpticViewport == index))
+            if (ImGui.RadioButton(KsaWorld.DescribeViewport(index), policy.Viewport == index))
             {
-                _policy.OpticViewport = index;
+                policy.Viewport = index;
             }
         }
 
-        if (_policy.OpticViewport == main)
+        if (policy.Viewport == main)
         {
             // Named explicitly because neither reflex works. Driving the view puts it in Fixed
             // mode, and FixedController reads no input at all, so the mouse is inert; Shift+C
@@ -241,44 +247,54 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  borrowed while selected. KSA's View > Orbit Camera takes it");
             ImGui.TextDisabled("  back and switches this off - the mouse and Shift+C will not");
         }
-        else if (_policy.OpticViewport >= 0)
+        else if (policy.Viewport >= 0)
         {
             ImGui.TextDisabled("  no sky or terrain detail here - KSA renders secondary views");
             ImGui.TextDisabled("  without the atmosphere pass. See docs/BLOCKED-ON-KSA.md");
         }
 
-        if (_policy.OpticViewport >= 0) DrawSightLine();
+        ImGui.Checkbox("Track with the director", ref policy.Tracking);
+        ImGui.SameLine();
+        ImGui.Checkbox("Aim by hand", ref policy.Manual);
+
+        if (policy.Manual)
+        {
+            ImGui.SliderFloat("Director bearing (deg)", ref policy.ManualBearingDeg, -180f, 180f);
+            ImGui.SliderFloat("Director elevation (deg)", ref policy.ManualElevationDeg,
+                              entry.Head.Profile.MinElevationDeg, entry.Head.Profile.MaxElevationDeg);
+        }
+
+        if (policy.Viewport >= 0) DrawSightLine(policy, main);
 
         // The chosen window has gone, so stop writing to something that is no longer shown. The
         // main view is exempt: it is never in the collected list, and it cannot be closed.
-        if (_policy.OpticViewport >= 0 && _policy.OpticViewport != main
-            && !_viewports.Contains(_policy.OpticViewport))
+        if (policy.Viewport >= 0 && policy.Viewport != main && !_viewports.Contains(policy.Viewport))
         {
-            _policy.OpticViewport = -1;
+            policy.Viewport = -1;
         }
     }
 
     // Magnification and symbology. Detents rather than a slider: a real sight has optical stops,
     // and a factor arrived at by dragging is one nobody can return to.
-    private void DrawSightLine()
+    private void DrawSightLine(OpticConfig policy, int main)
     {
         ImGui.Text("Magnification:");
 
         foreach (float detent in SightZoom.Detents)
         {
             ImGui.SameLine();
-            bool selected = Math.Abs(_policy.OpticMagnification - detent) < 1e-3f;
-            if (ImGui.RadioButton($"x{detent:0.#}##zoom", selected)) _policy.OpticMagnification = detent;
+            bool selected = Math.Abs(policy.Magnification - detent) < 1e-3f;
+            if (ImGui.RadioButton($"x{detent:0.#}##zoom", selected)) policy.Magnification = detent;
         }
 
         // Only on the main view. A secondary viewport's camera is positioned outright rather than
         // driven through the borrowed-view path, so nothing writes its field of view.
-        if (_policy.OpticViewport != KsaWorld.MainViewportIndex)
+        if (policy.Viewport != main)
         {
             ImGui.TextDisabled("  the main view only - nothing sets a secondary view's zoom");
         }
 
-        ImGui.Checkbox("Sight symbology", ref _policy.SightSymbology);
+        ImGui.Checkbox("Sight symbology", ref policy.Symbology);
     }
 
     private void DrawTurretLine()

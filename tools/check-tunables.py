@@ -26,7 +26,7 @@ SIM = REPO / "src" / "KSArmory" / "Sim"
 UI = REPO / "src" / "KSArmory" / "Ksa" / "Ui"
 
 # The types whose members a player is meant to be able to reach.
-TUNABLE = ["SensorProfile", "MunitionProfile", "SystemConfig"]
+TUNABLE = ["SensorProfile", "MunitionProfile", "SystemConfig", "OpticConfig"]
 
 # Members the panel drives through a helper rather than by name -- a tick box bound to a `ref` the
 # helper returns. The value is what must appear in the panel instead, so removing the control still
@@ -40,6 +40,9 @@ VIA = {
     # is inside it. Its own team is the field that decides every classification, so it stands for
     # the group -- the teams pane is gone if that write is gone.
     "SystemConfig.Iff": "Iff.OwnTeam",
+
+    # A director's own allegiance, edited through the same teams pane once one is shown for it.
+    "OpticConfig.Iff": "Iff.OwnTeam",
 }
 
 # Members no control could sensibly reach, and why. Anything not here needs one.

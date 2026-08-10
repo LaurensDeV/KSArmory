@@ -22,6 +22,10 @@ public sealed class KSArmoryMod
 
     // One battery per weapons system, each with its own policy; Config stays shared.
     private WeaponSystems? _roster;
+
+    // One head per optical director fitted. Crewed independently of the weapons: a craft with a
+    // director and no armament gets one, and a craft with a launcher and no director gets none.
+    private OpticalHeads? _heads;
     private Ui? _ui;
     private int _faults;
     private int _viewTrace;
@@ -60,6 +64,10 @@ public sealed class KSArmoryMod
     // Every round in the world, as things a sensor can hold. Rebuilt each simulated step.
     private readonly List<IContact> _airborne = [];
 
+    // Every craft, for crewing directors. Separate from the weapons survey because a director is
+    // a part rather than a system: there is nothing to recognise beyond the part itself.
+    private readonly List<Vehicle> _craft = [];
+
     // Development tool: pick a craft up and set it down somewhere else.
     private readonly CraftMover _mover = new();
 
@@ -93,11 +101,12 @@ public sealed class KSArmoryMod
     public void OnFullyLoaded()
     {
         _roster = new WeaponSystems(_config);
+        _heads = new OpticalHeads(_config);
         _motors = new MotorSound(_config);
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config);
         _scenario.Begin(ScenarioRunner.Requested());
-        _ui = new Ui(_config, _roster, _warp, _watch, _mover, _bursts);
+        _ui = new Ui(_config, _roster, _heads, _warp, _watch, _mover, _bursts);
         Log.Info($"ready - {string.Join(", ", Arsenal.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -264,18 +273,18 @@ public sealed class KSArmoryMod
             }
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
-            if (KsaWorld.InFlight && _roster.For(_ui.Focused) is { } focused)
+            if (KsaWorld.InFlight && _heads?.FirstOn(_ui.Focused) is { } head)
             {
-                TakeOpticView(focused.Battery, focused.Policy, dt);
+                TakeOpticView(head.Head, head.Policy, dt);
 
                 // Asked of the claim, not of the setting: the sight yields the main view to the
                 // chase without releasing it, and painting through that leaves its bracket over a
                 // picture of something else, stacked under the chase's own.
-                if (ViewClaim.SightPaints(focused.Policy.OpticViewport >= 0,
-                                          focused.Policy.OpticViewport == KsaWorld.MainViewportIndex,
+                if (ViewClaim.SightPaints(head.Policy.Viewport >= 0,
+                                          head.Policy.Viewport == KsaWorld.MainViewportIndex,
                                           _sight.Holding, _chase.HoldsMainView))
                 {
-                    Sight.Draw(focused.Battery, focused.Policy);
+                    Sight.Draw(head.Head, head.Policy, _roster.For(_ui.Focused)?.Battery);
                 }
             }
             else if (KsaWorld.InFlight)
@@ -306,7 +315,16 @@ public sealed class KSArmoryMod
         // Every frame, before the clock gate. This reads where the world is and the whole
         // overlay is drawn against it, so inside the gated step the drawing's frame of
         // reference freezes on every frame that advances no simulated time.
+        // Before the sample, so a director fitted this frame is read this frame rather than
+        // being a frame behind everything measured against it.
+        if (_heads is not null)
+        {
+            KsaWorld.CollectVehicles(_craft);
+            _heads.Sync(_craft);
+        }
+
         foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SampleWorld();
+        _heads?.SampleWorld();
 
         // Reported off the *controlled* vehicle, not the battery's platform: whether a gun
         // renders has nothing to do with whether the battery mounted, so gating it on that
@@ -357,6 +375,7 @@ public sealed class KSArmoryMod
                 CollectAirborne();
 
                 foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step, _airborne);
+                _heads?.Update(step, _airborne);
             }
         }
 
@@ -441,6 +460,8 @@ public sealed class KSArmoryMod
         Markers.Forget();
 
         _roster?.Clear();
+        _heads?.Clear();
+        _heads = null;
         KsaWorld.ResetSimStepTracking();
         _roster = null;
         _ui = null;
@@ -454,25 +475,25 @@ public sealed class KSArmoryMod
     // following the player's craft and KSA places it at following.GetPositionEcl() + CameraOffset
     // during its own pass. The main view is also the only one that draws a planet - see
     // docs/BLOCKED-ON-KSA.md - so it is the one worth having and the one that has to be given back.
-    private void TakeOpticView(WeaponSystem battery, SystemConfig policy, double dt)
+    private void TakeOpticView(OpticalHead battery, OpticConfig policy, double dt)
     {
-        bool wantsMainView = policy.OpticViewport == KsaWorld.MainViewportIndex;
+        bool wantsMainView = policy.Viewport == KsaWorld.MainViewportIndex;
 
         // Asked every frame, including when the optic is off: that is what hands the view back
         // after the player switches it off, and what lets the sight resume once the chase is done.
         ViewAction did = _sight.Apply(battery, wantsMainView, outranked: _chase.HoldsMainView,
-                                      policy.OpticMagnification);
+                                      policy.Magnification);
 
         // Taking the view back by hand switches the optic off, rather than merely releasing it
         // once. The setting is what asks for the view, so leaving it on means the very next frame
         // takes it straight back -- which reads as the mod refusing to let go.
         if (did == ViewAction.StandDown)
         {
-            policy.OpticViewport = -1;
+            policy.Viewport = -1;
             return;
         }
 
-        if (wantsMainView || policy.OpticViewport < 0) return;
+        if (wantsMainView || policy.Viewport < 0) return;
 
         if (battery.OpticPart is null) return;
         if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward))
@@ -487,18 +508,18 @@ public sealed class KSArmoryMod
 
         // Local "up" at the launcher, which is what the boresight already is — so the horizon
         // sits level rather than rolling with the ecliptic.
-        bool took = KsaWorld.TryLookFromViewport(policy.OpticViewport, eye, forward,
+        bool took = KsaWorld.TryLookFromViewport(policy.Viewport, eye, forward,
                                                  battery.Boresight, dt);
         if (trace)
         {
-            Log.Debug(() => $"camera: view {policy.OpticViewport} of {KsaWorld.ViewportCount} "
+            Log.Debug(() => $"camera: view {policy.Viewport} of {KsaWorld.ViewportCount} "
                             + $"took={took} eye={eye.X:F0},{eye.Y:F0},{eye.Z:F0} "
                             + $"fwd={forward.X:F3},{forward.Y:F3},{forward.Z:F3}");
         }
 
         if (!took)
         {
-            policy.OpticViewport = -1;
+            policy.Viewport = -1;
             Log.Warn("camera: could not drive that view; released it");
         }
     }
@@ -648,6 +669,8 @@ public sealed class KSArmoryMod
 
         _disabled = true;
         _roster?.Clear();
+        _heads?.Clear();
+        _heads = null;
         Log.Error("too many faults - air defence disabled for this session");
     }
 }

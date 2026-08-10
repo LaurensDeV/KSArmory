@@ -34,9 +34,14 @@ internal static class Sight
     // that a camera on the ground is not looking at points beyond the horizon.
     private const double ReferenceDistanceMetres = 30000.0;
 
-    public static void Draw(ISightPicture battery, SystemConfig policy)
+    /// <param name="weapon">
+    /// The weapons system the head is watching for, if any. Null for a director on a craft that
+    /// carries no armament — the bracket, the reference and the zoom all still mean something,
+    /// and the arm state, the ammo and the gun's pipper do not exist to be drawn.
+    /// </param>
+    public static void Draw(IOpticalHead battery, OpticConfig policy, ISightPicture? weapon)
     {
-        if (policy.OpticViewport < 0 || battery.OpticPart is null) return;
+        if (policy.Viewport < 0 || battery.OpticPart is null) return;
 
         // The background list, not a window of the mod's own. A full-screen window is submitted
         // after the panel and therefore draws over it, so the reference line and the status block
@@ -48,15 +53,15 @@ internal static class Sight
         ImGuiViewportPtr main = ImGui.GetMainViewport();
         float2 centre = new(main.Pos.X + main.Size.X * 0.5f, main.Pos.Y + main.Size.Y * 0.5f);
 
-        if (policy.SightSymbology)
+        if (policy.Symbology)
         {
             DrawReferenceLine(draw, battery);
             DrawBoresight(draw, centre);
         }
 
-        DrawTarget(draw, battery, main, centre);
+        DrawTarget(draw, battery, main, centre, weapon);
 
-        if (policy.SightSymbology) DrawStatus(draw, battery, policy, main);
+        if (policy.Symbology && weapon is not null) DrawStatus(draw, weapon, policy, main);
     }
 
     // The head's own axis, which is the middle of the view because the camera is boresighted on it.
@@ -76,7 +81,7 @@ internal static class Sight
     // The horizontal through the site, drawn from places that genuinely sit on it. A line laid
     // flat across the screen would only be right where the camera happens to be level, and the
     // whole reason to draw one is that it is not.
-    private static void DrawReferenceLine(ImDrawListPtr draw, ISightPicture battery)
+    private static void DrawReferenceLine(ImDrawListPtr draw, IOpticalHead battery)
     {
         if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward)) return;
 
@@ -115,8 +120,8 @@ internal static class Sight
     }
 
     // The target bracket, the gun pipper, and the lead between them.
-    private static void DrawTarget(ImDrawListPtr draw, ISightPicture battery, ImGuiViewportPtr main,
-                                   float2 centre)
+    private static void DrawTarget(ImDrawListPtr draw, IOpticalHead battery, ImGuiViewportPtr main,
+                                   float2 centre, ISightPicture? weapon)
     {
         if (battery.LockedTrack is not { } track) return;
 
@@ -145,7 +150,7 @@ internal static class Sight
         int count = KSArmory.Reticle.Build(at, half, settled, _strokes);
         for (int i = 0; i < count; i++) Line(draw, _strokes[i].A, _strokes[i].B, colour);
 
-        DrawPipper(draw, battery, main, at, track, targetEgo);
+        if (weapon is not null) DrawPipper(draw, weapon, main, at, track, targetEgo);
 
         string label = $"{track.Range / 1000.0:F2} km   {track.ClosingSpeed:F0} m/s";
         Text(draw, new float2(at.X - half, at.Y + half + 6f), label, colour);
@@ -211,16 +216,13 @@ internal static class Sight
 
     // The block a gunner reads without looking away from the target: what is on, what is loaded,
     // and how far in the optics are wound.
-    private static void DrawStatus(ImDrawListPtr draw, ISightPicture battery, SystemConfig policy,
+    private static void DrawStatus(ImDrawListPtr draw, ISightPicture battery, OpticConfig policy,
                                    ImGuiViewportPtr main)
     {
         float2 at = new(main.Pos.X + 24f, main.Pos.Y + 24f);
         const float line = 17f;
 
         Text(draw, at, battery.Profile.DisplayName, Reticle);
-        at.Y += line;
-
-        Text(draw, at, policy.Armed ? "ARMED" : "SAFE", policy.Armed ? Armed : Reticle);
         at.Y += line;
 
         if (battery.Profile.TubeCount > 0)
@@ -246,7 +248,7 @@ internal static class Sight
         }
 
         double fovDeg = double.RadiansToDegrees(KsaWorld.ViewportFovRad(KsaWorld.MainViewportIndex));
-        string zoom = $"x{SightZoom.Clamp(policy.OpticMagnification):0.#}   {fovDeg:F1} deg";
+        string zoom = $"x{SightZoom.Clamp(policy.Magnification):0.#}   {fovDeg:F1} deg";
         Text(draw, new float2(main.Pos.X + main.Size.X - 150f, main.Pos.Y + 24f), zoom, Reticle);
     }
 

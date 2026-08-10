@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
+internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -21,6 +21,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
 
     private readonly Config _config = config;
     private readonly WeaponSystems _batteries = roster;
+    private readonly OpticalHeads _heads = heads;
     private readonly WarpPolicy _warp = warp;
 
     // The system the panes read. Not fixed, and not set here: Focus points them at whichever

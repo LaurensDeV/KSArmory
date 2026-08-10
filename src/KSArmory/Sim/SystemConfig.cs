@@ -137,34 +137,9 @@ public sealed class SystemConfig : ISensorPolicy
     public bool SearchRadarStopped;
 
     // ---- Optical head ---------------------------------------------------
-
-    /// <summary>
-    /// Which of the game's open camera views this battery's optical head drives, or -1 for none.
-    ///
-    /// <para>An index rather than a flag because KSA opens the views itself — <c>AddViewport</c>
-    /// is private, so a mod borrows one the player has opened rather than making its own.</para>
-    ///
-    /// <para>Per battery because the head is, but a viewport can only serve one at a time: two
-    /// batteries pointed at the same index will fight over it, each rewriting the camera every
-    /// frame. Whoever is drawn last wins, which looks like the view flickering between two
-    /// sights rather than like a setting that needs changing.</para>
-    /// </summary>
-    public int OpticViewport = -1;
-
-    /// <summary>
-    /// How far the head's optics are wound in, as a factor on whatever field of view the view was
-    /// already showing.
-    ///
-    /// <para>A factor rather than an angle so the same setting means the same instrument to two
-    /// players with different field-of-view preferences. See <see cref="SightZoom"/> for why the
-    /// two are not interchangeable.</para>
-    ///
-    /// <para>Per system, and persisted unlike <see cref="OpticViewport"/>: a magnification says
-    /// nothing about the session that saved it, while a viewport index names a window that may not
-    /// exist next time.</para>
-    /// </summary>
-    public float OpticMagnification = 1f;
-
-    /// <summary>Draw the sight's own symbology over the view the head is driving.</summary>
-    public bool SightSymbology = true;
+    //
+    // Nothing. A head is a part in its own right now, with its own OpticConfig: it is crewed per
+    // director rather than per weapons system, it finds its own targets, and a craft can carry one
+    // with no armament at all. Keeping a launcher's copy of these would be a second place to set
+    // the same thing, and the one that did nothing.
 }

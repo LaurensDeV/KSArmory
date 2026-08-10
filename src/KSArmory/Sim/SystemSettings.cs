@@ -31,8 +31,6 @@ public sealed class SystemSettings
     public float TurretManualElevationDeg { get; set; } = 55f;
     public bool TurretSpin { get; set; }
     public bool SearchRadarStopped { get; set; }
-    public float OpticMagnification { get; set; } = 1f;
-    public bool SightSymbology { get; set; } = true;
 
     public string? OwnTeam { get; set; }
     public bool EngageUnknown { get; set; } = true;
@@ -62,8 +60,6 @@ public sealed class SystemSettings
             TurretManualElevationDeg = config.TurretManualElevationDeg,
             TurretSpin = config.TurretSpin,
             SearchRadarStopped = config.SearchRadarStopped,
-            OpticMagnification = config.OpticMagnification,
-            SightSymbology = config.SightSymbology,
 
             OwnTeam = config.Iff.OwnTeam,
             EngageUnknown = config.Iff.EngageUnknown,
@@ -101,9 +97,9 @@ public sealed class SystemSettings
     /// <summary>
     /// Puts these settings onto a battery.
     ///
-    /// <para><see cref="SystemConfig.OpticViewport"/> is deliberately not carried: it names a
-    /// viewport index in the session that saved it, and restoring it would point a new session's
-    /// camera at a window that may not exist.</para>
+    /// <para>Nothing about an optical head is here. A director keeps its own
+    /// <see cref="OpticConfig"/> and is crewed per part rather than per weapons system, so its
+    /// settings are not a battery's to carry.</para>
     /// </summary>
     public void ApplyTo(SystemConfig config)
     {
@@ -123,8 +119,6 @@ public sealed class SystemSettings
         config.TurretManualElevationDeg = TurretManualElevationDeg;
         config.TurretSpin = TurretSpin;
         config.SearchRadarStopped = SearchRadarStopped;
-        config.OpticMagnification = SightZoom.Clamp(OpticMagnification);
-        config.SightSymbology = SightSymbology;
 
         config.Iff.OwnTeam = OwnTeam;
         config.Iff.EngageUnknown = EngageUnknown;
@@ -159,8 +153,6 @@ public sealed class SystemSettings
                || Math.Abs(TurretManualElevationDeg - other.TurretManualElevationDeg) > 1e-3f
                || TurretSpin != other.TurretSpin
                || SearchRadarStopped != other.SearchRadarStopped
-               || Math.Abs(OpticMagnification - other.OpticMagnification) > 1e-3f
-               || SightSymbology != other.SightSymbology
                || !string.Equals(OwnTeam, other.OwnTeam, StringComparison.Ordinal)
                || EngageUnknown != other.EngageUnknown
                || EngageNeutral != other.EngageNeutral
