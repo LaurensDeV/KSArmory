@@ -459,7 +459,7 @@ internal sealed partial class Ui
 
         // Only where it answers the right question. A guided round goes where it is steered, so a
         // ballistic pipper over one is a ring in the wrong place with nothing to say so.
-        if (!_fit.Steers)
+        if (_fit.Drops)
         {
             ImGui.Checkbox("Bomb sight", ref _policy.DrawBombSight);
             ImGui.TextDisabled("  where a store released now would land, flown rather than solved");
