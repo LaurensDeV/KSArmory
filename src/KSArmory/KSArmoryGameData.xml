@@ -36,28 +36,42 @@
     useful on a craft that carries no armament at all, and filing it under Weapons would say the
     opposite of what it is.
 
-    Same three flags and the same reasoning: a director has to be able to root a craft, since an
-    observation post is a hull with one of these on it and nothing else.
+    Same three flags, but RootPartWhitelist does nothing for the director as it stands: the
+    editor rejects any part carrying a ToSurface connector whatever its tags say, and a head that
+    bolts to anything needs one. It is here for a sensor that stacks instead. An observation post
+    is a hull with a director on it, so the hull is the root and this is the passenger.
   -->
   <EditorTagDef Id="Sensors" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
                 DiameterFilterlist="true" />
 
   <PartGameData Id="KSArmory_Prefab_Launcher6" DisplayName="Pantsir-S1 Point Defence System">
     <EditorTag Value="Weapons" />
-    <EditorTag Value="Radial" />
+
+    <!--
+      Not Radial, unlike the stores below. That tag is on the editor's face-snap target
+      *blacklist*, and the blacklist beats the Weapons whitelist, so while it was here nothing
+      could be mounted on the launcher, an EO director included. A vehicle is something you bolt
+      things to.
+    -->
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="3" />
 
-    <!-- Attaches by its underside to the top or side of a stack. -->
-    <Connector Id="_adConnectorAft">
-      <Flags>ToSurface</Flags>
-    </Connector>
+    <!--
+      A node connector, at the part origin, which is the underside. No ToSurface, and that is
+      what lets the launcher start a craft: VehicleEditor.IsAllowedAsRootPart rejects a part if
+      *any* of its connectors is ToSurface or FromSurface, whatever tags it carries. So a vehicle
+      root and a radially-attached part are mutually exclusive in KSA, and this is a truck.
+
+      NoFaceSnapping above is the other half. Face snapping is a separate route onto a surface
+      that a ToSurface connector suppresses, so dropping the flag would otherwise switch this
+      part onto it, and it aligns the part's -Z to the surface where the connector path aligns
+      the connector's -X. +X is up on this hull, so that lays an 8x8 truck on its side.
+    -->
+    <Connector Id="_adConnectorAft" />
 
     <!--
-      Makes the launcher a command source in its own right, so it can be the root of a
-      vehicle and launched on its own as a self-contained air-defence site. Without this a
-      craft consisting only of the launcher has nothing to control it and KSA will not fly it.
-      It still surface-attaches to a larger craft exactly as before.
+      Makes the launcher a command source in its own right, so a craft that is only this has
+      something to control it. Without it KSA will not fly one.
     -->
     <Control />
 

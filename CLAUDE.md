@@ -599,6 +599,16 @@ else does.
 connector; `ToSurface` is the opt-in for radial. So the CIWS sits on top of any 3 m tank, decoupler
 or adapter, and has one connector because nothing stacks on a gun.
 
+**A part that surface-attaches cannot start a craft.** `IsAllowedAsRootPart` rejects a part if
+*any* of its connectors is `ToSurface` or `FromSurface`, whatever tags it carries — so the choice
+is one or the other, and it is why the Pantsir and the CIWS stack while the rail, the rack and the
+director attach radially. A vehicle roots; a store rides. Nothing logs when it is wrong: the part
+is simply greyed out while the editor is empty.
+
+**And Core's `Radial` tag stops anything being mounted on the part carrying it**, because the
+editor's face-snap target blacklist beats its whitelist. On a store that is right; on a launcher it
+means no director can be fitted. `docs/KSA-MODDING-NOTES.md` has all three gates.
+
 A launcher that does not train is the same `LauncherProfile` with `TurretMarker` and `PodsMarker`
 left null — `Trains` is then false, the drives are skipped and `IsLaid` stays true, so fire
 control cannot deadlock waiting for something that will never move.

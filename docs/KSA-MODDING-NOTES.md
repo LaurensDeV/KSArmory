@@ -384,6 +384,50 @@ them. Simulating the behaviour from a StarMap hook instead avoids all of that, a
 repo does — from `[StarMapAfterGui]` rather than the frame hook, because a postfix on `OnFrame`
 lands *after* the render it was meant to feed. See `docs/FRAMES-AND-EPOCHS.md`.
 
+### What lets a part start a craft, and what lets one be bolted to
+
+Three separate gates in `VehicleEditor`, none of which fails loudly. A part that trips one is
+simply greyed out or skipped, with nothing in any log.
+
+**Starting a craft** — `IsAllowedAsRootPart`, reached from `editor.IsEmpty && !IsAllowedAsRootPart(part)`,
+which is what greys a part out when the editor is empty:
+
+```csharp
+if (EditorTag.MatchAny(part.EditorTags, _rootPartWhitelist))
+{
+    if (part.Connectors.Count == 0) return false;
+    foreach (var connector in part.Connectors)
+        if (IsSet(connector.Flags, 4) || IsSet(connector.Flags, 2))   // FromSurface | ToSurface
+            return false;
+    return true;
+}
+return false;
+```
+
+So it needs a tag whose `EditorTagDef` carries `RootPartWhitelist` — `Capsules`, `Engines` and
+`Interstage` are the built-ins, and a mod's own tag can set it — **and** at least one connector,
+**and** not one single `ToSurface` or `FromSurface` connector among them. The last is absolute
+and beats the tag: **a radially-attached part can never be a vehicle root.** Choose one.
+
+**Being bolted to** — `HandleSnapping` skips any candidate where
+`!faceSnapTargetWhitelist || faceSnapTargetBlacklist`. **The blacklist wins**, so Core's `Radial`
+tag (`FaceSnapTargetBlacklist`) silently cancels a whitelisted tag on the same part and nothing
+can be mounted on it.
+
+**Two different routes onto a surface**, and the one taken changes the orientation:
+
+| Route | Taken when | Aligns |
+| --- | --- | --- |
+| `ToSurface` connector | the part has one | the **connector's −X** to the surface normal |
+| face snapping | it has none, and no `FaceSnapBlacklist` tag | the **part's −Z** (`alignDirectionPartAsmb ?? (0,0,-1)`) |
+
+A `ToSurface` connector *suppresses* face snapping — `HandleConnectorConnections` runs first and
+the loop after it returns early. So dropping the flag does not stop a part attaching, it switches
+it to the other route and a different axis: for a hull modelled with +X up, that lays it on its
+side. `NoFaceSnapping` (Core's tag, `FaceSnapBlacklist`) is what turns the second route off.
+
+`Diameter` plus a `DiameterFilterlist` tag is what makes a part appear under a given stack size.
+
 ### Removing a subpart breaks every save holding that part, and kills the process
 
 **A saved part is paired with its current definition by *position*, and the loop is bounded by
