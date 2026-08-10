@@ -402,6 +402,11 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         if (ImGui.Begin($"{KsaWorld.DisplayName(craft)}{flying}###KSArmorySystem", ref open))
         {
+            // Above the tabs, so it is on screen whichever one is open. What it carries is the
+            // answer to why the system is or is not shooting, which is the question most often
+            // asked while looking at some other tab.
+            if (armed) DrawSystemHeader();
+
             if (ImGui.BeginTabBar("##systemtabs"))
             {
                 if (armed)

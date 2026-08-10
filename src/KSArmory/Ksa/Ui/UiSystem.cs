@@ -101,6 +101,38 @@ internal sealed partial class Ui
         DrawWeapons();
     }
 
+    // The two facts that belong to the installation rather than to any part of it, plus a word
+    // about the clock when it is stopping the thing working.
+    //
+    // Above the tab bar rather than inside a tab. Every gate in fire control returns quietly, so
+    // an unarmed system, one with no lock, one still settling and one whose drives the engine
+    // refused all look identical from outside: this line is the only thing that separates them,
+    // and it is no use on a tab nobody is looking at.
+    //
+    // Not inside the fire-control component row either, for the same reason. A row folds, and a
+    // headline behind a disclosure triangle is worse than one behind a tab.
+    private void DrawSystemHeader()
+    {
+        if (_battery.Platform is null)
+        {
+            ImGui.TextColored(Grey, "No platform - take control of a vehicle.");
+            ImGui.Separator();
+            return;
+        }
+
+        if (_battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
+        else ImGui.TextColored(Green, "Clear to fire");
+
+        if (_battery.Rounds.Count > 0)
+        {
+            ImGui.SameLine();
+            ImGui.Text($"   In flight: {_battery.Rounds.Count}");
+        }
+
+        DrawClockWarning();
+        ImGui.Separator();
+    }
+
     private void DrawStatus()
     {
         if (_battery.Platform is null)
@@ -108,13 +140,6 @@ internal sealed partial class Ui
             ImGui.TextColored(Grey, "No platform - take control of a vehicle.");
             return;
         }
-
-        // First, because it is the question this pane exists to answer. Every gate in fire control
-        // returns quietly, so an unarmed system, one with no lock and one whose drives are still
-        // settling all look identical from outside -- and this is the only line that separates
-        // them. It also states the master arm, which is why there is no separate label for it.
-        if (_battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
-        else ImGui.TextColored(Green, "Clear to fire");
 
         // One reading per armament the system is fitted with. A launcher with no tubes and one
         // with no cannon both describe themselves here without this knowing which it is, so
@@ -145,13 +170,10 @@ internal sealed partial class Ui
                 (float)(1.0 - _battery.ReloadRemaining / Math.Max(0.001f, _profile.ReloadSeconds)));
         }
 
-        DrawClockWarning();
-
         DrawTurretLine();
 
         DrawRadarState();
 
-        if (_battery.Rounds.Count > 0) ImGui.Text($"In flight: {_battery.Rounds.Count}");
     }
 
     // Only when the clock is a problem. Fire control runs on simulated time, so a paused or
