@@ -204,15 +204,6 @@
   </SubPart>
 
   <!-- Double-sided hexagonal search array. Turns continuously on its own turntable. -->
-  <SubPart Id="KSArmory_Optic_SubPart">
-    <PartModel Id="KSArmory_Subpart_Optic_Model">
-      <Mesh Id="KSArmory_Subpart_Optic" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Optic_VM" />
-    </MeshView>
-  </SubPart>
 
   <SubPart Id="KSArmory_Radar_SubPart">
     <PartModel Id="KSArmory_Subpart_Radar_Model">
@@ -297,16 +288,6 @@
       </Transform>
     </SubPart>
 
-    <!--
-      Electro-optical head. Aimed freely rather than about an axis, so the mod writes it a full
-      rotation each frame; the value here is only where its ball sits with the turret forward.
-      Keep in step with EO_PIVOT in tools/model/pantsir.py.
-    -->
-    <SubPart Id="KSArmory_Launcher_Optic" InstanceOf="KSArmory_Optic_SubPart">
-      <Transform>
-        <Position X="4.10000" Y="-0.35000" Z="0.44000" />
-      </Transform>
-    </SubPart>
 
     <!-- Underside attach node, at the ground plane and facing down. -->
     <Connector Id="_adConnectorAft">

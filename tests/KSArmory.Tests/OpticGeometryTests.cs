@@ -130,7 +130,7 @@ public class OpticGeometryTests
         DrivePose pose = OpticGeometry.Pose(p, aim);
 
         Assert.Equal(p.HeadPivot.X, pose.Position.X, 9);
-        Assert.Equal(0.0, Vec.AngleBetween(pose.Rotation * TubeGeometry.OpticRestDirection, aim), 9);
+        Assert.Equal(0.0, Vec.AngleBetween(pose.Rotation * OpticGeometry.RestDirection, aim), 9);
     }
 
     [Fact]

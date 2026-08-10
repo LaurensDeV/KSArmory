@@ -97,9 +97,6 @@ public sealed class WeaponFit
     /// <summary>It carries a search array that turns.</summary>
     public required bool SweepsASearchArray { get; init; }
 
-    /// <summary>It carries an optical head that can drive a view.</summary>
-    public required bool HasOpticalHead { get; init; }
-
     /// <summary>
     /// It finds its own targets. False for a launcher that is aimed and fired by hand, which has
     /// no scope, no track list and nothing to tune on a sensor.
@@ -171,7 +168,6 @@ public sealed class WeaponFit
             Traverses = launcher.TurretMarker is not null,
             Elevates = launcher.PodsMarker is not null || launcher.GunsMarker is not null,
             SweepsASearchArray = launcher.RadarMarker is not null,
-            HasOpticalHead = launcher.OpticMarker is not null,
 
             // A set with no range detects nothing, which is the only way to declare "no sensor"
             // while every launcher still names one.

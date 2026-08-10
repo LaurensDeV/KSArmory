@@ -32,7 +32,6 @@ public class WeaponFitTests
         PodsMarker = "Pods",
         RadarMarker = "Radar",
         GunsMarker = "Guns",
-        OpticMarker = "Optic",
         GunMunition = "shell",
         GunMuzzles = [new(1, 0, 0)],
         GunAmmo = 480,
@@ -160,7 +159,6 @@ public class WeaponFitTests
         Assert.True(fit.Traverses);
         Assert.True(fit.Elevates);
         Assert.True(fit.SweepsASearchArray);
-        Assert.True(fit.HasOpticalHead);
         Assert.True(fit.Searches);
         Assert.True(fit.Steers);
     }
@@ -174,7 +172,6 @@ public class WeaponFitTests
         Assert.False(fit.Traverses);
         Assert.False(fit.Elevates);
         Assert.False(fit.SweepsASearchArray);
-        Assert.False(fit.HasOpticalHead);
     }
 
     [Fact]
@@ -186,7 +183,6 @@ public class WeaponFitTests
         Assert.True(fit.Traverses);
         Assert.True(fit.Elevates);
         Assert.False(fit.SweepsASearchArray);
-        Assert.False(fit.HasOpticalHead);
     }
 
     [Fact]

@@ -18,7 +18,7 @@ namespace KSArmory;
 public sealed class PointingDrive
 {
     /// <summary>Where the head is actually looking, in the part's frame.</summary>
-    public double3 Direction { get; private set; } = TubeGeometry.OpticRestDirection;
+    public double3 Direction { get; private set; } = OpticGeometry.RestDirection;
 
     /// <summary>Angle still to cover (rad). Zero once settled on the command.</summary>
     public double ErrorRad { get; private set; }
@@ -28,7 +28,7 @@ public sealed class PointingDrive
 
     public void Reset()
     {
-        Direction = TubeGeometry.OpticRestDirection;
+        Direction = OpticGeometry.RestDirection;
         ErrorRad = 0.0;
     }
 
@@ -40,7 +40,7 @@ public sealed class PointingDrive
         if (!(dt > 0.0) || !double.IsFinite(dt)) return;
 
         double3 current = Vec.Unit(Direction);
-        if (!Vec.IsFinite(current) || current.Equals(Vec.Zero)) current = TubeGeometry.OpticRestDirection;
+        if (!Vec.IsFinite(current) || current.Equals(Vec.Zero)) current = OpticGeometry.RestDirection;
 
         double dot = Math.Clamp(Vec.Dot(current, command), -1.0, 1.0);
         ErrorRad = Math.Acos(dot);

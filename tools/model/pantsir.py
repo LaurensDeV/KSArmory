@@ -145,7 +145,6 @@ RADAR_PIVOT = (4.05, RADAR_MAST_Y, 0.0)  # spin axis, parallel to the part's X
 # Above the tracking array, which reaches X 3.67. Beside it the array cuts the sight line the
 # moment the head looks down and forward - which is exactly where a target on its final approach
 # is.
-EO_PIVOT = (4.10, TURRET_Y + 1.07, 0.44)
 
 # The 57E6 round: a bronze booster with small tail fins, a cluster of four delta fins at the
 # stage joint, and a slim grey sustainer with a blue-grey nose. Modelled nose-along-+X with the
@@ -211,7 +210,7 @@ _jitter = random.Random(0x9A5D)
 UV_PER_METRE = 0.012
 SWATCH_REACH = 0.08
 
-_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "guns": [], "optic": [],
+_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "guns": [],
             "missile": [], "fins": []}
 _group = "chassis"
 
@@ -661,17 +660,14 @@ def build_tracking_radar():
     for z in (-1.0, 1.0):
         box((1.44, 0.16, 0.10), (2.95, face_y - 0.04, z * 0.76), (0.0, 0.0, tilt), "metal")
 
-    # Electro-optical tracker. The pedestal belongs to the turret; the head above it is a body
-    # of its own so it can be slewed onto the track. sphere() and cyl() consume no box jitter,
-    # so lifting them into another group leaves the sequence untouched.
-    global _group
+    # Where the electro-optical tracker used to sit. The pedestal stays as a blanked-off stub:
+    # the head is its own part now (tools/model/optic.py), and a Pantsir wanting a sight carries
+    # one like anything else does.
+    #
+    # The box() call stays rather than going with the head. Jitter runs off one seed, so deleting
+    # a box moves every box drawn after it onto different planes -- in the pods, the cannon and
+    # the rail, none of which have anything to do with this.
     box((0.74, 0.44, 0.50), (3.72, TURRET_Y + 1.05, 0.44), swatch="hull_dark")
-
-    _group = "optic"
-    sphere(0.26, EO_PIVOT, "radar")
-    cyl(0.14, 0.10, (EO_PIVOT[0] + 0.04, EO_PIVOT[1] + 0.23, EO_PIVOT[2]), axis_y(),
-        "glass", verts=16)
-    _group = "turret"
 
 
 def build_search_radar_mount():
@@ -832,7 +828,6 @@ def export(path):
     pods = join_group("pods", recentre=POD_PIVOT)
     radar = join_group("radar", recentre=RADAR_PIVOT)
     guns = join_group("guns", recentre=GUN_PIVOT)
-    eohead = join_group("optic", recentre=EO_PIVOT)
     missile = join_group("missile")
     fins = join_group("fins")
     rail = join_group("sidewinder")
@@ -853,7 +848,6 @@ def export(path):
                       (pods, "KSArmory_Subpart_Pods"),
                       (radar, "KSArmory_Subpart_Radar"),
                       (guns, "KSArmory_Subpart_Guns"),
-                      (eohead, "KSArmory_Subpart_Optic"),
                       (missile, "KSArmory_Subpart_Missile"),
                       (fins, "KSArmory_Subpart_Fins"),
                       (rail, "KSArmory_Subpart_SidewinderRail"),
@@ -1080,7 +1074,6 @@ def report_muzzles(out_dir):
     # mod composes traverse and elevation itself and writes the pods' position each frame.
     pod_rel_turret = Vector(POD_PIVOT) - Vector(TURRET_PIVOT)
     radar_rel_turret = Vector(RADAR_PIVOT) - Vector(TURRET_PIVOT)
-    eo_rel_turret = Vector(EO_PIVOT) - Vector(TURRET_PIVOT)
 
     print(f"\n    tube count           = {len(firing)}   (LauncherProfile.TubeCount is derived)")
     print(f"    MuzzleForwardOffset  = {mean_x:.3f}   (highest tube mouth {highest:.3f} m)")
@@ -1107,8 +1100,6 @@ def report_muzzles(out_dir):
         f"({m.x:.5f}, {m.y:.5f}, {m.z:.5f})" for m in gun_muzzles))
     print(f"    RadarPivotFromTurret = ({radar_rel_turret.x:.5f}, {radar_rel_turret.y:.5f}, "
           f"{radar_rel_turret.z:.5f})")
-    print(f"    OpticPivotFromTurret = ({eo_rel_turret.x:.5f}, {eo_rel_turret.y:.5f}, "
-          f"{eo_rel_turret.z:.5f})")
 
     emitted = {}
     sidewinder.report(emitted)
@@ -1131,7 +1122,6 @@ def report_muzzles(out_dir):
             "pod_reference_elevation_deg": round(math.degrees(POD_ELEV), 3),
             "radar_pivot": [round(v, 5) for v in RADAR_PIVOT],
             "radar_pivot_from_turret": [round(v, 5) for v in radar_rel_turret],
-            "eo_pivot_from_turret": [round(v, 5) for v in eo_rel_turret],
         }, fh, indent=2)
 
 

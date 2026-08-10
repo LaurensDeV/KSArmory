@@ -25,7 +25,7 @@ public class PointingDriveTests
         drive.Update(0.016, behind, Rate);
 
         double turned = Math.Acos(Math.Clamp(
-            Vec.Dot(Vec.Unit(drive.Direction), TubeGeometry.OpticRestDirection), -1.0, 1.0));
+            Vec.Dot(Vec.Unit(drive.Direction), OpticGeometry.RestDirection), -1.0, 1.0));
 
         Assert.True(turned <= Rate * 0.016 + 1e-9,
                     $"turned {double.RadiansToDegrees(turned):F1}° in one frame at 90°/s");
@@ -67,7 +67,7 @@ public class PointingDriveTests
     public void ExactlyBehindTurnsRatherThanGoingNaN()
     {
         var drive = new PointingDrive();
-        double3 behind = -TubeGeometry.OpticRestDirection;
+        double3 behind = -OpticGeometry.RestDirection;
 
         for (int i = 0; i < 300; i++) drive.Update(0.016, behind, Rate);
 
@@ -97,16 +97,16 @@ public class PointingDriveTests
         drive.Update(0.0, new double3(0, -1, 0), Rate);
         drive.Update(-1.0, new double3(0, -1, 0), Rate);
 
-        Assert.Equal(TubeGeometry.OpticRestDirection.Y, drive.Direction.Y, 9);
+        Assert.Equal(OpticGeometry.RestDirection.Y, drive.Direction.Y, 9);
     }
 
     [Fact]
     public void RotationFromToCarriesTheRestDirectionOntoTheAim()
     {
         double3 aim = Vec.Unit(new double3(1, 2, -3));
-        doubleQuat rotation = TubeGeometry.RotationFromTo(TubeGeometry.OpticRestDirection, aim);
+        doubleQuat rotation = TubeGeometry.RotationFromTo(OpticGeometry.RestDirection, aim);
 
-        double3 pointed = rotation * TubeGeometry.OpticRestDirection;
+        double3 pointed = rotation * OpticGeometry.RestDirection;
 
         Assert.Equal(aim.X, pointed.X, 9);
         Assert.Equal(aim.Y, pointed.Y, 9);

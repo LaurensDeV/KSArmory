@@ -18,10 +18,17 @@ public static class OpticGeometry
     /// </summary>
     public static readonly double3 MountNormal = new(1, 0, 0);
 
+    /// <summary>
+    /// Where a head's mesh looks when it is not turned: the part's <c>+Y</c>, which is the face
+    /// the window is modelled on. Every rotation written to the head is the shortest one carrying
+    /// this onto the aim, so a model with its lens anywhere else arrives pointing sideways.
+    /// </summary>
+    public static readonly double3 RestDirection = new(0, 1, 0);
+
     /// <summary>The head's pose in the part's frame, given where it is looking.</summary>
     public static DrivePose Pose(OpticProfile profile, double3 aimPartFrame)
         => new(profile.HeadPivot,
-               TubeGeometry.RotationFromTo(TubeGeometry.OpticRestDirection, aimPartFrame));
+               TubeGeometry.RotationFromTo(OpticGeometry.RestDirection, aimPartFrame));
 
     /// <summary>
     /// Where the eye sits in the part's frame.

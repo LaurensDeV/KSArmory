@@ -78,6 +78,10 @@ internal interface IEffectSource : IRoundsInFlight
 /// from the craft the head is bolted to. KSA's <c>FixedController</c> places a camera at
 /// <c>following.GetPositionEcl() + CameraOffset</c> during its own frame pass, so the offset must
 /// be a pure separation from the followed craft and never a position sampled here.</para>
+///
+/// <para>Implemented by <see cref="OpticalHead"/> alone. It was written when a launcher carried
+/// the head, and it is why moving the head onto a part of its own changed nothing in the sight,
+/// the chase camera or the claim ladder.</para>
 /// </summary>
 internal interface IOpticalHead : IWeaponPlatform
 {
@@ -99,7 +103,7 @@ internal interface IOpticalHead : IWeaponPlatform
     /// </summary>
     bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl);
 
-    /// <inheritdoc cref="WeaponSystem.TryOpticViewEclAt"/>
+    /// <inheritdoc cref="OpticalHead.TryOpticViewEclAt"/>
     bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl);
 }
 
@@ -107,11 +111,16 @@ internal interface IOpticalHead : IWeaponPlatform
 /// Everything the gunner's sight paints: the head and its contact, plus the weapons that could
 /// take the shot and where each is pointing.
 ///
-/// <para>Wider than <see cref="IOpticalHead"/> and deliberately still narrower than the system.
-/// A sight reports; it has no way to arm, fire, slew or re-platform anything it is drawn over,
-/// which is what makes it safe to paint every frame from the draw hook.</para>
+/// <para>Not an optical head. A sight is painted <em>through</em> a director, which is its own
+/// part on the craft, so this is only what a weapon beside it contributes to the picture — and a
+/// craft with no weapon contributes none of it, which is why <c>Sight.Draw</c> takes it as
+/// optional.</para>
+///
+/// <para>Deliberately narrower than the system. A sight reports; it has no way to arm, fire, slew
+/// or re-platform anything it is drawn over, which is what makes it safe to paint every frame from
+/// the draw hook.</para>
 /// </summary>
-internal interface ISightPicture : IOpticalHead, IWeaponLoadout
+internal interface ISightPicture : IWeaponPlatform, IWeaponLoadout
 {
     /// <summary>Rounds in the tubes.</summary>
     int Ammo { get; }

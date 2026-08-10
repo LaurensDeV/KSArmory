@@ -641,7 +641,7 @@ craft that threw it with nothing having to know a round from a craft.
 
 **A setting belongs to a system or to the session, and which one is the whole distinction.**
 `SystemConfig` holds what can differ between two launchers in the same world — armed,
-auto-engage, which weapons are live, turret mode, the optical head's viewport, whether the craft
+auto-engage, which weapons are live, turret mode, whether the craft
 being flown is protected, and **the IFF policy**, because two sites on opposite sides is exactly
 the case. `Config` holds what cannot: the
 roster of team names, what gets drawn, how much is logged. The test to apply is not importance but
@@ -1159,7 +1159,7 @@ in **radians** — a factor of 57.3 between the two directions, which is why bot
 `CreatePerspectiveFieldOfViewReverseZ` *throws* for a field of zero or more than half a turn, out
 of the frame hook, so `SightZoom.MinFovDeg` is a crash guard rather than a preference.
 
-**And a magnification, never an angle.** `SystemConfig.OpticMagnification` is a factor on whatever
+**And a magnification, never an angle.** `OpticConfig.Magnification` is a factor on whatever
 field the player already had, so the same setting is the same instrument to two people with
 different preferences. The relation is optical — `tan(fov/2) = tan(base/2) / m` — so halving the
 angle is 2.06×, not 2×, and the gap grows without bound as the field narrows: what a linear rule
@@ -1199,11 +1199,24 @@ the only mod code that runs inside that pass, so `IViewPose` asks for the pose a
 refusal leaves the written fields alone, and nothing on that path may throw — it is inside the
 engine's loop.
 
-**And a sight is aimed from the sight, not from the hull.** `WeaponSystem.OpticOriginEcl` measures
-the head's bearing from the head's own pivot, because a command measured from the launcher part's
-origin lays the head *parallel* to the right bearing and displaced off it by 4.14 m — a fixed
-distance, so a shrinking angle: a tenth of the picture at 700 m and nothing at 9 km.
-`AimOriginEcl` is the same correction for the tube drives and carries the full reasoning.
+**And a sight is aimed from the sight, not from the hull.** `OpticalHead.AimPartFrame` measures
+the head's bearing from the head's own pivot, because a command measured from the part's origin
+lays the head *parallel* to the right bearing and displaced off it — a fixed distance, so a
+shrinking angle: a tenth of the picture at a few hundred metres and nothing at 9 km.
+`WeaponSystem.AimOriginEcl` is the same correction for the tube drives and carries the full
+reasoning.
+
+**The head is its own part, and a launcher carries none.** `Ksa/OpticalHead.cs` is crewed per
+director fitted rather than per weapons system, finds its own targets through its own
+`SensorProfile`, and needs no weapon on the craft at all — so a hull with one director on it is an
+observation post, and a Pantsir with none has no sight. That it cost nothing in the sight, the
+chase camera or the claim ladder is `IOpticalHead` earning its place: the interface was written
+when the head *was* launcher gear, and every consumer of it was already reading a role rather than
+a system.
+
+`ISightPicture` is what a weapon beside the head contributes to the picture — the arm state, the
+ammo, the gun's pipper. `Sight.Draw` takes it as **optional**, so an unarmed craft still gets the
+bracket, the reference and the zoom, which are about looking rather than shooting.
 
 **Two things borrow that view, and the loser waits rather than tidying up.** `Sim/ViewClaim.cs` is
 the ladder: the player reclaiming the view outranks everything, then the chase camera, then the

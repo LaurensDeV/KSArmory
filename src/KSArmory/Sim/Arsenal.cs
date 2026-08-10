@@ -321,7 +321,6 @@ public static class Arsenal
         PodsMarker = "Pods",
         RadarMarker = "Radar",
         GunsMarker = "Guns",
-        OpticMarker = "Optic",
 
         // Generated: muzzle of each tube in the pods' frame, in firing order. The Pantsir's tubes
         // are a parallel block, so none declares a direction of its own and they all follow the
@@ -345,7 +344,6 @@ public static class Arsenal
         TurretPivot = new(0.00000, -1.42000, 0.00000),
         PodPivotFromTurret = new(2.62000, -0.63000, 0.00000),
         RadarPivotFromTurret = new(4.05000, -1.10000, 0.00000),
-        OpticPivotFromTurret = new(4.10000, 1.07000, 0.44000),
         GunPivotFromTurret = new(3.70000, 0.07000, 0.00000),
         GunReferenceElevationRad = 0.38397,          // 22 degrees
 
@@ -595,7 +593,6 @@ public static class Arsenal
             Provides =
             [
                 new(WeaponRole.Sensor, SearchRadar1Rs1.DisplayName),
-                new(WeaponRole.Camera, "Optical head"),
                 new(WeaponRole.Gun, Cannon30Mm.DisplayName),
                 new(WeaponRole.FireControl, "Pantsir-S1 fire control"),
             ],

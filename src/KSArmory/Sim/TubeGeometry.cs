@@ -78,9 +78,6 @@ public static class TubeGeometry
         return Vec.IsFinite(partFrame);
     }
 
-    /// <summary>Where the optical head looks with nothing to look at: along the vehicle's nose.</summary>
-    public static readonly double3 OpticRestDirection = new(0, 1, 0);
-
     /// <summary>
     /// The shortest rotation carrying one direction onto another.
     ///
@@ -106,17 +103,6 @@ public static class TubeGeometry
         }
 
         return doubleQuat.CreateFromAxisAngle(Vec.Unit(Vec.Cross(a, b)), Math.Acos(dot));
-    }
-
-    /// <summary>
-    /// The optical head: rides the turret's traverse, but points wherever it is told rather than
-    /// following the drives. <paramref name="aimPartFrame"/> is a direction in the part's frame.
-    /// </summary>
-    public static DrivePose OpticPose(LauncherProfile profile, double bearingRad, double3 aimPartFrame)
-    {
-        doubleQuat traverse = TurretRotation(bearingRad);
-        return new DrivePose(profile.TurretPivot + traverse * profile.OpticPivotFromTurret,
-                             RotationFromTo(OpticRestDirection, aimPartFrame));
     }
 
     /// <summary>

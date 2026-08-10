@@ -124,11 +124,21 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// <summary>Clears the refusal latch, because a new craft deserves a fresh assessment.</summary>
     public void Reset() => _driveWorks = true;
 
-    /// <inheritdoc cref="WeaponSystem.TryOpticViewEcl"/>
+    /// <summary>
+    /// Where the head is looking from and along what, both in Ecl. False when the director, its
+    /// head or the pose cannot be resolved — the caller then draws and drives nothing rather than
+    /// pointing a camera at the origin.
+    /// </summary>
     public bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl)
         => TryOpticViewEclAt(PlatformEcl, out eyeEcl, out forwardEcl);
 
-    /// <inheritdoc cref="WeaponSystem.TryOpticViewEclAt"/>
+    /// <summary>
+    /// The same view, resolved against a platform position sampled by the caller.
+    ///
+    /// <para>For the one caller that runs inside the engine's viewport pass, where "now" is a
+    /// different instant from the mod's own sample and the difference is a frame of the planet's
+    /// motion.</para>
+    /// </summary>
     public bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl)
     {
         eyeEcl = forwardEcl = Vec.Zero;
@@ -160,7 +170,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     // reports itself forever unsettled.
     private double3 AimPartFrame()
     {
-        double3 rest = TubeGeometry.OpticRestDirection;
+        double3 rest = OpticGeometry.RestDirection;
 
         if (_policy.Manual)
         {

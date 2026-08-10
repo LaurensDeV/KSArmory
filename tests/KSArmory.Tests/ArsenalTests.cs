@@ -257,8 +257,12 @@ public class ArsenalTests
 
         Assert.Equal(1, inv.CountOf(WeaponRole.Launcher));
         Assert.Equal(1, inv.CountOf(WeaponRole.Sensor));
-        Assert.Equal(1, inv.CountOf(WeaponRole.Camera));
         Assert.Equal(1, inv.CountOf(WeaponRole.Gun));
+
+        // No camera. The head is its own part now, so a Pantsir on its own has no sight and the
+        // survey has to say so -- a declared role it no longer carries would be a launcher
+        // claiming gear a player has not fitted.
+        Assert.Equal(0, inv.CountOf(WeaponRole.Camera));
         Assert.Equal(1, inv.CountOf(WeaponRole.FireControl));
     }
 

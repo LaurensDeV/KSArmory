@@ -12,7 +12,7 @@ internal readonly record struct SystemEvent(double AtSeconds, string Message);
 /// part, and pinned there so the site keeps defending itself after the player switches away.
 /// </summary>
 internal sealed class WeaponSystem(Config config, SystemConfig policy)
-    : IWeaponSystemView, IManualFire, IOpticalHead, ISightPicture, IEffectSource
+    : IWeaponSystemView, IManualFire, ISightPicture, IEffectSource
 {
     private readonly Config _config = config;
 
@@ -85,63 +85,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
     /// <summary>The cannon, which pitch with the launcher. Null if this system carries none.</summary>
     public Part? GunsPart { get; private set; }
-
-    /// <summary>The optical head, which points at whatever the battery is watching.</summary>
-    public Part? OpticPart { get; private set; }
-
-    /// <summary>Where the head is looking, in the launcher part's frame.</summary>
-    public double3 OpticDirectionPartFrame => _optic.Direction;
-
-    /// <summary>True once the head has caught up with what it was told to look at.</summary>
-    public bool OpticOnTarget => _optic.OnTarget;
-
-    /// <summary>
-    /// Where the head is looking from and along what, both in Ecl.
-    ///
-    /// <para>Anchored to <see cref="PlatformEcl"/>, this frame's sample, so a caller differencing
-    /// the eye against it gets a separation carrying no epoch at all. That is what lets the sight
-    /// hand KSA an offset the engine applies during its own pass.</para>
-    /// </summary>
-    public bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl)
-        => TryOpticViewEclAt(PlatformEcl, out eyeEcl, out forwardEcl);
-
-    /// <summary>
-    /// The same view, resolved against a platform position sampled by the caller.
-    ///
-    /// <para>For the one caller that runs inside the engine's viewport pass, where "now" is a
-    /// different instant from the mod's own sample and the difference is a frame of the planet's
-    /// motion.</para>
-    ///
-    /// <para>While the head is settled it is <em>tracking</em>, so the view is re-solved onto the
-    /// target's own position at this instant rather than left along the axis the drive was turned
-    /// to a frame ago. That difference is one frame of the target's angular travel, which scales
-    /// with simulation speed and is most of the picture at magnification. While it is still
-    /// slewing the head's own axis is used, because a target sliding towards the middle is what
-    /// slewing looks like and hiding it would be a lie.</para>
-    /// </summary>
-    public bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl)
-    {
-        eyeEcl = forwardEcl = Vec.Zero;
-
-        if (Platform is not { } platform || Launcher is not { } launcher) return false;
-        if (OpticPart is null) return false;
-
-        if (!LauncherPart.TryGetOpticViewEcl(platform, launcher, Profile, Turret.BearingRad,
-                                             OpticDirectionPartFrame, platformEcl,
-                                             out eyeEcl, out forwardEcl))
-        {
-            return false;
-        }
-
-        if (!_optic.OnTarget || Radar.Locked is not { } locked) return true;
-        if (!locked.Contact.TryDrawEgo(out double3 ego)) return true;
-        if (!KsaWorld.TryEgoToEcl(ego, out double3 drawnEcl)) return true;
-
-        double3 toTarget = drawnEcl - eyeEcl;
-        if (Vec.Len2(toTarget) > 1.0) forwardEcl = Vec.Unit(toTarget);
-
-        return true;
-    }
 
     /// <summary>The search array's current angle. Cosmetic - the radar model is a cone search.</summary>
     public double RadarSpinRad { get; private set; }
@@ -222,7 +165,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     // platform, the sensor and the aim, and differing in what it throws and how far.
     // Where the optical head is looking. Rate-limited, so it sweeps onto a track rather than
     // snapping to it the frame the radar produces one.
-    private readonly PointingDrive _optic = new();
 
     private readonly GunChannel _guns = new();
     private int _nextBarrel;
@@ -441,7 +383,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         PodsPart = Launcher is null ? null : LauncherPart.FindPods(Launcher, Profile);
         RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher, Profile);
         GunsPart = Launcher is null ? null : LauncherPart.FindGuns(Launcher, Profile);
-        OpticPart = Launcher is null ? null : LauncherPart.FindOptic(Launcher, Profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
         // After the launcher is resolved: the part-relative modes read the part's own mounting.
@@ -778,33 +719,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         }
     }
 
-    // Where a bearing for the *optical head* should be measured from: the head's own pivot.
-    //
-    // The same displaced-parallel error <see cref="AimOriginEcl"/> exists for, and it bites far
-    // harder here for one reason: a launcher is judged by where its rounds arrive, and a sight is
-    // judged by where the picture is pointing. The head stands 4.1 m up and 1.1 m forward of the
-    // part origin, so a command measured from the origin lays the head parallel to the right
-    // bearing and displaced off it -- half a degree at 700 m, and at 16x half a degree is a sixth
-    // of the picture.
-    //
-    // OpticEyeForward is deliberately not added. It runs along the aim itself, so it moves the eye
-    // up and down the line rather than off it, and contributes exactly nothing to this.
-    private double3 OpticOriginEcl
-    {
-        get
-        {
-            if (Platform is null || Launcher is null || !Profile.Trains) return MountEcl;
-
-            double3 pivot = Profile.TurretPivot
-                            + (TubeGeometry.TurretRotation(Turret.BearingRad) * Profile.OpticPivotFromTurret);
-
-            return LauncherPart.TryPartPointEcl(Platform, Launcher, pivot, PlatformEcl,
-                                                out double3 ecl)
-                       ? ecl
-                       : MountEcl;
-        }
-    }
-
     private bool TryCursorAimPartFrame(out double3 partFrame)
     {
         partFrame = default;
@@ -815,36 +729,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
                && Platform is not null
                && KsaWorld.TryCursorAimEcl(AimOriginEcl, out double3 dirEcl)
                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, dirEcl, out partFrame);
-    }
-
-    private double3 OpticAimPartFrame()
-    {
-        // The head watches what the launcher is aimed at, so it follows the cursor too — without
-        // this it keeps staring at a radar track while the tubes point somewhere else entirely.
-        if (TryCursorAimPartFrame(out double3 cursorFrame)) return cursorFrame;
-
-        // Where the target is *drawn*, not where fire control has it. The two differ by metres,
-        // which is nothing to a turret laying a 20 m warhead and is the whole picture to a sight:
-        // at 16x the field is three degrees, so the gap that a launcher can ignore puts the target
-        // a third of the way to the edge. Falls back to the analytic position rather than refusing
-        // — a head that stops following because a craft cannot be placed is worse than one that
-        // follows a few metres out.
-        if (Radar.Locked is { } locked && Platform is not null)
-        {
-            double3 targetEcl = locked.PositionEcl;
-            if (locked.Contact.TryDrawEgo(out double3 ego) && KsaWorld.TryEgoToEcl(ego, out double3 drawn))
-            {
-                targetEcl = drawn;
-            }
-
-            if (LauncherPart.TryDirectionToPartFrame(Platform, Launcher, targetEcl - OpticOriginEcl,
-                                                     out double3 toTarget))
-            {
-                return toTarget;
-            }
-        }
-
-        return TubeGeometry.TurretRotation(Turret.BearingRad) * TubeGeometry.OpticRestDirection;
     }
 
     // Where the turret points: the target itself while the missiles have the engagement, and a
@@ -1115,17 +999,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             && !LauncherPart.TryApplyGunAim(GunsPart, Profile, Turret.BearingRad, Turret.ElevationRad))
         {
             Refuse(DriveChannel.Guns, "cannon elevation");
-        }
-
-        // The optical head points at what the battery is watching, and falls back to wherever
-        // the turret faces so it never sits skewed across the hull with nothing to look at.
-        _optic.Update(dt, OpticAimPartFrame(), Profile.OpticSlewRateRad);
-
-        if (OpticPart is not null && _drives.Works(DriveChannel.Optic)
-            && !LauncherPart.TryApplyOpticAim(OpticPart, Profile, Turret.BearingRad,
-                                              _optic.Direction))
-        {
-            Refuse(DriveChannel.Optic, "optical head");
         }
 
         // The search array turns regardless of what the battery is doing - it is looking, not
@@ -2031,8 +1904,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         // fresh assessment rather than inheriting the last one's failures.
         _drives.Clear();
         RoundBodiesWork = true;
-        OpticPart = null;
-        _optic.Reset();
         _guns.Fill(Profile.GunAmmo);
         _guns.Reset();
         _nextBarrel = 0;
