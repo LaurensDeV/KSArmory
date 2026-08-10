@@ -64,6 +64,7 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
             return;
         }
 
+        Probe(forward, up);
         _lastUp = up;
 
         if (Camera.Following is not { } following) return;
@@ -73,6 +74,47 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
         // constraint and need not be perpendicular to the view.
         Camera.PositionEcl = following.GetPositionEcl() + CameraOffset;
         Camera.LocalRotation = Camera.LookAtRotation(forward, up);
+    }
+
+    // The camera's roll and where it points, per frame, under a verbose log.
+    //
+    // A snap is a jump between two consecutive frames, which is the one thing nobody watching can
+    // measure and nothing else records: by the time it is seen it is over, and every quantity that
+    // decides it has already moved on. Logged only when something actually jumps, so a session
+    // produces a handful of lines at the moments that matter rather than one per frame.
+    private double3 _probeForward;
+    private double3 _probeUp;
+    private double3 _probeWanted;
+    private bool _probed;
+
+    private void Probe(double3 forward, double3 up)
+    {
+        if (Log.Threshold > Log.Level.Debug) return;
+
+        if (_probed)
+        {
+            double turned = Vec.AngleBetween(_probeForward, forward);
+            double rolled = Vec.AngleBetween(_probeUp, up);
+
+            // A rate-limited head cannot move far in a frame, so anything past a few degrees is a
+            // discontinuity rather than motion. The two are reported together because which of
+            // them jumped says which half is at fault: the aim, or the roll built on it.
+            if (rolled > 0.09 || turned > 0.09)
+            {
+                Log.Debug(() =>
+                    $"sight roll: turned {double.RadiansToDegrees(turned):F2} deg, "
+                    + $"rolled {double.RadiansToDegrees(rolled):F2} deg | "
+                    + $"fwd {forward.X:F3},{forward.Y:F3},{forward.Z:F3} "
+                    + $"up {up.X:F3},{up.Y:F3},{up.Z:F3} "
+                    + $"wanted {_probeWanted.X:F3},{_probeWanted.Y:F3},{_probeWanted.Z:F3} "
+                    + $"| dot(fwd,wanted) {Vec.Dot(forward, Vec.Unit(UpEcl)):F5}");
+            }
+        }
+
+        _probeForward = forward;
+        _probeUp = up;
+        _probeWanted = Vec.Unit(UpEcl);
+        _probed = true;
     }
 
     // Re-reads the pose here, which is the only moment in the frame that is in phase with the
