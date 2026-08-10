@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-119 types and 317 members across 6 assemblies.
+114 types and 315 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -321,14 +321,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 - `int get_Count()`
 
-### KSA.CharacterAttachmentReference
-
-*referenced as a type only*
-
-### KSA.CharacterReference
-
-*referenced as a type only*
-
 ### KSA.Control
 
 *referenced as a type only*
@@ -390,10 +382,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void DrawLine(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.float4)`
 - `void DrawSphere(Brutal.Numerics.double3, float, Brutal.Numerics.float4)`
 
-### KSA.Gltf2Reference
-
-*referenced as a type only*
-
 ### KSA.IChannel
 
 - `bool IsPlaying()`
@@ -406,10 +394,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.IFollowable
 
 - `KSA.OrbitView get_OrbitView()`
-
-### KSA.IKeyed
-
-*referenced as a type only*
 
 ### KSA.IObjectId
 
@@ -452,7 +436,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.KittenEva
 
-- `KSA.CharacterReference Character`
 - `void .ctor(KSA.CelestialSystem, string, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 
 ### KSA.LookupCollection`1
@@ -602,10 +585,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.DensityReference Density`
 - `KSA.DistanceReference Level`
 - `bool IsValid()`
-
-### KSA.SerializedId
-
-- `string get_Id()`
 
 ### KSA.SimSpeed
 

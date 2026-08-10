@@ -1473,62 +1473,6 @@ internal static class KsaWorld
         _cursorAimValid = true;
     }
 
-    /// <summary>The character this mod declares, whose kitten carries the shoulder cannon.</summary>
-    public const string ArmedCharacterId = "KSArmoryArmedKitten";
-
-
-
-    /// <summary>
-    /// <summary>Ids of the armed character's declarations, and whether the game resolved each.</summary>
-    ///
-    /// <para>The chain fails silently at every link. An unresolved attachment is skipped inside
-    /// <c>CharacterAvatar</c>'s null check, and a glTF that will not load is skipped by the same
-    /// one — no warning, no error, just a kitten with no gun. Asking each link separately is the
-    /// only way to tell which one gave way.</para>
-    public static void CollectArmedChain(List<(string What, string Id, bool Resolved)> into)
-    {
-        into.Clear();
-        into.Add(("character", ArmedCharacterId, Resolves<CharacterReference>(ArmedCharacterId)));
-        into.Add(("attachment", ArmedAttachmentId,
-                  Resolves<CharacterAttachmentReference>(ArmedAttachmentId)));
-        into.Add(("mesh", ArmedGltfId, Resolves<Gltf2Reference>(ArmedGltfId)));
-    }
-
-    /// <summary>The attachment declaring the gun, and the glTF it draws.</summary>
-    public const string ArmedAttachmentId = "KSArmoryKittenGunAttachment";
-    public const string ArmedGltfId = "KSArmoryKittenGunGlb";
-
-    /// <summary>
-    /// The character a vehicle is wearing, or null when it is not a kitten.
-    ///
-    /// <para>The one fact that separates "the gun is not rendering" from "this kitten was never
-    /// armed": a KittenEva takes its character in its constructor, so one that was walking before
-    /// the roster changed still reports the body it was born with.</para>
-    /// </summary>
-    public static string? CharacterOf(Vehicle? vehicle)
-    {
-        try
-        {
-            return vehicle is KittenEva kitten ? kitten.Character?.Id : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static bool Resolves<T>(string id) where T : IKeyed
-    {
-        try
-        {
-            return ModLibrary.Get<T>(id) is not null;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     /// <summary>
     /// Projects a world point onto the main viewport, culling anything behind the camera.
     ///

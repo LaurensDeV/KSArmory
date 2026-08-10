@@ -82,7 +82,6 @@ public sealed class KSArmoryMod
     private ScenarioRunner _scenario = null!;
 
     // Last kitten reported, so the character is logged once per EVA rather than every frame.
-    private string _lastKittenSeen = string.Empty;
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad(Mod mod)
@@ -119,13 +118,6 @@ public sealed class KSArmoryMod
                  + $"{(Detonation.Resolves(Detonation.Fireball) ? "ok" : "DID NOT RESOLVE")}");
         Log.Info($"warhead effect {Detonation.Airburst}: "
                  + $"{(Detonation.Resolves(Detonation.Airburst) ? "ok" : "DID NOT RESOLVE")}");
-
-        List<(string What, string Id, bool Resolved)> chain = [];
-        KsaWorld.CollectArmedChain(chain);
-        foreach ((string what, string id, bool resolved) in chain)
-        {
-            Log.Info($"armed kitten {what}: {id} {(resolved ? "ok" : "DID NOT RESOLVE")}");
-        }
     }
 
     /// <summary>
@@ -329,7 +321,6 @@ public sealed class KSArmoryMod
         // Reported off the *controlled* vehicle, not the battery's platform: whether a gun
         // renders has nothing to do with whether the battery mounted, so gating it on that
         // would hide the answer behind an unrelated condition.
-        ReportControlledKitten();
 
         // Gate on the step the engine applied, not on the pause flag. Universe.IsPaused() is
         // `simulationSpeed == 0.0`, a statement about the setting rather than about whether the
@@ -639,24 +630,6 @@ public sealed class KSArmoryMod
             case WarpAction.None:
             default:
                 break;
-        }
-    }
-
-    // Says what character the kitten being flown was built with. That is the one fact that
-    // separates a gun that will not render from a kitten armed after it was already walking.
-    private void ReportControlledKitten()
-    {
-        Vehicle? controlled = KsaWorld.ControlledVehicle;
-        if (controlled is null) { _lastKittenSeen = string.Empty; return; }
-
-        string id = $"{KsaWorld.DisplayName(controlled)}|{KsaWorld.CharacterOf(controlled) ?? ""}";
-        if (id == _lastKittenSeen) return;
-
-        _lastKittenSeen = id;
-        if (KsaWorld.CharacterOf(controlled) is { } character)
-        {
-            Log.Info($"flying kitten {KsaWorld.DisplayName(controlled)} wearing '{character}'"
-                     + (character == KsaWorld.ArmedCharacterId ? " - armed" : " - NOT armed"));
         }
     }
 

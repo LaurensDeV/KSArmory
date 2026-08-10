@@ -39,7 +39,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly CraftMover _mover = mover;
     private readonly BurstTool _bursts = bursts;
     private readonly List<int> _viewports = [];
-    private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
     private readonly List<SurveyedPart> _surveyed = [];
     private readonly List<OpticalHeads.Entry> _headScratch = [];
     private readonly List<KSA.Vehicle> _craftScratch = [];

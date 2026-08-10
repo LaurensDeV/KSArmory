@@ -620,6 +620,41 @@ rather than parts on a vehicle). `KSA.StaticMeshRenderable` has a public constru
 `Transform` field, but needs `IMeshRenderer<InstanceData>` instances owned by the engine's
 render systems.
 
+## Character attachments
+
+Nothing in this mod ships one any more. These are the engine's rules, and they cost an
+afternoon each to find.
+
+### A character attachment is authored in centimetres, a part in metres
+ The kitten is drawn
+through `CharacterAvatar.Core.Scale = 0.01`, and `GetBoneTransform` returns a bone matrix that
+already carries it — so a mesh exported in metres arrives a hundred times too small. Core's own
+attachments measure 80.6 glTF units (helmet) and 48.3 (MMU); a mesh at metre scale renders a
+hundredth of that and is buried in the fur: it loads, registers, draws every frame, is
+invisible, and puts nothing in any log.
+
+**And the scale must be baked into the vertices.** `StaticMeshRenderable.Draw` writes one instance
+transform per asset and never reads the glTF's node transforms — `GltfPbrAssetRef.SceneGraph` is
+assigned and never read anywhere in the engine. A scale left on the Blender object is silently
+discarded. A generator has to apply the scale to the object and then bake it into the
+vertices.
+
+**An attachment's axes are composed in a different order from the body's.** The body gets
+`RotX(-90) * RotZ(-90)` applied *after* the scale (`KittenRenderable:184`); an attachment gets
+`RotZ(-90) * RotX(-90)` applied *before* the bone matrix (`:207`). So a mesh that is the right
+size can still arrive rotated, and the `<Rotation>` in the attachment XML is where that is
+corrected.
+
+**Keep an attachment to one mesh with one primitive.** `GltfPbrSystem` aliases the index buffer
+across primitives and then disposes it (`:102` against `:112`), so the second primitive frees a
+list the first still points at. One mesh is the only shape that is not walking on freed memory.
+
+**Nothing else in that pipeline fails quietly.** A bad material Id, a missing bone, a null material
+slot and a failed asset load all throw, and `AssetManager.GetOrLoad` rethrows rather than
+swallowing. The only silent no-draws are `Visible == false` and a glTF with no mesh primitives. So
+an attachment that is present but unseen is a *geometry* problem — wrong units, wrong winding, or
+wrapped around the camera — not a materials or registration one.
+
 ## Sound: reachable, and shipped the same way art is
 
 A mod can make a noise, on every axis that matters.
