@@ -58,10 +58,12 @@ public sealed class OpticConfig : ISensorPolicy
     public float ManualBearingDeg;
     public float ManualElevationDeg = 10f;
 
-    /// <inheritdoc cref="SystemConfig.OpticViewport"/>
+    /// <summary>Which viewport this head draws into. -1 is off; the main view is the only one
+    /// that renders a planet, so a secondary is for watching rather than aiming.</summary>
     public int Viewport = -1;
 
-    /// <inheritdoc cref="SystemConfig.OpticMagnification"/>
+    /// <summary>A factor on whatever field the player already had, so the same setting is the
+    /// same instrument to two people with different preferences. See <see cref="SightZoom"/>.</summary>
     public float Magnification = 1f;
 
     /// <summary>Draw the sight's own symbology over the view the head is driving.</summary>

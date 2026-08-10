@@ -317,6 +317,84 @@ internal sealed partial class Ui
         ImGui.TextDisabled(policy.StabiliseHorizon
             ? "  held against the site's vertical; near straight up or down it carries"
             : "  rigid with the head - it rolls with the craft, and sideways stays sideways");
+
+        ImGui.Separator();
+        DrawDirectorIff(policy);
+    }
+
+    // Who this director will look at. Its own, not the weapon's: a head finds its own targets
+    // through its own sensor, and a craft can carry one with no armament at all.
+    //
+    // The team is picked off the session roster rather than typed. A second free-text box would
+    // share _ownTeamEntry with the weapon's, so typing in one would show in the other; and the
+    // roster is the list of names that exist, which is what a picker wants anyway.
+    private void DrawDirectorIff(OpticConfig policy)
+    {
+        IffPolicy iff = policy.Iff;
+
+        ImGui.Checkbox("Never look at the vehicle I'm flying",
+                       ref policy.ProtectControlledVehicle);
+
+        if (!ImGui.TreeNode("Who it watches")) return;
+
+        ImGui.TextDisabled("  its own allegiance, separate from any weapon on the craft");
+
+        if (_config.TeamNames.Count == 0)
+        {
+            ImGui.TextDisabled("  no teams declared - add one under Teams and IFF");
+            ImGui.TreePop();
+            return;
+        }
+
+        ImGui.Text($"Own team: {iff.OwnTeam ?? "(none)"}");
+
+        for (int i = 0; i < _config.TeamNames.Count; i++)
+        {
+            string team = _config.TeamNames[i];
+
+            // PushID rather than a ## suffix: several directors can be drawn in one window once
+            // the panel lists them, and a label is only unique within its own id scope.
+            ImGui.PushID(i);
+
+            bool own = string.Equals(team, iff.OwnTeam, StringComparison.OrdinalIgnoreCase);
+            // Through `policy` rather than the local, so the write says which object it lands on.
+            if (ImGui.RadioButton(team, own)) policy.Iff.OwnTeam = own ? null : team;
+
+            if (!own)
+            {
+                bool allied = iff.AlliedTeams.Contains(team);
+                bool neutral = iff.NeutralTeams.Contains(team);
+
+                ImGui.SameLine();
+                if (ImGui.Checkbox("allied", ref allied))
+                {
+                    Toggle(iff.AlliedTeams, team, allied);
+                    if (allied) iff.NeutralTeams.Remove(team);
+                }
+
+                ImGui.SameLine();
+                if (ImGui.Checkbox("neutral", ref neutral))
+                {
+                    Toggle(iff.NeutralTeams, team, neutral);
+                    if (neutral) iff.AlliedTeams.Remove(team);
+                }
+            }
+
+            ImGui.PopID();
+        }
+
+        // The same three switches the weapon has, worded for an instrument: a director watches
+        // rather than engages, so "engage neutrals" would describe something it cannot do.
+        bool unknown = iff.EngageUnknown;
+        if (ImGui.Checkbox("Watch unknown contacts", ref unknown)) iff.EngageUnknown = unknown;
+
+        bool neutrals = iff.EngageNeutral;
+        if (ImGui.Checkbox("Watch neutrals", ref neutrals)) iff.EngageNeutral = neutrals;
+
+        bool friendly = iff.ProtectFriendly;
+        if (ImGui.Checkbox("Never watch friendlies", ref friendly)) iff.ProtectFriendly = friendly;
+
+        ImGui.TreePop();
     }
 
     private void DrawTurretLine()

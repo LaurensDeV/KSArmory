@@ -41,7 +41,8 @@ VIA = {
     # the group -- the teams pane is gone if that write is gone.
     "SystemConfig.Iff": "Iff.OwnTeam",
 
-    # A director's own allegiance, edited through the same teams pane once one is shown for it.
+    # A director's own allegiance, edited on its own row under the Director tab. Its own,
+    # because a head finds its own targets and a craft can carry one with no armament.
     "OpticConfig.Iff": "Iff.OwnTeam",
 }
 
@@ -67,12 +68,12 @@ EXEMPT = {
     "MunitionProfile.HitsTerrain":
         "costs a terrain sample per round per frame; a weapon's design, not a preference",
     "MunitionProfile.TimedFuse":
-        "reachable from the debug pane rather than from tuning",
+        "the flak fuse of a secondary armament, set under Tuning -> Warhead",
     "MunitionProfile.Guidance":
         "decides what the round *is* -- an Interceptor or a Slug -- rather than how well it flies",
 
     "SystemConfig.MouseFire":
-        "a tool that fires, deliberately not persisted and driven from the debug pane",
+        "a tool that fires, deliberately not persisted",
 }
 
 MEMBER = re.compile(
@@ -121,17 +122,53 @@ def members(type_name):
     return found
 
 
-def written(panel, name):
-    """Whether the panel *writes* the member, rather than merely mentioning it.
+# What the panel calls each type. Required in the pattern, because matching a bare member name
+# lets one type's control satisfy another's: SystemConfig and OpticConfig share Iff, MouseAim and
+# ProtectControlledVehicle, and the weapon's controls were standing in for the director's. Both of
+# the director's were unreachable while this check reported green.
+#
+# `\b` keeps `policy` from matching inside `_policy`: `_` is a word character, so there is no
+# boundary between it and what follows.
+RECEIVERS = {
+    "SensorProfile": ("_sensor",),
+    "MunitionProfile": ("_munition", "round"),
+    "SystemConfig": ("_policy",),
+    "OpticConfig": ("policy",),
+}
+
+
+def written(panel, name, receivers):
+    """Whether the panel *writes* the member on the right object, rather than mentioning it.
 
     Mentioning is not reaching. Every one of these controls is followed by a line reading the
     value back to explain what it just did -- `if (_sensor.NotchSpeed > 0f)` and the like -- so a
     check that accepted any occurrence would pass with the slider deleted and the explanation
     left behind, which is exactly the state it exists to catch.
     """
-    # ImGui binds a control to a field by reference; a radio button assigns outright.
-    return (re.search(rf"\bref\s+[\w.]*\b{re.escape(name)}\b", panel) is not None
-            or re.search(rf"\b{re.escape(name)}\s*=(?!=)", panel) is not None)
+    for receiver in receivers:
+        at = rf"\b{re.escape(receiver)}\.{re.escape(name)}"
+
+        # ImGui binds a control to a field by reference; a radio button assigns outright.
+        if re.search(rf"\bref\s+{at}\b", panel) is not None: return True
+        if re.search(rf"{at}\s*=(?!=)", panel) is not None: return True
+
+    return False
+
+
+def written_via(panel, helper, receivers):
+    """The same question for a member the panel drives through a helper.
+
+    A dotted path is still a write on the object, so it keeps the receiver -- that is what makes
+    `policy.Iff.OwnTeam` a different claim from `_policy.Iff.OwnTeam`. A bare name is a helper
+    taking the object as an argument, where the receiver is the helper's own type and requiring
+    it would defeat the point.
+    """
+    if "." in helper:
+        return written(panel, helper.split(".", 1)[0] + "." + helper.split(".", 1)[1], receivers) \
+            or any(re.search(rf"\b{re.escape(r)}\.{re.escape(helper)}\s*=(?!=)", panel)
+                   for r in receivers)
+
+    return re.search(rf"\b{re.escape(helper)}\s*\(", panel) is not None
 
 
 def main():
@@ -159,11 +196,15 @@ def main():
                 continue
 
             checked += 1
-            wanted = VIA.get(key, name)
+            receivers = RECEIVERS[type_name]
+            wanted = VIA.get(key)
 
-            if not written(panel, wanted):
+            reached = written_via(panel, wanted, receivers) if wanted is not None \
+                else written(panel, name, receivers)
+
+            if not reached:
                 how = f"nothing in Ksa/Ui writes through {wanted}" if key in VIA \
-                    else "no control in Ksa/Ui writes it"
+                    else f"no control in Ksa/Ui writes {'/'.join(receivers)}.{name}"
                 print(f"  UNREACHABLE {key} -- {how}", file=sys.stderr)
                 problems += 1
 
