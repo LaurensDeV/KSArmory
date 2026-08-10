@@ -673,6 +673,16 @@ Everything in 7.6 below was flown against a head bolted to the Pantsir's turret.
 proved still holds — the same `PointingDrive`, the same in-phase resolve, the same zoom — but the
 thing it was proved on no longer exists, so the items are worth re-running rather than trusted.
 
+**Flown and working.** The faults found along the way, all fixed and confirmed: the panel not
+listing a camera-only craft and dropping the selection when it was managed; the horizon drawn
+against the mount normal rather than local vertical; the head sweeping through its own mast
+between two legal bearings; and the picture flipping, which took three attempts because the first
+two moved a threshold rather than removing it — the roll is now corrected towards vertical at a
+limited rate instead of being chosen, and cannot move more than a few degrees in a frame.
+
+Levelling is off by default: the roll is rigid with the head, so the picture rolls with the craft
+and looking sideways stays sideways. **Level the horizon** is the opt-in.
+
 - [ ] `EO Director` appears under **Sensors** in the editor and surface-attaches.
 - [ ] A craft carrying **only** a director and a command source tracks a target and shows the
       bracket. That is the whole point of the split and nothing before could do it.
@@ -684,6 +694,9 @@ thing it was proved on no longer exists, so the items are worth re-running rathe
       ammo or gun pipper. On a craft with a Pantsir *and* a director, all of it.
 - [ ] A **Pantsir with no director** reports no sight rather than a broken one.
 - [ ] Two directors on one craft are two heads, each pointed independently.
+- [x] **Mouse aim.** The ring holds the head inside it and follows outside it, the speed builds
+      from the ring's edge rather than from the middle of the view, and resting the cursor leaves
+      the head where it is rather than parking it.
 - [ ] Known and not yet built: a head's settings are **not persisted**, so magnification and
       viewport reset on reload.
 
