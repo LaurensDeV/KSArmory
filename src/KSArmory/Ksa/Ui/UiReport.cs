@@ -1,6 +1,5 @@
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
-using KSArmory.Sim;
 
 namespace KSArmory;
 

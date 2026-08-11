@@ -1,6 +1,6 @@
 using Brutal.Numerics;
 
-namespace KSArmory.Sim;
+namespace KSArmory;
 
 /// <summary>Where to put a camera that rides behind a round in flight.</summary>
 public static class ChaseView

@@ -1,5 +1,4 @@
 using Brutal.Numerics;
-using KSArmory.Sim;
 using Xunit;
 
 namespace KSArmory.Tests;

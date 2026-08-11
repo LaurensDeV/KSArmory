@@ -91,7 +91,7 @@ public sealed class KSArmoryMod
         // Which KSA this was built for against which it is running, and therefore whether the
         // panel offers reporting. Without it, buttons missing from the panel is a mystery from
         // the outside and unanswerable from a log.
-        bool supported = Sim.ReportDraft.GameIsSupported(Build.KsaBuild, Build.KsaRunning);
+        bool supported = ReportDraft.GameIsSupported(Build.KsaBuild, Build.KsaRunning);
         Log.Info($"KSArmory {Build.Version} built for KSA {Build.KsaBuild ?? "?"}, "
                  + $"running {Build.KsaRunning ?? "?"} - reporting {(supported ? "on" : "off")}");
     }

@@ -1,4 +1,4 @@
-namespace KSArmory.Sim;
+namespace KSArmory;
 
 /// <summary>What a report is about. The endpoint labels the issue from this.</summary>
 public enum ReportKind

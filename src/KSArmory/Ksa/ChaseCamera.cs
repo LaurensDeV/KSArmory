@@ -1,6 +1,5 @@
 using Brutal.Numerics;
 using KSA;
-using KSArmory.Sim;
 
 namespace KSArmory;
 
