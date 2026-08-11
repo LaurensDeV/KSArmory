@@ -53,7 +53,7 @@ on so the release is the operator's call. 87 kg of filler, and a drag constant s
 A fifth is an entry in the registry plus its art: see
 [Adding a weapon system](#adding-a-weapon-system).
 
-> Built against KSA build `2026.8.5.5168`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.8.19.5261`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game does. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
@@ -62,7 +62,7 @@ A fifth is an entry in the registry plus its art: see
 
 ### What you need first
 
-- **Kitten Space Agency.** Built against build `2026.8.5.5168`; a different build may need a
+- **Kitten Space Agency.** Built against build `2026.8.19.5261`; a different build may need a
   rebuild of the mod. **Windows and Linux both work** — the mod is a portable .NET assembly with
   no native code, so the single release archive is the same on either.
 - **[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader.

@@ -107,7 +107,7 @@ internal sealed class MuzzleFlash
 
         var at = new BubbleOrigin
         {
-            Time = Universe.GetElapsedSimTime(),
+            Time = Universe.GetElapsedTime(),
             Parent = live.Body,
             BubFrame = BubbleFrame.Ccf,
             PositionBub = positionCcf,

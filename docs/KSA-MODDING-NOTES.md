@@ -1,6 +1,6 @@
 # KSA modding notes
 
-Everything here comes out of the shipped assemblies of **KSA build 2026.8.5.5168**, read with
+Everything here comes out of the shipped assemblies of **KSA build 2026.8.19.5261**, read with
 `tools/apidump`, or out of the StarMap sources. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
@@ -111,8 +111,13 @@ void Teleport(Orbit, doubleQuat?, double3?);
 static CelestialSystem CurrentSystem { get; set; }
 static void DestroyVehicle(Vehicle);
 static void DestroyVehicleFromEvent(Vehicle, VehicleDestructionEvent);   // how you kill something
-static SimTime GetElapsedSimTime();
+static UniverseTime GetElapsedTime();
 ```
+
+`UniverseTime` is the engine's clock type — an `Int128` of **nanoseconds**, not a `double` of
+seconds, so `Seconds()` is a conversion rather than a field read. It has no NaN and no infinity:
+`new UniverseTime(double.NaN)` **throws**, and arithmetic saturates at `MinValue`/`MaxValue`
+instead of overflowing. Anything carrying a "no time yet" sentinel needs its own flag.
 
 `VehicleDestructionEvent { VehicleDestructionCause Cause; float PeakGLoad; float PeakDynamicPressure; }`
 with `Cause ∈ { GroundImpact, OceanImpact, Collision, ExcessiveGForce, AerodynamicForces, HydrodynamicForces }`.
@@ -126,10 +131,10 @@ it in the world. The vehicle registers into `CurrentSystem.All` (so it shows up 
 yet stays at the frame origin, never moves, and is invisible. Copy what `Vehicle.Split` does:
 
 ```csharp
-Orbit orbit  = Orbit.CreateFromStateCci(parent, Universe.GetElapsedSimTime(), posCci, velCci, colour);
+Orbit orbit  = Orbit.CreateFromStateCci(parent, Universe.GetElapsedTime(), posCci, velCci, colour);
 Vehicle v    = Vehicle.CreateVehicle(system, body2Cce, bodyRates, parent, id, rootPart, orbit);
 parent.Children.Add(v);        // orbiter tree -- without this UpdatePerFrameData never runs
-v.AddToTask(platform.UpdateTask);   // physics task -- without this it is never simulated
+v.AddToBubble(platform.PhysicsBubble);   // physics bubble -- without this it is never simulated
 v.UpdatePerFrameData();        // optional: populate the cache now instead of next frame
 ```
 

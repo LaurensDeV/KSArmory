@@ -151,7 +151,7 @@ internal sealed class MotorPlume
 
         var origin = new BubbleOrigin
         {
-            Time = Universe.GetElapsedSimTime(),
+            Time = Universe.GetElapsedTime(),
             Parent = live.Body,
             BubFrame = BubbleFrame.Ccf,
             PositionBub = positionCcf,

@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.8.5.5168**. Paths are relative to
+Findings are against KSA **2026.8.19.5261**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -29,7 +29,7 @@ happen rather than a member that moved.
 - [x] A post-processing or full-screen shader hook a mod can register into
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 
-All eleven rechecked against 2026.8.5.5168 and still blocked. The line numbers below are against
+All eleven rechecked against 2026.8.19.5261 and still blocked. The line numbers below are against
 that build's render path, in which `Program._offscreenTarget` is a `RenderTarget`; none of the
 structure these entries depend on differs from the build before it. `UncompressedVehicleSave.cs`
 does not mention `Character` at all; `KittenRenderable` writes an attachment's transform and

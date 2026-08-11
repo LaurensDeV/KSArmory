@@ -159,7 +159,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.8.5.5168`
+- **KSA build these notes were taken against**: `2026.8.19.5261`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -990,7 +990,7 @@ wall-clock, which is wrong twice over: it keeps running while the game is **paus
 radar accumulates dwell, matures a firing solution and launches into a frozen world; and it
 ignores **timewarp**, so at 10× the world moves ten times further per frame than the rounds do
 and tracking falls apart. Fire control reads `KsaWorld.SimTimeSeconds` differenced by
-`Sim/SimClock.cs` instead, which is `Universe.GetElapsedSimTime()` plus `Universe.IsPaused()`.
+`Sim/SimClock.cs` instead, which is `Universe.GetElapsedTime()` plus `Universe.IsPaused()`.
 
 `SimClock` classifies steps it cannot integrate. `Interceptor` subdivides internally but clamps
 at 64 sub-steps, so beyond `Interceptor.MaxFaithfulStep` (0.32 s) a round at 700 m/s starts

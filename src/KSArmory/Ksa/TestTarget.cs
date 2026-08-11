@@ -141,7 +141,7 @@ internal static class TestTarget
 
             Orbit orbit = Orbit.CreateFromStateCci(
                 parent,
-                Universe.GetElapsedSimTime(),
+                Universe.GetElapsedTime(),
                 posCci,
                 velCci,
                 new byte4(255, 80, 80, 255));
@@ -155,19 +155,20 @@ internal static class TestTarget
             Vehicle drone = CreateDroneVehicle(blueprint, system, platform, parent, id, orbit);
 
             // Constructing the Vehicle is not enough to put it in the world. KSA's own runtime
-            // spawn path (Vehicle.Split) attaches it to the parent's orbiter tree and to a
-            // physics update task; without the first, CelestialSystem.UpdatePerFrameData never
-            // walks it, so its cached Ecl position stays at the frame origin and it neither
-            // moves nor can be seen. Without the second it is never simulated.
+            // spawn path (Vehicle.Split) attaches it to the parent's orbiter tree and to the
+            // launching craft's physics bubble; without the first,
+            // CelestialSystem.UpdatePerFrameData never walks it, so its cached Ecl position stays
+            // at the frame origin and it neither moves nor can be seen. Without the second it is
+            // never simulated.
             parent.Children.Add(drone);
 
-            if (platform.UpdateTask is { } task)
+            if (platform.PhysicsBubble is { } bubble)
             {
-                drone.AddToTask(task);
+                drone.AddToBubble(bubble);
             }
             else
             {
-                Log.Warn("test target: platform has no update task, drone will not be simulated");
+                Log.Warn("test target: platform has no physics bubble, drone will not be simulated");
             }
 
             // Work out how big it is.
@@ -279,8 +280,8 @@ internal static class TestTarget
                    + $"halfExtents {extents} "
                    + $"zoomPow {v.OrbitView?.DistancePower ?? double.NaN:F2} "
                    + $"parts {v.Parts?.Count ?? -1} "
-                   + $"bubble {(v.BubbleLeader is null ? "none" : "yes")} "
-                   + $"task {(v.UpdateTask is null ? "none" : "yes")} "
+                   + $"bubbleLeader {(v.BubbleLeader is null ? "none" : "yes")} "
+                   + $"bubble {(v.PhysicsBubble is null ? "none" : "yes")} "
                    + $"controllable {v.IsControllable} "
                    + $"hasControlModule {HasControlModule(v)} controls {ControlCount(v)}";
         }

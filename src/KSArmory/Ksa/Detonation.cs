@@ -188,7 +188,7 @@ internal static class Detonation
 
             BubbleOrigin origin = new()
             {
-                Time = Universe.GetElapsedSimTime(),
+                Time = Universe.GetElapsedTime(),
                 Parent = body,
                 BubFrame = BubbleFrame.Ccf,
                 PositionBub = positionCcf,

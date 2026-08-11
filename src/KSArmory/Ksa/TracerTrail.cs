@@ -196,7 +196,7 @@ internal sealed class TracerTrail
 
         var origin = new BubbleOrigin
         {
-            Time = Universe.GetElapsedSimTime(),
+            Time = Universe.GetElapsedTime(),
             Parent = live.Body,
             BubFrame = BubbleFrame.Ccf,
             PositionBub = positionCcf,

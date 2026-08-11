@@ -23,7 +23,7 @@ relying on one.
 Grounded **only** in the decompiled engine at
 `../ksa-game-assemblies/current/src`.
 All citations are relative to that root. Nothing here is taken from any mod's own code or docs.
-Build: **2026.8.5.5168**. Line numbers move on every KSA update, so a citation that does not land
+Build: **2026.8.19.5261**. Line numbers move on every KSA update, so a citation that does not land
 on what it claims means this file is behind the corpus, not that the corpus is wrong.
 
 ---
@@ -35,15 +35,15 @@ on what it claims means this file is behind the corpus, not that the corpus is w
 and kills the process. `dtPlayer` is clamped to `1/GameSettings.Current.Simulation.MinTargetFrameRate`
 (`App.cs:40-41`).
 
-`Program.OnFrame` (`KSA/KSA/Program.cs:1965`) in order:
+`Program.OnFrame` (`KSA/KSA/Program.cs:2022`) in order:
 
 | # | Step | Ref |
 |---|---|---|
-| 1 | `PrepareFrame` — orbit/vehicle solvers applied, `Glfw.PollEvents()` | `Program.cs:1900-1963` |
-| 2 | `OnFrameViewports(dtPlayer)` — **every controller writes its camera here** | `Program.cs:1989`, `2267-2305` |
-| 3 | `OnDrawUiFrame` / `OnDrawUiViewports` (StarMap Gui hooks wrap these) | `Program.cs:1993-1994` |
-| 4 | `OnFrameController` (cursor mode), `Cursor.UpdateInputRay(GetCamera())` | `Program.cs:2041-2044` |
-| 5 | `OnPreRender` → `Render` → `PostRender` | `Program.cs:2049-2057` |
+| 1 | `PrepareFrame` — orbit/vehicle solvers applied, `Glfw.PollEvents()` | `Program.cs:1956-2020` |
+| 2 | `OnFrameViewports(dtPlayer)` — **every controller writes its camera here** | `Program.cs:2046`, `2353-2391` |
+| 3 | `OnDrawUiFrame` / `OnDrawUiViewports` (StarMap Gui hooks wrap these) | `Program.cs:2050-2051` |
+| 4 | `OnFrameController` (cursor mode), `Cursor.UpdateInputRay(GetCamera())` | `Program.cs:2098-2101` |
+| 5 | `OnPreRender` → `Render` → `PostRender` | `Program.cs:2106-2114` |
 | 6 | *(StarMap postfix)* `[StarMapAfterOnFrame]` mod hooks | `StarMap.Core/StarMap.Core.Patches/ProgramPatcher.cs:40-49` |
 
 `ProgramPatcher.AfterOnFrame` is a **Harmony postfix on `Program.OnFrame`**, so a mod's frame hook
@@ -54,8 +54,8 @@ runs *after* this frame's controller pass *and after rendering*. Consequences:
 - The right place to write is therefore the controller's own input fields (`FixedController.CameraOffset`
   etc.), which the controller reads next frame — not the camera's pose, which the controller rewrites.
 
-`OnFrameViewports` (`Program.cs:2267-2305`) calls `viewport.OnFrame((float)dtPlayer)` for **every**
-viewport, visible or not (the `Visible` test at `:2285` is *after* the call). The dt is player time,
+`OnFrameViewports` (`Program.cs:2353-2391`) calls `viewport.OnFrame((float)dtPlayer)` for **every**
+viewport, visible or not (the `Visible` test at `:2371` is *after* the call). The dt is player time,
 cast through `float`, and keeps ticking while the simulation is paused.
 
 `Viewport.OnFrame` (`KSA/KSA/Viewport.cs:139-144`) is exactly three calls:
@@ -776,27 +776,28 @@ All citations are `path/relative/to/src:line`. Nothing here comes from the KSArm
 
 ### 0. Shape of the frame
 
-`Program.OnFrame(currentPlayerTime, dtPlayer)` (`KSA/KSA/Program.cs:1965`) in order:
+`Program.OnFrame(currentPlayerTime, dtPlayer)` (`KSA/KSA/Program.cs:2022`) in order:
 
 | Step | Line |
 | --- | --- |
-| `OnFrameViewports(dtPlayer)` — per-viewport controller + camera + audio | `Program.cs:1989` |
-| `OnDrawUiFrame` / `OnDrawUiViewports` (ImGui) | `Program.cs:1993`, `1994` |
-| `LightSystem.OnFrame(FrameViewport, dtPlayer)` | `Program.cs:2044` |
-| `Cursor.UpdateInputRay(GetCamera())` | `Program.cs:2045` |
-| `OnFrameCelestials(dtPlayer)` | `Program.cs:2047` |
-| `OnPreRender(dtPlayer)` | `Program.cs:2051` |
-| `Render(dtPlayer, …)` → `UpdateShaderData` per viewport, `UpdateRenderingResources`, then `RenderGame` or `RenderEditor` | `Program.cs:2151-2163` |
-| `PostRender(dtPlayer)` | `Program.cs:2059` |
+| `OnFrameViewports(dtPlayer)` — per-viewport controller + camera + audio | `Program.cs:2046` |
+| `OnDrawUiFrame` / `OnDrawUiViewports` (ImGui) | `Program.cs:2050`, `2051` |
+| `OnFrameController(dtPlayer)` | `Program.cs:2098` |
+| `LightSystem.OnFrame(FrameViewport, dtPlayer)` | `Program.cs:2100` |
+| `Cursor.UpdateInputRay(GetCamera())` | `Program.cs:2101` |
+| `OnFrameCelestials(dtPlayer)` | `Program.cs:2103` |
+| `OnPreRender(dtPlayer)` | `Program.cs:2106` |
+| `Render(dtPlayer, …)` → `UpdateShaderData` per viewport, `UpdateRenderingResources`, then `RenderGame` or `RenderEditor` | `Program.cs:2195-2226` |
+| `PostRender(dtPlayer)` | `Program.cs:2114` |
 
-`RenderGame` (`Program.cs:4085`) is the whole GPU frame. It renders **secondary** viewports first, in a loop
+`RenderGame` (`Program.cs:4206`) is the whole GPU frame. It renders **secondary** viewports first, in a loop
 that calls the short path, then falls through into a long inline block for the main viewport:
 
 ```
 for (int i = 1; i < ViewportCount; i++) {
     Viewport viewport = Viewports[i];
     if (viewport.Index != _mainViewportIndex && viewport.Visible)
-        RenderViewport(commandBuffer2, viewport, resourceFrameIndex);   // Program.cs:4108-4112
+        RenderViewport(commandBuffer2, viewport, resourceFrameIndex);   // Program.cs:4227-4234
 }
 _renderedViewportIndex = _mainViewportIndex;                            // Program.cs:4114
 … ~200 lines of main-viewport-only passes, inline, never factored into a function …

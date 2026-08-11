@@ -17,6 +17,20 @@ Two things those runs do not exercise, so they stay unproven on this build: ever
 untested; and the cannon never left `want=False`, because both engagements sat well outside its
 200–4000 m envelope.
 
+**Re-flown after the retarget to KSA `2026.8.19.5261`.** That build renamed `SimTime` to
+`UniverseTime`, moved the vehicle solver behind a worker pool, and replaced the physics update task
+with `PhysicsBubble` — so the drone spawn path, the solver barrier and the whole simulated clock
+were rewritten and needed proving rather than assuming. `scenario.sh head-on` and `overhead` both
+pass unattended, and a Pantsir engagement destroyed three drones on the head-on, passing and
+overhead geometries, firing both missiles and cannon, with `bubble yes` on every spawned drone —
+which is the `AddToBubble` rewrite confirmed rather than inferred. The only log warnings are the two
+that describe a launcher honestly: no turret on the rail, no round bodies on the gun-only CIWS.
+
+What that run does **not** cover, so it stays unproven on this build: the optical head's sight at
+magnification, the chase camera, the bomb rack, and the editor's **Weapons** category — none of
+which a headless scenario reaches. `validate-parts.py` passes against the install, so the tags are
+declared; that they still group the parts is unwatched.
+
 The failure modes worth recognising before starting, and how to tell them apart, are in
 `docs/KSA-MODDING-NOTES.md` and `docs/FRAMES-AND-EPOCHS.md`.
 
@@ -674,7 +688,7 @@ Still open below.
 
 - [ ] A round fired at a low target passes through terrain rather than hitting it. Expected —
       rounds only test against their target — but confirm it does not throw.
-- [x] **Timewarp during flight.** Fire control steps on `Universe.GetElapsedSimTime()` via
+- [x] **Timewarp during flight.** Fire control steps on `Universe.GetElapsedTime()` via
       `Sim/SimClock.cs`, never on StarMap's *player-time* delta: player time is wall-clock, so it
       runs through a pause and stays at 1× under warp, which breaks tracking and lets a paused
       system fire.

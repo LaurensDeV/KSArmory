@@ -32,7 +32,7 @@ internal static class KsaWorld
     public static double SimStepSeconds => Universe.GetLastSimStep().DeltaTime;
 
     // Pure, and in Sim/ so it can be tested. See StepGate.
-    private static readonly StepGate<SimTime> _stepGate = new();
+    private static readonly StepGate<UniverseTime> _stepGate = new();
 
     /// <summary>
     /// The simulated seconds to integrate now, or zero if the engine has applied no new step
@@ -829,14 +829,18 @@ internal static class KsaWorld
     /// Blocks until KSA's vehicle solver jobs have finished the step they are working on.
     ///
     /// <para><b>Required before destroying a vehicle from a mod hook.</b> Disposing a vehicle
-    /// removes it from the update task's <c>_vehicleStates</c>, which is the list
-    /// <c>VehicleUpdateTask.DoWorkAndStageResults</c> enumerates on a worker thread — the dispose
-    /// surfaces as <c>InvalidOperationException: Collection was modified</c> inside the
-    /// engine.</para>
+    /// removes it from its <c>PhysicsBubble</c>'s <c>_vehicleStates</c>, which is the list
+    /// <c>VehicleUpdateTask.Run</c> enumerates off the main thread — the dispose surfaces as
+    /// <c>InvalidOperationException: Collection was modified</c> inside the engine.</para>
+    ///
+    /// <para>Waiting on the scheduler alone is the whole barrier, even though the work fans out
+    /// across a second job system: <c>Run</c> steps the bubbles through
+    /// <c>JobSystems.VehicleWorkerPool</c> inside a <c>using ParallelBatch</c>, and disposing
+    /// that batch awaits it — so the pool cannot still be running once the scheduler is idle.</para>
     ///
     /// <para>No mod hook sits in the safe window. <c>PrepareFrame</c> takes this barrier at
-    /// <c>Program.cs:1984</c> and re-dispatches the jobs at <c>:2020</c>, while the GUI hook fires
-    /// at <c>:2068</c> and the frame hook later still — so moving the call between hooks cannot
+    /// <c>Program.cs:1966</c> and re-dispatches at <c>:2003</c>, while the GUI hook fires at
+    /// <c>:2051</c> and the frame hook later still — so moving the call between hooks cannot
     /// help. Taking the barrier costs a stall only on frames where something dies, and those jobs
     /// had to finish before the next <c>PrepareFrame</c> anyway.</para>
     /// </summary>
@@ -844,7 +848,7 @@ internal static class KsaWorld
     {
         try
         {
-            JobSystems.VehicleSolvers?.Wait();
+            JobSystems.VehicleSolver?.Wait();
         }
         catch (Exception e)
         {

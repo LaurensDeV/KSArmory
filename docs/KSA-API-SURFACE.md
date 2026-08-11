@@ -266,7 +266,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 VelocityBub`
 - `KSA.BubbleFrame BubFrame`
 - `KSA.IParentBody Parent`
-- `KSA.SimTime Time`
+- `KSA.UniverseTime Time`
 
 ### KSA.Camera
 
@@ -428,7 +428,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.JobSystems
 
-- `Brutal.Concurrency.Jobs.JobScheduler VehicleSolvers`
+- `Brutal.Concurrency.Jobs.JobScheduler VehicleSolver`
 
 ### KSA.KeyHash
 
@@ -468,7 +468,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Orbit
 
-- `KSA.Orbit CreateFromStateCci(KSA.IParentBody, KSA.SimTime, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.byte4)`
+- `KSA.Orbit CreateFromStateCci(KSA.IParentBody, KSA.UniverseTime, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.byte4)`
 - `double get_Apoapsis()`
 - `double get_Eccentricity()`
 - `double get_Periapsis()`
@@ -523,6 +523,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsValid()`
 - `double GetAtmosphericDensityAtAltitude(double)`
 - `double GetAtmosphericPressure(KSA.Camera)`
+
+### KSA.PhysicsBubble
+
+*referenced as a type only*
 
 ### KSA.Program
 
@@ -592,12 +596,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.SimStep
 
-- `KSA.SimTime get_NextTime()`
+- `KSA.UniverseTime get_NextTime()`
 - `double get_DeltaTime()`
-
-### KSA.SimTime
-
-*referenced as a type only*
 
 ### KSA.Situation
 
@@ -625,11 +625,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.CelestialSystem get_CurrentSystem()`
 - `KSA.SimStep GetLastSimStep()`
-- `KSA.SimTime GetElapsedSimTime()`
+- `KSA.UniverseTime GetElapsedTime()`
 - `bool IsPaused()`
 - `double get_SimulationSpeed()`
 - `void DestroyVehicleFromEvent(KSA.Vehicle, KSA.VehicleDestructionEvent)`
 - `void SetSimulationSpeed(KSA.SimSpeed)`
+
+### KSA.UniverseTime
+
+*referenced as a type only*
 
 ### KSA.Vehicle
 
@@ -641,13 +645,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
 - `KSA.IParentBody get_Parent()`
 - `KSA.PartTree get_Parts()`
+- `KSA.PhysicsBubble get_PhysicsBubble()`
 - `KSA.Situation get_Situation()`
 - `KSA.Vehicle CreateVehicle(KSA.CelestialSystem, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 - `KSA.Vehicle get_BubbleLeader()`
-- `KSA.VehicleUpdateTask UpdateTask`
 - `bool get_IsControllable()`
 - `bool get_IsDisposed()`
-- `void AddToTask(KSA.VehicleUpdateTask)`
+- `void AddToBubble(KSA.PhysicsBubble)`
 - `void TeleportToLocation(KSA.Celestial, double, double)`
 - `void UpdateAfterPartTreeModification()`
 
@@ -670,10 +674,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.VehicleSaveData
 
 - `string Character`
-
-### KSA.VehicleUpdateTask
-
-*referenced as a type only*
 
 ### KSA.Viewport
 
