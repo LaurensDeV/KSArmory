@@ -89,6 +89,16 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         {
             for (int i = 0; i < airborne.Count; i++)
             {
+                // A set does not watch its own platform's salvo leave. The mirror of the rule
+                // above for craft, and needed for the same reason: a round clearing the tubes is
+                // metres away and closes nothing, so it takes the top of the priority list and
+                // holds it for the round's whole flight. IFF will not do this — allegiance decides
+                // what may be *engaged*, and a friendly contact is still tracked.
+                //
+                // On a launcher carrying a director this is the difference between a sight that
+                // watches the target and one that follows every round out to 30 km.
+                if (ReferenceEquals(airborne[i].LaunchedFrom, platform)) continue;
+
                 Consider(airborne[i], originEcl, originVel, boresight, dt, groundCentre, groundRadius);
             }
         }

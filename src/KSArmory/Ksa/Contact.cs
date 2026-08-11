@@ -48,6 +48,21 @@ internal interface IContact
     /// False when it cannot be placed, which the overlay reads as "draw nothing".
     /// </summary>
     bool TryDrawEgo(out double3 posEgo);
+
+    /// <summary>
+    /// The craft that put this in the air, or null for something nobody launched.
+    ///
+    /// <para>Only so a sensor can disregard its <em>own</em> platform's rounds. IFF cannot do it:
+    /// allegiance decides what may be <em>engaged</em>, and a friendly contact is still tracked —
+    /// correctly, because a sight pointed at a friendly craft is doing its job. What is never
+    /// useful is a set watching its own salvo leave, from metres away, at the top of its
+    /// priority.</para>
+    ///
+    /// <para>Deliberately not "whose side it is on". Two launchers on one team should still see
+    /// each other's rounds, and seeing an incoming missile is the whole reason a round is a
+    /// contact at all.</para>
+    /// </summary>
+    Vehicle? LaunchedFrom { get; }
 }
 
 /// <summary>A craft, seen by a sensor.</summary>
@@ -60,6 +75,9 @@ internal sealed class VehicleContact(Vehicle vehicle) : IContact
     public string DisplayName => KsaWorld.DisplayName(Vehicle);
 
     public string TeamKey => DisplayName;
+
+    /// <summary>Nothing launched a craft. A sensor skips its own platform by reference instead.</summary>
+    public Vehicle? LaunchedFrom => null;
 
     public double MeanRadius => KsaWorld.MeanRadius(Vehicle);
 

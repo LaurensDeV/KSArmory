@@ -38,6 +38,9 @@ internal sealed class RoundContact(IProjectile round, string? firedBy, KSA.Vehic
     /// <summary>Its shooter's craft, so a round is on the side that fired it.</summary>
     public string TeamKey => firedBy ?? string.Empty;
 
+    /// <summary>The craft that fired it, so its own sensors can disregard it.</summary>
+    public KSA.Vehicle? LaunchedFrom => anchor;
+
     /// <summary>
     /// A missile's body, not its warhead. Small: it is what a blast is measured against and what a
     /// sight sizes its bracket from, and using a lethal radius here would make a round look like
