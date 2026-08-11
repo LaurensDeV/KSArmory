@@ -32,6 +32,16 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     public Track? Locked { get; private set; }
 
     /// <summary>
+    /// The best contact on scope, whether or not it may be engaged. What an <em>instrument</em>
+    /// follows, as against <see cref="Locked"/>, which is what a weapon may shoot.
+    ///
+    /// <para>The same as <see cref="Locked"/> whenever there is a threat, so a sight and a gun
+    /// agree about the thing that matters. They part company over a contact that will never close:
+    /// the gun is right to ignore it and the sight is right to watch it.</para>
+    /// </summary>
+    public Track? Watched { get; private set; }
+
+    /// <summary>
     /// What the operator picked from the track list, as an <see cref="IContact.Handle"/>, cleared
     /// when that contact leaves it. An object rather than a craft: a contact need not be one.
     /// </summary>
@@ -205,6 +215,17 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
 
         int first = ThreatModel.IndexOfFirstThreat(Tracks);
         Locked = first >= 0 ? Tracks[first] : null;
+
+        // What an instrument should look at, which is not what a weapon may shoot. Tracks are
+        // already sorted by priority, so the best thing on scope is the head of the list whether
+        // or not it qualifies as a threat.
+        //
+        // A weapon is right to hold fire at something that will never come close; a sight pointed
+        // at it is doing its job. Without this a director watches nothing at all whenever the only
+        // contact is a passer-by, and lags the launcher whenever a threat is still maturing —
+        // fire control reaches its own verdict first and the missiles leave before the picture
+        // has moved.
+        Watched = Locked ?? (Tracks.Count > 0 ? Tracks[0] : null);
     }
 
     /// <summary>True when the locked contact has been held long enough to shoot at.</summary>
@@ -216,6 +237,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         Tracks.Clear();
         _dwell.Clear();
         Locked = null;
+        Watched = null;
         ManualDesignation = null;
     }
 }

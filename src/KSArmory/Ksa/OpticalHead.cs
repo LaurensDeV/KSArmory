@@ -86,8 +86,12 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// </summary>
     public double3 RollReferenceEcl { get; private set; } = new(0, 0, 1);
 
-    /// <summary>What it is watching.</summary>
-    public Track? LockedTrack => Radar.Locked;
+    /// <summary>
+    /// What it is watching — the best contact on scope, not the best one a weapon may shoot.
+    /// A director is an instrument: a passer-by that will never close is exactly the thing an
+    /// operator wants the picture on, and a gun is right to ignore it.
+    /// </summary>
+    public Track? LockedTrack => Radar.Watched;
 
     /// <summary>True once the head has caught up with what it was told to look at.</summary>
     public bool OpticOnTarget => _drive.OnTarget && _driveWorks;
@@ -240,7 +244,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // From the head's own pivot, not from the part's origin. The two are 0.63 m apart, which
         // is a tenth of the picture at a few hundred metres -- see WeaponSystem.OpticOriginEcl,
         // which is the same correction for the same reason.
-        if (Radar.Locked is not { } locked) return rest;
+        if (Radar.Watched is not { } locked) return rest;
 
         if (!LauncherPart.TryPartPointEcl(platform, Director, Mount.ToPart(Profile.HeadPivot), PlatformEcl,
                                           out double3 pivotEcl))
