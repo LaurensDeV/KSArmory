@@ -5,6 +5,10 @@
 #     ./tools/screenshot.sh                  # capture to a timestamped file
 #     ./tools/screenshot.sh shot.png         # capture to a specific name
 #     ./tools/screenshot.sh shot.png 5       # wait 5 seconds first
+#     FORCE=1 ./tools/screenshot.sh          # capture even if the game is not in front
+#
+# Refuses unless the game is the foreground window: this grabs the whole primary screen, so an
+# unattended run with the game behind something photographs that something instead.
 #
 # Writes into ./screenshots/ (gitignored). Useful when a change is visual and the log
 # cannot tell you whether it worked.
@@ -37,6 +41,28 @@ if (\$sm -and \$sm.MainWindowHandle -ne 0) {
   Start-Sleep -Milliseconds 600
 }
 " >/dev/null 2>&1 || true
+
+# Refuse unless the game is actually in front. This captures the whole screen, so a failed
+# AppActivate -- which happens, and silently -- means photographing whatever the machine's owner
+# had open and writing it into the repo. A missing screenshot is recoverable; a captured desktop
+# is not, and nothing downstream would notice either.
+#
+# Checked here rather than trusted above: AppActivate reports success it did not achieve.
+FOREGROUND="$(powershell.exe -NoProfile -Command "
+Add-Type -Namespace W -Name A -MemberDefinition '
+  [DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow();
+  [DllImport(\"user32.dll\")] public static extern int GetWindowThreadProcessId(IntPtr h, out int p);'
+\$p = 0
+[void][W.A]::GetWindowThreadProcessId([W.A]::GetForegroundWindow(), [ref]\$p)
+(Get-Process -Id \$p -ErrorAction SilentlyContinue).ProcessName
+" 2>/dev/null | tr -d '\r\n ')"
+
+if [[ "$FOREGROUND" != "StarMap" && "$FOREGROUND" != "KSA" ]]; then
+    echo "error: the game is not in front (foreground is '${FOREGROUND:-unknown}')." >&2
+    echo "  refusing to capture -- this grabs the whole screen, not the game window." >&2
+    echo "  click the game, or pass --force if you really want whatever is on screen." >&2
+    [[ "${FORCE:-0}" == "1" ]] || exit 1
+fi
 
 powershell.exe -NoProfile -Command "
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing
