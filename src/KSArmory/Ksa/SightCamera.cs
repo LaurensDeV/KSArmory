@@ -62,7 +62,137 @@ internal sealed class SightCamera : IViewPose
         upEcl = head.RollReferenceEcl;
         fovDeg = SightZoom.FovDegreesFor(_saved.FovDeg, _magnification);
 
+        // Diagnostic only, and inside the engine's frame pass -- so it is caught here rather than
+        // relying on the caller's catch, which would drop the whole pose for that frame and turn a
+        // logging fault into a visible one.
+        try { ProbeAim(head, eye, forwardEcl, fovDeg); } catch { /* a probe must never cost a frame */ }
+
         return true;
+    }
+
+    // Where the camera is being sent against where the target actually is, per frame, under a
+    // verbose log.
+    //
+    // The question it settles: re-resolving the pose here refreshes the *part's* transform, but the
+    // head's aim relative to that part was integrated a frame ago in the GUI hook, against wherever
+    // the target was then. So a residual of one frame of the target's angular motion should survive
+    // the fix in `fix(sight): aim the camera in phase with the frame it is drawn in`, and it should
+    // scale with simulation speed.
+    //
+    // `missed` is what the geometry actually gives; `crosses` is how far the target moves across
+    // the picture in one step. A miss that tracks the crossing, and grows with simulation speed,
+    // says the aim is arriving a frame late and the fix belongs in how it is carried to this pass.
+    // A miss that stays put while the crossing grows says it is something else entirely.
+    //
+    // What it found: the miss is linear in simulation speed -- 0.0142 deg at 2x, 0.0302 at 4x,
+    // 0.0607 at 10x, a flat 0.007 deg per unit of speed. That is the frame-late term, and the fix
+    // is the in-pass re-solve in OpticalHead.TryOpticViewEclAt rather than any extrapolation of the
+    // drive: leading the aim by the drive's own last turn was tried and measured far worse, 0.35
+    // deg at 10x against a target crossing 0.0037. Left in because the same measurement is what
+    // proves the re-solve is reached, and it silently was not for a designation.
+    //
+    // Reported as a fraction of the field because that is what "off target" means to whoever is
+    // looking through it: 0.3 degrees is nothing at 60 degrees and a tenth of the picture at 3.
+    // Frames since the last line. A probe inside the engine's frame pass that writes a file every
+    // frame is a probe that causes the stutter it is looking for -- 4,000 synchronous writes in one
+    // session, in the loop that positions the camera. Sampled instead, with any new worst case let
+    // through so a spike is never missed between samples.
+    private int _probeSkipped;
+    private double _probeWorst;
+
+    private void ProbeAim(IOpticalHead head, double3 eye, double3 forwardEcl, double fovDeg)
+    {
+        if (Log.Threshold > Log.Level.Debug) return;
+
+        // Whatever the head is actually following, which is the designation when there is one and
+        // the set's own pick otherwise. Asking only for a track measured nothing at all while a
+        // designation was driving -- and a designated patch of ground is never a track, so the
+        // probe was silent in exactly the case it was wanted for.
+        double3 targetEcl;
+        double3 targetVel;
+
+        if (head.Designation.Kind != AimpointKind.None)
+        {
+            targetEcl = head.Designation.PositionEcl;
+            targetVel = head.Designation.VelocityEcl;
+
+            // Resolved again, here, against this instant. The stored position was resampled in the
+            // GUI hook a frame ago, and the eye below comes from the engine's own fresh sample --
+            // so comparing them measures one step of the planet's 29.8 km/s and calls it an aiming
+            // error. 383 m at 439 km reads as 0.05 deg, and it spikes on a long frame, which is
+            // exactly what a real fault would look like. An instrument that pairs two epochs is
+            // measuring itself; see docs/FRAMES-AND-EPOCHS.md.
+            if (head.Designation.NeedsResampling
+                && KsaWorld.TryGroundAnchorEcl(head.Designation.Handle, head.Designation.Anchor,
+                                               out double3 nowEcl, out double3 nowVel))
+            {
+                targetEcl = nowEcl;
+                targetVel = nowVel;
+            }
+            else if (head.Designation.Handle is Vehicle designated && KsaWorld.IsAlive(designated))
+            {
+                targetEcl = KsaWorld.PositionEcl(designated);
+                targetVel = KsaWorld.VelocityEcl(designated);
+            }
+        }
+        else if (head.LockedTrack is { } track)
+        {
+            // The drawn position, which is what the bracket is painted at -- so this compares the
+            // two things actually on screen rather than the camera against a simulated position no
+            // pixel corresponds to.
+            targetEcl = track.PositionEcl;
+            targetVel = track.VelocityEcl;
+
+            if (track.Contact.TryDrawEgo(out double3 ego) && KsaWorld.TryEgoToEcl(ego, out double3 drawn))
+            {
+                targetEcl = drawn;
+            }
+        }
+        else
+        {
+            return;
+        }
+
+        double3 toTarget = targetEcl - eye;
+        double range = Vec.Len(toTarget);
+        if (range < 1.0) return;
+
+        double missed = Vec.AngleBetween(forwardEcl, toTarget);
+
+        double dt = KsaWorld.SimStepSeconds;
+        double speed = KsaWorld.SimulationSpeed;
+
+        // How far the target crosses the picture in one step, from its velocity *relative to the
+        // platform* and within this one frame.
+        //
+        // Never by differencing two ecliptic positions a frame apart, which is what this did first:
+        // that carries 29.8 km/s of the planet's own motion, 655 m across a 22 ms step, which at
+        // 8 km reads as 4.7 degrees of target movement that never happened. It printed exactly
+        // that. See docs/FRAMES-AND-EPOCHS.md -- the rule is the same one the rounds and the
+        // overlay already obey, and a diagnostic is not exempt from it.
+        double3 relative = head.Platform is { } craft
+            ? targetVel - KsaWorld.VelocityEcl(craft)
+            : targetVel;
+
+        double3 along = Vec.Unit(toTarget);
+        double3 across = relative - along * Vec.Dot(relative, along);
+        double crossing = range > 0.0 ? Vec.Len(across) / range * dt : 0.0;
+
+        // One in fifteen, plus anything worse than has been seen. At 60 fps that is four lines a
+        // second, which is enough to see a pattern and few enough to cost nothing.
+        bool worst = missed > _probeWorst * 1.25;
+        if (worst) _probeWorst = missed;
+
+        if (!worst && ++_probeSkipped < 15) return;
+        _probeSkipped = 0;
+
+        double field = Math.Max(fovDeg, 1e-6);
+
+        Log.Debug(() =>
+            $"  sight aim: missed {double.RadiansToDegrees(missed):F4} deg "
+            + $"({double.RadiansToDegrees(missed) / field * 100.0:F1}% of a {field:F2} deg field) | "
+            + $"target crosses {double.RadiansToDegrees(crossing):F4} deg per step | "
+            + $"range {range / 1000.0:F2} km, step {dt * 1000.0:F2} ms, sim {speed:F2}x");
     }
 
     // The craft the view was pointed at, which is what every offset written below is measured

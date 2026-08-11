@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-114 types and 315 members across 6 assemblies.
+114 types and 316 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -179,6 +179,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ImGuiApi.ImGuiIOPtr
 
+- `ref bool get_KeyShift()`
 - `ref bool get_WantCaptureMouse()`
 
 ### Brutal.ImGuiApi.ImGuiInputTextCallback
