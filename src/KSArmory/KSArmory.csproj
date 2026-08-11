@@ -10,7 +10,7 @@
     <LangVersion>latest</LangVersion>
 
     <!-- Stamped into the assembly and used to name the release archive. -->
-    <Version>0.8.43</Version>
+    <Version>0.8.44</Version>
 
     <!--
       AssemblyCompanyAttribute, which is what Windows shows under the DLL's file properties. The

@@ -1,3 +1,59 @@
+## [0.8.44](https://github.com/LaurensDeV/KSArmory/compare/v0.8.43...v0.8.44) (2026-08-11)
+
+### Features
+
+* **model:** build the optical head as a part of its own ([680d2ed](https://github.com/LaurensDeV/KSArmory/commit/680d2ed335d8b17889458c5a5afc4d10b4bbb2d2))
+* **model:** take the gun off the kitten ([fa48b51](https://github.com/LaurensDeV/KSArmory/commit/fa48b5158a92375c83554a1f1bd2fe9806e9aceb))
+* **model:** take the optical head off the Pantsir ([bf39bca](https://github.com/LaurensDeV/KSArmory/commit/bf39bcae4886004db7bf956cc386ed1e3938f01f))
+* **parts:** declare the EO director as a part anything can carry ([8e1c842](https://github.com/LaurensDeV/KSArmory/commit/8e1c842f93289ce5a9b67a42d9cf476ae16ead0f))
+* **parts:** give sensors their own tab, beside weapons ([7236a27](https://github.com/LaurensDeV/KSArmory/commit/7236a2785445c25a7fc32e59da4e6e0e99062bf2))
+* **parts:** give the weapons their own tab in the editor ([5aa41b7](https://github.com/LaurensDeV/KSArmory/commit/5aa41b752dbf708a4661c4775fd8684756824269))
+* **parts:** let the Pantsir start a craft, and carry a director ([c026cc8](https://github.com/LaurensDeV/KSArmory/commit/c026cc8e32836f34cd87b011df1a4a1252e8ba14))
+* **radar:** look over the real skyline, and say what it costs ([5370f8d](https://github.com/LaurensDeV/KSArmory/commit/5370f8d6fcdb98f175e9ef20bcaec76b354e421e))
+* **radar:** tell targets apart by what they are ([1f80f8f](https://github.com/LaurensDeV/KSArmory/commit/1f80f8fcca7f7ec138b29d2a8ee57ac8e8880b50))
+* **rounds:** show where a bomb would land ([cc7540a](https://github.com/LaurensDeV/KSArmory/commit/cc7540a8d935a19617b1a7d952afece6096f8b98))
+* **sensors:** crew an optical director that aims itself ([36af8e5](https://github.com/LaurensDeV/KSArmory/commit/36af8e598905d4243eac36bd097ab99eda306568))
+* **sensors:** the sight belongs to the director, not to the launcher ([3eb528b](https://github.com/LaurensDeV/KSArmory/commit/3eb528b6c34377bb021657908dfe4518639ae7a7))
+* **sight:** let the drag speed build from the edge of the rest area ([edb61db](https://github.com/LaurensDeV/KSArmory/commit/edb61db3fffaf28f27587d72293057db6d027ca4))
+* **sight:** magnify, and show the lead being taken ([e4bd2da](https://github.com/LaurensDeV/KSArmory/commit/e4bd2da46a199b00550ae55ad3ede6140d13bd68))
+* **sight:** make levelling the horizon a choice ([c1191ec](https://github.com/LaurensDeV/KSArmory/commit/c1191ecba2d9bbb043cff5ba276856ab498e0fe7))
+* **sight:** point the director with the mouse ([d1536aa](https://github.com/LaurensDeV/KSArmory/commit/d1536aa9a256d9394b626904ee388ed0ee4b4676))
+* **sight:** show the drag, and give the cursor somewhere to rest ([30312a1](https://github.com/LaurensDeV/KSArmory/commit/30312a1c8f2a2f17a4723617ea04ae2df4623bb7))
+* **ui:** give every component its own state and controls ([cdf70d0](https://github.com/LaurensDeV/KSArmory/commit/cdf70d093d999b1fd1e916f95de882a1431823bf))
+* **ui:** move what belongs to the session out of the craft's window ([40494f7](https://github.com/LaurensDeV/KSArmory/commit/40494f7e4eac0c870a64454f4425d7695faf0ee6))
+* **ui:** put each director under its own component row ([bd8ef85](https://github.com/LaurensDeV/KSArmory/commit/bd8ef852ce0afed611826e5cb6ebc0d71d5cc277))
+* **ui:** put the fire-control answer above the tabs ([ffaa616](https://github.com/LaurensDeV/KSArmory/commit/ffaa6169a32af21782d8c0362e7ce63c1397e5ad))
+
+### Fixes
+
+* **assets:** stop a subpart and a mesh sharing one id ([57a61d8](https://github.com/LaurensDeV/KSArmory/commit/57a61d87fa98ba68753c5ab289ab6390ddaeaa13))
+* **camera:** fly the chase at the player's field, not the sight's ([a0df348](https://github.com/LaurensDeV/KSArmory/commit/a0df3482896eed55698bc903814557d04cf79a19))
+* **parts:** stop a camera alone making a craft a weapons system ([a884fc9](https://github.com/LaurensDeV/KSArmory/commit/a884fc9949b0515c1499eab74887836df5fb1fd0))
+* **rounds:** point a released store along the tube it left ([f3ecd4a](https://github.com/LaurensDeV/KSArmory/commit/f3ecd4ab0902a80de41878ac7c246feffda634c6))
+* **sensors:** choose the head's roll instead of inferring it ([9ef4cbd](https://github.com/LaurensDeV/KSArmory/commit/9ef4cbd842359bde32cf72491885204a2701ca6d))
+* **sensors:** level the horizon, and keep the head out of its own mast ([4c8d467](https://github.com/LaurensDeV/KSArmory/commit/4c8d4671e0353aaf9c15c9cae903bbcedfe76dd5))
+* **sight:** aim the camera in phase with the frame it is drawn in ([d02cbe1](https://github.com/LaurensDeV/KSArmory/commit/d02cbe14e8c2340a7c37cb23648cdede90bf00cb))
+* **sight:** aim the optical head from the head, not from the hull ([a61dead](https://github.com/LaurensDeV/KSArmory/commit/a61deade35936c3818e45a736ded7362354c1d17))
+* **sight:** carry the camera's roll through straight down ([7ece0e6](https://github.com/LaurensDeV/KSArmory/commit/7ece0e60e3499ed02928018b4673c9eacec80780))
+* **sight:** correct a levelled roll instead of choosing it ([416c72a](https://github.com/LaurensDeV/KSArmory/commit/416c72a531dd27eb181c0e642556758f734c7680))
+* **sight:** draw under the panel, and on the target not beside it ([fd67f2e](https://github.com/LaurensDeV/KSArmory/commit/fd67f2ec95b4be4f1059521387bc6110c114b1cc))
+* **sight:** keep the horizon on screen, and centre what the head watches ([673f928](https://github.com/LaurensDeV/KSArmory/commit/673f9281cb803446963b2fde3560405f66e19fef))
+* **sight:** make the cursor's rest area hold the head, not park it ([faa2585](https://github.com/LaurensDeV/KSArmory/commit/faa258579807f5ceed867d4e5c80064c9ec51bb7))
+* **sight:** roll with the head by default instead of levelling ([4e5bcfa](https://github.com/LaurensDeV/KSArmory/commit/4e5bcfab20afd0ebed3818c5e7e3f40cc29ae4ff))
+* **sight:** stop building the roll where the answer is worthless ([0e52998](https://github.com/LaurensDeV/KSArmory/commit/0e52998a926e3535d10f4036f794da53b366baed))
+* **sight:** stop the roll probe reporting a take as a jump ([a6bb5e3](https://github.com/LaurensDeV/KSArmory/commit/a6bb5e31773ad6ad748a958a415457e665d20f33))
+* **turret:** slew the drives on an even clock ([6b38bfa](https://github.com/LaurensDeV/KSArmory/commit/6b38bfaa526caeda025507399f9042a0d449b6bb))
+* **ui:** do not read a weapons system from a craft that has none ([6ccc218](https://github.com/LaurensDeV/KSArmory/commit/6ccc21883c217034a32f58bb86573f1b69de7f72))
+* **ui:** give the director its own IFF and its own protected craft ([c4cb58e](https://github.com/LaurensDeV/KSArmory/commit/c4cb58ef0562dd5fd4cce2e0da204b9f7777b234))
+* **ui:** keep a director-only craft selected when it is managed ([15ef3dc](https://github.com/LaurensDeV/KSArmory/commit/15ef3dc4863f7bcfc6aa7b148ede4ed4333ba343))
+* **ui:** list a craft that carries only a director ([583937f](https://github.com/LaurensDeV/KSArmory/commit/583937f55947b59fcbc9adb44847f7c298a64f92))
+* **ui:** show the bomb sight on what drops, not on what has no missiles ([ba12bfc](https://github.com/LaurensDeV/KSArmory/commit/ba12bfc8f33aef8724d0930dd70f05cc0eb36017))
+* **ui:** stop the panel crashing on a craft that carries no weapon ([f6422f2](https://github.com/LaurensDeV/KSArmory/commit/f6422f2196016cd670f3fb42e69a2449ac7a5639))
+
+### Build and packaging
+
+* **ksa:** retarget 2026.8.19.5261 ([3af5598](https://github.com/LaurensDeV/KSArmory/commit/3af5598ea2255dead87d123f392ab16d90f7ea2f))
+
 ## [0.8.43](https://github.com/LaurensDeV/KSArmory/compare/v0.8.42...v0.8.43) (2026-08-09)
 
 ### Features
