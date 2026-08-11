@@ -635,9 +635,12 @@ public static class Arsenal
             Role = WeaponRole.Camera,
             DisplayName = EoDirector.DisplayName,
 
-            // A part in its own right, so nothing is declared for it: the survey walks parts and
-            // finds this one directly. Provides exists for prefabs whose gear is subparts.
-            Provides = [new(WeaponRole.Sensor, EoSensor.DisplayName)],
+            // Nothing declared, and that is the whole point of the distinction. Provides exists
+            // for a prefab whose gear is subparts the survey cannot see -- the Pantsir's search
+            // radar above. A director's sensor is not gear it carries, it *is* the director, and
+            // the survey walks parts and finds it directly. Declaring one anyway minted a second
+            // row for one object, filed under Sensors, with no control on it and nothing to say
+            // but that there was no weapons system to belong to.
         },
         new ComponentProfile
         {
