@@ -8,10 +8,10 @@ namespace KSArmory;
 /// contacts as threats using their closest point of approach rather than raw closing
 /// speed, so a target crossing the site is engaged just as readily as one flying at it.
 /// </summary>
-internal sealed class Radar(Config config, SystemConfig policy)
+internal sealed class Radar(Config config, ISensorPolicy policy)
 {
     private readonly Config _config = config;
-    private readonly SystemConfig _policy = policy;
+    private readonly ISensorPolicy _policy = policy;
 
     /// <summary>
     /// What this set can see.
@@ -31,10 +31,9 @@ internal sealed class Radar(Config config, SystemConfig policy)
     /// <summary>The track currently designated for engagement, if any.</summary>
     public Track? Locked { get; private set; }
 
-    /// <summary>Set when the operator picks a target by hand; clears on lock loss.</summary>
     /// <summary>
-    /// What the operator picked from the track list, as an <see cref="IContact.Handle"/>. An
-    /// object rather than a craft: a contact need not be one.
+    /// What the operator picked from the track list, as an <see cref="IContact.Handle"/>, cleared
+    /// when that contact leaves it. An object rather than a craft: a contact need not be one.
     /// </summary>
     public object? ManualDesignation { get; set; }
 
@@ -70,6 +69,11 @@ internal sealed class Radar(Config config, SystemConfig policy)
         double3 originEcl = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
 
+        // Once per scan, not once per contact. Only the clutter floor reads it, and the body every
+        // contact is measured against is the one under the set rather than the one under each of
+        // them -- a set does not see a target against a different planet's ground.
+        KsaWorld.MeanSphereUnder(originEcl, out double3 groundCentre, out double groundRadius);
+
         KsaWorld.CollectVehicles(_scratch);
 
         foreach (Vehicle candidate in _scratch)
@@ -77,15 +81,19 @@ internal sealed class Radar(Config config, SystemConfig policy)
             if (ReferenceEquals(candidate, platform)) continue;
             if (_policy.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
 
-            Consider(new VehicleContact(candidate), originEcl, originVel, boresight, dt);
+            Consider(new VehicleContact(candidate), originEcl, originVel, boresight, dt,
+                     groundCentre, groundRadius);
         }
 
         if (airborne is not null)
         {
-            for (int i = 0; i < airborne.Count; i++) Consider(airborne[i], originEcl, originVel, boresight, dt);
+            for (int i = 0; i < airborne.Count; i++)
+            {
+                Consider(airborne[i], originEcl, originVel, boresight, dt, groundCentre, groundRadius);
+            }
         }
 
-        // Refresh dwell bookkeeping, dropping anything we no longer see.
+        // Refresh dwell bookkeeping, dropping anything no longer seen.
         _dwell.Clear();
         foreach (Track t in Tracks) _dwell[t.Contact.Handle] = t.HeldSeconds;
 
@@ -94,13 +102,11 @@ internal sealed class Radar(Config config, SystemConfig policy)
         UpdateLock();
     }
 
-    // KSA has no team field, so the craft's name is the only assignment available without extra
-    // UI. Longest match wins, so "Red Team" beats "Red" when both are listed.
     // One contact, through the same geometry, masking and IFF a craft gets. Anything that only a
     // craft can answer is already behind IContact, so there is nothing here that knows the
     // difference.
     private void Consider(IContact contact, double3 originEcl, double3 originVel,
-                          double3 boresight, double dt)
+                          double3 boresight, double dt, double3 groundCentre, double groundRadius)
     {
         if (!contact.IsAlive) return;
 
@@ -117,8 +123,25 @@ internal sealed class Radar(Config config, SystemConfig policy)
             return;
         }
 
+        double height = groundRadius > 0.0
+            ? Vec.Len(targetPos - groundCentre) - groundRadius
+            : double.PositiveInfinity;
+
+        var signature = new ThreatModel.ContactSignature(contact.MeanRadius, height);
+
         if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
-                                   boresight, _sensor, out var a)) return;
+                                   boresight, _sensor, signature, out var a)) return;
+
+        // The skyline, and last of all the rejects. Every sample is a height-map fetch, so it is
+        // only worth spending on a contact that range, cone and the planet's own bulk have all
+        // already let through.
+        if (_sensor.HorizonMasking
+            && KsaWorld.IsHiddenByTerrain(originEcl, targetPos, _sensor.TerrainSamples,
+                                          _sensor.TerrainClearanceMetres, out _))
+        {
+            MaskedByTerrain++;
+            return;
+        }
 
         Tracks.Add(new Track
         {
@@ -136,6 +159,8 @@ internal sealed class Radar(Config config, SystemConfig policy)
         });
     }
 
+    // KSA has no team field, so the craft's name is the only assignment available without extra
+    // UI. Longest match wins, so "Red Team" beats "Red" when both are listed.
     private string? TeamOf(string name)
     {
         if (_config.TeamNames.Count == 0) return null;

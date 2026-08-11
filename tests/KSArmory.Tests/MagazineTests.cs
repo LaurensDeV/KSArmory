@@ -79,7 +79,7 @@ public class MagazineTests
         }
     }
 
-    // ---- The shipped bug -----------------------------------------------
+    // ---- Tubes whose round is still in the air -------------------------
 
     /// <summary>
     /// A reload refills every tube, including ones whose round has not landed. Handing one out
@@ -384,8 +384,8 @@ public class MagazineTests
     }
 
     /// <summary>
-    /// A depth at or below the tube count is the missile case, and must behave exactly as it did
-    /// without a depth at all — tubes empty one by one and spend.
+    /// A depth at or below the tube count is the missile case, and must behave exactly as omitting
+    /// the depth does — tubes empty one by one and spend.
     /// </summary>
     [Theory]
     [InlineData(0)]

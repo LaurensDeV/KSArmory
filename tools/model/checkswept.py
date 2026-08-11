@@ -60,7 +60,6 @@ ALLOWED = {# The trunnion runs into its bearing, which is the whole point of a t
            # in the elevating head is narrower than the gap between the cheeks, and elevation
            # turns about +Z, so a gap in Z cannot be closed by any pose.
            ("KSArmory_Subpart_CiwsGuns", "KSArmory_Subpart_CiwsTurret"): 0.06,
-           ("KSArmory_Subpart_Optic", "KSArmory_Subpart_Turret"): 0.30,
            ("KSArmory_Subpart_Guns", "KSArmory_Subpart_Turret"): 0.30,
            ("KSArmory_Subpart_Pods", "KSArmory_Subpart_Turret"): 0.22,
            ("KSArmory_Subpart_Chassis", "KSArmory_Subpart_Turret"): 0.10}
@@ -330,11 +329,9 @@ def vehicles(muzzles):
                 # The array's spin is about the traverse axis, so it cannot change any clearance
                 # the bearing does not already cover.
                 "KSArmory_Subpart_Radar": (muzzles["radar_pivot_from_turret"], 0.0),
-                "KSArmory_Subpart_Optic": (muzzles["eo_pivot_from_turret"], 0.0),
             },
             "elevating": {"KSArmory_Subpart_Pods", "KSArmory_Subpart_Guns"},
-            "parents": {"KSArmory_Subpart_Optic": "KSArmory_Subpart_Turret",
-                        "KSArmory_Subpart_Pods": "KSArmory_Subpart_Turret",
+            "parents": {"KSArmory_Subpart_Pods": "KSArmory_Subpart_Turret",
                         "KSArmory_Subpart_Guns": "KSArmory_Subpart_Turret",
                         "KSArmory_Subpart_Radar": "KSArmory_Subpart_Turret",
                         "KSArmory_Subpart_Turret": "KSArmory_Subpart_Chassis"},

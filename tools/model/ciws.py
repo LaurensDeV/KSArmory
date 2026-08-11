@@ -85,7 +85,7 @@ RADOME_SHOULDER = 4.44                   # where the cylinder gives way to the c
 RADOME_CAP_R = 0.78                      # as a fraction of RADOME_R
 
 # The radome is a DRUM with a gently rounded top, not a nose cone. A steep taper turns the
-# most recognisable part of the silhouette into a missile, which is what the first pass did.
+# most recognisable part of the silhouette into a missile.
 
 BARREL_LEN = 1.52
 BARREL_R = 0.026                         # 20 mm, plus wall

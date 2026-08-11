@@ -29,7 +29,7 @@ public static class BallisticLead
     /// The subtraction carries the whole frame contract — both terms hold the planet's ~29.8 km/s
     /// around its star, the round is launched with the shooter's share already in it, and leading
     /// on the common part throws the aim point a hundred kilometres wide. Accepting the difference
-    /// left that subtraction at a call site in <c>Ksa/</c>, which no test can reach.
+    /// would leave that subtraction at a call site in <c>Ksa/</c>, which no test can reach.
     ///
     /// <para>This is the convention for the whole of <c>Sim/</c>: an entry point takes both
     /// frame-carrying terms and differences them itself. See docs/FRAMES-AND-EPOCHS.md.</para>

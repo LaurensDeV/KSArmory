@@ -1,6 +1,21 @@
 namespace KSArmory;
 
 /// <summary>
+/// What a sensor needs from whoever owns it: whose side a contact is on, and whether the craft
+/// being flown is off limits.
+///
+/// <para>An interface because a <c>Radar</c> is driven by a weapons system and by an optical
+/// director, and neither should inherit the other's settings to get one. It is also the whole of
+/// what a sensor asks about policy — everything else it reads is on its own profile.</para>
+/// </summary>
+public interface ISensorPolicy
+{
+    IffPolicy Iff { get; }
+
+    bool ProtectControlledVehicle { get; }
+}
+
+/// <summary>
 /// One battery's own settings — what <em>this</em> installation is allowed to do.
 ///
 /// <para>Split from <see cref="Config"/> because these are the only settings that stop making
@@ -15,13 +30,13 @@ namespace KSArmory;
 /// two Pantsirs on opposite sides of the map share a flight model and disagree about whether
 /// they are armed.</para>
 /// </summary>
-public sealed class SystemConfig
+public sealed class SystemConfig : ISensorPolicy
 {
     // ---- Engagement policy ----------------------------------------------
 
     /// <summary>
-    /// Who this battery will shoot at. Defaults to engaging anything unrecognised, so a world
-    /// where nobody has assigned teams behaves as it did before teams existed.
+    /// Who this battery will shoot at. Defaults to engaging anything unrecognised, so a world with
+    /// no teams assigned engages everything.
     ///
     /// <para>Per battery, because two sites in one world are exactly what taking opposite sides
     /// means. The team <em>names</em> stay on <see cref="Config.TeamNames"/>.</para>
@@ -36,6 +51,18 @@ public sealed class SystemConfig
     /// that impossible.</para>
     /// </summary>
     public bool ProtectControlledVehicle = true;
+
+    // Explicit, so the field above can keep the name. A tick box binds to it by reference, which
+    // a property cannot offer.
+    bool ISensorPolicy.ProtectControlledVehicle => ProtectControlledVehicle;
+
+    /// <summary>
+    /// Draw the bomb sight: where a store released now would land, and the arc it would take.
+    ///
+    /// <para>Per system rather than session-wide, because two aircraft in one world can sensibly
+    /// disagree about wanting one — and it costs a few hundred integration steps to solve.</para>
+    /// </summary>
+    public bool DrawBombSight = true;
 
     /// <summary>Master arm. Nothing launches while this is false.</summary>
     public bool Armed;
@@ -110,17 +137,9 @@ public sealed class SystemConfig
     public bool SearchRadarStopped;
 
     // ---- Optical head ---------------------------------------------------
-
-    /// <summary>
-    /// Which of the game's open camera views this battery's optical head drives, or -1 for none.
-    ///
-    /// <para>An index rather than a flag because KSA opens the views itself — <c>AddViewport</c>
-    /// is private, so a mod borrows one the player has opened rather than making its own.</para>
-    ///
-    /// <para>Per battery because the head is, but a viewport can only serve one at a time: two
-    /// batteries pointed at the same index will fight over it, each rewriting the camera every
-    /// frame. Whoever is drawn last wins, which looks like the view flickering between two
-    /// sights rather than like a setting that needs changing.</para>
-    /// </summary>
-    public int OpticViewport = -1;
+    //
+    // Nothing. A head is a part in its own right now, with its own OpticConfig: it is crewed per
+    // director rather than per weapons system, it finds its own targets, and a craft can carry one
+    // with no armament at all. Keeping a launcher's copy of these would be a second place to set
+    // the same thing, and the one that did nothing.
 }

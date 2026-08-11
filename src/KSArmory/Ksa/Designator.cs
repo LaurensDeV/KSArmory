@@ -7,7 +7,7 @@ namespace KSArmory;
 /// Point at the world and shoot at that spot — an operator naming a place instead of the radar
 /// naming a craft.
 ///
-/// <para>This is the only way to engage something the sensor cannot hand you: terrain, a spot
+/// <para>This is the only way to engage something the sensor cannot supply: terrain, a spot
 /// ahead of a target, or anything the threat model rejects for being too slow or too cold. A
 /// designation carries no allegiance and no track, so the IFF and liveness gates are not skipped
 /// so much as inapplicable — <see cref="WeaponSystem.FireAt"/> says which gates still run.</para>
@@ -38,8 +38,8 @@ internal sealed class Designator
         {
             // Nothing under the cursor is not a reason to hold fire. A gun shoots where it is
             // pointing rather than at a named place, and the sky is where most of its targets are:
-            // requiring a ground hit left the CIWS unable to fire at anything above the horizon,
-            // which is the one thing a CIWS is for.
+            // requiring a ground hit would leave the CIWS unable to fire at anything above the
+            // horizon, which is the one thing a CIWS is for.
             if (battery.Profile.TubeCount == 0) battery.FireBurst();
             return;
         }
@@ -54,9 +54,8 @@ internal sealed class Designator
         if (ImGui.GetIO().WantCaptureMouse) return;
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _)) return;
 
-        // Its own anchor. Every other overlay establishes one and this borrowed whichever was last
-        // set, which with the shipped defaults is often none at all: overlays off, no shells in
-        // the air, and nothing else drawing.
+        // Its own anchor, rather than whichever was last set: with the shipped defaults there is
+        // often none at all, overlays off, no shells in the air, and nothing else drawing.
         if (battery.Platform is not { } platform) return;
         if (!KsaWorld.BeginDraw(platform, battery.PlatformEcl)) return;
 
@@ -64,7 +63,7 @@ internal sealed class Designator
 
         // Coloured by whether the shot would be taken, because armed, loaded, in range and within
         // the seeker's reach are four separate refusals that all look like a click doing nothing.
-        // The last is the one nobody would guess: a fixed launcher can only shoot where it points.
+        // The last is the least obvious: a fixed launcher can only shoot where it points.
         //
         // Asked of whichever weapon the launcher carries. Reading the magazine leaves a gun-only
         // mount marked refused forever, since its magazine is empty by construction.

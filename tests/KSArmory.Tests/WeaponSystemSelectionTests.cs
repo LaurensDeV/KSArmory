@@ -223,9 +223,9 @@ public class WeaponSystemSelectionTests
     /// there is no assembly for them to ride and their coordinates are already in the part's frame.
     ///
     /// <para>This is the contract <c>LauncherPart</c> relies on to seat and fire a rail's round
-    /// with no pods subpart in existence. It held all along; what did not was the KSA-facing half,
-    /// which treated an absent assembly as a failure and hid the round every frame — that part is
-    /// unreachable from here and has to be flown.</para>
+    /// with no pods subpart in existence. The KSA-facing half of it — which must not treat an
+    /// absent assembly as a failure and hide the round every frame — is unreachable from here and
+    /// has to be flown.</para>
     /// </summary>
     [Fact]
     public void AFixedLaunchersTubeSeatsAndPointsThroughAnIdentityCarrier()

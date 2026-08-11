@@ -37,7 +37,7 @@ OUT="$REPO_ROOT/src/KSArmory/bin/$CONFIG/net10.0"
 
 # Before the copy, not after: a bad asset Id or a marker resolving to nothing is a *silent*
 # in-game failure, so without this the first sign is a launch, an inspection and a quit. 89 ms
-# against that. --offline because a deploy only needs our own files to be consistent.
+# against that. --offline because a deploy only needs the mod's own files to be consistent.
 if ! "$REPO_ROOT/tools/validate-parts.py" --offline; then
     echo >&2
     echo "error: the part assets did not validate; not deploying." >&2
@@ -46,7 +46,7 @@ if ! "$REPO_ROOT/tools/validate-parts.py" --offline; then
 fi
 
 # The build output is deliberately just the mod itself: game assemblies are referenced with
-# Private=false so we never ship a second copy alongside the running game's.
+# Private=false, so no second copy is deployed alongside the running game's.
 mkdir -p "$TARGET"
 
 # KSA holds the assembly open while it runs, so the copy fails with a bare "Permission denied"
@@ -67,9 +67,7 @@ cp "$OUT/mod.toml" "$TARGET/"
 # in mod.toml and the <MeshAtlas>/<PbrMaterial>/<SoundFile> paths inside the XML.
 #
 # Discovered rather than listed. A named list means a new asset folder deploys nothing while the
-# XML declaring it still loads, and an asset that resolves to null is reported by nobody - which
-# is exactly what happened when Sounds/ was added and both this script and package.sh still said
-# "Meshes Textures".
+# XML declaring it still loads, and an asset that resolves to null is reported by nobody.
 cp "$OUT"/KSArmory*.xml "$TARGET/"
 found_assets=0
 for path in "$OUT"/*/; do
@@ -85,8 +83,8 @@ if [[ $found_assets -eq 0 ]]; then
     echo "warning: no asset folders in the build output -- the part will render untextured" >&2
 fi
 
-# An older layout put the XML under Assets/. Leaving it there means two copies of the part
-# fighting for the same Id.
+# The XML belongs at the mod root. A copy left under Assets/ by another layout means two copies
+# of the part fighting for the same Id.
 if [[ -d "$TARGET/Assets" ]]; then
     rm -rf "$TARGET/Assets"
     echo "removed stale $TARGET/Assets"

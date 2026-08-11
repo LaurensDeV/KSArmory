@@ -18,9 +18,9 @@ public static class Arsenal
 {
     // ---- Munitions ------------------------------------------------------
 
-    /// <summary>57E6: the Pantsir's two-stage round. Boosts hard, then coasts on the sustainer.</summary>
     /// <summary>
-    /// The 57E6, as flown by the real Pantsir-S1.
+    /// The 57E6, as flown by the real Pantsir-S1: a two-stage round that boosts hard and then
+    /// coasts on the sustainer.
     ///
     /// <para>The defaults on <see cref="MunitionProfile"/> are this round, so the figures live
     /// there. What matters here is which of them are real and which are ours: peak speed
@@ -77,9 +77,10 @@ public static class Arsenal
 
         FuseRadius = 3f,
         FuseArmSeconds = 0.05f,
-        // Chosen to keep the 4 m lethal radius the cannon was tuned with. Its blast radius grows
-        // from 6 m to about 12 m as a result -- that one only decides whether a near miss is
-        // logged, and one law cannot reproduce a pair authored at a different ratio.
+        // Chosen to give the cannon a 4 m lethal radius. The same law then puts its blast radius
+        // at about 12 m rather than the 6 m a hand-authored pair would use -- that one only
+        // decides whether a near miss is logged, and one law cannot reproduce a pair authored at
+        // a different ratio.
         ChargeKg = 0.16f,
     };
 
@@ -116,8 +117,8 @@ public static class Arsenal
         // Mk 17: a *booster*, not a sustainer. It burns for about 2.2 seconds and then the round
         // coasts the whole rest of the way, bleeding speed to drag — which is why a Sidewinder's
         // reach depends so heavily on how fast and how high it was launched, and why a long shot
-        // arrives slow. Modelling it as a five-second burn made it hold speed like a Pantsir round
-        // and read as far too quick.
+        // arrives slow. A five-second burn would have it hold speed like a Pantsir round and read
+        // as far too quick.
         //
         // The 2.2 s and the ~Mach 2.5 peak are the weapon's. The acceleration is those two
         // divided: the real motor's thrust is roughly constant while the missile sheds propellant,
@@ -183,14 +184,6 @@ public static class Arsenal
     // ---- Sensors --------------------------------------------------------
 
     /// <summary>
-    /// The 1RS1-1E search set, with the engagement envelope of the system it feeds.
-    ///
-    /// <para>Detection reaches much further than the round flies — 36 km against 20 km — so the
-    /// envelope is a separate limit rather than a consequence of detection range. Without it the
-    /// battery fires at everything it can see and the rounds expire short, which is precisely
-    /// what every long crossing shot did.</para>
-    /// </summary>
-    /// <summary>
     /// A 500 lb general-purpose bomb: no seeker, no motor, no fuse but the ground.
     ///
     /// <para>Modelled on the Mk 82 — 227 kg all up, of which 87 kg is filler. The drag constant is
@@ -201,14 +194,16 @@ public static class Arsenal
     {
         Name = "MK82",
         DisplayName = "Mk 82 500 lb bomb",
-        BodyMarker = "Bomb",
+        BodyMarker = "Mk82",
         BodyLength = 2.22f,
 
         Guidance = GuidanceMode.None,
 
-        // Released, not launched. It leaves with the aircraft's velocity and the ejector's shove,
-        // which the launcher's EjectAwayFromMount supplies.
-        LaunchSpeed = 0f,
+        // Released, not launched: what it mostly leaves with is the aircraft's velocity. The few
+        // metres a second are the ejector cartridge, which throws a store down hard enough to
+        // clear the airflow under the wing -- and at zero the launcher's EjectAwayFromMount is a
+        // direction multiplied by nothing.
+        LaunchSpeed = 4f,
         BoostSeconds = 0f,
         BoostAccel = 0f,
 
@@ -232,6 +227,14 @@ public static class Arsenal
         HitsTerrain = true,
     };
 
+    /// <summary>
+    /// The 1RS1-1E search set, with the engagement envelope of the system it feeds.
+    ///
+    /// <para>Detection reaches much further than the round flies — 36 km against 20 km — so the
+    /// envelope is a separate limit rather than a consequence of detection range. Without it the
+    /// battery fires at everything it can see and the rounds expire short of a long crossing
+    /// target.</para>
+    /// </summary>
     public static readonly SensorProfile SearchRadar1Rs1 = new()
     {
         Name = "1RS1",
@@ -318,7 +321,6 @@ public static class Arsenal
         PodsMarker = "Pods",
         RadarMarker = "Radar",
         GunsMarker = "Guns",
-        OpticMarker = "Optic",
 
         // Generated: muzzle of each tube in the pods' frame, in firing order. The Pantsir's tubes
         // are a parallel block, so none declares a direction of its own and they all follow the
@@ -342,7 +344,6 @@ public static class Arsenal
         TurretPivot = new(0.00000, -1.42000, 0.00000),
         PodPivotFromTurret = new(2.62000, -0.63000, 0.00000),
         RadarPivotFromTurret = new(4.05000, -1.10000, 0.00000),
-        OpticPivotFromTurret = new(4.10000, 1.07000, 0.44000),
         GunPivotFromTurret = new(3.70000, 0.07000, 0.00000),
         GunReferenceElevationRad = 0.38397,          // 22 degrees
 
@@ -400,10 +401,10 @@ public static class Arsenal
         // pivoting on the spot the way an immediate turn does.
         //
         // A rail on a stack points wherever the stack does, so it cannot be aimed by pointing the
-        // craft: measured in flight, every ground designation sat 92-116 degrees off the rail. That
-        // is a limit on the *seeker*, not on the weapon — a designated place is held by the
-        // operator, so it is steered onto regardless of where the round is looking. See
-        // Interceptor's SeekerInView and FireGate.CanGuideOntoAimpoint.
+        // craft: a ground designation sits 92-116 degrees off the rail. That is a limit on the
+        // *seeker*, not on the weapon — a designated place is held by the operator, so it is
+        // steered onto regardless of where the round is looking. See Interceptor's SeekerInView
+        // and FireGate.CanGuideOntoAimpoint.
         LaunchAlongTube = true,
         EjectAwayFromMount = 0.55f,
         LaunchLoft = 0f,
@@ -415,21 +416,6 @@ public static class Arsenal
         SettleSeconds = 0f,
     };
 
-    /// <summary>
-    /// Mk 15 Phalanx: a gun and nothing else, on a 3 m stack node.
-    ///
-    /// <para><b>The first launcher here that carries no missiles at all.</b> <c>Tubes</c> is empty,
-    /// so <see cref="LauncherProfile.TubeCount"/> is zero and the magazine holds nothing — every
-    /// path that reaches for a round has to cope with there being none, which until now was
-    /// untravelled ground rather than a supported shape.</para>
-    ///
-    /// <para>It still trains: the housing traverses and the barrels elevate, so
-    /// <see cref="LauncherProfile.Trains"/> is true and fire control waits for it to settle. What
-    /// it has no pods marker for is a launcher assembly, because there is not one.</para>
-    ///
-    /// <para>Traverse and elevation limits are the real mount's. Geometry generated by
-    /// <c>tools/model/ciws.py</c>.</para>
-    /// </summary>
     /// <summary>
     /// A 14-inch ejector rack carrying one Mk 82. Nothing on it moves and nothing about it aims:
     /// the aircraft is the launcher, and the operator's judgement is the fire control.
@@ -458,6 +444,20 @@ public static class Arsenal
         SettleSeconds = 0f,
     };
 
+    /// <summary>
+    /// Mk 15 Phalanx: a gun and nothing else, on a 3 m stack node.
+    ///
+    /// <para><b>The one launcher here that carries no missiles at all.</b> <c>Tubes</c> is empty,
+    /// so <see cref="LauncherProfile.TubeCount"/> is zero and the magazine holds nothing — every
+    /// path that reaches for a round has to cope with there being none.</para>
+    ///
+    /// <para>It still trains: the housing traverses and the barrels elevate, so
+    /// <see cref="LauncherProfile.Trains"/> is true and fire control waits for it to settle. What
+    /// it has no pods marker for is a launcher assembly, because there is not one.</para>
+    ///
+    /// <para>Traverse and elevation limits are the real mount's. Geometry generated by
+    /// <c>tools/model/ciws.py</c>.</para>
+    /// </summary>
     public static readonly LauncherProfile Ciws = new()
     {
         PartId = "KSArmory_Prefab_Ciws",
@@ -506,13 +506,61 @@ public static class Arsenal
         ReloadSeconds = 0f,
     };
 
+    /// <summary>
+    /// The EO director's own sensor. Narrow and short-ranged next to a search radar, because it
+    /// is a telescope rather than a set: it sees what it is pointed at, in detail, and finds
+    /// nothing on its own beyond a few kilometres.
+    ///
+    /// <para><see cref="BoresightMode.PartForward"/>, so its volume follows the craft's attitude
+    /// rather than pointing at the sky — a director bolted to the side of a hull looks out of
+    /// that side.</para>
+    /// </summary>
+    public static readonly SensorProfile EoSensor = new()
+    {
+        Name = "EO",
+        DisplayName = "EO director",
+        Range = 12000f,
+        ConeDeg = 75f,
+        BoresightSource = BoresightMode.PartForward,
+        ThreatRadius = 4000f,
+        ThreatHorizonSeconds = 30f,
+        LockSeconds = 0.6f,
+
+        // It watches rather than engages, so it has no reason to ignore something slow. A search
+        // set does, because a docked craft is not a threat; a sight pointed at one is doing its
+        // job.
+        MinTargetSpeed = 0f,
+    };
+
+    /// <summary>
+    /// A standalone electro-optical director. Geometry from <c>tools/model/optic.py</c>.
+    /// </summary>
+    public static readonly OpticProfile EoDirector = new()
+    {
+        PartId = "KSArmory_Prefab_Optic",
+        DisplayName = "EO Director",
+        Sensor = EoSensor.Name,
+
+        BaseMarker = "Optic_Base",
+        HeadMarker = "Optic_Head",
+
+        HeadPivot = new(0.63000, 0.00000, 0.00000),
+        EyeForward = 0.300f,
+        MinElevationDeg = -20f,
+        MaxElevationDeg = 85f,
+    };
+
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1, SidewinderRail, Ciws, BombRack];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [Missile57E6, Cannon30Mm, Missile9J, Cannon20Mm, BombMk82];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
-        [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight];
+        [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight, EoSensor];
+
+    /// <summary>Optical heads, which are parts in their own right rather than launcher gear.</summary>
+    ///
+    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector];
 
     /// <summary>
     /// The parts this mod recognises on a craft it did not design, keyed by part Id.
@@ -540,10 +588,19 @@ public static class Arsenal
             Provides =
             [
                 new(WeaponRole.Sensor, SearchRadar1Rs1.DisplayName),
-                new(WeaponRole.Camera, "Optical head"),
                 new(WeaponRole.Gun, Cannon30Mm.DisplayName),
                 new(WeaponRole.FireControl, "Pantsir-S1 fire control"),
             ],
+        },
+        new ComponentProfile
+        {
+            PartId = EoDirector.PartId,
+            Role = WeaponRole.Camera,
+            DisplayName = EoDirector.DisplayName,
+
+            // A part in its own right, so nothing is declared for it: the survey walks parts and
+            // finds this one directly. Provides exists for prefabs whose gear is subparts.
+            Provides = [new(WeaponRole.Sensor, EoSensor.DisplayName)],
         },
         new ComponentProfile
         {
@@ -581,13 +638,25 @@ public static class Arsenal
     /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
     public static LauncherProfile? LauncherForPart(string? partId) => LauncherForPart(Launchers, partId);
 
+    /// <summary>The optical head a part Id names, or null if it names none.</summary>
+    public static OpticProfile? OpticForPart(string? partId)
+    {
+        if (string.IsNullOrEmpty(partId)) return null;
+
+        for (int i = 0; i < Optics.Count; i++)
+        {
+            if (Optics[i].PartId == partId) return Optics[i];
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// The same lookup against an explicit registry.
     ///
-    /// <para>Exists so the selection logic can be tested with <em>several</em> launchers
-    /// registered. With one entry every registry assertion is trivially satisfied and cannot
-    /// distinguish "picks the right one" from "picks the only one" — and the mod ships with one
-    /// launcher, so that is the state the suite would otherwise be stuck in forever.</para>
+    /// <para>Exists so the selection logic can be tested against a registry of any size. With one
+    /// entry every registry assertion is trivially satisfied and cannot distinguish "picks the
+    /// right one" from "picks the only one".</para>
     /// </summary>
     internal static LauncherProfile? LauncherForPart(IReadOnlyList<LauncherProfile> from, string? partId)
     {

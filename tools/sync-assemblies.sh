@@ -8,9 +8,9 @@
 # Run this after a KSA update, then commit and push in that repository. CI compiles against it,
 # so until it is refreshed CI is building against the previous game build.
 #
-# Only the assemblies the projects actually reference are copied - verified as the minimum that
-# both builds the mod and runs its tests. Keeping the set small is deliberate: these are
-# RocketWerkz's copyrighted files, kept privately for our own builds and never redistributed.
+# The default mirrors the whole KSA SDK; --subset narrows it to the assemblies this repository's
+# projects reference, which is the minimum that both builds the mod and runs its tests. Either
+# way these are RocketWerkz's copyrighted files, kept privately and never redistributed.
 #
 set -euo pipefail
 
@@ -38,16 +38,16 @@ fi
 #
 # The default is every RocketWerkz first-party assembly plus the loader and the third-party
 # libraries the game ships, so the private repository is a general KSA SDK mirror that *any*
-# mod can build against - not just this one. That is ~44 assemblies and under 10 MB; the
-# alternative, mirroring only what this mod's csproj references, meant the next mod started by
-# discovering its assemblies were missing.
+# mod can build against - not just this one. That is ~44 assemblies and under 10 MB; mirroring
+# only what this mod's csproj references leaves the next mod discovering its assemblies are
+# missing.
 #
 # Deliberately excluded: the .NET runtime (System.*, Microsoft.*), which every SDK already has.
 # That is what keeps this at 10 MB instead of 45.
 #
-# --subset restores the old minimal behaviour: only what this repository's projects reference.
-# Smaller, and a defensible position on holding less of someone else's copyrighted code, but
-# only useful for this one mod.
+# --subset narrows it to only what this repository's projects reference. Smaller, and a
+# defensible position on holding less of someone else's copyrighted code, but only useful for
+# this one mod.
 SUBSET=0
 [[ "${2:-}" == "--subset" ]] && SUBSET=1
 
@@ -84,7 +84,7 @@ fi
 [[ ${#ASSEMBLIES[@]} -gt 0 ]] || { echo "error: nothing to mirror; is $KSA_DIR a KSA install?" >&2; exit 1; }
 
 # Whatever the mode, this repository's own references must all be covered - otherwise the next
-# CI run fails on an assembly nobody noticed was absent.
+# CI run fails on an assembly that was never copied.
 missing=""
 while IFS= read -r name; do
     [[ -n "$name" ]] || continue

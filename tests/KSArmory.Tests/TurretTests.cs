@@ -148,7 +148,8 @@ public class TurretTests
         Assert.Equal(turret.MinElevationRad, turret.DepressionFloorAt(0.0), 9);
         Assert.Equal(turret.MinElevationRad, turret.DepressionFloorAt(turret.ForwardArcRad), 9);
 
-        // Including across the band the easing runs over, which is where it used to lift.
+        // Including across the band the easing runs over, which is where a floor eased toward
+        // level would lift.
         double justInside = turret.DepressionFloorAt(turret.ForwardArcRad * 0.999);
         double justOutside = turret.DepressionFloorAt(turret.ForwardArcRad * 1.001);
 
@@ -160,7 +161,7 @@ public class TurretTests
 
     /// <summary>
     /// The two floors are ends of the same easing, so a mount with a genuine cutout still gets one
-    /// — this must not have been bought by flattening the case the floor exists for.
+    /// — the step-free case above must not be bought by flattening the case the floor exists for.
     /// </summary>
     [Fact]
     public void DepressionFloor_StillProtectsAMountThatCannotDepressAtAll()
@@ -303,8 +304,8 @@ public class TurretTests
     [Fact]
     public void IsLaid_IsNotSatisfiedByMerelyPassingThrough()
     {
-        // A turret sweeping across the aim point is momentarily OnTarget. Without the settle
-        // time that instant would release a round while the launcher was still moving.
+        // A turret sweeping across the aim point is momentarily OnTarget. Without the settle time,
+        // that instant releases a round while the launcher is still moving.
         var turret = new Turret();
         turret.Track(new double3(0, 0, 1));
         turret.Stow(Turret.DefaultRestElevation);

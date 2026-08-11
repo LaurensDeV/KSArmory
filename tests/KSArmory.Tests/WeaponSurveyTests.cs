@@ -163,15 +163,21 @@ public class WeaponSurveyTests
     /// the head is worth pointing by hand even with no radar to tell it where to look.
     /// </summary>
     [Fact]
-    public void ACameraAloneStillCounts()
+    public void ACameraAloneIsAnInstallationAndNotAWeaponsSystem()
     {
         ComponentProfile camera = new()
             { PartId = "KSArmory_Camera", Role = WeaponRole.Camera, DisplayName = "Optical head" };
 
         WeaponInventory inv = WeaponSurvey.Survey([At("KSArmory_Camera", 0, 0, 0)], [camera]);
 
-        Assert.True(inv.IsWeaponSystem);
+        // Worth listing: there is something of this mod's on the craft and a camera to point.
+        Assert.True(inv.IsInstallation);
         Assert.Equal(1, inv.CountOf(WeaponRole.Camera));
+
+        // And emphatically not worth crewing. A battery on a craft with no launcher falls back to
+        // whichever profile is first in the registry, then reports a head it cannot find and
+        // reloads a magazine it does not have -- which is what shipped for one commit.
+        Assert.False(inv.IsWeaponSystem);
         Assert.Equal(0, inv.CountOf(WeaponRole.Launcher));
     }
 
@@ -191,7 +197,11 @@ public class WeaponSurveyTests
             WeaponInventory inv = WeaponSurvey.Survey([At(p.PartId, 0, 0, 0)], [p]);
 
             Assert.Equal(1, inv.CountOf(role));
-            Assert.True(inv.IsWeaponSystem);
+
+            // Every role makes an installation; only the ones that shoot make a weapons system.
+            Assert.True(inv.IsInstallation);
+            Assert.Equal(role is WeaponRole.Launcher or WeaponRole.Gun or WeaponRole.FireControl,
+                         inv.IsWeaponSystem);
         }
     }
 }

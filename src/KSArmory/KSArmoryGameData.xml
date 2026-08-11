@@ -13,22 +13,65 @@
 -->
 <Assets>
 
+  <!--
+    Its own category in the part picker, rather than filed under Structural where a Phalanx mount
+    sits next to girders. EditorTag is a string rather than an enum and the picker draws a row per
+    registered tag, so this is a supported extension: Core's own CoreEditorTagsGameData.xml says
+    so in a comment addressed to modders.
+
+    The three flags are copied from Structural and are not decoration. Structural carries
+    RootPartWhitelist, FaceSnapTargetWhitelist and DiameterFilterlist, and moving a part off it
+    without them silently drops the launcher's ability to be a craft's root part, stops anything
+    face-snapping to it, and removes it from diameter filtering. None of that fails loudly.
+
+    Named for the job rather than for this mod on purpose. The lookup is keyed on the string, so a
+    second weapons mod declaring "Weapons" shares this tab instead of adding a near-duplicate.
+    There is no way to filter within a tab by mod or manufacturer; docs/BLOCKED-ON-KSA.md has why.
+  -->
+  <EditorTagDef Id="Weapons" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
+                DiameterFilterlist="true" />
+
+  <!--
+    Beside it rather than inside it, because a camera is not a weapon. It shoots at nothing, it is
+    useful on a craft that carries no armament at all, and filing it under Weapons would say the
+    opposite of what it is.
+
+    Same three flags, but RootPartWhitelist does nothing for the director as it stands: the
+    editor rejects any part carrying a ToSurface connector whatever its tags say, and a head that
+    bolts to anything needs one. It is here for a sensor that stacks instead. An observation post
+    is a hull with a director on it, so the hull is the root and this is the passenger.
+  -->
+  <EditorTagDef Id="Sensors" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
+                DiameterFilterlist="true" />
+
   <PartGameData Id="KSArmory_Prefab_Launcher6" DisplayName="Pantsir-S1 Point Defence System">
-    <EditorTag Value="Structural" />
-    <EditorTag Value="Radial" />
+    <EditorTag Value="Weapons" />
+
+    <!--
+      Not Radial, unlike the stores below. That tag is on the editor's face-snap target
+      *blacklist*, and the blacklist beats the Weapons whitelist, so while it was here nothing
+      could be mounted on the launcher, an EO director included. A vehicle is something you bolt
+      things to.
+    -->
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="3" />
 
-    <!-- Attaches by its underside to the top or side of a stack. -->
-    <Connector Id="_adConnectorAft">
-      <Flags>ToSurface</Flags>
-    </Connector>
+    <!--
+      A node connector, at the part origin, which is the underside. No ToSurface, and that is
+      what lets the launcher start a craft: VehicleEditor.IsAllowedAsRootPart rejects a part if
+      *any* of its connectors is ToSurface or FromSurface, whatever tags it carries. So a vehicle
+      root and a radially-attached part are mutually exclusive in KSA, and this is a truck.
+
+      NoFaceSnapping above is the other half. Face snapping is a separate route onto a surface
+      that a ToSurface connector suppresses, so dropping the flag would otherwise switch this
+      part onto it, and it aligns the part's -Z to the surface where the connector path aligns
+      the connector's -X. +X is up on this hull, so that lays an 8x8 truck on its side.
+    -->
+    <Connector Id="_adConnectorAft" />
 
     <!--
-      Makes the launcher a command source in its own right, so it can be the root of a
-      vehicle and launched on its own as a self-contained air-defence site. Without this a
-      craft consisting only of the launcher has nothing to control it and KSA will not fly it.
-      It still surface-attaches to a larger craft exactly as before.
+      Makes the launcher a command source in its own right, so a craft that is only this has
+      something to control it. Without it KSA will not fly one.
     -->
     <Control />
 
@@ -80,7 +123,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_BombRack" DisplayName="Mk 82 Bomb Rack">
-    <EditorTag Value="Structural" />
+    <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.5" />
@@ -117,7 +160,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="LAU-7 Sidewinder Rail">
-    <EditorTag Value="Structural" />
+    <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.5" />
@@ -158,8 +201,50 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_Optic" DisplayName="EO Director">
+    <EditorTag Value="Sensors" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.6" />
+
+    <!-- Attaches by the flange's underside to the side or top of a stack. -->
+    <Connector Id="_opConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!--
+      No <Control>, unlike the Pantsir: a sight is not a vehicle. It bolts to a craft that
+      already has a command source, or to one that never flies.
+    -->
+
+    <!-- A naval EO director of this size is a couple of hundred kilogrammes with its mount. -->
+    <SolidSphereMass>
+      <Mass Kg="180" />
+      <Radius M="0.40" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_OpticCollider">
+      <!-- Flange and mast, standing off the mounting face at X = 0. -->
+      <Box Id="KSArmory_OpticMastCollider">
+        <LocationAsmb X="0.22" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.44" />
+        <LengthY M="0.60" />
+        <LengthZ M="0.60" />
+      </Box>
+      <!-- The head, at every elevation it can reach. -->
+      <Box Id="KSArmory_OpticHeadCollider">
+        <LocationAsmb X="0.63" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.43" />
+        <LengthY M="0.47" />
+        <LengthZ M="0.43" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx CIWS">
-    <EditorTag Value="Structural" />
+    <EditorTag Value="Weapons" />
     <Diameter M="3" />
 
     <!--

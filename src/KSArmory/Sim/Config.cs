@@ -133,11 +133,6 @@ public sealed class Config
     /// </summary>
     public bool MoveCraftWithMouse;
 
-    /// <summary>
-    /// Require a launcher part before the battery works. Turn this off to run the system on any
-    /// craft, which is useful for testing without opening the editor.
-    /// </summary>
-    public bool RequireLauncherPart = true;
 
     // ---- Diagnostics ----------------------------------------------------
 
@@ -156,8 +151,7 @@ public sealed class Config
     ///
     /// A release build starts quiet, because that detail runs to hundreds of lines per
     /// engagement and buries the handful of lines that say what the battery actually did.
-    /// This turns it back on without needing a different build, which is what you want from
-    /// someone reporting a bug.
+    /// This turns it back on without needing a different build, which is what a bug report needs.
     /// </summary>
     public bool VerboseLog;
 
@@ -237,10 +231,10 @@ public sealed class Config
     /// <summary>
     /// Draw a tracer sphere on each round in flight, on top of the round's own body.
     ///
-    /// Off by default now that rounds are real geometry: the sphere is bigger than the missile
-    /// and hides it completely. Turn it on to follow a round at a distance where a 3 m body is
-    /// a couple of pixels, or to see where the *simulation* thinks a round is when the body
-    /// looks wrong.
+    /// Off by default: rounds are real geometry and the sphere is bigger than the missile, so it
+    /// hides what it marks. Turn it on to follow a round at a distance where a 3 m body is a
+    /// couple of pixels, or to see where the *simulation* thinks a round is when the body looks
+    /// wrong.
     /// </summary>
     public bool DrawRoundMarkers;
 

@@ -151,7 +151,7 @@ internal sealed class MotorPlume
 
         var origin = new BubbleOrigin
         {
-            Time = Universe.GetElapsedSimTime(),
+            Time = Universe.GetElapsedTime(),
             Parent = live.Body,
             BubFrame = BubbleFrame.Ccf,
             PositionBub = positionCcf,
@@ -228,7 +228,7 @@ internal sealed class MotorPlume
                 if (handle.TryGet() is { } emitter) emitter.Kill();
                 live.Body.RemoveEmitter(handle);
             }
-            catch { /* Already gone, which is where we wanted it. */ }
+            catch { /* An emitter the engine has already reclaimed is already stopped. */ }
         }
     }
 }

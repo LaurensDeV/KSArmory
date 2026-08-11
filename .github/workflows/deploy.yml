@@ -117,8 +117,23 @@ jobs:
           printf '%s\n' "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # Non-fatal: ssh_opts uses accept-new, so a missed scan degrades to trust-on-first-use.
-          ssh-keyscan -T 15 -H 45.133.178.13 >> ~/.ssh/known_hosts || true
+      # Some runners cannot open port 22 at all: the SYN is dropped before the VPS, which logs
+      # neither an sshd connection nor a ufw block, while 80 and 443 stay reachable throughout.
+      # It clears on its own, so the deploy waits it out rather than losing the release to it.
+      - name: Wait for the VPS to accept SSH
+        run: |
+          for i in $(seq 1 10); do
+            if timeout 20 bash -c 'exec 3<>/dev/tcp/45.133.178.13/22' 2>/dev/null; then
+              echo "port 22 reachable on attempt $i"
+              # Non-fatal: ssh_opts uses accept-new, so a missed scan degrades to trust-on-first-use.
+              ssh-keyscan -T 15 -H 45.133.178.13 >> ~/.ssh/known_hosts 2>/dev/null || true
+              exit 0
+            fi
+            echo "attempt $i: port 22 unreachable"
+            sleep 30
+          done
+          echo "::error::45.133.178.13:22 stayed unreachable for five minutes"
+          exit 1
 
       - name: Tofu init
         working-directory: infra/services
@@ -137,7 +152,16 @@ jobs:
           TF_VAR_ghcr_token: ${{ secrets.GITHUB_TOKEN }}
           TF_VAR_github_token: ${{ secrets.KSARMORY_ISSUES_TOKEN }}
           TF_VAR_min_mod_version: ${{ steps.floor.outputs.floor }}
-        run: tofu apply -auto-approve -input=false -lock-timeout=5m
+        # Reachable when the step above ran is not reachable when the provider opens its own
+        # connection, so the apply retries too. It is idempotent, and a genuine configuration
+        # error simply fails three times.
+        run: |
+          for i in 1 2 3; do
+            tofu apply -auto-approve -input=false -lock-timeout=5m && exit 0
+            echo "apply attempt $i failed"
+            sleep 60
+          done
+          exit 1
 
       # Proves the thing that matters: TLS terminates and the service behind it answers.
       - name: Smoke test

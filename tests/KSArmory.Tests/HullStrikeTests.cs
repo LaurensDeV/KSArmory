@@ -37,9 +37,9 @@ public class HullStrikeTests
     }
 
     /// <summary>
-    /// The reported bug, as a test. A shell passing 8 m from a rocket's centre is well outside it
-    /// and well inside the sphere that contains it, and the log said <c>detonated, miss distance
-    /// 8 m</c> followed by <c>destroyed</c>.
+    /// A shell passing 8 m from a rocket's centre is well outside the hull and well inside the
+    /// sphere that contains it. Judged on the sphere alone it detonates and destroys the craft at
+    /// a miss distance of 8 m.
     /// </summary>
     [Fact]
     public void AShellThatPassesBesideAHullDoesNotDetonate()
@@ -140,9 +140,8 @@ public class HullStrikeTests
     /// <summary>
     /// The seam carries differences, never positions. Put the whole scene on an ecliptic orbit and
     /// the hull test must be handed exactly the same numbers — otherwise the 29.8 km/s carrier
-    /// reaches a geometry query measured in metres, and the subtraction that was supposed to
-    /// cancel it has been moved to a call site no test reaches. That is the mistake
-    /// <c>BallisticLead</c> made; see docs/FRAMES-AND-EPOCHS.md.
+    /// reaches a geometry query measured in metres, and the subtraction meant to cancel it sits at
+    /// a call site no test reaches. See docs/FRAMES-AND-EPOCHS.md.
     /// </summary>
     [Fact]
     public void TheHullTestIsNeverHandedAnAbsolutePosition()

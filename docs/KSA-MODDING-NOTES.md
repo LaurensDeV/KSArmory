@@ -1,6 +1,6 @@
 # KSA modding notes
 
-Everything here was read out of the shipped assemblies of **KSA build 2026.8.5.5168** with
+Everything here comes out of the shipped assemblies of **KSA build 2026.8.19.5261**, read with
 `tools/apidump`, or out of the StarMap sources. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
@@ -36,8 +36,8 @@ EntryAssembly = "KSArmory"     # StarMap loads "<EntryAssembly>.dll"
 ```
 
 StarMap loads that assembly and instantiates **the first type carrying `[StarMapMod]`** — the
-class name is irrelevant, despite what some docs say. It then dispatches to attributed methods.
-Signatures are validated, and a mismatch means the hook is silently skipped:
+class name is irrelevant. It then dispatches to attributed methods. Signatures are validated,
+and a mismatch means the hook is silently skipped:
 
 | Attribute | Required signature | When |
 | --- | --- | --- |
@@ -65,8 +65,8 @@ not port automatically is **when the hooks fire**, and that is load-bearing:
 | Simulated, not player, time available | Everything steps on `Universe.GetLastSimStep()`. A loader that only offers a wall-clock delta is not sufficient — see `SimClock`. |
 
 The first is the dangerous one: a loader without a pre-render hook leaves the mod **compiling,
-loading and silently drawing nothing**, with no error anywhere. If that happens, the fallback is
-Harmony-patching `Program.OnDrawUiViewports` directly, which is what StarMap does on our behalf.
+loading and silently drawing nothing**, with no error anywhere. The fallback there is
+Harmony-patching `Program.OnDrawUiViewports` directly, which is what StarMap does for the mod.
 
 **Only the code half needs a loader.** `mod.toml`'s `assets` array, the part XML, meshes and
 textures are KSA's own content system: without any loader the part still appears in the editor and
@@ -111,8 +111,13 @@ void Teleport(Orbit, doubleQuat?, double3?);
 static CelestialSystem CurrentSystem { get; set; }
 static void DestroyVehicle(Vehicle);
 static void DestroyVehicleFromEvent(Vehicle, VehicleDestructionEvent);   // how you kill something
-static SimTime GetElapsedSimTime();
+static UniverseTime GetElapsedTime();
 ```
+
+`UniverseTime` is the engine's clock type — an `Int128` of **nanoseconds**, not a `double` of
+seconds, so `Seconds()` is a conversion rather than a field read. It has no NaN and no infinity:
+`new UniverseTime(double.NaN)` **throws**, and arithmetic saturates at `MinValue`/`MaxValue`
+instead of overflowing. Anything carrying a "no time yet" sentinel needs its own flag.
 
 `VehicleDestructionEvent { VehicleDestructionCause Cause; float PeakGLoad; float PeakDynamicPressure; }`
 with `Cause ∈ { GroundImpact, OceanImpact, Collision, ExcessiveGForce, AerodynamicForces, HydrodynamicForces }`.
@@ -126,10 +131,10 @@ it in the world. The vehicle registers into `CurrentSystem.All` (so it shows up 
 yet stays at the frame origin, never moves, and is invisible. Copy what `Vehicle.Split` does:
 
 ```csharp
-Orbit orbit  = Orbit.CreateFromStateCci(parent, Universe.GetElapsedSimTime(), posCci, velCci, colour);
+Orbit orbit  = Orbit.CreateFromStateCci(parent, Universe.GetElapsedTime(), posCci, velCci, colour);
 Vehicle v    = Vehicle.CreateVehicle(system, body2Cce, bodyRates, parent, id, rootPart, orbit);
 parent.Children.Add(v);        // orbiter tree -- without this UpdatePerFrameData never runs
-v.AddToTask(platform.UpdateTask);   // physics task -- without this it is never simulated
+v.AddToBubble(platform.PhysicsBubble);   // physics bubble -- without this it is never simulated
 v.UpdatePerFrameData();        // optional: populate the cache now instead of next frame
 ```
 
@@ -169,17 +174,17 @@ with no rotation. That means you can do all your maths in `Ecl` and convert once
 Absolute `Ecl` coordinates run to ~1e11 m; `double` still resolves ~20 µm there, so differencing
 two world positions is safe.
 
-#### Ecl is absolute — three bugs came from forgetting that
+#### Ecl is absolute
 
 Near Earth, ecliptic **position** sweeps past at ~29.8 km/s and ecliptic **velocity** is dominated
 by that same solar orbit. Anything that treats an Ecl value as local is wrong, and the failures
 look nothing alike:
 
-| Symptom | Cause |
+| Mistake | What it looks like |
 | --- | --- |
-| Missiles flew 84 km in a straight line, drag-limited to ~1.1 km/s, seeker lock broken instantly | Used `VelocityEcl` as airspeed and as a heading. Drag saw Mach 87; the seeker compared line-of-sight against Earth's orbital vector |
-| Telemetry read "flew 650 km, speed 29 km/s" | Measured distance and speed against the absolute frame |
-| Whole gizmo overlay drawn ~500 m from the craft | Differenced an Ecl position captured during the frame update against one re-read at draw time — one frame apart, and 29800/60 = 497 m |
+| `VelocityEcl` used as airspeed and as a heading | Drag sees Mach 87 and the seeker compares line-of-sight against Earth's orbital vector, so a missile flies 84 km in a straight line, drag-limited to ~1.1 km/s, with seeker lock broken instantly |
+| Distance and speed measured against the absolute frame | Telemetry reads "flew 650 km, speed 29 km/s" |
+| An Ecl position captured during the frame update differenced against one re-read at draw time | The two are one frame apart, and 29800/60 = 497 m, so the whole gizmo overlay draws ~500 m from the craft |
 
 Rules that follow:
 
@@ -189,16 +194,16 @@ Rules that follow:
 - **Never difference Ecl positions captured at different instants.** Capture one reference at the
   same moment as everything else and difference against that.
 
-The regression test `EngagementIsUnchanged_WhenCarriedByAFastMovingFrame` pins the first two: an
-engagement offset by 29.8 km/s must produce an identical result.
+`EngagementIsUnchanged_WhenCarriedByAFastMovingFrame` pins the first two mistakes: an engagement
+offset by 29.8 km/s must produce an identical result.
 
 #### Drawing gizmos on a craft
 
 Use `camera.GetPositionEgo(vehicle)` as an anchor and add Ecl offsets to it. Do **not** use
 `camera.EclToEgo(vehicle.GetPositionEcl())` as an anchor for geometry captured at another time.
 
-Part-relative geometry should go through the part's own transform rather than being rebuilt from
-a boresight and an arbitrary perpendicular — the latter gives a correctly-sized ring at a random
+Part-relative geometry goes through the part's own transform rather than being rebuilt from a
+boresight and an arbitrary perpendicular — the latter gives a correctly-sized ring at a random
 rotation:
 
 ```csharp
@@ -235,7 +240,7 @@ foreach (var h in handles) { var e = h.TryGet(); ...; body.AddEmitter(h); }
 `GetAndInitializeEmitters` resolves through `ModLibrary`, so **a mod's own emitter Id works as well
 as Core's** — no editing Core, no borrowing its assets.
 
-Four things worth knowing:
+Worth knowing:
 
 - **Host it on a `Celestial`, not on a vehicle,** for anything in mid-air. `Vehicle.AddEmitter` and
   `Celestial.AddEmitter` are both public, and the obvious host for a warhead — the target — is the
@@ -252,9 +257,9 @@ Four things worth knowing:
   `<Opacity>` (Core's own uses 0.05) accumulates instead — individual particles stop being visible
   and what is left is the density where they overlap.
 - **Nest child emitters inline, not by Id.** Core's `Debug_SphericalBurst` composes with
-  `<ParticleEmitters Id="Billboard"/>`, but doing that from a mod threw *"Invalid renderer type"* —
+  `<ParticleEmitters Id="Billboard"/>`, but that form from a mod throws *"Invalid renderer type"* —
   the hardcoded message `ParticleSystem` uses when an emitter in the tree has no renderer, i.e. the
-  by-Id child did not resolve back to its definition. Inline `<ParticleEmitters>` blocks are the
+  by-Id child does not resolve back to its definition. Inline `<ParticleEmitters>` blocks are the
   form every emitter Core uses in play, and they work.
 - **`Volumetric` is the screen-space renderer and is OFF by default.**
   `ParticleSystem.WriteCommandsColorTranslucent` only issues its draw commands when
@@ -384,6 +389,84 @@ them. Simulating the behaviour from a StarMap hook instead avoids all of that, a
 repo does — from `[StarMapAfterGui]` rather than the frame hook, because a postfix on `OnFrame`
 lands *after* the render it was meant to feed. See `docs/FRAMES-AND-EPOCHS.md`.
 
+### What lets a part start a craft, and what lets one be bolted to
+
+Three separate gates in `VehicleEditor`, none of which fails loudly. A part that trips one is
+simply greyed out or skipped, with nothing in any log.
+
+**Starting a craft** — `IsAllowedAsRootPart`, reached from `editor.IsEmpty && !IsAllowedAsRootPart(part)`,
+which is what greys a part out when the editor is empty:
+
+```csharp
+if (EditorTag.MatchAny(part.EditorTags, _rootPartWhitelist))
+{
+    if (part.Connectors.Count == 0) return false;
+    foreach (var connector in part.Connectors)
+        if (IsSet(connector.Flags, 4) || IsSet(connector.Flags, 2))   // FromSurface | ToSurface
+            return false;
+    return true;
+}
+return false;
+```
+
+So it needs a tag whose `EditorTagDef` carries `RootPartWhitelist` — `Capsules`, `Engines` and
+`Interstage` are the built-ins, and a mod's own tag can set it — **and** at least one connector,
+**and** not one single `ToSurface` or `FromSurface` connector among them. The last is absolute
+and beats the tag: **a radially-attached part can never be a vehicle root.** Choose one.
+
+**Being bolted to** — `HandleSnapping` skips any candidate where
+`!faceSnapTargetWhitelist || faceSnapTargetBlacklist`. **The blacklist wins**, so Core's `Radial`
+tag (`FaceSnapTargetBlacklist`) silently cancels a whitelisted tag on the same part and nothing
+can be mounted on it.
+
+**Two different routes onto a surface**, and the one taken changes the orientation:
+
+| Route | Taken when | Aligns |
+| --- | --- | --- |
+| `ToSurface` connector | the part has one | the **connector's −X** to the surface normal |
+| face snapping | it has none, and no `FaceSnapBlacklist` tag | the **part's −Z** (`alignDirectionPartAsmb ?? (0,0,-1)`) |
+
+A `ToSurface` connector *suppresses* face snapping — `HandleConnectorConnections` runs first and
+the loop after it returns early. So dropping the flag does not stop a part attaching, it switches
+it to the other route and a different axis: for a hull modelled with +X up, that lays it on its
+side. `NoFaceSnapping` (Core's tag, `FaceSnapBlacklist`) is what turns the second route off.
+
+`Diameter` plus a `DiameterFilterlist` tag is what makes a part appear under a given stack size.
+
+### Removing a subpart breaks every save holding that part, and kills the process
+
+**A saved part is paired with its current definition by *position*, and the loop is bounded by
+the save while it indexes the definition** — `KSA.PartTree.Deserialize`:
+
+```csharp
+for (int i = 0; i < nextNode2.SubPartInstances?.Count; i++)
+{
+    Part part2 = nextNode.SubParts[i];                     // the definition, as it is now
+    PartInstance partInstance2 = nextNode2.SubPartInstances[i];   // the save
+```
+
+So the three edits are not symmetric:
+
+| Edit | Result |
+| --- | --- |
+| **add** a subpart | fine — the loop stops at the save's shorter count, and the new one starts unconfigured |
+| **rename** a subpart | fine — `InstanceOf` is written into the save and never read back |
+| **remove** a subpart | `IndexOutOfRangeException` on load, **every time**, for every save holding it |
+
+And it is not survivable. `UncompressedSave.Load` runs from `Popup.DrawAll` inside
+`OnDrawUiFrame`, and nothing between there and `Program.Main` catches it, so the game does not
+refuse the save — it terminates. There is no version field, no name match and no warning; the
+same positional pairing means a **reorder** silently applies one subpart's saved state to
+another.
+
+Craft files in the vehicle library are unaffected: they store no `<SubPartRef>` at all.
+
+**So a shipped part's subpart list is append-only.** Before removing one, either accept that
+existing saves die, or leave the `<SubPart>` declared as an inert stub to hold the count.
+`tools/repair-saves.py` drops the surplus entries from saves written before a removal, which is
+the fix for a mod still in development; it reads the current definitions out of the asset XML, so
+it needs no record of what changed.
+
 ## Authoring a part with no new art
 
 **Asset Ids resolve in one global library across mods** (`SerializedId` / `ILibraryData`, with
@@ -392,9 +475,8 @@ mod's XML can instance Core's subparts and materials by Id — **no mesh atlas, 
 Blender**.
 
 **Confirmed in-game.** A mod's `<SubPart InstanceOf="CoreStructuralA_Subpart_TubeA">` renders
-with Core's material, shipping no art at all. This repo's launcher was built entirely that way
-before it became a Pantsir, and it is still the right answer for anything that can be assembled
-out of Core's kit. `tools/validate-parts.py` checks every reference resolves.
+with Core's material, shipping no art at all. That is the right answer for anything that can be
+assembled out of Core's kit. `tools/validate-parts.py` checks every reference resolves.
 
 ## Shipping your own art
 
@@ -450,8 +532,7 @@ library of bodies in their own local frames**, and placement lives entirely in t
 `tools/model/checkswept.py`.
 - **`AoRoughMetal` is R=occlusion, G=roughness, B=metalness** (glTF ORM). Core's own
   `Textures/default_pbr.png` is `(255, 180, 0)` and `EmptyAoRoughMetallic.png` is
-  `(255, 255, 0)`: unoccluded, rough, non-metal. *An earlier revision of these notes had this
-  backwards.*
+  `(255, 255, 0)`: unoccluded, rough, non-metal.
 - A slot can reference a `<Texture Id>` from `DefaultAssets.xml` instead of a path —
   `<Normal Id="EmptyNormal"/>`.
 - **Put the Assets XML at the mod root**, next to `Meshes/` and `Textures/`. Whether relative
@@ -544,10 +625,44 @@ rather than parts on a vehicle). `KSA.StaticMeshRenderable` has a public constru
 `Transform` field, but needs `IMeshRenderer<InstanceData>` instances owned by the engine's
 render systems.
 
+## Character attachments
+
+Nothing in this mod ships one any more. These are the engine's rules, and they cost an
+afternoon each to find.
+
+### A character attachment is authored in centimetres, a part in metres
+ The kitten is drawn
+through `CharacterAvatar.Core.Scale = 0.01`, and `GetBoneTransform` returns a bone matrix that
+already carries it — so a mesh exported in metres arrives a hundred times too small. Core's own
+attachments measure 80.6 glTF units (helmet) and 48.3 (MMU); a mesh at metre scale renders a
+hundredth of that and is buried in the fur: it loads, registers, draws every frame, is
+invisible, and puts nothing in any log.
+
+**And the scale must be baked into the vertices.** `StaticMeshRenderable.Draw` writes one instance
+transform per asset and never reads the glTF's node transforms — `GltfPbrAssetRef.SceneGraph` is
+assigned and never read anywhere in the engine. A scale left on the Blender object is silently
+discarded. A generator has to apply the scale to the object and then bake it into the
+vertices.
+
+**An attachment's axes are composed in a different order from the body's.** The body gets
+`RotX(-90) * RotZ(-90)` applied *after* the scale (`KittenRenderable:184`); an attachment gets
+`RotZ(-90) * RotX(-90)` applied *before* the bone matrix (`:207`). So a mesh that is the right
+size can still arrive rotated, and the `<Rotation>` in the attachment XML is where that is
+corrected.
+
+**Keep an attachment to one mesh with one primitive.** `GltfPbrSystem` aliases the index buffer
+across primitives and then disposes it (`:102` against `:112`), so the second primitive frees a
+list the first still points at. One mesh is the only shape that is not walking on freed memory.
+
+**Nothing else in that pipeline fails quietly.** A bad material Id, a missing bone, a null material
+slot and a failed asset load all throw, and `AssetManager.GetOrLoad` rethrows rather than
+swallowing. The only silent no-draws are `Visible == false` and a glTF with no mesh primitives. So
+an attachment that is present but unseen is a *geometry* problem — wrong units, wrong winding, or
+wrapped around the camera — not a materials or registration one.
+
 ## Sound: reachable, and shipped the same way art is
 
-Read out of the engine, not tried yet. Recorded because "can a mod make a noise" is otherwise a
-day of decompiling, and the answer turns out to be yes on every axis that matters.
+A mod can make a noise, on every axis that matters.
 
 **The API is public and imperative.** `KSA.GameAudio` exposes `PlaySound(SoundEvent, SpatialAudio,
 out IChannel?, IAudio? parent, float volume, bool startPaused)` as a static, plus `Register(IAudio)`
@@ -556,16 +671,17 @@ so a mod object can be driven by the engine's own `UpdateAudio` pass. `CreateFmo
 
 **`SpatialAudio` is in Ego, and carries velocity and pressure.** Its constructor is
 `(double3 posEgo, double3 velEgo, double atmosphericPressure)`. So it wants the same frame the mod
-already converts to for drawing — `KsaWorld.TryEclToEgo` — and *needs* the velocity, which means
-Doppler is the engine's job rather than ours. Pressure is a parameter, so thinning air is modelled.
+already converts to for drawing — `KsaWorld.TryEclToEgo` — and *needs* the velocity, which makes
+Doppler the engine's job rather than the mod's. Pressure is a parameter, so thinning air is
+modelled.
 
 **A mod can ship its own audio, by relative path, exactly like a mesh atlas.** `Core/Sounds.xml`
 declares `<SoundFile Path="Sounds/EngineDefault.wav">` alongside `<SpatialSoundData>`,
 `<SoundGroup>` and `<SoundBehavior>`, and the files are plain `.wav` and `.ogg` under
-`Core/Sounds/`. That is the same shape as `<MeshAtlas Path="Meshes/…">`, which this mod has
-already proved works from a user mod — so the loader contract is known-good.
+`Core/Sounds/`. That is the same shape as `<MeshAtlas Path="Meshes/…">`, which works from a user
+mod — so the loader contract is known-good.
 
-**The declarative route is for parts, not for us.** Core hangs engine noise off
+**The declarative route is for parts only.** Core hangs engine noise off
 `<SoundEvent Action="On" SoundId="DefaultEngineSoundBehavior" />` inside `<PartGameData>`, driven
 by the part's engine module. A self-simulated round is not a part with an engine, so that path is
 closed and `GameAudio.PlaySound` is the one to use.
@@ -631,10 +747,10 @@ ilspycmd -t KSA.Camera Import/KSA.dll
 Method not found: 'System.Net.HttpStatusCode System.Net.Http.HttpResponseMessage.get_StatusCode()'
 ```
 
-Everything about that is checkable and all of it checks out. The runtime loads
-`C:\Program Files\Kitten Space Agency\System.Net.Http.dll` (10.0.0.0) — logged from inside the
-mod, not assumed — and decompiling that exact file shows `public HttpStatusCode StatusCode`
-present and untrimmed. No second copy is deployed beside the mod, and the game ships
+Everything about that is checkable, and all of it checks out. The runtime loads
+`C:\Program Files\Kitten Space Agency\System.Net.Http.dll` (10.0.0.0) — the mod logs which
+assembly it gets — and that file decompiles to `public HttpStatusCode StatusCode`, present and
+untrimmed. No second copy is deployed beside the mod, and the game ships
 `System.Net.Primitives.dll` too.
 
 So the assembly is right and the member is there. What is left is **type identity**: the exception
@@ -645,9 +761,9 @@ between the compile-time reference and StarMap's load context would look like.
 it actually has, and works. `Ksa/FeedbackClient.cs` does exactly that and logs the assembly it
 found, so if a future build fixes this the log will say so.
 
-The general shape is worth remembering: a BCL member whose **return type comes from a different
-BCL assembly** is the one at risk. Nothing about the call site looks dangerous, it compiles
-against the reference assemblies without complaint, and it fails only in game.
+The general shape: a BCL member whose **return type comes from a different BCL assembly** is the
+one at risk. Nothing about the call site looks dangerous, it compiles against the reference
+assemblies without complaint, and it fails only in game.
 
 ## Particles
 
@@ -663,10 +779,10 @@ the session from wherever its origin was left.
 last particles out, unregisters and calls `ResetEmitter`, which is what makes the slot acquirable
 again. So the release path is `Kill()` **then** `RemoveEmitter`, in that order.
 
-Seen in game as particles frozen in mid-air along the path of whatever the emitter was following,
-and a gun that keeps a small fire burning on its muzzles after it has stopped shooting. The second
-symptom of the same fault is invisible until it is fatal: the pool bleeds one emitter per effect
-and eventually nothing in the world can spawn particles at all.
+Skipping the `Kill()` shows in game as particles frozen in mid-air along the path the emitter was
+following, and as a gun keeping a small fire burning on its muzzles after it stops shooting. The
+third consequence of the same fault is invisible until it is fatal: the pool bleeds one emitter
+per effect, and eventually nothing in the world can spawn particles at all.
 
 ### An emitter cannot throw particles in a direction of your choosing
 

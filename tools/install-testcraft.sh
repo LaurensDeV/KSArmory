@@ -5,7 +5,7 @@
 #
 #     ./tools/install-testcraft.sh
 #
-# The craft is nothing but the AA-6 launcher, which is its own command source. Launch it,
+# The craft is nothing but the Pantsir-S1, which is its own command source. Launch it,
 # open the KSArmory panel, and use the Test targets buttons to fly drones at it.
 #
 set -euo pipefail

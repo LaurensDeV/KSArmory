@@ -6,9 +6,8 @@
 #
 # Two separate hazards. A committed .dll or .pdb would be republishing RocketWerkz's copyrighted
 # files, which is the one mistake here with consequences outside this project. And .gitignore does
-# not untrack what is already tracked, so anything committed before its rule existed stays forever
-# without anyone noticing -- which is how tools/__pycache__/meshinfo.cpython-312.pyc survived
-# being ignored.
+# not untrack what is already tracked, so a file committed ahead of its ignore rule stays in the
+# repository indefinitely and silently.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

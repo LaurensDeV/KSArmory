@@ -35,8 +35,7 @@ internal readonly record struct WarpDecision(WarpAction Action, double Speed, st
 /// 600x: closest approach 124 km, against 15-20 m unwarped.</para>
 ///
 /// <para>This is a control loop against an actuator that answers late and is shared with the
-/// player, and both of those cost a flight to learn. See the constants for what each one is
-/// holding shut.</para>
+/// player. See the constants for what each one is holding shut.</para>
 ///
 /// <para>No KSA types: the caller supplies the speed and applies the answer.</para>
 /// </summary>
@@ -53,9 +52,9 @@ internal sealed class WarpPolicy
     /// Steps to let pass after a request lands before judging it.
     ///
     /// <para>The step arriving on the frame a write takes effect still measures the interval
-    /// *before* it. Dividing by that again reduces on top of a reduction already in flight: in
-    /// flight this took 30x to 9.9x and then straight on to 3.2x, and the pair repeated for as
-    /// long as the salvo lasted.</para>
+    /// *before* it. Dividing by that again reduces on top of a reduction already in flight: 30x
+    /// becomes 9.9x and then straight on to 3.2x, and the pair repeats for as long as the salvo
+    /// lasts.</para>
     /// </summary>
     public const int SettleSteps = 1;
 
@@ -67,7 +66,7 @@ internal sealed class WarpPolicy
     public const int FramesAwaitingWrite = 4;
 
     /// <summary>
-    /// Times something else may raise the speed while we hold it before we stop competing.
+    /// Times something else may raise the speed while it is held before the mod stops competing.
     ///
     /// <para>The player's warp control and KSA's auto-warp both write the same field this does.
     /// Fighting them frame by frame is a loop neither side wins, and the mod is the one that
@@ -119,8 +118,8 @@ internal sealed class WarpPolicy
             return WarpDecision.Nothing;
         }
 
-        // Once we have stood down, stay down until the air is clear. Otherwise the next
-        // overrunning frame simply restarts the fight.
+        // Once stood down, stay down until the air is clear. Otherwise the next overrunning frame
+        // simply restarts the fight.
         if (_yielded) return WarpDecision.Nothing;
 
         if (Holding)
@@ -149,7 +148,7 @@ internal sealed class WarpPolicy
                 return WarpDecision.Nothing;
             }
 
-            // Raised by something that is not us. Stand down rather than trade writes with it.
+            // Raised by something else. Stand down rather than trade writes with it.
             if (currentSpeed > _requested * (1.0 + SpeedTolerance) && ++_overrides > OverridesBeforeYielding)
             {
                 _yielded = true;
@@ -160,9 +159,9 @@ internal sealed class WarpPolicy
         }
 
         // Note what is *not* reset here. A step inside the limit is exactly what the fight against
-        // another writer produces -- our value lands, one good frame passes, the speed goes back up
-        // -- so clearing the override count on it means the count never reaches its threshold. The
-        // budget is per salvo and only Release clears it.
+        // another writer produces -- the requested value lands, one good frame passes, the speed
+        // goes back up -- so clearing the override count on it means the count never reaches its
+        // threshold. The budget is per salvo and only Release clears it.
         if (dtSim <= faithfulStep) return WarpDecision.Nothing;
 
         // Self-calibrating: the frame time is dtSim/currentSpeed, so the speed that lands on the
@@ -187,8 +186,8 @@ internal sealed class WarpPolicy
                                     : $"{currentSpeed:F1}x still overruns; asking for {target:F1}x");
     }
 
-    // Gives the speed back, if it is still ours to give. A player who moved the speed themselves
-    // while we held it has overridden us, and restoring would undo a deliberate choice.
+    // Gives the speed back, if it is still the mod's to give. A player who moved the speed while it
+    // was held has overridden the policy, and restoring would undo a deliberate choice.
     private WarpDecision Release(double currentSpeed, string why)
     {
         bool held = Holding;

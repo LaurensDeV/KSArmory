@@ -91,8 +91,8 @@ public class CondenseTests
     [Fact]
     public void TooMuchToReadIsReportedRatherThanTruncatedQuietly()
     {
-        // The failure this pins: a log long enough to hit the ceiling used to have its tail
-        // dropped and the head reported as the whole thing.
+        // The failure this pins: a log long enough to hit the ceiling having its tail dropped and
+        // its head reported as the whole thing.
         Guard.Condensed condensed = Guard.Condense(Distinct(3_000, " "));
 
         Assert.False(condensed.Whole);

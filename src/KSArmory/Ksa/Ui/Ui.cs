@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
+internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -21,6 +21,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
 
     private readonly Config _config = config;
     private readonly WeaponSystems _batteries = roster;
+    private readonly OpticalHeads _heads = heads;
     private readonly WarpPolicy _warp = warp;
 
     // The system the panes read. Not fixed, and not set here: Focus points them at whichever
@@ -29,12 +30,17 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
     // quietly describe the wrong installation.
     private WeaponSystem _battery = null!;
     private SystemConfig _policy = null!;
+
+    // Whether the two above are safe to read this frame. A craft can be worth a window without
+    // being a weapons system -- one director and no armament is the case -- and everything under
+    // Debug and every pane reads a battery.
+    private bool _crewed;
     private readonly WatchCamera _watch = watch;
     private readonly CraftMover _mover = mover;
     private readonly BurstTool _bursts = bursts;
     private readonly List<int> _viewports = [];
-    private readonly List<(string What, string Id, bool Resolved)> _armedChain = [];
     private readonly List<SurveyedPart> _surveyed = [];
+    private readonly List<OpticalHeads.Entry> _headScratch = [];
     private readonly List<KSA.Vehicle> _craftScratch = [];
     private KSA.Vehicle? _managed;
     private string _ownTeamEntry = string.Empty;
@@ -58,7 +64,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
 
     // What a pane is about. Anything belonging to one installation is a tab in that system's own
     // window; Debug is for whoever is working on the mod rather than playing with it.
-    private enum PaneGroup { Debug }
+    private enum PaneGroup { Session, Debug }
 
     // One pop-out window: what it is called, whether it is open, and what it draws. A class
     // rather than a struct so Open is shared with the button that toggles it.
@@ -77,6 +83,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
     // appear in, which runs roughly from what an operator touches most to what they touch once.
     private Pane[] Panes => _panes ??=
     [
+        new("KSArmory settings", DrawSettingsPane, PaneGroup.Session),
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -94,17 +101,17 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
     /// <b>ModMenu</b> owns that name: it transpiles <c>Program.DrawMenuBar</c> and splices in its
     /// own <c>BeginMenu("Mods")</c>. Two of those in one bar merge only if ImGui's menu-merging
     /// covers it, and being wrong means two menus side by side on the machines of exactly the
-    /// people who have both mods. Our own name cannot collide, needs no dependency, and leaves
-    /// registering with ModMenu as something to add later rather than undo.</para>
+    /// people who have both mods. A name of this mod's own cannot collide, needs no dependency,
+    /// and leaves registering with ModMenu as something to add later rather than undo.</para>
     ///
-    /// <para>Called from <b>before</b> KSA's GUI pass, not after. Measured: from an after-GUI hook
+    /// <para>Called from <b>before</b> KSA's GUI pass, not after. From an after-GUI hook
     /// <c>BeginMainMenuBar</c> returns false and nothing appears, because the bar has already been
-    /// ended for the frame. Opening it first instead means KSA's own menus append to ours.</para>
+    /// ended for the frame. Opening it first instead means KSA's own menus append to this one.</para>
     /// </summary>
     public void DrawMenuBarEntry()
     {
-        // ModMenu draws our entry for us when it is installed -- see DrawModMenu. Drawing our own
-        // as well would list KSArmory twice in the same bar.
+        // ModMenu draws this mod's entry when it is installed -- see DrawModMenu. Drawing a
+        // second one here would list KSArmory twice in the same bar.
         if (ModMenuPresence.Installed) return;
 
         try
@@ -132,7 +139,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
 
     private bool _warnedMenuBar;
 
-    // What sits under the menu, wherever the menu came from: our own bar, or ModMenu's.
+    // What sits under the menu, wherever the menu came from: this mod's own bar, or ModMenu's.
     private void DrawMenuContents()
     {
         bool visible = Visible;
@@ -164,18 +171,30 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
         _batteries.Sync(_systems);
 
 
-        if (_managed is not null && _batteries.For(_managed) is null) _managed = null;
+        // Dropped when the craft has nothing left to manage -- a battery *or* a director. Testing
+        // the battery alone clears the selection on the frame after a camera-only craft is picked,
+        // so the window opens and shuts again before it is ever drawn.
+        if (_managed is not null
+            && _batteries.For(_managed) is null && _heads.FirstOn(_managed) is null)
+        {
+            _managed = null;
+        }
         Focused = _managed ?? _batteries.Default();
 
-        // Nothing crewed: the panes all read a battery, so there is nothing for them to show.
-        bool anyCrewed = Focus(Focused);
+        // Two different questions, and collapsing them into one is a null dereference. The manage
+        // window has something to show for a battery *or* a director, so it asks the second; the
+        // panes all read `_battery`, which `Focus` leaves unassigned when it answers false, so they
+        // must ask the first.
+        _crewed = Focus(Focused);
+
+        bool anyCrewed = _crewed || _heads.FirstOn(Focused) is not null;
 
         if (!Visible)
         {
-            // Closing the panel must not strand the operator with no way back. Kept even though
-            // Mods -> KSArmory does the same job: appending to KSA's menu bar depends on ImGui
-            // behaviour that has not been proved on anyone else's machine, and a mod with no way
-            // to reopen its own panel is unusable rather than merely untidy.
+            // Closing the panel must not strand the operator with no way back. Redundant with
+            // Mods -> KSArmory on purpose: appending to KSA's menu bar depends on ImGui
+            // behaviour that is not guaranteed on every machine, and a mod with no way to
+            // reopen its own panel is unusable rather than merely untidy.
             if (_config.FloatingPanelButton
                 && ImGui.Begin("KSArmory##reopen",
                                ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
@@ -183,7 +202,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
                 if (ImGui.Button("KSArmory")) Visible = true;
             }
             if (_config.FloatingPanelButton) ImGui.End();
-            if (anyCrewed) { DrawManageWindow(); DrawPanes(); }
+            if (anyCrewed) DrawManageWindow();
+            DrawPanes();
             return;
         }
 
@@ -204,20 +224,16 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
 
         // Outside the main window's Begin/End: each of these is its own top-level window, so
         // they must not be nested inside another one.
-        if (anyCrewed)
-        {
-            DrawManageWindow();
-            DrawPanes();
-        }
+        if (anyCrewed) DrawManageWindow();
+
+        // Outside the crewed gate: these are the session's windows, and the settings one has to
+        // open on a world with nothing in it. Each body checks for itself what it needs.
+        DrawPanes();
 
         // Not gated on a crewed system: the thing being reported may be that there isn't one.
         DrawReportWindow();
     }
 
-    // What the mod recognises on the craft being flown. Reports only -- nothing depends on this
-    // yet. Proving discovery works against real user-built craft comes before anything is wired
-    // to it, because a survey that quietly finds nothing looks exactly like a craft with no
-    // weapons on it.
     // Every craft in the world this mod recognises as a weapons system, refreshed on a timer.
     //
     // Surveying is a walk of every part of every loaded vehicle, so it does not belong on a
@@ -244,23 +260,24 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
             KSA.Vehicle craft = _craftScratch[i];
             KsaWorld.SurveyParts(craft, _surveyed);
             WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Arsenal.Components);
-            if (inv.IsWeaponSystem) _systems.Add((craft, inv));
+            if (inv.IsInstallation) _systems.Add((craft, inv));
         }
     }
 
     // The list the panel opens on: what exists, not what happens to be under the camera.
     //
-    // A table, one row per system, because the alternative grew a heading, a status line and a
-    // row of buttons each and stopped being readable at two craft.
+    // A table, one row per system: a heading, a status line and a row of buttons each stops
+    // being readable at two craft.
     private void DrawSystemList()
     {
         RefreshSystems();
 
         if (_systems.Count == 0)
         {
-            ImGui.TextColored(Grey, "No weapons systems.");
-            ImGui.TextDisabled("A craft becomes one by carrying a part this mod recognises.");
-            ImGui.TextDisabled("Recognised parts are listed under Components once it is one.");
+            ImGui.TextColored(Grey, "Nothing of this mod's is fitted to anything.");
+            ImGui.TextDisabled("Fit a launcher from Weapons, or an EO director from Sensors.");
+            ImGui.TextDisabled("A craft with only a director is listed too - it is not a weapon,");
+            ImGui.TextDisabled("but it has a camera worth pointing.");
             return;
         }
 
@@ -313,7 +330,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
         ImGui.EndTable();
     }
 
-    // Inline, and small: three short buttons fit a row where "Run the battery here" did not.
+    // Inline, and small: three short buttons fit a table row where a full label does not.
     // Moving the battery is a decision about one system, so it lives in that system's window.
     private void DrawSystemRowButtons(KSA.Vehicle craft)
     {
@@ -367,22 +384,41 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
         // Point the panes at *this* window's craft. Focus was worked out at the top of the frame
         // from last frame's selection, so the window that opens on the click that selected it
         // would otherwise show -- and edit -- the previously focused battery for one frame.
-        if (!Focus(craft))
+        // A craft can carry a director and no armament at all, and every tab but Components reads
+        // a battery. Rather than refusing to open -- which leaves the operator with a listed craft
+        // and no way into its camera -- the window opens with what that craft actually has.
+        bool armed = Focus(craft);
+        if (!armed && _heads.FirstOn(craft) is null)
         {
             _managed = null;
             return;
         }
 
         bool open = true;
-        if (ImGui.Begin($"{KsaWorld.DisplayName(craft)}###KSArmorySystem", ref open))
+
+        // The title is the craft's identity, so the pane below it does not repeat either half.
+        // ###id keeps the window in place while the visible part changes.
+        string flying = ReferenceEquals(craft, KsaWorld.ControlledVehicle) ? "" : " - not flying";
+
+        if (ImGui.Begin($"{KsaWorld.DisplayName(craft)}{flying}###KSArmorySystem", ref open))
         {
+            // Above the tabs, so it is on screen whichever one is open. What it carries is the
+            // answer to why the system is or is not shooting, which is the question most often
+            // asked while looking at some other tab.
+            if (armed) DrawSystemHeader();
+
             if (ImGui.BeginTabBar("##systemtabs"))
             {
-                if (ImGui.BeginTabItem("Status")) { DrawSystemPane(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
-                if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
+                // First, and the only one a craft always has: what it is made of. Every other tab
+                // is about a weapons system, which a craft carrying one director does not have.
                 if (ImGui.BeginTabItem("Components")) { DrawComponents(craft); ImGui.EndTabItem(); }
+
+                if (armed)
+                {
+                    if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
+                }
                 ImGui.EndTabBar();
             }
         }
@@ -420,41 +456,12 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
         _ => role.ToString(),
     };
 
-    // The selected system's own controls: where it is, what it is holding, and its master arm.
-    // One battery runs at a time -- the profiles are per system, but the fire control, radar and
-    // drives are a single instance that mounts to one craft. Until that is widened, selecting a
-    // system the battery is not on can show what it is and offer to move the battery there.
-
     private void DrawPaneToggles()
     {
-        // Collapsed, and last: these answer questions about the mod, not about the engagement.
-        if (ImGui.TreeNode("Debug"))
-        {
-            // The overlay is diagnostic drawing, so its master switch belongs here rather than
-            // only under Display -- which is where someone goes to tune it, not to find it.
-            ImGui.Checkbox("Draw debug lines", ref _config.DrawOverlays);
-            ImGui.TextDisabled("  search cone, tracks, round tracers, drive facing");
-            if (_config.DrawOverlays)
-            {
-                ImGui.TextDisabled("  Display has the individual switches");
-            }
-
-            ImGui.Separator();
-
-            DrawBurstTool();
-            ImGui.Separator();
-
-            // Inline rather than a pane of its own. It is one tick box and a line of state, and
-            // a window holding that is a window to open, move and close for nothing.
-            DrawCraftMover();
-            ImGui.Separator();
-
-            DrawLogging();
-            ImGui.Separator();
-
-            DrawPaneGroup(null, PaneGroup.Debug);
-            ImGui.TreePop();
-        }
+        // One button. Everything session-wide lives in the window behind it, so the main panel is
+        // the list of systems and nothing else -- which is the only thing on it that changes as
+        // the world does.
+        DrawPaneGroup(null, PaneGroup.Session);
     }
 
     private void DrawPaneGroup(string? heading, PaneGroup group)
@@ -496,9 +503,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
         }
     }
 
-    // Where the turret is pointing, and whether it is still swinging. Also the place the engine's
-    // verdict on the transform write surfaces: if KSA refuses it, the drive gives up for the
-    // session and this is where that gets said, rather than the turret just silently never moving.
     // The weapon system of whichever battery the panel is showing. Tuning edits the shared
     // Arsenal instance, so it reaches every battery running that system.
     private LauncherProfile _profile => _battery.Profile;
@@ -510,9 +514,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, WarpPolicy
     // edit, so anything held across frames answers for the load the system started with.
     private WeaponFit _fit => WeaponFit.Of(_battery.Profile, _battery.Sensor);
 
-    // The battery's own counters, paired with the armament they belong to. This is the one place
-    // left that names an armament kind: a battery exposes a counter per weapon rather than a
-    // lookup, so something has to bridge the description to them.
+    // The battery's own counters, paired with the armament they belong to. The one place that
+    // names an armament kind: a battery exposes a counter per weapon rather than a lookup, so
+    // something has to bridge the description to them.
     private static (int Remaining, bool Firing) LiveState(WeaponSystem battery, Armament arm)
         => arm.Kind == ArmamentKind.Belt
             ? (battery.GunAmmo, battery.GunsFiring)

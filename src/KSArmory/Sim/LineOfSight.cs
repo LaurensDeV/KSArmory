@@ -6,7 +6,7 @@ namespace KSArmory;
 /// Whether a sphere sits between two points — the planet in the way, mostly.
 ///
 /// <para>A marker that says "the system is over there" while the system is on the far side of the
-/// world is worse than no marker: it reads as a bearing you could act on. Knowing the view is
+/// world is worse than no marker: it reads as a bearing worth acting on. Knowing the view is
 /// blocked is what turns it into "over there, and behind the planet".</para>
 ///
 /// <para>The body is treated as its mean sphere, so terrain is not accounted for: a craft in a
@@ -66,7 +66,7 @@ public static class LineOfSight
     /// <para><paramref name="terrainMargin"/> inflates the sphere, so a contact skimming the limb
     /// is called hidden rather than visible. Zero is the geometric limb. It is deliberately not a
     /// height map: a margin is one number to defend, where sampling terrain per contact per scan
-    /// is a cost nobody here has measured.</para>
+    /// is an unmeasured cost.</para>
     /// </summary>
     public static bool BlockedByTerrain(double3 eye, double3 target, double3 centre, double radius,
                                         double terrainMargin)

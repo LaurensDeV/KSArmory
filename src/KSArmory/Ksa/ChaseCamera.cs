@@ -40,7 +40,7 @@ internal sealed class ChaseCamera
     private const double TransitionSeconds = 1.2;
 
     // Progress along that: 0 at the player's pose, 1 riding the round. Starts finished, so a chase
-    // that could not read a starting pose simply cuts, as it always did.
+    // that could not read a starting pose simply cuts.
     private double _blend = 1.0;
 
     // The transition's own clock. The engine's step beats with the display's frame pacing, and a
@@ -48,8 +48,8 @@ internal sealed class ChaseCamera
     private readonly SmoothedStep _blendStep = new();
 
     // Where the camera meant to be, and where the engine actually had it, last frame. Logged per
-    // frame through a transition: the whole question is whether the eye is advancing evenly, and
-    // along which axis it is not.
+    // frame through a transition, to show whether the eye is advancing evenly and along which
+    // axis it is not.
     private double3 _probeWantEcl;
     private double3 _probeHadEcl;
     private double3 _probeTravel;
@@ -106,6 +106,15 @@ internal sealed class ChaseCamera
     /// </summary>
     public double Closing { get; private set; } = double.NaN;
 
+    // The field to fly at. The sight's own base while it is holding underneath this, and otherwise
+    // whatever the view was showing when this took it -- which is the player's, since nothing else
+    // had touched it. Either way the answer is "the field the player chose", never the sight's
+    // magnified one: the chase outranks the sight and would otherwise inherit its picture.
+    private double Field(double unzoomedFovDeg)
+        => unzoomedFovDeg > 0.0 ? unzoomedFovDeg
+         : _saved.Valid ? _saved.FovDeg
+         : SightZoom.DefaultFovDeg;
+
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
@@ -142,8 +151,16 @@ internal sealed class ChaseCamera
     /// through a pause, sliding the view across a world that is not moving. Same rule, and the
     /// same reason, as fire control — see CLAUDE.md.
     /// </param>
+    /// <param name="unzoomedFovDeg">
+    /// The field the player's own view was set to, or zero if nothing has changed it. Required,
+    /// because the sight magnifies by up to 16× and <em>yields</em> the view rather than releasing
+    /// it — so a chase that inherits the picture untouched flies the whole transition down a
+    /// three-degree straw. Stated every frame rather than set once, for the same reason the sight
+    /// states its own: the player's zoom keys clamp at 15° and would otherwise wrench it back
+    /// mid-flight.
+    /// </param>
     public void Apply(IRoundsInFlight battery, bool enabled, double dtPlayer, double dtSim,
-                      bool freezeTransition = false)
+                      bool freezeTransition, double unzoomedFovDeg)
     {
         if (!enabled || battery.Platform is null)
         {
@@ -152,13 +169,14 @@ internal sealed class ChaseCamera
             return;
         }
 
+
         // Still watching where the last one went off. Checked before the stand-down, because the
         // hold is what precedes it.
         if (_holding > 0.0)
         {
             _holding -= Math.Max(0.0, dtPlayer);
 
-            if (!KsaWorld.TryLookFromMainViewport(_holdOffset, _holdForward, _holdUp)) Release();
+            if (!KsaWorld.TryLookFromMainViewport(_holdOffset, _holdForward, _holdUp, Field(unzoomedFovDeg))) Release();
             else if (_holding <= 0.0) Release();
 
             return;
@@ -222,8 +240,7 @@ internal sealed class ChaseCamera
             // a round's mean radius is one metre -- so the instant the follow is swapped the
             // camera is 2.5 m from the missile. Reading afterwards gives that, not the player's
             // pose, and the transition then eases from its own destination: no travel at all,
-            // just the aim swinging from a point already at the round. That is the whole of
-            // "teleported very hard forward".
+            // just the aim swinging from a point already at the round.
             bool hasPose = KsaWorld.TryMainCameraPose(out double3 wasEcl, out double3 wasForward);
 
             _followed.Track(round, battery.Platform);
@@ -246,10 +263,10 @@ internal sealed class ChaseCamera
                 // At the target's distance, because that is what the player is looking at and
                 // what the chase ends up looking past the round at. Put at the *round's* distance
                 // instead it sits a hundred metres away in mid-air, while the point the chase
-                // aims for is kilometres off in much the same direction — so the aim swings
-                // through tens of degrees getting from one to the other, measured at 43 degrees
-                // of sweep peaking at 87 deg/s with the round off screen for half the transition.
-                // Two points at the same depth barely move apart at all.
+                // aims for is kilometres off in much the same direction, so the aim swings
+                // through tens of degrees getting from one to the other: 43 degrees of sweep
+                // peaking at 87 deg/s, with the round off screen for half the transition. Two
+                // points at the same depth barely move apart at all.
                 double depth = round.TargetRef is Vehicle craft && KsaWorld.IsAlive(craft)
                                ? Vec.Len(KsaWorld.PositionEcl(craft) - wasEcl)
                                : Math.Max(Vec.Len(round.PositionEcl - wasEcl), Ahead);
@@ -339,11 +356,11 @@ internal sealed class ChaseCamera
             // Offsets from the round, never a pair of ecliptic positions. PlatformEcl is sampled
             // before the round is stepped and round.PositionEcl after it, so differencing the two
             // ends in the ecliptic carries one whole step of the planet's motion -- 715 m on a
-            // 24 ms frame against 286 m on a 9 ms one. That difference alternates with the
-            // display's frame pacing and swung the camera vertically every frame, measured at
-            // +-270 m. OffsetFromPlatform is the round measured against the same frame's platform
-            // sample, which is the pairing that cancels it; TryBlend is a lerp of points, so
-            // running it in this translated frame is the same answer.
+            // 24 ms frame against 286 m on a 9 ms one. That difference beats against the display's
+            // frame pacing and swings the camera +-270 m vertically every frame.
+            // OffsetFromPlatform is the round measured against the same frame's platform sample,
+            // which is the pairing that cancels it; TryBlend is a lerp of points, so running it in
+            // this translated frame is the same answer.
             double3 fromRound = _fromOffset - round.OffsetFromPlatform;
             double3 fromLookRound = _fromLookOffset - round.OffsetFromPlatform;
 
@@ -369,7 +386,7 @@ internal sealed class ChaseCamera
 
         // A refused write must not leave the view held: the player would be stranded wherever the
         // last good frame put them.
-        if (!KsaWorld.TryLookFromMainViewport(eye, forward, up)) Release();
+        if (!KsaWorld.TryLookFromMainViewport(eye, forward, up, Field(unzoomedFovDeg))) Release();
     }
 
     // The round already being ridden, while it still flies. Once it stops, null: the caller holds

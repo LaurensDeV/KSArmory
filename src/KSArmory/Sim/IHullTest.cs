@@ -10,8 +10,8 @@ internal enum HullVerdict
     ///
     /// <para>Never treated as a miss. A craft the test cannot resolve — one drawn by the character
     /// renderer rather than by parts, one whose mesh has not loaded, one the engine threw on —
-    /// would otherwise become silently bulletproof, which is a worse bug than the one this exists
-    /// to fix and far harder to notice.</para>
+    /// would otherwise become silently bulletproof, which is worse than a fuse that fires wide and
+    /// far harder to notice.</para>
     /// </summary>
     Unknown,
 

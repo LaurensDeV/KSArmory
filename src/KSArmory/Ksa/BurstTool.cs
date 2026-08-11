@@ -9,7 +9,7 @@ namespace KSArmory;
 ///
 /// <para>It exists because the three reasons for seeing no explosion look identical in game: the
 /// asset never loaded, the burst was placed in the wrong frame, or nothing detonated. This removes
-/// the third by making a burst something you can ask for.</para>
+/// the third by making a burst something that can be asked for on demand.</para>
 /// </summary>
 internal sealed class BurstTool
 {

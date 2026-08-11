@@ -67,7 +67,6 @@ public class SystemConfigTests
         Assert.True(battery.MissilesEnabled);
         Assert.True(battery.GunsEnabled);
         Assert.True(battery.TurretTracking);
-        Assert.Equal(-1, battery.OpticViewport);
     }
 
     /// <summary>

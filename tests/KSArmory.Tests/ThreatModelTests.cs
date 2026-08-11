@@ -6,14 +6,12 @@ namespace KSArmory.Tests;
 /// <summary>
 /// Threat classification, track ranking and salvo allocation.
 ///
-/// <para>These exist because CHECKLIST.md §7.2 says track prioritisation and round attribution
-/// "have literally never run against a contested list" — every engagement so far has been a
-/// single drone. The logic was unreachable from a test while it sat in <c>Ksa/Radar.cs</c> and
-/// <c>Ksa/WeaponSystem.cs</c>; moving it to <c>Sim/ThreatModel.cs</c> is what made this
-/// possible, the same way <c>FireGeometry</c> made the launch-angle bug testable.</para>
+/// <para>A flown engagement is nearly always a single contact, so track prioritisation and round
+/// attribution are the parts least exercised in the game and the parts a headless contested list
+/// exercises properly. That is what keeping them in <c>Sim/</c> buys.</para>
 ///
-/// <para>The in-game checks are still worth doing — these prove the arithmetic, not that KSA
-/// hands us the vehicles we expect.</para>
+/// <para>The in-game checks are still worth doing: these prove the arithmetic, not that KSA hands
+/// over the vehicles the mod expects.</para>
 /// </summary>
 public class ThreatModelTests
 {
@@ -30,6 +28,10 @@ public class ThreatModelTests
 
     private static readonly double3 Up = new(1, 0, 0);
 
+    // A contact whose size and height are not known. Every rule that reads a signature is inert
+    // against this one, so a test passing it is measuring the geometry and nothing else.
+    private static ThreatModel.ContactSignature Unseen => ThreatModel.ContactSignature.Unknown;
+
     private static TrackState Threat(double timeToCpa) =>
         new() { IsThreat = true, TimeToClosestApproach = timeToCpa };
 
@@ -42,7 +44,7 @@ public class ThreatModelTests
     {
         SensorProfile s = Sensor();
         double3 r = new(30000, 0, 0);         // 30 km, sensor reaches 20 km
-        Assert.False(ThreatModel.TryAssess(r, new double3(-100, 0, 0), Up, s, out _));
+        Assert.False(ThreatModel.TryAssess(r, new double3(-100, 0, 0), Up, s, Unseen, out _));
     }
 
     [Fact]
@@ -52,23 +54,23 @@ public class ThreatModelTests
         s.ConeDeg = 30f;
         // 60 degrees off the boresight, so outside a 30 degree half-angle.
         double3 r = new(1000 * Math.Cos(Math.PI / 3), 1000 * Math.Sin(Math.PI / 3), 0);
-        Assert.False(ThreatModel.TryAssess(r, new double3(-100, 0, 0), Up, s, out _));
+        Assert.False(ThreatModel.TryAssess(r, new double3(-100, 0, 0), Up, s, Unseen, out _));
     }
 
     [Fact]
     public void ATargetDriftingWithUsIsIgnored()
     {
-        // A docked craft shares our motion. Relative speed below MinTargetSpeed, so not a
+        // A docked craft shares the battery's motion. Relative speed below MinTargetSpeed, so not a
         // contact at all - otherwise the battery would track everything parked next to it.
         SensorProfile s = Sensor();
-        Assert.False(ThreatModel.TryAssess(new double3(2000, 0, 0), new double3(1, 0, 0), Up, s, out _));
+        Assert.False(ThreatModel.TryAssess(new double3(2000, 0, 0), new double3(1, 0, 0), Up, s, Unseen, out _));
     }
 
     [Fact]
     public void AContactAtZeroRangeIsRejectedRatherThanNormalisingAZeroVector()
     {
         SensorProfile s = Sensor();
-        Assert.False(ThreatModel.TryAssess(double3.Zero, new double3(0, 100, 0), Up, s, out _));
+        Assert.False(ThreatModel.TryAssess(double3.Zero, new double3(0, 100, 0), Up, s, Unseen, out _));
     }
 
     // ---------------------------------------------------------------------------------------
@@ -85,7 +87,7 @@ public class ThreatModelTests
         double3 r = new(1000, 8000, 0);
         double3 v = new(0, -400, 0);
 
-        Assert.True(ThreatModel.TryAssess(r, v, Up, s, out var a));
+        Assert.True(ThreatModel.TryAssess(r, v, Up, s, Unseen, out var a));
         Assert.True(a.IsThreat);
         Assert.Equal(1000, a.ClosestApproach, 1);
         Assert.Equal(20, a.TimeToClosestApproach, 1);
@@ -98,7 +100,7 @@ public class ThreatModelTests
         double3 r = new(9000, 8000, 0);      // will pass 9 km abeam, outside the 5 km radius
         double3 v = new(0, -400, 0);
 
-        Assert.True(ThreatModel.TryAssess(r, v, Up, s, out var a));
+        Assert.True(ThreatModel.TryAssess(r, v, Up, s, Unseen, out var a));
         Assert.False(a.IsThreat);
     }
 
@@ -113,7 +115,7 @@ public class ThreatModelTests
         double3 r = new(2000, 0, 0);
         double3 v = new(300, 0, 0);          // straight up and away
 
-        Assert.True(ThreatModel.TryAssess(r, v, Up, s, out var a));
+        Assert.True(ThreatModel.TryAssess(r, v, Up, s, Unseen, out var a));
         Assert.True(a.IsThreat);
         Assert.Equal(0, a.TimeToClosestApproach, 9);
         Assert.Equal(a.Range, a.ClosestApproach, 9);
@@ -135,7 +137,7 @@ public class ThreatModelTests
         {
             foreach (double3 v in velocities)
             {
-                if (!ThreatModel.TryAssess(r, v, Up, s, out var a)) continue;
+                if (!ThreatModel.TryAssess(r, v, Up, s, Unseen, out var a)) continue;
                 Assert.True(a.ClosestApproach <= a.Range + 1e-9,
                     $"cpa {a.ClosestApproach} exceeded range {a.Range} for r={r} v={v}");
             }
@@ -146,7 +148,7 @@ public class ThreatModelTests
     public void ClosingSpeedIsPositiveForAnInboundTarget()
     {
         SensorProfile s = Sensor();
-        Assert.True(ThreatModel.TryAssess(new double3(5000, 0, 0), new double3(-300, 0, 0), Up, s, out var a));
+        Assert.True(ThreatModel.TryAssess(new double3(5000, 0, 0), new double3(-300, 0, 0), Up, s, Unseen, out var a));
         Assert.Equal(300, a.ClosingSpeed, 6);
     }
 
@@ -160,8 +162,8 @@ public class ThreatModelTests
         double3 r = new(1000, 8000, 0);
         double3 v = new(0, -400, 0);
 
-        Assert.True(ThreatModel.TryAssess(r, v, Up, s, out var plain));
-        Assert.True(ThreatModel.TryAssess(r, v, Up, s, out var shifted));   // r and v are already relative
+        Assert.True(ThreatModel.TryAssess(r, v, Up, s, Unseen, out var plain));
+        Assert.True(ThreatModel.TryAssess(r, v, Up, s, Unseen, out var shifted));   // already relative
 
         Assert.Equal(plain.ClosestApproach, shifted.ClosestApproach, 9);
         Assert.Equal(plain.TimeToClosestApproach, shifted.TimeToClosestApproach, 9);
@@ -174,17 +176,16 @@ public class ThreatModelTests
         // whether the radar can physically see a contact; TryAssess also decides whether it is
         // worth engaging. A command-linked round's uplink depends on the first only.
         //
-        // Conflating them meant that declining to engage the vehicle the player is flying also
-        // cut the uplink to rounds already in the air at it - a safety rule turning into a
-        // guaranteed miss.
+        // Conflated, declining to engage the vehicle the player is flying also cuts the uplink to
+        // rounds already in the air at it - a safety rule turning into a guaranteed miss.
         SensorProfile s = Sensor();
         double3 r = new(4000, 0, 0);                 // in range, on boresight
 
-        Assert.True(ThreatModel.InSensorVolume(r, Up, s));
+        Assert.True(ThreatModel.InSensorVolume(r, Up, s, Unseen));
 
         // Too slow to be classified a threat, but still plainly visible.
-        Assert.False(ThreatModel.TryAssess(r, new double3(1, 0, 0), Up, s, out _));
-        Assert.True(ThreatModel.InSensorVolume(r, Up, s));
+        Assert.False(ThreatModel.TryAssess(r, new double3(1, 0, 0), Up, s, Unseen, out _));
+        Assert.True(ThreatModel.InSensorVolume(r, Up, s, Unseen));
     }
 
     [Fact]
@@ -193,9 +194,9 @@ public class ThreatModelTests
         SensorProfile s = Sensor();
         s.ConeDeg = 30f;
 
-        Assert.False(ThreatModel.InSensorVolume(new double3(99000, 0, 0), Up, s));
+        Assert.False(ThreatModel.InSensorVolume(new double3(99000, 0, 0), Up, s, Unseen));
         double3 wide = new(1000 * Math.Cos(Math.PI / 3), 1000 * Math.Sin(Math.PI / 3), 0);
-        Assert.False(ThreatModel.InSensorVolume(wide, Up, s));
+        Assert.False(ThreatModel.InSensorVolume(wide, Up, s, Unseen));
     }
 
     // ---------------------------------------------------------------------------------------

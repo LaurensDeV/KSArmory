@@ -5,8 +5,8 @@ namespace KSArmory.Tests;
 
 /// <summary>
 /// Guards the crossing-target test in <see cref="InterceptorTests"/>. A hit test only proves
-/// something if the same geometry misses when the guidance is weakened, otherwise the scenario
-/// was winnable by flying straight and the test was never checking the lead at all.
+/// something if the same geometry misses when the guidance is weakened; otherwise the scenario is
+/// winnable by flying straight and nothing there is checking the lead at all.
 /// </summary>
 public class GuidanceDiscriminationTests
 {

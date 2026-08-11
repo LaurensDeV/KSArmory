@@ -104,12 +104,24 @@ public sealed class WeaponInventory
     }
 
     /// <summary>Whether this craft is a weapons system at all.</summary>
+    /// <remarks>
+    /// Anything recognised counts. The intended gate is an explicit fire-control part: it gives a
+    /// craft's settings an owner, and it stops a piece of debris that happens to carry a launcher
+    /// from becoming a battery of its own. No such part exists, so gating on it would find nothing.
+    /// </remarks>
+    public bool IsWeaponSystem => CountOf(WeaponRole.Launcher) > 0
+                                  || CountOf(WeaponRole.Gun) > 0
+                                  || CountOf(WeaponRole.FireControl) > 0;
+
+    /// <summary>
+    /// Whether this mod recognises anything on the craft at all, weapon or not.
     ///
-    /// <para>Anything recognised counts, for now. The intended gate is an explicit fire-control
-    /// part: it gives a craft's settings an owner, and it stops a piece of debris that happens to
-    /// carry a launcher from becoming a battery of its own. That part does not exist yet, and
-    /// gating on it today would find nothing.</para>
-    public bool IsWeaponSystem => Components.Count > 0;
+    /// <para>What the panel lists, as opposed to what it crews. A craft carrying only an optical
+    /// director has something of this mod's on it and something worth showing, and is emphatically
+    /// not a weapons system: crewing one gives it a battery with no launcher, which then reports a
+    /// head it cannot find and reloads a magazine it does not have.</para>
+    /// </summary>
+    public bool IsInstallation => Components.Count > 0;
 
     public static readonly WeaponInventory Empty = new() { Components = [] };
 }
@@ -118,9 +130,8 @@ public sealed class WeaponInventory
 /// Walks a craft's parts and reports which of them this mod recognises.
 ///
 /// <para>No KSA types: the caller flattens the part tree into <see cref="SurveyedPart"/> and
-/// applies the answer. That is what makes the matching and grouping testable, which matters
-/// because the alternative — discovering a mis-assembled craft in flight — is the failure mode
-/// this mod keeps meeting.</para>
+/// applies the answer. That is what makes the matching and grouping testable, and the alternative
+/// is discovering a mis-assembled craft in flight.</para>
 /// </summary>
 public static class WeaponSurvey
 {

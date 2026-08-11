@@ -6,11 +6,11 @@ namespace KSArmory;
 /// <summary>
 /// Whether a round's step meets a craft's actual geometry, per triangle.
 ///
-/// <para><c>Part.RayCastEgo</c> is watertight and is what KSA highlights parts with — the same
-/// call the cursor already picks craft through. The bounding sphere it replaces is the
-/// half-diagonal of the craft's bounding box, a number built for orbital clearance margins: on a
-/// rocket it stands ten metres clear of the skin, so a contact fuse tested against it fires where
-/// nobody watching would call it a hit.</para>
+/// <para><c>Part.RayCastEgo</c> is watertight and is what KSA highlights parts with, the same
+/// call the cursor picks craft through. The alternative, a craft's bounding sphere, is the
+/// half-diagonal of its bounding box, a number built for orbital clearance margins: on a rocket it
+/// stands ten metres clear of the skin, so a contact fuse tested against it fires that far off the
+/// hull.</para>
 ///
 /// <para>No camera. <c>GetMatrixAsmb2Ego</c> takes the frame origin as an argument rather than
 /// reading one off a viewport, so passing the round-relative separation puts the whole cast in a
@@ -63,7 +63,7 @@ internal sealed class HullTest : IHullTest
                 }
 
                 // The cast is an unbounded ray and reports a negative near hit for an origin
-                // already inside the hull, so both ends of the segment are ours to impose.
+                // already inside the hull, so both ends of the segment have to be imposed here.
                 double hit = near >= 0.0 ? near : far >= 0.0 ? 0.0 : double.MaxValue;
 
                 if (hit < nearest) nearest = hit;
@@ -83,9 +83,9 @@ internal sealed class HullTest : IHullTest
         }
     }
 
-    // A craft with no mesh is still something you can miss. Nothing can be cast against a kitten —
-    // it is drawn by the character renderer and its one part is declared empty — so its own
-    // sphere is the answer, which is also what the engine picks one by.
+    // A craft with no mesh can still be missed. Nothing can be cast against a kitten: it is drawn
+    // by the character renderer and its one part is declared empty, so its own sphere is the
+    // answer, which is also what the engine picks one by.
     private static HullVerdict AgainstSphere(Vehicle craft, double3 separation, double3 travel,
                                              out double fraction)
     {

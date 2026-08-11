@@ -4,9 +4,9 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Guards the overlay-anchoring invariant, which has now been broken twice in two different
-/// ways and is invisible to every other test — it only shows up as an overlay drawn beside the
-/// craft, which nothing but a human looking at the screen has ever reported.
+/// Guards the overlay-anchoring invariant, which is invisible to every other test: it shows up
+/// only as an overlay drawn beside the craft, where nothing but a person looking at the screen
+/// can see it.
 ///
 /// The rule: <see cref="DrawAnchor.Ego"/> is sampled <b>this frame</b>, <see cref="DrawAnchor.Ecl"/>
 /// is the reference the geometry was measured against <b>one update earlier</b>. Using one
@@ -41,8 +41,8 @@ public class DrawAnchorTests
     }
 
     /// <summary>
-    /// The regression proper: collapsing the two instants into one reintroduces the drift.
-    /// A "tidier" anchor built from a single sample must measurably fail this.
+    /// Collapsing the two instants into one reintroduces the drift: a "tidier" anchor built from a
+    /// single sample must measurably fail this.
     /// </summary>
     [Fact]
     public void UsingOneInstantForBoth_LeavesAFrameOfDrift()
@@ -54,8 +54,7 @@ public class DrawAnchorTests
         double3 egoNow = new(0, 0, 0);              // camera-relative, platform at the origin
         var correct = new DrawAnchor(egoNow, platformThen);
 
-        // Wrong: Ego derived from the stale reference, so the drift never cancels. This is
-        // exactly the shape of both shipped regressions.
+        // Wrong: Ego derived from the stale reference, so the drift never cancels.
         var collapsed = new DrawAnchor(egoNow + (platformThen - platformNow), platformThen);
 
         double3 geometryAtPlatform = platformThen;

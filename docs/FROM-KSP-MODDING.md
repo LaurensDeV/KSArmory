@@ -1,8 +1,8 @@
 # Coming from KSP modding
 
 If you have written parts or weapons for Kerbal Space Program, most of your instincts transfer and
-three of them will actively mislead you. This page is the translation, and it exists so that the
-misleading three cost you a paragraph rather than an evening.
+three of them will actively mislead you. This page is the translation, and the three that mislead
+are named first.
 
 It maps *concepts* — `PartModule`, `ConfigNode`, ModuleManager, `GameData` — that anyone who has
 modded that game already knows. No mod's source was consulted or copied; these are the parts of
@@ -48,7 +48,7 @@ starts.
 
 In KSP a missile is a vessel: it has parts, colliders, and the physics engine moves it.
 
-Here a round is a **number integrated by the mod**, drawn as a subpart body. This was deliberate —
+Here a round is a **number integrated by the mod**, drawn as a subpart body. That is deliberate —
 see the design notes in `CLAUDE.md` — and it buys sub-frame fuse accuracy and an inability to
 corrupt a save. It costs terrain collision, which the mod does not have.
 
@@ -61,7 +61,8 @@ KSP gives you one origin that is, for practical purposes, still. KSA does not.
 
 Positions are in the ecliptic frame. Earth is travelling at about **29.8 km/s** through it, so a
 one-frame error in *which instant* two positions were sampled at is not a rounding error — it is
-**~500 m at 60 fps**. Every hard bug this mod has had is that mistake in a new disguise.
+**~500 m at 60 fps**. It surfaces as a jitter, a constant offset, a guidance error or a drift,
+which are four disguises for one mistake.
 
 **Read `docs/FRAMES-AND-EPOCHS.md` before touching rounds, drawing or timing.** It is not general
 advice; it is the engine's actual contract, the rules that follow from it, and how to tell the
@@ -93,7 +94,7 @@ a rebuild:
 4. **Teach the validator.** `tools/validate-parts.py` compares the profile's geometry against
    `muzzles.json`, and it is scoped per launcher — a new one gets no check until you add it. The
    generator emitting those numbers and the profile holding them are the same numbers in two
-   files, and every previous instance of that in this repo drifted.
+   files, and geometry duplicated across a boundary drifts unless something reads it back.
 5. **Nothing else.** `LauncherPart.Find` matches every registered part Id and the weapon system
    selects whichever profile it finds. `ArsenalTests` checks the registry hangs together, and
    `validate-parts.py` also checks that every registered `PartId` is declared in the XML.
@@ -105,9 +106,9 @@ for something that will never move.
 ### The step that should not need a compiler
 
 Step 3 is the one that will annoy you, and rightly. `LauncherProfile` and friends are **pure data
-with no logic in them** — they are C# object initialisers only because that is where they started,
-not because anything requires it. Loading them from XML alongside the part definitions would make
-a weapon a file rather than a rebuild, which is the workflow you are used to.
+with no logic in them** — C# object initialisers, with nothing about them that requires code.
+Loading them from XML alongside the part definitions would make a weapon a file rather than a
+rebuild, which is the workflow you are used to.
 
 That is a genuinely good first contribution and the shape is already pinned: `ArsenalTests`
 describes the invariants the registry must keep, and `tools/validate-parts.py` already parses the
@@ -125,14 +126,14 @@ by `Ksa/`.
 | `CLAUDE.md` | committing — the message format is enforced and decides releases |
 | `CONTRIBUTING.md` | setting up: `./tools/doctor.sh` tells you what is missing |
 
-Two rules that are not negotiable, both because breaking them has already cost real time:
+Two rules that are not negotiable:
 
 - **A behaviour fix is unverified until it has been flown.** Compiling, passing the suite and
   having a plausible mechanism are not evidence. The hardest bugs here live in the gap between the
   maths and what KSA actually does, and that gap is only visible in flight.
 - **A regression test only counts if it fails against the old code.** Check that it does, every
-  time. One written for the round-body zigzag passed against both implementations, which looked
-  like proof and was worth nothing.
+  time. A test that advances the platform by exactly the `v*dt` it passes in cancels its own error
+  and passes against the broken implementation too, which looks like proof and is worth nothing.
 
 ## What you do not need
 

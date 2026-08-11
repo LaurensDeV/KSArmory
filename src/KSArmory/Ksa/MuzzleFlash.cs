@@ -107,7 +107,7 @@ internal sealed class MuzzleFlash
 
         var at = new BubbleOrigin
         {
-            Time = Universe.GetElapsedSimTime(),
+            Time = Universe.GetElapsedTime(),
             Parent = live.Body,
             BubFrame = BubbleFrame.Ccf,
             PositionBub = positionCcf,
@@ -201,7 +201,7 @@ internal sealed class MuzzleFlash
                 if (handle.TryGet() is { } emitter) emitter.Kill();
                 live.Body.RemoveEmitter(handle);
             }
-            catch { /* A body torn down under us has already taken its emitters with it. */ }
+            catch { /* A body torn down mid-frame has already taken its emitters with it. */ }
         }
     }
 }

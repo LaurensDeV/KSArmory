@@ -27,16 +27,33 @@ What that machinery gives any system built on it:
 
 ## What ships with it
 
-**The Pantsir-S1 Point Defence System** — a buildable 8×8 vehicle carrying twelve missiles in two
-pods of six, twin 30 mm autocannon, a tracking array, a spinning search radar, and an
-electro-optical head you can watch through. The missiles reach 20 km; the cannon cover the close-in
-band beneath them. Surface-attachable in the editor, and its own command source, so a craft
-consisting of nothing but the Pantsir builds and launches.
+Four weapon systems, each a different shape of launcher on the same machinery:
 
-More systems are the point of the split, not a promise — see
+**Pantsir-S1 Point Defence System** — a buildable 8×8 vehicle carrying twelve missiles in two pods
+of six, twin 30 mm autocannon, a tracking array, a spinning search radar, and an electro-optical
+head you can watch through. The 57E6 missiles engage from 1.2 km out to 20 km; the 2A38M cannon
+cover the close-in band beneath them, 200 m to 4 km. Surface-attachable in the editor, and its own
+command source, so a craft consisting of nothing but the Pantsir builds and launches.
+
+**LAU-7 Sidewinder rail** — a single rail carrying one AIM-9J, surface-attaching to anything.
+Nothing on it moves: no turret, no pods, one round and no reload, so where it can shoot is decided
+by how the craft is pointed. The round has a seeker of its own rather than a command link, so it
+keeps guiding after the launcher loses the track. 400 m to 14 km.
+
+**Mk 15 Phalanx CIWS** — a close-in gun mount that stacks on a 3 m node and carries no missiles at
+all. 1550 rounds of 20 mm at 4500 a minute, effective to 1486 m, with its radome elevating on the
+same trunnion as the barrels so the track antenna stays boresighted with them. Elevation runs from
+−25° to +85°.
+
+**Mk 82 bomb rack** — a 14-inch ejector rack holding one 500 lb bomb. It neither aims nor guides:
+the aircraft is the launcher, and the sight draws the fall line and the point the store would land
+on so the release is the operator's call. 87 kg of filler, and a drag constant set from the bomb's
+280 m/s terminal velocity.
+
+A fifth is an entry in the registry plus its art: see
 [Adding a weapon system](#adding-a-weapon-system).
 
-> Built against KSA build `2026.8.5.5168`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.8.19.5261`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game does. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
@@ -45,7 +62,7 @@ More systems are the point of the split, not a promise — see
 
 ### What you need first
 
-- **Kitten Space Agency.** Built against build `2026.8.5.5168`; a different build may need a
+- **Kitten Space Agency.** Built against build `2026.8.19.5261`; a different build may need a
   rebuild of the mod. **Windows and Linux both work** — the mod is a portable .NET assembly with
   no native code, so the single release archive is the same on either.
 - **[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader.
@@ -82,8 +99,8 @@ More systems are the point of the split, not a promise — see
    to `Meshes/` and `Textures/` by relative path; a case mismatch is silently tolerated on
    Windows and fails on Linux. Unzip rather than retyping the names.
 
-3. **Register it in `manifest.toml`.** This is the step everyone misses — *dropping the folder
-   in is not enough*. Open `manifest.toml` in the same user directory and add:
+3. **Register it in `manifest.toml`.** This step is required — *dropping the folder in is not
+   enough*. Open `manifest.toml` in the same user directory and add:
 
    ```toml
    [[mods]]
@@ -180,7 +197,7 @@ The system works end to end in game: the part loads and renders, the launcher tr
 intercept at 16–20 m, and the cannon kill at 6–8 m. [`CHECKLIST.md`](CHECKLIST.md) walks through
 what is confirmed and what is still open, in risk order.
 
-`./tools/test.sh` runs 353 headless tests — whole engagements at ecliptic speeds, the drives,
+`./tools/test.sh` runs the headless suite — whole engagements at ecliptic speeds, the drives,
 launch and lead geometry, the fuses and the registry — with no game present.
 `./tools/model/checkswept.py` sweeps the mount through its travel and reports any assembly that
 comes adrift or passes through another, needing neither Blender nor the game.
@@ -239,8 +256,8 @@ git push origin v0.9.0
 semantic-release reads the newest tag and carries on from it, so the next `fix` after that is
 `0.9.1`.
 
-That mechanism is also what anchored the very first release: semantic-release treats "no tags" as
-"no releases" and would otherwise have published `1.0.0`, whatever the project file said.
+Tags are what anchor the whole sequence: semantic-release treats "no tags" as "no releases" and
+publishes `1.0.0`, whatever the project file says.
 
 #### Going 1.0.0
 
@@ -298,7 +315,7 @@ into. One command rebuilds all of it:
 ./tools/model/build.sh
 ```
 
-It also renders five preview images, which is how the shape was iterated on — build, look,
+It also renders five preview images, so a shape can be judged without the game — build, look,
 adjust, repeat — and prints the launch geometry as a C# block.
 `tools/validate-parts.py` fails if `Sim/Arsenal.cs` and the mesh ever disagree about where the
 tubes are, and checks every asset Id and texture path, because all of those fail silently
@@ -361,6 +378,13 @@ The quickest start on any platform:
 ./tools/doctor.sh   # checks this machine and prints the fix for anything missing
 ```
 
+**Work goes on `dev`. `main` is the release branch.** A push to `main` cuts a release and
+publishes it to SpaceDock, so branch off `dev`, open pull requests against `dev`, and push there as
+often as you like — CI runs on every branch and every pull request, so the build, the tests and all
+seventeen checks gate each push either way. Releasing is then a deliberate act: `dev` is merged
+into `main` and semantic-release cuts one release covering everything that accumulated. It is a
+merge rather than a squash, because the changelog is built from the individual commit subjects.
+
 Worth knowing up front: **most of this repository is testable without launching the game.**
 Everything under `src/KSArmory/Sim/` is free of KSA types by construction, so guidance, threat
 classification, tube geometry and the fuse can all be worked on headlessly. Building it still
@@ -372,10 +396,9 @@ The rest of this section is the longer version.
 ### Read `CLAUDE.md` first
 
 It is the working notes for this repo: the environment traps, the design decisions worth not
-re-litigating, and the bugs that have already been found and fixed. Most of them cost hours to
-diagnose and are invisible from the code alone. [`docs/KSA-MODDING-NOTES.md`](docs/KSA-MODDING-NOTES.md)
-is the reverse-engineered API reference — reference frames, the loader contract, part XML —
-and will save you an evening with a decompiler.
+re-litigating, and the failure modes that are invisible from the code alone.
+[`docs/KSA-MODDING-NOTES.md`](docs/KSA-MODDING-NOTES.md) is the reverse-engineered API
+reference — reference frames, the loader contract, part XML.
 
 ### Setting up
 
@@ -455,8 +478,8 @@ secret — and only the `build` job is gated, skipping with a notice.
   where you can; the API moves between builds and one file is easier to fix than ten.
 
 If something in `Ksa/` turns out to have real maths inside it, move the maths into `Sim/` rather
-than leaving it unverifiable. `FireGeometry` came out of `LauncherPart` exactly that way, and a
-launch-angle bug only became testable afterwards.
+than leaving it unverifiable. `FireGeometry` is the worked example: launch angles are testable
+because they live there rather than inside `LauncherPart`.
 
 ### Adding a weapon system
 
@@ -473,15 +496,12 @@ train is the same profile with `TurretMarker` left null.
 
 ### Traps worth knowing about
 
-These have all bitten at least once:
-
-- **Ecl is absolute.** Positions near Earth are ~1.5×10¹¹ m and sweep past at ~29.8 km/s. Six
-  separate bugs came from treating an ecliptic value as a local one. Never orient or measure
-  anything with `VelocityEcl` — use the frame-relative velocity.
+- **Ecl is absolute.** Positions near Earth are ~1.5×10¹¹ m and sweep past at ~29.8 km/s, so an
+  ecliptic value read as a local one is wrong by kilometres. Never orient or measure anything
+  with `VelocityEcl` — use the frame-relative velocity.
 - **Two instants, on purpose.** `DrawAnchor` samples the render position this frame and the
   geometry's position one update earlier. Collapsing them looks like a tidy-up and puts the
-  whole overlay 500 m from the craft. It has happened twice; `DrawAnchorTests` fails if it
-  happens again.
+  whole overlay 500 m from the craft. `DrawAnchorTests` fails if they are collapsed.
 - **Model defects are invisible in Blender.** Coplanar faces and zero-area UVs both render fine
   in a preview and make the vehicle crawl with flickering speckle in game. `checkmesh.py`
   catches both — run it, do not trust your eyes.

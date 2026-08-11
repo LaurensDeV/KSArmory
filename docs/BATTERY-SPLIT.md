@@ -4,19 +4,18 @@
 > `WeaponSystems`, and `BatteryConfig` and `BatterySettings` are `SystemConfig` and
 > `SystemSettings`. Item 8 landed with it: the consumers take roles from
 > `Ksa/WeaponSystemRoles.cs` rather than the whole class. **The old names are kept below on
-> purpose**, because the argument is about why they were wrong and rewriting them would erase it.
+> purpose**: the argument is about why they are the wrong words, and rewriting them erases it.
 
-A plan, not a refactor. It answers four questions put to `Ksa/DefenceBattery.cs` — the brief that
-asked them is in git history, and everything it observed is restated below. The questions:
-whether the class is one thing or several, what the right word is if not "battery", which parts of
-a split would move logic into `Sim/` and therefore become testable, and what a split could break
-without anyone noticing.
+A plan, not a refactor. It answers four questions about `Ksa/DefenceBattery.cs`: whether the class
+is one thing or several, what the right word is if not "battery", which parts of a split would
+move logic into `Sim/` and therefore become testable, and what a split could break without anyone
+noticing.
 
-**Nothing here was flown.** Every claim is a claim about the source, which by this repository's own
+**Nothing here is flown.** Every claim is a claim about the source, which by this repository's own
 rule makes the two defects below diagnoses rather than fixes.
 
-**Cite symbols, never file and line**, per `docs/MODULARITY.md`. Every line citation that file
-originally carried was wrong within months.
+**Cite symbols, never file and line**, per `docs/MODULARITY.md`. A line citation is wrong within
+months; a symbol survives the edits above it.
 
 **Read `docs/MODULARITY.md` first.** It covers what the *data model* can express. This covers how
 the *code* is arranged. The mod scores much better on the first than the second, and the two move
@@ -26,9 +25,8 @@ independently.
 
 ## What is measured
 
-Confirmed against the source at `ac36c3a`, not taken on trust from the brief. These are the
-numbers as they stood then; the class has grown since, which strengthens rather than weakens the
-argument:
+Counted from the source rather than estimated. The class has grown since these counts were taken,
+which strengthens the argument rather than weakening it:
 
 - `Ksa/DefenceBattery.cs` is 1,650 lines with a public surface of 52. It owns platform election
   and pinning, part discovery for five subparts, drive latching, the turret and optic drives,
@@ -37,8 +35,8 @@ argument:
 - **19 files under `src/` name the type.** Fourteen take one as a parameter or hold one as a
   field: `BatteryRoster`, `ChaseCamera`, `Designator`, `Diagnostics`, `GunSound`, `KSArmoryMod`,
   `MotorPlume`, `MotorSound`, `MuzzleFlash`, `ScenarioRunner`, `Sight`, `TracerTrail`, `Ui`,
-  `Visuals`. Three of the remaining five were prose leaks in `Sim/` and are reworded in the same
-  change as this document; one is a cross-reference in `LauncherPart`; one is the class itself.
+  `Visuals`. Three of the remaining five are prose in `Sim/` rather than references; one is a
+  cross-reference in `LauncherPart`; one is the class itself.
 - **Five members carry most of the traffic.** Across `Ksa/`: `Platform` is read 35 times, `Radar`
   20, `Rounds` 17, `Sensor` 13, `Launcher` 11. Nothing else reaches double figures except
   `Turret`, `Profile` and `Ammo` at 8.
@@ -49,19 +47,19 @@ argument:
   `systems.json` and carries a comment saying so outright: a fixed emplacement or a sensor mast is
   a weapons system and is not a battery. The rename is already half-decided on disk.
 
-### Two defects found while reading
+### Two defects
 
 Both are consequences of the size, and both are worth fixing whatever happens to the structure.
+**Both are fixed**, and both are stated here as the defect rather than as the repair, because the
+structure that admits them is what the rest of this document is about.
 
-1. **Fixed since this was written. An armed Phalanx reported `Holding fire: out of rounds`
-   while its cannon fired.** `Holding()`
+1. **An armed Phalanx reports `Holding fire: out of rounds` while its cannon fires.** `Holding()`
    is the missile channel's ladder, but it is the only one, and `Hold` is what the panel prints
    and what `Announce` writes to the log. A gun-only profile has `Tubes = []`, so `Magazine.Ammo`
    is zero forever and the `Ammo <= 0` rung answers first, above every gun-related condition,
    which there are none of. The mod's single most-read line answers a question nobody asked about
    a weapon that is not fitted.
-2. **Fixed since this was written. `_gunFlightTime` was never assigned, and the compiler said
-   so.** Every build emitted
+2. **`_gunFlightTime` is never assigned, and the compiler says so.** Every build emits
    `warning CS0649: Field 'DefenceBattery._gunFlightTime' is never assigned to, and will always
    have its default value 0`. It is declared, documented as the flight time from the gun's last
    lead solve, and read exactly once, in `FireGun`, to set `Slug.FuseSeconds` when
@@ -79,9 +77,8 @@ second ladder.
 
 ## Is it one thing or several?
 
-The candidate reading the brief proposed is a *mount*, a *magazine and its rounds*, a
-*fire-control loop*, and an *installation*. Tested against the code it is close, and wrong in one
-place that matters.
+The obvious reading is a *mount*, a *magazine and its rounds*, a *fire-control loop*, and an
+*installation*. Against the code that is close, and wrong in one place that matters.
 
 ### The reading that survives is five parts, not four
 
@@ -117,9 +114,9 @@ work.** The gun channel is nearly self-contained: `UpdateGunFireControl` compose
 channel is not a channel at all: it *is* the class. `Holding()`, `Commit`, `FireAtLock`,
 `ReadyToFire`, `Reload` and `UpdateFireControl`'s reload gate all speak for the missiles by
 default, and each one carries a `Profile.TubeCount == 0` or `Profile.TubeCount > 0` special case
-so a gun-only launcher can slip past. The four of the same shape that stood in
-`Ui/UiSystem.cs` are gone: the panel reads `Sim/WeaponFit.cs` and asks the system what it is
-fitted with, which is the shape item 1 proposes for fire control.
+so a gun-only launcher can slip past. The panel has none of that shape left: `Ui/UiSystem.cs`
+reads `Sim/WeaponFit.cs` and asks the system what it is fitted with, which is the shape item 1
+proposes for fire control.
 
 That is a type test standing in for polymorphism, and it is the thing a third weapon would have to
 be added to nine times. It is also what produced defect 1: the missile ladder answers for a
@@ -206,10 +203,10 @@ assembly, so anything moved there is covered the moment it exists, and anything 
 | Move | Why it is pure | What the test buys |
 | --- | --- | --- |
 | **The hold ladder, one per channel.** `Holding()` reads about a dozen booleans, two counts, a range and profile fields. | Nothing in it is a KSA type; `TrackState` is already `Sim/`. | Defect 1 becomes a test, not a report. Every rung becomes assertable in the order it answers, which is the order the panel prints. A gun-only profile, a missile-only profile and both-fitted become three parameterised cases. |
-| **The launch cycle.** Salvo spacing, the missile reload gate, the belt gate. | Two timers and a `TubeCount > 0` guard. | The CIWS reloading forever was this, and it shipped. `docs/MODULARITY.md` lists fire-control *sequencing* as the first thing extraction did not reach. |
+| **The launch cycle.** Salvo spacing, the missile reload gate, the belt gate. | Two timers and a `TubeCount > 0` guard. | A CIWS reloading forever is this shape, and it is invisible to every existing test. `docs/MODULARITY.md` lists fire-control *sequencing* as the first thing extraction did not reach. |
 | **The blast sweep.** Given a burst position, an elapsed-into-frame, the warhead radii, the protection policy and a list of (handle, position, velocity, radius), produce kills and near misses. | The world lookup is already hoisted into `_blastScratch` before the loop. Only the arithmetic moves. | This is the one operation in the class that is irreversible and has no test whatsoever. It also closes `docs/AUDIT-2026-08.md` defects 4 and 5 by construction: `MissDistance` defaulting to 0 becomes representable as "no fuse fired" rather than "a perfect hit". |
 | **The turret mode ladder.** spin / manual / cursor / stow / track, producing a command rather than writing a part. | All four inputs are part-frame directions and policy booleans. `Turret` and `PointingDrive` are already `Sim/`. | `docs/MODULARITY.md` names this explicitly as what `FireGate` left behind. The ordering of the four transform writes stays in `Ksa/` and is untestable either way. |
-| **The body plan.** Which round claims which body index, which index is double-booked, which is seated and which hidden. | `Magazine.Plan` is already there; the loop that assigns rounds to indices is not. | The double-booking warning exists because this was got wrong once. Today the warning is the test. |
+| **The body plan.** Which round claims which body index, which index is double-booked, which is seated and which hidden. | `Magazine.Plan` is already there; the loop that assigns rounds to indices is not. | The double-booking warning is what stands in for a test today, which means the check runs in flight and nowhere else. |
 
 ### Rearrangements inside `Ksa/`: tidiness, and sometimes a precondition
 
@@ -224,16 +221,15 @@ assembly, so anything moved there is covered the moment it exists, and anything 
 
 ## What could break silently
 
-This repository has shipped three changes that compiled, passed and were wrong in flight, and one
-regression test that passed against both the broken and the fixed code. Everything below is that
-shape.
+Everything below has the shape that compiles, passes the suite and is wrong in flight — including
+the shape where a regression test passes against the broken and the fixed code alike.
 
 - **One world sample, one instant.** `SampleWorld` sets `PlatformEcl`, `PlatformStepEcl`,
   `MountEcl` and `Boresight`, and every consumer differences against them. If a split object
   calls `KsaWorld.PositionEcl(Platform)` for itself, the pair no longer describes one instant and
   the overlay slides off the craft by a frame of ecliptic motion, which is about 500 m at 60 fps
-  and looks like a drawing bug rather than a structural one. That has already happened twice for a
-  different reason and `DrawAnchorTests` guards only the anchor, not this. **Rule for any split:
+  and looks like a drawing bug rather than a structural one. `DrawAnchorTests` guards the anchor
+  and not this. **Rule for any split:
   the installation samples, and hands the sample down. No other object reads the world.**
 - **The order inside `Update` is load-bearing and undefended.** Radar, then track attribution,
   then the turret, then the rounds, then missile fire control, then gun fire control. Rounds
@@ -245,8 +241,7 @@ shape.
   update, and read by `Holding()`, inside missile fire control. Put those in two objects and the
   flag has to be carried across, and reading it one frame late reopens the roughly 18 degree
   off-axis missile launch that `FireGate.MissilesMayFire` exists to close. Proportional navigation
-  recovers from that, so the only symptom is arithmetic. It was found by arithmetic in the first
-  place.
+  recovers from that, so the only symptom is arithmetic: nothing visible in flight reports it.
 - **Drive latches record a refusal by one vehicle's part tree.** `DriveStatus` is cleared by
   `Reset()` on purpose. A `Mount` that is *recreated* per platform rather than reset would clear
   latches every time the roster re-crews a craft, so a drive the engine is refusing would look
@@ -261,11 +256,11 @@ shape.
   them, `SyncRoundBodies` allocates a `flying` span over `TubeCount`, and
   `docs/AUDIT-2026-08.md`'s cluster-dispenser costing depends on it. Giving each channel its own
   list breaks all four, and the visible symptom is body flicker, which is what the double-booking
-  warning was written for.
+  warning reports.
 - **A regression test for any of this only counts if it fails against the old code.** Two of the
   moves above are pure reshuffles with identical arithmetic, so a test written after the move will
   pass against the move and against its absence. Check each one by reintroducing the shape it
-  guards, the way `docs/MODULARITY.md` records for the nine bugs already done this way.
+  guards, the way `docs/MODULARITY.md` records for the nine bugs checked that way.
 
 ---
 
@@ -276,14 +271,14 @@ shape.
 - **`Turret` and `PointingDrive` stay exactly as they are.** They are `Sim/`, tested, and the only
   thing in `Ksa/` is the transform write.
 - **Do not introduce an `IWeapon` interface with a missile and a gun implementation yet.** Two
-  instances, and `docs/AUDIT-2026-08.md` records five features already shipped ahead of their
+  instances, and `docs/AUDIT-2026-08.md` lists five features that already ship ahead of their
   second instance. Extract the ladders as functions first; the interface becomes obvious or
   unnecessary once a third channel actually exists, and either answer is cheaper than guessing now.
 - **Do not split `_rounds`.** See above.
 - **A fourth *mount* needs none of this.** Another gun, another rail, a naval SAM box: all of them
-  are a profile plus art today, which the CIWS proved by landing as a Blender module, an XML block,
-  a registry entry and a handful of guards. The guards are the only cost, and item 1 below is what
-  removes them.
+  are a profile plus art today, which is what the CIWS demonstrates — a Blender module, an XML
+  block, a registry entry and a handful of guards. The guards are the only cost, and item 1 below
+  is what removes them.
 
 ---
 
@@ -295,8 +290,8 @@ this list one at a time as they land.
 1. **Extract the fire-control ladder into `Sim/`, one per channel, with the launch cycle timers.**
    The largest testability gain on the list and the smallest structural risk: no object moves, a
    private method becomes a pure function over its inputs. It removes the `TubeCount == 0` special
-   cases scattered through the class — there are more of them now than when this was written, two
-   of them added by defect 1's fix rather than removed by it — and gives fire control the
+   cases scattered through the class — a set that grows rather than shrinks while each gun-only
+   case is patched where it surfaces — and gives fire control the
    per-armament answer `Sim/WeaponFit.cs` already gives the panel. It is also the half of a third
    weapon channel that can be built without touching `Ksa/` structure at all.
 2. **Extract the blast sweep into `Sim/`.** The only irreversible thing the class does and the
@@ -304,12 +299,10 @@ this list one at a time as they land.
    arithmetic over a list the class already collects into a scratch buffer.
 3. ~~**Fix `_gunFlightTime`, or delete it and the `TimedFuse` control with it.**~~ **Done**, by
    taking the flight time from the same lead solve that produces the aim point. Kept here for the
-   reasoning. Defect 2. Small,
-   and the decision is the user's: the field is one assignment in `AimPointEcl` away from working,
-   and the panel currently offers a setting that does nothing. Whichever way it goes, item 1 is
-   what stops the next one of these hiding for as long.
+   reasoning: defect 2 is a field one assignment away from working behind a panel control that
+   does nothing, and item 1 is what stops the next one of these staying hidden as long.
 4. ~~**Rename:**~~ **Done.** `DefenceBattery` to `WeaponSystem`, `BatteryRoster` to `WeaponSystems`,
-   `BatteryConfig` and `BatterySettings` to `SystemConfig` and `SystemSettings`.** Cheap,
+   `BatteryConfig` and `BatterySettings` to `SystemConfig` and `SystemSettings`. Cheap,
    mechanical across 19 files, no on-disk format change. Ride it on item 1's commit so it lands
    with a change that makes it true rather than on its own.
 5. **A `Mount` type in `Ksa/`: the parts, the drives, the latches, the writes and the arbiter.**

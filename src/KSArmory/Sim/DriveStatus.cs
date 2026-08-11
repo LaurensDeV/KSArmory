@@ -43,8 +43,8 @@ public struct DriveStatus
     /// True while both channels that aim the cannon are still accepted.
     ///
     /// <para>Separate from <see cref="AimingAccepted"/> because the two weapons share only the
-    /// traverse. Reading the missiles' pair silenced a cannon whose own drive and subpart were
-    /// fine, which is the whole reason the latches are per channel.</para>
+    /// traverse. Reading the missiles' pair silences a cannon whose own drive and subpart are
+    /// fine, which is why the latches are per channel.</para>
     /// </summary>
     public readonly bool GunAimingAccepted => Works(DriveChannel.Turret) && Works(DriveChannel.Guns);
 

@@ -97,9 +97,6 @@ public sealed class WeaponFit
     /// <summary>It carries a search array that turns.</summary>
     public required bool SweepsASearchArray { get; init; }
 
-    /// <summary>It carries an optical head that can drive a view.</summary>
-    public required bool HasOpticalHead { get; init; }
-
     /// <summary>
     /// It finds its own targets. False for a launcher that is aimed and fired by hand, which has
     /// no scope, no track list and nothing to tune on a sensor.
@@ -136,6 +133,15 @@ public sealed class WeaponFit
     }
 
     /// <summary>Reads a launcher and the set feeding it as the description above.</summary>
+    /// <summary>
+    /// Whether anything this system releases falls to the ground on its own.
+    ///
+    /// <para>Not "has no missiles". A gun has none either, and a ballistic pipper over a cannon is
+    /// a ring in the wrong place with nothing to say so. What the sight needs is a store that the
+    /// terrain stops, which is exactly <see cref="MunitionProfile.HitsTerrain"/>.</para>
+    /// </summary>
+    public required bool Drops { get; init; }
+
     public static WeaponFit Of(LauncherProfile launcher, SensorProfile sensor)
     {
         List<Armament> armaments = new(2);
@@ -171,11 +177,12 @@ public sealed class WeaponFit
             Traverses = launcher.TurretMarker is not null,
             Elevates = launcher.PodsMarker is not null || launcher.GunsMarker is not null,
             SweepsASearchArray = launcher.RadarMarker is not null,
-            HasOpticalHead = launcher.OpticMarker is not null,
 
             // A set with no range detects nothing, which is the only way to declare "no sensor"
             // while every launcher still names one.
             Searches = sensor.Range > 0f,
+
+            Drops = Drop(armaments),
         };
     }
 
@@ -184,6 +191,19 @@ public sealed class WeaponFit
     /// two numbers <c>Magazine.Resize</c> reads, so the panel counts down from what the magazine
     /// was actually filled with.
     /// </summary>
+    // Whether any armament throws something the ground stops. Resolved here rather than in the
+    // panel so a profile field is never the thing a control is gated on -- an unknown munition
+    // name answers no, which draws one control fewer rather than throwing at a tick box.
+    private static bool Drop(List<Armament> armaments)
+    {
+        for (int i = 0; i < armaments.Count; i++)
+        {
+            if (Arsenal.MunitionNamed(armaments[i].Munition) is { HitsTerrain: true }) return true;
+        }
+
+        return false;
+    }
+
     public static int MagazineCapacity(LauncherProfile launcher)
         => launcher.MagazineDepth > launcher.TubeCount ? launcher.MagazineDepth : launcher.TubeCount;
 }

@@ -20,7 +20,7 @@ public class ProjectileContractTests
     private static readonly object TargetHandle = new();
     private static readonly double3 NoGravity = new(0, 0, 0);
 
-    /// <summary>Roughly Earth's orbital velocity — the magnitude behind every frame bug here.</summary>
+    /// <summary>Roughly Earth's orbital velocity — the magnitude a frame error multiplies.</summary>
     private static readonly double3 SolarFrame = new(29_800, 0, 0);
 
     public enum Kind { GuidedMissile, KineticSlug }
@@ -41,8 +41,8 @@ public class ProjectileContractTests
 
     /// <summary>
     /// A projectile must be orientable on the frame it is created, before it has ever been
-    /// integrated — because that is a frame it is genuinely drawn on. Getting this wrong pointed
-    /// missiles along Earth's orbit at launch, and a slug would do exactly the same.
+    /// integrated — because that is a frame it is genuinely drawn on. Unseeded, its local velocity
+    /// degenerates to the ecliptic one and every round points along Earth's orbit at launch.
     /// </summary>
     [Theory]
     [MemberData(nameof(AllKinds))]

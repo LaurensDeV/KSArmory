@@ -67,13 +67,6 @@ public sealed class LauncherProfile
     /// <summary>Cannon that elevate on their own trunnion. Null for a launcher with none.</summary>
     public string? GunsMarker { get; init; }
 
-    /// <summary>
-    /// Electro-optical head, aimed freely rather than about an axis. Null for a launcher with
-    /// none — it is the only assembly the mod writes an arbitrary rotation to, because it points
-    /// rather than trains.
-    /// </summary>
-    public string? OpticMarker { get; init; }
-
     // ---- Geometry, generated. See the class summary. ----
 
     /// <summary>Rounds carried, and the length of <see cref="Tubes"/>.</summary>
@@ -97,9 +90,6 @@ public sealed class LauncherProfile
 
     /// <summary>Where the search array's turntable sits relative to the turret's axis.</summary>
     public double3 RadarPivotFromTurret { get; init; }
-
-    /// <summary>Where the optical head's ball centre sits relative to the turret's axis.</summary>
-    public double3 OpticPivotFromTurret { get; init; }
 
     /// <summary>Where the cannon trunnion sits relative to the turret's axis.</summary>
     public double3 GunPivotFromTurret { get; init; }
@@ -131,17 +121,6 @@ public sealed class LauncherProfile
     public float ElevationRateDeg = 45f;
     public float SettleSeconds = 0.35f;
     public float SearchRadarRpm = 20f;
-
-    /// <summary>
-    /// How far forward of the head's pivot the eye sits (m). The pivot is the ball's centre, so
-    /// a view taken there is inside the ball's own mesh: black, with a corner of whatever else
-    /// the vehicle has nearby. Far enough out to clear the housing and its lens.
-    /// </summary>
-    public float OpticEyeForward = 0.45f;
-
-    /// <summary>How fast the optical head may turn. Slower than it could be: a sight that snaps
-    /// onto a track the instant one exists reads as a glitch rather than as a sensor.</summary>
-    public float OpticSlewRateDeg = 90f;
 
     /// <summary>Elevation travel, and the higher floor over the vehicle's own bodywork.</summary>
     public float MinElevationDeg;
@@ -226,12 +205,6 @@ public sealed class LauncherProfile
     public int GunBurstRounds = 12;
     public float GunBurstGapSeconds = 0.55f;
 
-    /// <summary>
-    /// Where the cannon are worth firing. The inner limit is where the missiles stop being
-    /// usable, so the two together leave no gap; the outer is where a 30 mm round still arrives
-    /// with enough speed to matter.
-    /// </summary>
-
     /// <summary>Seconds to feed a fresh belt. Zero disables cannon resupply.</summary>
     public float GunReloadSeconds = 20f;
 
@@ -244,7 +217,6 @@ public sealed class LauncherProfile
     /// <summary>Turret drive rates in the units the drive wants.</summary>
     public double SlewRateRad => float.DegreesToRadians(SlewRateDeg);
     public double ElevationRateRad => float.DegreesToRadians(ElevationRateDeg);
-    public double OpticSlewRateRad => float.DegreesToRadians(OpticSlewRateDeg);
 
     /// <summary>Applies this profile's travel limits to a drive.</summary>
     public void ConfigureTurret(Turret turret)

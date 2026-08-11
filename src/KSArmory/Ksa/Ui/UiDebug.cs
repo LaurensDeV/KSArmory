@@ -47,7 +47,7 @@ internal sealed partial class Ui
     // A burst overhead, where it cannot be missed.
     private void FireTestBurst(string emitterId)
     {
-        if (_battery.Platform is not { } platform)
+        if (!_crewed || _battery.Platform is not { } platform)
         {
             Log.Info("no platform to burst over");
             return;
@@ -86,6 +86,8 @@ internal sealed partial class Ui
 
     private void DrawTestTargets()
     {
+        if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }
+
         if (_battery.Platform is null)
         {
             ImGui.TextDisabled("no platform");
@@ -144,8 +146,8 @@ internal sealed partial class Ui
 
     }
 
-    // Logging and the world dump. Nothing to do with spawning targets, which is where these used
-    // to live: they belong with the other developer switches.
+    // Logging and the world dump: developer switches, so they sit with the others rather than
+    // with the target spawner.
     private void DrawLogging()
     {
         if (ImGui.Checkbox("Verbose log", ref _config.VerboseLog))
@@ -157,10 +159,12 @@ internal sealed partial class Ui
 
         // Writes the battery's whole world view to the log, including why each nearby vehicle was
         // or was not tracked. Far more useful than staring at an empty screen.
+        ImGui.BeginDisabled(!_crewed);
         if (ImGui.Button("Write diagnostic dump"))
         {
             Diagnostics.Dump(_battery, _config, _policy);
         }
+        ImGui.EndDisabled();
         ImGui.SameLine();
         ImGui.Checkbox("Freeze chase transition", ref _config.FreezeChaseTransition);
         if (ImGui.IsItemHovered())
@@ -175,10 +179,22 @@ internal sealed partial class Ui
             Diagnostics.ResetTimer();
         }
         ImGui.TextDisabled("  -> Logs/KSArmory.log");
+
+        // A diagnostic about the render rate rather than a state of any weapon: it means the
+        // frames are outrunning the simulation clock, which is what explains stuttering round
+        // bodies. Reads the selected system, so it needs one.
+        if (_crewed && _battery.FramesWithoutSimStep > 0)
+        {
+            ImGui.TextColored(Amber,
+                $"Frames with no sim step: {_battery.FramesWithoutSimStep}");
+            ImGui.TextDisabled("  the render rate is outrunning the simulation clock");
+        }
     }
 
     private void DrawLog()
     {
+        if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }
+
         var events = _battery.Events;
         for (int i = events.Count - 1; i >= 0; i--)
         {

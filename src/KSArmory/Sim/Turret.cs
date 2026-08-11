@@ -80,8 +80,8 @@ public sealed class Turret
         // that may depress below level has no cutout to ease out of, and easing toward zero gives
         // it one anyway: the floor rises across the band and then steps back down at the arc edge,
         // 25 degrees in a single frame on the CIWS, applied as a clamp so it is not even rate
-        // limited. Reduces to the old expression wherever MinElevationRad is zero, which is every
-        // launcher that only elevates.
+        // limited. Where MinElevationRad is zero - every launcher that only elevates - this is the
+        // same curve as easing toward level.
         double t = (offAxis - ForwardPlateauRad) / (ForwardArcRad - ForwardPlateauRad);
         double eased = MinElevationRad + (ForwardMinElevationRad - MinElevationRad) * (1.0 - t * t);
 

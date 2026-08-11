@@ -32,7 +32,6 @@ public class WeaponFitTests
         PodsMarker = "Pods",
         RadarMarker = "Radar",
         GunsMarker = "Guns",
-        OpticMarker = "Optic",
         GunMunition = "shell",
         GunMuzzles = [new(1, 0, 0)],
         GunAmmo = 480,
@@ -160,7 +159,6 @@ public class WeaponFitTests
         Assert.True(fit.Traverses);
         Assert.True(fit.Elevates);
         Assert.True(fit.SweepsASearchArray);
-        Assert.True(fit.HasOpticalHead);
         Assert.True(fit.Searches);
         Assert.True(fit.Steers);
     }
@@ -174,7 +172,6 @@ public class WeaponFitTests
         Assert.False(fit.Traverses);
         Assert.False(fit.Elevates);
         Assert.False(fit.SweepsASearchArray);
-        Assert.False(fit.HasOpticalHead);
     }
 
     [Fact]
@@ -186,7 +183,6 @@ public class WeaponFitTests
         Assert.True(fit.Traverses);
         Assert.True(fit.Elevates);
         Assert.False(fit.SweepsASearchArray);
-        Assert.False(fit.HasOpticalHead);
     }
 
     [Fact]
@@ -294,8 +290,8 @@ public class WeaponFitTests
     }
 
     /// <summary>
-    /// The gun-only system is the one that broke the assumptions the panel used to make, so it is
-    /// pinned by name rather than only by the invented shape above.
+    /// The gun-only system is the one a panel written around missiles gets wrong, so it is pinned
+    /// by name rather than only by the invented shape above.
     /// </summary>
     [Fact]
     public void TheCiwsIsDescribedAsABeltAndNothingElse()
@@ -324,5 +320,45 @@ public class WeaponFitTests
         Assert.False(fit.Aims, "a rail cannot train, and offering it a turret is a lie");
         Assert.False(fit.Traverses);
         Assert.False(fit.Elevates);
+    }
+
+    /// <summary>
+    /// Only a weapon that lets something fall gets a bomb sight.
+    ///
+    /// <para>"Has no missiles" is a different question and gets both ends wrong: a rack releases
+    /// its store from a tube, and a cannon has no tube at all. So the two are asserted together —
+    /// a gun and a bomb rack are alike in carrying no missiles and unalike in everything that
+    /// decides this control.</para>
+    /// </summary>
+    [Fact]
+    public void OnlyAWeaponThatDropsSomethingGetsABombSight()
+    {
+        foreach ((string part, bool drops) in new[]
+        {
+            ("KSArmory_Prefab_BombRack", true),
+            ("KSArmory_Prefab_Ciws", false),
+            ("KSArmory_Prefab_Launcher6", false),
+            ("KSArmory_Prefab_SidewinderRail", false),
+        })
+        {
+            LauncherProfile launcher = Arsenal.LauncherForPart(Arsenal.Launchers, part)!;
+            WeaponFit fit = WeaponFit.Of(launcher, Arsenal.SensorNamed(launcher.Sensor));
+
+            Assert.Equal(drops, fit.Drops);
+        }
+    }
+
+    /// <summary>
+    /// And the two questions are genuinely different. If nothing registered ever separated them,
+    /// the gate above would be untested however it was written.
+    /// </summary>
+    [Fact]
+    public void DroppingIsNotTheSameQuestionAsHavingNoMissiles()
+    {
+        LauncherProfile guns = Arsenal.LauncherForPart(Arsenal.Launchers, "KSArmory_Prefab_Ciws")!;
+        WeaponFit fit = WeaponFit.Of(guns, Arsenal.SensorNamed(guns.Sensor));
+
+        Assert.False(fit.Steers, "a Phalanx has no tubes");
+        Assert.False(fit.Drops, "...and still lets nothing go");
     }
 }

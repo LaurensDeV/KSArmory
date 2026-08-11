@@ -11,8 +11,8 @@ namespace KSArmory;
 /// <para>Deduplicated on the step's own end time rather than by differencing a clock, so the value
 /// returned is still the step the engine applied and cannot be a phase out from the world.</para>
 ///
-/// <para>Generic over the timestamp so it can be tested without KSA's <c>SimTime</c>. Equality is
-/// the only thing it needs from one.</para>
+/// <para>Generic over the timestamp so it can be tested without KSA's <c>UniverseTime</c>. Equality
+/// is the only thing it needs from one.</para>
 /// </summary>
 public sealed class StepGate<T> where T : struct, IEquatable<T>
 {

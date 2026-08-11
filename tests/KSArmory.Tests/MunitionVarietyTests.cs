@@ -299,9 +299,8 @@ public class MunitionVarietyTests
 
     /// <summary>
     /// The same round, fired in vacuum and at sea level, must fly differently — otherwise the drag
-    /// coefficient is being applied regardless of where the round actually is, which is what this
-    /// mod did before the density term existed. A round launched in orbit was scrubbed as though
-    /// at sea level.
+    /// coefficient is being applied regardless of where the round actually is, and a round launched
+    /// in orbit is scrubbed as though at sea level.
     /// </summary>
     [Fact]
     public void TheSameRoundFliesFurtherInVacuumThanInAir()
@@ -320,9 +319,9 @@ public class MunitionVarietyTests
     }
 
     /// <summary>
-    /// A ratio of one is sea level, and must reproduce the behaviour that existed before density
-    /// was modelled at all — every <see cref="MunitionProfile.DragK"/> in the arsenal was tuned
-    /// there, and scaling by an absolute density would have silently retuned all of them.
+    /// A ratio of one is sea level, and must be exactly the unscaled behaviour: every
+    /// <see cref="MunitionProfile.DragK"/> in the arsenal is tuned there, so scaling by an absolute
+    /// density instead silently retunes all of them.
     /// </summary>
     [Fact]
     public void SeaLevelIsExactlyTheUnscaledBehaviour()
@@ -378,7 +377,7 @@ public class MunitionVarietyTests
 
     /// <summary>
     /// The discriminator for the above. A round that intercepts on contact must <em>miss</em> the
-    /// same target when its guidance is turned off — otherwise the scenario was winnable by flying
+    /// same target when its guidance is turned off — otherwise the scenario is winnable by flying
     /// straight and proves nothing about hit-to-kill accuracy.
     /// </summary>
     [Fact]

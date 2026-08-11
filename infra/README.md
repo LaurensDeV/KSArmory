@@ -77,7 +77,20 @@ tofu console <<<'local.caddyfile'
 `caddy-data` carries the certificates and the ACME account. Deleting that volume
 means re-issuing, and Let's Encrypt rate-limits per domain per week.
 
-## Two things that will bite
+## Three things that will bite
+
+**Port 22 is not reliably reachable from a GitHub runner.** Some runs cannot
+open it at all — the SYN is dropped before the machine, which logs neither an
+sshd connection nor a ufw block, while 80 and 443 are served throughout. It is
+not the host: ufw allows 22 from anywhere, there is no fail2ban, sshguard or
+CrowdSec, conntrack sits near empty and the kernel reports no SYN flooding or
+listen-queue overflow. Runs that do connect come from the same Azure ranges as
+runs that cannot, so it is neither the source address nor the key.
+
+Nothing at either end can see the hop that drops it, and it clears on its own.
+So `deploy.yml` waits for port 22 before applying and retries the apply, rather
+than losing a release to a transient. A deploy that fails every attempt is a
+different fault and worth reading the log for.
 
 **Records are DNS-only, not proxied.** Caddy answers the ACME HTTP-01 challenge
 on the origin and holds the certificate. Turning Cloudflare's proxy on puts a

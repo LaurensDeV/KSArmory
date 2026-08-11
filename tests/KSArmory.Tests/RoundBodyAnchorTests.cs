@@ -8,12 +8,12 @@ namespace KSArmory.Tests;
 ///
 /// <para>A round records <c>OffsetFromPlatform</c> relative to the platform's analytic orbit
 /// position. A subpart is placed relative to the vehicle's physics origin. Those two differ —
-/// that is the whole reason <see cref="DrawAnchor"/> exists — and using the absolute offset to
-/// position a body put the rounds several metres from their tubes, inside the search radar.</para>
+/// that is the whole reason <see cref="DrawAnchor"/> exists — so positioning a body from the
+/// absolute offset puts a round several metres from its tube, inside the search radar.</para>
 ///
-/// <para>The fix is to anchor a body to the tube it left and add only the travel *since* launch,
-/// which is a difference between two positions in the same frame and so carries none of that
-/// discrepancy. These tests hold that property.</para>
+/// <para>A body is therefore anchored to the tube it left, plus only the travel *since* launch:
+/// a difference between two positions in the same frame, which carries none of that discrepancy.
+/// These tests hold that property.</para>
 /// </summary>
 public class RoundBodyAnchorTests
 {

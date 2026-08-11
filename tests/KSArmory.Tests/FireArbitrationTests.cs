@@ -12,7 +12,7 @@ namespace KSArmory.Tests;
 /// </summary>
 public class FireArbitrationTests
 {
-    // The shipped Pantsir envelopes: the cannon reach 4 km, the missiles start at 1.2 km.
+    // The Pantsir's envelopes: the cannon reach 4 km, the missiles start at 1.2 km.
     private const double GunMin = 200.0;
     private const double GunMax = 4000.0;
 
@@ -50,9 +50,9 @@ public class FireArbitrationTests
             range: 2600.0, gunMinRange: GunMin, gunMaxRange: GunMax));
 
     /// <summary>
-    /// The defect this arbitration exists for: the ring is laid on the gun's lead, the missile
-    /// leaves along the tube, and so it leaves ~18 degrees off the target. Proportional
-    /// navigation recovers, which is why nothing measured it for so long.
+    /// What this arbitration exists for: with the ring laid on the gun's lead, a missile leaving
+    /// along the tube departs ~18 degrees off the target. Proportional navigation recovers, so
+    /// nothing on screen shows it happening.
     /// </summary>
     [Fact]
     public void MissilesHoldWhileTheRingIsOnTheGunLead()
@@ -99,7 +99,7 @@ public class FireArbitrationTests
     ///
     /// <para>Outside the gimbal limit it never steers, so its flight path never changes, so it
     /// never comes back inside — the round simply flies away for its whole life. Nothing about
-    /// that looks like a failure in game: the launch is normal and the miss is silent, which is
+    /// that looks like a failure on screen: the launch is normal and the miss is silent, which is
     /// why the shot is refused at the launcher instead.</para>
     /// </summary>
     [Theory]

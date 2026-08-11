@@ -1,63 +1,24 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <!--
-  An armed kitten: Core's kitten with a shoulder cannon bolted to its spine.
+  One <Character>, and every piece of it is Core's: the body, the fur, every animation set,
+  referenced by Id. If Core renames one of these, this file breaks loudly at load rather than
+  quietly rendering a kitten with no head.
 
-  This is a whole new <Character> rather than an edit to HunterKitten because a mod cannot add to
-  one Core already declares - ModLibrary registers by Id with TryAdd, so first registration wins
-  and a duplicate Id is silently dropped. Declaring our own puts it in ModLibrary.AllCharacters,
-  which is the list KittenRosterData.PickRandomCharacterId draws from, so kittens on the roster
-  can come up wearing it.
-
-  Everything but the attachment is Core's, referenced by Id: the body, the fur, every animation
-  set. Only CosmeticAttachments differs. If Core renames one of these, this file breaks loudly at
-  load rather than quietly rendering a kitten with no head.
+  It exists only so that saves naming it keep loading - see the note on the Character itself.
+  ModLibrary.AllCharacters is what KittenRosterData.PickRandomCharacterId draws from, so a kitten
+  on the roster can still come up wearing this one; it is a stock kitten either way.
 -->
 <Assets>
 
     <!--
-      A .glb, where Core's character attachments are .gltf with a sidecar .bin. That difference
-      does not matter: GltfUtility sniffs the glTF magic word and reads either container, and
-      nothing in the runtime keys off the extension.
+      A stock kitten under a name of this mod's own, carrying nothing.
 
-      No AllowEmbedded. It only decides whether a file's *own* materials are used for slots no
-      explicit Material sub-reference names, and GltfPbrSystem fills any slot left null with a
-      generated BlankMaterial regardless, so it can change this gun's colour and never its
-      existence. CharacterAvatar overwrites slot 0 from the Materials block below in any case.
+      Kept rather than deleted because a save records the character its kitten wore, and
+      KittenEva.CreateKittenFromSaveData resolves that Id through ModLibrary.Get, which throws
+      NullReferenceException when it is missing. That runs inside UncompressedSave.Load under
+      Popup.DrawAll, where nothing catches it, so removing this Id terminates the game on every
+      save whose kitten is wearing it. Renaming is the same thing.
     -->
-    <GltfFile Id="KSArmoryKittenGunGlb">
-        <Source Path="Meshes/KittenGun.glb"/>
-    </GltfFile>
-
-    <!--
-      Mounted on Spine2_M, the upper back. Two reasons, both deliberate:
-
-      the torso carries the walk cycle, so the gun rides it without fighting the arm animation
-      the mod aims this weapon, not the kitten, so it should read as mounted rather than carried
-
-      The mod's rounds do NOT leave from here. Bone transforms are private (KittenEva._renderable,
-      KittenRenderable._characterAvatar), so the muzzle cannot be resolved at runtime and rounds
-      launch from a fixed offset in the kitten's body frame instead. Centimetres, against
-      engagement ranges in kilometres - see docs/BLOCKED-ON-KSA.md.
-
-      Textures are the mod's own palette, the same three the launcher uses. PNG, not ktx2: KSA
-      loads both, and CharacterAssets.xml mixes them in one material.
-    -->
-    <CharacterAttachment Id="KSArmoryKittenGunAttachment">
-        <Source Id="KSArmoryKittenGunGlb"/>
-        <Socket Name="Head_M"/>
-        <Materials>
-            <Diffuse Path="Textures/KSArmory_Diffuse.png" Category="Default"/>
-            <Normal Path="Textures/KSArmory_Normal.png" Category="Default"/>
-            <AoRoughMetal Path="Textures/KSArmory_PBR.png" Category="Default"/>
-        </Materials>
-        <Transform>
-            <Position X="0" Y="0" Z="0"/>
-            <Rotation X="0" Y="0" Z="0"/>
-            <Scale X="1" Y="1" Z="1"/>
-        </Transform>
-        <AttachmentType>Cosmetic</AttachmentType>
-    </CharacterAttachment>
-
     <Character Id="KSArmoryArmedKitten">
         <Personality Value="Neutral"/>
         <CharacterCore Id="CharacterCore"/>
@@ -67,16 +28,6 @@
         <CharacterVisor Id="CharacterVisorAttachment"/>
         <CharacterMMU Id="CharacterMMUAttachment"/>
 
-        <!--
-          One element per attachment, Id as an attribute, not a wrapper with children. The field
-          is a List with [XmlElement], so each CosmeticAttachments element *is* one entry: the
-          same shape CharacterHelmet uses above.
-
-          A wrapper deserialises to a single entry with an empty Id, which resolves to nothing.
-          CharacterAvatar then skips it inside its GetGltf null check and renders a kitten with
-          no gun and no error anywhere.
-        -->
-        <CosmeticAttachments Id="KSArmoryKittenGunAttachment"/>
 
         <CharacterFur Id="CharacterFur"/>
         <CharacterExpressions Id="CharacterExpressions"/>

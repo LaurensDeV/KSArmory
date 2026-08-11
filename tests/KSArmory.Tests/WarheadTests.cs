@@ -10,8 +10,8 @@ namespace KSArmory.Tests;
 public class WarheadTests
 {
     /// <summary>
-    /// The numbers the 57E6 was flown and tested with. These pin the scaled distances: change
-    /// them and every engagement that has been verified in flight changes with them.
+    /// The 57E6's calibrated pair. These pin the scaled distances: change them and every
+    /// engagement the mod has been tuned against changes with them.
     /// </summary>
     [Fact]
     public void TheTestedMissileNumbersAreUnchanged()

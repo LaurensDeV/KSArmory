@@ -18,9 +18,9 @@ internal static class Markers
     private static readonly ImColor8 Idle = new(150, 200, 255, 150);
     private static readonly ImColor8 Active = new(90, 255, 120, 220);
 
-    // Behind the planet. Dimmed rather than hidden: where a system is stays worth knowing when
-    // you cannot see it -- that is most of what the marker is for -- but it must not read as
-    // something you could look at.
+    // Behind the planet. Dimmed rather than hidden: where a system is stays worth knowing while it
+    // is out of sight, which is most of what the marker is for, but it must not read as something
+    // in view.
     private static readonly ImColor8 Hidden = new(150, 200, 255, 70);
     private static readonly ImColor8 HiddenActive = new(90, 255, 120, 90);
     private static readonly ImColor8 Label = new(235, 240, 245, 255);
@@ -35,9 +35,9 @@ internal static class Markers
     // Pointer distance, in pixels, that counts as hovering a marker.
     private const float HoverRadius = 18f;
 
-    // Apparent size, in radians, past which a craft needs no marker: you are looking straight at
-    // it. Angular rather than a distance, so a big vessel drops its bracket further out than a
-    // drone does -- what matters is how much of the view it fills, not how many metres away it is.
+    // Apparent size, in radians, past which a craft needs no marker because it is plainly in view.
+    // Angular rather than a distance, so a big vessel drops its bracket further out than a drone
+    // does -- what matters is how much of the view it fills, not how many metres away it is.
     // About 1.7 degrees, which for the Pantsir is a little over a hundred metres.
     private const double FillsTheViewRad = 0.03;
 
@@ -299,7 +299,7 @@ internal static class Markers
     }
 
     // Counts every showing label down, whether or not its system is still on screen -- otherwise
-    // one behind the camera never expires and reappears at full strength when you turn back.
+    // one behind the camera never expires and reappears at full strength when the view returns.
     private static void Age(double dt)
     {
         if (Showing.Count == 0 || !double.IsFinite(dt) || dt <= 0.0) return;

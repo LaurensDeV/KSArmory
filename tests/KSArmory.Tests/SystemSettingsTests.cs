@@ -129,18 +129,18 @@ public class SystemSettingsTests
     }
 
     /// <summary>
-    /// The optical head's viewport is deliberately not carried: it names an index in the session
-    /// that saved it, and a new session need not have that window at all.
+    /// A battery carries nothing about an optical head. A director is a part in its own right
+    /// with its own OpticConfig, crewed per part rather than per weapons system, so a battery's
+    /// settings have no business naming one — and a craft can carry a director and no weapon.
     /// </summary>
     [Fact]
-    public void TheOpticViewportIsNotRestored()
+    public void ABatterySettingCarriesNothingAboutAnOpticalHead()
     {
-        SystemConfig saved = new() { OpticViewport = 3 };
-        SystemConfig loaded = new();
-
-        SystemSettings.From(saved).ApplyTo(loaded);
-
-        Assert.Equal(-1, loaded.OpticViewport);
+        foreach (System.Reflection.PropertyInfo p in typeof(SystemSettings).GetProperties())
+        {
+            Assert.DoesNotContain("Optic", p.Name, StringComparison.Ordinal);
+            Assert.DoesNotContain("Sight", p.Name, StringComparison.Ordinal);
+        }
     }
 
     /// <summary>

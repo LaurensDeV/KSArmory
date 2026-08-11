@@ -8,7 +8,7 @@ namespace KSArmory;
 /// Reporting a bug or sending an idea, from inside the game.
 ///
 /// <para>One window for both. They differ by a label and whether the log is attached by default,
-/// and two windows would mean two places to look for the thing you half-wrote.</para>
+/// and two windows would mean two places to look for a half-written report.</para>
 /// </summary>
 internal partial class Ui
 {
@@ -57,8 +57,8 @@ internal partial class Ui
 
     private void OpenReport(ReportKind kind)
     {
-        // Only reset what the kind decides. Someone who typed a paragraph, then realised it was an
-        // idea rather than a bug, should not lose the paragraph to the switch.
+        // Only reset what the kind decides. A player who typed a paragraph, then realised it was
+        // an idea rather than a bug, should not lose the paragraph to the switch.
         _report.Kind = kind;
         _report.AttachLog = kind == ReportKind.Bug;
 
@@ -85,7 +85,7 @@ internal partial class Ui
         if (ImGui.Begin($"{title}###KSArmoryReport", ref _reportOpen))
         {
             // Once it is filed there is nothing left to do, so the form goes rather than sitting
-            // there inviting a second identical report from someone who is not sure it worked.
+            // there inviting a second identical report from a player who is not sure it worked.
             if (_feedback.Sent) DrawThanks();
             else DrawReportForm();
         }
@@ -136,7 +136,7 @@ internal partial class Ui
 
         ImGui.SameLine();
 
-        // Deliberate, and empty: someone with a second thing to report should not have to hunt
+        // Deliberate, and empty: a player with a second thing to report should not have to hunt
         // for the way back, and should not be handed the previous one to resend.
         if (ImGui.Button("Write another")) _feedback.Clear();
     }

@@ -25,7 +25,7 @@ namespace KSArmory;
 ///
 /// <para>A session with no save open — a fresh sandbox — has nowhere to put them and falls back to
 /// a folder in the KSA user directory. Those settings are adopted by the first save that opens,
-/// which is what someone who set a battery up and then saved would expect.</para>
+/// which is what a player who set a battery up and then saved would expect.</para>
 ///
 /// <para>Every failure is swallowed and logged. A settings file is a convenience: a mod that
 /// refuses to run because it could not read one is worse than one that starts from defaults.</para>
@@ -98,7 +98,7 @@ internal static class SettingsStore
             if (System.IO.Path.GetDirectoryName(path) is { Length: > 0 } folder)
             {
                 // A save's own folder must already exist. Creating it would resurrect a save the
-                // player deleted, as a directory containing nothing but our settings.
+                // player deleted, as a directory containing nothing but these settings.
                 if (InSave() && !Directory.Exists(SaveRoot())) return;
 
                 Directory.CreateDirectory(folder);
@@ -180,7 +180,7 @@ internal static class SettingsStore
     }
 
     // Where settings go with no save to put them in: the KSA user directory, beside saves/ and
-    // vehicles/. Not Logs/, which is where this started and is a folder people clear out.
+    // vehicles/. Not Logs/, which is a folder people clear out.
     private static string LoosePath()
     {
         string logs = Log.Folder;

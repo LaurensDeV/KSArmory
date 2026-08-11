@@ -84,8 +84,8 @@ public class LedgerTests
     [Fact]
     public void AFailedFilingGivesTheSlotBack()
     {
-        // The bug this exists for: counting at reservation and never releasing lets a GitHub
-        // outage spend the whole day's ceiling on issues that were never created.
+        // Counting at reservation and never releasing lets a GitHub outage spend the whole day's
+        // ceiling on issues that were never created.
         Ledger ledger = New(perDay: 1);
 
         ledger.Reserve("a", Noon, out _);

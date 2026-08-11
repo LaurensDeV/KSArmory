@@ -40,10 +40,9 @@ public class ContactSweepTests
     }
 
     /// <summary>
-    /// What the user asked for and what the log said was not happening: a shell fired at nothing
-    /// still hits what is in the way. Every round in the CIWS burst that prompted this flew its
-    /// full 2.2 km and expired through a craft it passed straight through, because a slug fused
-    /// only against a target fire control had designated — and a hand-aimed burst has none.
+    /// A shell fired at nothing still hits what is in the way. A slug fused only against a target
+    /// fire control designated has nothing to fuse on in a hand-aimed burst, so every round flies
+    /// its full 2.2 km and expires through the craft it passed straight through.
     /// </summary>
     [Fact]
     public void AShellFiredAtNothingStillHitsWhatIsInTheWay()

@@ -90,10 +90,10 @@ internal sealed class FeedbackClient
         });
     }
 
-    // Read by reflection, and that is not paranoia: calling the property directly threw
-    // MissingMethodException for get_StatusCode in game, against a System.Net.Http that plainly
-    // declares it. Whatever the runtime resolves the type to, reflection asks the object it
-    // actually has. The location is logged once so the cause can eventually be named.
+    // Read by reflection: in game, calling the property directly throws MissingMethodException
+    // for get_StatusCode against a System.Net.Http that plainly declares it. Whatever the runtime
+    // resolves the type to, reflection asks the object it actually has. The assembly location is
+    // logged once so the cause can be named.
     private static int StatusOf(HttpResponseMessage response)
     {
         Type type = response.GetType();
@@ -129,9 +129,9 @@ internal sealed class FeedbackClient
                 return;
 
             case 422:
-                // The endpoint refuses for more than one reason and says which. Assuming the
-                // worst of them told a player asking for more guns that their feedback read as
-                // abusive, because the language check answers 422 as well.
+                // The endpoint refuses for more than one reason and says which. The language
+                // check answers 422 as well, so assuming the worst of them tells a player
+                // asking for more guns that their feedback read as abusive.
                 Fail(Reason(body) ?? "that report was not accepted - please rewrite it");
                 return;
 

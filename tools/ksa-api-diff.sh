@@ -8,17 +8,18 @@
 #   ./tools/ksa-api-diff.sh ../ksa-game-assemblies --members    # only the missing-member check
 #
 # A KSA update changes thousands of lines across a quarter of a million. Almost none of it can
-# possibly affect this mod, which binds to 115 members. This narrows the diff to the ones that
-# can, and separately checks whether any member we depend on has vanished outright.
+# possibly affect this mod, which binds only to the members in docs/KSA-API-SURFACE.md. This
+# narrows the diff to the ones that can, and separately checks whether any member the mod
+# depends on has vanished outright.
 #
 # Two questions, because they fail differently:
 #
-#   1. Missing members - a member in our surface that no longer appears anywhere in its
+#   1. Missing members - a member in the surface that no longer appears anywhere in its
 #      assembly. Mechanical, precise, and the same set the compiler would shout about, except
 #      you get it as a list before building rather than as cascading errors after.
-#   2. Changed files - the decompiled files defining types we use, that this update touched.
-#      This is the one the compiler cannot give you: a member that kept its name and signature
-#      and changed its behaviour compiles clean and is wrong at runtime. Read these.
+#   2. Changed files - the decompiled files defining the types the mod uses, that this update
+#      touched. This is the one the compiler cannot give you: a member that kept its name and
+#      signature and changed its behaviour compiles clean and is wrong at runtime. Read these.
 #
 set -euo pipefail
 
@@ -68,7 +69,7 @@ echo "surface: ${#TYPE_ASM[@]} types across the assemblies in $(basename "$SURFA
 # ---------------------------------------------------------------------------------------------
 missing_report() {
     echo
-    echo "=== members in our surface that are missing from the new corpus ==="
+    echo "=== members in the surface that are missing from the new corpus ==="
     local found=0
     for type in "${!TYPE_ASM[@]}"; do
         local asm="${TYPE_ASM[$type]}"
@@ -90,8 +91,7 @@ missing_report() {
 
             # Properties and events reach IL as get_X/set_X/add_X/remove_X, but the decompiled
             # C# says `public T X { get; set; }` - the accessor name appears nowhere. Searching
-            # for it reports every property this mod uses as missing, which is how this check
-            # first came out: 13 GONE lines, all of them wrong.
+            # for it reports every property this mod uses as missing.
             case "$name" in
                 get_*|set_*)       name="${name#???_}" ;;
                 add_*)             name="${name#add_}" ;;
@@ -101,8 +101,8 @@ missing_report() {
             # Look in the type's own file first. ILSpy writes each type to <Namespace>/<Type>.cs,
             # so that is where a declaration is; searching the whole assembly instead lets an
             # unrelated *caller* elsewhere keep a deleted member looking alive. Fall back to the
-            # assembly only when the file cannot be located, so inherited members on a type we
-            # never see declared do not report as missing.
+            # assembly only when the file cannot be located, so inherited members on a type whose
+            # declaration is never seen do not report as missing.
             local leaf="${type##*.}"; leaf="${leaf%%+*}"
             local file
             file="$(find "$dir" -name "${leaf}.cs" -print -quit 2>/dev/null || true)"
@@ -128,7 +128,7 @@ missing_report() {
 }
 
 # ---------------------------------------------------------------------------------------------
-# 2. Decompiled files defining types we use, that changed in this update.
+# 2. Decompiled files defining the types the mod uses, that changed in this update.
 # ---------------------------------------------------------------------------------------------
 changed_report() {
     local ref="$SINCE"
@@ -139,7 +139,7 @@ changed_report() {
     fi
 
     echo
-    echo "=== files defining types we use, changed since $(git -C "$TARGET" rev-parse --short "$ref") ==="
+    echo "=== files defining types the mod uses, changed since $(git -C "$TARGET" rev-parse --short "$ref") ==="
 
     local changed
     changed="$(git -C "$TARGET" diff --name-only "$ref" -- current/src || true)"

@@ -79,9 +79,8 @@ public class LogGateTests
     [Fact]
     public void ALogTooLongToReadThroughIsWithheldEvenWhenEveryLineReadWasClean()
     {
-        // The one shape of this that fails open, and the bug this function was extracted to pin:
-        // the lines past the ceiling are exactly the ones nobody scored, so "nothing I read was
-        // bad" is not an argument for publishing them.
+        // The one shape of this that fails open: the lines past the ceiling are exactly the ones
+        // never scored, so "nothing that was read was bad" is not an argument for publishing them.
         //
         // Digit-free and non-repeating for the reasons CondenseTests.Distinct gives.
         string log = string.Join(" ", Enumerable.Range(0, 3_000).Select(

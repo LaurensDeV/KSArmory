@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-118 types and 306 members across 6 assemblies.
+114 types and 315 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -89,6 +89,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ImGuiApi.ImDrawListExtensions
 
+- `void AddCircle(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, float, Brutal.ImGuiApi.ImColor8, int, float)`
+- `void AddCircleFilled(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, float, Brutal.ImGuiApi.ImColor8, int)`
 - `void AddLine(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, float)`
 - `void AddText(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, Brutal.ImGuiApi.ImString)`
 - `void AddTriangleFilled(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8)`
@@ -99,6 +101,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ImGuiApi.ImGui
 
+- `Brutal.ImGuiApi.ImDrawListPtr GetBackgroundDrawList(Brutal.ImGuiApi.ImGuiViewportPtr)`
 - `Brutal.ImGuiApi.ImDrawListPtr GetWindowDrawList()`
 - `Brutal.ImGuiApi.ImGuiIOPtr GetIO()`
 - `Brutal.ImGuiApi.ImGuiViewportPtr GetMainViewport()`
@@ -114,6 +117,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool BeginTable(Brutal.ImGuiApi.ImString, int, Brutal.ImGuiApi.ImGuiTableFlags, ref System.Nullable`1<Brutal.Numerics.float2>, float)`
 - `bool Button(Brutal.ImGuiApi.ImString, ref System.Nullable`1<Brutal.Numerics.float2>)`
 - `bool Checkbox(Brutal.ImGuiApi.ImString, ref bool)`
+- `bool CollapsingHeader(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTreeNodeFlags)`
 - `bool InputText(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool InputTextMultiline(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool IsItemHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
@@ -128,8 +132,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool TableNextColumn()`
 - `bool TreeNode(Brutal.ImGuiApi.ImString)`
 - `float GetFrameHeight()`
+- `void BeginDisabled(bool)`
 - `void Dummy(ref Brutal.Numerics.float2)`
 - `void End()`
+- `void EndDisabled()`
 - `void EndMainMenuBar()`
 - `void EndMenu()`
 - `void EndTabBar()`
@@ -142,6 +148,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void PushStyleColor(Brutal.ImGuiApi.ImGuiCol, ref Brutal.Numerics.float4)`
 - `void SameLine(float, float)`
 - `void Separator()`
+- `void SeparatorText(Brutal.ImGuiApi.ImString)`
 - `void SetNextItemWidth(float)`
 - `void SetNextWindowBgAlpha(float)`
 - `void SetNextWindowPos(ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImGuiCond, ref System.Nullable`1<Brutal.Numerics.float2>)`
@@ -210,6 +217,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.ImGuiApi.ImGuiTreeNodeFlags
+
+*referenced as a type only*
+
 ### Brutal.ImGuiApi.ImGuiViewportPtr
 
 - `ref Brutal.Numerics.float2 get_Pos()`
@@ -255,7 +266,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 VelocityBub`
 - `KSA.BubbleFrame BubFrame`
 - `KSA.IParentBody Parent`
-- `KSA.SimTime Time`
+- `KSA.UniverseTime Time`
 
 ### KSA.Camera
 
@@ -268,6 +279,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 GetVelocityEgo(KSA.IVelocity)`
 - `Brutal.Numerics.doubleQuat LookAtRotation(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `Brutal.Numerics.float2 EclToScreen(Brutal.Numerics.double3, bool)`
+- `Brutal.Numerics.float2 EgoToScreen(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.int2 FramebufferSize`
 - `KSA.Celestial get_NearbyCelestial()`
 - `KSA.IFollowable get_Following()`
@@ -278,6 +290,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double NearbyCelestialTerrainHeight`
 - `float GetFieldOfView()`
 - `void LookAt(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `void SetFieldOfView(float)`
 - `void SetFollow(KSA.IFollowable, bool, bool, bool)`
 - `void Unfollow(bool)`
 - `void set_NearbyCelestial(KSA.Celestial)`
@@ -298,6 +311,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double GetLatitudeFromCce(Brutal.Numerics.double3)`
 - `double GetLongitudeFromCce(Brutal.Numerics.double3)`
 - `double GetTerrainHeightFromDirCce(Brutal.Numerics.double3, bool)`
+- `double get_MaxTerrainHeightApprox()`
 - `void AddEmitter(Handle<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData>)`
 - `void RemoveEmitter(Handle<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData>)`
 
@@ -306,14 +320,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Astronomical GetIndex(int)`
 - `KSA.LookupCollection`1<KSA.Astronomical> get_All()`
 - `int get_Count()`
-
-### KSA.CharacterAttachmentReference
-
-*referenced as a type only*
-
-### KSA.CharacterReference
-
-*referenced as a type only*
 
 ### KSA.Control
 
@@ -376,10 +382,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void DrawLine(Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.float4)`
 - `void DrawSphere(Brutal.Numerics.double3, float, Brutal.Numerics.float4)`
 
-### KSA.Gltf2Reference
-
-*referenced as a type only*
-
 ### KSA.IChannel
 
 - `bool IsPlaying()`
@@ -392,10 +394,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.IFollowable
 
 - `KSA.OrbitView get_OrbitView()`
-
-### KSA.IKeyed
-
-*referenced as a type only*
 
 ### KSA.IObjectId
 
@@ -411,6 +409,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.IParentBody
 
+- `Brutal.Numerics.double3 GetAngularVelocityCce()`
 - `Brutal.Numerics.doubleQuat GetCce2Cci()`
 - `System.Collections.Generic.List`1<KSA.IOrbiter> get_Children()`
 - `double get_Mu()`
@@ -429,7 +428,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.JobSystems
 
-- `Brutal.Concurrency.Jobs.JobScheduler VehicleSolvers`
+- `Brutal.Concurrency.Jobs.JobScheduler VehicleSolver`
 
 ### KSA.KeyHash
 
@@ -437,7 +436,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.KittenEva
 
-- `KSA.CharacterReference Character`
 - `void .ctor(KSA.CelestialSystem, string, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 
 ### KSA.LookupCollection`1
@@ -470,7 +468,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Orbit
 
-- `KSA.Orbit CreateFromStateCci(KSA.IParentBody, KSA.SimTime, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.byte4)`
+- `KSA.Orbit CreateFromStateCci(KSA.IParentBody, KSA.UniverseTime, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.byte4)`
 - `double get_Apoapsis()`
 - `double get_Eccentricity()`
 - `double get_Periapsis()`
@@ -525,6 +523,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsValid()`
 - `double GetAtmosphericDensityAtAltitude(double)`
 - `double GetAtmosphericPressure(KSA.Camera)`
+
+### KSA.PhysicsBubble
+
+*referenced as a type only*
 
 ### KSA.Program
 
@@ -588,22 +590,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.DistanceReference Level`
 - `bool IsValid()`
 
-### KSA.SerializedId
-
-- `string get_Id()`
-
 ### KSA.SimSpeed
 
 - `void .ctor(double)`
 
 ### KSA.SimStep
 
-- `KSA.SimTime get_NextTime()`
+- `KSA.UniverseTime get_NextTime()`
 - `double get_DeltaTime()`
-
-### KSA.SimTime
-
-*referenced as a type only*
 
 ### KSA.Situation
 
@@ -631,11 +625,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.CelestialSystem get_CurrentSystem()`
 - `KSA.SimStep GetLastSimStep()`
-- `KSA.SimTime GetElapsedSimTime()`
+- `KSA.UniverseTime GetElapsedTime()`
 - `bool IsPaused()`
 - `double get_SimulationSpeed()`
 - `void DestroyVehicleFromEvent(KSA.Vehicle, KSA.VehicleDestructionEvent)`
 - `void SetSimulationSpeed(KSA.SimSpeed)`
+
+### KSA.UniverseTime
+
+*referenced as a type only*
 
 ### KSA.Vehicle
 
@@ -647,13 +645,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
 - `KSA.IParentBody get_Parent()`
 - `KSA.PartTree get_Parts()`
+- `KSA.PhysicsBubble get_PhysicsBubble()`
 - `KSA.Situation get_Situation()`
 - `KSA.Vehicle CreateVehicle(KSA.CelestialSystem, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 - `KSA.Vehicle get_BubbleLeader()`
-- `KSA.VehicleUpdateTask UpdateTask`
 - `bool get_IsControllable()`
 - `bool get_IsDisposed()`
-- `void AddToTask(KSA.VehicleUpdateTask)`
+- `void AddToBubble(KSA.PhysicsBubble)`
 - `void TeleportToLocation(KSA.Celestial, double, double)`
 - `void UpdateAfterPartTreeModification()`
 
@@ -676,10 +674,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.VehicleSaveData
 
 - `string Character`
-
-### KSA.VehicleUpdateTask
-
-*referenced as a type only*
 
 ### KSA.Viewport
 

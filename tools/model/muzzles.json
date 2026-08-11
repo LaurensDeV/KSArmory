@@ -63,6 +63,18 @@
     "gun_reference_elevation_deg": 0.0,
     "total_height": 4.7
   },
+  "optic": {
+    "head_pivot": [
+      0.63,
+      0.0,
+      0.0
+    ],
+    "eye_forward": 0.3,
+    "head_radius": 0.215,
+    "min_elevation_deg": -20.0,
+    "max_elevation_deg": 85.0,
+    "total_height": 0.845
+  },
   "bombrack": {
     "tubes": [
       [
@@ -198,10 +210,5 @@
     4.05,
     -1.1,
     0.0
-  ],
-  "eo_pivot_from_turret": [
-    4.1,
-    1.07,
-    0.44
   ]
 }

@@ -24,23 +24,47 @@ internal static class ThreatModel
         bool IsThreat);
 
     /// <summary>
+    /// What a sensor can tell about a contact besides where it is going: how large it looks and
+    /// how far it is standing off the ground.
+    ///
+    /// <para>A type rather than two more arguments, so <see cref="Unknown"/> can say at a call
+    /// site that nothing is known — which is the state every one of the rules reading it treats as
+    /// "do not apply".</para>
+    /// </summary>
+    /// <param name="MeanRadius">The contact's own size (m), which its cross-section comes from.</param>
+    /// <param name="HeightAboveSurface">Above the body's mean sphere (m).</param>
+    internal readonly record struct ContactSignature(double MeanRadius, double HeightAboveSurface)
+    {
+        /// <summary>
+        /// A contact nothing extra is known about. Deliberately makes every rule that reads it
+        /// inert, so a call site that cannot supply the data gets the behaviour that shipped
+        /// before the data existed rather than a silently different one.
+        /// </summary>
+        public static ContactSignature Unknown => new(0.0, double.PositiveInfinity);
+    }
+
+    /// <summary>
     /// Tests one contact against the search volume and, if it clears, works out its threat
     /// geometry.
     /// </summary>
     /// <param name="r">Target position relative to the battery (m), in Ecl.</param>
     /// <param name="v">Target velocity relative to the battery (m/s), in Ecl.</param>
     /// <param name="boresight">Unit vector the radar points along, in Ecl.</param>
-    /// <returns>False when the contact is out of range, outside the cone, or too slow.</returns>
+    /// <returns>
+    /// False when the contact is out of range for its size, outside the cone, too slow, sitting in
+    /// the Doppler notch, or down in the ground clutter.
+    /// </returns>
     public static bool TryAssess(double3 r, double3 v, double3 boresight, SensorProfile sensor,
-                                 out Assessment assessment)
+                                 ContactSignature signature, out Assessment assessment)
     {
         assessment = default;
 
         double rangeSquared = Vec.Len2(r);
+        double reach = DetectionRange(sensor, signature);
 
         // The lower bound is not paranoia: a contact at zero range has no direction, so the
         // cone test below would normalise a zero vector.
-        if (rangeSquared > (double)sensor.Range * sensor.Range || rangeSquared < 1.0) return false;
+        if (rangeSquared > reach * reach || rangeSquared < 1.0) return false;
 
         double3 lineOfSight = Vec.Unit(r);
         if (Vec.Dot(lineOfSight, boresight) < Math.Cos(sensor.ConeHalfAngleRad)) return false;
@@ -48,13 +72,27 @@ internal static class ThreatModel
         // Ignore anything drifting with us — docked craft, debris on the same trajectory.
         if (Vec.Len(v) < sensor.MinTargetSpeed) return false;
 
+        double closing = -Vec.Dot(v, lineOfSight);
+
+        // The notch, which cuts both ways on purpose: a target crossing exactly abeam has no
+        // radial motion and is rejected along with the clutter. Absolute, because a set cannot
+        // tell an opening target from a closing one by how much Doppler it has.
+        if (sensor.NotchSpeed > 0f && Math.Abs(closing) < sensor.NotchSpeed) return false;
+
+        // Down in the ground return. Against the mean sphere, so it costs nothing.
+        if (sensor.ClutterFloorMetres > 0f
+            && signature.HeightAboveSurface < sensor.ClutterFloorMetres)
+        {
+            return false;
+        }
+
         double tCa = Vec.TimeOfClosestApproach(r, v, sensor.ThreatHorizonSeconds);
         double cpa = Vec.Len(r + v * tCa);
         double range = Math.Sqrt(rangeSquared);
 
         assessment = new Assessment(
             Range: range,
-            ClosingSpeed: -Vec.Dot(v, lineOfSight),
+            ClosingSpeed: closing,
             ClosestApproach: cpa,
             TimeToClosestApproach: tCa,
             // Either it will pass close enough to matter, or it is already inside the bubble.
@@ -62,8 +100,7 @@ internal static class ThreatModel
             // The second half is redundant *today* and deliberately kept. TimeOfClosestApproach
             // clamps to [0, horizon], so the search starts at now and its minimum can never
             // exceed the value at now — which is the range. Hence cpa <= range always, and
-            // `range <= ThreatRadius` cannot flip a false to a true. Verified by deleting it
-            // and watching all 92 tests still pass.
+            // `range <= ThreatRadius` cannot flip a false to a true.
             //
             // It stays because the invariant belongs to the clamp, not to this rule. Allowing a
             // negative tCa — to model a target that has already passed — is a plausible future
@@ -75,18 +112,37 @@ internal static class ThreatModel
     }
 
     /// <summary>
+    /// How far this set reaches against a contact of this size.
+    ///
+    /// <para>Its own <see cref="SensorProfile.Range"/> unless the set has been given a reference
+    /// cross-section, so a profile that says nothing about size behaves exactly as it did before
+    /// there was anything to say.</para>
+    /// </summary>
+    public static double DetectionRange(SensorProfile sensor, ContactSignature signature)
+        => RadarSignature.DetectionRange(sensor.Range,
+                                         RadarSignature.CrossSectionFor(signature.MeanRadius),
+                                         sensor.ReferenceCrossSectionM2);
+
+    /// <summary>
     /// Whether a contact is physically within the sensor's reach — range and cone only.
     ///
     /// <para>Deliberately excludes the threat and policy filters that <see cref="TryAssess"/>
     /// applies. A command-linked round needs to know whether the launcher can still *see* its
     /// target, which is a question about the radar. Whether the operator wants to shoot at it
-    /// is a separate question, and answering them with the same test meant that declining to
-    /// engage a contact also cut the uplink to rounds already flying at it.</para>
+    /// is a separate question, and one test answering both cuts the uplink to rounds already
+    /// flying at a contact the operator has declined to engage.</para>
     /// </summary>
-    public static bool InSensorVolume(double3 r, double3 boresight, SensorProfile sensor)
+    public static bool InSensorVolume(double3 r, double3 boresight, SensorProfile sensor,
+                                      ContactSignature signature)
     {
         double rangeSquared = Vec.Len2(r);
-        if (rangeSquared > (double)sensor.Range * sensor.Range || rangeSquared < 1.0) return false;
+
+        // The same reach the detection used. Taking the profile's raw range instead would keep an
+        // uplink alive out to 36 km against something the set only sees at 9, so a round would go
+        // on being steered at a contact its own launcher had lost.
+        double reach = DetectionRange(sensor, signature);
+
+        if (rangeSquared > reach * reach || rangeSquared < 1.0) return false;
         return Vec.Dot(Vec.Unit(r), boresight) >= Math.Cos(sensor.ConeHalfAngleRad);
     }
 
@@ -132,10 +188,9 @@ internal static class ThreatModel
     /// Whether the target is inside the weapon's reach — not merely detected.
     ///
     /// <para>A search radar sees far further than the round flies: 36 km against 20 km for the
-    /// Pantsir. Firing at everything detected wastes the magazine on contacts that expire
-    /// short, which is exactly what happened to every long crossing shot. There is a floor as
-    /// well as a ceiling: inside about a kilometre the round is still boosting and cannot be
-    /// brought round.</para>
+    /// Pantsir. Firing at everything detected wastes the magazine on contacts the rounds expire
+    /// short of. There is a floor as well as a ceiling: inside about a kilometre the round is
+    /// still boosting and cannot be brought round.</para>
     /// </summary>
     public static bool InEngagementEnvelope(TrackState track, MunitionProfile munition)
         => track.Range >= munition.MinRange && track.Range <= munition.MaxRange;

@@ -1,64 +1,91 @@
 # Test checklist
 
-## Status — 2026-08-02: the system works end to end in-game
+## Status: the system works end to end in game
 
-Confirmed working: the part loads and renders from Core's meshes, launches standalone, radar
-searches and classifies threats, the launcher slews and fires salvos, proportional navigation
-**intercepts at 22–23 m**, the proximity fuse detonates, the blast destroys the target, and the
+Confirmed against KSA `2026.8.5.5168`: the part loads and renders, the craft launches standalone,
+the radar searches and classifies threats, the launcher slews and fires salvos, proportional
+navigation intercepts, the proximity fuse detonates, the blast destroys the target, and the
 overlay draws correctly on the craft.
 
-**Re-flown on 2026-08-05 against KSA 2026.8.5.5168 and still working.** Two engagements — a
-crossing target and a head-on one, both from 9 km — gave four detonations at **15, 17, 18 and
-20 m** and two kills, with no warning or error in the log. All 30 launcher subparts resolved and
-`drive=True part=True` held throughout, so the engine is still accepting the per-frame subpart
-transform writes.
+Two engagements, a crossing target and a head-on one, both from 9 km, gave four detonations at
+**15, 17, 18 and 20 m** and two kills, with no warning or error in the log. All 30 launcher
+subparts resolved and `drive=True part=True` held throughout, so the engine accepts the per-frame
+subpart transform writes.
 
-Two things that run did **not** exercise, so they stay unproven on this build: everything ran at
-`sim 1.00x` with every step classified `running`, so the timewarp and step-overrun path is
+Two things those runs do not exercise, so they stay unproven on this build: everything ran at
+`sim 1.00x` with every step classified `running`, leaving the timewarp and step-overrun path
 untested; and the cannon never left `want=False`, because both engagements sat well outside its
 200–4000 m envelope.
 
-Bugs found and fixed along the way, all worth knowing about (see
-`docs/KSA-MODDING-NOTES.md`):
+**Re-flown after the retarget to KSA `2026.8.19.5261`.** That build renamed `SimTime` to
+`UniverseTime`, moved the vehicle solver behind a worker pool, and replaced the physics update task
+with `PhysicsBubble` — so the drone spawn path, the solver barrier and the whole simulated clock
+were rewritten and needed proving rather than assuming. `scenario.sh head-on` and `overhead` both
+pass unattended, and a Pantsir engagement destroyed three drones on the head-on, passing and
+overhead geometries, firing both missiles and cannon, with `bubble yes` on every spawned drone —
+which is the `AddToBubble` rewrite confirmed rather than inferred. The only log warnings are the two
+that describe a launcher honestly: no turret on the rail, no round bodies on the gun-only CIWS.
 
-| Bug | Cause |
-| --- | --- |
-| Radar saw nothing | `Program.VehiclesInFrame` reads empty from a StarMap hook |
-| Drones spawned at the solar barycentre | `CreateVehicle` needs `parent.Children.Add` + `AddToTask` |
-| Nothing ever rendered | gizmos submitted after the frame's render, wiped by the next reset |
-| Rounds flew 84 km, lock broken instantly | absolute Ecl velocity used as airspeed and heading |
-| Overlay drawn 500 m off the craft | Ecl positions differenced one frame apart, at 29.8 km/s |
-| Detonations killed nothing | blast compared end-of-frame burst against frame-start positions |
+What that run does **not** cover, so it stays unproven on this build: the optical head's sight at
+magnification, the chase camera, the bomb rack, and the editor's **Weapons** category — none of
+which a headless scenario reaches. `validate-parts.py` passes against the install, so the tags are
+declared; that they still group the parts is unwatched.
+
+The failure modes worth recognising before starting, and how to tell them apart, are in
+`docs/KSA-MODDING-NOTES.md` and `docs/FRAMES-AND-EPOCHS.md`.
 
 Known wart: the **miss distance slider on test targets is nominal, not achieved**. The ballistic
-solve is a vacuum solution and KSA models atmosphere, so drones undershoot — a requested 1500 m
+solve is a vacuum solution and KSA models atmosphere, so drones undershoot: a requested 1500 m
 pass arrives at roughly 4000 m.
 
 Remaining untested: sections 5 (safety) and 6 (robustness) below.
 
-## Status — the Pantsir model renders in-game
+## 0. The panel, after it was rebuilt around components
 
-The launcher is no longer a 0.9 m tube bundle borrowing Core's meshes. It is a full Pantsir-S1:
-an 8×8 vehicle 8 m long and 5.6 m tall, **12 rounds instead of 6**, built from
-`tools/model/pantsir.py` and shipping **its own mesh atlas and textures**.
+Nothing here has been flown. The whole window moved in one evening and every item is a claim
+made from reading.
 
-**Confirmed 2026-08-02.** The vehicle renders correctly and is recognisable. That settles the
-biggest open question in this file: **a user mod can ship its own `<MeshAtlas>` and
-`<PbrMaterial>`, with PNG textures, resolved relative to the mod root.** The tube markers land
-on the container mouths, so the generated launch geometry agrees with the mesh in-game and not
-just in `validate-parts.py`.
+- [ ] **Components** is the first tab and the only one a craft always has. Rows are grouped by
+      role, each one folds open, and the position line is still there.
+- [ ] A **Camera** row holds everything the Director tab used to. Two directors on one craft are
+      two rows that aim independently, and taking the main view on one drops it from the other.
+- [ ] A **Launcher** row holds the tally, the reload bar, the mount readout, `live`, Reload,
+      Safe all, chase and the bomb sight. A **Gun** row holds its belt and its own `live`.
+- [ ] A **Sensor** row holds the lock and the contact. The director's own sensor row says it is
+      not the one fire control reads.
+- [ ] A **Fire control** row holds master arm, auto-engage, FIRE, Reset settings and the mouse
+      controls.
+- [ ] A second launcher of the same kind says **fitted, not run** rather than showing blanks.
+- [ ] The strip above the tabs shows *Clear to fire* / *Holding fire* from **every** tab, plus
+      rounds in flight and a word about the clock only when it is the problem.
+- [ ] A craft carrying **only a director** opens the window, lists its Camera and Sensor rows,
+      and says *no weapons system on this craft* on the rest — **without faulting**. This is the
+      case that crashed twice tonight; both were null `_battery` reads on an uncrewed path.
+- [ ] *KSArmory settings* holds Display, Sound, the warp hold and Debug. The main panel is the
+      craft list and nothing else.
+- [ ] **Tuning** says at the top that it edits every system running that loadout.
 
-One defect found and fixed: the whole vehicle **flickered with white speckle** — z-fighting
-between coplanar faces where boxes abutted on a shared plane. `box()` now inflates every
-primitive by 8 mm. **Blender's preview render does not reproduce this**, so it is game-only.
-Needs a re-check after redeploying.
 
-Still untested after the model change:
+## Status: the Pantsir model renders in game
 
-- **Mass and size** — 30 t and 8 m, versus 185 kg and 0.9 m. Colliders, attachment, pad physics.
+The launcher is a full Pantsir-S1: an 8×8 vehicle 8 m long and 5.6 m tall carrying twelve rounds,
+built from `tools/model/pantsir.py` and shipping **its own mesh atlas and textures**.
+
+The vehicle renders correctly and is recognisable, which settles the biggest open question in this
+file: **a user mod can ship its own `<MeshAtlas>` and `<PbrMaterial>`, with PNG textures, resolved
+relative to the mod root.** The tube markers land on the container mouths, so the generated launch
+geometry agrees with the mesh in game and not just in `validate-parts.py`.
+
+Coplanar faces where two boxes abut on a shared plane z-fight, and the whole vehicle then flickers
+with white speckle. `box()` inflates every primitive by 8 mm to separate them, and **Blender's
+preview render does not reproduce the defect**, so the game is the only place it can be checked.
+
+Still untested:
+
+- **Mass and size** — 30 t and 8 m. Colliders, attachment, pad physics.
 - **Round count** — `12/12` in the panel, twelve markers, a full twelve-round salvo.
 
-Everything about guidance, radar, fuse and the draw anchor is untouched and stays ticked.
+Guidance, radar, fuse and the draw anchor are unaffected by the model and stay ticked.
 
 ---
 
@@ -67,37 +94,37 @@ fails* line says what it means and where to look.
 
 ---
 
-## Where I expect trouble
+## Where trouble is expected
 
-Ranked by how likely I think a failure is. Worth reading before you start.
+Ranked by how likely a failure is. Worth reading before you start.
 
 | Risk | What might break | Covered by |
 | --- | --- | --- |
 | ~~High~~ | ~~The mod's own `<MeshAtlas>` / `<PbrMaterial>` paths don't resolve~~ — **settled, it renders.** | [2.2](#22-the-part-renders) |
-| **Medium** | 30 t and 8 m of part where there used to be 185 kg and 0.9 m: colliders, editor attachment, pad physics. | [2.3](#23-the-part-attaches), [2.4](#24-the-part-behaves-physically) |
+| **Medium** | 30 t and 8 m of part on a stack: colliders, editor attachment, pad physics. | [2.3](#23-the-part-attaches), [2.4](#24-the-part-behaves-physically) |
 | **Medium** | `mod.toml` serving as both content manifest and StarMap manifest. Plausible, untested. | [1.1](#11-the-mod-loads) |
-| **Medium** | `Program.VehiclesInFrame` may not contain what I assume, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
+| **Medium** | `Program.VehiclesInFrame` may not contain the loaded vehicles, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
 | **Medium** | Boresight is local "up" derived from the parent body; if `Vehicle.Parent` misbehaves the cone points somewhere daft. | [3.2](#32-the-search-cone-is-drawn) |
-| **Low** | Guidance and fuse maths — covered by 13 headless tests, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
+| **Low** | Guidance and fuse maths — covered by the headless suite, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
 | **Low** | `DestroyVehicleFromEvent` may behave oddly with `Cause = Collision`. | [4.4](#44-the-warhead-kills) |
 
 ---
 
 ## 0. Before the game
 
-Use the wrapper scripts, not bare `dotnet`. The mod targets **net10.0** and your system SDK is
-8.x, which cannot build it — the scripts put the right SDK on PATH for you.
+Use the wrapper scripts, not bare `dotnet`. The mod targets **net10.0** and a distro `dotnet` 8
+cannot build it — the scripts put the right SDK on PATH for you.
 
 - [x] **0.1** `./tools/sync-import.sh` — Import/ populated, no errors.
 - [x] **0.2** `./tools/build.sh` — succeeds.
-- [x] **0.3** `./tools/test.sh` — 13 passed.
+- [x] **0.3** `./tools/test.sh` — the suite passes.
 - [x] **0.4** `./tools/validate-parts.py` — "OK: 26 asset reference(s) resolve".
 - [ ] **0.5** `./tools/deploy.sh` — prints an install path containing `KSArmory.dll`,
       `mod.toml`, **two XML files at the root**, `Meshes/KSArmory_MeshAtlas.glb` and three
-      PNGs under `Textures/`. If an `Assets/` folder is still there from an older deploy, the
-      script should have deleted it — two copies of the part would fight over one Id.
-- [ ] **0.6** Re-run `./tools/deploy.sh` — it must now say it **registered the mod in
-      manifest.toml**. Your first run predates that step, so the entry is missing.
+      PNGs under `Textures/`. An `Assets/` folder left by a previous layout must have been
+      deleted by the script — two copies of the part would fight over one Id.
+- [ ] **0.6** Re-run `./tools/deploy.sh` — it must say it **registered the mod in
+      manifest.toml**.
 - [ ] **0.7** `./tools/setup-starmap.sh` — installs StarMap and writes `StarMapConfig.json`.
       One-off; skip if already done.
 
@@ -148,13 +175,13 @@ If you cannot find it, ignore it — the log files cover everything on this chec
 - [x] `KittenSpaceAgency.log` contains `INFO found mod 'KSArmory'`.
 - [x] StarMap prints `Loaded mod: KSArmory from manifest`.
 - [x] `Logs/KSArmory.log` contains `loading (mod id: KSArmory)`.
-- [ ] Then `ready - 12 tubes, safe.` (was 6 before the Pantsir model landed)
+- [ ] Then `ready - 12 tubes, safe.`
 
-**Passed 2026-08-02.** Both StarMap hooks fire. Note `[StarMapAllModsLoaded]` lands about
-**21 s** after `[StarMapImmediateLoad]` — it waits for the game to finish loading, so the
-`ready` line appearing late is normal, not a hang.
+Both StarMap hooks fire. `[StarMapAllModsLoaded]` lands about **21 s** after
+`[StarMapImmediateLoad]` — it waits for the game to finish loading, so the `ready` line appearing
+late is normal, not a hang.
 
-**If it fails:** no `KSArmory.log` at all means StarMap never ran our entry class. Check
+**If it fails:** no `KSArmory.log` at all means StarMap never ran the mod's entry class. Check
 `mod.toml`'s `EntryAssembly = "KSArmory"` matches the DLL name, and that StarMapConfig.json
 points at the right KSA folder. An exception mentioning TOML means the `assets` array in
 `mod.toml` isn't tolerated there; move the part XML into a second mod folder and keep
@@ -165,10 +192,10 @@ points at the right KSA folder. An exception mentioning TOML means the `assets` 
 - [x] Nothing in `KittenSpaceAgency.log` about failing to load `KSArmoryAssets.xml` or
       `KSArmoryGameData.xml`.
 
-**Passed 2026-08-02.** Re-check after any XML edit.
+Re-check after any XML edit.
 
-**If it fails:** the schema differs from what I inferred from Core's files. Compare against
-`Content/Core/CoreStructuralAAssets.xml`, which is the file I modelled it on.
+**If it fails:** the schema differs from Core's. Compare against
+`Content/Core/CoreStructuralAAssets.xml`, which the mod's XML is modelled on.
 
 ---
 
@@ -177,8 +204,7 @@ points at the right KSA folder. An exception mentioning TOML means the `assets` 
 ### 2.1 The part appears in the editor
 
 - [x] Open the vehicle editor.
-- [x] Under **Structural**, find **Pantsir-S1 Point Defence System**. (Renamed from "AA-6
-      Point Defence Launcher".)
+- [x] Under **Structural**, find **Pantsir-S1 Point Defence System**.
 
 **If it fails:** the `PartGameData` didn't register. Check the `EditorTag Value="Structural"`
 and that `mod.toml`'s `assets` paths match where deploy.sh put the files — they are now at the
@@ -186,9 +212,8 @@ mod root, **not** under `Assets/`.
 
 ### 2.2 The part renders
 
-**This is the highest-risk item in the whole list, and it is untested again.** The mod used to
-ship no art at all and borrow Core's meshes by Id, which worked. It now carries its own mesh
-atlas and textures, which is a different loader path and has never been exercised.
+**The highest-risk item in the whole list.** The mod carries its own mesh atlas and textures, so
+this is the only thing that exercises the loader path resolving them relative to the mod root.
 
 - [x] The part is a **green 8×8 military truck**: four axles, a cab at the front, and a turret
       at the back carrying two pods of six missile tubes elevated to about 55°.
@@ -196,11 +221,10 @@ atlas and textures, which is a different loader path and has never been exercise
 - [x] A large pale grey panel (the search radar) stands at the very back, leaning aft.
 - [x] A pale grey array faces forward at the front of the turret, with a small dome beside it.
 - [x] Colours are right: olive green body, near-black tyres, grey radar faces, dark glazing.
-- [ ] **No flickering speckle** on flat surfaces — cab roof, hood, deck, turret sides. That was
-      z-fighting from coplanar faces; `box()` now inflates every primitive by 8 mm. Blender's
-      preview render does not reproduce it, so the game is the only place it can be checked.
-- [ ] Rough size: **8 m long, 3 m wide, 5.6 m to the tube mouths.** It is a big part now — it
-      used to be 0.9 m across.
+- [ ] **No flickering speckle** on flat surfaces — cab roof, hood, deck, turret sides. Coplanar
+      faces z-fight; `box()` inflates every primitive by 8 mm to prevent it, and Blender's
+      preview render does not reproduce the defect, so the game is the only place to check.
+- [ ] Rough size: **8 m long, 3 m wide, 5.6 m to the tube mouths.**
 
 **If it fails, the symptom tells you which half broke:**
 
@@ -230,7 +254,7 @@ the Ids must match exactly between the two files.
 
 ### 2.4 The part behaves physically
 
-- [ ] Craft mass increases by **~30 t** per launcher (it is a whole vehicle now, not a pod).
+- [ ] Craft mass increases by **~30 t** per launcher (it is a whole vehicle, not a pod).
 - [ ] It doesn't clip weirdly or fall through the launchpad. The hull collider starts at the
       ground plane, so it should rest on its wheels rather than sink to the axles.
 - [ ] Craft launches without the part exploding or detaching.
@@ -249,7 +273,7 @@ the Ids must match exactly between the two files.
 
 **If it fails:** `Launcher: none fitted` while the part *is* on the craft means
 `LauncherPart.Find` isn't matching — `Part.Id` may not equal the `PartGameData` Id. Untick
-**Require launcher part** to keep testing everything else, and tell me.
+**Require launcher part** to keep testing everything else, and report it.
 
 ### 3.1b The turret slews
 
@@ -261,7 +285,7 @@ here is instrumented so the answer is readable either way.
       `LauncherPart.cs` needs to match whatever is actually there.
 - [ ] The panel shows `Turret: N deg` and not `subpart not found` or `engine refused`.
 - [ ] A **cyan line** points out from above the vehicle. That is where the drive *thinks* it is
-      aimed — it comes from our own maths, not from the engine.
+      aimed — it comes from the mod's own maths, not from the engine.
 - [ ] Spawn a test target. The cyan line sweeps round to follow it, taking about a second.
 - [ ] **The turret mesh follows the cyan line.** This is the actual test.
 - [ ] The twelve tube markers stay on the container mouths as it turns.
@@ -302,7 +326,7 @@ after installing the craft.
 > the craft file did not load. If the menu item is live but the craft is missing from the
 > dropdown, the folder was read but that save was rejected.
 
-**Use the built-in spawner.** The panel has a **Test targets** section: set time-to-pass,
+**Use the built-in spawner.** *KSArmory settings → Debug → Test targets*: set time-to-pass,
 speed and miss distance, then press **Overhead**, **Head-on** or **Passing by**. A drone
 appears that far out on exactly that course, so a 60 s / 400 m/s overhead pass spawns 24 km
 away and arrives in a minute. Drones are clones of your own craft, so no second craft needed.
@@ -320,7 +344,7 @@ filters out anything below *Min target speed* (default 15 m/s).
 
 **If it fails:** empty track list with a vessel clearly nearby means `Program.VehiclesInFrame`
 isn't returning loaded vehicles. Try widening *Cone half-angle* to 180 and *Range* to max
-first — that rules out geometry before we blame the API.
+first — that rules out geometry before blaming the API.
 
 ### 3.4 Threat classification
 
@@ -342,7 +366,7 @@ Do all of this at `simspeed 1`.
 
 - [ ] Tick **Master arm**. Header turns red, `MASTER ARM: ARMED`.
 - [ ] With a lock, press **FIRE**.
-- [ ] `Rounds` drops to 5/6; one muzzle dot turns grey.
+- [ ] `Rounds` drops to 11/12; one muzzle dot turns grey.
 - [ ] A tracer leaves that tube with a trail behind it.
 - [ ] Console logs `[KSArmory] round N away at <target> (X.X km)`.
 
@@ -380,8 +404,8 @@ so a real-world failure points at frame timing or the target-state sampling, not
 - [ ] Tick **Auto engage**, present a threat, and let it work unattended.
 - [ ] It fires *Rounds per target* rounds (default 2), spaced by *Salvo spacing* (0.45 s).
 - [ ] It does **not** dump all twelve at one target.
-- [ ] After 6 rounds, `Rounds: 0/6` and a reload progress bar appears.
-- [ ] After *Reload time* (12 s), back to 6/6 and `launcher reloaded`.
+- [ ] After twelve rounds, `Rounds: 0/12` and a reload progress bar appears.
+- [ ] After *Reload time* (12 s), back to 12/12 and `launcher reloaded`.
 
 ### 4.6 Manual designation
 
@@ -400,23 +424,32 @@ Do these deliberately — a failure here is the kind that ruins a save.
 - [x] **5.2** A round fired at a close target does not destroy your own launcher platform
       (the fuse arms 0.6 s after launch specifically to prevent this).
 - [x] **5.3** **Safe all** removes rounds in flight with no detonation, **and disarms**.
-      Found in testing: it used to only clear the air, so an armed battery with a lock
-      fired again immediately and the button appeared to do nothing.
+      Without the disarm, an armed system holding a lock fires again immediately and the
+      button appears to do nothing.
 - [x] **5.4** Master arm off means nothing launches, even with a valid lock and auto-engage on.
 
 ---
 
 ## 6. Robustness
 
-Where I'd expect latent bugs.
+Where latent bugs are most likely.
 
 - [ ] **6.1** **Timewarp** — raise sim speed with rounds in flight. Nothing should NaN, crash,
       or spam the log. Rounds behaving oddly under warp is acceptable; a crash isn't.
 - [ ] **6.2** **Scene change** — go flight → editor → flight. Panel recovers, no exceptions.
+
+      **Reported broken**: with the optical head driving the main view, switching to the vehicle
+      editor leaves the view in a bad state. The log settled it — the restore did *not* fail, it
+      succeeded: `sight: released the main view` with no warning. So the mod was writing a camera
+      mode and a followed craft belonging to the flight scene onto the editor, which had already
+      loaded. It now **forgets** rather than restores when it is no longer in flight, on the
+      grounds that the new scene brings its own camera and a dead scene's is not worth handing
+      back. Restoring is still what happens when the optic is switched off *in* flight, which is
+      the case the recording is actually for.
 - [ ] **6.2b** **Camera switching mid-engagement** — fire a salvo, then switch the camera to the
       drone and back. The cone, track markers and tracers must stay locked to the craft and to
-      each other. *(Regression: `GetPositionEgo` takes a different branch depending on what the
-      camera follows, which used to shift the whole overlay and make hits look like misses. The
+      each other. *(`GetPositionEgo` takes a different branch depending on what the camera
+      follows, so a mismatch there shifts the whole overlay and makes hits look like misses. The
       log is the arbiter — miss distances stay ~22 m either way.)*
 - [ ] **6.3** **Target dies mid-flight** — destroy the target another way while rounds chase it.
       They should lose lock and expire, not throw.
@@ -424,18 +457,18 @@ Where I'd expect latent bugs.
 - [ ] **6.5** **Pin platform** — press *Pin to this vehicle*, switch control elsewhere. The
       pinned craft keeps defending itself.
 - [ ] **6.6** **Staging away the launcher** — `Launcher: none fitted` appears, firing refuses.
-- [ ] **6.7** **Two launchers** on one craft — should work, still one battery of 6 (by design).
+- [ ] **6.7** **Two launchers** on one craft — should work, still one system of twelve (by design).
 - [ ] **6.8** **Long session** — leave auto-engage on for a while. No unbounded log growth, no
       frame-rate decay.
 - [ ] **6.9** **Fault handling** — if anything throws, the console shows
       `[KSArmory] ERROR … (n/10)`. After 10 it disables itself rather than spamming. If you
-      see this, **copy those lines** — that's the most useful thing you can send me.
+      see this, **copy those lines** — they are the most useful thing to report.
 
 ---
 
 ## 7. Gaps — never exercised at all
 
-Added after the system was working. These are not "probably fine", they are "never once run".
+Paths that have never once run. These are not "probably fine".
 
 ### 7.1 Save / load with the part fitted  ← highest risk
 
@@ -446,13 +479,11 @@ Added after the system was working. These are not "probably fine", they are "nev
 **Why it matters:** the part goes into the save's part tree. If KSA cannot resolve
 `KSArmory_Prefab_Launcher6` on load, the craft — or the whole save — may fail.
 
-Confirmed 2026-08-06, after the part Id was renamed that morning: saved, quit to menu, reloaded,
-craft intact with the launcher present. The other two lines below — saving with rounds in flight,
-and loading with the mod removed — are still untried.
+Saving with rounds in flight, and loading with the mod removed, are the two still untried.
 
 ### 7.1b Timed airburst (flak)
 
-Nothing has seen this in game. `MunitionProfile.TimedFuse` makes the cannon fuse each shell for the
+Untested in game. `MunitionProfile.TimedFuse` makes the cannon fuse each shell for the
 flight time of the lead solution it was aimed with; the proximity fuse still fires first if
 something arrives early.
 
@@ -466,62 +497,122 @@ something arrives early.
 
 ### 7.1c Horizon masking
 
+The controls for this were unreachable until now — `HorizonMasking` and the limb margin had no
+panel control and no profile set them — so every box below has been untestable rather than
+untested. They are under a system's *Tuning → Radar*.
+
 - [ ] Put a drone on the far side of the planet. It does **not** appear on the scope, and the
       panel says `N behind the horizon` rather than showing an empty list with no explanation.
 - [ ] A drone overhead and a neighbour on the same pad are both still seen. If short-range
       contacts vanish, the mount is being treated as sitting at mean radius.
-- [ ] Raise `SensorProfile.TerrainMarginMetres` and watch low contacts drop out at shorter range.
-- [ ] With `HorizonMasking` off, everything is visible again exactly as before.
+- [ ] Raise **Limb margin** and watch low contacts drop out at shorter range.
+- [ ] With **Horizon masking** off, everything is visible again exactly as before.
+
+### 7.1c2 Terrain masking, and what it costs
+
+Ships at zero samples, which is the mean sphere alone. **The point of flying this is the frame
+time**, not the behaviour: the behaviour is covered by `TerrainMaskTests` against a synthetic
+ridge, and the cost is the thing no test can answer.
+
+- [ ] Note the frame time with **Terrain samples** at 0. Raise it to 16, then 64, with a dozen
+      contacts up. Write down all three. That measurement is the whole reason this is a number
+      and not a switch, and `SensorProfile.TerrainSamples`' default should be set from it.
+- [ ] A drone low behind a ridge disappears from the scope; the same drone climbing reappears.
+      If it never disappears, the samples are not reaching the ridge — try more of them, since
+      they are spread over the whole band that passes under the body's highest terrain.
+- [ ] A launcher on a slope still sees along its own ground. If it goes blind at close range,
+      **Terrain clearance** is too low and the height map is finding the hill the site stands on.
+- [ ] Contacts high above the ground cost nothing: raising the sample count with everything at
+      altitude does not move the frame time. That is `TryBandBelow` doing its job, and if the cost
+      *does* move, it is not.
+- [ ] Nothing throws over a body with no height map, and over a moon.
+
+### 7.1c3 Telling targets apart — size, Doppler and clutter
+
+All three ship at zero, which is the behaviour every earlier section was flown against. The
+arithmetic is in `RadarSignatureTests`; what a flight adds is whether the numbers land anywhere
+useful against real craft, whose `MeanRadius` is a bounding half-diagonal rather than a skin.
+
+- [ ] Read the **Reference RCS** line with it at zero: the set reaches the same distance whatever
+      it looks at, and the track list matches what earlier sections recorded.
+- [ ] Set it to roughly a drone's own cross-section and confirm a drone is still detected at about
+      the profile range. Wildly short means `MeanRadius` is much larger than assumed and the
+      reference needs to be too.
+- [ ] With it set, fire a round and watch a *second* system see it. A round should appear at a
+      fraction of the range a craft does, not at the same range and not never.
+- [ ] **Doppler notch** to 40 m/s, then fly a drone across the site rather than at it. It drops off
+      the scope near the beam and comes back either side. That loss is the feature.
+- [ ] Confirm the same drone flown straight at the site is unaffected.
+- [ ] **Clutter floor** to a few hundred metres: low contacts vanish, high ones do not. Then put it
+      back to zero, because the Pantsir exists to kill things down there.
+- [ ] All three back at zero: the track list is exactly what section 3.3 recorded.
 
 ### 7.1d The Sidewinder rail
 
-**Flown unattended on 2026-08-07 by `./tools/scenario.sh head-on`, and it killed the target.**
-The log reads: crewed NewRocket_1 with the LAU-7 rail, armed with 1 round, target away, round
-away, and KSA reporting `Vehicle 'AD Test Drone 1' destroyed by Collision (50.0 g)`. So the
-fixed-launcher path crews, arms, fires and kills.
+**`./tools/scenario.sh head-on` flies this unattended and kills the target.** The log shows the
+LAU-7 rail crewed, armed with 1 round, target away, round away, and KSA reporting
+`Vehicle 'AD Test Drone 1' destroyed by Collision (50.0 g)`. So the fixed-launcher path crews,
+arms, fires and kills.
 
-What that run did *not* settle is everything about appearance -- the screenshot lands after the
-kill, so the round leaving the rail was never seen. The unticked boxes below are the ones a log
-cannot answer.
+What a log cannot answer is appearance: the screenshot lands after the kill, so it never shows the
+round leaving the rail. The unticked boxes below are those.
 
-The second weapon system, and the first that is *fixed* — no turret, no pods, one round, no
-reload. Everything below is a path the Pantsir never takes, so a green suite says little about it.
+A *fixed* launcher — no turret, no pods, one round, no reload — takes paths the Pantsir never
+does, so a green suite says little about it.
 
 - [ ] The rail appears in the editor under Structural, and **surface-attaches** to the side of a
       stack. It is not a command source, so a craft made only of a rail will not fly — expected.
 - [ ] The AIM-9J is **visible on the rail** before firing. A tube launcher hides its rounds inside
-      the containers; a rail cannot, so `TubeVisual.Loaded` is being seen for the first time.
+      the containers; a rail cannot, so `TubeVisual.Loaded` is exercised here and nowhere else.
 - [ ] The round sits along the rail, fins in an X straddling it. A roll that puts one fin through
       the rail means the seating rotation is not the shortest one `RotationFromTo` promises.
 - [ ] It fires. `Trains` is false, so `IsLaid` is true from the start and nothing waits for drives
       that do not exist — the failure to look for is fire control deadlocking rather than missing.
-- [ ] The round leaves **aimed at what it was fired at**, not along the rail. `LaunchAlongTube`
-      is deliberately false: a rail on a stack points where the stack points, so releasing along
-      it put every designation 92-116 degrees outside the seeker's gimbal limit and the launcher
-      refused every shot. Watch for the opposite failure now — a round departing *through* the
-      craft carrying it.
+- [ ] The round leaves **along the rail** and is clear of the craft before it turns.
+      `LaunchAlongTube` is true and the round coasts for `MunitionProfile.SeparationSeconds`
+      before steering, so the arc it then flies is bounded by its own lateral g. Watch for a
+      round departing *through* the craft carrying it.
 - [ ] The search volume follows the craft's attitude, not local up. `BoresightSource` is
       `PartForward` — pitch the craft over and the cone must go with it.
 - [ ] After the one round is gone the launcher stays empty. `ReloadSeconds` is zero.
 
 - [ ] **A Pantsir and a rail in the same world at once.** Each keeps its own search cone, round and
-      envelope in the panel and in the overlay. This is what moving the profiles onto the battery
-      was for, and a session-scoped profile would show up here as one site drawing the other's
-      numbers — nowhere else.
+      envelope in the panel and in the overlay. Profiles belong to the system for exactly this
+      case: a session-scoped profile shows up here as one site drawing the other's numbers, and
+      nowhere else.
 
 - [ ] Two rails on one craft: expected to fire **one**. `LauncherOrdinal` is pinned and the roster
       crews one battery per craft. Recorded so it is not mistaken for a bug.
 
+### 7.1f The Mk 82 bomb rack
+
+**Reported not working in flight**, with no detail yet, so nothing here is a diagnosis.
+
+Two things shipped together and either could be it: `feat(rounds): drop a bomb` and
+`feat(rounds): show where a bomb would land`. They fail in different places — one is a round that
+never leaves or never arrives, the other is a ring in the wrong place over a round that is fine.
+
+What to record next time, in this order, because each answers a different half:
+
+- [ ] Does the rack **release** at all? The trigger fires without a lock and auto-engage refuses
+      it outright and says why, so the panel's *Holding fire* line is the first thing to read.
+- [ ] Does the bomb **fall away from the aircraft**, nose-down, rather than sideways or through it?
+- [ ] Does it **burst on the ground** rather than passing through? `HitsTerrain` is set for this
+      round and nothing else, so this is the only round that exercises `Ksa/GroundTest.cs`.
+- [ ] Does the **ring** sit where it lands? A ring in the wrong place with a bomb that arrives
+      correctly is the sight; a bomb that goes nowhere near the ring is the round.
+- [ ] The log line for the release, and the whole `KSArmory.log`.
+
 ### 7.1e Drag, and what a round does once it leaves the air
 
-Never deliberately tested. Noticed in a flight log on 2026-08-06:
+Never deliberately tested. A flight log reads:
 
 ```
 round 2 expired after 30.0s - closest 617 m, flew 33.0 km, final speed 1010 m/s, lock=False
 ```
 
-A 57E6 peaks near 1290 m/s, so this one shed under 300 m/s in thirty seconds and travelled 65 %
-past the system's 20 km engagement envelope. Both look wrong and, on reading the code, neither is:
+A 57E6 peaks near 1290 m/s, so that round shed under 300 m/s in thirty seconds and travelled 65 %
+past the system's 20 km engagement envelope. Both look wrong and neither is:
 `KsaWorld.MediumDensityRatioAt` returns **zero above `air.Height`**, which is correct because there
 is no atmosphere to resist anything, and the envelope decides when the battery *commits* rather
 than how far a round may fly. `MaxFlightSeconds` is what ends it.
@@ -551,13 +642,13 @@ that sails on — but nothing has ever exercised the branch.
 **Why:** every engagement so far has been one drone. Track prioritisation, round attribution and
 salvo allocation have literally never run against a contested list.
 
-**The arithmetic is now covered.** `ThreatModelTests` ranks contested lists, checks non-threats
+**The arithmetic is covered.** `ThreatModelTests` ranks contested lists, checks non-threats
 never outrank threats, and walks twelve tubes across three targets to prove the first does not
-take the whole magazine — 19 tests, headless. That became possible by moving the logic out of
-`Ksa/Radar.cs` and `Ksa/WeaponSystem.cs` into `Sim/ThreatModel.cs`.
+take the whole magazine. It is headless because the logic lives in `Sim/ThreatModel.cs` rather
+than in `Ksa/Radar.cs` and `Ksa/WeaponSystem.cs`.
 
 It does **not** retire these boxes. The tests prove the maths; they say nothing about KSA
-handing us the vehicles we expect, tracks surviving a rebuild, or the lock promoting cleanly
+handing over the vehicles expected, tracks surviving a rebuild, or the lock promoting cleanly
 when a target dies mid-engagement. Run them still — expect fewer surprises.
 
 ### 7.3 Blast catching a third party
@@ -566,19 +657,18 @@ when a target dies mid-engagement. Run them still — expect fewer surprises.
 
 **Why:** the splash path (as opposed to the intended-target path) has never destroyed anything.
 
-### 7.4 Recently changed, unproven
+### 7.4 Unproven
 
-Confirmed in flight and no longer open: the model repairs of August 2026 - pod frame rings and
-spine, the search array's turntable, the gun sponsons tied back to their cheeks, the tube covers,
-the raised optical head - all seen and judged correct over several sessions. `checkswept.py` now
-guards the class, so a regression is caught before a build rather than by eye.
+Closed: the pod frame rings and spine, the search array's turntable, the gun sponsons tied back to
+their cheeks, the tube covers and the raised optical head all render correctly. `checkswept.py`
+guards that class of defect, so a regression is caught before a build rather than by eye.
 
 Still open below.
 
 - [ ] **Pods clear the bodywork off the bow** - traverse into the forward sector at low elevation
-      and confirm the tubes lift rather than passing through the APU box. The depression floor was
-      widened to hold its full height across the sector it protects; only flight proves the arc is
-      wide enough.
+      and confirm the tubes lift rather than passing through the APU box. The depression floor
+      holds its full height across the sector it protects; only flight proves the arc is wide
+      enough.
 - [ ] **A refused drive holds fire** - cannot be forced on demand, since it needs KSA to reject a
       transform write. If it ever happens the panel says which assembly froze and whether the
       launcher is holding fire; report the line rather than trying to reproduce it.
@@ -598,13 +688,12 @@ Still open below.
 
 - [ ] A round fired at a low target passes through terrain rather than hitting it. Expected —
       rounds only test against their target — but confirm it does not throw.
-- [x] **Timewarp during flight: confirmed broken, and fixed.** Reported from play as tracking
-      being "completely messed up" by changing simulation speed, and as the battery still
-      firing while **paused**. One cause: the mod stepped on StarMap's *player-time* delta,
-      which is wall-clock — it runs through a pause and stays at 1× under warp. It now steps on
-      `Universe.GetElapsedSimTime()` via `Sim/SimClock.cs`.
+- [x] **Timewarp during flight.** Fire control steps on `Universe.GetElapsedTime()` via
+      `Sim/SimClock.cs`, never on StarMap's *player-time* delta: player time is wall-clock, so it
+      runs through a pause and stays at 1× under warp, which breaks tracking and lets a paused
+      system fire.
 
-### 7.5b Retest after the time-source fix
+### 7.5b Timewarp and pause, on simulated time
 
 - [x] Pause mid-engagement: rounds hold position, no launches, no dwell accrued. Resume and the
       engagement continues rather than jumping.
@@ -613,6 +702,175 @@ Still open below.
       rounds vanish, and nothing throws. Dropping them is intended, not a failure.
 - [x] Warp up and back down repeatedly: the battery recovers each time and re-acquires.
 - [x] Load a save while rounds are in flight: they are abandoned, not flown into the new world.
+
+### 7.6b The EO director — the sight as a part of its own
+
+**Never flown.** The head is no longer launcher gear: it is a part anything can carry, it finds
+its own targets through its own sensor, and it drives the view with no weapon involved. A Pantsir
+that has not been given one has no sight at all, which is the intended state and not a fault.
+
+Everything in 7.6 below was flown against a head bolted to the Pantsir's turret. The maths it
+proved still holds — the same `PointingDrive`, the same in-phase resolve, the same zoom — but the
+thing it was proved on no longer exists, so the items are worth re-running rather than trusted.
+
+**Flown and working.** The faults found along the way, all fixed and confirmed: the panel not
+listing a camera-only craft and dropping the selection when it was managed; the horizon drawn
+against the mount normal rather than local vertical; the head sweeping through its own mast
+between two legal bearings; and the picture flipping, which took three attempts because the first
+two moved a threshold rather than removing it — the roll is now corrected towards vertical at a
+limited rate instead of being chosen, and cannot move more than a few degrees in a frame.
+
+Levelling is off by default: the roll is rigid with the head, so the picture rolls with the craft
+and looking sideways stays sideways. **Level the horizon** is the opt-in.
+
+- [ ] `EO Director` appears under **Sensors** in the editor and surface-attaches.
+- [ ] A craft carrying **only** a director and a command source tracks a target and shows the
+      bracket. That is the whole point of the split and nothing before could do it.
+- [ ] Its **Camera** row under *Components* says **Director view**, and *off / main view*
+      drives the picture.
+- [ ] **Track with the director** off parks the head; **Aim by hand** drives it from the sliders.
+- [ ] The elevation slider stops at **−20°**. Below that the window would pass through its own
+      mast, which is a fact about the model rather than a preference.
+- [ ] On an unarmed craft: bracket, horizontal reference, edge cue and zoom, and **no** arm state,
+      ammo or gun pipper. On a craft with a Pantsir *and* a director, all of it.
+- [ ] A **Pantsir with no director** reports no sight rather than a broken one.
+- [ ] Two directors on one craft are two heads, each pointed independently.
+- [x] **Mouse aim.** The ring holds the head inside it and follows outside it, the speed builds
+      from the ring's edge rather than from the middle of the view, and resting the cursor leaves
+      the head where it is rather than parking it.
+- [ ] Known and not yet built: a head's settings are **not persisted**, so magnification and
+      viewport reset on reload.
+
+### 7.6 The gunner's sight — symbology, zoom and the two reticules
+
+**Flown once. Zoom works and hands the view back; two faults found, both addressed and neither
+re-flown.**
+
+- The overlay was a full-screen ImGui window submitted after the panel, so it drew **over** the
+  panel. It is now on `ImGui.GetBackgroundDrawList()`, which renders beneath every window and is
+  what the game uses for its own main-viewport overlays.
+- At 16× the bracket sat **off the target**, which was also jittering up and down. The sight
+  projected `track.PositionEcl` — the analytic position — while the craft is drawn at the physics
+  one. `KsaWorld.TryVehicleEgo` documents that exact mistake ("lines drawn to it visibly miss the
+  craft"); at 3° of field the gap is tens of pixels rather than the noise it is at 50°. The
+  bracket and the pipper now both come off the drawn position.
+
+  **The jitter is a hypothesis riding on the same change**, not a separate fix: the analytic
+  sample is the mod's and one step old, the camera is placed by the engine this frame, and the
+  display's 8.33/25.0 ms pacing makes that difference alternate. If it still jitters after this,
+  the cause is elsewhere and the measurement to take is the bracket's screen position per frame.
+
+The maths is covered by `SightZoomTests` and `SightPictureTests`, and the maths is not what is in
+doubt: every item below is a question about whether KSA honours a write or draws what the mod
+thinks it drew.
+
+- [x] The zoom narrows the picture through the detents, and the readout agrees.
+- [x] Switching the optic off puts the field back.
+Second flight: the overlay is under the panel and the bracket is closer, and two more faults.
+
+- The reference **vanished whenever the head moved or elevated**. Its two ends were placed a fixed
+  ±40° off the look direction and both had to project inside the viewport or the line was dropped.
+  At 3° of field they are most of a right angle outside it, and at 50° they sit right on the
+  horizontal edge — which is why it survived only while the head was still. The span now tracks
+  the camera's own field, the projection keeps out-of-bounds coordinates and lets the draw list
+  clip, and only a point *behind* the camera is dropped.
+- It is an **arc rather than two ends** for a reason that only appears once the span is wide:
+  level places lie on a circle, and a straight chord across ±40° sags 3.4 km below level at 30 km.
+- The bracket was still **off centre at 16×**. Not the bracket this time — the head is *commanded*
+  at the target's analytic position, so the camera boresights a few metres off where the craft is
+  drawn. It now takes the drawn position, the same as the bracket.
+
+Third flight settled the centring fault by measuring it at two ranges, which is the only thing
+that could have: the boresight cross sat far above the target at **0.72 km** and almost on it at
+**9.03 km**. A fixed distance subtending a shrinking angle, so the cause is geometric and not
+screen-space — and the direction is right too, because the displacement is mostly the 4.10 m
+*up* the traverse axis, which is why the cross is above rather than beside.
+
+The optical head was commanded a bearing measured from the launcher part's origin while the head
+itself stands 4.14 m away from it, so it was laid *parallel* to the right bearing and displaced
+off it. `WeaponSystem.AimOriginEcl` already carries that whole diagnosis in a comment — for the
+tube drives, which were fixed for it. The optic never was. Predicted 9.9% of the vertical field at
+0.72 km against 0.8% at 9.03 km, a ratio of 12.5.
+
+**What this retires:** the framebuffer-versus-viewport-pixels theory, which predicted an offset
+that is a constant fraction of the screen at every range. It is not that, and the algebra said so
+too — a scale error there would displace the *bracket* and leave the cross correct.
+
+- [x] The overlay stays **under** the panel.
+- [x] The reference survives the head slewing and elevating, and only disappears looking straight
+      up. **Confirmed in flight.**
+- [ ] The target sits at **screen centre** at 16× once the head has settled — check it at **both**
+      long and short range, because only the short one could ever have shown this.
+**Then a second fault underneath it, separated by the one experiment that could:** with the
+simulation **paused** the cross sits exactly on the target, and the offset grows with simulation
+speed. Geometry does not care about time, so that residue is a lag, and pausing is what proved the
+parallax fix had landed.
+
+The mod's whole update and draw is a postfix on `OnDrawUiViewports`, which runs *after* the
+viewport pass that builds the frame's matrices. So a camera aimed from there is consumed on the
+**next** frame: the view is drawn along a direction solved one frame ago while the target is drawn
+where it is now. One frame of the target's angular motion, times the simulation speed — 1.8% of
+the field at 1× for a 42 m/s target at 0.65 km, and 30% of it at 16×, which is what was seen.
+
+`LevelHorizonController.OnFrame` is the only mod code that runs *inside* that pass, so the pose is
+asked for again there through `IViewPose`. While the head is settled it is tracking, so the view
+is re-solved onto the target's own position at that instant; while it is still slewing the head's
+own axis is used, because a target sliding towards the middle is what slewing looks like.
+
+- [x] Paused, at 1×, and at high warp: the cross stays on the target at all three. **Confirmed in
+      flight** — both centring faults are closed.
+- [x] Start a chase transition **from 16×**. It flies at the player's own field, not down a
+      three-degree straw, and the magnification comes back when the chase stands down.
+      **Confirmed in flight.**
+- [ ] It holds still. Still unconfirmed either way, and now separable: with both systematic offsets
+      gone, anything left moving is the epoch question rather than either of these.
+- [ ] Known and not yet fixed: `PointingDrive.OnTarget` is a fixed 1° window, which at 16× is a
+      third of the vertical field. The brackets close and `SLEWING` clears while the head can
+      still be visibly off, so "settled" is not evidence of anything at magnification.
+
+**Zoom is the one with a crash behind it.** `Camera.SetFieldOfView` does not clamp and
+`UpdateProjection` throws for a field of zero or more than half a turn, out of the frame hook.
+`SightZoom.MinFovDeg` guards it; that guard has never been reached in game.
+
+- [ ] Put the optical head on the **main view** and step the magnification 1× → 16×. The picture
+      narrows each time. If it snaps back to something wide within a frame, the mod's write is
+      losing to KSA's own and the field is being reset rather than kept.
+- [ ] At 16× the readout says `x16` and a field of about 3°. If it says 3° and looks unzoomed, the
+      write is being ignored; if it says 172° the radians-versus-degrees conversion has come back.
+- [ ] Press the game's own zoom keys while magnified. Expected: the picture jumps to 15° for at
+      most a frame and the mod puts it back. A permanent jump means the per-frame rewrite is not
+      running.
+- [ ] Switch the optic **off**. The field returns to whatever it was before — not to 50°, and not
+      left at 3°. Left narrow is the failure that strands a player: their own keys clamp at 15°
+      and cannot widen past it.
+- [ ] Take the view back through KSA's **View → Orbit Camera**. Same again: the field comes back
+      with it. This is the `StandDown` path rather than the release one, and they restore
+      separately.
+- [ ] Let the chase camera take the view mid-salvo while the sight is magnified, then let it
+      finish. The sight's zoom is still there afterwards.
+
+**The two reticules.** Only visible on a target inside the cannon's 200–4000 m envelope, which is
+the same band section 7.1b needs — fly one engagement and check both.
+
+- [ ] Inside the band, a **second ring** appears away from the target bracket, with a line joining
+      them. That gap is the lead. Outside the band there is one reticule and no line.
+- [ ] The ring sits where the shells actually go. Fire and watch: tracers should pass through it.
+- [ ] The status block says `GUN HAS THE RING` while it does, and `MSL HAS THE RING` otherwise.
+      Missiles are held in the first state by `FireGate.MissilesMayFire`, so the two must agree.
+- [ ] The ring grows as the target closes. It is sized to what the shell covers, not to an icon.
+
+**Symbology.**
+
+- [ ] The horizontal reference crosses the picture and **tilts** as the head elevates, rather than
+      lying flat across the screen. Flat means it is being drawn in screen space, which is right
+      only at the one pose anyone checks first.
+- [ ] Looking straight up, the reference disappears rather than drawing a stroke in an arbitrary
+      direction.
+- [ ] Slew onto a target hard enough to lose it off the edge at high magnification: a **chevron**
+      appears at that edge pointing after it, with the range beside it. Behind the camera counts —
+      the chevron must point backwards correctly, not at its mirror image.
+- [ ] Master arm, missile count and belt count in the top-left track the panel.
+- [ ] **Sight symbology** off leaves the target bracket and takes everything else away.
 
 ---
 

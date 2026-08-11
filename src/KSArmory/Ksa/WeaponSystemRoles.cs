@@ -49,8 +49,8 @@ internal interface IRoundsInFlight : IWeaponPlatform
 /// the launcher part they are placed against, and whether effects are wanted at all.
 ///
 /// <para>The plume, the tracers and the muzzle flash between them read five members of a class
-/// with fifty-two. Taking the whole thing is what let a release-contract bug be written three
-/// times over.</para>
+/// with fifty-two. Narrowing the surface to those five is what keeps the emitter release contract
+/// visible to whoever writes the next effect.</para>
 /// </summary>
 internal interface IEffectSource : IRoundsInFlight
 {
@@ -78,6 +78,10 @@ internal interface IEffectSource : IRoundsInFlight
 /// from the craft the head is bolted to. KSA's <c>FixedController</c> places a camera at
 /// <c>following.GetPositionEcl() + CameraOffset</c> during its own frame pass, so the offset must
 /// be a pure separation from the followed craft and never a position sampled here.</para>
+///
+/// <para>Implemented by <see cref="OpticalHead"/> alone. It was written when a launcher carried
+/// the head, and it is why moving the head onto a part of its own changed nothing in the sight,
+/// the chase camera or the claim ladder.</para>
 /// </summary>
 internal interface IOpticalHead : IWeaponPlatform
 {
@@ -89,8 +93,20 @@ internal interface IOpticalHead : IWeaponPlatform
     /// <summary>The contact the sensor is holding, or null.</summary>
     Track? LockedTrack { get; }
 
-    /// <summary>Local "up" at the launcher, which is what keeps a sight's horizon level.</summary>
+    /// <summary>
+    /// Local "up", which is what the sight's horizontal reference is drawn against. Always the
+    /// site's true vertical — a horizon measured against anything else is not a horizon.
+    /// </summary>
     double3 Boresight { get; }
+
+    /// <summary>
+    /// What the camera should take its roll from, which is <em>not</em> the same question.
+    ///
+    /// <para>Rigid with the head unless the operator asks for a levelled picture: a camera bolted
+    /// to a craft rolls with it, so looking sideways stays sideways. Levelling is the opinionated
+    /// choice and is the one behind a switch.</para>
+    /// </summary>
+    double3 RollReferenceEcl { get; }
 
     /// <summary>
     /// Where the head is looking from and along what, both in Ecl. False when the launcher, the
@@ -98,6 +114,46 @@ internal interface IOpticalHead : IWeaponPlatform
     /// pointing a camera at the origin.
     /// </summary>
     bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl);
+
+    /// <inheritdoc cref="OpticalHead.TryOpticViewEclAt"/>
+    bool TryOpticViewEclAt(double3 platformEcl, out double3 eyeEcl, out double3 forwardEcl);
+}
+
+/// <summary>
+/// Everything the gunner's sight paints: the head and its contact, plus the weapons that could
+/// take the shot and where each is pointing.
+///
+/// <para>Not an optical head. A sight is painted <em>through</em> a director, which is its own
+/// part on the craft, so this is only what a weapon beside it contributes to the picture — and a
+/// craft with no weapon contributes none of it, which is why <c>Sight.Draw</c> takes it as
+/// optional.</para>
+///
+/// <para>Deliberately narrower than the system. A sight reports; it has no way to arm, fire, slew
+/// or re-platform anything it is drawn over, which is what makes it safe to paint every frame from
+/// the draw hook.</para>
+/// </summary>
+internal interface ISightPicture : IWeaponPlatform, IWeaponLoadout
+{
+    /// <summary>Rounds in the tubes.</summary>
+    int Ammo { get; }
+
+    /// <summary>Rounds left in the cannon belt.</summary>
+    int GunAmmo { get; }
+
+    /// <summary>Where rounds leave from, which is what every lead is measured from.</summary>
+    double3 MountEcl { get; }
+
+    /// <summary>True when the tubes have settled on what they are pointing at.</summary>
+    bool IsLaid { get; }
+
+    /// <summary>True when the cannon have. Asked separately because they share only the traverse.</summary>
+    bool GunsAreLaid { get; }
+
+    /// <inheritdoc cref="WeaponSystem.TryRingAimEcl"/>
+    bool TryRingAimEcl(out double3 aimEcl, out bool isGunLead);
+
+    /// <summary>Time of flight the gun's lead solved for, or zero if it did not solve.</summary>
+    double GunFlightSeconds { get; }
 }
 
 /// <summary>

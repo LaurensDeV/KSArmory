@@ -53,6 +53,7 @@ from mathutils import Euler, Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ciws
 import bombrack
+import optic
 import sidewinder
 
 # ---------------------------------------------------------------------------
@@ -132,8 +133,8 @@ RADAR_R = 0.95                           # hexagon circumradius, so ~1.7 m acros
 RADAR_SPLAY = math.radians(21.0)         # lean of each face off vertical
 
 # Rotation of each hexagon about its own axis, so it stands on a flat edge rather than on a
-# corner. Blender's 6-vertex cylinder starts on a corner; verified by measuring the exported
-# mesh, not by reasoning about the euler, which is how it got set wrong the first time.
+# corner. Blender's 6-vertex cylinder starts on a corner; check this by measuring the exported
+# mesh rather than by reasoning about the euler.
 RADAR_CLOCK = math.pi / 6
 RADAR_PIVOT = (4.05, RADAR_MAST_Y, 0.0)  # spin axis, parallel to the part's X
 
@@ -144,7 +145,6 @@ RADAR_PIVOT = (4.05, RADAR_MAST_Y, 0.0)  # spin axis, parallel to the part's X
 # Above the tracking array, which reaches X 3.67. Beside it the array cuts the sight line the
 # moment the head looks down and forward - which is exactly where a target on its final approach
 # is.
-EO_PIVOT = (4.10, TURRET_Y + 1.07, 0.44)
 
 # The 57E6 round: a bronze booster with small tail fins, a cluster of four delta fins at the
 # stage joint, and a slim grey sustainer with a blue-grey nose. Modelled nose-along-+X with the
@@ -165,8 +165,8 @@ GUN_Z = 1.85
 # frame rings), because the sponsons sit inside the disc the bundle sweeps about its trunnion.
 SPONSON_INNER_Z = 1.58
 # Above the turret deck, which tops out at X 3.38. The cradle is 0.52 tall, so a centre below
-# 3.64 puts it inside the turret body - invisible while the guns were welded into that mesh, and
-# a swept intersection once they became a body that rotates on its own trunnion.
+# 3.64 puts it inside the turret body, which is a swept intersection for a body that rotates on
+# its own trunnion.
 GUN_MOUNT = (3.70, -1.35)                # (X, Y) - clear of the deck, and clear of the cab
 
 # The cannon elevate about a line across the vehicle through both mounts, as the pods do about
@@ -200,7 +200,7 @@ _jitter = random.Random(0x9A5D)
 #
 # Faces are given real UV *area* rather than being collapsed onto the swatch centre. A face
 # whose loops all share one UV has a zero UV derivative, so the tangent basis degenerates,
-# normalize() on it returns NaN, and NaN * 0 poisons the shading even though our normal map is
+# normalize() on it returns NaN, and NaN * 0 poisons the shading even though the normal map is
 # flat. In game that is a vehicle crawling with white speckle; Blender's preview does not show
 # it because the preview material has no normal map wired in.
 #
@@ -210,7 +210,7 @@ _jitter = random.Random(0x9A5D)
 UV_PER_METRE = 0.012
 SWATCH_REACH = 0.08
 
-_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "guns": [], "optic": [],
+_objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "guns": [],
             "missile": [], "fins": []}
 _group = "chassis"
 
@@ -350,9 +350,9 @@ def fin(chord, span_len, thick, loc, roll, swatch="missile", taper=0.42, sweep=0
     # _finish calls transform_apply, which acts on the *selection* rather than on the active
     # object alone. The add-primitive operators leave their new object as the sole selection, so
     # everything built through box() and cyl() satisfies that by accident. An object created
-    # with bpy.data.objects.new is not selected at all, so the apply would land on whatever was
-    # selected beforehand and leave this fin's rotation and offset unbaked - which is exactly
-    # how the fins came out sitting off the body axis.
+    # with bpy.data.objects.new is not selected at all, so the apply lands on whatever was
+    # selected beforehand and leaves this fin's rotation and offset unbaked, which puts the fin
+    # off the body axis.
     bpy.ops.object.select_all(action="DESELECT")
     ob.select_set(True)
     return _finish(ob, swatch)
@@ -532,12 +532,12 @@ def build_turret():
     #
     # Their inboard face sits outboard of the tube bundle's widest point. Reaching in to the
     # cheek instead puts them inside the disc the bundle sweeps about its own trunnion, and the
-    # tubes then pass through them at every elevation - the bundle is 20 cm across and was fully
-    # immersed. Elevation turns about Z and the traverse is shared, so a gap in Z is the only
-    # one that holds at every pose. tools/model/checkswept.py is what proves it.
+    # 20 cm bundle then passes through them at every elevation, fully immersed. Elevation turns
+    # about Z and the traverse is shared, so a gap in Z is the only one that holds at every pose.
+    # tools/model/checkswept.py is what proves it.
     #
     # Added last on purpose. The box jitter runs off one seed, so inserting a primitive
-    # reshuffles every one after it - putting these earlier moved the tracking radar's faces
+    # reshuffles every one after it - putting these earlier drives the tracking radar's faces
     # into a 1.79 mm near-coplanar pair.
     for z in (-1.0, 1.0):
         span((2.90, GUN_MOUNT[0]), (GUN_MOUNT[1] - 0.34, GUN_MOUNT[1] + 0.34),
@@ -660,17 +660,14 @@ def build_tracking_radar():
     for z in (-1.0, 1.0):
         box((1.44, 0.16, 0.10), (2.95, face_y - 0.04, z * 0.76), (0.0, 0.0, tilt), "metal")
 
-    # Electro-optical tracker. The pedestal belongs to the turret; the head above it is a body
-    # of its own so it can be slewed onto the track. sphere() and cyl() consume no box jitter,
-    # so lifting them into another group leaves the sequence untouched.
-    global _group
+    # Where the electro-optical tracker used to sit. The pedestal stays as a blanked-off stub:
+    # the head is its own part now (tools/model/optic.py), and a Pantsir wanting a sight carries
+    # one like anything else does.
+    #
+    # The box() call stays rather than going with the head. Jitter runs off one seed, so deleting
+    # a box moves every box drawn after it onto different planes -- in the pods, the cannon and
+    # the rail, none of which have anything to do with this.
     box((0.74, 0.44, 0.50), (3.72, TURRET_Y + 1.05, 0.44), swatch="hull_dark")
-
-    _group = "optic"
-    sphere(0.26, EO_PIVOT, "radar")
-    cyl(0.14, 0.10, (EO_PIVOT[0] + 0.04, EO_PIVOT[1] + 0.23, EO_PIVOT[2]), axis_y(),
-        "glass", verts=16)
-    _group = "turret"
 
 
 def build_search_radar_mount():
@@ -716,9 +713,9 @@ def build_missile():
     #
     # They fold. A real 57E6 stows with its fins flat against the casing so the round fits the
     # tube, and they snap out once it is clear. The mod animates that by scaling this group
-    # radially - Part.Scale is per-axis and applies about the part's own origin, verified in
-    # game before any of this was modelled - so the fins collapse onto the body axis at a scale
-    # of nearly zero and flick out to full span after launch.
+    # radially - Part.Scale is per-axis and applies about the part's own origin - so the fins
+    # collapse onto the body axis at a scale of nearly zero and flick out to full span after
+    # launch.
     #
     # That works only because this group shares the missile's origin exactly: the collapse is
     # towards the origin, which has to be the body axis. Do not recentre it.
@@ -831,7 +828,6 @@ def export(path):
     pods = join_group("pods", recentre=POD_PIVOT)
     radar = join_group("radar", recentre=RADAR_PIVOT)
     guns = join_group("guns", recentre=GUN_PIVOT)
-    optic = join_group("optic", recentre=EO_PIVOT)
     missile = join_group("missile")
     fins = join_group("fins")
     rail = join_group("sidewinder")
@@ -841,6 +837,8 @@ def export(path):
     ciwsguns = join_group("ciwsguns", recentre=ciws.GUN_PIVOT)
     rack = join_group("bombrack")
     mk82 = join_group("mk82")
+    opticbase = join_group("opticbase")
+    optichead = join_group("optichead", recentre=optic.HEAD_PIVOT)
 
     # KSA looks these up by Id out of the atlas; *_VM is the editor's preview variant, and
     # Core ships one for every subpart. Ours are the same geometry - the part is low-poly
@@ -850,7 +848,6 @@ def export(path):
                       (pods, "KSArmory_Subpart_Pods"),
                       (radar, "KSArmory_Subpart_Radar"),
                       (guns, "KSArmory_Subpart_Guns"),
-                      (optic, "KSArmory_Subpart_Optic"),
                       (missile, "KSArmory_Subpart_Missile"),
                       (fins, "KSArmory_Subpart_Fins"),
                       (rail, "KSArmory_Subpart_SidewinderRail"),
@@ -859,7 +856,9 @@ def export(path):
                       (ciwsturret, "KSArmory_Subpart_CiwsTurret"),
                       (ciwsguns, "KSArmory_Subpart_CiwsGuns"),
                       (rack, "KSArmory_Subpart_BombRack"),
-                      (mk82, "KSArmory_Subpart_Mk82")):
+                      (mk82, "KSArmory_Subpart_Mk82"),
+                      (opticbase, "KSArmory_Subpart_OpticBase"),
+                      (optichead, "KSArmory_Subpart_OpticHead")):
         preview = ob.copy()
         preview.data = ob.data.copy()
         preview.name = preview.data.name = ident + "_VM"
@@ -971,7 +970,7 @@ def render_previews(out_dir):
     for name, (loc, look) in VIEWS.items():
         show_only()
         for group in ("missile", "fins", "sidewinder", "aim9", "bombrack", "mk82",
-                      "ciwsbase", "ciwsturret", "ciwsguns"):
+                      "ciwsbase", "ciwsturret", "ciwsguns", "opticbase", "optichead"):
             for ob in _objects[group]:
                 ob.hide_render = True
         look_at(cam, loc, look)
@@ -1075,7 +1074,6 @@ def report_muzzles(out_dir):
     # mod composes traverse and elevation itself and writes the pods' position each frame.
     pod_rel_turret = Vector(POD_PIVOT) - Vector(TURRET_PIVOT)
     radar_rel_turret = Vector(RADAR_PIVOT) - Vector(TURRET_PIVOT)
-    eo_rel_turret = Vector(EO_PIVOT) - Vector(TURRET_PIVOT)
 
     print(f"\n    tube count           = {len(firing)}   (LauncherProfile.TubeCount is derived)")
     print(f"    MuzzleForwardOffset  = {mean_x:.3f}   (highest tube mouth {highest:.3f} m)")
@@ -1102,12 +1100,11 @@ def report_muzzles(out_dir):
         f"({m.x:.5f}, {m.y:.5f}, {m.z:.5f})" for m in gun_muzzles))
     print(f"    RadarPivotFromTurret = ({radar_rel_turret.x:.5f}, {radar_rel_turret.y:.5f}, "
           f"{radar_rel_turret.z:.5f})")
-    print(f"    OpticPivotFromTurret = ({eo_rel_turret.x:.5f}, {eo_rel_turret.y:.5f}, "
-          f"{eo_rel_turret.z:.5f})")
 
     emitted = {}
     sidewinder.report(emitted)
     ciws.report(emitted)
+    optic.report(emitted)
     bombrack.report(emitted)
 
     with open(os.path.join(out_dir, "muzzles.json"), "w") as fh:
@@ -1125,7 +1122,6 @@ def report_muzzles(out_dir):
             "pod_reference_elevation_deg": round(math.degrees(POD_ELEV), 3),
             "radar_pivot": [round(v, 5) for v in RADAR_PIVOT],
             "radar_pivot_from_turret": [round(v, 5) for v in radar_rel_turret],
-            "eo_pivot_from_turret": [round(v, 5) for v in eo_rel_turret],
         }, fh, indent=2)
 
 
@@ -1139,6 +1135,7 @@ def main():
     sidewinder.build(sys.modules[__name__])
     ciws.build(sys.modules[__name__])
     bombrack.build(sys.modules[__name__])
+    optic.build(sys.modules[__name__])
 
     # Render *before* export. Exporting recentres the turret and pod meshes onto their slew
     # pivots, which is right for the game and wrong for a picture: afterwards the scene shows

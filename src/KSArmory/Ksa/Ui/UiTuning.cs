@@ -12,9 +12,6 @@ namespace KSArmory;
 /// </summary>
 internal sealed partial class Ui
 {
-    // Teams and IFF. The whole subsystem shipped tested and unreachable: nothing outside
-    // Config.cs ever wrote Config.Iff or Config.TeamNames, so every session anyone has played
-    // ran with no teams declared and every contact Unknown.
     private void DrawIff()
     {
         ImGui.TextDisabled("KSA has no team field. A craft joins a team when the team's name");
@@ -119,6 +116,15 @@ internal sealed partial class Ui
 
     private void DrawTuning()
     {
+        // Said once, at the top, and it is the most surprising thing about this tab. These
+        // sliders edit the shared Arsenal profiles, so they reach every system in the world
+        // running this loadout -- which is the intent, and is invisible from a window titled
+        // with one craft's name. It is also why they are not on the component rows: a number
+        // under a named part on a named craft reads as belonging to that one.
+        ImGui.TextDisabled($"What a {_profile.DisplayName} is, not what this one is doing.");
+        ImGui.TextDisabled("Changes reach every system in the world running it.");
+        ImGui.Separator();
+
         DrawSensorNode();
         DrawDriveNodes();
         DrawGuidanceNode();
@@ -140,7 +146,72 @@ internal sealed partial class Ui
         ImGui.SliderFloat("Threat horizon (s)", ref _sensor.ThreatHorizonSeconds, 5f, 120f);
         ImGui.SliderFloat("Lock time (s)", ref _sensor.LockSeconds, 0f, 5f);
         ImGui.SliderFloat("Min target speed (m/s)", ref _sensor.MinTargetSpeed, 0f, 200f);
+
+        DrawDiscriminationControls();
+        DrawHorizonControls();
+
         ImGui.TreePop();
+    }
+
+    // What the set can tell targets apart by. All three are off at zero, which is where they ship:
+    // together they are the substrate chaff needs, and separately each is a real capability with a
+    // real cost the player should be choosing rather than inheriting.
+    private void DrawDiscriminationControls()
+    {
+        ImGui.SliderFloat("Reference RCS (m2)", ref _sensor.ReferenceCrossSectionM2, 0f, 2000f);
+
+        if (_sensor.ReferenceCrossSectionM2 <= 0f)
+        {
+            ImGui.TextDisabled("  the set reaches the same distance whatever it looks at");
+        }
+        else
+        {
+            // Shown because the fourth-root law is not something anyone should have to take on
+            // trust while dragging a slider: it is what makes a small target reachable at all.
+            double small = ThreatModel.DetectionRange(
+                _sensor, new ThreatModel.ContactSignature(1.0, double.PositiveInfinity));
+
+            ImGui.TextDisabled($"  a 1 m contact at {small / 1000.0:F1} km of {_sensor.Range / 1000f:F1}");
+        }
+
+        ImGui.SliderFloat("Doppler notch (m/s)", ref _sensor.NotchSpeed, 0f, 100f);
+        if (_sensor.NotchSpeed > 0f)
+        {
+            ImGui.TextDisabled("  rejects clutter, and loses a target crossing exactly abeam");
+        }
+
+        ImGui.SliderFloat("Clutter floor (m)", ref _sensor.ClutterFloorMetres, 0f, 2000f);
+        if (_sensor.ClutterFloorMetres > 0f)
+        {
+            ImGui.TextDisabled("  nothing below this over the mean sphere is seen at all");
+        }
+    }
+
+    // What the world hides from this set. The sample count is the cost knob and is shown as one:
+    // every sample is a height-map fetch spent once per contact per scan, and nobody has measured
+    // what that costs in a frame.
+    private void DrawHorizonControls()
+    {
+        ImGui.Checkbox("Horizon masking", ref _sensor.HorizonMasking);
+
+        if (!_sensor.HorizonMasking)
+        {
+            ImGui.TextDisabled("  the set sees through the planet");
+            return;
+        }
+
+        ImGui.SliderFloat("Limb margin (m)", ref _sensor.TerrainMarginMetres, 0f, 5000f);
+        ImGui.SliderInt("Terrain samples", ref _sensor.TerrainSamples, 0, 64);
+
+        if (_sensor.TerrainSamples <= 0)
+        {
+            ImGui.TextDisabled("  mean sphere only - a contact behind a ridge is still seen");
+        }
+        else
+        {
+            ImGui.SliderFloat("Terrain clearance (m)", ref _sensor.TerrainClearanceMetres, 0f, 300f);
+            ImGui.TextDisabled($"  up to {_sensor.TerrainSamples} height lookups per contact per scan");
+        }
     }
 
     // The drives, each node existing only if the system has that gear. A rate slider for an axis
@@ -192,10 +263,18 @@ internal sealed partial class Ui
                 ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
                 ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
                 ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
+                ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
+                ImGui.TextDisabled("  a round leaves along the tube and is clear before it turns");
             }
 
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
             ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 90f);
+
+            // The envelope the battery commits inside, which is not how far the round can fly:
+            // the set sees 36 km and the round reaches 20, and firing at everything detected
+            // spends the magazine on contacts the rounds expire short of.
+            ImGui.SliderFloat("Min engagement range (m)", ref _munition.MinRange, 0f, 5000f);
+            ImGui.SliderFloat("Max engagement range (m)", ref _munition.MaxRange, 500f, 40000f);
 
             ImGui.Checkbox("Eject along the tube", ref _profile.LaunchAlongTube);
             ImGui.TextDisabled("  off: slew to the target on launch, plus loft");
@@ -223,65 +302,5 @@ internal sealed partial class Ui
             ImGui.TreePop();
         }
 
-        if (ImGui.TreeNode("Display"))
-        {
-            ImGui.Checkbox("World overlay", ref _config.DrawOverlays);
-            ImGui.TextDisabled("  everything drawn in the world around a system");
-
-            if (_config.DrawOverlays)
-            {
-                ImGui.Checkbox("Only the system shown in the panel",
-                               ref _config.DrawOverlayForFocusedOnly);
-                ImGui.TextDisabled("  off: every crewed system draws its own");
-            }
-
-            ImGui.Separator();
-            ImGui.Checkbox("Warhead effects", ref _config.DrawExplosions);
-            ImGui.TextDisabled("  the fireball, not a debug line -- kept when those are off");
-
-            ImGui.Checkbox("Explosion sound", ref _config.BurstSound);
-            if (_config.BurstSound) ImGui.SliderFloat("Explosion volume", ref _config.BurstVolume, 0f, 1f);
-
-            ImGui.Checkbox("Rocket motor plume", ref _config.MotorPlume);
-            ImGui.TextDisabled("  flame at the nozzle while the motor burns; needs warhead effects on");
-
-            ImGui.Checkbox("Rocket motor sound", ref _config.MotorSound);
-            if (_config.MotorSound)
-            {
-                ImGui.SliderFloat("Motor volume", ref _config.MotorVolume, 0f, 1f);
-                ImGui.TextDisabled("  before the engine's own distance and pressure falloff, so a");
-                ImGui.TextDisabled("  round in vacuum is silent whatever this says");
-            }
-
-            ImGui.Checkbox("Cannon sound", ref _config.CannonSound);
-            if (_config.CannonSound)
-            {
-                ImGui.SliderFloat("Cannon volume", ref _config.CannonVolume, 0f, 1f);
-                ImGui.TextDisabled("  pitched from each gun's own rate, so the buzz is its cycle");
-            }
-
-            ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
-            ImGui.TextDisabled("  brackets over every system; (+) in the list pins a label");
-            ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);
-            ImGui.Checkbox("Drive facing line", ref _config.DrawTurretFacing);
-            ImGui.TextDisabled("  where the drives think they point, not where they are told to");
-            ImGui.SliderFloat("Cone draw length (m)", ref _config.ConeDisplayMetres, 200f, 20000f);
-            ImGui.TextDisabled("  cosmetic only; detection range is set under Radar");
-            ImGui.Checkbox("Tracks", ref _config.DrawTracks);
-            ImGui.Checkbox("Track marker spheres", ref _config.DrawTrackMarkers);
-            ImGui.TextDisabled("  large ball on each contact; scales with range");
-            ImGui.Checkbox("Predicted pass point", ref _config.DrawClosestApproach);
-            ImGui.TextDisabled("  where a threat will pass if it holds course");
-            ImGui.Checkbox("Rounds", ref _config.DrawMissiles);
-            ImGui.Checkbox("Round tracer spheres", ref _config.DrawRoundMarkers);
-            // Bodies and tracers are placed by entirely separate paths, so toggling this while
-            // watching a round in flight says which of the two is misbehaving.
-            ImGui.Checkbox("Round bodies (off = tracers only)", ref _config.UseRoundBodies);
-            ImGui.Checkbox("Tube markers (debug)", ref _config.DrawTubeMarkers);
-            ImGui.TextDisabled(_battery.RoundBodyCount > 0 && _battery.RoundBodiesWork
-                ? "  rounds have real bodies; the tracer hides them up close"
-                : "  no round bodies available - tracers are all there is");
-            ImGui.TreePop();
-        }
     }
 }

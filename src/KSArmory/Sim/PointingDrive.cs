@@ -18,7 +18,7 @@ namespace KSArmory;
 public sealed class PointingDrive
 {
     /// <summary>Where the head is actually looking, in the part's frame.</summary>
-    public double3 Direction { get; private set; } = TubeGeometry.OpticRestDirection;
+    public double3 Direction { get; private set; } = OpticGeometry.RestDirection;
 
     /// <summary>Angle still to cover (rad). Zero once settled on the command.</summary>
     public double ErrorRad { get; private set; }
@@ -26,9 +26,26 @@ public sealed class PointingDrive
     /// <summary>True once the head is within a degree of where it was told to look.</summary>
     public bool OnTarget => ErrorRad < 0.0175;
 
+    /// <summary>
+    /// Puts the head at a direction outright, for a caller enforcing a limit the <em>path</em>
+    /// has to respect.
+    ///
+    /// <para>Clamping the command is not enough. This turns by the shortest rotation onto it, and
+    /// the shortest way from one bearing to the opposite one at low elevation goes over the top or
+    /// under the bottom — so a head whose ends are both legal sweeps through its own mount getting
+    /// between them. Re-clamping what it actually reached each step is what keeps it out.</para>
+    /// </summary>
+    public void Hold(double3 direction)
+    {
+        double3 held = Vec.Unit(direction);
+        if (!Vec.IsFinite(held) || Vec.Len2(held) < 0.5) return;
+
+        Direction = held;
+    }
+
     public void Reset()
     {
-        Direction = TubeGeometry.OpticRestDirection;
+        Direction = OpticGeometry.RestDirection;
         ErrorRad = 0.0;
     }
 
@@ -40,7 +57,7 @@ public sealed class PointingDrive
         if (!(dt > 0.0) || !double.IsFinite(dt)) return;
 
         double3 current = Vec.Unit(Direction);
-        if (!Vec.IsFinite(current) || current.Equals(Vec.Zero)) current = TubeGeometry.OpticRestDirection;
+        if (!Vec.IsFinite(current) || current.Equals(Vec.Zero)) current = OpticGeometry.RestDirection;
 
         double dot = Math.Clamp(Vec.Dot(current, command), -1.0, 1.0);
         ErrorRad = Math.Acos(dot);

@@ -156,8 +156,7 @@ public class GunChannelTests
 
         Assert.True(pantsir.HasCannon);
 
-        // Each round carries its own reach, so the two envelopes are now directly comparable
-        // rather than one being read off the sensor.
+        // Each round carries its own reach, so the two envelopes are directly comparable.
         Assert.True(shell.MaxRange >= missile.MinRange,
                     $"cannon reach {shell.MaxRange} m leaves a hole below the missile's "
                     + $"{missile.MinRange} m minimum");
@@ -166,11 +165,11 @@ public class GunChannelTests
     /// <summary>
     /// A burst cannot outlive the belt.
     ///
-    /// <para>The firing loop stops on ammunition, so a burst interrupted by the last round used to
-    /// leave <c>BurstRemaining</c> standing with nothing left to fire it. <c>Firing</c> then stayed
-    /// true for the rest of the session, and everything that asks the gun whether it is firing
-    /// stayed on with it: in game the muzzle flash was never handed back and sat on the mount as a
-    /// permanent fireball.</para>
+    /// <para>The firing loop stops on ammunition, so a burst interrupted by the last round leaves
+    /// <c>BurstRemaining</c> standing with nothing left to fire it. <c>Firing</c> then stays true
+    /// for the rest of the session, and everything that asks the gun whether it is firing stays on
+    /// with it: the muzzle flash is never handed back and sits on the mount as a permanent
+    /// fireball.</para>
     /// </summary>
     [Fact]
     public void ABurstInterruptedByAnEmptyBeltStopsFiring()
