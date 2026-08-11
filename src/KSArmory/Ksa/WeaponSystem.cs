@@ -1376,6 +1376,22 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
         double range = Platform is null ? 0.0 : Vec.Len(pointEcl - PlatformEcl);
 
+        // A gun-only mount shoots where it is pointing, so a designation aims it rather than naming
+        // a place a round is flown to. The reach gate below is about the latter, and running it
+        // here refuses the shot outright rather than letting it fall short -- which left the
+        // cannon silent on ground past the shell's reach while the sky fired, because only the sky
+        // path reaches the trigger. Say the range, because the belt does not come back.
+        if (Profile.TubeCount == 0)
+        {
+            if (Profile.HasCannon && range > Shell.MaxRange)
+            {
+                Announce($"firing short: {range / 1000.0:F1} km is past the shell's "
+                         + $"{Shell.MaxRange / 1000.0:F1} km");
+            }
+
+            return FireBurst();
+        }
+
         // The round's own reach. Without this gate a designation the cursor solve puts beyond the
         // horizon is committed, and the round is spent flying at somewhere it can never arrive.
         // Said out loud, because a designation that is simply too far is an ordinary thing for an
