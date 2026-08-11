@@ -74,6 +74,9 @@ public sealed class KSArmoryMod
     // Development tool: click the world to set off a warhead there.
     private readonly BurstTool _bursts = new();
     private readonly Designator _designator = new();
+
+    // Mushroom clouds standing in the world. Not per system: a cloud outlives the
+    // launcher that made it, and belongs to the world rather than to a weapon.
     private MotorSound _motors = null!;
     private readonly MotorPlume _plumes = new();
     private readonly MuzzleFlash _flashes = new();
@@ -254,6 +257,10 @@ public sealed class KSArmoryMod
                 _mover.Draw(_config);
                 _bursts.Update(_config);
                 _bursts.Draw(_config);
+
+                // On the simulated step, like everything else that is a thing in the world
+                // rather than a duration somebody is watching.
+                NuclearClouds.Update(_lastSimStep);
 
                 // Only the system the panel is showing. Every crewed battery reading the same
                 // cursor would fire every launcher in the world at one click.

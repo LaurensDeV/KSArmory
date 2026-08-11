@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-114 types and 316 members across 6 assemblies.
+116 types and 322 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -529,6 +529,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.PlumeTrailEmitterState
+
+- `void .ctor()`
+
 ### KSA.Program
 
 - `KSA.Camera GetMainCamera()`
@@ -690,6 +694,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `int get_Height()`
 - `int get_Width()`
 - `void SetCameraMode(KSA.CameraMode)`
+
+### KSA.VolumetricTrailRenderer
+
+- `float ErosionEdgeSharpness`
+- `float ErosionMaxDepth`
+- `float SkyAmbientBrightness`
+- `int SelfShadowStepCount`
+- `void SubmitEmitter(KSA.PlumeTrailEmitterState, KSA.Celestial, Brutal.Numerics.double3, float, float, bool)`
 
 ## StarMap.API
 

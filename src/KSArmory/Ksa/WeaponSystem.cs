@@ -1964,6 +1964,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             Detonation.Show(_burstKilled ? Detonation.Fireball : Detonation.Airburst,
                             DrawnBurstEcl(round, burst), round.TargetRef as Vehicle ?? Platform,
                             (float)Warhead.EffectScale(round.Munition.ChargeKg));
+
+            // And a cloud, for a charge large enough to have made one. It outlives this system --
+            // NuclearClouds keeps it, because a mushroom stands there long after the launcher has
+            // moved on or been destroyed.
+            NuclearClouds.Begin(DrawnBurstEcl(round, burst),
+                                round.TargetRef as Vehicle ?? Platform,
+                                round.Munition.ChargeKg);
         }
 
         // Outside the drawing switch: a burst that cannot be seen but can be heard is still
