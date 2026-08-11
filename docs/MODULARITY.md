@@ -328,9 +328,12 @@ validator.
 The shape that fixes it is one record — marker, pivot-from-parent, axis, reference angle, parent
 index — with a `PoseOf` that walks the chain, collapsing five `Find*`, five `TryApply*`, four
 `*Pose` wrappers and twelve profile fields, the counts having grown by one apiece when
-`OpticBaseMarker` landed. It also removes a silent failure by construction: a
-profile can currently declare `GunsMarker` and omit `GunReferenceElevationRad`, and the default of
-zero against a mesh modelled at 22° is a 22° error nothing reports.
+`OpticBaseMarker` landed. It would also remove a failure by construction that is currently caught
+by a tool instead: a profile declaring `GunsMarker` and omitting `GunReferenceElevationRad` takes
+the default of zero against a mesh modelled at 22°, which is a 22° error in where the rounds go.
+`validate-parts.py` reports it as a missing field, because the mesh knows the angle and the
+profile has to agree with it. That is a check rather than an impossibility, and it only runs
+because the launcher is enumerated from `Arsenal.Launchers` rather than named by hand.
 
 **Not done, deliberately, and the third level should not be built at all yet.** Every mount costed
 so far — naval, howitzer, mortar, remote weapon station — is traverse-then-elevate or does not
