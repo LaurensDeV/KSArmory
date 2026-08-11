@@ -269,6 +269,7 @@ public sealed class KSArmoryMod
                 // was first missed, and scoped to the shown system for the same reason the
                 // designator is: every crewed battery reading one cursor would lock all of them.
                 TargetLock.Update(_roster.For(_ui.Focused)?.Battery, _heads?.Driving(_ui.Focused)?.Head);
+                TargetLock.Draw(_roster.For(_ui.Focused)?.Battery, _heads?.Driving(_ui.Focused)?.Head);
             }
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
