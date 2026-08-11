@@ -1500,6 +1500,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             }
             : new Interceptor(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, frameVel)
             {
+                Munition = Munition,
                 LaunchAnchorPartFrame = launchAnchorPartFrame,
                 Aimpoint = aim,
             });

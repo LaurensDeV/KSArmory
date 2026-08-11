@@ -114,7 +114,7 @@ public class AimpointTests
         };
 
         var round = new Interceptor(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero)
-        {
+        { Munition = Arsenal.Missile57E6,
             Aimpoint = aim,
         };
 
@@ -149,7 +149,7 @@ public class AimpointTests
         Aimpoint aim = Aimpoint.AtPoint(new double3(3000, 400, 0), 5.0);
 
         var round = new Interceptor(Vec.Zero, new double3(600, 0, 0), target: null, 1, Vec.Zero, Vec.Zero)
-        {
+        { Munition = Arsenal.Missile57E6,
             Aimpoint = aim,
         };
 
@@ -242,7 +242,7 @@ public class AimpointTests
 
         var round = new Interceptor(Vec.Zero, new double3(600, 0, 0) + frame, TargetHandle, 1,
                                     Vec.Zero, frame)
-        {
+        { Munition = Arsenal.Missile57E6,
             Aimpoint = aim,
         };
 
@@ -267,7 +267,7 @@ public class AimpointTests
     public void AnUnguidedRoundCarriesAnAimpointToo()
     {
         var slug = new Slug(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero)
-        {
+        { Munition = Arsenal.Cannon30Mm,
             Aimpoint = Aimpoint.AtPoint(new double3(1000, 0, 0)),
         };
 

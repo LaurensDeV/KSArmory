@@ -28,7 +28,7 @@ public class RoundBodyAnchorTests
             target: new object(),
             tube: 1,
             platformEcl: platformEcl,
-            frameVelocityEcl: default);
+            frameVelocityEcl: default) { Munition = Arsenal.Missile57E6 };
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class RoundBodyAnchorTests
             target: new object(),
             tube: 1,
             platformEcl: platform,
-            frameVelocityEcl: frame);
+            frameVelocityEcl: frame) { Munition = Arsenal.Missile57E6 };
 
         // Before the first update, which is an instant the round is genuinely drawn at: Fire runs
         // after the round update, so SyncRoundBodies reaches a round that has never been
@@ -111,11 +111,11 @@ public class RoundBodyAnchorTests
     {
         // Bodies are matched to rounds by tube number, so a round must carry the tube it left.
         var first = new Interceptor(Vec.Zero, new double3(0, 0, 60), new object(), 1, Vec.Zero, Vec.Zero)
-        {
+        { Munition = Arsenal.Missile57E6,
             LaunchAnchorPartFrame = new double3(5.5, 0.1, 1.3),
         };
         var second = new Interceptor(Vec.Zero, new double3(0, 0, 60), new object(), 7, Vec.Zero, Vec.Zero)
-        {
+        { Munition = Arsenal.Missile57E6,
             LaunchAnchorPartFrame = new double3(5.3, 0.2, -1.1),
         };
 

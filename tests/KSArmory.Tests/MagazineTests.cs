@@ -14,7 +14,7 @@ public class MagazineTests
     /// <summary>A round occupying <paramref name="tube"/>, numbered from one as the battery does.</summary>
     private static Interceptor RoundInTube(int tube) =>
         new(new double3(0, 0, 0), new double3(100, 0, 0), TargetHandle, tube,
-            platformEcl: default, frameVelocityEcl: default);
+            platformEcl: default, frameVelocityEcl: default) { Munition = Arsenal.Missile57E6 };
 
     private static Magazine Full(int tubes)
     {

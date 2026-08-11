@@ -48,7 +48,7 @@ public class OffsetPhaseTests
             target: null!,
             tube: 1,
             platformEcl: platform,
-            frameVelocityEcl: OrbitalVelocity);
+            frameVelocityEcl: OrbitalVelocity) { Munition = Arsenal.Missile57E6 };
 
         var offsets = new List<double3>();
 

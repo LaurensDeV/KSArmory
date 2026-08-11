@@ -24,7 +24,7 @@ public class GuidanceDiscriminationTests
             TargetHandle,
             tube: 1,
             platformEcl: default,
-            frameVelocityEcl: default);
+            frameVelocityEcl: default) { Munition = Arsenal.Missile57E6 };
 
         // Target sits dead ahead at launch and then runs hard across the line of fire, so a
         // round that does not lead arrives roughly a kilometre behind it.

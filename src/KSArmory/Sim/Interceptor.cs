@@ -146,7 +146,7 @@ internal sealed class Interceptor : IProjectile
     public double3 LaunchAnchorPartFrame { get; set; }
 
     /// <inheritdoc cref="IProjectile.Munition"/>
-    public MunitionProfile Munition { get; init; } = Arsenal.Missile57E6;
+    public required MunitionProfile Munition { get; init; }
 
     // Recent positions for the smoke trail, oldest first, as platform-relative offsets. Stored this
     // way for the same reason: absolute points recorded across 1.6 s of trail would be smeared over

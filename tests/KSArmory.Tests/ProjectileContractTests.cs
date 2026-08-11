@@ -30,8 +30,8 @@ public class ProjectileContractTests
     private static IProjectile Make(Kind kind, double3 positionEcl, double3 velocityEcl,
                                     double3 platformEcl, double3 frameVelocityEcl) => kind switch
     {
-        Kind.GuidedMissile => new Interceptor(positionEcl, velocityEcl, TargetHandle, 1, platformEcl, frameVelocityEcl),
-        _ => new Slug(positionEcl, velocityEcl, TargetHandle, 1, platformEcl, frameVelocityEcl),
+        Kind.GuidedMissile => new Interceptor(positionEcl, velocityEcl, TargetHandle, 1, platformEcl, frameVelocityEcl) { Munition = Arsenal.Missile57E6 },
+        _ => new Slug(positionEcl, velocityEcl, TargetHandle, 1, platformEcl, frameVelocityEcl) { Munition = Arsenal.Cannon30Mm },
     };
 
     private static MunitionProfile Vacuum() =>
@@ -300,8 +300,8 @@ public class ProjectileContractTests
             return (round.State, closest);
         }
 
-        var guided = Fly(new Interceptor(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero));
-        var slug = Fly(new Slug(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero));
+        var guided = Fly(new Interceptor(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = Arsenal.Missile57E6 });
+        var slug = Fly(new Slug(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = Arsenal.Cannon30Mm });
 
         Assert.Equal(RoundState.Detonated, guided.State);
         Assert.NotEqual(RoundState.Detonated, slug.State);
@@ -314,7 +314,7 @@ public class ProjectileContractTests
     [Fact]
     public void ASlugNeverClaimsALock()
     {
-        IProjectile slug = new Slug(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero);
+        IProjectile slug = new Slug(Vec.Zero, new double3(600, 0, 0), TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = Arsenal.Cannon30Mm };
 
         Assert.False(slug.HasLock);
         Assert.True(slug.SeekerInView);

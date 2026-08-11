@@ -59,7 +59,7 @@ internal sealed class Slug : IProjectile
     public double3 LaunchAnchorPartFrame { get; set; }
 
     /// <inheritdoc cref="IProjectile.Munition"/>
-    public MunitionProfile Munition { get; init; } = Arsenal.Cannon30Mm;
+    public required MunitionProfile Munition { get; init; }
 
     public object? TargetRef { get; private set; }
 
