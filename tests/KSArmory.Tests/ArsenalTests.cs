@@ -386,4 +386,47 @@ public class ArsenalTests
         WeaponFit rail = WeaponFit.Of(Arsenal.SidewinderRail, Arsenal.SeekerHeadAim9);
         Assert.False(rail.Describes(ArmamentKind.Belt, Arsenal.Cannon30Mm.DisplayName));
     }
+
+    /// <summary>
+    /// Every launcher has fire control, because fire control is the thing that decides to shoot and
+    /// nothing that shoots can lack one.
+    ///
+    /// <para>It is a declared role rather than a found part, so a launcher that omits it gets no
+    /// fire-control row — and every control that lives on that row goes with it: master arm, FIRE,
+    /// aim with the mouse, fire at the mouse, protecting the craft being flown, and resetting the
+    /// installation. Three of the four launchers shipped without one, so a CIWS could not be armed
+    /// from the panel at all.</para>
+    ///
+    /// <para><c>tools/check-tunables.py</c> cannot catch this and passed throughout: it asks whether
+    /// a setting is written <em>somewhere</em> in the panel, and <c>Armed</c> is — on the one row
+    /// only a Pantsir has. Reachable for one system is not reachable.</para>
+    /// </summary>
+    [Fact]
+    public void EveryLauncherProvidesFireControl()
+    {
+        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        {
+            ComponentProfile? component = null;
+            for (int i = 0; i < Arsenal.Components.Count; i++)
+            {
+                if (Arsenal.Components[i].PartId == launcher.PartId
+                    && Arsenal.Components[i].Role == WeaponRole.Launcher)
+                {
+                    component = Arsenal.Components[i];
+                }
+            }
+
+            Assert.True(component is not null, $"{launcher.DisplayName} has no launcher component");
+
+            bool declares = false;
+            foreach (BuiltInComponent provided in component!.Provides)
+            {
+                if (provided.Role == WeaponRole.FireControl) declares = true;
+            }
+
+            Assert.True(declares,
+                $"{launcher.DisplayName} declares no fire control, so its panel has no master arm, "
+                + "no FIRE, and no mouse aim");
+        }
+    }
 }

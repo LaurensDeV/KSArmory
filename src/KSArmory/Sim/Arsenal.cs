@@ -647,7 +647,11 @@ public static class Arsenal
 
             // The seeker head is the round's, not the rail's, but the rail is what a survey can
             // see and what the battery searches with -- so this is where it is declared.
-            Provides = [new(WeaponRole.Sensor, SeekerHeadAim9.DisplayName)],
+            Provides =
+            [
+                new(WeaponRole.Sensor, SeekerHeadAim9.DisplayName),
+                new(WeaponRole.FireControl, "LAU-7 fire control"),
+            ],
         },
         new ComponentProfile
         {
@@ -658,6 +662,7 @@ public static class Arsenal
             [
                 new(WeaponRole.Sensor, SearchRadarVps2.DisplayName),
                 new(WeaponRole.Gun, Cannon20Mm.DisplayName),
+                new(WeaponRole.FireControl, "Mk 15 fire control"),
             ],
         },
         new ComponentProfile
@@ -668,7 +673,11 @@ public static class Arsenal
 
             // The sight is the crew's rather than the rack's, but the rack is what a survey can
             // see -- the same reasoning as the rail's seeker head above.
-            Provides = [new(WeaponRole.Sensor, BombSight.DisplayName)],
+            Provides =
+            [
+                new(WeaponRole.Sensor, BombSight.DisplayName),
+                new(WeaponRole.FireControl, "Mk 82 release"),
+            ],
         },
     ];
 
