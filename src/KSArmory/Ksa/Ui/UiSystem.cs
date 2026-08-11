@@ -443,7 +443,7 @@ internal sealed partial class Ui
                               entry.Head.Profile.MinElevationDeg, entry.Head.Profile.MaxElevationDeg);
         }
 
-        if (policy.Viewport >= 0) DrawSightLine(policy, main);
+        if (policy.Viewport >= 0) DrawSightLine(entry.Head, policy, main);
 
         // The chosen window has gone, so stop writing to something that is no longer shown. The
         // main view is exempt: it is never in the collected list, and it cannot be closed.
@@ -470,7 +470,7 @@ internal sealed partial class Ui
         policy.Viewport = main;
     }
 
-    private void DrawSightLine(OpticConfig policy, int main)
+    private void DrawSightLine(OpticalHead head, OpticConfig policy, int main)
     {
         ImGui.Text("Magnification:");
 
@@ -497,7 +497,7 @@ internal sealed partial class Ui
             : "  rigid with the head - it rolls with the craft, and sideways stays sideways");
 
         ImGui.Separator();
-        DrawDirectorIff(policy);
+        DrawDirectorIff(head, policy);
     }
 
     // Who this director will look at. Its own, not the weapon's: a head finds its own targets
@@ -506,23 +506,53 @@ internal sealed partial class Ui
     // The team is picked off the session roster rather than typed. A second free-text box would
     // share _ownTeamEntry with the weapon's, so typing in one would show in the other; and the
     // roster is the list of names that exist, which is what a picker wants anyway.
-    private void DrawDirectorIff(OpticConfig policy)
+    // What the head is following right now, and the only way to stop it.
+    //
+    // A status, kept apart from the team picker below, which is a policy: one says what the head is
+    // doing and the other says what it is allowed to do, and a heading that sounds like the first
+    // over controls that are the second is worse than either alone.
+    //
+    // The Release button is the whole exit. Nothing else clears a designation -- a craft that dies
+    // takes its own with it, and ground never dies, so without this a shift-click on a hillside is
+    // followed for the rest of the session.
+    private void DrawWhatItWatches(OpticalHead head)
+    {
+        if (head.Designation.Kind != AimpointKind.None)
+        {
+            ImGui.Text($"Watching: {head.DesignationName}");
+            ImGui.SameLine();
+            if (ImGui.Button("Release")) head.ClearDesignation();
+
+            ImGui.TextDisabled("  designated by hand; it beats whatever the set would have picked");
+            return;
+        }
+
+        ImGui.TextDisabled(head.LockedTrack is { } track
+                           ? $"Watching: {track.Contact.DisplayName} (its own pick)"
+                           : "Watching: nothing on scope");
+
+        ImGui.TextDisabled("  shift-click the world to point it at something");
+    }
+
+    private void DrawDirectorIff(OpticalHead head, OpticConfig policy)
     {
         IffPolicy iff = policy.Iff;
+
+        DrawWhatItWatches(head);
 
         ImGui.Checkbox("Never look at the vehicle I'm flying",
                        ref policy.ProtectControlledVehicle);
 
-        if (!ImGui.TreeNode("Who it watches")) return;
-
-        ImGui.TextDisabled("  its own allegiance, separate from any weapon on the craft");
-
+        // Only when there is something to pick. With no teams the whole node held two lines of
+        // prose and no control, which is a fold that opens onto nothing -- and one of those lines
+        // explained an implementation decision to somebody who never asked.
         if (_config.TeamNames.Count == 0)
         {
-            ImGui.TextDisabled("  no teams declared - add one under Teams and IFF");
-            ImGui.TreePop();
+            ImGui.TextDisabled("no teams declared; add one under Teams and IFF to sort contacts");
             return;
         }
+
+        if (!ImGui.TreeNode("Who it may watch")) return;
 
         ImGui.Text($"Own team: {iff.OwnTeam ?? "(none)"}");
 
