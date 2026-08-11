@@ -17,7 +17,6 @@ namespace KSArmory;
 /// </summary>
 internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalHead
 {
-    private readonly Config _config = config;
     private readonly OpticConfig _policy = policy;
 
     private readonly List<(Part, OpticProfile)> _scratch = [];

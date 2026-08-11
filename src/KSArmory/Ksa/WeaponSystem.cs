@@ -510,7 +510,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
 
         if (_config.DiagnosticDump)
         {
-            Diagnostics.Tick(this, _config, _policy, _clock, _config.DiagnosticIntervalSeconds);
+            Diagnostics.Tick(this, _policy, _clock, _config.DiagnosticIntervalSeconds);
         }
     }
 

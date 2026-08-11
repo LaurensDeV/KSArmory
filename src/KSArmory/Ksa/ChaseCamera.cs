@@ -314,7 +314,7 @@ internal sealed class ChaseCamera
         double behind = _behind;
         double above = _above;
 
-        ReportClosing(round, toGo, behind);
+        ReportClosing(toGo, behind);
 
         if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, up, up, behind, above, Ahead,
                                out double3 eye, out double3 forward, out double3 upEcl))
@@ -406,7 +406,7 @@ internal sealed class ChaseCamera
     // What the closing curve is being fed: the stand-off is visible, the input is not.
     private int _rangeFrames;
 
-    private void ReportClosing(IProjectile round, double toGo, double behind)
+    private void ReportClosing(double toGo, double behind)
     {
         if (++_rangeFrames < 30) return;
 

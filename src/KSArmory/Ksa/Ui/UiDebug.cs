@@ -162,7 +162,7 @@ internal sealed partial class Ui
         ImGui.BeginDisabled(!_crewed);
         if (ImGui.Button("Write diagnostic dump"))
         {
-            Diagnostics.Dump(_battery, _config, _policy);
+            Diagnostics.Dump(_battery, _policy);
         }
         ImGui.EndDisabled();
         ImGui.SameLine();

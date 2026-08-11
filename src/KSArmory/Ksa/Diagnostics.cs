@@ -22,7 +22,7 @@ internal static class Diagnostics
     private static readonly Dictionary<IWeaponSystemView, double> NextDumpAt = [];
 
     /// <summary>Emit a dump every <paramref name="intervalSeconds"/> while enabled.</summary>
-    public static void Tick(IWeaponSystemView battery, Config config, SystemConfig policy,
+    public static void Tick(IWeaponSystemView battery, SystemConfig policy,
                             double clock, double intervalSeconds)
     {
         SampleRadialMotion(battery);
@@ -31,7 +31,7 @@ internal static class Diagnostics
         if (NextDumpAt.TryGetValue(battery, out double due) && clock < due) return;
 
         NextDumpAt[battery] = clock + intervalSeconds;
-        Dump(battery, config, policy);
+        Dump(battery, policy);
     }
 
     // How far the platform's analytic position moves radially between frames, worst case since the
@@ -95,14 +95,14 @@ internal static class Diagnostics
         Radial.Remove(battery);
     }
 
-    public static void Dump(IWeaponSystemView battery, Config config, SystemConfig policy)
+    public static void Dump(IWeaponSystemView battery, SystemConfig policy)
     {
         try
         {
             Log.Debug("---- diagnostic dump ----");
             DumpPlatform(battery);
             DumpRendering(battery);
-            DumpVehicles(battery, config, policy);
+            DumpVehicles(battery, policy);
             DumpRadar(battery);
             Log.Debug("---- end dump ----");
         }
@@ -265,7 +265,7 @@ internal static class Diagnostics
 
     // Lists every loaded vehicle with the numbers the radar filters on, and says which filter
     // rejected it. This is the fastest way to see why the track list is empty.
-    private static void DumpVehicles(IWeaponSystemView battery, Config config, SystemConfig policy)
+    private static void DumpVehicles(IWeaponSystemView battery, SystemConfig policy)
     {
         KsaWorld.CollectVehicles(Scratch);
 

@@ -94,7 +94,6 @@ public class OpticMountTests
     [Fact]
     public void TurningTheMountDoesNotTurnWhereTheHeadLooks()
     {
-        OpticProfile p = Director();
         double3 aim = Vec.Unit(new double3(0.3, 1.0, 0.0));
         double3 offset = new(0.0, 1.05, 0.44);
 
