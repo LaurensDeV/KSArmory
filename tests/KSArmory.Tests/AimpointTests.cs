@@ -274,4 +274,38 @@ public class AimpointTests
         Assert.Equal(AimpointKind.Point, slug.Aimpoint.Kind);
         Assert.False(slug.Aimpoint.NeedsHandle);
     }
+
+    /// <summary>
+    /// A place on a body has to be re-read every frame; nothing else does. It is only still in that
+    /// body's own frame, so held as the coordinate it was named at it is left behind by ~29.8 km/s
+    /// of orbital motion plus the site's spin — whatever is chasing it slides off within a second.
+    /// </summary>
+    [Fact]
+    public void OnlyAPlaceOnABodyNeedsResampling()
+    {
+        Assert.True(Aimpoint.OnGround(new object(), default, default, default).NeedsResampling);
+
+        Assert.False(Aimpoint.OnVehicle(new object(), default, default, 1.0).NeedsResampling);
+        Assert.False(Aimpoint.AtPoint(default).NeedsResampling);
+        Assert.False(Aimpoint.Nothing.NeedsResampling);
+    }
+
+    /// <summary>
+    /// What can die takes its aimpoint with it; what cannot, keeps it. This is why a designation is
+    /// an aimpoint rather than a contact — nothing ever reports a hillside, so a contact-shaped one
+    /// would have to be dropped the moment the world stopped mentioning it.
+    /// </summary>
+    [Fact]
+    public void OnlyAThingThatCanDieLosesItsAimpoint()
+    {
+        Assert.False(Aimpoint.OnVehicle(new object(), default, default, 1.0).Survives(handleAlive: false));
+        Assert.True(Aimpoint.OnVehicle(new object(), default, default, 1.0).Survives(handleAlive: true));
+
+        // Neither the ground nor a coordinate has anything to lose.
+        Assert.True(Aimpoint.OnGround(new object(), default, default, default).Survives(handleAlive: false));
+        Assert.True(Aimpoint.AtPoint(default).Survives(handleAlive: false));
+
+        // Nothing named is not something that survives.
+        Assert.False(Aimpoint.Nothing.Survives(handleAlive: true));
+    }
 }

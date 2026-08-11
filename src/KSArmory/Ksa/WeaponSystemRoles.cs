@@ -94,6 +94,16 @@ internal interface IOpticalHead : IWeaponPlatform
     Track? LockedTrack { get; }
 
     /// <summary>
+    /// What the operator told this head to watch, or <c>Aimpoint.Nothing</c>.
+    ///
+    /// <para>Read-only here on purpose. Designating is a command and belongs to whoever issues it;
+    /// this interface is what the sight and the chase camera <em>read</em>, and neither may point a
+    /// head anywhere.</para>
+    /// </summary>
+    Aimpoint Designation { get; }
+
+
+    /// <summary>
     /// Local "up", which is what the sight's horizontal reference is drawn against. Always the
     /// site's true vertical — a horizon measured against anything else is not a horizon.
     /// </summary>

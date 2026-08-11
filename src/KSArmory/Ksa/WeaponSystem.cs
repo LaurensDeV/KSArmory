@@ -80,6 +80,51 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// </summary>
     public bool TubesResolved => Profile.PodsMarker is null || PodsPart is not null;
 
+    /// <summary>
+    /// What the operator told this installation to track, or <c>Aimpoint.Nothing</c>.
+    ///
+    /// <para>Beats the set's own pick while it lives. An aimpoint rather than a contact handle so
+    /// a place on the ground can be named at all — <see cref="Radar.ManualDesignation"/> takes an
+    /// <c>IContact.Handle</c>, and nothing ever reports a hillside. That is the whole difference
+    /// between designating a craft and designating a spot a structure will one day stand on.</para>
+    ///
+    /// <para>Lives on the system, which is pinned to its craft, so it outlives the player taking
+    /// another seat.</para>
+    /// </summary>
+    public Aimpoint Designation { get; private set; } = Aimpoint.Nothing;
+
+    /// <summary>What is designated, for the panel to name.</summary>
+    public string DesignationName { get; private set; } = "nothing";
+
+    /// <summary>Points the installation at something, until told otherwise.</summary>
+    public void Designate(Aimpoint aim, string what)
+    {
+        Designation = aim;
+        DesignationName = what;
+        _whyNotDesignated = "";
+
+        // "Follow this" and "follow my cursor" are contradictory orders, and the cursor wins the
+        // branch order -- so leaving both on is a designation that silently never drives. Switched
+        // off rather than out-ranked: the operator has just replaced one instruction with the
+        // other, and the tick boxes going out is what says so.
+        bool wasOnCursor = _policy.MouseAim || _policy.MouseFire;
+        _policy.MouseAim = false;
+        _policy.MouseFire = false;
+
+        Log.Info($"{Profile.DisplayName} tracking {what}"
+                 + (wasOnCursor ? " (mouse aim and mouse fire off: it now follows this)" : ""));
+    }
+
+    /// <summary>Hands it back to its own set.</summary>
+    public void ClearDesignation()
+    {
+        if (Designation.Kind == AimpointKind.None) return;
+
+        Log.Info($"{Profile.DisplayName} released {DesignationName}");
+        Designation = Aimpoint.Nothing;
+        DesignationName = "nothing";
+    }
+
     /// <summary>The search array, which turns continuously on its own turntable.</summary>
     public Part? RadarPart { get; private set; }
 
@@ -694,12 +739,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         Fire(target);
     }
 
-    // Sends one shell down whichever barrel is next in the cycle.
-    //
-    // Which way the optical head looks, in the launcher part's frame: at the locked contact if
-    // there is one, otherwise along the turret's own facing.
-    // Where the cursor points, in the launcher part's frame. False unless mouse aim is on and the
-    // cursor is over a viewport whose camera gives a usable ray.
     // Where a bearing to something should be measured from: the trunnion the tubes swing on, not
     // the launcher part's origin.
     //
@@ -927,6 +966,97 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         if (_guns.BurstRemaining <= 0) _burstTrack = null;
     }
 
+    // Where the designation is now, in the launcher part's frame. False once it is gone.
+    //
+    // Ground is re-read every frame rather than kept as the coordinate it was named at: held in
+    // the ecliptic it is left behind by ~29.8 km/s of orbital motion plus the site's own spin, and
+    // a turret told to follow it would swing off within a second. See Aimpoint.NeedsResampling.
+    private bool TryDesignatedAim(out double3 partFrame)
+    {
+        partFrame = Vec.Zero;
+
+        if (Platform is null || Launcher is null)
+        {
+            WhyNotDesignated("no platform or no launcher part");
+            return false;
+        }
+
+        if (Designation.Kind == AimpointKind.Vehicle)
+        {
+            if (Designation.Handle is not Vehicle craft || !KsaWorld.IsAlive(craft))
+            {
+                ClearDesignation();
+                return false;
+            }
+
+            Designation = Designation.Resampled(KsaWorld.PositionEcl(craft), KsaWorld.VelocityEcl(craft));
+        }
+        else if (Designation.NeedsResampling)
+        {
+            if (!KsaWorld.TryGroundAnchorEcl(Designation.Handle, Designation.Anchor,
+                                             out double3 groundEcl, out double3 groundVel))
+            {
+                WhyNotDesignated("the ground anchor would not resolve");
+                return false;
+            }
+
+            Designation = Designation.Resampled(groundEcl, groundVel);
+        }
+
+        // From the trunnion the drive swings on, not the part's origin. Measured from the origin
+        // the bore is laid parallel to the right bearing and displaced off it, which is a fixed
+        // distance and so a shrinking angle -- fine at 20 km and visibly wrong on anything close.
+        // See AimOriginEcl.
+        double3 origin = AimOriginEcl;
+
+        if (!LauncherPart.TryDirectionToPartFrame(Platform, Launcher,
+                                                  Designation.PositionEcl - origin, out partFrame))
+        {
+            WhyNotDesignated("the direction would not convert into the part's frame");
+            return false;
+        }
+
+        if (Vec.Len2(partFrame) < 0.5)
+        {
+            WhyNotDesignated("the direction came back degenerate",
+                             $"(len2 {Vec.Len2(partFrame):E2}, range "
+                             + $"{Vec.Len(Designation.PositionEcl - origin) / 1000.0:F1} km)");
+            return false;
+        }
+
+        // Said once, so the log distinguishes "driving" from "silently fell through" -- an absent
+        // warning alone cannot, and that ambiguity is what made this hard to report.
+        WhyNotDesignated("driving", $"at {Vec.Len(Designation.PositionEcl - origin) / 1000.0:F1} km");
+
+        return true;
+    }
+
+    // Says why a designation is or is not driving the turret, once per state. A drive that
+    // silently falls through to the radar is indistinguishable from a click that never landed --
+    // which is exactly how this was first reported.
+    //
+    // Keyed on the *state*, never on the message: a key carrying the range changes every frame, so
+    // "say it once" becomes a line per frame, each a synchronous file write on the frame thread.
+    private string _whyNotDesignated = "";
+
+    private void WhyNotDesignated(string state, string detail = "")
+    {
+        if (_whyNotDesignated == state) return;
+
+        _whyNotDesignated = state;
+
+        string tail = detail.Length > 0 ? $" {detail}" : "";
+
+        if (state == "driving")
+        {
+            Log.Info($"{Profile.DisplayName}: turret on {DesignationName} -- driving{tail}");
+            return;
+        }
+
+        Log.Warn($"{Profile.DisplayName}: designation on {DesignationName} is not driving the "
+                 + $"turret -- {state}{tail}");
+    }
+
     // Slews the turret onto whatever the radar is holding, and writes the result to the part.
     // Priority is the lock, then the most urgent threat, then rest. Following a threat before the
     // lock has settled is what makes the vehicle look like it is *watching* the sky rather than
@@ -968,6 +1098,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             _ringIsOnCursor = true;
             Turret.Track(cursorFrame);
         }
+        else if (Designation.Kind != AimpointKind.None && TryDesignatedAim(out double3 designated))
+        {
+            // The operator's choice, ahead of the radar and ahead of the tracking switch: naming
+            // something is itself the instruction to follow it, so requiring tracking as well
+            // would be a click that silently does nothing.
+            _ringIsOnGunLead = false;
+            Turret.Track(designated);
+        }
         else if (!_policy.TurretTracking)
         {
             Turret.Stow();
@@ -977,7 +1115,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             Track? aim = Radar.Locked ?? MostUrgentThreat();
 
             if (aim is not null && Platform is not null
-                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, AimPointEcl(aim) - MountEcl, out double3 partFrame))
+                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher,
+                                                        AimPointEcl(aim) - AimOriginEcl, out double3 partFrame))
             {
                 Turret.Track(partFrame);
             }

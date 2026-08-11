@@ -262,6 +262,13 @@ public sealed class KSArmoryMod
                     _designator.Update(aimed.Battery, aimed.Policy);
                     _designator.Draw(aimed.Battery, aimed.Policy);
                 }
+
+                // Shift-click locks the installation the panel is showing onto whatever is under
+                // the cursor -- its turret, and its director if it has one. Here rather than in
+                // the sight block above so it works on a craft with no camera, which is where it
+                // was first missed, and scoped to the shown system for the same reason the
+                // designator is: every crewed battery reading one cursor would lock all of them.
+                TargetLock.Update(_roster.For(_ui.Focused)?.Battery, _heads?.Driving(_ui.Focused)?.Head);
             }
             // Last, and every frame. KSA's controller writes the camera from its own mode, so a
             // view taken earlier in the frame is simply overwritten before anything renders.
@@ -285,6 +292,7 @@ public sealed class KSArmoryMod
                 // behalf. Skipping this is how a sight survives the craft it was looking through.
                 _sight.Release();
             }
+
             else
             {
                 // Out of flight the recording describes a scene that no longer exists, and
@@ -292,6 +300,7 @@ public sealed class KSArmoryMod
                 // player cannot account for. The new scene brings its own camera.
                 _sight.Forget();
             }
+
         }
         catch (Exception e)
         {
@@ -366,7 +375,8 @@ public sealed class KSArmoryMod
                 CollectAirborne();
 
                 foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step, _airborne);
-                _heads?.Update(step, _airborne);
+
+                                _heads?.Update(step, _airborne);
             }
         }
 

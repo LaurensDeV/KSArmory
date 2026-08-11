@@ -21,6 +21,10 @@ internal sealed class BurstTool
 
         // A click on the panel is not a click on the world behind it.
         if (ImGui.GetIO().WantCaptureMouse) return;
+        // Shift is the designate gesture, so a shift-click is not a click on the world.
+        // Without this, locking a target while this tool is on also sends a round at it.
+        if (ImGui.GetIO().KeyShift) return;
+
         if (!ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false)) return;
 
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _)) return;
