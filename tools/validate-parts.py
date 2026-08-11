@@ -753,7 +753,75 @@ def check_editor_tags(core_dir):
     return problems, checked
 
 
-def check_optic_geometry():
+# Which muzzles.json block each registered launcher's geometry was emitted into, and what to call
+# it in a message. The key cannot be derived from the profile name -- the Pantsir's block is the
+# top-level document rather than a named one -- so it is written down, and main() fails on a
+# registered launcher missing from here rather than skipping it.
+LAUNCHER_GEOMETRY = {
+    "PantsirS1": (None, "Pantsir"),
+    "Ciws": ("ciws", "CIWS"),
+    "SidewinderRail": ("sidewinder", "rail"),
+    "BombRack": ("bombrack", "rack"),
+}
+
+# Munition named by each fixed launcher, whose body length the tube standoff is checked against.
+# A turreted launcher's standoff comes off its pods instead, so it needs no entry.
+FIXED_LAUNCHER_MUNITION = {
+    "SidewinderRail": "Missile9J",
+    "BombRack": "BombMk82",
+}
+
+
+def registered(text, registry):
+    """The profile field names in one of Arsenal's registry lists, in declared order.
+
+    The registry is what the mod actually loads, so it is what the geometry checks below must be
+    driven from. Naming the launchers here by hand instead is how a fifth one gets no check at
+    all while this script still exits 0 -- the shape CLAUDE.md warns about, reached at four.
+    """
+    found = re.search(rf"{registry}\s*=\s*\[(.*?)\];", text, re.S)
+    if found is None:
+        return []
+    return [name.strip() for name in found.group(1).split(",") if name.strip()]
+
+
+def trains(text, profile):
+    """Whether a launcher declares training gear, which is what picks its geometry check."""
+    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    return found is not None and "TurretMarker" in found.group(1)
+
+
+def check_launcher_geometry():
+    """Runs the right geometry check over every launcher in the registry, and misses none.
+
+    Turreted or fixed is read off the profile rather than listed, so a launcher that grows a
+    turret is checked as one without this script being told.
+    """
+    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    problems = 0
+    checked = 0
+
+    for profile in registered(text, "Launchers"):
+        if profile not in LAUNCHER_GEOMETRY:
+            print(f"  UNCHECKED Arsenal.{profile}: no geometry check. Add it to "
+                  f"LAUNCHER_GEOMETRY in tools/validate-parts.py", file=sys.stderr)
+            problems += 1
+            checked += 1
+            continue
+
+        key, label = LAUNCHER_GEOMETRY[profile]
+        if trains(text, profile):
+            p, c = check_turret_launcher_geometry(profile, key, label)
+        else:
+            p, c = check_fixed_launcher_geometry(
+                profile, FIXED_LAUNCHER_MUNITION.get(profile, ""), key, label)
+        problems += p
+        checked += c
+
+    return problems, checked
+
+
+def check_optic_geometry(profile="EoDirector"):
     """Verifies the optical head's pivot agrees in all three places it is written down.
 
     tools/model/optic.py recentres the head's mesh on it, Sim/Arsenal.cs aims from it, and the
@@ -775,9 +843,9 @@ def check_optic_geometry():
     checked = 0
 
     text = (MOD / "Sim" / "Arsenal.cs").read_text()
-    found = re.search(r"EoDirector\s*=\s*new\(\)\s*\{(.*?)\n\s*\};", text, re.S)
+    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
     if found is None:
-        print("  MISSING Arsenal.EoDirector", file=sys.stderr)
+        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
         return 1, 1
     block = found.group(1)
 
@@ -785,44 +853,62 @@ def check_optic_geometry():
     pivot = re.search(r"HeadPivot\s*=\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", block)
     want = expected["head_pivot"]
     if pivot is None:
-        print("  MISSING Arsenal.EoDirector.HeadPivot", file=sys.stderr)
+        print(f"  MISSING Arsenal.{profile}.HeadPivot", file=sys.stderr)
         problems += 1
     else:
         got = [float(v) for v in pivot.groups()]
         if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
-            print(f"  STALE Arsenal.EoDirector.HeadPivot = {tuple(got)}, "
+            print(f"  STALE Arsenal.{profile}.HeadPivot = {tuple(got)}, "
                   f"mesh says {tuple(want)}", file=sys.stderr)
             problems += 1
 
     checked += 1
     eye = re.search(r"EyeForward\s*=\s*([\d.]+)f\s*,", block)
     if eye is None:
-        print("  MISSING Arsenal.EoDirector.EyeForward", file=sys.stderr)
+        print(f"  MISSING Arsenal.{profile}.EyeForward", file=sys.stderr)
         problems += 1
     elif abs(float(eye.group(1)) - expected["eye_forward"]) > 5e-4:
-        print(f"  STALE Arsenal.EoDirector.EyeForward = {eye.group(1)}, "
+        print(f"  STALE Arsenal.{profile}.EyeForward = {eye.group(1)}, "
               f"mesh says {expected['eye_forward']}", file=sys.stderr)
         problems += 1
 
-    # And the third copy: where the asset XML actually puts the body.
+    # And the third copy: where the asset XML actually puts the bodies. The subparts are named by
+    # this profile's own markers, so a director carried on a launcher is checked against its own
+    # pair rather than against the standalone part's.
+    #
+    # What is compared is head *minus base*, because HeadPivot is an offset from the base rather
+    # than a point in the part -- so this is the one form that holds for a director bolted to a
+    # hull and one riding a turret several metres out.
     checked += 1
-    placed = None
+    ids = {marker: f"KSArmory_{re.search(rf'{marker}\s*=\s*"([^"]+)"', block).group(1)}"
+           for marker in ("BaseMarker", "HeadMarker")
+           if re.search(rf'{marker}\s*=\s*"([^"]+)"', block)}
+
+    if len(ids) != 2:
+        print(f"  MISSING Arsenal.{profile}.BaseMarker or .HeadMarker", file=sys.stderr)
+        return problems + 1, checked
+
+    placed = {}
     for path in sorted(MOD.glob("KSArmory*.xml")):
         for part in ET.parse(path).getroot().findall("Part"):
             for sub in part.findall("SubPart"):
-                if sub.get("Id") != "KSArmory_Optic_Head":
-                    continue
-                position = sub.find("Transform/Position")
-                placed = ([float(position.get(axis, "0")) for axis in "XYZ"]
-                          if position is not None else [0.0, 0.0, 0.0])
+                for marker, ident in ids.items():
+                    if sub.get("Id") != ident:
+                        continue
+                    position = sub.find("Transform/Position")
+                    placed[marker] = ([float(position.get(axis, "0")) for axis in "XYZ"]
+                                      if position is not None else [0.0, 0.0, 0.0])
 
-    if placed is None:
-        print("  MISSING <SubPart Id=\"KSArmory_Optic_Head\"> in the asset XML", file=sys.stderr)
+    missing = [ids[m] for m in ("BaseMarker", "HeadMarker") if m not in placed]
+    if missing:
+        print(f"  MISSING <SubPart Id=\"{missing[0]}\"> in the asset XML", file=sys.stderr)
         problems += 1
-    elif any(abs(a - b) > 5e-4 for a, b in zip(placed, want)):
-        print(f"  STALE <SubPart Id=\"KSArmory_Optic_Head\"> at {tuple(placed)}, "
-              f"mesh says {tuple(want)}", file=sys.stderr)
-        problems += 1
+    else:
+        offset = [h - b for h, b in zip(placed["HeadMarker"], placed["BaseMarker"])]
+        if any(abs(a - b) > 5e-4 for a, b in zip(offset, want)):
+            print(f"  STALE <SubPart Id=\"{ids['HeadMarker']}\"> sits {tuple(offset)} from its "
+                  f"base, mesh says {tuple(want)}", file=sys.stderr)
+            problems += 1
 
     if problems == 0:
         print("  optic geometry: the head's pivot matches in all three places")
@@ -919,26 +1005,15 @@ def main():
     checked += c
 
     print("checking src/KSArmory/Sim/Arsenal.cs against the mesh")
-    p, c = check_turret_launcher_geometry("PantsirS1", None, "Pantsir")
+    p, c = check_launcher_geometry()
     problems += p
     checked += c
 
-    p, c = check_turret_launcher_geometry("Ciws", "ciws", "CIWS")
-    problems += p
-    checked += c
-
-    p, c = check_fixed_launcher_geometry("SidewinderRail", "Missile9J", "sidewinder", "rail")
-    problems += p
-    checked += c
-
-    p, c = check_fixed_launcher_geometry("BombRack", "BombMk82", "bombrack", "rack")
-    problems += p
-    checked += c
-
-    print("checking the optical head's pivot against the mesh and the XML")
-    p, c = check_optic_geometry()
-    problems += p
-    checked += c
+    print("checking every optical head's pivot against the mesh and the XML")
+    for optic in registered((MOD / "Sim" / "Arsenal.cs").read_text(), "Optics"):
+        p, c = check_optic_geometry(optic)
+        problems += p
+        checked += c
 
     print("checking subpart placement against src/KSArmory/Sim/Arsenal.cs")
     p, c = check_subpart_positions()

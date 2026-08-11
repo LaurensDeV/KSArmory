@@ -300,7 +300,10 @@ def main():
     problems = check_no_coaxial_lips(bodies)
     print()
 
-    for v in vehicles(muzzles):
+    swept = vehicles(muzzles)
+    problems += check_every_articulated_launcher_is_swept(swept)
+
+    for v in swept:
         problems += sweep(bodies, v, args)
 
     if problems:
@@ -309,6 +312,38 @@ def main():
         return 1
     print("clear: everything is attached, and nothing passes through anything in its travel")
     return 0
+
+
+def check_every_articulated_launcher_is_swept(swept):
+    """Fails if a launcher that trains has no entry in vehicles().
+
+    vehicles() is written by hand, because the body names, pivots and parent chain are not
+    derivable from the profile. What *is* derivable is which launchers need an entry: any that
+    declares a TurretMarker moves, and a body set nobody named is silently not swept while this
+    tool still prints "clear". The registry is the authority on which those are.
+    """
+    arsenal = (MOD / "Sim" / "Arsenal.cs").read_text()
+
+    registered = re.search(r"Launchers\s*=\s*\[(.*?)\];", arsenal, re.S)
+    if registered is None:
+        print("  cannot read Arsenal.Launchers -- coverage unchecked")
+        return 1
+
+    covered = {v["profile"] for v in swept}
+    problems = 0
+
+    for profile in (name.strip() for name in registered.group(1).split(",") if name.strip()):
+        block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
+        if block is None or "TurretMarker" not in block.group(1):
+            continue                    # does not train, so it has nothing to sweep
+        if profile not in covered:
+            print(f"  UNSWEPT {profile}: it trains and has no entry in vehicles()")
+            problems += 1
+
+    if problems == 0:
+        print(f"every launcher that trains is swept ({len(covered)} vehicle(s))")
+    print()
+    return problems
 
 
 def vehicles(muzzles):
