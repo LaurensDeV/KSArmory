@@ -52,9 +52,14 @@ SEATED = 0.06
 # every elevation — a full tube diameter. It is hidden rather than visibly clipping, because the
 # column is narrower than the cheek it is inside, but the allowance is wide enough to mask a real
 # defect between those two bodies. See docs/MODULARITY.md.
-# Optic/Turret is the head seated in its socket: the ball's centre sits at the pedestal top, so
-# its lower hemisphere is inside by construction. A ball perched on a post instead would clear
-# this check and look wrong.
+#
+# Nothing here is for the director, deliberately. Splitting a body out of an assembly is what makes
+# a clash visible at all -- a body cannot intersect itself, so the Pantsir's blanked-off optic stub
+# sat inside the tracking array's housing for as long as it was part of the turret's own mesh and
+# no check could see it. The moment it became a body in its own right the pair was measurable, at
+# 7.0 cm. That was fixed by moving the mount, not by granting it an allowance: an entry here says
+# "this is a joint", and two things that merely overlap are not a joint. Adding a body to an
+# existing assembly is the case to re-run this for.
 ALLOWED = {# The trunnion runs into its bearing, which is the whole point of a trunnion. It is
            # also the *only* contact the CIWS's two moving groups can ever have: everything else
            # in the elevating head is narrower than the gap between the cheeks, and elevation
@@ -329,11 +334,26 @@ def vehicles(muzzles):
                 # The array's spin is about the traverse axis, so it cannot change any clearance
                 # the bearing does not already cover.
                 "KSArmory_Subpart_Radar": (muzzles["radar_pivot_from_turret"], 0.0),
+                # The director. Its base rides the traverse and nothing else, so it is swept
+                # exactly like the array's turntable.
+                #
+                # Its head is swept at REST only, and that understates it: the ball points freely
+                # rather than on a named axis, so its lens and hood sweep a shell this tool has no
+                # way to describe. The ball itself is the bulk of the volume and is very nearly
+                # spherical about the pivot, so what is checked here is the clearance that
+                # matters -- the pods and cannon coming past it. A lens fouling something at one
+                # aim would not be caught, which is what MIN_ELEVATION_DEG exists to bound.
+                "KSArmory_Subpart_OpticBase": (muzzles["optic_base_from_turret"], 0.0),
+                "KSArmory_Subpart_OpticHead": (
+                    [a + b for a, b in zip(muzzles["optic_base_from_turret"],
+                                           muzzles["optic"]["head_pivot"])], 0.0),
             },
             "elevating": {"KSArmory_Subpart_Pods", "KSArmory_Subpart_Guns"},
             "parents": {"KSArmory_Subpart_Pods": "KSArmory_Subpart_Turret",
                         "KSArmory_Subpart_Guns": "KSArmory_Subpart_Turret",
                         "KSArmory_Subpart_Radar": "KSArmory_Subpart_Turret",
+                        "KSArmory_Subpart_OpticBase": "KSArmory_Subpart_Turret",
+                        "KSArmory_Subpart_OpticHead": "KSArmory_Subpart_OpticBase",
                         "KSArmory_Subpart_Turret": "KSArmory_Subpart_Chassis"},
         },
         {

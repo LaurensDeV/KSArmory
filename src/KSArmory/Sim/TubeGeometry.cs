@@ -210,6 +210,22 @@ public static class TubeGeometry
     }
 
     /// <summary>
+    /// A carried director's base, riding the traverse and nothing else.
+    ///
+    /// <para>The launcher's whole involvement with a director. The head above it is aimed by its
+    /// own drive against this pose, read back off the engine rather than passed along — so the
+    /// turret never learns it is carrying a sight, and the sight never learns it is on a
+    /// turret.</para>
+    /// </summary>
+    public static DrivePose OpticBasePose(LauncherProfile profile, double bearingRad)
+    {
+        doubleQuat traverse = TurretRotation(bearingRad);
+
+        return new DrivePose(profile.TurretPivot + traverse * profile.OpticBaseFromTurret,
+                             traverse);
+    }
+
+    /// <summary>
     /// The direction a sensor's boresight names, in the launcher part's own frame. False for
     /// <see cref="BoresightMode.LocalUp"/>, which depends on where the parent body is and so is not
     /// a part-frame direction at all — the caller resolves that one.

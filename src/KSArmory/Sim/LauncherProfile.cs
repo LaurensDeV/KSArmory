@@ -67,6 +67,18 @@ public sealed class LauncherProfile
     /// <summary>Cannon that elevate on their own trunnion. Null for a launcher with none.</summary>
     public string? GunsMarker { get; init; }
 
+    /// <summary>
+    /// An optical director's base, riding the traverse. Null for a launcher carrying none, which
+    /// is most of them.
+    ///
+    /// <para>The launcher's only interest in a director is <em>carrying</em> it: this is here so
+    /// the traverse writes the base's transform along with everything else that rides it. What the
+    /// head then does is none of the launcher's business — it reads where its base ended up and
+    /// aims itself, through its own <c>OpticProfile</c>. See <see cref="OpticGeometry.MountFrame"/>
+    /// for why that direction of dependency is the one that generalises.</para>
+    /// </summary>
+    public string? OpticBaseMarker { get; init; }
+
     // ---- Geometry, generated. See the class summary. ----
 
     /// <summary>Rounds carried, and the length of <see cref="Tubes"/>.</summary>
@@ -90,6 +102,9 @@ public sealed class LauncherProfile
 
     /// <summary>Where the search array's turntable sits relative to the turret's axis.</summary>
     public double3 RadarPivotFromTurret { get; init; }
+
+    /// <summary>Where a carried director's base sits relative to the turret's axis.</summary>
+    public double3 OpticBaseFromTurret { get; init; }
 
     /// <summary>Where the cannon trunnion sits relative to the turret's axis.</summary>
     public double3 GunPivotFromTurret { get; init; }

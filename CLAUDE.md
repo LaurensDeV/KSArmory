@@ -233,8 +233,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/MunitionProfile.cs` | one round: boost, guidance, fuse, warhead |
 | `Sim/Warhead.cs` | explosive charge to lethal, blast and fireball radius |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
-| `Sim/OpticProfile.cs` | one optical head — a part in its own right, not launcher gear |
-| `Sim/OpticGeometry.cs` | where a director's head sits, and how far down it can look |
+| `Sim/OpticProfile.cs` | one optical head — its own part, or one a launcher carries |
+| `Sim/OpticGeometry.cs` | where a director's head sits and how far down it looks, **measured from the base it rides** |
 | `Sim/OpticConfig.cs` | one director's own settings — where it looks, how far it zooms |
 | `Sim/Config.cs` | session-wide settings — team names, drawing, logging |
 | `Sim/SystemConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
@@ -1223,13 +1223,32 @@ correct, and the one picked flips as the aim creeps past, snapping the whole pic
 a turn. The roll is built about a *named* axis for the same reason at 180°: a shortest arc there
 picks a perpendicular that tips the aim off target, which is a wrecked bearing rather than a roll.
 
-**The head is its own part, and a launcher carries none.** `Ksa/OpticalHead.cs` is crewed per
-director fitted rather than per weapons system, finds its own targets through its own
+**The head is its own part, and a weapon is not what gives a craft one.** `Ksa/OpticalHead.cs` is
+crewed per director fitted rather than per weapons system, finds its own targets through its own
 `SensorProfile`, and needs no weapon on the craft at all — so a hull with one director on it is an
-observation post, and a Pantsir with none has no sight. That it cost nothing in the sight, the
-chase camera or the claim ladder is `IOpticalHead` earning its place: the interface was written
-when the head *was* launcher gear, and every consumer of it was already reading a role rather than
-a system.
+observation post. That it cost nothing in the sight, the chase camera or the claim ladder is
+`IOpticalHead` earning its place: the interface was written when the head *was* launcher gear, and
+every consumer of it was already reading a role rather than a system.
+
+**A launcher may still carry one, and the Pantsir does.** Its turret roof holds a director that is
+a second `OpticProfile` on the launcher's own part Id, instancing the same two bodies the standalone
+part uses. Nothing downstream can tell the difference: `OpticParts` finds it, `OpticalHead` crews
+it, and the sight neither knows nor asks that this one sits on a weapon. What the *launcher* knows
+is one subpart — `OpticBaseMarker` — which its traverse carries round with everything else that
+rides it.
+
+**A head reads where its base is; it never reconstructs it.** `Sim/OpticGeometry.MountFrame` is the
+base's pose as the engine has it, and every question a head asks — where its pivot is, where the
+eye sits, which way is up, how far down it may look — is asked in those terms. That is the whole
+reason a director can ride a traverse without either side learning about the other, and it is what
+a hinge, an arm or anything else not built yet gets for free. The alternative, handing the head its
+host's angle, works for exactly the one kind of host somebody taught it about.
+
+`MountFrame.Fixed` is a director bolted to a hull, and reduces all of it to the constants — so the
+common case pays nothing and the fallback when a base cannot be resolved is the ordinary answer
+rather than a guess. The ordering that makes it safe: the drive owning a mount writes it in
+`WeaponSystem.Update`, which `KSArmoryMod` runs before any head's `Update` and before anything
+draws.
 
 `ISightPicture` is what a weapon beside the head contributes to the picture — the arm state, the
 ammo, the gun's pipper. `Sight.Draw` takes it as **optional**, so an unarmed craft still gets the

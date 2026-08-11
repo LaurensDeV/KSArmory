@@ -246,7 +246,7 @@ def check_turret_launcher_geometry(profile, key, label):
                         ("TurretPivot", "turret_pivot"),
                         ("GunPivotFromTurret", "gun_pivot_from_turret"),
                         ("RadarPivotFromTurret", "radar_pivot_from_turret"),
-                        ("OpticPivotFromTurret", "eo_pivot_from_turret")):
+                        ("OpticBaseFromTurret", "optic_base_from_turret")):
         if name not in expected:
             continue
         checked += 1
@@ -489,7 +489,7 @@ def check_subpart_positions():
                   ("PodsMarker", "PodPivotFromTurret"),
                   ("GunsMarker", "GunPivotFromTurret"),
                   ("RadarMarker", "RadarPivotFromTurret"),
-                  ("OpticMarker", "OpticPivotFromTurret"))
+                  ("OpticBaseMarker", "OpticBaseFromTurret"))
 
     # Per part, not across the whole mod. LauncherPart.FindSubPart searches one launcher's own
     # subparts, so a marker only has to be unique within its part -- and with several launchers

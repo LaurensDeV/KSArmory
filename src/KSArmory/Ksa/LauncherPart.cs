@@ -108,6 +108,10 @@ internal static class LauncherPart
     public static Part? FindGuns(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.GunsMarker);
 
+    /// <summary>A carried director's base, which rides the traverse. Null for a launcher with none.</summary>
+    public static Part? FindOpticBase(Part launcher, LauncherProfile profile)
+        => FindSubPart(launcher, profile.OpticBaseMarker);
+
     /// <summary>
     /// Collects the round subparts, in declaration order, so tube N maps to the same body every
     /// time. There is one per tube, which is what lets a whole salvo be in the air at once.
@@ -607,6 +611,28 @@ internal static class LauncherPart
         catch (Exception e)
         {
             Log.Warn($"search array: could not write spin ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
+    /// <summary>Carries a director's base round with the traverse. Cosmetic to the launcher.</summary>
+    public static bool TryApplyOpticBase(Part opticBase, LauncherProfile profile, double turretBearingRad)
+    {
+        try
+        {
+            DrivePose pose = TubeGeometry.OpticBasePose(profile, turretBearingRad);
+            (double3 position, doubleQuat rotation) = (pose.Position, pose.Rotation);
+
+            opticBase.Asmb2ParentAsmb = rotation;
+            opticBase.Asmb2ParentAsmbSafe = rotation;
+            opticBase.PositionParentAsmb = position;
+            opticBase.PositionParentAsmbSafe = position;
+            opticBase.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"optic base: could not write pose ({e.GetType().Name}: {e.Message})");
             return false;
         }
     }

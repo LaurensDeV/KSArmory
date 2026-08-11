@@ -450,6 +450,29 @@
       </Transform>
     </SubPart>
 
+    <!--
+      The turret's own electro-optical director, instancing the same two bodies the standalone
+      part uses rather than modelling a second one. Appended last on purpose: KSA pairs a saved
+      part with its definition positionally, so adding to the end is free and removing anything
+      terminates the game on every save holding this part.
+
+      The base rides the traverse - the mod writes its transform each frame, like the pods, the
+      guns and the array - and the head reads wherever that put it. Neither position below is
+      where either body ends up in flight; they are the rest pose, and OPTIC_MOUNT in
+      tools/model/pantsir.py is what validate-parts.py checks them against.
+    -->
+    <SubPart Id="KSArmory_Launcher_OpticBase" InstanceOf="KSArmory_OpticBase_SubPart">
+      <Transform>
+        <Position X="3.46000" Y="-0.60000" Z="0.44000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_Launcher_OpticHead" InstanceOf="KSArmory_OpticHead_SubPart">
+      <Transform>
+        <Position X="4.09000" Y="-0.60000" Z="0.44000" />
+      </Transform>
+    </SubPart>
+
   </Part>
 
   <!--

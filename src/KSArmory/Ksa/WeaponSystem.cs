@@ -86,6 +86,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// <summary>The cannon, which pitch with the launcher. Null if this system carries none.</summary>
     public Part? GunsPart { get; private set; }
 
+    /// <summary>
+    /// A carried director's base, which rides the traverse. Null if this launcher carries none.
+    ///
+    /// <para>The whole of a launcher's involvement with a sight. What sits on top of it is an
+    /// <c>OpticalHead</c>, crewed separately and aiming itself; this system neither drives it nor
+    /// knows it is there.</para>
+    /// </summary>
+    public Part? OpticBasePart { get; private set; }
+
     /// <summary>The search array's current angle. Cosmetic - the radar model is a cone search.</summary>
     public double RadarSpinRad { get; private set; }
 
@@ -383,6 +392,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         PodsPart = Launcher is null ? null : LauncherPart.FindPods(Launcher, Profile);
         RadarPart = Launcher is null ? null : LauncherPart.FindRadar(Launcher, Profile);
         GunsPart = Launcher is null ? null : LauncherPart.FindGuns(Launcher, Profile);
+        OpticBasePart = Launcher is null ? null : LauncherPart.FindOpticBase(Launcher, Profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
         // After the launcher is resolved: the part-relative modes read the part's own mounting.
@@ -999,6 +1009,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             && !LauncherPart.TryApplyGunAim(GunsPart, Profile, Turret.BearingRad, Turret.ElevationRad))
         {
             Refuse(DriveChannel.Guns, "cannon elevation");
+        }
+
+        // A carried director's base, taken round by the traverse and given no aim of its own. The
+        // head above it reads this transform back rather than being handed the bearing, so it must
+        // be written before any head is updated — which is the order KSArmoryMod runs them in.
+        if (OpticBasePart is not null && _drives.Works(DriveChannel.Optic)
+            && !LauncherPart.TryApplyOpticBase(OpticBasePart, Profile, Turret.BearingRad))
+        {
+            Refuse(DriveChannel.Optic, "director base");
         }
 
         // The search array turns regardless of what the battery is doing - it is looking, not

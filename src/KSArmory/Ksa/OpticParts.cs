@@ -52,9 +52,36 @@ internal static class OpticParts
     public static Part? FindHead(Part director, OpticProfile profile)
         => FindSubPart(director, profile.HeadMarker);
 
-    /// <summary>The fixed flange and mast.</summary>
+    /// <summary>The flange and mast the head turns on.</summary>
     public static Part? FindBase(Part director, OpticProfile profile)
         => FindSubPart(director, profile.BaseMarker);
+
+    /// <summary>
+    /// Where the base has ended up, in the director part's frame.
+    ///
+    /// <para><b>Read off the engine rather than worked out.</b> Whatever carries the base — a
+    /// turret's traverse, a hinge, an arm — has already written this transform by the time a head
+    /// is driven, so taking it as found is what lets a head ride anything without being taught
+    /// what any of it is. Reconstructing the pose instead would mean naming the mover.</para>
+    ///
+    /// <para><see cref="MountFrame.Fixed"/> when there is no base subpart or the engine will not
+    /// answer, which is the pose a director bolted to a hull has anyway — so the fallback is the
+    /// common case rather than a guess.</para>
+    /// </summary>
+    public static MountFrame MountOf(Part director, OpticProfile profile)
+    {
+        try
+        {
+            return FindBase(director, profile) is { } mount
+                ? new MountFrame(mount.PositionParentAsmb, mount.Asmb2ParentAsmb)
+                : MountFrame.Fixed;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"optic mount: {e.Message}");
+            return MountFrame.Fixed;
+        }
+    }
 
     private static Part? FindSubPart(Part director, string? marker)
     {
@@ -87,11 +114,12 @@ internal static class OpticParts
     /// has stopped moving must not go on claiming to be on target, or the sight paints a settled
     /// bracket over a picture pointing somewhere else.</para>
     /// </summary>
-    public static bool TryApplyAim(Part head, OpticProfile profile, double3 aimPartFrame)
+    public static bool TryApplyAim(Part head, OpticProfile profile, MountFrame mount,
+                                   double3 aimPartFrame)
     {
         try
         {
-            DrivePose pose = OpticGeometry.Pose(profile, aimPartFrame);
+            DrivePose pose = OpticGeometry.Pose(profile, mount, aimPartFrame);
 
             head.Asmb2ParentAsmb = pose.Rotation;
             head.PositionParentAsmb = pose.Position;
@@ -117,12 +145,12 @@ internal static class OpticParts
     /// motion. See <c>docs/FRAMES-AND-EPOCHS.md</c>.</para>
     /// </summary>
     public static bool TryViewEcl(Vehicle platform, Part director, OpticProfile profile,
-                                  double3 aimPartFrame, double3 platformEcl,
+                                  MountFrame mount, double3 aimPartFrame, double3 platformEcl,
                                   out double3 eyeEcl, out double3 forwardEcl)
     {
         eyeEcl = forwardEcl = Vec.Zero;
 
-        double3 eyePartFrame = OpticGeometry.EyePartFrame(profile, aimPartFrame);
+        double3 eyePartFrame = OpticGeometry.EyePartFrame(profile, mount, aimPartFrame);
 
         if (!LauncherPart.TryPartPointEcl(platform, director, eyePartFrame, platformEcl, out eyeEcl))
         {

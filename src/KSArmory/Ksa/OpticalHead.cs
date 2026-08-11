@@ -44,6 +44,18 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// <summary>The gimballed head. <see cref="IOpticalHead.OpticPart"/> is this.</summary>
     public Part? OpticPart { get; private set; }
 
+    /// <summary>
+    /// Where the base is, now. <see cref="MountFrame.Fixed"/> for a director bolted to a hull,
+    /// and wherever a traverse or a hinge has carried it for one that rides something.
+    ///
+    /// <para>Read through to the part on every use rather than cached, so there is no stale copy
+    /// to reason about. That is safe because exactly one thing writes a mount — the drive that
+    /// owns it, from <c>WeaponSystem.Update</c> — and that runs before every head's
+    /// <see cref="Update"/> and before anything draws. Reads either side of it all agree.</para>
+    /// </summary>
+    public MountFrame Mount
+        => Director is { } director ? OpticParts.MountOf(director, Profile) : MountFrame.Fixed;
+
     /// <summary>Its own set. A director is a sensor in its own right, not a weapon's eye.</summary>
     public Radar Radar { get; } = new(config, policy);
 
@@ -145,11 +157,11 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // The travel again, on what the drive actually reached. Clamping only the command leaves
         // the head free to take the shortest rotation between two legal directions, and between
         // opposite bearings at low elevation that arc goes straight through the mast.
-        _drive.Hold(OpticGeometry.ClampToTravel(Profile, _drive.Direction));
+        _drive.Hold(OpticGeometry.ClampToTravel(Profile, Mount, _drive.Direction));
 
         if (OpticPart is not { } head || !_driveWorks) return;
 
-        if (!OpticParts.TryApplyAim(head, Profile, _drive.Direction))
+        if (!OpticParts.TryApplyAim(head, Profile, Mount, _drive.Direction))
         {
             _driveWorks = false;
             Log.Warn("optic: the engine refused the head's transform; it is frozen where it stopped");
@@ -180,7 +192,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         if (Platform is not { } platform || Director is not { } director) return false;
 
-        if (!OpticParts.TryViewEcl(platform, director, Profile, _drive.Direction, platformEcl,
+        if (!OpticParts.TryViewEcl(platform, director, Profile, Mount, _drive.Direction, platformEcl,
                                            out eyeEcl, out forwardEcl))
         {
             return false;
@@ -214,13 +226,13 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         if (_policy.MouseAim)
         {
             return TryCursorAimPartFrame(out double3 cursorFrame)
-                ? OpticGeometry.ClampToTravel(Profile, cursorFrame)
+                ? OpticGeometry.ClampToTravel(Profile, Mount, cursorFrame)
                 : _drive.Direction;
         }
 
         if (_policy.Manual)
         {
-            return OpticGeometry.ClampToTravel(Profile, ManualAim());
+            return OpticGeometry.ClampToTravel(Profile, Mount, ManualAim());
         }
 
         if (!_policy.Tracking || Platform is not { } platform || Director is null) return rest;
@@ -230,7 +242,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // which is the same correction for the same reason.
         if (Radar.Locked is not { } locked) return rest;
 
-        if (!LauncherPart.TryPartPointEcl(platform, Director, Profile.HeadPivot, PlatformEcl,
+        if (!LauncherPart.TryPartPointEcl(platform, Director, Mount.ToPart(Profile.HeadPivot), PlatformEcl,
                                           out double3 pivotEcl))
         {
             return rest;
@@ -244,7 +256,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         return LauncherPart.TryDirectionToPartFrame(platform, Director, targetEcl - pivotEcl,
                                                     out double3 partFrame)
-            ? OpticGeometry.ClampToTravel(Profile, partFrame)
+            ? OpticGeometry.ClampToTravel(Profile, Mount, partFrame)
             : rest;
     }
 
@@ -292,7 +304,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
                                                    Math.Max(1f, halfHeight - _policy.MouseDeadZonePx));
         }
 
-        if (!LauncherPart.TryPartPointEcl(platform, director, Profile.HeadPivot, PlatformEcl,
+        if (!LauncherPart.TryPartPointEcl(platform, director, Mount.ToPart(Profile.HeadPivot), PlatformEcl,
                                           out double3 pivotEcl))
         {
             return false;
@@ -322,7 +334,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         if (_policy.StabiliseHorizon) return Boresight;
 
-        double3 headUp = OpticGeometry.Rotation(_drive.Direction) * OpticGeometry.MountNormal;
+        double3 headUp = OpticGeometry.Rotation(Mount, _drive.Direction) * OpticGeometry.MountNormal;
 
         return Director is { } director
                && LauncherPart.TryLauncherDirectionEcl(platform, director, headUp, out double3 ecl)
@@ -337,7 +349,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         if (Platform is not { } platform) return SensorBoresight;
 
         if (Director is { } director
-            && LauncherPart.TryLauncherDirectionEcl(platform, director, OpticGeometry.MountNormal,
+            && LauncherPart.TryLauncherDirectionEcl(platform, director, Mount.Normal,
                                                     out double3 ecl))
         {
             return ecl;

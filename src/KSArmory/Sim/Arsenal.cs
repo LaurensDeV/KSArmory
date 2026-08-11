@@ -321,6 +321,7 @@ public static class Arsenal
         PodsMarker = "Pods",
         RadarMarker = "Radar",
         GunsMarker = "Guns",
+        OpticBaseMarker = "Launcher_OpticBase",
 
         // Generated: muzzle of each tube in the pods' frame, in firing order. The Pantsir's tubes
         // are a parallel block, so none declares a direction of its own and they all follow the
@@ -344,6 +345,7 @@ public static class Arsenal
         TurretPivot = new(0.00000, -1.42000, 0.00000),
         PodPivotFromTurret = new(2.62000, -0.63000, 0.00000),
         RadarPivotFromTurret = new(4.05000, -1.10000, 0.00000),
+        OpticBaseFromTurret = new(3.46000, 0.82000, 0.44000),
         GunPivotFromTurret = new(3.70000, 0.07000, 0.00000),
         GunReferenceElevationRad = 0.38397,          // 22 degrees
 
@@ -550,6 +552,35 @@ public static class Arsenal
         MaxElevationDeg = 85f,
     };
 
+    /// <summary>
+    /// The Pantsir's own director, on its turret roof.
+    ///
+    /// <para>The same instrument as <see cref="EoDirector"/> — same bodies, same sensor, same
+    /// travel — differing only in which part carries it and which subparts are its own. A second
+    /// <c>OpticProfile</c> rather than a flag on the launcher, because that is what makes it a
+    /// director at all: <c>OpticParts</c> finds it, <c>OpticalHead</c> crews it, and the sight, the
+    /// chase camera and the claim ladder never learn that this one sits on a weapon.</para>
+    ///
+    /// <para><see cref="OpticProfile.HeadPivot"/> is identical to the standalone's because it is an
+    /// offset from the <em>base</em> rather than a point in the part. Where the base has got to is
+    /// read off the engine each frame — see <see cref="MountFrame"/> — which is why riding a
+    /// traverse needs nothing here at all.</para>
+    /// </summary>
+    public static readonly OpticProfile PantsirDirector = new()
+    {
+        PartId = "KSArmory_Prefab_Launcher6",
+        DisplayName = "1TPP1 director",
+        Sensor = EoSensor.Name,
+
+        BaseMarker = "Launcher_OpticBase",
+        HeadMarker = "Launcher_OpticHead",
+
+        HeadPivot = new(0.63000, 0.00000, 0.00000),
+        EyeForward = 0.300f,
+        MinElevationDeg = -20f,
+        MaxElevationDeg = 85f,
+    };
+
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1, SidewinderRail, Ciws, BombRack];
@@ -558,9 +589,11 @@ public static class Arsenal
     public static readonly IReadOnlyList<SensorProfile> Sensors =
         [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight, EoSensor];
 
-    /// <summary>Optical heads, which are parts in their own right rather than launcher gear.</summary>
-    ///
-    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector];
+    /// <summary>
+    /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
+    /// nothing downstream can tell which is which.
+    /// </summary>
+    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector, PantsirDirector];
 
     /// <summary>
     /// The parts this mod recognises on a craft it did not design, keyed by part Id.
@@ -590,6 +623,10 @@ public static class Arsenal
                 new(WeaponRole.Sensor, SearchRadar1Rs1.DisplayName),
                 new(WeaponRole.Gun, Cannon30Mm.DisplayName),
                 new(WeaponRole.FireControl, "Pantsir-S1 fire control"),
+
+                // The director on its turret roof, which is subpart gear rather than a part a
+                // survey could find on its own -- exactly what Provides is for.
+                new(WeaponRole.Camera, PantsirDirector.DisplayName),
             ],
         },
         new ComponentProfile

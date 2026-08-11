@@ -326,7 +326,19 @@ zero against a mesh modelled at 22° is a 22° error nothing reports.
 **Not done, deliberately, and the third level should not be built at all yet.** Every mount costed
 so far — naval, howitzer, mortar, remote weapon station — is traverse-then-elevate or does not
 articulate, so the chain-walking record would ship ahead of its first instance, which is the
-pattern `docs/AUDIT-2026-08.md` names. What *is* earned is per-channel
+pattern `docs/AUDIT-2026-08.md` names.
+
+**One passenger already generalises, and it is worth seeing why it did not need any of the above.**
+The Pantsir's director rides the traverse, and neither the launcher nor the head composes the
+other's motion: the traverse writes the base's transform along with everything else riding it, and
+the head *reads* that transform through `Sim/OpticGeometry.MountFrame`. So the coupling is a pose
+in the engine rather than a call between two systems, and it does not care what moved the base or
+how many joints away it was — a hinge, an arm, or a chain nobody has built yet all work unchanged.
+
+That is the cheap half of the chain-walking record, available without it: a passenger reading its
+parent's finished pose needs no model of the chain, where a passenger *driven* from the chain needs
+the whole thing. Reach for the record when something has to be **positioned** through several
+joints; a passenger that can ask where it ended up does not. What *is* earned is per-channel
 elevation (a `TraverseDrive` plus N `ElevationDrive`s, with per-channel `IsLaid`): two real
 trunnions exist and share one angle. It is still a restructuring of the region where a mistake
 shows up only in flight, so it wants a flight after it and should follow `docs/BATTERY-SPLIT.md`

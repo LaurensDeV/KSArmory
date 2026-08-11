@@ -259,10 +259,10 @@ public class ArsenalTests
         Assert.Equal(1, inv.CountOf(WeaponRole.Sensor));
         Assert.Equal(1, inv.CountOf(WeaponRole.Gun));
 
-        // No camera. The head is its own part now, so a Pantsir on its own has no sight and the
-        // survey has to say so -- a declared role it no longer carries would be a launcher
-        // claiming gear a player has not fitted.
-        Assert.Equal(0, inv.CountOf(WeaponRole.Camera));
+        // The director on its turret roof. Declared rather than found, because it is a subpart of
+        // the launcher and the survey only walks parts -- which is the whole reason Provides
+        // exists. A standalone director fitted beside it is found on its own and counts again.
+        Assert.Equal(1, inv.CountOf(WeaponRole.Camera));
         Assert.Equal(1, inv.CountOf(WeaponRole.FireControl));
     }
 
