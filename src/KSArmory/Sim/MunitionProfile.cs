@@ -88,10 +88,11 @@ public sealed class MunitionProfile
     /// </summary>
     ///
     /// <remarks>
-    /// Empty for a single-stage round, which is every round the mod ships. A booster and a
-    /// sustainer are genuinely different accelerations for different durations, and averaging them
-    /// into one gets the burnout speed roughly right and the trajectory wrong: the 57E6 is a
-    /// two-stage missile and is described as one in this file while being flown as a single burn.
+    /// Empty for a single-stage round, which is every round the mod ships. Two <i>powered</i>
+    /// stages are genuinely different accelerations for different durations, and averaging them
+    /// into one gets the burnout speed roughly right and the trajectory wrong. The 57E6 is not
+    /// that case: its second stage carries no motor, so a hard burn and then a coast is the round
+    /// it actually is.
     ///
     /// Kept separate from <see cref="BoostSeconds"/> rather than folding the first stage in, so
     /// every profile that does not care reads exactly as it did.

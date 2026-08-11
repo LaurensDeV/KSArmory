@@ -18,17 +18,20 @@ rename deletes the file it names. A symbol survives edits above it, and `grep` f
 
 ### Different rounds — genuinely there
 
-`Interceptor` never names a munition. Every number arrives as a `MunitionProfile` argument per
-`Update`, and there is exactly **one** branch on round type in the whole flight model:
+The flight model names no munition. Every number arrives as a `MunitionProfile` argument per
+`Update`, and `Interceptor.SeekerInView` is the only place round type reaches the maths. Boost,
+drag, nav constant, fuse, blast, body mesh and fin timing are all profile fields; bodies and fins
+resolve by `BodyMarker` / `FinMarker`, so a new round brings its own meshes with no code change.
+Profiles are mutable fields read *by reference* every frame, which is what makes live panel tuning
+work.
 
-```csharp
-SeekerInView = munition.Guidance == GuidanceMode.CommandLink || /* seeker cone check */;
-```
-
-`Interceptor.SeekerInView`. Boost, drag, nav constant, fuse, blast, body mesh and fin timing are all
-profile fields; bodies and fins resolve by `BodyMarker` / `FinMarker`, so a new round brings its own
-meshes with no code change. Profiles are mutable fields read *by reference* every frame, which is
-what makes live panel tuning work.
+**The wiring that hands a round its profile does not hold, and the parameterisation is what hides
+it.** `Interceptor.Munition` carries a default, `WeaponSystem.Commit` sets it on the `Slug` branch
+and not on the `Interceptor` branch, and that construction site is the only one in production. So
+every guided round flies the default profile whatever launcher fired it. No test can see it,
+because `Interceptor.Update` takes the profile as a parameter and every test passes one explicitly;
+only `WeaponSystem` reads the field. Diagnosed from the source and not flown, so it is a diagnosis
+rather than a fix. `docs/WEAPON-TAXONOMY.md` has the measured consequence for the AIM-9J.
 
 The limit is the *class* of weapon, not the round. `Interceptor` is one concrete type with a
 hardwired integrate → guide → fuse loop, so a second class of weapon is a second implementation of
@@ -43,8 +46,8 @@ flamethrower. See *What the architecture genuinely cannot express* below.
 ### Different launchers — modular in count, rigid in articulation
 
 Discovery is `Arsenal.LauncherForPart(part.Id)` (`LauncherPart.Find`); nothing hardcodes an
-Id. Tube count is fully derived — `Magazine`, the `stackalloc` in `WeaponSystem.Fire` and
-the body sync all size off `profile.TubeCount`, and `WeaponSystem.SampleWorld` re-sizes the
+Id. Tube count is fully derived — `Magazine` and the `stackalloc` in `WeaponSystem.SyncRoundBodies`
+both size off `profile.TubeCount`, and `WeaponSystem.SampleWorld` re-sizes the
 magazine when a *different* profile is recognised. A non-training launcher (`TurretMarker = null`)
 is a supported shape.
 
@@ -134,7 +137,8 @@ right design, and its failure mode is a body of *pure* logic sitting on the wron
 disproportionately the logic the changes above rewrite.
 
 That logic is lifted into `Sim/`, the same way `FireGeometry` came out of `LauncherPart`, and the
-`Ksa/` side keeps only the property writes. The extraction is worth **117 → 203 tests**.
+`Ksa/` side keeps only the property writes. The extraction was worth **117 → 203 tests** when it
+landed, and the suite has grown to 749 since.
 
 | Was stranded in `Ksa/` | Now | Tested by |
 | --- | --- | --- |
@@ -250,12 +254,16 @@ The gap is what it shoots *at*: see below.
 
 ### What the architecture genuinely cannot express
 
-**Nothing upstream of a round can name a coordinate.** `Sim/Aimpoint.cs` covers the half of this
-that matters for the *round* — it can be aimed at a craft, a component or a point, and the
-designator proves it. What has not moved is the path that produces one: `Track` is a
-`required Vehicle`, `Radar.Scan` builds only from loaded vehicles, and the fire-control entry
-points refuse without a lock. A howitzer or an MLRS wants a target that was never a craft, and
-that is a retype across `Radar`, `Track`, `WeaponSystem` and `Ui` rather than a profile field.
+**Nothing can be engaged automatically unless it is a craft the set has locked.** The retype this
+entry used to call for has landed: `Track.Contact` is a `required IContact`, `Radar.Scan` takes
+contacts rather than vehicles and `Radar.Consider` knows nothing about the difference, and
+`Sim/Aimpoint.cs` plus `WeaponSystem.FireAt` and `Designator` let a round be aimed at a craft, a
+component, a point or a place on the ground.
+
+What remains is narrower and sits entirely in fire control: `Holding()` answers "no lock" and
+`UpdateFireControl` returns before firing, so a coordinate can only be shot at by hand. A howitzer
+or an MLRS wants to engage one unattended, and that is a change to the auto-engage ladder rather
+than a retype.
 
 **Continuous-effect weapons have no home.** `IProjectile` is a discrete object with a position, a
 flight and a fuse. A laser has no flight time, a flamethrower has no discrete round. Those need a
@@ -318,8 +326,9 @@ does work still touches eight places across `Sim/`, `Ksa/`, the XML, the Blender
 validator.
 
 The shape that fixes it is one record — marker, pivot-from-parent, axis, reference angle, parent
-index — with a `PoseOf` that walks the chain, collapsing four `Find*`, four `TryApply*Aim`, three
-`*Pose` wrappers and ten profile fields. It also removes a silent failure by construction: a
+index — with a `PoseOf` that walks the chain, collapsing five `Find*`, five `TryApply*`, four
+`*Pose` wrappers and twelve profile fields, the counts having grown by one apiece when
+`OpticBaseMarker` landed. It also removes a silent failure by construction: a
 profile can currently declare `GunsMarker` and omit `GunReferenceElevationRad`, and the default of
 zero against a mesh modelled at 22° is a 22° error nothing reports.
 
