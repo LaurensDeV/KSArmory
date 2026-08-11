@@ -432,6 +432,7 @@ public static class Arsenal
         DisplayName = "Mk 82 bomb rack",
         Munition = "MK82",
         Sensor = "BOMBSIGHT",
+        TubeArmamentLabel = "Bombs",
         Tubes = [new(new(0.40650, 1.11000, 0.00000), new(0, 1, 0))],
         MuzzleForwardOffset = 0.407,
         LaunchAlongTube = true,
