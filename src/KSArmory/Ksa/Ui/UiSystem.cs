@@ -178,7 +178,14 @@ internal sealed partial class Ui
     }
 
     // A provided row belongs to whichever part declared it, and only the crewed part's provided
-    // rows describe the running system. Matched on the profile's own sensor and gun names.
+    // rows describe the running system.
+    //
+    // Both sides resolve through the registry, and they have to: a provided row is declared as a
+    // profile's DisplayName, so anything else compared against it is a second name for one thing.
+    // The gun arm read Armament.Label instead -- which is the belt's *heading*, "Cannon", against a
+    // row called "2A38M 30 mm cannon". Those never matched, so every Pantsir reported a working
+    // cannon as "fitted, not run" on a craft with one launcher and nothing else going on. Fire
+    // control never consulted this, so the gun fired throughout and only the panel lied.
     private bool IsCrewedProvider(FoundComponent c)
     {
         if (string.Equals(c.DisplayName, Arsenal.SensorNamed(_profile.Sensor).DisplayName,
@@ -187,8 +194,7 @@ internal sealed partial class Ui
             return true;
         }
 
-        return _fit.FirstOf(ArmamentKind.Belt) is { } gun
-               && string.Equals(c.DisplayName, gun.Label, StringComparison.Ordinal);
+        return _fit.Describes(ArmamentKind.Belt, c.DisplayName);
     }
 
     // Everything about releasing a weapon, on the part that decides it.

@@ -313,4 +313,77 @@ public class ArsenalTests
                         + "launcher, but no LauncherProfile has that part Id");
         }
     }
+
+    /// <summary>
+    /// A provided row is declared as a profile's DisplayName, and the panel decides whether that row
+    /// belongs to the crewed system by matching it back against the profile the system is running.
+    /// So the two have to be the same string, resolved from the same registry — anything else is a
+    /// second name for one thing, and it fails silently in the only place nobody can unit-test.
+    ///
+    /// <para>It did. Every Pantsir reported its working cannon as "fitted, not run", because the
+    /// panel compared a row called "2A38M 30 mm cannon" against <c>Armament.Label</c>, which is the
+    /// belt's heading — "Cannon". Fire control never read it, so the gun fired throughout and only
+    /// the panel lied.</para>
+    /// </summary>
+    [Fact]
+    public void EveryProvidedGunAndSensorRowNamesTheProfileItsSystemRuns()
+    {
+        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        {
+            ComponentProfile? component = null;
+            for (int i = 0; i < Arsenal.Components.Count; i++)
+            {
+                if (Arsenal.Components[i].PartId == launcher.PartId
+                    && Arsenal.Components[i].Role == WeaponRole.Launcher)
+                {
+                    component = Arsenal.Components[i];
+                }
+            }
+
+            Assert.NotNull(component);
+
+            WeaponFit fit = WeaponFit.Of(launcher, Arsenal.SensorNamed(launcher.Sensor));
+
+            foreach (BuiltInComponent provided in component!.Provides)
+            {
+                if (provided.Role == WeaponRole.Sensor)
+                {
+                    Assert.Equal(Arsenal.SensorNamed(launcher.Sensor).DisplayName, provided.DisplayName);
+                }
+                else if (provided.Role == WeaponRole.Gun)
+                {
+                    Assert.True(fit.FirstOf(ArmamentKind.Belt) is not null,
+                        $"{launcher.DisplayName} declares a Gun row and its fit carries no belt");
+
+                    // The question the panel asks, asked here where it can be checked.
+                    Assert.True(fit.Describes(ArmamentKind.Belt, provided.DisplayName),
+                        $"{launcher.DisplayName}'s Gun row is called '{provided.DisplayName}', "
+                        + "which its own fit does not recognise -- the panel will report a working "
+                        + "gun as 'fitted, not run'");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The heading a belt is displayed under is not its identity. <c>Armament.Label</c> is
+    /// "Cannon"; the row naming that armament is "2A38M 30 mm cannon". Matching on the first is
+    /// what made every Pantsir report its gun as not run.
+    /// </summary>
+    [Fact]
+    public void AFitDoesNotRecogniseItsArmamentByTheHeadingItIsListedUnder()
+    {
+        WeaponFit fit = WeaponFit.Of(Arsenal.PantsirS1, Arsenal.SearchRadar1Rs1);
+        Armament belt = fit.FirstOf(ArmamentKind.Belt)!.Value;
+
+        Assert.True(fit.Describes(ArmamentKind.Belt, Arsenal.Cannon30Mm.DisplayName));
+
+        // The two are different strings, and only one of them identifies the armament.
+        Assert.NotEqual(belt.Label, Arsenal.Cannon30Mm.DisplayName);
+        Assert.False(fit.Describes(ArmamentKind.Belt, belt.Label));
+
+        // A launcher with no belt recognises nothing, rather than matching on a null.
+        WeaponFit rail = WeaponFit.Of(Arsenal.SidewinderRail, Arsenal.SeekerHeadAim9);
+        Assert.False(rail.Describes(ArmamentKind.Belt, Arsenal.Cannon30Mm.DisplayName));
+    }
 }

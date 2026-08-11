@@ -123,6 +123,22 @@ public sealed class WeaponFit
     public int SalvoCapacity => FirstOf(ArmamentKind.Tubes)?.Capacity ?? 0;
 
     /// <summary>The first armament of a kind, or null when none of that kind is fitted.</summary>
+    /// <summary>
+    /// Whether a row named <paramref name="displayName"/> describes this fit's armament of that
+    /// kind — which is how a panel tells a crewed part's row from a second part's.
+    ///
+    /// <para>Here rather than in the panel because it is the only part of that question that can be
+    /// tested, and it is the part that was wrong: a provided row is declared as a
+    /// <em>munition's</em> DisplayName, so it has to be matched against the munition, resolved from
+    /// the registry. Matching <see cref="Armament.Label"/> compares it to the belt's heading —
+    /// "Cannon" against "2A38M 30 mm cannon" — which never agrees, and reports a working gun as
+    /// not run.</para>
+    /// </summary>
+    public bool Describes(ArmamentKind kind, string displayName)
+        => FirstOf(kind) is { } arm
+           && string.Equals(Arsenal.MunitionNamed(arm.Munition).DisplayName, displayName,
+                            StringComparison.Ordinal);
+
     public Armament? FirstOf(ArmamentKind kind)
     {
         for (int i = 0; i < Armaments.Count; i++)
