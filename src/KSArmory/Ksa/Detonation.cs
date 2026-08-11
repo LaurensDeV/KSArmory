@@ -153,12 +153,76 @@ internal static class Detonation
     /// <param name="scale">Multiplies particle size and speed, so a bigger warhead looks bigger.</param>
     public static void Show(string emitterId, double3 burstEcl, Vehicle? near, float scale = 1f)
     {
+        // A large charge is drawn as several bursts spread through the ball rather than one burst
+        // with everything about it multiplied.
+        //
+        // Scaling one emitter does not add a single particle: the authored cloud has the count it
+        // has, so at 25x each particle is 25x across and the result is a handful of enormous blobs
+        // with gaps between them. What reads as a big explosion is *more* particles filling a
+        // volume, and the only way to get more from a fixed emitter is more emitters.
+        //
+        // Each stays at a size that still looks like a particle, and the count makes up the volume.
+        float per = Math.Min(scale, ModerateScale);
+        int count = scale <= ModerateScale
+                        ? 1
+                        : Math.Clamp((int)Math.Round(Math.Pow(scale / per, 2.0)), 2, MaxBursts);
+
+        if (count > 1)
+        {
+            ShowSpread(emitterId, burstEcl, near, per, count, ReferenceFireballMetres * scale);
+            return;
+        }
+
         string why = TryShow(emitterId, burstEcl, near, scale);
         if (why.Length == 0) return;
 
         // A silent refusal is indistinguishable from a wrong frame, a disabled renderer and a
         // warhead that never went off: all four are "no explosion". Say which, once per reason.
         if (_reported.Add(why)) Log.Warn($"no burst ({emitterId}): {why}");
+    }
+
+    // Largest a single burst is drawn at before the answer is more of them instead.
+    private const float ModerateScale = 6f;
+
+    // Most emitters one burst may take. They come from a shared pool, so a warhead that grabs
+    // dozens starves every other effect in the world -- the trade MotorPlume already names.
+    private const int MaxBursts = 12;
+
+    // The authored emitter's own fireball radius, which is what one unit of scale is.
+    private static readonly double ReferenceFireballMetres =
+        Warhead.FireballRadius(Warhead.ReferenceChargeKg);
+
+    // Spread through the ball on a golden-angle spiral: deterministic, so the same burst looks the
+    // same twice, and even, which a random scatter is not at these counts -- clumps and a bare
+    // patch read as a mistake rather than as an explosion.
+    private static void ShowSpread(string emitterId, double3 burstEcl, Vehicle? near,
+                                   float scale, int count, double radius)
+    {
+        string first = "";
+
+        for (int i = 0; i < count; i++)
+        {
+            double3 at = burstEcl;
+
+            if (i > 0)
+            {
+                double t = (i + 0.5) / count;
+                double z = 1.0 - (2.0 * t);
+                double ring = Math.Sqrt(Math.Max(0.0, 1.0 - (z * z)));
+                double phi = i * 2.399963;                       // golden angle, radians
+
+                // Nearer the middle than the skin, so the ball has a dense core and a soft edge
+                // instead of reading as a hollow shell.
+                double out2 = radius * 0.55 * Math.Cbrt(t);
+
+                at += new double3(ring * Math.Cos(phi), ring * Math.Sin(phi), z) * out2;
+            }
+
+            string why = TryShow(emitterId, at, near, scale);
+            if (why.Length > 0 && first.Length == 0) first = why;
+        }
+
+        if (first.Length > 0 && _reported.Add(first)) Log.Warn($"no burst ({emitterId}): {first}");
     }
 
     private static readonly HashSet<string> _reported = [];
@@ -210,8 +274,17 @@ internal static class Detonation
 
                 if (Math.Abs(scale - 1f) > 1e-3f)
                 {
+                    // Size and spawn radius take the whole factor -- that is what makes a big
+                    // warhead look big. Velocity deliberately does not.
+                    //
+                    // Driving all three together is what made a large charge read as broken rather
+                    // than as large: at 25x the particles leave faster than the eye can follow and
+                    // the ball is gone before it forms. It is also the wrong physics. Fireball
+                    // radius goes as the cube root of yield, but a larger fireball takes longer to
+                    // grow, so its expansion speed rises far more slowly than its size. Big and
+                    // slow is what an explosion looks like from far enough away to survive it.
                     emitter.ParticleInfo.Size *= scale;
-                    emitter.ParticleInfo.Velocity *= scale;
+                    emitter.ParticleInfo.Velocity *= MathF.Cbrt(scale);
                     emitter.EmitterSpawnInfo.Radius *= scale;
                 }
 
@@ -248,7 +321,8 @@ internal static class Detonation
     // The body to hang the effect on: whatever the craft nearest the burst is bound to, falling
     // back to the craft being flown. Both are within a physics bubble of the burst, which is the
     // only accuracy this needs.
-    private static Celestial? BodyFor(Vehicle? near)
+    /// <summary>Which body to hang an effect on, given something near it.</summary>
+    internal static Celestial? BodyFor(Vehicle? near)
     {
         if (KsaWorld.IsAlive(near) && near!.Parent is Celestial body) return body;
         if (KsaWorld.ControlledVehicle?.Parent is Celestial fallback) return fallback;

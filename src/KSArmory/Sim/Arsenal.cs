@@ -228,6 +228,57 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// A B61-pattern tactical nuclear bomb, at its lowest selectable yield.
+    ///
+    /// <para><b>The only thing nuclear about it is one number.</b> <see cref="Warhead"/> derives
+    /// reach from <see cref="MunitionProfile.ChargeKg"/> by the cube root, and nuclear airblast
+    /// genuinely scales that way, so 0.3 kt of TNT equivalent gives about 490 m lethal and 1.5 km
+    /// of blast with no special case anywhere. Everything else here is the Mk 82's, because a bomb
+    /// is a bomb: it is released, it falls, the ground stops it.</para>
+    ///
+    /// <para>The yield is the dial. Real B61 settings run from 0.3 kt to 340 kt, and the top of
+    /// that is a 7.8 km lethal radius, which in this game is most of a launch site's horizon —
+    /// playable is a different question from real, and this ships at the bottom of the range.</para>
+    ///
+    /// <para>It is drawn far smaller than it kills, which is deliberate and unavoidable: see
+    /// <see cref="Warhead.MaximumEffectScale"/>.</para>
+    /// </summary>
+    public static readonly MunitionProfile NukeB61 = new()
+    {
+        Name = "B61",
+        DisplayName = "B61 tactical bomb",
+
+        // The Mk 82's body, instanced again rather than modelled: at this range a free-fall bomb
+        // is a bomb-shaped object, and the shape is not what anyone will be looking at.
+        //
+        // The marker is this rack's own subpart, not the Mk 82's. It is matched against the
+        // subparts of whichever part the launcher resolved, so naming the other rack's body
+        // resolves nowhere and the bomb is released invisibly.
+        BodyMarker = "B61",
+        BodyLength = 2.22f,
+
+        Guidance = GuidanceMode.None,
+
+        LaunchSpeed = 4f,
+        BoostSeconds = 0f,
+        BoostAccel = 0f,
+
+        MinRange = 0f,
+        MaxRange = 20000f,
+        MaxFlightSeconds = 120f,
+
+        DragK = 1.25e-4f,
+        FuseRadius = 0f,
+
+        // Longer than the Mk 82's, and for a reason that is not the same: at 490 m lethal the thing
+        // that has to be cleared is not the wing but the blast.
+        FuseArmSeconds = 4f,
+
+        ChargeKg = 300_000f,
+        HitsTerrain = true,
+    };
+
+    /// <summary>
     /// The 1RS1-1E search set, with the engagement envelope of the system it feeds.
     ///
     /// <para>Detection reaches much further than the round flies — 36 km against 20 km — so the
@@ -448,6 +499,34 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// The same ejector rack carrying a B61 instead.
+    ///
+    /// <para><b>A separate part because a launcher names one round.</b>
+    /// <see cref="LauncherProfile.Munition"/> is a single key, so a rack cannot be given a choice
+    /// of store the way a real one has — the loadout is the part. That is the honest cost of the
+    /// magazine being homogeneous, and it is the first weapon here that wanted otherwise.</para>
+    ///
+    /// <para>Its geometry is the Mk 82 rack's, from the same <c>muzzles.json</c> block, because it
+    /// instances the same two bodies. Nothing is modelled twice.</para>
+    /// </summary>
+    public static readonly LauncherProfile NukeRack = new()
+    {
+        PartId = "KSArmory_Prefab_NukeRack",
+        DisplayName = "B61 bomb rack",
+        Munition = "B61",
+        Sensor = "BOMBSIGHT",
+        TubeArmamentLabel = "Bombs",
+        Tubes = [new(new(0.40650, 1.11000, 0.00000), new(0, 1, 0))],
+        MuzzleForwardOffset = 0.407,
+        LaunchAlongTube = true,
+        EjectAwayFromMount = 1.2f,
+        LaunchLoft = 0f,
+        MuzzleOffset = 2f,
+        ReloadSeconds = 0f,
+        SettleSeconds = 0f,
+    };
+
+    /// <summary>
     /// Mk 15 Phalanx: a gun and nothing else, on a 3 m stack node.
     ///
     /// <para><b>The one launcher here that carries no missiles at all.</b> <c>Tubes</c> is empty,
@@ -584,9 +663,9 @@ public static class Arsenal
 
     // ---- Registry -------------------------------------------------------
 
-    public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1, SidewinderRail, Ciws, BombRack];
+    public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1, SidewinderRail, Ciws, BombRack, NukeRack];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
-        [Missile57E6, Cannon30Mm, Missile9J, Cannon20Mm, BombMk82];
+        [Missile57E6, Cannon30Mm, Missile9J, Cannon20Mm, BombMk82, NukeB61];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
         [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight, EoSensor];
 
@@ -681,6 +760,17 @@ public static class Arsenal
             [
                 new(WeaponRole.Sensor, BombSight.DisplayName),
                 new(WeaponRole.FireControl, "Mk 82 release"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = NukeRack.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = NukeRack.DisplayName,
+            Provides =
+            [
+                new(WeaponRole.Sensor, BombSight.DisplayName),
+                new(WeaponRole.FireControl, "B61 release"),
             ],
         },
     ];

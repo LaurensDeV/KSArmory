@@ -57,15 +57,33 @@ public static class Warhead
     public const double MinimumEffectScale = 0.6;
 
     /// <summary>
+    /// Largest an effect is drawn at, whatever the charge, for the mirror of the reason there is a
+    /// floor.
+    ///
+    /// <para>What runs away at size is the particle <em>speed</em>, not the size, and
+    /// <c>Detonation</c> holds that back separately — so this only has to stop the particles
+    /// themselves growing into sheets. A tactical device sits under it; a megaton would be 391x and
+    /// does not.</para>
+    ///
+    /// <para>A large burst is still drawn smaller than it kills, and always will be: 40x of a 20 kg
+    /// emitter is a few hundred metres against a lethal radius measured in kilometres. The damage
+    /// radii are the weapon and this is decoration, and KSA offers no second emitter to grow
+    /// into.</para>
+    /// </summary>
+    public const double MaximumEffectScale = 40.0;
+
+    /// <summary>
     /// What to multiply the authored effect by so it reads as this charge. Cube root again, so a
-    /// warhead a thousand times bigger looks ten times bigger rather than a thousand — floored,
-    /// so a small one still looks like something.
+    /// warhead a thousand times bigger looks ten times bigger rather than a thousand — floored so a
+    /// small one still looks like something, and capped so a large one still looks like an
+    /// explosion.
     /// </summary>
     public static double EffectScale(double chargeKg)
     {
         if (!double.IsFinite(chargeKg) || chargeKg <= 0.0) return 0.0;
 
-        return Math.Max(Math.Cbrt(chargeKg / ReferenceChargeKg), MinimumEffectScale);
+        return Math.Clamp(Math.Cbrt(chargeKg / ReferenceChargeKg),
+                          MinimumEffectScale, MaximumEffectScale);
     }
 
     private static double Radius(double scaledDistance, double chargeKg)

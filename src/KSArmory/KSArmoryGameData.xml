@@ -159,6 +159,40 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_NukeRack" DisplayName="B61 Bomb Rack">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.5" />
+
+    <Connector Id="_nrConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- B61 at 320 kg on the same 45 kg rack and pylon. -->
+    <SolidSphereMass>
+      <Mass Kg="365" />
+      <Radius M="0.70" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_NukeRackCollider">
+      <Box Id="KSArmory_NukeRackBeamCollider">
+        <LocationAsmb X="0.15" Y="0.02" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.30" />
+        <LengthY M="1.30" />
+        <LengthZ M="0.24" />
+      </Box>
+      <Box Id="KSArmory_NukeRackRoundCollider">
+        <LocationAsmb X="0.41" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.30" />
+        <LengthY M="2.26" />
+        <LengthZ M="0.30" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="LAU-7 Sidewinder Rail">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />

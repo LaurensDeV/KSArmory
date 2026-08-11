@@ -288,11 +288,19 @@ internal sealed partial class Ui
             // One slider, because the radii are read off the charge rather than chosen. Showing
             // what it buys keeps the cube root visible: ten times the explosive is a bit over
             // twice the reach, which is not what a reader expects and is the point.
-            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 500f,
+            //
+            // The top of the range is nuclear, and it has to be: a 300 t device is 300,000 kg, so
+            // a slider that stopped at a cannon shell would silently clamp one to a firework the
+            // first time anybody touched it. Logarithmic, or the whole conventional range -- every
+            // round the mod otherwise ships -- lives in the first thousandth of the travel.
+            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 50_000_000f,
                               "%.2f", ImGuiSliderFlags.Logarithmic);
             ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
                                + $"blast {_munition.BlastRadius:F0} m, "
-                               + $"fireball {_munition.FireballRadius:F0} m");
+                               + $"fireball {_munition.FireballRadius:F0} m"
+                               + (_munition.ChargeKg >= 1000f
+                                      ? $"   ({_munition.ChargeKg / 1e6f:F2} kt)"
+                                      : ""));
             ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget,
                             1, Math.Max(1, _fit.SalvoCapacity));
             ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);

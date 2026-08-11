@@ -52,6 +52,42 @@ public class WarheadTests
     }
 
     /// <summary>
+    /// The mirror of the floor. A nuclear charge scales past any size the authored emitter can be
+    /// stretched to, and the scale multiplies particle size, speed and spawn radius together.
+    ///
+    /// <para>Capped for drawing only: what it destroys keeps the law exactly, so the burst is drawn
+    /// far smaller than its lethal radius. That is deliberate and is the trade recorded on
+    /// <see cref="Warhead.MaximumEffectScale"/>.</para>
+    /// </summary>
+    [Fact]
+    public void ANuclearWarheadIsNotDrawnAsAThousandTimesTheEmitter()
+    {
+        // Well past the ceiling rather than the shipped device, which sits under it on purpose:
+        // the cap is there to stop a megaton, not to shrink a tactical bomb.
+        double huge = Warhead.ReferenceChargeKg * Math.Pow(Warhead.MaximumEffectScale + 10.0, 3.0);
+
+        Assert.Equal(Warhead.MaximumEffectScale, Warhead.EffectScale(huge), 9);
+
+        // Untouched by the cap: the law still says what it kills.
+        Assert.Equal(Warhead.LethalScaledDistance * Math.Cbrt(huge), Warhead.LethalRadius(huge), 6);
+    }
+
+    /// <summary>
+    /// The shipped device is drawn at its own size rather than at the ceiling. Pinned because the
+    /// first cap shipped low enough to flatten it, and a burst that is quietly the same size as
+    /// every other burst is exactly the bug that is hard to see.
+    /// </summary>
+    [Fact]
+    public void ATacticalNuclearBombIsNotFlattenedByTheCeiling()
+    {
+        double nuke = Arsenal.NukeB61.ChargeKg;
+
+        Assert.Equal(Math.Cbrt(nuke / Warhead.ReferenceChargeKg), Warhead.EffectScale(nuke), 9);
+        Assert.True(Warhead.EffectScale(nuke) > Warhead.EffectScale(Arsenal.BombMk82.ChargeKg) * 5.0,
+                    "a nuclear burst should be visibly larger than a 500 lb bomb's");
+    }
+
+    /// <summary>
     /// Ordering that cannot be violated, whatever the charge. Three free fields could; one
     /// figure and a shared law cannot, which is the reason for the change.
     /// </summary>

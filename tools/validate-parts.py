@@ -672,6 +672,11 @@ def check_body_markers():
     *contains* the marker. A marker matching nothing is completely silent -- the round launches,
     flies, fuses and detonates exactly as the log says, and the body simply never leaves the rail.
     That shipped once, as BodyMarker "Bomb" against a subpart declared KSArmory_Rack_Mk8200.
+
+    Checked against the subparts of *the launcher's own part*, not against every subpart in the mod.
+    The global form passes a marker that resolves on somebody else's launcher, which is exactly how
+    a nuclear rack instancing the Mk 82's bodies shipped with BodyMarker "Mk82": the name existed,
+    on the other rack, and the bomb was released invisibly.
     """
     source = MOD / "Sim" / "Arsenal.cs"
 
@@ -697,8 +702,62 @@ def check_body_markers():
                       file=sys.stderr)
                 problems += 1
 
+    p, c = check_body_markers_resolve_on_their_own_launcher(text)
+    problems += p
+    checked += c
+
     if problems == 0 and checked:
         print(f"  body markers: {checked} match a declared subpart")
+
+    return problems, checked
+
+
+def part_subparts(part_id):
+    """Subpart instance Ids declared inside one <Part>, or None if that Part is not declared."""
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        block = re.search(rf'<Part\s+Id="{re.escape(part_id)}"\s*>(.*?)</Part>',
+                          path.read_text(), re.S)
+        if block is not None:
+            return set(re.findall(r'<SubPart\s+Id="([^"]+)"', block.group(1)))
+    return None
+
+
+def check_body_markers_resolve_on_their_own_launcher(text):
+    """Every launcher's round has to have a body on *that* launcher's part.
+
+    LauncherPart matches the marker against the subparts of the part it found, so a marker naming a
+    subpart of a different launcher resolves nowhere at runtime and the round is invisible.
+    """
+    problems = checked = 0
+
+    for launcher in registered(text, "Launchers"):
+        block = re.search(rf'{launcher}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};', text, re.S)
+        if block is None:
+            continue
+
+        part = re.search(r'PartId\s*=\s*"([^"]+)"', block.group(1))
+        key = re.search(r'Munition\s*=\s*"([^"]+)"', block.group(1))
+        if part is None or key is None:
+            continue
+
+        round_block = re.search(rf'=\s*new\(\)\s*\{{([^}}]*?Name\s*=\s*"{re.escape(key.group(1))}".*?)\n\s*\}};',
+                                text, re.S)
+        if round_block is None:
+            continue
+
+        marker = re.search(r'BodyMarker\s*=\s*"([^"]+)"', round_block.group(1))
+        if marker is None:
+            continue                      # a round with no drawn body, which is allowed
+
+        subparts = part_subparts(part.group(1))
+        if subparts is None:
+            continue                      # check_registered_part_ids reports an undeclared part
+
+        checked += 1
+        if not any(marker.group(1).lower() in name.lower() for name in subparts):
+            print(f"  UNRESOLVED {launcher}: its round's BodyMarker \"{marker.group(1)}\" matches no "
+                  f"subpart of {part.group(1)}, so the round is released invisibly", file=sys.stderr)
+            problems += 1
 
     return problems, checked
 
@@ -762,6 +821,7 @@ LAUNCHER_GEOMETRY = {
     "Ciws": ("ciws", "CIWS"),
     "SidewinderRail": ("sidewinder", "rail"),
     "BombRack": ("bombrack", "rack"),
+    "NukeRack": ("bombrack", "nuclear rack"),
 }
 
 # Munition named by each fixed launcher, whose body length the tube standoff is checked against.
@@ -769,6 +829,7 @@ LAUNCHER_GEOMETRY = {
 FIXED_LAUNCHER_MUNITION = {
     "SidewinderRail": "Missile9J",
     "BombRack": "BombMk82",
+    "NukeRack": "NukeB61",
 }
 
 

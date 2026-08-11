@@ -580,6 +580,37 @@
   </Part>
 
   <!--
+    The same ejector rack with a B61 on it.
+
+    Instances the very same two SubPart templates as the Mk 82 rack rather than shipping meshes of
+    its own: a launcher names one round, so a nuclear store needs its own part, and needing its own
+    part is not the same as needing its own art. The two optical heads share their bodies the same
+    way.
+
+    Geometry therefore stays in step with the Mk 82 rack's by construction, and validate-parts.py
+    checks both against the one bombrack block in muzzles.json.
+  -->
+  <Part Id="KSArmory_Prefab_NukeRack">
+
+    <SubPart Id="KSArmory_NukeRack_Beam" InstanceOf="KSArmory_BombRack_SubPart" />
+
+    <Connector Id="_nrConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <SubPart Id="KSArmory_NukeRack_B6100" InstanceOf="KSArmory_Mk82_SubPart">
+      <Transform>
+        <Position X="0.40650" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
     Phalanx-pattern CIWS, 4.7 m on a 3 m stack node.
 
     The first part here that STACKS rather than surface-attaching. A connector with no <Flags> is
