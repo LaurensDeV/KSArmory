@@ -33,6 +33,11 @@
   blew up. ScatterFromCenter and MoveAwayFromCenter take their direction from each particle's own
   offset from the centre, so they need no orientation to be correct.
 
+  GrowOverLifetime NEEDS EmitterExtra W, and the failure is silent and backwards. The shader is
+  mix(initialScale, initialScale * extra.w, lifeRatio^2), so W defaults to zero and the updater
+  named "grow" shrinks the particle to nothing on a quadratic curve. Every smoke stage here has a W,
+  and a stage that grows without one is imploding.
+
   GravityStrength is set on every stage, and it must be: it defaults to 1, so anything that does
   not say otherwise falls at full local gravity. That is right for debris and wrong for everything
   else - a fireball that falls looks like it ended early because it drops out of view, and smoke
@@ -107,7 +112,7 @@
             <SpawnRate Value="72"/>
             <Force X="0" Y="0" Z="0" />
             <GravityStrength Value="-0.05"/>
-            <EmitterExtra X="0.1" Y="0.01" Z="0" W="0"/>
+            <EmitterExtra X="0.1" Y="0.01" Z="0" W="3.5"/>
             <Opacity Value="0.22"/>
             <ParticleColor X="6" Y="2" Z="0.3" W="1"/>
             <ParticleColorShift X="0.4" Y="0.2" Z="0"/>
@@ -159,7 +164,7 @@
             <SpawnRate Value="64"/>
             <Force X="0" Y="0" Z="0" />
             <GravityStrength Value="-0.12"/>
-            <EmitterExtra X="0.1" Y="0.01" Z="0" W="0"/>
+            <EmitterExtra X="0.1" Y="0.01" Z="0" W="3.5"/>
             <Opacity Value="0.05"/>
             <ParticleColor X="0.30" Y="0.26" Z="0.24" W="1"/>
             <ParticleLifespan X="4.0" Y="8.0"/>
@@ -231,6 +236,8 @@
             <MaterialId Value="KSArmorySmokeMaterial"/>
             <Updaters>SimpleMovement</Updaters>
             <Updaters>GrowOverLifetime</Updaters>
+            <!-- W is the grow ratio: without it the curve runs to zero and the smoke implodes. -->
+            <EmitterExtra W="3.5"/>
             <Updaters>ModelMatrix</Updaters>
             <Updaters>Age</Updaters>
             <SpawnMode>Burst</SpawnMode>
@@ -299,7 +306,7 @@
             <SpawnRate Value="28"/>
             <Force X="0" Y="0" Z="0" />
             <GravityStrength Value="-0.1"/>
-            <EmitterExtra X="0.1" Y="0.01" Z="0" W="0"/>
+            <EmitterExtra X="0.1" Y="0.01" Z="0" W="3.5"/>
             <Opacity Value="0.14"/>
             <ParticleColor X="0.40" Y="0.36" Z="0.33" W="1"/>
             <ParticleLifespan X="2.0" Y="4.0"/>
@@ -345,6 +352,8 @@
             <MaterialId Value="KSArmorySmokeMaterial"/>
             <Updaters>SimpleMovement</Updaters>
             <Updaters>GrowOverLifetime</Updaters>
+            <!-- W is the grow ratio: without it the curve runs to zero and the smoke implodes. -->
+            <EmitterExtra W="3.5"/>
             <Updaters>ModelMatrix</Updaters>
             <Updaters>Age</Updaters>
             <SpawnMode>Burst</SpawnMode>
@@ -455,6 +464,8 @@
             <MaterialId Value="KSArmorySmokeMaterial"/>
             <Updaters>SimpleMovement</Updaters>
             <Updaters>GrowOverLifetime</Updaters>
+            <!-- W is the grow ratio: without it the curve runs to zero and the smoke implodes. -->
+            <EmitterExtra W="2.2"/>
             <Updaters>ModelMatrix</Updaters>
             <Updaters>Age</Updaters>
             <SpawnMode>Endless</SpawnMode>
