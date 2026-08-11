@@ -1216,6 +1216,28 @@ shrinking angle: a tenth of the picture at a few hundred metres and nothing at 9
 `WeaponSystem.AimOriginEcl` is the same correction for the tube drives and carries the full
 reasoning.
 
+**Everything the mod draws is a step behind the world it is drawn against, and leading the aim to
+correct it made things worse.** The mod integrates from the GUI hook, a postfix on the engine's UI
+pass; the scene is built in the viewport pass of the *next* frame. So the ball's transform, the
+camera's aim and the pipper are placed against a target that has since moved on by one step —
+**0.007° per unit of simulation speed**, measured through the sight on a 156 m/s crosser at 7.7 km.
+Steady, and invisible below high magnification.
+
+Carrying the aim one step forward at the drive's own last turn rate removes that term and costs far
+more than it saves. That rate is a per-frame report, so the lead varies frame to frame and the
+picture shakes: measured at **0.35° at 10× against a target crossing 0.0037°** — ninety times
+further than the target actually moved, and noisy. A small steady offset reads as a slightly
+off-centre picture; a large varying one reads as jitter, which is worse at every speed above 1×.
+
+So the aim is **not** extrapolated. A lead taken from the *target's* angular rate rather than the
+drive's own turn would be the principled version, and is not built. The probe in
+`Ksa/SightCamera.cs` measured both numbers and stays: the next thing to arrive a frame late will
+look exactly like this, and the fix that looks obvious is the one already tried.
+
+**`OpticalHead.AimWhenDrawn` is the only way to read the aim, and that part stands.** The ball, the
+camera and the pipper are three views of one direction; taking two of them from different instants
+separates them on screen, which is worse than the lag either would have had alone.
+
 **A pointing head needs its roll chosen, not inferred.** `OpticGeometry.Rotation` carries the
 rest direction onto the aim and then rolls about the aim by a *signed* angle, so the ball's own up
 stays as near the mount's normal as the aim allows. A shortest-arc rotation instead has no axis

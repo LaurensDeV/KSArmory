@@ -376,7 +376,16 @@ public sealed class KSArmoryMod
 
                 foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step, _airborne);
 
-                                _heads?.Update(step, _airborne);
+                // The heads take the step as it comes, not the clamped one. That clamp exists to
+                // stop a *round* stepping over its own fuse radius, and a director has no fuse --
+                // it is a rate-limited drive, for which a long step simply means turning further.
+                //
+                // Applying it here injected the one thing this component must not have: the clamp
+                // bites only on long frames, so at 16x a 25 ms frame (0.40 s) was truncated to
+                // 0.32 s while an 8.33 ms frame (0.13 s) was not. The head then under-advanced on
+                // alternate frames, in step with the display's pacing -- which is a shake in the
+                // picture that appears above about 13x and nowhere below it.
+                _heads?.Update(dtSim, _airborne);
             }
         }
 

@@ -163,7 +163,13 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// continuous everywhere the travel allows, so there is nothing to carry and nothing to
     /// flip.</para>
     /// </summary>
-    public double3 RollReferenceEcl { get; private set; } = new(0, 0, 1);
+    /// <para>Resolved on every read rather than sampled once, because it is used <em>beside</em> a
+    /// forward that the engine's own pass re-solves. Sampled in <c>SampleWorld</c> it came from the
+    /// drive as it stood a frame earlier, so the camera's up and its forward were one frame apart —
+    /// and what survives that mismatch is a <b>roll</b>, which turns the whole picture rather than
+    /// nudging it. That grows with how far the head turned in the frame, so it scales with
+    /// simulation speed and reads as the entire sight shaking under warp.</para>
+    public double3 RollReferenceEcl => ResolveRollReference();
 
     /// <summary>
     /// What it is watching — the best contact on scope, not the best one a weapon may shoot.
@@ -220,7 +226,6 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         SensorBoresight = ResolveSensorBoresight();
         Boresight = Platform is { } up ? KsaWorld.LocalUp(up) : Boresight;
-        RollReferenceEcl = ResolveRollReference();
     }
 
     /// <summary>Scans, slews and writes the head's transform. One simulated step.</summary>
@@ -283,15 +288,52 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         // While the head is settled it is tracking, so the view is re-solved onto the target's own
         // position at this instant rather than left along an axis turned to a frame ago. Same rule,
-        // and the same reason, as the launcher's head had.
-        if (!_drive.OnTarget || Radar.Locked is not { } locked) return true;
-        if (!locked.Contact.TryDrawEgo(out double3 ego)) return true;
-        if (!KsaWorld.TryEgoToEcl(ego, out double3 drawnEcl)) return true;
+        // and the same reason, as the launcher's head had. Skipping it leaves the whole frame-late
+        // term in, and that term scales with simulation speed.
+        //
+        // Against whatever the head is *following*, which is not always a radar lock. Asking for
+        // Radar.Locked skipped the re-solve for a contact that is tracked but not a threat -- the
+        // very case a director exists to watch -- and for every designation, since a designated
+        // hillside is not a track at all. Both were introduced the day the head learned to follow
+        // them, and both showed up as jitter under warp and nowhere else.
+        if (!_drive.OnTarget) return true;
+        if (!TryFollowedDrawnEcl(out double3 drawnEcl)) return true;
 
         double3 toTarget = drawnEcl - eyeEcl;
         if (Vec.Len2(toTarget) > 1.0) forwardEcl = Vec.Unit(toTarget);
 
         return true;
+    }
+
+    // Where the thing the head is following is *drawn*, now -- a designation first, then the set's
+    // own pick. False when it is following nothing resolvable.
+    //
+    // The drawn position rather than the simulated one, because this decides where a camera points
+    // and the target is drawn at the former. The two differ by metres on a landed craft.
+    private bool TryFollowedDrawnEcl(out double3 drawnEcl)
+    {
+        drawnEcl = Vec.Zero;
+
+        if (Designation.Kind != AimpointKind.None)
+        {
+            if (Designation.NeedsResampling)
+            {
+                return KsaWorld.TryGroundAnchorEcl(Designation.Handle, Designation.Anchor,
+                                                   out drawnEcl, out _);
+            }
+
+            if (Designation.Handle is Vehicle craft && KsaWorld.IsAlive(craft))
+            {
+                drawnEcl = KsaWorld.PositionEcl(craft);
+                return true;
+            }
+
+            return false;
+        }
+
+        return Radar.Watched is { } watched
+               && watched.Contact.TryDrawEgo(out double3 ego)
+               && KsaWorld.TryEgoToEcl(ego, out drawnEcl);
     }
 
     // Where the head is told to look, in the director's own part frame. Clamped to its travel
@@ -510,7 +552,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     // reads as "no opinion" and would hand to KSA's rule.
     private double3 ResolveRollReference()
     {
-        if (Platform is not { } platform) return RollReferenceEcl;
+        // Boresight rather than the last answer: this is a property now, so returning it would
+        // recurse. Local up is the right shape for a fallback anyway -- a camera the right way up.
+        if (Platform is not { } platform) return Boresight;
 
         if (_policy.StabiliseHorizon) return Boresight;
 
