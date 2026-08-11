@@ -149,4 +149,8 @@ case "$VERDICT" in
     *)    echo "scenario '$SCENARIO': $VERDICT" >&2; exit 1 ;;
 esac
 
-(( SHOTS_ON )) && { ls -t "$SHOTS"/*.png 2>/dev/null | head -3 | sed 's|.*/|  shot: |' || true; }
+# An `if` rather than `&&`: this is the last statement, so with --shots off a false `&&` would
+# make the whole script exit 1 on a PASS and there would be nothing to script against.
+if (( SHOTS_ON )); then
+    ls -t "$SHOTS"/*.png 2>/dev/null | head -3 | sed 's|.*/|  shot: |' || true
+fi
