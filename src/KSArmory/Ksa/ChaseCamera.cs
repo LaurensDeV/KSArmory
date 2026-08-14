@@ -114,6 +114,13 @@ internal sealed class ChaseCamera
          : _saved.Valid ? _saved.FovDeg
          : SightZoom.DefaultFovDeg;
 
+    // What the engine reports about the view, against the round this pointed it at. The rule is in
+    // ViewClaim; only the two readings are here. Never outranked -- the chase is the top of the
+    // ladder, so anything that has moved the view is outside the mod by definition.
+    private bool StillOurs()
+        => ViewClaim.StillOurs(KsaWorld.MainViewIsFixed(),
+                               KsaWorld.MainViewFollows(_followed), outranked: false);
+
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
@@ -134,9 +141,21 @@ internal sealed class ChaseCamera
         // and is exactly when the view still has to be given back.
         if (!_saved.Valid) return;
 
+        // Read before anything is written, and before the round is untracked. Reachable without
+        // Apply having seen the takeover -- the roster losing the system and Unload both call
+        // straight in here -- so the same rule applies: whichever half the player has taken is
+        // theirs to keep.
+        bool followIsOurs = KsaWorld.MainViewFollows(_followed);
+
         _followed.Track(null, null);
         KsaWorld.BeginRestoreMainView(_saved);
-        KsaWorld.RestoreFollow(_saved);
+
+        // Not onto a craft that has been destroyed, which is the ordinary way a chase ends: the
+        // engine has already put the view on its wreckage, and that is a better answer than a
+        // disposed vehicle the camera would then be stuck on. Nor onto one the player has moved
+        // off by hand, which would undo the vessel they just switched to.
+        if (followIsOurs && KsaWorld.CanFollow(_saved.Following)) KsaWorld.RestoreFollow(_saved);
+
         _saved = default;
         Log.Info("chase: released the main view");
     }
@@ -169,8 +188,23 @@ internal sealed class ChaseCamera
         }
 
 
-        // Still watching where the last one went off. Checked before the stand-down, because the
-        // hold is what precedes it.
+        // The player taking the view back is a decision, not a fault.
+        //
+        // Ahead of the hold below, and keyed on holding the view rather than on having a round: the
+        // linger after a burst is a second and a half during which the view is still this camera's,
+        // and a vessel switched in that window used to go unnoticed until Release put the player
+        // back on the craft they had just left.
+        if (_saved.Valid && !StillOurs())
+        {
+            _round = null;
+            _holding = 0.0;
+            _saved = default;   // dropped, not restored: the view is already theirs
+            PassOverEverythingFlying(battery);
+            Log.Info("chase: the view was taken over by hand, standing down");
+            return;
+        }
+
+        // Still watching where the last one went off.
         if (_holding > 0.0)
         {
             _holding -= Math.Max(0.0, dtPlayer);
@@ -184,17 +218,6 @@ internal sealed class ChaseCamera
         // Anything still in the air from the last engagement that has since stopped can be
         // forgotten; the list only has to outlive the rounds it names.
         _passedOver.RemoveAll(r => r.State != RoundState.Flying);
-
-        // The player taking the view back is a decision, not a fault.
-        if (_round is not null && !KsaWorld.MainViewIsFixed())
-        {
-            _round = null;
-            _holding = 0.0;
-            _saved = default;   // dropped, not restored: the view is already theirs
-            PassOverEverythingFlying(battery);
-            Log.Info("chase: the view was taken over by hand, standing down");
-            return;
-        }
 
         IProjectile? round = Current(battery);
         if (round is null)

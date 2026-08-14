@@ -18,7 +18,40 @@ internal static class KsaWorld
     /// <summary>The vehicle the player is currently flying, or null in menus.</summary>
     public static Vehicle? ControlledVehicle => Program.ControlledVehicle;
 
+    /// <summary>
+    /// The player has a craft to fly.
+    ///
+    /// <para><b>This is not "the flight scene is up", and using it as one strands the camera.</b>
+    /// <c>Universe.DestroyVehicle</c> clears <c>ControlledVehicle</c> when the craft being flown is
+    /// destroyed, and the scene carries straight on — the engine points the view at the wreckage
+    /// and keeps rendering. Anything handing the player's view back must ask
+    /// <see cref="InFlightScene"/>, or losing a craft is mistaken for leaving flight and the
+    /// hand-back is skipped in the one case that most needs it.</para>
+    /// </summary>
     public static bool InFlight => Program.ControlledVehicle is { IsDisposed: false };
+
+    /// <summary>
+    /// The flight scene is up, whether or not the player has a craft in it.
+    ///
+    /// <para>What separates a destroyed craft — still in flight, still one live camera, and
+    /// everything the mod borrowed still worth handing back — from actually leaving, which is the
+    /// editor or the menus. The new scene brings its own camera, so there the recording describes
+    /// something that has gone.</para>
+    /// </summary>
+    public static bool InFlightScene
+    {
+        get
+        {
+            try
+            {
+                return Program.Editor is null && Universe.CurrentSystem is not null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
     /// <summary>
     /// The simulated seconds KSA's last step actually advanced the world by.
@@ -1912,13 +1945,13 @@ internal static class KsaWorld
     /// <para>Asked before anything borrows the view: a battery on the far side of the world taking
     /// the camera off whatever the player is watching is a hijack, however good the shot.</para>
     /// </summary>
-    public static bool MainViewFollows(Vehicle? craft)
+    public static bool MainViewFollows(IFollowable? target)
     {
-        if (craft is null) return false;
+        if (target is null) return false;
 
         try
         {
-            return ReferenceEquals(Program.MainViewport?.GetCamera()?.Following, craft);
+            return ReferenceEquals(Program.MainViewport?.GetCamera()?.Following, target);
         }
         catch
         {
@@ -1992,6 +2025,22 @@ internal static class KsaWorld
     /// when the mode never changed, and leaving a camera pointed at an object the mod is about to
     /// forget is how a view ends up stuck on a round that no longer exists.</para>
     /// </summary>
+    /// <summary>
+    /// Whether something the view was following is still there to go back to.
+    ///
+    /// <para>A destroyed craft is not, and it is the ordinary case rather than a corner: the thing
+    /// a borrower was watching is often the thing that just blew up. The engine has already
+    /// answered the same question for itself by pointing the view at the wreckage, so the right
+    /// move is to leave that alone — restoring over it puts the camera on a disposed vehicle and
+    /// holds it there.</para>
+    /// </summary>
+    public static bool CanFollow(IFollowable? target) => target switch
+    {
+        null => false,
+        Vehicle v => !v.IsDisposed,
+        _ => true,
+    };
+
     public static bool RestoreFollow(MainView saved)
     {
         if (!saved.Valid || saved.Following is null) return false;
@@ -2165,6 +2214,31 @@ internal static class KsaWorld
     /// <para>Only the mode. The follow was never taken away, so there is nothing to re-attach and
     /// no window in which the camera follows in Fixed mode with no rotation set.</para>
     /// </summary>
+    /// <summary>
+    /// Takes the mod off the controller without touching the mode, the follow or the field.
+    ///
+    /// <para>Forgets the up that was being supplied and the source being asked. The controller
+    /// stays installed for the session — nothing but a mod puts a viewport in Fixed mode, so there
+    /// is nothing to disturb — but with no up it behaves exactly as KSA's own does, rather than
+    /// holding one from an engagement that is over.</para>
+    /// </summary>
+    public static void StopDrivingMainView()
+    {
+        try
+        {
+            if (Program.MainViewport?.FixedController is LevelHorizonController level)
+            {
+                level.UpEcl = Vec.Zero;
+                level.Pose = null;
+                level.Forget();
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not stop driving the main view: {e.Message}");
+        }
+    }
+
     public static bool BeginRestoreMainView(MainView saved)
     {
         if (!saved.Valid) return false;
@@ -2173,16 +2247,7 @@ internal static class KsaWorld
         {
             if (Program.MainViewport is not { } viewport) return false;
 
-            // Forget the up that was being supplied. The controller stays installed for the
-            // session -- nothing but a mod puts a viewport in Fixed mode, so there is nothing to
-            // disturb -- but with no up it behaves exactly as KSA's own does, rather than holding
-            // one from an engagement that is over.
-            if (viewport.FixedController is LevelHorizonController level)
-            {
-                level.UpEcl = Vec.Zero;
-                level.Pose = null;
-                level.Forget();
-            }
+            StopDrivingMainView();
 
             // Before the mode, so a frame drawn during the handover is drawn at the player's own
             // field rather than at the sight's.
@@ -2194,6 +2259,33 @@ internal static class KsaWorld
         catch (Exception e)
         {
             Log.Warn($"could not restore the main view: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Puts back only the camera mode, for a hand-back where the rest of the view is no longer the
+    /// mod's to undo.
+    ///
+    /// <para>Switching vessels is the case: it changes what the camera follows and leaves the mode
+    /// alone, so the follow is the player's choice and the Fixed mode is still the mod's leavings —
+    /// and Fixed is a mode no input can leave, because <c>FixedController</c> reads none and
+    /// <c>Viewport.NextCameraMode</c> has no case for it. Only the mode comes back.</para>
+    /// </summary>
+    public static bool RestoreMainViewMode(MainView saved)
+    {
+        if (!saved.Valid) return false;
+
+        try
+        {
+            if (Program.MainViewport is not { } viewport) return false;
+
+            if (viewport.Mode != saved.Mode) viewport.SetCameraMode(saved.Mode);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not restore the main view's mode: {e.Message}");
             return false;
         }
     }
@@ -2215,15 +2307,25 @@ internal static class KsaWorld
             // and GetCamera() hands back the *map* camera, so moving it puts the map somewhere
             // else rather than showing the world from here. Fixed is the mode that draws the
             // scene from wherever its camera happens to be, which is the whole point.
-            // Unfollow before Fixed for the same reason as the main view: FixedController
-            // divides by zero on its own default CameraRotation whenever the camera it drives is
-            // following something. This viewport's camera normally follows nothing, but a player
-            // can set one to follow a craft.
-            if (viewport.Mode != CameraMode.Fixed)
+            //
+            // Unfollow before Fixed for the same reason as the main view: FixedController divides
+            // by zero on its own default CameraRotation whenever the camera it drives is following
+            // something. Every frame rather than only when the mode changes, because a follow can
+            // arrive at any time and this window is a likely place for one: KSA's vessel-next and
+            // vessel-previous act on the *hovered* viewport, so the cursor resting over the sight
+            // is enough to attach one. Once attached, the controller places the camera at
+            // following + CameraOffset — an offset this path never writes, because it aims with
+            // LookAt — which parks the view inside whichever craft was switched to.
+            try
             {
-                try { viewport.GetCamera()?.Unfollow(changeControl: false); } catch { }
-                viewport.SetCameraMode(CameraMode.Fixed);
+                if (viewport.GetCamera() is { Following: not null } followed)
+                {
+                    followed.Unfollow(changeControl: false);
+                }
             }
+            catch { /* a view that cannot be unfollowed is still worth trying to aim */ }
+
+            if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
 
             Camera camera = viewport.BaseCamera;
             if (camera is null) return false;

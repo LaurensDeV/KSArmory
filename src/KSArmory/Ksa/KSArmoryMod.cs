@@ -294,10 +294,16 @@ public sealed class KSArmoryMod
                     Sight.Draw(head.Head, head.Policy, _roster.For(_ui.Focused)?.Battery);
                 }
             }
-            else if (KsaWorld.InFlight)
+            else if (KsaWorld.InFlightScene)
             {
                 // Nothing is being shown, so nothing may be holding the player's view on its
                 // behalf. Skipping this is how a sight survives the craft it was looking through.
+                //
+                // The scene, not KsaWorld.InFlight: destroying the craft being flown clears the
+                // controlled vehicle and leaves the scene running, so asking whether the player has
+                // a craft sends the one case that most needs a hand-back down the path that does
+                // not do one -- and being shot while looking through a director is how that is
+                // reached.
                 _sight.Release();
             }
 

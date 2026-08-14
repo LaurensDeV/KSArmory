@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-116 types and 322 members across 6 assemblies.
+117 types and 323 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -541,6 +541,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Program get_Instance()`
 - `KSA.Rendering.Particles.ParticleSystem`2<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData> ParticleSystem`
 - `KSA.Vehicle get_ControlledVehicle()`
+- `KSA.VehicleEditor Editor`
 - `KSA.Viewport get_MainViewport()`
 - `System.Collections.Generic.List`1<KSA.Viewport> Viewports`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
@@ -670,6 +671,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float PeakDynamicPressure`
 - `float PeakGLoad`
 - `void .ctor()`
+
+### KSA.VehicleEditor
+
+*referenced as a type only*
 
 ### KSA.VehicleSave
 

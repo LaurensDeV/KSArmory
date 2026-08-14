@@ -181,6 +181,79 @@ public class ViewClaimTests
                                         holding: false, stillOurs: true));
     }
 
+    /// <summary>
+    /// The mode alone does not say the view is still the borrower's. KSA's vessel-next and
+    /// vessel-previous change what the camera follows and leave the camera mode exactly as they
+    /// found it, so a mode-only test reads a switched vessel as consent and the borrower carries on
+    /// driving — writing an offset measured from one craft against another craft's position, which
+    /// puts the camera wherever the two happen to be apart.
+    /// </summary>
+    [Fact]
+    public void SwitchingVesselsTakesTheViewEvenThoughTheModeIsUntouched()
+    {
+        Assert.False(ViewClaim.StillOurs(inTakenMode: true, followsWhatWePointedAt: false,
+                                         outranked: false));
+    }
+
+    /// <summary>The other half: the mode menu moves the mode and leaves the follow alone.</summary>
+    [Fact]
+    public void ChangingTheCameraModeTakesTheViewEvenThoughTheFollowIsUntouched()
+    {
+        Assert.False(ViewClaim.StillOurs(inTakenMode: false, followsWhatWePointedAt: true,
+                                         outranked: false));
+    }
+
+    [Fact]
+    public void AViewInTheModeItWasLeftInAndOnWhatItWasPointedAtIsStillOurs()
+    {
+        Assert.True(ViewClaim.StillOurs(inTakenMode: true, followsWhatWePointedAt: true,
+                                        outranked: false));
+    }
+
+    /// <summary>
+    /// The exception that makes the rest safe. A stronger claim inside the mod drives its own mode
+    /// and follows its own object, so both halves read as taken while the borrower is the mod
+    /// itself — and standing down there clears the recording that claim is holding on this
+    /// borrower's behalf, leaving the player a pose with nothing driving it.
+    ///
+    /// <para>Without this the follow test turns every chase hand-over into a stand-down, which is
+    /// the exact shape <see cref="AStrongerClaimIsWaitedOutRatherThanRestoredOverTheTopOf"/>
+    /// exists to prevent.</para>
+    /// </summary>
+    [Fact]
+    public void AStrongerClaimInsideTheModIsNotThePlayerTakingTheView()
+    {
+        Assert.True(ViewClaim.StillOurs(inTakenMode: true, followsWhatWePointedAt: false,
+                                        outranked: true));
+
+        // Still not ours if the mode has gone too: that is nobody in the mod's doing.
+        Assert.False(ViewClaim.StillOurs(inTakenMode: false, followsWhatWePointedAt: false,
+                                         outranked: true));
+    }
+
+    /// <summary>
+    /// The two rules composed, over the sequence that produced the bug: the sight holds the view,
+    /// the chase takes it, the player switches vessels, the chase stands down and the sight is left
+    /// holding a view that is no longer in any sense its own.
+    /// </summary>
+    [Fact]
+    public void ASightYieldsToTheChaseAndStandsDownOnceThePlayerHasTheView()
+    {
+        // The chase is driving. Both halves read as taken and neither counts.
+        bool ours = ViewClaim.StillOurs(inTakenMode: true, followsWhatWePointedAt: false,
+                                        outranked: true);
+        Assert.Equal(ViewAction.Yield,
+                     ViewClaim.ForOptic(wanted: true, resolved: true, outranked: true,
+                                        holding: true, stillOurs: ours));
+
+        // The chase has gone and the player is on a vessel of their own choosing.
+        ours = ViewClaim.StillOurs(inTakenMode: true, followsWhatWePointedAt: false,
+                                   outranked: false);
+        Assert.Equal(ViewAction.StandDown,
+                     ViewClaim.ForOptic(wanted: true, resolved: true, outranked: false,
+                                        holding: true, stillOurs: ours));
+    }
+
     /// <summary>Nothing is annotated before the view has actually been taken.</summary>
     [Fact]
     public void TheSightDoesNotPaintOnAMainViewItHasNotTakenYet()

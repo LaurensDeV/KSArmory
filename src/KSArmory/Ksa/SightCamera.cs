@@ -214,24 +214,34 @@ internal sealed class SightCamera : IViewPose
     private const int GiveUpAfterFrames = 180;
 
     /// <summary>
-    /// Lets go without writing anything, for when the scene the recording describes has gone.
+    /// Lets go of the mode and the follow, for when the scene the recording describes has gone.
     ///
     /// <para>Leaving flight is the case. The recording names a camera mode and a craft to follow
     /// that belonged to the flight scene, and restoring them once the editor is up writes a dead
     /// scene's camera onto the live one — which is a view the player cannot account for and did
-    /// not ask for. The new scene sets up its own camera, so there is nothing here worth handing
-    /// back; the same reason <see cref="ChaseCamera"/> drops its own recording when the player
-    /// takes the view outright.</para>
+    /// not ask for. The new scene sets up its own camera, so neither is worth handing back; the
+    /// same reason <see cref="ChaseCamera"/> drops its own recording when the player takes the
+    /// view outright.</para>
+    ///
+    /// <para><b>The field of view is not the scene's, and is put back anyway.</b> It is a
+    /// preference on a camera object that outlives every scene, so nothing resets it and no later
+    /// borrower will ever hand it back — the next one records the magnified field as the player's
+    /// own and magnifies again from there. The player cannot recover it either: their zoom keys
+    /// clamp to 15°–120°, so the field they had is not reachable from any control they have. This
+    /// is what keeps a wrong answer about the scene merely wrong instead of unrecoverable.</para>
     /// </summary>
     public void Forget()
     {
         if (!_saved.Valid) return;
 
+        KsaWorld.StopDrivingMainView();
+        KsaWorld.TrySetMainViewFov(_saved.FovDeg);
+
         _saved = default;
         _followed = null;
         _head = null;
         _refusedFrames = 0;
-        Log.Info("sight: the scene changed, letting go of the main view without restoring it");
+        Log.Info("sight: the scene changed, handing back only the field of view");
     }
 
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
@@ -239,12 +249,30 @@ internal sealed class SightCamera : IViewPose
     {
         if (!_saved.Valid) return;
 
+        // Read before anything is written. The follow the player is on says whether they moved it
+        // themselves, and the restore below is about to change it.
+        //
+        // Checked here as well as at the stand-down rung, because this path is reachable without
+        // Apply ever classifying the takeover: losing the head and switching vessels on the same
+        // frame arrives here instead, and restoring then puts the player back on the craft they
+        // just left. The mode needs no such test — a mode taken by hand stands the sight down
+        // before it can reach this.
+        bool followIsOurs = KsaWorld.MainViewFollows(_followed);
+
         // A refused restore keeps the recording and tries again. Dropping it on the first attempt
         // is what strands the player: the view stays in Fixed mode at the optic's pose and field,
         // and the only description of what it was doing has been thrown away. Nothing is
         // recoverable after that, in any scene.
         bool mode = KsaWorld.BeginRestoreMainView(_saved);
-        bool follow = _saved.Following is null || KsaWorld.RestoreFollow(_saved);
+
+        // A craft that has been destroyed is nowhere to go back to, and that is exactly the case
+        // this runs in most often: the thing the view was following is frequently the thing that
+        // just blew up. Neither that nor a follow the player has taken is a refusal — there is
+        // nothing to retry — so neither may count as one, or the hand-back spends 180 frames
+        // warning about a follow that is never coming back.
+        bool follow = !followIsOurs
+                      || !KsaWorld.CanFollow(_saved.Following)
+                      || KsaWorld.RestoreFollow(_saved);
 
         if (!mode || !follow)
         {
@@ -292,20 +320,12 @@ internal sealed class SightCamera : IViewPose
                         && head.TryOpticViewEcl(out eye, out forward);
 
         ViewAction action = ViewClaim.ForOptic(wanted, resolved, outranked, Holding,
-                                               KsaWorld.MainViewIsFixed());
+                                               StillOurs(outranked));
 
         switch (action)
         {
             case ViewAction.StandDown:
-                // The mode is the player's and stays as they set it. The *follow* and the field of
-                // view are the mod's to change and are put back, or they are left orbiting a
-                // launcher they never chose to look at, through a three-degree straw.
-                KsaWorld.TrySetMainViewFov(_saved.FovDeg);
-                KsaWorld.RestoreFollow(_saved);
-                _saved = default;
-                _followed = null;
-                _head = null;
-                Log.Info("sight: the view was taken over by hand, standing down");
+                StandDown();
                 return action;
 
             case ViewAction.GiveBack:
@@ -354,6 +374,41 @@ internal sealed class SightCamera : IViewPose
         }
 
         return action;
+    }
+
+    // What the engine reports about the view, against what this pointed it at. The rule is in
+    // ViewClaim; only the two readings are here.
+    private bool StillOurs(bool outranked)
+        => ViewClaim.StillOurs(KsaWorld.MainViewIsFixed(),
+                               KsaWorld.MainViewFollows(_followed), outranked);
+
+    // Gives back whichever half of the view the player did not take for themselves.
+    //
+    // Symmetric on purpose. Whichever of the mode and the follow they changed is their decision and
+    // is left alone; the other is still the mod's leavings and is put back. Leaving both would
+    // strand them -- a vessel switch leaves Fixed standing, and Fixed is a mode no input can
+    // leave -- and restoring both would drag them off the very thing they just chose.
+    private void StandDown()
+    {
+        bool modeIsOurs = KsaWorld.MainViewIsFixed();
+        bool followIsOurs = KsaWorld.MainViewFollows(_followed);
+
+        KsaWorld.StopDrivingMainView();
+
+        // Always. The field is the one thing neither half of a takeover restores and no zoom key
+        // can return to, so it is handed back whoever took the view and however.
+        KsaWorld.TrySetMainViewFov(_saved.FovDeg);
+
+        if (followIsOurs && KsaWorld.CanFollow(_saved.Following)) KsaWorld.RestoreFollow(_saved);
+        if (modeIsOurs) KsaWorld.RestoreMainViewMode(_saved);
+
+        _saved = default;
+        _followed = null;
+        _head = null;
+        _refusedFrames = 0;
+
+        Log.Info($"sight: the view was taken over by hand ({(modeIsOurs ? "vessel" : "camera mode")}"
+                 + "), standing down");
     }
 
     // Records what the view was doing, then points it at the launcher's craft. Both have to

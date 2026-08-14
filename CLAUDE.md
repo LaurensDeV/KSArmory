@@ -347,7 +347,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 322 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 323 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
@@ -757,7 +757,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 660,000 lines to the files
-defining the 116 types this mod actually uses.
+defining the 117 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
@@ -1290,6 +1290,32 @@ restore while the chase is driving. Both keep their own recording of what the vi
 they were made in order, so restoring the older one undoes a takeover that happened this frame and
 leaves the chase holding a recording of the *sight* to hand back at the end. The player is then
 returned to a borrowed pose that nothing is driving. `ViewClaimTests` fails against that shape.
+
+**A view is taken back in two halves, and watching one of them is how a borrower keeps driving a
+view that is no longer its own.** The camera-mode menu changes the **mode** and leaves the follow;
+`[` and `]` do the opposite — `Universe.SeekNextVehicle` calls `SetFollow` and never touches
+`CameraMode` — and so do the panel's **Go to** button and KSA's `FollowWreckage`. So
+`ViewClaim.StillOurs` asks both, and a borrower that asked only about the mode goes on writing an
+offset measured from *its* craft against whatever craft the player switched to, which places the
+camera wherever the two happen to be apart.
+
+The exception that makes the rest safe is **outranked**: a stronger claim inside the mod sets its
+own mode and follows its own object, so both halves read as taken while the borrower is the mod
+itself. Standing down there clears the recording the chase is holding on the sight's behalf, which
+is the Yield failure above by another route.
+
+**And a hand-back gives up only the half the player did not take.** Whichever of the mode and the
+follow they moved is their decision and stays; the other is the mod's leavings and goes back.
+Restoring both drags them off the vessel they just switched to; restoring neither leaves them in
+Fixed, which is a mode no input can leave. The **field of view** is outside that rule and is always
+handed back — see `docs/KSA-CAMERAS.md`.
+
+**Losing the craft being flown is not leaving flight.** `Universe.DestroyVehicle` clears
+`Program.ControlledVehicle` and the scene carries straight on, so `KsaWorld.InFlight` is the wrong
+question for anything handing the view back — it reads a destroyed craft as a scene change and
+skips the hand-back in the one case that most needs it, stranding the player at the sight's
+magnification with the only recording of their view thrown away. `KsaWorld.InFlightScene` is the
+one to ask.
 
 **The camera's roll is the engine's, and getting it needs the one extension point KSA leaves
 open.** `FixedController` derives up by crossing the view with the camera reference frame's +Z,
