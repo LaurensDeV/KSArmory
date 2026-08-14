@@ -452,7 +452,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
             LauncherPart.FindFins(Launcher, Munition, _finBodies);
             Log.Info($"launcher subparts: {LauncherPart.DescribeSubParts(Launcher)}");
             Log.Debug($"round bodies found: {_missileBodies.Count}, fin sets {_finBodies.Count} (need {Profile.TubeCount})");
-            if (TurretPart is null) Log.Warn("turret subpart not found - the turret will not slew");
+            // Only where one was declared. A rack and a rail have no turret by design, so an
+            // unguarded warning opens every session with a fault report about a launcher that is
+            // working exactly as its profile says. The panel already draws this distinction --
+            // see DrawTurretLine -- and the log is the half that reaches somebody reading a bug
+            // report, where a spurious WARN is worth more confusion than it saves.
+            if (Profile.TurretMarker is not null && TurretPart is null)
+            {
+                Log.Warn("turret subpart not found - the turret will not slew");
+            }
             if (_missileBodies.Count == 0) Log.Warn("no round bodies - rounds will draw as tracers only");
         }
 
