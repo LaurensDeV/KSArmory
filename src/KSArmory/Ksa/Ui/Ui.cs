@@ -191,17 +191,26 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         if (!Visible)
         {
-            // Closing the panel must not strand the operator with no way back. Redundant with
-            // Mods -> KSArmory on purpose: appending to KSA's menu bar depends on ImGui
-            // behaviour that is not guaranteed on every machine, and a mod with no way to
-            // reopen its own panel is unusable rather than merely untidy.
-            if (_config.FloatingPanelButton
+            // Closing the panel must not strand the operator with no way back, and which route
+            // that is depends on what else is installed.
+            //
+            // ModMenu owns the Mods menu and draws this mod's entry itself, which is why
+            // DrawMenuBar stands down for it. That entry is a way back in, so the button is
+            // clutter over the flight gauges rather than a safety net.
+            //
+            // Without ModMenu the only other route is this mod appending to KSA's own bar, which
+            // is ImGui behaviour rather than a supported hook and is not guaranteed on every
+            // machine. There the button stays, because a mod with no way to reopen its own panel
+            // is unusable rather than merely untidy.
+            bool reopenButton = _config.FloatingPanelButton && !ModMenuPresence.Installed;
+
+            if (reopenButton
                 && ImGui.Begin("KSArmory##reopen",
                                ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
             {
                 if (ImGui.Button("KSArmory")) Visible = true;
             }
-            if (_config.FloatingPanelButton) ImGui.End();
+            if (reopenButton) ImGui.End();
             if (anyCrewed) DrawManageWindow();
             DrawPanes();
             return;

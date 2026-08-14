@@ -36,6 +36,38 @@ internal static class PlumeSmoke
     public static bool Available => Resolve() is not null;
 
     /// <summary>
+    /// Dirties the smoke, or puts it back.
+    ///
+    /// <para><b>This is global and there is no per-emitter alternative.</b> The renderer carries one
+    /// trail colour for the whole world, and the shader says so in a note about making it a
+    /// per-vertex property one day. So a booster burning while a cloud stands gets a grey plume
+    /// too. Held only while there is a cloud, and put back after, which makes the overlap rare
+    /// rather than permanent.</para>
+    ///
+    /// <para>A nuclear cloud is genuinely not white for most of its life: reddish-brown early from
+    /// nitrogen oxides made at the fireball's surface, then muddy grey-brown wherever it lifted
+    /// ground with it. Pure white is the condensation at the very top of a clean air burst.</para>
+    /// </summary>
+    public static void Tint(bool dirty)
+    {
+        if (Resolve() is not { } renderer) return;
+
+        try
+        {
+            renderer.DebugTrailColor = dirty ? Dirty : Clean;
+        }
+        catch (Exception e)
+        {
+            Warn($"tinting threw: {e.Message}");
+        }
+    }
+
+    // Warm grey, and darker than white on every channel: the colour multiplies the sunlight and the
+    // sky ambient together, so pulling it down is what takes the glare off as well as the hue.
+    private static readonly float4 Dirty = new(0.55f, 0.50f, 0.44f, 1f);
+    private static readonly float4 Clean = new(1f, 1f, 1f, 1f);
+
+    /// <summary>
     /// A cursor laying smoke. One per strand of the shape: move it and it draws a capsule from
     /// where it was to where it is.
     /// </summary>
@@ -111,9 +143,16 @@ internal static class PlumeSmoke
     private static void Tune(VolumetricTrailRenderer renderer)
     {
         // Noise eats up to 80% of the shape by default, which shreds an exhaust nicely and leaves a
-        // cloud looking frayed. Less depth and a softer edge give billows instead of tatters.
-        renderer.ErosionMaxDepth = 0.45f;
-        renderer.ErosionEdgeSharpness = 0.90f;
+        // cloud looking frayed. Rather less than that gives billows instead of tatters.
+        //
+        // But not much less, and the reason is mass rather than taste. A 0.3 kt surface burst lofts
+        // about 90 t of soil, which at any concentration that reads as visible dust fills a few
+        // hundred million cubic metres of air -- semi-transparently. Drawing the same volume opaque
+        // is what makes a small device look like it made far more smoke than it could have. Erosion
+        // is the only lever the renderer offers for that: there is no density or absorption field,
+        // and trailColor's alpha is unused.
+        renderer.ErosionMaxDepth = 0.68f;
+        renderer.ErosionEdgeSharpness = 0.93f;
 
         // The self-shadow ray is only as long as the local radius, so more steps buys resolution
         // inside the billows rather than reach.

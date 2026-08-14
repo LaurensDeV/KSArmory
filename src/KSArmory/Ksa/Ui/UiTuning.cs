@@ -293,7 +293,12 @@ internal sealed partial class Ui
             // a slider that stopped at a cannon shell would silently clamp one to a firework the
             // first time anybody touched it. Logarithmic, or the whole conventional range -- every
             // round the mod otherwise ships -- lives in the first thousandth of the travel.
-            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 50_000_000f,
+            //
+            // 340 kt is the top of the B61's own dial, so the slider covers the real weapon rather
+            // than stopping partway up it. It is well past playable at a launch site -- the lethal
+            // radius alone is 7.8 km -- which is a reason to ship at the bottom of the range, not a
+            // reason to hide the top of it.
+            ImGui.SliderFloat("Explosive charge (kg)", ref _munition.ChargeKg, 0.01f, 340_000_000f,
                               "%.2f", ImGuiSliderFlags.Logarithmic);
             ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
                                + $"blast {_munition.BlastRadius:F0} m, "

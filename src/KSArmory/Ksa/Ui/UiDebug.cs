@@ -18,11 +18,41 @@ internal sealed partial class Ui
         if (_config.BurstTool)
         {
             ImGui.TextDisabled("  click the ground to set one off there");
-            ImGui.SliderFloat("Charge (kg)", ref _config.BurstChargeKg, 0.01f, 500f,
-                              "%.2f", ImGuiSliderFlags.Logarithmic);
-            ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(_config.BurstChargeKg):F0} m, "
-                               + $"fireball {Warhead.FireballRadius(_config.BurstChargeKg):F0} m"
-                               + "   (the ring is the lethal radius)");
+            ImGui.Checkbox("Nuclear", ref _config.BurstNuclear);
+
+            if (_config.BurstNuclear)
+            {
+                // The B61's own dial. Logarithmic because the interesting end is the bottom of it:
+                // three orders of magnitude, and the cloud changes shape more between 0.3 and 3 kt
+                // than between 100 and 340.
+                ImGui.SliderFloat("Yield (kt)", ref _config.BurstYieldKt, 0.3f, 340f,
+                                  "%.2f kt", ImGuiSliderFlags.Logarithmic);
+
+                double kt = _config.BurstYieldKt;
+
+                ImGui.TextDisabled($"  fireball {MushroomCloud.PeakFireballRadius(kt) * 2.0:F0} m "
+                                   + $"across for {MushroomCloud.FlashSeconds(kt):F1} s");
+                ImGui.TextDisabled($"  cloud to {MushroomCloud.DrawnCloudTop(kt) / 1000.0:F2} km, "
+                                   + $"cap {MushroomCloud.DrawnCapRadius(kt) * 2.0 / 1000.0:F2} km "
+                                   + $"across, over {MushroomCloud.RiseSeconds:F0} s");
+                ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(kt * 1.0e6):F0} m"
+                                   + "   (the ring is the lethal radius)");
+
+                if (!PlumeSmoke.Available)
+                {
+                    ImGui.TextColored(Red, "the volumetric trail renderer is unreachable");
+                    ImGui.TextDisabled("  the flash will draw and the cloud will not");
+                }
+            }
+            else
+            {
+                ImGui.SliderFloat("Charge (kg)", ref _config.BurstChargeKg, 0.01f, 500f,
+                                  "%.2f", ImGuiSliderFlags.Logarithmic);
+                ImGui.TextDisabled($"  lethal {Warhead.LethalRadius(_config.BurstChargeKg):F0} m, "
+                                   + $"fireball {Warhead.FireballRadius(_config.BurstChargeKg):F0} m"
+                                   + "   (the ring is the lethal radius)");
+            }
+
             ImGui.Checkbox("Fireball (off: airburst)", ref _config.BurstFireball);
         }
 

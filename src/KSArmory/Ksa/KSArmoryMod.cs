@@ -260,7 +260,7 @@ public sealed class KSArmoryMod
 
                 // On the simulated step, like everything else that is a thing in the world
                 // rather than a duration somebody is watching.
-                NuclearClouds.Update(_lastSimStep);
+                NuclearClouds.Update(_lastSimStep, _config.DirtyNuclearSmoke);
 
                 // Only the system the panel is showing. Every crewed battery reading the same
                 // cursor would fire every launcher in the world at one click.

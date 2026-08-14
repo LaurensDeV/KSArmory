@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-117 types and 323 members across 6 assemblies.
+128 types and 342 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -47,7 +47,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.Numerics.double4x4
 
-*referenced as a type only*
+- `Brutal.Numerics.double4x4 CreateScale(double)`
+- `Brutal.Numerics.double4x4 CreateTranslation(Brutal.Numerics.double3)`
+- `Brutal.Numerics.double4x4 op_Multiply(Brutal.Numerics.double4x4, Brutal.Numerics.double4x4)`
 
 ### Brutal.Numerics.doubleQuat
 
@@ -71,10 +73,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float X`
 - `float Y`
 - `float Z`
+- `void .ctor(float, float, float)`
 
 ### Brutal.Numerics.float4
 
 - `void .ctor(float, float, float, float)`
+
+### Brutal.Numerics.float4x4
+
+- `Brutal.Numerics.float4x4 Pack(ref Brutal.Numerics.double4x4)`
 
 ### Brutal.Numerics.int2
 
@@ -338,6 +345,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `double op_Implicit(KSA.DensityReference)`
 
+### KSA.DeviceMeshInterleaved
+
+*referenced as a type only*
+
 ### KSA.DistanceReference
 
 - `double op_Implicit(KSA.DistanceReference)`
@@ -377,6 +388,21 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `bool Particles`
 - `bool ScreenSpaceParticles`
+
+### KSA.GenericMeshRenderer
+
+- `void AddInstance(KSA.MeshReference, ref InstanceData, ref PerDrawData, KSA.Viewport, int)`
+
+### KSA.GenericMeshRenderer+InstanceData
+
+- `Brutal.Numerics.float4 Color`
+- `Brutal.Numerics.float4x4 ModelMatrix`
+
+### KSA.GenericMeshRenderer+PerDrawData
+
+- `int AlbedoTextureIndex`
+- `int NormalTextureIndex`
+- `int PbrTextureIndex`
 
 ### KSA.GizmosRenderer
 
@@ -442,6 +468,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.LookupCollection`1
 
 *referenced as a type only*
+
+### KSA.MeshReference
+
+- `KSA.DeviceMeshInterleaved[] DeviceMeshesInterleaved`
 
 ### KSA.MeshViewModule
 
@@ -545,14 +575,32 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Viewport get_MainViewport()`
 - `System.Collections.Generic.List`1<KSA.Viewport> Viewports`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
+- `int ResourceFrameIndex`
 - `void SetCameraUbo(KSA.Viewport)`
 - `void UpdateShaderData(double, KSA.Viewport)`
 - `void set_ControlledVehicle(KSA.Vehicle)`
+
+### KSA.QuaternionEx
+
+- `Brutal.Numerics.doubleQuat Inverse(Brutal.Numerics.doubleQuat)`
 
 ### KSA.Ray
 
 - `Brutal.Numerics.double3 Direction`
 - `Brutal.Numerics.double3 Origin`
+
+### KSA.Rendering.Lighting.ELightFlags
+
+*referenced as a type only*
+
+### KSA.Rendering.Lighting.Light
+
+- `KSA.Rendering.Lighting.Light CreatePointLight(Brutal.Numerics.double3, float, Brutal.Numerics.float3, float, KSA.Rendering.Lighting.ELightFlags)`
+
+### KSA.Rendering.Lighting.LightDebug
+
+- `KSA.Vehicle Target`
+- `System.Collections.Generic.List`1<KSA.Rendering.Lighting.Light> Lights`
 
 ### KSA.Rendering.Particles.ParticleEmitterReference
 
@@ -620,6 +668,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.SpatialAudio
 
 - `void .ctor(Brutal.Numerics.double3, Brutal.Numerics.double3, double)`
+
+### KSA.TextureReference
+
+- `int get_BindlessHandle()`
 
 ### KSA.Transform3D
 
@@ -702,6 +754,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.VolumetricTrailRenderer
 
+- `Brutal.Numerics.float4 DebugTrailColor`
 - `float ErosionEdgeSharpness`
 - `float ErosionMaxDepth`
 - `float SkyAmbientBrightness`

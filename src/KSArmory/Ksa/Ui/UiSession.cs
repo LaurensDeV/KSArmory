@@ -20,6 +20,11 @@ internal sealed partial class Ui
     private void DrawWarpHold()
     {
         ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);
+
+        ImGui.Checkbox("Dirty nuclear smoke", ref _config.DirtyNuclearSmoke);
+        ImGui.TextDisabled(_config.DirtyNuclearSmoke
+                               ? "  a cloud tints every plume in the world while it stands"
+                               : "  off: the cloud is white, and nothing else is touched");
         ImGui.TextDisabled($"  Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only");
         ImGui.TextDisabled("  while something is in the air, and given back after.");
         if (!_config.LimitWarpInFlight)

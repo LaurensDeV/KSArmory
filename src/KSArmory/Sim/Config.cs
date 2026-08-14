@@ -64,8 +64,21 @@ public sealed class Config
     /// <para>On by default and worth keeping: the menu-bar entry that replaces it works by
     /// appending to KSA's own bar, which is ImGui behaviour rather than a supported hook. If that
     /// ever stops working, a mod with no way to reopen its panel is unusable.</para>
+    ///
+    /// <para>Suppressed anyway while <b>ModMenu</b> is installed, since its Mods menu is a way back
+    /// in that does not rest on that append. This says whether the button is wanted, not whether it
+    /// is needed.</para>
     /// </summary>
     public bool FloatingPanelButton = true;
+
+    /// <summary>
+    /// Dirty the smoke of a nuclear cloud rather than leaving it white.
+    ///
+    /// <para>Costs something worth knowing about: the engine carries one trail colour for the whole
+    /// world, so while a cloud stands every solid booster's plume is tinted with it. Held only for
+    /// as long as a cloud is up.</para>
+    /// </summary>
+    public bool DirtyNuclearSmoke = true;
 
     /// <summary>Play a bang when a warhead goes off.</summary>
     public bool BurstSound = true;
@@ -124,6 +137,24 @@ public sealed class Config
     /// shows what a warhead of that size actually looks like rather than an arbitrary size.
     /// </summary>
     public float BurstChargeKg = 20f;
+
+    /// <summary>
+    /// Make that burst a nuclear one, dialled in kilotons rather than kilograms.
+    ///
+    /// <para>The same code path either way: a nuclear charge is a very large one, and the cloud
+    /// grows itself for anything over <see cref="MushroomCloud.ThresholdKg"/>. What the tick box
+    /// changes is which unit the dial is in, because a slider that has to cover 10 g of shell
+    /// filling and 340 kt on one scale is useful for neither.</para>
+    /// </summary>
+    public bool BurstNuclear;
+
+    /// <summary>
+    /// Yield for that (kt), spanning the B61's own dial.
+    ///
+    /// <para>Kilotons rather than kilograms because that is the unit the thing is specified in, and
+    /// the conversion is exact: a kilotonne of TNT equivalent is a million kilograms of it.</para>
+    /// </summary>
+    public float BurstYieldKt = 0.3f;
 
     /// <summary>
     /// Pick a craft up with one click and set it down with the next.

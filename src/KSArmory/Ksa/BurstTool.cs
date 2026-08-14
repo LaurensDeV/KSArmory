@@ -35,17 +35,31 @@ internal sealed class BurstTool
                          ? KsaWorld.LocalUp(craft)
                          : Vec.Unit(groundEcl);
 
-        double radius = Warhead.FireballRadius(config.BurstChargeKg);
-        double3 at = groundEcl + up * Math.Max(radius, 2.0);
+        double chargeKg = ChargeOf(config);
 
+        // The nuclear fireball rather than the chemical one, for a nuclear burst. They disagree by
+        // a factor of three at these charges -- the chemical law is a cube root and this is not --
+        // and lifting a surface burst by the wrong one makes it an air burst, which is a different
+        // weapon: the whole cloud model below assumes the fireball is touching the ground.
+        double radius = config.BurstNuclear
+                            ? MushroomCloud.PeakFireballRadius(config.BurstYieldKt)
+                            : Warhead.FireballRadius(chargeKg);
+
+        double3 at = groundEcl + (up * Math.Max(radius, 2.0));
 
         Detonation.Show(config.BurstFireball ? Detonation.Fireball : Detonation.Airburst,
                         at, KsaWorld.ControlledVehicle,
-                        (float)Warhead.EffectScale(config.BurstChargeKg));
+                        (float)Warhead.EffectScale(chargeKg));
+
+        // Unconditional: NuclearClouds decides for itself whether a charge is large enough to have
+        // made a cloud, so the tool does not need to know and cannot disagree with the real path.
+        NuclearClouds.Begin(at, KsaWorld.ControlledVehicle, chargeKg);
 
         Log.Info($"burst tool: {(config.BurstFireball ? "fireball" : "airburst")}, "
-                 + $"{config.BurstChargeKg:F2} kg, lethal "
-                 + $"{Warhead.LethalRadius(config.BurstChargeKg):F0} m");
+                 + (config.BurstNuclear
+                        ? $"{config.BurstYieldKt:F2} kt"
+                        : $"{chargeKg:F2} kg")
+                 + $", lethal {Warhead.LethalRadius(chargeKg):F0} m");
     }
 
     /// <summary>Marks where the next click would put a burst, and how big it would be.</summary>
@@ -58,7 +72,11 @@ internal sealed class BurstTool
 
         // The lethal radius, not the fireball: the marker is there to say what the burst would
         // destroy, and those are very different numbers.
-        KsaWorld.DrawSphereEcl(groundEcl, (float)Warhead.LethalRadius(config.BurstChargeKg),
+        KsaWorld.DrawSphereEcl(groundEcl, (float)Warhead.LethalRadius(ChargeOf(config)),
                                MarkerColour);
     }
+
+    /// <summary>What the next click would set off, in kg, whichever unit the panel is dialling.</summary>
+    public static double ChargeOf(Config config)
+        => config.BurstNuclear ? config.BurstYieldKt * 1.0e6 : config.BurstChargeKg;
 }
