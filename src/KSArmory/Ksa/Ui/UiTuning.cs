@@ -216,34 +216,27 @@ internal sealed partial class Ui
 
     // The drives, each node existing only if the system has that gear. A rate slider for an axis
     // that does not turn is indistinguishable from one the engine is refusing.
+    //
+    // Rates only. Whether *this* mount tracks, spins or is aimed by hand is one installation's own
+    // choice and lives on its launcher's component row: a per-system control here would sit under a
+    // banner promising it reaches every Pantsir in the world, which it would not.
     private void DrawDriveNodes()
     {
         WeaponFit fit = _fit;
 
         if (fit.Aims && ImGui.TreeNode("Turret"))
         {
-            ImGui.Checkbox("Track with turret", ref _policy.TurretTracking);
             if (fit.Traverses) ImGui.SliderFloat("Traverse rate (deg/s)", ref _profile.SlewRateDeg, 5f, 180f);
             if (fit.Elevates) ImGui.SliderFloat("Elevation rate (deg/s)", ref _profile.ElevationRateDeg, 5f, 120f);
             ImGui.SliderFloat("Settle before firing (s)", ref _profile.SettleSeconds, 0f, 2f);
-
-            ImGui.Separator();
-            ImGui.TextDisabled("Drive it by hand - neither needs a target:");
-            if (fit.Traverses) ImGui.Checkbox("Spin continuously", ref _policy.TurretSpin);
-            ImGui.Checkbox("Manual aim", ref _policy.TurretManual);
-            if (fit.Traverses) ImGui.SliderFloat("Bearing (deg)", ref _policy.TurretManualBearingDeg, -180f, 180f);
-            if (fit.Elevates)
-            {
-                ImGui.SliderFloat("Elevation (deg)", ref _policy.TurretManualElevationDeg, 0f, 82f);
-                ImGui.TextDisabled("  Elevation applies to spin as well as manual aim.");
-            }
+            ImGui.TextDisabled("  tracking and manual aim are on the launcher under Components");
             ImGui.TreePop();
         }
 
         if (fit.SweepsASearchArray && ImGui.TreeNode("Search array"))
         {
             ImGui.SliderFloat("Search array (rpm)", ref _profile.SearchRadarRpm, 0f, 60f);
-            ImGui.Checkbox("Stop the search array", ref _policy.SearchRadarStopped);
+            ImGui.TextDisabled("  stopping this one is on its sensor under Components");
             ImGui.TreePop();
         }
     }
@@ -306,8 +299,6 @@ internal sealed partial class Ui
                                + (_munition.ChargeKg >= 1000f
                                       ? $"   ({_munition.ChargeKg / 1e6f:F2} kt)"
                                       : ""));
-            ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget,
-                            1, Math.Max(1, _fit.SalvoCapacity));
             ImGui.SliderFloat("Salvo spacing (s)", ref _profile.SalvoSpacing, 0.05f, 3f);
             ImGui.SliderFloat("Reload time (s)", ref _profile.ReloadSeconds, 0f, 60f);
 

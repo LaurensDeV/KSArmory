@@ -67,7 +67,10 @@ internal sealed partial class Ui
     {
         string label = of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
 
-        if (!ImGui.TreeNode(label)) return;
+        // Open unless folded away. A craft carries a handful of components and their controls are
+        // the reason to be on this tab at all, so a closed fold costs a click on every visit and
+        // buys back one line of screen.
+        if (!ImGui.TreeNodeEx(label, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
         double3 at = c.PositionVehicleAsmb;
         ImGui.TextDisabled($"at ({at.X:F2}, {at.Y:F2}, {at.Z:F2}) m");
@@ -137,6 +140,7 @@ internal sealed partial class Ui
         }
 
         DrawTurretLine();
+        DrawTurretControls();
 
         if (ImGui.Button("Reload")) _battery.Reload();
         ImGui.SameLine();
@@ -164,8 +168,10 @@ internal sealed partial class Ui
         ImGui.TextDisabled(_battery.GunsAreLaid ? "  laid" : "  not laid");
     }
 
-    // The set: what it is holding right now. Its numbers are on the Tuning tab, because they
-    // belong to the profile and every system running that loadout shares them.
+    // The set: what it is holding right now, and the one switch that belongs to this set rather
+    // than to every set of its type. Its numbers are on the Tuning tab, because they belong to the
+    // profile and every system running that loadout shares them; the full scope is the Radar tab,
+    // because a track list is a list and a component row is not the place for one.
     private void DrawSensorComponent(FoundComponent c)
     {
         if (!IsCrewedProvider(c))
@@ -175,6 +181,16 @@ internal sealed partial class Ui
         }
 
         DrawRadarState();
+
+        // `_policy`, not the profile: whether this one set is turning is this installation's own
+        // business, while the rpm it turns at is what a set of this type is. Only the second is a
+        // Tuning control.
+        if (_fit.SweepsASearchArray)
+        {
+            ImGui.Checkbox("Stop the search array", ref _policy.SearchRadarStopped);
+        }
+
+        ImGui.TextDisabled("  the Radar tab has the scope and the full track list");
     }
 
     // A provided row belongs to whichever part declared it, and only the crewed part's provided
@@ -198,27 +214,16 @@ internal sealed partial class Ui
     }
 
     // Everything about releasing a weapon, on the part that decides it.
+    //
+    // The master arm, auto-engage and FIRE are deliberately *not* here: they belong to the whole
+    // installation rather than to one part of it, so they sit in the header where they are on
+    // screen whichever tab is open. See DrawSystemHeader.
     private void DrawFireControlComponent()
     {
-        ImGui.Checkbox("Master arm", ref _policy.Armed);
-        ImGui.SameLine();
-        ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
-
-        if (ImGui.Button("FIRE")) _battery.FireAtLock();
-        ImGui.SameLine();
-        if (ImGui.Button("Reset settings") && _battery.Platform is { } craft)
-        {
-            SettingsStore.Forget(KsaWorld.DisplayName(craft));
-            new SystemSettings().ApplyTo(_policy);
-            _batteries.WriteNow();
-            Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
-        }
-
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Back to defaults, and forgotten from the settings file.\n"
-                             + "This resets the whole installation, not this component.");
-        }
+        // How much is committed per engagement: fire control's decision, and this installation's
+        // own rather than anything about the round. Not on Tuning, where every control is shared.
+        ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget,
+                        1, Math.Max(1, _fit.SalvoCapacity));
 
         ImGui.Checkbox("Never target the vehicle I'm flying", ref _policy.ProtectControlledVehicle);
 
@@ -235,6 +240,23 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  Click the ground to send a round there. No target and no lock");
             ImGui.TextDisabled("  needed - the ring shows where, and turns red when it would refuse.");
             if (!_policy.Armed) ImGui.TextColored(Amber, "  Master arm is off, so clicks do nothing.");
+        }
+
+        // Last, and alone below a rule. It discards the installation's stored settings, so it is
+        // kept clear of anything anyone reaches for in a hurry.
+        ImGui.Separator();
+        if (ImGui.Button("Reset settings") && _battery.Platform is { } craft)
+        {
+            SettingsStore.Forget(KsaWorld.DisplayName(craft));
+            new SystemSettings().ApplyTo(_policy);
+            _batteries.WriteNow();
+            Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Back to defaults, and forgotten from the settings file.\n"
+                             + "This resets the whole installation, not this component.");
         }
     }
 
@@ -289,6 +311,21 @@ internal sealed partial class Ui
             ImGui.Separator();
             return;
         }
+
+        // The three that decide whether anything leaves the rails, immediately above the line that
+        // says why it has not. Here rather than on the fire-control component row because they are
+        // about the whole system and no part of it -- which is what this strip is for, and a master
+        // arm is the plainest case of it. Anything folded inside a tab is somewhere nobody looks
+        // when the question is why the launcher is silent.
+        ImGui.Checkbox("Master arm", ref _policy.Armed);
+        ImGui.SameLine();
+        ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
+
+        // Spaced off the two tick boxes: it is the one control here that does something the moment
+        // it is clicked rather than setting a state.
+        ImGui.SameLine(0f, ImGui.GetFrameHeight());
+        if (ImGui.Button("FIRE")) _battery.FireAtLock();
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Fire one salvo at the current lock, now.");
 
         if (_battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
         else ImGui.TextColored(Green, "Clear to fire");
@@ -605,6 +642,39 @@ internal sealed partial class Ui
         ImGui.TreePop();
     }
 
+    // How this installation's mount is being driven, under the launcher that owns it.
+    //
+    // These are `_policy` -- one installation's own choices, so two Pantsirs can disagree about
+    // them. That is what keeps them off the Tuning tab, where every control edits the shared
+    // profile and reaches every system in the world running it. A slew rate belongs there; which
+    // way this one mount is pointed does not.
+    private void DrawTurretControls()
+    {
+        if (_battery.Launcher is null || !_fit.Aims) return;
+
+        ImGui.Checkbox("Track with turret", ref _policy.TurretTracking);
+
+        if (!ImGui.TreeNode("Drive it by hand")) return;
+
+        ImGui.TextDisabled("  neither needs a target");
+
+        if (_fit.Traverses) ImGui.Checkbox("Spin continuously", ref _policy.TurretSpin);
+        ImGui.Checkbox("Manual aim", ref _policy.TurretManual);
+
+        if (_fit.Traverses)
+        {
+            ImGui.SliderFloat("Bearing (deg)", ref _policy.TurretManualBearingDeg, -180f, 180f);
+        }
+
+        if (_fit.Elevates)
+        {
+            ImGui.SliderFloat("Elevation (deg)", ref _policy.TurretManualElevationDeg, 0f, 82f);
+            ImGui.TextDisabled("  elevation applies to spin as well as manual aim");
+        }
+
+        ImGui.TreePop();
+    }
+
     private void DrawTurretLine()
     {
         if (_battery.Launcher is null) return;
@@ -669,6 +739,11 @@ internal sealed partial class Ui
             ImGui.TextDisabled("No sensor: nothing to hold a track, and nothing to designate.");
             return;
         }
+
+        // The lock heads its own track list, because it is one of the tracks. The sensor's
+        // component row carries the same state in a line; this is the view with room for it.
+        DrawRadarState();
+        ImGui.Separator();
 
         if (_battery.Radar.Tracks.Count == 0)
         {

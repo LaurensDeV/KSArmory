@@ -51,13 +51,11 @@ internal sealed partial class Ui
         }
     }
 
-    // Everything that belongs to the session, in one window: what is drawn, what is heard, the
-    // one setting that changes how the weapons behave, and the developer tools.
+    // Everything that belongs to the session and to playing with the mod: what is drawn, what is
+    // heard, and the one setting that changes how the weapons behave.
     //
     // A window rather than a tree on the main panel, because the panel is a list of the systems in
-    // the world and that list is the only thing on it that changes as the world does. Debug is a
-    // section in here and not a window of its own: it is the same session, and two windows of
-    // settings is one more than anyone wants open.
+    // the world and that list is the only thing on it that changes as the world does.
     private void DrawSettingsPane()
     {
         if (ImGui.CollapsingHeader("Display", ImGuiTreeNodeFlags.DefaultOpen)) DrawDisplayPane();
@@ -65,15 +63,22 @@ internal sealed partial class Ui
 
         ImGui.SeparatorText("Weapons");
         DrawWarpHold();
+    }
 
-        // Collapsed, and last: these answer questions about the mod, not about the engagement.
-        if (!ImGui.CollapsingHeader("Debug")) return;
-
-        // The overlay is diagnostic drawing, so its master switch belongs here rather than only
-        // under Display -- which is where an operator goes to tune it, not to find it.
-        ImGui.Checkbox("Draw debug lines", ref _config.DrawOverlays);
-        ImGui.TextDisabled("  search cone, tracks, round tracers, drive facing");
-        if (_config.DrawOverlays) ImGui.TextDisabled("  Display has the individual switches");
+    // The developer tools, in a window of their own rather than a section of the settings one.
+    //
+    // Most of this answers questions about the mod rather than about the engagement, which is what
+    // separates the two windows -- but slow motion, the target spawner and the log are all reached
+    // during an engagement, and nothing wanted at that moment belongs behind a fold inside another
+    // window.
+    private void DrawDebugPane()
+    {
+        // A report, not a second switch. Config.DrawOverlays has exactly one control, under
+        // Display beside the sub-switches it governs; a second one here would be the same field
+        // under a second name, so toggling either would silently move the other.
+        ImGui.TextDisabled(_config.DrawOverlays
+                               ? "World overlay is on - Settings > Display has its switches"
+                               : "World overlay is off - turn it on under Settings > Display");
 
         ImGui.Separator();
         DrawWorldClock();
@@ -113,7 +118,7 @@ internal sealed partial class Ui
 
         ImGui.SeparatorText("Systems");
         ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
-        ImGui.TextDisabled("  brackets over every system; (+) in the list pins a label");
+        ImGui.TextDisabled("  brackets over every system; Look at in the list pins a label");
         ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);
         ImGui.Checkbox("Drive facing line", ref _config.DrawTurretFacing);
         ImGui.TextDisabled("  where the drives think they point, not where they are told to");

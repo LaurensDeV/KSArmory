@@ -348,7 +348,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 342 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 343 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
@@ -625,6 +625,25 @@ gate in fire control returns quietly, so an unarmed system, one with no lock, on
 and one whose drives the engine refused all look identical from outside. `Holding fire: <why>` is
 the only thing that separates them, and it is no use behind a fold or on a tab nobody is looking
 at.
+
+**The master arm, auto-engage and FIRE are on that strip too, and belong there by the same test.**
+Whether the installation is shooting is about the whole system and no part of it, so the
+fire-control component row is the wrong home for it however sensible the part sounds — that row is
+for what fire control *decides* once armed: rounds per target, what it will not shoot at, and the
+mouse controls.
+
+**Ownership says where a control lives; it does not license how deep.** The two rules are
+independent, and obeying only the first is what buried the master arm and the sight three folds
+down. So: a component row opens **expanded**, anything reached *during* an engagement — slow
+motion, the target spawner, the log — is at most one window from the panel, and a control that is
+the answer to "why is nothing happening" is never behind a disclosure triangle. A fold is for
+detail nobody needs on the way past, which is what the manual-drive and IFF sub-nodes are.
+
+**One field, one control.** `Config.DrawOverlays` had two, under two names with two explanations,
+so toggling either silently moved the other. `check-tunables.py` cannot catch this — it asks that
+every setting has *a* control, never that it has only one — so it is a review question. Where a
+second surface genuinely helps, it reports the state and names where the switch is rather than
+being a second switch.
 
 **A control that opens a window is a button, never a tick box.** A checkmark reads as "this
 setting is on", so a window arriving instead is unannounced and the tick says nothing about where
@@ -1158,7 +1177,7 @@ off one camera, because pairing a direction from the viewport under the pointer 
 from `GetMainCamera()` puts the ray a viewport away from the cursor.
 
 The overlay itself — search volume, tracks, tracers, drive facing — is diagnostic and off by
-default (`Config.DrawOverlays`, under **Debug → Draw debug lines**). Round *bodies* are real
+default (`Config.DrawOverlays`, under **Settings → Display → World overlay**). Round *bodies* are real
 subparts and are unaffected.
 
 **The optical head drives the main view, because it is the only one that draws a planet.** A

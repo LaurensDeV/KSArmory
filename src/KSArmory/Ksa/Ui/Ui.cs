@@ -84,6 +84,12 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private Pane[] Panes => _panes ??=
     [
         new("KSArmory settings", DrawSettingsPane, PaneGroup.Session),
+
+        // Its own button beside settings, rather than a collapsed header inside that window. Sim
+        // speed, the target spawner and the log are all reached *while* an engagement is running,
+        // and a fold two windows deep is not a place to keep those.
+        new("Debug tools", DrawDebugPane, PaneGroup.Session),
+
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
         new("Log", DrawLog, PaneGroup.Debug),
     ];
@@ -346,18 +352,20 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         // Point the camera at it and label it for a few seconds, without moving or commandeering
         // anything. One shot rather than a toggle: both halves end on their own, so there is
         // nothing left to switch off and no state for the button to get out of step with.
-        // ASCII on purpose: ImGui's default font carries basic Latin only, so a crosshair glyph
-        // would render as a box.
+        // Worded, not a glyph: ImGui's default font carries basic Latin only, so a crosshair
+        // renders as a box, and an ASCII stand-in for one has to be hovered to be understood.
+        // "Look at" reads beside "Go to" and "Manage" as the third thing that can be done to a
+        // row, which is what it is.
         // Nothing to turn towards when the view is already on it. Shown as inert rather than
         // hidden, so the row keeps its shape and the button does not move under the pointer.
         if (KsaWorld.MainViewFollows(craft))
         {
-            ImGui.TextDisabled("(+)");
+            ImGui.TextDisabled("Look at");
             if (ImGui.IsItemHovered()) ImGui.SetTooltip("Already looking at it.");
         }
         else
         {
-            if (ImGui.SmallButton("(+)"))
+            if (ImGui.SmallButton("Look at"))
             {
                 Markers.Show(craft);
                 _watch.Watch(craft);
@@ -424,7 +432,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
                 if (armed)
                 {
-                    if (ImGui.BeginTabItem("Tracks")) { DrawTrackList(); ImGui.EndTabItem(); }
+                    // "Radar" rather than "Tracks": the tab carries the lock and the scope state
+                    // as well as the list, which is the whole of what the set is doing.
+                    if (ImGui.BeginTabItem("Radar")) { DrawTrackList(); ImGui.EndTabItem(); }
                     if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
                     if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
                 }
