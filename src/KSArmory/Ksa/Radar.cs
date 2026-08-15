@@ -76,6 +76,17 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         Tracks.Clear();
         MaskedByTerrain = 0;
 
+        // A set that has been told to stop transmitting sees nothing. That is the whole of the
+        // trade against an anti-radiation round -- going quiet costs the site its own picture, so
+        // it is a decision rather than a free defence. Only a set that transmits can be silenced;
+        // a passive seeker answers false and is unaffected.
+        if (_sensor.Emits && _policy.RadarSilent)
+        {
+            _dwell.Clear();
+            Locked = null;
+            return;
+        }
+
         double3 originEcl = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
 

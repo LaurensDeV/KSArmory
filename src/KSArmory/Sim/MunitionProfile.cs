@@ -10,6 +10,19 @@ public enum GuidanceMode
     Seeker,
 
     /// <summary>
+    /// The round homes on a radar emission rather than on the airframe carrying it. Inside its
+    /// gimbal limit it steers exactly like a <see cref="Seeker"/> — what differs is what it can
+    /// see at all: a contact that is not radiating is not a target, however large or close.
+    ///
+    /// <para>So the counter is to stop transmitting, and the round answers that the way the real
+    /// weapon does: it carries on to where the emission last came from. Shutting a set down
+    /// therefore saves it only if it also <em>moves</em>, which is the whole tactical shape of
+    /// the thing and the reason this is a guidance mode rather than a filter on target
+    /// selection.</para>
+    /// </summary>
+    AntiRadiation,
+
+    /// <summary>
     /// The launcher tracks the target and uplinks steering commands — the round carries no
     /// seeker. It therefore cannot be blinded by a hard-manoeuvring target, and its gimbal
     /// limit is irrelevant; what breaks the engagement is the *launcher* losing the track.

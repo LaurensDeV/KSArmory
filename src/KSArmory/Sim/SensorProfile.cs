@@ -73,6 +73,19 @@ public sealed class SensorProfile
     /// <summary>Tracks below this relative speed are ignored (m/s), e.g. docked craft.</summary>
     public float MinTargetSpeed = 15f;
 
+    /// <summary>
+    /// Whether the set finds its targets by transmitting. A radar does; an infrared seeker, an
+    /// optical head and a bomb sight do not, and none of them can be homed on.
+    ///
+    /// <para>This is what the set <em>is</em>, not what it is doing — whether it is transmitting
+    /// right now is <c>SystemConfig.RadarSilent</c>, which is the operator's switch and the only
+    /// defence against <see cref="GuidanceMode.AntiRadiation"/> that does not involve moving.</para>
+    ///
+    /// <para>Defaults to false, so a profile that says nothing about emission is invisible to an
+    /// anti-radiation round rather than accidentally becoming a target for one.</para>
+    /// </summary>
+    public bool Emits;
+
     // ---- What the set can tell targets apart by ------------------------------
     //
     // Each of the three is off at zero, and zero is the default: with all three at zero the set

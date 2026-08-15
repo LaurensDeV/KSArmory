@@ -203,6 +203,73 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// The AGM-88 HARM: a rail-launched anti-radiation missile.
+    ///
+    /// <para>Airframe figures are the real weapon's, from designation-systems.net — 4.17 m,
+    /// 254 mm, 112 cm wingspan, 61 cm finspan, 360 kg, a 66 kg WDU-21/B blast-fragmentation
+    /// warhead behind an FMU-111/B laser proximity fuze.</para>
+    ///
+    /// <para>What separates it from the AMRAAM on the rail beside it is not reach but what it can
+    /// see: <see cref="GuidanceMode.AntiRadiation"/> homes on an emission, so a contact that is
+    /// not transmitting is not a target however large or close. That makes it useless against
+    /// aircraft and decisive against a radar site — which is the entire weapon.</para>
+    ///
+    /// <para>Its motor is a <em>dual-thrust</em> SR113-TC-1: boost and then sustain, where the
+    /// AMRAAM is boost-only and coasts the rest of the way. So it holds speed at the far end of
+    /// its envelope rather than arriving slow and turning badly, and a long shot is not the
+    /// giveaway it is for a coasting round.</para>
+    /// </summary>
+    public static readonly MunitionProfile MissileAgm88 = new()
+    {
+        // It has to clear the rail and settle before its seeker means anything; the far end is
+        // the standoff figure, which the real weapon only reaches from altitude and speed.
+        MinRange = 1200f,
+        MaxRange = 148000f,
+
+        Name = "AGM88",
+        DisplayName = "AGM-88 HARM",
+        BodyMarker = "Harm_Round",
+
+        // No fin marker: a rail-launched round carries its fins deployed, so there is nothing to
+        // unfold and no second subpart to scale.
+        BodyLength = 4.17f,
+
+        // Off the rail on its own motor rather than ejected, so the rail imparts nothing.
+        LaunchSpeed = 25f,
+
+        // Boost, then sustain. The SR113-TC-1 is dual-thrust, and Stages holds what burns *after*
+        // the first -- so the boost is BoostSeconds/BoostAccel and the sustainer is the one entry
+        // below. That second burn is the whole difference from the AMRAAM's single one: it is
+        // still pushing where a coasting round has started to fall back.
+        BoostSeconds = 5.0f,
+        BoostAccel = 210f,
+        Stages = [new(Seconds: 18.0f, Accel: 26f)],
+        MaxFlightSeconds = 180f,
+
+        // Fatter than the AMRAAM at the same order of mass, so it bleeds rather more -- but it is
+        // still burning for most of the flight, which is what the extra reach is bought with.
+        DragK = 3.1e-5f,
+
+        Guidance = GuidanceMode.AntiRadiation,
+
+        // A wide gimbal, because the emitter is found by direction-finding across the whole
+        // forward hemisphere rather than through a dish that has to be pointed.
+        SeekerFovDeg = 70f,
+        NavConstant = 4f,
+
+        // Wing-controlled, and a big airframe: it turns well but nothing like a point-defence
+        // round, and it is not trying to catch anything that manoeuvres.
+        MaxLateralG = 20f,
+
+        // Long enough to be clear of the rail and the craft before anything turns it.
+        SeparationSeconds = 0.4f,
+
+        FuseRadius = 16f,
+        FuseArmSeconds = 1.5f,
+        ChargeKg = 66f,
+    };
+
+    /// <summary>
     /// The M61A2's 20 mm round, as the Phalanx fires it.
     ///
     /// <para>Muzzle velocity (1100 m/s), the 1486 m effective range and the 4500 rpm the gun runs
@@ -347,6 +414,9 @@ public static class Arsenal
     {
         Name = "1RS1",
         DisplayName = "1RS1-1E search radar",
+
+        // It is a radar, so it can be homed on. Its operator's switch is SystemConfig.RadarSilent.
+        Emits = true,
     };
 
     /// <summary>
@@ -406,6 +476,44 @@ public static class Arsenal
 
         // A fighter-sized return. Anything smaller is seen closer in, by the fourth root.
         ReferenceCrossSectionM2 = 5f,
+
+        // An active seeker lights its own radar, so the round is itself something an
+        // anti-radiation weapon could home on.
+        Emits = true,
+    };
+
+    /// <summary>
+    /// The HARM's own seeker: a wideband receiver that finds a radar by listening for it.
+    ///
+    /// <para><see cref="SensorProfile.Emits"/> is deliberately <em>false</em>, and it is the whole
+    /// character of the weapon: this set is entirely passive, so a craft carrying nothing but this
+    /// rail is invisible to another anti-radiation round. A SEAD aircraft that lit its own radar
+    /// to find a radar would be the first thing shot at.</para>
+    ///
+    /// <para>Long-ranged and wide because that is what direction-finding on a transmitter buys —
+    /// a set radiating megawatts is detectable far beyond where its own return would be seen,
+    /// which is why this reaches further than the AMRAAM's seeker while being a smaller thing.
+    /// <see cref="SensorProfile.ReferenceCrossSectionM2"/> is left at zero for the same reason:
+    /// what it hears does not depend on how large the target is, only on whether it is on.</para>
+    /// </summary>
+    public static readonly SensorProfile SeekerHeadAgm88 = new()
+    {
+        Name = "AGM88SEEK",
+        DisplayName = "AGM-88 seeker head",
+
+        Range = 60000f,
+        ConeDeg = 70f,
+        BoresightSource = BoresightMode.PartForward,
+
+        ThreatRadius = 50000f,
+        ThreatHorizonSeconds = 90f,
+        LockSeconds = 1.0f,
+
+        // A radar site sits still, so a minimum speed would reject the only target this weapon
+        // exists to shoot at.
+        MinTargetSpeed = 0f,
+
+        Emits = false,
     };
 
     /// <summary>
@@ -427,6 +535,8 @@ public static class Arsenal
         ThreatRadius = 2500f,
         ThreatHorizonSeconds = 15f,
         LockSeconds = 0.6f,
+
+        Emits = true,
 
     };
 
@@ -583,6 +693,42 @@ public static class Arsenal
         // the mounting face, plus half a body length forward.
         Tubes = [new(new(0.42400, 1.82250, 0.00000), new(0, 1, 0))],
         MuzzleForwardOffset = 0.424,
+
+        // Off the rail, then a turn — see the LAU-7's note, which this shares whole.
+        LaunchAlongTube = true,
+        EjectAwayFromMount = 0.55f,
+        LaunchLoft = 0f,
+        MuzzleOffset = 2f,
+
+        // A rail holds what it holds.
+        ReloadSeconds = 0f,
+        SettleSeconds = 0f,
+    };
+
+    /// <summary>
+    /// A LAU-118 rail carrying one AGM-88 HARM, radially attached like the two rails above it.
+    ///
+    /// <para>Mechanically the LAU-128's twin — nothing moves, no turret marker, no pods marker, so
+    /// <see cref="LauncherProfile.Trains"/> is false and it is laid from the moment it exists. The
+    /// difference is entirely what the round can see: this is the first weapon here that cannot
+    /// engage an aircraft at all, and the first whose target has a say in whether it is one.</para>
+    ///
+    /// <para>Its art is authored, so as with the AMRAAM the numbers below are not printed by a
+    /// model script — 0.540 is the seat position in <c>KSArmoryAssets.xml</c> and 4.17 is the
+    /// mesh's own length. <c>tools/validate-parts.py</c> holds all three to each other, since the
+    /// .blend they came from is not in this repository and nothing else can check them.</para>
+    /// </summary>
+    public static readonly LauncherProfile HarmRail = new()
+    {
+        PartId = "KSArmory_Prefab_HarmRail",
+        DisplayName = "LAU-118 HARM rail",
+        Munition = "AGM88",
+        Sensor = "AGM88SEEK",
+
+        // The nose of the seated round and the direction it leaves along: the seat offset out of
+        // the mounting face, plus half a body length forward.
+        Tubes = [new(new(0.54000, 2.08500, 0.00000), new(0, 1, 0))],
+        MuzzleForwardOffset = 0.540,
 
         // Off the rail, then a turn — see the LAU-7's note, which this shares whole.
         LaunchAlongTube = true,
@@ -858,12 +1004,13 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [PantsirS1, SidewinderRail, AmraamRail, Ciws, BombRack, NukeRack];
+        [PantsirS1, SidewinderRail, AmraamRail, HarmRail, Ciws, BombRack, NukeRack];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
-        [Missile57E6, Cannon30Mm, Missile9J, Missile120C, Cannon20Mm, BombMk82, NukeB61];
+        [Missile57E6, Cannon30Mm, Missile9J, Missile120C, MissileAgm88, Cannon20Mm,
+         BombMk82, NukeB61];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
-        [SearchRadar1Rs1, SeekerHeadAim9, SeekerHeadAim120, SearchRadarVps2, BombSight,
-         EoSensor, PodSensor];
+        [SearchRadar1Rs1, SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
+         BombSight, EoSensor, PodSensor];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
@@ -953,6 +1100,21 @@ public static class Arsenal
             [
                 new(WeaponRole.Sensor, SeekerHeadAim120.DisplayName),
                 new(WeaponRole.FireControl, "LAU-128 fire control"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = HarmRail.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = HarmRail.DisplayName,
+
+            // Same declaration as the other two rails': what the survey can find is the rail, and
+            // the set it searches with belongs to the round sitting on it. That set is passive
+            // here, which is why a craft carrying only this is not itself a target.
+            Provides =
+            [
+                new(WeaponRole.Sensor, SeekerHeadAgm88.DisplayName),
+                new(WeaponRole.FireControl, "LAU-118 fire control"),
             ],
         },
         new ComponentProfile

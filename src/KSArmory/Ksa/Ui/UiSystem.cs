@@ -194,6 +194,16 @@ internal sealed partial class Ui
             ImGui.Checkbox("Stop the search array", ref _policy.SearchRadarStopped);
         }
 
+        // Only offered on a set that actually transmits: silencing a passive seeker is a switch
+        // that would do nothing, and one that does nothing is worse than one that is absent.
+        if (_battery.Sensor.Emits)
+        {
+            ImGui.Checkbox("Radar silent", ref _policy.RadarSilent);
+            ImGui.TextDisabled(_policy.RadarSilent
+                ? "  not transmitting: nothing to home on, and nothing seen either"
+                : "  transmitting: an anti-radiation round can home on this");
+        }
+
         ImGui.TextDisabled("  the Radar tab has the scope and the full track list");
     }
 

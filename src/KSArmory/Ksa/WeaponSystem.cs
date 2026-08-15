@@ -11,10 +11,17 @@ internal readonly record struct SystemEvent(double AtSeconds, string Message);
 /// to commit rounds. Mounted on a platform vehicle, normally the craft carrying the launcher
 /// part, and pinned there so the site keeps defending itself after the player switches away.
 /// </summary>
-internal sealed class WeaponSystem(Config config, SystemConfig policy, int launcherOrdinal = 0)
+internal sealed class WeaponSystem(Config config, SystemConfig policy, int launcherOrdinal = 0,
+                                   Func<Vehicle, bool>? craftIsEmitting = null)
     : IWeaponSystemView, IManualFire, ISightPicture, IEffectSource
 {
     private readonly Config _config = config;
+
+    // Whether a given craft is transmitting. Supplied by the roster rather than reached for
+    // statically: only the roster knows every system in the world, and only an anti-radiation
+    // round asks. Null leaves every contact silent, which makes such a round blind rather than
+    // letting it home on something nobody said was radiating.
+    private readonly Func<Vehicle, bool>? _craftIsEmitting = craftIsEmitting;
 
     // This installation's own settings. Shared Config stays for the session-wide ones.
     private readonly SystemConfig _policy = policy;
@@ -1827,7 +1834,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             KsaWorld.PositionEcl(target),
             KsaWorld.VelocityEcl(target),
             KsaWorld.MeanRadius(target),
-            target);
+            target,
+            // Read every frame rather than latched at launch: a set that shuts down mid-flight is
+            // the whole counter to an anti-radiation round, and the round has to notice.
+            Emitting: _craftIsEmitting?.Invoke(target) ?? false);
     }
 
     // Every craft a round could run into this frame, the platform excepted: a mount does not

@@ -826,6 +826,7 @@ LAUNCHER_GEOMETRY = {
     "BombRack": ("bombrack", "rack"),
     "NukeRack": ("bombrack", "nuclear rack"),
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
+    "HarmRail": (None, "HARM rail"),          # authored, as above
 }
 
 # Launchers whose art was authored rather than generated, and whose geometry is therefore checked
@@ -840,6 +841,8 @@ LAUNCHER_GEOMETRY = {
 AUTHORED_LAUNCHERS = {
     "AmraamRail": ("KSArmory_Prefab_AmraamRail", "KSArmory_Amraam_Round00",
                    "KSArmory_Subpart_Amraam", "Missile120C", "AMRAAM rail"),
+    "HarmRail": ("KSArmory_Prefab_HarmRail", "KSArmory_Harm_Round00",
+                 "KSArmory_Subpart_Harm", "MissileAgm88", "HARM rail"),
 }
 
 

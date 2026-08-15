@@ -77,6 +77,26 @@ internal sealed class WeaponSystems(Config config)
     }
 
     /// <summary>
+    /// Whether anything on this craft is transmitting — the only thing an anti-radiation round can
+    /// home on.
+    ///
+    /// <para>Asked of the roster because only the roster knows every system in the world, and a
+    /// craft is a target for such a round because of what it is <em>doing</em> rather than what it
+    /// carries: a site whose set is silent is not one, and neither is a craft whose only sensor is
+    /// an infrared seeker or an optical head. Several launchers on one craft mean one is enough.</para>
+    /// </summary>
+    public bool IsEmitting(Vehicle craft)
+    {
+        foreach (Entry entry in _entries.Values)
+        {
+            if (!ReferenceEquals(entry.Craft, craft)) continue;
+            if (entry.Battery.Sensor.Emits && !entry.Policy.RadarSilent) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The <em>selected</em> weapon on a craft, or null if it carries no weapons system.
     ///
     /// <para>Every consumer that used to mean "the system on this craft" still gets one, which is
@@ -191,7 +211,7 @@ internal sealed class WeaponSystems(Config config)
                     stored.DeclareTeams(_config.TeamNames);
                 }
 
-                WeaponSystem battery = new(_config, policy, ordinal);
+                WeaponSystem battery = new(_config, policy, ordinal, IsEmitting);
 
                 // Pinned on creation, so ResolvePlatform leaves it alone. Without this every
                 // battery would independently elect the craft being flown and they would all pile

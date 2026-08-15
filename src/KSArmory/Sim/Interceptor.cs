@@ -14,9 +14,14 @@ internal enum RoundState
 ///
 /// <para><paramref name="Handle"/> is opaque and defaulted: <c>Sim/</c> only ever compares it or
 /// hands it back, and a caller with nothing to identify leaves it out.</para>
+///
+/// <para><paramref name="Emitting"/> is whether the contact is radiating this frame, which only
+/// <see cref="GuidanceMode.AntiRadiation"/> reads. It defaults to <c>true</c> so that every other
+/// weapon behaves exactly as it did before the field existed — a caller that has no notion of
+/// emission is describing a target every other seeker can still see.</para>
 /// </summary>
 internal readonly record struct TargetState(double3 PositionEcl, double3 VelocityEcl, double Radius,
-                                            object? Handle = null);
+                                            object? Handle = null, bool Emitting = true);
 
 /// <summary>
 /// A single anti-air round.
@@ -183,6 +188,22 @@ internal sealed class Interceptor : IProjectile
     public bool HasLock => TargetRef is not null && SeekerInView;
 
     /// <summary>
+    /// Whether an <see cref="GuidanceMode.AntiRadiation"/> round has ever heard its target, and so
+    /// has somewhere to go if the set shuts down. Always false for every other guidance.
+    /// </summary>
+    public bool HasEmission { get; private set; }
+
+    // Where the emission last came from, the velocity it was seen with, and the round's own age at
+    // that moment. Replayed forward rather than stored as a bare coordinate -- see Step.
+    private double3 _emissionPosEcl;
+    private double3 _emissionVelEcl;
+    private double _emissionAge;
+
+    // The aimpoint is a place someone designated rather than something the round has to find, so
+    // there is nothing for a gimbal limit or an emission to lose.
+    private bool OperatorHeld => Aimpoint.Kind == AimpointKind.Ground;
+
+    /// <summary>
     /// Velocity relative to the moving frame — the round's airspeed vector, and the direction it
     /// points. Not <see cref="VelocityEcl"/>, which carries the platform's ~29.8 km/s and would
     /// orient every round the same way.
@@ -345,8 +366,37 @@ internal sealed class Interceptor : IProjectile
             // Subtracting frameSeconds puts the target back at the instant the round is actually
             // at, which is what makes the common ecliptic motion cancel.
             double3 targetPos = t.PositionEcl + t.VelocityEcl * (elapsedInFrame - frameSeconds);
+            double3 targetVel = t.VelocityEcl;
+
+            // An anti-radiation round is homing on the emission, so a set that stops transmitting
+            // simply stops being a target. What it does not do is forget: it carries on to where
+            // the emission last came from, which is what makes shutting down a defence only for a
+            // set that also moves.
+            //
+            // The memory is a position AND the velocity it was seen with, replayed forward on the
+            // round's own clock -- never a bare ecliptic coordinate. That velocity carries the
+            // planet's ~29.8 km/s, so replaying it keeps the remembered spot on the ground it
+            // belongs to; storing the point alone leaves it behind at half a kilometre per frame.
+            bool homingOnMemory = false;
+            if (munition.Guidance == GuidanceMode.AntiRadiation && !OperatorHeld)
+            {
+                if (t.Emitting)
+                {
+                    _emissionPosEcl = targetPos;
+                    _emissionVelEcl = targetVel;
+                    _emissionAge = Age;
+                    HasEmission = true;
+                }
+                else if (HasEmission)
+                {
+                    targetPos = _emissionPosEcl + _emissionVelEcl * (Age - _emissionAge);
+                    targetVel = _emissionVelEcl;
+                    homingOnMemory = true;
+                }
+            }
+
             double3 r = targetPos - PositionEcl;
-            double3 v = t.VelocityEcl - VelocityEcl;
+            double3 v = targetVel - VelocityEcl;
 
             ClosestApproach = Math.Min(ClosestApproach, Vec.Len(r));
 
@@ -357,9 +407,16 @@ internal sealed class Interceptor : IProjectile
             // is holding it, so there is nothing for a gimbal limit to lose. Without this a rail
             // can only shoot where it already points, which for a rail bolted to a stack is
             // straight along the stack and nowhere useful.
-            SeekerInView = munition.Guidance == GuidanceMode.CommandLink
-                           || Aimpoint.Kind == AimpointKind.Ground
-                           || Vec.AngleBetween(r, localVelocity) <= munition.SeekerFovRad;
+            //
+            // An anti-radiation round that has never heard its target is blind rather than
+            // off-axis: there is no emission to point a gimbal at, so it coasts.
+            bool blind = munition.Guidance == GuidanceMode.AntiRadiation
+                         && !OperatorHeld && !t.Emitting && !homingOnMemory;
+
+            SeekerInView = !blind
+                           && (munition.Guidance == GuidanceMode.CommandLink
+                               || OperatorHeld
+                               || Vec.AngleBetween(r, localVelocity) <= munition.SeekerFovRad);
 
             // Nothing steers until it is clear of what launched it. A rail-launched round leaves
             // along its rail and turns after separation; guiding from the first sub-step turns it

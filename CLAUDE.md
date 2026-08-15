@@ -5,9 +5,11 @@ radar, proportional-navigation interceptors, a proximity-fused warhead, twelve r
 of six on an 8×8 chassis — and a **LAU-7 rail** carrying one AIM-9J, which surface-attaches to
 anything and is the shipped example of a launcher with nothing that moves, a **LAU-128 rail**
 carrying one AIM-120C, which is that same launcher with ten times the reach and the first whose
-art was authored rather than generated, a **Mk 15 Phalanx CIWS** that stacks on a 3 m node and is
-the one with no missiles at all, and a **Mk 82 bomb rack**, which is the one that neither aims nor
-fires: it lets a bomb go and the ground does the rest. Two sights come with them, and they are the
+art was authored rather than generated, a **LAU-118 rail** carrying one AGM-88 HARM, which is the
+one that cannot engage an aircraft at all and whose target has a say in whether it is one, a
+**Mk 15 Phalanx CIWS** that stacks on a 3 m node and is the one with no missiles at all, and a
+**Mk 82 bomb rack**, which is the one that neither aims nor fires: it lets a bomb go and the
+ground does the rest. Two sights come with them, and they are the
 same instrument on different mechanisms: an **EO director** on a mast, and a **Rafael LITENING
 pod**, whose whole nose rolls about the pod's centreline while the sight nods within it.
 
@@ -1102,6 +1104,23 @@ off, and then rounds lag the world at warp.
 The clamp remains and still discards time: the frame that overran cannot be un-run, and the
 policy only takes effect from the next one. What it stops is the next thousand frames doing the
 same thing silently.
+
+**A target's own behaviour decides whether it is a target, and that is what emission is for.**
+`SensorProfile.Emits` says a set transmits, which is what kind of set it is; `SystemConfig.RadarSilent`
+says whether it is transmitting *now*, which is the operator's. `GuidanceMode.AntiRadiation` is the
+only thing that reads either — every other weapon sees `TargetState.Emitting` default to true and
+behaves exactly as it did before the field existed.
+
+Silence is a trade rather than a free defence: a silent set cannot be homed on **and cannot see**,
+so `Radar.Scan` returns early. And it only saves a site that also *moves* — a round already in the
+air carries on to where the emission last came from.
+
+**That memory is a position *and the velocity it was seen with*, replayed on the round's own
+clock.** Never a bare ecliptic coordinate: the velocity carries the planet's ~29.8 km/s, so
+replaying it keeps the remembered spot on the ground it belongs to, where storing the point alone
+is left behind by ~30 km per second of flight. Same rule as the draw anchor and the round bodies.
+`AntiRadiationTests.TheRememberedEmissionCarriesTheFramesEclipticMotion` fails against the bare
+point — and fails by never detonating at all, not by a near miss.
 
 **Kills are binary.** KSA exposes no partial-damage model, only
 `Universe.DestroyVehicleFromEvent`. `LethalRadius` destroys; between lethal and `BlastRadius`

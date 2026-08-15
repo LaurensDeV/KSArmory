@@ -272,6 +272,43 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_HarmRail" DisplayName="LAU-118 HARM Rail">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.85" />
+
+    <!-- Attaches by the pylon's base to the side of a stack. -->
+    <Connector Id="_hmConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- AGM-88 at 360 kg on a LAU-118 rail and its pylon at 45 kg. -->
+    <SolidSphereMass>
+      <Mass Kg="405" />
+      <Radius M="1.1" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_HarmRailCollider">
+      <!-- Rail and pylon, standing off the mounting face at X = 0. Bounds off the exported mesh. -->
+      <Box Id="KSArmory_HarmRailBeamCollider">
+        <LocationAsmb X="0.223" Y="0.175" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.446" />
+        <LengthY M="2.850" />
+        <LengthZ M="0.144" />
+      </Box>
+      <!-- The round on it, across the control fins rather than across the body. -->
+      <Box Id="KSArmory_HarmRailRoundCollider">
+        <LocationAsmb X="0.540" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.802" />
+        <LengthY M="4.170" />
+        <LengthZ M="0.802" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Optic" DisplayName="EO Director">
     <EditorTag Value="Sensors" />
     <EditorTag Value="Radial" />

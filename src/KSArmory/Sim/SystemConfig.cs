@@ -13,6 +13,13 @@ public interface ISensorPolicy
     IffPolicy Iff { get; }
 
     bool ProtectControlledVehicle { get; }
+
+    /// <summary>
+    /// The set has been told to stop transmitting, so it sees nothing. A passive sensor — an
+    /// infrared seeker, an optical head — is unaffected and answers false, because it was never
+    /// transmitting to stop.
+    /// </summary>
+    bool RadarSilent => false;
 }
 
 /// <summary>
@@ -135,6 +142,19 @@ public sealed class SystemConfig : ISensorPolicy
 
     /// <summary>Stop the search array turning. Only useful for looking at it.</summary>
     public bool SearchRadarStopped;
+
+    /// <summary>
+    /// Stop transmitting. A set that is silent cannot be homed on by an anti-radiation round — and
+    /// cannot see anything either, which is the whole of the trade.
+    ///
+    /// <para>It only helps a site that then <em>moves</em>: a round already in the air carries on
+    /// to where the emission last came from. Going quiet buys the time to leave, not immunity.</para>
+    ///
+    /// <para>Per installation rather than session-wide, because two sites on opposite sides of a
+    /// map disagreeing about this is exactly the case — one shuts down while the other keeps
+    /// painting.</para>
+    /// </summary>
+    public bool RadarSilent;
 
     // ---- Optical head ---------------------------------------------------
     //
