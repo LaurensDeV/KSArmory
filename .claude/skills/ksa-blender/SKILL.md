@@ -24,8 +24,8 @@ working — §8 says what to know if you touch it. It is **not** the path for an
 >
 > The gate is not politeness. Everything downstream of the unwrap is welded to the geometry:
 > bodies sharing an atlas pack together, so changing one body afterwards forces a re-unwrap and a
-> re-bake of *all* of them. The AMRAAM paid that twice, once for a joint two primitives shared
-> and once for a 2.5 mm recentre — both of which a glance would have caught while they were free.
+> re-bake of *all* of them. A joint two primitives share and a 2.5 mm recentre both cost what a
+> redesign costs, and both are free right up until the unwrap.
 >
 > It is also the last cheap moment to judge the shape. Whether a silhouette reads as the right
 > weapon is a matter of taste, and taste is not yours to sign off.
@@ -111,8 +111,8 @@ What KSA reads out of a `.glb`, verified against all 44 Core atlases (1054 nodes
 | **A `_VM` twin of every subpart.** | 419 of Core's 1054 nodes. The editor's preview variant; duplicating the geometry is fine at these poly counts. |
 | **`_ColPrim_*` carries the collider.** A unit box or cylinder with the volume in its node transform, never rendered, no UVs. | Core ships 58. Read `<Collider>` out of it rather than eyeballing one. |
 
-**Author to this and there is no import step.** The suspension rail satisfied all of it and was
-copied in as exported. The targeting pod satisfied none of it and needed
+**Author to this and there is no import step.** The suspension rail satisfies all of it and is
+copied in as exported. The targeting pod satisfies none of it and needs
 `tools/model/import-litening.py` to bake, reframe, recentre and clock it. The difference is
 entirely this table, and it is far cheaper to get right in Blender than to correct afterwards.
 
@@ -136,8 +136,7 @@ Two habits close it:
 
 > **A purge is not free.** It deletes every datablock nothing currently points at, which includes
 > bake target images between passes and a material you have unassigned for a moment. Give images
-> `use_fake_user = True` before you purge, or expect to rebake. This is how the AMRAAM lost its
-> materials mid-session.
+> `use_fake_user = True` before you purge, or expect to rebake.
 
 ### Exporter settings
 
@@ -194,7 +193,7 @@ baked into the vertices — it cannot be parked in the XML, because the mod rewr
   whether it resolves against the mod root or the XML's own directory; at the root both readings
   agree. Asset *folders* below it can be reorganised freely — only moving the XML reopens that.
 
-**One material per part, not one per body.** The pod shipped three 2048² sets for three bodies —
+**One material per part, not one per body.** The pod ships three 2048² sets for three bodies —
 nine files, 8.7 MB — where one unwrap across all three is three files and one material. Unwrap the
 whole part into a single atlas before baking.
 
@@ -237,7 +236,8 @@ The traps, all of which fail quietly:
   has left, either.
 - **`is` does not work on Blender RNA wrappers.** `bpy.data.materials[…].node_tree.nodes["…"]`
   returns a fresh Python object each access, so `link.to_node is bsdf` is `False` while the link
-  plainly exists. Compare with `==`, or by name. This silently baked an all-zero metalness map.
+  plainly exists. Compare with `==`, or by name. The symptom is an all-zero map, baked without
+  complaint.
 - **Check the result, do not assume it.** `min`, `mean` and `max` over the pixels costs one line
   and is the difference between a bad map and a bad map you shipped.
 
@@ -261,7 +261,8 @@ visible symptom outside the game.
 **Zero UV area.** A face whose loops share one UV has a zero UV derivative, so the tangent is
 zero-length, `normalize()` gives NaN, and NaN survives being multiplied by zero — a flat normal map
 cannot rescue it. Watch for collapsed faces from a UV sphere's poles, from booleans and from
-decimation: 144 of the pod's triangles were degenerate in 3D *and* UV, and simply had to go.
+decimation. A face with no area in 3D has none in UV either, so the fix is to delete it: no
+amount of re-unwrapping gives a degenerate triangle a derivative.
 
 **Coplanar faces.** Two surfaces on one plane make the depth buffer pick a winner per pixel per
 frame. In authored work this is a modelling habit rather than a script bug: sink one surface into
@@ -309,8 +310,8 @@ free.
 
 **A round's mesh must be *centred* on its origin, not merely modelled about it.** Fire control
 seats a round half a `MunitionProfile.BodyLength` back from the tube mouth, so it takes the mesh
-origin for the body's centre. The AMRAAM's ogive ended 2.5 mm further forward than its base ended
-aft, which put the seated round that far off where it fires from. Invisible, and checked now by
+origin for the body's centre: an ogive reaching further forward than the base reaches aft puts the
+seated round that far off where it fires from. Invisible in Blender, and checked by
 `validate-parts.py`.
 
 ### Clearance
