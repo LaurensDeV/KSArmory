@@ -79,7 +79,7 @@ if [[ -f docs/KSA-API-SURFACE.md ]]; then
         while IFS= read -r hit; do
             [[ -z "$hit" ]] && continue
             grep -qE "\b$members members\b" <<< "$hit" || fail "stale member count: $hit"
-        done < <(grep -rnE "\b[0-9]+ members\b" CLAUDE.md docs/*.md .claude 2>/dev/null \
+        done < <(grep -rnE "\b[0-9]+ members\b" CLAUDE.md docs/*.md .claude --exclude-dir=worktrees 2>/dev/null \
                  | grep -vE "^docs/(KSA-API-SURFACE|AUDIT-)" || true)
     fi
 
@@ -87,7 +87,7 @@ if [[ -f docs/KSA-API-SURFACE.md ]]; then
         while IFS= read -r hit; do
             [[ -z "$hit" ]] && continue
             grep -qE "\b$types types\b" <<< "$hit" || fail "stale type count: $hit"
-        done < <(grep -rnE "\b[0-9]+ types this mod\b" CLAUDE.md docs/*.md .claude 2>/dev/null \
+        done < <(grep -rnE "\b[0-9]+ types this mod\b" CLAUDE.md docs/*.md .claude --exclude-dir=worktrees 2>/dev/null \
                  | grep -vE "^docs/(KSA-API-SURFACE|AUDIT-)" || true)
     fi
 fi
@@ -104,7 +104,7 @@ echo "No hand-written test count in guidance"
 while IFS= read -r hit; do
     [[ -z "$hit" ]] && continue
     fail "quote the suite, not a count that drifts: $hit"
-done < <(grep -rnE "\b[0-9]{2,} tests\b" CLAUDE.md README.md CONTRIBUTING.md .claude 2>/dev/null || true)
+done < <(grep -rnE "\b[0-9]{2,} tests\b" CLAUDE.md README.md CONTRIBUTING.md .claude --exclude-dir=worktrees 2>/dev/null || true)
 
 # --- the KSA build, in every place it is written down -----------------------
 #
