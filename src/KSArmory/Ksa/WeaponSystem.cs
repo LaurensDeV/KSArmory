@@ -478,6 +478,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 Log.Warn("turret subpart not found - the turret will not slew");
             }
             if (_missileBodies.Count == 0) Log.Warn("no round bodies - rounds will draw as tracers only");
+
+            // The art declares the bodies and the profile declares the tubes, in two files that
+            // validate-parts.py is what normally keeps equal. A WARN rather than the DEBUG line
+            // above because every consumer of the pair has to guard both counts, and a mismatch
+            // nobody can see is how one of them ends up guarding only one.
+            else if (_missileBodies.Count != Profile.TubeCount)
+            {
+                Log.Warn($"{_missileBodies.Count} round bodies for {Profile.TubeCount} tube(s) on "
+                         + $"{Profile.DisplayName}: only the first "
+                         + $"{Math.Min(_missileBodies.Count, Profile.TubeCount)} can be drawn.");
+            }
         }
 
     }
@@ -1239,7 +1250,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        Span<bool> flying = stackalloc bool[Profile.TubeCount];
+        // Both counts, because they come from different files and can disagree: the bodies are
+        // what the art declares, TubeCount is what the profile does. Sizing this by one and
+        // bounds-checking the loop against the other is an IndexOutOfRangeException the moment
+        // there is one more body than tube -- thrown from inside the frame hook, ten times in a
+        // fifth of a second, which trips the fault limit and disables the mod for the session.
+        int slots = Math.Min(_missileBodies.Count, Profile.TubeCount);
+        if (slots <= 0) return;
+
+        Span<bool> flying = stackalloc bool[slots];
 
         _bodyFrame++;
         bool trace = Log.Threshold <= Log.Level.Debug && _bodyFrame % BodyTraceEveryFrames == 0;
@@ -1247,7 +1266,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         foreach (IProjectile round in _rounds)
         {
             int index = round.Tube - 1;
-            if (index < 0 || index >= _missileBodies.Count) continue;
+            if (index < 0 || index >= slots) continue;
 
             // Tube numbers are unique among rounds in the air. Two sharing one body would write
             // it twice a frame and it would flip between their positions.
@@ -1454,6 +1473,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!_policy.Armed) { Announce("refused: not armed"); return false; }
         if (Platform is null) { Announce("refused: no platform"); return false; }
         if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
+
         // Named, because a craft can carry several and "launcher empty" is true of one of them
         // while another is loaded. The weapon that refused is the one the operator has to switch
         // away from, and without saying which it reads as the whole craft being out.
