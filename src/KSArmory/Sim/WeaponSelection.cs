@@ -41,4 +41,32 @@ public static class WeaponSelection
 
         return 0;
     }
+
+    /// <summary>
+    /// Which station of a group fires next: the first one after <paramref name="lastFired"/> with
+    /// rounds left, wrapping. −1 when the whole group is empty.
+    ///
+    /// <para>Stations carrying the same store are one weapon to the operator, so the selector
+    /// groups them and this decides which of them the trigger actually reaches. Stepping on rather
+    /// than always taking the fullest is what makes a symmetric pair alternate, which is the
+    /// behaviour worth having: a wing that empties one side first flies increasingly out of trim,
+    /// and the asymmetry is worst exactly when the last store is the heaviest thing left.</para>
+    ///
+    /// <para>Magazines stay separate — this picks between them rather than pooling them. Pooling
+    /// is what would let a store come back: the magazine is sized and filled per launcher, so a
+    /// shared one refills on a switch.</para>
+    /// </summary>
+    public static int NextStation(ReadOnlySpan<int> ammo, int lastFired)
+    {
+        if (ammo.Length == 0) return -1;
+
+        // Start after the last one used, so two full stations alternate rather than one draining.
+        for (int step = 1; step <= ammo.Length; step++)
+        {
+            int at = Step(ammo.Length, lastFired, step);
+            if (ammo[at] > 0) return at;
+        }
+
+        return -1;
+    }
 }

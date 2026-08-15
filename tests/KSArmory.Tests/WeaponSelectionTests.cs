@@ -102,4 +102,57 @@ public class WeaponSelectionTests
             Assert.Equal(0, at);
         }
     }
+
+    /// <summary>
+    /// The behaviour a symmetric pair is for: stores leave alternate stations rather than one
+    /// wing emptying first.
+    /// </summary>
+    [Fact]
+    public void ASymmetricPairAlternates()
+    {
+        int[] ammo = [1, 1];
+
+        int first = WeaponSelection.NextStation(ammo, lastFired: -1);
+        ammo[first]--;
+
+        int second = WeaponSelection.NextStation(ammo, first);
+
+        Assert.NotEqual(first, second);
+        Assert.Equal(0, ammo[second == 0 ? 1 : 0]);
+    }
+
+    /// <summary>An empty station is stepped over rather than being handed the trigger.</summary>
+    [Fact]
+    public void AnEmptyStationIsSkipped()
+    {
+        Assert.Equal(2, WeaponSelection.NextStation([1, 0, 3], lastFired: 0));
+        Assert.Equal(0, WeaponSelection.NextStation([1, 0, 0], lastFired: 0));
+    }
+
+    /// <summary>
+    /// A group with nothing left says so rather than naming a station, so the caller reports an
+    /// empty weapon instead of firing at an empty rail and reporting nothing at all.
+    /// </summary>
+    [Fact]
+    public void AGroupWithNoRoundsHasNoNextStation()
+    {
+        Assert.Equal(-1, WeaponSelection.NextStation([0, 0], lastFired: 1));
+        Assert.Equal(-1, WeaponSelection.NextStation([], lastFired: 0));
+    }
+
+    /// <summary>
+    /// The last full station keeps being chosen once its partner is dry, rather than the group
+    /// reporting empty on every other press.
+    /// </summary>
+    [Fact]
+    public void OneFullStationKeepsFiringAfterItsPartnerRunsDry()
+    {
+        int[] ammo = [0, 2];
+
+        int a = WeaponSelection.NextStation(ammo, lastFired: 1);
+        Assert.Equal(1, a);
+
+        ammo[a]--;
+        Assert.Equal(1, WeaponSelection.NextStation(ammo, a));
+    }
 }
