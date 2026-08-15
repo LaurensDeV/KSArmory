@@ -109,7 +109,11 @@ internal partial class Ui
 
         if (ImGui.Button("FIRE")) selected.Battery.FireAtLock();
 
+        // This window is the trigger, so its line has to be about the trigger. Auto-engage off
+        // blocks nothing FIRE does, and reporting it here is what made a working button look
+        // broken.
         if (selected.Battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
+        else if (!selected.Policy.AutoEngage) ImGui.TextColored(Green, "Clear to fire -- on the trigger");
         else ImGui.TextColored(Green, "Clear to fire");
     }
 }

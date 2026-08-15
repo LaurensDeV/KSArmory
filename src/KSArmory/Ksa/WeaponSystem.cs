@@ -545,6 +545,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// with no lock and one whose drives have not settled all sit there doing nothing. Naming the
     /// first gate that says no is the difference between reading the panel and reading the
     /// source.</para>
+    ///
+    /// <para><em>Auto-engage is deliberately not one of these gates.</em> It decides whether fire
+    /// control shoots on its own, not whether a round can leave the rail, and no manual fire path
+    /// consults it. Reporting it here stopped the ladder at the one switch that blocks nothing the
+    /// operator asked for, hiding every gate below it from the panel beside the trigger.</para>
     /// </summary>
     public string? Hold { get; private set; } = "not started";
 
@@ -568,7 +573,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         if (!_policy.Armed) return "safe -- master arm is off";
-        if (!_policy.AutoEngage) return "auto-engage is off";
 
         if (hasTubes)
         {
@@ -745,6 +749,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         if (Hold is not null) return;
+
+        // The switch that separates shooting on its own from shooting when told. Gated here rather
+        // than in the ladder above so that "clear to fire" still means the trigger will work.
+        if (!_policy.AutoEngage) return;
 
         Track target = Radar.Locked!;
         if (!ThreatModel.MayEngage(target, _policy.Iff)) return;

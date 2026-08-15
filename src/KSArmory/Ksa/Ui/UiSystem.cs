@@ -337,7 +337,10 @@ internal sealed partial class Ui
         if (ImGui.Button("FIRE")) _battery.FireAtLock();
         if (ImGui.IsItemHovered()) ImGui.SetTooltip("Fire one salvo at the current lock, now.");
 
+        // Auto-engage off is a mode, not a hold: FIRE still works, so saying "holding fire" about
+        // it sends the operator looking for a fault that is not there.
         if (_battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
+        else if (!_policy.AutoEngage) ImGui.TextColored(Green, "Clear to fire -- on the trigger");
         else ImGui.TextColored(Green, "Clear to fire");
 
         if (_battery.Rounds.Count > 0)
