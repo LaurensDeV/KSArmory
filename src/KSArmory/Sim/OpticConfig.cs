@@ -54,6 +54,21 @@ public sealed class OpticConfig : ISensorPolicy
     public float MouseDeadZonePx = 60f;
 
     /// <summary>Drive the head by hand instead of from its own sensor.</summary>
+    /// <summary>
+    /// Whether this head's terrain map is open.
+    ///
+    /// <para>Its own rather than the session's, because the map is drawn around <em>this</em> head
+    /// and marked with what <em>this</em> head can see. Two directors on one craft looking at
+    /// different things want two maps, not one that changes under them.</para>
+    /// </summary>
+    public bool MapOpen;
+
+    /// <summary>
+    /// How far across the map is (m). A detent from <see cref="TerrainMap.Spans"/>; the panel
+    /// steps it rather than offering a slider, for the reason the sight's magnification does.
+    /// </summary>
+    public float MapSpanMetres = 2000f;
+
     public bool Manual;
     public float ManualBearingDeg;
     public float ManualElevationDeg = 10f;

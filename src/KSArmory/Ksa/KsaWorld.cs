@@ -763,6 +763,22 @@ internal static class KsaWorld
     /// motion it then has relative to its launcher is gravity, so it points straight down the
     /// instant it lets go and the aircraft flies out from under it.</para>
     /// </summary>
+    /// <summary>
+    /// The body a craft is at, or null in deep space. What the terrain map is drawn against: its
+    /// centre, its rotation axis and its height field all come from here.
+    /// </summary>
+    public static Celestial? ParentBody(Vehicle platform)
+    {
+        try
+        {
+            return platform.Parent as Celestial;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static double3 GroundVelocityAt(Vehicle platform, double3 positionEcl)
     {
         try

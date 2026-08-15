@@ -269,6 +269,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
 | `Sim/ITerrainHeights.cs` | **the seam a sensor looks over the real skyline through** |
 | `Sim/TerrainMask.cs` | whether a ridge hides a contact, and how few samples that can cost |
+| `Sim/TerrainMap.cs` | a local east/north frame on a body, and the square of ground drawn around it |
 | `Sim/Picking.cs` | what the cursor's ray meets, and what is nearest it on screen |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
 | `Sim/SightPicture.cs` | where the sight's horizontal lies, and which way a contact off the glass went |
@@ -298,12 +299,14 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
 | `Ksa/GroundTest.cs` | the surface under a round, off the engine's own height field |
 | `Ksa/TerrainHeights.cs` | one body's height field, sampled coarsely and many times per scan |
+| `Ksa/TerrainMapScan.cs` | that height field as a cached grid — **the cost lives here**, so it is paid on movement rather than per frame |
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSession.cs` | the world clock, and what the session draws and hears |
 | `Ksa/Ui/UiSystem.cs` | one row per component: what each part is, sees and is doing |
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
+| `Ksa/Ui/UiMap.cs` | the ground under a director as shaded relief, with what it can see marked on it |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
 | `Ksa/Ui/ModMenuEntry.cs` | a copied attribute so ModMenu can list this mod — **wanted gone**, see `docs/BLOCKED-ON-KSA.md` |
 | `Ksa/FeedbackClient.cs` | posts a report to the endpoint, off the frame thread |
@@ -351,7 +354,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 343 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 350 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
@@ -797,7 +800,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 660,000 lines to the files
-defining the 128 types this mod actually uses.
+defining the 129 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
@@ -1358,6 +1361,27 @@ processor. `OpticalHead.RollReferenceEcl` takes the *forward* side of the nod pl
 head instead of the head's own up, which is that counter-rotation: what the pod hangs from stays at
 the top of the picture however far the nose has rolled. Its two singular directions are the keyhole
 and dead astern, and the travel excludes both.
+
+**The map is sampled, not borrowed, and that is what makes it a square of relief.** KSA exposes no
+map view a mod can take, so `Ksa/TerrainMapScan.cs` asks the height field for a grid of its own —
+which is also why there is no ground texture, no coastline and no colour on it:
+`GetTerrainHeightFromDirCce` answers with heights and nothing else.
+
+**Its cost is a grid, and the grid is cached.** One refresh is `Cells²` lookups — 4096 at the
+default — and `SensorProfile.TerrainSamples` defaults to zero precisely because that per-frame cost
+has never been measured. So the scan is paid on *movement*, on a slow frame count, or on the
+Rescan button, and never per frame; the map is a picture of the ground, and the ground does not
+move. `TerrainMapScan.LastScanMs` is logged so the number stops being a guess.
+
+**Its frame is the body's, not the ecliptic's.** North is `Celestial.GetRotationAxisCce`, so a map
+is not wrong by the body's obliquity — 23° on Earth. And every coordinate on it is a *difference*
+against the anchor, which is what cancels the ecliptic motion both terms carry;
+`TerrainMapTests.TheFrameCarriesNoEclipticMotion` is that rule, and it is the same one the draw
+anchor and the round bodies obey. There is no map at the poles, where up and the axis are one line
+and no bearing exists — `MapFrame.TryAt` returns null rather than picking a perpendicular.
+
+**A cell the height field will not answer for is drawn as unknown, never as flat.** Reading zero
+from an unreadable field would put a whole square at the mean sphere with nothing to say it had.
 
 `ISightPicture` is what a weapon beside the head contributes to the picture — the arm state, the
 ammo, the gun's pipper. `Sight.Draw` takes it as **optional**, so an unarmed craft still gets the

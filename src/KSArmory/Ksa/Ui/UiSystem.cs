@@ -460,6 +460,16 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  without the atmosphere pass. See docs/BLOCKED-ON-KSA.md");
         }
 
+        // A button rather than a tick box: it opens a window, and a checkmark reads as "this
+        // setting is on" while the window arrives somewhere else unannounced. Tinted while open,
+        // which is what a tick box was being asked to say.
+        if (policy.MapOpen) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
+        if (ImGui.Button("Map")) TakeMap(policy);
+        if (policy.MapOpen) ImGui.PopStyleColor();
+
+        ImGui.SameLine();
+        ImGui.TextDisabled("the ground under this head, with what it can see on it");
+
         ImGui.Checkbox("Track with the director", ref policy.Tracking);
         ImGui.SameLine();
         ImGui.Checkbox("Aim by hand", ref policy.Manual);

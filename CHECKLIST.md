@@ -800,6 +800,42 @@ own `_ColPrim_` node. It has no profile in `Sim/Arsenal.cs` at all: it neither s
       14-inch spacing and the pod's lugs are modelled to match, but nothing checks that the two
       line up — the editor places the store wherever the player drops it.
 
+### 7.6e The terrain map
+
+**Never flown.** The frame maths is pinned by `TerrainMapTests`, but nothing has sampled a real
+height field — so the two numbers that matter most, what the ground looks like and what a scan
+costs, are both unmeasured.
+
+- [ ] **Map** on a director's row opens a window; the button tints while it is open.
+- [ ] The square shows recognisable relief — a hill reads as a hill. Flat, banded or noise means
+      the height field is answering differently from how `TerrainMask` uses it.
+- [ ] **The scan cost.** The legend prints `scan N ms`. That is the number
+      `SensorProfile.TerrainSamples` has never had, so **write it down**: at 64×64 it is 4096
+      lookups. If it is tens of milliseconds the cell count wants dropping; if it is under one,
+      terrain masking is far cheaper than assumed and that is worth knowing on its own.
+- [ ] Moving the craft a short way does **not** re-scan; moving a tenth of the span does. Watch the
+      log with **Verbose** on — a line per frame means the cache is not working.
+- [ ] Zoom: **+ shows less ground**, - shows more. Steps 500 m to 10 km, and the range rings stay
+      honest against known distances.
+- [ ] **The heading arrow points where the craft is going over the ground**, and the legend agrees
+      with it: heading clockwise from north, ground speed, and climbing or descending. Fly a known
+      compass direction and check the arrow matches the world rather than being mirrored or 90°
+      out. Hovering shows no arrow, which is right — there is no heading without ground speed.
+- [ ] In orbit the arrow should read as orbital motion over the surface, not 29.8 km/s of the
+      planet's own travel. A heading that never changes wherever you point means the ecliptic
+      velocity is leaking in.
+- [ ] North is up and matches the world. A map rotated by ~23° means the axis is being read as the
+      ecliptic pole somewhere.
+- [ ] Contacts sit where they are. An off-map contact shows as a triangle on the rim it left, not
+      dropped and not clamped into the corner.
+- [ ] The blue line runs from the craft to where the sight meets the ground, and tracks with the
+      pod.
+- [ ] Over ocean or unstreamed terrain: cells go **dark**, and the legend counts them. Flat grey at
+      0 m would mean an unreadable field is being read as sea level.
+- [ ] At a pole: it says there is no bearing rather than drawing a rose pointing anywhere.
+- [ ] Not built: no structures, no ground clutter, and no memory — a contact the pod stops seeing
+      leaves the map.
+
 ### 7.6 The gunner's sight — symbology, zoom and the two reticules
 
 **Flown once. Zoom works and hands the view back; two faults found, both addressed and neither

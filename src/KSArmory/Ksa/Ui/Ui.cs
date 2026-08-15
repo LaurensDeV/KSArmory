@@ -247,6 +247,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         // Not gated on a crewed system: the thing being reported may be that there isn't one.
         DrawReportWindow();
+
+        // After the panes, which is what fills the head list this reads.
+        DrawMapWindow();
     }
 
     // Every craft in the world this mod recognises as a weapons system, refreshed on a timer.
