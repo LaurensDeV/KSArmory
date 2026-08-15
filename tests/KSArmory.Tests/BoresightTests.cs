@@ -48,6 +48,42 @@ public class BoresightTests
     }
 
     /// <summary>
+    /// The same mistake as <see cref="EveryLauncherThatFiresCanSeeDownItsOwnTubes"/>, made about a
+    /// sight instead of a launcher: a head must be able to <em>see</em> everywhere it can
+    /// <em>point</em>.
+    ///
+    /// <para>Detection cone and gimbal travel answer different questions — how sensitive the set
+    /// is, and what the mount can reach — and bounding the second by the first leaves a band the
+    /// head physically covers and is forbidden to look at. On the EO director that band was
+    /// everything within 15 degrees of the horizon while the mount reached 20 degrees below it,
+    /// so an incoming round sat 35 degrees inside the travel and was never detected.</para>
+    ///
+    /// <para>Az-el heads only. A roll-nod head's real aperture is bounded by its shell rather than
+    /// by its travel, and is measured off the mesh by <c>tools/model/import-litening.py</c>, so
+    /// its cone is answerable to that instead.</para>
+    /// </summary>
+    [Fact]
+    public void EveryMastDirectorCanSeeEverywhereItCanPoint()
+    {
+        foreach (OpticProfile optic in Arsenal.Optics)
+        {
+            if (optic.Gimbal != GimbalKind.Mast) continue;
+
+            SensorProfile sensor = Arsenal.SensorNamed(optic.Sensor);
+            if (sensor.BoresightSource != BoresightMode.MountNormal) continue;
+
+            // The boresight is the mounting face's normal, so it stands at 90 degrees elevation
+            // and the furthest the head can be pointed from it is the bottom of its travel.
+            double widest = 90.0 - optic.MinElevationDeg;
+
+            Assert.True(sensor.ConeDeg >= widest,
+                $"{optic.DisplayName}: its {sensor.DisplayName} searches {sensor.ConeDeg:F0} deg "
+                + $"but the mount reaches {widest:F0} deg off boresight, so there is a "
+                + $"{widest - sensor.ConeDeg:F0} deg band it can point into and never see.");
+        }
+    }
+
+    /// <summary>
     /// The general form, and the one that catches the next weapon rather than this one: whatever
     /// a launcher's sensor boresights on, its own tubes must fall inside the cone it searches.
     ///

@@ -877,7 +877,16 @@ public static class Arsenal
         Name = "EO",
         DisplayName = "EO director",
         Range = 12000f,
-        ConeDeg = 75f,
+
+        // Wide enough to cover the head's own travel, and that is where the number comes from
+        // rather than from taste: the boresight is the mounting face's normal, which is 90 deg
+        // elevation, and the mount reaches 20 deg below horizontal. 110 deg is exactly the two.
+        //
+        // Anything narrower leaves a band the head can point into and is forbidden to look at. At
+        // 75 that band was everything within 15 deg of the horizon, which on an air-defence
+        // vehicle is where the attack comes from: an incoming round sat in it, undetected, while
+        // the mount could have swung onto it in a second.
+        ConeDeg = 110f,
 
         // A mast head looks out of the face it stands on, which is also where it parks.
         BoresightSource = BoresightMode.MountNormal,
