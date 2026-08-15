@@ -593,10 +593,31 @@ def main():
 
     print()
     if total:
-        print(f"FOUND {total} problem(s) — these are what make the part sparkle in game")
+        print(f"FOUND {total} problem(s) — these are what make the part render wrong in game")
         return 1
-    print("clean: every triangle has UV area, and no two faces share a plane")
+    print("clean: names pair, every triangle has UV area, and no two faces share a plane")
     return 0
+
+
+def unpaired_names(gltf):
+    """Nodes whose mesh is not named after them, which KSA renders as nothing.
+
+    Blender will not say when it refuses a name: `ob.data.name = "X"` silently becomes "X.001" if
+    an orphaned mesh already holds "X", and deleting an object leaves exactly such an orphan. The
+    export then writes a node "X" drawing a mesh "X.001", the asset XML's <Mesh Id="X"> resolves
+    to nothing, and the part loads with that body missing and nothing in any log.
+    """
+    meshes = gltf.get("meshes", [])
+    bad = []
+    for node in gltf.get("nodes", []):
+        index = node.get("mesh")
+        if index is None or index >= len(meshes):
+            continue
+        node_name = node.get("name", "?")
+        mesh_name = meshes[index].get("name", "?")
+        if node_name != mesh_name:
+            bad.append((node_name, mesh_name))
+    return bad
 
 
 def check_atlas(path, only, header=False):
@@ -610,6 +631,11 @@ def check_atlas(path, only, header=False):
     total = 0
     if header:
         print(f"\n--- {path}")
+
+    for node_name, mesh_name in unpaired_names(gltf):
+        print(f"\nnode {node_name}: draws mesh {mesh_name} — the names must match, or "
+              f"<Mesh Id=\"{node_name}\"> resolves to nothing and the body is invisible")
+        total += 1
 
     for mesh in gltf["meshes"]:
         name = mesh.get("name", "?")
