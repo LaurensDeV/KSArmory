@@ -1,9 +1,13 @@
-# Model pipeline
+# Model pipeline — the six generated parts
 
-The launcher's art is **generated, not authored**. `pantsir.py` builds the whole Pantsir-S1 out
-of primitives in headless Blender, `palette.py` writes the textures, and `build.sh` runs both
-and installs the results into the mod. Nothing here needs the Blender UI, and there is no
-`.blend` file to keep in sync — the script *is* the model.
+**This is not how new assets are made.** New art is authored in Blender over MCP; see
+`.claude/skills/ksa-blender/SKILL.md`. What follows builds the six parts that already exist this
+way, and has to keep working.
+
+Those six are **generated, not authored**: `pantsir.py` builds the Pantsir-S1 out of primitives in
+headless Blender, `palette.py` writes the textures, and `build.sh` runs both and installs the
+results. Nothing here needs the Blender UI, and there is no `.blend` to keep in sync — the script
+*is* the model, which is the one real advantage it still has.
 
 ```bash
 ./tools/model/build.sh              # textures, mesh, previews, install

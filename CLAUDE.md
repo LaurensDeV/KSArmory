@@ -385,15 +385,22 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
 | `branding/` | the generated logo the README and SpaceDock point at |
 
-## 3D model pipeline (Blender, headless)
+## 3D model pipeline
 
-**All the art here is generated except the targeting pod and its rail.** `tools/model/import-litening.py` is
-the other path: a `.glb` modelled in the Blender UI, with its own unwrap and baked maps, reframed
-into what KSA reads. Generated wins when the shape is parametric and has to agree with numbers in
-the C#; authored wins when the shape is *observed*. See `.claude/skills/ksa-blender/SKILL.md` for
-the export contract both obey, and the importer's own docstring for the four things the exporter
-cannot know about — baked node transforms, the frame change, recentring on the pivot, and clocking
-the shell.
+**New art is authored in Blender over MCP, in a live session** — not written as a headless script
+and not driven through the CLI. `.claude/skills/ksa-blender/SKILL.md` is the whole procedure; the
+short version is that the addon exposes one request, `execute`, which runs Python in the open
+document, so the loop is build, look, adjust rather than emit and hope.
+
+**The headless generator below still builds six parts and still has to keep working.** The Pantsir,
+the CIWS, both racks, the LAU-7 rail and the EO director come out of `tools/model/pantsir.py` into
+one atlas sharing one palette material. Keep it working; do not extend it. Everything from here to
+the end of this section is about those six.
+
+**An authored asset's `.blend` is its source, and it is not in this repository** — what is committed
+is the export. So a committed asset cannot be regenerated from a clean checkout, which is why
+`checkmesh.py` and `validate-parts.py` matter more for authored art than for generated: they are the
+only gate on something nobody can rebuild.
 
 **An authored asset that obeys the contract needs no import step at all.** The suspension rail is
 the demonstration: exported in part space with its origin on the mounting face, node names matching
