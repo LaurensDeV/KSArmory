@@ -382,6 +382,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/preview-glb.py` | renders any `.glb` from a few angles, so an authored asset can be judged before it is declared |
 | `tools/model/preview.sh` | runs that from WSL, which is the only comfortable way: Blender is a Windows binary and wants Windows paths for the script *and* for everywhere it writes |
 | `tools/model/checkmesh.py` | finds unpaired node/mesh names, zero-UV-area triangles and coplanar faces in a `.glb`; takes several at once, and `--compare` diffs two atlases by geometry *and* node transform |
+| `tools/model/dilate-atlas.py` | fills the empty space around a baked atlas's islands from their nearest neighbour — **what a bake margin cannot do**, because a margin wide enough to survive mipmapping is wide enough to write one body's dilation over another's |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |

@@ -241,6 +241,46 @@ The traps, all of which fail quietly:
 - **Check the result, do not assume it.** `min`, `mean` and `max` over the pixels costs one line
   and is the difference between a bad map and a bad map you shipped.
 
+### The background of the atlas is not empty, it is a colour you are choosing
+
+Nothing samples outside a UV island at full resolution, so an unfilled background is invisible in
+a texture viewer and in a close-up. **Mipmapping is what finds it**: every lower mip averages 2×2
+blocks, so whatever sits beside an island bleeds further into its edge the further away the part
+is drawn. Left black, that is dark speckle crawling over the paint — reported from play on the
+HARM, and *not* reproducible anywhere except in game at range.
+
+Three things follow, and the third is the one that is not obvious:
+
+- **`bake(use_clear=True)` clears to black**, whatever `generated_color` said. Fill the target's
+  pixels yourself and bake with `use_clear=False` throughout.
+- **`bake.margin_type` defaults to `ADJACENT_FACES`**, which fills a seam from the face adjoining
+  across it and leaves an island's *outer* boundary unfilled where nothing adjoins. `EXTEND`
+  dilates unconditionally.
+- **A margin wide enough to beat mipmapping is wide enough to ruin the atlas.** Islands sit a few
+  texels apart, so dilation past that gap writes one body's colour over another body's island
+  *interior*. Measured on the HARM at 2048²: a 48 px margin put the rail's dark grey over
+  **12.95%** of the round's own island area — grey blotches on a white missile — where 8 px puts
+  it over 0.01%.
+
+So: **a small bake margin, and `tools/model/dilate-atlas.py` for everything beyond it.** Each
+empty texel takes the colour of its nearest baked one, so a mip only ever averages an island with
+more of itself, at any radius, with no cross-contamination.
+
+> **Bake over a key colour.** Generate every target filled with something the bake cannot produce
+> (pure green on a grey-and-red missile) and bake with `use_clear=False`, so whatever is still
+> keyed is exactly what was never written. That is the mask, and it is *exact*.
+>
+> A mask rasterised from the atlas's UVs is only an approximation and the error is not harmless:
+> it over-covers, which leaves unbaked texels *inside* the mask, and a nearest-neighbour fill then
+> propagates them outward as a spreading stain. That happened here and was caught only by counting
+> key-coloured texels afterwards — which is why the tool verifies its own output and exits
+> non-zero if any key survives.
+
+**glTF's V runs from the top and Blender's from the bottom.** Any script comparing a mesh's
+exported UVs against a baked PNG must use `v` directly, not `1 - v`. Getting it backwards reads
+the atlas upside down, which looks exactly like a texture full of holes — it produced a confident,
+entirely false "491 of 916 triangles sample black" here before the orientation was fixed.
+
 ---
 
 ## 6. The defects that are invisible outside the game
