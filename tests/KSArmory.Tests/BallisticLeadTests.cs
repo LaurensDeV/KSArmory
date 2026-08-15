@@ -165,4 +165,52 @@ public class BallisticLeadTests
         Assert.False(BallisticLead.TrySolve(bad, Vec.Zero, new double3(1000, 0, 0), Vec.Zero, MuzzleSpeed,
                                             NoGravity, out _));
     }
+
+    /// <summary>
+    /// The case point defence exists for, and the one the old fixed four passes was never
+    /// calibrated against: a target moving at a large fraction of the shell's own speed.
+    ///
+    /// <para>The iteration contracts by roughly the speed ratio per pass, so against an aircraft
+    /// at a twentieth of muzzle speed four passes is plenty and against an inbound missile at
+    /// well over half of it, it is not. Measured in flight: a HARM at 576 m/s engaged by shells
+    /// at 956 m/s.</para>
+    ///
+    /// <para>Stated as the fixed point itself rather than as a pass count, so it holds whatever
+    /// the solver does internally: the round must arrive exactly when it reaches the aim point.</para>
+    /// </summary>
+    [Fact]
+    public void ASolutionAgainstAFastCrosserActuallyConverges()
+    {
+        double3 shooter = Vec.Zero;
+        double3 target = new(1040, 0, 0);
+        double3 targetVelocity = new(-300, 490, 0);   // 576 m/s, mostly closing, partly across
+
+        Assert.True(BallisticLead.TrySolve(shooter, Vec.Zero, target, targetVelocity,
+                                           MuzzleSpeed, NoGravity, out double3 aim,
+                                           out double flightTime));
+
+        // The defining equation: the shell covers the distance to the aim point in exactly the
+        // flight time the target was led by. Four passes leaves this out by metres.
+        double travelled = MuzzleSpeed * flightTime;
+        double distance = Vec.Len(aim - shooter);
+
+        Assert.Equal(distance, travelled, 3);
+
+        // And the aim point is where the target actually is at that moment.
+        double3 whereItWillBe = target + targetVelocity * flightTime;
+        Assert.Equal(0.0, Vec.Len(aim - whereItWillBe), 3);
+    }
+
+    /// <summary>
+    /// A target outrunning the round has no intercept, and the solve must say so rather than hand
+    /// back whichever iterate it stopped on. That number carries the same <c>true</c> as a real
+    /// solution and would lay the ring on a place the shell can never reach.
+    /// </summary>
+    [Fact]
+    public void ATargetFasterThanTheRoundHasNoSolution()
+    {
+        Assert.False(BallisticLead.TrySolve(Vec.Zero, Vec.Zero,
+                                            new double3(1000, 0, 0), new double3(4000, 0, 0),
+                                            MuzzleSpeed, NoGravity, out _, out _));
+    }
 }

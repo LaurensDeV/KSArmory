@@ -15,10 +15,20 @@ namespace KSArmory;
 /// </summary>
 public static class BallisticLead
 {
-    // Time of flight depends on where the target will be, which depends on time of flight. Four
-    // passes settle it to well inside a metre at these ranges; it converges geometrically because
-    // the target moves far slower than the round.
-    private const int Passes = 4;
+    // Time of flight depends on where the target will be, which depends on time of flight, so it
+    // is solved by iterating to a fixed point.
+    //
+    // Run to a tolerance rather than a fixed pass count. The iteration contracts by roughly the
+    // ratio of target speed to muzzle speed, so a fixed four passes is only enough while that
+    // ratio is small -- which was true of the aircraft it was calibrated on and false of the
+    // thing point defence exists for. Intercepting a missile at 576 m/s with a 956 m/s shell
+    // leaves ~13% of the error after four passes, tens of metres of lead, and it amplifies the
+    // frame-to-frame variation in the target's position instead of settling it.
+    private const double ToleranceSeconds = 1e-7;
+
+    // Bounded so a ratio near or above 1 cannot spin: past that the round never arrives and the
+    // solve has no answer to converge on.
+    private const int MaxPasses = 32;
 
     /// <summary>
     /// The point to aim at, in the same frame as the inputs. False if there is no solution —
@@ -65,14 +75,26 @@ public static class BallisticLead
 
         double flightTime = Vec.Len(targetPos - shooterPos) / muzzleSpeed;
 
-        for (int i = 0; i < Passes; i++)
+        bool converged = false;
+
+        for (int i = 0; i < MaxPasses; i++)
         {
             double3 predicted = targetPos + targetVelocityRelative * flightTime;
             double range = Vec.Len(predicted - shooterPos);
-            flightTime = range / muzzleSpeed;
+            double next = range / muzzleSpeed;
 
-            if (!double.IsFinite(flightTime)) return false;
+            if (!double.IsFinite(next)) return false;
+
+            double moved = Math.Abs(next - flightTime);
+            flightTime = next;
+
+            if (moved <= ToleranceSeconds) { converged = true; break; }
         }
+
+        // A solve that ran out of passes has not found an intercept, it has been walking away from
+        // one: the target is outrunning the round. Reporting the last iterate would be an aim point
+        // presented with the same confidence as a real one.
+        if (!converged) return false;
 
         // Aim above the intercept by exactly what the round will fall, so the two cancel on the
         // way. Sign matters: gravity points down, so subtracting raises the aim.
