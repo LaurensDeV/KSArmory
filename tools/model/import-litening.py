@@ -7,8 +7,10 @@ Blender UI and exported as a `.glb` with its own unwrap and baked maps, so there
 is the model. What this does instead is reframe that export into what KSA reads, which is four
 separate things the exporter has no way to know about.
 
-    ./tools/model/import-litening.py                     # from the default source
-    ./tools/model/import-litening.py --source <dir>      # from a re-export
+    ./tools/model/import-litening.py --source <the export's folder>
+
+Required rather than defaulted, because the export lives wherever the person who modelled it
+keeps it -- a path baked in here would be one contributor's home directory.
 
 Needs neither Blender nor the game: glTF is JSON plus one binary buffer, and the attributes are
 plain float32 vectors, so the transform is exact and the tool is a few hundred lines.
@@ -62,8 +64,6 @@ from checkmesh import read_accessor, read_glb  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent.parent
 MOD = REPO / "src" / "KSArmory"
-
-DEFAULT_SOURCE = Path("/mnt/c/Users/devoo/Documents/LiteningPod")
 
 ATLAS = MOD / "Meshes" / "KSArmory_Litening.glb"
 
@@ -406,8 +406,8 @@ def write_glb(path, reframed):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source", default=str(DEFAULT_SOURCE),
-                    help="the authored export: part.xml, Meshes/, Textures/")
+    ap.add_argument("--source", required=True,
+                    help="the authored export's folder, holding Meshes/ and Textures/")
     ap.add_argument("--no-textures", action="store_true")
     args = ap.parse_args()
 
