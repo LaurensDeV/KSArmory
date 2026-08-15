@@ -661,19 +661,87 @@ public static class Arsenal
         MaxElevationDeg = 85f,
     };
 
+    /// <summary>
+    /// The set inside a targeting pod. Longer-ranged than a mast director and looking down rather
+    /// than out, which is the difference between watching a perimeter and designating for a strike.
+    ///
+    /// <para><see cref="BoresightMode.PartForward"/>, as the mast director's is, and for a pod that
+    /// resolves to the mounting face's own normal — away from the pylon, so a wing store searches
+    /// the ground below the aircraft. A cone about the pod's <em>centreline</em> would be the
+    /// literal field of regard and would also point straight into the wing, which is the one
+    /// direction the airframe masks and nothing here models.</para>
+    /// </summary>
+    public static readonly SensorProfile PodSensor = new()
+    {
+        Name = "Litening",
+        DisplayName = "LITENING",
+        Range = 20000f,
+        ConeDeg = 100f,
+        BoresightSource = BoresightMode.PartForward,
+        ThreatRadius = 6000f,
+        ThreatHorizonSeconds = 30f,
+        LockSeconds = 0.6f,
+
+        // An instrument rather than a weapon's eye: something parked is exactly what it is for.
+        MinTargetSpeed = 0f,
+    };
+
+    /// <summary>
+    /// A Rafael LITENING pod. Geometry from <c>tools/model/import-litening.py</c>.
+    ///
+    /// <para>The first <see cref="GimbalKind.RollNod"/> head, and the reason that enum exists. Its
+    /// nose turns continuously about the pod's own centreline and the line of sight tilts within
+    /// that turning frame — so it has no bearing and no elevation, and its travel is one number:
+    /// how far the nod carries the sight off the centreline.</para>
+    ///
+    /// <para><see cref="OpticProfile.MaxOffBoresightDeg"/> is the <em>gimbal's</em> stop, and the
+    /// importer measures the nose's aperture beside it so the binding one is known rather than
+    /// assumed: the shell clears the line of sight to 158° on the side the recession is cut into,
+    /// so the mechanism stops first with 8° in hand. The other side clears only 107°, which never
+    /// binds — the nod is always non-negative and the roll puts the open side on the target.</para>
+    ///
+    /// <para>The 150° is their rig's limit and the AselPOD-class figure it came from. Rafael does
+    /// not publish Litening's, and any specific number attributed to it online is worth
+    /// suspicion.</para>
+    /// </summary>
+    public static readonly OpticProfile Litening = new()
+    {
+        PartId = "KSArmory_Prefab_Litening",
+        DisplayName = "LITENING",
+        Sensor = PodSensor.Name,
+        Gimbal = GimbalKind.RollNod,
+
+        BaseMarker = "Litening_Body",
+        RollMarker = "Litening_Roll",
+        HeadMarker = "Litening_Head",
+
+        HeadPivot = new(0.26669, 0.94282, 0.00000),
+
+        // The ball's own radius, so the eye sits just outside the glass rather than inside it.
+        EyeForward = 0.223f,
+
+        // The roll axis carries its mass close to the axis of symmetry, so a roll-nod head slews
+        // and settles faster than an az-el one of the same mass. That is most of why pods are
+        // built this way, and it is the one performance number that follows from the mechanism.
+        SlewRateDeg = 140f,
+
+        MaxOffBoresightDeg = 150f,
+        KeyholeDeg = 4f,
+    };
+
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1, SidewinderRail, Ciws, BombRack, NukeRack];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [Missile57E6, Cannon30Mm, Missile9J, Cannon20Mm, BombMk82, NukeB61];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
-        [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight, EoSensor];
+        [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight, EoSensor, PodSensor];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
-    /// nothing downstream can tell which is which.
+    /// nothing downstream can tell which is which — nor which gimbal any of them is hung on.
     /// </summary>
-    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector, PantsirDirector];
+    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector, PantsirDirector, Litening];
 
     /// <summary>
     /// The parts this mod recognises on a craft it did not design, keyed by part Id.
@@ -721,6 +789,15 @@ public static class Arsenal
             // the survey walks parts and finds it directly. Declaring one anyway minted a second
             // row for one object, filed under Sensors, with no control on it and nothing to say
             // but that there was no weapons system to belong to.
+        },
+        new ComponentProfile
+        {
+            PartId = Litening.PartId,
+            Role = WeaponRole.Camera,
+            DisplayName = Litening.DisplayName,
+
+            // Nothing declared, for the mast director's reason: its sensor is not gear it
+            // carries, it *is* the pod, and the survey walks parts and finds it directly.
         },
         new ComponentProfile
         {

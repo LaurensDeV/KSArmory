@@ -277,6 +277,97 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_Rail" DisplayName="14-inch Suspension Rail">
+    <!-- Weapons rather than Structural: it is carriage gear, and it belongs beside the stores it
+         carries rather than next to girders. Both tags carry FaceSnapTargetWhitelist, which is
+         what the comment below depends on. -->
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.4" />
+
+    <!--
+      No `Radial` tag, and that is the point of this part rather than an omission. Core's `Radial`
+      is a FaceSnapTargetBlacklist, and the blacklist beats the whitelist in HandleSnapping — so a
+      part carrying it silently cannot have anything mounted on it. A rail nothing can be mounted
+      on is a decoration. What makes it attach radially is the ToSurface connector below, which is
+      a different mechanism and unaffected. See docs/KSA-MODDING-NOTES.md.
+    -->
+    <Connector Id="_rlConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- An empty 14-inch rail is a few tens of kilogrammes of alloy. -->
+    <SolidSphereMass>
+      <Mass Kg="42" />
+      <Radius M="0.25" />
+    </SolidSphereMass>
+
+    <!--
+      Straight off the _ColPrim_KSArmory_Rail_Body node in the atlas: a unit box scaled to
+      (0.22006, 0.81257, 0.30768) and offset to (0.11003, 0, 0). Read rather than eyeballed, so
+      the collider is the one the model was authored with.
+    -->
+    <Collider Id="KSArmory_RailCollider">
+      <Box Id="KSArmory_RailBodyCollider">
+        <LocationAsmb X="0.11003" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.22006" />
+        <LengthY M="0.81257" />
+        <LengthZ M="0.30768" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_Litening" DisplayName="LITENING Targeting Pod">
+    <EditorTag Value="Sensors" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.6" />
+
+    <!-- Attaches by its suspension lugs to the underside of a wing, a fuselage or a stack. -->
+    <Connector Id="_ltConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!--
+      No <Control>, for the same reason the mast director has none: a sight is not a vehicle. It
+      bolts to a craft that already has a command source.
+    -->
+
+    <!-- A LITENING is 220 kg per the Rafael datasheet, on its 42 kg rail. -->
+    <SolidSphereMass>
+      <Mass Kg="262" />
+      <Radius M="0.60" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_LiteningCollider">
+      <!-- The rail, at the part origin. Straight off its own _ColPrim_ node, shifted aft with it. -->
+      <Box Id="KSArmory_LiteningRailCollider">
+        <LocationAsmb X="0.11003" Y="-0.21750" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.22006" />
+        <LengthY M="0.81257" />
+        <LengthZ M="0.30768" />
+      </Box>
+      <!-- The aft body, hanging below the rail. -->
+      <Box Id="KSArmory_LiteningBodyCollider">
+        <LocationAsmb X="0.42" Y="-0.33" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.43" />
+        <LengthY M="1.54" />
+        <LengthZ M="0.43" />
+      </Box>
+      <!-- The rolling nose, at every roll it can reach: a body of revolution, so one box does. -->
+      <Box Id="KSArmory_LiteningNoseCollider">
+        <LocationAsmb X="0.42" Y="0.76" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.44" />
+        <LengthY M="0.68" />
+        <LengthZ M="0.44" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx CIWS">
     <EditorTag Value="Weapons" />
     <Diameter M="3" />

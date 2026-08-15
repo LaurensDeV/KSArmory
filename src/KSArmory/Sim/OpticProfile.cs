@@ -3,6 +3,38 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
+/// How a head is hung. It decides three things a caller cannot infer from the geometry: which
+/// axis the travel limits are measured from, which roll the mesh is given, and where the head
+/// parks when it has nothing to look at.
+/// </summary>
+public enum GimbalKind
+{
+    /// <summary>
+    /// A ball on a mast, free to point anywhere its mast leaves clear. Travel is elevation over
+    /// the mounting face, and the roll keeps the ball's own up as near the mount's normal as the
+    /// aim allows.
+    /// </summary>
+    Mast,
+
+    /// <summary>
+    /// Roll-nod, which is what a targeting pod has: the whole nose turns continuously about the
+    /// pod's own centreline, and the line of sight tilts within that turning frame.
+    ///
+    /// <para>Two mechanical reasons it is not azimuth-elevation. The roll axis carries its mass
+    /// close to the axis of symmetry, so it slews and settles far faster for the same mass; and a
+    /// body of revolution keeps one drag profile whichever way it looks, where an az-el head has
+    /// to be a ball hanging out of a fairing.</para>
+    ///
+    /// <para>The cost is the <b>keyhole</b>. Dead along the roll axis the outer gimbal is
+    /// degenerate — a target crossing the nose needs unbounded roll rate, and one exactly on the
+    /// axis has no roll angle at all. That is the same singularity an alt-az telescope has at
+    /// zenith, and it is why <see cref="OpticProfile.KeyholeDeg"/> keeps the command out of it
+    /// rather than leaving the collar to spin.</para>
+    /// </summary>
+    RollNod,
+}
+
+/// <summary>
 /// One optical head: where it sits, how fast it turns, and what it sees with.
 ///
 /// <para>Its own profile type rather than fields on <see cref="LauncherProfile"/>, because a head
@@ -22,11 +54,24 @@ public sealed class OpticProfile
     /// <summary>Which <see cref="SensorProfile"/> it finds things with.</summary>
     public required string Sensor { get; init; }
 
+    /// <summary>How it is hung, which is what every travel and roll question below branches on.</summary>
+    public GimbalKind Gimbal { get; init; } = GimbalKind.Mast;
+
     /// <summary>Subpart marker for the fixed flange and mast.</summary>
     public required string BaseMarker { get; init; }
 
     /// <summary>Subpart marker for the gimballed head.</summary>
     public required string HeadMarker { get; init; }
+
+    /// <summary>
+    /// Subpart marker for the outer roll gimbal, or null for a head that has none.
+    ///
+    /// <para>Only a <see cref="GimbalKind.RollNod"/> head has an outer body to write: it is the
+    /// shell the window nods inside, and it turns about the pod's centreline alone. Leaving it
+    /// null on a mast head is not an omission — there is no such body — so nothing looks for one
+    /// and no warning is due when it is absent.</para>
+    /// </summary>
+    public string? RollMarker { get; init; }
 
     /// <summary>
     /// Where the head turns, as an offset from the <em>base</em> — not a point in the part.
@@ -70,6 +115,26 @@ public sealed class OpticProfile
 
     /// <summary>How far up. Short of straight up, where a pointing head has nothing to roll about.</summary>
     public float MaxElevationDeg = 85f;
+
+    /// <summary>
+    /// How far off the pod's own centreline a <see cref="GimbalKind.RollNod"/> head may look
+    /// (deg). Ignored by a <see cref="GimbalKind.Mast"/> head, whose travel is an elevation band.
+    ///
+    /// <para>The one number that describes a roll-nod field of regard, because 360° of roll makes
+    /// every bearing the same bearing: what is left is how far the nod tilts the line of sight
+    /// away from dead ahead, and 90° is already the whole hemisphere below the aircraft.</para>
+    /// </summary>
+    public float MaxOffBoresightDeg = 135f;
+
+    /// <summary>
+    /// The cone dead ahead a roll-nod head will not enter (deg). Ignored by a mast head.
+    ///
+    /// <para>A guard rather than a preference: on the axis the roll angle is undefined, and near
+    /// it a target crossing the nose asks the outer gimbal for a roll rate that grows without
+    /// bound. Holding the command this far off keeps the collar's angle continuous, which is what
+    /// stops the whole nose snapping round as the aim creeps past the axis.</para>
+    /// </summary>
+    public float KeyholeDeg = 4f;
 
     public double SlewRateRad => float.DegreesToRadians(SlewRateDeg);
 }

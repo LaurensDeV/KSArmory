@@ -30,6 +30,7 @@ for arg in "$@"; do
 done
 
 ATLAS="src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
+POD_ATLAS="src/KSArmory/Meshes/KSArmory_Litening.glb"
 
 FAILED=()
 SKIPPED=()
@@ -95,6 +96,17 @@ if (( LIST )) || [[ -f "$ATLAS" ]]; then
     run "Mesh has no z-fighting or degenerate UVs" ./tools/model/checkmesh.py "$ATLAS"
 else
     skip "Mesh has no z-fighting or degenerate UVs" "no atlas at $ATLAS"
+fi
+
+# The authored atlas, with the proximity advisory off and the two hard checks on. That band is
+# calibrated to box()'s 8 mm modelling skin; a mesh authored in the Blender UI has no skin, so it
+# reports every deliberate panel step rather than a defect. Zero-UV-area triangles and exact
+# coplanar overlaps are never deliberate, so those still run.
+if (( LIST )) || [[ -f "$POD_ATLAS" ]]; then
+    run "Authored mesh has no z-fighting or degenerate UVs" \
+        ./tools/model/checkmesh.py "$POD_ATLAS" --near-max 0
+else
+    skip "Authored mesh has no z-fighting or degenerate UVs" "no atlas at $POD_ATLAS"
 fi
 
 # Textures are regenerated and diffed, so a hand-edited PNG is caught before the next model

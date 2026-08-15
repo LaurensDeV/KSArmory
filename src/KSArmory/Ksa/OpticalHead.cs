@@ -44,6 +44,12 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     public Part? OpticPart { get; private set; }
 
     /// <summary>
+    /// The outer roll gimbal, on a head that has one. Null on every mast head, which is not a
+    /// failure: there is no such body to find.
+    /// </summary>
+    public Part? RollPart { get; private set; }
+
+    /// <summary>
     /// Where the base is, now. <see cref="MountFrame.Fixed"/> for a director bolted to a hull,
     /// and wherever a traverse or a hinge has carried it for one that rides something.
     ///
@@ -158,9 +164,17 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     ///
     /// <para>Rigid with the head is the default because it is what a camera bolted to a craft
     /// does — it rolls with the vehicle and looking sideways stays sideways. It also has no
-    /// singularity worth the name: the head's up is built to stay near the mount's normal and is
-    /// continuous everywhere the travel allows, so there is nothing to carry and nothing to
+    /// singularity worth the name: a mast head's up is built to stay near the mount's normal and
+    /// is continuous everywhere the travel allows, so there is nothing to carry and nothing to
     /// flip.</para>
+    ///
+    /// <para><b>A roll-nod head takes the other end of its own up, and that is derotation.</b> Its
+    /// nose rolls, so the scene turns in the focal plane — half a turn of roll and the picture is
+    /// upside down — and every pod of the class counters it, optically with a prism or, as Litening
+    /// does, in the video processor. Referencing the forward side of the nod plane is that counter:
+    /// what the pod is bolted to stays at the top of the picture however far the nose has rolled.
+    /// Its two singular directions are the keyhole and dead astern, and the travel excludes
+    /// both.</para>
     /// </summary>
     /// <para>Resolved on every read rather than sampled once, because it is used <em>beside</em> a
     /// forward that the engine's own pass re-solves. Sampled in <c>SampleWorld</c> it came from the
@@ -191,6 +205,11 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     // it is on target while the picture points somewhere else.
     private bool _driveWorks = true;
 
+    // The shell's own latch. Separate because a refused roll is cosmetic -- the line of sight is
+    // the head's, and it still points where it is told -- and sharing one latch would freeze a
+    // working sight over a body nobody is looking through.
+    private bool _rollWorks = true;
+
     public OpticalHead(Config config, OpticConfig policy, Vehicle platform, int ordinal)
         : this(config, policy)
     {
@@ -216,11 +235,13 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             Profile = found.Profile;
             Sensor = Arsenal.SensorNamed(Profile.Sensor);
             OpticPart = OpticParts.FindHead(found.Part, found.Profile);
+            RollPart = OpticParts.FindRoll(found.Part, found.Profile);
         }
         else
         {
             Director = null;
             OpticPart = null;
+            RollPart = null;
         }
 
         SensorBoresight = ResolveSensorBoresight();
@@ -246,6 +267,17 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // opposite bearings at low elevation that arc goes straight through the mast.
         _drive.Hold(OpticGeometry.ClampToTravel(Profile, Mount, _drive.Direction));
 
+        // The shell first, and unconditionally on the head's own latch: a frozen head still has a
+        // roll the window is meant to sit at, and a shell left behind reads as the window hanging
+        // outside its aperture rather than as a drive that stopped.
+        if (RollPart is { } shell && _rollWorks
+            && !OpticParts.TryApplyRoll(shell, Profile, Mount, AimWhenDrawn))
+        {
+            _rollWorks = false;
+            Log.Warn("optic: the engine refused the roll gimbal's transform; the nose is frozen "
+                     + "where it stopped and the head goes on aiming");
+        }
+
         if (OpticPart is not { } head || !_driveWorks) return;
 
         if (!OpticParts.TryApplyAim(head, Profile, Mount, AimWhenDrawn))
@@ -255,8 +287,8 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         }
     }
 
-    /// <summary>Clears the refusal latch, because a new craft deserves a fresh assessment.</summary>
-    public void Reset() => _driveWorks = true;
+    /// <summary>Clears the refusal latches, because a new craft deserves a fresh assessment.</summary>
+    public void Reset() => _driveWorks = _rollWorks = true;
 
     /// <summary>
     /// Where the head is looking from and along what, both in Ecl. False when the director, its
@@ -341,7 +373,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     // reports itself forever unsettled.
     private double3 AimPartFrame()
     {
-        double3 rest = OpticGeometry.RestDirection;
+        double3 rest = OpticGeometry.RestAim(Profile, Mount);
 
         // Mouse aim owns the head outright rather than being the first of several rungs: with it
         // on the operator is the sensor, so falling through to tracking -- or to the rest
@@ -537,14 +569,8 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     // Bearing and elevation about the mount, for driving it by hand.
     private double3 ManualAim()
-    {
-        double bearing = float.DegreesToRadians(_policy.ManualBearingDeg);
-        double elevation = float.DegreesToRadians(_policy.ManualElevationDeg);
-
-        double across = Math.Cos(elevation);
-
-        return new double3(Math.Sin(elevation), across * Math.Cos(bearing), across * Math.Sin(bearing));
-    }
+        => OpticGeometry.ManualAim(Profile, Mount,
+                                   _policy.ManualBearingDeg, _policy.ManualElevationDeg);
 
     // The head's own up, carried into Ecl -- or local vertical when the operator wants the
     // picture levelled. Falls back to local up rather than a zero vector, which the controller
@@ -557,7 +583,11 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         if (_policy.StabiliseHorizon) return Boresight;
 
-        double3 headUp = OpticGeometry.Rotation(Mount, AimWhenDrawn) * OpticGeometry.MountNormal;
+        double3 mesh = Profile.Gimbal == GimbalKind.RollNod
+            ? -OpticGeometry.MountNormal
+            : OpticGeometry.MountNormal;
+
+        double3 headUp = OpticGeometry.Rotation(Profile, Mount, AimWhenDrawn) * mesh;
 
         return Director is { } director
                && LauncherPart.TryLauncherDirectionEcl(platform, director, headUp, out double3 ecl)

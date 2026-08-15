@@ -741,6 +741,65 @@ and looking sideways stays sideways. **Level the horizon** is the opt-in.
 - [ ] Known and not yet built: a head's settings are **not persisted**, so magnification and
       viewport reset on reload.
 
+### 7.6c The LITENING pod — the same sight on a roll-nod gimbal
+
+**Never flown.** Nothing below has been seen in game. The maths is pinned by
+`RollNodGimbalTests`, the geometry by `validate-parts.py` against the mesh, and the mesh by
+`checkmesh.py` — but none of them can see what KSA does with three subparts on one pivot, and this
+is also the **first authored asset** in the mod, so its atlas, its three materials and its baked
+maps are all unproven paths.
+
+- [ ] `LITENING Targeting Pod` appears under **Sensors** in the editor and surface-attaches to a
+      wing or fuselage. It cannot root a craft, which is right for a store.
+- [ ] **It renders at all.** A second `<MeshAtlas>` and three `<PbrMaterial>`s alongside the
+      palette one is new; a mesh Id that does not resolve is a *silent* failure. An untextured or
+      magenta pod means the material Ids, not the geometry.
+- [ ] It reads as a Litening: 2.2 m long, the ball nearly as fat as the body, the lugs on top.
+- [ ] **The nose rolls and the ball nods.** Watch it while the head tracks a crossing target: the
+      shroud and its cheeks sweep round the centreline, the ball tilts within them, and the ball
+      never parts company with the shroud. That last is the one thing the tests cannot see.
+- [ ] **The recession faces the way the sight looks.** If the pod is looking out through the
+      *closed* side of the shroud, `CLOCK_DEG` in `import-litening.py` is half a turn out.
+- [ ] The **Camera** row says `roll-nod gimbal`, with a roll and a nod that move as it tracks.
+- [ ] Looking dead ahead it says **in the keyhole** and holds ~4° off the centreline rather than
+      spinning the nose. This is the alt-az-at-zenith singularity and is expected, not a fault.
+- [ ] Looking aft and down it says **at the nod stop** at 150°, and the ball is still inside the
+      shroud there — the shell clears the sightline to 158°, so it should have 8° in hand.
+- [ ] **Derotation.** Roll the aircraft, or track a target right round the pod: the picture keeps
+      the airframe at the top rather than turning with the nose.
+- [ ] The pod stows looking **out of its mounting face** — straight down under a wing — rather
+      than dead ahead, because dead ahead is its keyhole.
+- [ ] **Shimmer at range.** `checkmesh` reports 451 near-coplanar pairs on the authored mesh, at
+      gaps of 0.3–4 mm and up to 75 cm² — panel steps, decals and the shroud's shell wall. There
+      are no *exact* coplanar overlaps, and KSA's reverse-Z depth buffer should hold sub-millimetre
+      gaps apart, so this is expected to be fine. **Look at the pod from a few hundred metres
+      anyway**; if its panels crawl, the gaps want opening up in Blender rather than in the import.
+- [ ] A craft carrying a pod *and* an EO director runs both, each on its own gimbal, and the
+      panel describes each in its own terms.
+- [ ] Not modelled: the airframe masks nothing, so the pod can look up into the wing it hangs
+      from. The sensor cone points out of the mounting face, which keeps it off that direction
+      without forbidding it.
+
+### 7.6d The suspension rail — carriage gear, and whether things mount on it
+
+**Never flown.** Authored, clean under `checkmesh`, and declared with the collider read off its
+own `_ColPrim_` node. It has no profile in `Sim/Arsenal.cs` at all: it neither shoots nor sees.
+
+- [ ] `14-inch Suspension Rail` appears under **Weapons** in the editor and surface-attaches to a
+      wing or fuselage, hooks downward.
+- [ ] It renders and is textured. Its atlas and material are its own; a magenta or untextured rail
+      means the Ids, not the mesh.
+- [ ] **A pod or a rack can be mounted on it.** This is the item worth the most: it carries no
+      `Radial` tag on purpose, because that tag is a `FaceSnapTargetBlacklist` and the blacklist
+      beats the `Weapons` whitelist — the same trap that stopped anything being mounted on the
+      Pantsir. If nothing will attach to the rail, the gate has moved and
+      `docs/KSA-MODDING-NOTES.md` wants correcting.
+- [ ] It cannot start a craft, which is right: any `ToSurface` connector bars a part from being a
+      root whatever its tags say.
+- [ ] The store sits **on the hooks** rather than intersecting the beam. The rail's hooks are at
+      14-inch spacing and the pod's lugs are modelled to match, but nothing checks that the two
+      line up — the editor places the store wherever the player drops it.
+
 ### 7.6 The gunner's sight — symbology, zoom and the two reticules
 
 **Flown once. Zoom works and hands the view back; two faults found, both addressed and neither

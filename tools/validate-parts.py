@@ -882,13 +882,24 @@ def check_launcher_geometry():
     return problems, checked
 
 
+# Which model script emitted each optical head's geometry. Two profiles share the mast director's
+# block because they are the same instrument on different hosts; the pod is its own model, its own
+# mechanism and its own tool. A profile absent from here is checked against nothing, so a new head
+# has to be named -- the same trap tools/model/checkswept.py's vehicles() has.
+OPTIC_GEOMETRY = {
+    "EoDirector": "optic",
+    "PantsirDirector": "optic",
+    "Litening": "litening",
+}
+
+
 def check_optic_geometry(profile="EoDirector"):
     """Verifies the optical head's pivot agrees in all three places it is written down.
 
-    tools/model/optic.py recentres the head's mesh on it, Sim/Arsenal.cs aims from it, and the
-    asset XML puts the body back at it. A disagreement between the first two swings the head
-    around the mast instead of turning it in place; between the first and third it draws the head
-    somewhere the mod is not aiming from, and the picture points somewhere the model does not.
+    The model script recentres the moving meshes on it, Sim/Arsenal.cs aims from it, and the asset
+    XML puts the bodies back at it. A disagreement between the first two swings the head around its
+    mount instead of turning it in place; between the first and third it draws the head somewhere
+    the mod is not aiming from, and the picture points somewhere the model does not.
 
     Nothing at build or run time connects the three, which is the whole reason for this.
     """
@@ -896,7 +907,13 @@ def check_optic_geometry(profile="EoDirector"):
     if not muzzles.is_file():
         return 0, 0
 
-    expected = json.loads(muzzles.read_text()).get("optic")
+    block_name = OPTIC_GEOMETRY.get(profile)
+    if block_name is None:
+        print(f"  UNCHECKED Arsenal.{profile}: no entry in OPTIC_GEOMETRY, so its pivot is "
+              f"compared against nothing", file=sys.stderr)
+        return 1, 1
+
+    expected = json.loads(muzzles.read_text()).get(block_name)
     if expected is None:
         return 0, 0
 
@@ -940,12 +957,30 @@ def check_optic_geometry(profile="EoDirector"):
     # What is compared is head *minus base*, because HeadPivot is an offset from the base rather
     # than a point in the part -- so this is the one form that holds for a director bolted to a
     # hull and one riding a turret several metres out.
+    # A roll-nod head's travel is a mechanical stop, and the importer measures the nose's aperture
+    # beside it -- so this holds the C# to the number the tool decided was binding. Widening it
+    # here alone drives the sight out through the shell.
+    if "max_off_boresight_deg" in expected:
+        checked += 1
+        reach = re.search(r"MaxOffBoresightDeg\s*=\s*([\d.]+)f\s*,", block)
+        if reach is None:
+            print(f"  MISSING Arsenal.{profile}.MaxOffBoresightDeg", file=sys.stderr)
+            problems += 1
+        elif abs(float(reach.group(1)) - expected["max_off_boresight_deg"]) > 0.5:
+            print(f"  STALE Arsenal.{profile}.MaxOffBoresightDeg = {reach.group(1)}, "
+                  f"the model says {expected['max_off_boresight_deg']}", file=sys.stderr)
+            problems += 1
+
     checked += 1
+    wanted = ["BaseMarker", "HeadMarker"]
+    if re.search(r'RollMarker\s*=\s*"([^"]+)"', block):
+        wanted.append("RollMarker")
+
     ids = {marker: f"KSArmory_{re.search(rf'{marker}\s*=\s*"([^"]+)"', block).group(1)}"
-           for marker in ("BaseMarker", "HeadMarker")
+           for marker in wanted
            if re.search(rf'{marker}\s*=\s*"([^"]+)"', block)}
 
-    if len(ids) != 2:
+    if len(ids) != len(wanted):
         print(f"  MISSING Arsenal.{profile}.BaseMarker or .HeadMarker", file=sys.stderr)
         return problems + 1, checked
 
@@ -960,16 +995,20 @@ def check_optic_geometry(profile="EoDirector"):
                     placed[marker] = ([float(position.get(axis, "0")) for axis in "XYZ"]
                                       if position is not None else [0.0, 0.0, 0.0])
 
-    missing = [ids[m] for m in ("BaseMarker", "HeadMarker") if m not in placed]
+    missing = [ids[m] for m in wanted if m not in placed]
     if missing:
         print(f"  MISSING <SubPart Id=\"{missing[0]}\"> in the asset XML", file=sys.stderr)
         problems += 1
     else:
-        offset = [h - b for h, b in zip(placed["HeadMarker"], placed["BaseMarker"])]
-        if any(abs(a - b) > 5e-4 for a, b in zip(offset, want)):
-            print(f"  STALE <SubPart Id=\"{ids['HeadMarker']}\"> sits {tuple(offset)} from its "
-                  f"base, mesh says {tuple(want)}", file=sys.stderr)
-            problems += 1
+        # Every moving body, against the same pivot. The roll gimbal shares it with the head --
+        # that is what lets the ball sweep its travel without fouling the shroud -- so placing the
+        # two apart in the XML would swing one of them around the other.
+        for marker in [m for m in wanted if m != "BaseMarker"]:
+            offset = [h - b for h, b in zip(placed[marker], placed["BaseMarker"])]
+            if any(abs(a - b) > 5e-4 for a, b in zip(offset, want)):
+                print(f"  STALE <SubPart Id=\"{ids[marker]}\"> sits {tuple(offset)} from its "
+                      f"base, mesh says {tuple(want)}", file=sys.stderr)
+                problems += 1
 
     if problems == 0:
         print("  optic geometry: the head's pivot matches in all three places")

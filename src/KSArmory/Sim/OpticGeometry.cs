@@ -22,6 +22,12 @@ public readonly record struct MountFrame(double3 Position, doubleQuat Rotation)
     /// <summary>The surface's outward normal, which elevation and roll are both measured from.</summary>
     public double3 Normal => Rotation * OpticGeometry.MountNormal;
 
+    /// <summary>
+    /// Where the mount faces: the base's own forward, which for a pod is the centreline its outer
+    /// gimbal rolls about and the axis its keyhole sits on.
+    /// </summary>
+    public double3 Forward => Rotation * OpticGeometry.RestDirection;
+
     /// <summary>A point on the mount, in the part's frame.</summary>
     public double3 ToPart(double3 onMount) => Position + Rotation * onMount;
 }
@@ -56,18 +62,134 @@ public static class OpticGeometry
     /// absolutely in the part's frame, so turning the base under a ball already pointed at
     /// something must not turn the ball with it — the aim is where it is looking, not an offset
     /// from its mount. Only the roll reference comes from the mount, through
-    /// <see cref="MountFrame.Normal"/>.
+    /// <see cref="RollReference"/>.
     /// </remarks>
     public static DrivePose Pose(OpticProfile profile, MountFrame mount, double3 aimPartFrame)
-        => new(mount.ToPart(profile.HeadPivot), Rotation(mount, aimPartFrame));
+        => new(mount.ToPart(profile.HeadPivot), Rotation(profile, mount, aimPartFrame));
 
     /// <summary>The head's pose on a mount that never moves.</summary>
     public static DrivePose Pose(OpticProfile profile, double3 aimPartFrame)
         => Pose(profile, MountFrame.Fixed, aimPartFrame);
 
     /// <summary>
+    /// The outer roll gimbal's pose: the shell a <see cref="GimbalKind.RollNod"/> head nods
+    /// inside, turned about the mount's own centreline and nothing else.
+    ///
+    /// <para>It shares <see cref="OpticProfile.HeadPivot"/> with the head, because they turn on
+    /// the same bearing — which is what makes the window stay flush in the shell at every nod.</para>
+    /// </summary>
+    public static DrivePose RollPose(OpticProfile profile, MountFrame mount, double3 aimPartFrame)
+        => new(mount.ToPart(profile.HeadPivot),
+               doubleQuat.CreateFromAxisAngle(mount.Forward, RollAngleRad(mount, aimPartFrame))
+               * mount.Rotation);
+
+    /// <summary>
+    /// How far the outer gimbal has rolled (rad), measured about the mount's centreline from its
+    /// normal — so a pod under a wing reads zero looking straight down.
+    ///
+    /// <para>Zero along the centreline itself, which is the keyhole: there is no nod plane there,
+    /// so there is no roll angle to report. <see cref="OpticProfile.KeyholeDeg"/> is what keeps a
+    /// commanded aim out of that cone; this only has to not produce a NaN when something else
+    /// puts it there.</para>
+    /// </summary>
+    public static double RollAngleRad(MountFrame mount, double3 aimPartFrame)
+    {
+        double3 aim = Vec.Unit(aimPartFrame);
+        if (Vec.Len2(aim) < 0.5) return 0.0;
+
+        double3 axis = mount.Forward;
+        double3 plane = Vec.RejectFrom(aim, axis);
+        if (Vec.Len2(plane) < 1e-12) return 0.0;
+
+        plane = Vec.Unit(plane);
+        double3 reference = mount.Normal;
+
+        return Math.Atan2(Vec.Dot(Vec.Cross(reference, plane), axis), Vec.Dot(reference, plane));
+    }
+
+    /// <summary>
+    /// Which direction the head's own up is kept nearest, which is the whole difference between
+    /// the two gimbals.
+    ///
+    /// <para>A mast head leans its up towards the surface it is bolted to, so a ball on a deck
+    /// stays upright. A roll-nod head has no such freedom: its nod plane contains the pod's
+    /// centreline by construction, so the head's up lies in that plane on the far side from where
+    /// it started — which is what makes the nose a pure roll followed by a pure nod, and is why
+    /// <see cref="RollPose"/> and <see cref="Rotation"/> agree about where the shell is.</para>
+    /// </summary>
+    public static double3 RollReference(OpticProfile profile, MountFrame mount)
+        => profile.Gimbal == GimbalKind.RollNod ? -mount.Forward : mount.Normal;
+
+    /// <summary>Where a head parks with nothing to look at.</summary>
+    /// <remarks>
+    /// <para>Along the host for a mast head, and out of the mounting face for a roll-nod one — a
+    /// pod stows looking down, because along the host is exactly its keyhole.</para>
+    ///
+    /// <para>The mast head's is the part's own <see cref="RestDirection"/> rather than
+    /// <see cref="MountFrame.Forward"/>, and the two differ on the one head that rides a traverse:
+    /// the mount form would park the Pantsir's director along the <em>turret's</em> forward instead
+    /// of the vehicle's. That may well be the better resting place, but it is a different
+    /// behaviour and not one this decides.</para>
+    /// </remarks>
+    public static double3 RestAim(OpticProfile profile, MountFrame mount)
+        => profile.Gimbal == GimbalKind.RollNod ? mount.Normal : RestDirection;
+
+    /// <summary>
+    /// Where the two hand controls end, in the head's own gimbal's terms.
+    ///
+    /// <para>Between them they can only name directions the head can actually reach, which is the
+    /// point: the travel clamp then never moves a hand-driven command, so the sliders and the ball
+    /// agree. Ends taken from the elevation band or from the nod's own stops, never from the other
+    /// gimbal's vocabulary.</para>
+    /// </summary>
+    public static ((float Min, float Max) First, (float Min, float Max) Second) ManualRanges(
+        OpticProfile profile)
+        => profile.Gimbal == GimbalKind.RollNod
+            ? ((-180f, 180f), (profile.KeyholeDeg, profile.MaxOffBoresightDeg))
+            : ((-180f, 180f), (profile.MinElevationDeg, profile.MaxElevationDeg));
+
+    /// <summary>
+    /// The direction the two hand controls name.
+    ///
+    /// <para><b>Each gimbal is driven in its own terms, and that is not cosmetic.</b> A mast head
+    /// takes a bearing and an elevation about its mounting face. A roll-nod head has neither: ask
+    /// it for "bearing 180, elevation 17" and the direction that describes is 163° off the pod's
+    /// centreline, past a 150° stop — so the clamp moves it and the ball ends up somewhere the
+    /// controls do not say. Naming the roll and the nod instead makes every position on the
+    /// sliders reachable, and makes them read the same as
+    /// <see cref="RollAngleRad"/> and <see cref="OffBoresightRad"/> report.</para>
+    /// </summary>
+    public static double3 ManualAim(OpticProfile profile, MountFrame mount,
+                                    double firstDeg, double secondDeg)
+    {
+        if (profile.Gimbal == GimbalKind.RollNod)
+        {
+            double roll = double.DegreesToRadians(firstDeg);
+            double nod = double.DegreesToRadians(secondDeg);
+
+            // The nod plane at that roll: the mount's normal turned about its centreline. Built
+            // about Cross(Forward, Normal) so the angle reads back through RollAngleRad unchanged
+            // — the two are one convention, and a sign flip here is a control that runs backwards.
+            double3 across = mount.Normal * Math.Cos(roll)
+                             + Vec.Cross(mount.Forward, mount.Normal) * Math.Sin(roll);
+
+            return Vec.Unit(mount.Forward * Math.Cos(nod) + across * Math.Sin(nod));
+        }
+
+        // A mast head, in the part's own axes rather than the mount's. Unchanged: the two are the
+        // same for a director bolted to a hull, and differ only on the one that rides a traverse —
+        // where this would swing the hand controls by the turret's bearing.
+        double bearing = double.DegreesToRadians(firstDeg);
+        double elevation = double.DegreesToRadians(secondDeg);
+
+        double flat = Math.Cos(elevation);
+
+        return new double3(Math.Sin(elevation), flat * Math.Cos(bearing), flat * Math.Sin(bearing));
+    }
+
+    /// <summary>
     /// The head's rotation: <see cref="RestDirection"/> onto the aim, rolled so the ball's own up
-    /// stays as near <see cref="MountNormal"/> as it can.
+    /// stays as near <see cref="RollReference"/> as it can.
     ///
     /// <para><b>The roll is why this is not a shortest-arc rotation.</b> Looking dead astern puts
     /// the aim exactly opposite the rest direction, where the shortest arc has no axis at all and
@@ -75,10 +197,25 @@ public static class OpticGeometry
     /// point, and the head snaps through half a turn on the spot. Choosing the roll explicitly
     /// removes the choice, and with it the flip.</para>
     ///
-    /// <para>Degenerate only looking straight along the mount's own normal, where there is no roll
+    /// <para>It is also what makes a roll-nod nose a roll-nod nose. With the reference on the far
+    /// side of the mount's centreline, this rotation is exactly <see cref="RollPose"/>'s roll
+    /// followed by a tilt about an axis square to that centreline — the outer gimbal and the inner
+    /// one, from one expression. Referencing the mounting face instead, as a mast head does, gives
+    /// a head that arrives at the same bearing having twisted about the line of sight on the way,
+    /// which no such nose can do.</para>
+    ///
+    /// <para>Degenerate only looking straight along the reference itself, where there is no roll
     /// to prefer. The travel limits stop short of it.</para>
     /// </summary>
+    public static doubleQuat Rotation(OpticProfile profile, MountFrame mount, double3 aimPartFrame)
+        => Rotation(RollReference(profile, mount), aimPartFrame);
+
+    /// <summary>The rotation of a head whose up leans towards the mounting face — a mast head.</summary>
     public static doubleQuat Rotation(MountFrame mount, double3 aimPartFrame)
+        => Rotation(mount.Normal, aimPartFrame);
+
+    /// <summary>The same, given the direction the head's own up is to be kept nearest.</summary>
+    public static doubleQuat Rotation(double3 rollReference, double3 aimPartFrame)
     {
         double3 aim = Vec.Unit(aimPartFrame);
         if (Vec.Len2(aim) < 0.5) return doubleQuat.Identity;
@@ -88,10 +225,10 @@ public static class OpticGeometry
         // The reference is where the mounting face actually points now; the ball's own up is its
         // mesh axis, which the swing has already carried. Rotating the second by the mount as well
         // would roll the head by the traverse on top of the roll it was given.
-        double3 wanted = Vec.RejectFrom(mount.Normal, aim);
+        double3 wanted = Vec.RejectFrom(rollReference, aim);
         double3 have = Vec.RejectFrom(swing * MountNormal, aim);
 
-        // Looking along the normal: nothing to roll about, so whatever the swing chose stands.
+        // Looking along the reference: nothing to roll about, so whatever the swing chose stands.
         if (Vec.Len2(wanted) < 1e-12 || Vec.Len2(have) < 1e-12) return swing;
 
         wanted = Vec.Unit(wanted);
@@ -147,6 +284,18 @@ public static class OpticGeometry
         => ElevationRad(MountFrame.Fixed, aimPartFrame);
 
     /// <summary>
+    /// How far off the mount's own centreline a direction points (rad). Zero is dead ahead, which
+    /// for a roll-nod head is its keyhole, and a straight angle is dead astern.
+    /// </summary>
+    public static double OffBoresightRad(MountFrame mount, double3 aimPartFrame)
+    {
+        double3 aim = Vec.Unit(aimPartFrame);
+        if (Vec.Len2(aim) < 0.5) return 0.0;
+
+        return Math.Acos(Math.Clamp(Vec.Dot(aim, mount.Forward), -1.0, 1.0));
+    }
+
+    /// <summary>
     /// The nearest direction the head can actually look, given its travel.
     ///
     /// <para>The floor is not a preference. A director's window stands further off its pivot than
@@ -158,9 +307,18 @@ public static class OpticGeometry
     /// <para>Falls back to the command unchanged when the aim is along the mount's own normal:
     /// straight up has no bearing to preserve, and inventing one would swing the head to an
     /// arbitrary compass point rather than leaving it where it is.</para>
+    ///
+    /// <para>A roll-nod head has neither an elevation floor nor a ceiling, and clamping it as if
+    /// it did would be wrong in both directions at once: 360° of roll makes every bearing the
+    /// same bearing, so what bounds it is the nod alone. See <see cref="ClampOffBoresight"/>.</para>
     /// </summary>
     public static double3 ClampToTravel(OpticProfile profile, MountFrame mount, double3 aimPartFrame)
     {
+        if (profile.Gimbal == GimbalKind.RollNod)
+        {
+            return ClampOffBoresight(profile, mount, aimPartFrame);
+        }
+
         double3 aim = Vec.Unit(aimPartFrame);
         if (Vec.Len2(aim) < 0.5) return aimPartFrame;
 
@@ -184,4 +342,40 @@ public static class OpticGeometry
     /// <summary>The travel limits of a head on a mount that never moves.</summary>
     public static double3 ClampToTravel(OpticProfile profile, double3 aimPartFrame)
         => ClampToTravel(profile, MountFrame.Fixed, aimPartFrame);
+
+    /// <summary>
+    /// A roll-nod head's travel: an annulus about the mount's centreline, bounded outward by
+    /// <see cref="OpticProfile.MaxOffBoresightDeg"/> and inward by <see cref="OpticProfile.KeyholeDeg"/>.
+    ///
+    /// <para>Both ends are the mechanism rather than a preference. Outward it is the gimbal's own
+    /// stop, or the nose's aperture where that is tighter; inward, the roll angle is undefined on
+    /// the axis and the rate needed to hold a target near it grows without bound, so a command
+    /// allowed in there is a nose that spins.</para>
+    ///
+    /// <para>The roll plane is kept and only the nod is moved, so a head told to look somewhere it
+    /// cannot still turns the right way round and stops at the nearest thing it can see — the same
+    /// rule the elevating clamp follows, about the other axis. On the axis itself there is no plane
+    /// to keep, so the command stands: the drive is already looking dead ahead, and inventing a
+    /// roll would throw the nose to an arbitrary one.</para>
+    /// </summary>
+    public static double3 ClampOffBoresight(OpticProfile profile, MountFrame mount,
+                                            double3 aimPartFrame)
+    {
+        double3 aim = Vec.Unit(aimPartFrame);
+        if (Vec.Len2(aim) < 0.5) return aimPartFrame;
+
+        double3 axis = mount.Forward;
+
+        double off = OffBoresightRad(mount, aim);
+        double keyhole = Math.Max(0.0, float.DegreesToRadians(profile.KeyholeDeg));
+        double reach = Math.Clamp(float.DegreesToRadians(profile.MaxOffBoresightDeg), keyhole, Math.PI);
+
+        double wanted = Math.Clamp(off, keyhole, reach);
+        if (Math.Abs(wanted - off) < 1e-9) return aim;
+
+        double3 across = Vec.RejectFrom(aim, axis);
+        if (Vec.Len2(across) < 1e-12) return aim;
+
+        return Vec.Unit(Vec.Unit(across) * Math.Sin(wanted) + axis * Math.Cos(wanted));
+    }
 }

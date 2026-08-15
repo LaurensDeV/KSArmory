@@ -4,7 +4,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Finds an optical director on a craft and resolves its two subparts.
+/// Finds an optical director on a craft and resolves the subparts it is built from.
 ///
 /// <para>Separate from <see cref="LauncherPart"/> because a director is not launcher gear. It is
 /// a part in its own right, on any craft, with or without a weapon anywhere near it — so it is
@@ -55,6 +55,12 @@ internal static class OpticParts
     /// <summary>The flange and mast the head turns on.</summary>
     public static Part? FindBase(Part director, OpticProfile profile)
         => FindSubPart(director, profile.BaseMarker);
+
+    /// <summary>
+    /// The outer roll gimbal, or null on a head that has none — which is every head but a pod's.
+    /// </summary>
+    public static Part? FindRoll(Part director, OpticProfile profile)
+        => FindSubPart(director, profile.RollMarker);
 
     /// <summary>
     /// Where the base has ended up, in the director part's frame.
@@ -116,22 +122,34 @@ internal static class OpticParts
     /// </summary>
     public static bool TryApplyAim(Part head, OpticProfile profile, MountFrame mount,
                                    double3 aimPartFrame)
+        => TryApplyPose(head, OpticGeometry.Pose(profile, mount, aimPartFrame), "head");
+
+    /// <summary>
+    /// Turns the outer roll gimbal to the roll the head's aim implies.
+    ///
+    /// <para>Written from the same aim as the head rather than tracked separately, which is what
+    /// keeps the window flush in the shell: the two are one decomposition of one rotation, and
+    /// deriving them from different instants would show as the window standing off its aperture.</para>
+    /// </summary>
+    public static bool TryApplyRoll(Part roll, OpticProfile profile, MountFrame mount,
+                                    double3 aimPartFrame)
+        => TryApplyPose(roll, OpticGeometry.RollPose(profile, mount, aimPartFrame), "roll gimbal");
+
+    private static bool TryApplyPose(Part body, DrivePose pose, string what)
     {
         try
         {
-            DrivePose pose = OpticGeometry.Pose(profile, mount, aimPartFrame);
-
-            head.Asmb2ParentAsmb = pose.Rotation;
-            head.PositionParentAsmb = pose.Position;
+            body.Asmb2ParentAsmb = pose.Rotation;
+            body.PositionParentAsmb = pose.Position;
 
             // Part caches its matrices; without this the new value is stored and ignored.
-            head.ResetCachedPosMatrixValues();
+            body.ResetCachedPosMatrixValues();
 
             return true;
         }
         catch (Exception e)
         {
-            Log.Warn($"optic head transform: {e.Message}");
+            Log.Warn($"optic {what} transform: {e.Message}");
             return false;
         }
     }

@@ -6,7 +6,10 @@ interceptors, a proximity-fused warhead, twelve rounds in two pods of six on an 
 a **LAU-7 rail** carrying one AIM-9J, which surface-attaches to anything and is the shipped
 example of a launcher with nothing that moves, a **Mk 15 Phalanx CIWS** that stacks on a 3 m
 node and is the one with no missiles at all, and a **Mk 82 bomb rack**, which is the one that
-neither aims nor fires: it lets a bomb go and the ground does the rest.
+neither aims nor fires: it lets a bomb go and the ground does the rest. Two sights come with them,
+and they are the same instrument on different mechanisms: an **EO director** on a mast, and a
+**Rafael LITENING pod**, whose whole nose rolls about the pod's centreline while the sight nods
+within it.
 
 ## Read this first
 
@@ -234,7 +237,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Warhead.cs` | explosive charge to lethal, blast and fireball radius |
 | `Sim/SensorProfile.cs` | one sensor: range, cone, threat model |
 | `Sim/OpticProfile.cs` | one optical head — its own part, or one a launcher carries |
-| `Sim/OpticGeometry.cs` | where a director's head sits and how far down it looks, **measured from the base it rides** |
+| `Sim/OpticGeometry.cs` | where a director's head sits and how far it may look, **measured from the base it rides** |
 | `Sim/OpticConfig.cs` | one director's own settings — where it looks, how far it zooms |
 | `Sim/Config.cs` | session-wide settings — team names, drawing, logging |
 | `Sim/SystemConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
@@ -366,6 +369,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/ciws.py` | the Phalanx CIWS: a gun with no missiles, on a 3 m stack node |
 | `tools/model/bombrack.py` | the ejector rack and its Mk 82: a launcher that drops rather than fires |
 | `tools/model/optic.py` | the EO director: the sight, as a part anything can carry |
+| `tools/model/import-litening.py` | reframes the hand-modelled pod into what KSA reads |
+| `tools/model/preview-glb.py` | renders any `.glb` from a few angles, so an authored asset can be judged before it is declared |
 | `tools/model/checkmesh.py` | finds zero-UV-area triangles and coplanar faces in a `.glb`; `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
@@ -378,6 +383,21 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `branding/` | the generated logo the README and SpaceDock point at |
 
 ## 3D model pipeline (Blender, headless)
+
+**All the art here is generated except the targeting pod and its rail.** `tools/model/import-litening.py` is
+the other path: a `.glb` modelled in the Blender UI, with its own unwrap and baked maps, reframed
+into what KSA reads. Generated wins when the shape is parametric and has to agree with numbers in
+the C#; authored wins when the shape is *observed*. See `.claude/skills/ksa-blender/SKILL.md` for
+the export contract both obey, and the importer's own docstring for the four things the exporter
+cannot know about — baked node transforms, the frame change, recentring on the pivot, and clocking
+the shell.
+
+**An authored asset that obeys the contract needs no import step at all.** The suspension rail is
+the demonstration: exported in part space with its origin on the mounting face, node names matching
+mesh names, its own `_VM` twin and a `_ColPrim_` box carrying the collider, it is copied in as
+exported and only declared. The pod needed a tool because its export did none of those things —
+which is the difference the skill file exists to close.
+
 
 Blender **5.2** is installed at
 `/mnt/c/Program Files/Blender Foundation/Blender 5.2/blender.exe` and is driven entirely from
@@ -1298,6 +1318,46 @@ common case pays nothing and the fallback when a base cannot be resolved is the 
 rather than a guess. The ordering that makes it safe: the drive owning a mount writes it in
 `WeaponSystem.Update`, which `KSArmoryMod` runs before any head's `Update` and before anything
 draws.
+
+**A head's *mechanism* is its own field, and there are two.** `OpticProfile.Gimbal` decides three
+things nothing can infer from the geometry: which axis the travel is measured from, which roll the
+mesh is given, and where the head parks. A mast head elevates over its mounting face and keeps its
+own up near that face's normal. A **roll-nod** head — the LITENING pod — turns its whole nose about
+the pod's centreline and nods the sight within that turning frame, which is what every targeting
+pod of the class actually is: the roll axis carries its mass close to the axis of symmetry, so it
+slews and settles far faster than an az-el head of the same mass, and a body of revolution keeps
+one drag profile whichever way it looks.
+
+The two are **one expression apart**, and that is the thing worth not rediscovering.
+`OpticGeometry.Rotation` swings the rest direction onto the aim and then rolls about the aim to
+bring the head's own up onto a reference; make that reference the far side of the mount's
+*centreline* instead of its *normal*, and the result is exactly a roll about the centreline
+followed by a tilt square to it. Two bodies, one rotation, no second solve —
+`RollNodGimbalTests.TheWindowOnlyEverNodsWithinTheShell` is the whole contract, and it fails
+against the mast head's reference.
+
+**Its travel is one number, and the aperture is measured beside it rather than assumed.** 360° of
+roll makes every bearing the same bearing, so what bounds a roll-nod head is the nod alone.
+`MaxOffBoresightDeg` is the *gimbal's* stop; `import-litening.py` casts rays from the ball's pivot
+to find where the shell actually blocks, so the binding one is known. For the LITENING they are
+150° and 158°, so the mechanism stops first with 8° in hand — and the far side of the shroud clears
+only 107°, which never binds because **the nod is never negative** and the roll is what puts the
+open side on the target. That is why the importer clocks the shell: get it half a turn out and the
+sight looks through the closed side.
+
+**And the far end of the travel is a singularity rather than a stop.** Dead along the roll axis
+there is no roll angle at all, and near it a target crossing the nose asks for unbounded roll rate
+— the same singularity an alt-az telescope has at zenith. `KeyholeDeg` holds the command out of
+that cone, which is also why a pod stows looking *out of its mounting face* rather than along the
+host: `OpticGeometry.RestAim`, because the mast head's rest direction is the pod's keyhole.
+
+**A rolling nose turns the scene in the focal plane, and the picture is derotated.** Half a turn of
+roll and the image is upside down; every pod of the class counters it, optically with a K-mirror or
+Pechan prism at half the roll rate, or — as Litening does, being digital end to end — in the video
+processor. `OpticalHead.RollReferenceEcl` takes the *forward* side of the nod plane for a roll-nod
+head instead of the head's own up, which is that counter-rotation: what the pod hangs from stays at
+the top of the picture however far the nose has rolled. Its two singular directions are the keyhole
+and dead astern, and the travel excludes both.
 
 `ISightPicture` is what a weapon beside the head contributes to the picture — the arm state, the
 ammo, the gun's pipper. `Sight.Draw` takes it as **optional**, so an unarmed craft still gets the

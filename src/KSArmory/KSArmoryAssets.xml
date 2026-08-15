@@ -47,6 +47,54 @@
     <AoRoughMetal Path="Textures/KSArmory_PBR.png" Category="Vessel" />
   </PbrMaterial>
 
+  <!--
+    The targeting pod's own atlas and materials.
+
+    Everything else here is generated: one atlas of flat-swatch primitives sharing one palette
+    material, which is right for parametric geometry and wrong for a shape that is *observed*. The
+    pod was modelled by hand and its maps are baked, so it is unwrapped rather than swatched and
+    carries a material per body. Both live in this file because KSA is happy with several of each,
+    and Core does the same.
+
+    tools/model/import-litening.py reframes the authored export into what KSA reads and copies
+    these textures across. Do not hand-edit either: re-export and re-run it.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Litening.glb" />
+
+  <PbrMaterial Id="KSArmory_Litening_Body_Material">
+    <Diffuse Path="Textures/KSArmory_Litening_Body_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Litening_Body_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Litening_Body_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <PbrMaterial Id="KSArmory_Litening_Roll_Material">
+    <Diffuse Path="Textures/KSArmory_Litening_Roll_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Litening_Roll_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Litening_Roll_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <PbrMaterial Id="KSArmory_Litening_Window_Material">
+    <Diffuse Path="Textures/KSArmory_Litening_Window_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Litening_Window_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Litening_Window_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
+    The suspension rail's atlas and material. Authored like the pod, and arriving in better shape
+    than it did: already in part space with its origin on the mounting face, node names matching
+    mesh names, its own _VM twin, and a _ColPrim_ box carrying the collider — which is Core's own
+    convention and is where the <Collider> below is taken from.
+
+    So it needs no import step at all. The file is copied in as exported.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Rail.glb" />
+
+  <PbrMaterial Id="KSArmory_Rail_Material">
+    <Diffuse Path="Textures/KSArmory_Rail_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Rail_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Rail_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
   <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
   <SubPart Id="KSArmory_Chassis_SubPart">
     <PartModel Id="KSArmory_Subpart_Chassis_Model">
@@ -178,6 +226,57 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_OpticHead_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The suspension rail. Nothing on it moves. -->
+  <SubPart Id="KSArmory_Rail_SubPart">
+    <PartModel Id="KSArmory_Subpart_Rail_Model">
+      <Mesh Id="KSArmory_Rail" />
+      <Material Id="KSArmory_Rail_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Rail_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The targeting pod's aft body and its lugs. Fixed: everything forward of the joint turns. -->
+  <SubPart Id="KSArmory_LiteningBody_SubPart">
+    <PartModel Id="KSArmory_Subpart_LiteningBody_Model">
+      <Mesh Id="KSArmory_Subpart_LiteningBody" />
+      <Material Id="KSArmory_Litening_Body_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_LiteningBody_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    The outer roll gimbal: the barrel, the shroud, the bearing cheeks and the recession cut into
+    one side of it. Turns about the pod's own centreline and nothing else, so the mod writes it a
+    roll and no tilt.
+  -->
+  <SubPart Id="KSArmory_LiteningRoll_SubPart">
+    <PartModel Id="KSArmory_Subpart_LiteningRoll_Model">
+      <Mesh Id="KSArmory_Subpart_LiteningRoll" />
+      <Material Id="KSArmory_Litening_Roll_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_LiteningRoll_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    The nodding ball. Shares the roll gimbal's pivot, which is what lets it sweep its whole travel
+    without fouling the shroud: concentric bodies, so tilting one only changes where it faces.
+  -->
+  <SubPart Id="KSArmory_LiteningWindow_SubPart">
+    <PartModel Id="KSArmory_Subpart_LiteningWindow_Model">
+      <Mesh Id="KSArmory_Subpart_LiteningWindow" />
+      <Material Id="KSArmory_Litening_Window_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_LiteningWindow_VM" />
     </MeshView>
   </SubPart>
 
@@ -540,6 +639,94 @@
 
     <!-- Attaches by the flange's underside, which is the mesh origin. -->
     <Connector Id="_opConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
+  <!--
+    A 14-inch suspension rail: the beam a store hangs from, with a hook at each lug station.
+
+    Structure and nothing else — it has no profile in Sim/Arsenal.cs, because it neither shoots
+    nor sees. It is here so a pod or a rack can be carried on something that looks like what
+    carries one, rather than floating off a wing.
+  -->
+  <Part Id="KSArmory_Prefab_Rail">
+
+    <SubPart Id="KSArmory_Rail_Beam" InstanceOf="KSArmory_Rail_SubPart" />
+
+    <!-- Attaches by the beam's upper face, which the export puts on the mesh origin. -->
+    <Connector Id="_rlConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
+  <!--
+    Rafael LITENING targeting pod, radially mounted like the rail.
+
+    The same instrument as the mast director on a different mechanism: a roll-nod gimbal, where
+    the whole nose turns about the pod's centreline and the line of sight tilts within it. Three
+    bodies rather than two, and the extra one is the outer gimbal.
+
+    Geometry from tools/model/import-litening.py. +X is out of the mounting face, away from the
+    pylon, so "down" under a wing; +Y is the way the nose points, and +Z the host's right.
+  -->
+  <Part Id="KSArmory_Prefab_Litening">
+
+    <!--
+      The rail is part of the pod, not a separate thing to remember. A pod is carried on one, and
+      an editor that lets you hang one off a bare wing offers a state that does not exist — the
+      same reason the Mk 82 rack ships with its bomb rather than as two parts.
+
+      It stays at the part origin, so the assembly still attaches by the rail's own upper face.
+      Shifted aft to put its hooks under the pod's lugs: both pairs are 14-inch, and the pod's
+      suspension group is centred 0.2175 m aft of its body's midpoint.
+    -->
+    <SubPart Id="KSArmory_Litening_Rail" InstanceOf="KSArmory_Rail_SubPart">
+      <Transform>
+        <Position X="0.00000" Y="-0.21750" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      The pod hangs below it. 0.1507 m is what seats the pod's skin on the rail's sway-brace tips;
+      its lugs then run 8 mm past the hooks, inside the rail, which is a joint rather than a gap.
+    -->
+    <SubPart Id="KSArmory_Litening_Body" InstanceOf="KSArmory_LiteningBody_SubPart">
+      <Transform>
+        <Position X="0.15070" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      Both moving bodies sit at the same pivot, because they turn on the same bearing. Their
+      meshes are exported recentred on it so KSA turns them in place, and the offset comes back
+      here.
+
+      These carry the rail's standoff as well, and OpticProfile.HeadPivot does not: it is an offset
+      from the *base*, which MountFrame reads off the engine each frame. So the pod moving down its
+      own rail needed nothing in the C# at all — the same property that lets the Pantsir's director
+      ride a traverse, and why validate-parts.py compares head minus base rather than either alone.
+    -->
+    <SubPart Id="KSArmory_Litening_Roll" InstanceOf="KSArmory_LiteningRoll_SubPart">
+      <Transform>
+        <Position X="0.41739" Y="0.94282" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_Litening_Head" InstanceOf="KSArmory_LiteningWindow_SubPart">
+      <Transform>
+        <Position X="0.41739" Y="0.94282" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Attaches by the rail's upper face, which is the mesh origin. -->
+    <Connector Id="_ltConnectorBase">
       <Transform>
         <Position X="0.00000" />
         <Rotation Z="3.14159" />

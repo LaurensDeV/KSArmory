@@ -412,6 +412,13 @@ internal sealed partial class Ui
             return;
         }
 
+        if (entry.Head.Profile.RollMarker is not null && entry.Head.RollPart is null)
+        {
+            ImGui.TextColored(Amber, "Optical director: roll gimbal subpart not found");
+        }
+
+        DrawGimbalState(entry.Head);
+
         // Only windows the player can actually see. KSA keeps offscreen viewports of its own, and
         // offering those means picking a view that shows nothing, which is indistinguishable from
         // the feature being broken.
@@ -475,9 +482,23 @@ internal sealed partial class Ui
 
         if (policy.Manual)
         {
-            ImGui.SliderFloat("Director bearing (deg)", ref policy.ManualBearingDeg, -180f, 180f);
-            ImGui.SliderFloat("Director elevation (deg)", ref policy.ManualElevationDeg,
-                              entry.Head.Profile.MinElevationDeg, entry.Head.Profile.MaxElevationDeg);
+            // Named and bounded by the head's own gimbal. A pod has no bearing and no elevation,
+            // and driving it in those terms cross-couples the two: changing the elevation moves
+            // the roll the shell is sent to as well, so the nose turns when only the ball should
+            // tilt. It also names directions past the nod stop, which the travel clamp then moves
+            // -- leaving the sliders reading one thing and the ball pointing at another.
+            bool rollNod = entry.Head.Profile.Gimbal == GimbalKind.RollNod;
+            var (first, second) = OpticGeometry.ManualRanges(entry.Head.Profile);
+
+            ImGui.SliderFloat(rollNod ? "Nose roll (deg)" : "Director bearing (deg)",
+                              ref policy.ManualBearingDeg, first.Min, first.Max);
+            ImGui.SliderFloat(rollNod ? "Sight nod off boresight (deg)" : "Director elevation (deg)",
+                              ref policy.ManualElevationDeg, second.Min, second.Max);
+
+            if (rollNod)
+            {
+                ImGui.TextDisabled("  roll turns the whole nose; nod tilts the ball within it");
+            }
         }
 
         if (policy.Viewport >= 0) DrawSightLine(entry.Head, policy, main);
@@ -487,6 +508,43 @@ internal sealed partial class Ui
         if (policy.Viewport >= 0 && policy.Viewport != main && !_viewports.Contains(policy.Viewport))
         {
             policy.Viewport = -1;
+        }
+    }
+
+    // Which mechanism this head is, and where it has got to in that mechanism's own terms.
+    //
+    // Worth a line because a head at its stop and a head with nothing to look at are the same
+    // picture from outside -- the same reason the header strip says why fire is being held. The
+    // two gimbals are described in different words on purpose: a pod has no elevation and a mast
+    // head has no roll, and quoting either in the other's terms is a number nobody can act on.
+    private static void DrawGimbalState(OpticalHead head)
+    {
+        OpticProfile profile = head.Profile;
+        MountFrame mount = head.Mount;
+        double3 aim = head.AimWhenDrawn;
+
+        if (profile.Gimbal != GimbalKind.RollNod)
+        {
+            double elevation = double.RadiansToDegrees(OpticGeometry.ElevationRad(mount, aim));
+
+            ImGui.TextDisabled($"  elevating head: {elevation:F0} deg over the mounting face "
+                               + $"({profile.MinElevationDeg:F0} to {profile.MaxElevationDeg:F0})");
+            return;
+        }
+
+        double off = double.RadiansToDegrees(OpticGeometry.OffBoresightRad(mount, aim));
+        double roll = double.RadiansToDegrees(OpticGeometry.RollAngleRad(mount, aim));
+
+        ImGui.TextDisabled($"  roll-nod gimbal: nose rolled {roll:F0} deg, sight nodded {off:F0} deg "
+                           + $"off the centreline (stop {profile.MaxOffBoresightDeg:F0})");
+
+        if (off >= profile.MaxOffBoresightDeg - 0.5)
+        {
+            ImGui.TextColored(Amber, "  at the nod stop: the gimbal will go no further");
+        }
+        else if (off <= profile.KeyholeDeg + 0.5)
+        {
+            ImGui.TextColored(Amber, "  in the keyhole: dead ahead has no roll angle at all");
         }
     }
 
