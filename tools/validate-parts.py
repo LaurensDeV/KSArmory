@@ -436,9 +436,12 @@ def check_cross_body_planes():
                 position = sub.find("Transform/Position")
                 origin = ([float(position.get(axis, "0")) for axis in "XYZ"]
                           if position is not None else [0.0, 0.0, 0.0])
+                rotation = sub.find("Transform/Rotation")
+                euler = ([float(rotation.get(axis, "0")) for axis in "XYZ"]
+                         if rotation is not None else [0.0, 0.0, 0.0])
                 # A body instanced more than once - the twelve round bodies - would collide with
                 # its own copies at rest, which is how they are stowed.
-                placements.setdefault(mesh, origin)
+                placements.setdefault(mesh, (origin, euler))
 
             checked += len(placements)
             for area, (a, b) in checkmesh.cross_body_overlaps(gltf, binary, placements):
@@ -822,7 +825,122 @@ LAUNCHER_GEOMETRY = {
     "SidewinderRail": ("sidewinder", "rail"),
     "BombRack": ("bombrack", "rack"),
     "NukeRack": ("bombrack", "nuclear rack"),
+    "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
 }
+
+# Launchers whose art was authored rather than generated, and whose geometry is therefore checked
+# against the committed mesh and XML instead of against muzzles.json.
+#
+# The generated path can compare Arsenal.cs to what the model script printed, because that script
+# is in the repository and anyone can rerun it. An authored part's source is a .blend that is
+# deliberately not, so there is nothing to rerun and nothing to print -- and the numbers still
+# exist three times over: in the mesh, in the seat position the part XML declares, and here.
+#
+#   profile -> (part Id, seated round's SubPart Id, round's mesh Id, munition profile, label)
+AUTHORED_LAUNCHERS = {
+    "AmraamRail": ("KSArmory_Prefab_AmraamRail", "KSArmory_Amraam_Round00",
+                   "KSArmory_Subpart_Amraam", "Missile120C", "AMRAAM rail"),
+}
+
+
+def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munition, label):
+    """Checks one authored fixed launcher's tube against the mesh and the XML that place it.
+
+    Three numbers have to agree or the round is drawn somewhere other than where it is fired
+    from: the seat offset out of the mounting face, the body length, and the tube mouth, which is
+    the first plus half the second. Nothing in the build would notice -- the part loads, the round
+    renders, and it leaves from a point that is not its nose.
+    """
+    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    problems = checked = 0
+
+    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    if found is None:
+        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        return 1, 1
+    block = found.group(1)
+
+    seat = bounds = None
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        root = ET.parse(path).getroot()
+        for part in root.findall("Part"):
+            if part.get("Id") != part_id:
+                continue
+            for sub in part.findall("SubPart"):
+                if sub.get("Id") != seat_id:
+                    continue
+                position = sub.find("Transform/Position")
+                if position is not None:
+                    seat = [float(position.get(axis, "0")) for axis in "XYZ"]
+        for atlas in root.findall(".//MeshAtlas"):
+            glb = MOD / atlas.get("Path", "")
+            if not glb.is_file():
+                continue
+            gltf = meshinfo.read_glb_json(str(glb))
+            for mesh in gltf.get("meshes", []):
+                if mesh.get("name") == mesh_id:
+                    bounds = meshinfo.mesh_bounds(gltf, mesh)
+
+    if seat is None:
+        print(f"  MISSING <SubPart Id=\"{seat_id}\"> position in the part XML", file=sys.stderr)
+        return 1, 1
+    if bounds is None or bounds[0] is None:
+        print(f"  MISSING mesh {mesh_id} in any declared atlas", file=sys.stderr)
+        return 1, 1
+    lo, hi = bounds
+    length = hi[0] - lo[0]
+
+    # The mod seats a round half a body length back from the tube mouth, which takes the mesh
+    # origin for the body's centre. A mesh centred anywhere else is drawn off its own rail by
+    # exactly that error, and nothing else in the toolchain looks.
+    checked += 1
+    if abs(lo[0] + hi[0]) > 5e-4:
+        print(f"  OFF-CENTRE mesh {mesh_id}: spans {lo[0]:.4f}..{hi[0]:.4f} along its own axis, "
+              f"so its origin is not its centre", file=sys.stderr)
+        problems += 1
+
+    checked += 1
+    body = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    body = None if body is None else re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", body.group(1))
+    if body is None:
+        print(f"  MISSING Arsenal.{munition}.BodyLength", file=sys.stderr)
+        problems += 1
+    elif abs(float(body.group(1)) - length) > 5e-4:
+        print(f"  STALE Arsenal.{munition}.BodyLength = {body.group(1)}, "
+              f"mesh is {length:.4f}", file=sys.stderr)
+        problems += 1
+
+    checked += 1
+    offset = re.search(r"MuzzleForwardOffset\s*=\s*([\d.]+)\s*,", block)
+    if offset is None:
+        print(f"  MISSING Arsenal.{profile}.MuzzleForwardOffset", file=sys.stderr)
+        problems += 1
+    elif abs(float(offset.group(1)) - seat[0]) > 5e-4:
+        print(f"  STALE Arsenal.{profile}.MuzzleForwardOffset = {offset.group(1)}, "
+              f"the XML seats the round at {seat[0]}", file=sys.stderr)
+        problems += 1
+
+    # The tube mouth is the round's nose: the seat, plus half a body length along the axis it
+    # leaves on. Getting this wrong by the whole length is what firing from the tail looks like.
+    checked += 1
+    tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),"
+                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*\]", block)
+    if tube is None:
+        print(f"  MISSING Arsenal.{profile}.Tubes", file=sys.stderr)
+        problems += 1
+    else:
+        got = [float(v) for v in tube.groups()]
+        axis = got[3:]
+        want = [seat[i] + axis[i] * length / 2 for i in range(3)] + axis
+        if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
+            print(f"  STALE Arsenal.{profile}.Tubes = {tuple(got)}, the seat and the mesh "
+                  f"say {tuple(round(v, 5) for v in want)}", file=sys.stderr)
+            problems += 1
+
+    if problems == 0:
+        print(f"  {label} geometry: 1 tube and its round match the mesh and the XML")
+
+    return problems, checked
 
 # Munition named by each fixed launcher, whose body length the tube standoff is checked against.
 # A turreted launcher's standoff comes off its pods instead, so it needs no entry.
@@ -871,7 +989,9 @@ def check_launcher_geometry():
             continue
 
         key, label = LAUNCHER_GEOMETRY[profile]
-        if trains(text, profile):
+        if profile in AUTHORED_LAUNCHERS:
+            p, c = check_authored_launcher_geometry(profile, *AUTHORED_LAUNCHERS[profile])
+        elif trains(text, profile):
             p, c = check_turret_launcher_geometry(profile, key, label)
         else:
             p, c = check_fixed_launcher_geometry(

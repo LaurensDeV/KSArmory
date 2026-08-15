@@ -235,6 +235,43 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_AmraamRail" DisplayName="LAU-128 AMRAAM Rail">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.55" />
+
+    <!-- Attaches by the pylon's base to the side of a stack. -->
+    <Connector Id="_amConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- AIM-120C-7 at 161.5 kg on a LAU-128 rail and its pylon at 39 kg. -->
+    <SolidSphereMass>
+      <Mass Kg="201" />
+      <Radius M="0.95" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_AmraamRailCollider">
+      <!-- Rail and pylon, standing off the mounting face at X = 0. Bounds off the exported mesh. -->
+      <Box Id="KSArmory_AmraamRailBeamCollider">
+        <LocationAsmb X="0.176" Y="0.145" Z="0.007" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.352" />
+        <LengthY M="2.690" />
+        <LengthZ M="0.158" />
+      </Box>
+      <!-- The round on it, across the fins rather than across the body. -->
+      <Box Id="KSArmory_AmraamRailRoundCollider">
+        <LocationAsmb X="0.424" Y="0.002" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.350" />
+        <LengthY M="3.645" />
+        <LengthZ M="0.350" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Optic" DisplayName="EO Director">
     <EditorTag Value="Sensors" />
     <EditorTag Value="Radial" />

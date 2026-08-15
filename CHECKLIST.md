@@ -584,6 +584,54 @@ does, so a green suite says little about it.
 - [ ] Two rails on one craft: expected to fire **one**. `LauncherOrdinal` is pinned and the roster
       crews one battery per craft. Recorded so it is not mistaken for a bug.
 
+### 7.1d2 The AMRAAM rail — it loads and lays, and nothing past that is confirmed
+
+**It reached the world.** From `KSArmory.log`, first session after it shipped:
+
+```
+ready - Pantsir-S1, LAU-7 Sidewinder rail, LAU-128 AMRAAM rail, Mk 15 Phalanx, ...
+LAU-128 AMRAAM rail tracking AA Defence Site
+LAU-128 AMRAAM rail: turret on AA Defence Site -- driving at 1.8 km
+holding fire: auto-engage is off
+```
+
+So the part loads, is recognised by the survey, gets crewed, acquires a target and lays on it, and
+fire control gates it for the right reason. That covers registration and the whole acquisition
+path — which is most of what a *new profile* can get wrong, and none of what new *art* can.
+
+**Everything below is still unverified**, because a log says nothing about appearance and this is
+the first part in the mod whose art was authored in Blender rather than generated — so the export
+contract is being trusted rather than demonstrated. Nothing has been seen to fire, either.
+
+It is mechanically the LAU-7 (7.1d), so that section's list applies whole and is not repeated. What
+is genuinely new:
+
+- [ ] The part appears in the editor under **Weapons** and surface-attaches. Its collider is
+      hand-declared from the mesh bounds rather than read off a `_ColPrim_` node, so a part that
+      cannot be placed or that snaps oddly points here first.
+- [ ] The round and the rail **render textured**. They share one material across two subparts,
+      which nothing else in the mod does — an untextured or black body means the atlas, the
+      material Id or a texture path, and `validate-parts.py` cannot see a path that resolves to
+      the wrong image.
+- [ ] No **speckle or sparkle** anywhere on either body, at any range, and specifically where the
+      hanger lugs sit between the shoe cheeks. The cross-body pass now honours `<Rotation>` and
+      reports this part clean, which it could not have done before — the round is seated with a
+      quarter turn, and until that landed the pass was comparing a body lying across the launcher
+      rather than along it. So this is checked rather than assumed; what a checker cannot see is
+      whether KSA's renderer agrees.
+- [ ] The round sits **nose-forward on the rail**, its tip level with the rail's forward fairing
+      and its tail fins just aft of the beam. The mesh is centred on its own origin and the seat
+      offset assumes it: a round half a body length out of place means that assumption broke.
+- [ ] The seated round does not **jump** when the mod takes over on the first frame. The XML seat
+      and what `TrySeatMissile` computes are the same numbers by construction, and
+      `validate-parts.py` now checks that, but only against the committed files.
+- [ ] It reaches. The envelope is 105 km on paper and the round is boost-only, so a long shot
+      should arrive slow and turn badly — the failure to look for is a round that holds speed
+      like a sustainer, which would mean `DragK` is wrong rather than the guidance.
+- [ ] **A LAU-7 and a LAU-128 on separate craft in one world.** Two fixed launchers with different
+      rounds and different seekers is the case the per-system profiles exist for, and it has never
+      been run.
+
 ### 7.1f The Mk 82 bomb rack
 
 **Reported not working in flight**, with no detail yet, so nothing here is a diagnosis.
