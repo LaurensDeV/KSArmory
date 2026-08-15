@@ -1258,11 +1258,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // the round left before that. A store released rather than fired has no airspeed at
             // the moment it lets go, so the tube is the only thing that says which way it points.
             //
-            // The tube, emphatically not Boresight. A PartForward sensor boresights on the part's
-            // +X -- its mounting face's outward normal -- while a tube points along +Y, so the two
-            // are perpendicular by construction on every craft at every attitude, so the boresight
-            // draws a released store across its own axis. Falling back to it is still right when
-            // the tube cannot be resolved: some direction beats none.
+            // The tube, emphatically not Boresight. A bomb sight boresights MountNormal -- its
+            // mounting face's outward normal -- while a tube points along +Y, so the two are
+            // perpendicular by construction at every attitude and the boresight would draw a
+            // released store across its own axis. Falling back to it is still right when the tube
+            // cannot be resolved: some direction beats none.
             double3 release = LauncherPart.TryGetTubeAxisEcl(platform, launcher, PodsPart, Profile,
                                                              index, out double3 tubeEcl)
                                   ? tubeEcl

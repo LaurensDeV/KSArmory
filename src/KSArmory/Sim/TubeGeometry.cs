@@ -24,6 +24,14 @@ public static class TubeGeometry
 
     public static readonly double3 ElevationAxis = new(0, 0, 1);
 
+    /// <summary>
+    /// The host's long axis, which is where a rail points and the direction every tube is
+    /// declared along. Perpendicular to <see cref="TraverseAxis"/>, and that is the whole
+    /// distinction <see cref="BoresightMode.PartForward"/> and
+    /// <see cref="BoresightMode.MountNormal"/> exist to keep apart.
+    /// </summary>
+    public static readonly double3 ForwardAxis = new(0, 1, 0);
+
     /// <summary>How far the turret has traversed, as a rotation in the part's frame.</summary>
     public static doubleQuat TurretRotation(double bearingRad)
         => doubleQuat.CreateFromAxisAngle(TraverseAxis, bearingRad);
@@ -236,7 +244,13 @@ public static class TubeGeometry
     {
         switch (mode)
         {
+            // +Y, the axis a tube is declared along. Not TraverseAxis: that is +X, the mounting
+            // face's normal, and a seeker given it searches square to the rail carrying it.
             case BoresightMode.PartForward:
+                partFrame = ForwardAxis;
+                return true;
+
+            case BoresightMode.MountNormal:
                 partFrame = TraverseAxis;
                 return true;
 

@@ -433,7 +433,7 @@ public class TubeGeometryTests
     }
 
     [Fact]
-    public void PartForwardIsTheLaunchersOwnUpAndIgnoresTheDrives()
+    public void PartForwardIsTheLongAxisAndIgnoresTheDrives()
     {
         LauncherProfile profile = TestLauncher(0.6);
 
@@ -442,8 +442,26 @@ public class TubeGeometryTests
         Assert.True(TubeGeometry.TryBoresightPartFrame(
             profile, BoresightMode.PartForward, bearingRad: -0.7, elevationRad: 1.3, out double3 b));
 
-        AssertClose(TubeGeometry.TraverseAxis, a, "part-forward boresight");
+        AssertClose(TubeGeometry.ForwardAxis, a, "part-forward boresight");
         AssertClose(a, b, "part-forward boresight across two different aims");
+    }
+
+    /// <summary>
+    /// The other half of the pair, and the axis <see cref="BoresightMode.PartForward"/> used to
+    /// return. A sight that looks away from its mount wants this one; a seeker never does.
+    /// </summary>
+    [Fact]
+    public void MountNormalIsTheMountingFaceAndIgnoresTheDrives()
+    {
+        LauncherProfile profile = TestLauncher(0.6);
+
+        Assert.True(TubeGeometry.TryBoresightPartFrame(
+            profile, BoresightMode.MountNormal, bearingRad: 2.1, elevationRad: 0.2, out double3 a));
+        Assert.True(TubeGeometry.TryBoresightPartFrame(
+            profile, BoresightMode.MountNormal, bearingRad: -0.7, elevationRad: 1.3, out double3 b));
+
+        AssertClose(TubeGeometry.TraverseAxis, a, "mount-normal boresight");
+        AssertClose(a, b, "mount-normal boresight across two different aims");
     }
 
     /// <summary>

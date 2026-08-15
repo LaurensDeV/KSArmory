@@ -553,7 +553,10 @@ public static class Arsenal
         DisplayName = "Mk 9 bombsight",
         Range = 8000f,
         ConeDeg = 60f,
-        BoresightSource = BoresightMode.PartForward,
+
+        // Out of the pylon, which for a rack under a wing is downward: a bomb sight looks where
+        // the bomb is going to fall, not where the aircraft is going.
+        BoresightSource = BoresightMode.MountNormal,
         ThreatRadius = 3000f,
         ThreatHorizonSeconds = 20f,
         LockSeconds = 0.8f,
@@ -875,7 +878,9 @@ public static class Arsenal
         DisplayName = "EO director",
         Range = 12000f,
         ConeDeg = 75f,
-        BoresightSource = BoresightMode.PartForward,
+
+        // A mast head looks out of the face it stands on, which is also where it parks.
+        BoresightSource = BoresightMode.MountNormal,
         ThreatRadius = 4000f,
         ThreatHorizonSeconds = 30f,
         LockSeconds = 0.6f,
@@ -949,7 +954,10 @@ public static class Arsenal
         DisplayName = "LITENING",
         Range = 20000f,
         ConeDeg = 100f,
-        BoresightSource = BoresightMode.PartForward,
+
+        // Out of the mounting face, matching where the pod stows. Along the pod's own centreline
+        // is its keyhole, which is the one direction it cannot look.
+        BoresightSource = BoresightMode.MountNormal,
         ThreatRadius = 6000f,
         ThreatHorizonSeconds = 30f,
         LockSeconds = 0.6f,

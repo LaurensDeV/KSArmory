@@ -13,10 +13,13 @@ public enum BoresightMode
     LocalUp,
 
     /// <summary>
-    /// The launcher part's own <c>+X</c>, which is its mounting "up".
+    /// The launcher part's own <c>+Y</c> — along the host's long axis, which is where a rail
+    /// points and which way a round leaves it.
     ///
-    /// <para>Follows the platform's attitude, so a launcher on a rocket keeps searching the volume
-    /// it is mounted to face however the craft is oriented.</para>
+    /// <para>Follows the platform's attitude, so a seeker on an aircraft searches ahead of the
+    /// aircraft however it is oriented. This is the one to pair with a tube, because a tube's
+    /// declared direction is <c>+Y</c> too: any other choice searches a volume the launcher
+    /// cannot shoot into.</para>
     /// </summary>
     PartForward,
 
@@ -28,6 +31,17 @@ public enum BoresightMode
     /// <see cref="LocalUp"/> with extra steps.</para>
     /// </summary>
     TurretAxis,
+
+    /// <summary>
+    /// The part's own <c>+X</c> — the outward normal of the face it is bolted to.
+    ///
+    /// <para>What an instrument looking <em>away from its mount</em> wants: a bomb sight under a
+    /// pylon looks down, and a pod stows looking out of its mounting face. Perpendicular to
+    /// <see cref="PartForward"/> by construction at every attitude, so choosing it for a seeker
+    /// gives a set that searches square to the rail it is bolted to and never sees what the
+    /// launcher is pointed at.</para>
+    /// </summary>
+    MountNormal,
 }
 
 /// <summary>
