@@ -564,6 +564,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </summary>
     public string? Hold { get; private set; } = "not started";
 
+    // Whether a contact is radiating, which is the only thing an anti-radiation round can steer
+    // at. Asked of the handle rather than of the track, because only a craft can carry a set: a
+    // shell in the air has none, and neither has a designated coordinate. Both answer false and
+    // are refused rather than shot at by a weapon with no way to see them.
+    private bool TargetIsEmitting(Track track)
+        => track.Contact.Handle is Vehicle craft && (_craftIsEmitting?.Invoke(craft) ?? false);
+
     // In order, and the order is the fire sequence's: the first answer is the one to act on.
     private string? Holding()
     {
@@ -629,6 +636,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         if (Radar.Locked is not { } locked) return "no lock";
+
+        // An anti-radiation round has to be pointed at something radiating, and that is a gate on
+        // *launching* rather than only on homing. Emission was read in flight and nowhere before
+        // it, so a shell closing at 956 m/s -- which takes the top of a list ranked by time to
+        // closest approach, ahead of the site that fired it -- could be locked and shot at by a
+        // weapon with no way to see it. The round then flies straight past everything.
+        if (Munition.Guidance == GuidanceMode.AntiRadiation && !TargetIsEmitting(locked))
+        {
+            return $"{locked.Contact.DisplayName} is not radiating";
+        }
         if (!ThreatModel.MayEngage(locked, _policy.Iff)) return "target is not engageable (IFF)";
         if (!ThreatModel.HasSalvoCapacity(locked, _policy.RoundsPerTarget)) return "salvo committed";
         if (!ThreatModel.InEngagementEnvelope(locked, Munition))
@@ -1387,6 +1404,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!ThreatModel.MayEngage(track, _policy.Iff))
         {
             Announce($"refused: {track.Contact.DisplayName} is {track.Allegiance}");
+            return false;
+        }
+
+        // The same gate the ladder reports, so the trigger cannot spend a round on a contact the
+        // seeker has no way to see. Refused rather than re-targeted: what to shoot at is the
+        // operator's decision, and silently swapping the target is worse than declining.
+        if (Munition.Guidance == GuidanceMode.AntiRadiation && !TargetIsEmitting(track))
+        {
+            Announce($"refused: {track.Contact.DisplayName} is not radiating");
             return false;
         }
 
