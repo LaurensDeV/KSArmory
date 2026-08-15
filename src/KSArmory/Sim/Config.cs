@@ -65,9 +65,9 @@ public sealed class Config
     /// appending to KSA's own bar, which is ImGui behaviour rather than a supported hook. If that
     /// ever stops working, a mod with no way to reopen its panel is unusable.</para>
     ///
-    /// <para>Suppressed anyway while <b>ModMenu</b> is installed, since its Mods menu is a way back
-    /// in that does not rest on that append. This says whether the button is wanted, not whether it
-    /// is needed.</para>
+    /// <para>Drawn whenever it is on, including with <b>ModMenu</b> installed. Suppressing it there
+    /// traded the one route this mod controls for another mod's menu, and left no recovery when
+    /// that did not work: the control that would switch it back on is inside the shut panel.</para>
     /// </summary>
     public bool FloatingPanelButton = true;
 

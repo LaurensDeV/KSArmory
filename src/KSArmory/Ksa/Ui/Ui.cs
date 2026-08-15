@@ -162,8 +162,28 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     /// names; a static one it can always call. <see cref="Current"/> is set when the panel is
     /// built, and the null check is what happens if ModMenu scans before that.</para>
     /// </summary>
+    // Said once, not per frame: this is called from inside a menu build, so a failure repeats for
+    // as long as the menu is open.
+    private static bool _warnedModMenu;
+
     [ModMenuEntry("KSArmory")]
-    public static void DrawModMenu() => Current?.DrawMenuContents();
+    public static void DrawModMenu()
+    {
+        // The identical call through this mod's own bar is wrapped; this one was not, so anything
+        // thrown here went into ModMenu's menu build instead of the log -- leaving an entry that
+        // does nothing and no evidence anywhere of why.
+        try
+        {
+            Current?.DrawMenuContents();
+        }
+        catch (Exception e)
+        {
+            if (_warnedModMenu) return;
+            _warnedModMenu = true;
+            Log.Warn($"ModMenu entry failed, so its Panel item will not work: {e.Message}. "
+                     + "Reopen from the floating KSArmory button instead.");
+        }
+    }
 
     /// <summary>The panel ModMenu should drive. There is one.</summary>
     internal static Ui? Current { get; private set; }
@@ -198,18 +218,16 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         if (!Visible)
         {
-            // Closing the panel must not strand the operator with no way back, and which route
-            // that is depends on what else is installed.
+            // Closing the panel must not strand the operator with no way back, and the button is
+            // the only route this mod controls. Both others are somebody else's: appending to
+            // KSA's bar is ImGui behaviour rather than a supported hook, and ModMenu's entry is
+            // another mod's menu reached by transpiling a private method.
             //
-            // ModMenu owns the Mods menu and draws this mod's entry itself, which is why
-            // DrawMenuBar stands down for it. That entry is a way back in, so the button is
-            // clutter over the flight gauges rather than a safety net.
-            //
-            // Without ModMenu the only other route is this mod appending to KSA's own bar, which
-            // is ImGui behaviour rather than a supported hook and is not guaranteed on every
-            // machine. There the button stays, because a mod with no way to reopen its own panel
-            // is unusable rather than merely untidy.
-            bool reopenButton = _config.FloatingPanelButton && !ModMenuPresence.Installed;
+            // So it is drawn whenever it is wanted, and no longer suppressed on the grounds that
+            // ModMenu is installed and will provide. The recovery cannot be conditional on a
+            // third party working, because there is no way back from being wrong: the setting
+            // that would switch this on lives *inside* the panel that is shut.
+            bool reopenButton = _config.FloatingPanelButton;
 
             if (reopenButton
                 && ImGui.Begin("KSArmory##reopen",
