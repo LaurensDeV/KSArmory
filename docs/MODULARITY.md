@@ -78,10 +78,9 @@ behaves is where its sensor looks, and one limit is still pinned:
   Pantsir keeps `LocalUp`, because its set sweeps a hemisphere regardless of where the tubes are
   aimed; the LAU-7 rail uses `PartForward`, because a seeker head looks where the rail points, and
   that is what makes a launcher on something that manoeuvres work.
-- **One weapon system per craft**, not per launcher part. `WeaponSystems` crews every craft
-  carrying a recognised part and each carries its own `SystemConfig`, so a static site and a
-  rocket-mounted launcher both run. What is still pinned is `WeaponSystem.LauncherOrdinal`, so
-  a craft carrying *two* rails fires one of them and the other is scenery.
+- **One weapon system per launcher part**, keyed on the craft and the launcher's ordinal. A craft
+  carrying two rails is two weapons, each with its own `SystemConfig`, magazine, drives and rounds,
+  and the panel's selector picks which one the trigger drives.
 
 ---
 
@@ -107,11 +106,17 @@ pinned there. Two craft can therefore be two *different* weapon systems, which i
 rail needs and what a shared `Config` makes impossible — with one, every reader outside a system's
 own update gets whichever system resolved last.
 
-What remains of 2 is **several launchers on one craft.** `WeaponSystem.LauncherOrdinal` is a
-`const 0` and `WeaponSystems` keys on `Vehicle`, so a craft with two Sidewinder rails fires one of
-them and the other is scenery. Fire control and the salvo timers are still KSA-facing and still
-unreachable from the test project, so that half remains the riskiest of the four despite being the
-smallest thing left on the row. `docs/BATTERY-SPLIT.md` items 5 and 6 are the route in.
+**2 is landed.** `WeaponSystems` keys on `(Vehicle, ordinal)` and crews one system per launcher
+part, so several launchers on one craft each run independently. What made it cheap was that every
+consumer iterates `All` and does not care how the roster is keyed; only `For(craft)` assumed one
+per craft, and making it answer with the *selected* one left the panel, the sight, the chase camera
+and the manual trigger untouched.
+
+What it does **not** come with is coverage. Fire control and the roster are KSA-facing and
+unreachable from the test project, so only the stepping arithmetic moved into `Sim/` where a test
+can see it — `Sim/WeaponSelection.cs`. The dictionary bookkeeping, the per-launcher settings key
+and the re-focus on selection are all unproven until flown, which is why this stayed the riskiest
+of the four.
 
 Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → `Arsenal` boundary that
 `validate-parts.py` guards, so the generator and the validator move with it. Geometry duplicated

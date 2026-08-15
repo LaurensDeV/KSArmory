@@ -276,6 +276,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SightZoom.cs` | the head's magnification, as the field of view it asks a camera for |
 | `Sim/CursorAim.cs` | cursor to viewport coordinates, and the bearing from a mount to what it points at |
 | `Sim/WeaponFit.cs` | **what a weapons system is fitted with** — the panel asks this rather than testing profile fields |
+| `Sim/WeaponSelection.cs` | stepping round a craft's weapons, wrapping — the half of the selector a test can reach |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
 | `Sim/SmoothedStep.cs` | the step evened out, for the one consumer that wants a smooth clock |
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
@@ -307,6 +308,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
 | `Ksa/Ui/UiMap.cs` | the ground under a director as shaded relief, with what it can see marked on it |
+| `Ksa/Ui/UiWeapons.cs` | the weapon switcher — which of a craft's weapons the trigger is pointed at, with each one's ammo and arm state |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
 | `Ksa/Ui/ModMenuEntry.cs` | a copied attribute so ModMenu can list this mod — **wanted gone**, see `docs/BLOCKED-ON-KSA.md` |
 | `Ksa/FeedbackClient.cs` | posts a report to the endpoint, off the frame thread |
@@ -354,7 +356,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 350 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 352 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
@@ -730,10 +732,21 @@ what makes two different systems in one world impossible — every reader outsid
 update gets whichever system resolved last, silently. The profiles are the shared `Arsenal`
 instances, so panel tuning still reaches every system running that loadout, which is the intent.
 
-**What is deliberately *not* general yet:** one system per *craft*.
-`WeaponSystem.LauncherOrdinal` is pinned to the first launcher found and `WeaponSystems` keys on
-the vehicle, so a craft carrying two Sidewinder rails fires one of them. See `docs/MODULARITY.md`
-change 2.
+**A craft carries one weapon system per launcher part, and the player picks between them.**
+`WeaponSystems` keys on the craft *and* the launcher's ordinal, so two rails on one aircraft are
+two weapons: each with its own magazine, drives, rounds in the air and arm switch. The selector on
+the header strip chooses which one the panel and the trigger are pointed at, and `For(craft)` is
+what returns it — which is why the sight, the chase camera and the manual trigger all followed the
+selection without changing.
+
+Re-pointing a single system at a different launcher would have been smaller and wrong: the
+magazine is sized and filled per profile, so switching would refill it, and a player could drop,
+switch, drop, switch back and find the bomb had returned. It is also why the settings key carries
+the ordinal past the first — two racks sharing one entry would share an arm switch.
+
+**What is still not general:** the roster is KSA-facing and unreachable from the test project, so
+only `Sim/WeaponSelection.cs` — the stepping arithmetic — is covered. See `docs/MODULARITY.md`
+change 2 for what that leaves unproven.
 
 ## CI and releases
 
@@ -807,7 +820,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 660,000 lines to the files
-defining the 129 types this mod actually uses.
+defining the 130 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —

@@ -92,36 +92,39 @@ internal sealed partial class Ui
             switch (role)
             {
                 case WeaponRole.FireControl: DrawFireControlComponent(); break;
-                case WeaponRole.Launcher: DrawLauncherComponent(c); break;
-                case WeaponRole.Gun: DrawGunComponent(c); break;
-                case WeaponRole.Sensor: DrawSensorComponent(c); break;
+                case WeaponRole.Launcher: DrawLauncherComponent(c, nth); break;
+                case WeaponRole.Gun: DrawGunComponent(c, nth); break;
+                case WeaponRole.Sensor: DrawSensorComponent(c, nth); break;
             }
         }
 
         ImGui.TreePop();
     }
 
-    // Whether a row is the one fire control is actually running.
+    // Whether a row is the weapon the panel is currently pointed at.
     //
-    // Every launcher part registers as a Launcher and *provides* its gun and sensor rows, so a
-    // craft carrying two of them lists two of each while WeaponSystems crews one -- LauncherOrdinal
-    // is a const 0. Matching the crewed profile by name rather than counting rows is what keeps a
-    // second Pantsir's cannon from reporting the first one's belt.
-    private bool IsCrewed(FoundComponent c)
-        => string.Equals(c.DisplayName, _profile.DisplayName, StringComparison.Ordinal);
+    // Every launcher is crewed now, so the question is no longer "is this one running" but "is this
+    // the selected one" -- and the rows below print the *selected* system's numbers. Without this
+    // a craft with two identical racks shows the same ammo under both, which reads as one magazine
+    // shared between them.
+    //
+    // Matched on the launcher's ordinal against the row's position among launcher components. Both
+    // are part order, which is what makes them the same sequence.
+    private bool IsSelectedWeapon(int nth) => nth == _battery.LauncherOrdinal;
 
-    // Said once per row that is fitted and not run, rather than left to be inferred from a row
-    // full of blanks. Without it the panel shows three loaded rails and fires one.
-    private void NotRun()
+    // Said on a row that is a real weapon but not the one being shown, rather than leaving it to
+    // be inferred from numbers belonging to a different rack.
+    private void NotSelected()
     {
-        ImGui.TextColored(Amber, "fitted, not run");
-        ImGui.TextDisabled("  one weapons system per craft: another part of this kind is crewed");
+        ImGui.TextColored(Amber, "not the selected weapon");
+        ImGui.TextDisabled("  it has its own magazine and master arm - pick it in Weapons");
     }
 
     // The launcher: what it holds, how it is laid, and the switches that belong to it.
-    private void DrawLauncherComponent(FoundComponent c)
+    private void DrawLauncherComponent(FoundComponent c, int nth)
     {
-        if (!IsCrewed(c)) { NotRun(); return; }
+        _ = c;
+        if (!IsSelectedWeapon(nth)) { NotSelected(); return; }
 
         if (_battery.Launcher is null)
         {
@@ -160,9 +163,10 @@ internal sealed partial class Ui
     }
 
     // The cannon: its belt, and whether it is live.
-    private void DrawGunComponent(FoundComponent c)
+    private void DrawGunComponent(FoundComponent c, int nth)
     {
-        if (!IsCrewedProvider(c)) { NotRun(); return; }
+        _ = c;
+        if (!IsSelectedWeapon(nth)) { NotSelected(); return; }
 
         DrawArmamentTally(ArmamentKind.Belt);
         ImGui.TextDisabled(_battery.GunsAreLaid ? "  laid" : "  not laid");
@@ -172,9 +176,9 @@ internal sealed partial class Ui
     // than to every set of its type. Its numbers are on the Tuning tab, because they belong to the
     // profile and every system running that loadout shares them; the full scope is the Radar tab,
     // because a track list is a list and a component row is not the place for one.
-    private void DrawSensorComponent(FoundComponent c)
+    private void DrawSensorComponent(FoundComponent c, int nth)
     {
-        if (!IsCrewedProvider(c))
+        if (!IsSelectedWeapon(nth))
         {
             ImGui.TextDisabled("its own set; not the one fire control reads");
             return;
@@ -191,26 +195,6 @@ internal sealed partial class Ui
         }
 
         ImGui.TextDisabled("  the Radar tab has the scope and the full track list");
-    }
-
-    // A provided row belongs to whichever part declared it, and only the crewed part's provided
-    // rows describe the running system.
-    //
-    // Both sides resolve through the registry, and they have to: a provided row is declared as a
-    // profile's DisplayName, so anything else compared against it is a second name for one thing.
-    // The gun arm read Armament.Label instead -- which is the belt's *heading*, "Cannon", against a
-    // row called "2A38M 30 mm cannon". Those never matched, so every Pantsir reported a working
-    // cannon as "fitted, not run" on a craft with one launcher and nothing else going on. Fire
-    // control never consulted this, so the gun fired throughout and only the panel lied.
-    private bool IsCrewedProvider(FoundComponent c)
-    {
-        if (string.Equals(c.DisplayName, Arsenal.SensorNamed(_profile.Sensor).DisplayName,
-                          StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return _fit.Describes(ArmamentKind.Belt, c.DisplayName);
     }
 
     // Everything about releasing a weapon, on the part that decides it.
@@ -310,6 +294,22 @@ internal sealed partial class Ui
             ImGui.TextColored(Grey, "No platform - take control of a vehicle.");
             ImGui.Separator();
             return;
+        }
+
+        // Which weapon everything below applies to. A button rather than the switcher itself: it
+        // is a window, and switching weapons is done while flying rather than with the manage
+        // window open. A craft with one launcher has nothing to choose and says nothing.
+        _batteries.AllOn(Focused, _weaponScratch);
+        if (_weaponScratch.Count > 1)
+        {
+            if (_weaponsOpen) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
+            if (ImGui.Button("Weapons")) _weaponsOpen = !_weaponsOpen;
+            if (_weaponsOpen) ImGui.PopStyleColor();
+
+            ImGui.SameLine();
+            ImGui.TextDisabled($"{_weaponScratch.Count} on this craft — "
+                               + $"showing {_battery.Profile.DisplayName} "
+                               + $"({_battery.LauncherOrdinal + 1})");
         }
 
         // The three that decide whether anything leaves the rails, immediately above the line that

@@ -10,17 +10,33 @@ namespace KSArmory;
 /// battery is pinned to the craft it was created for and never moves, so arming one site, sending
 /// it a target or putting it on a team says nothing about any other.</para>
 ///
-/// <para>Keyed by <see cref="Vehicle"/> reference, which is what a craft compares by. Entries
-/// appear when a system is surveyed and are dropped when the craft dies — a battery outliving its
-/// platform would keep a destroyed vehicle alive in this dictionary for the session.</para>
+/// <para>Keyed by <see cref="Vehicle"/> reference <em>and launcher ordinal</em>, because a craft
+/// can carry several launchers and each is its own weapon: its own magazine, drives and rounds in
+/// the air. Re-pointing one system at a different launcher instead would refill the magazine on
+/// every switch, so a player could drop, switch, drop, switch back and find the bomb returned.</para>
+///
+/// <para>Entries appear when a system is surveyed and are dropped when the craft dies — a battery
+/// outliving its platform would keep a destroyed vehicle alive in this dictionary for the
+/// session.</para>
 /// </summary>
 internal sealed class WeaponSystems(Config config)
 {
-    internal sealed record Entry(WeaponSystem Battery, SystemConfig Policy);
+    internal sealed record Entry(WeaponSystem Battery, SystemConfig Policy, Vehicle Craft, int Ordinal)
+    {
+        /// <summary>What the selector calls this weapon.</summary>
+        public string DisplayName => Battery.Profile.DisplayName;
+    }
 
     private readonly Config _config = config;
-    private readonly Dictionary<Vehicle, Entry> _entries = [];
-    private readonly List<Vehicle> _scratch = [];
+    private readonly Dictionary<(Vehicle Craft, int Ordinal), Entry> _entries = [];
+
+    // Which launcher the player has selected on each craft. Held here rather than on Config
+    // because it is per craft, and rather than on SystemConfig because it is about *which* system
+    // rather than about any one of them.
+    private readonly Dictionary<Vehicle, int> _selected = [];
+
+    private readonly List<(Part Part, LauncherProfile Profile)> _launcherScratch = [];
+    private readonly List<(Vehicle Craft, int Ordinal)> _gone = [];
 
     // Which save's settings the live batteries are holding. Loading a save switches the bucket
     // before the craft are rebuilt, so without this the next periodic write stamps the outgoing
@@ -47,8 +63,10 @@ internal sealed class WeaponSystems(Config config)
     {
         string name = KsaWorld.DisplayName(craft);
 
-        foreach (Vehicle other in _entries.Keys)
+        foreach ((Vehicle other, int ordinal) in _entries.Keys)
         {
+            if (ordinal != 0) continue;
+            if (ReferenceEquals(other, craft)) continue;
             if (!string.Equals(KsaWorld.DisplayName(other), name, StringComparison.Ordinal)) continue;
             if (!_reportedShared.Add(name)) return;
 
@@ -58,9 +76,74 @@ internal sealed class WeaponSystems(Config config)
         }
     }
 
-    /// <summary>The battery running on a craft, or null if it carries no weapons system.</summary>
+    /// <summary>
+    /// The <em>selected</em> weapon on a craft, or null if it carries no weapons system.
+    ///
+    /// <para>Every consumer that used to mean "the system on this craft" still gets one, which is
+    /// what let a craft grow several launchers without any of them changing: the panel, the sight,
+    /// the chase camera and the manual trigger all ask this and all follow the selection.</para>
+    /// </summary>
     public Entry? For(Vehicle? craft)
-        => craft is not null && _entries.TryGetValue(craft, out Entry? e) ? e : null;
+    {
+        if (craft is null) return null;
+
+        if (_selected.TryGetValue(craft, out int ordinal)
+            && _entries.TryGetValue((craft, ordinal), out Entry? chosen))
+        {
+            return chosen;
+        }
+
+        // Nothing selected, or the selection has gone: the lowest-numbered launcher still fitted.
+        Entry? first = null;
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
+        {
+            if (!ReferenceEquals(kv.Key.Craft, craft)) continue;
+            if (first is null || kv.Key.Ordinal < first.Ordinal) first = kv.Value;
+        }
+
+        return first;
+    }
+
+    /// <summary>Every weapon on a craft, in part order. Cleared and refilled.</summary>
+    public void AllOn(Vehicle? craft, List<Entry> into)
+    {
+        into.Clear();
+        if (craft is null) return;
+
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
+        {
+            if (ReferenceEquals(kv.Key.Craft, craft)) into.Add(kv.Value);
+        }
+
+        into.Sort((a, b) => a.Ordinal.CompareTo(b.Ordinal));
+    }
+
+    /// <summary>Selects a weapon on a craft by its launcher ordinal.</summary>
+    public void Select(Vehicle? craft, int ordinal)
+    {
+        if (craft is null || !_entries.ContainsKey((craft, ordinal))) return;
+
+        _selected[craft] = ordinal;
+        Log.Info($"selected {_entries[(craft, ordinal)].DisplayName} "
+                 + $"({ordinal + 1}) on {KsaWorld.DisplayName(craft)}");
+    }
+
+    /// <summary>
+    /// Steps the selection round a craft's weapons, wrapping. <paramref name="by"/> is +1 for the
+    /// next and -1 for the previous.
+    /// </summary>
+    public void Cycle(Vehicle? craft, int by, List<Entry> scratch)
+    {
+        AllOn(craft, scratch);
+        if (scratch.Count < 2) return;
+
+        int[] ordinals = new int[scratch.Count];
+        for (int i = 0; i < scratch.Count; i++) ordinals[i] = scratch[i].Ordinal;
+
+        int at = For(craft) is { } current ? WeaponSelection.IndexOf(ordinals, current.Ordinal) : 0;
+
+        Select(craft, scratch[WeaponSelection.Step(scratch.Count, at, by)].Ordinal);
+    }
 
     /// <summary>
     /// Brings the roster in line with what has been surveyed: crew anything new, forget anything
@@ -71,61 +154,84 @@ internal sealed class WeaponSystems(Config config)
         for (int i = 0; i < systems.Count; i++)
         {
             Vehicle craft = systems[i].Craft;
-            if (!KsaWorld.IsAlive(craft) || _entries.ContainsKey(craft)) continue;
+            if (!KsaWorld.IsAlive(craft)) continue;
 
             // The panel lists everything this mod recognises, including a craft carrying only an
             // optical director. Only the ones that shoot get a battery: crewing the rest gives
             // them a launcher-less system running on whichever profile is first in the registry.
             if (!systems[i].Inventory.IsWeaponSystem) continue;
 
-            // Settings are keyed on the display name, which craft from one blueprint share. They
-            // will restore each other's and overwrite each other on save, and nothing else would
-            // ever say so.
-            WarnIfNameIsTaken(craft);
+            // One per launcher *part*, read off the craft rather than off the inventory: the
+            // ordinal a system is crewed at has to be the one LauncherPart.FindNth will resolve,
+            // and the survey counts components rather than walking that same list.
+            LauncherPart.FindAll(craft, _launcherScratch);
 
-            SystemConfig policy = new();
-
-            // Whatever this craft was last set to. Applied before the battery exists so its first
-            // frame runs on the restored settings rather than on defaults it then overwrites.
-            if (SettingsStore.For(KsaWorld.DisplayName(craft)) is { } stored)
+            for (int ordinal = 0; ordinal < _launcherScratch.Count; ordinal++)
             {
-                stored.ApplyTo(policy);
+                if (_entries.ContainsKey((craft, ordinal))) continue;
 
-                // And put its teams back on the session's roster. Memberships are stored per
-                // system and the names are session-wide, so restoring only the first half leaves
-                // every system sure of its allegiance in a world that has forgotten the teams
-                // exist. Every contact is then Unknown, which is engageable by default.
-                stored.DeclareTeams(_config.TeamNames);
+                // Settings are keyed on the display name, which craft from one blueprint share.
+                // They will restore each other's and overwrite each other on save, and nothing
+                // else would ever say so.
+                if (ordinal == 0) WarnIfNameIsTaken(craft);
+
+                SystemConfig policy = new();
+
+                // Whatever this weapon was last set to. Applied before the battery exists so its
+                // first frame runs on the restored settings rather than on defaults it then
+                // overwrites.
+                if (SettingsStore.For(SettingsKey(craft, ordinal)) is { } stored)
+                {
+                    stored.ApplyTo(policy);
+
+                    // And put its teams back on the session's roster. Memberships are stored per
+                    // system and the names are session-wide, so restoring only the first half
+                    // leaves every system sure of its allegiance in a world that has forgotten the
+                    // teams exist. Every contact is then Unknown, which is engageable by default.
+                    stored.DeclareTeams(_config.TeamNames);
+                }
+
+                WeaponSystem battery = new(_config, policy, ordinal);
+
+                // Pinned on creation, so ResolvePlatform leaves it alone. Without this every
+                // battery would independently elect the craft being flown and they would all pile
+                // onto it.
+                battery.PinPlatform(craft);
+
+                _entries[(craft, ordinal)] = new Entry(battery, policy, craft, ordinal);
+                Log.Info($"crewed {KsaWorld.DisplayName(craft)} launcher {ordinal + 1} "
+                         + $"of {_launcherScratch.Count}");
             }
-
-            WeaponSystem battery = new(_config, policy);
-
-            // Pinned on creation, so ResolvePlatform leaves it alone. Without this every battery
-            // would independently elect the craft being flown and they would all pile onto it.
-            battery.PinPlatform(craft);
-
-            _entries[craft] = new Entry(battery, policy);
-            Log.Info($"crewed {KsaWorld.DisplayName(craft)}");
         }
 
-        _scratch.Clear();
-        foreach (KeyValuePair<Vehicle, Entry> kv in _entries)
+        _gone.Clear();
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
-            if (!KsaWorld.IsAlive(kv.Key)) _scratch.Add(kv.Key);
+            if (!KsaWorld.IsAlive(kv.Key.Craft)) _gone.Add(kv.Key);
         }
 
-        foreach (Vehicle craft in _scratch)
+        foreach ((Vehicle Craft, int Ordinal) key in _gone)
         {
-            _entries[craft].Battery.Reset();
+            _entries[key].Battery.Reset();
 
             // Anything keyed on the system rather than on the craft has to be told, or its entry
             // outlives the craft and keeps a destroyed vehicle reachable for the session.
-            Diagnostics.Forget(_entries[craft].Battery);
+            Diagnostics.Forget(_entries[key].Battery);
 
-            _entries.Remove(craft);
+            _entries.Remove(key);
+            _selected.Remove(key.Craft);
             Log.Info("a crewed system was destroyed");
         }
     }
+
+    // What a weapon's settings are filed under.
+    //
+    // The first launcher keeps the bare craft name, so a save written before a craft could carry
+    // several still restores. Anything beyond it is suffixed, because two racks on one craft
+    // sharing one entry would share an arm switch -- and arming one to drop a bomb would arm the
+    // other.
+    private static string SettingsKey(Vehicle craft, int ordinal)
+        => ordinal == 0 ? KsaWorld.DisplayName(craft) : $"{KsaWorld.DisplayName(craft)}#{ordinal + 1}";
 
     /// <summary>
     /// The system to show when nothing has been chosen — the one being flown if it is armed,
@@ -135,7 +241,7 @@ internal sealed class WeaponSystems(Config config)
     {
         if (For(KsaWorld.ControlledVehicle) is not null) return KsaWorld.ControlledVehicle;
 
-        foreach (KeyValuePair<Vehicle, Entry> kv in _entries) return kv.Key;
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries) return kv.Key.Craft;
         return null;
     }
 
@@ -174,10 +280,11 @@ internal sealed class WeaponSystems(Config config)
         Log.Info("settings: the game saved, writing the systems' settings with it");
 
         bool changed = false;
-        foreach (KeyValuePair<Vehicle, Entry> kv in _entries)
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
-            if (!KsaWorld.IsAlive(kv.Key)) continue;
-            changed |= SettingsStore.Remember(KsaWorld.DisplayName(kv.Key), kv.Value.Policy);
+            if (!KsaWorld.IsAlive(kv.Key.Craft)) continue;
+            changed |= SettingsStore.Remember(SettingsKey(kv.Key.Craft, kv.Key.Ordinal),
+                                              kv.Value.Policy);
         }
 
         if (changed) SettingsStore.Save();
@@ -188,10 +295,10 @@ internal sealed class WeaponSystems(Config config)
     private void Adopt()
     {
         int applied = 0;
-        foreach (KeyValuePair<Vehicle, Entry> kv in _entries)
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
-            if (!KsaWorld.IsAlive(kv.Key)) continue;
-            if (SettingsStore.For(KsaWorld.DisplayName(kv.Key)) is not { } stored) continue;
+            if (!KsaWorld.IsAlive(kv.Key.Craft)) continue;
+            if (SettingsStore.For(SettingsKey(kv.Key.Craft, kv.Key.Ordinal)) is not { } stored) continue;
 
             stored.ApplyTo(kv.Value.Policy);
             applied++;
@@ -207,10 +314,11 @@ internal sealed class WeaponSystems(Config config)
     public void WriteNow()
     {
         bool changed = false;
-        foreach (KeyValuePair<Vehicle, Entry> kv in _entries)
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
-            if (!KsaWorld.IsAlive(kv.Key)) continue;
-            changed |= SettingsStore.Remember(KsaWorld.DisplayName(kv.Key), kv.Value.Policy);
+            if (!KsaWorld.IsAlive(kv.Key.Craft)) continue;
+            changed |= SettingsStore.Remember(SettingsKey(kv.Key.Craft, kv.Key.Ordinal),
+                                              kv.Value.Policy);
         }
 
         if (changed) SettingsStore.Save();

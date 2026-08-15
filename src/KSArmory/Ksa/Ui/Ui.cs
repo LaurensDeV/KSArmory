@@ -41,6 +41,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly List<int> _viewports = [];
     private readonly List<SurveyedPart> _surveyed = [];
     private readonly List<OpticalHeads.Entry> _headScratch = [];
+    private readonly List<WeaponSystems.Entry> _weaponScratch = [];
     private readonly List<KSA.Vehicle> _craftScratch = [];
     private KSA.Vehicle? _managed;
     private string _ownTeamEntry = string.Empty;
@@ -250,6 +251,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         // After the panes, which is what fills the head list this reads.
         DrawMapWindow();
+
+        // Not gated on the panel being open: the switcher is for use while flying, and having to
+        // open the panel to reach it would put it back where it just came from.
+        DrawWeaponsWindow();
     }
 
     // Every craft in the world this mod recognises as a weapons system, refreshed on a timer.

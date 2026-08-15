@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-129 types and 350 members across 6 assemblies.
+130 types and 352 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -142,6 +142,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsWindowHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
 - `bool MenuItem(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImString, ref bool, bool)`
 - `bool RadioButton(Brutal.ImGuiApi.ImString, bool)`
+- `bool Selectable(Brutal.ImGuiApi.ImString, bool, Brutal.ImGuiApi.ImGuiSelectableFlags, ref System.Nullable`1<Brutal.Numerics.float2>)`
 - `bool SliderFloat(Brutal.ImGuiApi.ImString, ref float, float, float, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool SliderInt(Brutal.ImGuiApi.ImString, ref int, int, int, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool SmallButton(Brutal.ImGuiApi.ImString)`
@@ -149,6 +150,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool TreeNode(Brutal.ImGuiApi.ImString)`
 - `bool TreeNodeEx(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTreeNodeFlags)`
 - `float GetFrameHeight()`
+- `float GetTextLineHeight()`
 - `uint ColorConvertFloat4ToU32(ref Brutal.Numerics.float4)`
 - `void BeginDisabled(bool)`
 - `void Dummy(ref Brutal.Numerics.float2)`
@@ -209,6 +211,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 *referenced as a type only*
 
 ### Brutal.ImGuiApi.ImGuiMouseButton
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiSelectableFlags
 
 *referenced as a type only*
 

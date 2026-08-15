@@ -11,7 +11,7 @@ internal readonly record struct SystemEvent(double AtSeconds, string Message);
 /// to commit rounds. Mounted on a platform vehicle, normally the craft carrying the launcher
 /// part, and pinned there so the site keeps defending itself after the player switches away.
 /// </summary>
-internal sealed class WeaponSystem(Config config, SystemConfig policy)
+internal sealed class WeaponSystem(Config config, SystemConfig policy, int launcherOrdinal = 0)
     : IWeaponSystemView, IManualFire, ISightPicture, IEffectSource
 {
     private readonly Config _config = config;
@@ -198,10 +198,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
     /// <summary>How far the platform moved between the last two frames (m, Ecl).</summary>
     public double3 PlatformStepEcl { get; private set; }
 
-    // Which launcher on the platform this battery runs, by part order. One battery per craft, so
-    // it is always the first; keying on the ordinal rather than the Part reference is what
-    // survives KSA rebuilding the part tree during staging and docking.
-    private const int LauncherOrdinal = 0;
+    /// <summary>
+    /// Which launcher on the platform this system runs, by part order.
+    ///
+    /// <para>A part <em>order</em> rather than a <see cref="Part"/> reference, because KSA rebuilds
+    /// the part tree during staging and docking and the ordinal survives that where a reference
+    /// does not.</para>
+    ///
+    /// <para>Fixed for the system's life. A craft carrying several launchers is crewed once per
+    /// launcher, so switching weapons selects a different <em>system</em> rather than re-pointing
+    /// this one — which is what keeps each launcher's magazine, drives and rounds its own. Moving
+    /// this instead would refill the magazine on every switch.</para>
+    /// </summary>
+    public int LauncherOrdinal { get; } = launcherOrdinal;
     private readonly List<(Part, LauncherProfile)> _launcherScratch = [];
 
     private bool _hasPlatformSample;
@@ -1430,7 +1439,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy)
         if (!_policy.Armed) { Announce("refused: not armed"); return false; }
         if (Platform is null) { Announce("refused: no platform"); return false; }
         if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
-        if (Ammo <= 0) { Announce("refused: launcher empty"); return false; }
+        // Named, because a craft can carry several and "launcher empty" is true of one of them
+        // while another is loaded. The weapon that refused is the one the operator has to switch
+        // away from, and without saying which it reads as the whole craft being out.
+        if (Ammo <= 0)
+        {
+            Announce($"refused: {Profile.DisplayName} ({LauncherOrdinal + 1}) is empty");
+            return false;
+        }
         if (!IsLaid) { Announce("refused: launcher still slewing"); return false; }
 
         // Takes the round as it picks the tube. Nothing between here and the round being added
