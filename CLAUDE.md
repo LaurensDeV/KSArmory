@@ -392,8 +392,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 
 **New art is authored in Blender over MCP, in a live session** — not written as a headless script
 and not driven through the CLI. `.claude/skills/ksa-blender/SKILL.md` is the whole procedure; the
-short version is that the addon exposes one request, `execute`, which runs Python in the open
-document, so the loop is build, look, adjust rather than emit and hope.
+short version is that the addon drives the *open* document — screenshots of the viewport, scene
+summaries, the bundled Blender docs, and Python execution as the last resort rather than the
+interface — so the loop is build, look, adjust rather than emit and hope. **A human signs off on
+the geometry before anything is unwrapped, baked or exported**, because everything past that point
+is welded to the shape.
 
 **The headless generator below still builds six parts and still has to keep working.** The Pantsir,
 the CIWS, both racks, the LAU-7 rail and the EO director come out of `tools/model/pantsir.py` into

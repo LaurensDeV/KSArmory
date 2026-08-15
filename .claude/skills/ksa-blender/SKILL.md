@@ -15,12 +15,12 @@ working — §8 says what to know if you touch it. It is **not** the path for an
 > ## Stop before you bake
 >
 > **Ask the human to look at the geometry in Blender, and wait for a yes, before unwrapping,
-> baking or exporting.** Say what you have built and what is next, then stop.
+> baking or exporting.** Frame it for them with `jump_to_view3d_object_by_name`, say what you have
+> built and what is next, then stop.
 >
-> Ask them to *look*, do not send them pictures. They have the document open — the model is right
-> there, orbitable, at any angle, lit however they like, and their view of it beats any render
-> you could hand over. Renders are how *you* see the model, because the protocol has no image
-> channel and you are working blind without them. That is your problem, not theirs.
+> Ask them to *look*, do not send them pictures. They have the document open, so the model is
+> right there: orbitable, at any angle, lit however they like, and their view of it beats any
+> render you could hand over. Framing it in their viewport is the whole of your job here.
 >
 > The gate is not politeness. Everything downstream of the unwrap is welded to the geometry:
 > bodies sharing an atlas pack together, so changing one body afterwards forces a re-unwrap and a
@@ -34,26 +34,53 @@ working — §8 says what to know if you touch it. It is **not** the path for an
 
 ## 1. The authoring loop
 
-The Blender Lab MCP addon (`blender.org/lab/mcp-server`) exposes exactly **one** request type:
-`execute`. It runs Python inside the running Blender and hands back whatever that printed.
-
-So this is not a toolbox of modelling verbs. It is an interactive Python channel into a session
+The Blender Lab MCP addon (`blender.org/lab/mcp-server`) is an interactive channel into a session
 somebody has open, with a viewport they are watching. That is the whole advantage over the old way,
-and it changes how to work:
+and it changes how to work: build a piece, look at it, adjust, repeat.
 
-- **Build a piece, then look at it.** Small steps checked as you go, rather than a whole model
-  emitted blind and judged from a render afterwards.
-- **Read the scene back.** `execute` returns stdout, so measuring is a `print`: bounds, vertex
-  counts, whether a modifier is still on the stack, what a UV island actually covers. Never assume
-  a number you could ask for.
-- **To see it, render to a file and read the file.** There is no image channel in the protocol.
-  `bpy.ops.render.opengl(write_still=True)` to a path, then open the PNG.
+### It is about twenty tools, and `execute_blender_code` is the last resort
+
+This is worth being exact about, because assuming otherwise costs a great deal of pointless work.
+The server's own instructions say it plainly: *use the dedicated tools where they exist, and reach
+for code execution only when none of them fits.*
+
+| What you want | Use |
+| --- | --- |
+| **See the viewport** | `get_screenshot_of_window_as_image`, `get_screenshot_of_area_as_image` — they return the PNG straight back |
+| **Show a human the part** | `jump_to_view3d_object_by_name`, to frame it in *their* viewport |
+| **What is in the scene** | `get_objects_summary`, `get_object_detail_summary` |
+| **What is in a `.blend` on disk** | the `get_blendfile_summary_*` tools, which do not open it |
+| **Render** | `render_viewport_to_path`, `render_thumbnail_to_path` |
+| **Look up an API or a workflow** | `search_api_docs`, `search_manual_docs`, `get_python_api_docs` |
+| **Anything else** | `execute_blender_code` |
+
+**There is an image channel. Use it.** A previous version of this file said there was not, and the
+AMRAAM was built through a hand-rolled substitute: a camera placed by arithmetic, `to_track_quat`
+eulers worked out by hand, `bpy.ops.render.render(write_still=True)` into `C:\Windows\Temp`, then
+the file read back through `/mnt/c`. All of that to see a model that one screenshot call returns.
+It also went wrong twice on framing, which is a class of mistake the screenshot cannot make.
+
+**The Blender docs are bundled and searchable, so look things up instead of discovering them.**
+Every trap in §5 below was found by debugging a silent failure. At least one of them,
+`bpy.ops.object.bake` defaulting `use_clear` to `False` on the operator regardless of the scene
+setting, is stated outright in the signature `search_api_docs` returns for it. Searching first is
+cheaper than a bake that quietly wipes the body you baked a minute ago.
+
+### What still holds
+
+- **Read the scene back rather than assuming.** `execute_blender_code` returns stdout, and can set
+  a `result` dict, so measuring is one call: bounds, vertex counts, whether a modifier is still on
+  the stack, what a UV island actually covers. Never assume a number you could ask for.
 - **It is somebody's open document.** Say what you are about to change before changing it, and do
-  not silently delete objects they made.
+  not silently delete objects they made. `bpy.data.libraries.load(path, link=True)` reads another
+  `.blend` without opening it, which is how to check a file without disturbing their session.
+- **Prefer `bpy.ops` for standard actions** inside the code you do run: it handles defaults and
+  context. Reach into `bpy.data` for precise control or to avoid side effects.
 
 `tools/model/preview-glb.py` renders an *exported* `.glb` from four angles without touching the
 live session — the check on what actually left Blender, which is not always what you think you
-built.
+built. That is a different question from looking at the model, and the only one renders are still
+the right tool for.
 
 ### When the connection is down
 
