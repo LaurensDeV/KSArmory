@@ -539,6 +539,18 @@ def main():
         MIN_AREA *= upm * upm
         NEAR_MIN *= upm
         NEAR_MAX *= upm
+    # The proximity advisory, but not the two hard checks, turned down or off.
+    #
+    # NEAR_MAX's default sits under box()'s 8 mm modelling skin, so on a *generated* mesh anything
+    # inside the band is a primitive somebody forgot to separate. An **authored** mesh has no skin,
+    # so the same band reports every deliberate panel step, decal and shell wall -- hundreds of
+    # them, at every gap, none of them a mistake. `--near-max 0` says "this file was not built with
+    # a skin"; zero-UV-area triangles and exact coplanar overlaps are still checked in full,
+    # because neither of those is ever deliberate.
+    if "--near-max" in sys.argv:
+        millimetres = float(sys.argv[sys.argv.index("--near-max") + 1])
+        args = [a for a in args if a != str(millimetres)]
+        NEAR_MAX = millimetres / 1000.0
     if "--mesh" in sys.argv:
         only = sys.argv[sys.argv.index("--mesh") + 1]
         args = [a for a in args if a != only]
@@ -559,6 +571,11 @@ def main():
         name = mesh.get("name", "?")
         if name.endswith("_VM"):
             continue                        # same geometry as its parent; nothing new to say
+        if name.startswith("_ColPrim"):
+            # A collider primitive, which Core ships 58 of: a box or cylinder carrying the part's
+            # collision volume as a node transform. It is never rendered, so it has no UVs and
+            # every check here would report it -- starting with "NO TEXCOORD_0".
+            continue
         if only and name != only:
             continue
 
