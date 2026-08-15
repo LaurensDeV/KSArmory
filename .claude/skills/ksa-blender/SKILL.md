@@ -38,33 +38,20 @@ The Blender Lab MCP addon (`blender.org/lab/mcp-server`) is an interactive chann
 somebody has open, with a viewport they are watching. That is the whole advantage over the old way,
 and it changes how to work: build a piece, look at it, adjust, repeat.
 
-### It is about twenty tools, and `execute_blender_code` is the last resort
+### Prefer the dedicated tools
 
-This is worth being exact about, because assuming otherwise costs a great deal of pointless work.
-The server's own instructions say it plainly: *use the dedicated tools where they exist, and reach
-for code execution only when none of them fits.*
+The server ships about twenty, with its own instructions on when to reach for which. **Read those,
+and do not keep a copy of them here.** A summary is lossy in the one direction that hurts: the tools
+it omits become invisible, and their jobs fall through to `execute_blender_code`, which is the
+fallback for what nothing else fits rather than the interface. There is a screenshot tool, a
+viewport-framing tool and a docs search in that list, and a paraphrase that leaves any of them out
+costs a great deal of pointless work.
 
-| What you want | Use |
-| --- | --- |
-| **See the viewport** | `get_screenshot_of_window_as_image`, `get_screenshot_of_area_as_image` — they return the PNG straight back |
-| **Show a human the part** | `jump_to_view3d_object_by_name`, to frame it in *their* viewport |
-| **What is in the scene** | `get_objects_summary`, `get_object_detail_summary` |
-| **What is in a `.blend` on disk** | the `get_blendfile_summary_*` tools, which do not open it |
-| **Render** | `render_viewport_to_path`, `render_thumbnail_to_path` |
-| **Look up an API or a workflow** | `search_api_docs`, `search_manual_docs`, `get_python_api_docs` |
-| **Anything else** | `execute_blender_code` |
-
-**There is an image channel. Use it.** A previous version of this file said there was not, and the
-AMRAAM was built through a hand-rolled substitute: a camera placed by arithmetic, `to_track_quat`
-eulers worked out by hand, `bpy.ops.render.render(write_still=True)` into `C:\Windows\Temp`, then
-the file read back through `/mnt/c`. All of that to see a model that one screenshot call returns.
-It also went wrong twice on framing, which is a class of mistake the screenshot cannot make.
-
-**The Blender docs are bundled and searchable, so look things up instead of discovering them.**
-Every trap in §5 below was found by debugging a silent failure. At least one of them,
-`bpy.ops.object.bake` defaulting `use_clear` to `False` on the operator regardless of the scene
-setting, is stated outright in the signature `search_api_docs` returns for it. Searching first is
-cheaper than a bake that quietly wipes the body you baked a minute ago.
+**Look things up rather than discovering them by debugging.** The Blender docs are bundled and
+searchable. Every trap in §5 below was found the hard way, and at least one of them is stated
+outright in the signature the API search returns for it: `bpy.ops.object.bake` defaults `use_clear`
+to `False` on the operator whatever the scene setting says, which quietly wipes the body baked a
+minute ago.
 
 ### What still holds
 
