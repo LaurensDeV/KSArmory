@@ -312,9 +312,13 @@ internal sealed partial class Ui
         _batteries.AllOn(Focused, _weaponScratch);
         if (_weaponScratch.Count > 1)
         {
-            if (_weaponsOpen) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
+            // Held in a local because the button toggles the very flag that guards the pop.
+            // Read twice, a click pops a style it never pushed -- or pushes one it never pops and
+            // leaks the tint into everything drawn after it.
+            bool weaponsTinted = _weaponsOpen;
+            if (weaponsTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
             if (ImGui.Button("Weapons")) _weaponsOpen = !_weaponsOpen;
-            if (_weaponsOpen) ImGui.PopStyleColor();
+            if (weaponsTinted) ImGui.PopStyleColor();
 
             ImGui.SameLine();
             ImGui.TextDisabled($"{_weaponScratch.Count} on this craft — "
@@ -476,9 +480,12 @@ internal sealed partial class Ui
         // A button rather than a tick box: it opens a window, and a checkmark reads as "this
         // setting is on" while the window arrives somewhere else unannounced. Tinted while open,
         // which is what a tick box was being asked to say.
-        if (policy.MapOpen) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
+        // The local matters: TakeMap flips MapOpen, so reading it again after the button pops a
+        // style that was never pushed. Same defect as the Weapons button above.
+        bool mapTinted = policy.MapOpen;
+        if (mapTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
         if (ImGui.Button("Map")) TakeMap(policy);
-        if (policy.MapOpen) ImGui.PopStyleColor();
+        if (mapTinted) ImGui.PopStyleColor();
 
         ImGui.SameLine();
         ImGui.TextDisabled("the ground under this head, with what it can see on it");
