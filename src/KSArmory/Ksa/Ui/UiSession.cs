@@ -119,6 +119,8 @@ internal sealed partial class Ui
         ImGui.SeparatorText("Systems");
         ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
         ImGui.TextDisabled("  brackets over every system; Look at in the list pins a label");
+        ImGui.Checkbox("Lock cue", ref _config.DrawLockCue);
+        ImGui.TextDisabled("  brackets on what the selected weapon is engaging; they close as it locks");
         ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);
         ImGui.Checkbox("Drive facing line", ref _config.DrawTurretFacing);
         ImGui.TextDisabled("  where the drives think they point, not where they are told to");

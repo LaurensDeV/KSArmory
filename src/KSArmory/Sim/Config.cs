@@ -244,6 +244,19 @@ public sealed class Config
     public bool DrawSystemMarkers = true;
 
     /// <summary>
+    /// Bracket what the selected weapon is engaging, closing the brackets as the lock matures.
+    ///
+    /// <para>On by default, and deliberately not part of <see cref="DrawOverlays"/>: that is the
+    /// diagnostic gizmo layer, and whether you have a lock is playing rather than debugging. It
+    /// is also the one piece of fire-control state that has to be readable without looking away
+    /// from the target.</para>
+    ///
+    /// <para>Session-wide, because it is a property of the screen rather than of an installation:
+    /// it draws for whichever weapon the trigger is pointed at, and there is only one of those.</para>
+    /// </summary>
+    public bool DrawLockCue = true;
+
+    /// <summary>
     /// Show a fireball where a warhead goes off.
     ///
     /// <para>Not part of <see cref="DrawOverlays"/>: that is diagnostic drawing that says what the

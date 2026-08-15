@@ -226,6 +226,15 @@ public sealed class KSArmoryMod
             if (KsaWorld.InFlight && _config.DrawSystemMarkers)
                 Markers.Draw(_ui.Systems, _ui.Focused, dt);
 
+            // The weapon the trigger is pointed at, which is what the switcher and the sight
+            // already follow -- so the brackets are always on what FIRE would actually shoot.
+            // After the markers, so a lock reads over a system bracket on the same contact.
+            if (KsaWorld.InFlight && _config.DrawLockCue
+                && _roster.For(KsaWorld.ControlledVehicle ?? _ui.Focused) is { } engaging)
+            {
+                LockCueOverlay.Draw(engaging.Battery);
+            }
+
             // Both of these write a camera, and both must be last and every frame: KSA's
             // controller writes from its own mode, so a view taken earlier in the frame is
             // overwritten before anything renders.
