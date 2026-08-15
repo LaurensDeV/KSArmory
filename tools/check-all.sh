@@ -30,7 +30,14 @@ for arg in "$@"; do
 done
 
 ATLAS="src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
-POD_ATLAS="src/KSArmory/Meshes/KSArmory_Litening.glb"
+
+# Every other atlas is authored, and authored art is the only art nobody can rebuild from a clean
+# checkout -- so this is its one gate. Globbed rather than named: a hand-listed atlas is how the
+# third one ships unchecked while this script still exits 0.
+AUTHORED_ATLASES=()
+for glb in src/KSArmory/Meshes/*.glb; do
+    [[ -f "$glb" && "$glb" != "$ATLAS" ]] && AUTHORED_ATLASES+=("$glb")
+done
 
 FAILED=()
 SKIPPED=()
@@ -102,11 +109,12 @@ fi
 # calibrated to box()'s 8 mm modelling skin; a mesh authored in the Blender UI has no skin, so it
 # reports every deliberate panel step rather than a defect. Zero-UV-area triangles and exact
 # coplanar overlaps are never deliberate, so those still run.
-if (( LIST )) || [[ -f "$POD_ATLAS" ]]; then
-    run "Authored mesh has no z-fighting or degenerate UVs" \
-        ./tools/model/checkmesh.py "$POD_ATLAS" --near-max 0
+if (( LIST )) || (( ${#AUTHORED_ATLASES[@]} )); then
+    run "Authored meshes have no z-fighting or degenerate UVs" \
+        ./tools/model/checkmesh.py "${AUTHORED_ATLASES[@]}" --near-max 0
 else
-    skip "Authored mesh has no z-fighting or degenerate UVs" "no atlas at $POD_ATLAS"
+    skip "Authored meshes have no z-fighting or degenerate UVs" \
+         "no authored atlas in src/KSArmory/Meshes/"
 fi
 
 # Textures are regenerated and diffed, so a hand-edited PNG is caught before the next model

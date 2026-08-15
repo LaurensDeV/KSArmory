@@ -95,6 +95,25 @@
     <AoRoughMetal Path="Textures/KSArmory_Rail_PBR.png" Category="Vessel" />
   </PbrMaterial>
 
+  <!--
+    The AMRAAM's atlas and its one material.
+
+    Authored in Blender over MCP like the pod and the suspension rail, and unwrapped rather than
+    swatched — so the bands, the ceramic radome and the scorched base are painted texels rather
+    than geometry, which is why the round carries no ring where the Sidewinder needed one.
+
+    One material for both bodies, not one each: the rail and the round share a single unwrap and a
+    single set of maps. Three files rather than the six a material apiece would cost, and nothing
+    downstream can tell — KSA takes the material from here, not from the .glb, which carries none.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Amraam.glb" />
+
+  <PbrMaterial Id="KSArmory_Amraam_Material">
+    <Diffuse Path="Textures/KSArmory_Amraam_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Amraam_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Amraam_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
   <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
   <SubPart Id="KSArmory_Chassis_SubPart">
     <PartModel Id="KSArmory_Subpart_Chassis_Model">
@@ -237,6 +256,28 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Rail_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- LAU-128 rail launcher on its pylon. Nothing on it moves. -->
+  <SubPart Id="KSArmory_AmraamRail_SubPart">
+    <PartModel Id="KSArmory_Subpart_AmraamRail_Model">
+      <Mesh Id="KSArmory_Subpart_AmraamRail" />
+      <Material Id="KSArmory_Amraam_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_AmraamRail_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One AIM-120C-7. Seated on the rail while loaded, flown by the mod once it leaves. -->
+  <SubPart Id="KSArmory_Amraam_SubPart">
+    <PartModel Id="KSArmory_Subpart_Amraam_Model">
+      <Mesh Id="KSArmory_Subpart_Amraam" />
+      <Material Id="KSArmory_Amraam_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Amraam_VM" />
     </MeshView>
   </SubPart>
 
@@ -607,6 +648,45 @@
     <SubPart Id="KSArmory_Rail_Aim900" InstanceOf="KSArmory_Aim9_SubPart">
       <Transform>
         <Position X="0.40850" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
+    LAU-128 rail with one AIM-120C-7. The same shape as the LAU-7 above — a part with nothing that
+    moves, attached to the side of something else, shooting wherever that something is pointed —
+    and the first one whose art was authored rather than generated.
+
+    Geometry from the Blender source. +X is out of the mounting face, +Y the way the missile
+    points, +Z its right.
+  -->
+  <Part Id="KSArmory_Prefab_AmraamRail">
+
+    <SubPart Id="KSArmory_AmraamRail_Beam" InstanceOf="KSArmory_AmraamRail_SubPart" />
+
+    <!-- Attaches by the pylon's base, which is the mesh origin. -->
+    <Connector Id="_amConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!--
+      The round, modelled where the mod will seat it rather than parked and shrunk away like the
+      Pantsir's: an open rail with nothing on it reads as broken, in the editor and on the first
+      frame of a flight, and neither runs a weapons system.
+
+      Position is the seated centre and the rotation is the quarter turn carrying the body mesh's
+      nose from +X onto the tube axis — the same values TrySeatMissile computes, so nothing moves
+      when the mod takes over. The 0.424 is the body's radius plus the height of its hanger lug
+      above the shoes it rides in; keep it in step with the Blender source and Arsenal.cs.
+    -->
+    <SubPart Id="KSArmory_Amraam_Round00" InstanceOf="KSArmory_Amraam_SubPart">
+      <Transform>
+        <Position X="0.42400" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
       </Transform>
     </SubPart>

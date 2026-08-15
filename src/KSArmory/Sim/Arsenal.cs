@@ -146,6 +146,63 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// The AIM-120C-7: a rail-launched active-radar air-to-air missile.
+    ///
+    /// <para>Airframe figures are the real weapon's — 3.65 m, 178 mm, 161.5 kg, a 20 kg
+    /// blast-fragmentation warhead. What separates it from the AIM-9J on the rail beside it is
+    /// not size but reach: a boost-only motor throws it to about Mach 4 and it coasts from there,
+    /// which is why its envelope is measured in tens of kilometres and why a shot taken at the
+    /// edge of it arrives slow and turns badly.</para>
+    ///
+    /// <para>Modelled as <see cref="GuidanceMode.Seeker"/> because that is what it does at the
+    /// end: the real round flies inertially on a mid-course datalink and only lights its own
+    /// radar for the last few kilometres, but this mod has no mid-course phase to model, and a
+    /// command-linked round would break the moment the launcher lost the track — which is the
+    /// one thing an AMRAAM is built not to do. The wide gimbal below is that compromise: it is
+    /// the round holding its own target, not a seeker that can really see 60 degrees off axis.
+    /// </para>
+    /// </summary>
+    public static readonly MunitionProfile Missile120C = new()
+    {
+        MinRange = 900f,      // it has to coast clear and light off before it can steer to a kill
+        MaxRange = 105000f,   // the C-7's, from altitude and speed; a low shot gets nothing like it
+
+        Name = "AIM120C",
+        DisplayName = "AIM-120C-7 AMRAAM",
+        BodyMarker = "Amraam_Round",
+
+        // No fin marker: a rail-launched round carries its fins deployed, so there is nothing to
+        // unfold and no second subpart to scale.
+        BodyLength = 3.645f,
+
+        // Off the rail on its own motor rather than ejected, so the rail imparts nothing.
+        LaunchSpeed = 25f,
+
+        // A C-7 is boost-only — no sustainer — so everything after the burn is a coast. That is
+        // the whole character of the weapon: it is fastest a few seconds after launch and slowest
+        // where it matters, which is what makes a long shot easy to defeat by turning away.
+        BoostSeconds = 5.5f,
+        BoostAccel = 235f,
+        MaxFlightSeconds = 120f,
+
+        // Slimmer and far heavier than the AIM-9J, so it holds speed through the coast much
+        // better — the ratio of the two is what decides which round reaches an escaping target.
+        DragK = 2.6e-5f,
+
+        Guidance = GuidanceMode.Seeker,
+        SeekerFovDeg = 60f,
+        NavConstant = 4f,
+        MaxLateralG = 40f,
+
+        // Long enough to be clear of the rail and the craft before anything turns it.
+        SeparationSeconds = 0.4f,
+
+        FuseRadius = 14f,
+        FuseArmSeconds = 1.2f,
+        ChargeKg = 20f,
+    };
+
+    /// <summary>
     /// The M61A2's 20 mm round, as the Phalanx fires it.
     ///
     /// <para>Muzzle velocity (1100 m/s), the 1486 m effective range and the 4500 rpm the gun runs
@@ -321,6 +378,37 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// The AMRAAM's own seeker, standing in for the radar of whatever is carrying the rail.
+    ///
+    /// <para>The same fiction as the AIM-9 rail's, for the same reason: nothing on a LAU-128
+    /// searches for anything, and in the real weapon the launching aircraft finds the target and
+    /// hands it over. With no aircraft radar to model, the round's set is what the mod searches
+    /// with — which is why the range below is the seeker's acquisition range and not the
+    /// weapon's 105 km envelope.</para>
+    ///
+    /// <para>Radar rather than infrared, so unlike <see cref="SeekerHeadAim9"/> it does not need
+    /// the target hot: <see cref="SensorProfile.ReferenceCrossSectionM2"/> is what it needs
+    /// instead, and detection goes as the fourth root of it — a round is a far smaller target
+    /// than the craft that threw it without anything having to know one from the other.</para>
+    /// </summary>
+    public static readonly SensorProfile SeekerHeadAim120 = new()
+    {
+        Name = "AIM120SEEK",
+        DisplayName = "AIM-120 seeker head",
+
+        Range = 40000f,
+        ConeDeg = 60f,
+        BoresightSource = BoresightMode.PartForward,
+
+        ThreatRadius = 30000f,
+        ThreatHorizonSeconds = 60f,
+        LockSeconds = 1.4f,
+
+        // A fighter-sized return. Anything smaller is seen closer in, by the fourth root.
+        ReferenceCrossSectionM2 = 5f,
+    };
+
+    /// <summary>
     /// The Phalanx's own search and track set, in the radome above the gun.
     ///
     /// <para>Short and wide, which is the opposite of the Pantsir's set and the whole point of the
@@ -465,6 +553,44 @@ public static class Arsenal
 
         // A rail holds what it holds. Zero means the magazine is never refilled, so the round
         // count in the panel is the number of rails fitted.
+        ReloadSeconds = 0f,
+        SettleSeconds = 0f,
+    };
+
+    /// <summary>
+    /// A LAU-128 rail carrying one AIM-120C-7, radially attached to whatever it is bolted to.
+    ///
+    /// <para>Mechanically the LAU-7's twin — nothing moves, no turret marker, no pods marker, so
+    /// <see cref="LauncherProfile.Trains"/> is false and it is laid from the moment it exists.
+    /// The difference is entirely the round: a shot that reaches ten times as far, off a launcher
+    /// aimed the same way, by pointing the craft.</para>
+    ///
+    /// <para>Its art is <em>authored</em> rather than generated, which is the other thing new
+    /// here. There is no model script to paste geometry from, so the 0.424 below is not a printed
+    /// number but the seat position in <c>KSArmoryAssets.xml</c>, and 3.645 is the mesh's own
+    /// length — both checked against the committed files by <c>tools/validate-parts.py</c>, since
+    /// the .blend those came from is not in this repository and cannot be consulted by anything.
+    /// </para>
+    /// </summary>
+    public static readonly LauncherProfile AmraamRail = new()
+    {
+        PartId = "KSArmory_Prefab_AmraamRail",
+        DisplayName = "LAU-128 AMRAAM rail",
+        Munition = "AIM120C",
+        Sensor = "AIM120SEEK",
+
+        // The nose of the seated round and the direction it leaves along: the seat offset out of
+        // the mounting face, plus half a body length forward.
+        Tubes = [new(new(0.42400, 1.82250, 0.00000), new(0, 1, 0))],
+        MuzzleForwardOffset = 0.424,
+
+        // Off the rail, then a turn — see the LAU-7's note, which this shares whole.
+        LaunchAlongTube = true,
+        EjectAwayFromMount = 0.55f,
+        LaunchLoft = 0f,
+        MuzzleOffset = 2f,
+
+        // A rail holds what it holds.
         ReloadSeconds = 0f,
         SettleSeconds = 0f,
     };
@@ -731,11 +857,13 @@ public static class Arsenal
 
     // ---- Registry -------------------------------------------------------
 
-    public static readonly IReadOnlyList<LauncherProfile> Launchers = [PantsirS1, SidewinderRail, Ciws, BombRack, NukeRack];
+    public static readonly IReadOnlyList<LauncherProfile> Launchers =
+        [PantsirS1, SidewinderRail, AmraamRail, Ciws, BombRack, NukeRack];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
-        [Missile57E6, Cannon30Mm, Missile9J, Cannon20Mm, BombMk82, NukeB61];
+        [Missile57E6, Cannon30Mm, Missile9J, Missile120C, Cannon20Mm, BombMk82, NukeB61];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
-        [SearchRadar1Rs1, SeekerHeadAim9, SearchRadarVps2, BombSight, EoSensor, PodSensor];
+        [SearchRadar1Rs1, SeekerHeadAim9, SeekerHeadAim120, SearchRadarVps2, BombSight,
+         EoSensor, PodSensor];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
@@ -811,6 +939,20 @@ public static class Arsenal
             [
                 new(WeaponRole.Sensor, SeekerHeadAim9.DisplayName),
                 new(WeaponRole.FireControl, "LAU-7 fire control"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = AmraamRail.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = AmraamRail.DisplayName,
+
+            // Same declaration as the LAU-7's, and for the same reason: what the survey can find
+            // is the rail, and the set it searches with belongs to the round sitting on it.
+            Provides =
+            [
+                new(WeaponRole.Sensor, SeekerHeadAim120.DisplayName),
+                new(WeaponRole.FireControl, "LAU-128 fire control"),
             ],
         },
         new ComponentProfile
