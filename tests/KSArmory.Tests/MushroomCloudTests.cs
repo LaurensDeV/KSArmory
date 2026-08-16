@@ -701,6 +701,34 @@ public class MushroomCloudTests
     }
 
     /// <summary>
+    /// However far the cloud leans, the cap has to stay over the column holding it up.
+    ///
+    /// <para>The lean displaces the cap and leaves the stem's foot where the crater is, so it is a
+    /// shear rather than a translation. Past the cap's own radius the column comes out from under
+    /// its edge, and what that draws is a detached mass floating beside a thin stem — a cloud that
+    /// does not touch the ground.</para>
+    ///
+    /// <para>Worst at small yields, where the cap is narrowest against its own height. Checked
+    /// across the whole range the mod can produce rather than at one.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(1.0)]
+    [InlineData(20.0)]
+    [InlineData(300.0)]
+    public void TheCapStaysOverTheColumn(double yieldKt)
+    {
+        MushroomCloud.Shape s = MushroomCloud.At(yieldKt * 1.0e6, MushroomCloud.RiseSeconds);
+
+        double top = s.CapCentre + s.CapRadius;
+        double lean = MushroomCloud.LeanAt(s.CapCentre, top);
+
+        Assert.True(lean < s.CapRadius * 0.7,
+            $"at {yieldKt:F1} kt the cap leans {lean:F0} m against a {s.CapRadius:F0} m radius "
+            + $"({lean / s.CapRadius:F2} of it); past 0.7 the column slides out from under it");
+    }
+
+    /// <summary>
     /// The stem is an hourglass, and the widest it flares must still merge into one column.
     ///
     /// <para>Eight pens ring the axis at a radius the flare multiplies, so the foot — the widest

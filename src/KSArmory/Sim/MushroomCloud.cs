@@ -619,8 +619,19 @@ public static class MushroomCloud
         return LeanFraction * cloudTop * Math.Pow(t, LeanExponent);
     }
 
-    /// <summary>Downwind displacement of the cloud top, as a fraction of its height.</summary>
-    public const double LeanFraction = 0.30;
+    /// <summary>
+    /// Downwind displacement of the cloud top, as a fraction of its height.
+    ///
+    /// <para><b>Bounded by the cap having to stay over the column.</b> The cap is displaced by this
+    /// while the stem's foot is not, so past a point the cap slides off the top of the stem and
+    /// stands beside it — which draws a detached blob floating next to a thin column, and reads as
+    /// a cloud that does not touch the ground.</para>
+    ///
+    /// <para>The margin is worst at small yields, where the cap is narrowest against its own height:
+    /// at 0.3 kt a fraction of 0.30 displaced the cap by 1.03 of its own radius, putting the column
+    /// exactly on its edge. <c>TheCapStaysOverTheColumn</c> holds the limit across yields.</para>
+    /// </summary>
+    public const double LeanFraction = 0.19;
 
     /// <summary>Above one, so the foot stays put while the cap leans.</summary>
     public const double LeanExponent = 1.4;
