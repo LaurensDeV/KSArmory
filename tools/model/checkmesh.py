@@ -379,16 +379,24 @@ def cross_body_overlaps(gltf, binary, placements):
 
 
 def euler_quaternion(euler):
-    """XYZ Euler radians -> (x, y, z, w), matching how KSA reads <Rotation>."""
+    """XYZ Euler radians -> (x, y, z, w), matching how KSA reads <Rotation>.
+
+    Transcribed from KSA.QuaternionEx.CreateFromXyzRadians, which TransformReference.RotationValue
+    calls. The composition is **qz * qy * qx** despite the name: X is applied first and Z last, so
+    a <Rotation X=..> on a body whose axis of interest is already +X does nothing at all.
+
+    Getting this backwards is invisible until a part uses two axes whose angles do not commute.
+    Every rotation in this mod was single-axis, or X=pi Z=pi, until the MIRV bus.
+    """
     import math
 
     half = [angle / 2.0 for angle in euler]
     cx, cy, cz = (math.cos(a) for a in half)
     sx, sy, sz = (math.sin(a) for a in half)
-    return (sx * cy * cz + cx * sy * sz,
-            cx * sy * cz - sx * cy * sz,
-            cx * cy * sz + sx * sy * cz,
-            cx * cy * cz - sx * sy * sz)
+    return (cy * cz * sx - cx * sy * sz,
+            cx * cz * sy + sx * cy * sz,
+            cx * cy * sz - sx * cz * sy,
+            cx * cy * cz + sx * sy * sz)
 
 
 def analyse(gltf, binary, mesh):
