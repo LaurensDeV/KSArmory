@@ -403,6 +403,55 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// A Mk 21-pattern reentry vehicle, released from a post-boost vehicle.
+    ///
+    /// <para><b>Unguided, and that is the whole weapon.</b> It is let go on a diverging vector and
+    /// the planet does the rest, so this is the Mk 82's flight model with a far better ballistic
+    /// coefficient: <see cref="DragK"/> is an order of magnitude lower because a 0.55 m cone at
+    /// 800 kg is the densest thing this mod throws.</para>
+    ///
+    /// <para><b>The yield is a playability choice, not a figure.</b> A real W87 is 300 kt, which
+    /// through <see cref="Warhead"/>'s cube-root scaling is 4.9 km lethal and 14.8 km of blast —
+    /// six of those is most of a hemisphere's worth of launch site. This ships at 20 kt, which
+    /// lands on exactly 2.0 km lethal and 6.0 km blast, for the same reason the B61 ships at the
+    /// bottom of its range. It is one number if anyone wants the real one.</para>
+    ///
+    /// <para><see cref="MaxFlightSeconds"/> is thirty minutes rather than the bomb's two, because
+    /// that is what a ballistic arc costs. Note that <see cref="WarpPolicy"/> holds timewarp down
+    /// for the whole of it.</para>
+    /// </summary>
+    public static readonly MunitionProfile ReentryVehicleMk21 = new()
+    {
+        Name = "MK21",
+        DisplayName = "Mk 21 reentry vehicle",
+
+        BodyMarker = "Mirv_Rv",
+        BodyLength = 1.80f,
+
+        Guidance = GuidanceMode.None,
+
+        // A separation spring, not a motor. It is the bus's own velocity that matters.
+        LaunchSpeed = 2f,
+        BoostSeconds = 0f,
+        BoostAccel = 0f,
+
+        MinRange = 0f,
+        MaxRange = 400_000f,
+        MaxFlightSeconds = 1800f,
+
+        // An order of magnitude below the Mk 82's: a dense cone is what a heatshield is for.
+        DragK = 1.5e-5f,
+
+        FuseRadius = 0f,
+
+        // Long enough to clear the bus and the five RVs alongside it, at a 2 m/s separation.
+        FuseArmSeconds = 10f,
+
+        ChargeKg = 20_000_000f,
+        HitsTerrain = true,
+    };
+
+    /// <summary>
     /// The 1RS1-1E search set, with the engagement envelope of the system it feeds.
     ///
     /// <para>Detection reaches much further than the round flies — 36 km against 20 km — so the
@@ -560,6 +609,69 @@ public static class Arsenal
         ThreatRadius = 3000f,
         ThreatHorizonSeconds = 20f,
         LockSeconds = 0.8f,
+    };
+
+    /// <summary>
+    /// The designation set on a post-boost vehicle: where the warheads are being sent.
+    ///
+    /// <para>Ranges are an ICBM's rather than a bomb sight's, because a bus releases from hundreds
+    /// of kilometres out and a 8 km sight would see nothing until long after the last RV had gone.
+    /// <see cref="BoresightMode.MountNormal"/> is up the stack, which is where the tubes point.</para>
+    /// </summary>
+    public static readonly SensorProfile BusDesignation = new()
+    {
+        Name = "MIRVBUS",
+        DisplayName = "PBV designation set",
+        Range = 400_000f,
+        ConeDeg = 100f,
+        BoresightSource = BoresightMode.MountNormal,
+        ThreatRadius = 200_000f,
+        ThreatHorizonSeconds = 600f,
+        LockSeconds = 1.0f,
+    };
+
+    /// <summary>
+    /// A heavy ICBM's post-boost vehicle, with six reentry vehicles on it.
+    ///
+    /// <para><b>MIRV deployment is tube release.</b> Six tubes, one RV apiece, each pointing along
+    /// its own seat — which is canted 6 degrees outward, so they leave on diverging vectors the
+    /// way the real thing does. No new mechanism was needed for any of that; it is the bomb rack
+    /// with six tubes and a stack node instead of a pylon.</para>
+    ///
+    /// <para>Nothing trains: no <see cref="LauncherProfile.TurretMarker"/> and no
+    /// <see cref="LauncherProfile.PodsMarker"/>, so <see cref="LauncherProfile.Trains"/> is false
+    /// and fire control cannot deadlock waiting for a drive that will never move. The bus is aimed
+    /// by flying it, which is what its RCS is for.</para>
+    ///
+    /// <para>Tube geometry generated from the Blender source and verified against the
+    /// repository's own reading of <c>&lt;Rotation&gt;</c>. Keep in step with
+    /// <c>KSArmory_Prefab_MirvBus</c> in the asset XML.</para>
+    /// </summary>
+    public static readonly LauncherProfile MirvBus = new()
+    {
+        PartId = "KSArmory_Prefab_MirvBus",
+        DisplayName = "MIRV bus",
+        Munition = "MK21",
+        Sensor = "MIRVBUS",
+        TubeArmamentLabel = "Warheads",
+        Tubes =
+        [
+            new(new(2.62959, 1.05860, 0.00000), new(0.99452, 0.10453, 0.00000)),
+            new(new(2.62959, 0.52930, 0.91678), new(0.99452, 0.05226, 0.09052)),
+            new(new(2.62959, -0.52930, 0.91678), new(0.99452, -0.05226, 0.09052)),
+            new(new(2.62959, -1.05860, 0.00000), new(0.99452, -0.10453, 0.00000)),
+            new(new(2.62959, -0.52930, -0.91678), new(0.99452, -0.05226, -0.09052)),
+            new(new(2.62959, 0.52930, -0.91678), new(0.99452, 0.05226, -0.09052)),
+        ],
+        MuzzleForwardOffset = 0.0,
+        LaunchAlongTube = true,
+        EjectAwayFromMount = 0f,
+        LaunchLoft = 0f,
+        MuzzleOffset = 0f,
+
+        // A bus deploys one warhead at a time, settling between each.
+        ReloadSeconds = 3f,
+        SettleSeconds = 0f,
     };
 
     public static readonly LauncherProfile PantsirS1 = new()
@@ -1021,13 +1133,13 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [PantsirS1, SidewinderRail, AmraamRail, HarmRail, Ciws, BombRack, NukeRack];
+        [PantsirS1, SidewinderRail, AmraamRail, HarmRail, Ciws, BombRack, NukeRack, MirvBus];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [Missile57E6, Cannon30Mm, Missile9J, Missile120C, MissileAgm88, Cannon20Mm,
-         BombMk82, NukeB61];
+         BombMk82, NukeB61, ReentryVehicleMk21];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
         [SearchRadar1Rs1, SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
-         BombSight, EoSensor, PodSensor];
+         BombSight, EoSensor, PodSensor, BusDesignation];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
@@ -1169,6 +1281,17 @@ public static class Arsenal
             [
                 new(WeaponRole.Sensor, BombSight.DisplayName),
                 new(WeaponRole.FireControl, "B61 release"),
+            ],
+        },
+        new ComponentProfile
+        {
+            PartId = MirvBus.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = MirvBus.DisplayName,
+            Provides =
+            [
+                new(WeaponRole.Sensor, BusDesignation.DisplayName),
+                new(WeaponRole.FireControl, "Warhead deployment"),
             ],
         },
     ];

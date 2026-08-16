@@ -827,6 +827,7 @@ LAUNCHER_GEOMETRY = {
     "NukeRack": ("bombrack", "nuclear rack"),
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
     "HarmRail": (None, "HARM rail"),          # authored, as above
+    "MirvBus": (None, "MIRV bus"),            # authored, clustered -- CLUSTER_LAUNCHERS
 }
 
 # Launchers whose art was authored rather than generated, and whose geometry is therefore checked
@@ -945,6 +946,129 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
 
     return problems, checked
 
+# Authored launchers carrying a *cluster* of seated rounds rather than one. The single-tube check
+# above cannot cover them: it reads one tube out of Tubes and compares it to one seat, where these
+# have to agree seat by seat, and each seat points somewhere different.
+#
+#   profile -> (part Id, seat Id prefix, round's mesh Id, munition profile, count, label)
+CLUSTER_LAUNCHERS = {
+    "MirvBus": ("KSArmory_Prefab_MirvBus", "KSArmory_Mirv_Rv",
+                "KSArmory_Subpart_Rv", "ReentryVehicleMk21", 6, "MIRV bus"),
+}
+
+
+def euler_forward(euler):
+    """Where a subpart's own +X points after <Rotation>, through checkmesh's reading of it.
+
+    Derived from euler_quaternion rather than reimplemented, because the whole value of this check
+    is that it uses the same convention the cross-body pass does. Two spellings of XYZ Euler that
+    disagree would let a seat and its tube both be wrong in the same direction.
+    """
+    qx, qy, qz, qw = import_module("checkmesh").euler_quaternion(euler)
+    v, q = (1.0, 0.0, 0.0), (qx, qy, qz)
+
+    def cross(a, b):
+        return (a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0])
+
+    inner = cross(q, tuple(cross(q, v)[i] + qw * v[i] for i in range(3)))
+    return tuple(v[i] + 2.0 * inner[i] for i in range(3))
+
+
+def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, munition, count, label):
+    """Checks every seat of a clustered launcher against its tube, the mesh and the XML.
+
+    Same three numbers as the single-tube case and one more: each seat has its own direction, so a
+    tube paired with the wrong seat puts a warhead on a neighbour's vector. That is invisible until
+    two of them are in the air.
+    """
+    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    problems = checked = 0
+
+    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    if found is None:
+        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        return 1, 1
+    block = found.group(1)
+
+    seats, bounds = {}, None
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        root = ET.parse(path).getroot()
+        for part in root.findall("Part"):
+            if part.get("Id") != part_id:
+                continue
+            for sub in part.findall("SubPart"):
+                sid = sub.get("Id") or ""
+                if not sid.startswith(seat_prefix):
+                    continue
+                position = sub.find("Transform/Position")
+                rotation = sub.find("Transform/Rotation")
+                if position is None:
+                    continue
+                seats[sid] = ([float(position.get(a, "0")) for a in "XYZ"],
+                              [float(rotation.get(a, "0")) for a in "XYZ"]
+                              if rotation is not None else [0.0, 0.0, 0.0])
+        for atlas in root.findall(".//MeshAtlas"):
+            glb = MOD / atlas.get("Path", "")
+            if not glb.is_file():
+                continue
+            gltf = meshinfo.read_glb_json(str(glb))
+            for mesh in gltf.get("meshes", []):
+                if mesh.get("name") == mesh_id:
+                    bounds = meshinfo.mesh_bounds(gltf, mesh)
+
+    checked += 1
+    if len(seats) != count:
+        print(f"  MISCOUNT {part_id}: {len(seats)} <SubPart Id=\"{seat_prefix}..\">, "
+              f"Arsenal.{profile} declares {count} tubes", file=sys.stderr)
+        return problems + 1, checked
+    if bounds is None or bounds[0] is None:
+        print(f"  MISSING mesh {mesh_id} in any declared atlas", file=sys.stderr)
+        return problems + 1, checked
+
+    lo, hi = bounds
+    length = hi[0] - lo[0]
+
+    checked += 1
+    if abs(lo[0] + hi[0]) > 5e-4:
+        print(f"  OFF-CENTRE mesh {mesh_id}: spans {lo[0]:.4f}..{hi[0]:.4f} along its own axis, "
+              f"so its origin is not its centre", file=sys.stderr)
+        problems += 1
+
+    checked += 1
+    body = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    body = None if body is None else re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", body.group(1))
+    if body is None:
+        print(f"  MISSING Arsenal.{munition}.BodyLength", file=sys.stderr)
+        problems += 1
+    elif abs(float(body.group(1)) - length) > 5e-4:
+        print(f"  STALE Arsenal.{munition}.BodyLength = {body.group(1)}, "
+              f"mesh is {length:.4f}", file=sys.stderr)
+        problems += 1
+
+    tubes = re.findall(r"new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),"
+                       r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)", block)
+    checked += 1
+    if len(tubes) != count:
+        print(f"  MISCOUNT Arsenal.{profile}.Tubes: {len(tubes)}, expected {count}", file=sys.stderr)
+        return problems + 1, checked
+
+    for i, sid in enumerate(sorted(seats)):
+        seat, euler = seats[sid]
+        axis = euler_forward(euler)
+        want = [seat[j] + axis[j] * length / 2 for j in range(3)] + list(axis)
+        got = [float(v) for v in tubes[i]]
+        checked += 1
+        if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
+            print(f"  STALE Arsenal.{profile}.Tubes[{i}] = {tuple(got)}, {sid} and the mesh "
+                  f"say {tuple(round(v, 5) for v in want)}", file=sys.stderr)
+            problems += 1
+
+    if problems == 0:
+        print(f"  {label} geometry: {count} tubes and their rounds match the mesh and the XML")
+
+    return problems, checked
+
+
 # Munition named by each fixed launcher, whose body length the tube standoff is checked against.
 # A turreted launcher's standoff comes off its pods instead, so it needs no entry.
 FIXED_LAUNCHER_MUNITION = {
@@ -992,6 +1116,10 @@ def check_launcher_geometry():
             continue
 
         key, label = LAUNCHER_GEOMETRY[profile]
+        if profile in CLUSTER_LAUNCHERS:
+            p, c = check_cluster_launcher_geometry(profile, *CLUSTER_LAUNCHERS[profile])
+            problems += p; checked += c
+            continue
         if profile in AUTHORED_LAUNCHERS:
             p, c = check_authored_launcher_geometry(profile, *AUTHORED_LAUNCHERS[profile])
         elif trains(text, profile):

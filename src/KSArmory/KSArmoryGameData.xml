@@ -486,4 +486,137 @@
     </Collider>
   </PartGameData>
 
+  <!--
+    One attitude-control nozzle, declared once and inherited by all sixteen instances: KSA keys
+    SubPartGameData on the subpart *definition*, not on the instance.
+
+    This is the first thing in this mod that uses KSA's own simulation rather than replacing it.
+    Registering a NEW module type needs Harmony patching into internal update lists, which is why
+    rounds are self-simulated - but RocketThrusterController, Combustor and DeLavalNozzle are
+    modules the engine already registers, so declaring them is reuse, not registration.
+
+    Cribbed from CorePropulsionB_Subpart_RCSSetAThrusterSmallA, with FxExitDiameter changed to
+    match the modelled bell. MMH_NTO at 1.6 is Core's own reaction Id and happens to be exactly
+    what a real post-boost vehicle burns.
+
+    FeedsFrom Parent means the craft's service plumbing supplies it, so the vehicle needs a service
+    propellant tank somewhere - the same as any Core RCS set, which ships no tank either.
+  -->
+  <SubPartGameData Id="KSArmory_MirvRcs_SubPart">
+    <RocketThrusterController Id="MirvACS">
+      <RocketReference Id="Thruster" />
+    </RocketThrusterController>
+    <Rocket Id="Thruster">
+      <Core Id="Chamber" />
+      <Nozzle Id="Nozzle" />
+    </Rocket>
+    <Combustor Id="Chamber">
+      <FeedsFrom Parent="true" />
+      <Plumbing>Service</Plumbing>
+      <Reaction Id="MMH_NTO">
+        <MixtureRatio>1.6</MixtureRatio>
+      </Reaction>
+      <MaxPressure Bar="7" />
+      <ThermalEfficiency Value="0.95" />
+      <MinimumPulseTime Seconds="0.0054489795" />
+    </Combustor>
+    <DeLavalNozzle Id="Nozzle">
+      <ExitDiameter M="0.4" />
+      <FxExitDiameter M="0.11" />
+      <AreaRatio Value="40" />
+      <FlowEfficiency Value="1" />
+      <ExpansionEfficiency Value="0.70" />
+      <!-- The bell exit, in the nozzle subpart's own frame. It fires along its own -X. -->
+      <ExhaustLocation X="-0.090" Y="0.0" Z="0.0" />
+      <ExhaustDirection X="-1.0" Y="0.0" Z="0.0" />
+      <ReactionPlume Default="true">
+        <VolumetricExhaust Id="RCS" />
+      </ReactionPlume>
+      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
+    </DeLavalNozzle>
+  </SubPartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_MirvBus" DisplayName="Heavy MIRV Bus">
+    <EditorTag Value="Weapons" />
+    <Diameter M="3" />
+
+    <!--
+      A post-boost vehicle carries its own propellant: it separates from the stack and then has to
+      fly for the whole deployment, with nothing upstream left to draw from. So the sixteen nozzles
+      feed from a tank on this part rather than through the mounting connector - the same shape as
+      the kitten jetpack, which is the other self-contained thruster set in the game.
+
+      MMH/NTO at roughly 190 kg, which is a Minuteman-class post-boost load.
+    -->
+    <Tank Id="MirvPropellant">
+      <SphericalTank>
+        <LocationAsmb X="0.42" Y="0" Z="0" />
+        <Material Id="Aluminum.2014(s)" />
+        <OuterRadius M="0.34" />
+        <WallThickness Mm="4" />
+        <RoleAffinity>Thruster</RoleAffinity>
+      </SphericalTank>
+    </Tank>
+
+    <!--
+      FeedsFrom on the subpart's Combustor is only half the declaration: the part has to say what
+      supplies it, or KSA logs "no ConsumerFeedWiring wiring for it" at load and nothing fires.
+
+      Id matches the Combustor's, and there is deliberately no SubPartId - one entry covers all
+      sixteen instances of the nozzle, exactly as Core's own RCS sets do.
+    -->
+    <ConsumerFeedWiring Id="Chamber">
+      <FeedsFrom Container="MirvPropellant" />
+    </ConsumerFeedWiring>
+
+    <!--
+      A post-boost vehicle flies itself: that is the whole job, and it starts at the moment it
+      stops being attached to anything that has a command pod. Without <Control /> the sixteen
+      thrusters answer to the stack below and go dead on separation, which is exactly backwards.
+
+      Its own battery for the same reason - a bus is under power from separation to the last
+      warhead, with nothing upstream left to draw from.
+    -->
+    <Control />
+    <Battery>
+      <MaximumCapacity J="50000" />
+    </Battery>
+
+    <!--
+      No Radial or NoFaceSnapping tag and no ToSurface flag on the connector: this part STACKS.
+      It mates with the top node of any 3 m tank, decoupler or adapter.
+    -->
+    <Connector Id="_mirvConnectorBase" />
+
+    <!-- Six Mk 21-class RVs at about 800 kg each, on a bus of roughly 1.5 tonnes. -->
+    <SolidSphereMass>
+      <Mass Kg="6300" />
+      <Radius M="1.20" />
+    </SolidSphereMass>
+
+    <!--
+      Two boxes rather than the atlas's single _ColPrim_ cylinder: most of the volume around the
+      warheads is empty air, and a box pair says so for nothing. The RCS bells reach radius 1.71
+      and are deliberately outside both - small protrusions are not worth colliding.
+    -->
+    <Collider Id="KSArmory_MirvCollider">
+      <!-- Bus, resting on the mounting face at X = 0. -->
+      <Box Id="KSArmory_MirvBusCollider">
+        <LocationAsmb X="0.39" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.78" />
+        <LengthY M="3.00" />
+        <LengthZ M="3.00" />
+      </Box>
+      <!-- The warhead cluster: RV tips reach radius 1.06 and X 2.63. -->
+      <Box Id="KSArmory_MirvWarheadCollider">
+        <LocationAsmb X="1.705" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="1.85" />
+        <LengthY M="2.20" />
+        <LengthZ M="2.20" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
 </Assets>
