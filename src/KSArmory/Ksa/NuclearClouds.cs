@@ -81,6 +81,11 @@ internal static class NuclearClouds
         public double Age;
         public double LastReport = -99.0;
 
+        // Where this stem ends up, so a pen can be told how far up its own finished column it is.
+        // Fixed per cloud: the shape is a pure function of charge and age, so this is knowable at
+        // the burst and never changes.
+        public required double FullStem;
+
         public readonly PlumeSmoke.Strand[] Stem =
             Enumerable.Range(0, StemStrands).Select(_ => new PlumeSmoke.Strand()).ToArray();
         public readonly PlumeSmoke.Strand[] Rim =
@@ -139,6 +144,7 @@ internal static class NuclearClouds
                 North = north,
                 Downwind = Vec.Unit((east * Math.Cos(bearing)) + (north * Math.Sin(bearing))),
                 ChargeKg = chargeKg,
+                FullStem = MushroomCloud.At(chargeKg, MushroomCloud.RiseSeconds).StemTop,
             });
 
             double kt = MushroomCloud.KilotonsFor(chargeKg);
@@ -285,8 +291,13 @@ internal static class NuclearClouds
         // How far up the column the pens currently are, which is what gives the stem a profile
         // rather than a constant width: each pen widens and narrows as it climbs, and the trail it
         // leaves behind is the hourglass.
-        double underside = shape.CapCentre - shape.CapRadius;
-        double climbed = underside > 0.0 ? Math.Clamp(shape.StemTop / underside, 0.0, 1.0) : 1.0;
+        // Against the height the stem will FINISH at, not the height it may reach today. StemTop is
+        // clamped to the cap's underside and the cap grows with it, so dividing by the current one
+        // is a step function -- zero before there is a cap, one ever after, and the flare pinned at
+        // its head value for the whole life. The finished column is the only fixed ruler.
+        double climbed = cloud.FullStem > 0.0
+                             ? Math.Clamp(shape.StemTop / cloud.FullStem, 0.0, 1.0)
+                             : 0.0;
         double flare = MushroomCloud.StemFlare(climbed);
         double cloudTop = shape.CapCentre + shape.CapRadius;
 

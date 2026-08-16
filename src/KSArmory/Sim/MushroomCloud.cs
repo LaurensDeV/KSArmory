@@ -427,7 +427,7 @@ public static class MushroomCloud
         //
         // Drawn on its own clock instead, it is a free-standing column with clear air above it and a
         // tip climbing toward an empty sky, which is the named tell of an amateur mushroom.
-        double underside = capCentre - (capRadius * Oblate * 0.7);
+        double underside = StemCeiling(capCentre, capRadius);
         double climb = (capCentre + (capRadius * Oblate))
                        * Math.Sqrt(Math.Min(1.0, Progress(age) / ClimbUntil));
         double stemTop = Math.Max(0.0, Math.Min(climb, underside));
@@ -682,6 +682,18 @@ public static class MushroomCloud
 
     /// <summary>And how much wider it gets again under the cap.</summary>
     public const double StemCapFlare = 0.40;
+
+    /// <summary>
+    /// How high the stem's head may reach: the cap's underside, so the column ends inside the cap
+    /// rather than poking out of the top of it.
+    ///
+    /// <para>Exposed because the renderer needs the same number to know how far up its own column a
+    /// pen has got. Written down twice it drifts, and it did: one copy carried the
+    /// <see cref="Oblate"/> factor and the other did not, so the ratio came out above one on every
+    /// frame and the stem's flare was pinned at its head value forever.</para>
+    /// </summary>
+    public static double StemCeiling(double capCentre, double capRadius)
+        => capCentre - (capRadius * Oblate * 0.7);
 
     /// <summary>Where the stem's head sits, as an offset from the burst.</summary>
     public static double3 StemPoint(in Shape shape, double3 up) => up * shape.StemTop;

@@ -769,6 +769,36 @@ public class MushroomCloudTests
     }
 
     /// <summary>
+    /// The stem's flare has to actually vary over a cloud's life, or the hourglass is a constant.
+    ///
+    /// <para>Measured against the height the column FINISHES at. <see cref="MushroomCloud.Shape.StemTop"/>
+    /// is clamped to the cap's underside and the cap grows with it, so a fraction taken against the
+    /// <em>current</em> ceiling is a step function — zero before there is a cap and one ever after,
+    /// which pins the flare at its head value and draws the constant-width tube the flare exists to
+    /// replace.</para>
+    /// </summary>
+    [Fact]
+    public void TheStemsFlareActuallyVariesOverTheRise()
+    {
+        double charge = 0.3 * Kt;
+        double full = MushroomCloud.At(charge, MushroomCloud.RiseSeconds).StemTop;
+        Assert.True(full > 0.0, "the stem must finish somewhere");
+
+        double widest = 0.0, narrowest = double.MaxValue;
+        for (double t = 0.0; t <= MushroomCloud.RiseSeconds; t += 0.5)
+        {
+            double climbed = Math.Clamp(MushroomCloud.At(charge, t).StemTop / full, 0.0, 1.0);
+            double flare = MushroomCloud.StemFlare(climbed);
+            widest = Math.Max(widest, flare);
+            narrowest = Math.Min(narrowest, flare);
+        }
+
+        Assert.True(widest - narrowest > 0.5,
+            $"the flare only ever ran {narrowest:F2}..{widest:F2} across the whole rise, which is a "
+            + "tube with a constant width, not an hourglass");
+    }
+
+    /// <summary>
     /// The stem is an hourglass, and the widest it flares must still merge into one column.
     ///
     /// <para>Eight pens ring the axis at a radius the flare multiplies, so the foot — the widest
@@ -781,8 +811,8 @@ public class MushroomCloudTests
     {
         MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
 
-        const double spread = 0.35;         // NuclearClouds.StemSpread
-        const double tubeFraction = 0.54;   // NuclearClouds.StemExpanded
+        const double spread = 0.24;         // NuclearClouds.StemSpread
+        const double tubeFraction = 0.45;   // NuclearClouds.StemExpanded
         const int ringPens = 8;             // nine strands, one of them up the axis
 
         double tube = s.CapTube * tubeFraction;

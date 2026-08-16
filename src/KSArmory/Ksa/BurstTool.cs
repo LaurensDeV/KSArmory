@@ -51,9 +51,16 @@ internal sealed class BurstTool
                         at, KsaWorld.ControlledVehicle,
                         (float)Warhead.EffectScale(chargeKg));
 
+        // From the GROUND point, not the lifted one. The lift above exists so the ball is not drawn
+        // half-buried, and is right for the ball -- but the cloud is built as offsets from whatever
+        // it is given, so handing it the lifted point floats the stem, the skirt and the cap by a
+        // whole fireball radius. That is 55 m at 0.3 kt and about 900 m at 340 kt, which reads as a
+        // mushroom hanging in the air over the crater. The real weapon path passes its true burst
+        // point and has never had this.
+        //
         // Unconditional: NuclearClouds decides for itself whether a charge is large enough to have
         // made a cloud, so the tool does not need to know and cannot disagree with the real path.
-        NuclearClouds.Begin(at, KsaWorld.ControlledVehicle, chargeKg);
+        NuclearClouds.Begin(groundEcl, KsaWorld.ControlledVehicle, chargeKg);
 
         Log.Info($"burst tool: {(config.BurstFireball ? "fireball" : "airburst")}, "
                  + (config.BurstNuclear
