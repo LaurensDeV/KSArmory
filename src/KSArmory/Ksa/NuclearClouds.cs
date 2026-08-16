@@ -54,7 +54,7 @@ internal static class NuclearClouds
     // inside the tube: overlapping capsules render as the deeper of the two, so nine parallel pens
     // closer together than their own radius are one column and no wider than one of them.
     private const int StemStrands = 9;
-    private const double StemSpread = 0.35;
+    private const double StemSpread = 0.24;
 
     // Radii, in metres, as fractions of the cap's own tube. The expansion ratio matters as much as
     // the size: a booster's plume swells a hundredfold from its nozzle, which is what makes it
@@ -62,7 +62,7 @@ internal static class NuclearClouds
     private const double CapInitial = 0.31;
     private const double CapExpanded = 0.65;
     private const double StemInitial = 0.16;
-    private const double StemExpanded = 0.54;
+    private const double StemExpanded = 0.45;
 
     private sealed class Cloud
     {

@@ -675,6 +675,32 @@ public class MushroomCloudTests
     }
 
     /// <summary>
+    /// The cap is drawn several times the width of the stem under it, which is the proportion a
+    /// real one has and the thing that separates a mushroom from a lamp.
+    ///
+    /// <para>Not by moving <see cref="MushroomCloud.Shape.StemRadius"/>, which is Glasstone's half
+    /// of the cap and is a measurement rather than a knob — <c>TheStemIsHalfTheCapRadius</c> holds
+    /// that. What is narrowed is only what gets <em>drawn</em>: the spread the pens are laid over,
+    /// and the smoke tube around them. Same distinction <c>DrawnScale</c> already makes.</para>
+    /// </summary>
+    [Fact]
+    public void TheDrawnCapIsSeveralTimesTheDrawnStem()
+    {
+        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
+
+        const double spread = 0.24;         // NuclearClouds.StemSpread
+        const double tubeFraction = 0.45;   // NuclearClouds.StemExpanded
+
+        // The widest the column gets: the pen ring at its foot flare, plus a tube either side.
+        double ring = s.StemRadius * spread * MushroomCloud.StemFlare(0.0);
+        double drawnStem = ring + (s.CapTube * tubeFraction);
+
+        Assert.True(s.CapRadius > drawnStem * 2.2,
+            $"the cap is only {s.CapRadius / drawnStem:F1}x the drawn stem "
+            + $"({s.CapRadius:F0} m against {drawnStem:F0} m), which reads as a lamp");
+    }
+
+    /// <summary>
     /// The stem is an hourglass, and the widest it flares must still merge into one column.
     ///
     /// <para>Eight pens ring the axis at a radius the flare multiplies, so the foot — the widest
