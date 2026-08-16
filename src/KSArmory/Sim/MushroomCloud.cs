@@ -509,12 +509,52 @@ public static class MushroomCloud
         return 1.0 - (depth * (1.0 - wave) * 0.5);
     }
 
+    /// <summary>
+    /// How far past the pole the stroke lingers before it sweeps down. Above one.
+    ///
+    /// <para>Bounded above, and not by taste: delaying the sweep far enough and the cap has not
+    /// opened while the cloud is still climbing, which draws a pillar with a mushroom appearing on
+    /// top of it. <c>APenClimbsBeforeItFlares</c> holds that limit, and 1.55 is past it.</para>
+    /// </summary>
+    public const double CrownDwell = 1.35;
+
+    /// <summary>
+    /// Most of a stroke a pen may lag its neighbours by.
+    ///
+    /// <para>Bounded by coverage rather than by how it reads: past this the neighbouring pens are
+    /// far enough apart on the stroke that the gap between them exceeds their own tube and the cap
+    /// tears into ropes. <c>ALobedRingStillCloses</c> holds it, and it bites first at the instant
+    /// the sweep begins.</para>
+    /// </summary>
+    public const double PhaseSpread = 0.02;
+
+    /// <summary>
+    /// How far behind the stroke one pen runs, in [0, <see cref="PhaseSpread"/>].
+    ///
+    /// <para>Harmonics of the bearing rather than anything per-index, and that is the point: two
+    /// neighbouring pens get nearly the same offset, so the ring still closes. A hash or a low
+    /// discrepancy sequence would scatter them, and adjacent pens half a stroke apart tear the
+    /// surface open — which is the same coverage rule the pitch obeys, in time instead of space.</para>
+    /// </summary>
+    public static double PhaseOffset(int index, int count)
+    {
+        if (count <= 0) return 0.0;
+
+        double turn = 2.0 * Math.PI * index / count;
+        double wave = (0.6 * Math.Sin((2.0 * turn) + 0.7)) + (0.4 * Math.Cos((3.0 * turn) - 0.4));
+
+        return PhaseSpread * 0.5 * (1.0 + wave);
+    }
+
     public static double3 CapPoint(in Shape shape, int index, int count, double progress,
                                    double shell, double3 up, double3 east, double3 north)
     {
         if (count <= 0) return Vec.Zero;
 
-        double p = Math.Clamp(progress, 0.0, 1.0);
+        // Every pen on its own clock, a little behind the stroke. Without it the whole rim reaches
+        // each stage at the same instant, which is a machined ring however far Lobe pulls its
+        // radius out of round -- the evenness is in the *timing*, not the shape.
+        double p = Math.Clamp(progress - PhaseOffset(index, count), 0.0, 1.0);
         double radius = shape.CapRadius * shell;
 
         // Up the axis, over the top, down the outside, and tucked under. That is the vortex ring's
@@ -530,7 +570,13 @@ public static class MushroomCloud
         // From the pole round to past the equator. Stopping at the equator leaves a cap with a flat
         // underside; carrying on brings the lip back in under it, which is the overhang the whole
         // silhouette rests on.
-        double phi = (Math.PI / 2.0) - (Smooth(p, ClimbUntil, 1.0) * ((Math.PI / 2.0) + Tuck));
+        // Raised, so the pen lingers over the crown and hurries down the outside. The stroke's two
+        // ends are untouched -- it still starts at the pole and finishes at the same tuck -- so this
+        // moves smoke rather than the silhouette, filling a dome where a linear sweep leaves a
+        // planed top with the cap's whole volume hung below it.
+        double sweep = Math.Pow(Smooth(p, ClimbUntil, 1.0), CrownDwell);
+
+        double phi = (Math.PI / 2.0) - (sweep * ((Math.PI / 2.0) + Tuck));
 
         double turn = (2.0 * Math.PI * index / count) + (shape.Roll * p);
 
@@ -550,6 +596,73 @@ public static class MushroomCloud
         double t = Math.Clamp((x - from) / (to - from), 0.0, 1.0);
         return t * t * (3.0 - (2.0 * t));
     }
+
+    /// <summary>
+    /// How far downwind a parcel of cloud sits, given how high it has got.
+    ///
+    /// <para>A column that stands exactly vertical is the plainest tell that a shape was generated:
+    /// real clouds are sheared, the cap riding well downwind of the stem's foot because the wind
+    /// aloft is stronger than the wind at the ground. Applied to every point by height, it separates
+    /// the cap from the stem for free and costs no pens.</para>
+    ///
+    /// <para>Super-linear in height, so the foot stays nearly over the burst while the cap leans —
+    /// which is the shape of a real wind profile, and also what keeps the skirt where the crater is
+    /// rather than sliding it off downwind.</para>
+    /// </summary>
+    /// <param name="height">Height of the parcel above the burst (m).</param>
+    /// <param name="cloudTop">Stabilised height of the cloud top (m).</param>
+    public static double LeanAt(double height, double cloudTop)
+    {
+        if (!double.IsFinite(height) || !double.IsFinite(cloudTop) || cloudTop <= 0.0) return 0.0;
+
+        double t = Math.Clamp(height / cloudTop, 0.0, 1.0);
+        return LeanFraction * cloudTop * Math.Pow(t, LeanExponent);
+    }
+
+    /// <summary>Downwind displacement of the cloud top, as a fraction of its height.</summary>
+    public const double LeanFraction = 0.30;
+
+    /// <summary>Above one, so the foot stays put while the cap leans.</summary>
+    public const double LeanExponent = 1.4;
+
+    /// <summary>
+    /// The stem's width at a height, as a multiple of its nominal spread.
+    ///
+    /// <para>A stem of one width from skirt to cap is a tube, and reads as one. A real column is an
+    /// hourglass: wide where it flares out of the skirt, narrowest partway up where the updraught is
+    /// fastest, and widening again into the cap's underside.</para>
+    ///
+    /// <para>The waist is at <see cref="StemWaist"/> of the way up. Everything here is a multiplier
+    /// on a spread that already closes, and the widest it goes is the number the ring coverage has
+    /// to be checked against — see <c>AFlaredStemStillCloses</c>.</para>
+    /// </summary>
+    /// <param name="heightFraction">How far up the stem this parcel is, in [0, 1].</param>
+    public static double StemFlare(double heightFraction)
+    {
+        if (!double.IsFinite(heightFraction)) return 1.0;
+
+        double t = Math.Clamp(heightFraction, 0.0, 1.0);
+        if (t < StemWaist)
+        {
+            double below = 1.0 - (t / StemWaist);
+            return StemWaistWidth + (StemFootFlare * below * below);
+        }
+
+        double above = (t - StemWaist) / (1.0 - StemWaist);
+        return StemWaistWidth + (StemCapFlare * above * above);
+    }
+
+    /// <summary>Where up the stem the column is narrowest.</summary>
+    public const double StemWaist = 0.45;
+
+    /// <summary>Its width there, as a multiple of the nominal spread.</summary>
+    public const double StemWaistWidth = 0.85;
+
+    /// <summary>How much wider than the waist the foot is, flaring into the skirt.</summary>
+    public const double StemFootFlare = 0.85;
+
+    /// <summary>And how much wider it gets again under the cap.</summary>
+    public const double StemCapFlare = 0.40;
 
     /// <summary>Where the stem's head sits, as an offset from the burst.</summary>
     public static double3 StemPoint(in Shape shape, double3 up) => up * shape.StemTop;

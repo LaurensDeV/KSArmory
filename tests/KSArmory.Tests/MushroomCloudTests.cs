@@ -675,6 +675,78 @@ public class MushroomCloudTests
     }
 
     /// <summary>
+    /// The stem is an hourglass, and the widest it flares must still merge into one column.
+    ///
+    /// <para>Eight pens ring the axis at a radius the flare multiplies, so the foot — the widest
+    /// point — is where the pitch is worst. Past 1.1 tube they stop merging and the column reads as
+    /// a ring of poles, which is the same failure the cap ring has and the reason that rule exists.
+    /// The stem's own tube is <c>CapTube * 0.54</c>, from NuclearClouds.StemExpanded.</para>
+    /// </summary>
+    [Fact]
+    public void AFlaredStemStillCloses()
+    {
+        MushroomCloud.Shape s = MushroomCloud.At(0.3 * Kt, MushroomCloud.RiseSeconds);
+
+        const double spread = 0.35;         // NuclearClouds.StemSpread
+        const double tubeFraction = 0.54;   // NuclearClouds.StemExpanded
+        const int ringPens = 8;             // nine strands, one of them up the axis
+
+        double tube = s.CapTube * tubeFraction;
+        double worst = 0.0;
+        double worstAt = 0.0;
+
+        for (int i = 0; i <= 100; i++)
+        {
+            double t = i / 100.0;
+            double radius = s.StemRadius * spread * MushroomCloud.StemFlare(t);
+            double pitch = 2.0 * radius * Math.Sin(Math.PI / ringPens);
+            if (pitch > worst) { worst = pitch; worstAt = t; }
+        }
+
+        Assert.True(worst <= 1.1 * tube,
+            $"the stem's widest pitch is {worst:F0} m at {worstAt:P0} up, against a {tube:F0} m "
+            + $"tube; needs {1.1 * tube:F0} m or less, or the column reads as poles");
+    }
+
+    /// <summary>The flare is a waist, not a taper: narrower in the middle than at either end.</summary>
+    [Fact]
+    public void TheStemIsNarrowestAtItsWaist()
+    {
+        double foot = MushroomCloud.StemFlare(0.0);
+        double waist = MushroomCloud.StemFlare(MushroomCloud.StemWaist);
+        double head = MushroomCloud.StemFlare(1.0);
+
+        Assert.True(waist < foot, $"waist {waist:F2} should be narrower than the foot {foot:F2}");
+        Assert.True(waist < head, $"waist {waist:F2} should be narrower than the head {head:F2}");
+        Assert.True(foot > head, $"the foot {foot:F2} flares wider than the head {head:F2}");
+    }
+
+    /// <summary>
+    /// The cloud leans, and the cap leans further than the foot.
+    ///
+    /// <para>A column that stands exactly vertical is what separates a generated shape from a
+    /// photographed one. Super-linear in height, so the skirt stays over the crater it came from
+    /// rather than sliding off downwind with the cap.</para>
+    /// </summary>
+    [Fact]
+    public void TheCloudLeansAndTheCapLeansFurthestOfAll()
+    {
+        const double top = 3000.0;
+
+        double foot = MushroomCloud.LeanAt(0.0, top);
+        double half = MushroomCloud.LeanAt(top / 2.0, top);
+        double crown = MushroomCloud.LeanAt(top, top);
+
+        Assert.Equal(0.0, foot);
+        Assert.True(crown > half * 2.0,
+            $"the lean must be super-linear: {half:F0} m at half height against {crown:F0} m at the top");
+        Assert.Equal(MushroomCloud.LeanFraction * top, crown, 6);
+
+        Assert.Equal(0.0, MushroomCloud.LeanAt(500.0, 0.0));        // no cloud, no lean
+        Assert.Equal(0.0, MushroomCloud.LeanAt(double.NaN, top));
+    }
+
+    /// <summary>
     /// The fireball has lifted off the ground before the smoke takes over, and the smoke takes over
     /// where the fireball <em>is</em> rather than where the burst was.
     ///

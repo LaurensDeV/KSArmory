@@ -73,6 +73,11 @@ internal static class NuclearClouds
         public required double3 North;
         public required double ChargeKg;
 
+        // Which way this one leans. Fixed per cloud rather than per frame, or the column would
+        // wander; and per cloud rather than global, so two bursts in sight of each other do not
+        // lean identically.
+        public required double3 Downwind;
+
         public double Age;
 
         public readonly PlumeSmoke.Strand[] Stem =
@@ -117,6 +122,12 @@ internal static class NuclearClouds
             // which way "east" points is not a question anybody has to answer.
             double3 up = Vec.Unit(burstCcf);
             double3 east = Vec.Unit(Vec.AnyPerpendicular(up));
+            double3 north = Vec.Unit(Vec.Cross(up, east));
+
+            // A bearing for the wind aloft, taken off where the burst is rather than from a clock,
+            // so the same crater leans the same way every time. Two bursts within sight of each
+            // other land on nearly the same bearing, which is right: they stand in one wind.
+            double bearing = Math.Tau * ((Math.Abs(burstCcf.X) + Math.Abs(burstCcf.Z)) * 0.001 % 1.0);
 
             _clouds.Add(new Cloud
             {
@@ -124,7 +135,8 @@ internal static class NuclearClouds
                 BurstCcf = burstCcf,
                 Up = up,
                 East = east,
-                North = Vec.Unit(Vec.Cross(up, east)),
+                North = north,
+                Downwind = Vec.Unit((east * Math.Cos(bearing)) + (north * Math.Sin(bearing))),
                 ChargeKg = chargeKg,
             });
 
@@ -264,18 +276,27 @@ internal static class NuclearClouds
         // Its spread grows with the tube, and has to: the bundle reads as one column only while the
         // engine merges it, and the merge radius scales with the tube. Full spread over a
         // handover-width tube is nine poles.
+        // How far up the column the pens currently are, which is what gives the stem a profile
+        // rather than a constant width: each pen widens and narrows as it climbs, and the trail it
+        // leaves behind is the hourglass.
+        double underside = shape.CapCentre - shape.CapRadius;
+        double climbed = underside > 0.0 ? Math.Clamp(shape.StemTop / underside, 0.0, 1.0) : 1.0;
+        double flare = MushroomCloud.StemFlare(climbed);
+        double cloudTop = shape.CapCentre + shape.CapRadius;
+
         for (int i = 0; i < cloud.Stem.Length; i++)
         {
-            double3 at = cloud.BurstCcf + MushroomCloud.StemPoint(shape, cloud.Up);
+            double3 offset = MushroomCloud.StemPoint(shape, cloud.Up);
 
             if (i > 0)
             {
                 double turn = 2.0 * Math.PI * (i - 1) / Math.Max(1, cloud.Stem.Length - 1);
-                double off = shape.StemRadius * StemSpread * growth;
-                at += (cloud.East * (Math.Cos(turn) * off)) + (cloud.North * (Math.Sin(turn) * off));
+                double off = shape.StemRadius * StemSpread * growth * flare;
+                offset += (cloud.East * (Math.Cos(turn) * off))
+                          + (cloud.North * (Math.Sin(turn) * off));
             }
 
-            PlumeSmoke.Lay(cloud.Stem[i], cloud.Body, at,
+            PlumeSmoke.Lay(cloud.Stem[i], cloud.Body, cloud.BurstCcf + Sheared(cloud, offset, cloudTop),
                            (float)stemLaid, (float)stemNow);
         }
 
@@ -308,13 +329,21 @@ internal static class NuclearClouds
             double stood = height * MushroomCloud.Lobe(turn + 2.0, MushroomCloud.SkirtLobeDepth);
 
             double3 at = cloud.BurstCcf
-                         + (cloud.Up * stood)
-                         + (cloud.East * (Math.Cos(turn) * lobed))
-                         + (cloud.North * (Math.Sin(turn) * lobed));
+                         + Sheared(cloud,
+                                   (cloud.Up * stood)
+                                   + (cloud.East * (Math.Cos(turn) * lobed))
+                                   + (cloud.North * (Math.Sin(turn) * lobed)),
+                                   shape.CapCentre + shape.CapRadius);
 
             PlumeSmoke.Lay(cloud.Surge[i], cloud.Body, at, (float)(tube * 0.5), (float)tube);
         }
     }
+
+    // Every point the cloud is drawn at, sheared downwind by how high it is. Applied here rather
+    // than inside the stroke functions so the shape stays a shape and the wind stays a wind: the
+    // cap leans further than the stem for free, because it is higher.
+    private static double3 Sheared(Cloud cloud, double3 offset, double cloudTop)
+        => offset + (cloud.Downwind * MushroomCloud.LeanAt(Vec.Dot(offset, cloud.Up), cloudTop));
 
     private static void Ring(Cloud cloud, PlumeSmoke.Strand[] pens, in MushroomCloud.Shape shape,
                              double progress, double shell, double path, double laid, double expanded)
@@ -326,8 +355,10 @@ internal static class NuclearClouds
         for (int i = 0; i < pens.Length; i++)
         {
             double3 at = cloud.BurstCcf
-                         + MushroomCloud.CapPoint(walked, i, pens.Length, progress, shell,
-                                                  cloud.Up, cloud.East, cloud.North);
+                         + Sheared(cloud,
+                                   MushroomCloud.CapPoint(walked, i, pens.Length, progress, shell,
+                                                          cloud.Up, cloud.East, cloud.North),
+                                   shape.CapCentre + shape.CapRadius);
 
             // No fade here. A radius written after a segment is laid never reaches it -- the pen
             // only rewrites the one it currently holds open -- so fading this would look like it
