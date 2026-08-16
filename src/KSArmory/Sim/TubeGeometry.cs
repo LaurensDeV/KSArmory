@@ -289,8 +289,37 @@ public static class TubeGeometry
     /// origin, and the two differ by metres on a landed craft.
     /// </summary>
     public static double3 BodyPositionPartFrame(double3 anchorPartFrame, double3 travelEcl,
-                                                doubleQuat ecl2Asmb, doubleQuat asmb2Part)
-        => anchorPartFrame + asmb2Part * (ecl2Asmb * travelEcl);
+                                                doubleQuat ecl2Asmb, doubleQuat asmb2Part,
+                                                doubleQuat sinceLaunchAsmb)
+        => CarryAnchor(anchorPartFrame, sinceLaunchAsmb, asmb2Part)
+           + asmb2Part * (ecl2Asmb * travelEcl);
+
+    /// <summary>
+    /// The launch anchor as it stands now, after the craft has turned underneath it.
+    ///
+    /// <para><b>The anchor is a point in the world, written down in the part's frame.</b> The
+    /// travel term is converted through the craft's <em>current</em> attitude every frame and so
+    /// stays put; the anchor was not, so it rode the craft. Rolling the launcher then swung every
+    /// round already in flight about the craft's own centre — on a stack that lever arm is the
+    /// whole distance from the tube to the centre of mass, which is metres, not millimetres.</para>
+    ///
+    /// <para><paramref name="sinceLaunchAsmb"/> is <c>Conjugate(attitude now) * attitude at
+    /// launch</c>: identity while the craft holds still, so a launcher that never turns is
+    /// untouched by this and every round fired before it behaves exactly as it did.</para>
+    ///
+    /// <para>A quaternion that is not unit length has never been set — a round from before this
+    /// existed — and the anchor stands as it was rather than being multiplied by nonsense.</para>
+    /// </summary>
+    public static double3 CarryAnchor(double3 anchorPartFrame, doubleQuat sinceLaunchAsmb,
+                                      doubleQuat asmb2Part)
+    {
+        double norm = sinceLaunchAsmb.X * sinceLaunchAsmb.X + sinceLaunchAsmb.Y * sinceLaunchAsmb.Y
+                    + sinceLaunchAsmb.Z * sinceLaunchAsmb.Z + sinceLaunchAsmb.W * sinceLaunchAsmb.W;
+        if (!double.IsFinite(norm) || Math.Abs(norm - 1.0) > 1e-6) return anchorPartFrame;
+
+        double3 carried = asmb2Part * (sinceLaunchAsmb * (doubleQuat.Conjugate(asmb2Part) * anchorPartFrame));
+        return Vec.IsFinite(carried) ? carried : anchorPartFrame;
+    }
 
     /// <summary>
     /// Which way a round in flight points, in the launcher part's frame.

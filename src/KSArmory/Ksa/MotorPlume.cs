@@ -127,7 +127,7 @@ internal sealed class MotorPlume
 
         if (!LauncherPart.TryGetBodyEcl(platform, launcher, round.LaunchAnchorPartFrame,
                                         round.TravelSinceLaunch, battery.PlatformEcl,
-                                        out double3 bodyEcl))
+                                        round.LaunchAttitude, out double3 bodyEcl))
         {
             return;
         }

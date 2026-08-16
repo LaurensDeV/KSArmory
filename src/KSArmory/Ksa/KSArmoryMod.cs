@@ -395,7 +395,7 @@ public sealed class KSArmoryMod
 
                 // Gathered once, not once per system: every crewed system scans the same sky, and
                 // building this per system would be quadratic in how many are in the world.
-                CollectAirborne();
+                CollectAirborne(step);
 
                 foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step, _airborne);
 
@@ -562,7 +562,14 @@ public sealed class KSArmoryMod
     // A round carries its shooter's craft name rather than its own, which is what makes it
     // inherit that side's allegiance: a launcher's own salvo reads as friendly to everything on
     // its team without anything having to know a round from a craft.
-    private void CollectAirborne()
+    //
+    // Called once, here, before any system updates -- so every round in the world is still where
+    // last frame left it and one instant describes the lot. Each is then carried forward by the
+    // step it is about to be integrated across, which puts the sample at the end of this frame:
+    // the phase KSA reports vehicle state at, and the phase every TargetState is defined at. The
+    // error in that carry is the step's gravity and drag, ~1 mm; the error in not doing it is a
+    // whole frame of closing motion, and it lands on whichever system happens to update last.
+    private void CollectAirborne(double step)
     {
         _airborne.Clear();
         if (_roster is null) return;
@@ -577,9 +584,11 @@ public sealed class KSArmoryMod
 
             for (int i = 0; i < rounds.Count; i++)
             {
-                if (rounds[i].State != RoundState.Flying) continue;
+                IProjectile r = rounds[i];
+                if (r.State != RoundState.Flying) continue;
 
-                _airborne.Add(new RoundContact(rounds[i], name, platform));
+                _airborne.Add(new RoundContact(r, name, platform,
+                                               r.PositionEcl + r.VelocityEcl * step, r.VelocityEcl));
             }
         }
     }

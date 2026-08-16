@@ -105,6 +105,7 @@ Ranked by how likely a failure is. Worth reading before you start.
 | **Medium** | `mod.toml` serving as both content manifest and StarMap manifest. Plausible, untested. | [1.1](#11-the-mod-loads) |
 | **Medium** | `Program.VehiclesInFrame` may not contain the loaded vehicles, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
 | **Medium** | Boresight is local "up" derived from the parent body; if `Vehicle.Parent` misbehaves the cone points somewhere daft. | [3.2](#32-the-search-cone-is-drawn) |
+| **Medium** | Shooting down a round. Three seams changed at once and none of them is reachable from the test project. | [7.1d](#71d-shooting-down-a-round--never-once-worked-so-nothing-here-has-ever-been-seen) |
 | **Low** | Guidance and fuse maths — covered by the headless suite, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
 | **Low** | `DestroyVehicleFromEvent` may behave oddly with `Cause = Collision`. | [4.4](#44-the-warhead-kills) |
 
@@ -386,10 +387,15 @@ This is the headline behaviour and the thing the headless tests prove in isolati
 - [ ] Against a target crossing your position, the round **leads** it — aims at where the
       target is going, not where it is.
 - [ ] It detonates near the target.
-- [ ] Console logs `round N detonated, miss distance X m` with X under ~25 m.
+- [ ] Console logs `round N detonated with the target at X m` with X under ~25 m.
+
+      That number is the range at which the **fuse** fired, bounded by the round's own fuse radius
+      plus the target's `MeanRadius` — never how far it missed by. A proximity-fused round reports
+      its own envelope on every good shot, so a burst at exactly the trigger is the weapon working.
+      What a bad shot looks like is `expired`, with the closest approach on the same line.
 
 **If it fails:** consistently missing behind means the lead isn't working; raise *Nav constant*
-and *Max lateral g* and see if it improves. Report the miss distances — the headless tests pass,
+and *Max lateral g* and see if it improves. Report the trigger ranges — the headless tests pass,
 so a real-world failure points at frame timing or the target-state sampling, not the maths.
 
 ### 4.4 The warhead kills
@@ -450,7 +456,7 @@ Where latent bugs are most likely.
       drone and back. The cone, track markers and tracers must stay locked to the craft and to
       each other. *(`GetPositionEgo` takes a different branch depending on what the camera
       follows, so a mismatch there shifts the whole overlay and makes hits look like misses. The
-      log is the arbiter — miss distances stay ~22 m either way.)*
+      log is the arbiter — the fuse trigger ranges stay ~22 m either way.)*
 - [ ] **6.3** **Target dies mid-flight** — destroy the target another way while rounds chase it.
       They should lose lock and expire, not throw.
 - [ ] **6.4** **Platform destroyed** with rounds in flight — no exception spam.
@@ -526,6 +532,33 @@ ridge, and the cost is the thing no test can answer.
       altitude does not move the frame time. That is `TryBandBelow` doing its job, and if the cost
       *does* move, it is not.
 - [ ] Nothing throws over a body with no height map, and over a moon.
+
+### 7.1d Shooting down a round  ← never once worked, so nothing here has ever been seen
+
+Rounds have been visible to radar and engageable by fire control from the start, and could not be
+hit by anything: a round is not a `Vehicle`, so the shell's contact list never held one, the
+missile's target sample refused one, and the kill path had no way to reach one. What changed is
+`IProjectile.ShootDown` and the three seams that now find their way to it. **All of it is
+unverified in flight** — `RoundInterceptTests` covers the state machine and the shell geometry,
+and nothing under `Sim/` can reach the wiring.
+
+- [ ] Two sites, opposite teams, one firing at the other. The defender's **cannon** shells reach
+      the incoming round and the log says `intercepted <name> at <n> m`. Before this, the same
+      engagement fired the whole belt and the missile arrived regardless.
+- [ ] The intercepted round disappears — from the scope, from the world, and its body with it. Its
+      own launcher says `round N was shot down after <t>s`.
+- [ ] It does **not** explode where it was intercepted. `ShotDown` is not `Detonated`, and a
+      fireball there means something is reading the two as one.
+- [ ] The defender's **missiles** can do it too, by proximity rather than contact. Needs a target
+      further out than the 1.2 km minimum range — inside that the cannon is the only answer, which
+      is what `holding fire: target out of reach` says when it happens.
+- [ ] Nothing shoots down its own salvo. Every launcher filters its own rounds out before the radar
+      sees them, but a *second* launcher on the same craft is a separate system with its own list.
+- [ ] Frame time with a full CIWS burst up against a salvo of incoming rounds. The designated-target
+      path is one extra sweep per shell, which should be nothing — but that is a prediction.
+- [ ] Two defenders engaging one missile, at different simulation speeds and under warp. Both
+      should agree on whether it died; if they disagree, the airborne sample is not being read at
+      one instant and `docs/FRAMES-AND-EPOCHS.md` says why that matters.
 
 ### 7.1c3 Telling targets apart — size, Doppler and clutter
 
@@ -1025,4 +1058,5 @@ Most useful, in order:
    `Logs/KittenSpaceAgency.log` too if the part or XML is misbehaving.
 2. Which checklist item failed and what you saw instead.
 3. A screenshot for anything visual (2.2 especially).
-4. For guidance misses: the `miss distance` values, plus whether it lagged behind or overshot.
+4. For guidance misses: the fuse trigger ranges off the `detonated` lines and the closest
+   approaches off the `expired` ones, plus whether it lagged behind or overshot.

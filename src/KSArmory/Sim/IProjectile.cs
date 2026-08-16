@@ -67,6 +67,24 @@ internal interface IProjectile
     double3 LaunchAnchorPartFrame { get; set; }
 
     /// <summary>
+    /// Which way it left, in Ecl. Set at launch and never updated afterwards.
+    ///
+    /// <para>A body released in vacuum keeps the attitude it was let go with. Reading the
+    /// launcher's <em>current</em> tube axis instead ties a round that has already gone to the
+    /// craft that dropped it, so rolling the launcher rolls the rounds in flight with it.</para>
+    /// </summary>
+    double3 ReleaseHeadingEcl { get; set; }
+
+    /// <summary>
+    /// The platform's attitude when this round left, as Asmb2Ecl. Set at launch, never updated.
+    ///
+    /// <para>The launch anchor is a point in the world written down in the launcher's frame, so it
+    /// has to be carried back through however far the craft has turned since. Without this a
+    /// spinning launcher swings every round already in flight around with it.</para>
+    /// </summary>
+    doubleQuat LaunchAttitude { get; set; }
+
+    /// <summary>
     /// Which round this is. A launcher flying more than one weapon steps and fuses each by its
     /// own numbers, so the projectile carries them rather than the battery holding one set.
     /// </summary>
@@ -116,6 +134,18 @@ internal interface IProjectile
     object? StruckBody { get; }
 
     // ---- Behaviour -------------------------------------------------------
+
+    /// <summary>
+    /// Ends this round because something else destroyed it in the air.
+    ///
+    /// <para>The only state change a projectile does not decide for itself, and the reason it is
+    /// on the interface rather than beside the fuse: what shoots a round down is another weapon,
+    /// which reaches it through this and nothing else. A round already finished ignores it, so a
+    /// shell and a warhead arriving in the same frame cannot end it twice.</para>
+    ///
+    /// <para>Sets no miss distance and fires no warhead. Its own launcher reaps it and says so.</para>
+    /// </summary>
+    void ShootDown();
 
     /// <summary>
     /// How far this round's fins have deployed, 0 to 1. Returns 1 for anything with no fins to

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-130 types and 352 members across 6 assemblies.
+130 types and 358 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -54,10 +54,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.doubleQuat
 
 - `Brutal.Numerics.double3 op_Multiply(Brutal.Numerics.doubleQuat, Brutal.Numerics.double3)`
+- `Brutal.Numerics.doubleQuat Concatenate(Brutal.Numerics.doubleQuat, Brutal.Numerics.doubleQuat)`
 - `Brutal.Numerics.doubleQuat Conjugate(Brutal.Numerics.doubleQuat)`
 - `Brutal.Numerics.doubleQuat CreateFromAxisAngle(Brutal.Numerics.double3, double)`
 - `Brutal.Numerics.doubleQuat get_Identity()`
 - `Brutal.Numerics.doubleQuat op_Multiply(Brutal.Numerics.doubleQuat, Brutal.Numerics.doubleQuat)`
+- `double W`
+- `double X`
+- `double Y`
+- `double Z`
 
 ### Brutal.Numerics.float2
 
@@ -713,6 +718,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Vehicle
 
+- `Brutal.Numerics.double3 get_BodyRates()`
 - `Brutal.Numerics.double3 get_CenterOfMassAsmb()`
 - `Brutal.Numerics.double4x4 GetMatrixAsmb2Ego(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double4x4 GetMatrixAsmb2Ego(KSA.Camera)`

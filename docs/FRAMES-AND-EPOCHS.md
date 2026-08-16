@@ -63,6 +63,19 @@ proportional navigation then flies a clean intercept on a ghost 450–680 m away
 onto the wrong point. The detonation instant must move with it, or the blast sweep breaks by `V·dt`
 the other way. They are one change.
 
+**A round used as a target is sampled once, for everyone, before anything steps.** Every other
+target this mod aims at is a KSA object whose position the engine settles before the frame hook
+runs, so every system reads the same instant however they are ordered. A round has no such
+authority behind it: it is advanced by its *own* launcher's update, so a live reference answers
+start-of-step or end-of-step depending on which system asks first — and the roster is a dictionary,
+so that order is not even stable. `KSArmoryMod.CollectAirborne` therefore samples every round in
+the world before the update loop and carries each forward by the step it is about to be integrated
+across, which puts it at the end-of-step phase a `TargetState` is defined at. The carry costs the
+step's gravity and drag, about a millimetre. Not carrying it costs a whole frame of closing motion
+— metres across a shell's fuse radius, deciding hits — and it lands on whichever system happens to
+update last. `RoundInterceptTests.SamplingAnIncomingRoundAtTheWrongEndOfTheStepMovesItMetres`
+measures the gap.
+
 **Consume the step; never peek at it twice.** `GetLastSimStep()` answers "the last step", not "a
 step since you last asked". `KsaWorld.ConsumeSimStep` deduplicates on the step's own `NextTime`.
 

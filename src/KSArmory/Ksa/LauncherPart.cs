@@ -259,11 +259,18 @@ internal static class LauncherPart
             if (fins is not null) TryPlaceFins(fins, seated, rotation, 0.0, munition);
             return true;
         }
-        catch
+        catch (Exception e)
         {
+            // A silent false here shrinks the body to a millimetre and says nothing, which reads
+            // in game as a round that simply is not there. Say it once per launcher.
+            if (_seatFailure.Add(profile.PartId))
+                Log.Warn($"seating tube {tubeIndex} of {profile.PartId} failed: {e.GetType().Name}: {e.Message}");
             return false;
         }
     }
+
+    // Launchers already complained about, so a per-frame failure is not a per-frame log.
+    private static readonly HashSet<string> _seatFailure = [];
 
     public static bool TryGetTubeAxisEcl(Vehicle platform, Part launcher, Part? pods, LauncherProfile profile,
                                          int tubeIndex, out double3 axisEcl)
@@ -297,7 +304,8 @@ internal static class LauncherPart
     /// </summary>
     public static bool TryGetBodyEcl(Vehicle platform, Part launcher,
                                      double3 launchAnchorPartFrame, double3 travelEcl,
-                                     double3 platformEcl, out double3 ecl)
+                                     double3 platformEcl, doubleQuat launchAttitude,
+                                     out double3 ecl)
     {
         ecl = Vec.Zero;
 
@@ -306,8 +314,9 @@ internal static class LauncherPart
             doubleQuat ecl2Asmb = doubleQuat.Conjugate(platform.Asmb2Ego);
             doubleQuat asmb2Part = doubleQuat.Conjugate(launcher.Asmb2VehicleAsmb);
 
-            double3 partFrame = TubeGeometry.BodyPositionPartFrame(launchAnchorPartFrame, travelEcl,
-                                                                   ecl2Asmb, asmb2Part);
+            double3 partFrame = TubeGeometry.BodyPositionPartFrame(
+                launchAnchorPartFrame, travelEcl, ecl2Asmb, asmb2Part,
+                doubleQuat.Concatenate(launchAttitude, ecl2Asmb));
             if (!Vec.IsFinite(partFrame)) return false;
 
             double3 inVehicle = launcher.PositionVehicleAsmb + (launcher.Asmb2VehicleAsmb * partFrame);
@@ -432,9 +441,10 @@ internal static class LauncherPart
     /// </summary>
     public static bool TryPlaceMissile(
         Vehicle platform, Part launcher, Part missile,
-        double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl)
+        double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl,
+        doubleQuat launchAttitude)
         => TryPlaceMissile(platform, launcher, missile, launchAnchorPartFrame, travelEcl,
-                           directionEcl, out _, out _);
+                           directionEcl, launchAttitude, out _, out _);
 
     /// <summary>
     /// As above, and reports the transform it used so a fin set can be hung on the same one -
@@ -443,7 +453,7 @@ internal static class LauncherPart
     public static bool TryPlaceMissile(
         Vehicle platform, Part launcher, Part missile,
         double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl,
-        out double3 position, out doubleQuat rotation)
+        doubleQuat launchAttitude, out double3 position, out doubleQuat rotation)
     {
         position = Vec.Zero;
         rotation = doubleQuat.Identity;
@@ -456,8 +466,12 @@ internal static class LauncherPart
             // asmb2Part is currently identity - the launcher is mounted unrotated relative to the
             // vehicle assembly - but PositionParentAsmb is the assembly frame, so the conversion
             // is kept explicit rather than relying on that holding.
+            // How far the craft has turned since this round left. The anchor is a world point
+            // written in the part's frame, so it has to be carried back through that.
+            doubleQuat sinceLaunch = doubleQuat.Concatenate(launchAttitude, ecl2Asmb);
+
             position = TubeGeometry.BodyPositionPartFrame(launchAnchorPartFrame, travelEcl,
-                                                          ecl2Asmb, asmb2Part);
+                                                          ecl2Asmb, asmb2Part, sinceLaunch);
             if (!Vec.IsFinite(position)) return false;
 
             rotation = TubeGeometry.BodyRotationPartFrame(directionEcl, ecl2Asmb, asmb2Part);

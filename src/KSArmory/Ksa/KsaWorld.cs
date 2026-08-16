@@ -181,6 +181,46 @@ internal static class KsaWorld
     public static double3 VelocityEcl(Vehicle v) => v.GetVelocityEcl();
 
     /// <summary>
+    /// How fast a craft is turning, in Ecl, rad/s.
+    ///
+    /// <para><c>Body2Ego</c>, <c>Asmb2Cce</c> and <c>Asmb2Ego</c> all return the same quaternion,
+    /// so KSA's body frame and its assembly frame are one and the same and <c>BodyRates</c> needs
+    /// no conversion beyond the craft's attitude.</para>
+    /// </summary>
+    public static double3 AngularVelocityEcl(Vehicle v)
+    {
+        try
+        {
+            double3 rates = v.Asmb2Ego * v.BodyRates;
+            return Vec.IsFinite(rates) ? rates : Vec.Zero;
+        }
+        catch
+        {
+            return Vec.Zero;      // a craft that will not report its spin simply is not spinning
+        }
+    }
+
+    /// <summary>
+    /// The point a craft turns about, in Ecl — its centre of mass, not its assembly origin.
+    ///
+    /// <para>The two differ by metres on a real stack, and a lever arm measured from the origin
+    /// gives a released store the wrong tangential velocity by exactly that offset times the spin
+    /// rate.</para>
+    /// </summary>
+    public static double3 CentreOfMassEcl(Vehicle v)
+    {
+        try
+        {
+            double3 com = v.GetPositionEcl() + v.Asmb2Ego * v.CenterOfMassAsmb;
+            return Vec.IsFinite(com) ? com : v.GetPositionEcl();
+        }
+        catch
+        {
+            return v.GetPositionEcl();
+        }
+    }
+
+    /// <summary>
     /// Whether a celestial body sits between two points — the planet in the way.
     ///
     /// <para>Every body in the system, not just the one being orbited: a marker hidden behind a

@@ -37,6 +37,30 @@ public class ProjectileContractTests
     private static MunitionProfile Vacuum() =>
         new() { Name = "test", DisplayName = "test", DragK = 0f, BoostSeconds = 0f, BoostAccel = 0f };
 
+    /// <summary>
+    /// The direction a round left along is recorded once and never touched by the simulation.
+    ///
+    /// <para>The body is drawn along it whenever there is no airflow to say otherwise, so if a
+    /// step could rewrite it, a round released in vacuum would swing about as its launcher did.
+    /// Seen in flight: rolling the bus rolled every reentry vehicle already off it.</para>
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(AllKinds))]
+    public void TheReleaseHeadingSurvivesEveryStep(Kind kind)
+    {
+        double3 platform = new(1.496e11, 0, 0);
+        double3 released = Vec.Unit(new double3(0.3, 0.5, -0.81));
+
+        IProjectile round = Make(kind, platform, SolarFrame + new double3(0, 0, 600), platform, SolarFrame);
+        round.ReleaseHeadingEcl = released;
+
+        for (int i = 0; i < 50; i++)
+            round.Update(0.05, null, new double3(0, 0, -9.81), SolarFrame, platform, Vacuum());
+
+        Assert.True(Vec.Len(round.ReleaseHeadingEcl - released) < 1e-12,
+            $"{kind} lost the heading it was released along; the body would follow its launcher");
+    }
+
     // ---- Orientation -----------------------------------------------------
 
     /// <summary>

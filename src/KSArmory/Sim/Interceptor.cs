@@ -7,6 +7,12 @@ internal enum RoundState
     Flying,
     Detonated,
     Expired,
+
+    /// <summary>
+    /// Destroyed in the air by somebody else. Distinct from <see cref="Detonated"/>: this round's
+    /// warhead never fired, so nothing is owed a blast at the wreck.
+    /// </summary>
+    ShotDown,
 }
 
 /// <summary>
@@ -73,6 +79,12 @@ internal sealed class Interceptor : IProjectile
     public Aimpoint Aimpoint { get; set; }
 
     public RoundState State { get; private set; } = RoundState.Flying;
+
+    /// <inheritdoc cref="IProjectile.ShootDown"/>
+    public void ShootDown()
+    {
+        if (State == RoundState.Flying) State = RoundState.ShotDown;
+    }
 
     /// <summary>
     /// Always null. This round is proximity-fused, so it kills by being near rather than by
@@ -149,6 +161,12 @@ internal sealed class Interceptor : IProjectile
     /// against the tube it came out of rather than against the platform's orbit position.
     /// </summary>
     public double3 LaunchAnchorPartFrame { get; set; }
+
+    /// <inheritdoc />
+    public double3 ReleaseHeadingEcl { get; set; }
+
+    /// <inheritdoc />
+    public doubleQuat LaunchAttitude { get; set; }
 
     /// <inheritdoc cref="IProjectile.Munition"/>
     public required MunitionProfile Munition { get; init; }

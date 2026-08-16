@@ -335,7 +335,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/LevelHorizonController.cs` | KSA's fixed camera controller, with an up vector it does not otherwise offer |
 | `Ksa/WatchCamera.cs` | nudges the main view round onto one system, then lets go |
 | `Ksa/Contact.cs` | **what a sensor can hold** — a craft, or anything else that can be seen |
-| `Ksa/RoundContact.cs` | somebody else's round in the air, as a thing a radar can see |
+| `Ksa/RoundContact.cs` | somebody else's round in the air, as a thing a radar can see and a gun can shoot at |
 | `Ksa/Track.cs` | one contact, with the kinematics the threat model reasons about |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
 | `Ksa/ScenarioRunner.cs` | flies a scripted engagement with nobody watching, and says what happened |
@@ -360,7 +360,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 352 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 358 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
@@ -1148,6 +1148,31 @@ Three rules hold that together:
 - **A round names what it struck.** Fire control decides what to shoot at; it does not decide
   what a shell in the air passes through. Scoring a strike on a bystander against the *target's*
   lethal range destroys something the round never reached.
+
+**A round can be shot down, and that needed a path of its own rather than a wider blast.** A round
+is not a `Vehicle`, so none of the machinery above reaches one: `ContactCandidates` collects craft,
+`SampleTarget` refused anything that was not a craft, and the kill path calls
+`DestroyVehicleFromEvent`. The result was a Pantsir that tracked an incoming missile, laid the
+guns on its ballistic lead, fired the whole way in and could not have hit it at any aim — a
+dead-centre shell tested against nothing and passed through. `IProjectile.ShootDown` is the only
+way one ends, and `RoundState.ShotDown` is deliberately not `Detonated`: an intercepted round's
+warhead never fired, and reading the two as one lets a missile splash the thing it was intercepted
+over.
+
+Three things follow, and the first is the one that bites:
+
+- **The airborne sample is taken once for every system, before any of them steps.** A round is
+  advanced by its own launcher's update, so a live reference is start-of-step or end-of-step
+  depending on roster order — metres of closing motion, across a shell's fuse radius, decided by a
+  dictionary's iteration order. `docs/FRAMES-AND-EPOCHS.md` has the rule.
+- **A shell reaches a round only as its *designated* target, never as a bystander.**
+  `ContactCandidates` is still craft-only on purpose: it is walked per round per sub-step, and a
+  CIWS burst is 150 shells, so adding every round in the air to it multiplies that loop by the size
+  of the salvo. The burst is aimed at the missile, which is the case that matters; the cost of the
+  general one has never been measured, and CLAUDE.md's rule about unmeasured per-frame costs
+  applies.
+- **A missile intercepts by blast, a shell by touching** — the same split as everywhere else, and
+  it falls out for free: the splash sweep now runs over rounds in the air as well as craft.
 
 `Ksa/HullTest.cs` needs no camera: `Vehicle.GetMatrixAsmb2Ego` takes the frame origin as an
 argument, so passing the round-relative separation puts the whole per-triangle cast in a

@@ -621,7 +621,8 @@ public class TubeGeometryTests
         double3 placed = TubeGeometry.BodyPositionPartFrame(
             anchor, travelEcl: Vec.Zero,
             ecl2Asmb: doubleQuat.CreateFromAxisAngle(new double3(0, 1, 0), 0.8),
-            asmb2Part: doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), -0.3));
+            asmb2Part: doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), -0.3),
+            sinceLaunchAsmb: doubleQuat.Identity);
 
         AssertClose(anchor, placed, "body at zero travel");
     }
@@ -641,7 +642,7 @@ public class TubeGeometryTests
         // A quarter turn about +X maps +Y onto +Z.
         doubleQuat quarter = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), Math.PI / 2);
 
-        double3 placed = TubeGeometry.BodyPositionPartFrame(anchor, travel, quarter, doubleQuat.Identity);
+        double3 placed = TubeGeometry.BodyPositionPartFrame(anchor, travel, quarter, doubleQuat.Identity, doubleQuat.Identity);
 
         AssertClose(new double3(1, 2, 10), placed, "body with rotated travel");
     }
@@ -652,8 +653,8 @@ public class TubeGeometryTests
         double3 anchor = new(5, 5, 5);
         double3 travel = new(100, 0, 0);
 
-        double3 once = TubeGeometry.BodyPositionPartFrame(anchor, travel, doubleQuat.Identity, doubleQuat.Identity);
-        double3 twice = TubeGeometry.BodyPositionPartFrame(anchor, travel * 2.0, doubleQuat.Identity, doubleQuat.Identity);
+        double3 once = TubeGeometry.BodyPositionPartFrame(anchor, travel, doubleQuat.Identity, doubleQuat.Identity, doubleQuat.Identity);
+        double3 twice = TubeGeometry.BodyPositionPartFrame(anchor, travel * 2.0, doubleQuat.Identity, doubleQuat.Identity, doubleQuat.Identity);
 
         AssertClose(once - anchor, (twice - anchor) * 0.5, "travel scaling");
     }
@@ -736,5 +737,66 @@ public class TubeGeometryTests
         var munition = new MunitionProfile { Name = "test", DisplayName = "test", FinStowedScale = 0.06f };
 
         Assert.False(Vec.IsFinite(TubeGeometry.FinScale(munition, double.NaN)));
+    }
+
+    // ---- The anchor is a world point, not a part-frame one -----------------
+
+    /// <summary>
+    /// A craft that rolls after firing must not drag the round with it.
+    ///
+    /// <para>The anchor is where the tube <em>was</em>, written down in the launcher's frame. The
+    /// travel term is re-converted through the craft's current attitude every frame and so stays
+    /// put; the anchor was not, so a rolling launcher swung every round already in flight about its
+    /// own centre. The lever arm is the whole distance from tube to centre of mass — metres on a
+    /// stack, and plainly visible in orbit.</para>
+    ///
+    /// <para>Checked where it matters: back out in the world, which is what a player sees.</para>
+    /// </summary>
+    [Fact]
+    public void RollingTheCraftDoesNotMoveARoundAlreadyInFlight()
+    {
+        double3 anchor = new(1.73, 0.96, 0.0);
+        double3 travelEcl = new(400.0, -60.0, 12.0);
+
+        // Deliberately NOT identity. With identity the composition below is the same whichever way
+        // round its operands go, so the test would pass against a reversed quaternion order and
+        // prove nothing about the one thing it exists to check.
+        doubleQuat atLaunch = doubleQuat.CreateFromAxisAngle(Vec.Unit(new double3(0.3, -0.7, 0.5)), 1.1);
+
+        double3 WorldOf(doubleQuat attitudeNow)
+        {
+            doubleQuat ecl2Asmb = doubleQuat.Conjugate(attitudeNow);
+            double3 partFrame = TubeGeometry.BodyPositionPartFrame(
+                anchor, travelEcl, ecl2Asmb, doubleQuat.Identity,
+                doubleQuat.Concatenate(atLaunch, ecl2Asmb));
+            return attitudeNow * partFrame;         // back into the world the player watches
+        }
+
+        double3 still = WorldOf(atLaunch);
+        foreach (double roll in new[] { 0.4, 1.6, 3.14159, 5.0 })
+        {
+            double3 rolled = WorldOf(doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), roll));
+            Assert.True(Vec.Len(still - rolled) < 1e-9,
+                $"rolling {roll:F2} rad moved the round {Vec.Len(still - rolled):F3} m");
+        }
+    }
+
+    /// <summary>A launcher that never turns is untouched by any of this.</summary>
+    [Fact]
+    public void AnUnturnedCraftLeavesTheAnchorExactlyWhereItWas()
+    {
+        double3 anchor = new(2.9, 1.8, 1.3);
+        doubleQuat asmb2Part = doubleQuat.CreateFromAxisAngle(new double3(0, 0, 1), 0.7);
+        AssertClose(anchor, TubeGeometry.CarryAnchor(anchor, doubleQuat.Identity, asmb2Part),
+                    "identity carry");
+    }
+
+    /// <summary>An attitude that was never recorded must leave the anchor exactly as it is.</summary>
+    [Fact]
+    public void AnUnsetAttitudeLeavesTheAnchorAlone()
+    {
+        double3 anchor = new(2.9, 1.8, 1.3);
+        AssertClose(anchor, TubeGeometry.CarryAnchor(anchor, default, doubleQuat.Identity),
+                    "unset quaternion");
     }
 }

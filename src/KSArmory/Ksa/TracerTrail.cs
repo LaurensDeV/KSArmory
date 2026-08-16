@@ -176,7 +176,7 @@ internal sealed class TracerTrail
         // on a landed craft is metres from where its parts are actually placed.
         if (!LauncherPart.TryGetBodyEcl(platform, launcher, round.LaunchAnchorPartFrame,
                                         round.TravelSinceLaunch, battery.PlatformEcl,
-                                        out double3 ecl))
+                                        round.LaunchAttitude, out double3 ecl))
         {
             return false;
         }

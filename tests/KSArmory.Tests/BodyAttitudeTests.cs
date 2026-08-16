@@ -122,6 +122,47 @@ public class BodyAttitudeTests
                          Vec.AngleBetween(Turn(seated), Turn(boresighted))), 6);
     }
 
+    /// <summary>
+    /// A warhead released from a bus in orbit keeps the attitude it was let go with.
+    ///
+    /// <para>Nothing weathervanes in vacuum. Keyed on speed alone this is 7.3 km/s of "airflow"
+    /// across the launcher, and the round snaps onto its orbital velocity the instant it
+    /// separates — which is a reentry vehicle flying sideways, seen in flight.</para>
+    /// </summary>
+    [Fact]
+    public void AStoreReleasedInVacuumDoesNotWeathervaneOntoItsOrbitalVelocity()
+    {
+        double3 orbital = new(7330.0, 0, 0);          // prograde, square across the tube
+        double3 tube = Forward;
+
+        Assert.True(Vec.Len(orbital) > BodyAttitude.FullAuthoritySpeed,
+                    "the speed-only rule would have handed this full authority");
+
+        // A real thermosphere rather than a hard zero, so this exercises the dynamic-pressure rule
+        // and not the guard in front of it: at 1e-11 of sea level, 7.3 km/s is 5e-4 of the band.
+        double3 vacuum = BodyAttitude.Heading(orbital, tube, mediumDensityRatio: 1e-11);
+        Assert.True(Vec.Len(vacuum - tube) < 1e-9,
+                    $"released in vacuum it must keep the tube attitude, got {Fmt(vacuum)}");
+
+        Assert.True(Vec.Len(BodyAttitude.Heading(orbital, tube, 0.0) - tube) < 1e-9,
+                    "and a hard zero density must not divide by anything either");
+
+        // ...and the same round low down, where there IS air, still noses over as it always did.
+        double3 inAir = BodyAttitude.Heading(orbital, tube, mediumDensityRatio: 1.0);
+        Assert.True(Vec.Len(inAir - Vec.Unit(orbital)) < 1e-9,
+                    $"in air the airflow still decides, got {Fmt(inAir)}");
+    }
+
+    /// <summary>The sea-level band is unchanged, so every round fired before vacuum behaves alike.</summary>
+    [Theory]
+    [InlineData(1.0, true)]
+    [InlineData(41.0, false)]
+    public void TheSeaLevelBandIsExactlyWhereItWas(double speed, bool keepsRelease)
+    {
+        double3 heading = BodyAttitude.Heading(Down * speed, Forward, mediumDensityRatio: 1.0);
+        Assert.Equal(keepsRelease, Vec.Len(heading - Forward) < 1e-9);
+    }
+
     // Where a rotation carries the body mesh's nose, which is what is actually seen.
     private static double3 Turn(doubleQuat q) => double3.Transform(FireGeometry.NoseAxis, q);
 

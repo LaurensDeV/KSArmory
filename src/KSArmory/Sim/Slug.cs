@@ -44,6 +44,12 @@ internal sealed class Slug : IProjectile
     }
 
     public RoundState State { get; private set; } = RoundState.Flying;
+
+    /// <inheritdoc cref="IProjectile.ShootDown"/>
+    public void ShootDown()
+    {
+        if (State == RoundState.Flying) State = RoundState.ShotDown;
+    }
     public int Tube { get; }
     public double Age { get; private set; }
 
@@ -57,6 +63,12 @@ internal sealed class Slug : IProjectile
     public double DistanceFlown { get; private set; }
     public IReadOnlyList<double3> TrailOffsets => _trail;
     public double3 LaunchAnchorPartFrame { get; set; }
+
+    /// <inheritdoc />
+    public double3 ReleaseHeadingEcl { get; set; }
+
+    /// <inheritdoc />
+    public doubleQuat LaunchAttitude { get; set; }
 
     /// <inheritdoc cref="IProjectile.Munition"/>
     public required MunitionProfile Munition { get; init; }
