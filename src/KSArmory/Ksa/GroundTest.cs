@@ -1,5 +1,6 @@
 using Brutal.Numerics;
 using KSA;
+using KSA.Rendering.Water.Data;
 
 namespace KSArmory;
 
@@ -56,6 +57,19 @@ internal sealed class GroundTest : IGroundTest
 
             double height = nearest.GetTerrainHeightFromDirCce(dirCce, accurate: true);
             if (!double.IsFinite(height)) return false;
+
+            // The height field answers with terrain, so under an ocean it reports the seabed. A
+            // round would fall through the waterline and burst on the bottom, unseen. Same query
+            // KsaWorld.MediumDensityRatioAt uses to know it is in water.
+            double seaLevel = 0.0;
+            bool hasSea = false;
+            if (nearest.GetOceanReference() is { } sea && sea.IsValid())
+            {
+                hasSea = true;
+                seaLevel = sea.Level;
+            }
+
+            height = GroundSurface.Height(height, seaLevel, hasSea);
 
             surfaceRadius = nearest.MeanRadius + height;
             return surfaceRadius > 0.0;

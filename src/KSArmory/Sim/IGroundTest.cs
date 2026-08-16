@@ -26,3 +26,26 @@ internal interface IGroundTest
     /// <param name="surfaceRadius">Distance from that centre to the ground under the round.</param>
     bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius);
 }
+
+/// <summary>The surface a falling round actually meets, which over sea is the sea.</summary>
+internal static class GroundSurface
+{
+    /// <summary>
+    /// The higher of the terrain and the waterline, both as heights above the body's mean radius.
+    ///
+    /// <para>A height field answers with terrain and nothing else, so under an ocean it reports the
+    /// <em>seabed</em>. A round fused on contact then falls straight through the waterline and
+    /// bursts on the bottom — which is a detonation nobody sees, and reads in play as a warhead
+    /// that simply failed.</para>
+    ///
+    /// <para>Over land the terrain is above the waterline and wins, so nothing about dry ground
+    /// changes. Bodies with no sea pass <paramref name="hasSea"/> false and are untouched.</para>
+    /// </summary>
+    public static double Height(double terrainHeight, double seaLevel, bool hasSea)
+    {
+        if (!double.IsFinite(terrainHeight)) return terrainHeight;
+        if (!hasSea || !double.IsFinite(seaLevel)) return terrainHeight;
+
+        return seaLevel > terrainHeight ? seaLevel : terrainHeight;
+    }
+}
