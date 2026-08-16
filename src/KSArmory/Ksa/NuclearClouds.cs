@@ -79,6 +79,7 @@ internal static class NuclearClouds
         public required double3 Downwind;
 
         public double Age;
+        public double LastReport = -99.0;
 
         public readonly PlumeSmoke.Strand[] Stem =
             Enumerable.Range(0, StemStrands).Select(_ => new PlumeSmoke.Strand()).ToArray();
@@ -148,7 +149,12 @@ internal static class NuclearClouds
             // What is drawn, with the law beside it: they differ by MushroomCloud.DrawnScale on
             // purpose, and a diagnostic reporting only the law sends the next reader to the wrong
             // place when the thing on screen is not the size it says.
-            Log.Info($"nuclear cloud: {kt:F2} kt rising to "
+            // Where the burst was, because a cloud with no column under it is the correct drawing
+            // of an airburst and the wrong drawing of a surface one. Against the mean sphere, which
+            // is what the shape's own heights are measured from.
+            double burstAlt = Vec.Len(burstCcf) - body.MeanRadius;
+
+            Log.Info($"nuclear cloud: {kt:F2} kt at {burstAlt:F0} m altitude, rising to "
                      + $"{MushroomCloud.DrawnCloudTop(kt) / 1000.0:F2} km, "
                      + $"cap {MushroomCloud.DrawnCapRadius(kt) * 2.0 / 1000.0:F2} km across "
                      + $"(drawn at {MushroomCloud.DrawnScale:P0} of the law's "
@@ -298,6 +304,19 @@ internal static class NuclearClouds
 
             PlumeSmoke.Lay(cloud.Stem[i], cloud.Body, cloud.BurstCcf + Sheared(cloud, offset, cloudTop),
                            (float)stemLaid, (float)stemNow);
+        }
+
+        // The heights the mod is actually laying at, which is the only thing that separates "the
+        // cloud floats" from "the cloud is fine and something else is hiding the column".
+        if (Log.Threshold <= Log.Level.Debug && cloud.Age - cloud.LastReport >= 2.0)
+        {
+            cloud.LastReport = cloud.Age;
+            string line = $"cloud t{cloud.Age:F1}s: stem top {shape.StemTop:F0} m, "
+                        + $"skirt {shape.SurgeHeight:F0} m x {shape.SurgeRadius:F0} m, "
+                        + $"cap centre {shape.CapCentre:F0} m r {shape.CapRadius:F0} m, "
+                        + $"stem tube {stemNow:F0} m, lean at cap "
+                        + $"{MushroomCloud.LeanAt(shape.CapCentre, shape.CapCentre + shape.CapRadius):F0} m";
+            Log.Debug(() => line);
         }
 
         Surge(cloud, shape, progress, handover);
