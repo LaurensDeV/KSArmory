@@ -729,6 +729,46 @@ public class MushroomCloudTests
     }
 
     /// <summary>
+    /// The fireball goes dark while it is still near where it burst.
+    ///
+    /// <para>A real one lifts off and is hidden by its own cloud within a couple of diameters. This
+    /// one is an emissive sphere drawn over the smoke rather than inside it, so for as long as it is
+    /// lit it is the brightest thing in the frame — and a lit ball climbing hundreds of metres reads
+    /// as a flare ascending, not as a burst dying.</para>
+    ///
+    /// <para>Measured in its own radii so it holds at every yield, which is the only way to state it:
+    /// the absolute height varies fifteen-fold across the range, the proportion does not.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(0.3)]
+    [InlineData(1.0)]
+    [InlineData(20.0)]
+    [InlineData(300.0)]
+    public void TheBallGoesDarkBeforeItClimbsOutOfItself(double yieldKt)
+    {
+        const double emberShell = 0.55;     // NuclearClouds.EmberShell
+        const double capExpanded = 0.65;    // NuclearClouds.CapExpanded
+        double charge = yieldKt * 1.0e6;
+
+        double lit = 0.0;
+        for (double t = 0.0; t < 60.0; t += 0.05)
+        {
+            if (MushroomCloud.FlashAt(charge, t).Spent) break;
+
+            MushroomCloud.Shape sh = MushroomCloud.At(charge, t);
+            MushroomCloud.Shape cored = sh with
+                { CapRadius = MushroomCloud.PathRadius(sh, sh.CapTube * capExpanded) };
+            lit = Math.Min(MushroomCloud.AxisHeight(cored, MushroomCloud.Progress(t), emberShell),
+                           sh.CapCentre);
+        }
+
+        double peak = MushroomCloud.PeakFireballRadius(yieldKt);
+        Assert.True(lit < peak * 4.5,
+            $"at {yieldKt:F1} kt the ball is still lit {lit:F0} m up, {lit / peak:F1} of its own "
+            + $"{peak:F0} m radius; past 4.5 it reads as a flare going up rather than a burst dying");
+    }
+
+    /// <summary>
     /// The stem is an hourglass, and the widest it flares must still merge into one column.
     ///
     /// <para>Eight pens ring the axis at a radius the flare multiplies, so the foot — the widest

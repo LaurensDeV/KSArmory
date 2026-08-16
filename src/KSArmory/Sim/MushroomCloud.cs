@@ -244,9 +244,17 @@ public static class MushroomCloud
     /// what Glasstone means by the toroid being "soon hidden by the radioactive cloud and
     /// debris".</para>
     /// </summary>
-    public const double EmberFraction = 0.22;
+    public const double EmberFraction = 0.09;
 
-    /// <summary>Seconds of that ember, which is the same for every yield because the rise is.</summary>
+    /// <summary>
+    /// Seconds of that ember, which is the same for every yield because the rise is.
+    ///
+    /// <para><b>Bounded by how far the ball climbs while it is still lit.</b> The emissive sphere
+    /// draws over the smoke rather than through it, so an ember that outlasts the lift-off is not a
+    /// hot core glimpsed inside a cloud — it is a bright ball climbing in front of one, which reads
+    /// as a flare going up rather than a fireball dying. At 0.22 it stayed lit through eight of its
+    /// own radii of climb. <c>TheBallGoesDarkBeforeItClimbsOutOfItself</c> holds the limit.</para>
+    /// </summary>
     public static double EmberSeconds => RiseSeconds * EmberFraction;
 
     /// <summary>
