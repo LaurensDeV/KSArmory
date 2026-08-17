@@ -49,3 +49,15 @@ resource "cloudflare_dns_record" "subdomain" {
   ttl     = local.ttl
   proxied = var.proxied
 }
+
+# var.ttl rather than local.ttl: that local exists to force automatic TTL on a
+# proxied record, and a TXT record is never proxied -- Cloudflare rejects it.
+resource "cloudflare_dns_record" "discord_verification" {
+  count = var.discord_verification == "" ? 0 : 1
+
+  zone_id = var.zone_id
+  name    = "_discord.${var.domain}"
+  type    = "TXT"
+  content = "dh=${var.discord_verification}"
+  ttl     = var.ttl
+}
