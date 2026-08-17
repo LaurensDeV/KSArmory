@@ -99,17 +99,74 @@ public class ScopeGeometryTests
         Assert.False(ScopeGeometry.Beyond(9_999.0, 10_000.0));
     }
 
-    /// <summary>The sweep goes round once per revolution and wraps cleanly.</summary>
-    [Fact]
-    public void TheSweepTurnsOnceARevolution()
+    /// <summary>
+    /// One trace per radiating face, spread evenly, and off the array's own angle.
+    ///
+    /// <para>The Pantsir's array is a double-sided wedge: both faces look at once, so its picture
+    /// refreshes twice a revolution and the scope has to say so. A count rather than a flag, so a
+    /// three-face set needs no new concept.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void EveryRadiatingFaceGetsATraceEvenlySpread(int faces)
     {
-        Assert.Equal(0.0, ScopeGeometry.SweepBearingRad(0.0, 4.0), 6);
-        Assert.Equal(Math.PI / 2.0, ScopeGeometry.SweepBearingRad(1.0, 4.0), 6);
-        Assert.Equal(Math.PI, ScopeGeometry.SweepBearingRad(2.0, 4.0), 6);
+        Span<double> into = stackalloc double[ScopeGeometry.MaxSweepFaces];
+        int count = ScopeGeometry.SweepBearings(0.0, 0.0, faces, into);
 
-        // Wraps rather than running off, and lands back where it started.
-        Assert.Equal(0.0, ScopeGeometry.SweepBearingRad(4.0, 4.0), 6);
-        Assert.Equal(Math.PI / 2.0, ScopeGeometry.SweepBearingRad(401.0, 4.0), 6);
+        Assert.Equal(faces, count);
+
+        double step = Math.Tau / faces;
+        for (int i = 0; i < count; i++)
+        {
+            Assert.Equal(i * step, into[i], 9);
+            Assert.InRange(into[i], 0.0, Math.Tau);
+        }
+    }
+
+    /// <summary>The array's angle turns the traces, and the craft's heading carries them round.</summary>
+    [Fact]
+    public void TheSweepFollowsTheArrayAndTheCraft()
+    {
+        Span<double> into = stackalloc double[ScopeGeometry.MaxSweepFaces];
+
+        ScopeGeometry.SweepBearings(0.0, 90.0 * Deg, 2, into);
+        Assert.Equal(90.0, into[0] / Deg, 6);
+        Assert.Equal(270.0, into[1] / Deg, 6);
+
+        // Turn the craft 90 degrees and the whole picture comes with it.
+        ScopeGeometry.SweepBearings(90.0 * Deg, 90.0 * Deg, 2, into);
+        Assert.Equal(180.0, into[0] / Deg, 6);
+        Assert.Equal(0.0, into[1] / Deg, 6);
+    }
+
+    /// <summary>It wraps rather than running off, however far the array has turned.</summary>
+    [Fact]
+    public void TheSweepWrapsRatherThanRunningOff()
+    {
+        Span<double> into = stackalloc double[ScopeGeometry.MaxSweepFaces];
+
+        ScopeGeometry.SweepBearings(0.0, 401.0 * Math.Tau + (Math.PI / 2.0), 1, into);
+        Assert.InRange(into[0], 0.0, Math.Tau);
+        Assert.Equal(90.0, into[0] / Deg, 5);
+
+        // And a negative angle is still a bearing, not a negative number.
+        ScopeGeometry.SweepBearings(0.0, -Math.PI / 2.0, 1, into);
+        Assert.Equal(270.0, into[0] / Deg, 6);
+    }
+
+    /// <summary>A set with no rotating array draws no sweep rather than one pinned at north.</summary>
+    [Fact]
+    public void ASetWithNoArrayDrawsNothing()
+    {
+        Span<double> into = stackalloc double[ScopeGeometry.MaxSweepFaces];
+
+        Assert.Equal(0, ScopeGeometry.SweepBearings(0.0, 0.0, 0, into));
+        Assert.Equal(0, ScopeGeometry.SweepBearings(0.0, 0.0, -1, into));
+        Assert.Equal(0, ScopeGeometry.SweepBearings(double.NaN, 0.0, 2, into));
+        Assert.Equal(0, ScopeGeometry.SweepBearings(0.0, double.NaN, 2, into));
     }
 
     /// <summary>Nothing here may hand a NaN to a draw call.</summary>
@@ -127,8 +184,6 @@ public class ScopeGeometryTests
             Assert.True(float.IsFinite(at.X) && float.IsFinite(at.Y), $"({at.X}, {at.Y})");
         }
 
-        Assert.Equal(0.0, ScopeGeometry.SweepBearingRad(double.NaN, 4.0), 6);
-        Assert.Equal(0.0, ScopeGeometry.SweepBearingRad(1.0, 0.0), 6);
         Assert.True(ScopeGeometry.Beyond(10.0, 0.0), "no range setting means nothing is on the face");
     }
 

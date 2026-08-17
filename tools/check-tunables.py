@@ -44,6 +44,15 @@ VIA = {
     # A director's own allegiance, edited on its own row under the Director tab. Its own,
     # because a head finds its own targets and a craft can carry one with no armament.
     "OpticConfig.Iff": "Iff.OwnTeam",
+
+    # The scope's window is opened from the sensor's component row, through the same one-window-
+    # at-a-time helper the director's map uses. The button is the control; TakeScope is how it
+    # writes, and it also shuts everyone else's.
+    "SystemConfig.ScopeOpen": "TakeScope",
+
+    # The range detents are drawn from a table rather than as one named write, so the control is a
+    # loop over ScopeRanges. Deleting it deletes the only caller.
+    "SystemConfig.ScopeRangeMetres": "DrawScopeControls",
 }
 
 # Members no control could sensibly reach, and why. Anything not here needs one.

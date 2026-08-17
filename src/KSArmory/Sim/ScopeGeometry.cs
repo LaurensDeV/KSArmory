@@ -65,20 +65,39 @@ public static class ScopeGeometry
                           (float)(-unit * Math.Cos(bearingRad)));
     }
 
-    /// <summary>Where the sweep is pointing, in radians, at a given moment.</summary>
-    ///
-    /// <remarks>
-    /// On the clock rather than on the set's own spin. The two are different things: a search array
-    /// turns because that is what it is, and the sweep on a scope is a drawing convention for "this
-    /// is live". Tying the drawing to the hardware would stop the trace whenever the array did,
-    /// which is exactly when an operator most wants to see the scope is still running.
-    /// </remarks>
-    public static double SweepBearingRad(double seconds, double revolutionSeconds)
-    {
-        if (!double.IsFinite(seconds) || !(revolutionSeconds > 0.0)) return 0.0;
+    /// <summary>Most faces a scope will draw a trace for, so a caller can size a buffer.</summary>
+    public const int MaxSweepFaces = 8;
 
-        double turns = seconds / revolutionSeconds;
-        return (turns - Math.Floor(turns)) * Math.Tau;
+    /// <summary>
+    /// Where each radiating face of the array is pointing, as compass bearings.
+    ///
+    /// <para>Off the array's own angle, not a clock. A stopped array therefore draws a stopped
+    /// sweep, which is the honest reading: the trace says "this set is scanning", and a set whose
+    /// array has been halted — or whose drive the engine refused — is not.</para>
+    ///
+    /// <para><paramref name="faces"/> is how many sides of the array radiate. One is an ordinary
+    /// set; the Pantsir's wedge is two, half a turn apart, and its picture therefore refreshes
+    /// twice a revolution. Any count works and they are spread evenly, so a three-face set needs
+    /// no new concept.</para>
+    /// </summary>
+    /// <param name="headingRad">Compass bearing the array's zero mark points along.</param>
+    /// <param name="spinRad">How far the array has turned from that mark.</param>
+    /// <param name="into">Filled with one bearing per face; the count returned says how many.</param>
+    public static int SweepBearings(double headingRad, double spinRad, int faces, Span<double> into)
+    {
+        if (faces <= 0 || into.IsEmpty) return 0;
+        if (!double.IsFinite(headingRad) || !double.IsFinite(spinRad)) return 0;
+
+        int count = Math.Min(faces, into.Length);
+        double step = Math.Tau / count;
+
+        for (int i = 0; i < count; i++)
+        {
+            double bearing = (headingRad + spinRad + (i * step)) % Math.Tau;
+            into[i] = bearing < 0.0 ? bearing + Math.Tau : bearing;
+        }
+
+        return count;
     }
 
     /// <summary>Range rings drawn inside the rim, as fractions of the face radius.</summary>

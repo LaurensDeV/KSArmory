@@ -157,6 +157,16 @@ public sealed class SystemConfig : ISensorPolicy
     public bool RadarSilent;
 
     /// <summary>
+    /// Whether this installation's scope is also open in a window of its own.
+    ///
+    /// <para>The Radar tab always draws it; this is the pop-out, for watching the picture while the
+    /// panel is showing something else. Per installation for the reason the director's map is per
+    /// head — two sites watching different sectors want two scopes, not one that changes under
+    /// them.</para>
+    /// </summary>
+    public bool ScopeOpen;
+
+    /// <summary>
     /// How far the scope's rim is (m) — the range setting, not the set's reach.
     ///
     /// <para>Deliberately independent of <see cref="SensorProfile.Range"/>: an operator winds a

@@ -137,6 +137,18 @@ public sealed class LauncherProfile
     public float SettleSeconds = 0.35f;
     public float SearchRadarRpm = 20f;
 
+    /// <summary>
+    /// How many faces of the search array radiate, and therefore how many sweeps a scope draws.
+    ///
+    /// <para>One for an ordinary single-face set. The Pantsir's array is a double-sided wedge, so
+    /// both of its faces are looking at once and the scope shows two traces half a turn apart —
+    /// which is why its picture refreshes twice per revolution rather than once.</para>
+    ///
+    /// <para>A count rather than a flag, so a three- or four-face set needs no new concept. Zero or
+    /// less means a set with no rotating array at all, and draws no sweep.</para>
+    /// </summary>
+    public int SearchRadarFaces = 1;
+
     /// <summary>Elevation travel, and the higher floor over the vehicle's own bodywork.</summary>
     public float MinElevationDeg;
     public float MaxElevationDeg = 82f;

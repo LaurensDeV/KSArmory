@@ -684,6 +684,11 @@ public static class Arsenal
         TurretMarker = "Turret",
         PodsMarker = "Pods",
         RadarMarker = "Radar",
+
+        // A double-sided hexagonal wedge, so both faces radiate at once and the scope draws two
+        // traces half a turn apart -- its picture refreshes twice per revolution.
+        SearchRadarFaces = 2,
+
         GunsMarker = "Guns",
         OpticBaseMarker = "Launcher_OpticBase",
 

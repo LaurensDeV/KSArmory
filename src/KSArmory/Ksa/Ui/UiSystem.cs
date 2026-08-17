@@ -204,7 +204,18 @@ internal sealed partial class Ui
                 : "  transmitting: an anti-radiation round can home on this");
         }
 
-        ImGui.TextDisabled("  the Radar tab has the scope and the full track list");
+        // A button rather than a tick box: it opens a window, and a checkmark reads as "this
+        // setting is on" while the window arrives somewhere else unannounced. Tinted while open.
+        // The local matters -- TakeScope flips the flag the pop reads. Same defect as Map above.
+        bool scopeTinted = _policy.ScopeOpen;
+        if (scopeTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
+        if (ImGui.Button("Scope")) TakeScope(_policy);
+        if (scopeTinted) ImGui.PopStyleColor();
+
+        ImGui.SameLine();
+        ImGui.TextDisabled("what this set holds, by bearing and range");
+
+        ImGui.TextDisabled("  the Radar tab has the same scope above the full track list");
 
     }
 

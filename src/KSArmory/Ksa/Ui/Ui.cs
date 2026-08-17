@@ -269,6 +269,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         // After the panes, which is what fills the head list this reads.
         DrawMapWindow();
+        DrawScopeWindow();
 
         // Not gated on the panel being open: the switcher is for use while flying, and having to
         // open the panel to reach it would put it back where it just came from.
