@@ -298,6 +298,38 @@ public class ArsenalTests
     }
 
     /// <summary>
+    /// The panel decides whether to draw the guidance section from <c>Armament.Steers</c>; the
+    /// system decides which flight model to build when it fires. Two answers to one question, and
+    /// they have to agree for every registered launcher.
+    ///
+    /// <para>The two magazines reach that decision differently, which is what makes this worth
+    /// pinning: a belt is built as a <c>Slug</c> outright, so its munition's <c>Guidance</c> is
+    /// never read and is left at a default that says the opposite. Only a tube reaches the branch.
+    /// Reading either term alone is wrong, and each is wrong about a different launcher — the slot
+    /// alone offers a bomb rack a guidance section, the round alone offers one to a Phalanx.</para>
+    /// </summary>
+    [Fact]
+    public void SteersAgreesWithTheFlightModelForEveryArmament()
+    {
+        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        {
+            WeaponFit fit = WeaponFit.Of(launcher, Arsenal.SensorNamed(launcher.Sensor));
+
+            foreach (Armament arm in fit.Armaments)
+            {
+                bool flownAsInterceptor =
+                    arm.Kind == ArmamentKind.Tubes
+                    && Arsenal.MunitionNamed(arm.Munition).Guidance != GuidanceMode.None;
+
+                Assert.True(arm.Steers == flownAsInterceptor,
+                            $"{launcher.DisplayName} / {arm.Label}: the panel says "
+                            + $"Steers={arm.Steers} while the round is flown as "
+                            + (flownAsInterceptor ? "an Interceptor" : "a Slug"));
+            }
+        }
+    }
+
+    /// <summary>
     /// And the reverse: a component naming a launcher role must name a launcher that exists, or
     /// the survey reports a system the loadout cannot be resolved for.
     /// </summary>

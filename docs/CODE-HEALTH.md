@@ -33,7 +33,7 @@ Things that are wrong now, not things that could be tidier.
   borrowed pose with the only description of their view thrown away. Two copies of one hand-back
   that have drifted apart.
 
-- [ ] **`Armament.Steers` answers from the armament slot, not the round.** `Sim/WeaponFit.cs` reads
+- [x] **`Armament.Steers` answers from the armament slot, not the round.** `Sim/WeaponFit.cs` reads
   `Kind == ArmamentKind.Tubes`, while the flight model is chosen off
   `Munition.Guidance == GuidanceMode.None`. Three registered munitions are unguided and two racks
   declare tubes, so a bomb rack is offered seven guidance sliders its `Slug` never reads. The

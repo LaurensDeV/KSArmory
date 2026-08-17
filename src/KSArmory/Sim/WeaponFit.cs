@@ -39,11 +39,18 @@ public readonly record struct Armament
     public required float ReloadSeconds { get; init; }
 
     /// <summary>
-    /// Whether the guidance numbers reach this armament's rounds. Tubes are flown as
-    /// interceptors and the belt ballistically, which is the battery's choice of flight model
-    /// rather than anything the round declares.
+    /// Whether the guidance numbers reach this armament's rounds.
+    ///
+    /// <para>Both terms, because the two magazines reach the flight model by different routes. A
+    /// belt is built as a <c>Slug</c> outright and never consults
+    /// <see cref="MunitionProfile.Guidance"/> at all — which is why gun munitions leave it at its
+    /// default and why reading the round alone reports a shell as guided. Only a tube reaches the
+    /// branch, and there the round decides: a tube-launched store declaring no guidance is flown
+    /// ballistically, so the slot alone offers a bomb rack a whole guidance section it never
+    /// reads.</para>
     /// </summary>
-    public bool Steers => Kind == ArmamentKind.Tubes;
+    public bool Steers => Kind == ArmamentKind.Tubes
+                          && Arsenal.MunitionNamed(Munition).Guidance != GuidanceMode.None;
 
     public bool Reloads => ReloadSeconds > 0f;
 
@@ -122,7 +129,6 @@ public sealed class WeaponFit
     /// </summary>
     public int SalvoCapacity => FirstOf(ArmamentKind.Tubes)?.Capacity ?? 0;
 
-    /// <summary>The first armament of a kind, or null when none of that kind is fitted.</summary>
     /// <summary>
     /// Whether a row named <paramref name="displayName"/> describes this fit's armament of that
     /// kind — which is how a panel tells a crewed part's row from a second part's.
@@ -139,6 +145,7 @@ public sealed class WeaponFit
            && string.Equals(Arsenal.MunitionNamed(arm.Munition).DisplayName, displayName,
                             StringComparison.Ordinal);
 
+    /// <summary>The first armament of a kind, or null when none of that kind is fitted.</summary>
     public Armament? FirstOf(ArmamentKind kind)
     {
         for (int i = 0; i < Armaments.Count; i++)
@@ -148,7 +155,6 @@ public sealed class WeaponFit
         return null;
     }
 
-    /// <summary>Reads a launcher and the set feeding it as the description above.</summary>
     /// <summary>
     /// Whether anything this system releases falls to the ground on its own.
     ///
@@ -158,6 +164,7 @@ public sealed class WeaponFit
     /// </summary>
     public required bool Drops { get; init; }
 
+    /// <summary>Reads a launcher and the set feeding it as the description above.</summary>
     public static WeaponFit Of(LauncherProfile launcher, SensorProfile sensor)
     {
         List<Armament> armaments = new(2);
@@ -202,14 +209,8 @@ public sealed class WeaponFit
         };
     }
 
-    /// <summary>
-    /// Rounds a full launcher holds: a deep magazine's depth, otherwise one per tube. The same
-    /// two numbers <c>Magazine.Resize</c> reads, so the panel counts down from what the magazine
-    /// was actually filled with.
-    /// </summary>
     // Whether any armament throws something the ground stops. Resolved here rather than in the
-    // panel so a profile field is never the thing a control is gated on -- an unknown munition
-    // name answers no, which draws one control fewer rather than throwing at a tick box.
+    // panel, so a profile field is never the thing a control is gated on.
     private static bool Drop(List<Armament> armaments)
     {
         for (int i = 0; i < armaments.Count; i++)
@@ -220,6 +221,11 @@ public sealed class WeaponFit
         return false;
     }
 
+    /// <summary>
+    /// Rounds a full launcher holds: a deep magazine's depth, otherwise one per tube. The same
+    /// two numbers <c>Magazine.Resize</c> reads, so the panel counts down from what the magazine
+    /// was actually filled with.
+    /// </summary>
     public static int MagazineCapacity(LauncherProfile launcher)
         => launcher.MagazineDepth > launcher.TubeCount ? launcher.MagazineDepth : launcher.TubeCount;
 }
