@@ -196,18 +196,10 @@ internal sealed class Slug : IProjectile
         Age += h;
 
         double3 localVelocity = VelocityEcl - _frameVelocityEcl;
-        // Buoyancy: a round denser than its medium still sinks, one at its neutral density
-        // neither sinks nor rises. Zero disables it, so nothing that flies only in air changes.
-        double3 accel = munition.NeutralDensityRatio > 0f
-            ? gravity * (1.0 - mediumDensityRatio / munition.NeutralDensityRatio)
-            : gravity;
 
-        // Drag on airspeed, scaled by density. No thrust term: a slug coasts from the muzzle.
-        double airspeed = Vec.Len(localVelocity);
-        if (munition.DragK > 0f && airspeed > 1e-6 && mediumDensityRatio > 0.0)
-        {
-            accel -= localVelocity * (munition.DragK * airspeed * mediumDensityRatio);
-        }
+        // No thrust term between them: a slug coasts from the muzzle.
+        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
+        accel -= Medium.Drag(localVelocity, munition, mediumDensityRatio);
 
         // Before proximity: a shell fused for a time bursts then, whether or not anything is near,
         // which is the whole point of flak. A live target still gets a miss distance measured at

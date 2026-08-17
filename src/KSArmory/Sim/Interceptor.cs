@@ -338,27 +338,17 @@ internal sealed class Interceptor : IProjectile
         // the absolute ecliptic velocity it inherited from the planet.
         double3 localVelocity = VelocityEcl - frameVelocityEcl;
 
-        // Buoyancy: a round denser than its medium still sinks, one at its neutral density
-        // neither sinks nor rises. Zero disables it, so nothing that flies only in air changes.
-        double3 accel = munition.NeutralDensityRatio > 0f
-            ? gravity * (1.0 - mediumDensityRatio / munition.NeutralDensityRatio)
-            : gravity;
+        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
 
-        // Boost motor: axial thrust along the flight path.
+        // Boost motor: axial thrust along the flight path. Between the two medium terms because
+        // it is the one force this round has and a shell does not.
         if (Age <= munition.TotalBoostSeconds)
         {
             double3 axis = Vec.Unit(localVelocity);
             if (!axis.Equals(Vec.Zero)) accel += axis * munition.BoostAccelAt(Age);
         }
 
-        // Quadratic drag on airspeed, so a coasting round bleeds speed instead of holding it.
-        // Scaled by the medium's density, so one profile is right on the pad, climbing out, in
-        // orbit and submerged. DragK is the sea-level-air value, so the ratio is 1.0 there.
-        double airspeed = Vec.Len(localVelocity);
-        if (munition.DragK > 0f && airspeed > 1e-6 && mediumDensityRatio > 0.0)
-        {
-            accel -= localVelocity * (munition.DragK * airspeed * mediumDensityRatio);
-        }
+        accel -= Medium.Drag(localVelocity, munition, mediumDensityRatio);
 
         if (target is { } t)
         {

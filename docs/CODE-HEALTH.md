@@ -47,10 +47,16 @@ Things that are wrong now, not things that could be tidier.
   - [x] The blast sweep in `WeaponSystem.Detonate` — the geometry is now `Sim/BlastSweep.cs`,
     with the back-dating frame rule tested for invariance.
 
-- [ ] **`Interceptor` and `Slug` duplicate the frame and epoch bookkeeping.** Trail constants and
-  append, the buoyancy-plus-drag block, `ShootDown`, `VelocityLocal`, and the
-  `OffsetFromPlatform` phase rule. `ProjectileContractTests` exists so a third `IProjectile`
-  inherits the trap list; what it would inherit today is copy-paste.
+- [~] **`Interceptor` and `Slug` duplicate the frame and epoch bookkeeping.** The physics is done:
+  buoyancy and drag were character-for-character identical and are now `Sim/Medium.cs`, so a third
+  round asks for both terms rather than being copied from one of these two.
+
+  **What is left is deliberate.** The trail, `ShootDown`, `VelocityLocal` and the
+  `OffsetFromPlatform` phase rule are two or three lines each, and sharing them means a base class
+  under `IProjectile` — which is a change to how every round is constructed and stepped, in the one
+  place a mistake is a round that leaves the world. `ProjectileContractTests` already runs the frame
+  and epoch rules against *every* `IProjectile`, so a third type is checked whether it inherits the
+  lines or copies them. Worth doing behind a flight, not alongside a comment sweep.
 
 - [x] **Shortest-arc rotation implemented twice**, with different epsilons and different degenerate
   axes — `TubeGeometry.RotationFromTo` and `FireGeometry.RotationFromNose`, where the second is
