@@ -43,8 +43,7 @@ Things that are wrong now, not things that could be tidier.
 
 - [ ] **Testable maths stranded in `Ksa/`.** Highest value first:
   - [x] `Radar.TeamOf` — now `Sim/Teams.TeamFor`, with the substring trap pinned.
-  - `WeaponSystem.Holding()` — 87 lines, every input already a `Sim/` type, no test, and the
-    mod's most-read line.
+  - [x] `WeaponSystem.Holding()` — now `Sim/FireLadder.cs`, with the rung order tested.
   - The blast sweep in `WeaponSystem.Detonate` — now written twice inside one method, rounds and
     craft, differing only in where position, velocity and radius come from.
 

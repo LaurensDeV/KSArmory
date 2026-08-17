@@ -575,93 +575,44 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private bool TargetIsEmitting(Track track)
         => track.Contact.Handle is Vehicle craft && (_craftIsEmitting?.Invoke(craft) ?? false);
 
-    // In order, and the order is the fire sequence's: the first answer is the one to act on.
+    // The ladder itself is Sim/FireLadder.cs; this is only where its inputs are read off the
+    // world. Sampled into one value rather than passed as a dozen arguments so no rung can be
+    // answered from a later instant than the one above it.
     private string? Holding()
     {
-        if (Platform is null) return "no platform";
-        // Platform was answered above, so this is the launcher and nothing else.
-        if (!IsOperational) return "no launcher resolved on this craft";
+        Track? locked = Radar.Locked;
 
-        // Which weapon this ladder is about. The rungs below are the missile sequence, and a
-        // launcher with no tubes fails "out of rounds" at every one of them forever: its magazine
-        // is empty by construction and its belt is what shoots. Asking the missile ladder about
-        // one reports it holding fire while its cannon are audibly firing.
-        WeaponFit fit = WeaponFit.Of(Profile, Sensor);
-        bool hasTubes = fit.FirstOf(ArmamentKind.Tubes) is not null;
-
-        if (hasTubes && _magazine.IsEmpty && _reloadTimer > 0.0)
-        {
-            return $"reloading ({_reloadTimer:F0} s)";
-        }
-
-        if (!_policy.Armed) return "safe -- master arm is off";
-
-        if (hasTubes)
-        {
-            if (!_policy.MissilesEnabled) return "missiles are switched off";
-            if (Munition.Guidance == GuidanceMode.None) return "unguided - release it by hand";
-            if (Ammo <= 0) return "out of rounds";
-            if (_salvoTimer > 0.0) return "between salvos";
-        }
-        else
-        {
-            if (!_policy.GunsEnabled) return "cannon are switched off";
-            if (_guns.IsEmpty) return "belt empty";
-        }
-
-        if (!Radar.HasFiringSolution)
-        {
-            return Radar.Tracks.Count == 0
-                       ? "nothing detected"
-                       : $"no firing solution yet ({Radar.Tracks.Count} track(s))";
-        }
-
-        // Each weapon settles on its own gear, so a system with no pods must not be asked whether
-        // its pods have stopped moving.
-        if (hasTubes)
-        {
-            if (!IsLaid) return "drives still settling";
-            if (!FireGate.MissilesMayFire(_ringIsOnGunLead, Profile.LaunchAlongTube))
+        return FireLadder.Holding(
+            new FireConditions
             {
-                return "the cannon has the bearing";
-            }
+                HasPlatform = Platform is not null,
+                IsOperational = IsOperational,
 
-            // The operator owns the ring, so an automatic launch would leave along the cursor and
-            // turn onto whatever the radar locked. Held rather than re-aimed: the cursor is a
-            // deliberate command, and taking the ring back to shoot would fight the player.
-            if (!FireGate.MissilesMayFire(_ringIsOnCursor, Profile.LaunchAlongTube))
-            {
-                return "the cursor has the bearing";
-            }
-        }
-        else if (!GunsAreLaid)
-        {
-            return "drives still settling";
-        }
+                // A launcher with no tubes takes the belt's rungs. Read off the fit rather than
+                // tested here, so the panel and the ladder agree on what this system is.
+                HasTubes = WeaponFit.Of(Profile, Sensor).FirstOf(ArmamentKind.Tubes) is not null,
 
-        if (Radar.Locked is not { } locked) return "no lock";
+                MagazineEmpty = _magazine.IsEmpty,
+                ReloadSeconds = _reloadTimer,
+                Ammo = Ammo,
+                SalvoSeconds = _salvoTimer,
+                BeltEmpty = _guns.IsEmpty,
 
-        // An anti-radiation round has to be pointed at something radiating, and that is a gate on
-        // *launching* rather than only on homing. Emission was read in flight and nowhere before
-        // it, so a shell closing at 956 m/s -- which takes the top of a list ranked by time to
-        // closest approach, ahead of the site that fired it -- could be locked and shot at by a
-        // weapon with no way to see it. The round then flies straight past everything.
-        if (Munition.Guidance == GuidanceMode.AntiRadiation && !TargetIsEmitting(locked))
-        {
-            return $"{locked.Contact.DisplayName} is not radiating";
-        }
-        if (!ThreatModel.MayEngage(locked, _policy.Iff)) return "target is not engageable (IFF)";
-        if (!ThreatModel.HasSalvoCapacity(locked, _policy.RoundsPerTarget)) return "salvo committed";
-        if (!ThreatModel.InEngagementEnvelope(locked, Munition))
-        {
-            // With the numbers: "out of reach" is read as too far, and the usual cause is a
-            // target that came inside the minimum instead.
-            return $"target out of reach ({locked.Range / 1000.0:F1} km, envelope "
-                   + $"{Munition.MinRange / 1000f:F1}-"
-                   + $"{Munition.MaxRange / 1000f:F1} km)";
-        }
+                HasFiringSolution = Radar.HasFiringSolution,
+                TrackCount = Radar.Tracks.Count,
 
-        return null;
+                IsLaid = IsLaid,
+                GunsAreLaid = GunsAreLaid,
+                RingIsOnGunLead = _ringIsOnGunLead,
+                RingIsOnCursor = _ringIsOnCursor,
+                LaunchAlongTube = Profile.LaunchAlongTube,
+
+                Locked = locked,
+                LockedIsEmitting = locked is not null && TargetIsEmitting(locked),
+                LockedName = locked?.Contact.DisplayName ?? "",
+            },
+            _policy,
+            Munition);
     }
 
     // Decides which craft the battery is mounted on. The launcher is a physical part, so the
