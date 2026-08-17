@@ -114,6 +114,10 @@ internal sealed partial class Ui
         ImGui.TextDisabled("  the fireball, not a debug line -- kept when those are off");
 
         ImGui.Checkbox("Rocket motor plume", ref _config.MotorPlume);
+
+        ImGui.Checkbox("Rocket smoke trail", ref _config.MotorSmoke);
+        ImGui.TextDisabled("  hangs for 20 minutes and drifts on the wind - the engine's own");
+        ImGui.TextDisabled("  lifetime, shared with mushroom clouds");
         ImGui.TextDisabled("  flame at the nozzle while the motor burns; needs warhead effects on");
 
         ImGui.SeparatorText("Systems");

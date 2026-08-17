@@ -77,6 +77,7 @@ public sealed class KSArmoryMod
 
     private MotorSound _motors = null!;
     private readonly MotorPlume _plumes = new();
+    private MotorSmoke _smoke = null!;
     private readonly MuzzleFlash _flashes = new();
     private readonly TracerTrail _tracers = new();
     private GunSound _gunSound = null!;
@@ -101,6 +102,7 @@ public sealed class KSArmoryMod
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
         _motors = new MotorSound(_config);
+        _smoke = new MotorSmoke(_config);
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config);
         _scenario.Begin(ScenarioRunner.Requested());
@@ -425,6 +427,7 @@ public sealed class KSArmoryMod
         {
             _motors.Update(e.Battery);
             _plumes.Update(e.Battery);
+            _smoke.Update(e.Battery);
             _flashes.Update(e.Battery);
             _tracers.Update(e.Battery);
             _gunSound.Update(e.Battery);
@@ -443,6 +446,7 @@ public sealed class KSArmoryMod
         for (int i = 0; i < loose.Count; i++)
         {
             _plumes.Update(loose[i]);
+            _smoke.Update(loose[i]);
             _tracers.Update(loose[i]);
         }
 
@@ -458,6 +462,7 @@ public sealed class KSArmoryMod
         // does not keep one for the session.
         _motors.Sweep(_roster);
         _plumes.Sweep(_roster);
+        _smoke.Sweep(_roster);
         _tracers.Sweep(_roster);
         _flashes.Sweep(_roster);
         _gunSound.Sweep(_roster);

@@ -459,6 +459,12 @@ Where latent bugs are most likely.
       log is the arbiter — the fuse trigger ranges stay ~22 m either way.)*
 - [ ] **6.3** **Target dies mid-flight** — destroy the target another way while rounds chase it.
       They should lose lock and expire, not throw.
+- [ ] **6.5** **Rocket smoke trail** — fire a Sidewinder or a HARM and watch the trail behind it
+  while the motor burns, then that it stops laying at burnout and the trail stays put and drifts.
+  Nothing on an airless world or above the atmosphere, which is the renderer's own limit. Check a
+  CIWS burst does **not** lay one (`TotalBoostSeconds` is zero), and that a salvo beside a standing
+  mushroom cloud does not visibly eat the bottom of it — both draw from one 16,384-segment budget
+  per body, evicted oldest-first.
 - [ ] **6.4** **Platform destroyed** with rounds in flight — the rounds **carry on** rather than
   vanishing, and still detonate and kill. No exception spam. Check the log says
   `<craft> destroyed - N round(s) still in the air`, then `last round down, system forgotten`.

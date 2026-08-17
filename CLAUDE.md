@@ -325,6 +325,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Detonation.cs` | the fireball where a warhead goes off, through KSA's particle system |
 | `Ksa/Fireball.cs` | the nuclear flash: one emissive sphere that blooms, and the light it casts |
 | `Ksa/PlumeSmoke.cs` | smoke through the renderer KSA draws booster plumes with, one reflected field away |
+| `Ksa/MotorSmoke.cs` | the trail a burning round leaves, through that same renderer — one cursor per round |
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world, walked with plume cursors |
 | `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
 | `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |

@@ -59,6 +59,20 @@ public sealed class Config
     public bool MotorPlume = true;
 
     /// <summary>
+    /// Lay a smoke trail behind a round while its motor burns.
+    ///
+    /// <para>Its own switch rather than riding on <see cref="MotorPlume"/>, because the commitment
+    /// is different: a segment lives <b>1200 seconds</b> and that is a global engine setting, not
+    /// something a mod can shorten for its own trails. Twelve of them across a sky is a deliberate
+    /// look rather than a detail.</para>
+    ///
+    /// <para>The other reason to be able to switch it off: segments are capped at 16,384 per
+    /// celestial body and evicted oldest-first, and a mushroom cloud draws from the same budget.
+    /// A large salvo beside a standing cloud will trim the bottom of that cloud.</para>
+    /// </summary>
+    public bool MotorSmoke = true;
+
+    /// <summary>
     /// Show the little floating button that reopens the panel.
     ///
     /// <para>On by default and worth keeping: the menu-bar entry that replaces it works by
