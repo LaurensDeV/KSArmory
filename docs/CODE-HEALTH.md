@@ -65,8 +65,15 @@ Things that are wrong now, not things that could be tidier.
 
 - [ ] **Emitter pooling is byte-identical across three files** — `MotorPlume`, `TracerTrail`,
   `MuzzleFlash` — including the Kill-before-`RemoveEmitter` safety comment, whose failure mode is
-  that nothing in the world can spawn particles again. `MotorSound` and `GunSound` likewise.
-  Leaf functions, not a base class: the keys, cardinality and lifetimes genuinely differ.
+  that nothing in the world can spawn particles again. `MotorSound` and `GunSound` likewise, and
+  five files share an identical roster scan. Leaf functions, not a base class: the keys, cardinality
+  and lifetimes genuinely differ.
+
+  **Wants a flight, not a tidy-up.** All of it is `Ksa/`, so nothing here is reachable from the test
+  project, and the failure it guards against is silent and global — a pool leaked dry stops every
+  particle in the world, not just this mod's. A faithful extraction is checkable by reading, but
+  "checkable by reading" is exactly what CLAUDE.md says is not evidence. Do it as its own change,
+  with the game open.
 
 - [x] **`UiSystem.cs` holds a different owner for a third of itself** — the optical-head block
   never reads the battery or the policy, contradicting the file's own doc comment.
@@ -109,6 +116,11 @@ is the failure CLAUDE.md rates worse than a missing comment.
 
 - [ ] **`Sim/MushroomCloud.cs` duplicates `docs/NUCLEAR-EFFECT.md`** — 503 comment lines to 212 of
   code, with three sentences near-verbatim from the doc it cites twice.
+
+  Lowest value on this list and the easiest to do damage with: the ratio is high because the file
+  encodes Glasstone's numbers and why each was departed from, which is the kind of comment CLAUDE.md
+  wants kept. What is actually duplicated is a handful of sentences, so the fix is to cut those and
+  leave the pointer — not to thin the file toward a ratio.
 
 ## Did not survive
 
