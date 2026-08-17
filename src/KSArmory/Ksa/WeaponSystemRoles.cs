@@ -57,6 +57,27 @@ internal interface IEffectSource : IRoundsInFlight
     /// <summary>The launcher part, which everything drawn on the weapon is placed against.</summary>
     Part? Launcher { get; }
 
+    /// <summary>
+    /// The body an effect's emitter hangs on, or null if there is none to hang it on.
+    ///
+    /// <para>A celestial rather than the craft, which is what the particle system wants anyway:
+    /// every emitter here sets <c>Context.Astronomical</c> and leaves <c>Context.Vehicle</c> null,
+    /// so nothing an effect does has ever needed the launcher to exist. That is what lets a round
+    /// keep its plume after the craft that fired it is destroyed.</para>
+    /// </summary>
+    Celestial? EffectBody { get; }
+
+    /// <summary>
+    /// Where to hang an effect on a round in flight.
+    ///
+    /// <para>The drawn body while there is one, because a flame has to sit on the mesh rather than
+    /// near it. Once the launcher is gone there is no mesh and no part tree to ask, so it is the
+    /// round's own position against whatever it is anchored to now — which is exact, the objection
+    /// to that form being about a <em>craft's</em> analytic position differing from where its parts
+    /// are drawn.</para>
+    /// </summary>
+    bool TryRoundEffectEcl(IProjectile round, out double3 ecl);
+
     /// <summary>The profile, for the rates and geometry an effect is sized from.</summary>
     LauncherProfile Profile { get; }
 

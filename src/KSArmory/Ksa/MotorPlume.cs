@@ -36,7 +36,7 @@ internal sealed class MotorPlume
     /// <summary>Starts, moves and ends the plume of every round this battery has burning.</summary>
     public void Update(IEffectSource battery)
     {
-        if (!battery.PlumesEnabled || battery.Platform is not { } platform)
+        if (!battery.PlumesEnabled || battery.EffectBody is null)
         {
             ReleaseOwnedBy(battery);
             return;
@@ -44,7 +44,7 @@ internal sealed class MotorPlume
 
         foreach (IProjectile round in battery.Rounds)
         {
-            if (Burning(round)) Follow(round, battery, platform);
+            if (Burning(round)) Follow(round, battery);
             else _finished.Add(round);
         }
 
@@ -103,29 +103,23 @@ internal sealed class MotorPlume
            && round.Munition.TotalBoostSeconds > 0f
            && round.Age <= round.Munition.TotalBoostSeconds;
 
-    private void Follow(IProjectile round, IEffectSource battery, Vehicle platform)
+    private void Follow(IProjectile round, IEffectSource battery)
     {
         if (!_burning.TryGetValue(round, out Live? live))
         {
-            if (Acquire(platform) is not { } fresh) return;
+            if (Acquire(battery.EffectBody) is not { } fresh) return;
 
             fresh.Owner = battery;
             live = fresh;
             _burning[round] = live;
         }
 
-        // Built exactly the way the drawn body is, from the tube anchor and the travel since
-        // launch. PlatformEcl + OffsetFromPlatform is the same round measured from the platform's
-        // ANALYTIC position, which on a landed craft is metres from where the body is actually
-        // placed - enough to swamp the nozzle offset below and leave the flame amidships.
-        if (battery.Launcher is not { } launcher) return;
-
-        if (!LauncherPart.TryGetBodyEcl(platform, launcher, round.LaunchAnchorPartFrame,
-                                        round.TravelSinceLaunch, battery.PlatformEcl,
-                                        round.LaunchAttitude, out double3 bodyEcl))
-        {
-            return;
-        }
+        // Where the body is drawn while there is one: PlatformEcl + OffsetFromPlatform is the same
+        // round measured from the platform's ANALYTIC position, which on a landed craft is metres
+        // from where the body is actually placed -- enough to swamp the nozzle offset below and
+        // leave the flame amidships. Once the launcher is destroyed there is no body, and the
+        // analytic form is then the exact answer rather than the approximate one.
+        if (!battery.TryRoundEffectEcl(round, out double3 bodyEcl)) return;
 
         // At the nozzle, not at the round's centre. A body mesh is modelled about its middle, so
         // anchoring the flame there puts it half a missile too far forward: 1.5 m on the AIM-9J,
@@ -161,11 +155,11 @@ internal sealed class MotorPlume
         }
     }
 
-    private static Live? Acquire(Vehicle platform)
+    private static Live? Acquire(Celestial? body)
     {
         try
         {
-            if (platform.Parent is not Celestial body) return null;
+            if (body is null) return null;
 
             if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(PlumeId, out var handles)
                 || handles is null || handles.Count == 0)

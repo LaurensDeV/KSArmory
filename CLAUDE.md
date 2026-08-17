@@ -1208,11 +1208,19 @@ Three rules hold it together:
   walks every round in the world against every round it owns, which for a system whose rounds are
   *all* it has is the whole airborne list squared.
 
-**They are invisible, and that is a KSA limit rather than a choice.** Round bodies are subparts of
-the launching craft, so when that craft is destroyed there is nothing left to write a transform to;
-the gizmo tracer needs a `Vehicle` to anchor its draw against. So a loose round flies, guides,
-fuses, kills and can itself be shot down, with nothing on screen. Recorded in
-`docs/CODE-HEALTH.md`.
+**A loose round keeps its plume and its tracer, and loses its body.** The body is a subpart of the
+launching craft, so when that craft is destroyed there is nothing left to write a transform to —
+that one is a KSA limit rather than a choice. The effects are not: every emitter this mod starts
+sets `Context.Astronomical` and leaves `Context.Vehicle` null, so a plume has always hung on the
+*body* rather than on the craft, and only the position lookup went through the launcher's part
+tree. `IEffectSource.EffectBody` and `TryRoundEffectEcl` are that split made explicit — the drawn
+body's position while there is one, and the round's own against its anchor once there is not, which
+is exact rather than approximate precisely because there is no part to disagree with it.
+
+So a shell keeps its tracer for its whole flight and a missile keeps its flame while the motor
+burns. **A missile that has finished boosting is invisible**, having neither. The motor sound and
+the diagnostic gizmo overlay are also not carried over, both because they convert through a
+`Vehicle` to get camera-relative. `docs/CODE-HEALTH.md` has what closing those would take.
 
 `Ksa/HullTest.cs` needs no camera: `Vehicle.GetMatrixAsmb2Ego` takes the frame origin as an
 argument, so passing the round-relative separation puts the whole per-triangle cast in a

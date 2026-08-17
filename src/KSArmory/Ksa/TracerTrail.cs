@@ -67,7 +67,7 @@ internal sealed class TracerTrail
     /// <summary>Starts, moves and ends the tracer of every shell this battery has in the air.</summary>
     public void Update(IEffectSource battery)
     {
-        if (!battery.PlumesEnabled || battery.Platform is not { } platform)
+        if (!battery.PlumesEnabled || battery.EffectBody is null)
         {
             ReleaseOwnedBy(battery);
             return;
@@ -87,7 +87,7 @@ internal sealed class TracerTrail
         foreach (IProjectile round in _candidates)
         {
             if (!_tracing.ContainsKey(round)) continue;
-            if (Follow(round, battery, platform)) lit++;
+            if (Follow(round, battery)) lit++;
             newest = Math.Min(newest, round.Age);
         }
 
@@ -107,7 +107,7 @@ internal sealed class TracerTrail
             double spacing = round.Munition.MaxFlightSeconds * SpacingOfLife / MaxTracers;
             if (newest < spacing) break;
 
-            if (!Follow(round, battery, platform)) continue;
+            if (!Follow(round, battery)) continue;
 
             lit++;
             newest = round.Age;
@@ -162,23 +162,17 @@ internal sealed class TracerTrail
         _tracing.Clear();
     }
 
-    private bool Follow(IProjectile round, IEffectSource battery, Vehicle platform)
+    private bool Follow(IProjectile round, IEffectSource battery)
     {
-        if (battery.Launcher is not { } launcher) return false;
-
-        // Built the way the drawn round bodies are, from the launch anchor plus the travel since.
-        // PlatformEcl + OffsetFromPlatform is measured from the platform's ANALYTIC position, which
-        // on a landed craft is metres from where its parts are actually placed.
-        if (!LauncherPart.TryGetBodyEcl(platform, launcher, round.LaunchAnchorPartFrame,
-                                        round.TravelSinceLaunch, battery.PlatformEcl,
-                                        round.LaunchAttitude, out double3 ecl))
-        {
-            return false;
-        }
+        // Where the drawn round body is while there is one -- PlatformEcl + OffsetFromPlatform is
+        // measured from the platform's ANALYTIC position, which on a landed craft is metres from
+        // where its parts actually sit. A shell whose gun has been destroyed has no body, and the
+        // analytic form is then exact.
+        if (!battery.TryRoundEffectEcl(round, out double3 ecl)) return false;
 
         if (!_tracing.TryGetValue(round, out Live? live))
         {
-            if (Acquire(platform) is not { } fresh) return false;
+            if (Acquire(battery.EffectBody) is not { } fresh) return false;
 
             fresh.Owner = battery;
             live = fresh;
@@ -211,11 +205,11 @@ internal sealed class TracerTrail
         return true;
     }
 
-    private static Live? Acquire(Vehicle platform)
+    private static Live? Acquire(Celestial? body)
     {
         try
         {
-            if (platform.Parent is not Celestial body) return null;
+            if (body is null) return null;
 
             if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(TracerId, out var handles)
                 || handles is null || handles.Count == 0)

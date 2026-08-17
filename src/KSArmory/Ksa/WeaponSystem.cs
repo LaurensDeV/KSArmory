@@ -75,6 +75,26 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </summary>
     public bool IsLoose => _looseBody is not null;
 
+    /// <inheritdoc cref="IEffectSource.EffectBody"/>
+    public Celestial? EffectBody => _looseBody ?? Platform?.Parent as Celestial;
+
+    /// <inheritdoc cref="IEffectSource.TryRoundEffectEcl"/>
+    public bool TryRoundEffectEcl(IProjectile round, out double3 ecl)
+    {
+        if (_looseBody is not null)
+        {
+            ecl = PlatformEcl + round.OffsetFromPlatform;
+            return Vec.IsFinite(ecl);
+        }
+
+        ecl = Vec.Zero;
+        if (Platform is not { } platform || Launcher is not { } launcher) return false;
+
+        return LauncherPart.TryGetBodyEcl(platform, launcher, round.LaunchAnchorPartFrame,
+                                          round.TravelSinceLaunch, PlatformEcl,
+                                          round.LaunchAttitude, out ecl);
+    }
+
     /// <summary>Rounds still in the air. What decides whether a loose system is worth keeping.</summary>
     public int RoundsInFlight => _rounds.Count;
 

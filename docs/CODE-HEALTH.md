@@ -128,13 +128,20 @@ is the failure CLAUDE.md rates worse than a missing comment.
 
 ## Known gaps, recorded rather than fixed
 
-- **A round that outlives its launcher is invisible.** Round bodies are subparts of the launching
-  craft, so there is nothing to write a transform to once it is destroyed, and `Visuals.Draw`
-  anchors its gizmos against a `Vehicle`. The round is otherwise fully real — it flies, guides,
-  fuses, kills, and can be shot down. Closing it means a draw anchor taken from a body rather than
-  a craft, and `KsaWorld.BeginDraw`'s own comment explains why that is not a substitution:
-  `GetPositionEgo(vehicle)` is the engine answering per case, and `EclToEgo` only agrees with the
-  rendered scene while the followed craft's analytic and physics positions coincide.
+- **A coasting round that outlives its launcher cannot be seen.** It keeps its tracer (a shell,
+  for its whole flight) and its plume (a missile, while the motor burns), because both hang on the
+  celestial body rather than on the craft. What it loses:
+
+  - **Its body mesh — permanently, and this one is KSA's.** The body is a subpart of the launching
+    craft. There is nothing to write a transform to.
+  - **Its motor sound.** `MotorSound` needs a camera-relative position and gets it from
+    `camera.GetPositionEgo(vehicle)`. Whether that call has a celestial overload, and what it means
+    for a body 6,000 km across, is unverified — worth an hour with the game rather than a guess.
+  - **The diagnostic gizmo overlay.** `KsaWorld.BeginDraw` takes a `Vehicle`, and its own comment
+    explains why `EclToEgo` is not a substitution: `GetPositionEgo(vehicle)` is the engine
+    answering per case, and `EclToEgo` only agrees with the rendered scene while the followed
+    craft's analytic and physics positions coincide. Off by default, so lowest priority of the
+    three.
 
 ## Did not survive
 

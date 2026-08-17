@@ -435,6 +435,17 @@ public sealed class KSArmoryMod
             else SightFor(e.Battery).Clear();
         }
 
+        // The two effects that ride the round rather than the weapon. A round outliving its
+        // launcher keeps its plume and its tracer, which is the only thing that makes one visible
+        // at all once its body -- a subpart of the destroyed craft -- has gone with it. The rest
+        // are drawn on the mount and have nothing left to be drawn on.
+        IReadOnlyList<WeaponSystem> loose = _roster.Loose;
+        for (int i = 0; i < loose.Count; i++)
+        {
+            _plumes.Update(loose[i]);
+            _tracers.Update(loose[i]);
+        }
+
         // A sight outlives nothing: without this the dictionary keeps a system for the session
         // after its craft has gone, which is the leak every pooled effect below sweeps for.
         if (_sights.Count > _roster.Count)
