@@ -188,7 +188,7 @@ internal static class Sight
 
         if (weapon is not null) DrawPipper(draw, weapon, main, at, track, targetEgo);
 
-        string label = $"{track.Range / 1000.0:F2} km   {track.ClosingSpeed:F0} m/s";
+        string label = KSArmory.Reticle.RangeAndClosing(track.Range, track.ClosingSpeed);
         Text(draw, new float2(at.X - half, at.Y + half + 6f), label, colour);
 
         if (!settled) Text(draw, new float2(at.X - half, at.Y - half - 18f), "SLEWING", colour);

@@ -325,4 +325,67 @@ public class ThreatModelTests
         Assert.True(ThreatModel.HasSalvoCapacity(afterTheKill[0], 2));
         Assert.Equal(0, ThreatModel.IndexOfMostUrgent(afterTheKill));
     }
+
+    /// <summary>
+    /// Every non-threat has the same priority, so a scope holding several is sorting equal keys —
+    /// and <c>List.Sort</c> is not stable. Range breaks the tie so the order is total.
+    ///
+    /// <para>It matters because an optical director watches <c>Tracks[0]</c>. Without a second key
+    /// the instrument can pick a different contact from one frame to the next with nothing in the
+    /// world having changed, which reads as the sight wandering off on its own.</para>
+    /// </summary>
+    [Fact]
+    public void NonThreatsAreOrderedByRangeRatherThanArbitrarily()
+    {
+        List<TrackState> tracks =
+        [
+            new() { Range = 8000, IsThreat = false },
+            new() { Range = 800, IsThreat = false },
+            new() { Range = 4000, IsThreat = false },
+        ];
+
+        ThreatModel.SortByPriority(tracks);
+
+        Assert.Equal([800.0, 4000.0, 8000.0], tracks.Select(t => t.Range));
+    }
+
+    /// <summary>And a threat still outranks every non-threat, however near they are.</summary>
+    [Fact]
+    public void AThreatOutranksACloserNonThreat()
+    {
+        List<TrackState> tracks =
+        [
+            new() { Range = 50, IsThreat = false },
+            new() { Range = 9000, IsThreat = true, TimeToClosestApproach = 12.0 },
+        ];
+
+        ThreatModel.SortByPriority(tracks);
+
+        Assert.True(tracks[0].IsThreat, "a non-threat at 50 m displaced the threat");
+    }
+
+    /// <summary>
+    /// The same list sorted twice comes out the same way, which is the property the director
+    /// depends on and the one a single key cannot give.
+    /// </summary>
+    [Fact]
+    public void TheOrderIsTheSameWhateverOrderItArrivesIn()
+    {
+        static List<TrackState> Made() =>
+        [
+            new() { Range = 2000, IsThreat = false },
+            new() { Range = 500, IsThreat = false },
+            new() { Range = 7000, IsThreat = false },
+            new() { Range = 1200, IsThreat = false },
+        ];
+
+        List<TrackState> a = Made();
+        List<TrackState> b = Made();
+        b.Reverse();
+
+        ThreatModel.SortByPriority(a);
+        ThreatModel.SortByPriority(b);
+
+        Assert.Equal(a.Select(t => t.Range), b.Select(t => t.Range));
+    }
 }

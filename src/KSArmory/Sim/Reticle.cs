@@ -128,4 +128,19 @@ public static class Reticle
 
         return n;
     }
+
+    /// <summary>
+    /// The range and closing readout under the sight's bracket.
+    /// </summary>
+    /// <remarks>
+    /// A closing speed that rounds to nothing is printed as nothing. A hair either side of zero
+    /// formats as "-0" or "0" and alternates between them frame to frame, which on a target holding
+    /// station is the only thing on the glass that moves.
+    /// </remarks>
+    public static string RangeAndClosing(double rangeMetres, double closingMetresPerSecond)
+    {
+        double closing = Math.Abs(closingMetresPerSecond) < 0.5 ? 0.0 : closingMetresPerSecond;
+
+        return $"{rangeMetres / 1000.0:F2} km   {closing:F0} m/s";
+    }
 }
