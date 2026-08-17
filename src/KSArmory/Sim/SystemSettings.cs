@@ -31,6 +31,10 @@ public sealed class SystemSettings
     public float TurretManualElevationDeg { get; set; } = 55f;
     public bool TurretSpin { get; set; }
     public bool SearchRadarStopped { get; set; }
+    public bool RadarSilent { get; set; }
+    public bool DrawBombSight { get; set; } = true;
+    public bool ScopeOpen { get; set; }
+    public float ScopeRangeMetres { get; set; } = 20_000f;
 
     public string? OwnTeam { get; set; }
     public bool EngageUnknown { get; set; } = true;
@@ -60,6 +64,10 @@ public sealed class SystemSettings
             TurretManualElevationDeg = config.TurretManualElevationDeg,
             TurretSpin = config.TurretSpin,
             SearchRadarStopped = config.SearchRadarStopped,
+            RadarSilent = config.RadarSilent,
+            DrawBombSight = config.DrawBombSight,
+            ScopeOpen = config.ScopeOpen,
+            ScopeRangeMetres = config.ScopeRangeMetres,
 
             OwnTeam = config.Iff.OwnTeam,
             EngageUnknown = config.Iff.EngageUnknown,
@@ -119,6 +127,10 @@ public sealed class SystemSettings
         config.TurretManualElevationDeg = TurretManualElevationDeg;
         config.TurretSpin = TurretSpin;
         config.SearchRadarStopped = SearchRadarStopped;
+        config.RadarSilent = RadarSilent;
+        config.DrawBombSight = DrawBombSight;
+        config.ScopeOpen = ScopeOpen;
+        config.ScopeRangeMetres = ScopeRangeMetres;
 
         config.Iff.OwnTeam = OwnTeam;
         config.Iff.EngageUnknown = EngageUnknown;
@@ -153,6 +165,10 @@ public sealed class SystemSettings
                || Math.Abs(TurretManualElevationDeg - other.TurretManualElevationDeg) > 1e-3f
                || TurretSpin != other.TurretSpin
                || SearchRadarStopped != other.SearchRadarStopped
+               || RadarSilent != other.RadarSilent
+               || DrawBombSight != other.DrawBombSight
+               || ScopeOpen != other.ScopeOpen
+               || Math.Abs(ScopeRangeMetres - other.ScopeRangeMetres) > 1e-3f
                || !string.Equals(OwnTeam, other.OwnTeam, StringComparison.Ordinal)
                || EngageUnknown != other.EngageUnknown
                || EngageNeutral != other.EngageNeutral

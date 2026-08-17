@@ -129,6 +129,94 @@ public class SystemSettingsTests
     }
 
     /// <summary>
+    /// Settings a system carries deliberately, and why each is not persisted. Everything else on
+    /// <see cref="SystemConfig"/> has to survive a save.
+    /// </summary>
+    private static readonly Dictionary<string, string> NotPersisted = new()
+    {
+        ["MouseFire"] = "restoring a tool that fires means the first click after a load launches",
+    };
+
+    // Every public instance field and property a config declares, by name.
+    private static HashSet<string> Members(Type config)
+        => config
+           .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+           .Select(f => f.Name)
+           .Concat(config.GetProperties().Select(p => p.Name))
+           .ToHashSet(StringComparer.Ordinal);
+
+    private static IEnumerable<System.Reflection.FieldInfo> Persistable()
+        => typeof(SystemConfig)
+           .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+           .Where(f => !NotPersisted.ContainsKey(f.Name));
+
+    // Any value that is not the default, so a field left out of the round trip comes back
+    // visibly different rather than accidentally right.
+    private static void Poke(System.Reflection.FieldInfo field, SystemConfig config)
+    {
+        object current = field.GetValue(config)!;
+
+        field.SetValue(config, current switch
+        {
+            bool b => !b,
+            int i => i + 7,
+            float f => f + 13.5f,
+            _ => throw new InvalidOperationException(
+                     $"SystemConfig.{field.Name} is a {field.FieldType.Name}, which this test does "
+                     + "not know how to vary — teach it, do not exempt the field"),
+        });
+    }
+
+    /// <summary>
+    /// Every setting a system carries has to survive a save, and the three lists that make that
+    /// happen — <c>From</c>, <c>ApplyTo</c> and <c>Differs</c> — are written out by hand.
+    ///
+    /// <para>A field added to <see cref="SystemConfig"/> and forgotten in any of them is silently
+    /// not persisted: nothing throws, nothing is logged, and the setting is simply back at its
+    /// default on the next load. Four shipped that way — the scope's range and pop-out, the bomb
+    /// sight, and whether the set was told to stop transmitting.</para>
+    ///
+    /// <para>Exempting a field is deliberate and has to name its reason, which is what stops this
+    /// being satisfied by adding names to a list.</para>
+    /// </summary>
+    [Fact]
+    public void EverySystemConfigFieldSurvivesASave()
+    {
+        SystemConfig written = new();
+        foreach (System.Reflection.FieldInfo f in Persistable()) Poke(f, written);
+
+        SystemConfig read = new();
+        SystemSettings.From(written).ApplyTo(read);
+
+        foreach (System.Reflection.FieldInfo f in Persistable())
+        {
+            Assert.True(Equals(f.GetValue(written), f.GetValue(read)),
+                        $"SystemConfig.{f.Name} does not survive a save — it is missing from "
+                        + "SystemSettings.From or ApplyTo, and comes back at its default");
+        }
+    }
+
+    /// <summary>
+    /// And <c>Differs</c> has to notice each of them change, or the store decides nothing has
+    /// happened and never writes the file — which loses the setting just as completely as leaving
+    /// it out of <c>From</c>, and looks like the save working.
+    /// </summary>
+    [Fact]
+    public void DiffersNoticesEverySettingThatIsPersisted()
+    {
+        foreach (System.Reflection.FieldInfo f in Persistable())
+        {
+            SystemConfig before = new();
+            SystemConfig after = new();
+            Poke(f, after);
+
+            Assert.True(SystemSettings.From(after).Differs(SystemSettings.From(before)),
+                        $"SystemConfig.{f.Name} can change without Differs noticing, so the save "
+                        + "is never written");
+        }
+    }
+
+    /// <summary>
     /// A battery carries nothing about an optical head. A director is a part in its own right
     /// with its own OpticConfig, crewed per part rather than per weapons system, so a battery's
     /// settings have no business naming one — and a craft can carry a director and no weapon.
@@ -136,10 +224,19 @@ public class SystemSettingsTests
     [Fact]
     public void ABatterySettingCarriesNothingAboutAnOpticalHead()
     {
+        // Settings only a director has, which is not the same as every setting a director has:
+        // both configs implement ISensorPolicy, so ProtectControlledVehicle and MouseAim are on
+        // each of them and belong to each of them. Matching the words "Optic" and "Sight" instead
+        // calls DrawBombSight a director's business, and it is not — a bomb sight is the release
+        // pipper for a rack, owned by the system that drops the store.
+        HashSet<string> headOnly = Members(typeof(OpticConfig));
+        headOnly.ExceptWith(Members(typeof(SystemConfig)));
+
+        Assert.NotEmpty(headOnly);
+
         foreach (System.Reflection.PropertyInfo p in typeof(SystemSettings).GetProperties())
         {
-            Assert.DoesNotContain("Optic", p.Name, StringComparison.Ordinal);
-            Assert.DoesNotContain("Sight", p.Name, StringComparison.Ordinal);
+            Assert.DoesNotContain(p.Name, headOnly);
         }
     }
 
