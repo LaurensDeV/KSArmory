@@ -100,6 +100,19 @@ internal sealed class MotorSmoke
 
     private void Lay(IProjectile round, IEffectSource battery, Celestial body, double3 centre)
     {
+        // Nothing until the round has cleared its tube. It is seated with its *centre* on the
+        // launch anchor, so its nozzle starts half a body length inside and does not reach the
+        // mouth until the round has travelled a whole one. Laying before that draws the trail from
+        // inside the launcher and up the tube the round is still leaving, where the real thing only
+        // ever appears at the mouth.
+        //
+        // Travel rather than age, so it holds for a round that leaves slowly and for one that is
+        // dropped before its motor lights. On a rail there is no tube and nothing to clear, but the
+        // same body length is a twentieth of a second of flight, which is not a difference anyone
+        // can see.
+        double clearance = round.Munition.BodyLength;
+        if (Vec.Len2(round.TravelSinceLaunch) < clearance * clearance) return;
+
         if (!battery.TryRoundEffectEcl(round, out double3 ecl)) return;
 
         // Behind the nozzle, not at the round's centre: smoke laid at the middle of the body reads
