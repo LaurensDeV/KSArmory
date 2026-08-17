@@ -310,6 +310,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSession.cs` | the world clock, and what the session draws and hears |
 | `Ksa/Ui/UiSystem.cs` | one row per component: what each part is, sees and is doing |
+| `Ksa/Ui/UiOptic.cs` | one director's rows — what it looks at, looks through, and will watch. **Reads no weapons system**, because a craft with a director and no armament has all of them |
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
 | `Ksa/Ui/UiMap.cs` | the ground under a director as shaded relief, with what it can see marked on it |

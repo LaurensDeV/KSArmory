@@ -62,7 +62,7 @@ Things that are wrong now, not things that could be tidier.
   that nothing in the world can spawn particles again. `MotorSound` and `GunSound` likewise.
   Leaf functions, not a base class: the keys, cardinality and lifetimes genuinely differ.
 
-- [ ] **`UiSystem.cs` holds a different owner for a third of itself** — the optical-head block
+- [x] **`UiSystem.cs` holds a different owner for a third of itself** — the optical-head block
   never reads the battery or the policy, contradicting the file's own doc comment.
 
 - [x] **Nothing checks that `SystemSettings` covers every persistable `SystemConfig` field.** A new
