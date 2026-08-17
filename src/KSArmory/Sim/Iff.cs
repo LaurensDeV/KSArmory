@@ -17,6 +17,44 @@ public enum Allegiance
 }
 
 /// <summary>
+/// Which team a craft's name puts it on, and the half of IFF that runs before
+/// <see cref="IffPolicy.Classify"/> gets a string to compare.
+/// </summary>
+public static class Teams
+{
+    /// <summary>
+    /// The team whose name appears in <paramref name="craftName"/>, or null if none does.
+    ///
+    /// <para>A <b>substring</b> match, because KSA has no team field and a craft's display name is
+    /// the only assignment available without asking the player to fill in a second one. That is
+    /// also its trap, and it is not fixable from here: a craft called "Redstone" lands on team
+    /// "Red" without anyone having said so. Longest match wins, so listing "Red Team" alongside
+    /// "Red" resolves the pair that is actually ambiguous; nothing resolves the pair that merely
+    /// shares a prefix.</para>
+    /// </summary>
+    public static string? TeamFor(string? craftName, IReadOnlyList<string> teamNames)
+    {
+        if (string.IsNullOrEmpty(craftName) || teamNames.Count == 0) return null;
+
+        string? best = null;
+
+        for (int i = 0; i < teamNames.Count; i++)
+        {
+            string team = teamNames[i];
+
+            if (string.IsNullOrWhiteSpace(team)) continue;
+            if (craftName.Contains(team, StringComparison.OrdinalIgnoreCase)
+                && (best is null || team.Length > best.Length))
+            {
+                best = team;
+            }
+        }
+
+        return best;
+    }
+}
+
+/// <summary>
 /// Decides which contacts a battery may engage. <b>IFF is Identification Friend or Foe</b> — the
 /// radar-transponder scheme real air defence uses to avoid shooting its own side.
 ///

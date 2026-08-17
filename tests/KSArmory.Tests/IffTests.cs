@@ -236,4 +236,69 @@ public class IffTests
 
         Assert.Equal(Allegiance.Neutral, blue.Classify("Green"));
     }
+
+    // ---- Which team a name puts a craft on -------------------------------
+    //
+    // The half that runs before Classify gets a string. Everything above assumes a team name has
+    // already been resolved off the craft; this is where that resolution can go wrong, and it is
+    // the half that decides what a player's roster actually does.
+
+    private static readonly List<string> Sides = ["Red", "Blue"];
+
+    [Fact]
+    public void ANameCarryingATeamIsOnThatTeam()
+    {
+        Assert.Equal("Red", Teams.TeamFor("Red Leader", Sides));
+    }
+
+    [Fact]
+    public void MatchingIsCaseInsensitive()
+    {
+        Assert.Equal("Blue", Teams.TeamFor("BLUE four", Sides));
+    }
+
+    [Fact]
+    public void ANameCarryingNoTeamIsOnNone()
+    {
+        Assert.Null(Teams.TeamFor("Kerbal X", Sides));
+    }
+
+    [Fact]
+    public void AnEmptyRosterPutsNothingOnATeam()
+    {
+        Assert.Null(Teams.TeamFor("Red Leader", []));
+    }
+
+    /// <summary>A blank entry in the roster matches every name, so it is skipped rather than won by.</summary>
+    [Fact]
+    public void ABlankTeamNameIsNotATeam()
+    {
+        Assert.Null(Teams.TeamFor("Red Leader", ["", "   "]));
+    }
+
+    /// <summary>
+    /// Longest match wins, which is the whole reason the loop does not stop at the first hit:
+    /// listing "Red" and "Red Team" together is exactly the ambiguity a player creates by naming
+    /// their sides that way, and the specific one has to win.
+    /// </summary>
+    [Fact]
+    public void TheLongestMatchWinsWhateverOrderTheRosterIsIn()
+    {
+        Assert.Equal("Red Team", Teams.TeamFor("Red Team Leader", ["Red", "Red Team"]));
+        Assert.Equal("Red Team", Teams.TeamFor("Red Team Leader", ["Red Team", "Red"]));
+    }
+
+    /// <summary>
+    /// The trap, pinned rather than fixed. A substring match is all a craft's display name can
+    /// support, so a name that merely contains a team's is assigned to it — and no ordering or
+    /// longest-match rule separates "Redstone" from "Red", because there is only one candidate.
+    ///
+    /// <para>Here so that whoever changes the matching rule finds out what they have changed. It
+    /// is the documented cost of having no team field to read.</para>
+    /// </summary>
+    [Fact]
+    public void ANameThatMerelyContainsATeamIsStillPutOnIt()
+    {
+        Assert.Equal("Red", Teams.TeamFor("Redstone", Sides));
+    }
 }

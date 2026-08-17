@@ -141,7 +141,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     {
         if (!contact.IsAlive) return;
 
-        string? team = TeamOf(contact.TeamKey);
+        string? team = Teams.TeamFor(contact.TeamKey, _config.TeamNames);
         Allegiance allegiance = _policy.Iff.Classify(team);
 
         double3 targetPos = contact.PositionEcl;
@@ -188,26 +188,6 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             Team = team,
             Allegiance = allegiance,
         });
-    }
-
-    // KSA has no team field, so the craft's name is the only assignment available without extra
-    // UI. Longest match wins, so "Red Team" beats "Red" when both are listed.
-    private string? TeamOf(string name)
-    {
-        if (_config.TeamNames.Count == 0) return null;
-
-        string? best = null;
-
-        foreach (string team in _config.TeamNames)
-        {
-            if (string.IsNullOrWhiteSpace(team)) continue;
-            if (name.Contains(team, StringComparison.OrdinalIgnoreCase)
-                && (best is null || team.Length > best.Length))
-            {
-                best = team;
-            }
-        }
-        return best;
     }
 
     private void UpdateLock()
