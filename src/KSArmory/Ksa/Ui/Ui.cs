@@ -460,7 +460,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 {
                     // "Radar" rather than "Tracks": the tab carries the lock and the scope state
                     // as well as the list, which is the whole of what the set is doing.
-                    if (ImGui.BeginTabItem("Radar")) { DrawTrackList(); ImGui.EndTabItem(); }
+                    if (ImGui.BeginTabItem("Radar")) { DrawScope(); DrawTrackList(); ImGui.EndTabItem(); }
                     if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
                     if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
                 }

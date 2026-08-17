@@ -156,6 +156,16 @@ public sealed class SystemConfig : ISensorPolicy
     /// </summary>
     public bool RadarSilent;
 
+    /// <summary>
+    /// How far the scope's rim is (m) — the range setting, not the set's reach.
+    ///
+    /// <para>Deliberately independent of <see cref="SensorProfile.Range"/>: an operator winds a
+    /// scope in to read a crowded sector and back out to see what is coming, and neither says
+    /// anything about how far the set can actually detect. Contacts past the rim are held on it
+    /// rather than dropped.</para>
+    /// </summary>
+    public float ScopeRangeMetres = 20_000f;
+
     // ---- Optical head ---------------------------------------------------
     //
     // Nothing. A head is a part in its own right now, with its own OpticConfig: it is crewed per

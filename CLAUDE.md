@@ -274,6 +274,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TerrainMap.cs` | a local east/north frame on a body, and the square of ground drawn around it |
 | `Sim/Picking.cs` | what the cursor's ray meets, and what is nearest it on screen |
 | `Sim/Reticle.cs` | the gunner's sight as strokes on a screen — geometry only |
+| `Sim/ScopeGeometry.cs` | the radar scope's face — where a blip belongs on it, in bearing and range |
 | `Sim/LockCue.cs` | how far a lock has matured, as the number a closing bracket is drawn from |
 | `Sim/SightPicture.cs` | where the sight's horizontal lies, and which way a contact off the glass went |
 | `Sim/SightZoom.cs` | the head's magnification, as the field of view it asks a camera for |
@@ -311,6 +312,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
 | `Ksa/Ui/UiMap.cs` | the ground under a director as shaded relief, with what it can see marked on it |
+| `Ksa/Ui/UiScope.cs` | the radar scope: what the *set* holds, craft-centred and polar, on the Radar tab |
 | `Ksa/Ui/UiWeapons.cs` | the weapon switcher — which of a craft's weapons the trigger is pointed at, with each one's ammo and arm state |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
 | `Ksa/Ui/ModMenuEntry.cs` | a copied attribute so ModMenu can list this mod — **wanted gone**, see `docs/BLOCKED-ON-KSA.md` |
@@ -360,7 +362,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 358 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 359 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |

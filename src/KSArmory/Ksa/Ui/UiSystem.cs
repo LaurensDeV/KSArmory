@@ -205,6 +205,7 @@ internal sealed partial class Ui
         }
 
         ImGui.TextDisabled("  the Radar tab has the scope and the full track list");
+
     }
 
     // Everything about releasing a weapon, on the part that decides it.
