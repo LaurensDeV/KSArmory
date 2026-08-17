@@ -25,13 +25,16 @@ resolve by `BodyMarker` / `FinMarker`, so a new round brings its own meshes with
 Profiles are mutable fields read *by reference* every frame, which is what makes live panel tuning
 work.
 
-**The wiring that hands a round its profile does not hold, and the parameterisation is what hides
-it.** `Interceptor.Munition` carries a default, `WeaponSystem.Commit` sets it on the `Slug` branch
-and not on the `Interceptor` branch, and that construction site is the only one in production. So
-every guided round flies the default profile whatever launcher fired it. No test can see it,
-because `Interceptor.Update` takes the profile as a parameter and every test passes one explicitly;
-only `WeaponSystem` reads the field. Diagnosed from the source and not flown, so it is a diagnosis
-rather than a fix. `docs/WEAPON-TAXONOMY.md` has the measured consequence for the AIM-9J.
+**A round carries the profile of the launcher that fired it.** `Interceptor.Munition` and
+`Slug.Munition` are `required` with no default, and `WeaponSystem.Commit` — the only construction
+site in production — sets it on both branches. The `required` is what holds it: a branch that
+forgets the field does not compile, where a default made forgetting it silent.
+
+**The parameterisation still hides the field from the suite, and that is the standing risk.**
+`Interceptor.Update` takes a `MunitionProfile` argument and every test passes one explicitly, so
+`round.Munition` is read only by `WeaponSystem` — the flight model, the command-link cut, both
+blast radii and the fireball scale all go through it in production and through the parameter in the
+tests. Nothing in `Sim/` can see a wrong value there.
 
 The limit is the *class* of weapon, not the round. `Interceptor` is one concrete type with a
 hardwired integrate → guide → fuse loop, so a second class of weapon is a second implementation of

@@ -42,8 +42,7 @@ Things that are wrong now, not things that could be tidier.
 ## Modularity
 
 - [ ] **Testable maths stranded in `Ksa/`.** Highest value first:
-  - `Radar.TeamOf` — a pure string function, the only untested half of IFF, carrying the
-    documented longest-substring-wins trap ("Redstone" lands on team "Red"). Move to `Sim/Iff.cs`.
+  - [x] `Radar.TeamOf` — now `Sim/Teams.TeamFor`, with the substring trap pinned.
   - `WeaponSystem.Holding()` — 87 lines, every input already a `Sim/` type, no test, and the
     mod's most-read line.
   - The blast sweep in `WeaponSystem.Detonate` — now written twice inside one method, rounds and
@@ -54,7 +53,7 @@ Things that are wrong now, not things that could be tidier.
   `OffsetFromPlatform` phase rule. `ProjectileContractTests` exists so a third `IProjectile`
   inherits the trap list; what it would inherit today is copy-paste.
 
-- [ ] **Shortest-arc rotation implemented twice**, with different epsilons and different degenerate
+- [x] **Shortest-arc rotation implemented twice**, with different epsilons and different degenerate
   axes — `TubeGeometry.RotationFromTo` and `FireGeometry.RotationFromNose`, where the second is
   the first applied to `NoseAxis`. `OpticGeometry` reaches into `TubeGeometry` for the generic
   helper.
@@ -67,7 +66,7 @@ Things that are wrong now, not things that could be tidier.
 - [ ] **`UiSystem.cs` holds a different owner for a third of itself** — the optical-head block
   never reads the battery or the policy, contradicting the file's own doc comment.
 
-- [ ] **Nothing checks that `SystemSettings` covers every persistable `SystemConfig` field.** A new
+- [x] **Nothing checks that `SystemSettings` covers every persistable `SystemConfig` field.** A new
   field silently fails to persist across three hand-written lists, and `check-tunables.py` asks
   for a control rather than for persistence.
 
@@ -77,29 +76,29 @@ The ratios are fine — `Sim/` is a data-and-contracts layer and its comments ca
 and flown numbers. What is wrong is comments that have gone stale or slid off their subject, which
 is the failure CLAUDE.md rates worse than a missing comment.
 
-- [ ] **Doc blocks have slid off their members.** `GenerateDocumentationFile` is off, so nothing
+- [x] **Doc blocks have slid off their members.** `GenerateDocumentationFile` is off, so nothing
   warns; blocks now hold more than one `<summary>`, each earlier one describing a member left
   undocumented. Confirmed: `KsaWorld.ParentBody` (carrying `GravityAt`'s and `GroundVelocityAt`'s),
   `KSArmoryMod`'s mushroom-cloud comment on `_motors`, an orphan "last kitten reported" comment for
   a field that no longer exists.
 
-- [ ] **`MuzzleFlash`'s class summary describes behaviour `b71fa90` removed** — "one endless
+- [x] **`MuzzleFlash`'s class summary describes behaviour `b71fa90` removed** — "one endless
   emitter per battery", anchored to the barrel cluster's centre "averaging them". That commit's own
   message quotes this comment as the thing that defended the old behaviour.
 
-- [ ] **Other stale claims.** `LauncherPart` ("several launchers on one craft still give one
+- [x] **Other stale claims.** `LauncherPart` ("several launchers on one craft still give one
   battery" — false since the per-launcher roster), `ChaseCamera` ("a second and a half" against
   `LingerSeconds = 3.0`), and dead `cref`s to `WeaponSystem.OpticOriginEcl` and `Sim/Designation`,
   neither of which exists.
 
-- [ ] **`CLAUDE.md`'s consumer count is wrong** — "ten of the thirteen consumers take a role" is
+- [x] **`CLAUDE.md`'s consumer count is wrong** — "ten of the thirteen consumers take a role" is
   11 of 17. Three of the named exceptions need no widening at all: existing roles already cover
   every member they touch.
 
-- [ ] **`docs/MODULARITY.md` is stale on its own headline bug** — the `Interceptor.Munition`
+- [x] **`docs/MODULARITY.md` is stale on its own headline bug** — the `Interceptor.Munition`
   default it describes is fixed; the property is `required` and set on both branches.
 
-- [ ] **History narration that `check-comments.sh` does not catch.** Its regex misses "used to
+- [x] **History narration that `check-comments.sh` does not catch.** Its regex misses "used to
   go", "it began at", "and it did", "first attempt", "two earlier versions", "once claimed", and a
   block quoting a commit subject verbatim. Widen the regex rather than fixing the instances alone.
 

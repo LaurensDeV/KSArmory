@@ -251,31 +251,16 @@ any number of additional rows in `Arsenal.cs`.
 Not candidates. Things that are wrong now, diagnosed from the source and **not flown**, so per
 CLAUDE.md they are diagnoses rather than fixes.
 
-1. **Every guided round in the world flies the 57E6's profile.** `WeaponSystem.Commit` sets
-   `Munition` on the `Slug` branch and omits it on the `Interceptor` branch, and
-   `Interceptor.Munition` defaults to `Arsenal.Missile57E6`. That is the only production
-   construction site, and `round.Munition` is what reaches the flight model, the command-link cut,
-   both blast radii and the fireball scale. One shipped weapon is affected: the LAU-7's AIM-9J flies
-   as `CommandLink` at 520 m/s² for 2.4 s with a 20 kg warhead instead of `Seeker` at 370 for 2.2
-   with 9.4 kg. The guidance mode inverts what the rail is for, because a command-link round is cut
-   loose when the launching set loses volume. No test can see it: `Interceptor.Update` takes the
-   profile as a parameter, so every test passes one explicitly and only `WeaponSystem` reads the
-   field.
-2. **The Mk 82 bomb rack's armament is labelled "Missiles".** `LauncherProfile.TubeArmamentLabel`
-   is set by no registered profile, and its own doc comment cites exactly this case. It names the
-   status row, the enable switch and the tuning heading.
-3. **`MunitionProfile.Stages` shipped ahead of its instance**, alongside `Tube.Direction`,
-   `BoresightMode` and `NeutralDensityRatio` in the list `AUDIT-2026-08` names. Its own remark
-   offers the 57E6 as the instance, and that is wrong: the real round's second stage carries no
-   motor, so a booster burn followed by a coast is what it does, and `Missile57E6`'s comment says
-   so correctly. A multi-stage round wants two *powered* stages, and none is registered. Correct
-   the remark rather than the profile.
-4. **`Arsenal.Named` falls back to element zero** on an unknown key, so a typo'd munition name
+1. **`Arsenal.Named` falls back to element zero** on an unknown key, so a typo'd munition name
    silently flies the first round in the registry. Still true, still pinned by
    `WeaponSystemSelectionTests`.
-5. **`Aimpoint.OnPart` has no production call site.** Component-level aiming is read by
+2. **`Aimpoint.OnPart` has no production call site.** Component-level aiming is read by
    `WeaponSystem` and produced by nobody, which is a KSA ceiling rather than a mod one: there is no
    damage below destruction to apply it to.
+
+Three others recorded here have since been fixed and are gone rather than annotated: a guided round
+flying the 57E6's profile whatever launcher fired it, the Mk 82 rack labelling its bombs "Missiles",
+and `MunitionProfile.Stages` having no instance — the HARM's dual-thrust motor is one.
 
 Four capabilities are off by default and that is **deliberate**, recorded in CLAUDE.md rather than
 missing: `ReferenceCrossSectionM2`, `NotchSpeed`, `ClutterFloorMetres` and `TerrainSamples`. They
@@ -286,7 +271,9 @@ are real capabilities with real costs, not upgrades.
 Checked against the working tree, not assumed:
 
 - "`Interceptor` never names a munition. Every number arrives as a `MunitionProfile` argument per
-  `Update`" is **wrong**, and defect 1 above is the consequence.
+  `Update`" is **wrong**: a round carries its launcher's profile in a `required` field, and only
+  `WeaponSystem` reads it. The parameter is still how every test supplies one, so nothing in `Sim/`
+  can see a wrong value there.
 - "exactly **one** branch on round type in the whole flight model" is stale: `SeekerInView` now has
   three terms, the added one being a `Ground` aimpoint.
 - "**Nothing upstream of a round can name a coordinate** ... `Track` is a `required Vehicle`" is
@@ -294,7 +281,7 @@ Checked against the working tree, not assumed:
   contacts rather than vehicles, and `Sim/Iff.cs`, `Sim/Aimpoint.cs` and `Designator` all work. What
   genuinely remains is narrower: **auto-engage** still requires a lock.
 - "the `stackalloc` in `WeaponSystem.Fire`" is in `SyncRoundBodies`.
-- "worth 117 → 203 tests" is stale; 749 pass today.
+- "worth 117 → 203 tests" is stale; 941 pass today.
 - The articulation section's counts are stale in the direction that strengthens its argument: five
   `Find*`, five `TryApply*`, four `*Pose` and twelve profile fields, since `OpticBaseMarker` landed.
 

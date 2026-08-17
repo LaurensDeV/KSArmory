@@ -1619,8 +1619,13 @@ if a craft ever carries two.
 
 **Consumers take a role, not the system.** `Ksa/WeaponSystemRoles.cs` names what each one actually
 needs: rounds in flight, an effect source, an optical head, a manual trigger, a read-only view.
-Ten of the thirteen consumers take one. The three that do not are the frame hook, the panel and the
-scenario runner, which command it rather than read it.
+Ten of the seventeen consumers take one and nothing else, and `Visuals` is one method short of an
+eleventh — `DrawShellStream` takes the class for three members `IRoundsInFlight` already carries.
+
+Of the six that take the class, four have to: the frame hook, the panel, the scenario runner and
+`TargetLock` command it rather than read it, and designating is a command, which is why
+`IOpticalHead.Designation` is read-only. The other two only read — `BombSightOverlay` stays within
+`IWeaponSystemView`, and `LockCueOverlay` reaches one member past it for `Hold`.
 
 ## Testing
 
