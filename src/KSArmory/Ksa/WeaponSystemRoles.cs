@@ -222,6 +222,12 @@ internal interface IWeaponSystemView : IRoundsInFlight, IWeaponLoadout
 
     Turret Turret { get; }
 
+    /// <summary>
+    /// The search array's angle, so a diagnostic can draw where the scope believes it is looking
+    /// beside where the mesh actually is. Read-only and cosmetic, like the array itself.
+    /// </summary>
+    double RadarSpinRad { get; }
+
     Radar Radar { get; }
 
     /// <summary>False once the engine has refused to place a round body; tracers then stand in.</summary>

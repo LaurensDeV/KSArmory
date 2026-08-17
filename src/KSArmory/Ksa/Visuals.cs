@@ -39,6 +39,8 @@ internal static class Visuals
     private static readonly float4 SpentTubeColour = new(0.3f, 0.3f, 0.32f, 0.6f);
     private static readonly float4 CpaColour = new(0.6f, 0.4f, 1.0f, 0.7f);
     private static readonly float4 TurretColour = new(0.4f, 1.0f, 0.9f, 0.8f);
+    private static readonly float4 NorthColour = new(1.0f, 1.0f, 1.0f, 0.9f);
+    private static readonly float4 ArrayColour = new(0.5f, 1.0f, 0.6f, 0.9f);
 
     public static void Draw(IWeaponSystemView battery, Config config)
     {
@@ -65,6 +67,7 @@ internal static class Visuals
         if (config.DrawMissiles) DrawRounds(battery, config);
         if (battery.Launcher is not null && config.DrawTubeMarkers) DrawLoadedTubes(battery, config, origin);
         if (config.DrawTurretFacing) DrawTurretFacing(battery);
+        if (config.DrawBearingReference) DrawBearingReference(battery);
     }
 
     /// <summary>
@@ -238,6 +241,56 @@ internal static class Visuals
 
         double3 from = battery.MountEcl + battery.Boresight * 3.2;
         KsaWorld.DrawLineEcl(from, from + facingEcl * 45.0, TurretColour);
+    }
+
+    // North, and where the scope believes each face of the array is looking.
+    //
+    // The one thing that settles whether the scope agrees with the vehicle. Every step from the
+    // array's angle to a compass bearing is somewhere a sign or a handedness can invert, and the
+    // wrong one draws a sweep that turns the opposite way to the dish while agreeing with it twice
+    // a revolution -- which reads as an offset rather than a reversal. Drawn beside the dish, that
+    // stops being a matter of watching carefully.
+    private static void DrawBearingReference(IWeaponSystemView battery)
+    {
+        if (battery.Platform is not { } platform) return;
+        if (KsaWorld.ParentBody(platform) is not { } body) return;
+
+        MapFrame? built;
+        try
+        {
+            built = MapFrame.TryAt(body.GetPositionEcl(), battery.MountEcl, body.GetRotationAxisCce());
+        }
+        catch
+        {
+            return;      // no frame here, so no bearing to draw one against
+        }
+
+        if (built is not { } frame) return;
+
+        double3 from = battery.MountEcl + battery.Boresight * 3.2;
+
+        // North itself, long and white, so everything else is read against it.
+        KsaWorld.DrawLineEcl(from, from + (frame.North * 60.0), NorthColour);
+
+        int faces = battery.Profile.SearchRadarFaces;
+        if (faces <= 0) return;
+
+        double3 forward = frame.ToLocalDirection(platform.Asmb2Ego * new double3(0, 1, 0));
+        if (!Vec.IsFinite(forward)) return;
+
+        double heading = ScopeGeometry.BearingRad(forward.X, forward.Y);
+        double array = battery.Turret.BearingRad + battery.RadarSpinRad;
+
+        Span<double> bearings = stackalloc double[ScopeGeometry.MaxSweepFaces];
+        int count = ScopeGeometry.SweepBearings(heading, array, faces, bearings);
+
+        // Back out of a compass bearing into the world, which is the same conversion the scope
+        // makes on its face -- so a line that disagrees with the dish is the scope disagreeing.
+        for (int i = 0; i < count; i++)
+        {
+            double3 along = (frame.North * Math.Cos(bearings[i])) + (frame.East * Math.Sin(bearings[i]));
+            KsaWorld.DrawLineEcl(from, from + (along * 48.0), ArrayColour);
+        }
     }
 
     private static void DrawRounds(IWeaponSystemView battery, Config config)

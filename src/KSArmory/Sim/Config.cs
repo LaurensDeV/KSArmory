@@ -223,6 +223,20 @@ public sealed class Config
     public bool DrawTurretFacing = true;
 
     /// <summary>
+    /// Diagnostic: a line to the north, and one along each face of the search array as the scope
+    /// believes it is pointing.
+    ///
+    /// <para>What it settles is whether the scope agrees with the vehicle. The sweep is drawn from
+    /// the array's angle carried into the body's own frame, and every step of that is a place a
+    /// sign or a handedness can invert — which draws a sweep that turns the wrong way while looking
+    /// entirely plausible on its own. Put the array's line beside the dish and the question stops
+    /// being a matter of watching carefully.</para>
+    ///
+    /// <para>Off by default: it is a line for settling an argument, not part of the picture.</para>
+    /// </summary>
+    public bool DrawBearingReference;
+
+    /// <summary>
     /// Diagnostic: hold the chase camera still through its transition instead of flying it onto
     /// the round. It still takes the view and still aims, it simply does not travel.
     ///

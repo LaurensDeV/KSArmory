@@ -124,6 +124,8 @@ internal sealed partial class Ui
         ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);
         ImGui.Checkbox("Drive facing line", ref _config.DrawTurretFacing);
         ImGui.TextDisabled("  where the drives think they point, not where they are told to");
+        ImGui.Checkbox("Bearing reference", ref _config.DrawBearingReference);
+        ImGui.TextDisabled("  white to north, green along each face of the array as the scope reads it");
         ImGui.SliderFloat("Cone draw length (m)", ref _config.ConeDisplayMetres, 200f, 20000f);
         ImGui.TextDisabled("  cosmetic only; detection range is set on the sensor");
 
