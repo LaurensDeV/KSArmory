@@ -116,22 +116,61 @@ public class ChaseBlendFrameTests
     }
 
     /// <summary>
+    /// One frame of a round climbing away from a launcher, with <paramref name="carrier"/> added to
+    /// everything in the scene: the platform as <c>SampleWorld</c> read it before the step, the
+    /// round's position after it, and what <c>Interceptor</c> publishes — the round against the
+    /// platform sample from its own frame.
+    /// </summary>
+    private static (double3 PlatformBefore, double3 RoundAfter, double3 OffsetFromPlatform)
+        Frame(double3 carrier)
+    {
+        const double dt = 1.0 / 60.0;
+
+        double3 platformEcl = new(1.5e11, 6.371e6, 0);
+        double3 roundEcl = platformEcl + Up * 400.0;
+
+        double3 platformBefore = platformEcl;
+
+        platformEcl += carrier * dt;
+        roundEcl += (carrier + (Up * 700.0)) * dt;
+
+        return (platformBefore, roundEcl, roundEcl - platformEcl);
+    }
+
+    /// <summary>
     /// The frame contract, stated directly: add any common velocity to the launcher, the round and
-    /// the whole scene, and the camera's offset from the round must not move at all.
+    /// the whole scene, and the camera's offset from the round must not move.
     /// </summary>
     [Fact]
     public void SharedMotionDoesNotReachTheBlend()
     {
         double3 fromOffset = new(-30.0, 12.0, 4.0);
-        double3 offsetFromPlatform = Up * 400.0;
         double3 eye = Up * -26.0;
 
-        double3 still = BlendedOffset(fromOffset, offsetFromPlatform, eye, 0.4);
+        var still = Frame(default);
+        var carried = Frame(Carrier);
 
-        // The carrier cancels inside OffsetFromPlatform, so the inputs are literally the same —
-        // which is the point: there is no ecliptic position left in this calculation to carry it.
-        double3 carried = BlendedOffset(fromOffset, offsetFromPlatform, eye, 0.4);
+        double3 stillOffset = BlendedOffset(fromOffset, still.OffsetFromPlatform, eye, 0.4);
+        double3 carriedOffset = BlendedOffset(fromOffset, carried.OffsetFromPlatform, eye, 0.4);
 
-        Assert.True(Vec.Len(still - carried) < 1e-9);
+        // Not exactly zero, and it cannot be: the carrier goes onto an ecliptic position and comes
+        // off again, and a double holds 1.5e11 m to about 30 µm. What must not survive is metres.
+        double leaked = Vec.Len(stillOffset - carriedOffset);
+
+        Assert.True(leaked < 1e-3, $"the carrier reached the blend: {leaked:F4} m");
+
+        // And it has to be shown leaking through the cross-instant form on the same scene. Without
+        // this the assertion above also passes for a calculation that never had a carrier in it to
+        // cancel, which is what it was doing when this test was written.
+        double3 stillAcross =
+            BlendedAcrossInstants(still.PlatformBefore, fromOffset, still.RoundAfter, eye, 0.4);
+        double3 carriedAcross =
+            BlendedAcrossInstants(carried.PlatformBefore, fromOffset, carried.RoundAfter, eye, 0.4);
+
+        double across = Vec.Len(stillAcross - carriedAcross);
+
+        Assert.True(across > 100.0,
+                    $"the cross-instant form only moved {across:F1} m — the test is not "
+                    + "reproducing the leak it was written for");
     }
 }

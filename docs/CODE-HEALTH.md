@@ -15,7 +15,7 @@ not will be found again by the next reader.
 
 Things that are wrong now, not things that could be tidier.
 
-- [ ] **A load-bearing test asserts `f(x) == f(x)`.** `tests/ChaseBlendFrameTests.cs`,
+- [x] **A load-bearing test asserts `f(x) == f(x)`.** `tests/ChaseBlendFrameTests.cs`,
   `SharedMotionDoesNotReachTheBlend` calls `BlendedOffset` twice with byte-identical arguments and
   asserts the results agree. Its own doc says it adds a common velocity to the launcher, the round
   and the scene; it adds none, and an inline comment rationalises the identical inputs. CLAUDE.md
