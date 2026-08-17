@@ -249,32 +249,17 @@ internal sealed class SightCamera : IViewPose
     {
         if (!_saved.Valid) return;
 
-        // Read before anything is written. The follow the player is on says whether they moved it
-        // themselves, and the restore below is about to change it.
+        // The follow is classified here as well as at the stand-down rung, because this path is
+        // reachable without Apply ever having seen the takeover: losing the head and switching
+        // vessels on the same frame arrives here instead, and restoring then puts the player back
+        // on the craft they just left. The mode needs no such test — a mode taken by hand stands
+        // the sight down before it can reach this.
         //
-        // Checked here as well as at the stand-down rung, because this path is reachable without
-        // Apply ever classifying the takeover: losing the head and switching vessels on the same
-        // frame arrives here instead, and restoring then puts the player back on the craft they
-        // just left. The mode needs no such test — a mode taken by hand stands the sight down
-        // before it can reach this.
-        bool followIsOurs = KsaWorld.MainViewFollows(_followed);
-
         // A refused restore keeps the recording and tries again. Dropping it on the first attempt
         // is what strands the player: the view stays in Fixed mode at the optic's pose and field,
         // and the only description of what it was doing has been thrown away. Nothing is
         // recoverable after that, in any scene.
-        bool mode = KsaWorld.BeginRestoreMainView(_saved);
-
-        // A craft that has been destroyed is nowhere to go back to, and that is exactly the case
-        // this runs in most often: the thing the view was following is frequently the thing that
-        // just blew up. Neither that nor a follow the player has taken is a refusal — there is
-        // nothing to retry — so neither may count as one, or the hand-back spends 180 frames
-        // warning about a follow that is never coming back.
-        bool follow = !followIsOurs
-                      || !KsaWorld.CanFollow(_saved.Following)
-                      || KsaWorld.RestoreFollow(_saved);
-
-        if (!mode || !follow)
+        if (!KsaWorld.TryHandBackMainView(_saved, _followed, out bool mode, out bool follow))
         {
             _refusedFrames++;
             if (_refusedFrames == 1 || _refusedFrames == GiveUpAfterFrames)

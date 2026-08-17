@@ -2116,6 +2116,32 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Hands the main view back in the two halves it was taken in, and says whether each half
+    /// arrived. Every borrower goes through here, so a refusal cannot mean two different things in
+    /// two files.
+    ///
+    /// <para>Order is the contract: what the view follows is read before anything is written,
+    /// because the restore is about to change it and "did the player move this themselves" has no
+    /// answer afterwards.</para>
+    ///
+    /// <para>A follow that cannot be given back is <b>not</b> a refusal. A destroyed craft is the
+    /// ordinary way a chase or an engagement ends, and a follow the player has taken is theirs to
+    /// keep — neither has anything to retry, so counting either would leave a caller retrying
+    /// something that is never coming back.</para>
+    /// </summary>
+    /// <returns>False if either half was refused, and the caller still holds the view.</returns>
+    public static bool TryHandBackMainView(MainView saved, IFollowable? followed,
+                                           out bool mode, out bool follow)
+    {
+        bool followIsOurs = MainViewFollows(followed);
+
+        mode = BeginRestoreMainView(saved);
+        follow = !followIsOurs || !CanFollow(saved.Following) || RestoreFollow(saved);
+
+        return mode && follow;
+    }
+
+    /// <summary>
     /// Points the main camera at something of the mod's own, so the engine resolves its position
     /// in its own frame pass rather than the mod handing over one sampled somewhere else.
     /// </summary>

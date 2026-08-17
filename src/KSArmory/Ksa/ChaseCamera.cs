@@ -77,6 +77,12 @@ internal sealed class ChaseCamera
     private KsaWorld.MainView _saved;
     private IProjectile? _round;
 
+    // Consecutive refused hand-backs. Three seconds at 60 fps, the same allowance the sight gets:
+    // long enough to outlast a scene change, short enough that a view the engine will never give
+    // back is not held for the rest of the session.
+    private int _refusedFrames;
+    private const int GiveUpAfterFrames = 180;
+
     // The last pose, which becomes the pose to hold once the round is gone.
     private double3 _holdOffset;
     private double3 _holdForward;
@@ -141,22 +147,32 @@ internal sealed class ChaseCamera
         // and is exactly when the view still has to be given back.
         if (!_saved.Valid) return;
 
-        // Read before anything is written, and before the round is untracked. Reachable without
-        // Apply having seen the takeover -- the roster losing the system and Unload both call
-        // straight in here -- so the same rule applies: whichever half the player has taken is
-        // theirs to keep.
-        bool followIsOurs = KsaWorld.MainViewFollows(_followed);
+        // Reachable without Apply having seen the takeover -- the roster losing the system and
+        // Unload both call straight in here -- so whichever half the player has taken is theirs to
+        // keep, and the hand-back reads that before it writes anything.
+        if (!KsaWorld.TryHandBackMainView(_saved, _followed, out bool mode, out bool follow))
+        {
+            // A refused restore keeps the recording and tries again on the next call, which
+            // arrives every frame the chase is not wanted. Dropping it on the first attempt is
+            // what strands the player: the view stays in Fixed mode at the round's pose and the
+            // only description of what it was doing has been thrown away.
+            _refusedFrames++;
+            if (_refusedFrames == 1 || _refusedFrames == GiveUpAfterFrames)
+            {
+                Log.Warn($"chase: could not hand the main view back (mode={mode} follow={follow}), "
+                         + (_refusedFrames == 1 ? "will keep trying" : "giving up"));
+            }
 
+            if (_refusedFrames < GiveUpAfterFrames) return;
+        }
+
+        // After the hand-back, not before: while the view is still ours the followable is what the
+        // engine resolves the camera through, and untracking it first leaves that resolving off a
+        // round the chase has already let go of.
         _followed.Track(null, null);
-        KsaWorld.BeginRestoreMainView(_saved);
-
-        // Not onto a craft that has been destroyed, which is the ordinary way a chase ends: the
-        // engine has already put the view on its wreckage, and that is a better answer than a
-        // disposed vehicle the camera would then be stuck on. Nor onto one the player has moved
-        // off by hand, which would undo the vessel they just switched to.
-        if (followIsOurs && KsaWorld.CanFollow(_saved.Following)) KsaWorld.RestoreFollow(_saved);
 
         _saved = default;
+        _refusedFrames = 0;
         Log.Info("chase: released the main view");
     }
 

@@ -27,7 +27,7 @@ Things that are wrong now, not things that could be tidier.
   "Not gated on the panel being open: the switcher is for use while flying." FIRE and the group
   master arm go with it.
 
-- [ ] **`ChaseCamera.Release` drops the view recording on a refused hand-back.** It discards
+- [x] **`ChaseCamera.Release` drops the view recording on a refused hand-back.** It discards
   `BeginRestoreMainView`'s bool and clears `_saved` regardless. `SightCamera` retries for 180
   frames, and its comment states what dropping it costs: the player is left in Fixed mode at the
   borrowed pose with the only description of their view thrown away. Two copies of one hand-back
