@@ -122,7 +122,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_BombRack" DisplayName="Mk 82 Bomb Rack">
+  <PartGameData Id="KSArmory_Prefab_BombRack" DisplayName="Mk 82 Bomb">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -159,7 +159,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_NukeRack" DisplayName="B61 Bomb Rack">
+  <PartGameData Id="KSArmory_Prefab_NukeRack" DisplayName="B61 Nuclear Bomb">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -193,7 +193,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="LAU-7 Sidewinder Rail">
+  <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="AIM-9J Sidewinder">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -235,7 +235,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_AmraamRail" DisplayName="LAU-128 AMRAAM Rail">
+  <PartGameData Id="KSArmory_Prefab_AmraamRail" DisplayName="AIM-120C AMRAAM">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -272,7 +272,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_HarmRail" DisplayName="LAU-118 HARM Rail">
+  <PartGameData Id="KSArmory_Prefab_HarmRail" DisplayName="AGM-88 HARM">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -357,6 +357,15 @@
          what the comment below depends on. -->
     <EditorTag Value="Weapons" />
     <EditorTag Value="NoFaceSnapping" />
+
+    <!--
+      Hidden from the builder rather than deleted. A bare rail carries nothing and is registered as
+      no launcher, so placing one does nothing at all; but a part removed outright stops every
+      saved craft carrying it from loading, and this asset is shared with the stores that ship.
+      PartTemplate.IsHidden is EditorTags.Contains(Hidden), which VehicleEditor checks in the part
+      list, the diameter filter and the root-part test.
+    -->
+    <EditorTag Value="Hidden" />
     <Diameter M="0.4" />
 
     <!--
