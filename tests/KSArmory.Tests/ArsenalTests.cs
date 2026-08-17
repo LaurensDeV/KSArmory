@@ -352,10 +352,10 @@ public class ArsenalTests
     /// So the two have to be the same string, resolved from the same registry — anything else is a
     /// second name for one thing, and it fails silently in the only place nobody can unit-test.
     ///
-    /// <para>It did. Every Pantsir reported its working cannon as "fitted, not run", because the
-    /// panel compared a row called "2A38M 30 mm cannon" against <c>Armament.Label</c>, which is the
-    /// belt's heading — "Cannon". Fire control never read it, so the gun fired throughout and only
-    /// the panel lied.</para>
+    /// <para>What that costs: a Pantsir reports its working cannon as "fitted, not run" the moment
+    /// the panel matches a row called "2A38M 30 mm cannon" against <c>Armament.Label</c>, which is
+    /// the belt's heading — "Cannon". Fire control reads neither, so the gun fires throughout and
+    /// only the panel lies.</para>
     /// </summary>
     [Fact]
     public void EveryProvidedGunAndSensorRowNamesTheProfileItsSystemRuns()

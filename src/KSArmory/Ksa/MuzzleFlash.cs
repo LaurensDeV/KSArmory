@@ -5,17 +5,19 @@ using KSA.Rendering.Particles;
 namespace KSArmory;
 
 /// <summary>
-/// The flash at the cannon's muzzles: one endless emitter per battery, held open while the gun is
-/// firing and handed back the moment it stops.
+/// The flash at the cannon's muzzles: one endless emitter per barrel cluster, held open while the
+/// gun is firing and handed back the moment it stops.
 ///
 /// <para>Per battery rather than per round, which is the whole design. A CIWS cycles at 75 rounds
 /// a second; taking a burst emitter from the pool that often would drain it within a second and
 /// leave nothing anywhere in the world able to spawn particles again. A gun firing is one
 /// continuous event, so it gets one continuous emitter.</para>
 ///
-/// <para>Anchored to the barrel cluster's centre rather than to whichever barrel just fired. The
-/// six muzzles sit within 10 cm of each other, so the difference is invisible, and averaging them
-/// keeps the flash on the cluster axis as the gun elevates instead of hopping between barrels.</para>
+/// <para>One per cluster rather than one per mount: a Pantsir's sponsons are 3.9 m apart and their
+/// mean is on the hull between them, where no barrel is. Both flash at the same instant, so they
+/// cannot share a set. Within a cluster it is anchored to the mean of its muzzles rather than to
+/// whichever barrel just fired, which keeps the flash on the cluster axis as the gun elevates
+/// instead of hopping between barrels.</para>
 ///
 /// <para>The tracers are <em>not</em> here, and cannot be. A muzzle-anchored emitter has no way to
 /// throw particles down the bore: the engine assigns <c>EmitterVelocity</c> only for a

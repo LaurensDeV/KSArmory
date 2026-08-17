@@ -964,10 +964,10 @@ public class MushroomCloudTests
     /// apex exactly R above that rim, and a real cap is oblate, so the crown standing off by more
     /// than the cap's own radius is a spire rather than a dome.
     ///
-    /// <para>This is the arrowhead, and it is the defect the first attempt shipped: a 382 m rim at
-    /// 1332 m with the inner shell 400 m above it. Every stroke inside the rim is narrower, so a gap
-    /// leaves a narrow shape standing over a wide one with clear air in its neck, and the whole
-    /// cloud reads as an arrow rather than as a mushroom.</para>
+    /// <para>This is the arrowhead: a 382 m rim at 1332 m with the inner shell 400 m above it.
+    /// Every stroke inside the rim is narrower, so a gap leaves a narrow shape standing over a wide
+    /// one with clear air in its neck, and the whole cloud reads as an arrow rather than as a
+    /// mushroom.</para>
     /// </summary>
     [Fact]
     public void TheCapIsFlatterThanAHemisphere()
@@ -986,7 +986,7 @@ public class MushroomCloudTests
     /// <summary>
     /// The pens must not wind round the axis. They are trails that keep every position they have
     /// held, so a full turn draws a helix and a ring of them is a spiral staircase rather than a
-    /// cloud. This is the shape that shipped once.
+    /// cloud.
     /// </summary>
     [Fact]
     public void APenDoesNotWindAroundTheAxis()

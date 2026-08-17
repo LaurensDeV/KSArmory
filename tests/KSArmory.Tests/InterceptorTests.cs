@@ -53,8 +53,7 @@ public class InterceptorTests
         RoundState State, double MissDistance, double ClosestApproach,
         double Elapsed, double3 EndPosition, bool HasLock);
 
-    /// <summary>Vacuum-like defaults keep the tests about guidance rather than drag tuning.</summary>
-    /// <summary>A round with no drag, so the geometry under test is not muddied by it.</summary>
+    /// <summary>No drag, so the tests stay about guidance rather than about drag tuning.</summary>
     private static MunitionProfile Vacuum() => new() { Name = "test", DisplayName = "test", DragK = 0f };
 
     [Fact]

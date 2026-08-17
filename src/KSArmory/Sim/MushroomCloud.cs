@@ -22,8 +22,8 @@ public static class MushroomCloud
 
     /// <summary>
     /// Seconds the cloud takes to reach its ceiling. The real thing takes minutes: a 0.3 kt cloud
-    /// stabilises in about five, so this is a compression of roughly seven times rather than the
-    /// fourteen it began at, which is what stopped it reading as shooting upward.
+    /// stabilises in about five, so this is a compression of roughly seven times. Twice that much
+    /// compression reads as the cloud shooting upward rather than rising.
     /// </summary>
     public const double RiseSeconds = 38.0;
 
@@ -203,17 +203,6 @@ public static class MushroomCloud
     }
 
     /// <summary>
-    /// The fireball for a charge in kg, at an age.
-    ///
-    /// <para>Its brightness does not scale with yield, which is the surprising part: the surface
-    /// temperature of a fireball is much the same whatever the device, so only its size and how
-    /// long it lasts change. One ramp therefore serves every setting.</para>
-    ///
-    /// <para>The colour walks the real progression rather than fading an orange ball out —
-    /// blue-white at six or seven thousand kelvin, through yellow and orange into deep red as it
-    /// cools, which is the handover to a cloud that is lit rather than glowing.</para>
-    /// </summary>
-    /// <summary>
     /// Brightness of the fireball at the instant of the burst, as a multiplier on the drawn colour.
     ///
     /// <para>It does not scale with yield, which is the surprising part: fireball surface
@@ -300,6 +289,17 @@ public static class MushroomCloud
     /// </summary>
     public const double EmberShrink = 0.85;
 
+    /// <summary>
+    /// The fireball for a charge in kg, at an age.
+    ///
+    /// <para>Its brightness does not scale with yield, which is the surprising part: the surface
+    /// temperature of a fireball is much the same whatever the device, so only its size and how
+    /// long it lasts change. One ramp therefore serves every setting.</para>
+    ///
+    /// <para>The colour walks the real progression rather than fading an orange ball out —
+    /// blue-white at six or seven thousand kelvin, through yellow and orange into deep red as it
+    /// cools, which is the handover to a cloud that is lit rather than glowing.</para>
+    /// </summary>
     public static Flash FlashAt(double chargeKg, double age)
     {
         double kt = KilotonsFor(chargeKg);
@@ -450,24 +450,6 @@ public static class MushroomCloud
     }
 
     /// <summary>
-    /// Where one of <paramref name="count"/> cap emitters is, at <paramref name="progress"/> along
-    /// its stroke.
-    ///
-    /// <para><b>These are pens, not points.</b> What draws them keeps every position they have held
-    /// for twenty minutes, so this is the shape of a <em>stroke</em> and the cloud is the surface
-    /// those strokes sweep. Each one climbs the axis, flares outward at the top and curls under —
-    /// a meridian of the cap — and the ring of them is a surface of revolution.</para>
-    ///
-    /// <para>Which is also the vortex ring's own circulation: up the middle, out over the top, down
-    /// and tucked under at the rim. Drawing the path the smoke would take is what produces the
-    /// rollover, since neither renderer has a vortex field to produce it for us.</para>
-    ///
-    /// <para><paramref name="shell"/> scales the flare, so a ring inside the rim fills the dome the
-    /// outer ring leaves hollow. It costs nothing to draw: overlapping smoke takes the deeper of
-    /// the two rather than adding them, so an inner ring cannot make the cloud denser than one
-    /// capsule already is.</para>
-    /// </summary>
-    /// <summary>
     /// How far up its stroke a pen is still climbing the axis. Past this it is walking the cap, so
     /// it is also where the cap's own shape starts being measurable — and the deadline the flash has
     /// to end by, see <see cref="FlashSeconds"/>.
@@ -554,6 +536,24 @@ public static class MushroomCloud
         return PhaseSpread * 0.5 * (1.0 + wave);
     }
 
+    /// <summary>
+    /// Where one of <paramref name="count"/> cap emitters is, at <paramref name="progress"/> along
+    /// its stroke.
+    ///
+    /// <para><b>These are pens, not points.</b> What draws them keeps every position they have held
+    /// for twenty minutes, so this is the shape of a <em>stroke</em> and the cloud is the surface
+    /// those strokes sweep. Each one climbs the axis, flares outward at the top and curls under —
+    /// a meridian of the cap — and the ring of them is a surface of revolution.</para>
+    ///
+    /// <para>Which is also the vortex ring's own circulation: up the middle, out over the top, down
+    /// and tucked under at the rim. Drawing the path the smoke would take is what produces the
+    /// rollover, since neither renderer has a vortex field to produce it for us.</para>
+    ///
+    /// <para><paramref name="shell"/> scales the flare, so a ring inside the rim fills the dome the
+    /// outer ring leaves hollow. It costs nothing to draw: overlapping smoke takes the deeper of
+    /// the two rather than adding them, so an inner ring cannot make the cloud denser than one
+    /// capsule already is.</para>
+    /// </summary>
     public static double3 CapPoint(in Shape shape, int index, int count, double progress,
                                    double shell, double3 up, double3 east, double3 north)
     {
@@ -688,9 +688,9 @@ public static class MushroomCloud
     /// rather than poking out of the top of it.
     ///
     /// <para>Exposed because the renderer needs the same number to know how far up its own column a
-    /// pen has got. Written down twice it drifts, and it did: one copy carried the
-    /// <see cref="Oblate"/> factor and the other did not, so the ratio came out above one on every
-    /// frame and the stem's flare was pinned at its head value forever.</para>
+    /// pen has got, and a second copy drifts silently: one that omits the <see cref="Oblate"/>
+    /// factor puts the ratio above one on every frame, which pins the stem's flare at its head
+    /// value and looks like nothing in particular.</para>
     /// </summary>
     public static double StemCeiling(double capCentre, double capRadius)
         => capCentre - (capRadius * Oblate * 0.7);

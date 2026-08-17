@@ -789,21 +789,6 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Gravitational acceleration at <paramref name="positionEcl"/> from the platform's parent body,
-    /// in Ecl. Returns zero if the parent or its gravity parameter is unavailable.
-    /// </summary>
-    /// <summary>
-    /// How fast the ground under a point is moving, in the ecliptic frame: the parent body's own
-    /// motion plus its spin at that radius.
-    ///
-    /// <para>This is the frame a round flies in — its airspeed, what its drag acts against, and
-    /// what it points along. It equals the launching craft's velocity only while that craft sits
-    /// still on the ground; a store released from something <em>moving</em> is what separates
-    /// them. Taking the craft instead leaves a bomb with no airspeed at all at release: the only
-    /// motion it then has relative to its launcher is gravity, so it points straight down the
-    /// instant it lets go and the aircraft flies out from under it.</para>
-    /// </summary>
-    /// <summary>
     /// The body a craft is at, or null in deep space. What the terrain map is drawn against: its
     /// centre, its rotation axis and its height field all come from here.
     /// </summary>
@@ -819,6 +804,17 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// How fast the ground under a point is moving, in the ecliptic frame: the parent body's own
+    /// motion plus its spin at that radius.
+    ///
+    /// <para>This is the frame a round flies in — its airspeed, what its drag acts against, and
+    /// what it points along. It equals the launching craft's velocity only while that craft sits
+    /// still on the ground; a store released from something <em>moving</em> is what separates
+    /// them. Taking the craft instead leaves a bomb with no airspeed at all at release: the only
+    /// motion it then has relative to its launcher is gravity, so it points straight down the
+    /// instant it lets go and the aircraft flies out from under it.</para>
+    /// </summary>
     public static double3 GroundVelocityAt(Vehicle platform, double3 positionEcl)
     {
         try
@@ -843,6 +839,10 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Gravitational acceleration at <paramref name="positionEcl"/> from the platform's parent body,
+    /// in Ecl. Returns zero if the parent or its gravity parameter is unavailable.
+    /// </summary>
     public static double3 GravityAt(Vehicle platform, double3 positionEcl)
     {
         try
@@ -1059,11 +1059,6 @@ internal static class KsaWorld
     /// <summary>
     /// Ego position of a vehicle, straight from the engine, so track markers sit on the craft
     /// rather than on its analytic orbit position.
-    /// </summary>
-    /// <summary>
-    /// Ego position of a vehicle. Uses the anchored conversion for the same reason
-    /// <see cref="BeginDraw"/> does — <c>GetPositionEgo</c> would place this marker on a
-    /// different basis to the rest of the overlay whenever the camera follows something else.
     /// </summary>
     public static bool TryVehicleEgo(Vehicle v, out double3 posEgo)
     {
@@ -1965,18 +1960,6 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Puts one viewport's camera at a point in Ecl, looking along a direction.
-    ///
-    /// <para>Must be written every frame. Each viewport runs a controller that rewrites its
-    /// camera from whatever mode it is in, so this holds only for as long as it keeps being
-    /// reapplied — and only if it runs after that controller. The GUI hook does, which is why
-    /// the call sits there.</para>
-    ///
-    /// <para>KSA opens views itself; <c>AddViewport</c> is private, so a mod cannot make one. It
-    /// can drive one the player has opened, which is the difference between borrowing a window
-    /// and stealing the main camera.</para>
-    /// </summary>
-    /// <summary>
     /// Whether the main view is still in the mode a borrower left it in.
     ///
     /// <para>False means the player has taken it back, which is a decision rather than a fault:
@@ -2063,25 +2046,6 @@ internal static class KsaWorld
     }
 
     /// <summary>
-    /// Points the main view from a place, using Fixed mode as it is meant to be used.
-    ///
-    /// <para>The camera keeps following whatever it followed. <c>FixedController.OnFrame</c> puts
-    /// it at <c>following.GetPositionEcl() + CameraOffset</c> looking along <c>CameraRotation</c>,
-    /// so those two fields are the whole interface — and the offset is measured from the followed
-    /// craft, not from the world.</para>
-    ///
-    /// <para><c>CameraRotation</c> must be non-zero before the mode is set. The controller crosses
-    /// it with the frame's up and normalises, so a zero vector divides by zero — which is the
-    /// entire reason this mode has a reputation for crashing.</para>
-    /// </summary>
-    /// <summary>
-    /// Puts back whatever the view was following before a mod borrowed it.
-    ///
-    /// <para>Separate from the mode: following something of the mod's own has to be undone even
-    /// when the mode never changed, and leaving a camera pointed at an object the mod is about to
-    /// forget is how a view ends up stuck on a round that no longer exists.</para>
-    /// </summary>
-    /// <summary>
     /// Whether something the view was following is still there to go back to.
     ///
     /// <para>A destroyed craft is not, and it is the ordinary case rather than a corner: the thing
@@ -2097,6 +2061,13 @@ internal static class KsaWorld
         _ => true,
     };
 
+    /// <summary>
+    /// Puts back whatever the view was following before a mod borrowed it.
+    ///
+    /// <para>Separate from the mode: following something of the mod's own has to be undone even
+    /// when the mode never changed, and leaving a camera pointed at an object the mod is about to
+    /// forget is how a view ends up stuck on a round that no longer exists.</para>
+    /// </summary>
     public static bool RestoreFollow(MainView saved)
     {
         if (!saved.Valid || saved.Following is null) return false;
@@ -2164,13 +2135,6 @@ internal static class KsaWorld
         }
     }
 
-    /// <param name="offsetFromFollowed">
-    /// Where the camera goes <em>relative to the craft the view is following</em>, not an absolute
-    /// position. The controller adds it to <c>following.GetPositionEcl()</c> later in the frame,
-    /// so an offset derived from that position here is measured against a different instant from
-    /// the one it is applied to — which is a frame of the platform's motion, every frame, and
-    /// reads as the thing being watched shivering.
-    /// </param>
     // The engine's own controller, kept so it can be put back. Static because there is one main
     // viewport and the swap outlives any single borrower of it.
     private static FixedController? _stockFixedController;
@@ -2225,6 +2189,25 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Points the main view from a place, using Fixed mode as it is meant to be used.
+    ///
+    /// <para>The camera keeps following whatever it followed. <c>FixedController.OnFrame</c> puts
+    /// it at <c>following.GetPositionEcl() + CameraOffset</c> looking along <c>CameraRotation</c>,
+    /// so those two fields are the whole interface — and the offset is measured from the followed
+    /// craft, not from the world.</para>
+    ///
+    /// <para><c>CameraRotation</c> must be non-zero before the mode is set. The controller crosses
+    /// it with the frame's up and normalises, so a zero vector divides by zero — which is the
+    /// entire reason this mode has a reputation for crashing.</para>
+    /// </summary>
+    /// <param name="offsetFromFollowed">
+    /// Where the camera goes <em>relative to the craft the view is following</em>, not an absolute
+    /// position. The controller adds it to <c>following.GetPositionEcl()</c> later in the frame,
+    /// so an offset derived from that position here is measured against a different instant from
+    /// the one it is applied to — which is a frame of the platform's motion, every frame, and
+    /// reads as the thing being watched shivering.
+    /// </param>
     /// <param name="fovDeg">
     /// The field this borrower wants. Required, and deliberately not optional: a borrower that
     /// says nothing about the field inherits whatever the last one left behind, and the sight
@@ -2290,12 +2273,6 @@ internal static class KsaWorld
         }
     }
 
-    /// <summary>
-    /// Puts the main view back in the mode it was found in.
-    ///
-    /// <para>Only the mode. The follow was never taken away, so there is nothing to re-attach and
-    /// no window in which the camera follows in Fixed mode with no rotation set.</para>
-    /// </summary>
     /// <summary>
     /// Takes the mod off the controller without touching the mode, the follow or the field.
     ///
@@ -2372,6 +2349,18 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Puts one viewport's camera at a point in Ecl, looking along a direction.
+    ///
+    /// <para>Must be written every frame. Each viewport runs a controller that rewrites its
+    /// camera from whatever mode it is in, so this holds only for as long as it keeps being
+    /// reapplied — and only if it runs after that controller. The GUI hook does, which is why
+    /// the call sits there.</para>
+    ///
+    /// <para>KSA opens views itself; <c>AddViewport</c> is private, so a mod cannot make one. It
+    /// can drive one the player has opened, which is the difference between borrowing a window
+    /// and stealing the main camera.</para>
+    /// </summary>
     public static bool TryLookFromViewport(int index, double3 eyeEcl, double3 forwardEcl,
                                            double3 upEcl, double dt)
     {

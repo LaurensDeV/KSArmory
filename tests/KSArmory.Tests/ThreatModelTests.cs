@@ -108,9 +108,9 @@ public class ThreatModelTests
     public void ATargetAlreadyOverheadIsAThreatEvenWhileOpening()
     {
         // Inside the bubble and receding. It is a threat because its closest approach is *now*
-        // and now is close - not, as the code once claimed in a comment, because of the
-        // separate range test. TimeOfClosestApproach clamps to zero for an opening target, so
-        // the CPA collapses onto the current range and the first half of the rule catches it.
+        // and now is close, not because of the separate range test: TimeOfClosestApproach clamps
+        // to zero for an opening target, so the CPA collapses onto the current range and the
+        // first half of the rule catches it.
         SensorProfile s = Sensor();
         double3 r = new(2000, 0, 0);
         double3 v = new(300, 0, 0);          // straight up and away

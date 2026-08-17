@@ -25,9 +25,10 @@ internal static class LauncherPart
     /// Finds a launcher on a vehicle, or null if it carries none.
     ///
     /// <para>Matches against every launcher in <see cref="Arsenal"/> rather than one hardcoded
-    /// Id, so adding a weapon system is a registry entry and needs no change here. Returns the
-    /// first match: several launchers on one craft still give one battery, and sharing ammo
-    /// between them would be a different feature.</para>
+    /// Id, so adding a weapon system is a registry entry and needs no change here. Answers the
+    /// "does this craft carry one at all" question and stops at the first match; a system
+    /// resolves its <em>own</em> launcher through <see cref="FindNth"/> on its ordinal, because
+    /// a craft carries one weapon system per launcher part.</para>
     /// </summary>
     public static (Part Part, LauncherProfile Profile)? Find(Vehicle vehicle)
     {
@@ -112,10 +113,6 @@ internal static class LauncherPart
     public static Part? FindOpticBase(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.OpticBaseMarker);
 
-    /// <summary>
-    /// Collects the round subparts, in declaration order, so tube N maps to the same body every
-    /// time. There is one per tube, which is what lets a whole salvo be in the air at once.
-    /// </summary>
     /// <summary>Collects this round's fin subparts, in tube order. Empty if it has none.</summary>
     public static void FindFins(Part launcher, MunitionProfile munition, List<Part> into)
     {
@@ -140,6 +137,10 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// Collects the round subparts, in declaration order, so tube N maps to the same body every
+    /// time. There is one per tube, which is what lets a whole salvo be in the air at once.
+    /// </summary>
     public static void FindMissiles(Part launcher, MunitionProfile munition, List<Part> into)
     {
         into.Clear();
@@ -292,7 +293,6 @@ internal static class LauncherPart
         }
     }
 
-    /// <summary>The same point in Ecl, for the round the simulation actually flies.</summary>
     /// <summary>
     /// Where a round's body is actually <em>drawn</em>, in Ecl.
     ///
@@ -329,6 +329,10 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// The same point as <see cref="TryGetTubeMuzzlePartFrame"/> in Ecl, for the round the
+    /// simulation actually flies.
+    /// </summary>
     public static bool TryGetTubeMuzzleEcl(
         Vehicle platform, Part launcher, Part? pods, LauncherProfile profile, int tubeIndex,
         double3 platformEcl, out double3 ecl)
@@ -430,8 +434,8 @@ internal static class LauncherPart
     /// <summary>
     /// Puts a round body where its simulated round actually is, pointing the way it is going.
     ///
-    /// <para><paramref name="offsetEcl"/> and <paramref name="directionEcl"/> come straight off
-    /// the <see cref="Interceptor"/>: a platform-relative offset and an airspeed vector, both in
+    /// <para><paramref name="travelEcl"/> and <paramref name="directionEcl"/> come straight off
+    /// the <see cref="Interceptor"/>: the travel since launch and an airspeed vector, both in
     /// Ecl. Two rotations take them into the subpart's frame — the vehicle's attitude, then the
     /// launcher part's own mounting — because <c>PositionParentAsmb</c> is measured in the
     /// parent part's frame, not the vehicle's.</para>
@@ -560,11 +564,6 @@ internal static class LauncherPart
         }
     }
 
-    /// <summary>
-    /// Traverses and elevates the missile pods. Subparts do not nest in KSA, so the pods are a
-    /// sibling of the turret and both the composed rotation and the position have to be written
-    /// each frame — see <see cref="TubeGeometry.PodPose"/>.
-    /// </summary>
     /// <summary>Pitches the cannon and carries them round with the turret.</summary>
     public static bool TryApplyGunAim(Part guns, LauncherProfile profile, double bearingRad, double elevationRad)
     {
@@ -586,6 +585,11 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// Traverses and elevates the missile pods. Subparts do not nest in KSA, so the pods are a
+    /// sibling of the turret and both the composed rotation and the position have to be written
+    /// each frame — see <see cref="TubeGeometry.PodPose"/>.
+    /// </summary>
     public static bool TryApplyPodAim(Part pods, LauncherProfile profile, double bearingRad, double elevationRad)
     {
         try
@@ -717,16 +721,6 @@ internal static class LauncherPart
     }
 
     /// <summary>
-    /// Position of the launcher part in the ecliptic frame.
-    ///
-    /// Goes via the render frame deliberately: KSA offers <c>Part.PositionEgo</c> as a
-    /// purpose-built helper, and Ego is a pure translation of Ecl, so a round trip through it
-    /// is exact and avoids hand-rolling the assembly-to-world transform chain.
-    ///
-    /// Falls back to the vehicle origin when there is no camera (loading screens), which costs
-    /// at most a couple of metres on a kilometre-scale engagement.
-    /// </summary>
-    /// <summary>
     /// A point given in the launcher part's own frame, in Ecl.
     ///
     /// <para>Same centre-of-mass correction as the tubes: <paramref name="platformEcl"/> is the
@@ -750,6 +744,16 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// Position of the launcher part in the ecliptic frame.
+    ///
+    /// Goes via the render frame deliberately: KSA offers <c>Part.PositionEgo</c> as a
+    /// purpose-built helper, and Ego is a pure translation of Ecl, so a round trip through it
+    /// is exact and avoids hand-rolling the assembly-to-world transform chain.
+    ///
+    /// Falls back to the vehicle origin when there is no camera (loading screens), which costs
+    /// at most a couple of metres on a kilometre-scale engagement.
+    /// </summary>
     public static double3 ResolveOriginEcl(Vehicle vehicle, Part? launcher)
     {
         double3 vehicleEcl = KsaWorld.PositionEcl(vehicle);

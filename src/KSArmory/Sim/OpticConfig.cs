@@ -53,7 +53,6 @@ public sealed class OpticConfig : ISensorPolicy
     /// </summary>
     public float MouseDeadZonePx = 60f;
 
-    /// <summary>Drive the head by hand instead of from its own sensor.</summary>
     /// <summary>
     /// Whether this head's terrain map is open.
     ///
@@ -69,6 +68,7 @@ public sealed class OpticConfig : ISensorPolicy
     /// </summary>
     public float MapSpanMetres = 2000f;
 
+    /// <summary>Drive the head by hand instead of from its own sensor.</summary>
     public bool Manual;
     public float ManualBearingDeg;
     public float ManualElevationDeg = 10f;

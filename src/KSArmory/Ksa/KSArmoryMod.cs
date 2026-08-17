@@ -75,16 +75,12 @@ public sealed class KSArmoryMod
     private readonly BurstTool _bursts = new();
     private readonly Designator _designator = new();
 
-    // Mushroom clouds standing in the world. Not per system: a cloud outlives the
-    // launcher that made it, and belongs to the world rather than to a weapon.
     private MotorSound _motors = null!;
     private readonly MotorPlume _plumes = new();
     private readonly MuzzleFlash _flashes = new();
     private readonly TracerTrail _tracers = new();
     private GunSound _gunSound = null!;
     private ScenarioRunner _scenario = null!;
-
-    // Last kitten reported, so the character is logged once per EVA rather than every frame.
 
     [StarMapImmediateLoad]
     public void OnImmediateLoad(Mod mod)

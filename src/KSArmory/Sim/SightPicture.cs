@@ -115,11 +115,11 @@ public static class SightPicture
     /// The up to build a view basis from: last frame's, corrected towards the one wanted by at
     /// most <paramref name="maxStepRad"/>, and by less than that the worse a reference it is.
     ///
-    /// <para><b>Corrected rather than chosen.</b> Two earlier versions picked between the wanted
-    /// up and the carried one at a threshold, and both flipped the picture — because switching
-    /// rule is discontinuous wherever the switch is, and the two rules disagree by however far the
-    /// carried one has drifted. Moving the threshold moves the flip; it does not remove it.
-    /// Measured at 89° of roll for 1.3° of aim, with the view sitting exactly on the cutoff.</para>
+    /// <para><b>Corrected rather than chosen.</b> Picking between the wanted up and the carried one
+    /// at a threshold flips the picture: a switching rule is discontinuous wherever the switch is,
+    /// and the two rules disagree by however far the carried one has drifted. Moving the threshold
+    /// moves the flip; it does not remove it. Measured at 89° of roll for 1.3° of aim, with the
+    /// view sitting exactly on the cutoff.</para>
     ///
     /// <para>So there is no cutoff. The reference is always the carried one, and the wanted one
     /// only ever pulls it — quickly where it is a good reference, not at all where the view lies

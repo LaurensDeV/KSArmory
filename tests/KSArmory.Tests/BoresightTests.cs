@@ -6,15 +6,15 @@ namespace KSArmory.Tests;
 /// <summary>
 /// A launcher has to be able to see what it can shoot at.
 ///
-/// That sounds too obvious to test, and it is exactly the invariant that broke: every
-/// air-launched seeker searched a volume square to the rail carrying it, because
-/// <see cref="BoresightMode.PartForward"/> resolved to the part's +X — its mounting face's
-/// normal — while every tube is declared along +Y. Perpendicular at every attitude, so flying
-/// straight at a target left it pinned near 90 degrees off axis and never detected.
+/// That sounds too obvious to test, and it is exactly the invariant nothing else here covers.
+/// <see cref="BoresightMode.PartForward"/> resolving to the part's +X — its mounting face's
+/// normal — while every tube is declared along +Y leaves an air-launched seeker searching a
+/// volume square to the rail carrying it: perpendicular at every attitude, so flying straight at
+/// a target pins it near 90 degrees off axis and it is never detected.
 ///
-/// Nothing in the suite looked for it. The failure is silent in every direction: the profile
-/// loads, the launcher resolves, the designation is accepted and then discarded a frame later,
-/// and the only symptom is a weapon that will not fire.
+/// The failure is silent in every direction: the profile loads, the launcher resolves, the
+/// designation is accepted and then discarded a frame later, and the only symptom is a weapon
+/// that will not fire.
 /// </summary>
 public class BoresightTests
 {

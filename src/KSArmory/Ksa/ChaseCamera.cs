@@ -207,9 +207,9 @@ internal sealed class ChaseCamera
         // The player taking the view back is a decision, not a fault.
         //
         // Ahead of the hold below, and keyed on holding the view rather than on having a round: the
-        // linger after a burst is a second and a half during which the view is still this camera's,
-        // and a vessel switched in that window used to go unnoticed until Release put the player
-        // back on the craft they had just left.
+        // linger after a burst is LingerSeconds during which the view is still this camera's, and a
+        // vessel switched in that window has to be noticed here -- Release reaching it first puts
+        // the player back on the craft they have just left.
         if (_saved.Valid && !StillOurs())
         {
             _round = null;

@@ -162,6 +162,11 @@ public class TurretTests
     /// <summary>
     /// The two floors are ends of the same easing, so a mount with a genuine cutout still gets one
     /// — the step-free case above must not be bought by flattening the case the floor exists for.
+    ///
+    /// <para>The floor only ever falls as the turret traverses off the bow, and that direction is
+    /// the point: the bodywork it protects does not taper, so a curve that starts dropping at the
+    /// bow has given most of its height away by the time the tubes are abeam the obstruction —
+    /// which is where they reach furthest across it.</para>
     /// </summary>
     [Fact]
     public void DepressionFloor_StillProtectsAMountThatCannotDepressAtAll()
@@ -181,11 +186,6 @@ public class TurretTests
         }
     }
 
-    /// <summary>
-    /// The bodywork the floor protects does not taper, so the floor must not either. A curve that
-    /// starts falling at the bow has given most of its height away by the time the tubes are
-    /// abeam the obstruction, which is where the tubes are longest across it.
-    /// </summary>
     /// <summary>
     /// The radar overlay is clocked off this. Seeded from a fixed ecliptic axis instead, it turns
     /// with the planet under a boresight that is local "up", so the cone's ribs rotate on their

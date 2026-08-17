@@ -70,36 +70,31 @@ internal sealed class SightCamera : IViewPose
         return true;
     }
 
-    // Where the camera is being sent against where the target actually is, per frame, under a
-    // verbose log.
-    //
-    // The question it settles: re-resolving the pose here refreshes the *part's* transform, but the
-    // head's aim relative to that part was integrated a frame ago in the GUI hook, against wherever
-    // the target was then. So a residual of one frame of the target's angular motion should survive
-    // the fix in `fix(sight): aim the camera in phase with the frame it is drawn in`, and it should
-    // scale with simulation speed.
-    //
-    // `missed` is what the geometry actually gives; `crosses` is how far the target moves across
-    // the picture in one step. A miss that tracks the crossing, and grows with simulation speed,
-    // says the aim is arriving a frame late and the fix belongs in how it is carried to this pass.
-    // A miss that stays put while the crossing grows says it is something else entirely.
-    //
-    // What it found: the miss is linear in simulation speed -- 0.0142 deg at 2x, 0.0302 at 4x,
-    // 0.0607 at 10x, a flat 0.007 deg per unit of speed. That is the frame-late term, and the fix
-    // is the in-pass re-solve in OpticalHead.TryOpticViewEclAt rather than any extrapolation of the
-    // drive: leading the aim by the drive's own last turn was tried and measured far worse, 0.35
-    // deg at 10x against a target crossing 0.0037. Left in because the same measurement is what
-    // proves the re-solve is reached, and it silently was not for a designation.
-    //
-    // Reported as a fraction of the field because that is what "off target" means to whoever is
-    // looking through it: 0.3 degrees is nothing at 60 degrees and a tenth of the picture at 3.
     // Frames since the last line. A probe inside the engine's frame pass that writes a file every
     // frame is a probe that causes the stutter it is looking for -- 4,000 synchronous writes in one
     // session, in the loop that positions the camera. Sampled instead, with any new worst case let
     // through so a spike is never missed between samples.
     private int _probeSkipped;
+
+    // The largest miss reported so far, which is what lets a spike through between samples.
     private double _probeWorst;
 
+    // Where the camera is being sent against where the target actually is, per frame, under a
+    // verbose log.
+    //
+    // `missed` is what the geometry gives; `crosses` is how far the target moves across the picture
+    // in one step. A miss that tracks the crossing and grows with simulation speed is the aim
+    // arriving a frame late; a miss that stays put while the crossing grows is something else.
+    //
+    // That residual is 0.007 deg per unit of simulation speed, and it is not extrapolated away:
+    // leading the aim by the drive's own last turn measures 0.35 deg at 10x against a target
+    // crossing 0.0037 deg -- ninety times further than the target moved, and noisy frame to frame.
+    // Not to be tried again; CLAUDE.md carries the reasoning. The probe earns its place as the
+    // measurement that also proves the in-pass re-solve in OpticalHead.TryOpticViewEclAt is
+    // reached, which is silently missed for a designation if it is not.
+    //
+    // Reported as a fraction of the field because that is what "off target" means to whoever is
+    // looking through it: 0.3 degrees is nothing at 60 degrees and a tenth of the picture at 3.
     private void ProbeAim(IOpticalHead head, double3 eye, double3 forwardEcl, double fovDeg)
     {
         if (Log.Threshold > Log.Level.Debug) return;
@@ -165,11 +160,10 @@ internal sealed class SightCamera : IViewPose
         // How far the target crosses the picture in one step, from its velocity *relative to the
         // platform* and within this one frame.
         //
-        // Never by differencing two ecliptic positions a frame apart, which is what this did first:
-        // that carries 29.8 km/s of the planet's own motion, 655 m across a 22 ms step, which at
-        // 8 km reads as 4.7 degrees of target movement that never happened. It printed exactly
-        // that. See docs/FRAMES-AND-EPOCHS.md -- the rule is the same one the rounds and the
-        // overlay already obey, and a diagnostic is not exempt from it.
+        // Never by differencing two ecliptic positions a frame apart: that carries 29.8 km/s of the
+        // planet's own motion, 655 m across a 22 ms step, which at 8 km reads as 4.7 degrees of
+        // target movement that never happened. See docs/FRAMES-AND-EPOCHS.md -- the rule is the
+        // same one the rounds and the overlay already obey, and a diagnostic is not exempt from it.
         double3 relative = head.Platform is { } craft
             ? targetVel - KsaWorld.VelocityEcl(craft)
             : targetVel;

@@ -63,7 +63,6 @@ internal interface IEffectSource : IRoundsInFlight
     /// <summary>Whether the player wants effects at all.</summary>
     bool PlumesEnabled { get; }
 
-    /// <summary>Where the cannon's flash belongs, if it has cannon.</summary>
     /// <summary>
     /// Where the cannon's flashes belong, one per barrel cluster. A mount with a sponson either
     /// side has two, and averaging them would put one flash on the hull between them.

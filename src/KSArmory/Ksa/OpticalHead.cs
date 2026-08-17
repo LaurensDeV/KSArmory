@@ -408,7 +408,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         if (!_policy.Tracking) return rest;
 
         // From the head's own pivot, not from the part's origin. The two are 0.63 m apart, which
-        // is a tenth of the picture at a few hundred metres -- see WeaponSystem.OpticOriginEcl,
+        // is a tenth of the picture at a few hundred metres -- see WeaponSystem.AimOriginEcl,
         // which is the same correction for the same reason.
         if (Radar.Watched is not { } locked) return rest;
 
@@ -435,7 +435,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     // A place on a body is re-read every frame rather than kept as the coordinate it was: held in
     // the ecliptic it is left behind at ~29.8 km/s, so a head watching a hillside would slide off
     // it within a second. The same rule, for the same reason, that a round aimed at the ground
-    // obeys -- see Sim/Designation.NeedsResampling.
+    // obeys -- see Sim/Aimpoint.NeedsResampling.
     private bool TryDesignatedAim(Vehicle platform, out double3 partFrame)
     {
         partFrame = Vec.Zero;

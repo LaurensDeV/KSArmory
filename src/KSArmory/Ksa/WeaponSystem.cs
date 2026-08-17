@@ -238,9 +238,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     // The cannon's belt and burst timing. A second weapon on the same mount, sharing the
     // platform, the sensor and the aim, and differing in what it throws and how far.
-    // Where the optical head is looking. Rate-limited, so it sweeps onto a track rather than
-    // snapping to it the frame the radar produces one.
-
     private readonly GunChannel _guns = new();
     private int _nextBarrel;
     private double _gunTrace;
@@ -396,7 +393,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     ///
     /// <para>Sampling only: reads the world, resolves parts, advances nothing.</para>
     /// </summary>
-
     public void SampleWorld()
     {
         ResolvePlatform();
@@ -1836,7 +1832,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                      : "launcher reloaded by hand");
     }
 
-    /// <summary>Removes every round in flight without detonating them.</summary>
     /// <summary>
     /// Makes the battery safe: rounds in flight are removed without detonating, and the master arm
     /// goes off.
