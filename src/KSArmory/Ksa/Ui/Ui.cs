@@ -216,63 +216,59 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         bool anyCrewed = _crewed || _heads.FirstOn(Focused) is not null;
 
-        if (!Visible)
+        // Filled here rather than by whichever tab happens to be in front: every window below
+        // reads it, and `BeginTabItem` bodies run only for the selected tab, so filling it from
+        // Components leaves the map drawing the heads of whatever craft was shown when that tab
+        // was last open.
+        _heads.On(_managed, _headScratch);
+
+        if (Visible)
+        {
+            // ###id so the version can ride in the title without the window losing its place
+            // every time the mod is bumped.
+            if (ImGui.Begin($"KSArmory {Build.Version}###KSArmory", ref Visible))
+            {
+                // Opens on what exists in the world rather than on whatever the camera is pointed
+                // at. Everything below is about the *selected* system, and everything that is not
+                // about one particular system is a pane.
+                DrawSystemList();
+                ImGui.Separator();
+                DrawPaneToggles();
+                DrawReportFooter();
+            }
+
+            ImGui.End();
+        }
+        else if (_config.FloatingPanelButton)
         {
             // Closing the panel must not strand the operator with no way back, and the button is
             // the only route this mod controls. Both others are somebody else's: appending to
             // KSA's bar is ImGui behaviour rather than a supported hook, and ModMenu's entry is
             // another mod's menu reached by transpiling a private method.
             //
-            // So it is drawn whenever it is wanted, and no longer suppressed on the grounds that
-            // ModMenu is installed and will provide. The recovery cannot be conditional on a
-            // third party working, because there is no way back from being wrong: the setting
-            // that would switch this on lives *inside* the panel that is shut.
-            bool reopenButton = _config.FloatingPanelButton;
-
-            if (reopenButton
-                && ImGui.Begin("KSArmory##reopen",
-                               ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
+            // Drawn whenever it is wanted rather than being suppressed where ModMenu would
+            // provide a route: the recovery cannot be conditional on a third party working,
+            // because there is no way back from being wrong -- the setting that would switch this
+            // on lives *inside* the panel that is shut.
+            if (ImGui.Begin("KSArmory##reopen",
+                            ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
             {
                 if (ImGui.Button("KSArmory")) Visible = true;
             }
-            if (reopenButton) ImGui.End();
-            if (anyCrewed) DrawManageWindow();
-            DrawPanes();
-            return;
+
+            ImGui.End();
         }
 
-        // ###id so the version can ride in the title without the window losing its place
-        // every time the mod is bumped.
-        if (ImGui.Begin($"KSArmory {Build.Version}###KSArmory", ref Visible))
-        {
-            // Opens on what exists in the world rather than on whatever the camera is pointed
-            // at. Everything below is about the *selected* system, and everything that is not
-            // about one particular system is a pane.
-            DrawSystemList();
-            ImGui.Separator();
-            DrawPaneToggles();
-            DrawReportFooter();
-        }
-
-        ImGui.End();
-
-        // Outside the main window's Begin/End: each of these is its own top-level window, so
-        // they must not be nested inside another one.
+        // Each of these is its own top-level window, so none may be nested inside the panel's
+        // Begin/End -- and none is gated on the panel being open. Every one carries its own open
+        // flag and returns on it, so closing the panel is not a request to shut the map, the
+        // scope, a report half-written, or the switcher the trigger is pointed at. The manage
+        // window is the only one gated at all, on there being something to manage.
         if (anyCrewed) DrawManageWindow();
-
-        // Outside the crewed gate: these are the session's windows, and the settings one has to
-        // open on a world with nothing in it. Each body checks for itself what it needs.
         DrawPanes();
-
-        // Not gated on a crewed system: the thing being reported may be that there isn't one.
         DrawReportWindow();
-
-        // After the panes, which is what fills the head list this reads.
         DrawMapWindow();
         DrawScopeWindow();
-
-        // Not gated on the panel being open: the switcher is for use while flying, and having to
-        // open the panel to reach it would put it back where it just came from.
         DrawWeaponsWindow();
     }
 

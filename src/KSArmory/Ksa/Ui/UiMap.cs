@@ -30,8 +30,7 @@ internal partial class Ui
     // Whichever head on the shown craft has its map open, or null.
     //
     // One window, so one head at a time -- the same exclusion the main view uses, and for the same
-    // reason: opening a second would silently redraw the first. _headScratch is filled while the
-    // panes are drawn, which happens before this.
+    // reason: opening a second would silently redraw the first.
     private OpticalHeads.Entry? SelectedHead()
     {
         foreach (OpticalHeads.Entry entry in _headScratch)

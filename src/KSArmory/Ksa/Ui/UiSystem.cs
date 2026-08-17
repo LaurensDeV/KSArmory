@@ -33,8 +33,6 @@ internal sealed partial class Ui
             return;
         }
 
-        _heads.On(craft, _headScratch);
-
         // One group per role, read off the enum rather than listed here. A hand-written list
         // silently omits a role added later, which reads as the survey not finding one.
         foreach (WeaponRole role in Enum.GetValues<WeaponRole>())

@@ -22,7 +22,7 @@ Things that are wrong now, not things that could be tidier.
   names this suite as load-bearing. Give it the shared velocity it claims, and check it fails
   against the differenced form.
 
-- [ ] **The weapons switcher is unreachable with the panel closed.** `Ksa/Ui/Ui.cs` returns inside
+- [x] **The weapons switcher is unreachable with the panel closed.** `Ksa/Ui/Ui.cs` returns inside
   the `if (!Visible)` branch, and `DrawWeaponsWindow()` sits after it — under a comment reading
   "Not gated on the panel being open: the switcher is for use while flying." FIRE and the group
   master arm go with it.
