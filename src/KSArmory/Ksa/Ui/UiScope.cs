@@ -179,7 +179,11 @@ internal partial class Ui
         if (!TryCraftHeading(battery, frame, out double heading)) return;
 
         Span<double> bearings = stackalloc double[ScopeGeometry.MaxSweepFaces];
-        int count = ScopeGeometry.SweepBearings(heading, battery.RadarSpinRad, faces, bearings);
+        // Traverse plus spin: the array rides the turret, so its angle is both. RadarPose composes
+        // them by adding, and reading the spin alone leaves the sweep behind whenever the turret
+        // has slewed off the craft's centreline.
+        double array = battery.Turret.BearingRad + battery.RadarSpinRad;
+        int count = ScopeGeometry.SweepBearings(heading, array, faces, bearings);
 
         for (int i = 0; i < count; i++)
         {

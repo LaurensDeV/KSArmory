@@ -126,20 +126,46 @@ public class ScopeGeometryTests
         }
     }
 
-    /// <summary>The array's angle turns the traces, and the craft's heading carries them round.</summary>
+    /// <summary>
+    /// A rising array angle walks the sweep <em>anticlockwise</em> round the compass.
+    ///
+    /// <para>This is the sign that matters and it is not a preference. The part turns about its own
+    /// +X with X × Y = Z, so a positive angle carries its forward toward +Z; MapFrame builds
+    /// north = up × east, so east/north/up is right-handed and up × forward is <em>minus</em> east.
+    /// The part's +Z is therefore west of its forward.</para>
+    ///
+    /// <para>Get it backwards and the sweep turns the opposite way to the dish on the vehicle,
+    /// agreeing with it exactly twice a revolution — which reads as a phase problem and sends the
+    /// next reader looking for an offset that is not there.</para>
+    /// </summary>
     [Fact]
-    public void TheSweepFollowsTheArrayAndTheCraft()
+    public void ARisingArrayAngleWalksTheSweepAnticlockwise()
     {
         Span<double> into = stackalloc double[ScopeGeometry.MaxSweepFaces];
 
-        ScopeGeometry.SweepBearings(0.0, 90.0 * Deg, 2, into);
+        // Craft facing north. A quarter turn of the array puts its face to the WEST, not the east.
+        ScopeGeometry.SweepBearings(0.0, 90.0 * Deg, 1, into);
+        Assert.Equal(270.0, into[0] / Deg, 6);
+
+        ScopeGeometry.SweepBearings(0.0, 180.0 * Deg, 1, into);
+        Assert.Equal(180.0, into[0] / Deg, 6);
+    }
+
+    /// <summary>The craft's heading carries the whole picture round with it.</summary>
+    [Fact]
+    public void TheCraftsHeadingCarriesTheSweep()
+    {
+        Span<double> into = stackalloc double[ScopeGeometry.MaxSweepFaces];
+
+        // Array at rest, so both faces sit on the craft's own axis: ahead and astern.
+        ScopeGeometry.SweepBearings(0.0, 0.0, 2, into);
+        Assert.Equal(0.0, into[0] / Deg, 6);
+        Assert.Equal(180.0, into[1] / Deg, 6);
+
+        // Turn the craft to face east and they come with it.
+        ScopeGeometry.SweepBearings(90.0 * Deg, 0.0, 2, into);
         Assert.Equal(90.0, into[0] / Deg, 6);
         Assert.Equal(270.0, into[1] / Deg, 6);
-
-        // Turn the craft 90 degrees and the whole picture comes with it.
-        ScopeGeometry.SweepBearings(90.0 * Deg, 90.0 * Deg, 2, into);
-        Assert.Equal(180.0, into[0] / Deg, 6);
-        Assert.Equal(0.0, into[1] / Deg, 6);
     }
 
     /// <summary>It wraps rather than running off, however far the array has turned.</summary>
@@ -148,13 +174,14 @@ public class ScopeGeometryTests
     {
         Span<double> into = stackalloc double[ScopeGeometry.MaxSweepFaces];
 
-        ScopeGeometry.SweepBearings(0.0, 401.0 * Math.Tau + (Math.PI / 2.0), 1, into);
+        // Four hundred turns and a quarter: still a bearing, and anticlockwise of north.
+        ScopeGeometry.SweepBearings(0.0, (401.0 * Math.Tau) + (Math.PI / 2.0), 1, into);
         Assert.InRange(into[0], 0.0, Math.Tau);
-        Assert.Equal(90.0, into[0] / Deg, 5);
+        Assert.Equal(270.0, into[0] / Deg, 5);
 
-        // And a negative angle is still a bearing, not a negative number.
+        // And an array wound backwards is still a bearing, not a negative number.
         ScopeGeometry.SweepBearings(0.0, -Math.PI / 2.0, 1, into);
-        Assert.Equal(270.0, into[0] / Deg, 6);
+        Assert.Equal(90.0, into[0] / Deg, 6);
     }
 
     /// <summary>A set with no rotating array draws no sweep rather than one pinned at north.</summary>

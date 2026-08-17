@@ -75,25 +75,34 @@ public static class ScopeGeometry
     /// sweep, which is the honest reading: the trace says "this set is scanning", and a set whose
     /// array has been halted — or whose drive the engine refused — is not.</para>
     ///
+    /// <para><b>The array's angle is subtracted, not added, and that is not a taste.</b> The part
+    /// turns about its own +X with <c>X × Y = Z</c>, so a positive angle carries its forward toward
+    /// +Z. <see cref="MapFrame"/> builds <c>north = up × east</c>, making east/north/up right-handed
+    /// — and in such a triad <c>up × forward</c> is <em>minus</em> east. So the part's +Z is west of
+    /// its forward, a rising angle walks the array anticlockwise round the compass, and a bearing
+    /// that adds it draws a sweep turning the opposite way to the dish on the vehicle. The two agree
+    /// twice a revolution, which is exactly often enough to look like a phase problem rather than a
+    /// sign one.</para>
+    ///
     /// <para><paramref name="faces"/> is how many sides of the array radiate. One is an ordinary
     /// set; the Pantsir's wedge is two, half a turn apart, and its picture therefore refreshes
     /// twice a revolution. Any count works and they are spread evenly, so a three-face set needs
     /// no new concept.</para>
     /// </summary>
-    /// <param name="headingRad">Compass bearing the array's zero mark points along.</param>
-    /// <param name="spinRad">How far the array has turned from that mark.</param>
+    /// <param name="headingRad">Compass bearing of the craft's own forward.</param>
+    /// <param name="arrayRad">The array's angle in the part's frame — its traverse plus its spin.</param>
     /// <param name="into">Filled with one bearing per face; the count returned says how many.</param>
-    public static int SweepBearings(double headingRad, double spinRad, int faces, Span<double> into)
+    public static int SweepBearings(double headingRad, double arrayRad, int faces, Span<double> into)
     {
         if (faces <= 0 || into.IsEmpty) return 0;
-        if (!double.IsFinite(headingRad) || !double.IsFinite(spinRad)) return 0;
+        if (!double.IsFinite(headingRad) || !double.IsFinite(arrayRad)) return 0;
 
         int count = Math.Min(faces, into.Length);
         double step = Math.Tau / count;
 
         for (int i = 0; i < count; i++)
         {
-            double bearing = (headingRad + spinRad + (i * step)) % Math.Tau;
+            double bearing = (headingRad - arrayRad + (i * step)) % Math.Tau;
             into[i] = bearing < 0.0 ? bearing + Math.Tau : bearing;
         }
 
