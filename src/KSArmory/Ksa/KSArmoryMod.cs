@@ -395,6 +395,11 @@ public sealed class KSArmoryMod
 
                 foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step, _airborne);
 
+                // Systems whose craft has been destroyed, still flying what they had in the air.
+                // After the crewed ones and on the same step, so a round is stepped exactly once
+                // per frame whichever side of its launcher's death it is on.
+                _roster.UpdateLoose(step, _airborne);
+
                 // The heads take the step as it comes, not the clamped one. That clamp exists to
                 // stop a *round* stepping over its own fuse radius, and a director has no fuse --
                 // it is a rate-limited drive, for which a long step simply means turning further.
@@ -495,6 +500,10 @@ public sealed class KSArmoryMod
         _roster = null;
         _ui = null;
         Log.Info("unloaded");
+
+        // Last, and after that line: the log batches its writes, so without this the tail of the
+        // session never reaches disk and a static timer goes on firing into an unloaded mod.
+        Log.Shutdown();
     }
 
     // Puts the view on the launcher's optical head, on whichever window the player chose.
@@ -575,17 +584,33 @@ public sealed class KSArmoryMod
             WeaponSystem system = e.Battery;
             if (system.Platform is not { } platform) continue;
 
-            string name = KsaWorld.DisplayName(platform);
-            IReadOnlyList<IProjectile> rounds = system.Rounds;
+            AddAirborne(system.Rounds, KsaWorld.DisplayName(platform), platform, step);
+        }
 
-            for (int i = 0; i < rounds.Count; i++)
-            {
-                IProjectile r = rounds[i];
-                if (r.State != RoundState.Flying) continue;
+        // And the ones whose launcher has been destroyed. They are still in the air, so they are
+        // still contacts: a round nobody owns can be shot down, and one flying at you does not
+        // become harmless because the aircraft that released it did not make it home.
+        //
+        // No craft to anchor them to -- RoundContact takes a null one and declines to draw. The
+        // name is the launcher's, captured before it went, and it carries the team as well as the
+        // label, so allegiance outlives the craft too.
+        IReadOnlyList<WeaponSystem> loose = _roster.Loose;
+        for (int i = 0; i < loose.Count; i++)
+        {
+            AddAirborne(loose[i].Rounds, loose[i].LooseName, null, step);
+        }
+    }
 
-                _airborne.Add(new RoundContact(r, name, platform,
-                                               r.PositionEcl + r.VelocityEcl * step, r.VelocityEcl));
-            }
+    private void AddAirborne(IReadOnlyList<IProjectile> rounds, string firedBy,
+                             KSA.Vehicle? anchor, double step)
+    {
+        for (int i = 0; i < rounds.Count; i++)
+        {
+            IProjectile r = rounds[i];
+            if (r.State != RoundState.Flying) continue;
+
+            _airborne.Add(new RoundContact(r, firedBy, anchor,
+                                           r.PositionEcl + r.VelocityEcl * step, r.VelocityEcl));
         }
     }
 
@@ -609,20 +634,7 @@ public sealed class KSArmoryMod
     // what the integration is clamped at. Nothing flying means nothing to protect.
     private double FaithfulStepInFlight()
     {
-        double faithful = double.MaxValue;
-
-        if (_roster is not null)
-        {
-            foreach (WeaponSystems.Entry e in _roster.All)
-            {
-                foreach (IProjectile round in e.Battery.Rounds)
-                {
-                    faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
-                }
-            }
-        }
-
-        return faithful is double.MaxValue ? Interceptor.MaxFaithfulStep : faithful;
+        return _roster?.FaithfulStep(out _) ?? Interceptor.MaxFaithfulStep;
     }
 
     // Keeps the world slow enough to simulate what is in the air, and gives the speed back when
@@ -635,19 +647,7 @@ public sealed class KSArmoryMod
         // the one the panel happens to be showing. And small enough for the fussiest round in the
         // air, which is the one that manoeuvres hardest: a ballistic weapon alongside an
         // interceptor must not let the interceptor be stepped over.
-        bool anyInFlight = false;
-        double faithful = double.MaxValue;
-
-        foreach (WeaponSystems.Entry e in _roster.All)
-        {
-            foreach (IProjectile round in e.Battery.Rounds)
-            {
-                anyInFlight = true;
-                faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
-            }
-        }
-
-        if (!anyInFlight) faithful = Interceptor.MaxFaithfulStep;
+        double faithful = _roster.FaithfulStep(out bool anyInFlight);
 
         WarpDecision d = _warp.Decide(dtSim, KsaWorld.SimulationSpeed,
                                       anyInFlight, _config.LimitWarpInFlight, faithful);
@@ -672,6 +672,11 @@ public sealed class KSArmoryMod
 
             case WarpAction.Abandon:
                 foreach (WeaponSystems.Entry e in _roster.All) e.Battery.AbandonFlight(d.Why);
+
+                // Loose rounds too. More simulated time passed than can be integrated, and a round
+                // whose launcher is gone relates to the vanished world exactly as any other does.
+                IReadOnlyList<WeaponSystem> stranded = _roster.Loose;
+                for (int i = 0; i < stranded.Count; i++) stranded[i].AbandonFlight(d.Why);
                 break;
 
             case WarpAction.None:

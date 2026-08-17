@@ -1181,6 +1181,39 @@ Three things follow, and the first is the one that bites:
 - **A missile intercepts by blast, a shell by touching** — the same split as everywhere else, and
   it falls out for free: the splash sweep now runs over rounds in the air as well as craft.
 
+**A fired round does not belong to its launcher any more, so destroying the launcher does not
+un-fire it.** A seeker head is aboard the round, and an anti-radiation round already carries the
+emission it remembers — both are built to outlive what they were fired at, so outliving the
+*shooter* costs them nothing. `WeaponSystem.GoLoose` hands such a system's rounds to the body they
+are flying over and `WeaponSystems` keeps it, running nothing but `UpdateLoose`, until the last one
+lands. `MunitionProfile.NeedsUplink` is the one thing that decides who survives: a command-link
+round carries no seeker at all, so it is cut loose and coasts, which is what a command-link round
+*is*. The guard for that is `Platform is null → no target`; writing it the other way round —
+`&& Platform is not null` — skips the uplink check on a destroyed launcher and steers the round on
+with nothing behind it.
+
+Three rules hold it together:
+
+- **The anchor becomes the parent body, and every offset moves at once.** `IProjectile.Reanchor`
+  shifts the current offset, the launch offset and every trail point together. Only
+  `OffsetFromPlatform` self-corrects on the next step, so a partial re-anchor looks right and draws
+  the trail to where the launcher used to be — a planet's radius away. `ProjectileContractTests`
+  holds it for every projectile, including that `TravelSinceLaunch` does not notice.
+- **The roster holds a `Celestial` and a captured name, never the dead `Vehicle`.** That is this
+  file's own rule about not keeping a destroyed craft reachable, and it is what bounds the
+  lifetime to one flight rather than the session. The name carries the team as well as the label,
+  so allegiance outlives the craft too.
+- **A loose system runs no fire control.** No scan, no lay, no trigger — and that is a cost
+  decision as much as a correctness one: the filter that stops a system shooting its own salvo
+  walks every round in the world against every round it owns, which for a system whose rounds are
+  *all* it has is the whole airborne list squared.
+
+**They are invisible, and that is a KSA limit rather than a choice.** Round bodies are subparts of
+the launching craft, so when that craft is destroyed there is nothing left to write a transform to;
+the gizmo tracer needs a `Vehicle` to anchor its draw against. So a loose round flies, guides,
+fuses, kills and can itself be shot down, with nothing on screen. Recorded in
+`docs/CODE-HEALTH.md`.
+
 `Ksa/HullTest.cs` needs no camera: `Vehicle.GetMatrixAsmb2Ego` takes the frame origin as an
 argument, so passing the round-relative separation puts the whole per-triangle cast in a
 metres-scale frame centred on the round. What it is fed is the *analytic* position while the mesh

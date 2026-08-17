@@ -78,12 +78,7 @@ internal sealed class GunSound(Config config)
     {
         foreach (IEffectSource battery in _firing.Keys)
         {
-            bool present = false;
-            foreach (WeaponSystems.Entry e in roster.All)
-            {
-                if (ReferenceEquals(e.Battery, battery)) { present = true; break; }
-            }
-            if (!present) _stopped.Add(battery);
+            if (!roster.Knows(battery)) _stopped.Add(battery);
         }
 
         foreach (IEffectSource battery in _stopped) Silence(battery);

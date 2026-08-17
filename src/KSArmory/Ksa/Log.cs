@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace KSArmory;
 
 /// <summary>
@@ -7,17 +9,40 @@ namespace KSArmory;
 /// the game and is awkward to read (and impossible to read after the fact). KSA's own
 /// <c>KittenSpaceAgency.log</c> is written by its internal logger, which mods cannot reach.
 /// So this mod keeps its own, in the same folder, where it can be tailed from outside the game.
+///
+/// Lines are batched rather than written one at a time. A salvo at full rate is hundreds of
+/// outcome lines a second, and an open/write/close each is a syscall storm on the frame thread.
+/// What that costs is a bounded tail on a hard crash, so <see cref="FlushIntervalMs"/> bounds it
+/// and anything above <see cref="Level.Info"/> goes straight to disk.
 /// </summary>
 internal static class Log
 {
     private const string Prefix = "[KSArmory]";
 
-    // Guards the writer; frame and GUI hooks can both log.
+    // Guards the buffer and the writer. Not only the frame and GUI hooks: FeedbackClient reports
+    // the outcome of a send from a thread-pool task.
     private static readonly object Gate = new();
 
     private static string? _path;
     private static bool _resolved;
     private static bool _fileBroken;
+
+    // The most a crash may take with it. 100 ms is six frames at 60 fps -- inside the moment the
+    // fault happened, so the lines that explain it survive -- while turning ~750 writes a second
+    // into ten.
+    private const int FlushIntervalMs = 100;
+
+    // A single frame can dump thousands of lines (the verbose world dump walks every craft), which
+    // the interval alone would let accumulate unbounded. 64 KB is a few hundred lines.
+    private const int FlushBytes = 64 * 1024;
+
+    private static readonly StringBuilder Pending = new();
+    private static long _lastFlushMs = Environment.TickCount64;
+
+    // Fires whether or not anything is logging, so a session that goes quiet still gets its last
+    // lines to disk. Checking the interval on the way through Write cannot do that: the write that
+    // would notice never comes.
+    private static Timer? _ticker;
 
     /// <summary>How much detail reaches the log.</summary>
     public enum Level
@@ -48,13 +73,22 @@ internal static class Log
     public static Level Threshold { get; set; } = Level.Info;
 #endif
 
-    /// <summary>Full path of the log file, or null if no writable location was found.</summary>
+    /// <summary>
+    /// Full path of the log file, or null if no writable location was found.
+    ///
+    /// <para>Flushes on the way past, because every reader of the file goes through here. A bug
+    /// report attaching the tail would otherwise be missing the lines that prompted it.</para>
+    /// </summary>
     public static string? FilePath
     {
         get
         {
-            EnsureResolved();
-            return _path;
+            lock (Gate)
+            {
+                EnsureResolved();
+                FlushLocked();
+                return _path;
+            }
         }
     }
 
@@ -91,17 +125,62 @@ internal static class Log
             EnsureResolved();
             if (_path is null || _fileBroken) return;
 
-            try
+            // Here rather than in EnsureResolved, which runs once ever: Shutdown stops the ticker,
+            // and a mod loaded again in the same process has to get one back.
+            _ticker ??= new Timer(_ => Flush(), null, FlushIntervalMs, FlushIntervalMs);
+
+            Pending.Append(line).Append(Environment.NewLine);
+
+            // Anything that went wrong goes to disk now. A warning is often the last thing written
+            // before whatever it was warning about takes the process down.
+            if (level >= Level.Warn
+                || Pending.Length >= FlushBytes
+                || Environment.TickCount64 - _lastFlushMs >= FlushIntervalMs)
             {
-                File.AppendAllText(_path, line + Environment.NewLine);
-            }
-            catch
-            {
-                // Disk full, file locked, permissions. Stop trying rather than throwing every
-                // frame - stdout still works.
-                _fileBroken = true;
+                FlushLocked();
             }
         }
+    }
+
+    /// <summary>
+    /// Writes anything still buffered and stops the background flush. For unload, after the last
+    /// line: a timer held in a static field would otherwise go on firing into a mod that is no
+    /// longer loaded.
+    /// </summary>
+    public static void Shutdown()
+    {
+        lock (Gate)
+        {
+            _ticker?.Dispose();
+            _ticker = null;
+            FlushLocked();
+        }
+    }
+
+    private static void Flush()
+    {
+        lock (Gate) FlushLocked();
+    }
+
+    // Caller holds Gate.
+    private static void FlushLocked()
+    {
+        _lastFlushMs = Environment.TickCount64;
+
+        if (Pending.Length == 0 || _path is null || _fileBroken) return;
+
+        try
+        {
+            File.AppendAllText(_path, Pending.ToString());
+        }
+        catch
+        {
+            // Disk full, file locked, permissions. Stop trying rather than throwing every
+            // frame - stdout still works.
+            _fileBroken = true;
+        }
+
+        Pending.Clear();
     }
 
     /// <summary>
@@ -112,7 +191,7 @@ internal static class Log
     {
         get
         {
-            EnsureResolved();
+            lock (Gate) EnsureResolved();
             return _path is null ? Path.GetTempPath() : Path.GetDirectoryName(_path) ?? Path.GetTempPath();
         }
     }

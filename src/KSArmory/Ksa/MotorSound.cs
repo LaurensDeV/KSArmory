@@ -86,12 +86,7 @@ internal sealed class MotorSound(Config config)
     {
         foreach (KeyValuePair<IProjectile, (IRoundsInFlight Owner, IChannel Channel)> kv in _burning)
         {
-            bool present = false;
-            foreach (WeaponSystems.Entry e in roster.All)
-            {
-                if (ReferenceEquals(e.Battery, kv.Value.Owner)) { present = true; break; }
-            }
-            if (!present) _finished.Add(kv.Key);
+            if (!roster.Knows(kv.Value.Owner)) _finished.Add(kv.Key);
         }
 
         foreach (IProjectile round in _finished) Silence(round);

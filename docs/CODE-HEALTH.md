@@ -69,6 +69,10 @@ Things that are wrong now, not things that could be tidier.
   five files share an identical roster scan. Leaf functions, not a base class: the keys, cardinality
   and lifetimes genuinely differ.
 
+  Partly done: the identical roster scan in all five is now `WeaponSystems.Knows`, which had to
+  happen anyway so that a system flying rounds for a destroyed craft does not have its plume and
+  motor sound cut on the frame its launcher dies. The `Take`/`Give`/`Point` triple is what is left.
+
   **Wants a flight, not a tidy-up.** All of it is `Ksa/`, so nothing here is reachable from the test
   project, and the failure it guards against is silent and global — a pool leaked dry stops every
   particle in the world, not just this mod's. A faithful extraction is checkable by reading, but
@@ -121,6 +125,16 @@ is the failure CLAUDE.md rates worse than a missing comment.
   encodes Glasstone's numbers and why each was departed from, which is the kind of comment CLAUDE.md
   wants kept. What is actually duplicated is a handful of sentences, so the fix is to cut those and
   leave the pointer — not to thin the file toward a ratio.
+
+## Known gaps, recorded rather than fixed
+
+- **A round that outlives its launcher is invisible.** Round bodies are subparts of the launching
+  craft, so there is nothing to write a transform to once it is destroyed, and `Visuals.Draw`
+  anchors its gizmos against a `Vehicle`. The round is otherwise fully real — it flies, guides,
+  fuses, kills, and can be shot down. Closing it means a draw anchor taken from a body rather than
+  a craft, and `KsaWorld.BeginDraw`'s own comment explains why that is not a substitution:
+  `GetPositionEgo(vehicle)` is the engine answering per case, and `EclToEgo` only agrees with the
+  rendered scene while the followed craft's analytic and physics positions coincide.
 
 ## Did not survive
 

@@ -26,6 +26,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // This installation's own settings. Shared Config stays for the session-wide ones.
     private readonly SystemConfig _policy = policy;
     private readonly List<IProjectile> _rounds = [];
+
+    // The same rounds as a set. The airborne list is every round in the world and this system has
+    // to reject its own from it once per contact per frame, which is a linear scan of a salvo
+    // inside a walk of every round flying anywhere -- 2.25 million reference comparisons a frame
+    // with ten systems and fifteen hundred rounds up. Kept in step with _rounds by AddRound and
+    // DropRound, which are the only two ways in or out.
+    private readonly HashSet<IProjectile> _roundSet = new(ReferenceEqualityComparer.Instance);
     private readonly List<Vehicle> _blastScratch = [];
 
     // Craft an unguided round could run into, rebuilt at most once a frame.
@@ -44,12 +51,35 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<SystemEvent> _events = [];
 
     private Vehicle? _lastPlatform;
+
+    // Set when the craft carrying this launcher is destroyed with rounds still in the air. The
+    // system then does one thing only -- see them down -- and the body they are flying over
+    // becomes what their offsets are measured from, because a destroyed Vehicle is not something
+    // to go on holding.
+    private Celestial? _looseBody;
+    private string _looseName = "";
     private double _salvoTimer;
     private double _reloadTimer;
     private double _clock;
 
     /// <summary>The vehicle the launcher is mounted on.</summary>
     public Vehicle? Platform { get; private set; }
+
+    /// <summary>
+    /// Its launcher is gone and it is only seeing its rounds down.
+    ///
+    /// <para>A fired round is autonomous — a seeker head homes on its own and an anti-radiation
+    /// round already carries the emission it remembers — so losing the shooter is not a reason for
+    /// one to stop existing. What it does lose is the uplink: a command-link round is cut loose
+    /// here and coasts, which is what a command-link round <em>is</em>.</para>
+    /// </summary>
+    public bool IsLoose => _looseBody is not null;
+
+    /// <summary>Rounds still in the air. What decides whether a loose system is worth keeping.</summary>
+    public int RoundsInFlight => _rounds.Count;
+
+    /// <summary>What to call the craft that fired them, captured before it went.</summary>
+    public string LooseName => _looseName;
 
     /// <summary>True when the operator pinned the platform rather than following control.</summary>
     public bool PlatformPinned { get; private set; }
@@ -399,7 +429,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (Platform is null)
         {
             Radar.Reset();
-            _rounds.Clear();
+            ClearRounds();
             return;
         }
 
@@ -513,21 +543,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         _clock += dt;
 
-        _incoming.Clear();
-        _incomingByHandle.Clear();
-        if (airborne is not null)
-        {
-            for (int i = 0; i < airborne.Count; i++)
-            {
-                // Never this system's own salvo. Teams would usually cover this, but one with no team
-                // set reads every contact as Unknown, which is engageable -- and a launcher must
-                // not shoot down its own missiles as they leave the tubes.
-                if (airborne[i].Handle is IProjectile r && _rounds.Contains(r)) continue;
-
-                _incoming.Add(airborne[i]);
-                _incomingByHandle[airborne[i].Handle] = airborne[i];
-            }
-        }
+        FillIncoming(airborne);
 
         Radar.Scan(Platform, Boresight, dt, _incoming);
         AttributeRoundsToTracks();
@@ -701,8 +717,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // launcher is most likely to over-commit against.
             if (round.TargetRef is null) continue;
 
-            Track? t = Radar.Tracks.Find(x => ReferenceEquals(x.Contact.Handle, round.TargetRef));
-            if (t is not null) t.RoundsAssigned++;
+            if (Radar.TrackFor(round.TargetRef) is { } t) t.RoundsAssigned++;
         }
     }
 
@@ -897,7 +912,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // to burn, and the shell falls back to its proximity fuse.
             if (shell.TimedFuse) slug.FuseSeconds = _gunFlightTime;
         }
-        _rounds.Add(slug);
+        AddRound(slug);
     }
 
     // The cannon, which run on their own belt and their own envelope.
@@ -1584,7 +1599,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         //
         // platformVel is the frame the round launches into. Passing it here is what makes the body
         // orientable on its very first drawn frame - see the Interceptor constructor.
-        _rounds.Add(Munition.Guidance == GuidanceMode.None
+        AddRound(Munition.Guidance == GuidanceMode.None
             ? new Slug(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, frameVel)
             {
                 Munition = Munition,
@@ -1794,7 +1809,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public void SafeAll()
     {
         int n = _rounds.Count;
-        _rounds.Clear();
+        ClearRounds();
 
         bool wasArmed = _policy.Armed;
         _policy.Armed = false;
@@ -1806,6 +1821,129 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
 
+
+    // The only ways in and out, so _roundSet cannot drift from _rounds. A stale entry there is a
+    // system refusing to see a live round, or seeing one that has landed -- both silent.
+    private void AddRound(IProjectile round)
+    {
+        _rounds.Add(round);
+        _roundSet.Add(round);
+    }
+
+    private void DropRound(int index)
+    {
+        _roundSet.Remove(_rounds[index]);
+        _rounds.RemoveAt(index);
+    }
+
+    private void ClearRounds()
+    {
+        _rounds.Clear();
+        _roundSet.Clear();
+    }
+
+    /// <summary>
+    /// Hands this system's rounds over to the body they are flying over, because the craft that
+    /// fired them has been destroyed.
+    /// </summary>
+    /// <returns>False if there was nothing in the air, in which case there is nothing to keep.</returns>
+    public bool GoLoose(Celestial? body, string firedBy)
+    {
+        if (_rounds.Count == 0 || body is null) return false;
+
+        double3 bodyEcl = KsaWorld.PositionEcl(body);
+        if (!Vec.IsFinite(bodyEcl)) return false;
+
+        // Before anything reads them. OffsetFromPlatform would sort itself out on the next step,
+        // which is what makes a partial re-anchor look right -- and the trail would go on being
+        // drawn from where the launcher was, which is a planet's radius away.
+        for (int i = 0; i < _rounds.Count; i++) _rounds[i].Reanchor(PlatformEcl - bodyEcl);
+
+        _looseBody = body;
+        _looseName = firedBy;
+
+        // Everything that needs a craft is over. The radar in particular: a set with no platform
+        // has no origin and no boresight, and a loose system is not looking for anything anyway.
+        Platform = null;
+        _lastPlatform = null;
+        Launcher = null;
+        Radar.Reset();
+        Hold = "launcher destroyed";
+
+        PlatformEcl = bodyEcl;
+        PlatformStepEcl = Vec.Zero;
+
+        Announce($"{firedBy} destroyed - {_rounds.Count} round(s) still in the air");
+        return true;
+    }
+
+    /// <summary>
+    /// One frame for a system that has lost its launcher: its rounds and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not <see cref="Update"/>. There is no fire control left to run — no scan, no
+    /// lay, no trigger — and running one would be both wrong and expensive: a loose system's own
+    /// salvo is the only thing it could reject from the airborne list, so the filter that keeps
+    /// a system from shooting itself would be walking every round in the world against every round
+    /// it has up.
+    /// </remarks>
+    public void UpdateLoose(double dt, IReadOnlyList<IContact>? airborne = null)
+    {
+        if (_looseBody is not { } body || _rounds.Count == 0) return;
+
+        _clock += dt;
+
+        // The body's own sample this frame, paired with the rounds the same way a platform's was:
+        // both advance together, so the difference between them is the round's own flight and
+        // nothing else. See docs/FRAMES-AND-EPOCHS.md.
+        double3 sampled = KsaWorld.PositionEcl(body);
+        if (Vec.IsFinite(sampled))
+        {
+            PlatformStepEcl = sampled - PlatformEcl;
+            PlatformEcl = sampled;
+        }
+
+        FillIncoming(airborne);
+        UpdateRounds(dt);
+    }
+
+    // Every round in the world except this system's own. Shared with Update so a loose system
+    // splashes and is splashed by exactly what a crewed one would.
+    private void FillIncoming(IReadOnlyList<IContact>? airborne)
+    {
+        _incoming.Clear();
+        _incomingByHandle.Clear();
+        if (airborne is null) return;
+
+        for (int i = 0; i < airborne.Count; i++)
+        {
+            // Never this system's own salvo. Teams would usually cover this, but one with no team
+            // set reads every contact as Unknown, which is engageable -- and a launcher must
+            // not shoot down its own missiles as they leave the tubes.
+            if (airborne[i].Handle is IProjectile r && _roundSet.Contains(r)) continue;
+
+            _incoming.Add(airborne[i]);
+            _incomingByHandle[airborne[i].Handle] = airborne[i];
+        }
+    }
+
+    // The frame a round flies in, asked of whatever this system still has: its craft's parent
+    // body while it has a craft, and the body it handed its rounds to once it has not.
+    private double3 GroundVelocityAtRound(double3 positionEcl)
+        => _looseBody is { } body
+               ? KsaWorld.GroundVelocityAt(body, positionEcl)
+               : KsaWorld.GroundVelocityAt(Platform!, positionEcl);
+
+    private double3 GravityAtRound(double3 positionEcl)
+        => _looseBody is { } body
+               ? KsaWorld.GravityAt(body, positionEcl)
+               : KsaWorld.GravityAt(Platform!, positionEcl);
+
+    private double MediumAtRound(double3 positionEcl)
+        => _looseBody is { } body
+               ? KsaWorld.MediumDensityRatioAt(body, positionEcl)
+               : KsaWorld.MediumDensityRatioAt(Platform!, positionEcl);
+
     private void UpdateRounds(double dt)
     {
         if (_rounds.Count == 0) return;
@@ -1813,7 +1951,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // The ground under the launcher, not the launcher. Identical for a site standing still on
         // it, and the difference is the whole behaviour of a store released from something moving.
         // See KsaWorld.GroundVelocityAt.
-        double3 platformVelocityEcl = KsaWorld.GroundVelocityAt(Platform!, PlatformEcl);
+        double3 platformVelocityEcl = GroundVelocityAtRound(PlatformEcl);
 
         // A burst is dozens of shells and the world does not move between them, so the candidate
         // list is built at most once here rather than once per round.
@@ -1830,16 +1968,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 Announce($"round {round.Tube} was shot down after {round.Age:F1}s, " +
                          $"{round.DistanceFlown / 1000.0:F1} km out");
-                _rounds.RemoveAt(i);
+                DropRound(i);
                 continue;
             }
 
-            double3 gravity = KsaWorld.GravityAt(Platform!, round.PositionEcl);
+            double3 gravity = GravityAtRound(round.PositionEcl);
 
             // Read at the round's own position, not the platform's. A round climbing out of the
             // atmosphere leaves the air behind long before the launcher does, and that is the
             // whole point of scaling drag rather than fixing it per profile.
-            double mediumDensity = KsaWorld.MediumDensityRatioAt(Platform!, round.PositionEcl);
+            double mediumDensity = MediumAtRound(round.PositionEcl);
 
             // The platform's velocity defines the local frame: it carries the parent body's
             // orbital and rotational motion, which is not airspeed and not a heading.
@@ -1860,7 +1998,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 case RoundState.Detonated:
                     Detonate(round);
-                    _rounds.RemoveAt(i);
+                    DropRound(i);
                     break;
                 case RoundState.Expired:
                     // Report how it failed: converged-but-short reads very differently from
@@ -1870,7 +2008,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                         $"closest {(round.ClosestApproach == double.MaxValue ? "n/a" : $"{round.ClosestApproach:F0} m")}, " +
                         $"flew {round.DistanceFlown / 1000.0:F1} km, final speed {round.Speed:F0} m/s, " +
                         $"lock={round.HasLock}");
-                    _rounds.RemoveAt(i);
+                    DropRound(i);
                     break;
             }
         }
@@ -1952,8 +2090,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // target's seat cut the uplink to every round already flying at it, turning a
         // deliberate safety rule into a guaranteed miss. The policy belongs at the kill, where
         // Detonate already declines and says why.
-        if (round.Munition.Guidance == GuidanceMode.CommandLink && Platform is not null)
+        if (round.Munition.NeedsUplink)
         {
+            // No set left to command it, which is the end of the uplink rather than an exemption
+            // from it. Testing `Platform is not null` the other way round is the trap: the guard
+            // then skips on a destroyed launcher and the round steers on with nothing behind it.
+            if (Platform is null) return null;
+
             double3 toTarget = positionEcl - PlatformEcl;
             var signature = new ThreatModel.ContactSignature(radius, double.PositiveInfinity);
 
@@ -2268,7 +2411,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         bool hadRounds = _rounds.Count > 0;
 
-        _rounds.Clear();
+        ClearRounds();
         _pendingKills.Clear();
         Radar.Reset();
         _salvoTimer = 0.0;
@@ -2283,7 +2426,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     public void Reset()
     {
-        _rounds.Clear();
+        ClearRounds();
         _pendingKills.Clear();
         _events.Clear();
         Radar.Reset();

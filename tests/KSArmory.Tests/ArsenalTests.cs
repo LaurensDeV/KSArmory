@@ -461,4 +461,31 @@ public class ArsenalTests
                 + "no FIRE, and no mouse aim");
         }
     }
+
+    /// <summary>
+    /// Which rounds survive their launcher being destroyed, stated as the one thing that decides
+    /// it: whether the steering is aboard the round or back at the shooter.
+    ///
+    /// <para>Every mode has to be named here, so a new one cannot arrive and be quietly assumed
+    /// autonomous — the failure would be a round that goes on steering with nothing behind it,
+    /// which looks exactly like one that is working.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(GuidanceMode.Seeker, false)]
+    [InlineData(GuidanceMode.AntiRadiation, false)]
+    [InlineData(GuidanceMode.CommandLink, true)]
+    [InlineData(GuidanceMode.None, false)]
+    public void OnlyACommandLinkRoundNeedsItsLauncher(GuidanceMode mode, bool needsUplink)
+    {
+        MunitionProfile round = new() { Name = "t", DisplayName = "t", Guidance = mode };
+
+        Assert.Equal(needsUplink, round.NeedsUplink);
+    }
+
+    /// <summary>And the list above covers the enum, so adding a mode fails here rather than in flight.</summary>
+    [Fact]
+    public void EveryGuidanceModeIsAccountedFor()
+    {
+        Assert.Equal(4, Enum.GetValues<GuidanceMode>().Length);
+    }
 }

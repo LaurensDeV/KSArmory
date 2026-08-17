@@ -344,4 +344,70 @@ public class ProjectileContractTests
         Assert.True(slug.SeekerInView);
         Assert.Equal(1.0, slug.FinDeployment(Vacuum()));
     }
+
+    /// <summary>
+    /// Re-anchoring moves every stored offset onto a new reference without moving the round, and
+    /// leaves the travel since launch alone.
+    ///
+    /// <para>The case is a round outliving the craft that fired it: its anchor becomes the body it
+    /// is flying over, which is ~6.4e6 m from where the launcher was. Shifting only
+    /// <c>OffsetFromPlatform</c> looks correct on the next frame — it is recomputed from the new
+    /// anchor anyway — and draws the trail to the centre of the planet until it rolls over.</para>
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(AllKinds))]
+    public void ReanchoringMovesTheOffsetsAndNotTheRound(Kind kind)
+    {
+        double3 platformEcl = new(1.5e11, 6.371e6, 0);
+        IProjectile round = Make(kind, platformEcl + new double3(0, 20, 0), new double3(0, 700, 0),
+                                 platformEcl, Vec.Zero);
+
+        MunitionProfile munition = Vacuum();
+
+        // Fly a little, so there is a trail with more than one point in it.
+        for (int i = 0; i < 20; i++)
+        {
+            round.Update(0.05, null, NoGravity, Vec.Zero, platformEcl, munition);
+        }
+
+        double3 worldBefore = round.PositionEcl;
+        double3 travelBefore = round.TravelSinceLaunch;
+        double3 offsetBefore = round.OffsetFromPlatform;
+        double3[] trailBefore = [.. round.TrailOffsets];
+
+        Assert.True(trailBefore.Length > 1, "the trail needs more than one point to be worth testing");
+
+        // The body's centre as the new anchor: a planet's radius away from the launcher.
+        double3 bodyEcl = platformEcl - new double3(0, 6.371e6, 0);
+        double3 delta = platformEcl - bodyEcl;
+
+        round.Reanchor(delta);
+
+        Assert.Equal(worldBefore, round.PositionEcl);
+        Assert.True(Vec.Len(round.TravelSinceLaunch - travelBefore) < 1e-9,
+                    "travel since launch is a difference against one anchor and must not notice it change");
+
+        Assert.True(Vec.Len(round.OffsetFromPlatform - (offsetBefore + delta)) < 1e-9);
+
+        // Every trail point, not just the newest -- the whole reason this is one call.
+        Assert.Equal(trailBefore.Length, round.TrailOffsets.Count);
+        for (int i = 0; i < trailBefore.Length; i++)
+        {
+            Assert.True(Vec.Len(round.TrailOffsets[i] - (trailBefore[i] + delta)) < 1e-9,
+                        $"trail point {i} was left on the old anchor");
+        }
+    }
+
+    /// <summary>A non-finite delta is refused rather than turning every offset into a NaN.</summary>
+    [Theory]
+    [MemberData(nameof(AllKinds))]
+    public void ReanchoringRefusesANonFiniteDelta(Kind kind)
+    {
+        IProjectile round = Make(kind, new double3(0, 20, 0), new double3(0, 700, 0), Vec.Zero, Vec.Zero);
+        double3 before = round.OffsetFromPlatform;
+
+        round.Reanchor(new double3(double.NaN, 0, 0));
+
+        Assert.Equal(before, round.OffsetFromPlatform);
+    }
 }

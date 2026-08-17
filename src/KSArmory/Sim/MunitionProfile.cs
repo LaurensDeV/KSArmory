@@ -192,6 +192,19 @@ public sealed class MunitionProfile
     /// </summary>
     public GuidanceMode Guidance = GuidanceMode.CommandLink;
 
+    /// <summary>
+    /// Whether this round is steered <em>by</em> its launcher rather than by anything it carries.
+    ///
+    /// <para>Which is what decides whether it survives losing that launcher. A seeker head and an
+    /// anti-radiation seeker are both aboard the round, so a destroyed shooter costs them nothing —
+    /// an anti-radiation round is already built to outlive the emission it was fired at, and the
+    /// remembered bearing rides on the round. A command-link round carries no seeker at all, so
+    /// there is nothing left to steer it and it coasts.</para>
+    ///
+    /// <para>An unguided round never steered, and answers false: it is not losing anything.</para>
+    /// </summary>
+    public bool NeedsUplink => Guidance == GuidanceMode.CommandLink;
+
     /// <summary>Seeker gimbal limit, half-angle off the round's velocity vector (degrees).</summary>
     public float SeekerFovDeg = 55f;
 

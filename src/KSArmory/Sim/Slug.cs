@@ -56,8 +56,20 @@ internal sealed class Slug : IProjectile
     public double3 PositionEcl { get; private set; }
     public double3 VelocityEcl { get; private set; }
     public double3 OffsetFromPlatform { get; private set; }
-    private double3 LaunchOffset { get; }
+    private double3 LaunchOffset { get; set; }
     public double3 TravelSinceLaunch => OffsetFromPlatform - LaunchOffset;
+
+    /// <inheritdoc cref="IProjectile.Reanchor"/>
+    public void Reanchor(double3 offsetDelta)
+    {
+        if (!Vec.IsFinite(offsetDelta)) return;
+
+        OffsetFromPlatform += offsetDelta;
+        LaunchOffset += offsetDelta;
+
+        for (int i = 0; i < _trail.Count; i++) _trail[i] += offsetDelta;
+    }
+
     public double3 VelocityLocal => VelocityEcl - _frameVelocityEcl;
     public double Speed => Vec.Len(VelocityLocal);
     public double DistanceFlown { get; private set; }

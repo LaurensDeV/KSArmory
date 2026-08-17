@@ -56,6 +56,76 @@ internal sealed class WeaponSystems(Config config)
     /// <summary>Every crewed system, in no particular order.</summary>
     public IEnumerable<Entry> All => _entries.Values;
 
+    // Systems whose craft has been destroyed with rounds still in the air. Held here rather than
+    // left in _entries because the key carries the Vehicle, and a destroyed craft reachable from a
+    // dictionary is exactly what this roster's own note says must not happen. A loose system holds
+    // a Celestial and a captured name instead, and is dropped the moment its last round lands --
+    // so the lifetime is one flight, not the session.
+    private readonly List<WeaponSystem> _loose = [];
+
+    /// <summary>Systems still flying rounds for a craft that no longer exists.</summary>
+    public IReadOnlyList<WeaponSystem> Loose => _loose;
+
+    /// <summary>
+    /// The shortest step any round in the world needs, and whether there is anything up at all.
+    ///
+    /// <para>Every round, not every crewed system's: a round whose launcher has been destroyed is
+    /// still being integrated, so letting the world run away from it steps it over its own fuse
+    /// radius exactly as it would any other. One walk, because the warp policy and the integration
+    /// clamp are two readings of the same question and must not disagree.</para>
+    /// </summary>
+    public double FaithfulStep(out bool anyInFlight)
+    {
+        double faithful = double.MaxValue;
+        anyInFlight = false;
+
+        foreach (Entry e in _entries.Values)
+        {
+            foreach (IProjectile round in e.Battery.Rounds)
+            {
+                anyInFlight = true;
+                faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
+            }
+        }
+
+        for (int i = 0; i < _loose.Count; i++)
+        {
+            foreach (IProjectile round in _loose[i].Rounds)
+            {
+                anyInFlight = true;
+                faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
+            }
+        }
+
+        return anyInFlight ? faithful : Interceptor.MaxFaithfulStep;
+    }
+
+    /// <summary>
+    /// Whether this roster is still running a system — crewed on a live craft, or loose and seeing
+    /// its last rounds down.
+    ///
+    /// <para>Asked by every effect that holds a pooled emitter or an audio channel, to decide
+    /// whether the thing it is drawing for still exists. <b>Loose systems count.</b> Testing only
+    /// the crewed ones takes the plume and the motor sound off every round on the frame its
+    /// launcher dies, which is the one frame anybody is watching.</para>
+    /// </summary>
+    public bool Knows(object? owner)
+    {
+        if (owner is null) return false;
+
+        foreach (Entry e in _entries.Values)
+        {
+            if (ReferenceEquals(e.Battery, owner)) return true;
+        }
+
+        for (int i = 0; i < _loose.Count; i++)
+        {
+            if (ReferenceEquals(_loose[i], owner)) return true;
+        }
+
+        return false;
+    }
+
     // Names already reported as shared, so it is said once each rather than every survey.
     private readonly HashSet<string> _reportedShared = [];
 
@@ -232,15 +302,57 @@ internal sealed class WeaponSystems(Config config)
 
         foreach ((Vehicle Craft, int Ordinal) key in _gone)
         {
-            _entries[key].Battery.Reset();
+            WeaponSystem battery = _entries[key].Battery;
 
-            // Anything keyed on the system rather than on the craft has to be told, or its entry
-            // outlives the craft and keeps a destroyed vehicle reachable for the session.
-            Diagnostics.Forget(_entries[key].Battery);
+            // A fired round does not belong to the launcher any more, so losing the launcher is
+            // not a reason to un-fire it: a seeker homes on its own and an anti-radiation round
+            // already carries the emission it remembers. The system stays alive to fly them, with
+            // the body they are over as their anchor, and is dropped when the last one lands.
+            //
+            // Read the name before detaching -- it is the only thing that still knows what fired
+            // them, and it is the team identity as well as the label.
+            if (battery.GoLoose(KsaWorld.ParentBody(key.Craft), KsaWorld.DisplayName(key.Craft)))
+            {
+                _loose.Add(battery);
+            }
+            else
+            {
+                battery.Reset();
+
+                // Anything keyed on the system rather than on the craft has to be told, or its
+                // entry outlives the craft and keeps a destroyed vehicle reachable for the session.
+                Diagnostics.Forget(battery);
+            }
 
             _entries.Remove(key);
             _selected.Remove(key.Craft);
             Log.Info("a crewed system was destroyed");
+        }
+
+        ReapLoose();
+    }
+
+    /// <summary>
+    /// Flies the rounds of every system whose craft has gone, and drops each one as it empties.
+    /// </summary>
+    public void UpdateLoose(double dt, IReadOnlyList<IContact>? airborne)
+    {
+        for (int i = 0; i < _loose.Count; i++) _loose[i].UpdateLoose(dt, airborne);
+
+        ReapLoose();
+    }
+
+    // A loose system exists only for what it still has up.
+    private void ReapLoose()
+    {
+        for (int i = _loose.Count - 1; i >= 0; i--)
+        {
+            if (_loose[i].RoundsInFlight > 0) continue;
+
+            Log.Info($"{_loose[i].LooseName}: last round down, system forgotten");
+            Diagnostics.Forget(_loose[i]);
+            _loose[i].Reset();
+            _loose.RemoveAt(i);
         }
     }
 
@@ -351,5 +463,8 @@ internal sealed class WeaponSystems(Config config)
 
         foreach (Entry e in _entries.Values) e.Battery.Reset();
         _entries.Clear();
+
+        foreach (WeaponSystem loose in _loose) loose.Reset();
+        _loose.Clear();
     }
 }

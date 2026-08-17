@@ -178,6 +178,22 @@ internal static class KsaWorld
 
     public static double3 PositionEcl(Vehicle v) => v.GetPositionEcl();
 
+    /// <summary>
+    /// Where a body is, guarded — the anchor a round falls back on once the craft that fired it is
+    /// gone. Non-finite rather than throwing, so a caller can decline to move anything this frame.
+    /// </summary>
+    public static double3 PositionEcl(Celestial body)
+    {
+        try
+        {
+            return body.GetPositionEcl();
+        }
+        catch
+        {
+            return new double3(double.NaN, double.NaN, double.NaN);
+        }
+    }
+
     public static double3 VelocityEcl(Vehicle v) => v.GetVelocityEcl();
 
     /// <summary>
@@ -819,23 +835,62 @@ internal static class KsaWorld
     {
         try
         {
-            if (platform.Parent is not Celestial body) return VelocityEcl(platform);
+            if (platform.Parent is not Celestial body) return SafeVelocityEcl(platform);
 
+            double3 ground = GroundVelocityAt(body, positionEcl);
+
+            return Vec.IsFinite(ground) ? ground : SafeVelocityEcl(platform);
+        }
+        catch
+        {
+            // The craft's own velocity, which is exactly right for a launcher standing on the
+            // ground and the closest available answer for any other.
+            return SafeVelocityEcl(platform);
+        }
+    }
+
+    /// <summary>
+    /// The same ground frame, asked of the body directly.
+    ///
+    /// <para>Which is what it always was: the platform above is consulted only to reach its parent
+    /// and as a fallback answer. A round outliving the craft that fired it keeps flying in this
+    /// frame, and has to ask for it without one.</para>
+    /// </summary>
+    public static double3 GroundVelocityAt(Celestial body, double3 positionEcl)
+    {
+        try
+        {
             // Cce, not the Cci that GetBodyRates answers with: the separation below is a Cce
             // vector, and the two frames differ by the body's axial tilt -- 23.4 degrees on Earth,
             // which at 465 m/s of surface speed invents up to 190 m/s of velocity out of nothing.
             double3 spin = ((IParentBody)body).GetAngularVelocityCce();
             double3 fromCentre = positionEcl - body.GetPositionEcl();
 
-            if (!Vec.IsFinite(spin) || !Vec.IsFinite(fromCentre)) return VelocityEcl(platform);
+            // The body's own motion without the spin term, which is the honest answer when the
+            // spin cannot be read: wrong by at most the surface speed, where guessing zero would
+            // be wrong by the whole orbital velocity.
+            if (!Vec.IsFinite(spin) || !Vec.IsFinite(fromCentre)) return body.GetVelocityEcl();
 
             return body.GetVelocityEcl() + Vec.Cross(spin, fromCentre);
         }
         catch
         {
-            // The craft's own velocity, which is exactly right for a launcher standing on the
-            // ground and the closest available answer for any other.
+            return Vec.Zero;
+        }
+    }
+
+    // Inside another method's catch block, so it may not throw itself. VelocityEcl is a bare
+    // property read with no guard of its own, and the case this exists for is a platform that has
+    // just been disposed -- which is exactly when it throws.
+    private static double3 SafeVelocityEcl(Vehicle platform)
+    {
+        try
+        {
             return VelocityEcl(platform);
+        }
+        catch
+        {
+            return Vec.Zero;
         }
     }
 
@@ -847,12 +902,23 @@ internal static class KsaWorld
     {
         try
         {
-            if (platform.Parent is not IPosition parent) return Vec.Zero;
+            return platform.Parent is Celestial body ? GravityAt(body, positionEcl) : Vec.Zero;
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
 
-            double mu = platform.Parent.Mu;
+    /// <summary>The same pull, asked of the body directly — for a round with no craft left.</summary>
+    public static double3 GravityAt(Celestial body, double3 positionEcl)
+    {
+        try
+        {
+            double mu = ((IParentBody)body).Mu;
             if (mu <= 0.0) return Vec.Zero;
 
-            double3 toBody = parent.GetPositionEcl() - positionEcl;
+            double3 toBody = body.GetPositionEcl() - positionEcl;
             double dist2 = Vec.Len2(toBody);
             if (dist2 < 1.0) return Vec.Zero;
 
@@ -881,8 +947,19 @@ internal static class KsaWorld
     {
         try
         {
-            if (platform.Parent is not IPosition parent) return 1.0;
-            if (platform.Parent is not Celestial body) return 1.0;
+            return platform.Parent is Celestial body ? MediumDensityRatioAt(body, positionEcl) : 1.0;
+        }
+        catch
+        {
+            return 1.0;
+        }
+    }
+
+    /// <summary>The same medium, asked of the body directly — for a round with no craft left.</summary>
+    public static double MediumDensityRatioAt(Celestial body, double3 positionEcl)
+    {
+        try
+        {
 
             AtmosphereReference? atmosphere = body.GetAtmosphereReference();
             if (atmosphere?.Physical is not { } air || !air.IsValid()) return 0.0;
@@ -891,7 +968,7 @@ internal static class KsaWorld
             if (!(seaLevel > 0.0)) return 0.0;
 
             // Altitude above the mean surface, the same measure KSA's own physics uses.
-            double altitude = Vec.Len(positionEcl - parent.GetPositionEcl()) - body.MeanRadius;
+            double altitude = Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius;
 
             // Below the waterline the medium is the ocean, which is ~840x sea-level air. The
             // ratio is therefore not bounded above by 1.

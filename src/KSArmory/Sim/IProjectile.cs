@@ -154,6 +154,28 @@ internal interface IProjectile
     double FinDeployment(MunitionProfile munition);
 
     /// <summary>
+    /// Moves every stored offset onto a different anchor, without moving the round.
+    /// </summary>
+    /// <param name="offsetDelta">
+    /// The old anchor's position minus the new one's, both sampled at the same instant. Adding it
+    /// to an offset measured from the old anchor gives the offset from the new one.
+    /// </param>
+    /// <remarks>
+    /// <para>Needed because the offsets are the drawn quantity and there are several of them: the
+    /// current one, the launch one that <see cref="TravelSinceLaunch"/> differences against, and
+    /// every point of the trail. <see cref="OffsetFromPlatform"/> alone self-corrects on the next
+    /// step, so a partial re-anchor looks right and leaves the trail drawn to wherever the old
+    /// anchor was — the width of a planet, when a round outlives the craft that fired it and takes
+    /// the body it is orbiting as its anchor instead.</para>
+    ///
+    /// <para>Shifting the launch offset by the same delta is what keeps
+    /// <see cref="TravelSinceLaunch"/> invariant, which its own contract requires: it is a
+    /// difference of two offsets against one anchor, so it must not notice the anchor changing.
+    /// </para>
+    /// </remarks>
+    void Reanchor(double3 offsetDelta);
+
+    /// <summary>
     /// Advances by <paramref name="dt"/> simulated seconds.
     /// </summary>
     /// <param name="target">

@@ -59,6 +59,22 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     // Held between scans so a contact's dwell time survives track rebuilds.
     private readonly Dictionary<object, double> _dwell = new();
 
+    // An index over Tracks, with the same lifetime: cleared and refilled by every scan. Reference
+    // equality because a handle is an identity rather than a value -- everything else that matches
+    // one uses ReferenceEquals, and a contact type that ever overrode Equals would silently fold
+    // two distinct contacts onto one track.
+    private readonly Dictionary<object, Track> _byHandle = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// The live track for a target handle, or null if this set is not holding it.
+    ///
+    /// <para>O(1) because fire control asks once per round in the air: a scan against a salvo is
+    /// thousands of lookups a frame, and a linear search over the track list is that many times
+    /// the track count.</para>
+    /// </summary>
+    public Track? TrackFor(object? handle) =>
+        handle is not null && _byHandle.TryGetValue(handle, out Track? track) ? track : null;
+
     /// <summary>
     /// Rebuilds the track list from the current world state.
     /// </summary>
@@ -74,6 +90,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
                      IReadOnlyList<IContact>? airborne = null)
     {
         Tracks.Clear();
+        _byHandle.Clear();
         MaskedByTerrain = 0;
 
         // A set that has been told to stop transmitting sees nothing. That is the whole of the
@@ -124,9 +141,14 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             }
         }
 
-        // Refresh dwell bookkeeping, dropping anything no longer seen.
+        // Refresh dwell bookkeeping, dropping anything no longer seen, and index the tracks by
+        // handle in the same pass.
         _dwell.Clear();
-        foreach (Track t in Tracks) _dwell[t.Contact.Handle] = t.HeldSeconds;
+        foreach (Track t in Tracks)
+        {
+            _dwell[t.Contact.Handle] = t.HeldSeconds;
+            _byHandle[t.Contact.Handle] = t;
+        }
 
         ThreatModel.SortByPriority(Tracks);
 
@@ -226,6 +248,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     public void Reset()
     {
         Tracks.Clear();
+        _byHandle.Clear();
         _dwell.Clear();
         Locked = null;
         Watched = null;

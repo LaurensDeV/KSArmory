@@ -459,7 +459,12 @@ Where latent bugs are most likely.
       log is the arbiter — the fuse trigger ranges stay ~22 m either way.)*
 - [ ] **6.3** **Target dies mid-flight** — destroy the target another way while rounds chase it.
       They should lose lock and expire, not throw.
-- [ ] **6.4** **Platform destroyed** with rounds in flight — no exception spam.
+- [ ] **6.4** **Platform destroyed** with rounds in flight — the rounds **carry on** rather than
+  vanishing, and still detonate and kill. No exception spam. Check the log says
+  `<craft> destroyed - N round(s) still in the air`, then `last round down, system forgotten`.
+  A command-link round (the Pantsir's 57E6) should coast and expire; a Sidewinder or HARM should
+  still hit. They are invisible while loose — see `docs/CODE-HEALTH.md` — so read the log, not the
+  screen.
 - [ ] **6.5** **Pin platform** — press *Pin to this vehicle*, switch control elsewhere. The
       pinned craft keeps defending itself.
 - [ ] **6.6** **Staging away the launcher** — `Launcher: none fitted` appears, firing refuses.

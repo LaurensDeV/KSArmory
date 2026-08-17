@@ -155,6 +155,18 @@ internal sealed class Interceptor : IProjectile
     /// <summary>Displacement since launch. Frame-independent, so safe to rotate into any frame.</summary>
     public double3 TravelSinceLaunch => OffsetFromPlatform - LaunchOffset;
 
+    /// <inheritdoc cref="IProjectile.Reanchor"/>
+    public void Reanchor(double3 offsetDelta)
+    {
+        if (!Vec.IsFinite(offsetDelta)) return;
+
+        OffsetFromPlatform += offsetDelta;
+        LaunchOffset += offsetDelta;
+
+        for (int i = 0; i < _trail.Count; i++) _trail[i] += offsetDelta;
+    }
+
+
     /// <summary>
     /// Where this round left from, in the launcher part's own frame. Set by the battery at
     /// launch and never read by the simulation — it exists so the round's *body* can be placed
