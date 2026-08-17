@@ -73,6 +73,16 @@ public sealed class Config
     public bool MotorSmoke = true;
 
     /// <summary>
+    /// Multiplier on how wide that trail is drawn, against the round's own size.
+    ///
+    /// <para>A look, and the one thing about this that a screen decides rather than a number: the
+    /// engine reaches the expanded radius within five seconds, so it is what the trail is for
+    /// almost all of its life, and whether that reads as a rocket trail or as a rolling bank of
+    /// fog is not answerable from the source.</para>
+    /// </summary>
+    public float MotorSmokeWidth = 1f;
+
+    /// <summary>
     /// Show the little floating button that reopens the panel.
     ///
     /// <para>On by default and worth keeping: the menu-bar entry that replaces it works by

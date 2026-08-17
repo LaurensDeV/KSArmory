@@ -121,11 +121,18 @@ internal sealed class MotorSmoke
             live.Owner = battery;
         }
 
-        // Off the round's own size, so a 30 mm shell does not lay the column a HARM does. The
-        // expanded radius is what makes a moving point read as a billowing trail rather than a
-        // wire -- see PlumeSmoke.Lay.
-        float laid = (float)(round.Munition.BodyLength * 0.25);
-        float expanded = (float)(round.Munition.BodyLength * 3.0);
+        // Off the round's own size, so a 30 mm shell does not lay the column a HARM does.
+        //
+        // Small fractions, because BodyLength is a missile's *length* and the trail wants its
+        // calibre: a HARM is 4.17 m long and about a quarter of a metre across, so anything near
+        // unity here is a column tens of times wider than the round. The laid radius is roughly
+        // the body, and the expanded one is what makes a moving point read as a billowing trail
+        // rather than a wire -- reached within the engine's 5 s expansion, so it is what the trail
+        // looks like for almost all of its life rather than an eventual size.
+        double width = round.Munition.BodyLength * _config.MotorSmokeWidth;
+
+        float laid = (float)(width * 0.08);
+        float expanded = (float)(width * 0.7);
 
         PlumeSmoke.Lay(live.Strand, body, positionCcf, laid, expanded);
     }

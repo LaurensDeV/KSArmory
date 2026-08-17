@@ -118,6 +118,9 @@ internal sealed partial class Ui
         ImGui.Checkbox("Rocket smoke trail", ref _config.MotorSmoke);
         ImGui.TextDisabled("  hangs for 20 minutes and drifts on the wind - the engine's own");
         ImGui.TextDisabled("  lifetime, shared with mushroom clouds");
+
+        ImGui.SliderFloat("Smoke width", ref _config.MotorSmokeWidth, 0.1f, 4f);
+        ImGui.TextDisabled($"  {_config.MotorSmokeWidth:F2}x the round's own size, live");
         ImGui.TextDisabled("  flame at the nozzle while the motor burns; needs warhead effects on");
 
         ImGui.SeparatorText("Systems");
