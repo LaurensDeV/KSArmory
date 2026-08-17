@@ -105,9 +105,11 @@ internal partial class Ui
 
         DrawScopeFace(draw, centre, radius, policy.ScopeRangeMetres);
         DrawScopeSweep(draw, centre, radius, battery, local);
-        DrawScopeContacts(draw, centre, radius, battery, local, policy.ScopeRangeMetres);
+        DrawScopeContacts(draw, centre, radius, battery, policy, local, policy.ScopeRangeMetres);
 
         ImGui.Dummy(new float2(side, side));
+
+        DrawScopeKey();
     }
 
     private static void DrawScopeControls(SystemConfig policy)
@@ -213,8 +215,9 @@ internal partial class Ui
         }
     }
 
-    private static void DrawScopeContacts(ImDrawListPtr draw, float2 centre, float radius,
-                                          WeaponSystem battery, MapFrame frame, float range)
+    private void DrawScopeContacts(ImDrawListPtr draw, float2 centre, float radius,
+                                   WeaponSystem battery, SystemConfig policy, MapFrame frame,
+                                   float range)
     {
         Track? locked = battery.LockedTrack;
 
@@ -232,20 +235,62 @@ internal partial class Ui
             bool isLocked = locked is not null && ReferenceEquals(track, locked);
             uint colour = isLocked ? ScopeLocked : track.IsThreat ? ScopeThreat : ScopeBlip;
 
-            // A blip on the face, a wedge pointing outward for one held at the rim -- so "out
-            // there, that way" is never read as "at the edge of the range setting".
-            if (beyond)
+            switch (SymbolOf(track, policy))
             {
-                draw.AddNgonFilled(at, 4.5f, colour, 3);
-            }
-            else
-            {
-                draw.AddCircleFilled(at, 3.5f, colour, 12);
+                case ScopeGeometry.Blip.Missile:
+                    draw.AddText(new float2(at.X - 5f, at.Y - 7f), colour, "M");
+                    break;
+
+                // Geometry rather than a Greek delta: the font here is not guaranteed to carry one,
+                // and a symbol that renders as a box on somebody else's machine is worse than none.
+                case ScopeGeometry.Blip.Unknown:
+                    draw.AddNgon(at, 6f, colour, 3, isLocked ? 2.2f : 1.5f);
+                    break;
+
+                default:
+                    draw.AddLine(new float2(at.X - 4f, at.Y - 4f), new float2(at.X + 4f, at.Y + 4f),
+                                 colour, isLocked ? 2.2f : 1.5f);
+                    draw.AddLine(new float2(at.X - 4f, at.Y + 4f), new float2(at.X + 4f, at.Y - 4f),
+                                 colour, isLocked ? 2.2f : 1.5f);
+                    break;
             }
 
-            if (isLocked) draw.AddCircle(at, 8f, colour, 16, 1.4f);
+            // Transmitting: a mark beside the symbol rather than one of its own, because a hostile
+            // that switches its set on must not stop being drawn as a hostile.
+            if (IsEmitting(track)) draw.AddText(new float2(at.X + 6f, at.Y - 9f), colour, ScopeGeometry.Emitting);
+
+            // Held on the rim: a tick outward, so "out there, that way" is not read as "there".
+            if (beyond)
+            {
+                float2 out2 = Face(centre, radius * 1.06f, ScopeGeometry.Plot(bearing, 1.0, 1.0));
+                draw.AddLine(at, out2, colour, 1.4f);
+            }
+
+            if (isLocked) draw.AddCircle(at, 10f, colour, 16, 1.4f);
         }
     }
+
+    // Symbols mean nothing without a key, and this one has to be on the same screen as the face --
+    // symbology a reader has to remember is symbology they read wrong.
+    private static void DrawScopeKey()
+    {
+        // Spelled out rather than drawn: the triangle on the face is geometry precisely because the
+        // font may not carry one, so putting a Greek delta in the key would reintroduce the risk it
+        // was avoided for.
+        ImGui.TextDisabled("X  known side      triangle  unknown side");
+        ImGui.TextDisabled("M  round in the air     R  transmitting");
+    }
+
+    // Whose it is, as the scope's own IFF sees it -- so the symbol agrees with what fire control
+    // would decide about the same contact rather than being a second opinion.
+    private static ScopeGeometry.Blip SymbolOf(Track track, SystemConfig policy)
+        => ScopeGeometry.SymbolFor(track.Contact is RoundContact,
+                                   policy.Iff.Classify(track.Contact.TeamKey) != Allegiance.Unknown);
+
+    // Read off the same roster the anti-radiation path asks, rather than a second source that
+    // could disagree about who is transmitting.
+    private bool IsEmitting(Track track)
+        => track.Contact.Handle is Vehicle craft && _batteries.IsEmitting(craft);
 
     // The body's own frame, so a bearing on the scope is a bearing on the ground rather than one
     // measured off the ecliptic -- 23 degrees out on Earth. Same query the map's scan makes.

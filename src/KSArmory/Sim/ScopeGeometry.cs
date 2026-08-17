@@ -109,6 +109,45 @@ public static class ScopeGeometry
         return count;
     }
 
+    /// <summary>What a blip on the scope is, which decides the symbol drawn for it.</summary>
+    public enum Blip
+    {
+        /// <summary>A craft whose side is known: friendly, hostile or neutral. Drawn X.</summary>
+        Known,
+
+        /// <summary>A craft whose side is not known, and so a potential threat. Drawn as a triangle.</summary>
+        Unknown,
+
+        /// <summary>Somebody's round in the air. Drawn M.</summary>
+        Missile,
+    }
+
+    /// <summary>
+    /// Which symbol a contact gets.
+    ///
+    /// <para>A round in the air outranks everything: what it is matters more than whose it is,
+    /// because it is the one contact that is arriving whatever its allegiance says. After that the
+    /// question is only whether the side is known.</para>
+    ///
+    /// <para>Emission is <em>not</em> one of these. A craft can be a known vessel and transmitting
+    /// at the same time, so it is a mark carried beside the symbol rather than a symbol of its own —
+    /// see <see cref="Emitting"/>. Making it exclusive would mean a hostile that switches its set on
+    /// stops being drawn as a hostile.</para>
+    /// </summary>
+    public static Blip SymbolFor(bool isRound, bool sideKnown)
+        => isRound ? Blip.Missile
+         : sideKnown ? Blip.Known
+         : Blip.Unknown;
+
+    /// <summary>The mark a transmitting contact carries beside its symbol.</summary>
+    ///
+    /// <remarks>
+    /// A modifier, not a class of contact. It is also the one piece of the picture that says why an
+    /// anti-radiation round has something to home on, so it reads off exactly the same source that
+    /// path does rather than a second opinion about who is transmitting.
+    /// </remarks>
+    public const string Emitting = "R";
+
     /// <summary>Range rings drawn inside the rim, as fractions of the face radius.</summary>
     ///
     /// <para>The rim itself is not one of them: it is the range setting and is drawn as the edge,
