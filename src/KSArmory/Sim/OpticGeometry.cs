@@ -220,7 +220,7 @@ public static class OpticGeometry
         double3 aim = Vec.Unit(aimPartFrame);
         if (Vec.Len2(aim) < 0.5) return doubleQuat.Identity;
 
-        doubleQuat swing = TubeGeometry.RotationFromTo(RestDirection, aim);
+        doubleQuat swing = Vec.RotationFromTo(RestDirection, aim);
 
         // The reference is where the mounting face actually points now; the ball's own up is its
         // mesh axis, which the swing has already carried. Rotating the second by the mount as well

@@ -71,6 +71,37 @@ internal static class Vec
     }
 
     /// <summary>
+    /// The shortest rotation carrying one direction onto another.
+    ///
+    /// <para>Both degenerate cases return a usable rotation rather than a NaN. Parallel is
+    /// identity; antiparallel has no shortest arc at all — every perpendicular axis is equally
+    /// correct — so one is picked and turned through half a circle.</para>
+    ///
+    /// <para>The tolerance is 1e-6 rather than something tighter because the cross product loses
+    /// its <em>direction</em> long before it loses its length: within a milliradian of antiparallel
+    /// the axis is cancellation noise while the angle is still very nearly half a turn, and a
+    /// randomly-directed half turn changes frame to frame. Snapping to a fixed axis across that
+    /// band is what stops it flickering.</para>
+    /// </summary>
+    public static doubleQuat RotationFromTo(double3 from, double3 to)
+    {
+        double3 a = Unit(from);
+        double3 b = Unit(to);
+
+        if (!IsFinite(a) || !IsFinite(b) || a.Equals(Zero) || b.Equals(Zero))
+        {
+            return doubleQuat.Identity;
+        }
+
+        double dot = Math.Clamp(Dot(a, b), -1.0, 1.0);
+
+        if (dot > 0.999999) return doubleQuat.Identity;
+        if (dot < -0.999999) return doubleQuat.CreateFromAxisAngle(AnyPerpendicular(a), Math.PI);
+
+        return doubleQuat.CreateFromAxisAngle(Unit(Cross(a, b)), Math.Acos(dot));
+    }
+
+    /// <summary>
     /// A unit vector perpendicular to <paramref name="v"/>, clocked to <paramref name="reference"/>.
     ///
     /// <para><see cref="AnyPerpendicular"/> seeds from a fixed ecliptic axis. For a direction that

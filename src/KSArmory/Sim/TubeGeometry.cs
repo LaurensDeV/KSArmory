@@ -87,33 +87,6 @@ public static class TubeGeometry
     }
 
     /// <summary>
-    /// The shortest rotation carrying one direction onto another.
-    ///
-    /// <para>The optical head points rather than trains, so unlike every other assembly here it
-    /// has no axis of its own and takes an arbitrary rotation. Antiparallel is the case worth
-    /// handling: the cross product vanishes and any perpendicular axis is equally correct, which
-    /// is a half turn about whichever one is picked rather than a NaN.</para>
-    /// </summary>
-    public static doubleQuat RotationFromTo(double3 from, double3 to)
-    {
-        double3 a = Vec.Unit(from);
-        double3 b = Vec.Unit(to);
-        if (!Vec.IsFinite(a) || !Vec.IsFinite(b) || a.Equals(Vec.Zero) || b.Equals(Vec.Zero))
-        {
-            return doubleQuat.Identity;
-        }
-
-        double dot = Math.Clamp(Vec.Dot(a, b), -1.0, 1.0);
-        if (dot > 1.0 - 1e-12) return doubleQuat.Identity;
-        if (dot < -1.0 + 1e-12)
-        {
-            return doubleQuat.CreateFromAxisAngle(Vec.AnyPerpendicular(a), Math.PI);
-        }
-
-        return doubleQuat.CreateFromAxisAngle(Vec.Unit(Vec.Cross(a, b)), Math.Acos(dot));
-    }
-
-    /// <summary>
     /// Where one barrel's muzzle sits in the launcher part's frame, given where the cannon
     /// currently are. False for a barrel this launcher does not have.
     /// </summary>

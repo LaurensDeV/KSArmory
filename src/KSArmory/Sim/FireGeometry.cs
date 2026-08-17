@@ -91,20 +91,7 @@ public static class FireGeometry
     /// <summary>
     /// Rotation carrying <see cref="NoseAxis"/> onto <paramref name="direction"/>, so a round's
     /// body points the way it is travelling.
-    ///
-    /// Returns identity for a direction that is zero or already along the nose, and picks an
-    /// arbitrary perpendicular axis for one that is exactly reversed — where the cross product
-    /// is degenerate and would otherwise normalise to NaN.
     /// </summary>
     public static doubleQuat RotationFromNose(double3 direction)
-    {
-        double3 forward = Vec.Unit(direction);
-        if (forward.Equals(Vec.Zero)) return doubleQuat.Identity;
-
-        double dot = Math.Clamp(Vec.Dot(NoseAxis, forward), -1.0, 1.0);
-        if (dot > 0.999999) return doubleQuat.Identity;
-        if (dot < -0.999999) return doubleQuat.CreateFromAxisAngle(new double3(0, 0, 1), Math.PI);
-
-        return doubleQuat.CreateFromAxisAngle(Vec.Unit(Vec.Cross(NoseAxis, forward)), Math.Acos(dot));
-    }
+        => Vec.RotationFromTo(NoseAxis, direction);
 }
