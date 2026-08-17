@@ -2130,10 +2130,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             IContact contact = _incoming[i];
             if (contact.Handle is not IProjectile other || other.State != RoundState.Flying) continue;
 
-            double3 atBurstEcl = contact.PositionEcl + contact.VelocityEcl * elapsed;
-            double gap = Vec.Len(atBurstEcl - burst) - contact.MeanRadius;
+            double gap = BlastSweep.SurfaceGap(contact.PositionEcl, contact.VelocityEcl, elapsed,
+                                               burst, contact.MeanRadius);
 
-            if (gap > round.Munition.LethalRadius) continue;
+            if (BlastSweep.Effect(gap, round.Munition) != BlastEffect.Lethal) continue;
 
             other.ShootDown();
             _burstKilled = true;
@@ -2148,17 +2148,22 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle)) continue;
             if (_pendingKills.Contains(v)) continue;
 
-            double3 posAtBurst = KsaWorld.PositionEcl(v) + KsaWorld.VelocityEcl(v) * elapsed;
-            double dist = Vec.Len(posAtBurst - burst) - KsaWorld.MeanRadius(v);
+            double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                               elapsed, burst, KsaWorld.MeanRadius(v));
 
-            if (dist <= round.Munition.LethalRadius)
+            switch (BlastSweep.Effect(gap, round.Munition))
             {
-                _pendingKills.Add(v);
-                _burstKilled = true;
-            }
-            else if (dist <= round.Munition.BlastRadius)
-            {
-                Announce($"near miss on {KsaWorld.DisplayName(v)} at {dist:F0} m");
+                case BlastEffect.Lethal:
+                    _pendingKills.Add(v);
+                    _burstKilled = true;
+                    break;
+
+                case BlastEffect.NearMiss:
+                    Announce($"near miss on {KsaWorld.DisplayName(v)} at {gap:F0} m");
+                    break;
+
+                default:
+                    break;
             }
         }
 

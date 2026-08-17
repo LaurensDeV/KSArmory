@@ -41,11 +41,11 @@ Things that are wrong now, not things that could be tidier.
 
 ## Modularity
 
-- [ ] **Testable maths stranded in `Ksa/`.** Highest value first:
+- [x] **Testable maths stranded in `Ksa/`.** Highest value first:
   - [x] `Radar.TeamOf` — now `Sim/Teams.TeamFor`, with the substring trap pinned.
   - [x] `WeaponSystem.Holding()` — now `Sim/FireLadder.cs`, with the rung order tested.
-  - The blast sweep in `WeaponSystem.Detonate` — now written twice inside one method, rounds and
-    craft, differing only in where position, velocity and radius come from.
+  - [x] The blast sweep in `WeaponSystem.Detonate` — the geometry is now `Sim/BlastSweep.cs`,
+    with the back-dating frame rule tested for invariance.
 
 - [ ] **`Interceptor` and `Slug` duplicate the frame and epoch bookkeeping.** Trail constants and
   append, the buoyancy-plus-drag block, `ShootDown`, `VelocityLocal`, and the
