@@ -64,7 +64,14 @@ internal interface IEffectSource : IRoundsInFlight
     bool PlumesEnabled { get; }
 
     /// <summary>Where the cannon's flash belongs, if it has cannon.</summary>
-    bool TryGunFlashEcl(out double3 ecl, out double3 axisEcl);
+    /// <summary>
+    /// Where the cannon's flashes belong, one per barrel cluster. A mount with a sponson either
+    /// side has two, and averaging them would put one flash on the hull between them.
+    /// </summary>
+    int GunFlashPointsEcl(Span<double3> into);
+
+    /// <summary>Whether the cannon have a flash to draw at all.</summary>
+    bool HasGunFlash();
 
     /// <summary>True while the cannon are firing, which is what holds a flash and a sound open.</summary>
     bool GunsFiring { get; }

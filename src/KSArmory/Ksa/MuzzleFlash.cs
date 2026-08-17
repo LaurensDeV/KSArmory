@@ -34,7 +34,9 @@ internal sealed class MuzzleFlash
     private sealed class Live
     {
         public required Celestial Body;
-        public required List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> Flash;
+        // One set of handles per barrel cluster. A rotary cannon has one; a mount with a
+        // sponson either side has two, and they fire together.
+        public required List<List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle>> Clusters;
     }
 
     private readonly Dictionary<IEffectSource, Live> _firing = [];
@@ -48,7 +50,7 @@ internal sealed class MuzzleFlash
         bool wanted = battery.PlumesEnabled
                       && battery.GunsFiring
                       && battery.Platform is not null
-                      && battery.TryGunFlashEcl(out _, out _);
+                      && battery.HasGunFlash();
 
         if (!wanted)
         {
@@ -91,34 +93,44 @@ internal sealed class MuzzleFlash
     private void Follow(IEffectSource battery)
     {
         if (battery.Platform is not { } platform) return;
-        if (!battery.TryGunFlashEcl(out double3 ecl, out _)) return;
+
+        Span<double3> points = stackalloc double3[MaxClusters];
+        int count = battery.GunFlashPointsEcl(points);
+        if (count <= 0) return;
 
         if (!_firing.TryGetValue(battery, out Live? live))
         {
-            if (Acquire(platform) is not { } fresh) return;
+            if (Acquire(platform, count) is not { } fresh) return;
 
             live = fresh;
             _firing[battery] = live;
         }
 
         double3 centre = live.Body.GetPositionEcl();
-        double3 positionCcf = (ecl - centre).Transform(live.Body.GetCce2Ccf());
-        if (!Vec.IsFinite(positionCcf)) return;
+        doubleQuat cce2Ccf = live.Body.GetCce2Ccf();
 
-        var at = new BubbleOrigin
+        for (int i = 0; i < count && i < live.Clusters.Count; i++)
         {
-            Time = Universe.GetElapsedTime(),
-            Parent = live.Body,
-            BubFrame = BubbleFrame.Ccf,
-            PositionBub = positionCcf,
+            double3 positionCcf = (points[i] - centre).Transform(cce2Ccf);
+            if (!Vec.IsFinite(positionCcf)) continue;
 
-            // Zero for the flash, and InheritVelocity is off to match: gas leaves the barrel and
-            // stays where the air is.
-            VelocityBub = double3.Zero,
-        };
+            Point(live.Clusters[i], new BubbleOrigin
+            {
+                Time = Universe.GetElapsedTime(),
+                Parent = live.Body,
+                BubFrame = BubbleFrame.Ccf,
+                PositionBub = positionCcf,
 
-        Point(live.Flash, at);
+                // Zero for the flash, and InheritVelocity is off to match: gas leaves the barrel
+                // and stays where the air is.
+                VelocityBub = double3.Zero,
+            });
+        }
     }
+
+    // More barrel clusters than any mount is going to have. A cap rather than a list so the
+    // per-frame path allocates nothing.
+    private const int MaxClusters = 8;
 
     private static void Point(List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> handles,
                               BubbleOrigin origin)
@@ -131,15 +143,30 @@ internal sealed class MuzzleFlash
         }
     }
 
-    private static Live? Acquire(Vehicle platform)
+    private static Live? Acquire(Vehicle platform, int clusters)
     {
         try
         {
             if (platform.Parent is not Celestial body) return null;
 
-            if (Take(FlashId, body) is not { } flash) return null;
+            // One emitter set per cluster, taken up front. A mount with two sponsons flashes at
+            // both at once, so they cannot share a set.
+            var sets = new List<List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle>>();
+            for (int i = 0; i < clusters; i++)
+            {
+                if (Take(FlashId, body) is not { } set)
+                {
+                    // Give back whatever was taken, or they leak for the session.
+                    foreach (var taken in sets) Give(new Live { Body = body, Clusters = [taken] });
+                    return null;
+                }
 
-            return new Live { Body = body, Flash = flash };
+                sets.Add(set);
+            }
+
+            if (sets.Count == 0) return null;
+
+            return new Live { Body = body, Clusters = sets };
         }
         catch (Exception e)
         {
@@ -194,7 +221,8 @@ internal sealed class MuzzleFlash
         // so it spawns for the rest of the session and is never returned to the pool -- which is
         // seen as particles frozen where the emitter last was, and eventually as nothing in the
         // world being able to spawn any.
-        foreach (var handle in live.Flash)
+        foreach (var set in live.Clusters)
+        foreach (var handle in set)
         {
             try
             {

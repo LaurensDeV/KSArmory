@@ -203,6 +203,68 @@ public static class TubeGeometry
     }
 
     /// <summary>
+    /// How far apart two muzzles can sit and still share one flash (m).
+    ///
+    /// <para>Comfortably above the spacing inside a barrel cluster and comfortably below the gap
+    /// between two of them: a Phalanx's six sit within 0.2 m of each other, and a Pantsir's four
+    /// are in two sponsons 3.5 m apart.</para>
+    /// </summary>
+    public const double GunFlashClusterMetres = 0.6;
+
+    /// <summary>
+    /// Groups muzzles that are close enough to share one flash, and returns how many groups.
+    ///
+    /// <para><b>Averaging every muzzle into one point is wrong for anything but a single cluster.</b>
+    /// A rotary cannon's barrels sit within a hand's breadth, so their mean is on the gun. A mount
+    /// with a sponson either side has its mean <em>between</em> them — on the vehicle's centreline,
+    /// where there is no gun and nothing is firing.</para>
+    ///
+    /// <para>Single-link: a muzzle joins a group if it is within
+    /// <see cref="GunFlashClusterMetres"/> of any muzzle already in it, so a row of barrels stays
+    /// one group however long it is.</para>
+    /// </summary>
+    /// <param name="into">Filled with each muzzle's group index, in the muzzles' own order.</param>
+    public static int ClusterMuzzles(ReadOnlySpan<double3> muzzles, double radius, Span<int> into)
+    {
+        int n = Math.Min(muzzles.Length, into.Length);
+        if (n <= 0) return 0;
+
+        for (int i = 0; i < n; i++) into[i] = -1;
+
+        int groups = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (into[i] >= 0) continue;
+
+            into[i] = groups;
+
+            // Grow the group until nothing else is within reach of anything already in it.
+            bool grew = true;
+            while (grew)
+            {
+                grew = false;
+                for (int a = 0; a < n; a++)
+                {
+                    if (into[a] != groups) continue;
+
+                    for (int b = 0; b < n; b++)
+                    {
+                        if (into[b] >= 0) continue;
+                        if (Vec.Len(muzzles[b] - muzzles[a]) > radius) continue;
+
+                        into[b] = groups;
+                        grew = true;
+                    }
+                }
+            }
+
+            groups++;
+        }
+
+        return groups;
+    }
+
+    /// <summary>
     /// Where the search array sits and how far round it has turned.
     ///
     /// Both rotations are about the traverse axis — the turret's bearing and the array's own spin —

@@ -1720,37 +1720,67 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                    : Profile.HasCannon && !_guns.IsEmpty && GunsAreLaid;
 
     /// <summary>
-    /// Where the cannon's flash belongs, in Ecl: the centre of the barrel cluster.
+    /// Where the cannon's flashes belong, in Ecl: one point per barrel cluster.
     ///
-    /// <para>Averaged over the muzzles rather than taken from whichever barrel fired last. The six
-    /// sit within 10 cm of each other so the difference cannot be seen, and the average stays on
-    /// the cluster axis as the gun elevates instead of hopping barrel to barrel.</para>
+    /// <para><b>Per cluster, not one average.</b> A rotary cannon's barrels sit within a hand's
+    /// breadth and their mean is on the gun; a mount with a sponson either side has its mean
+    /// <em>between</em> them, on the centreline, where there is no gun and nothing is firing.
+    /// <see cref="TubeGeometry.ClusterMuzzles"/> decides which share one.</para>
     /// </summary>
-    public bool TryGunFlashEcl(out double3 ecl, out double3 axisEcl)
+    /// <param name="into">Filled with one position per cluster; the count returned says how many.</param>
+    public int GunFlashPointsEcl(Span<double3> into)
     {
-        ecl = axisEcl = Vec.Zero;
-        if (!Profile.HasCannon || Platform is null || Launcher is null) return false;
-        if (GunsPart is not { } guns) return false;
+        if (!Profile.HasCannon || Platform is null || Launcher is null) return 0;
+        if (GunsPart is not { } guns) return 0;
+        if (into.IsEmpty) return 0;
 
-        double3 sum = Vec.Zero;
-        int found = 0;
-        for (int i = 0; i < Profile.GunMuzzles.Length; i++)
+        int barrels = Profile.GunMuzzles.Length;
+        if (barrels <= 0) return 0;
+
+        Span<int> group = stackalloc int[barrels];
+        int groups = TubeGeometry.ClusterMuzzles(Profile.GunMuzzles,
+                                                 TubeGeometry.GunFlashClusterMetres, group);
+        if (groups <= 0) return 0;
+
+        Span<double3> sums = stackalloc double3[Math.Min(groups, into.Length)];
+        Span<int> counts = stackalloc int[sums.Length];
+
+        for (int i = 0; i < barrels; i++)
         {
+            int g = group[i];
+            if (g < 0 || g >= sums.Length) continue;
+
             if (!LauncherPart.TryGetGunMuzzleEcl(Platform, Launcher, guns, Profile, i, PlatformEcl,
-                                                 out double3 muzzle, out double3 axis))
+                                                 out double3 muzzle, out _))
             {
                 continue;
             }
 
-            sum += muzzle;
-            axisEcl = axis;
-            found++;
+            sums[g] += muzzle;
+            counts[g]++;
         }
 
-        if (found == 0) return false;
+        // Only the clusters that actually resolved, packed to the front so the caller's count is
+        // the number of real points rather than the number of groups the profile declares.
+        int found = 0;
+        for (int g = 0; g < sums.Length; g++)
+        {
+            if (counts[g] == 0) continue;
 
-        ecl = sum / found;
-        return Vec.IsFinite(ecl);
+            double3 at = sums[g] / counts[g];
+            if (!Vec.IsFinite(at)) continue;
+
+            into[found++] = at;
+        }
+
+        return found;
+    }
+
+    /// <summary>Whether the cannon have a flash to draw at all.</summary>
+    public bool HasGunFlash()
+    {
+        Span<double3> one = stackalloc double3[1];
+        return GunFlashPointsEcl(one) > 0;
     }
 
     /// <summary>Manual trigger: shoots at whatever the radar currently holds.</summary>
