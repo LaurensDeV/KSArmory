@@ -102,7 +102,19 @@ internal static class ImpactPredictor
                 return true;
             }
 
-            if (!below) everAboveGround = true;
+            if (below)
+            {
+                // Under the ground and not climbing out of it: there is no arc here to find, and
+                // saying so now matters. Waiting for one costs the full horizon of integration —
+                // ten thousand steps, several times a second, to answer a question about a vehicle
+                // that is sitting on its pad. A launch site below the mean sphere is the ordinary
+                // way into this, not an edge case.
+                if (!everAboveGround && Vec.Dot(rNext, vNext) <= 0.0) return false;
+            }
+            else
+            {
+                everAboveGround = true;
+            }
 
             r = rNext;
             v = vNext;

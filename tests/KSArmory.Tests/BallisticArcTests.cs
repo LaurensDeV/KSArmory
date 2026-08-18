@@ -245,4 +245,40 @@ public class BallisticArcTests
         Assert.True(depth <= ImpactPredictor.CrossingToleranceMetres,
                     $"reported {depth:F2} m underground");
     }
+
+    /// <summary>
+    /// A vehicle sitting on its pad has no ballistic arc, and saying so has to be immediate.
+    ///
+    /// <para>Waiting to find out costs the whole horizon of integration — ten thousand steps,
+    /// several times a second, about a rocket that has not moved. A launch site below the mean
+    /// sphere is the ordinary way in, not an edge case: half of any planet's surface is.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(-200.0)]
+    [InlineData(-4000.0)]
+    public void AVehicleOnTheGroundHasNoArcAndIsToldSoAtOnce(double altitude)
+    {
+        double3 pad = Equator(0.0, altitude);
+        double3 sittingStill = Earth.GroundVelocityCci(pad);
+
+        Assert.False(ImpactPredictor.TryPredict(Earth, pad, sittingStill, 2.0,
+                                                ImpactPredictor.DefaultMaxSeconds, out _));
+    }
+
+    /// <summary>
+    /// The other half of it, and the reason the test is on climbing rather than on being
+    /// underground: a round released inside the terrain sample and still going up does have an
+    /// arc, and refusing it would take the answer away from every launch from a low site.
+    /// </summary>
+    [Fact]
+    public void SomethingBelowTheSurfaceButClimbingStillGetsAnAnswer()
+    {
+        double3 from = Equator(0.0, -500.0);
+        double3 climbing = Earth.GroundVelocityCci(from) + Vec.Unit(from) * 900.0;
+
+        Assert.True(ImpactPredictor.TryPredict(Earth, from, climbing, 1.0, 3600.0,
+                                               out ImpactPredictor.Impact hit));
+        Assert.True(hit.Seconds > 1.0, "it has to fly before it lands");
+    }
 }

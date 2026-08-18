@@ -113,43 +113,63 @@ internal sealed partial class Ui
         ImGui.TextColored(PhaseColour(command.Phase), $"Phase: {command.Phase}");
         ImGui.TextColored(command.Phase == IcbmPhase.NoSolution ? Bad : Working, $"Holding: {command.Hold}");
 
-        if (command.VelocityToGain > 0.0)
-        {
-            string cutoff = double.IsFinite(command.SecondsToCutoff)
-                ? $"{command.SecondsToCutoff:F1} s"
-                : "never at this thrust";
-            ImGui.Text($"To gain: {command.VelocityToGain:F0} m/s   cutoff in {cutoff}");
-        }
+        ImGui.Separator();
 
         if (computer.Program.Arc is { } arc)
         {
-            ImGui.Text($"Apogee {(arc.ApogeeRadius - computer.Body.SurfaceRadius) / 1000.0:F0} km"
-                       + $"   flight {arc.FlightSeconds / 60.0:F1} min");
+            ImGui.Text($"Planned arc: {(arc.ApogeeRadius - computer.Body.SurfaceRadius) / 1000.0:F0} km up,"
+                       + $" then falls for {arc.FlightSeconds / 60.0:F1} min");
+        }
+        else
+        {
+            ImGui.TextDisabled("Planned arc: none solved yet");
         }
 
-        // The prediction, which is the one number that can disagree with the plan. It is flown
-        // rather than solved, so when it and the trajectory above part company the trajectory is
-        // the thing that is wrong.
+        if (command.VelocityToGain > 0.0)
+        {
+            string cutoff = double.IsFinite(command.SecondsToCutoff)
+                ? $"cutoff in {command.SecondsToCutoff:F0} s"
+                : "it cannot finish this burn";
+            ImGui.Text($"Still to gain: {command.VelocityToGain:F0} m/s   -   {cutoff}");
+        }
+
+        // Named for what it actually is. It is a free-fall prediction, so on the pad the honest
+        // answer is "on the pad" - true, useless, and worth saying rather than dressing up.
         if (double.IsFinite(computer.PredictedMissMetres))
         {
             double miss = computer.PredictedMissMetres;
             ImGui.TextColored(miss < 2000.0 ? Good : Working,
                               miss < 1000.0
-                                  ? $"Predicted impact: {miss:F0} m from the target"
-                                  : $"Predicted impact: {miss / 1000.0:F1} km from the target");
+                                  ? $"If the engines stopped now: {miss:F0} m from the target"
+                                  : $"If the engines stopped now: {miss / 1000.0:F1} km from the target");
         }
-        else if (computer.Target.IsSet)
+        else if (!computer.Target.IsSet)
         {
-            ImGui.TextDisabled("Predicted impact: it does not come down");
+            ImGui.TextDisabled("If the engines stopped now: nothing to measure against");
         }
+        else if (computer.AltitudeMetres < 1000.0)
+        {
+            ImGui.TextDisabled("If the engines stopped now: it is still on the ground");
+        }
+        else
+        {
+            ImGui.TextColored(Bad, "If the engines stopped now: it never comes down");
+        }
+
+        ImGui.Separator();
 
         BoosterPerformance booster = new(computer.Craft.FlightComputer.ActiveEnginePerformanceMax.Thrust,
                                          computer.Craft.FlightComputer.ActiveEnginePerformanceMax.MassFlowRate,
                                          computer.Craft.TotalMass, computer.Craft.PropellantMass);
 
-        ImGui.TextDisabled($"stack: {booster.DeltaVRemaining / 1000.0:F2} km/s left, "
-                           + $"{booster.BurnSecondsRemaining:F0} s of burn, "
-                           + $"{booster.AccelerationNow:F1} m/s2");
+        ImGui.Text($"This stage: {booster.DeltaVRemaining / 1000.0:F2} km/s of delta-v, "
+                   + $"{booster.BurnSecondsRemaining:F0} s of burn, "
+                   + $"{booster.AccelerationNow / 9.81:F1} g");
+
+        // The caveat that makes the number above readable. KSA reports the engines that are
+        // running, so a three-stage rocket on the pad shows the first stage's figure and looks
+        // hopelessly short of a shot it can comfortably make.
+        ImGui.TextDisabled("  the running stage only - a stack with more below this reads low");
     }
 
     private void DrawIcbmTrajectory(IcbmComputer computer)
@@ -162,10 +182,15 @@ internal sealed partial class Ui
             ? "  the arc it is on now, and a ring on the aim point"
             : "  nothing is drawn in the world for this vehicle");
 
+        // A multiplier on the cheapest flight time, shown as one. Printed bare it reads as an
+        // absolute setting, and then 1.00 needs a sentence to explain that it is not.
         float loft = (float)config.Loft;
-        if (ImGui.SliderFloat("Loft", ref loft, 0.6f, 1.8f, "%.2f")) config.Loft = loft;
-        ImGui.TextDisabled($"  1.00 is the cheapest shot; {config.Loft:F2} flies it "
-                           + (config.Loft > 1.0 ? "higher and slower" : config.Loft < 1.0 ? "flatter and faster" : "at minimum energy"));
+        if (ImGui.SliderFloat("Loft", ref loft, 0.6f, 1.8f, "%.2f x cheapest")) config.Loft = loft;
+        ImGui.TextDisabled("  " + (config.Loft > 1.005
+            ? "a longer flight than the cheapest: higher, slower, arrives steeper, costs more"
+            : config.Loft < 0.995
+                ? "a shorter flight than the cheapest: flatter and faster, and costs more"
+                : "minimum energy - the cheapest shot there is"));
 
         bool autoRelease = config.AutoRelease;
         if (ImGui.Checkbox("Release warheads automatically", ref autoRelease)) config.AutoRelease = autoRelease;

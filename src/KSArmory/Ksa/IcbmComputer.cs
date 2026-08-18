@@ -55,6 +55,9 @@ internal sealed class IcbmComputer
     /// <summary>The body the flight is around, as the guidance sees it.</summary>
     public BallisticBody Body { get; private set; }
 
+    /// <summary>Height over the mean sphere, for readouts that mean nothing on the ground.</summary>
+    public double AltitudeMetres { get; private set; }
+
     public Celestial? Parent { get; private set; }
 
     public IcbmComputer(Vehicle craft, IcbmConfig config)
@@ -211,6 +214,7 @@ internal sealed class IcbmComputer
         double density = KsaWorld.MediumDensityRatioAt(Parent, KsaWorld.PositionEcl(Craft));
 
         usable = Body.IsUsable;
+        AltitudeMetres = Body.AltitudeOf(positionCci);
 
         return new IcbmState(Body, positionCci, velocityCci, aimCci, hasAim, booster, density,
                              Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved);
