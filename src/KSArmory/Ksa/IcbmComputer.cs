@@ -34,6 +34,14 @@ internal sealed class IcbmComputer
     private bool _driving;
     private double3 _rollReference;
     private bool _warpIsOurs;
+    private IcbmPhase _reported = IcbmPhase.Idle;
+
+    // How much of the remaining wait each warp leaves for the next one, and the most it will leave.
+    // A fraction rather than a constant because the span is what decides how fast KSA warps: a
+    // fixed margin off a ninety-minute hold is still approached at thousands of times speed.
+    private const double MarginFraction = 0.2;
+
+    private const double MaxMarginSeconds = 900.0;
     private double _throttleAchieved = 1.0;
 
     public Vehicle Craft { get; }
@@ -86,6 +94,7 @@ internal sealed class IcbmComputer
     {
         Target = site;
         Program.Reset();
+        _reported = IcbmPhase.Idle;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -118,7 +127,7 @@ internal sealed class IcbmComputer
     /// The weapon aboard, as the one thing this needs of it: something that can be told to shoot at
     /// a place. Null for a vehicle carrying nothing that lets go, which flies the arc regardless.
     /// </param>
-    public void Update(double simStep, IManualFire? release)
+    public void Update(double simStep, double playerStep, IManualFire? release)
     {
         if (!KsaWorld.IsAlive(Craft)) return;
 
@@ -128,11 +137,11 @@ internal sealed class IcbmComputer
             // would take the vehicle away from a player who is flying it by hand, on a computer
             // that is switched off.
             if (_driving) Abort("disarmed");
-            Command = Program.Update(simStep, Sample(simStep, out _));
+            Command = Program.Update(simStep, Sample(playerStep, out _));
             return;
         }
 
-        IcbmState state = Sample(simStep, out bool usable);
+        IcbmState state = Sample(playerStep, out bool usable);
         if (!usable)
         {
             Command = Program.Update(simStep, state);
@@ -140,6 +149,18 @@ internal sealed class IcbmComputer
         }
 
         Command = Program.Update(simStep, state);
+
+        // One line per phase change. Every gate in the program returns quietly, so a flight that
+        // goes wrong leaves nothing behind saying which of them it went wrong at - and the panel
+        // only shows the state it is in now, not the order it got there.
+        if (Command.Phase != _reported)
+        {
+            _reported = Command.Phase;
+            Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: {Command.Phase} at "
+                     + $"{AltitudeMetres / 1000.0:F0} km, {Command.VelocityToGain:F0} m/s to gain, "
+                     + $"burn in {IcbmProgram.Clock(Command.SecondsToBurn)}, "
+                     + $"impact in {IcbmProgram.Clock(SecondsToArrival)} :: {Command.Hold}");
+        }
 
         Predict(simStep, state);
 
@@ -178,7 +199,7 @@ internal sealed class IcbmComputer
 
         if (Config.AutoRelease && Command.ReadyToDeploy) Release(release);
 
-        EndOurWarp();
+        CarryOurWarp();
     }
 
     /// <summary>
@@ -187,20 +208,26 @@ internal sealed class IcbmComputer
     /// <para>Warping is an action rather than a setting, and taking the player's time control
     /// because a target happened to be designated is not a thing a weapon gets to do. They may have
     /// set a tenth speed to watch something.</para>
+    ///
+    /// <para>One press covers the whole wait, in hops. That is not tidiness — it is the only way
+    /// the handover can work. KSA scales its warp rate to the <em>span</em> it is asked to cover, so
+    /// a single jump to the end of a ninety-minute hold arrives doing thousands of times normal
+    /// speed, where the last minute of it passes in under two frames and there is nowhere to hand
+    /// over. Each hop leaves a margin, and the next one covers a shorter span and so runs gentler,
+    /// until the approach is slow enough to be caught.</para>
     /// </summary>
     public bool TryWarpToWindow()
     {
-        if (Program.Phase != IcbmPhase.Holding) return false;
-        if (!ReferenceEquals(Craft, KsaWorld.ControlledVehicle)) return false;
-        if (KsaWorld.IsAutoWarpActive) return false;
+        if (!CanWarpToWindow) return false;
 
         double wait = Command.SecondsToBurn;
-        if (!double.IsFinite(wait) || wait <= IcbmProgram.WarpHoldLeadSeconds * 2.0) return false;
+        double margin = Math.Clamp(wait * MarginFraction, IcbmProgram.WarpHoldLeadSeconds, MaxMarginSeconds);
 
-        if (!KsaWorld.TryAutoWarpTo(wait, IcbmProgram.WarpHoldLeadSeconds)) return false;
+        if (!KsaWorld.TryAutoWarpTo(wait, margin)) return false;
 
         _warpIsOurs = true;
-        Log.Info($"warping {IcbmProgram.Clock(wait)} to the burn window on {KsaWorld.DisplayName(Craft)}");
+        Log.Info($"warping to within {IcbmProgram.Clock(margin)} of the burn window on "
+                 + $"{KsaWorld.DisplayName(Craft)}, {IcbmProgram.Clock(wait)} to go");
         return true;
     }
 
@@ -212,26 +239,31 @@ internal sealed class IcbmComputer
         && double.IsFinite(Command.SecondsToBurn)
         && Command.SecondsToBurn > IcbmProgram.WarpHoldLeadSeconds * 2.0;
 
-    // Ends a warp this computer started, and only one it started. KSA's warp is still travelling
-    // when it reaches its target, so handing over at speed leaves the hold trying to brake the
-    // world from a thousand times in one frame - which computes a speed of nearly zero and pauses
-    // the game. Stopping it resets the speed. A warp the *player* started is theirs.
-    private void EndOurWarp()
+    // Carries a warp this computer started through to the window, and ends it if the shot stops
+    // wanting one. Only ever a warp it started: one the player started is theirs.
+    private void CarryOurWarp()
     {
         if (!_warpIsOurs) return;
 
-        if (!KsaWorld.IsAutoWarpActive) { _warpIsOurs = false; return; }
-
-        double wait = Command.SecondsToBurn;
-        if (Program.Phase == IcbmPhase.Holding && double.IsFinite(wait)
-            && wait > IcbmProgram.WarpHoldLeadSeconds)
+        if (Program.Phase != IcbmPhase.Holding)
         {
+            if (KsaWorld.IsAutoWarpActive)
+            {
+                Log.Info($"stopping the warp on {KsaWorld.DisplayName(Craft)}, the hold is over");
+                KsaWorld.StopAutoWarp();
+            }
+
+            _warpIsOurs = false;
             return;
         }
 
-        Log.Info($"stopping the warp on {KsaWorld.DisplayName(Craft)}, "
-                 + $"{IcbmProgram.Clock(Math.Max(wait, 0.0))} to the burn");
-        KsaWorld.StopAutoWarp();
+        // Still running: leave it alone. It stops itself at the margin, which is the whole reason
+        // for asking it to stop short rather than braking the world by hand.
+        if (KsaWorld.IsAutoWarpActive) return;
+
+        // A hop finished. Close the remaining gap with another, shorter and therefore slower one.
+        if (CanWarpToWindow && TryWarpToWindow()) return;
+
         _warpIsOurs = false;
     }
 
@@ -273,7 +305,7 @@ internal sealed class IcbmComputer
         return SurfacePointEcl(Parent, Target.LatitudeDeg, Target.LongitudeDeg);
     }
 
-    private IcbmState Sample(double simStep, out bool usable)
+    private IcbmState Sample(double playerStep, out bool usable)
     {
         usable = false;
 
@@ -313,7 +345,7 @@ internal sealed class IcbmComputer
         AltitudeMetres = Body.AltitudeOf(positionCci);
 
         return new IcbmState(Body, positionCci, velocityCci, aimCci, hasAim, booster, density,
-                             Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved);
+                             Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep);
     }
 
     // The aim point sits on the real ground rather than on the mean sphere, and that is not a

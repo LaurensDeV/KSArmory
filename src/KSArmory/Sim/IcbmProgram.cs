@@ -43,7 +43,17 @@ internal readonly record struct IcbmState(
     BoosterPerformance Booster,
     double AirDensityRatio,
     bool PropellantAvailable,
-    double ThrottleAchieved = 1.0)
+    double ThrottleAchieved = 1.0,
+
+    /// <summary>
+    /// Real seconds in this frame, as opposed to simulated ones.
+    ///
+    /// <para>Planning is a computation budget rather than physics, so it is paced by the wall
+    /// clock. Paced by simulated time it runs once a frame at high warp — five simulated seconds
+    /// being two milliseconds of real time — and a search costing most of a frame then costs
+    /// every frame.</para>
+    /// </summary>
+    double PlayerStepSeconds = 0.0)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -121,13 +131,16 @@ internal sealed class IcbmProgram
     public const double SolveEveryStepWithin = 0.75;
 
     /// <summary>
-    /// How often the departure time is searched while holding.
+    /// How often the departure time is searched while holding, in <em>real</em> seconds.
     ///
-    /// <para>Deliberately slow. One search is a few dozen trajectory solves and costs a frame's
-    /// worth of work; nothing about a coast changes fast enough to want it more often, and the
-    /// countdown between searches is arithmetic.</para>
+    /// <para>Deliberately slow, and deliberately not on simulated time. One search is a few dozen
+    /// trajectory solves and costs a good part of a frame; at a thousand times speed a simulated
+    /// interval of any sensible size elapses every frame, so the search would run every frame and
+    /// halve the frame rate exactly when the world is moving fastest. Nothing about a coast changes
+    /// fast enough to want it more often than this, and the countdown in between is arithmetic.
+    /// </para>
     /// </summary>
-    public const double WindowIntervalSeconds = 5.0;
+    public const double WindowIntervalSeconds = 1.0;
 
     /// <summary>
     /// How much waiting has to save, in metres per second, before it is worth doing.
@@ -301,7 +314,7 @@ internal sealed class IcbmProgram
 
         _stageCooldown = Math.Max(0.0, _stageCooldown - step);
         _sinceSolve += step;
-        _sinceWindow += step;
+        _sinceWindow += state.PlayerStepSeconds > 0.0 ? state.PlayerStepSeconds : step;
         if (double.IsFinite(_windowWait)) _windowWait -= step;
         if (Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution)) _sinceLaunch += step;
 
