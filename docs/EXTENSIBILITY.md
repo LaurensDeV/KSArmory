@@ -13,8 +13,8 @@ makes every pack a thing this mod has to find, and finding is the part that goes
 
 **Cite symbols here, never file and line**, per `docs/MODULARITY.md`.
 
-**This is a plan, not a record of work done.** Nothing below is built. `docs/PACK-API.md` is the
-author-facing contract that change 4 produces; this file is why it looks the way it does.
+**Changes 0, 1 and 2 have landed; 3 to 6 are still a plan, and nothing has been flown.** `docs/WEAPON-PACKS.md` is the
+author-facing contract; this file is why it looks the way it does.
 
 ---
 
@@ -398,7 +398,7 @@ wants it — the pattern `docs/AUDIT-2026-08.md` names, and why `docs/MODULARITY
 - **Removing a `<SubPart>` terminates the game** on every save holding that part — KSA bounds the
   pairing loop by the save and indexes the definition. A pack author iterating on their own part
   will hit this, and it presents as KSA dying inside `Popup.DrawAll` with no mention of their mod.
-  First warning in `docs/PACK-API.md`, and `tools/repair-saves.py` should learn `--mod-root`.
+  First warning in `docs/WEAPON-PACKS.md`, and `tools/repair-saves.py` should learn `--mod-root`.
 - **Marker resolution is a case-insensitive substring, first hit wins.** `"Missile"` also matches
   `MissileRail`. In this repository that is a convention everyone knows; handed to strangers it is a
   trap, and it is why the *part-level* registry uses exact equality. The existence check at the
@@ -453,16 +453,25 @@ defensible and should be reached by trying rather than assumed.
 
 | # | Change | Size | Shippable alone? |
 | --- | --- | --- | --- |
-| 0 | `Catalogue` replaces the static registries; resolve at registration, not at use | medium | yes — pure refactor, no behaviour |
-| 1 | `PackReader` in `Sim/`: text and a source name in, profiles and diagnostics out | medium | yes — fully headless, nothing calls it |
-| 2 | `Armoury`: the public surface, the freeze, the existence checks, the API record | small | this is the one that makes packs work |
+| 0 | ~~`Catalogue` replaces the static registries~~ | medium | **landed** |
+| 1 | ~~`PackReader` in `Sim/`: text and a source name in, profiles and diagnostics out~~ | medium | **landed** |
+| 2 | ~~`Armoury`: the public surface and the freeze~~ | small | **landed** — the existence checks and the API record did not come with it |
 | 3 | `validate-parts.py --mod-root`, plus the silent-marker fixes | medium | yes — improves the built-ins too |
 | 4 | The **Content** window, and the pack template repository | small | yes |
 | 5 | Register the LAU-7 rail through `Armoury` instead of compiling it in | small | the one that says whether any of it is right |
 | 6 | Let a pack register a new *kind* | large | **not yet** — see above |
 
-0 and 1 are independent of each other and of everything else, and between them they are most of the
-work. 2 is the smallest change on the list and the only one a player would notice.
+**What 2 shipped without, and should not be left without.** The existence half of validation is not
+built: nothing yet asks whether a registered `PartId` names a declared part, so a launcher naming a
+part nobody shipped registers happily and is never found on a craft — which is the exact silent
+failure this design exists to remove. `ModLibrary.Has<T>` is public and the freeze is where it goes.
+Neither is the outward API record, so a `refactor` can still break every pack without a gate
+noticing.
+
+One thing landed that was not in the plan, because writing the tests found it: a launcher is refused
+when a name it uses was **taken**, not when it fails to resolve. A refused round leaves its name in
+the catalogue carrying somebody else's profile, so checking that the name resolves — the obvious
+form, and the one written first — accepts a launcher that flies a weapon its author never shipped.
 
 **What this plan does not contain, deliberately:** any code that enumerates mods, reads
 `manifest.toml`, walks `ModLibrary.LocalModsFolderPath`, or calls `ModLibrary.Find`. An earlier
