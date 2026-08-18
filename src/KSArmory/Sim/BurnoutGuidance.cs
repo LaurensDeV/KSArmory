@@ -34,7 +34,7 @@ internal static class BurnoutGuidance
     public const int RefinementPasses = 3;
 
     /// <summary>Below this the burn is finished and further steering is noise.</summary>
-    public const double CutoffMetresPerSecond = 0.05;
+    public const double CutoffMetresPerSecond = 0.01;
 
     /// <summary>What to do about it this instant.</summary>
     internal readonly record struct Command(

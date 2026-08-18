@@ -28,6 +28,20 @@ internal static class ImpactPredictor
     /// <summary>The point of stopping. A shot on a hyperbolic escape never comes down at all.</summary>
     public const double DefaultMaxSeconds = 6.0 * 3600.0;
 
+    /// <summary>
+    /// How far under the surface the reported impact may sit.
+    ///
+    /// <para>Not a tolerance on the answer — a bias in it. The search accepts the first sample
+    /// <em>below</em> the ground, so it always reports a point past the crossing, and always
+    /// downrange: at 7 km/s on a shallow arc, stopping ten metres deep is tens of metres long. It
+    /// is the entire floor under the miss distance once guidance is closing to centimetres a
+    /// second, and it flatters nothing — it makes every shot look worse than it is.</para>
+    /// </summary>
+    public const double CrossingToleranceMetres = 0.25;
+
+    // Where the bisection gives up, for an arc arriving too steeply to resolve.
+    private const double MinRefineSeconds = 1e-6;
+
     /// <param name="stepSeconds">The coarse step. Refined automatically at the crossing.</param>
     /// <param name="terrainRadiusAt">
     /// Surface radius under a <em>body-fixed</em> point, i.e. one with the planet's rotation already
@@ -71,8 +85,13 @@ internal static class ImpactPredictor
             if (below && everAboveGround)
             {
                 // Walk the step down rather than interpolating across it: near the ground the arc
-                // is steep and fast, and a linear crossing on a 10 s step is kilometres out.
-                if (h > 0.01)
+                // is steep and fast, and a linear crossing on a 10 s step is kilometres out. Each
+                // halving retries from the same state, so this is a bisection on the arrival time
+                // and it stops on how deep the answer is rather than on how small the step got —
+                // which is the thing that actually matters and is scale-free across bodies.
+                double depth = SurfaceUnder(body, rNext, tNext, terrainRadiusAt) - rNext.Length();
+
+                if (depth > CrossingToleranceMetres && h > MinRefineSeconds)
                 {
                     h *= 0.5;
                     continue;

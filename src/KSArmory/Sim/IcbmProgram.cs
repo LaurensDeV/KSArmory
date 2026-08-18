@@ -107,10 +107,10 @@ internal sealed class IcbmProgram
     /// the throttle that was <em>commanded</em>: an ignored command makes the threshold
     /// conservative rather than wrong.</para>
     /// </summary>
-    public const double ThrottleDownSeconds = 1.5;
+    public const double ThrottleDownSeconds = 2.0;
 
     /// <summary>The least thrust worth commanding. Below this, engines misbehave and so does the maths.</summary>
-    public const double MinCommandedThrottle = 0.08;
+    public const double MinCommandedThrottle = 0.03;
 
     private double _cutoffSeed;
     private double _flightSeed = double.NaN;

@@ -203,4 +203,46 @@ public class BallisticArcTests
         Assert.True(EarthRadius * (arrivalLongitude - aimLongitude) > 100_000.0,
                     "over a flight this long the carry is hundreds of kilometres");
     }
+
+    /// <summary>
+    /// The integrator has to land where the solver said it would, to a metre, over half an hour.
+    ///
+    /// <para>This is the floor under every miss distance, and it was not always small. The crossing
+    /// search accepts the first sample <em>below</em> the ground, so a tolerance expressed as a
+    /// time step leaves the answer a few metres deep — which on a shallow arc at 7 km/s is tens of
+    /// metres downrange, always downrange, and reads as guidance error. On a lunar trajectory,
+    /// which is shallower still, it was kilometres.</para>
+    /// </summary>
+    [Fact]
+    public void TheIntegratorLandsWhereTheSolverSaidItWould()
+    {
+        double3 from = Equator(0.0, 200_000.0);
+        double3 aim = Equator(0.9);
+
+        Assert.True(BallisticArc.TrySolve(Earth, from, aim, 1500.0, out BallisticArc.Solution s));
+
+        Assert.True(ImpactPredictor.TryPredict(Earth, from, s.RequiredVelocityCci, 2.0, 7200.0,
+                                               out ImpactPredictor.Impact hit));
+
+        Assert.True(Vec.Len(hit.PointCci - s.ImpactCciAtArrival) < 2.0,
+                    $"integrator and solver disagree by {Vec.Len(hit.PointCci - s.ImpactCciAtArrival):F1} m");
+        Assert.True(Math.Abs(hit.Seconds - s.FlightSeconds) < 0.002,
+                    $"arrival differs by {(hit.Seconds - s.FlightSeconds) * 1000.0:F1} ms");
+    }
+
+    [Fact]
+    public void TheReportedImpactSitsOnTheSurfaceRatherThanUnderIt()
+    {
+        double3 from = Equator(0.0, 200_000.0);
+        double3 aim = Equator(0.9);
+
+        Assert.True(BallisticArc.TrySolve(Earth, from, aim, 1500.0, out BallisticArc.Solution s));
+        Assert.True(ImpactPredictor.TryPredict(Earth, from, s.RequiredVelocityCci, 2.0, 7200.0,
+                                               out ImpactPredictor.Impact hit));
+
+        double depth = EarthRadius - hit.PointCci.Length();
+        Assert.True(depth >= 0.0, "the impact must be at or below the surface, not above it");
+        Assert.True(depth <= ImpactPredictor.CrossingToleranceMetres,
+                    $"reported {depth:F2} m underground");
+    }
 }

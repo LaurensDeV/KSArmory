@@ -72,7 +72,7 @@ public class IcbmFlightTests
         Assert.True(flight.Reached, $"never reached cutoff: {flight.Hold} in {flight.FinalPhase}");
 
         double miss = MissMetres(rig, flight, aim);
-        Assert.True(miss < 2_000.0, $"missed by {miss:F0} m after a {flight.CutoffSeconds:F0} s boost");
+        Assert.True(miss < 500.0, $"missed by {miss:F0} m after a {flight.CutoffSeconds:F0} s boost");
     }
 
     /// <summary>
@@ -93,7 +93,7 @@ public class IcbmFlightTests
         Assert.True(flight.Reached, $"never reached cutoff: {flight.Hold} in {flight.FinalPhase}");
 
         double miss = MissMetres(rig, flight, aim);
-        Assert.True(miss < 2_000.0, $"missed by {miss:F0} m");
+        Assert.True(miss < 500.0, $"missed by {miss:F0} m");
     }
 
     /// <summary>
@@ -117,7 +117,7 @@ public class IcbmFlightTests
         Assert.True(flight.Reached, $"never reached cutoff: {flight.Hold} in {flight.FinalPhase}");
 
         double miss = MissMetres(rig, flight, aim);
-        Assert.True(miss < 2_000.0, $"missed by {miss:F0} m");
+        Assert.True(miss < 500.0, $"missed by {miss:F0} m");
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public class IcbmFlightTests
         Assert.True(flight.Reached, $"loft {loft}: {flight.Hold}");
 
         double miss = MissMetres(rig, flight, aim);
-        Assert.True(miss < 2_000.0, $"loft {loft} missed by {miss:F0} m");
+        Assert.True(miss < 500.0, $"loft {loft} missed by {miss:F0} m");
         Assert.True(flight.PropellantLeftKg > 0.0, $"loft {loft} burnt the stack dry");
     }
 
@@ -263,7 +263,7 @@ public class IcbmFlightTests
         Assert.True(flight.Reached);
 
         double miss = MissMetres(rig, flight, aim);
-        Assert.True(miss < 2_000.0, $"at a {step * 1000.0:F0} ms step it missed by {miss:F0} m");
+        Assert.True(miss < 500.0, $"at a {step * 1000.0:F0} ms step it missed by {miss:F0} m");
     }
 
     /// <summary>
@@ -330,7 +330,7 @@ public class IcbmFlightTests
                                                2.0, 20_000.0, out ImpactPredictor.Impact hit));
         double miss = moon.SurfaceRadius
                     * Vec.AngleBetween(hit.GroundFixedPointCci, moon.CarryCci(aim, flight.CutoffSeconds));
-        Assert.True(miss < 3_000.0, $"missed by {miss:F0} m on the Moon");
+        Assert.True(miss < 500.0, $"missed by {miss:F0} m on the Moon");
     }
 
     /// <summary>

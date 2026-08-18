@@ -166,19 +166,55 @@ loop, and a coarser integration than anything in `Sim/`.
 
 | Case | Range | Miss |
 | --- | --- | --- |
-| Equatorial, two stages | 5,000 km | 22 m |
-| Across latitudes | 8,551 km | 149 m |
-| 4x the drag, 5 deg/s attitude | 5,000 km | 112 m |
-| Short shot | 1,365 km | 9 m |
-| Lofted 1.4 | 5,000 km | 103 m |
-| Depressed 0.85 | 5,000 km | 38 m |
-| At a 60 fps step | 5,000 km | 76 m |
-| On the Moon | 1,040 km | under 3 km |
+| Equatorial, two stages | 5,000 km | 7 m |
+| Across latitudes | 8,551 km | 52 m |
+| 4x the drag, 5 deg/s attitude | 5,000 km | 48 m |
+| Short shot | 1,365 km | 2 m |
+| Lofted 1.4 | 5,000 km | 12 m |
+| Depressed 0.85 | 5,000 km | 3 m |
+| At a 60 fps step | 5,000 km | 11 m |
+| At a 30 fps step | 5,000 km | 5 m |
+| On the Moon | 1,042 km | 15 m |
 
-The tests assert 2 km, an order of magnitude looser than any of these, because the failures being
-guarded against were 150 km to 3,700 km — not fractions of a kilometre.
+The tests assert 500 m, an order of magnitude looser than the worst of these, because the failures
+being guarded against were 150 km to 3,700 km — not tens of metres.
 
----
+For scale: the Mk 21 the bus carries has a **2 km lethal radius**, so every number in that table is
+deep inside it. The accuracy is worth having for a conventional payload and for its own sake; it is
+not what decides whether the target survives.
+
+### The error budget
+
+There is no floor. Flown from the same cutoff position with the *exact* required velocity, the
+integrator lands on the target to under a metre and within a tenth of a millisecond of the solved
+arrival — so the miss is entirely
+
+```
+miss  =  velocity left to gain at cutoff  x  dMiss/dV
+```
+
+| term | measured |
+| --- | --- |
+| velocity still to gain at cutoff | 0.003 – 0.011 m/s |
+| sensitivity `dMiss/dV` | 274 m per m/s at 1,365 km, 4,732 at 8,551 km |
+| solver against integrator, over half an hour | under 1 m |
+| impact crossing | under 0.25 m |
+
+Both of the last two used to be tens of metres, and one of them was kilometres on the Moon. The
+crossing search accepted the first sample **below** the ground, so a tolerance written as a *time
+step* left the answer a few metres deep — which at 7 km/s on a shallow arc is tens of metres
+downrange, always downrange, and reads as guidance error. `CrossingToleranceMetres` bisects on how
+deep the answer is instead, which is the thing that actually matters and is the same number on
+every body.
+
+**The residual has exactly one lever.** An engine stops on a frame boundary, so the last frame adds
+`acceleration x step x throttle` and the best any cutoff rule can do is stop at the nearer of the
+two boundaries — leaving a quarter of that on average. The frame rate is given and the sensitivity
+belongs to the trajectory, so the only term left is the throttle: coming back to
+`MinCommandedThrottle` for the last couple of seconds divides the whole miss by the same fraction.
+That is the entire reason the throttle ramp exists, and it is why it is written against the throttle
+the vehicle *reports having* rather than the one commanded — a stack that cannot throttle gets the
+error it would have had rather than a wrong cutoff.
 
 ## What it commands, and what it does not
 

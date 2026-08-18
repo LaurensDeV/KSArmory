@@ -1051,6 +1051,23 @@ the answer outward and the shot chases a trajectory running away from it — 162
 The cheapest time is carried out of the solver separately from the one flown, and the arrival time
 is nailed down when closed-loop guidance takes over.
 
+**The miss is one product, and there is no floor under it.** Flown from the same cutoff position
+with the *exact* required velocity, the integrator lands on the target to under a metre — so the
+whole error is `velocity still to gain at cutoff x dMiss/dV`, and each half is worth knowing.
+The sensitivity belongs to the trajectory (274 m per m/s at 1,400 km, 4,700 at 8,500 km) and the
+frame rate is given, so **the only lever is the throttle**: an engine stops on a frame boundary, the
+last frame adds `accel x step x throttle`, and coming back to a few per cent for the last couple of
+seconds divides the miss by the same fraction. It is written against the throttle the vehicle
+*reports having* rather than the one commanded, so a stack that cannot throttle gets the error it
+would have had rather than a wrong cutoff.
+
+**A crossing search that stops on the first sample past the boundary is biased, not merely
+imprecise.** `ImpactPredictor` accepted the first point below the ground, so a tolerance expressed
+as a *time step* left the answer metres deep — which at 7 km/s on a shallow arc is tens of metres
+downrange, **always** downrange, and reads exactly like guidance error. On the Moon, where arcs are
+shallower still, it was kilometres. `CrossingToleranceMetres` bisects on how deep the answer is
+instead: the thing that actually matters, and the same number on every body.
+
 **It is `Cci`, and everything the ascent gates on is dynamic pressure.** A half-hour flight in the
 ecliptic carries 54 million kilometres of the planet's own travel; a body's spin axis is exactly
 `+Z` in its own `Cci`, so there is no obliquity term. And gating the guidance handover and the
