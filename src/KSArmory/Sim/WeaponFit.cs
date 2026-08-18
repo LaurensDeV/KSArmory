@@ -148,6 +148,27 @@ public sealed class WeaponFit
     }
 
     /// <summary>
+    /// Whether fire control can pick a target and shoot at it without being told to.
+    ///
+    /// <para>The same split <see cref="FireLadder"/> makes: a belt engages on its own, and tubes
+    /// do only if their round leaves under its own power. A rack of stores is released by hand,
+    /// so everything auto-engagement implies — a salvo size, what it may not shoot at, sending
+    /// the drives after the cursor — describes nothing it does.</para>
+    /// </summary>
+    public bool AutoEngages
+    {
+        get
+        {
+            for (int i = 0; i < Armaments.Count; i++)
+            {
+                if (Armaments[i].Kind == ArmamentKind.Belt) return true;
+                if (Armaments[i].Powered) return true;
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Most rounds one target can be given at once. A salvo comes out of the tubes, so a system
     /// with none has no salvo to size.
     /// </summary>

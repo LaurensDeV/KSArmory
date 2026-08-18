@@ -224,15 +224,24 @@ internal sealed partial class Ui
     // screen whichever tab is open. See DrawSystemHeader.
     private void DrawFireControlComponent()
     {
-        // How much is committed per engagement: fire control's decision, and this installation's
-        // own rather than anything about the round. Not on Tuning, where every control is shared.
-        ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget,
-                        1, Math.Max(1, _fit.SalvoCapacity));
+        // Hidden, not disabled, when they describe nothing this system does. A control greyed
+        // out still says "this is a thing a bomb rack has"; one that is absent says the truth.
+        if (_fit.AutoEngages)
+        {
+            // How much is committed per engagement: fire control's decision, and this
+            // installation's own rather than anything about the round. Not on Tuning, where every
+            // control is shared. Only worth a slider when there is more than one round to commit.
+            if (_fit.SalvoCapacity > 1)
+                ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget,
+                                1, _fit.SalvoCapacity);
 
-        ImGui.Checkbox("Never target the vehicle I'm flying", ref _policy.ProtectControlledVehicle);
+            ImGui.Checkbox("Never target the vehicle I'm flying", ref _policy.ProtectControlledVehicle);
+        }
 
-        ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);
-        if (_policy.MouseAim)
+        // Mouse aim drives the traverse and elevation, so a launcher with neither has nothing for
+        // the cursor to move -- its row already says it shoots where the craft points.
+        if (_fit.Aims) ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);
+        if (_fit.Aims && _policy.MouseAim)
         {
             ImGui.TextDisabled("  The launcher and the optical head follow the cursor. Auto-engage");
             ImGui.TextDisabled("  still decides when to fire; the drives still have to settle first.");
@@ -342,14 +351,24 @@ internal sealed partial class Ui
         // arm is the plainest case of it. Anything folded inside a tab is somewhere nobody looks
         // when the question is why the launcher is silent.
         ImGui.Checkbox("Master arm", ref _policy.Armed);
-        ImGui.SameLine();
-        ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
 
-        // Spaced off the two tick boxes: it is the one control here that does something the moment
+        // Absent on a rack of stores rather than disabled: nothing it carries engages on its own,
+        // so FireLadder answers "released by hand" however this is set. A tick box that cannot
+        // change the answer is worse than no tick box, because it looks like the reason.
+        if (_fit.AutoEngages)
+        {
+            ImGui.SameLine();
+            ImGui.Checkbox("Auto engage", ref _policy.AutoEngage);
+        }
+
+        // Spaced off the tick boxes: it is the one control here that does something the moment
         // it is clicked rather than setting a state.
         ImGui.SameLine(0f, ImGui.GetFrameHeight());
         if (ImGui.Button("FIRE")) _battery.FireAtLock();
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Fire one salvo at the current lock, now.");
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip(_fit.AutoEngages
+                                 ? "Fire one salvo at the current lock, now."
+                                 : "Release one store now, at whatever is designated.");
 
         // Auto-engage off is a mode, not a hold: FIRE still works, so saying "holding fire" about
         // it sends the operator looking for a fault that is not there.
