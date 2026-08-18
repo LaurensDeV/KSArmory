@@ -63,7 +63,7 @@ internal sealed class GroundTest : IGroundTest
             // KsaWorld.MediumDensityRatioAt uses to know it is in water.
             double seaLevel = 0.0;
             bool hasSea = false;
-            if (nearest.GetOceanReference() is { } sea && sea.IsValid())
+            if (nearest.GetOceanReference() is { } sea && sea.Density > 0.0)
             {
                 hasSea = true;
                 seaLevel = sea.Level;

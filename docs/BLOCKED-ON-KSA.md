@@ -28,8 +28,9 @@ happen rather than a member that moved.
 - [x] Public accessor for the volumetric trail renderer
 - [x] A post-processing or full-screen shader hook a mod can register into
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
+- [x] **`DistanceReference.IsValid()` stops requiring 100 km** — go back to `IsValid()` on the atmosphere and the ocean the day it does
 
-All eleven rechecked against 2026.8.19.5261 and still blocked. The line numbers below are against
+All twelve rechecked against 2026.8.19.5261 and still blocked. The line numbers below are against
 that build's render path, in which `Program._offscreenTarget` is a `RenderTarget`; none of the
 structure these entries depend on differs from the build before it. `UncompressedVehicleSave.cs`
 does not mention `Character` at all; `KittenRenderable` writes an attachment's transform and
@@ -456,3 +457,56 @@ each one onto the terrain under it.
 
 **What would unblock it.** A gizmo primitive with a filled surface, or any hook that hands a mod a
 command buffer.
+
+---
+
+## `IsValid()` on a distance is an astronomical-scale check
+
+**This one is not a missing feature — it is a predicate that does not mean what it is named**,
+which is worse, because the code reads correctly and is silently wrong.
+
+**Wanted.** To ask KSA whether a body's atmosphere and ocean are usable, with KSA's own
+`IsValid()`, rather than second-guessing it.
+
+**The engine reason.**
+
+```csharp
+// KSA.DistanceReference
+public override bool IsValid()
+{
+    return !double.IsNaN(_value) && Math.Abs(_value) > 100000.0;
+}
+```
+
+A distance is "valid" only above **100 km**. That is a sane check for the orbital distances the
+type mostly carries and nonsense for anything planetary-surface sized — and two of the references
+this mod needs are exactly that:
+
+| Reference | Earth's value | `IsValid()` |
+| --- | --- | --- |
+| `PhysicalAtmosphereReference.ScaleHeight` | 8 km | **false** |
+| `OceanReference.Level` | 0 m | **false** |
+| `OceanReference.TransparencyDepth` | 100 m | **false** |
+
+Both composites fold those in — `PhysicalAtmosphereReference.IsValid()` is
+`ScaleHeight.IsValid() && SeaLevelDensity.IsValid() && SeaLevelPressure.IsValid()`, and the
+ocean's is the same shape — so **`air.IsValid()` is false for every realistic atmosphere and
+`sea.IsValid()` is false wherever there is water.** `DensityReference` and `PressureReference` are
+fine; they test `_value > 0`. It is the distance that is wrong.
+
+**What it cost here.** `KsaWorld.MediumDensityRatioAt` gated on `air.IsValid()` and so reported
+**vacuum at ground level, on Earth, always**. Nothing in the mod has ever had atmospheric drag,
+and a released store never weathervaned, because `BodyAttitude` needs `q = rho*v^2` over 4 before
+the airflow has any authority and `rho` was pinned at zero. Confirmed in flight: a B61 at 81 m
+and descending, over an atmosphere reporting a correct 1.225 kg/m3 sea level, an 8 km scale
+height and a 167 km top — with `valid=False`. `Ksa/GroundTest.cs` had it too, so `hasSea` was
+always false and a round fell through the waterline to burst on the seabed.
+
+**The workaround, in both places.** Do not call `IsValid()`. Check the terms actually divided by
+— `SeaLevelDensity > 0` and `ScaleHeight.InMeters() > 0` — and use a **null** ocean reference as
+the discriminator for a body with no water, which is what `Astronomical.GetOceanReference`
+returning `BodyTemplate.OceanReference` already means.
+
+**What would unblock it.** `DistanceReference.IsValid()` dropping the 100 km floor, or the
+atmosphere and ocean composites testing their own fields directly rather than delegating a
+surface-scale distance to an astronomical-scale predicate.

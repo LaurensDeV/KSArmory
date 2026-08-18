@@ -961,19 +961,28 @@ internal static class KsaWorld
         try
         {
 
+            // Never gate on KSA's own IsValid(). DistanceReference.IsValid requires a distance
+            // over 100 km — an astronomical-scale sanity check — and the atmosphere's applies it
+            // to the scale height, 8 km on Earth. So air.IsValid() is false for every realistic
+            // atmosphere, and trusting it reports vacuum at ground level. Check the terms this
+            // actually divides by instead.
             AtmosphereReference? atmosphere = body.GetAtmosphereReference();
-            if (atmosphere?.Physical is not { } air || !air.IsValid()) return 0.0;
+            if (atmosphere?.Physical is not { } air) return 1.0;
 
             double seaLevel = air.SeaLevelDensity;
-            if (!(seaLevel > 0.0)) return 0.0;
+            double scaleHeight = air.ScaleHeight.InMeters();
+            if (!(seaLevel > 0.0) || !(scaleHeight > 0.0)) return 1.0;
 
             // Altitude above the mean surface, the same measure KSA's own physics uses.
             double altitude = Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius;
 
             // Below the waterline the medium is the ocean, which is ~840x sea-level air. The
             // ratio is therefore not bounded above by 1.
+            // Same trap: the ocean's IsValid() tests its level (0 m) and transparency depth
+            // (100 m) against that same 100 km bar, so it is false wherever there is water. A
+            // body with no ocean hands back null, which is the discriminator that means it.
             OceanReference? ocean = body.GetOceanReference();
-            if (ocean is { } sea && sea.IsValid() && altitude < sea.Level)
+            if (ocean is { } sea && sea.Density > 0.0 && altitude < sea.Level)
             {
                 double water = sea.Density / seaLevel;
                 return double.IsFinite(water) && water > 0.0 ? water : 1.0;
@@ -988,6 +997,35 @@ internal static class KsaWorld
         catch
         {
             return 1.0;
+        }
+    }
+
+    /// <summary>
+    /// Why <see cref="MediumDensityRatioAt(Celestial, double3)"/> answered what it did, for the
+    /// log. Every early return there is silent, and from outside a vacuum reading and an
+    /// unreadable atmosphere are the same 0.0.
+    /// </summary>
+    public static string MediumDiagnosis(Celestial body, double3 positionEcl)
+    {
+        try
+        {
+            AtmosphereReference? atmosphere = body.GetAtmosphereReference();
+            if (atmosphere is null) return "no atmosphere reference";
+            if (atmosphere.Physical is not { } air) return "no physical atmosphere";
+
+            double seaLevel = air.SeaLevelDensity;
+            double top = air.Height;
+            double radius = Vec.Len(positionEcl - body.GetPositionEcl());
+            double altitude = radius - body.MeanRadius;
+
+            return $"valid={air.IsValid()} seaLevel={seaLevel:F4} kg/m3 "
+                 + $"scaleHeight={air.ScaleHeight.InMeters():F0} m top={top:F0} m | "
+                 + $"radius={radius:F0} m meanRadius={body.MeanRadius:F0} m altitude={altitude:F0} m "
+                 + $"-> {(altitude >= top ? "above the atmosphere" : "inside it")}";
+        }
+        catch (Exception e)
+        {
+            return $"threw {e.GetType().Name}: {e.Message}";
         }
     }
 
