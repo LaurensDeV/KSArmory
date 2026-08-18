@@ -92,6 +92,11 @@
     <Reference Include="$(KsaDllDir)Brutal.Concurrency.dll" Private="false" />
     <!-- Needed to compile against Vehicle's mass-properties signatures (Symmetric3x3). -->
     <Reference Include="$(KsaDllDir)BepuUtilities.dll" Private="false" />
+    <!--
+      GlfwKeyAction, for VehicleCommand. KSA exposes no way to set a throttle or light an engine
+      except Vehicle.ProcessInput, which takes the key action the keyboard would have sent.
+    -->
+    <Reference Include="$(KsaDllDir)Brutal.Glfw.dll" Private="false" />
   </ItemGroup>
 
   <!--

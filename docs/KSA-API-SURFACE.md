@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-135 types and 370 members across 6 assemblies.
+146 types and 396 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -92,6 +92,16 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `int X`
 - `int Y`
+
+## Brutal.Glfw
+
+### Brutal.GlfwApi.GlfwKeyAction
+
+*referenced as a type only*
+
+### Brutal.GlfwApi.GlfwModifier
+
+*referenced as a type only*
 
 ## Brutal.ImGui
 
@@ -271,6 +281,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ## KSA
 
+### KSA.ActiveEnginePerformance
+
+- `float MassFlowRate`
+- `float Thrust`
+
 ### KSA.Astronomical
 
 - `Brutal.Numerics.double3 GetPositionEcl()`
@@ -336,13 +351,19 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Celestial
 
+- `Brutal.Numerics.double3 GetDirCcfFromLatLon(double, double)`
 - `Brutal.Numerics.double3 GetRotationAxisCce()`
 - `Brutal.Numerics.double3 GetSurfacePositionEclFromCce(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.doubleQuat GetCce2Ccf()`
+- `Brutal.Numerics.doubleQuat GetCce2Cci()`
+- `Brutal.Numerics.doubleQuat GetCcf2Cce()`
+- `Brutal.Numerics.doubleQuat GetCci2Cce()`
 - `double GetAngularVelocity()`
 - `double GetLatitudeFromCce(Brutal.Numerics.double3)`
 - `double GetLongitudeFromCce(Brutal.Numerics.double3)`
 - `double GetTerrainHeightFromDirCce(Brutal.Numerics.double3, bool)`
+- `double GetTerrainHeightFromDirCcf(Brutal.Numerics.double3, bool)`
+- `double get_Mass()`
 - `double get_MaxTerrainHeightApprox()`
 - `void AddEmitter(Handle<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData>)`
 - `void RemoveEmitter(Handle<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData>)`
@@ -389,6 +410,27 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 CameraRotation`
 - `void .ctor(KSA.Camera, string)`
 - `void OnFrame(KSA.Viewport, double)`
+
+### KSA.FlightComputer
+
+- `Brutal.Numerics.double3 CustomAttitudeTarget`
+- `KSA.ActiveEnginePerformance ActiveEnginePerformanceMax`
+- `KSA.FlightComputerAttitudeMode AttitudeMode`
+- `KSA.FlightComputerAttitudeTrackTarget AttitudeTrackTarget`
+- `KSA.FlightComputerBurnMode BurnMode`
+- `KSA.VehicleReferenceFrame AttitudeFrame`
+
+### KSA.FlightComputerAttitudeMode
+
+*referenced as a type only*
+
+### KSA.FlightComputerAttitudeTrackTarget
+
+*referenced as a type only*
+
+### KSA.FlightComputerBurnMode
+
+*referenced as a type only*
 
 ### KSA.GameAudio
 
@@ -477,6 +519,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.IVelocity
 
 - `Brutal.Numerics.double3 GetVelocityEcl()`
+
+### KSA.InputAction
+
+*referenced as a type only*
 
 ### KSA.JobSystems
 
@@ -588,6 +634,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.ModuleList Modules`
 - `KSA.Part get_Root()`
 - `KSA.PartTree DeepCopy()`
+- `KSA.SequenceList SequenceList`
 - `List<KSA.Control> Controls`
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `int get_Count()`
@@ -690,6 +737,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.DensityReference Density`
 - `KSA.DistanceReference Level`
 
+### KSA.SequenceList
+
+- `void ActivateNextSequence(KSA.Vehicle)`
+
 ### KSA.SerializedId
 
 - `string get_Id()`
@@ -752,15 +803,22 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat get_Asmb2Ego()`
 - `Brutal.Numerics.doubleQuat get_Body2Cce()`
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
+- `KSA.FlightComputer get_FlightComputer()`
 - `KSA.IParentBody get_Parent()`
 - `KSA.PartTree get_Parts()`
 - `KSA.PhysicsBubble get_PhysicsBubble()`
 - `KSA.Situation get_Situation()`
 - `KSA.Vehicle CreateVehicle(KSA.CelestialSystem, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 - `KSA.Vehicle get_BubbleLeader()`
+- `bool IsAnyEnginePropellantAvailable()`
 - `bool get_IsControllable()`
 - `bool get_IsDisposed()`
+- `float GetManualThrottle()`
+- `float GetMinThrottle()`
+- `float get_PropellantMass()`
+- `float get_TotalMass()`
 - `void AddToBubble(KSA.PhysicsBubble)`
+- `void ProcessInput(KSA.InputAction, Brutal.GlfwApi.GlfwKeyAction, Brutal.GlfwApi.GlfwModifier)`
 - `void TeleportToLocation(KSA.Celestial, double, double)`
 - `void UpdateAfterPartTreeModification()`
 
@@ -778,6 +836,16 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.VehicleEditor
 
 *referenced as a type only*
+
+### KSA.VehicleReferenceFrame
+
+*referenced as a type only*
+
+### KSA.VehicleReferenceFrameEx
+
+- `Brutal.Numerics.double3 QuaternionToEulerAngles(KSA.VehicleReferenceFrame, Brutal.Numerics.doubleQuat)`
+- `Brutal.Numerics.doubleQuat GetEclBody2Cci(Brutal.Numerics.doubleQuat)`
+- `System.Nullable`1<Brutal.Numerics.doubleQuat> GetTgt2Cci(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 
 ### KSA.VehicleSave
 

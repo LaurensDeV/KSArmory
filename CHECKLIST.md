@@ -106,6 +106,7 @@ Ranked by how likely a failure is. Worth reading before you start.
 | **Medium** | `Program.VehiclesInFrame` may not contain the loaded vehicles, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
 | **Medium** | Boresight is local "up" derived from the parent body; if `Vehicle.Parent` misbehaves the cone points somewhere daft. | [3.2](#32-the-search-cone-is-drawn) |
 | **Medium** | Shooting down a round. Three seams changed at once and none of them is reachable from the test project. | [7.1d](#71d-shooting-down-a-round--never-once-worked-so-nothing-here-has-ever-been-seen) |
+| **High** | The ballistic computer has never flown in game. It writes attitude, throttle and staging on a vehicle nobody designed for it. | [12](#12-the-ballistic-computer--never-flown-in-game) |
 | **Low** | Guidance and fuse maths — covered by the headless suite, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
 | **Low** | `DestroyVehicleFromEvent` may behave oddly with `Cause = Collision`. | [4.4](#44-the-warhead-kills) |
 
@@ -1094,6 +1095,77 @@ the same band section 7.1b needs — fly one engagement and check both.
       the chevron must point backwards correctly, not at its mirror image.
 - [ ] Master arm, missile count and belt count in the top-left track the panel.
 - [ ] **Sight symbology** off leaves the target bracket and takes everything else away.
+
+---
+
+## 12. The ballistic computer — never flown in game
+
+Everything here is measured headlessly and none of it has been seen. `docs/ICBM-GUIDANCE.md` has
+the algorithm and the list of what a test cannot reach; this is the order to check it in, easiest
+failure first.
+
+Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — and open
+**Ballistic** on that craft's window.
+
+### 12.1 It knows where it is
+
+- [ ] The tab says `flying about <body>` with the right body.
+- [ ] **Designate under cursor** over the ground sets a latitude and longitude that match what
+      KSA's own readouts say for that place.
+- [ ] With no target: `Holding: no target designated`, and nothing lights.
+- [ ] With a target and the computer disarmed: `Holding: not armed`. **The vehicle is still
+      yours** — attitude, throttle and staging all respond to the keyboard.
+
+### 12.2 It solves a shot
+
+- [ ] Armed, on the pad, with a target a few thousand kilometres away: an apogee and a flight time
+      appear, and both are plausible (hundreds of kilometres, tens of minutes).
+- [ ] A target on the far side of the planet says `not enough in the tanks` with two numbers, or
+      solves — either is fine, a wrong-looking apogee is not.
+- [ ] The **Loft** slider moves the apogee and the flight time together, and 1.00 is the lowest
+      *To gain* of any setting.
+- [ ] The trajectory is drawn in the world as an arc, with a ring on the aim point.
+
+### 12.3 It flies
+
+**This is the one to watch closely.** The likeliest failure is the attitude convention: a wrong one
+is a rocket holding a perfectly steady attitude in the wrong direction.
+
+- [ ] It lifts off vertically and holds vertical for the first few hundred metres.
+- [ ] It pitches over **toward the target**, not away from it and not sideways.
+- [ ] The nose stays near the airflow through max Q. The vehicle should not be visibly flying
+      across its own slipstream at any point below 40 km.
+- [ ] It stages when a stage runs out, once, without repeatedly firing sequences.
+- [ ] `Phase` runs Rising → PitchProgram → ClosedLoop → Coast and never goes backwards.
+- [ ] *To gain* falls steadily to zero. It must not stall in the single digits and sit there.
+- [ ] The engines stop. If they hunt — thrusting, reversing, thrusting again — say so: that is the
+      cutoff-timing path and it is the one that took the longest to get right headlessly.
+
+### 12.4 It arrives
+
+- [ ] *Predicted impact* converges on the target as the burn ends, and reads under a kilometre at
+      cutoff.
+- [ ] The drawn arc's far end sits on the ring.
+- [ ] The warheads release on their own during the coast, one at a time, above the release
+      altitude — and they go **at the target**, not straight ahead.
+- [ ] With **Release warheads automatically** off, nothing leaves until the button is pressed.
+- [ ] A shot deliberately short of propellant says `burn ended N m/s short of the solution` and
+      **holds its warheads**.
+
+### 12.5 It gives the vehicle back
+
+- [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately
+      afterwards.
+- [ ] Disarming mid-flight does the same.
+- [ ] Destroying the craft mid-flight does not throw, and nothing in the log complains afterwards.
+
+### 12.6 Timewarp
+
+Nothing holds warp down during a burn, and cutoff precision is bounded by the step.
+
+- [ ] Fly one shot at 1x and one at 4x with the same target and settings; note both predicted
+      misses. A large difference is expected and worth recording — it is the number that would
+      justify extending `WarpPolicy` to cover a boost.
 
 ---
 

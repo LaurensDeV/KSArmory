@@ -1,0 +1,228 @@
+using Brutal.ImGuiApi;
+using Brutal.Numerics;
+using KSA;
+
+namespace KSArmory;
+
+/// <summary>
+/// The ballistic computer's pane: where the warheads are going, and everything that decides it.
+///
+/// <para>Laid out in the order the questions get asked, which is not the order the settings are
+/// declared in. What is it aimed at, will it get there, what is it doing about it now — and the
+/// numbers that shape the shot below that, because they are chosen once and then watched rather
+/// than adjusted.</para>
+///
+/// <para>The line that earns its place is <b>Holding</b>. Every gate in the program returns
+/// quietly, so a computer that is unarmed, one with no target, one whose stack is short of the
+/// delta-v and one waiting for an engine all look identical from outside: a rocket sitting on the
+/// pad doing nothing.</para>
+/// </summary>
+internal sealed partial class Ui
+{
+    private readonly IcbmComputers _icbms = icbms;
+
+    private string _siteLabel = string.Empty;
+    private float _siteLat;
+    private float _siteLon;
+    private static readonly float4 Good = new(0.55f, 0.95f, 0.55f, 1f);
+    private static readonly float4 Working = new(0.95f, 0.85f, 0.45f, 1f);
+    private static readonly float4 Bad = new(0.98f, 0.5f, 0.45f, 1f);
+
+    private void DrawIcbm(IcbmComputer computer)
+    {
+        DrawIcbmTarget(computer);
+        ImGui.Separator();
+        DrawIcbmStatus(computer);
+        ImGui.Separator();
+        DrawIcbmTrajectory(computer);
+    }
+
+    private void DrawIcbmTarget(IcbmComputer computer)
+    {
+        Celestial? parent = computer.Parent;
+
+        ImGui.TextDisabled(parent is null
+            ? "no parent body - nothing to fly a ballistic arc around"
+            : $"flying about {parent.Id}");
+
+        ImGui.Text($"Target: {computer.Target.Describe()}");
+
+        if (computer.Target.IsSet && parent is not null && computer.Target.BodyName != parent.Id)
+        {
+            // A ballistic arc is a two-body problem about one planet. Another world is an
+            // interplanetary transfer, which is a different manoeuvre, not a longer one.
+            ImGui.TextColored(Bad, $"designated on {computer.Target.BodyName}, which is not the body");
+            ImGui.TextColored(Bad, "this vehicle is flying around. Only ballistic shots are flown.");
+        }
+
+        // Click the world. The same designation route the rest of the mod uses, and the only one
+        // that does not need somebody to read a coordinate off something else first.
+        if (ImGui.Button("Designate under cursor"))
+        {
+            if (KsaWorld.TryCursorGroundPoint(out _, out double lat, out double lon, out string body))
+            {
+                _siteLat = (float)lat;
+                _siteLon = (float)lon;
+                computer.Designate(new AimSite(body, lat, lon,
+                                               string.IsNullOrWhiteSpace(_siteLabel) ? "" : _siteLabel.Trim()));
+            }
+            else
+            {
+                Log.Warn("nothing under the cursor to designate");
+            }
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("Clear target")) computer.Designate(AimSite.None);
+
+        ImGui.SliderFloat("Latitude", ref _siteLat, -89.9f, 89.9f, "%.4f");
+        ImGui.SliderFloat("Longitude", ref _siteLon, -180f, 180f, "%.4f");
+        TextField("Label", ref _siteLabel);
+
+        if (ImGui.Button("Designate those coordinates") && parent is not null)
+        {
+            computer.Designate(new AimSite(parent.Id, _siteLat, _siteLon,
+                                           string.IsNullOrWhiteSpace(_siteLabel) ? "" : _siteLabel.Trim()));
+        }
+    }
+
+    private void DrawIcbmStatus(IcbmComputer computer)
+    {
+        IcbmConfig config = computer.Config;
+        IcbmCommand command = computer.Command;
+
+        bool armed = config.Armed;
+        if (ImGui.Checkbox("Ballistic computer armed", ref armed)) config.Armed = armed;
+
+        ImGui.SameLine();
+        if (ImGui.Button("Release one warhead"))
+        {
+            if (!computer.Release(_batteries.For(computer.Craft)?.Battery))
+            {
+                Log.Warn("nothing to release: no weapon aboard, none left, or it is still reloading");
+            }
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("Abort"))
+        {
+            config.Armed = false;
+            computer.Abort("aborted from the panel");
+        }
+
+        ImGui.TextColored(PhaseColour(command.Phase), $"Phase: {command.Phase}");
+        ImGui.TextColored(command.Phase == IcbmPhase.NoSolution ? Bad : Working, $"Holding: {command.Hold}");
+
+        if (command.VelocityToGain > 0.0)
+        {
+            string cutoff = double.IsFinite(command.SecondsToCutoff)
+                ? $"{command.SecondsToCutoff:F1} s"
+                : "never at this thrust";
+            ImGui.Text($"To gain: {command.VelocityToGain:F0} m/s   cutoff in {cutoff}");
+        }
+
+        if (computer.Program.Arc is { } arc)
+        {
+            ImGui.Text($"Apogee {(arc.ApogeeRadius - computer.Body.SurfaceRadius) / 1000.0:F0} km"
+                       + $"   flight {arc.FlightSeconds / 60.0:F1} min");
+        }
+
+        // The prediction, which is the one number that can disagree with the plan. It is flown
+        // rather than solved, so when it and the trajectory above part company the trajectory is
+        // the thing that is wrong.
+        if (double.IsFinite(computer.PredictedMissMetres))
+        {
+            double miss = computer.PredictedMissMetres;
+            ImGui.TextColored(miss < 2000.0 ? Good : Working,
+                              miss < 1000.0
+                                  ? $"Predicted impact: {miss:F0} m from the target"
+                                  : $"Predicted impact: {miss / 1000.0:F1} km from the target");
+        }
+        else if (computer.Target.IsSet)
+        {
+            ImGui.TextDisabled("Predicted impact: it does not come down");
+        }
+
+        BoosterPerformance booster = new(computer.Craft.FlightComputer.ActiveEnginePerformanceMax.Thrust,
+                                         computer.Craft.FlightComputer.ActiveEnginePerformanceMax.MassFlowRate,
+                                         computer.Craft.TotalMass, computer.Craft.PropellantMass);
+
+        ImGui.TextDisabled($"stack: {booster.DeltaVRemaining / 1000.0:F2} km/s left, "
+                           + $"{booster.BurnSecondsRemaining:F0} s of burn, "
+                           + $"{booster.AccelerationNow:F1} m/s2");
+    }
+
+    private void DrawIcbmTrajectory(IcbmComputer computer)
+    {
+        IcbmConfig config = computer.Config;
+
+        bool draw = config.DrawTrajectory;
+        if (ImGui.Checkbox("Draw the predicted trajectory", ref draw)) config.DrawTrajectory = draw;
+        ImGui.TextDisabled(config.DrawTrajectory
+            ? "  the arc it is on now, and a ring on the aim point"
+            : "  nothing is drawn in the world for this vehicle");
+
+        float loft = (float)config.Loft;
+        if (ImGui.SliderFloat("Loft", ref loft, 0.6f, 1.8f, "%.2f")) config.Loft = loft;
+        ImGui.TextDisabled($"  1.00 is the cheapest shot; {config.Loft:F2} flies it "
+                           + (config.Loft > 1.0 ? "higher and slower" : config.Loft < 1.0 ? "flatter and faster" : "at minimum energy"));
+
+        bool autoRelease = config.AutoRelease;
+        if (ImGui.Checkbox("Release warheads automatically", ref autoRelease)) config.AutoRelease = autoRelease;
+        ImGui.TextDisabled(config.AutoRelease
+            ? "  one at a time from the coast, once past the release altitude"
+            : "  nothing leaves the bus until the button above is pressed");
+
+        bool autoStage = config.AutoStage;
+        if (ImGui.Checkbox("Stage automatically", ref autoStage)) config.AutoStage = autoStage;
+        ImGui.TextDisabled(config.AutoStage
+            ? "  fires the next stage when the running one has nothing left"
+            : "  staging is yours, including the one that lights the first engine");
+
+        if (ImGui.TreeNode("Ascent"))
+        {
+            float turnStart = (float)config.TurnStartMetres;
+            if (ImGui.SliderFloat("Pitch-over starts (m)", ref turnStart, 100f, 5000f, "%.0f"))
+            {
+                config.TurnStartMetres = turnStart;
+            }
+
+            float turnEnd = (float)config.TurnEndMetres;
+            if (ImGui.SliderFloat("Pitch programme ends (m)", ref turnEnd, 10_000f, 120_000f, "%.0f"))
+            {
+                config.TurnEndMetres = turnEnd;
+            }
+
+            float aoa = (float)config.MaxAngleOfAttackDeg;
+            if (ImGui.SliderFloat("Angle of attack limit (deg)", ref aoa, 1f, 30f, "%.1f"))
+            {
+                config.MaxAngleOfAttackDeg = aoa;
+            }
+            ImGui.TextDisabled($"  the stack is held within {config.MaxAngleOfAttackDeg:F0} deg of the airflow while loaded");
+
+            float handover = (float)config.HandoverPressurePa;
+            if (ImGui.SliderFloat("Guidance takes over below (Pa)", ref handover, 50f, 20_000f, "%.0f"))
+            {
+                config.HandoverPressurePa = handover;
+            }
+            ImGui.TextDisabled($"  dynamic pressure, so {config.HandoverPressurePa:F0} Pa means the same "
+                               + "thing on a body with no air");
+
+            float deploy = (float)config.DeployAltitudeMetres;
+            if (ImGui.SliderFloat("Release warheads above (m)", ref deploy, 1_000f, 400_000f, "%.0f"))
+            {
+                config.DeployAltitudeMetres = deploy;
+            }
+
+            ImGui.TreePop();
+        }
+    }
+
+    private static float4 PhaseColour(IcbmPhase phase) => phase switch
+    {
+        IcbmPhase.NoSolution => Bad,
+        IcbmPhase.Idle => new float4(0.7f, 0.7f, 0.7f, 1f),
+        IcbmPhase.Coast => Good,
+        _ => Working,
+    };
+}

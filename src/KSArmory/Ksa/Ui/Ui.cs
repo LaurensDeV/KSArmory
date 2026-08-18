@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: master arm, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
+internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts)
 {
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
     private static readonly float4 Red = new(1.0f, 0.35f, 0.3f, 1f);
@@ -196,6 +196,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         RefreshSystems();
         _batteries.Sync(_systems);
+        _icbms.Sync(_systems);
 
 
         // Dropped when the craft has nothing left to manage -- a battery *or* a director. Testing
@@ -452,6 +453,14 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 // First, and the only one a craft always has: what it is made of. Every other tab
                 // is about a weapons system, which a craft carrying one director does not have.
                 if (ImGui.BeginTabItem("Components")) { DrawComponents(craft); ImGui.EndTabItem(); }
+
+                // Second, and not gated on `armed`: the computer flies the whole vehicle, so it is
+                // there whether or not the weapon it is delivering has a radar to speak of.
+                if (_icbms.For(craft) is { } computer && ImGui.BeginTabItem("Ballistic"))
+                {
+                    DrawIcbm(computer);
+                    ImGui.EndTabItem();
+                }
 
                 if (armed)
                 {

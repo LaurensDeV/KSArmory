@@ -271,6 +271,16 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
 | `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
 | `Sim/BombSight.cs` | where a store released now would land, flown rather than solved |
+| `Sim/Lambert.cs` | the transfer between two points in a stated time — **the one thing solved rather than flown** |
+| `Sim/BallisticBody.cs` | the planet an arc is flown around, and how it carries a point on its surface |
+| `Sim/AimSite.cs` | a place on a world, as the thing a ballistic missile is aimed at |
+| `Sim/BallisticArc.cs` | what a vehicle must be doing at burnout for the fall afterwards to arrive |
+| `Sim/ImpactPredictor.cs` | where it would come down if the engines stopped now — flown, not solved |
+| `Sim/BoosterPerformance.cs` | what the stack can still do, as the four numbers guidance needs |
+| `Sim/BurnoutGuidance.cs` | where to point and when to stop — velocity still to be gained |
+| `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |
+| `Sim/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
+| `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, ascent, staging |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
@@ -323,6 +333,10 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/TerrainHeights.cs` | one body's height field, sampled coarsely and many times per scan |
 | `Ksa/TerrainMapScan.cs` | that height field as a cached grid — **the cost lives here**, so it is paid on movement rather than per frame |
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
+| `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
+| `Ksa/IcbmComputers.cs` | one per craft this mod recognises a weapon on, crewed and forgotten with it |
+| `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
+| `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSession.cs` | the world clock, and what the session draws and hears |
 | `Ksa/Ui/UiSystem.cs` | one row per component: what each part is, sees and is doing |
@@ -330,6 +344,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Ui/UiTuning.cs` | IFF, and the sensor, guidance and warhead numbers |
 | `Ksa/Ui/UiDebug.cs` | test targets, moving craft, hand-fired bursts, the log |
 | `Ksa/Ui/UiMap.cs` | the ground under a director as shaded relief, with what it can see marked on it |
+| `Ksa/Ui/UiIcbm.cs` | the ballistic computer's pane — what it is aimed at, whether it will get there |
 | `Ksa/Ui/UiScope.cs` | the radar scope: what the *set* holds, craft-centred and polar, on the Radar tab |
 | `Ksa/Ui/UiWeapons.cs` | the weapon switcher — which of a craft's weapons the trigger is pointed at, with each one's ammo and arm state |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
@@ -382,11 +397,12 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 370 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 396 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
+| `docs/ICBM-GUIDANCE.md` | **the ballistic computer** — the algorithm, the frames, the cutoff, and what has not been flown |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -863,7 +879,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 660,000 lines to the files
-defining the 135 types this mod actually uses.
+defining the 146 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
@@ -1011,6 +1027,54 @@ from a tidier model than the round obeys is a sight that lies at the moment it m
 re-solved a few times a second rather than per frame, and the integration step is a *separate*
 number from the refresh interval — sharing them puts 55 m of fall between terrain samples, and
 the ring then hops between two places.
+
+**The ballistic computer solves where to stop and flies everything else.**
+`docs/ICBM-GUIDANCE.md` is the whole account; four things there are worth not re-deciding.
+
+**Velocity-to-be-gained, re-solved against the vehicle's actual state.** The shot is exact at the
+instant the difference reaches zero, whatever happened on the way — a wrong pitch programme, an
+engine that underperforms, drag nobody modelled. A bad ascent costs propellant, not accuracy, which
+is why there is no stored trajectory and no separate launch solver: the same call answers on the pad
+and one second before cutoff.
+
+**Cutting off is a timing problem, not a threshold one.** An engine stops on a frame boundary, and a
+light upper stage at ten gravities changes its velocity by more in one frame than any sensible
+tolerance — so waiting for the velocity still to gain to fall under a fixed number waits for
+something that cannot happen, and the burn hunts until the stage is dry. The program is therefore
+**stepped every frame and solved a few times a second**: the solve sets a countdown and the frame
+runs it down. Same split as everywhere else in this mod between what is cheap and what is exact.
+
+**Flight time is the parameter, and the arrival gets latched.** Parameterising by time is what
+collapses a rotating target into a single solve. But the *cheapest* arc from the vehicle's current
+state converges on the arc it is already flying, so a loft factor applied to that every cycle walks
+the answer outward and the shot chases a trajectory running away from it — 162 km out at a 1.4 loft.
+The cheapest time is carried out of the solver separately from the one flown, and the arrival time
+is nailed down when closed-loop guidance takes over.
+
+**It is `Cci`, and everything the ascent gates on is dynamic pressure.** A half-hour flight in the
+ecliptic carries 54 million kilometres of the planet's own travel; a body's spin axis is exactly
+`+Z` in its own `Cci`, so there is no obliquity term. And gating the guidance handover and the
+angle-of-attack limiter on pressure rather than density or altitude is what makes a launch from the
+Moon work without anything knowing the Moon has no air — thin air at two kilometres a second is
+still kilopascals.
+
+**`Ksa/VehicleCommand.cs` is the only place this mod flies somebody else's rocket**, and every write
+in it is one the game already makes for itself: the flight computer's `Custom` attitude target,
+which is how `PhysicsBubble` points a manoeuvring unit, and `Vehicle.ProcessInput`, which is what
+the keyboard calls. Nothing is patched. The aiming rotation comes from KSA's own `GetTgt2Cci` rather
+than being built here, because building one means guessing which body axis is the nose — and getting
+that wrong is a vehicle holding a perfectly steady attitude ninety degrees from the one asked for.
+
+**One computer per craft, not per launcher.** A craft can carry two rails and shoot them at
+different things; it has exactly one trajectory, so a second computer aboard is a second autopilot
+fighting the first for the same engines. That is the one place the ICBM roster and `WeaponSystems`
+disagree about what to key on.
+
+**A shot short of the propellant is flown and reported, not refused.** KSA reports the *running
+stage's* engines, so how much a stack has left is only knowable one stage at a time — a launch gate
+built on that number turns away every multi-stage rocket in the game. It flies, falls short, says by
+how much, and holds its warheads: releasing on a trajectory known to fall short scatters them over
+whatever is under the short fall.
 
 **A round flies in the ground's frame, not the launcher's.** `KsaWorld.GroundVelocityAt` is the
 parent body's own motion plus its spin at that radius, and it is what a round's airspeed, its drag

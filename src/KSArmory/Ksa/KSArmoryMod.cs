@@ -26,6 +26,10 @@ public sealed class KSArmoryMod
     // One head per optical director fitted. Crewed independently of the weapons: a craft with a
     // director and no armament gets one, and a craft with a launcher and no director gets none.
     private OpticalHeads? _heads;
+
+    private IcbmComputers? _icbms;
+
+    private readonly List<double3> _trajectory = [];
     private Ui? _ui;
     private int _faults;
     private int _viewTrace;
@@ -116,12 +120,13 @@ public sealed class KSArmoryMod
 
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
+        _icbms = new IcbmComputers();
         _motors = new MotorSound(_config);
         _smoke = new MotorSmoke(_config);
         _gunSound = new GunSound(_config);
         _scenario = new ScenarioRunner(_config);
         _scenario.Begin(ScenarioRunner.Requested());
-        _ui = new Ui(_config, _roster, _heads, _warp, _watch, _mover, _bursts);
+        _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -248,6 +253,11 @@ public sealed class KSArmoryMod
                     foreach (WeaponSystems.Entry e in _roster.All) Visuals.Draw(e.Battery, _config);
                 }
             }
+
+            // Not behind the world-overlay switch. That switch is for diagnostics — search cones
+            // and drive facing — and this is the shot itself: where the warheads are going is the
+            // thing the operator is flying the rocket to change.
+            if (KsaWorld.InFlight && _icbms is not null) IcbmOverlay.Draw(_icbms, _trajectory);
 
             // Over the world, under the panel: ImGui draws windows in submission order, and the
             // panel is submitted first, so a full-screen overlay added here sits above the scene
@@ -443,6 +453,13 @@ public sealed class KSArmoryMod
                 // alternate frames, in step with the display's pacing -- which is a shake in the
                 // picture that appears above about 13x and nowhere below it.
                 _heads?.Update(dtSim, _airborne);
+
+                // On the simulated step and unclamped, for the same reason the heads are: the
+                // clamp is there to stop a *round* stepping over its own fuse radius, and a
+                // guidance loop has no fuse. It has a cutoff instead, which is timed against
+                // whatever step it is handed - so a long one costs accuracy honestly rather than
+                // being hidden by a truncation the loop cannot see.
+                if (_icbms is not null) _icbms.Update(dtSim, _roster);
             }
         }
 
@@ -543,6 +560,8 @@ public sealed class KSArmoryMod
         _roster?.Clear();
         _heads?.Clear();
         _heads = null;
+        _icbms?.Clear();
+        _icbms = null;
         KsaWorld.ResetSimStepTracking();
         _roster = null;
         _ui = null;
@@ -743,6 +762,8 @@ public sealed class KSArmoryMod
         _roster?.Clear();
         _heads?.Clear();
         _heads = null;
+        _icbms?.Clear();
+        _icbms = null;
         Log.Error("too many faults - air defence disabled for this session");
     }
 }
