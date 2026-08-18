@@ -90,6 +90,8 @@ internal sealed partial class Ui
         // window holding that is a window to open, move and close for nothing.
         DrawCraftMover();
         ImGui.Separator();
+        DrawFinTest();
+        ImGui.Separator();
         DrawLogging();
         ImGui.Separator();
 

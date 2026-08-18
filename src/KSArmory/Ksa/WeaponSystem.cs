@@ -339,12 +339,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>True while the cannon are mid-burst, so the panel can say so.</summary>
     public bool GunsFiring => _guns.Firing;
 
+    // Simulated, not player, seconds -- so the sweep holds still with a paused world and slows
+    // with the panel's slow-motion, which is the whole point of watching it.
+    private double _finTestSeconds;
+
     // The fin set belonging to a tube, or null if the launcher carries none.
     private Part? FinsFor(int index) => index >= 0 && index < _finBodies.Count ? _finBodies[index] : null;
 
-    // Puts a loaded round's blades on their hinges, undeflected -- a round on the rack is not
-    // steering. Needed because TrySeatMissile only knows about the older single fin set: without
-    // this the blades sit wherever the XML left them, which is inside the bomb.
+    // Puts a loaded round's blades on their hinges. Undeflected, because a round on the rack is
+    // not steering -- unless Config.FinTestSweep is exercising them, which moves the drawn blades
+    // and nothing else. Needed because TrySeatMissile only knows about the older single fin set:
+    // without this the blades sit wherever the XML left them, which is inside the bomb.
     private void SeatFinsFor(int tube)
     {
         if (Munition.FinsPerRound <= 0) return;
@@ -358,7 +363,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (FinsFor(tube * Munition.FinsPerRound + blade) is not { } part) continue;
 
             double roll = FinMixer.FinRollRad(blade, Munition.FinsPerRound, Math.PI / 4.0);
-            LauncherPart.TryPlaceFin(part, seated, rotation, Munition.FinHingeStation, roll, 0.0);
+            // Through the flight mixer, so a seated round's blades can only take a pose some
+            // real steering demand would produce.
+            double deflect = _config.FinTestSweep
+                                 ? FinMixer.DeflectionRad(
+                                       FinTest.CommandBodyFrame(_finTestSeconds,
+                                                                Munition.MaxLateralAccel),
+                                       roll, Munition.MaxLateralAccel, Munition.FinDeflectionRad)
+                                 : 0.0;
+            LauncherPart.TryPlaceFin(part, seated, rotation, Munition.FinHingeStation, roll, deflect);
         }
     }
 
@@ -592,6 +605,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     public void Update(double dt, IReadOnlyList<IContact>? airborne = null)
     {
         if (Platform is null) return;
+
+        if (double.IsFinite(dt) && dt > 0.0) _finTestSeconds += dt;
 
         _clock += dt;
 

@@ -262,6 +262,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
 | `Sim/BombSight.cs` | where a store released now would land, flown rather than solved |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
+| `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
 | `Sim/FireLadder.cs` | **why a system is not shooting** — the gates in order, and the first one that says no |
 | `Sim/DriveStatus.cs` | which drives the engine is still accepting writes for, latched per channel |

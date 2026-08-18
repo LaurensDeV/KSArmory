@@ -88,6 +88,31 @@ internal sealed partial class Ui
         Detonation.Show(emitterId, at, platform);
     }
 
+    // Inline beside the other test aids rather than on a component row: it is not something a
+    // Mk 82 rack "has", and the answer to "why are the fins moving" must not be behind a fold.
+    private void DrawFinTest()
+    {
+        ImGui.Checkbox("Sweep seated fins (built-in test)", ref _config.FinTestSweep);
+
+        if (!_config.FinTestSweep)
+        {
+            ImGui.TextDisabled("  exercise a loaded round's fins without dropping it");
+            return;
+        }
+
+        int hinged = 0;
+        foreach (WeaponSystems.Entry e in _batteries.All)
+            if (e.Battery.Munition.FinsPerRound > 0) hinged++;
+
+        // Says nothing is happening rather than leaving the tick box looking broken: every
+        // launcher in the world may well have no hinged blades to sweep.
+        if (hinged == 0)
+            ImGui.TextDisabled("  no launcher in this world carries hinged fins");
+        else
+            ImGui.TextDisabled($"  sweeping on {hinged} launcher(s), "
+                               + $"{FinTest.PeriodSeconds:F0} s per cycle, on simulated time");
+    }
+
     private void DrawCraftMover()
     {
         ImGui.Checkbox("Move craft with the mouse", ref _config.MoveCraftWithMouse);

@@ -210,6 +210,15 @@ public sealed class Config
     /// </summary>
     public bool VerboseLog;
 
+    /// <summary>
+    /// Sweep a seated round's fins continuously, the way a guided store exercises them on
+    /// power-up, so the hinges can be watched without dropping the round.
+    ///
+    /// A test aid rather than a weapon setting: it moves nothing but the drawn blades, and two
+    /// launchers in one world could not sensibly disagree about whether it is on.
+    /// </summary>
+    public bool FinTestSweep;
+
     // ---- Visuals --------------------------------------------------------
 
     /// <summary>
