@@ -350,6 +350,14 @@ public sealed class MunitionProfile
     /// </summary>
     public bool Powered => Guidance is not (GuidanceMode.None or GuidanceMode.Inertial);
 
+    /// <summary>
+    /// Whether this round can be steered after it leaves, whatever carries it there.
+    ///
+    /// <para>Wider than <see cref="Powered"/> on purpose: a guided tail kit steers a fall without
+    /// flying one, so it is released like a bomb and still needs something to aim at.</para>
+    /// </summary>
+    public bool Steers => Guidance != GuidanceMode.None;
+
     /// <summary>Blade travel at full demand, in radians.</summary>
     public double FinDeflectionRad => float.DegreesToRadians(FinDeflectionDeg);
 }

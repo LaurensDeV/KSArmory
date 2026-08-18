@@ -397,7 +397,12 @@ public static class Arsenal
         // have it hold altitude, which is the one thing a bomb cannot do.
         Guidance = GuidanceMode.Inertial,
         NavConstant = 3f,
-        MaxLateralG = 3f,
+        // 0.4 g, not the 3 g this first carried. A tail kit steers with body lift off a 330 mm
+        // slender body: at 250 m/s and 320 kg, 3 g needs a lift coefficient of 2.9 at sea level
+        // and 6.7 at 8 km, where a finned body of this shape tops out near 1. The kit exists to
+        // correct a release error of a few hundred metres, not to glide -- at 3 g it flew a
+        // kilometre of cross-range per kilometre of drop, which is a winged weapon's footprint.
+        MaxLateralG = 0.4f,
         GravityCompensation = 0f,
 
         LaunchSpeed = 4f,

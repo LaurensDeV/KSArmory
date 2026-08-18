@@ -1539,19 +1539,25 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>
     /// Lets one round go with nothing to aim it at.
     ///
-    /// <para>A bomb is released rather than fired: it carries no seeker and no uplink, so where it
-    /// lands was decided by where the aircraft was and what it was doing at the moment the operator
-    /// let it go. Passing it an aimpoint would be a lie the flight model then ignores.</para>
+    /// <para>An unguided bomb carries no seeker and no uplink, so where it lands was decided by
+    /// where the aircraft was and what it was doing at the moment the operator let it go. Passing
+    /// that one an aimpoint would be a lie the flight model then ignores.</para>
+    ///
+    /// <para>A guided tail kit is the exception, and it is why this takes the designation rather
+    /// than always dropping blind: it steers a fall instead of flying one, so it is still
+    /// <em>released</em> — but onto whatever the operator designated. With nothing designated it
+    /// is a dumb bomb, which is exactly what the real one is when released ballistically.</para>
     /// </summary>
     public bool Release()
     {
-        // Powered, not "guided": a tail-kit store dropped with nothing designated is a dumb bomb,
-        // which is exactly what the real one is when released ballistically.
         if (Munition.Powered)
         {
             Announce($"refused: the {Munition.DisplayName} is guided - give it something to shoot at");
             return false;
         }
+
+        if (Munition.Steers && Designation.Kind != AimpointKind.None)
+            return Commit(Designation, DesignationName);
 
         return Commit(Aimpoint.Nothing, Munition.DisplayName);
     }
