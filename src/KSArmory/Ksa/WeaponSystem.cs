@@ -1445,6 +1445,23 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                     $"tgt {(tgtRange < 0 ? "gone" : $"{tgtRange:F0} m")} " +
                     $"link {(r.SeekerInView ? "on" : "OFF")} " +
                     $"drift {drift:F1} m");
+
+                // Which way it is drawn, and why. A store keeps its release attitude until the
+                // airflow has authority, so "wrong way up" is three different faults that look the
+                // same: no air to weathervane in, no speed to weathervane with, or a release
+                // heading that was wrong to begin with. Print all three rather than guess.
+                double rho = KsaWorld.MediumDensityRatioAt(platform, r.PositionEcl);
+                double spd = Vec.Len(r.VelocityLocal);
+                Log.Debug(() =>
+                    $"attitude t{r.Tube}: rho {rho:F4} speed {spd:F1} m/s q {rho * spd * spd:F1} " +
+                    $"(needs {BodyAttitude.NoAuthoritySpeed * BodyAttitude.NoAuthoritySpeed:F0} to " +
+                    $"start, {BodyAttitude.FullAuthoritySpeed * BodyAttitude.FullAuthoritySpeed:F0} " +
+                    $"for full) | drawn-vs-velocity " +
+                    $"{double.RadiansToDegrees(Vec.AngleBetween(heading, r.VelocityLocal)):F1} deg, drawn-vs-release " +
+                    $"{double.RadiansToDegrees(Vec.AngleBetween(heading, r.ReleaseHeadingEcl)):F1} deg");
+
+                if (rho <= 0.0 && platform.Parent is Celestial medium)
+                    Log.Debug(() => $"  no medium -- {KsaWorld.MediumDiagnosis(medium, r.PositionEcl)}");
             }
         }
 
@@ -1459,10 +1476,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                           && LauncherPart.TrySeatMissile(PodsPart, Profile, _missileBodies[i],
                                                          FinsFor(i), i, Munition);
 
-            if (seated && Magazine.IsVisible(plan)) continue;
+            if (seated && Magazine.IsVisible(plan))
+            {
+                SeatFinsFor(i);
+                continue;
+            }
 
             LauncherPart.HideMissile(_missileBodies[i]);
-            if (FinsFor(i) is { } spentFins) LauncherPart.HideMissile(spentFins);
+            HideFinsFor(i);
         }
     }
 
@@ -1646,6 +1667,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             alongTube, tubeAxis, launchPos, aimForGeometry, Boresight, Profile.LaunchLoft,
             Profile.EjectAwayFromMount);
 
+        // Which way it POINTS as it leaves, which is not which way it is pushed. EjectAwayFromMount
+        // biases launchDir toward the boresight to model the ejector shoving a store off its rack --
+        // at 1.2 against a unit tube axis that is 50 degrees, and feeding it to the attitude draws
+        // the round leaving at 50 degrees to the rack still holding it.
+        //
+        // A store points along its rack until the airflow says otherwise. In air that is invisible,
+        // because it weathervanes within a second; released in vacuum it is permanent, which is how
+        // this was found.
+        double3 releaseHeading = alongTube && !Vec.Unit(tubeAxis).Equals(Vec.Zero)
+                                     ? Vec.Unit(tubeAxis)
+                                     : launchDir;
+
         // A seeker round released outside its own gimbal limit never steers and never recovers, so
         // this is the last point at which that is still a refusal rather than a round flying away
         // for its whole life. The tube goes back: the shot was never taken.
@@ -1675,18 +1708,22 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double3 launchVel = platformVel + spinVel + launchDir * Munition.LaunchSpeed;
 
-        // Unguided rounds are slugs: no seeker, lock, boost, fins or command link, so an
-        // Interceptor with its steering switched off would be that whole flight model behind
-        // guards. Which implementation a munition gets is decided here and only here.
+        // Motorless rounds are slugs: no seeker, lock, boost or command link, so an Interceptor
+        // with its steering switched off would be that whole flight model behind guards. Which
+        // implementation a munition gets is decided here and only here.
+        //
+        // Inertial is on this side of the split rather than the missile side: a guided tail kit
+        // steers a fall, it does not fly one. It is the same ballistics, the same drag and the
+        // same ground the bomb sight flies - with a few g of fin authority added inside Slug.
         //
         // platformVel is the frame the round launches into. Passing it here is what makes the body
         // orientable on its very first drawn frame - see the Interceptor constructor.
-        AddRound(Munition.Guidance == GuidanceMode.None
+        AddRound(!Munition.Powered
             ? new Slug(launchPos, launchVel, aim.Handle, tube + 1, PlatformEcl, frameVel)
             {
                 Munition = Munition,
                 LaunchAnchorPartFrame = launchAnchorPartFrame,
-                ReleaseHeadingEcl = launchDir,
+                ReleaseHeadingEcl = releaseHeading,
                 LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
                 Aimpoint = aim,
             }
@@ -1694,7 +1731,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 Munition = Munition,
                 LaunchAnchorPartFrame = launchAnchorPartFrame,
-                ReleaseHeadingEcl = launchDir,
+                ReleaseHeadingEcl = releaseHeading,
                 LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
                 Aimpoint = aim,
             });
