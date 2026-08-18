@@ -1025,6 +1025,88 @@ def euler_forward(euler):
     return tuple(v[i] + 2.0 * inner[i] for i in range(3))
 
 
+def check_hinged_blade_seats(munition, part_id, body_id, blade_prefix, label):
+    """Every blade's resting <Transform> against what LauncherPart.TryPlaceFin would write.
+
+    The blades are placed each frame in game, so the XML only decides where they sit in the
+    vehicle editor -- which is exactly why it drifts silently: nothing in flight can be wrong
+    because of it, and nothing in the editor fails loudly. At rest the runtime composes
+    position = bodyPos + bodyRot*(FinHingeStation,0,0) and rotation = bodyRot * Rx(roll), with
+    roll = pi/4 + i*2pi/n from FinMixer.FinRollRad. KSA reads <Rotation> as qz*qy*qx, so that
+    composition is spelled X=roll, Z=<the body's own Z> and needs no Euler solve.
+    """
+    import math
+
+    def fail(message):
+        print(f"  UNRESOLVED {message}", file=sys.stderr)
+        return 1
+
+    problems = checked = 0
+    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    block = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    if not block:
+        print(f"  UNRESOLVED " + f"{label}: no munition profile {munition}", file=sys.stderr)
+        return 1, 1
+
+    def num(field):
+        m = re.search(rf"{field}\s*=\s*(-?[0-9.]+)f?\s*,", block.group(1))
+        return float(m.group(1)) if m else None
+
+    station, count = num("FinHingeStation"), num("FinsPerRound")
+    if station is None or not count:
+        print(f"  UNRESOLVED " + f"{label}: {munition} declares no fin hinge station or blade count", file=sys.stderr)
+        return 1, 1
+    count = int(count)
+
+    xml = (MOD / "KSArmoryAssets.xml").read_text()
+    body = re.search(rf'<SubPart Id="{body_id}".*?</SubPart>', xml, re.S)
+    if not body:
+        print(f"  UNRESOLVED " + f"{label}: no round body subpart {body_id}", file=sys.stderr)
+        return 1, 1
+
+    bp = re.search(r'<Position X="(-?[\d.]+)" Y="(-?[\d.]+)" Z="(-?[\d.]+)"', body.group(0))
+    bz = re.search(r'<Rotation[^/]*Z="(-?[\d.]+)"', body.group(0))
+    if not bp or not bz:
+        print(f"  UNRESOLVED " + f"{label}: {body_id} has no position or no Z rotation to carry the hinge", file=sys.stderr)
+        return 1, 1
+    bx, by, bzz = (float(g) for g in bp.groups())
+    theta = float(bz.group(1))
+
+    # The hinge sits on the body axis, carried through the body's own turn.
+    hx = bx + station * math.cos(theta)
+    hy = by + station * math.sin(theta)
+
+    for i in range(count):
+        checked += 1
+        sub = re.search(rf'<SubPart Id="{blade_prefix}{i:02d}".*?</SubPart>', xml, re.S)
+        if not sub:
+            problems += fail(f"{label}: no blade subpart {blade_prefix}{i:02d}")
+            continue
+
+        pos = re.search(r'<Position X="(-?[\d.]+)" Y="(-?[\d.]+)" Z="(-?[\d.]+)"', sub.group(0))
+        rot = re.search(r'<Rotation X="(-?[\d.]+)"[^/]*Z="(-?[\d.]+)"', sub.group(0))
+        if not pos or not rot:
+            problems += fail(f"{label}: {blade_prefix}{i:02d} needs both an X roll and a Z, "
+                               f"or it is not on the hinge")
+            continue
+
+        px, py, pz = (float(g) for g in pos.groups())
+        if max(abs(px - hx), abs(py - hy), abs(pz - bzz)) > 1e-3:
+            problems += fail(f"{label}: {blade_prefix}{i:02d} sits at ({px:.5f},{py:.5f},{pz:.5f}), "
+                               f"but the hinge is at ({hx:.5f},{hy:.5f},{bzz:.5f})")
+
+        want = (math.pi / 4.0 + i * (2.0 * math.pi / count)) % (2.0 * math.pi)
+        got = float(rot.group(1)) % (2.0 * math.pi)
+        if min(abs(got - want), 2.0 * math.pi - abs(got - want)) > 1e-3:
+            problems += fail(f"{label}: {blade_prefix}{i:02d} rolls {got:.5f}, "
+                               f"but FinMixer puts blade {i} at {want:.5f}")
+        if abs(float(rot.group(2)) - theta) > 1e-3:
+            problems += fail(f"{label}: {blade_prefix}{i:02d} does not carry the body's own "
+                               f"Z turn of {theta:.5f}")
+
+    return problems, checked
+
+
 def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, munition, count, label):
     """Checks every seat of a clustered launcher against its tube, the mesh and the XML.
 
@@ -1420,6 +1502,13 @@ def main():
         p, c = check_optic_geometry(optic)
         problems += p
         checked += c
+
+    print("checking every hinged blade's resting seat against FinMixer and the hinge station")
+    p, c = check_hinged_blade_seats("NukeB61", "KSArmory_Prefab_NukeRack",
+                                    "KSArmory_NukeRack_B6100", "KSArmory_NukeRack_Blade",
+                                    "B61 tail kit")
+    problems += p
+    checked += c
 
     print("checking subpart placement against src/KSArmory/Sim/Arsenal.cs")
     p, c = check_subpart_positions()

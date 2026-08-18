@@ -1086,16 +1086,28 @@
       they look like before it takes over — seated with the round, square to the rack.
     -->
     <SubPart Id="KSArmory_NukeRack_Blade00" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform><Position X="0.43510" Y="0.00000" Z="0.00000" /><Rotation Z="1.57080" /></Transform>
+      <Transform>
+        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+        <Rotation X="0.78540" Z="1.57080" />
+      </Transform>
     </SubPart>
     <SubPart Id="KSArmory_NukeRack_Blade01" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform><Position X="0.43510" Y="0.00000" Z="0.00000" /><Rotation Z="1.57080" /></Transform>
+      <Transform>
+        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+        <Rotation X="2.35619" Z="1.57080" />
+      </Transform>
     </SubPart>
     <SubPart Id="KSArmory_NukeRack_Blade02" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform><Position X="0.43510" Y="0.00000" Z="0.00000" /><Rotation Z="1.57080" /></Transform>
+      <Transform>
+        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+        <Rotation X="3.92699" Z="1.57080" />
+      </Transform>
     </SubPart>
     <SubPart Id="KSArmory_NukeRack_Blade03" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform><Position X="0.43510" Y="0.00000" Z="0.00000" /><Rotation Z="1.57080" /></Transform>
+      <Transform>
+        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+        <Rotation X="5.49779" Z="1.57080" />
+      </Transform>
     </SubPart>
 
   </Part>
