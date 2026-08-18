@@ -74,6 +74,21 @@ internal readonly record struct IcbmCommand(
 /// </summary>
 internal sealed class IcbmProgram
 {
+    /// <summary>
+    /// The longest step a guided burn survives.
+    ///
+    /// <para>An engine can only be shut down on a frame boundary, so the velocity left at cutoff is
+    /// whatever the last step added — <c>acceleration x step x throttle</c>. At a tenth of a second
+    /// and fifty metres a second squared that is metres per second, which is kilometres at the far
+    /// end of the arc; at the 170-second steps timewarp hands out it is <em>kilometres</em> per
+    /// second, and the shot lands on another continent.</para>
+    ///
+    /// <para>So a burn is not something to be integrated more carefully under warp. It is something
+    /// warp has to be held down for, exactly as rounds in the air are — see
+    /// <see cref="WarpPolicy"/>. This is the number that asks for it.</para>
+    /// </summary>
+    public const double MaxFaithfulStep = 0.05;
+
     /// <summary>How often the trajectory is re-solved. Everything between is the countdown.</summary>
     public const double SolveIntervalSeconds = 0.25;
 
@@ -142,6 +157,9 @@ internal sealed class IcbmProgram
 
     /// <summary>Velocity still to gain at the last solve. Zero once the burn is over.</summary>
     public double VelocityToGain => _toGain;
+
+    /// <summary>Whether an engine is being commanded, which is when the step has to stay short.</summary>
+    public bool IsBurning => Phase is IcbmPhase.Rising or IcbmPhase.PitchProgram or IcbmPhase.ClosedLoop;
 
     public IcbmProgram(IcbmConfig config) => Config = config;
 

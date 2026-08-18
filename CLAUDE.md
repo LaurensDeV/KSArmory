@@ -1052,6 +1052,14 @@ the answer outward and the shot chases a trajectory running away from it — 162
 The cheapest time is carried out of the solver separately from the one flown, and the arrival time
 is nailed down when closed-loop guidance takes over.
 
+**A guided burn holds timewarp down, for the same reason a round in the air does.** The engine
+stops on a frame boundary, so the velocity left ungained is `accel x step x throttle` — 1.5 km of
+miss at a one-second step, and *kilometres per second* at the 170-second steps high warp hands out.
+So `IcbmProgram.MaxFaithfulStep` registers a burning computer with `WarpPolicy` alongside the
+rounds, and a burn the world outran is **abandoned and reported** rather than flown into the wrong
+ocean. The coast afterwards is not held: a coast is not being integrated by anything, and once the
+warheads are away they are rounds, which the existing machinery already covers.
+
 **The miss is one product, and there is no floor under it.** Flown from the same cutoff position
 with the *exact* required velocity, the integrator lands on the target to under a metre — so the
 whole error is `velocity still to gain at cutoff x dMiss/dV`, and each half is worth knowing.

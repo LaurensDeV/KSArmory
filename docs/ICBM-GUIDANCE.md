@@ -256,6 +256,45 @@ the wanted setting and reports what the vehicle actually has.
 
 ---
 
+## Timewarp is held down for a burn
+
+A guided burn cannot be flown fast, and the reason is the cutoff. The engine stops on a frame
+boundary, so the velocity left ungained is whatever the last step added — `acceleration x step x
+throttle`. A one-second step already costs about 1.5 km at the far end. At the **170-second steps**
+high warp hands out it is kilometres per *second*, and the warheads land on another continent.
+
+So a burning computer registers with `Sim/WarpPolicy.cs` exactly as a round in the air does, through
+`IcbmProgram.MaxFaithfulStep`. Same policy, same reasoning, same escape hatches: it stands down
+rather than fighting the player for the speed control, and if a slowdown it asked for is never
+observed it **abandons the burn** and says so — a shot the player is told about beats one flown into
+the wrong ocean silently.
+
+The coast afterwards is not held, because a coast is not being integrated by anything. Once the
+warheads are away they are rounds, and the existing round machinery holds the world for them.
+
+`IcbmFlightTests.AtAStepTooLongToCutOffOnItMissesBadly` is the test that fails if the limit is ever
+loosened on the grounds that guidance "seems fine".
+
+---
+
+## A target behind you, in orbit, does not work
+
+Nine deorbit geometries in `DeorbitTests` arrive within two kilometres — off the ground track, from
+inclined orbits, from 150 km and from 800 km. One does not: a target **behind** the vehicle.
+
+There is no single ballistic arc to it. Forward the short way means reversing seven kilometres a
+second of orbital velocity; the long way round passes through the planet, so the solver refuses it.
+The real answer is to stay in orbit until the target comes round, and that is a phase this program
+does not have — it commits to the expensive arc and burns the tank dry. It does report
+`burn ended N m/s short of the solution` and holds its warheads, which is the only reason this is a
+limitation rather than a bug.
+
+Closing it means searching over *when to start* as well as how long to fly: propagate the orbit
+forward, solve from each future state, and wait for the cheapest window. That is a real feature and
+it is not built.
+
+---
+
 ## Not done, and not verified
 
 **None of this has been flown in game.** Everything above is measured headlessly. The parts most
@@ -269,9 +308,8 @@ likely to be wrong are the ones a test cannot reach:
   authority. The rig assumes a 12 deg/s slew; a real vehicle with no gimbal and no RCS has far less.
 - **Staging.** `ActivateNextSequence` fires whatever the player put in the next stage, which is not
   necessarily an engine.
-- **Timewarp.** Cutoff precision is bounded by the step, so a boost flown under warp is less
-  accurate in direct proportion. Nothing holds warp down during a burn; `WarpPolicy` does that for
-  rounds in the air and has not been extended to cover this.
+- **Staging under warp.** The world is now held down for a burn (see below), but whether KSA
+  applies thrust and staging faithfully at the speeds it is held *to* has not been watched.
 
 **Other bodies are out of scope, and "anywhere" means anywhere on the body being flown around.** A
 ballistic arc is a two-body problem about one planet. A target on another world is an interplanetary

@@ -1166,11 +1166,19 @@ is a rocket holding a perfectly steady attitude in the wrong direction.
 
 ### 12.6 Timewarp
 
-Nothing holds warp down during a burn, and cutoff precision is bounded by the step.
+A burn now asks `WarpPolicy` to hold the world down, the same way rounds in the air do. This is the
+section that proves it, and it is the failure that produced a 3,255 km miss before it existed.
 
-- [ ] Fly one shot at 1x and one at 4x with the same target and settings; note both predicted
-      misses. A large difference is expected and worth recording — it is the number that would
-      justify extending `WarpPolicy` to cover a boost.
+- [ ] Arm a shot and wind the timewarp up hard. The mod should hold it down and log
+      `timewarp held at Nx`. It must not sit at 1000x while the engine burns.
+- [ ] Move the speed yourself while it is held: the mod stands down and logs
+      `timewarp not held`, rather than fighting you for the control frame by frame.
+- [ ] If a slowdown is refused outright, the burn is **abandoned** and the log says why. Check the
+      vehicle is handed back rather than left pointing at a target it can no longer reach.
+- [ ] After cutoff the hold is released — the coast is not integrated by anything, so warping
+      through it is fine and should be allowed.
+- [ ] `Config.LimitWarpInFlight` off restores the old behaviour. Expect a large miss; that is the
+      point of the setting, not a bug.
 
 ---
 

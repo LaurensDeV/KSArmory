@@ -725,8 +725,18 @@ public sealed class KSArmoryMod
         // interceptor must not let the interceptor be stepped over.
         double faithful = _roster.FaithfulStep(out bool anyInFlight);
 
+        // A guided burn counts too, and for the same reason a round does: it is a thing being
+        // integrated that a long step ruins. The difference is where the damage lands — a round
+        // stepped over its fuse misses by metres, a burn cut off a step late misses by the
+        // velocity that step would have added, which at warp is kilometres a second.
+        bool anyBurning = false;
+        double icbmFaithful = _icbms is null
+                                  ? double.MaxValue
+                                  : _icbms.FaithfulStep(out anyBurning);
+
         WarpDecision d = _warp.Decide(dtSim, KsaWorld.SimulationSpeed,
-                                      anyInFlight, _config.LimitWarpInFlight, faithful);
+                                      anyInFlight || anyBurning, _config.LimitWarpInFlight,
+                                      Math.Min(faithful, icbmFaithful));
 
         switch (d.Action)
         {
@@ -753,6 +763,11 @@ public sealed class KSArmoryMod
                 // whose launcher is gone relates to the vanished world exactly as any other does.
                 IReadOnlyList<WeaponSystem> stranded = _roster.Loose;
                 for (int i = 0; i < stranded.Count; i++) stranded[i].AbandonFlight(d.Why);
+
+                // A burn the world outran cannot be finished honestly: the next cutoff decision is
+                // made on a step worth kilometres a second. Standing it down hands the vehicle back
+                // with an explanation, which beats flying it into the wrong ocean silently.
+                _icbms?.AbandonBurns(d.Why);
                 break;
 
             case WarpAction.None:

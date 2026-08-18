@@ -28,6 +28,35 @@ internal sealed class IcbmComputers
     public IcbmComputer? For(Vehicle? craft)
         => craft is not null && _computers.TryGetValue(craft, out IcbmComputer? c) ? c : null;
 
+    /// <summary>
+    /// The longest step any burning computer can be flown across, and whether one is burning.
+    ///
+    /// <para>The same question <see cref="WeaponSystems.FaithfulStep"/> answers for rounds, and it
+    /// feeds the same policy. A powered guided burn is not something that degrades gracefully under
+    /// timewarp: the cutoff lands on a frame boundary, so a long step is velocity left ungained,
+    /// and at the steps high warp hands out that is thousands of metres a second.</para>
+    /// </summary>
+    public double FaithfulStep(out bool anyBurning)
+    {
+        anyBurning = false;
+
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            if (computer.Program.IsBurning) anyBurning = true;
+        }
+
+        return anyBurning ? IcbmProgram.MaxFaithfulStep : double.MaxValue;
+    }
+
+    /// <summary>Stand every burning computer down, for a world that outran what it can fly.</summary>
+    public void AbandonBurns(string why)
+    {
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            if (computer.Program.IsBurning) computer.Abort(why);
+        }
+    }
+
     public void Sync(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems)
     {
         for (int i = 0; i < systems.Count; i++)

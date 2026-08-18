@@ -357,4 +357,40 @@ public class IcbmFlightTests
         Assert.True(around.LowestRadius >= EarthRadius - 1.0);
         Assert.True(around.FlightSeconds > direct.FlightSeconds);
     }
+
+
+    /// <summary>
+    /// Why the world has to be held down for a burn, stated as the failure it prevents.
+    ///
+    /// <para>An engine can only be shut down on a frame boundary, so the velocity left at cutoff is
+    /// whatever the last step added. At a step of a few seconds that is tens of metres a second and
+    /// the shot lands in the wrong country; at the 170-second steps high timewarp hands out it is
+    /// kilometres a second. <see cref="IcbmProgram.MaxFaithfulStep"/> is what asks
+    /// <see cref="WarpPolicy"/> to keep it short, and this is the test that fails if that number is
+    /// ever loosened on the grounds that the guidance "seems fine".</para>
+    ///
+    /// <para>For calibration, the degradation is smooth rather than a cliff: a one-second step
+    /// already costs about 1.5 km, which is why the limit is set two orders of magnitude below
+    /// that rather than at the point where it becomes obvious.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(5.0)]
+    [InlineData(20.0)]
+    public void AtAStepTooLongToCutOffOnItMissesBadly(double step)
+    {
+        double3 pad = Equator(0.0);
+        double3 aim = Equator(0.7848);
+
+        IcbmFlightRig rig = Rig(pad, Earth);
+        IcbmProgram program = new(new IcbmConfig { Armed = true });
+
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, step, 1200.0);
+        Assert.True(flight.Reached);
+
+        double miss = MissMetres(rig, flight, aim);
+        Assert.True(miss > 20_000.0,
+                    $"a {step:F0} s step should wreck the cutoff; it only missed by {miss:F0} m");
+        Assert.True(step > IcbmProgram.MaxFaithfulStep,
+                    "and the policy must consider a step this long unflyable");
+    }
 }

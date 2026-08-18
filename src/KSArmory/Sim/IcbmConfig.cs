@@ -50,7 +50,7 @@ internal sealed class IcbmConfig
     /// gesture the burst tool and the mouse trigger use, and off by default for the same reason.
     /// </para>
     /// </summary>
-    public bool DesignateByClicking;
+    public bool DesignateByClicking = false;
 
     /// <summary>Fire the next stage when the running one has nothing left to burn.</summary>
     public bool AutoStage = true;
