@@ -72,6 +72,20 @@ public enum GuidanceMode
 /// </summary>
 public sealed class MunitionProfile
 {
+    /// <summary>
+    /// No round at all — what a weapons system holds before it knows what it fires.
+    ///
+    /// <para>Zero reach and zero charge rather than the first registered round's, so an
+    /// unadopted system reads as unarmed instead of as carrying somebody else's missile.</para>
+    /// </summary>
+    public static readonly MunitionProfile None = new()
+    {
+        Name = "",
+        DisplayName = "no round",
+        MaxRange = 0f,
+        ChargeKg = 0f,
+    };
+
     /// <summary>Registry key. Referenced by <see cref="LauncherProfile.Munition"/>.</summary>
     public required string Name { get; init; }
 

@@ -50,7 +50,7 @@ public readonly record struct Armament
     /// reads.</para>
     /// </summary>
     public bool Steers => Kind == ArmamentKind.Tubes
-                          && Arsenal.MunitionNamed(Munition).Guidance != GuidanceMode.None;
+                          && Catalogue.MunitionNamed(Munition).Guidance != GuidanceMode.None;
 
     /// <summary>
     /// Whether this armament's round leaves under its own power, which is what makes the seeker
@@ -60,7 +60,7 @@ public readonly record struct Armament
     /// uses the navigation numbers and none of the others, so gating the whole guidance section on
     /// "steers" hands a bomb rack a seeker field of view and a burn time it never reads.</para>
     /// </summary>
-    public bool Powered => Kind == ArmamentKind.Tubes && Arsenal.MunitionNamed(Munition).Powered;
+    public bool Powered => Kind == ArmamentKind.Tubes && Catalogue.MunitionNamed(Munition).Powered;
 
     public bool Reloads => ReloadSeconds > 0f;
 
@@ -187,7 +187,7 @@ public sealed class WeaponFit
     /// </summary>
     public bool Describes(ArmamentKind kind, string displayName)
         => FirstOf(kind) is { } arm
-           && string.Equals(Arsenal.MunitionNamed(arm.Munition).DisplayName, displayName,
+           && string.Equals(Catalogue.MunitionNamed(arm.Munition).DisplayName, displayName,
                             StringComparison.Ordinal);
 
     /// <summary>The first armament of a kind, or null when none of that kind is fitted.</summary>
@@ -260,7 +260,7 @@ public sealed class WeaponFit
     {
         for (int i = 0; i < armaments.Count; i++)
         {
-            if (Arsenal.MunitionNamed(armaments[i].Munition) is { HitsTerrain: true }) return true;
+            if (Catalogue.MunitionNamed(armaments[i].Munition) is { HitsTerrain: true }) return true;
         }
 
         return false;

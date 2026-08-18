@@ -210,7 +210,7 @@ internal static class Sight
         if (!KsaWorld.TryProjectEgoOrClamp(leadEgo, out float2 at, out bool leadInView)) return;
         if (!leadInView) return;
 
-        MunitionProfile shell = Arsenal.MunitionNamed(battery.Profile.GunMunition ?? battery.Munition.Name);
+        MunitionProfile shell = Catalogue.MunitionNamed(battery.Profile.GunMunition ?? battery.Munition.Name);
 
         float radius = SightZoom.ApparentPixels(Warhead.LethalRadius(shell.ChargeKg), track.Range,
                                                 double.RadiansToDegrees(KsaWorld.ViewportFovRad(KsaWorld.MainViewportIndex)),

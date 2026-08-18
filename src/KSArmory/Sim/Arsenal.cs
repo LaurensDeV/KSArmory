@@ -1324,22 +1324,6 @@ public static class Arsenal
         },
     ];
 
-    /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
-    public static LauncherProfile? LauncherForPart(string? partId) => LauncherForPart(Launchers, partId);
-
-    /// <summary>The optical head a part Id names, or null if it names none.</summary>
-    public static OpticProfile? OpticForPart(string? partId)
-    {
-        if (string.IsNullOrEmpty(partId)) return null;
-
-        for (int i = 0; i < Optics.Count; i++)
-        {
-            if (Optics[i].PartId == partId) return Optics[i];
-        }
-
-        return null;
-    }
-
     /// <summary>
     /// The same lookup against an explicit registry.
     ///
@@ -1359,27 +1343,11 @@ public static class Arsenal
     }
 
     /// <summary>
-    /// The named munition. Falls back to the first registered rather than throwing: a launcher
-    /// naming a round that does not exist is a typo in this file, and the game should still be
-    /// playable while it is found.
-    /// </summary>
-    public static MunitionProfile MunitionNamed(string name) => Named(Munitions, name, m => m.Name);
-
-    public static SensorProfile SensorNamed(string name) => Named(Sensors, name, s => s.Name);
-
-    /// <summary>
-    /// The round and sensor a launcher names, resolved together.
+    /// The round and sensor a launcher names, resolved together against explicit registries.
     ///
     /// <para>Together because a launcher left holding another system's round is a wrong-weapon
     /// bug with nothing on screen to show for it. Every caller that adopts a launcher takes all
     /// three, and this is the one place that pairing is made.</para>
-    /// </summary>
-    public static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(LauncherProfile launcher)
-        => LoadoutFor(launcher, Munitions, Sensors);
-
-    /// <summary>
-    /// The same pairing against explicit registries, so switching between systems is testable
-    /// with several of each registered.
     /// </summary>
     internal static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(
         LauncherProfile launcher,
@@ -1392,6 +1360,10 @@ public static class Arsenal
     /// First entry whose key matches, or the first entry as a fallback. Internal rather than
     /// private so the fallback can be tested against a registry with more than one candidate,
     /// where "matched" and "fell back to element zero" are actually distinguishable.
+    ///
+    /// <para>The fallback keeps a typo in a shipped profile playable and cannot report one.
+    /// <see cref="Catalogue.TryMunitionNamed"/> is the form that can, and is what anything
+    /// judging a name rather than flying a round asks.</para>
     /// </summary>
     internal static T Named<T>(IReadOnlyList<T> from, string name, Func<T, string> key)
     {

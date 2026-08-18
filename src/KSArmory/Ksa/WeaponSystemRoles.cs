@@ -22,7 +22,7 @@ internal interface IWeaponPlatform
 /// <summary>
 /// Which weapon system this is: the launcher, the round it throws and the set it sees with.
 ///
-/// <para>The three are paired by <see cref="Arsenal.LoadoutFor"/> and belong to the installation
+/// <para>The three are paired by <see cref="Catalogue.LoadoutFor"/> and belong to the installation
 /// running them, so a reader handed this cannot pick up whichever system resolved last.</para>
 /// </summary>
 internal interface IWeaponLoadout

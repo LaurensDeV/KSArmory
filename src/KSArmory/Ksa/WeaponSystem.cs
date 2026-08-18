@@ -234,25 +234,25 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     ///
     /// <para>The battery's own, not the session's: two sites in one world can be different
     /// systems, and anything reading the config's selection instead gets whichever battery
-    /// updated last. They are the shared <see cref="Arsenal"/> instances, so retuning one from
+    /// updated last. They are the shared <see cref="Catalogue"/> instances, so retuning one from
     /// the panel still reaches every battery running that system, which is the point.</para>
     ///
     /// <para>Resolved when the launcher part is found rather than at construction — until then
     /// the battery does not know what it is.</para>
     /// </summary>
-    public LauncherProfile Profile { get; private set; } = Arsenal.Launchers[0];
+    public LauncherProfile Profile { get; private set; } = LauncherProfile.Unfitted;
 
     /// <inheritdoc cref="Profile"/>
-    public MunitionProfile Munition { get; private set; } = Arsenal.MunitionNamed(Arsenal.Launchers[0].Munition);
+    public MunitionProfile Munition { get; private set; } = MunitionProfile.None;
 
     // The cannon's round, which is a different profile from the missile above and carries its own
     // reach. Falls back to the missile so a launcher with no cannon still answers.
     private MunitionProfile Shell => Profile.GunMunition is { } named
-                                         ? Arsenal.MunitionNamed(named)
+                                         ? Catalogue.MunitionNamed(named)
                                          : Munition;
 
     /// <inheritdoc cref="Profile"/>
-    public SensorProfile Sensor { get; private set; } = Arsenal.SensorNamed(Arsenal.Launchers[0].Sensor);
+    public SensorProfile Sensor { get; private set; } = SensorProfile.None;
 
     /// <summary>Whether this battery's rounds may draw a motor plume.</summary>
     public bool PlumesEnabled => _config.MotorPlume && _config.DrawExplosions;
@@ -524,7 +524,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             bool changed = !ReferenceEquals(profile, Profile) || Launcher is null;
             Launcher = part;
             Profile = profile;
-            (Munition, Sensor) = Arsenal.LoadoutFor(profile);
+            (Munition, Sensor) = Catalogue.LoadoutFor(profile);
             profile.ConfigureTurret(Turret);
 
             // The set is fitted to this launcher, so it filters on that system's sensor rather
@@ -900,7 +900,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (!GunsHaveTheEngagement(aim)) return aim.PositionEcl;
 
-        MunitionProfile shell = Arsenal.MunitionNamed(Profile.GunMunition!);
+        MunitionProfile shell = Catalogue.MunitionNamed(Profile.GunMunition!);
         double3 gravity = Platform is null ? Vec.Zero : KsaWorld.GravityAt(Platform, MountEcl);
 
         // The flight time comes back from the same solve that produced the aim point, which is
@@ -947,7 +947,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        MunitionProfile shell = Arsenal.MunitionNamed(Profile.GunMunition!);
+        MunitionProfile shell = Catalogue.MunitionNamed(Profile.GunMunition!);
 
         // A round leaves with the craft's motion; it flies in the ground's. The two differ only
         // once a launcher is moving, and then the second is what airspeed and heading mean.

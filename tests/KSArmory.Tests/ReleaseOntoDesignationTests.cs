@@ -11,7 +11,7 @@ public class ReleaseOntoDesignationTests
     [Fact]
     public void AGuidedTailKitSteersButIsStillReleased()
     {
-        MunitionProfile b61 = Arsenal.MunitionNamed("B61");
+        MunitionProfile b61 = Catalogue.MunitionNamed("B61");
 
         // The two must not collapse into one. Steers is what earns it an aimpoint; Powered is
         // what would make it demand a lock before the trigger did anything.
@@ -22,7 +22,7 @@ public class ReleaseOntoDesignationTests
     [Fact]
     public void AnUnguidedBombSteersNothing()
     {
-        MunitionProfile mk82 = Arsenal.MunitionNamed("MK82");
+        MunitionProfile mk82 = Catalogue.MunitionNamed("MK82");
         Assert.False(mk82.Steers);
         Assert.False(mk82.Powered);
     }
@@ -36,8 +36,8 @@ public class ReleaseOntoDesignationTests
     {
         // The panel hides the salvo size, the no-friendly-fire switch and auto-engage on anything
         // that answers false here, so this is what decides whether those rows exist at all.
-        LauncherProfile launcher = Arsenal.LauncherForPart(partId)!;
-        WeaponFit fit = WeaponFit.Of(launcher, Arsenal.SensorNamed(launcher.Sensor));
+        LauncherProfile launcher = Catalogue.LauncherForPart(partId)!;
+        WeaponFit fit = WeaponFit.Of(launcher, Catalogue.SensorNamed(launcher.Sensor));
         Assert.Equal(expected, fit.AutoEngages);
     }
 
@@ -46,8 +46,8 @@ public class ReleaseOntoDesignationTests
     {
         // Mouse aim drives a traverse and an elevation. A rack has neither, and its own row says
         // it shoots where the craft points.
-        LauncherProfile rack = Arsenal.LauncherForPart("KSArmory_Prefab_NukeRack")!;
-        WeaponFit fit = WeaponFit.Of(rack, Arsenal.SensorNamed(rack.Sensor));
+        LauncherProfile rack = Catalogue.LauncherForPart("KSArmory_Prefab_NukeRack")!;
+        WeaponFit fit = WeaponFit.Of(rack, Catalogue.SensorNamed(rack.Sensor));
         Assert.False(fit.Aims);
     }
 
@@ -56,8 +56,8 @@ public class ReleaseOntoDesignationTests
     {
         // The belt is the case that would be lost by keying auto-engagement on Powered alone:
         // a cannon has no tubes at all, and must not lose its arm and salvo controls.
-        LauncherProfile gun = Arsenal.LauncherForPart("KSArmory_Prefab_Ciws")!;
-        WeaponFit fit = WeaponFit.Of(gun, Arsenal.SensorNamed(gun.Sensor));
+        LauncherProfile gun = Catalogue.LauncherForPart("KSArmory_Prefab_Ciws")!;
+        WeaponFit fit = WeaponFit.Of(gun, Catalogue.SensorNamed(gun.Sensor));
         Assert.True(fit.AutoEngages);
         Assert.Equal(0, fit.SalvoCapacity);
     }
@@ -67,8 +67,8 @@ public class ReleaseOntoDesignationTests
     {
         // The slider was showing 2 on a rack that holds one bomb, because its range collapsed to
         // 1..1 while the stored default stayed. Below two there is nothing to choose.
-        LauncherProfile rack = Arsenal.LauncherForPart("KSArmory_Prefab_NukeRack")!;
-        WeaponFit fit = WeaponFit.Of(rack, Arsenal.SensorNamed(rack.Sensor));
+        LauncherProfile rack = Catalogue.LauncherForPart("KSArmory_Prefab_NukeRack")!;
+        WeaponFit fit = WeaponFit.Of(rack, Catalogue.SensorNamed(rack.Sensor));
         Assert.True(fit.SalvoCapacity <= 1);
     }
 }

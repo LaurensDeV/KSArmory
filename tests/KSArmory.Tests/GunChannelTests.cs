@@ -136,7 +136,7 @@ public class GunChannelTests
     [Fact]
     public void TheCannonRoundIsRegisteredAndUnguided()
     {
-        MunitionProfile shell = Arsenal.MunitionNamed("30MM");
+        MunitionProfile shell = Catalogue.MunitionNamed("30MM");
 
         Assert.Equal(0f, shell.BoostSeconds);
         Assert.True(shell.LaunchSpeed > 500f, "a shell leaves at muzzle velocity, not a launch nudge");
@@ -151,8 +151,8 @@ public class GunChannelTests
     public void TheCannonEnvelopeOverlapsTheMissileMinimum()
     {
         LauncherProfile pantsir = Arsenal.PantsirS1;
-        MunitionProfile missile = Arsenal.MunitionNamed(pantsir.Munition);
-        MunitionProfile shell = Arsenal.MunitionNamed(pantsir.GunMunition!);
+        MunitionProfile missile = Catalogue.MunitionNamed(pantsir.Munition);
+        MunitionProfile shell = Catalogue.MunitionNamed(pantsir.GunMunition!);
 
         Assert.True(pantsir.HasCannon);
 

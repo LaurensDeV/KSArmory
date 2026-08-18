@@ -102,7 +102,7 @@ internal sealed partial class Ui
             Armament arm = armaments[i];
             if (arm.Munition == _munition.Name) continue;
 
-            MunitionProfile round = Arsenal.MunitionNamed(arm.Munition);
+            MunitionProfile round = Catalogue.MunitionNamed(arm.Munition);
 
             ImGui.Separator();
             ImGui.TextDisabled($"{arm.Label}: {round.DisplayName}");

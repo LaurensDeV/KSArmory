@@ -53,6 +53,19 @@ public enum BoresightMode
 /// </summary>
 public sealed class SensorProfile
 {
+    /// <summary>
+    /// No sensor — what a weapons system sees with before it knows what it is.
+    ///
+    /// <para>Zero range, so it detects nothing rather than inheriting the reach of whichever
+    /// set happens to be registered first.</para>
+    /// </summary>
+    public static readonly SensorProfile None = new()
+    {
+        Name = "",
+        DisplayName = "no sensor",
+        Range = 0f,
+    };
+
     public required string Name { get; init; }
     public required string DisplayName { get; init; }
 

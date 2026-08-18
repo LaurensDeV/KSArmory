@@ -23,7 +23,7 @@ public class RoundOffsetStabilityTests
     private static readonly double3 PlatformStart = new(1.4959e11, 0, 0);
     private static readonly double3 OrbitalVelocity = new(0, 29800, 0);
 
-    private static MunitionProfile Munition() => Arsenal.MunitionNamed(Arsenal.PantsirS1.Munition);
+    private static MunitionProfile Munition() => Catalogue.MunitionNamed(Arsenal.PantsirS1.Munition);
 
     /// <summary>
     /// Flies a round for a number of frames with the given frame times, moving the platform

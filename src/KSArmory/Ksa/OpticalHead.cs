@@ -233,7 +233,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         {
             Director = found.Part;
             Profile = found.Profile;
-            Sensor = Arsenal.SensorNamed(Profile.Sensor);
+            Sensor = Catalogue.SensorNamed(Profile.Sensor);
             OpticPart = OpticParts.FindHead(found.Part, found.Profile);
             RollPart = OpticParts.FindRoll(found.Part, found.Profile);
         }

@@ -37,7 +37,7 @@ internal static class LauncherPart
             ReadOnlySpan<Part> parts = vehicle.Parts.Parts;
             for (int i = 0; i < parts.Length; i++)
             {
-                if (parts[i] is { } part && Arsenal.LauncherForPart(part.Id) is { } profile)
+                if (parts[i] is { } part && Catalogue.LauncherForPart(part.Id) is { } profile)
                 {
                     return (part, profile);
                 }
@@ -65,7 +65,7 @@ internal static class LauncherPart
             ReadOnlySpan<Part> parts = vehicle.Parts.Parts;
             for (int i = 0; i < parts.Length; i++)
             {
-                if (parts[i] is { } part && Arsenal.LauncherForPart(part.Id) is { } profile)
+                if (parts[i] is { } part && Catalogue.LauncherForPart(part.Id) is { } profile)
                 {
                     into.Add((part, profile));
                 }

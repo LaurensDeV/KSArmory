@@ -34,6 +34,23 @@ public readonly record struct Tube(double3 Position, double3 Direction)
 /// </summary>
 public sealed class LauncherProfile
 {
+    /// <summary>
+    /// What a weapons system is running before it has found its launcher part.
+    ///
+    /// <para>Deliberately not the first registered launcher: seeding from one makes an unadopted
+    /// system claim that weapon's reach and that weapon's radar, and makes an empty registry a
+    /// type-initialiser crash rather than a quiet nothing. <see cref="PartId"/> is blank, so no
+    /// lookup can return it.</para>
+    /// </summary>
+    public static readonly LauncherProfile Unfitted = new()
+    {
+        PartId = "",
+        DisplayName = "no launcher",
+        Munition = "",
+        Sensor = "",
+        Tubes = [],
+    };
+
     /// <summary>Part Id declared in the mod's GameData XML. Must match exactly.</summary>
     public required string PartId { get; init; }
 

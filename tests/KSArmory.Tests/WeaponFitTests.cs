@@ -247,13 +247,13 @@ public class WeaponFitTests
     {
         foreach (LauncherProfile launcher in Arsenal.Launchers)
         {
-            WeaponFit fit = WeaponFit.Of(launcher, Arsenal.SensorNamed(launcher.Sensor));
+            WeaponFit fit = WeaponFit.Of(launcher, Catalogue.SensorNamed(launcher.Sensor));
             Assert.NotEmpty(fit.Armaments);
 
             foreach (Armament arm in fit.Armaments)
             {
                 Assert.False(string.IsNullOrWhiteSpace(arm.Label));
-                Assert.Equal(arm.Munition, Arsenal.MunitionNamed(arm.Munition).Name);
+                Assert.Equal(arm.Munition, Catalogue.MunitionNamed(arm.Munition).Name);
                 Assert.True(arm.Capacity > 0, $"{launcher.DisplayName} carries no {arm.Label}");
             }
         }
@@ -270,7 +270,7 @@ public class WeaponFitTests
     {
         foreach (LauncherProfile launcher in Arsenal.Launchers)
         {
-            SensorProfile sensor = Arsenal.SensorNamed(launcher.Sensor);
+            SensorProfile sensor = Catalogue.SensorNamed(launcher.Sensor);
             WeaponFit fit = WeaponFit.Of(launcher, sensor);
 
             Assert.True(fit.Armaments.Count > 0,
@@ -297,7 +297,7 @@ public class WeaponFitTests
     public void TheCiwsIsDescribedAsABeltAndNothingElse()
     {
         LauncherProfile ciws = Arsenal.LauncherForPart(Arsenal.Launchers, "KSArmory_Prefab_Ciws")!;
-        WeaponFit fit = WeaponFit.Of(ciws, Arsenal.SensorNamed(ciws.Sensor));
+        WeaponFit fit = WeaponFit.Of(ciws, Catalogue.SensorNamed(ciws.Sensor));
 
         Assert.Equal(ArmamentKind.Belt, Assert.Single(fit.Armaments).Kind);
         Assert.Equal(0, fit.SalvoCapacity);
@@ -314,7 +314,7 @@ public class WeaponFitTests
     {
         LauncherProfile rail = Arsenal.LauncherForPart(Arsenal.Launchers,
                                                        "KSArmory_Prefab_SidewinderRail")!;
-        WeaponFit fit = WeaponFit.Of(rail, Arsenal.SensorNamed(rail.Sensor));
+        WeaponFit fit = WeaponFit.Of(rail, Catalogue.SensorNamed(rail.Sensor));
 
         Assert.Equal(ArmamentKind.Tubes, Assert.Single(fit.Armaments).Kind);
         Assert.False(fit.Aims, "a rail cannot train, and offering it a turret is a lie");
@@ -342,7 +342,7 @@ public class WeaponFitTests
         })
         {
             LauncherProfile launcher = Arsenal.LauncherForPart(Arsenal.Launchers, part)!;
-            WeaponFit fit = WeaponFit.Of(launcher, Arsenal.SensorNamed(launcher.Sensor));
+            WeaponFit fit = WeaponFit.Of(launcher, Catalogue.SensorNamed(launcher.Sensor));
 
             Assert.Equal(drops, fit.Drops);
         }
@@ -356,7 +356,7 @@ public class WeaponFitTests
     public void DroppingIsNotTheSameQuestionAsHavingNoMissiles()
     {
         LauncherProfile guns = Arsenal.LauncherForPart(Arsenal.Launchers, "KSArmory_Prefab_Ciws")!;
-        WeaponFit fit = WeaponFit.Of(guns, Arsenal.SensorNamed(guns.Sensor));
+        WeaponFit fit = WeaponFit.Of(guns, Catalogue.SensorNamed(guns.Sensor));
 
         Assert.False(fit.Steers, "a Phalanx has no tubes");
         Assert.False(fit.Drops, "...and still lets nothing go");

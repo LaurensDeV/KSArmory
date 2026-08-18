@@ -17,8 +17,8 @@ public class ArsenalTests
     {
         foreach (LauncherProfile launcher in Arsenal.Launchers)
         {
-            Assert.Equal(launcher.Munition, Arsenal.MunitionNamed(launcher.Munition).Name);
-            Assert.Equal(launcher.Sensor, Arsenal.SensorNamed(launcher.Sensor).Name);
+            Assert.Equal(launcher.Munition, Catalogue.MunitionNamed(launcher.Munition).Name);
+            Assert.Equal(launcher.Sensor, Catalogue.SensorNamed(launcher.Sensor).Name);
 
             // The cannon's round as well as the missile's. Arsenal.Named falls back to element
             // zero, which for munitions is a 20 kg missile at 45 m/s under a rocket boost: a gun
@@ -26,7 +26,7 @@ public class ArsenalTests
             // fires warheads out of its barrel.
             if (launcher.GunMunition is { } shell)
             {
-                Assert.Equal(shell, Arsenal.MunitionNamed(shell).Name);
+                Assert.Equal(shell, Catalogue.MunitionNamed(shell).Name);
             }
         }
     }
@@ -54,10 +54,10 @@ public class ArsenalTests
     [Fact]
     public void LauncherLookupMatchesOnPartIdAndRejectsAnythingElse()
     {
-        Assert.Same(Arsenal.PantsirS1, Arsenal.LauncherForPart(Arsenal.PantsirS1.PartId));
-        Assert.Null(Arsenal.LauncherForPart("SomeOtherMod_Prefab_Thing"));
-        Assert.Null(Arsenal.LauncherForPart(null));
-        Assert.Null(Arsenal.LauncherForPart(""));
+        Assert.Same(Arsenal.PantsirS1, Catalogue.LauncherForPart(Arsenal.PantsirS1.PartId));
+        Assert.Null(Catalogue.LauncherForPart("SomeOtherMod_Prefab_Thing"));
+        Assert.Null(Catalogue.LauncherForPart(null));
+        Assert.Null(Catalogue.LauncherForPart(""));
     }
 
     [Fact]
@@ -65,8 +65,8 @@ public class ArsenalTests
     {
         // A launcher naming a round that does not exist is a typo in Arsenal, not a reason for
         // the game to fall over mid-flight.
-        Assert.NotNull(Arsenal.MunitionNamed("no such round"));
-        Assert.NotNull(Arsenal.SensorNamed("no such sensor"));
+        Assert.NotNull(Catalogue.MunitionNamed("no such round"));
+        Assert.NotNull(Catalogue.SensorNamed("no such sensor"));
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class ArsenalTests
     [Fact]
     public void ProfilesAreSelectableAndDriveTheTurretLimits()
     {
-        (MunitionProfile munition, SensorProfile sensor) = Arsenal.LoadoutFor(Arsenal.PantsirS1);
+        (MunitionProfile munition, SensorProfile sensor) = Catalogue.LoadoutFor(Arsenal.PantsirS1);
 
         Assert.Equal("57E6", munition.Name);
         Assert.Equal("1RS1", sensor.Name);
@@ -150,14 +150,14 @@ public class ArsenalTests
     {
         Assert.True(Arsenal.Launchers.Count >= 2);
 
-        (MunitionProfile pantsirRound, SensorProfile pantsirSet) = Arsenal.LoadoutFor(Arsenal.PantsirS1);
-        (MunitionProfile railRound, SensorProfile railSet) = Arsenal.LoadoutFor(Arsenal.SidewinderRail);
+        (MunitionProfile pantsirRound, SensorProfile pantsirSet) = Catalogue.LoadoutFor(Arsenal.PantsirS1);
+        (MunitionProfile railRound, SensorProfile railSet) = Catalogue.LoadoutFor(Arsenal.SidewinderRail);
 
         Assert.NotSame(pantsirRound, railRound);
         Assert.NotSame(pantsirSet, railSet);
 
-        Assert.Same(Arsenal.SidewinderRail, Arsenal.LauncherForPart(Arsenal.SidewinderRail.PartId));
-        Assert.Same(Arsenal.PantsirS1, Arsenal.LauncherForPart(Arsenal.PantsirS1.PartId));
+        Assert.Same(Arsenal.SidewinderRail, Catalogue.LauncherForPart(Arsenal.SidewinderRail.PartId));
+        Assert.Same(Arsenal.PantsirS1, Catalogue.LauncherForPart(Arsenal.PantsirS1.PartId));
     }
 
     /// <summary>
@@ -219,7 +219,7 @@ public class ArsenalTests
         Assert.Equal(0f, rail.LaunchLoft);
 
         // And coasts before it steers, so the turn onto the target happens clear of the craft.
-        Assert.True(Arsenal.MunitionNamed(rail.Munition).SeparationSeconds > 0f);
+        Assert.True(Catalogue.MunitionNamed(rail.Munition).SeparationSeconds > 0f);
     }
 
     [Fact]
@@ -239,7 +239,7 @@ public class ArsenalTests
         Assert.Null(fixedLauncher.TurretMarker);
         Assert.Null(fixedLauncher.PodsMarker);
         Assert.Equal(2, fixedLauncher.TubeCount);
-        Assert.NotNull(Arsenal.MunitionNamed(fixedLauncher.Munition));
+        Assert.NotNull(Catalogue.MunitionNamed(fixedLauncher.Munition));
     }
 
     /// <summary>
@@ -313,13 +313,13 @@ public class ArsenalTests
     {
         foreach (LauncherProfile launcher in Arsenal.Launchers)
         {
-            WeaponFit fit = WeaponFit.Of(launcher, Arsenal.SensorNamed(launcher.Sensor));
+            WeaponFit fit = WeaponFit.Of(launcher, Catalogue.SensorNamed(launcher.Sensor));
 
             foreach (Armament arm in fit.Armaments)
             {
                 bool flownAsInterceptor =
                     arm.Kind == ArmamentKind.Tubes
-                    && Arsenal.MunitionNamed(arm.Munition).Guidance != GuidanceMode.None;
+                    && Catalogue.MunitionNamed(arm.Munition).Guidance != GuidanceMode.None;
 
                 Assert.True(arm.Steers == flownAsInterceptor,
                             $"{launcher.DisplayName} / {arm.Label}: the panel says "
@@ -374,13 +374,13 @@ public class ArsenalTests
 
             Assert.NotNull(component);
 
-            WeaponFit fit = WeaponFit.Of(launcher, Arsenal.SensorNamed(launcher.Sensor));
+            WeaponFit fit = WeaponFit.Of(launcher, Catalogue.SensorNamed(launcher.Sensor));
 
             foreach (BuiltInComponent provided in component!.Provides)
             {
                 if (provided.Role == WeaponRole.Sensor)
                 {
-                    Assert.Equal(Arsenal.SensorNamed(launcher.Sensor).DisplayName, provided.DisplayName);
+                    Assert.Equal(Catalogue.SensorNamed(launcher.Sensor).DisplayName, provided.DisplayName);
                 }
                 else if (provided.Role == WeaponRole.Gun)
                 {

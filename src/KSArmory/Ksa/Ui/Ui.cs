@@ -297,7 +297,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         {
             KSA.Vehicle craft = _craftScratch[i];
             KsaWorld.SurveyParts(craft, _surveyed);
-            WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Arsenal.Components);
+            WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Catalogue.Components);
             if (inv.IsInstallation) _systems.Add((craft, inv));
         }
     }

@@ -69,7 +69,7 @@ public class BoresightTests
         {
             if (optic.Gimbal != GimbalKind.Mast) continue;
 
-            SensorProfile sensor = Arsenal.SensorNamed(optic.Sensor);
+            SensorProfile sensor = Catalogue.SensorNamed(optic.Sensor);
             if (sensor.BoresightSource != BoresightMode.MountNormal) continue;
 
             // The boresight is the mounting face's normal, so it stands at 90 degrees elevation
@@ -104,9 +104,9 @@ public class BoresightTests
         foreach (LauncherProfile launcher in Arsenal.Launchers)
         {
             if (launcher.Tubes.Length == 0) continue;
-            if (!Arsenal.MunitionNamed(launcher.Munition).Powered) continue;
+            if (!Catalogue.MunitionNamed(launcher.Munition).Powered) continue;
 
-            SensorProfile sensor = Arsenal.SensorNamed(launcher.Sensor);
+            SensorProfile sensor = Catalogue.SensorNamed(launcher.Sensor);
             if (sensor.BoresightSource == BoresightMode.LocalUp) continue;
 
             Assert.True(TubeGeometry.TryBoresightPartFrame(

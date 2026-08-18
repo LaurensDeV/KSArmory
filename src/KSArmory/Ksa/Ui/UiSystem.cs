@@ -19,7 +19,7 @@ internal sealed partial class Ui
     private void DrawComponents(KSA.Vehicle craft)
     {
         KsaWorld.SurveyParts(craft, _surveyed);
-        WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Arsenal.Components);
+        WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Catalogue.Components);
 
         ImGui.TextDisabled($"{_surveyed.Count} part(s) on the craft");
 
@@ -29,7 +29,7 @@ internal sealed partial class Ui
         {
             ImGui.TextColored(Grey, "  Nothing this mod recognises.");
             ImGui.TextDisabled("  A craft becomes an installation by carrying a part from");
-            ImGui.TextDisabled("  Arsenal.Components.");
+            ImGui.TextDisabled("  Catalogue.Components.");
             return;
         }
 

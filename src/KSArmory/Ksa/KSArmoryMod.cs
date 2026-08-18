@@ -107,7 +107,7 @@ public sealed class KSArmoryMod
         _scenario = new ScenarioRunner(_config);
         _scenario.Begin(ScenarioRunner.Requested());
         _ui = new Ui(_config, _roster, _heads, _warp, _watch, _mover, _bursts);
-        Log.Info($"ready - {string.Join(", ", Arsenal.Launchers.Select(l => l.DisplayName))}, safe. "
+        Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
         // Logged, not just shown in the panel. Every link of this chain fails silently inside

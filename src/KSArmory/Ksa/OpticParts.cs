@@ -26,7 +26,7 @@ internal static class OpticParts
             ReadOnlySpan<Part> parts = vehicle.Parts.Parts;
             for (int i = 0; i < parts.Length; i++)
             {
-                if (parts[i] is { } part && Arsenal.OpticForPart(part.Id) is { } profile)
+                if (parts[i] is { } part && Catalogue.OpticForPart(part.Id) is { } profile)
                 {
                     into.Add((part, profile));
                 }
