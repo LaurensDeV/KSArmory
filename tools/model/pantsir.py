@@ -52,7 +52,6 @@ from mathutils import Euler, Matrix, Vector
 # Blender runs this by path, so its directory is not on sys.path.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ciws
-import bombrack
 import optic
 import sidewinder
 
@@ -860,8 +859,6 @@ def export(path):
     ciwsbase = join_group("ciwsbase")
     ciwsturret = join_group("ciwsturret", recentre=ciws.TURRET_PIVOT)
     ciwsguns = join_group("ciwsguns", recentre=ciws.GUN_PIVOT)
-    rack = join_group("bombrack")
-    mk82 = join_group("mk82")
     opticbase = join_group("opticbase")
     optichead = join_group("optichead", recentre=optic.HEAD_PIVOT)
 
@@ -880,8 +877,6 @@ def export(path):
                       (ciwsbase, "KSArmory_Subpart_CiwsBase"),
                       (ciwsturret, "KSArmory_Subpart_CiwsTurret"),
                       (ciwsguns, "KSArmory_Subpart_CiwsGuns"),
-                      (rack, "KSArmory_Subpart_BombRack"),
-                      (mk82, "KSArmory_Subpart_Mk82"),
                       (opticbase, "KSArmory_Subpart_OpticBase"),
                       (optichead, "KSArmory_Subpart_OpticHead")):
         preview = ob.copy()
@@ -994,7 +989,7 @@ def render_previews(out_dir):
     # between the front wheels. Leave them out of the vehicle shots and give them their own.
     for name, (loc, look) in VIEWS.items():
         show_only()
-        for group in ("missile", "fins", "sidewinder", "aim9", "bombrack", "mk82",
+        for group in ("missile", "fins", "sidewinder", "aim9",
                       "ciwsbase", "ciwsturret", "ciwsguns", "opticbase", "optichead"):
             for ob in _objects[group]:
                 ob.hide_render = True
@@ -1138,7 +1133,6 @@ def report_muzzles(out_dir):
     sidewinder.report(emitted)
     ciws.report(emitted)
     optic.report(emitted)
-    bombrack.report(emitted)
 
     with open(os.path.join(out_dir, "muzzles.json"), "w") as fh:
         json.dump({
@@ -1169,7 +1163,6 @@ def main():
     # seed, and inserting a box moves every box drawn after it onto different planes.
     sidewinder.build(sys.modules[__name__])
     ciws.build(sys.modules[__name__])
-    bombrack.build(sys.modules[__name__])
     optic.build(sys.modules[__name__])
 
     # Render *before* export. Exporting recentres the turret and pod meshes onto their slew

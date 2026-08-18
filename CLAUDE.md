@@ -8,8 +8,8 @@ carrying one AIM-120C, which is that same launcher with ten times the reach and 
 art was authored rather than generated, a **LAU-118 rail** carrying one AGM-88 HARM, which is the
 one that cannot engage an aircraft at all and whose target has a say in whether it is one, a
 **Mk 15 Phalanx CIWS** that stacks on a 3 m node and is the one with no missiles at all, and a
-**Mk 82 bomb rack**, which is the one that neither aims nor fires: it lets a bomb go and the
-ground does the rest. Two sights come with them, and they are the
+**B61 rack**, which is the one that neither aims nor fires: it lets a bomb go and the ground does
+the rest. Two sights come with them, and they are the
 same instrument on different mechanisms: an **EO director** on a mast, and a **Rafael LITENING
 pod**, whose whole nose rolls about the pod's centreline while the sight nods within it.
 
@@ -400,7 +400,6 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
 | `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
 | `tools/model/ciws.py` | the Phalanx CIWS: a gun with no missiles, on a 3 m stack node |
-| `tools/model/bombrack.py` | the ejector rack and its Mk 82: a launcher that drops rather than fires |
 | `tools/model/optic.py` | the EO director: the sight, as a part anything can carry |
 | `tools/model/import-litening.py` | reframes the hand-modelled pod into what KSA reads |
 | `tools/model/preview-glb.py` | renders any `.glb` from a few angles, so an authored asset can be judged before it is declared |
@@ -427,15 +426,15 @@ interface — so the loop is build, look, adjust rather than emit and hope. **A 
 the geometry before anything is unwrapped, baked or exported**, because everything past that point
 is welded to the shape.
 
-**The headless generator below still builds six parts and still has to keep working.** The Pantsir,
-the CIWS, both racks, the LAU-7 rail and the EO director come out of `tools/model/pantsir.py` into
-one atlas sharing one palette material. Keep it working; do not extend it. Everything from here to
-the end of this section is about those six.
+**The headless generator below still builds four parts and still has to keep working.** The
+Pantsir, the CIWS, the LAU-7 rail and the EO director come out of `tools/model/pantsir.py` into one
+atlas sharing one palette material. Keep it working; do not extend it. Everything from here to the
+end of this section is about those four.
 
 The nuclear rack is not among them: both its bodies are authored, into one atlas sharing one
 unwrap. It stopped instancing the generated beam when the B61-12 turned out to hang from 30-inch
 lugs where that beam's hooks are 14 inches apart — a MAU-12 carries both spacings, so the authored
-rack has both and the generated one keeps the Mk 82.
+rack carries both spacings.
 
 **An authored asset's `.blend` is its source, and it is not in this repository** — what is committed
 is the export. So a committed asset cannot be regenerated from a clean checkout, which is why

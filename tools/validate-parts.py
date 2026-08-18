@@ -870,7 +870,6 @@ LAUNCHER_GEOMETRY = {
     "PantsirS1": (None, "Pantsir"),
     "Ciws": ("ciws", "CIWS"),
     "SidewinderRail": ("sidewinder", "rail"),
-    "BombRack": ("bombrack", "rack"),
     "NukeRack": (None, "nuclear rack"),       # beam generated, round authored -- as above
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
     "HarmRail": (None, "HARM rail"),          # authored, as above
@@ -1206,7 +1205,6 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
 # A turreted launcher's standoff comes off its pods instead, so it needs no entry.
 FIXED_LAUNCHER_MUNITION = {
     "SidewinderRail": "Missile9J",
-    "BombRack": "BombMk82",
 }
 
 

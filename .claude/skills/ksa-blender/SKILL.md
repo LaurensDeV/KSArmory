@@ -9,7 +9,7 @@ description: Build a 3D asset for Kitten Space Agency by authoring it in Blender
 Python script, not driven through the Blender CLI. If the MCP connection is down, the answer is to
 fix the connection — not to fall back to batch scripting.
 
-The headless generator under `tools/model/` still builds six existing parts and still has to keep
+The headless generator under `tools/model/` still builds four existing parts and still has to keep
 working — §8 says what to know if you touch it. It is **not** the path for anything new.
 
 > ## Stop before you bake
@@ -381,7 +381,7 @@ and is what the AMRAAM rail does.
 
 ## 8. The generated parts that already exist
 
-Six parts — the Pantsir, the CIWS, the Mk 82 and B61 racks, the LAU-7 rail and the EO director — are
+Four parts — the Pantsir, the CIWS, the LAU-7 rail and the EO director — are
 built by `tools/model/pantsir.py` and its modules into one atlas sharing one palette material.
 **Keep it working; do not extend it.**
 

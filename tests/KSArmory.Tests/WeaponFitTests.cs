@@ -335,7 +335,7 @@ public class WeaponFitTests
     {
         foreach ((string part, bool drops) in new[]
         {
-            ("KSArmory_Prefab_BombRack", true),
+            ("KSArmory_Prefab_NukeRack", true),
             ("KSArmory_Prefab_Ciws", false),
             ("KSArmory_Prefab_Launcher6", false),
             ("KSArmory_Prefab_SidewinderRail", false),

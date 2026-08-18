@@ -51,13 +51,13 @@ all. 1550 rounds of 20 mm at 4500 a minute, effective to 1486 m, with its radome
 same trunnion as the barrels so the track antenna stays boresighted with them. Elevation runs from
 −25° to +85°.
 
-**Mk 82 bomb rack** — a 14-inch ejector rack holding one 500 lb bomb. It neither aims nor guides:
-the aircraft is the launcher, and the sight draws the fall line and the point the store would land
-on so the release is the operator's call. 87 kg of filler, and a drag constant set from the bomb's
-280 m/s terminal velocity.
-
-A sixth is an entry in the registry plus its art: see
+A further weapon is an entry in the registry plus its art: see
 [Adding a weapon system](#adding-a-weapon-system).
+
+**Or it need not be in this mod at all.** A *weapon pack* is an ordinary KSA mod that declares a
+dependency on KSArmory and hands it a file of definitions; KSArmory never looks for one and holds
+no list of them. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
+used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
 > Built against KSA build `2026.8.19.5261`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and

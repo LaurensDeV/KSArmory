@@ -75,24 +75,6 @@
     "max_elevation_deg": 85.0,
     "total_height": 0.845
   },
-  "bombrack": {
-    "tubes": [
-      [
-        0.4065,
-        1.11,
-        0.0
-      ]
-    ],
-    "tube_directions": [
-      [
-        0.0,
-        1.0,
-        0.0
-      ]
-    ],
-    "body_length": 2.22,
-    "muzzle_forward_offset": 0.407
-  },
   "tubes": [
     [
       2.95513,
@@ -220,20 +202,5 @@
     3.46,
     0.82,
     0.44
-  ],
-  "litening": {
-    "head_pivot": [
-      0.26669,
-      0.94282,
-      0.0
-    ],
-    "eye_forward": 0.223,
-    "ball_radius": 0.19339,
-    "max_off_boresight_deg": 150,
-    "keyhole_deg": 4.0,
-    "aperture_open_deg": 158.0,
-    "aperture_closed_deg": 107.0,
-    "mechanical_stop_deg": 150.0,
-    "standoff": 0.26669
-  }
+  ]
 }

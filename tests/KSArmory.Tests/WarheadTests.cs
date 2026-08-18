@@ -83,8 +83,8 @@ public class WarheadTests
         double nuke = Arsenal.NukeB61.ChargeKg;
 
         Assert.Equal(Math.Cbrt(nuke / Warhead.ReferenceChargeKg), Warhead.EffectScale(nuke), 9);
-        Assert.True(Warhead.EffectScale(nuke) > Warhead.EffectScale(Arsenal.BombMk82.ChargeKg) * 5.0,
-                    "a nuclear burst should be visibly larger than a 500 lb bomb's");
+        Assert.True(Warhead.EffectScale(nuke) > Warhead.EffectScale(Arsenal.Missile57E6.ChargeKg) * 5.0,
+                    "a nuclear burst should be visibly larger than a conventional warhead's");
     }
 
     /// <summary>

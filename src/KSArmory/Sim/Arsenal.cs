@@ -306,51 +306,6 @@ public static class Arsenal
     };
 
     // ---- Sensors --------------------------------------------------------
-
-    /// <summary>
-    /// A 500 lb general-purpose bomb: no seeker, no motor, no fuse but the ground.
-    ///
-    /// <para>Modelled on the Mk 82 — 227 kg all up, of which 87 kg is filler. The drag constant is
-    /// set from its terminal velocity rather than guessed: a Mk 82 settles around 280 m/s, and
-    /// <c>DragK = g / v²</c> is what makes it do that.</para>
-    /// </summary>
-    public static readonly MunitionProfile BombMk82 = new()
-    {
-        Name = "MK82",
-        DisplayName = "Mk 82 500 lb bomb",
-        BodyMarker = "Mk82",
-        BodyLength = 2.22f,
-
-        Guidance = GuidanceMode.None,
-
-        // Released, not launched: what it mostly leaves with is the aircraft's velocity. The few
-        // metres a second are the ejector cartridge, which throws a store down hard enough to
-        // clear the airflow under the wing -- and at zero the launcher's EjectAwayFromMount is a
-        // direction multiplied by nothing.
-        LaunchSpeed = 4f,
-        BoostSeconds = 0f,
-        BoostAccel = 0f,
-
-        MinRange = 0f,
-        MaxRange = 20000f,
-
-        // Long enough for a release from altitude: a drop from 10 km is about 45 seconds.
-        MaxFlightSeconds = 120f,
-
-        DragK = 1.25e-4f,
-
-        // Contact. There is nothing to be near -- what it arrives at is the ground, and the hull
-        // test decides a craft.
-        FuseRadius = 0f,
-
-        // Clear of the aircraft that dropped it before it can do anything. A bomb fused at release
-        // is one that goes off under its own wing.
-        FuseArmSeconds = 1.5f,
-
-        ChargeKg = 87f,
-        HitsTerrain = true,
-    };
-
     /// <summary>
     /// A B61-pattern tactical nuclear bomb, at its lowest selectable yield.
     ///
@@ -612,27 +567,6 @@ public static class Arsenal
     };
 
     // ---- Launchers ------------------------------------------------------
-
-    /// <summary>
-    /// The optical sight a bomb is released on. Not a radar and not a seeker: it exists so the
-    /// system has something to draw and something to name what is ahead, because a rack that
-    /// engages nothing by itself still has to tell the operator what it is over.
-    /// </summary>
-    public static readonly SensorProfile BombSight = new()
-    {
-        Name = "BOMBSIGHT",
-        DisplayName = "Mk 9 bombsight",
-        Range = 8000f,
-        ConeDeg = 60f,
-
-        // Out of the pylon, which for a rack under a wing is downward: a bomb sight looks where
-        // the bomb is going to fall, not where the aircraft is going.
-        BoresightSource = BoresightMode.MountNormal,
-        ThreatRadius = 3000f,
-        ThreatHorizonSeconds = 20f,
-        LockSeconds = 0.8f,
-    };
-
     /// <summary>
     /// The designation set on a post-boost vehicle: where the warheads are being sent.
     ///
@@ -882,36 +816,6 @@ public static class Arsenal
         ReloadSeconds = 0f,
         SettleSeconds = 0f,
     };
-
-    /// <summary>
-    /// A 14-inch ejector rack carrying one Mk 82. Nothing on it moves and nothing about it aims:
-    /// the aircraft is the launcher, and the operator's judgement is the fire control.
-    ///
-    /// <para>Geometry pasted from <c>tools/model/bombrack.py</c>, which prints it. Change the rack
-    /// there, rerun <c>tools/model/build.sh</c>, paste the block — <c>validate-parts.py</c> fails
-    /// if the two ever disagree.</para>
-    /// </summary>
-    public static readonly LauncherProfile BombRack = new()
-    {
-        PartId = "KSArmory_Prefab_BombRack",
-        DisplayName = "Mk 82 bomb rack",
-        Munition = "MK82",
-        Sensor = "BOMBSIGHT",
-        TubeArmamentLabel = "Bombs",
-        Tubes = [new(new(0.40650, 1.11000, 0.00000), new(0, 1, 0))],
-        MuzzleForwardOffset = 0.407,
-        LaunchAlongTube = true,
-
-        // Enough to clear the rack and the wing before gravity takes it. A real ejector cartridge
-        // throws a store down hard for exactly this reason.
-        EjectAwayFromMount = 1.2f,
-
-        LaunchLoft = 0f,
-        MuzzleOffset = 2f,
-        ReloadSeconds = 0f,
-        SettleSeconds = 0f,
-    };
-
     /// <summary>
     /// The same ejector rack carrying a B61 instead.
     ///
@@ -1001,6 +905,26 @@ public static class Arsenal
         // No missile magazine to refill. Left at the profile's 12 s default the
         // battery reloads forever, because a magazine with no tubes is always empty.
         ReloadSeconds = 0f,
+    };
+
+    /// <summary>
+    /// The optical sight a bomb is released on. Not a radar and not a seeker: it exists so the
+    /// system has something to draw and something to name what is ahead, because a rack that
+    /// engages nothing by itself still has to tell the operator what it is over.
+    /// </summary>
+    public static readonly SensorProfile BombSight = new()
+    {
+        Name = "BOMBSIGHT",
+        DisplayName = "Mk 9 bombsight",
+        Range = 8000f,
+        ConeDeg = 60f,
+
+        // Out of the pylon, which for a rack under a wing is downward: a bomb sight looks where
+        // the bomb is going to fall, not where the aircraft is going.
+        BoresightSource = BoresightMode.MountNormal,
+        ThreatRadius = 3000f,
+        ThreatHorizonSeconds = 20f,
+        LockSeconds = 0.8f,
     };
 
     /// <summary>
@@ -1161,10 +1085,10 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [PantsirS1, SidewinderRail, AmraamRail, HarmRail, Ciws, BombRack, NukeRack, MirvBus];
+        [PantsirS1, SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [Missile57E6, Cannon30Mm, Missile9J, Missile120C, MissileAgm88, Cannon20Mm,
-         BombMk82, NukeB61, ReentryVehicleMk21];
+         NukeB61, ReentryVehicleMk21];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
         [SearchRadar1Rs1, SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
          BombSight, EoSensor, PodSensor, BusDesignation];
@@ -1284,20 +1208,6 @@ public static class Arsenal
                 new(WeaponRole.Sensor, SearchRadarVps2.DisplayName),
                 new(WeaponRole.Gun, Cannon20Mm.DisplayName),
                 new(WeaponRole.FireControl, "Mk 15 fire control"),
-            ],
-        },
-        new ComponentProfile
-        {
-            PartId = BombRack.PartId,
-            Role = WeaponRole.Launcher,
-            DisplayName = BombRack.DisplayName,
-
-            // The sight is the crew's rather than the rack's, but the rack is what a survey can
-            // see -- the same reasoning as the rail's seeker head above.
-            Provides =
-            [
-                new(WeaponRole.Sensor, BombSight.DisplayName),
-                new(WeaponRole.FireControl, "Mk 82 release"),
             ],
         },
         new ComponentProfile

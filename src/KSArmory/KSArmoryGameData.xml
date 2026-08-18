@@ -122,43 +122,6 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_BombRack" DisplayName="Mk 82 Bomb">
-    <EditorTag Value="Weapons" />
-    <EditorTag Value="Radial" />
-    <EditorTag Value="NoFaceSnapping" />
-    <Diameter M="0.5" />
-
-    <!-- Attaches by the pylon's base to the side of a stack. -->
-    <Connector Id="_brConnectorBase">
-      <Flags>ToSurface</Flags>
-    </Connector>
-
-    <!-- Mk 82 at 227 kg on a 45 kg rack and its pylon. -->
-    <SolidSphereMass>
-      <Mass Kg="272" />
-      <Radius M="0.70" />
-    </SolidSphereMass>
-
-    <Collider Id="KSArmory_RackCollider">
-      <!-- Rack and pylon, standing off the mounting face at X = 0. -->
-      <Box Id="KSArmory_RackBeamCollider">
-        <LocationAsmb X="0.15" Y="0.02" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.30" />
-        <LengthY M="1.30" />
-        <LengthZ M="0.24" />
-      </Box>
-      <!-- The bomb on it. -->
-      <Box Id="KSArmory_RackRoundCollider">
-        <LocationAsmb X="0.41" Y="0" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.30" />
-        <LengthY M="2.26" />
-        <LengthZ M="0.30" />
-      </Box>
-    </Collider>
-  </PartGameData>
-
   <PartGameData Id="KSArmory_Prefab_NukeRack" DisplayName="B61 Nuclear Bomb">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />

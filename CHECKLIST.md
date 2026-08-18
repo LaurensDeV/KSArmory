@@ -678,9 +678,15 @@ is genuinely new:
       rounds and different seekers is the case the per-system profiles exist for, and it has never
       been run.
 
-### 7.1f The Mk 82 bomb rack
+### 7.1f Releasing a bomb
 
 **Reported not working in flight**, with no detail yet, so nothing here is a diagnosis.
+
+The Mk 82 rack this was first reported against now ships in `KSArmory-example-mod` rather than
+here, which changes nothing about the fault: every piece of the release path — `Slug`,
+`Ksa/GroundTest.cs`, `Ksa/BombSightOverlay.cs` — is still this mod's, and the **B61 rack** exercises
+all of it. Run it against that. Doing it against the example pack as well answers a second question
+for free, which is whether a registered weapon behaves like a compiled-in one.
 
 Two things shipped together and either could be it: `feat(rounds): drop a bomb` and
 `feat(rounds): show where a bomb would land`. They fail in different places — one is a round that
@@ -692,7 +698,8 @@ What to record next time, in this order, because each answers a different half:
       it outright and says why, so the panel's *Holding fire* line is the first thing to read.
 - [ ] Does the bomb **fall away from the aircraft**, nose-down, rather than sideways or through it?
 - [ ] Does it **burst on the ground** rather than passing through? `HitsTerrain` is set for this
-      round and nothing else, so this is the only round that exercises `Ksa/GroundTest.cs`.
+      round and the Mk 21 reentry vehicle, so it is nearly the only thing exercising
+      `Ksa/GroundTest.cs`.
 - [ ] Does the **ring** sit where it lands? A ring in the wrong place with a bomb that arrives
       correctly is the sight; a bomb that goes nowhere near the ring is the round.
 - [ ] The log line for the release, and the whole `KSArmory.log`.

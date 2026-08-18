@@ -8,6 +8,10 @@ installing one is nothing but installing a mod.
 > **Status.** Everything described here is implemented and covered by tests. Nothing has been
 > flown yet, and three things named at the end are not built. `KSArmory.Armoury.Schema` is `1`.
 
+**There is a complete worked example**: `KSArmory-example-mod` is this whole document as a folder
+you can copy — a bomb rack, its art, its definitions, and one method of C#. Everything below is
+what it does and why.
+
 If you have modded KSP, read `FROM-KSP-MODDING.md` first: there is no `PartModule` here, and that
 is why the shape below is what it is.
 
@@ -279,7 +283,7 @@ To use something else, qualify it. `KSArmory:` is the built-ins:
 ```
 
 That is a whole launcher and no munition at all. The built-in keys are `57E6`, `30MM`, `AIM9J`,
-`AIM120C`, `AGM88`, `20MM`, `MK82`, `B61`, `MK21`, and the sensors `1RS1`, `AIM9SEEK`,
+`AIM120C`, `AGM88`, `20MM`, `B61`, `MK21`, and the sensors `1RS1`, `AIM9SEEK`,
 `AIM120SEEK`, `AGM88SEEK`, `VPS2`, `BOMBSIGHT`, `MIRVBUS`, `EO`, `Litening`.
 
 **A name that resolves to nothing is refused when the file is read**, not at the first shot. So is a

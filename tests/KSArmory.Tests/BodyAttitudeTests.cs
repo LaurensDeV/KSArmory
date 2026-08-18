@@ -103,7 +103,7 @@ public class BodyAttitudeTests
     [Fact]
     public void AReleasedStoreIsDrawnWhereItWasSeated()
     {
-        double3 tubeAxis = TubeGeometry.TubeAxisPodFrame(Arsenal.BombRack);
+        double3 tubeAxis = TubeGeometry.TubeAxisPodFrame(Arsenal.NukeRack);
 
         // What TrySeatMissile writes while the bomb hangs on the rack.
         doubleQuat seated = FireGeometry.RotationFromNose(tubeAxis);

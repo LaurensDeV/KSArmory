@@ -20,16 +20,15 @@ public class ReleaseOntoDesignationTests
     }
 
     [Fact]
-    public void AnUnguidedBombSteersNothing()
+    public void AnUnguidedStoreSteersNothing()
     {
-        MunitionProfile mk82 = Catalogue.MunitionNamed("MK82");
-        Assert.False(mk82.Steers);
-        Assert.False(mk82.Powered);
+        MunitionProfile rv = Catalogue.MunitionNamed("MK21");
+        Assert.False(rv.Steers);
+        Assert.False(rv.Powered);
     }
 
     [Theory]
     [InlineData("KSArmory_Prefab_NukeRack", false)]
-    [InlineData("KSArmory_Prefab_BombRack", false)]
     [InlineData("KSArmory_Prefab_Launcher6", true)]
     [InlineData("KSArmory_Prefab_Ciws", true)]
     public void OnlyASystemThatEngagesOnItsOwnOffersTheAutoEngageControls(string partId, bool expected)
