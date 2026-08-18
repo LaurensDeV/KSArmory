@@ -151,6 +151,26 @@
     <AoRoughMetal Path="Textures/KSArmory_MirvBus_PBR.png" Category="Vessel" />
   </PbrMaterial>
 
+  <!--
+    The B61-12 atlas and its one material.
+
+    Authored in Blender over MCP. Its airframe is the real weapon's to the published figures —
+    3.556 m over 330 mm, with the ogive shoulder at 21% and the boat tail from 62% — and the
+    stations between them are measured off the F-35 release photograph, which is a true broadside
+    against sky and so the only reference here with no perspective to misread.
+
+    The livery is painted texels rather than geometry: the maroon nose cap, the orange forward
+    body and tail kit, the bare-metal sections and the joint rings are all one unwrap. That paint
+    is driven from object coordinates rather than UV space, so a repack cannot smear it.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_B61.glb" />
+
+  <PbrMaterial Id="KSArmory_B61_Material">
+    <Diffuse Path="Textures/KSArmory_B61_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_B61_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_B61_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
   <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
   <SubPart Id="KSArmory_Chassis_SubPart">
     <PartModel Id="KSArmory_Subpart_Chassis_Model">
@@ -374,6 +394,52 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_Harm_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    MAU-12 ejector rack. Nothing on it moves.
+
+    It carries BOTH shackle sets the real rack has — 14 inches and 30 inches — which is why it
+    replaces the generated beam here rather than being a 30-inch-only part: the B61-12 hangs from
+    the outer pair, and the inner pair is the spacing a Mk 82 uses.
+  -->
+  <SubPart Id="KSArmory_B61Rack_SubPart">
+    <PartModel Id="KSArmory_Subpart_B61Rack_Model">
+      <Mesh Id="KSArmory_Subpart_B61Rack" />
+      <Material Id="KSArmory_B61_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_B61Rack_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!--
+    One blade of the B61-12's tail kit, instanced four times.
+
+    Modelled at roll zero and exported recentred on its hinge, because a subpart turns about its
+    own mesh origin — so the four differ only by the roll the mod composes, and one mesh with one
+    unwrap island serves all of them. Nothing is declared here about where they sit: the mod
+    rewrites every blade's transform each frame.
+  -->
+  <SubPart Id="KSArmory_B61Fin_SubPart">
+    <PartModel Id="KSArmory_Subpart_B61Fin_Model">
+      <Mesh Id="KSArmory_Subpart_B61Fin" />
+      <Material Id="KSArmory_B61_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_B61Fin_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One B61-12. Seated on the rack while loaded, flown by the mod once it is released. -->
+  <SubPart Id="KSArmory_B61_SubPart">
+    <PartModel Id="KSArmory_Subpart_B61_Model">
+      <Mesh Id="KSArmory_Subpart_B61" />
+      <Material Id="KSArmory_B61_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_B61_VM" />
     </MeshView>
   </SubPart>
 
@@ -982,19 +1048,19 @@
   </Part>
 
   <!--
-    The same ejector rack with a B61 on it.
+    The same ejector rack with a B61-12 on it.
 
-    Instances the very same two SubPart templates as the Mk 82 rack rather than shipping meshes of
-    its own: a launcher names one round, so a nuclear store needs its own part, and needing its own
-    part is not the same as needing its own art. The two optical heads share their bodies the same
-    way.
+    Both bodies are authored, and the rack shares none of the Mk 82's: a B61-12 is 3.556 m against
+    the Mk 82's 2.22 m and a wholly different shape, and it hangs from 30-inch lugs where the
+    generated beam's hooks are 14 inches apart. So this part carries a MAU-12 of its own, and the
+    two racks are checked separately — the Mk 82's against muzzles.json, this one against its mesh.
 
-    Geometry therefore stays in step with the Mk 82 rack's by construction, and validate-parts.py
-    checks both against the one bombrack block in muzzles.json.
+    The round rides higher than the Mk 82 does, because the seat clears the hooks by the round's
+    own radius and this one is the fatter of the two.
   -->
   <Part Id="KSArmory_Prefab_NukeRack">
 
-    <SubPart Id="KSArmory_NukeRack_Beam" InstanceOf="KSArmory_BombRack_SubPart" />
+    <SubPart Id="KSArmory_NukeRack_Beam" InstanceOf="KSArmory_B61Rack_SubPart" />
 
     <Connector Id="_nrConnectorBase">
       <Transform>
@@ -1003,11 +1069,33 @@
       </Transform>
     </Connector>
 
-    <SubPart Id="KSArmory_NukeRack_B6100" InstanceOf="KSArmory_Mk82_SubPart">
+    <!--
+      Position is the seated centre and the rotation is the quarter turn carrying the body mesh's
+      nose from +X onto the tube axis — the same values TrySeatMissile computes, so nothing moves
+      when the mod takes over. Keep in step with Arsenal.NukeRack.
+    -->
+    <SubPart Id="KSArmory_NukeRack_B6100" InstanceOf="KSArmory_B61_SubPart">
       <Transform>
-        <Position X="0.40650" Y="0.00000" Z="0.00000" />
+        <Position X="0.43510" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
       </Transform>
+    </SubPart>
+
+    <!--
+      Its four blades. Placed and rolled by the mod every frame, so these transforms are only what
+      they look like before it takes over — seated with the round, square to the rack.
+    -->
+    <SubPart Id="KSArmory_NukeRack_Blade00" InstanceOf="KSArmory_B61Fin_SubPart">
+      <Transform><Position X="0.43510" Y="0.00000" Z="0.00000" /><Rotation Z="1.57080" /></Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_NukeRack_Blade01" InstanceOf="KSArmory_B61Fin_SubPart">
+      <Transform><Position X="0.43510" Y="0.00000" Z="0.00000" /><Rotation Z="1.57080" /></Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_NukeRack_Blade02" InstanceOf="KSArmory_B61Fin_SubPart">
+      <Transform><Position X="0.43510" Y="0.00000" Z="0.00000" /><Rotation Z="1.57080" /></Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_NukeRack_Blade03" InstanceOf="KSArmory_B61Fin_SubPart">
+      <Transform><Position X="0.43510" Y="0.00000" Z="0.00000" /><Rotation Z="1.57080" /></Transform>
     </SubPart>
 
   </Part>

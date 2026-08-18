@@ -169,26 +169,28 @@
       <Flags>ToSurface</Flags>
     </Connector>
 
-    <!-- B61 at 320 kg on the same 45 kg rack and pylon. -->
+    <!-- B61-12 at 374 kg on a MAU-12, which is 69 lb. -->
     <SolidSphereMass>
-      <Mass Kg="365" />
+      <Mass Kg="405" />
       <Radius M="0.70" />
     </SolidSphereMass>
 
     <Collider Id="KSArmory_NukeRackCollider">
+      <!-- The MAU-12: 0.813 m long, 0.275 m over its sway braces. -->
       <Box Id="KSArmory_NukeRackBeamCollider">
-        <LocationAsmb X="0.15" Y="0.02" Z="0" />
+        <LocationAsmb X="0.17" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.30" />
-        <LengthY M="1.30" />
-        <LengthZ M="0.24" />
+        <LengthX M="0.34" />
+        <LengthY M="0.82" />
+        <LengthZ M="0.28" />
       </Box>
+      <!-- The B61-12 on it: 3.556 m over 330 mm, seated clear of the hooks by its own radius. -->
       <Box Id="KSArmory_NukeRackRoundCollider">
-        <LocationAsmb X="0.41" Y="0" Z="0" />
+        <LocationAsmb X="0.44" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.30" />
-        <LengthY M="2.26" />
-        <LengthZ M="0.30" />
+        <LengthX M="0.34" />
+        <LengthY M="3.60" />
+        <LengthZ M="0.34" />
       </Box>
     </Collider>
   </PartGameData>

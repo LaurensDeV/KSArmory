@@ -765,6 +765,53 @@ def check_body_markers_resolve_on_their_own_launcher(text):
     return problems, checked
 
 
+def check_markers_select_disjoint_subparts(text):
+    """A round's body marker and its fin marker must not select the same subparts.
+
+    Both are matched by *substring* against the launcher's subpart Ids, so a fin instance named
+    for the round it belongs to is collected as a round body as well: a one-tube rack reports five
+    of them, and the loops that hide and seat round bodies then reach the blades. That is silent —
+    the geometry is valid, every other check passes, and the fins simply vanish or are seated as
+    though they were bombs.
+
+    Shipped as BodyMarker "B61" against blades declared KSArmory_NukeRack_B61Fin00.
+    """
+    problems = checked = 0
+
+    for launcher in registered(text, "Launchers"):
+        block = re.search(rf'{launcher}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};', text, re.S)
+        if block is None:
+            continue
+        part = re.search(r'PartId\s*=\s*"([^"]+)"', block.group(1))
+        key = re.search(r'Munition\s*=\s*"([^"]+)"', block.group(1))
+        if part is None or key is None:
+            continue
+
+        round_block = re.search(rf'=\s*new\(\)\s*\{{([^}}]*?Name\s*=\s*"{re.escape(key.group(1))}".*?)\n\s*\}};',
+                                text, re.S)
+        if round_block is None:
+            continue
+        body = re.search(r'BodyMarker\s*=\s*"([^"]+)"', round_block.group(1))
+        fin = re.search(r'FinMarker\s*=\s*"([^"]+)"', round_block.group(1))
+        if body is None or fin is None:
+            continue                      # nothing to collide
+
+        subparts = part_subparts(part.group(1))
+        if subparts is None:
+            continue
+
+        checked += 1
+        both = [name for name in subparts
+                if body.group(1).lower() in name.lower() and fin.group(1).lower() in name.lower()]
+        if both:
+            print(f"  MARKER COLLISION {launcher}: BodyMarker \"{body.group(1)}\" and FinMarker "
+                  f"\"{fin.group(1)}\" both match {', '.join(sorted(both))} — those subparts are "
+                  f"collected as round bodies as well as fins", file=sys.stderr)
+            problems += 1
+
+    return problems, checked
+
+
 def check_editor_tags(core_dir):
     """Verifies every <EditorTag> a part names is defined, here or by Core.
 
@@ -824,7 +871,7 @@ LAUNCHER_GEOMETRY = {
     "Ciws": ("ciws", "CIWS"),
     "SidewinderRail": ("sidewinder", "rail"),
     "BombRack": ("bombrack", "rack"),
-    "NukeRack": ("bombrack", "nuclear rack"),
+    "NukeRack": (None, "nuclear rack"),       # beam generated, round authored -- as above
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
     "HarmRail": (None, "HARM rail"),          # authored, as above
     "MirvBus": (None, "MIRV bus"),            # authored, clustered -- CLUSTER_LAUNCHERS
@@ -844,6 +891,10 @@ AUTHORED_LAUNCHERS = {
                    "KSArmory_Subpart_Amraam", "Missile120C", "AMRAAM rail"),
     "HarmRail": ("KSArmory_Prefab_HarmRail", "KSArmory_Harm_Round00",
                  "KSArmory_Subpart_Harm", "MissileAgm88", "HARM rail"),
+    # Its beam is generated and its round is not, so only the round is checked here. The beam
+    # carries no geometry Arsenal.cs names -- the seat and the tube both come off the round.
+    "NukeRack": ("KSArmory_Prefab_NukeRack", "KSArmory_NukeRack_B6100",
+                 "KSArmory_Subpart_B61", "NukeB61", "nuclear rack"),
 }
 
 
@@ -1074,7 +1125,6 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
 FIXED_LAUNCHER_MUNITION = {
     "SidewinderRail": "Missile9J",
     "BombRack": "BombMk82",
-    "NukeRack": "NukeB61",
 }
 
 
@@ -1352,6 +1402,11 @@ def main():
 
     print("checking every body marker names a subpart that exists")
     p, c = check_body_markers()
+    problems += p
+    checked += c
+
+    print("checking a round's body and fin markers do not select the same subparts")
+    p, c = check_markers_select_disjoint_subparts((MOD / "Sim" / "Arsenal.cs").read_text())
     problems += p
     checked += c
 
