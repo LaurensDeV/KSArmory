@@ -33,30 +33,43 @@ internal static class VehicleCommand
     /// <summary>
     /// Point the vehicle's nose along a direction in the parent body's inertial frame.
     ///
-    /// <para>The rotation is built by <see cref="VehicleReferenceFrameEx.GetTgt2Cci"/> — the
-    /// engine's own "aim at that" frame, which is what its <c>Toward</c> mode uses. Building one by
-    /// hand would mean guessing which body axis is the nose and which way the roll reference goes,
-    /// and getting it wrong gives a vehicle that holds a perfectly steady attitude ninety degrees
-    /// from the one asked for.</para>
+    /// <para>The rotation is laid out exactly as <see cref="VehicleReferenceFrameEx.GetTgt2Cci"/>
+    /// lays it out — the engine's own "aim at that" frame, which is what its <c>Toward</c> mode
+    /// uses — because guessing which body axis is the nose gives a vehicle that holds a perfectly
+    /// steady attitude ninety degrees from the one asked for.</para>
+    ///
+    /// <para><b>What it does not borrow is the roll reference.</b> The engine's is the direction of
+    /// the planet, which has no answer when the nose points at it or away from it, and does not
+    /// merely fail there — it <em>reverses</em>. A vertical rise points away from the planet for
+    /// its whole duration, so the commanded roll swings through half a turn and the vehicle spins
+    /// on its own axis. <see cref="AimFrame"/> supplies one that is carried forward instead.</para>
     ///
     /// <para>The frame is <c>EclBody</c> rather than the local horizon, because its frame rates are
     /// zero: a commanded inertial direction wants no feed-forward, and the horizon frame's rates
     /// would have the flight computer chasing a rotation nobody asked for.</para>
     /// </summary>
-    public static bool TryAim(Vehicle craft, Celestial parent, double3 positionCci, double3 directionCci)
+    public static bool TryAim(Vehicle craft, Celestial parent, double3 positionCci,
+                              double3 directionCci, double3 rollReferenceCci)
     {
         if (!KsaWorld.IsAlive(craft)) return false;
 
-        double3 direction = Vec.Unit(directionCci);
-        if (direction.Equals(Vec.Zero) || !Vec.IsFinite(positionCci)) return false;
+        double3 forward = Vec.Unit(directionCci);
+        if (forward.Equals(Vec.Zero) || !Vec.IsFinite(positionCci)) return false;
 
-        doubleQuat? target2Cci = VehicleReferenceFrameEx.GetTgt2Cci(
-            positionCci, positionCci + direction * AimPointDistance);
+        double3 across = Vec.Unit(Vec.Cross(rollReferenceCci, forward));
+        if (across.Equals(Vec.Zero)) return false;
 
-        if (!target2Cci.HasValue) return false;
+        double3 third = Vec.Unit(Vec.Cross(forward, across));
+        if (third.Equals(Vec.Zero)) return false;
+
+        doubleQuat target2Cci = doubleQuat.CreateFromRotationMatrix(new double4x4(
+            forward.X, forward.Y, forward.Z, 0.0,
+            across.X, across.Y, across.Z, 0.0,
+            third.X, third.Y, third.Z, 0.0,
+            0.0, 0.0, 0.0, 1.0));
 
         doubleQuat frame2Cci = VehicleReferenceFrameEx.GetEclBody2Cci(parent.GetCce2Cci());
-        doubleQuat target2Frame = doubleQuat.Concatenate(target2Cci.Value, frame2Cci.Inverse());
+        doubleQuat target2Frame = doubleQuat.Concatenate(target2Cci, frame2Cci.Inverse());
 
         FlightComputer computer = craft.FlightComputer;
         computer.AttitudeFrame = VehicleReferenceFrame.EclBody;

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-146 types and 396 members across 7 assemblies.
+146 types and 402 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -50,6 +50,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double4x4 CreateScale(double)`
 - `Brutal.Numerics.double4x4 CreateTranslation(Brutal.Numerics.double3)`
 - `Brutal.Numerics.double4x4 op_Multiply(Brutal.Numerics.double4x4, Brutal.Numerics.double4x4)`
+- `void .ctor(double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double)`
 
 ### Brutal.Numerics.doubleQuat
 
@@ -57,6 +58,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat Concatenate(Brutal.Numerics.doubleQuat, Brutal.Numerics.doubleQuat)`
 - `Brutal.Numerics.doubleQuat Conjugate(Brutal.Numerics.doubleQuat)`
 - `Brutal.Numerics.doubleQuat CreateFromAxisAngle(Brutal.Numerics.double3, double)`
+- `Brutal.Numerics.doubleQuat CreateFromRotationMatrix(Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.doubleQuat get_Identity()`
 - `Brutal.Numerics.doubleQuat op_Multiply(Brutal.Numerics.doubleQuat, Brutal.Numerics.doubleQuat)`
 - `double W`
@@ -786,13 +788,18 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.SimStep GetLastSimStep()`
 - `KSA.UniverseTime GetElapsedTime()`
 - `bool IsPaused()`
+- `bool get_IsAutoWarpActive()`
 - `double get_SimulationSpeed()`
+- `void AutoWarpStop(bool)`
+- `void AutoWarpTo(KSA.UniverseTime, double)`
 - `void DestroyVehicleFromEvent(KSA.Vehicle, KSA.VehicleDestructionEvent)`
 - `void SetSimulationSpeed(KSA.SimSpeed)`
 
 ### KSA.UniverseTime
 
 - `System.Int128 get_Nanoseconds()`
+- `double Seconds()`
+- `void .ctor(double)`
 
 ### KSA.Vehicle
 
@@ -845,7 +852,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.Numerics.double3 QuaternionToEulerAngles(KSA.VehicleReferenceFrame, Brutal.Numerics.doubleQuat)`
 - `Brutal.Numerics.doubleQuat GetEclBody2Cci(Brutal.Numerics.doubleQuat)`
-- `System.Nullable`1<Brutal.Numerics.doubleQuat> GetTgt2Cci(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 
 ### KSA.VehicleSave
 

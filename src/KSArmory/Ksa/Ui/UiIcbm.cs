@@ -230,6 +230,12 @@ internal sealed partial class Ui
                 ? "a shorter flight than the cheapest: flatter and faster, and costs more"
                 : "minimum energy - the cheapest shot there is"));
 
+        bool autoWarp = config.AutoWarpToWindow;
+        if (ImGui.Checkbox("Warp to the burn window", ref autoWarp)) config.AutoWarpToWindow = autoWarp;
+        ImGui.TextDisabled(config.AutoWarpToWindow
+            ? "  the game's own warp, stopping a minute short so the cutoff stays accurate"
+            : "  a hold has to be warped through by hand");
+
         bool autoRelease = config.AutoRelease;
         if (ImGui.Checkbox("Release warheads automatically", ref autoRelease)) config.AutoRelease = autoRelease;
         ImGui.TextDisabled(config.AutoRelease

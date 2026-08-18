@@ -335,6 +335,42 @@ started. Measured, on a half-orbit deorbit: **9,904 km** with the loop stuck, tw
 the fallback. Any solve that can fail on some geometry needs an answer for that geometry, not a
 `false`.
 
+## Roll, and the direction that has no answer
+
+Pointing needs two directions. Where the nose goes leaves the roll about that nose undecided, and
+KSA's own aiming frame decides it by putting the vehicle's belly toward the planet.
+
+**That rule has no answer when the nose points at the planet or away from it — and does not merely
+fail there, it reverses.** Sweep the nose up through the vertical and "belly down" swings through
+half a turn, because the side the planet is on has changed. A vertical rise sits exactly there for
+its whole duration, so a roll re-derived from the aim each frame commands a vehicle that spins on
+its own axis for no reason. No threshold fixes it: the discontinuity is in the rule, not in the
+arithmetic.
+
+`Sim/AimFrame.cs` carries the reference instead — each frame's is the previous one squared up
+against the new aim, which is continuous by construction because it never asks the question again.
+It is re-seeded only when the aim has swung so far that the old reference is parallel to it, which
+is a different attitude rather than a boundary being crossed. `AimFrameTests` pins both halves: the
+carried reference stays inside a hundredth of a radian across the vertical, and the re-derived one
+swings more than two radians, so the test says something was at stake.
+
+This is the same shape as `Vec.PerpendicularTo` and the roll singularity in `OpticGeometry`. It is
+the third time this mod has met it.
+
+## Attitude is driven for every phase that is doing something
+
+Not only while an engine is lit. A hold can be an hour long with the vehicle pointed at a burn for
+all of it, and after cutoff the bus has to keep the line it was cut off on for the warheads to
+leave along it. Leaving either free is a vehicle drifting when it should be settled.
+
+## The wait is handed to the game
+
+A hold of an hour and a half is not something to sit through at one times, and KSA already has a
+warp-to-a-time. `IcbmConfig.AutoWarpToWindow` asks for it, stopping a minute short of the burn —
+because `WarpPolicy` cannot slow the world down at all while an auto-warp is running, and the last
+minute is exactly when the world has to be slow enough to cut an engine on. Only for the craft
+being flown: warping the world is not something a computer on some other vehicle gets to decide.
+
 ## What it tells the operator
 
 - **`IMPACT IN mm:ss`** — a countdown, taken from the plan while the burn is running and from the

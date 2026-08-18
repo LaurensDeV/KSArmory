@@ -32,6 +32,7 @@ internal sealed class IcbmComputer
     private readonly List<double3> _path = [];
     private double _sincePredict = double.PositiveInfinity;
     private bool _driving;
+    private double3 _rollReference;
     private double _throttleAchieved = 1.0;
 
     public Vehicle Craft { get; }
@@ -84,6 +85,7 @@ internal sealed class IcbmComputer
     {
         Target = site;
         Program.Reset();
+        _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
@@ -92,6 +94,13 @@ internal sealed class IcbmComputer
     /// <summary>Forget the target and the flight, and hand the vehicle back.</summary>
     public void Abort(string why)
     {
+        // A warp asked for on this shot's behalf outlives the shot otherwise, and the player is
+        // left fast-forwarding towards a burn that is no longer going to happen.
+        if (Config.AutoWarpToWindow && ReferenceEquals(Craft, KsaWorld.ControlledVehicle))
+        {
+            KsaWorld.StopAutoWarp();
+        }
+
         if (_driving)
         {
             VehicleCommand.SetEngine(Craft, running: false);
@@ -132,13 +141,24 @@ internal sealed class IcbmComputer
 
         Predict(simStep, state);
 
-        if (Command.EngineOn)
+        // Attitude is driven for every phase that is doing something, not only while an engine is
+        // lit. A hold can be an hour long and the vehicle is pointed at the burn for all of it; and
+        // after cutoff the bus has to keep the line it was cut off on for the warheads to leave
+        // along. Both were left free before, which is a vehicle drifting when it should be settled.
+        if (Command.Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution))
         {
-            if (VehicleCommand.TryAim(Craft, Parent!, state.PositionCci, Command.ThrustDirectionCci))
+            _rollReference = AimFrame.Advance(_rollReference, Command.ThrustDirectionCci,
+                                              -Vec.Unit(state.PositionCci), RollFallback(state));
+
+            if (VehicleCommand.TryAim(Craft, Parent!, state.PositionCci, Command.ThrustDirectionCci,
+                                      _rollReference))
             {
                 _driving = true;
             }
+        }
 
+        if (Command.EngineOn)
+        {
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Throttle);
             VehicleCommand.SetEngine(Craft, running: true);
 
@@ -152,14 +172,31 @@ internal sealed class IcbmComputer
         {
             VehicleCommand.SetEngine(Craft, running: false);
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, 1.0);
-
-            // Attitude is kept after cutoff rather than released. The bus has to hold the line it
-            // was cut off on for the warheads to leave along it, and handing the vehicle back the
-            // instant the engines stop lets it tumble at exactly the wrong moment.
-            VehicleCommand.TryAim(Craft, Parent!, state.PositionCci, Command.ThrustDirectionCci);
         }
 
         if (Config.AutoRelease && Command.ReadyToDeploy) Release(release);
+
+        WarpToWindow();
+    }
+
+    // Hand the wait to KSA's own warp-to-a-time. Only while holding, only for the craft being
+    // flown, and only out to a margin short of the burn - the last minute belongs to WarpPolicy,
+    // which cannot slow the world down at all while an auto-warp is running.
+    private void WarpToWindow()
+    {
+        if (!Config.AutoWarpToWindow) return;
+        if (Program.Phase != IcbmPhase.Holding) return;
+        if (!ReferenceEquals(Craft, KsaWorld.ControlledVehicle)) return;
+        if (KsaWorld.IsAutoWarpActive) return;
+
+        double wait = Command.SecondsToBurn;
+        if (!double.IsFinite(wait) || wait <= IcbmProgram.WarpHoldLeadSeconds * 2.0) return;
+
+        if (KsaWorld.TryAutoWarpTo(wait, IcbmProgram.WarpHoldLeadSeconds))
+        {
+            Log.Info($"warping {IcbmProgram.Clock(wait)} to the burn window on "
+                     + $"{KsaWorld.DisplayName(Craft)}");
+        }
     }
 
     /// <summary>Let one warhead go at the aim point, if there is one to let go and it is ready.</summary>
@@ -172,6 +209,12 @@ internal sealed class IcbmComputer
     }
 
     /// <summary>The trajectory, in the ecliptic, for drawing. Empty until a prediction has run.</summary>
+    // Something square to the vertical for the roll to clock to when the planet cannot supply one,
+    // which is the whole of a vertical rise. Downrange is horizontal by construction; before there
+    // is one, the way the vehicle is already moving will do.
+    private double3 RollFallback(in IcbmState state)
+        => Program.DownrangeCci.Equals(Vec.Zero) ? state.VelocityCci : Program.DownrangeCci;
+
     public void PathEcl(List<double3> into)
     {
         into.Clear();

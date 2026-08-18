@@ -109,6 +109,50 @@ internal static class KsaWorld
     /// </summary>
     public const double SlowestSimSpeed = 0.001;
 
+    /// <summary>Whether KSA is running its own warp-to-a-time, which it will not be interrupted during.</summary>
+    public static bool IsAutoWarpActive => Universe.IsAutoWarpActive;
+
+    /// <summary>
+    /// Ask KSA to warp forward to a moment, stopping a margin short of it.
+    ///
+    /// <para>The game's own mechanism rather than this mod's. <see cref="WarpPolicy"/> holds the
+    /// speed <em>down</em>, which is a different job and one KSA refuses to co-operate with while
+    /// an auto-warp is running — so the margin matters: it must be wide enough that the auto-warp
+    /// has finished before anything needs the world slow.</para>
+    /// </summary>
+    public static bool TryAutoWarpTo(double secondsFromNow, double marginSeconds)
+    {
+        if (!(secondsFromNow > marginSeconds)) return false;
+        if (Universe.IsAutoWarpActive) return false;
+
+        try
+        {
+            Universe.AutoWarpTo(new UniverseTime(Universe.GetElapsedTime().Seconds() + secondsFromNow),
+                                marginSeconds);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not start a warp to the burn window: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>Stop a warp this mod started, for a plan that no longer wants it.</summary>
+    public static void StopAutoWarp()
+    {
+        if (!Universe.IsAutoWarpActive) return;
+
+        try
+        {
+            Universe.AutoWarpStop(resetSimulationSpeed: true);
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not stop the warp: {e.Message}");
+        }
+    }
+
     /// <summary>
     /// Sets the world's simulation speed, including values slower than the in-game controls
     /// reach. KSA's own roller works in tenths, so 0.1x is as slow as it will go; nothing in
