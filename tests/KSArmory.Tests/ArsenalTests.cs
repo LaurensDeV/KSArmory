@@ -490,4 +490,31 @@ public class ArsenalTests
     {
         Assert.Equal(5, Enum.GetValues<GuidanceMode>().Length);
     }
+
+
+    /// <summary>
+    /// A weapon has to be able to be released over the target it was flown to.
+    ///
+    /// <para>Fire control refuses a shot beyond the round's <see cref="MunitionProfile.MaxRange"/>,
+    /// which for anything with a motor is what that motor can manage. A reentry vehicle has no
+    /// motor: its reach is entirely the arc the bus put it on, so reading the field as a
+    /// performance figure caps an intercontinental weapon at whatever number looked reasonable and
+    /// the bus then arrives over its target and refuses to let go — with the only symptom a line in
+    /// a log about a range nobody thought was a limit.</para>
+    /// </summary>
+    [Fact]
+    public void TheReentryVehicleCanBeReleasedAtIntercontinentalRange()
+    {
+        MunitionProfile rv = Catalogue.MunitionNamed(Arsenal.MirvBus.Munition);
+
+        Assert.Equal(GuidanceMode.None, rv.Guidance);
+
+        // Further than any real ballistic missile flies, and short of the geometric limit, which is
+        // half a circumference because past it the short way round is the other way.
+        Assert.True(rv.MaxRange >= 13_000_000f,
+                    $"{rv.DisplayName} can only be let go {rv.MaxRange / 1000f:F0} km from its target");
+
+        // And long enough in the air to get there: half an hour of ballistic flight.
+        Assert.True(rv.MaxFlightSeconds >= 1_500f);
+    }
 }

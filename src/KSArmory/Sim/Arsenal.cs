@@ -346,7 +346,14 @@ public static class Arsenal
         BoostAccel = 0f,
 
         MinRange = 0f,
-        MaxRange = 400_000f,
+
+        // Half a circumference, because that is the geometric limit rather than a performance one:
+        // past it the short way round is the other way. A reentry vehicle has no motor, so its
+        // reach is entirely the arc the bus put it on - reading this as something the round itself
+        // can manage caps an intercontinental weapon at a few hundred kilometres, and fire control
+        // then refuses to release it over the target it was flown to.
+        MaxRange = 20_000_000f,
+
         MaxFlightSeconds = 1800f,
 
         // An order of magnitude below the Mk 82's: a dense cone is what a heatshield is for.

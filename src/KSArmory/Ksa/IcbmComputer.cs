@@ -33,6 +33,7 @@ internal sealed class IcbmComputer
     private double _sincePredict = double.PositiveInfinity;
     private bool _driving;
     private double3 _rollReference;
+    private bool _warpIsOurs;
     private double _throttleAchieved = 1.0;
 
     public Vehicle Craft { get; }
@@ -96,9 +97,10 @@ internal sealed class IcbmComputer
     {
         // A warp asked for on this shot's behalf outlives the shot otherwise, and the player is
         // left fast-forwarding towards a burn that is no longer going to happen.
-        if (Config.AutoWarpToWindow && ReferenceEquals(Craft, KsaWorld.ControlledVehicle))
+        if (_warpIsOurs)
         {
             KsaWorld.StopAutoWarp();
+            _warpIsOurs = false;
         }
 
         if (_driving)
@@ -176,43 +178,66 @@ internal sealed class IcbmComputer
 
         if (Config.AutoRelease && Command.ReadyToDeploy) Release(release);
 
-        WarpToWindow();
+        EndOurWarp();
+    }
+
+    /// <summary>
+    /// Hand the wait to KSA's own warp-to-a-time. Pressed, never automatic.
+    ///
+    /// <para>Warping is an action rather than a setting, and taking the player's time control
+    /// because a target happened to be designated is not a thing a weapon gets to do. They may have
+    /// set a tenth speed to watch something.</para>
+    /// </summary>
+    public bool TryWarpToWindow()
+    {
+        if (Program.Phase != IcbmPhase.Holding) return false;
+        if (!ReferenceEquals(Craft, KsaWorld.ControlledVehicle)) return false;
+        if (KsaWorld.IsAutoWarpActive) return false;
+
+        double wait = Command.SecondsToBurn;
+        if (!double.IsFinite(wait) || wait <= IcbmProgram.WarpHoldLeadSeconds * 2.0) return false;
+
+        if (!KsaWorld.TryAutoWarpTo(wait, IcbmProgram.WarpHoldLeadSeconds)) return false;
+
+        _warpIsOurs = true;
+        Log.Info($"warping {IcbmProgram.Clock(wait)} to the burn window on {KsaWorld.DisplayName(Craft)}");
+        return true;
+    }
+
+    /// <summary>Whether the window is far enough away for warping to it to be worth offering.</summary>
+    public bool CanWarpToWindow
+        => Program.Phase == IcbmPhase.Holding
+        && !KsaWorld.IsAutoWarpActive
+        && ReferenceEquals(Craft, KsaWorld.ControlledVehicle)
+        && double.IsFinite(Command.SecondsToBurn)
+        && Command.SecondsToBurn > IcbmProgram.WarpHoldLeadSeconds * 2.0;
+
+    // Ends a warp this computer started, and only one it started. KSA's warp is still travelling
+    // when it reaches its target, so handing over at speed leaves the hold trying to brake the
+    // world from a thousand times in one frame - which computes a speed of nearly zero and pauses
+    // the game. Stopping it resets the speed. A warp the *player* started is theirs.
+    private void EndOurWarp()
+    {
+        if (!_warpIsOurs) return;
+
+        if (!KsaWorld.IsAutoWarpActive) { _warpIsOurs = false; return; }
+
+        double wait = Command.SecondsToBurn;
+        if (Program.Phase == IcbmPhase.Holding && double.IsFinite(wait)
+            && wait > IcbmProgram.WarpHoldLeadSeconds)
+        {
+            return;
+        }
+
+        Log.Info($"stopping the warp on {KsaWorld.DisplayName(Craft)}, "
+                 + $"{IcbmProgram.Clock(Math.Max(wait, 0.0))} to the burn");
+        KsaWorld.StopAutoWarp();
+        _warpIsOurs = false;
     }
 
     // Hand the wait to KSA's own warp-to-a-time. Only while holding, only for the craft being
     // flown, and only out to a margin short of the burn - the last minute belongs to WarpPolicy,
     // which cannot slow the world down at all while an auto-warp is running.
-    private void WarpToWindow()
-    {
-        if (Program.Phase != IcbmPhase.Holding) return;
-        if (!ReferenceEquals(Craft, KsaWorld.ControlledVehicle)) return;
-
-        double wait = Command.SecondsToBurn;
-
-        // Ended by this side rather than left to run out. KSA's warp is still travelling when it
-        // reaches its target, so handing over at speed leaves the hold trying to brake the world
-        // from a thousand times in one frame - which computes a speed of nearly zero and pauses the
-        // game. Stopping it resets the speed, and the hold then starts from something workable.
-        if (KsaWorld.IsAutoWarpActive)
-        {
-            if (double.IsFinite(wait) && wait <= IcbmProgram.WarpHoldLeadSeconds)
-            {
-                Log.Info($"stopping the warp on {KsaWorld.DisplayName(Craft)}, "
-                         + $"{IcbmProgram.Clock(wait)} to the burn");
-                KsaWorld.StopAutoWarp();
-            }
-            return;
-        }
-
-        if (!Config.AutoWarpToWindow) return;
-        if (!double.IsFinite(wait) || wait <= IcbmProgram.WarpHoldLeadSeconds * 2.0) return;
-
-        if (KsaWorld.TryAutoWarpTo(wait, IcbmProgram.WarpHoldLeadSeconds))
-        {
-            Log.Info($"warping {IcbmProgram.Clock(wait)} to the burn window on "
-                     + $"{KsaWorld.DisplayName(Craft)}");
-        }
-    }
 
     /// <summary>Let one warhead go at the aim point, if there is one to let go and it is ready.</summary>
     public bool Release(IManualFire? weapon)

@@ -52,19 +52,6 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool DesignateByClicking = false;
 
-    /// <summary>
-    /// Let the game warp forward to the burn window on its own.
-    ///
-    /// <para>A hold can be an hour and a half, and sitting through it at one times is not a thing
-    /// anybody wants to do. KSA already has a warp-to-a-time, so this asks for that rather than
-    /// inventing one — and asks it to stop a minute short, because the last minute is when the
-    /// world has to be slow enough to cut an engine on.</para>
-    ///
-    /// <para>Only for the craft being flown. Warping the world is not something a computer on some
-    /// other vehicle gets to decide.</para>
-    /// </summary>
-    public bool AutoWarpToWindow = true;
-
     /// <summary>Fire the next stage when the running one has nothing left to burn.</summary>
     public bool AutoStage = true;
 

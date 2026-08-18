@@ -145,6 +145,13 @@ internal sealed partial class Ui
             ImGui.TextColored(Working, $"Burn starts in {IcbmProgram.Clock(command.SecondsToBurn)}"
                                        + $"   ({command.VelocityToGain:F0} m/s to spend)");
             ImGui.TextDisabled("  coasting on purpose - leaving now costs far more than waiting does");
+
+            // A button rather than something that happens. Taking the world's clock away because a
+            // target was designated is not a weapon's decision to make.
+            if (computer.CanWarpToWindow && ImGui.Button("Warp to the burn window"))
+            {
+                computer.TryWarpToWindow();
+            }
         }
 
         if (computer.Program.Arc is { } arc)
@@ -229,12 +236,6 @@ internal sealed partial class Ui
             : config.Loft < 0.995
                 ? "a shorter flight than the cheapest: flatter and faster, and costs more"
                 : "minimum energy - the cheapest shot there is"));
-
-        bool autoWarp = config.AutoWarpToWindow;
-        if (ImGui.Checkbox("Warp to the burn window", ref autoWarp)) config.AutoWarpToWindow = autoWarp;
-        ImGui.TextDisabled(config.AutoWarpToWindow
-            ? "  the game's own warp, stopping a minute short so the cutoff stays accurate"
-            : "  a hold has to be warped through by hand");
 
         bool autoRelease = config.AutoRelease;
         if (ImGui.Checkbox("Release warheads automatically", ref autoRelease)) config.AutoRelease = autoRelease;
