@@ -5,11 +5,19 @@ BDArmory's answer is a part `.cfg` and a model, and no compiler. That works beca
 `docs/FROM-KSP-MODDING.md` and `docs/BLOCKED-ON-KSA.md` record why — so the mechanism here has to
 be different even where the experience is the same.
 
-**The dependency arrow points one way: a pack depends on KSArmory, and KSArmory depends on
-nothing.** No folder scanning, no manifest reading, no enumerating what else is installed. This mod
-publishes a registration surface; a pack is an ordinary StarMap mod that calls it. Everything below
-follows from that, and the alternative — KSArmory looking for packs — is rejected outright: it
-makes every pack a thing this mod has to find, and finding is the part that goes wrong silently.
+**No pack depends on KSArmory, and KSArmory knows no pack by name.** A weapon pack is an ordinary
+KSA content mod with a `KSArmory/` folder in it; KSArmory reads that folder inside every installed
+mod and registers what it finds. The convention is the whole mechanism — the same relationship KSA
+itself has with its mods folder.
+
+**This reverses an earlier decision, and the reasoning is worth keeping.** The first design had
+packs *push*: ship an assembly, depend on KSArmory through StarMap, call `Armoury.Register`. That
+works, is still supported, and is what anything building definitions at runtime should do. What it
+cost was a DLL for a mod that only wanted to declare data — a compiler, an SDK and a reference to
+this mod's assembly, to hand over a string. Scanning by convention costs four KSA bindings and
+removes all of it, and it turns out to *improve* the thing push was meant to protect: KSArmory can
+now report a pack that is installed but disabled, which under push-only was invisible by
+construction.
 
 **Cite symbols here, never file and line**, per `docs/MODULARITY.md`.
 
@@ -456,6 +464,7 @@ defensible and should be reached by trying rather than assumed.
 | 0 | ~~`Catalogue` replaces the static registries~~ | medium | **landed** |
 | 1 | ~~`PackReader` in `Sim/`: text and a source name in, profiles and diagnostics out~~ | medium | **landed** |
 | 2 | ~~`Armoury`: the public surface, the freeze, the existence checks and the API record~~ | small | **landed** |
+| 2b | ~~`PackScan` + `InstalledPacks`: read a `KSArmory/` folder inside every mod~~ | small | **landed** — what makes a pack assets-only |
 | 3 | `validate-parts.py --mod-root`, plus the silent-marker fixes | medium | yes — improves the built-ins too |
 | 4 | The **Content** window, and the pack template repository | small | yes |
 | 5 | Register the LAU-7 rail through `Armoury` instead of compiling it in | small | the one that says whether any of it is right |
@@ -473,8 +482,12 @@ when a name it uses was **taken**, not when it fails to resolve. A refused round
 the catalogue carrying somebody else's profile, so checking that the name resolves — the obvious
 form, and the one written first — accepts a launcher that flies a weapon its author never shipped.
 
-**What this plan does not contain, deliberately:** any code that enumerates mods, reads
-`manifest.toml`, walks `ModLibrary.LocalModsFolderPath`, or calls `ModLibrary.Find`. An earlier
-draft had all four. Dropping them removes four bindings from `docs/KSA-API-SURFACE.md` that an
-upgrade would otherwise have to preserve, and it is the difference between a mod that supports packs
-and a mod that has opinions about your mods folder.
+**What this plan gained back, deliberately:** the manifest walk an earlier draft dropped. It costs
+four bindings in `docs/KSA-API-SURFACE.md` — `ModLibrary.Manifest`, `ModEntry.Id`/`.Enabled`,
+`ModLibrary.Find` and `Mod.DirectoryPath` — and buys a pack that is a folder of files rather than a
+folder of files plus a compiler. That is the right trade for a mod whose whole claim is that a
+weapon is data plus art.
+
+It is a *convention*, not a list: KSArmory looks in the same place inside every mod and never learns
+one by name. Both paths are live, and a pack picks — assets only for anything declarative, an
+assembly and `Armoury.Register` for anything that has to compute.

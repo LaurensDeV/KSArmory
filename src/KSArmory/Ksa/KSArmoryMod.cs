@@ -102,6 +102,11 @@ public sealed class KSArmoryMod
         // Every pack that was going to call Armoury.Register has done so by now: StarMap runs a
         // dependent mod's entry point before this hook, which is a postfix on ModLibrary.LoadAll.
         // Shutting the door here is what stops a registry growing under a crewed system.
+        // Asset-only packs, found by convention in every mod's folder. A pack that ships code has
+        // already called Armoury.Register from its own entry point by now; this is for the ones
+        // with no assembly at all, which is most of them.
+        InstalledPacks.RegisterAll();
+
         Catalogue.Freeze();
         ReportRegistrations();
 

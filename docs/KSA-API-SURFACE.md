@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-133 types and 363 members across 6 assemblies.
+135 types and 370 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -504,11 +504,24 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Mod
 
+- `string get_DirectoryPath()`
+- `string get_Id()`
+
+### KSA.ModEntry
+
+- `bool Enabled`
 - `string get_Id()`
 
 ### KSA.ModLibrary
 
 - `!!0 Get<1>(string)`
+- `KSA.Mod Find(string)`
+- `KSA.ModManifest Manifest`
+- `string get_LocalModsFolderPath()`
+
+### KSA.ModManifest
+
+- `System.Collections.Generic.List`1<KSA.ModEntry> get_Mods()`
 
 ### KSA.ModuleList
 
