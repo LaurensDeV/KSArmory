@@ -194,6 +194,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/build.sh                           # build the mod (handles the SDK PATH)
 ./tools/test.sh                            # guidance + fuse tests, no game needed
 ./tools/validate-parts.py                  # part XML, launch geometry, registered PartIds; runs in deploy.sh
+./tools/pack-api.py --check                # has the API weapon packs bind to moved?
 ./tools/model/build.sh                     # rebuild every part's mesh and textures (needs Blender)
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
@@ -376,6 +377,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-API-SURFACE.md` | **generated** — the 361 members an upgrade has to preserve |
+| `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
@@ -389,6 +391,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
+| `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
 | `tools/model/` | headless Blender scripts that generate the parts |
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |

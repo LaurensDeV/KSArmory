@@ -11,6 +11,10 @@ installing one is nothing but installing a mod.
 If you have modded KSP, read `FROM-KSP-MODDING.md` first: there is no `PartModule` here, and that
 is why the shape below is what it is.
 
+`PACK-API-SURFACE.md` is this same contract generated from the code, and KSArmory's build fails if
+it moves without being acknowledged — so a version of this page that disagrees with the reader is a
+bug rather than something you have to work around.
+
 ---
 
 ## The five-minute version

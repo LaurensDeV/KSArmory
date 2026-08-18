@@ -95,6 +95,7 @@ run "No unasked-for network"        ./tools/check-network.sh
 run "Part XML is well formed"       ./tools/check-xml.sh
 run "Asset paths resolve"           ./tools/validate-parts.py --offline
 run "Every setting is reachable"    ./tools/check-tunables.py
+run "Pack API surface"              ./tools/pack-api.py --check
 run "Comment rules"                 ./tools/check-comments.sh
 run "Documented facts"              ./tools/check-docs.sh
 run "No artefacts tracked"          ./tools/check-tracked.sh
