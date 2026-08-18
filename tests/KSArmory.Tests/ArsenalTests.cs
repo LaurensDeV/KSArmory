@@ -474,6 +474,8 @@ public class ArsenalTests
     [InlineData(GuidanceMode.Seeker, false)]
     [InlineData(GuidanceMode.AntiRadiation, false)]
     [InlineData(GuidanceMode.CommandLink, true)]
+    // Told the point at release and left to it: nothing to uplink, and nothing to lose.
+    [InlineData(GuidanceMode.Inertial, false)]
     [InlineData(GuidanceMode.None, false)]
     public void OnlyACommandLinkRoundNeedsItsLauncher(GuidanceMode mode, bool needsUplink)
     {
@@ -486,6 +488,6 @@ public class ArsenalTests
     [Fact]
     public void EveryGuidanceModeIsAccountedFor()
     {
-        Assert.Equal(4, Enum.GetValues<GuidanceMode>().Length);
+        Assert.Equal(5, Enum.GetValues<GuidanceMode>().Length);
     }
 }

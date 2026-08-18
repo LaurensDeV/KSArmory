@@ -104,7 +104,7 @@ internal static class FireLadder
         if (now.HasTubes)
         {
             if (!policy.MissilesEnabled) return "missiles are switched off";
-            if (munition.Guidance == GuidanceMode.None) return "unguided - release it by hand";
+            if (!munition.Powered) return "a store is released by hand, not auto-engaged";
             if (now.Ammo <= 0) return "out of rounds";
             if (now.SalvoSeconds > 0.0) return "between salvos";
         }

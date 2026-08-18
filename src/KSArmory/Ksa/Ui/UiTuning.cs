@@ -250,14 +250,23 @@ internal sealed partial class Ui
             // worse than no slider: it reads as the setting having no effect.
             if (_fit.Steers)
             {
+                // Every steering round uses these, a tail kit on a falling store included.
                 ImGui.SliderFloat("Nav constant N", ref _munition.NavConstant, 1f, 8f);
-                ImGui.SliderFloat("Max lateral (g)", ref _munition.MaxLateralG, 5f, 80f);
-                ImGui.SliderFloat("Seeker FOV (deg)", ref _munition.SeekerFovDeg, 10f, 90f);
+                ImGui.SliderFloat("Max lateral (g)", ref _munition.MaxLateralG, 0f, 80f);
                 ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
-                ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
-                ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
-                ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
-                ImGui.TextDisabled("  a round leaves along the tube and is clear before it turns");
+                ImGui.SliderFloat("Fin deflection (deg)", ref _munition.FinDeflectionDeg, 0f, 30f);
+                ImGui.TextDisabled("  drawn only - larger than life, or the blades do not read");
+
+                // A seeker to point and a motor to burn: neither exists on a store that is
+                // released and then falls, so a bomb rack is not offered them.
+                if (_fit.Powered)
+                {
+                    ImGui.SliderFloat("Seeker FOV (deg)", ref _munition.SeekerFovDeg, 10f, 90f);
+                    ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
+                    ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
+                    ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
+                    ImGui.TextDisabled("  a round leaves along the tube and is clear before it turns");
+                }
             }
 
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);

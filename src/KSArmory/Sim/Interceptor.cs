@@ -250,6 +250,9 @@ internal sealed class Interceptor : IProjectile
     /// Pure presentation: the flight model has no notion of fins, and this changes nothing
     /// about how the round flies.</para>
     /// </summary>
+    /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>
+    public double3 SteeringCommandEcl { get; private set; }
+
     public double FinDeployment(MunitionProfile munition)
     {
         if (munition.FinDeploySeconds <= 0f) return 1.0;
@@ -441,9 +444,11 @@ internal sealed class Interceptor : IProjectile
             // Nothing steers until it is clear of what launched it. A rail-launched round leaves
             // along its rail and turns after separation; guiding from the first sub-step turns it
             // into the craft carrying it.
+            SteeringCommandEcl = Vec.Zero;
             if (SeekerInView && Age >= munition.SeparationSeconds)
             {
-                accel += GuidanceAccel(r, v, localVelocity, gravity, munition);
+                SteeringCommandEcl = GuidanceAccel(r, v, localVelocity, gravity, munition);
+                accel += SteeringCommandEcl;
             }
 
             {

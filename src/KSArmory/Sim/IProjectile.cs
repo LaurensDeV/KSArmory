@@ -154,6 +154,16 @@ internal interface IProjectile
     double FinDeployment(MunitionProfile munition);
 
     /// <summary>
+    /// The lateral acceleration the round is currently commanding, in the ecliptic frame. Zero for
+    /// anything that does not steer, and for anything that has lost what it was steering at.
+    ///
+    /// <para>Presentation only: it is what the blades are drawn deflected by, through
+    /// <see cref="FinMixer"/>. Nothing reads it back, so the flight model is unaffected by whether
+    /// a round has fins drawn at all.</para>
+    /// </summary>
+    double3 SteeringCommandEcl { get; }
+
+    /// <summary>
     /// Moves every stored offset onto a different anchor, without moving the round.
     /// </summary>
     /// <param name="offsetDelta">

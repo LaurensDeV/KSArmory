@@ -160,6 +160,9 @@ internal sealed class Slug : IProjectile
     /// <summary>No fins to deploy. Full span from the moment it exists.</summary>
     public double FinDeployment(MunitionProfile munition) => 1.0;
 
+    /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>
+    public double3 SteeringCommandEcl { get; private set; }
+
     public void Update(double dt, TargetState? target, double3 gravity, double3 frameVelocityEcl,
                        double3 platformEcl, MunitionProfile munition, double mediumDensityRatio = 1.0)
     {
@@ -168,7 +171,8 @@ internal sealed class Slug : IProjectile
 
         _frameVelocityEcl = frameVelocityEcl;
 
-        // Unguided: losing the target leaves it flying with nothing to fuse against.
+        // Losing the target leaves it flying with nothing to fuse against, and — for a tail-kit
+        // round — nothing to steer at either, so it finishes the fall ballistically.
         if (target is null) TargetRef = null;
 
         _haveGround = munition.HitsTerrain && Ground is not null
@@ -212,6 +216,30 @@ internal sealed class Slug : IProjectile
         // No thrust term between them: a slug coasts from the muzzle.
         double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
         accel -= Medium.Drag(localVelocity, munition, mediumDensityRatio);
+
+        // A guided tail kit: fin authority on a fall, not a motor. Same navigation law the
+        // missiles use, so a bomb leads a point on a turning planet for the same reason a round
+        // leads a crossing aircraft - and clamped by the profile to a few g rather than thirty.
+        //
+        // Both terms are differenced here rather than upstream: the target is a place on the
+        // ground, so its velocity is the planet's ~29.8 km/s plus its spin, and steering on
+        // VelocityEcl alone would read that whole frame as closing speed and pull full lateral g
+        // across it. SampleTarget resamples it every frame for the same reason.
+        //
+        // And the sample is back-dated to the instant this sub-step is at, exactly as Interceptor
+        // does it. The sample arrives having already moved across the whole frame, so pairing it
+        // with a mid-step position leaks that motion into the range vector -- half a kilometre a
+        // frame, which the steering then reads as the target sliding sideways.
+        SteeringCommandEcl = Vec.Zero;
+        if (munition.Guidance == GuidanceMode.Inertial && target is { } aim)
+        {
+            double3 aimPos = aim.PositionEcl + aim.VelocityEcl * (elapsedInFrame - frameSeconds);
+
+            SteeringCommandEcl = Interceptor.GuidanceAccel(aimPos - PositionEcl,
+                                                           aim.VelocityEcl - VelocityEcl,
+                                                           localVelocity, gravity, munition);
+            accel += SteeringCommandEcl;
+        }
 
         // Before proximity: a shell fused for a time bursts then, whether or not anything is near,
         // which is the whole point of flak. A live target still gets a miss distance measured at

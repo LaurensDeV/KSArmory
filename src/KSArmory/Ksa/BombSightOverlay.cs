@@ -68,9 +68,12 @@ internal sealed class BombSightOverlay
     {
         if (battery.Platform is not { } platform || battery.Launcher is null) return;
 
-        // Only a store that is released. A guided round goes where it is steered, so a ballistic
-        // pipper would be an answer to the wrong question.
-        if (battery.Munition.Guidance != GuidanceMode.None) { Clear(); return; }
+        // Only a store that is released. A round that flies under its own power goes where it is
+        // steered, so a ballistic pipper would answer the wrong question.
+        //
+        // A guided tail kit still gets one: it is released and then falls, and the pipper says
+        // where it lands if nothing is designated -- which is the release cue either way.
+        if (battery.Munition.Powered) { Clear(); return; }
 
         if (!LauncherPart.TryGetTubeMuzzleEcl(platform, battery.Launcher, battery.PodsPart,
                                               battery.Profile, 0, battery.PlatformEcl,

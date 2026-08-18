@@ -898,8 +898,9 @@ public static class Arsenal
     /// of store the way a real one has — the loadout is the part. That is the honest cost of the
     /// magazine being homogeneous, and it is the first weapon here that wanted otherwise.</para>
     ///
-    /// <para>Its geometry is the Mk 82 rack's, from the same <c>muzzles.json</c> block, because it
-    /// instances the same two bodies. Nothing is modelled twice.</para>
+    /// <para>Its beam is the Mk 82 rack's, but the round is not: a B61-12 is 3.556 m against the
+    /// Mk 82's 2.22 m and a different shape, so it is its own authored asset and its own geometry.
+    /// The seat clears the hooks by the round's own radius, which is why it sits higher.</para>
     /// </summary>
     public static readonly LauncherProfile NukeRack = new()
     {
@@ -908,8 +909,8 @@ public static class Arsenal
         Munition = "B61",
         Sensor = "BOMBSIGHT",
         TubeArmamentLabel = "Bombs",
-        Tubes = [new(new(0.40650, 1.11000, 0.00000), new(0, 1, 0))],
-        MuzzleForwardOffset = 0.407,
+        Tubes = [new(new(0.43510, 1.77800, 0.00000), new(0, 1, 0))],
+        MuzzleForwardOffset = 0.435,
         LaunchAlongTube = true,
         EjectAwayFromMount = 1.2f,
         LaunchLoft = 0f,

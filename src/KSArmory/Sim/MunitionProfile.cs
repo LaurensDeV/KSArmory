@@ -31,6 +31,27 @@ public enum GuidanceMode
     CommandLink,
 
     /// <summary>
+    /// The round is told where the point is when it leaves, and flies to it on its own reckoning.
+    /// A guided tail kit on a free-fall bomb — the B61-12's is the worked example.
+    ///
+    /// <para><b>It steers but does not seek.</b> There is no seeker to blind, no emission to shut
+    /// down and no uplink to break, so nothing that defeats the other three modes touches it. What
+    /// it cannot do is follow anything: it flies at where the point was when it was designated, so
+    /// a target that moves is a target it misses. That is the whole trade, and it is why this is a
+    /// mode rather than a flag on <see cref="None"/>.</para>
+    ///
+    /// <para>It carries no motor, so it is a <see cref="Slug"/> like any other falling store and
+    /// its authority is whatever <see cref="MunitionProfile.MaxLateralG"/> allows — a few g of fin
+    /// authority, not a missile's thirty-five. It corrects a ballistic fall; it does not extend
+    /// one, and it cannot reach a point the fall was never going to pass near.</para>
+    ///
+    /// <para><see cref="BombSight"/> deliberately knows nothing about this: it flies an
+    /// undesignated round, so the pipper answers "where this lands if you designate nothing"
+    /// rather than predicting the guided path.</para>
+    /// </summary>
+    Inertial,
+
+    /// <summary>
     /// The round does not steer at all — a bomb, or an unguided rocket. It leaves the tube and
     /// follows its ballistics from there, so there is nothing to lose lock on and no gimbal limit
     /// to release it outside of.
@@ -83,6 +104,29 @@ public sealed class MunitionProfile
     /// <para>A flick, not a hinge easing open.</para>
     /// </summary>
     public float FinDeploySeconds = 0.18f;
+
+    /// <summary>
+    /// Blade travel at full steering demand, in degrees. Zero — the default — leaves the fins
+    /// rigid, so a round that has never been rigged for it is unaffected.
+    ///
+    /// <para>Deliberately larger than life. A real tail kit deflects a few degrees, which on a
+    /// 0.3 m blade is millimetres of tip travel and invisible at any distance anyone watches a
+    /// bomb from. This is the number that decides whether the fins read as working, and it drives
+    /// nothing but what is drawn.</para>
+    /// </summary>
+    public float FinDeflectionDeg;
+
+    /// <summary>
+    /// Where the blades hinge, as a station along the body from its centre (m). Geometry: the
+    /// blade meshes are exported recentred on this, so the two have to agree.
+    /// </summary>
+    public float FinHingeStation;
+
+    /// <summary>
+    /// How many blades one round carries. Zero means the fin subparts are a single set per round
+    /// scaled for deployment, which is the older arrangement and the one the 57E6 uses.
+    /// </summary>
+    public int FinsPerRound;
 
     /// <summary>Fin span while stowed, as a fraction of full. Small enough to clear the bore.</summary>
     public float FinStowedScale = 0.06f;
@@ -293,6 +337,21 @@ public sealed class MunitionProfile
 
     public float SeekerFovRad => float.DegreesToRadians(SeekerFovDeg);
     public double MaxLateralAccel => MaxLateralG * 9.80665;
+
+    /// <summary>
+    /// Whether the round leaves under its own power. False for a store that is released and then
+    /// falls — a dumb bomb, or one with a guided tail kit, which steers a ballistic path rather
+    /// than flying one.
+    ///
+    /// <para>It picks <see cref="Slug"/> over <see cref="Interceptor"/>, and separately it is why
+    /// a rack's sight looks where its store lands instead of down its own tubes. Both ask this
+    /// rather than testing the mode themselves, so a fifth mode has one place to declare which
+    /// side it is on.</para>
+    /// </summary>
+    public bool Powered => Guidance is not (GuidanceMode.None or GuidanceMode.Inertial);
+
+    /// <summary>Blade travel at full demand, in radians.</summary>
+    public double FinDeflectionRad => float.DegreesToRadians(FinDeflectionDeg);
 }
 
 /// <summary>

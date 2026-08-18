@@ -52,6 +52,16 @@ public readonly record struct Armament
     public bool Steers => Kind == ArmamentKind.Tubes
                           && Arsenal.MunitionNamed(Munition).Guidance != GuidanceMode.None;
 
+    /// <summary>
+    /// Whether this armament's round leaves under its own power, which is what makes the seeker
+    /// and boost numbers mean anything.
+    ///
+    /// <para>Narrower than <see cref="Steers"/> on purpose. A guided tail kit steers a fall: it
+    /// uses the navigation numbers and none of the others, so gating the whole guidance section on
+    /// "steers" hands a bomb rack a seeker field of view and a burn time it never reads.</para>
+    /// </summary>
+    public bool Powered => Kind == ArmamentKind.Tubes && Arsenal.MunitionNamed(Munition).Powered;
+
     public bool Reloads => ReloadSeconds > 0f;
 
     /// <summary>How much is left against a full load.</summary>
@@ -109,6 +119,20 @@ public sealed class WeaponFit
     /// no scope, no track list and nothing to tune on a sensor.
     /// </summary>
     public required bool Searches { get; init; }
+
+    /// <summary>Whether any armament leaves under its own power, so the seeker and boost numbers
+    /// describe something. A rack of guided stores steers without any of them applying.</summary>
+    public bool Powered
+    {
+        get
+        {
+            for (int i = 0; i < Armaments.Count; i++)
+            {
+                if (Armaments[i].Powered) return true;
+            }
+            return false;
+        }
+    }
 
     /// <summary>Whether any armament is flown by the guidance model.</summary>
     public bool Steers

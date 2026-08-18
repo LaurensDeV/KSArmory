@@ -93,6 +93,10 @@ public class BoresightTests
     /// rather than fires is square to its own rack on purpose: the store leaves along the tube and
     /// is immediately taken by gravity, so its sight looks where the bomb lands. Anything that
     /// flies out under its own power has to be looked for where it is sent.</para>
+    ///
+    /// <para>That second one asks <see cref="MunitionProfile.Powered"/> rather than testing the
+    /// guidance mode. A guided tail kit steers after release and is still released, so keying the
+    /// exemption on "unguided" would have demanded a bomb rack boresight down its own tubes.</para>
     /// </summary>
     [Fact]
     public void EveryLauncherThatFiresCanSeeDownItsOwnTubes()
@@ -100,7 +104,7 @@ public class BoresightTests
         foreach (LauncherProfile launcher in Arsenal.Launchers)
         {
             if (launcher.Tubes.Length == 0) continue;
-            if (Arsenal.MunitionNamed(launcher.Munition).Guidance == GuidanceMode.None) continue;
+            if (!Arsenal.MunitionNamed(launcher.Munition).Powered) continue;
 
             SensorProfile sensor = Arsenal.SensorNamed(launcher.Sensor);
             if (sensor.BoresightSource == BoresightMode.LocalUp) continue;
