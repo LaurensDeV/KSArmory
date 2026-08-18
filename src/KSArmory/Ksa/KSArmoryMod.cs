@@ -30,6 +30,8 @@ public sealed class KSArmoryMod
     private IcbmComputers? _icbms;
 
     private readonly List<double3> _trajectory = [];
+
+    private readonly SiteDesignator _sites = new();
     private Ui? _ui;
     private int _faults;
     private int _viewTrace;
@@ -316,6 +318,14 @@ public sealed class KSArmoryMod
                 {
                     _designator.Update(aimed.Battery, aimed.Policy);
                     _designator.Draw(aimed.Battery, aimed.Policy);
+                }
+
+                // Same rule, and the same reason: every crewed computer reading one cursor would
+                // re-aim every missile in the world at a single click.
+                if (_icbms?.For(_ui.Focused) is { } aimedSite)
+                {
+                    _sites.Update(aimedSite);
+                    _sites.Draw(aimedSite);
                 }
 
                 // Shift-click locks the installation the panel is showing onto whatever is under

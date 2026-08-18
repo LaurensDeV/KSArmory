@@ -337,6 +337,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/IcbmComputers.cs` | one per craft this mod recognises a weapon on, crewed and forgotten with it |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
 | `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
+| `Ksa/SiteDesignator.cs` | click the world to name where the warheads go — **a mode, not a button** |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSession.cs` | the world clock, and what the session draws and hears |
 | `Ksa/Ui/UiSystem.cs` | one row per component: what each part is, sees and is doing |

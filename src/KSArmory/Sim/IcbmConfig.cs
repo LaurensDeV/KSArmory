@@ -41,6 +41,17 @@ internal sealed class IcbmConfig
     /// </summary>
     public double HandoverPressurePa = 1200.0;
 
+    /// <summary>
+    /// Clicking the world names the aim point.
+    ///
+    /// <para>A mode rather than a button, because a button cannot be used to point at anything:
+    /// pressing one puts the cursor over the panel, so what it reads is whatever lies behind the
+    /// control. Armed, it takes left clicks that are not on a window and not shift-held — the same
+    /// gesture the burst tool and the mouse trigger use, and off by default for the same reason.
+    /// </para>
+    /// </summary>
+    public bool DesignateByClicking;
+
     /// <summary>Fire the next stage when the running one has nothing left to burn.</summary>
     public bool AutoStage = true;
 

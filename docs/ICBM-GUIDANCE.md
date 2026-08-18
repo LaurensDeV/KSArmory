@@ -75,6 +75,12 @@ It is the *ecliptic* that sees the tilt.
   kilometres a hundred seconds before cutoff. The loop converges anyway, since the term goes to
   zero as the burn ends, which is exactly why it is easy to leave out and never notice.
 
+**Naming a place is a mode, not a button.** `Ksa/SiteDesignator.cs` arms and then takes a world
+click. A button cannot do this job: pressing one puts the cursor over the panel, so what it samples
+is whatever lies behind the control — silently, plausibly, and never where the player was pointing.
+A ring follows the cursor while the tool is armed and greys out over a body the shot cannot reach,
+which is the answer to "why did my click do nothing" given before the click rather than after it.
+
 **The target is a latitude and a longitude, never a position.** `Sim/AimSite.cs`. The same rule
 `AimpointKind.Ground` exists for, at a thousand times the flight time.
 

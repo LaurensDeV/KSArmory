@@ -1110,8 +1110,13 @@ Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — an
 ### 12.1 It knows where it is
 
 - [ ] The tab says `flying about <body>` with the right body.
-- [ ] **Designate under cursor** over the ground sets a latitude and longitude that match what
-      KSA's own readouts say for that place.
+- [ ] **Designate by clicking the world** on: a ring follows the cursor over the ground, and
+      vanishes over the sky. Clicking sets a latitude and longitude that match what KSA's own
+      readouts say for that place.
+- [ ] The ring greys out over a body that is not the one being flown around.
+- [ ] With the tool off, world clicks do nothing to the target. A click on the panel never does,
+      either way.
+- [ ] Typing coordinates and pressing **Designate those coordinates** works independently of it.
 - [ ] With no target: `Holding: no target designated`, and nothing lights.
 - [ ] With a target and the computer disarmed: `Holding: not armed`. **The vehicle is still
       yours** — attitude, throttle and staging all respond to the keyboard.

@@ -39,6 +39,7 @@ internal sealed partial class Ui
 
     private void DrawIcbmTarget(IcbmComputer computer)
     {
+        IcbmConfig config = computer.Config;
         Celestial? parent = computer.Parent;
 
         ImGui.TextDisabled(parent is null
@@ -55,25 +56,24 @@ internal sealed partial class Ui
             ImGui.TextColored(Bad, "this vehicle is flying around. Only ballistic shots are flown.");
         }
 
-        // Click the world. The same designation route the rest of the mod uses, and the only one
-        // that does not need somebody to read a coordinate off something else first.
-        if (ImGui.Button("Designate under cursor"))
+        // A mode, not a button: pressing a button puts the cursor over the panel, so what it reads
+        // is whatever lies behind the control rather than the place being pointed at.
+        bool picking = config.DesignateByClicking;
+        if (ImGui.Checkbox("Designate by clicking the world", ref picking)) config.DesignateByClicking = picking;
+
+        ImGui.TextDisabled(config.DesignateByClicking
+            ? "  a ring follows the cursor; click the ground to aim there"
+            : "  or enter coordinates below");
+
+        if (config.DesignateByClicking)
         {
-            if (KsaWorld.TryCursorGroundPoint(out _, out double lat, out double lon, out string body))
-            {
-                _siteLat = (float)lat;
-                _siteLon = (float)lon;
-                computer.Designate(new AimSite(body, lat, lon,
-                                               string.IsNullOrWhiteSpace(_siteLabel) ? "" : _siteLabel.Trim()));
-            }
-            else
-            {
-                Log.Warn("nothing under the cursor to designate");
-            }
+            ImGui.TextDisabled("  shift-click is still the lock gesture, and clicks on a window do nothing");
         }
 
         ImGui.SameLine();
         if (ImGui.Button("Clear target")) computer.Designate(AimSite.None);
+
+        ImGui.Separator();
 
         ImGui.SliderFloat("Latitude", ref _siteLat, -89.9f, 89.9f, "%.4f");
         ImGui.SliderFloat("Longitude", ref _siteLon, -180f, 180f, "%.4f");
