@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-130 types and 359 members across 6 assemblies.
+130 types and 361 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -375,6 +375,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.DistanceReference
 
+- `double InMeters()`
 - `double op_Implicit(KSA.DistanceReference)`
 
 ### KSA.Double3Ex
@@ -574,6 +575,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.PhysicalAtmosphereReference
 
 - `KSA.DensityReference SeaLevelDensity`
+- `KSA.DistanceReference ScaleHeight`
 - `KSA.DistanceReference get_Height()`
 - `bool IsValid()`
 - `double GetAtmosphericDensityAtAltitude(double)`
@@ -666,7 +668,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.DensityReference Density`
 - `KSA.DistanceReference Level`
-- `bool IsValid()`
 
 ### KSA.SimSpeed
 
@@ -715,7 +716,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.UniverseTime
 
-*referenced as a type only*
+- `System.Int128 get_Nanoseconds()`
 
 ### KSA.Vehicle
 

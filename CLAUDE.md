@@ -261,6 +261,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
 | `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
 | `Sim/BombSight.cs` | where a store released now would land, flown rather than solved |
+| `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
 | `Sim/FireLadder.cs` | **why a system is not shooting** — the gates in order, and the first one that says no |
 | `Sim/DriveStatus.cs` | which drives the engine is still accepting writes for, latched per channel |
@@ -367,7 +368,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 359 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 361 members an upgrade has to preserve |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
@@ -415,6 +416,11 @@ is welded to the shape.
 the CIWS, both racks, the LAU-7 rail and the EO director come out of `tools/model/pantsir.py` into
 one atlas sharing one palette material. Keep it working; do not extend it. Everything from here to
 the end of this section is about those six.
+
+The nuclear rack is not among them: both its bodies are authored, into one atlas sharing one
+unwrap. It stopped instancing the generated beam when the B61-12 turned out to hang from 30-inch
+lugs where that beam's hooks are 14 inches apart — a MAU-12 carries both spacings, so the authored
+rack has both and the generated one keeps the Mk 82.
 
 **An authored asset's `.blend` is its source, and it is not in this repository** — what is committed
 is the export. So a committed asset cannot be regenerated from a clean checkout, which is why
@@ -1697,6 +1703,16 @@ should not be weakened without understanding what they buy:
   both.
 
 ## Not done
+
+- **A frame in which this mod's hook never runs is integrated on the next one.**
+  `ScreenshotCapture` sets `Program.DrawUI = false` and `Program` guards
+  `OnDrawUiViewports` with it, so the method this mod postfixes is not *called* during a capture
+  and a postfix on an uncalled method never runs. `Universe.GetLastSimStep` then reports only the
+  most recent step, leaving the skipped one unintegrated while the world advanced across it — the
+  whole deficit landing in the drawn offset at 29.8 km/s. Measured in flight as a bomb thrown
+  **656 m sideways in one frame** and lost off screen. `KsaWorld.ConsumeSimStep` now hands
+  `StepGate` the span between step boundaries rather than the last step alone, so the gap closes
+  on the next frame. `SkippedFrameTests` fails against the step-only form.
 
 - Round bodies survive at long range: measured in flight to **79.5 km with 0.0 m drift**, never
   dropping the subpart link and never culled or clamped. The gizmo tracers stay on as a fallback
