@@ -79,7 +79,15 @@ internal static class KsaWorld
     public static double ConsumeSimStep()
     {
         SimStep step = Universe.GetLastSimStep();
-        return _stepGate.Consume(step.NextTime, step.DeltaTime);
+
+        // The span, not just the step: a frame in which this mod's hook never ran still advanced
+        // the world, and GetLastSimStep reports only the most recent one. Taking a screenshot is
+        // exactly that case -- ScreenshotCapture sets Program.DrawUI false and KSA guards the call
+        // this mod postfixes with it, so the hook is not called at all. Differenced in Int128
+        // nanoseconds because absolute universe time is far too large to subtract as double.
+        return _stepGate.Consume(step.NextTime, step.DeltaTime,
+                                 static (from, to) =>
+                                     (double)(to.Nanoseconds - from.Nanoseconds) / 1e9);
     }
 
     /// <summary>Forgets which step was last integrated. For unload and scene changes.</summary>

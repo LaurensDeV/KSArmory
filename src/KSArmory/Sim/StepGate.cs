@@ -28,13 +28,40 @@ public sealed class StepGate<T> where T : struct, IEquatable<T>
     /// faithfully integrate is a separate question with a separate answer — see
     /// <see cref="SimClock"/> — and merging the two would hide a bad step behind a duplicate one.
     /// </remarks>
-    public double Consume(T nextTime, double delta)
+    public double Consume(T nextTime, double delta) => Consume(nextTime, delta, null);
+
+    /// <summary>
+    /// As <see cref="Consume(T, double)"/>, but closing any gap the caller was not running across.
+    ///
+    /// <para><paramref name="spanSeconds"/> measures from the step last integrated through to
+    /// <paramref name="nextTime"/>. Normally that is the step itself and the answer is unchanged.
+    /// When the caller misses a frame entirely the engine reports only the <em>last</em> step, so
+    /// <paramref name="delta"/> alone leaves the skipped one unintegrated — and the world advanced
+    /// across it regardless. The whole deficit lands in the drawn offset, at 29.8 km/s of ecliptic
+    /// motion: one missed 22 ms frame is 656 m, measured in flight.</para>
+    ///
+    /// <para>Still the engine's own step boundaries rather than a clock measured around the
+    /// caller, so it cannot be a phase out from the world. A span too long to integrate is not
+    /// this type's problem — see <see cref="SimClock"/>.</para>
+    /// </summary>
+    public double Consume(T nextTime, double delta, Func<T, T, double>? spanSeconds)
     {
         if (_hasIntegrated && nextTime.Equals(_integratedThrough)) return 0.0;
 
+        double taken = delta;
+
+        // Only ever lengthens the step. A span shorter than the reported one means the clock
+        // disagrees with the step it just handed over, and the step is the thing that moved
+        // the world.
+        if (_hasIntegrated && spanSeconds is not null)
+        {
+            double span = spanSeconds(_integratedThrough, nextTime);
+            if (double.IsFinite(span) && span > taken) taken = span;
+        }
+
         _integratedThrough = nextTime;
         _hasIntegrated = true;
-        return delta;
+        return taken;
     }
 
     /// <summary>
