@@ -234,7 +234,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | **`src/KSArmory/Sim/`** | **no KSA types, linked into the tests wholesale** |
 | `Sim/Arsenal.cs` | **the built-ins — add a weapon system here** |
 | `Sim/Catalogue.cs` | **what the mod reads** — the built-ins plus anything else registered; a lookup taken against `Arsenal` sees only what shipped |
+| `Sim/Armoury.cs` | **the whole public surface a weapon pack binds to** — two members, taking text rather than profiles so a pack needs no game assemblies |
 | `Sim/PackReader.cs` | somebody else's weapon definitions, read into profiles — **text in, no file access**, so every refusal is testable headlessly |
+| `Sim/PackResult.cs` | what one pack got out of registering: how much stuck, and everything that did not |
 | `Sim/PackContents.cs` | what reading one pack produced: what may register, and what may not |
 | `Sim/PackFault.cs` | one definition that was refused, and the reason an author can act on |
 | `Sim/WeaponSurvey.cs` | reads a weapons system off a craft the mod did not design |

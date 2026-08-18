@@ -99,6 +99,12 @@ public sealed class KSArmoryMod
     [StarMapAllModsLoaded]
     public void OnFullyLoaded()
     {
+        // Every pack that was going to call Armoury.Register has done so by now: StarMap runs a
+        // dependent mod's entry point before this hook, which is a postfix on ModLibrary.LoadAll.
+        // Shutting the door here is what stops a registry growing under a crewed system.
+        Catalogue.Freeze();
+        ReportRegistrations();
+
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
         _motors = new MotorSound(_config);
@@ -119,6 +125,22 @@ public sealed class KSArmoryMod
                  + $"{(Detonation.Resolves(Detonation.Fireball) ? "ok" : "DID NOT RESOLVE")}");
         Log.Info($"warhead effect {Detonation.Airburst}: "
                  + $"{(Detonation.Resolves(Detonation.Airburst) ? "ok" : "DID NOT RESOLVE")}");
+    }
+
+    // Logged whether or not anything registered. A pack that is installed but disabled, or whose
+    // assembly never loaded, never reaches us at all -- so this says what *registered*, and the
+    // absence of a line is the pack's own install to check rather than something we can report.
+    private static void ReportRegistrations()
+    {
+        if (Catalogue.Registrations.Count == 0) return;
+
+        foreach (PackResult pack in Catalogue.Registrations)
+        {
+            Log.Info($"pack '{pack.Source}': {pack.Registered} registered"
+                     + (pack.Complete ? "" : $", {pack.Faults.Count} refused"));
+
+            foreach (PackFault fault in pack.Faults) Log.Warn(fault.ToString());
+        }
     }
 
     /// <summary>
