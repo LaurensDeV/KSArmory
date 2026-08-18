@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-130 types and 361 members across 6 assemblies.
+133 types and 365 members across 6 assemblies.
 
 ## Brutal.Concurrency
 
@@ -509,6 +509,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.ModLibrary
 
 - `!!0 Get<1>(string)`
+- `bool Has<1>(string)`
+- `bool TryGet<1>(string, ref !!0)`
 
 ### KSA.ModuleList
 
@@ -561,6 +563,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void set_PositionParentAsmb(Brutal.Numerics.double3)`
 - `void set_PositionParentAsmbSafe(Brutal.Numerics.double3)`
 - `void set_Scale(Brutal.Numerics.double3)`
+
+### KSA.PartInstance
+
+*referenced as a type only*
+
+### KSA.PartTemplate
+
+- `System.Collections.Generic.List`1<KSA.PartInstance> SubPartInstances`
 
 ### KSA.PartTree
 
@@ -668,6 +678,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.DensityReference Density`
 - `KSA.DistanceReference Level`
+
+### KSA.SerializedId
+
+- `string get_Id()`
 
 ### KSA.SimSpeed
 

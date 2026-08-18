@@ -455,19 +455,18 @@ defensible and should be reached by trying rather than assumed.
 | --- | --- | --- | --- |
 | 0 | ~~`Catalogue` replaces the static registries~~ | medium | **landed** |
 | 1 | ~~`PackReader` in `Sim/`: text and a source name in, profiles and diagnostics out~~ | medium | **landed** |
-| 2 | ~~`Armoury`: the public surface, the freeze and the API record~~ | small | **landed** — the existence checks did not come with it |
+| 2 | ~~`Armoury`: the public surface, the freeze, the existence checks and the API record~~ | small | **landed** |
 | 3 | `validate-parts.py --mod-root`, plus the silent-marker fixes | medium | yes — improves the built-ins too |
 | 4 | The **Content** window, and the pack template repository | small | yes |
 | 5 | Register the LAU-7 rail through `Armoury` instead of compiling it in | small | the one that says whether any of it is right |
 | 6 | Let a pack register a new *kind* | large | **not yet** — see above |
 
-**What 2 shipped without, and should not be left without.** The existence half of validation is not
-built: nothing yet asks whether a registered `PartId` names a declared part, so a launcher naming a
-part nobody shipped registers happily and is never found on a craft — which is the exact silent
-failure this design exists to remove. `ModLibrary.Has<T>` is public and the freeze is where it goes.
-The outward API record has landed since: `tools/pack-api.py` reads the vocabulary out of
-`PackReader` and the entry point out of `Armoury`, and `--check` fails the build when either moves.
-Renaming `ChargeKg` compiles, passes every test, breaks every pack in the wild, and now fails CI.
+**Both of 2's loose ends have since landed.** `tools/pack-api.py` records the vocabulary and the
+entry point and fails the build when either moves — renaming `ChargeKg` compiles, passes every test,
+breaks every pack in the wild, and now fails CI. And `Sim/PackAudit.cs` runs at the freeze, which is
+the first moment the question can be asked: a pack registers before KSA has loaded a single asset
+bundle, so there is no part in the world to check a profile against until then. It covers the
+built-ins too, which nothing previously did.
 
 One thing landed that was not in the plan, because writing the tests found it: a launcher is refused
 when a name it uses was **taken**, not when it fails to resolve. A refused round leaves its name in

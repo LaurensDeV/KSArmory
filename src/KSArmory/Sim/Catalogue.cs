@@ -30,6 +30,7 @@ public static class Catalogue
     public static IReadOnlyList<ComponentProfile> Components => _components;
 
     private static readonly List<PackResult> _registrations = [];
+    private static readonly Dictionary<string, string> _packOf = [];
     private static bool _open = true;
 
     /// <summary>
@@ -41,6 +42,16 @@ public static class Catalogue
 
     /// <summary>What every pack offered and how much of it stuck, in the order it arrived.</summary>
     public static IReadOnlyList<PackResult> Registrations => _registrations;
+
+    /// <summary>
+    /// Whether every registered part can actually be found, once the world has finished loading.
+    ///
+    /// <para>Covers the built-ins too, and deliberately: a part of ours whose XML did not load is
+    /// the same silence as a pack's, and has never had anything to report it.</para>
+    /// </summary>
+    internal static IReadOnlyList<PackFault> Audit(IPartCatalogue parts)
+        => PackAudit.Run(_launchers, _optics, parts,
+                         partId => _packOf.GetValueOrDefault(partId, PackReader.BuiltInSource));
 
     /// <summary>Shut the door. Called once the roster is about to be built.</summary>
     internal static void Freeze() => _open = false;
@@ -72,6 +83,7 @@ public static class Catalogue
         registered += Merge(pack.Munitions, _munitions, m => m.Name, "Munition", pack.Source, faults, refused);
         registered += Merge(pack.Sensors, _sensors, s => s.Name, "Sensor", pack.Source, faults, refused);
         registered += Merge(pack.Optics, _optics, o => o.PartId, "Optic", pack.Source, faults, refused);
+        foreach (OpticProfile head in pack.Optics) _packOf.TryAdd(head.PartId, pack.Source);
 
         foreach (LauncherProfile launcher in pack.Launchers)
         {
@@ -88,6 +100,7 @@ public static class Catalogue
             }
 
             registered++;
+            _packOf[launcher.PartId] = pack.Source;
             foreach (ComponentProfile component in pack.Components)
             {
                 if (component.PartId == launcher.PartId) _components.Add(component);

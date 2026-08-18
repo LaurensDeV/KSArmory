@@ -307,6 +307,13 @@ it should exist. Check in this order:
    reached.
 4. **Is your part in the editor?** If not, the problem is your `Assets.xml`, not KSArmory.
 
+Once the world has loaded, KSArmory checks each registered part against what actually exists and
+warns about two things the log will name: a `PartId` nothing declared, and a marker matching **no**
+subpart or **more than one**. The second is worth reading twice — resolution is a case-insensitive
+substring taking the first hit, so `PodsMarker="Pods"` against subparts `Rail_Pods` and
+`Rail_PodsCover` drives whichever your XML happens to list first, and reordering it changes which
+assembly moves.
+
 ---
 
 ## Traps that are not yours, and will still bite you
@@ -347,8 +354,6 @@ is the reason your pack ships a DLL instead of only a config.
 
 Named so you do not go looking:
 
-- **Nothing checks your part exists.** A launcher naming a `PartId` you never declared registers
-  happily and is simply never found on a craft.
 - **No offline validator.** `tools/validate-parts.py` checks KSArmory's own art and does not yet
   take a `--mod-root`.
 - **No in-game list.** Refusals are in the log; there is no panel window showing them.

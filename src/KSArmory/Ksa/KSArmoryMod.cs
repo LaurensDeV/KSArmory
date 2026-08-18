@@ -105,6 +105,10 @@ public sealed class KSArmoryMod
         Catalogue.Freeze();
         ReportRegistrations();
 
+        // Only now can this be asked. A pack registers before KSA has loaded a single asset
+        // bundle, so at that point there is no part in the world to check a profile against.
+        foreach (PackFault fault in Catalogue.Audit(new DeclaredParts())) Log.Warn(fault.ToString());
+
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
         _motors = new MotorSound(_config);
