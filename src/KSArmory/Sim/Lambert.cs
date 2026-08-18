@@ -26,7 +26,7 @@ internal static class Lambert
     private const double PsiLower = -4.0 * Math.PI * Math.PI;
 
     /// <summary>Enough for the bracket to close to well under a millimetre per second.</summary>
-    public const int MaxIterations = 64;
+    public const int MaxIterations = 48;
 
     /// <summary>What a solved transfer is: the velocity needed at each end of it.</summary>
     internal readonly record struct Transfer(double3 DepartureVelocityCci, double3 ArrivalVelocityCci);
@@ -67,8 +67,8 @@ internal static class Lambert
 
         for (int i = 0; i < MaxIterations; i++)
         {
-            double c2 = StumpffC(psi);
-            double c3 = StumpffS(psi);
+            double c2 = Kepler.StumpffC(psi);
+            double c3 = Kepler.StumpffS(psi);
             if (!(c2 > 0.0)) return false;
 
             y = r1 + r2 + a * (psi * c3 - 1.0) / Math.Sqrt(c2);
@@ -104,35 +104,4 @@ internal static class Lambert
         return true;
     }
 
-    // Stumpff C. The series is not an optimisation: the closed forms are 0/0 at the parabolic
-    // point, and a depressed shot passes straight through it on its way to hyperbolic.
-    private static double StumpffC(double z)
-    {
-        if (z > 1e-6)
-        {
-            double s = Math.Sqrt(z);
-            return (1.0 - Math.Cos(s)) / z;
-        }
-        if (z < -1e-6)
-        {
-            double s = Math.Sqrt(-z);
-            return (Math.Cosh(s) - 1.0) / -z;
-        }
-        return 0.5 + z * (-1.0 / 24.0 + z / 720.0);
-    }
-
-    private static double StumpffS(double z)
-    {
-        if (z > 1e-6)
-        {
-            double s = Math.Sqrt(z);
-            return (s - Math.Sin(s)) / (s * s * s);
-        }
-        if (z < -1e-6)
-        {
-            double s = Math.Sqrt(-z);
-            return (Math.Sinh(s) - s) / (s * s * s);
-        }
-        return 1.0 / 6.0 + z * (-1.0 / 120.0 + z / 5040.0);
-    }
 }

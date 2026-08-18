@@ -42,7 +42,8 @@ internal static class BurnoutGuidance
         double VelocityToGain,
         double SecondsToCutoff,
         double3 CutoffPositionCci,
-        BallisticArc.Solution Arc)
+        BallisticArc.Solution Arc,
+        bool HeldTheArrival)
     {
         /// <summary>The burn is done. Anything further is spending propellant on making it worse.</summary>
         public bool AtCutoff => VelocityToGain <= CutoffMetresPerSecond;
@@ -75,6 +76,7 @@ internal static class BurnoutGuidance
 
         double timeToCutoff = double.IsFinite(cutoffSeed) && cutoffSeed > 0.0 ? cutoffSeed : 0.0;
         double wanted = timeToCutoff;
+        bool heldTheArrival = false;
         double3 thrustDir = Vec.Unit(velocityCci);
         if (thrustDir.Equals(Vec.Zero)) thrustDir = Vec.Unit(positionCci);
 
@@ -118,7 +120,8 @@ internal static class BurnoutGuidance
             // which is exactly why it is easy to leave in and never see.
             double3 aimAtCutoff = body.CarryCci(aimNowCci, timeToCutoff);
 
-            bool solvedArc;
+            bool solvedArc = false;
+            heldTheArrival = false;
 
             if (double.IsFinite(arrivalFromNowSeconds)
                 && arrivalFromNowSeconds - timeToCutoff >= BallisticArc.MinFlightSeconds)
@@ -126,8 +129,17 @@ internal static class BurnoutGuidance
                 solvedArc = BallisticArc.TrySolve(body, cutoffPosition, aimAtCutoff,
                                                   arrivalFromNowSeconds - timeToCutoff, out arc, longWay)
                             && arc.LowestRadius >= body.SurfaceRadius - 1.0;
+
+                heldTheArrival = solvedArc;
             }
-            else
+
+            // Falling back rather than failing, and this is the important half. A fixed arrival
+            // pins the transfer angle, and a pinned angle can land on the one geometry Lambert
+            // cannot answer: two points opposite each other about the centre, where no plane is
+            // determined. Returning false there leaves the caller holding the previous cycle's
+            // answer — which is to say flying the burn open loop, with the velocity still to gain
+            // frozen at whatever it was when the trouble started.
+            if (!solvedArc)
             {
                 solvedArc = BallisticArc.TryCheapest(body, cutoffPosition, velocityAtCutoffUnpowered,
                                                      aimAtCutoff, out arc, loft, longWay, flightSeed);
@@ -165,7 +177,7 @@ internal static class BurnoutGuidance
 
         if (!solved) return false;
 
-        command = new Command(thrustDir, toGain, wanted, cutoffPosition, arc);
+        command = new Command(thrustDir, toGain, wanted, cutoffPosition, arc, heldTheArrival);
         return true;
     }
 

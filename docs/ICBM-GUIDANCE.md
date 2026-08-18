@@ -277,23 +277,77 @@ loosened on the grounds that guidance "seems fine".
 
 ---
 
-## A target behind you, in orbit, does not work
+## It picks up from wherever the vehicle already is
 
-Nine deorbit geometries in `DeorbitTests` arrive within two kilometres — off the ground track, from
-inclined orbits, from 150 km and from 800 km. One does not: a target **behind** the vehicle.
+There is no assumption that a flight starts on a pad. When the computer is armed it looks at what
+the vehicle is doing and joins the sequence at the right place:
 
-There is no single ballistic arc to it. Forward the short way means reversing seven kilometres a
-second of orbital velocity; the long way round passes through the planet, so the solver refuses it.
-The real answer is to stay in orbit until the target comes round, and that is a phase this program
-does not have — it commits to the expensive arc and burns the tank dry. It does report
-`burn ended N m/s short of the solution` and holds its warheads, which is the only reason this is a
-limitation rather than a bug.
+| What it finds | Where it starts | Why |
+| --- | --- | --- |
+| low and not moving over the ground | **Rising** | it has to get off the ground before anything else means anything |
+| dynamic pressure still significant | **PitchProgram** | an ascent already under way; the schedule and the angle-of-attack limiter are the same answer |
+| above the air | **Holding** | nothing about *how* to burn is in question, only *when* |
 
-Closing it means searching over *when to start* as well as how long to fly: propagate the orbit
-forward, solve from each future state, and wait for the cheapest window. That is a real feature and
-it is not built.
+So the same computer flies a pad launch, a pick-up halfway up an ascent, a deorbit from a circular
+orbit, and a correction to something already on a ballistic arc. `DeorbitTests` covers nine orbital
+geometries — off the ground track, from inclined orbits, from 150 km and from 800 km — and they
+arrive within two kilometres.
 
----
+## When to burn is a separate question from how
+
+`BallisticArc` answers "what would it cost to leave from here, **now**". That is the whole question
+on a pad, where waiting achieves nothing. It is not the question in orbit, where the vehicle is
+being carried round and the cost of a shot swings by orders of magnitude across one revolution.
+
+**Ignoring that does not give a worse shot; it gives a wild one.** A target the vehicle has just
+passed over has no affordable arc at all: forward the short way means reversing the entire orbital
+velocity, and the long way round passes through the planet. A search that can only leave now returns
+the first of those — eleven kilometres a second — and a computer that believes it burns the tank dry
+and lands on the wrong continent.
+
+`Sim/BurnWindow.cs` searches departure time as well as flight time. It coasts the state forward with
+`Sim/Kepler.cs` and solves from each candidate moment, across one revolution — the natural horizon,
+since past it the geometry repeats. The same target that costs eleven kilometres a second now costs
+two hundred metres a second most of a revolution later.
+
+**Waiting is a fallback, not an optimisation.** A weapon whose point is arriving is not worth holding
+in orbit to save ninety metres a second, so `WaitMustSaveMetresPerSecond` requires the saving to be
+in kilometres per second. Below that it burns now. Above it, or when leaving now has no solution at
+all, it holds — and says how long for.
+
+**Closed form is what makes the search possible.** Each candidate departure is itself a trajectory
+solve; integrating to each one would turn a search into an afternoon. `Kepler.TryCoast` is checked
+against RK4 in `KeplerTests`, hyperbolic cases included.
+
+**What it does not cover** is waiting several revolutions for the planet to turn a target under the
+ground track. The horizon is one revolution, and a target far off the plane stays far off it.
+
+## Nothing is flown open loop
+
+`BurnoutGuidance.TrySteer` falls back to the cheapest arc when a **latched arrival** cannot be
+solved, rather than returning failure. A pinned arrival pins the transfer angle, and a pinned angle
+can land on the one geometry Lambert cannot answer — two points opposite each other about the
+centre, where no plane is determined.
+
+Returning failure there leaves the caller holding the previous cycle's answer, which is to say
+flying the burn open loop with the velocity still to gain frozen at whatever it was when the trouble
+started. Measured, on a half-orbit deorbit: **9,904 km** with the loop stuck, twelve kilometres with
+the fallback. Any solve that can fail on some geometry needs an answer for that geometry, not a
+`false`.
+
+## What it tells the operator
+
+- **`IMPACT IN mm:ss`** — a countdown, taken from the plan while the burn is running and from the
+  flown prediction once it is not. The two disagree during the burn on purpose: the plan assumes it
+  finishes, the prediction assumes it stops now.
+- **`Burn starts in mm:ss`** while holding, so a computer sitting there doing nothing for an hour is
+  distinguishable from a broken one.
+- **`TARGET UNREACHABLE`**, in two flavours: no trajectory arrives there at all, or one does and the
+  tanks cannot pay for it. The second is stated with the shortfall and with the caveat that it is
+  measured with one stage's exhaust velocity over the whole vehicle's propellant — which understates
+  a deeply staged rocket, and understating is the right way round to be wrong.
+- **A mark on the target** that stays on screen wherever it is, clamped to the edge when it is out
+  of view, with the countdown beside it.
 
 ## Not done, and not verified
 

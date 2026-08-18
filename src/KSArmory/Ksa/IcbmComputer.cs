@@ -58,6 +58,19 @@ internal sealed class IcbmComputer
     /// <summary>Height over the mean sphere, for readouts that mean nothing on the ground.</summary>
     public double AltitudeMetres { get; private set; }
 
+    /// <summary>
+    /// Seconds until the warheads arrive, from now.
+    ///
+    /// <para>Taken from the flown prediction wherever there is one, and from the plan only before
+    /// there is. The two disagree while the burn is still running — the plan assumes it finishes,
+    /// the prediction assumes it stops now — and the plan is the honest answer to "when will this
+    /// arrive" right up until the engines quit.</para>
+    /// </summary>
+    public double SecondsToArrival
+        => Program.IsBurning || Program.Phase == IcbmPhase.Holding
+               ? Program.SecondsToArrival
+               : PredictedImpact?.Seconds ?? double.NaN;
+
     public Celestial? Parent { get; private set; }
 
     public IcbmComputer(Vehicle craft, IcbmConfig config)

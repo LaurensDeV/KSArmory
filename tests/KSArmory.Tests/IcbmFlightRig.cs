@@ -32,6 +32,13 @@ internal sealed class IcbmFlightRig
 
     public double SeaLevelDensity = 1.225;
 
+    /// <summary>
+    /// The step used while the program says short ones are not needed — a coast, in other words.
+    /// The game allows timewarp there for the same reason, and stepping it finely would spend
+    /// minutes of test time integrating something nothing is steering.
+    /// </summary>
+    public double CoastStepSeconds = 2.0;
+
     public int StageIndex;
 
     private double3 _pointing;
@@ -94,6 +101,7 @@ internal sealed class IcbmFlightRig
 
         while (elapsed < maxSeconds)
         {
+            double h = program.NeedsShortSteps ? step : Math.Max(step, CoastStepSeconds);
             double altitude = Body.AltitudeOf(PositionCci);
             double density = DensityRatioAt(altitude);
             double3 airflow = VelocityCci - Body.GroundVelocityCci(PositionCci);
@@ -109,7 +117,7 @@ internal sealed class IcbmFlightRig
                                       // is why the program is told what it got rather than assuming.
                                       ThrottleAchieved: command.EngineOn ? command.Throttle : 1.0);
 
-                command = program.Update(elapsed == 0.0 ? 0.0 : step, state);
+                command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
 
                 if (command.RequestStage && StageIndex < Stages.Count) StageIndex++;
             }
@@ -127,15 +135,15 @@ internal sealed class IcbmFlightRig
                                   program.Phase, command.Hold, peakQ, peakAoa);
             }
 
-            Swing(command.ThrustDirectionCci, step);
+            Swing(command.ThrustDirectionCci, h);
 
             double q = 0.5 * density * SeaLevelDensity * Vec.Len2(airflow);
             peakQ = Math.Max(peakQ, q);
             if (q > 200.0) peakAoa = Math.Max(peakAoa, Vec.AngleBetween(airflow, _pointing) * 180.0 / Math.PI);
 
-            Integrate(command, step, density, airflow);
+            Integrate(command, h, density, airflow);
 
-            elapsed += step;
+            elapsed += h;
         }
 
         return new Flight(false, PositionCci, VelocityCci, elapsed, 0.0, program.Phase,

@@ -67,7 +67,17 @@ internal sealed class IcbmConfig
     public bool AutoRelease = true;
 
     /// <summary>
-    /// Draw the arc this vehicle is currently on, and the place it is aimed at.
+    /// Keep a mark on the designated target, with the time to impact beside it.
+    ///
+    /// <para>Separate from the trajectory, and on by default, because it answers a different
+    /// question. The arc is diagnostic — it says whether the burn is finished. The mark says where
+    /// the warheads are going and when they get there, which is the thing worth having on screen
+    /// whatever else is being looked at.</para>
+    /// </summary>
+    public bool MarkTarget = true;
+
+    /// <summary>
+    /// Draw the arc this vehicle is currently on.
     ///
     /// <para>Per installation rather than session-wide, because it is the missile being flown whose
     /// trajectory is worth seeing, and four arcs across the sky is not four times as useful as

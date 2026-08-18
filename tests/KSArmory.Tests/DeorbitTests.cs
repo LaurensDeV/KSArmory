@@ -82,31 +82,67 @@ public class DeorbitTests
     }
 
     /// <summary>
-    /// The one geometry that does not work, pinned so it is a known shape rather than a surprise.
+    /// A target the vehicle has just passed over, which has no arc to it from where it is.
     ///
-    /// <para>A target <em>behind</em> the vehicle has no single ballistic arc to it. Going forward
-    /// the short way means reversing seven kilometres a second of orbital velocity; going the long
-    /// way round passes through the planet, so the solver refuses it. The real answer is to stay in
-    /// orbit until the target comes round, which is a phase this program does not have — so it
-    /// commits to the expensive arc and burns the tank dry.</para>
+    /// <para>Forward the short way means reversing seven kilometres a second of orbital velocity;
+    /// the long way round passes through the planet, so the solver refuses it. A computer that can
+    /// only leave <em>now</em> therefore takes the first of those, at eleven kilometres a second,
+    /// burns the tank dry and lands on the wrong continent.</para>
     ///
-    /// <para>It does say so, which is the only reason this is a limitation rather than a bug.</para>
+    /// <para>Searching over departure time finds the same target for a couple of hundred metres a
+    /// second, most of a revolution later. So it holds, and then it goes — and the assertions below
+    /// are that it held, that it still has its propellant, and that it arrived.</para>
     /// </summary>
     [Fact]
-    public void ATargetBehindTheVehicleCannotBeReachedAndSaysSo()
+    public void ATargetBehindTheVehicleIsReachedByWaitingForTheWindow()
     {
         IcbmFlightRig rig = InOrbit(300_000.0, 0.0);
         double3 aim = At(0.0, -0.6);
 
         IcbmProgram program = new(new IcbmConfig { Armed = true });
-        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.05, 1800.0);
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 9000.0);
 
-        Assert.Contains("short of the solution", flight.Hold);
+        Assert.True(flight.Reached, $"never reached cutoff - {flight.Hold}");
+        Assert.DoesNotContain("short of the solution", flight.Hold);
 
-        IcbmState after = new(Earth, rig.PositionCci, rig.VelocityCci,
-                              Earth.CarryCci(aim, flight.CutoffSeconds), HasAim: true,
-                              rig.Performance(), 0.0, PropellantAvailable: false);
-        Assert.False(program.Update(0.02, after).ReadyToDeploy,
-                     "a shot that fell short must not release warheads");
+        // The load-bearing part is that it waited at all rather than burning at once. Exactly how
+        // long is the geometry's business: the window is wherever the cheapest departure falls.
+        Assert.True(flight.CutoffSeconds > 1000.0,
+                    $"it should have held for the window, not burnt at {flight.CutoffSeconds:F0} s");
+        Assert.True(flight.PropellantLeftKg > 30_000.0,
+                    $"only {flight.PropellantLeftKg:F0} kg left - it burnt the expensive arc after all");
+
+        // Looser than the rest of this file, and the geometry is why. Waiting most of a revolution
+        // puts the departure nearly opposite the target, so the arc is both very long and very
+        // shallow — the most sensitive shape there is to a centimetre a second at cutoff, and the
+        // same reason a real re-entry corridor is narrow. Twelve kilometres on a twelve-thousand
+        // kilometre delivery is the geometry, not the guidance.
+        double miss = MissMetres(rig, flight, aim);
+        Assert.True(miss < 25_000.0, $"missed by {miss / 1000.0:F1} km");
+    }
+
+    /// <summary>
+    /// And it says so while it waits, with a time. A computer sitting there doing nothing for an
+    /// hour and a half is indistinguishable from a broken one without it.
+    /// </summary>
+    [Fact]
+    public void WhileItWaitsItSaysHowLongFor()
+    {
+        IcbmFlightRig rig = InOrbit(300_000.0, 0.0);
+        double3 aim = At(0.0, -0.6);
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true });
+
+        IcbmState state = new(Earth, rig.PositionCci, rig.VelocityCci, aim, HasAim: true,
+                              rig.Performance(), 0.0, PropellantAvailable: true);
+
+        IcbmCommand command = program.Update(0.0, state);
+
+        Assert.Equal(IcbmPhase.Holding, command.Phase);
+        Assert.False(command.EngineOn);
+        Assert.Contains("holding for the burn window", command.Hold);
+        Assert.True(command.SecondsToBurn > 60.0, "the window is not seconds away");
+        Assert.True(double.IsFinite(command.SecondsToArrival),
+                    "and it still knows when the warheads land");
     }
 }

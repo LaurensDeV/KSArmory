@@ -8,9 +8,26 @@ internal enum IcbmPhase
     Idle,
     Rising,
     PitchProgram,
+
+    /// <summary>Coasting on purpose, because the cheapest moment to burn has not arrived.</summary>
+    Holding,
+
     ClosedLoop,
     Coast,
     NoSolution,
+}
+
+/// <summary>Whether the shot can be made at all, which is three different answers.</summary>
+internal enum IcbmReach
+{
+    Unknown,
+    Reachable,
+
+    /// <summary>A trajectory exists and the tanks cannot fly it.</summary>
+    ShortOfPropellant,
+
+    /// <summary>No arc reaches the target from anywhere on this orbit.</summary>
+    NoTrajectory,
 }
 
 /// <summary>
@@ -49,7 +66,11 @@ internal readonly record struct IcbmCommand(
     double VelocityToGain,
     double SecondsToCutoff,
     bool ReadyToDeploy,
-    string Hold);
+    string Hold,
+    IcbmReach Reach,
+    double SecondsToArrival,
+    double SecondsToBurn,
+    double ShortfallMetresPerSecond);
 
 /// <summary>
 /// The flight, from the pad to warhead release: a schedule while there is air, closed-loop
@@ -95,15 +116,43 @@ internal sealed class IcbmProgram
     /// <summary>Inside this much of cutoff, solve every step. It is thirty frames and it decides the shot.</summary>
     public const double SolveEveryStepWithin = 0.75;
 
+    /// <summary>
+    /// How often the departure time is searched while holding.
+    ///
+    /// <para>Deliberately slow. One search is a few dozen trajectory solves and costs a frame's
+    /// worth of work; nothing about a coast changes fast enough to want it more often, and the
+    /// countdown between searches is arithmetic.</para>
+    /// </summary>
+    public const double WindowIntervalSeconds = 5.0;
+
+    /// <summary>
+    /// How much waiting has to save, in metres per second, before it is worth doing.
+    ///
+    /// <para>Absolute rather than proportional, because the thing being traded away is <em>time</em>
+    /// and a fraction says nothing about how much. Ninety metres a second is a fifth off a cheap
+    /// deorbit and is not worth spending an hour and a half in orbit to collect; the cases that
+    /// genuinely need waiting save kilometres a second, because leaving now means reversing the
+    /// whole orbital velocity.</para>
+    ///
+    /// <para>The margin also stops the computer dithering. The cheapest departure drifts by seconds
+    /// between searches, and a proportional test near its own threshold flips on that noise.</para>
+    /// </summary>
+    public const double WaitMustSaveMetresPerSecond = 1000.0;
+
+    /// <summary>
+    /// Assumed half-burn lead, for a vehicle whose engines are not running.
+    ///
+    /// <para>A finite burn has to start before the instant an impulsive one would, or it finishes
+    /// late. That lead is half the burn duration — which cannot be known while coasting, because
+    /// KSA reports the performance of engines that are <em>running</em> and none are.</para>
+    /// </summary>
+    public const double AssumedBurnLeadSeconds = 20.0;
+
+    /// <summary>Warp is held this long before the window opens, not only during the burn itself.</summary>
+    public const double WarpHoldLeadSeconds = 60.0;
+
     /// <summary>Long enough for the stack to settle before the next stage is considered.</summary>
     public const double StageCooldownSeconds = 1.5;
-
-    // Every shot goes the direct way round. BallisticArc can fly the arc over the far side, and it
-    // is not offered: that arc is a near-complete orbit, so it costs orbital-grade delta-v rather
-    // than ballistic, and a switch for it would silently turn every shot into one that falls short.
-    // The solver keeps the second family because a solver told there is only one fails at the
-    // boundary between them.
-    private const bool LongWay = false;
 
     /// <summary>Propellant unavailable for this long, with a stage already asked for, ends the burn.</summary>
     public const double DrySecondsBeforeGivingUp = 4.0;
@@ -112,20 +161,26 @@ internal sealed class IcbmProgram
     /// How much full-throttle burn is left when the throttle starts coming back.
     ///
     /// <para>An engine can only be shut down on a frame boundary, so the velocity error left at
-    /// cutoff is whatever the last frame added — a couple of metres a second on a light upper
-    /// stage, which is a kilometre and more at the far end of the arc. Coming back to a fraction of
-    /// thrust for the last moment divides that error by the same fraction, and costs a fraction of
-    /// a second of burn.</para>
+    /// cutoff is whatever the last frame added. Coming back to a fraction of thrust for the last
+    /// moment divides that error by the same fraction, and costs a fraction of a second of
+    /// burn.</para>
     ///
     /// <para>Nothing depends on the vehicle honouring it. A stack whose motors cannot be throttled
     /// at all simply gets the error it would have had, because the cutoff test is written against
-    /// the throttle that was <em>commanded</em>: an ignored command makes the threshold
+    /// the throttle that was <em>achieved</em>: an ignored command makes the threshold
     /// conservative rather than wrong.</para>
     /// </summary>
     public const double ThrottleDownSeconds = 2.0;
 
     /// <summary>The least thrust worth commanding. Below this, engines misbehave and so does the maths.</summary>
     public const double MinCommandedThrottle = 0.03;
+
+    // Every shot goes the direct way round. BallisticArc can fly the arc over the far side, and it
+    // is not offered: that arc is a near-complete orbit, so it costs orbital-grade delta-v rather
+    // than ballistic, and a switch for it would silently turn every shot into one that falls short.
+    // The solver keeps the second family because a solver told there is only one fails at the
+    // boundary between them.
+    private const bool LongWay = false;
 
     private double _cutoffSeed;
     private double _flightSeed = double.NaN;
@@ -135,17 +190,26 @@ internal sealed class IcbmProgram
     private double3 _thrustDirCci;
     private double _stageCooldown;
     private double _drySeconds;
+    private double _sinceLaunch;
     private double _lastStep;
     private double _throttle = 1.0;
     private double _lowestToGain = double.PositiveInfinity;
     private bool _fellShort;
     private double _arrivalFromLaunch = double.NaN;
-    private double _sinceLaunch;
     private string _reachHold = "";
+
+    private double _sinceWindow = double.PositiveInfinity;
+    private double _windowWait = double.NaN;
+    private double _windowCost;
+    private double3 _windowDirection;
+    private double _shortfall;
 
     public IcbmConfig Config { get; }
 
     public IcbmPhase Phase { get; private set; } = IcbmPhase.Idle;
+
+    /// <summary>Whether this shot can be made, and if not, which way it cannot.</summary>
+    public IcbmReach Reach { get; private set; } = IcbmReach.Unknown;
 
     /// <summary>The arc the last solve was flying to. Null until guidance has found one.</summary>
     public BallisticArc.Solution? Arc { get; private set; }
@@ -158,8 +222,42 @@ internal sealed class IcbmProgram
     /// <summary>Velocity still to gain at the last solve. Zero once the burn is over.</summary>
     public double VelocityToGain => _toGain;
 
+    /// <summary>Seconds until the burn should start, or zero once it has. NaN when unknown.</summary>
+    public double SecondsToBurn => Phase == IcbmPhase.Holding ? Math.Max(_windowWait, 0.0)
+                                 : IsBurning ? 0.0
+                                 : double.NaN;
+
     /// <summary>Whether an engine is being commanded, which is when the step has to stay short.</summary>
     public bool IsBurning => Phase is IcbmPhase.Rising or IcbmPhase.PitchProgram or IcbmPhase.ClosedLoop;
+
+    /// <summary>
+    /// Whether the world has to be kept slow. The burn itself, and the last minute before it —
+    /// a window is no use if one warped frame steps clean over it.
+    /// </summary>
+    public bool NeedsShortSteps
+        => IsBurning
+        || (Phase == IcbmPhase.Holding && double.IsFinite(_windowWait) && _windowWait <= WarpHoldLeadSeconds);
+
+    /// <summary>
+    /// How long until the warheads arrive, from now. NaN once the burn is over, where the flown
+    /// prediction is both available and better.
+    /// </summary>
+    public double SecondsToArrival
+    {
+        get
+        {
+            if (Arc is not { } arc) return double.NaN;
+
+            if (Phase == IcbmPhase.Holding && double.IsFinite(_windowWait))
+            {
+                return _windowWait + AssumedBurnLeadSeconds * 2.0 + arc.FlightSeconds;
+            }
+
+            if (IsBurning) return Math.Max(_countdown, 0.0) + arc.FlightSeconds;
+
+            return double.NaN;
+        }
+    }
 
     public IcbmProgram(IcbmConfig config) => Config = config;
 
@@ -167,6 +265,7 @@ internal sealed class IcbmProgram
     public void Reset()
     {
         Phase = IcbmPhase.Idle;
+        Reach = IcbmReach.Unknown;
         Arc = null;
         DownrangeCci = Vec.Zero;
         _cutoffSeed = 0.0;
@@ -177,13 +276,18 @@ internal sealed class IcbmProgram
         _thrustDirCci = Vec.Zero;
         _stageCooldown = 0.0;
         _drySeconds = 0.0;
+        _sinceLaunch = 0.0;
         _lastStep = 0.0;
         _throttle = 1.0;
         _lowestToGain = double.PositiveInfinity;
         _fellShort = false;
         _arrivalFromLaunch = double.NaN;
-        _sinceLaunch = 0.0;
         _reachHold = "";
+        _sinceWindow = double.PositiveInfinity;
+        _windowWait = double.NaN;
+        _windowCost = 0.0;
+        _windowDirection = Vec.Zero;
+        _shortfall = 0.0;
     }
 
     public IcbmCommand Update(double stepSeconds, in IcbmState state)
@@ -193,6 +297,8 @@ internal sealed class IcbmProgram
 
         _stageCooldown = Math.Max(0.0, _stageCooldown - step);
         _sinceSolve += step;
+        _sinceWindow += step;
+        if (double.IsFinite(_windowWait)) _windowWait -= step;
         if (Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution)) _sinceLaunch += step;
 
         if (!Config.Armed) return Idle(state, "not armed");
@@ -201,16 +307,20 @@ internal sealed class IcbmProgram
 
         if (Phase == IcbmPhase.Coast) return Coasting(state);
 
-        Resolve(state, step);
+        // Picked up wherever it happens to be, rather than always from a pad. On the ground it
+        // needs the launch sequence; in thick air it needs the schedule; above the air the only
+        // question left is *when*, which is what holding is for.
+        if (Phase is IcbmPhase.Idle or IcbmPhase.NoSolution) Phase = PickUpFrom(state);
 
-        if (Phase is IcbmPhase.Idle or IcbmPhase.NoSolution)
+        if (Phase == IcbmPhase.Holding) return Hold(state);
+
+        Resolve(state);
+
+        if (Arc is null)
         {
-            if (Arc is null)
-            {
-                Phase = IcbmPhase.NoSolution;
-                return Idle(state, _reachHold);
-            }
-            return Liftoff(state);
+            Phase = IcbmPhase.NoSolution;
+            Reach = IcbmReach.NoTrajectory;
+            return Idle(state, _reachHold);
         }
 
         // No thrust counts as dry, and is not treated as an immediate failure. On the pad it is
@@ -236,10 +346,93 @@ internal sealed class IcbmProgram
         };
     }
 
-    private void Resolve(in IcbmState state, double step)
+    // Which phase this vehicle belongs in, given what it is doing rather than what it did.
+    private IcbmPhase PickUpFrom(in IcbmState state)
     {
-        bool burning = Phase is IcbmPhase.Rising or IcbmPhase.PitchProgram or IcbmPhase.ClosedLoop;
-        if (burning && step > 0.0) _countdown -= step * Math.Clamp(state.ThrottleAchieved, 0.0, 1.0);
+        bool onTheGround = state.Altitude < Config.TurnStartMetres
+                        && Vec.Len(state.AirflowCci) < AscentProfile.VerticalRiseSpeed;
+
+        if (onTheGround)
+        {
+            _sinceLaunch = 0.0;
+            return IcbmPhase.Rising;
+        }
+
+        // Still enough air to bend the vehicle: fly the schedule until the loads come off. A
+        // pick-up here is an ascent already under way, and the schedule plus the angle-of-attack
+        // limiter is the same answer for both.
+        if (state.DynamicPressurePa > Config.HandoverPressurePa) return IcbmPhase.PitchProgram;
+
+        return IcbmPhase.Holding;
+    }
+
+    // Coasting on purpose. Nothing here commands an engine; the whole job is deciding when to.
+    private IcbmCommand Hold(in IcbmState state)
+    {
+        if (_sinceWindow >= WindowIntervalSeconds || !double.IsFinite(_windowWait))
+        {
+            _sinceWindow = 0.0;
+
+            if (BurnWindow.TryFind(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
+                                   out BurnWindow.Window window, Config.Loft))
+            {
+                // Waiting is a fallback, not an optimisation. A weapon whose whole point is
+                // arriving is not worth holding in orbit for ninety metres a second — but leaving
+                // now can also be flatly impossible, or cost the entire orbital velocity, and that
+                // is what this is for.
+                bool worthWaiting = !double.IsFinite(window.CostIfLeavingNow)
+                                 || window.Saving >= WaitMustSaveMetresPerSecond;
+
+                _windowWait = worthWaiting ? window.WaitSeconds : 0.0;
+                _windowCost = window.Cost;
+                _windowDirection = window.BurnDirectionCci;
+                Arc = window.Arc;
+                _flightSeed = window.Arc.CheapestFlightSeconds;
+                AssessReach(state, window.Cost);
+            }
+            else
+            {
+                Phase = IcbmPhase.NoSolution;
+                Reach = IcbmReach.NoTrajectory;
+                return Idle(state, "no trajectory reaches that target from this orbit");
+            }
+        }
+
+        double lead = state.Booster.CanThrust
+                          ? 0.5 * state.Booster.SecondsToGain(_windowCost)
+                          : AssumedBurnLeadSeconds;
+
+        if (!double.IsFinite(lead)) lead = AssumedBurnLeadSeconds;
+
+        if (_windowWait <= lead)
+        {
+            Phase = IcbmPhase.ClosedLoop;
+
+            // Solve before steering, not after. The closed loop opens by asking whether the burn is
+            // already finished, and the velocity still to gain is zero until something has worked
+            // it out — so handing straight over cuts the engines off before they light.
+            _sinceSolve = double.PositiveInfinity;
+            Resolve(state);
+
+            return Arc is null ? Idle(state, _reachHold) : ClosedLoop(state);
+        }
+
+        // Pointed where the burn will be, so the vehicle is already settled when the window opens.
+        double3 facing = _windowDirection.Equals(Vec.Zero) ? Vec.Unit(state.VelocityCci) : _windowDirection;
+
+        return new IcbmCommand(IcbmPhase.Holding, facing, 0.0, EngineOn: false, RequestStage: false,
+                               VelocityToGain: _windowCost, SecondsToCutoff: double.NaN,
+                               ReadyToDeploy: false,
+                               Hold: $"holding for the burn window, {Clock(_windowWait)} away",
+                               Reach: Reach, SecondsToArrival: SecondsToArrival,
+                               SecondsToBurn: Math.Max(_windowWait, 0.0),
+                               ShortfallMetresPerSecond: _shortfall);
+    }
+
+    private void Resolve(in IcbmState state)
+    {
+        bool burning = IsBurning;
+        if (burning && _lastStep > 0.0) _countdown -= _lastStep * Math.Clamp(state.ThrottleAchieved, 0.0, 1.0);
 
         bool due = _sinceSolve >= SolveIntervalSeconds
                 || _countdown <= SolveEveryStepWithin
@@ -255,8 +448,7 @@ internal sealed class IcbmProgram
 
         if (!BurnoutGuidance.TrySteer(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
                                       state.Booster, out BurnoutGuidance.Command command,
-                                      Config.Loft, LongWay, _cutoffSeed, _flightSeed,
-                                      arrivalFromNow))
+                                      Config.Loft, LongWay, _cutoffSeed, _flightSeed, arrivalFromNow))
         {
             // A flight already under way keeps flying its schedule: the geometry a solve needs can
             // be momentarily out of reach on the way up, and abandoning a shot for it would throw
@@ -272,8 +464,9 @@ internal sealed class IcbmProgram
         _toGain = command.VelocityToGain;
         _lowestToGain = Math.Min(_lowestToGain, _toGain);
         _thrustDirCci = command.ThrustDirectionCci;
+        AssessReach(state, command.VelocityToGain);
 
-        if (Phase is IcbmPhase.Idle or IcbmPhase.NoSolution or IcbmPhase.PitchProgram)
+        if (Phase is IcbmPhase.Rising or IcbmPhase.PitchProgram)
         {
             DownrangeCci = AscentProfile.Downrange(state.UpCci, command.Arc.RequiredVelocityCci,
                                                    state.Body.GroundVelocityCci(state.PositionCci));
@@ -286,6 +479,34 @@ internal sealed class IcbmProgram
         {
             _arrivalFromLaunch = _sinceLaunch + command.SecondsToCutoff + command.Arc.FlightSeconds;
         }
+        else if (double.IsFinite(_arrivalFromLaunch) && !command.HeldTheArrival)
+        {
+            // The arrival that was latched turned out not to be solvable — a pinned transfer angle
+            // can walk onto the one geometry Lambert cannot answer. Give it up rather than asking
+            // for it again every cycle and taking the fallback every time; following the cheapest
+            // arc is what this did before commitment and it works.
+            _arrivalFromLaunch = double.NaN;
+        }
+    }
+
+    // Whether the tanks can pay for the shot the solver found. KSA reports the mass of the whole
+    // vehicle's propellant but the exhaust velocity of the engines actually running, so this is a
+    // single-stage figure over a multi-stage load - which understates a staged vehicle, because
+    // staging throws dry mass away. Understating is the right way round to be wrong: it calls a
+    // marginal shot unreachable rather than flying one that is not.
+    private void AssessReach(in IcbmState state, double required)
+    {
+        double available = state.Booster.DeltaVRemaining;
+
+        if (!(available > 0.0))
+        {
+            Reach = IcbmReach.Unknown;
+            _shortfall = 0.0;
+            return;
+        }
+
+        _shortfall = Math.Max(0.0, required - available);
+        Reach = _shortfall > 0.0 ? IcbmReach.ShortOfPropellant : IcbmReach.Reachable;
     }
 
     // Two different failures read identically from outside, and only one of them is the player's
@@ -304,13 +525,6 @@ internal sealed class IcbmProgram
         double needed = Vec.Len(reachable.VelocityToGain(state.VelocityCci));
         double have = state.Booster.DeltaVRemaining;
         return $"not enough in the tanks: needs {needed / 1000.0:F1} km/s, has {have / 1000.0:F1} km/s";
-    }
-
-    private IcbmCommand Liftoff(in IcbmState state)
-    {
-        Phase = IcbmPhase.Rising;
-        _sinceLaunch = 0.0;
-        return Fly(IcbmPhase.Rising, state.UpCci, state, "lifting off");
     }
 
     private IcbmCommand Rising(in IcbmState state)
@@ -380,9 +594,10 @@ internal sealed class IcbmProgram
 
     private IcbmCommand Coasting(in IcbmState state)
     {
-        double short_ = _fellShort ? _toGain : 0.0;
+        double shortBy = _fellShort ? _toGain : 0.0;
         Phase = IcbmPhase.Coast;
         _toGain = 0.0;
+        if (_fellShort) Reach = IcbmReach.ShortOfPropellant;
 
         bool ready = !_fellShort && state.Altitude >= Config.DeployAltitudeMetres;
 
@@ -391,18 +606,22 @@ internal sealed class IcbmProgram
         // panel. The warheads are held back as well as the message changing: releasing them on a
         // trajectory known to fall short spreads them across whatever is under the short fall.
         string hold = _fellShort
-            ? $"burn ended {short_:F0} m/s short of the solution"
+            ? $"burn ended {shortBy:F0} m/s short of the solution"
             : ready ? "coasting, warheads may be released" : "coasting to release altitude";
 
         return new IcbmCommand(IcbmPhase.Coast, Vec.Unit(state.AirflowCci), 0.0, EngineOn: false,
-                               RequestStage: false, VelocityToGain: short_, SecondsToCutoff: 0.0,
-                               ReadyToDeploy: ready, Hold: hold);
+                               RequestStage: false, VelocityToGain: shortBy, SecondsToCutoff: 0.0,
+                               ReadyToDeploy: ready, Hold: hold, Reach: Reach,
+                               SecondsToArrival: double.NaN, SecondsToBurn: double.NaN,
+                               ShortfallMetresPerSecond: _fellShort ? shortBy : _shortfall);
     }
 
     private IcbmCommand Idle(in IcbmState state, string why)
         => new(Phase == IcbmPhase.NoSolution ? IcbmPhase.NoSolution : IcbmPhase.Idle,
                state.UpCci, 0.0, EngineOn: false, RequestStage: false,
-               VelocityToGain: 0.0, SecondsToCutoff: 0.0, ReadyToDeploy: false, Hold: why);
+               VelocityToGain: 0.0, SecondsToCutoff: 0.0, ReadyToDeploy: false, Hold: why,
+               Reach: Reach, SecondsToArrival: double.NaN, SecondsToBurn: double.NaN,
+               ShortfallMetresPerSecond: _shortfall);
 
     // Two things bound what may be commanded, and both exist to stop guidance flying the stack
     // into something. The airflow limit protects the vehicle; the horizon floor protects against a
@@ -426,6 +645,7 @@ internal sealed class IcbmProgram
     {
         bool stage = Config.AutoStage && _stageCooldown <= 0.0
                   && (!state.PropellantAvailable || !state.Booster.CanThrust);
+
         // The dry timer deliberately keeps running across a stage request. Clearing it here means
         // a stack with nothing left to stage asks again every cooldown for ever, and a flight that
         // is over never ends.
@@ -434,6 +654,22 @@ internal sealed class IcbmProgram
         if (phase != IcbmPhase.ClosedLoop) _throttle = 1.0;
 
         return new IcbmCommand(phase, direction, _throttle, EngineOn: true, stage,
-                               _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold);
+                               _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold,
+                               Reach: Reach, SecondsToArrival: SecondsToArrival, SecondsToBurn: 0.0,
+                               ShortfallMetresPerSecond: _shortfall);
+    }
+
+    /// <summary>A duration a person can read at a glance, which "4271 s" is not.</summary>
+    public static string Clock(double seconds)
+    {
+        if (!double.IsFinite(seconds) || seconds < 0.0) return "--:--";
+
+        int whole = (int)Math.Round(seconds);
+        int hours = whole / 3600;
+        int minutes = whole % 3600 / 60;
+
+        return hours > 0
+            ? $"{hours}:{minutes:00}:{whole % 60:00}"
+            : $"{minutes}:{whole % 60:00}";
     }
 }

@@ -1157,14 +1157,31 @@ is a rocket holding a perfectly steady attitude in the wrong direction.
 - [ ] A shot deliberately short of propellant says `burn ended N m/s short of the solution` and
       **holds its warheads**.
 
-### 12.5 It gives the vehicle back
+### 12.5 It picks up from anywhere
+
+The phase machine no longer assumes a pad. Each of these should join at the right point rather than
+trying to fly a vertical rise.
+
+- [ ] Arm it **in orbit** with a target ahead on the ground track: it goes straight to a deorbit
+      burn, not a vertical rise.
+- [ ] Arm it with a target the craft has just **passed over**: it says
+      `holding for the burn window, H:MM:SS away` and does **not** burn. Warp through the wait —
+      the mod should let you, then slow the world down as the window approaches.
+- [ ] Arm it **halfway up an ascent** already under way: it takes over without pitching back to
+      vertical.
+- [ ] Arm it on something already **on a ballistic arc**: it corrects rather than starting over.
+- [ ] `IMPACT IN` counts down and keeps counting through the burn, the cutoff and the coast.
+- [ ] The mark on the target stays on screen, and points from the edge when it is out of view.
+- [ ] A target the stack cannot afford reads `TARGET UNREACHABLE` with a shortfall in m/s.
+
+### 12.6 It gives the vehicle back
 
 - [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately
       afterwards.
 - [ ] Disarming mid-flight does the same.
 - [ ] Destroying the craft mid-flight does not throw, and nothing in the log complains afterwards.
 
-### 12.6 Timewarp
+### 12.7 Timewarp
 
 A burn now asks `WarpPolicy` to hold the world down, the same way rounds in the air do. This is the
 section that proves it, and it is the failure that produced a 3,255 km miss before it existed.

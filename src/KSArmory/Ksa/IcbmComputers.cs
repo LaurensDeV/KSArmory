@@ -42,7 +42,7 @@ internal sealed class IcbmComputers
 
         foreach (IcbmComputer computer in _computers.Values)
         {
-            if (computer.Program.IsBurning) anyBurning = true;
+            if (computer.Program.NeedsShortSteps) anyBurning = true;
         }
 
         return anyBurning ? IcbmProgram.MaxFaithfulStep : double.MaxValue;

@@ -110,10 +110,42 @@ internal sealed partial class Ui
             computer.Abort("aborted from the panel");
         }
 
+        // First, and unmissable. Everything below is detail about a shot that is not going to
+        // happen if this line is showing.
+        if (command.Reach == IcbmReach.NoTrajectory)
+        {
+            ImGui.TextColored(Bad, "TARGET UNREACHABLE - no trajectory arrives there");
+        }
+        else if (command.Reach == IcbmReach.ShortOfPropellant)
+        {
+            ImGui.TextColored(Bad, $"TARGET UNREACHABLE - short by "
+                                   + $"{command.ShortfallMetresPerSecond:F0} m/s of delta-v");
+            ImGui.TextDisabled("  measured against one stage's exhaust velocity over the whole");
+            ImGui.TextDisabled("  vehicle's propellant, so a deeply staged rocket may still make it");
+        }
+
         ImGui.TextColored(PhaseColour(command.Phase), $"Phase: {command.Phase}");
         ImGui.TextColored(command.Phase == IcbmPhase.NoSolution ? Bad : Working, $"Holding: {command.Hold}");
 
         ImGui.Separator();
+
+        // The one number a player actually wants off this panel.
+        double arrival = computer.SecondsToArrival;
+        if (double.IsFinite(arrival))
+        {
+            ImGui.TextColored(Good, $"IMPACT IN  {IcbmProgram.Clock(arrival)}");
+        }
+        else
+        {
+            ImGui.TextDisabled("IMPACT IN  --:--   (no shot under way)");
+        }
+
+        if (double.IsFinite(command.SecondsToBurn) && command.SecondsToBurn > 0.0)
+        {
+            ImGui.TextColored(Working, $"Burn starts in {IcbmProgram.Clock(command.SecondsToBurn)}"
+                                       + $"   ({command.VelocityToGain:F0} m/s to spend)");
+            ImGui.TextDisabled("  coasting on purpose - leaving now costs far more than waiting does");
+        }
 
         if (computer.Program.Arc is { } arc)
         {
@@ -175,6 +207,12 @@ internal sealed partial class Ui
     private void DrawIcbmTrajectory(IcbmComputer computer)
     {
         IcbmConfig config = computer.Config;
+
+        bool mark = config.MarkTarget;
+        if (ImGui.Checkbox("Mark the target and count down to impact", ref mark)) config.MarkTarget = mark;
+        ImGui.TextDisabled(config.MarkTarget
+            ? "  stays on screen wherever the target is, and points at it from the edge"
+            : "  the target is only visible on this tab");
 
         bool draw = config.DrawTrajectory;
         if (ImGui.Checkbox("Draw the predicted trajectory", ref draw)) config.DrawTrajectory = draw;

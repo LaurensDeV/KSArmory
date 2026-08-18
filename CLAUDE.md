@@ -275,6 +275,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BallisticBody.cs` | the planet an arc is flown around, and how it carries a point on its surface |
 | `Sim/AimSite.cs` | a place on a world, as the thing a ballistic missile is aimed at |
 | `Sim/BallisticArc.cs` | what a vehicle must be doing at burnout for the fall afterwards to arrive |
+| `Sim/Kepler.cs` | where a coasting body will be later, in closed form — **so a search can ask thousands of times** |
+| `Sim/BurnWindow.cs` | **when** to start burning, which is not the same question as how to fly it |
 | `Sim/ImpactPredictor.cs` | where it would come down if the engines stopped now — flown, not solved |
 | `Sim/BoosterPerformance.cs` | what the stack can still do, as the four numbers guidance needs |
 | `Sim/BurnoutGuidance.cs` | where to point and when to stop — velocity still to be gained |
@@ -1051,6 +1053,25 @@ state converges on the arc it is already flying, so a loft factor applied to tha
 the answer outward and the shot chases a trajectory running away from it — 162 km out at a 1.4 loft.
 The cheapest time is carried out of the solver separately from the one flown, and the arrival time
 is nailed down when closed-loop guidance takes over.
+
+**It joins the flight wherever the vehicle already is, and "when to burn" is its own question.**
+The phase machine is entered by looking at the vehicle rather than by assuming a pad: low and still
+means the launch sequence, dynamic pressure means an ascent already under way, above the air means
+the only question left is *when*. That last one is `Sim/BurnWindow.cs`, which searches **departure
+time** as well as flight time by coasting the state forward through `Sim/Kepler.cs`. Without it a
+target the vehicle has just passed over has no affordable arc — forward the short way means
+reversing the whole orbital velocity, the long way round goes through the planet — so a computer
+that can only leave *now* takes an eleven-kilometre-a-second answer, burns the tank dry and lands on
+the wrong continent. The same shot costs two hundred metres a second most of a revolution later.
+Waiting is a fallback rather than an optimisation: it has to save kilometres a second, because the
+thing being traded away is arriving.
+
+**A solve that can fail on some geometry needs an answer for that geometry, not a `false`.** A
+latched arrival pins the transfer angle, and a pinned angle can land on the one case Lambert cannot
+answer — two points opposite about the centre. Returning failure leaves the caller holding the
+previous cycle's answer, which is **flying the burn open loop** with the velocity still to gain
+frozen where it was. Measured at 9,904 km against 12 km with the fallback in place. The tell is a
+readout that stops moving, which looks like stability.
 
 **A guided burn holds timewarp down, for the same reason a round in the air does.** The engine
 stops on a frame boundary, so the velocity left ungained is `accel x step x throttle` — 1.5 km of
