@@ -17,7 +17,7 @@ public class PackReaderTests
     private static readonly SensorProfile[] NoSets = [];
 
     private static PackContents Read(string xml, string source = "TestPack")
-        => PackReader.Read(xml, source, Arsenal.Munitions, Arsenal.Sensors);
+        => PackReader.Read(xml, source, Catalogue.Munitions, Catalogue.Sensors);
 
     private static string Wrap(string body) => $"<WeaponPack Schema=\"1\">{body}</WeaponPack>";
 

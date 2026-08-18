@@ -38,7 +38,7 @@ public class MuzzleClusterTests
     [Fact]
     public void TwoSponsonsStayTwoGroups()
     {
-        // Arsenal.PantsirS1.GunMuzzles: pairs at Z = -1.94/-1.76 and +1.76/+1.94.
+        // BuiltIns.PantsirS1.GunMuzzles: pairs at Z = -1.94/-1.76 and +1.76/+1.94.
         double3[] muzzles =
         [
             new(1.01144, 2.50340, -1.94000),

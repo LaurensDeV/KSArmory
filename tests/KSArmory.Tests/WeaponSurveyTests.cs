@@ -132,7 +132,7 @@ public class WeaponSurveyTests
     public void TheShippedRegistryFindsTheShippedLauncher()
     {
         WeaponInventory inv = WeaponSurvey.Survey(
-            [At(Arsenal.PantsirS1.PartId, 0, 0, 0)], Arsenal.Components);
+            [At(BuiltIns.PantsirS1.PartId, 0, 0, 0)], Catalogue.Components);
 
         Assert.True(inv.IsWeaponSystem);
         Assert.Equal(1, inv.CountOf(WeaponRole.Launcher));

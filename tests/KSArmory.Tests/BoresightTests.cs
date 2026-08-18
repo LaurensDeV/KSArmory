@@ -65,7 +65,7 @@ public class BoresightTests
     [Fact]
     public void EveryMastDirectorCanSeeEverywhereItCanPoint()
     {
-        foreach (OpticProfile optic in Arsenal.Optics)
+        foreach (OpticProfile optic in Catalogue.Optics)
         {
             if (optic.Gimbal != GimbalKind.Mast) continue;
 
@@ -101,7 +101,7 @@ public class BoresightTests
     [Fact]
     public void EveryLauncherThatFiresCanSeeDownItsOwnTubes()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             if (launcher.Tubes.Length == 0) continue;
             if (!Catalogue.MunitionNamed(launcher.Munition).Powered) continue;

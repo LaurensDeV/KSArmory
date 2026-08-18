@@ -23,7 +23,7 @@ public class RoundOffsetStabilityTests
     private static readonly double3 PlatformStart = new(1.4959e11, 0, 0);
     private static readonly double3 OrbitalVelocity = new(0, 29800, 0);
 
-    private static MunitionProfile Munition() => Catalogue.MunitionNamed(Arsenal.PantsirS1.Munition);
+    private static MunitionProfile Munition() => Catalogue.MunitionNamed(BuiltIns.PantsirS1.Munition);
 
     /// <summary>
     /// Flies a round for a number of frames with the given frame times, moving the platform
@@ -43,7 +43,7 @@ public class RoundOffsetStabilityTests
             target: null!,
             tube: 1,
             platformEcl: platform,
-            frameVelocityEcl: OrbitalVelocity) { Munition = Arsenal.Missile57E6 };
+            frameVelocityEcl: OrbitalVelocity) { Munition = BuiltIns.Missile57E6 };
 
         var offsets = new List<double3>();
 
@@ -164,7 +164,7 @@ public class RoundOffsetStabilityTests
         var round = new Interceptor(
             positionEcl: platform + up * 3.0,
             velocityEcl: OrbitalVelocity + up * munition.LaunchSpeed,
-            target: null!, tube: 1, platformEcl: platform, frameVelocityEcl: OrbitalVelocity) { Munition = Arsenal.Missile57E6 };
+            target: null!, tube: 1, platformEcl: platform, frameVelocityEcl: OrbitalVelocity) { Munition = BuiltIns.Missile57E6 };
 
         Assert.Equal(0.0, Vec.Len(round.TravelSinceLaunch), 9);
 

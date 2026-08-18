@@ -22,6 +22,7 @@ Exits non-zero if anything is unresolved or the XML is malformed.
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -212,7 +213,7 @@ def check_turret_launcher_geometry(profile, key, label):
 
     import math
 
-    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    found = _as_match(profile_block(text, profile))
     if found is None:
         print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
         return 1, 1
@@ -338,7 +339,7 @@ def check_fixed_launcher_geometry(profile, munition, key, label):
     problems = 0
     checked = 0
 
-    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    found = _as_match(profile_block(text, profile))
     if found is None:
         print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
         return 1, 1
@@ -908,7 +909,7 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
     text = (MOD / "Sim" / "Arsenal.cs").read_text()
     problems = checked = 0
 
-    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    found = _as_match(profile_block(text, profile))
     if found is None:
         print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
         return 1, 1
@@ -1116,7 +1117,7 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
     text = (MOD / "Sim" / "Arsenal.cs").read_text()
     problems = checked = 0
 
-    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    found = _as_match(profile_block(text, profile))
     if found is None:
         print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
         return 1, 1
@@ -1214,17 +1215,106 @@ def registered(text, registry):
     The registry is what the mod actually loads, so it is what the geometry checks below must be
     driven from. Naming the launchers here by hand instead is how a fifth one gets no check at
     all while this script still exits 0 -- the shape CLAUDE.md warns about, reached at four.
+
+    Launchers that have moved into the shipped definitions file are appended, because a weapon
+    that leaves Arsenal.cs otherwise leaves every gate below with it and this script goes on
+    reporting all clear. That is the same failure by another route.
     """
     found = re.search(rf"{registry}\s*=\s*\[(.*?)\];", text, re.S)
-    if found is None:
+    names = [] if found is None else [n.strip() for n in found.group(1).split(",") if n.strip()]
+
+    if registry == "Launchers":
+        names += sorted(shipped_launchers())
+
+    return names
+
+
+# --- weapons that live in the definitions file rather than in Arsenal.cs ---------------------
+#
+# Every gate below reads a C# object-initialiser block and pulls fields out of it by regex. Rather
+# than teach each one a second syntax, an XML <Launcher> is rendered into the block those regexes
+# already expect. It is a bridge and is meant to be temporary: when the last weapon has moved, the
+# gates should read the XML directly and this goes. Until then it is what keeps the coverage.
+
+WEAPONS_XML = MOD / "KSArmory" / "Weapons.xml"
+
+# Attributes whose C# field is spelled differently, or is held in different units.
+_XML_FIELD = {"GunReferenceElevationDeg": ("GunReferenceElevationRad", "rad"),
+              "PodReferenceElevationDeg": ("PodReferenceElevationRad", "rad")}
+
+
+def _shipped():
+    if not WEAPONS_XML.is_file():
         return []
-    return [name.strip() for name in found.group(1).split(",") if name.strip()]
+    return ET.parse(WEAPONS_XML).getroot().findall("Launcher")
+
+
+def shipped_launchers():
+    """{profile name: rendered block}, keyed the way Arsenal.cs would have named the field."""
+    blocks = {}
+
+    for el in _shipped():
+        lines = []
+        for name, value in el.attrib.items():
+            field, unit = _XML_FIELD.get(name, (name, None))
+            if unit == "rad":
+                lines.append(f"        {field} = {math.radians(float(value)):.5f},")
+            elif re.fullmatch(r"-?[\d.]+(e-?\d+)?", value):
+                # No f suffix: a launcher's distances are double in C#, and the gates that read
+                # them match on a bare number followed by the comma.
+                lines.append(f"        {field} = {value},")
+            elif value in ("true", "false"):
+                lines.append(f"        {field} = {value},")
+            elif re.fullmatch(r"\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*", value):
+                lines.append(f"        {field} = new({value.strip()}),")
+            else:
+                lines.append(f'        {field} = "{value}",')
+
+        tubes = [f"            new({t.get('Position')})," for t in el.findall("Tube")]
+        if tubes:
+            lines.append("        Tubes =\n        [\n" + "\n".join(tubes) + "\n        ],")
+
+        muzzles = [f"            new({m.get('At')})," for m in el.findall("Muzzle")]
+        if muzzles:
+            lines.append("        GunMuzzles =\n        [\n" + "\n".join(muzzles) + "\n        ],")
+
+        blocks[profile_name(el.get("PartId", ""))] = "\n" + "\n".join(lines)
+
+    return blocks
+
+
+def profile_name(part_id):
+    """The C# field name a part Id would have had, which is what the gate tables are keyed on."""
+    return {"KSArmory_Prefab_Launcher6": "PantsirS1"}.get(part_id, part_id)
+
+
+class _Found:
+    """Stands in for a regex match so the callers below need no change."""
+
+    def __init__(self, body):
+        self._body = body
+
+    def group(self, _):
+        return self._body
+
+
+def _as_match(body):
+    return None if body is None else _Found(body)
+
+
+def profile_block(text, profile):
+    """One profile's object initialiser, from Arsenal.cs or rendered from the definitions file."""
+    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    if found is not None:
+        return found.group(1)
+
+    return shipped_launchers().get(profile)
 
 
 def trains(text, profile):
     """Whether a launcher declares training gear, which is what picks its geometry check."""
-    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
-    return found is not None and "TurretMarker" in found.group(1)
+    block = profile_block(text, profile)
+    return block is not None and "TurretMarker" in block
 
 
 def check_launcher_geometry():
@@ -1302,7 +1392,7 @@ def check_optic_geometry(profile="EoDirector"):
     checked = 0
 
     text = (MOD / "Sim" / "Arsenal.cs").read_text()
-    found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    found = _as_match(profile_block(text, profile))
     if found is None:
         print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
         return 1, 1

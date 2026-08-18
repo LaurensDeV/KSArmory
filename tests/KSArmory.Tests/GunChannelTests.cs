@@ -150,7 +150,7 @@ public class GunChannelTests
     [Fact]
     public void TheCannonEnvelopeOverlapsTheMissileMinimum()
     {
-        LauncherProfile pantsir = Arsenal.PantsirS1;
+        LauncherProfile pantsir = BuiltIns.PantsirS1;
         MunitionProfile missile = Catalogue.MunitionNamed(pantsir.Munition);
         MunitionProfile shell = Catalogue.MunitionNamed(pantsir.GunMunition!);
 

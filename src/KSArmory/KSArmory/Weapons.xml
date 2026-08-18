@@ -114,6 +114,13 @@
     <Muzzle At=" 1.01144,  2.50340, -1.76000" />
     <Muzzle At=" 1.01144,  2.50340,  1.76000" />
     <Muzzle At=" 1.01144,  2.50340,  1.94000" />
+
+    <!--
+      The director on its turret roof. Declared rather than found: it is a subpart of this part,
+      and the survey walks parts - so without this row a Pantsir reports as having no camera at
+      all. Its own OpticProfile is separate and keyed on this same part Id.
+    -->
+    <Provides Role="Camera" DisplayName="1TPP1 director" />
   </Launcher>
 
 </WeaponPack>

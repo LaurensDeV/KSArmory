@@ -149,7 +149,7 @@ public class DriveFailureTests
     [Fact]
     public void EveryRegisteredLauncherCanStowToItsOwnModelledPose()
     {
-        foreach (LauncherProfile profile in Arsenal.Launchers)
+        foreach (LauncherProfile profile in Catalogue.Launchers)
         {
             if (!profile.Trains) continue;
 

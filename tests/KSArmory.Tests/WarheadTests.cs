@@ -41,7 +41,7 @@ public class WarheadTests
     [Fact]
     public void ASmallWarheadIsStillDrawnLargeEnoughToSee()
     {
-        double shell = Arsenal.Cannon30Mm.ChargeKg;
+        double shell = BuiltIns.Cannon30Mm.ChargeKg;
 
         Assert.True(Math.Cbrt(shell / Warhead.ReferenceChargeKg) < Warhead.MinimumEffectScale,
                     "the shell should be below the floor, or this test proves nothing");
@@ -83,7 +83,7 @@ public class WarheadTests
         double nuke = Arsenal.NukeB61.ChargeKg;
 
         Assert.Equal(Math.Cbrt(nuke / Warhead.ReferenceChargeKg), Warhead.EffectScale(nuke), 9);
-        Assert.True(Warhead.EffectScale(nuke) > Warhead.EffectScale(Arsenal.Missile57E6.ChargeKg) * 5.0,
+        Assert.True(Warhead.EffectScale(nuke) > Warhead.EffectScale(BuiltIns.Missile57E6.ChargeKg) * 5.0,
                     "a nuclear burst should be visibly larger than a conventional warhead's");
     }
 
@@ -125,7 +125,7 @@ public class WarheadTests
     [Fact]
     public void TheCannonKeepsItsLethalRadius()
     {
-        Assert.Equal(4.0, Arsenal.Cannon30Mm.LethalRadius, 1);
-        Assert.True(Arsenal.Cannon30Mm.BlastRadius > Arsenal.Cannon30Mm.LethalRadius);
+        Assert.Equal(4.0, BuiltIns.Cannon30Mm.LethalRadius, 1);
+        Assert.True(BuiltIns.Cannon30Mm.BlastRadius > BuiltIns.Cannon30Mm.LethalRadius);
     }
 }

@@ -41,7 +41,7 @@ public class MunitionVarietyTests
             TargetHandle,
             tube: 1,
             platformEcl: default,
-            frameVelocityEcl: default) { Munition = Arsenal.Missile57E6 };
+            frameVelocityEcl: default) { Munition = BuiltIns.Missile57E6 };
 
         const double dt = 1.0 / 60.0;
         double t = 0.0;
@@ -79,7 +79,7 @@ public class MunitionVarietyTests
             TargetHandle,
             tube: 1,
             platformEcl: default,
-            frameVelocityEcl: default) { Munition = Arsenal.Missile57E6 };
+            frameVelocityEcl: default) { Munition = BuiltIns.Missile57E6 };
 
         const double dt = 1.0 / 60.0;
         double t = 0.0;

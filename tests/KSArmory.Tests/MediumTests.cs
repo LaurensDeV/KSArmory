@@ -26,8 +26,8 @@ public class MediumTests
 
     private static IProjectile Make(Kind kind, double3 velocity) => kind switch
     {
-        Kind.GuidedMissile => new Interceptor(Vec.Zero, velocity, TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = Arsenal.Missile57E6 },
-        _ => new Slug(Vec.Zero, velocity, TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = Arsenal.Cannon30Mm },
+        Kind.GuidedMissile => new Interceptor(Vec.Zero, velocity, TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = BuiltIns.Missile57E6 },
+        _ => new Slug(Vec.Zero, velocity, TargetHandle, 1, Vec.Zero, Vec.Zero) { Munition = BuiltIns.Cannon30Mm },
     };
 
     private static IProjectile Fly(Kind kind, MunitionProfile munition, double3 velocity,

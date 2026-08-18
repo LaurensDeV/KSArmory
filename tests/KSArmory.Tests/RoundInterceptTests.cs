@@ -19,7 +19,7 @@ public class RoundInterceptTests
 {
     private const double Dt = 1.0 / 60.0;
 
-    private static readonly MunitionProfile Shell = Arsenal.Cannon30Mm;
+    private static readonly MunitionProfile Shell = BuiltIns.Cannon30Mm;
 
     /// <summary>The size of a missile body, which is what the airborne contact reports.</summary>
     private const double BodyRadius = 1.5;
@@ -195,6 +195,6 @@ public class RoundInterceptTests
     private static Interceptor Missile() =>
         new(Vec.Zero, new double3(50, 0, 0), new object(), 1, Vec.Zero, Vec.Zero)
         {
-            Munition = Arsenal.Missile57E6,
+            Munition = BuiltIns.Missile57E6,
         };
 }

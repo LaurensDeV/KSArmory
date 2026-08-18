@@ -43,6 +43,15 @@
     <None Update="KSArmory*.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <!--
+      This mod's own weapons, read by KSArmory rather than by KSA and therefore deliberately not
+      in mod.toml's assets array. It sits in a KSArmory/ folder because that is where the scan
+      looks inside *every* mod, this one included - the built-ins go through the same path a
+      third-party pack does.
+    -->
+    <None Update="KSArmory\Weapons.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <!-- The launcher's art. Regenerate with tools/model/build.sh; both are committed so a
          plain build does not need Blender. -->
     <None Update="Meshes\**\*.glb">

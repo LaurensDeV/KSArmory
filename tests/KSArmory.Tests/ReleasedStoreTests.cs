@@ -37,7 +37,7 @@ public class ReleasedStoreTests
     [Fact]
     public void EveryRegisteredRoundAnswersTheQuestion()
     {
-        foreach (MunitionProfile round in Arsenal.Munitions)
+        foreach (MunitionProfile round in Catalogue.Munitions)
         {
             bool powered = round.Powered;
             Assert.Equal(round.Guidance is not (GuidanceMode.None or GuidanceMode.Inertial), powered);

@@ -15,7 +15,7 @@ public class ArsenalTests
     [Fact]
     public void EveryLauncherNamesARegisteredMunitionAndSensor()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             Assert.Equal(launcher.Munition, Catalogue.MunitionNamed(launcher.Munition).Name);
             Assert.Equal(launcher.Sensor, Catalogue.SensorNamed(launcher.Sensor).Name);
@@ -37,7 +37,7 @@ public class ArsenalTests
         // Discovery is by part Id, so a duplicate would make which system you get depend on
         // registration order.
         var seen = new HashSet<string>();
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             Assert.False(string.IsNullOrWhiteSpace(launcher.PartId));
             Assert.True(seen.Add(launcher.PartId), $"duplicate part Id {launcher.PartId}");
@@ -47,14 +47,14 @@ public class ArsenalTests
     [Fact]
     public void MunitionAndSensorNamesAreUnique()
     {
-        Assert.Equal(Arsenal.Munitions.Count, Arsenal.Munitions.Select(m => m.Name).Distinct().Count());
-        Assert.Equal(Arsenal.Sensors.Count, Arsenal.Sensors.Select(s => s.Name).Distinct().Count());
+        Assert.Equal(Catalogue.Munitions.Count, Catalogue.Munitions.Select(m => m.Name).Distinct().Count());
+        Assert.Equal(Catalogue.Sensors.Count, Catalogue.Sensors.Select(s => s.Name).Distinct().Count());
     }
 
     [Fact]
     public void LauncherLookupMatchesOnPartIdAndRejectsAnythingElse()
     {
-        Assert.Same(Arsenal.PantsirS1, Catalogue.LauncherForPart(Arsenal.PantsirS1.PartId));
+        Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
         Assert.Null(Catalogue.LauncherForPart("SomeOtherMod_Prefab_Thing"));
         Assert.Null(Catalogue.LauncherForPart(null));
         Assert.Null(Catalogue.LauncherForPart(""));
@@ -72,7 +72,7 @@ public class ArsenalTests
     [Fact]
     public void EveryLauncherHasAsManyTubesAsItHasTubePositions()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             Assert.Equal(launcher.Tubes.Length, launcher.TubeCount);
         }
@@ -88,7 +88,7 @@ public class ArsenalTests
     [Fact]
     public void EveryLauncherCanActuallyShootWithSomething()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             Assert.True(launcher.TubeCount > 0 || launcher.HasCannon,
                         $"{launcher.DisplayName} has neither tubes nor a cannon");
@@ -102,7 +102,7 @@ public class ArsenalTests
         // be pods or a cannon -- a CIWS traverses a gun and has no launcher assembly at all -- but
         // whichever it declares needs a trunnion offset, because a pivot measured from nothing is
         // an assembly that swings around the mount instead of elevating in place.
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             if (launcher.TurretMarker is null) continue;
 
@@ -126,16 +126,16 @@ public class ArsenalTests
     [Fact]
     public void ProfilesAreSelectableAndDriveTheTurretLimits()
     {
-        (MunitionProfile munition, SensorProfile sensor) = Catalogue.LoadoutFor(Arsenal.PantsirS1);
+        (MunitionProfile munition, SensorProfile sensor) = Catalogue.LoadoutFor(BuiltIns.PantsirS1);
 
         Assert.Equal("57E6", munition.Name);
         Assert.Equal("1RS1", sensor.Name);
 
         var turret = new Turret();
-        Arsenal.PantsirS1.ConfigureTurret(turret);
-        Assert.Equal(float.DegreesToRadians(Arsenal.PantsirS1.MaxElevationDeg), turret.MaxElevationRad, 9);
-        Assert.Equal(float.DegreesToRadians(Arsenal.PantsirS1.ForwardArcDeg), turret.ForwardArcRad, 9);
-        Assert.Equal(float.DegreesToRadians(Arsenal.PantsirS1.ForwardPlateauDeg), turret.ForwardPlateauRad, 9);
+        BuiltIns.PantsirS1.ConfigureTurret(turret);
+        Assert.Equal(float.DegreesToRadians(BuiltIns.PantsirS1.MaxElevationDeg), turret.MaxElevationRad, 9);
+        Assert.Equal(float.DegreesToRadians(BuiltIns.PantsirS1.ForwardArcDeg), turret.ForwardArcRad, 9);
+        Assert.Equal(float.DegreesToRadians(BuiltIns.PantsirS1.ForwardPlateauDeg), turret.ForwardPlateauRad, 9);
     }
 
     /// <summary>
@@ -148,16 +148,16 @@ public class ArsenalTests
     [Fact]
     public void TwoRegisteredSystemsResolveToDifferentWeapons()
     {
-        Assert.True(Arsenal.Launchers.Count >= 2);
+        Assert.True(Catalogue.Launchers.Count >= 2);
 
-        (MunitionProfile pantsirRound, SensorProfile pantsirSet) = Catalogue.LoadoutFor(Arsenal.PantsirS1);
+        (MunitionProfile pantsirRound, SensorProfile pantsirSet) = Catalogue.LoadoutFor(BuiltIns.PantsirS1);
         (MunitionProfile railRound, SensorProfile railSet) = Catalogue.LoadoutFor(Arsenal.SidewinderRail);
 
         Assert.NotSame(pantsirRound, railRound);
         Assert.NotSame(pantsirSet, railSet);
 
         Assert.Same(Arsenal.SidewinderRail, Catalogue.LauncherForPart(Arsenal.SidewinderRail.PartId));
-        Assert.Same(Arsenal.PantsirS1, Catalogue.LauncherForPart(Arsenal.PantsirS1.PartId));
+        Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
     }
 
     /// <summary>
@@ -251,9 +251,9 @@ public class ArsenalTests
     public void ThePantsirReportsTheRolesItCarriesInside()
     {
         List<SurveyedPart> parts =
-            [new SurveyedPart(Arsenal.PantsirS1.PartId, default, doubleQuat.Identity)];
+            [new SurveyedPart(BuiltIns.PantsirS1.PartId, default, doubleQuat.Identity)];
 
-        WeaponInventory inv = WeaponSurvey.Survey(parts, Arsenal.Components);
+        WeaponInventory inv = WeaponSurvey.Survey(parts, Catalogue.Components);
 
         Assert.Equal(1, inv.CountOf(WeaponRole.Launcher));
         Assert.Equal(1, inv.CountOf(WeaponRole.Sensor));
@@ -275,7 +275,7 @@ public class ArsenalTests
     {
         List<SurveyedPart> parts = [new SurveyedPart("SomeoneElsesTank", default, doubleQuat.Identity)];
 
-        Assert.False(WeaponSurvey.Survey(parts, Arsenal.Components).IsWeaponSystem);
+        Assert.False(WeaponSurvey.Survey(parts, Catalogue.Components).IsWeaponSystem);
     }
 
     /// <summary>
@@ -289,9 +289,9 @@ public class ArsenalTests
     [Fact]
     public void EveryRegisteredLauncherIsAlsoARecognisedComponent()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            Assert.True(Arsenal.Components.Any(c => c.PartId == launcher.PartId),
+            Assert.True(Catalogue.Components.Any(c => c.PartId == launcher.PartId),
                         $"{launcher.DisplayName} ({launcher.PartId}) is registered as a launcher "
                         + "but not as a component, so no craft carrying it becomes a weapons system");
         }
@@ -311,7 +311,7 @@ public class ArsenalTests
     [Fact]
     public void SteersAgreesWithTheFlightModelForEveryArmament()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             WeaponFit fit = WeaponFit.Of(launcher, Catalogue.SensorNamed(launcher.Sensor));
 
@@ -336,11 +336,11 @@ public class ArsenalTests
     [Fact]
     public void EveryLauncherComponentNamesARegisteredLauncher()
     {
-        foreach (ComponentProfile component in Arsenal.Components)
+        foreach (ComponentProfile component in Catalogue.Components)
         {
             if (component.Role != WeaponRole.Launcher) continue;
 
-            Assert.True(Arsenal.Launchers.Any(l => l.PartId == component.PartId),
+            Assert.True(Catalogue.Launchers.Any(l => l.PartId == component.PartId),
                         $"component {component.DisplayName} ({component.PartId}) claims to be a "
                         + "launcher, but no LauncherProfile has that part Id");
         }
@@ -360,15 +360,15 @@ public class ArsenalTests
     [Fact]
     public void EveryProvidedGunAndSensorRowNamesTheProfileItsSystemRuns()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             ComponentProfile? component = null;
-            for (int i = 0; i < Arsenal.Components.Count; i++)
+            for (int i = 0; i < Catalogue.Components.Count; i++)
             {
-                if (Arsenal.Components[i].PartId == launcher.PartId
-                    && Arsenal.Components[i].Role == WeaponRole.Launcher)
+                if (Catalogue.Components[i].PartId == launcher.PartId
+                    && Catalogue.Components[i].Role == WeaponRole.Launcher)
                 {
-                    component = Arsenal.Components[i];
+                    component = Catalogue.Components[i];
                 }
             }
 
@@ -405,18 +405,18 @@ public class ArsenalTests
     [Fact]
     public void AFitDoesNotRecogniseItsArmamentByTheHeadingItIsListedUnder()
     {
-        WeaponFit fit = WeaponFit.Of(Arsenal.PantsirS1, Arsenal.SearchRadar1Rs1);
+        WeaponFit fit = WeaponFit.Of(BuiltIns.PantsirS1, BuiltIns.SearchRadar1Rs1);
         Armament belt = fit.FirstOf(ArmamentKind.Belt)!.Value;
 
-        Assert.True(fit.Describes(ArmamentKind.Belt, Arsenal.Cannon30Mm.DisplayName));
+        Assert.True(fit.Describes(ArmamentKind.Belt, BuiltIns.Cannon30Mm.DisplayName));
 
         // The two are different strings, and only one of them identifies the armament.
-        Assert.NotEqual(belt.Label, Arsenal.Cannon30Mm.DisplayName);
+        Assert.NotEqual(belt.Label, BuiltIns.Cannon30Mm.DisplayName);
         Assert.False(fit.Describes(ArmamentKind.Belt, belt.Label));
 
         // A launcher with no belt recognises nothing, rather than matching on a null.
         WeaponFit rail = WeaponFit.Of(Arsenal.SidewinderRail, Arsenal.SeekerHeadAim9);
-        Assert.False(rail.Describes(ArmamentKind.Belt, Arsenal.Cannon30Mm.DisplayName));
+        Assert.False(rail.Describes(ArmamentKind.Belt, BuiltIns.Cannon30Mm.DisplayName));
     }
 
     /// <summary>
@@ -436,15 +436,15 @@ public class ArsenalTests
     [Fact]
     public void EveryLauncherProvidesFireControl()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             ComponentProfile? component = null;
-            for (int i = 0; i < Arsenal.Components.Count; i++)
+            for (int i = 0; i < Catalogue.Components.Count; i++)
             {
-                if (Arsenal.Components[i].PartId == launcher.PartId
-                    && Arsenal.Components[i].Role == WeaponRole.Launcher)
+                if (Catalogue.Components[i].PartId == launcher.PartId
+                    && Catalogue.Components[i].Role == WeaponRole.Launcher)
                 {
-                    component = Arsenal.Components[i];
+                    component = Catalogue.Components[i];
                 }
             }
 

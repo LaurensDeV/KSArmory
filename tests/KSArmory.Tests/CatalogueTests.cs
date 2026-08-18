@@ -15,15 +15,18 @@ public class CatalogueTests
     [Fact]
     public void TheCatalogueReportsEveryBuiltIn()
     {
-        Assert.Equal(Arsenal.Launchers.Count, Catalogue.Launchers.Count);
-        Assert.Equal(Arsenal.Munitions.Count, Catalogue.Munitions.Count);
-        Assert.Equal(Arsenal.Sensors.Count, Catalogue.Sensors.Count);
-        Assert.Equal(Arsenal.Optics.Count, Catalogue.Optics.Count);
-        Assert.Equal(Arsenal.Components.Count, Catalogue.Components.Count);
+        // A superset, not a match: weapons that have moved into the shipped definitions file are
+        // in the catalogue and not in Arsenal, which is the whole direction of travel. What must
+        // never happen is one of Arsenal's going missing.
+        foreach (LauncherProfile l in Arsenal.Launchers) Assert.Contains(l, Catalogue.Launchers);
+        foreach (MunitionProfile m in Arsenal.Munitions) Assert.Contains(m, Catalogue.Munitions);
+        foreach (SensorProfile s in Arsenal.Sensors) Assert.Contains(s, Catalogue.Sensors);
+        foreach (OpticProfile o in Arsenal.Optics) Assert.Contains(o, Catalogue.Optics);
+        foreach (ComponentProfile c in Arsenal.Components) Assert.Contains(c, Catalogue.Components);
 
         // Same instances, not copies: the panel tunes a profile by reference and every system
         // running that loadout is meant to feel it.
-        Assert.Same(Arsenal.PantsirS1, Catalogue.LauncherForPart(Arsenal.PantsirS1.PartId));
+        Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
         Assert.Same(Arsenal.EoDirector, Catalogue.OpticForPart(Arsenal.EoDirector.PartId));
     }
 
@@ -45,8 +48,8 @@ public class CatalogueTests
         Assert.Null(Catalogue.TrySensorNamed(missing));
 
         // And it still finds what is there, so the null above means "absent" and not "broken".
-        Assert.Same(Arsenal.Missile57E6, Catalogue.TryMunitionNamed(Arsenal.Missile57E6.Name));
-        Assert.Same(Arsenal.SearchRadar1Rs1, Catalogue.TrySensorNamed(Arsenal.SearchRadar1Rs1.Name));
+        Assert.Same(BuiltIns.Missile57E6, Catalogue.TryMunitionNamed(BuiltIns.Missile57E6.Name));
+        Assert.Same(BuiltIns.SearchRadar1Rs1, Catalogue.TrySensorNamed(BuiltIns.SearchRadar1Rs1.Name));
     }
 
     /// <summary>

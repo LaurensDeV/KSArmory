@@ -518,7 +518,7 @@ public class MushroomCloudTests
     [Fact]
     public void AChemicalChargeHasNoCloud()
     {
-        Assert.True(Arsenal.Missile57E6.ChargeKg < MushroomCloud.ThresholdKg);
+        Assert.True(BuiltIns.Missile57E6.ChargeKg < MushroomCloud.ThresholdKg);
         Assert.True(Arsenal.NukeB61.ChargeKg > MushroomCloud.ThresholdKg);
     }
 

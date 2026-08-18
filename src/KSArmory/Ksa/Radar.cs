@@ -20,7 +20,12 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// than one battery alive a shared field is whichever system resolved last. Live tuning still
     /// works, because profiles are shared instances.</para>
     /// </summary>
-    public SensorProfile Sensor { get; set; } = Arsenal.SearchRadar1Rs1;
+    /// <remarks>
+    /// Unset until a launcher is adopted, and zero range until then rather than a real set's:
+    /// seeding from whichever profile happens to be registered first gives an unfitted radar
+    /// somebody else's reach.
+    /// </remarks>
+    public SensorProfile Sensor { get; set; } = SensorProfile.None;
 
     private SensorProfile _sensor => Sensor;
     private readonly List<Vehicle> _scratch = [];

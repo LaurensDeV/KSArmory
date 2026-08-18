@@ -51,7 +51,7 @@ public class BuiltInDefinitionsTests
     [Fact]
     public void TheRoundsMatchTheProfilesTheyReplace()
     {
-        foreach (MunitionProfile was in new[] { Arsenal.Missile57E6, Arsenal.Cannon30Mm })
+        foreach (MunitionProfile was in new[] { BuiltIns.Missile57E6, BuiltIns.Cannon30Mm })
         {
             MunitionProfile now = Named(Shipped.Munitions, was.Name, m => m.Name);
 
@@ -82,7 +82,7 @@ public class BuiltInDefinitionsTests
     [Fact]
     public void TheSearchSetMatchesTheProfileItReplaces()
     {
-        SensorProfile was = Arsenal.SearchRadar1Rs1;
+        SensorProfile was = BuiltIns.SearchRadar1Rs1;
         SensorProfile now = Named(Shipped.Sensors, was.Name, s => s.Name);
 
         Assert.Equal(was.DisplayName, now.DisplayName);
@@ -101,7 +101,7 @@ public class BuiltInDefinitionsTests
     [Fact]
     public void ThePantsirMatchesTheProfileItReplaces()
     {
-        LauncherProfile was = Arsenal.PantsirS1;
+        LauncherProfile was = BuiltIns.PantsirS1;
         LauncherProfile now = Named(Shipped.Launchers, was.PartId, l => l.PartId);
 
         Assert.Equal(was.DisplayName, now.DisplayName);
@@ -155,7 +155,7 @@ public class BuiltInDefinitionsTests
     public void ThePantsirBringsItsComponentRowWithIt()
     {
         ComponentProfile row = Assert.Single(
-            Shipped.Components, c => c.PartId == Arsenal.PantsirS1.PartId);
+            Shipped.Components, c => c.PartId == BuiltIns.PantsirS1.PartId);
 
         Assert.Equal(WeaponRole.Launcher, row.Role);
         Assert.Contains(row.Provides, p => p.Role == WeaponRole.FireControl);

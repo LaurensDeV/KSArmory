@@ -245,6 +245,24 @@ def placement(pivot_from_turret, reference_rad, elevation_rad, bearing_rad, turr
     return fn
 
 
+# Weapons that have moved out of Arsenal.cs and into the shipped definitions file. Both readers
+# below are driven by the registry, so a weapon leaving the C# takes its coverage with it and
+# this tool goes on printing "clear" -- the exact silence the coverage gate exists to prevent.
+WEAPONS_XML = MOD / "KSArmory" / "Weapons.xml"
+
+_SHIPPED_NAME = {"KSArmory_Prefab_Launcher6": "PantsirS1"}
+
+
+def shipped_launchers():
+    """{profile name: its <Launcher> attributes}, for weapons defined as data."""
+    if not WEAPONS_XML.is_file():
+        return {}
+
+    import xml.etree.ElementTree as ET
+    return {_SHIPPED_NAME.get(el.get("PartId", ""), el.get("PartId", "")): el.attrib
+            for el in ET.parse(WEAPONS_XML).getroot().findall("Launcher")}
+
+
 def read_travel(profile="PantsirS1"):
     """Elevation travel and the forward depression floor, from the C# rather than a fourth copy.
 
@@ -256,7 +274,12 @@ def read_travel(profile="PantsirS1"):
     arsenal = (MOD / "Sim" / "Arsenal.cs").read_text()
 
     block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
-    overrides = block.group(1) if block else ""
+    if block is not None:
+        overrides = block.group(1)
+    else:
+        # Rendered into the same shape, so the field reader below needs no second syntax.
+        attrs = shipped_launchers().get(profile, {})
+        overrides = "\n".join(f"{k} = {v}f," for k, v in attrs.items())
 
     def value(field, fallback):
         match = re.search(rf"{field}\s*=\s*(-?[\d.]+)f\s*[,;]", overrides)
@@ -332,7 +355,10 @@ def check_every_articulated_launcher_is_swept(swept):
     covered = {v["profile"] for v in swept}
     problems = 0
 
-    for profile in (name.strip() for name in registered.group(1).split(",") if name.strip()):
+    names = [n.strip() for n in registered.group(1).split(",") if n.strip()]
+    names += sorted(shipped_launchers())
+
+    for profile in names:
         block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
         if block is None or "TurretMarker" not in block.group(1):
             continue                    # does not train, so it has nothing to sweep

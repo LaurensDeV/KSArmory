@@ -326,6 +326,8 @@ public static class PackReader
             GunReloadSeconds = r.Number("GunReloadSeconds", 20f),
         };
 
+        List<BuiltInComponent> declared = r.Provides();
+
         // A launcher that can shoot with nothing is a part fire control adopts and then holds
         // fire on for ever, with no gate reporting why.
         if (launcher.TubeCount == 0 && !launcher.HasCannon)
@@ -357,14 +359,14 @@ public static class PackReader
         if (Duplicate(launcher.PartId, into, l => l.PartId, r)) return;
 
         into.Add(launcher);
-        components.Add(ComponentFor(launcher, ownRounds, ownSets, knownRounds, knownSets));
+        components.Add(ComponentFor(launcher, declared, ownRounds, ownSets, knownRounds, knownSets));
     }
 
     // The component row a launcher implies. Minted rather than asked for: the two registries have
     // to agree, and a launcher missing from this one is recognised by fire control and invisible to
     // the panel, which looks exactly like a part that never loaded.
     private static ComponentProfile ComponentFor(
-        LauncherProfile launcher,
+        LauncherProfile launcher, List<BuiltInComponent> declared,
         List<MunitionProfile> ownRounds, List<SensorProfile> ownSets,
         IReadOnlyList<MunitionProfile> knownRounds, IReadOnlyList<SensorProfile> knownSets)
     {
@@ -380,6 +382,10 @@ public static class PackReader
         }
 
         provides.Add(new(WeaponRole.FireControl, $"{launcher.DisplayName} fire control"));
+
+        // Whatever the launcher carries that no reader could infer -- a director on its turret
+        // roof is a subpart, so the survey walks past it and only the profile knows it is there.
+        provides.AddRange(declared);
 
         return new ComponentProfile
         {
@@ -603,6 +609,28 @@ public static class PackReader
             string owner = raw[..split];
             string name = raw[(split + 1)..];
             return owner == BuiltInSource ? name : raw;
+        }
+
+        // Gear this launcher carries as subparts. The survey walks *parts*, so a role that lives
+        // inside one has to be declared or the system reports as not having it at all.
+        public List<BuiltInComponent> Provides()
+        {
+            _taken.Add("Provides");
+
+            List<BuiltInComponent> rows = [];
+            foreach (XElement el in element.Elements("Provides"))
+            {
+                Reader p = new(el, source, "Provides", faults);
+                p.Describe(_name);
+
+                WeaponRole role = p.Choice("Role", WeaponRole.Sensor);
+                string label = p.Required("DisplayName");
+
+                if (p.Sound()) rows.Add(new BuiltInComponent(role, label));
+                else _sound = false;
+            }
+
+            return rows;
         }
 
         public Tube[] Tubes()

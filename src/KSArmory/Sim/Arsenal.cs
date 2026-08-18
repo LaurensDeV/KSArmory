@@ -17,73 +17,6 @@ namespace KSArmory;
 public static class Arsenal
 {
     // ---- Munitions ------------------------------------------------------
-
-    /// <summary>
-    /// The 57E6, as flown by the real Pantsir-S1: a two-stage round that boosts hard and then
-    /// coasts on the sustainer.
-    ///
-    /// <para>The defaults on <see cref="MunitionProfile"/> are this round, so the figures live
-    /// there. What matters here is which of them are real and which are ours: peak speed
-    /// (~1300 m/s), boost duration (~2.4 s), reach (20 km) and the command-link guidance are
-    /// taken from the actual weapon. The fuse and blast radii are gameplay numbers — a 20 kg
-    /// continuous-rod warhead has a much smaller lethal envelope than 20 m, but KSA exposes
-    /// only binary destruction, so a realistic radius would read as the round doing nothing.</para>
-    ///
-    /// <para>The 57E6 carries <b>no seeker</b>. The vehicle tracks and uplinks steering commands,
-    /// which is why a hard-manoeuvring target cannot blind it — the engagement ends when the
-    /// launcher loses the track, not when the round loses sight of anything.</para>
-    /// </summary>
-    public static readonly MunitionProfile Missile57E6 = new()
-    {
-        MinRange = 1200f,
-        MaxRange = 20000f,   // the 57E6's own reach
-
-        Name = "57E6",
-        DisplayName = "57E6 two-stage SAM",
-        BodyMarker = "Missile",
-        FinMarker = "Fins",
-    };
-
-    /// <summary>
-    /// The 2A38M's 30 mm shell: the Pantsir's inner layer, for what the missiles cannot reach.
-    ///
-    /// <para>A <see cref="Slug"/> rather than an <see cref="Interceptor"/> — no seeker, no boost,
-    /// no command link. It leaves at muzzle velocity and is then only ballistics and drag, which
-    /// is why the numbers that matter here are speed and reach rather than guidance.</para>
-    ///
-    /// <para>Muzzle velocity (~960 m/s) and the 4 km effective range are the real weapon's. The
-    /// fuse radii are ours: a 30 mm shell is a contact weapon, but the mod steps in sub-frames
-    /// and cannot resolve a true contact, so the fuse is the smallest radius a round travelling
-    /// 960 m/s can be tested against without stepping past it.</para>
-    /// </summary>
-    public static readonly MunitionProfile Cannon30Mm = new()
-    {
-        MinRange = 200f,
-        MaxRange = 4000f,   // the 2A38M's effective reach
-
-        Name = "30MM",
-        DisplayName = "2A38M 30 mm cannon",
-
-        // No body subpart: twelve missile bodies exist because a salvo is twelve rounds, and a
-        // burst is hundreds. Shells are drawn as tracers only.
-        LaunchSpeed = 960f,
-        BoostSeconds = 0f,
-        BoostAccel = 0f,
-        MaxFlightSeconds = 6f,
-
-        // Heavier per frontal area than a missile, so it holds velocity better through the
-        // thick air where it is used at all.
-        DragK = 1.1e-5f,
-
-        FuseRadius = 3f,
-        FuseArmSeconds = 0.05f,
-        // Chosen to give the cannon a 4 m lethal radius. The same law then puts its blast radius
-        // at about 12 m rather than the 6 m a hand-authored pair would use -- that one only
-        // decides whether a near miss is logged, and one law cannot reproduce a pair authored at
-        // a different ratio.
-        ChargeKg = 0.16f,
-    };
-
     /// <summary>
     /// The AIM-9J: a rail-launched infrared air-to-air missile.
     ///
@@ -427,24 +360,6 @@ public static class Arsenal
         ChargeKg = 20_000_000f,
         HitsTerrain = true,
     };
-
-    /// <summary>
-    /// The 1RS1-1E search set, with the engagement envelope of the system it feeds.
-    ///
-    /// <para>Detection reaches much further than the round flies — 36 km against 20 km — so the
-    /// envelope is a separate limit rather than a consequence of detection range. Without it the
-    /// battery fires at everything it can see and the rounds expire short of a long crossing
-    /// target.</para>
-    /// </summary>
-    public static readonly SensorProfile SearchRadar1Rs1 = new()
-    {
-        Name = "1RS1",
-        DisplayName = "1RS1-1E search radar",
-
-        // It is a radar, so it can be homed on. Its operator's switch is SystemConfig.RadarSilent.
-        Emits = true,
-    };
-
     /// <summary>
     /// The rail's own infrared search head: short-ranged, narrow, and pointed where the rail is.
     ///
@@ -629,66 +544,6 @@ public static class Arsenal
         ReloadSeconds = 3f,
         SettleSeconds = 0f,
     };
-
-    public static readonly LauncherProfile PantsirS1 = new()
-    {
-        PartId = "KSArmory_Prefab_Launcher6",
-        DisplayName = "Pantsir-S1",
-        Munition = "57E6",
-        Sensor = "1RS1",
-
-        TurretMarker = "Turret",
-        PodsMarker = "Pods",
-        RadarMarker = "Radar",
-
-        // A double-sided hexagonal wedge, so both faces radiate at once and the scope draws two
-        // traces half a turn apart -- its picture refreshes twice per revolution.
-        SearchRadarFaces = 2,
-
-        GunsMarker = "Guns",
-        OpticBaseMarker = "Launcher_OpticBase",
-
-        // Generated: muzzle of each tube in the pods' frame, in firing order. The Pantsir's tubes
-        // are a parallel block, so none declares a direction of its own and they all follow the
-        // pods. tools/validate-parts.py checks these against the mesh.
-        Tubes =
-        [
-            new( 2.95513,  1.79453,  1.33250),
-            new( 2.95513,  1.79453, -1.33250),
-            new( 2.95513,  1.79453,  1.10750),
-            new( 2.95513,  1.79453, -1.10750),
-            new( 2.82607,  1.97884,  1.33250),
-            new( 2.82607,  1.97884, -1.33250),
-            new( 2.82607,  1.97884,  1.10750),
-            new( 2.82607,  1.97884, -1.10750),
-            new( 2.69702,  2.16315,  1.33250),
-            new( 2.69702,  2.16315, -1.33250),
-            new( 2.69702,  2.16315,  1.10750),
-            new( 2.69702,  2.16315, -1.10750),
-        ],
-
-        TurretPivot = new(0.00000, -1.42000, 0.00000),
-        PodPivotFromTurret = new(2.62000, -0.63000, 0.00000),
-        RadarPivotFromTurret = new(4.05000, -1.10000, 0.00000),
-        OpticBaseFromTurret = new(3.46000, 0.82000, 0.44000),
-        GunPivotFromTurret = new(3.70000, 0.07000, 0.00000),
-        GunReferenceElevationRad = 0.38397,          // 22 degrees
-
-        // The inner layer: what the missiles cannot reach, because they need 1.2 km to arm and
-        // steer. Generated with the tube table by tools/model/pantsir.py.
-        GunMunition = "30MM",
-        GunMuzzles =
-        [
-            new( 1.01144,  2.50340, -1.94000),
-            new( 1.01144,  2.50340, -1.76000),
-            new( 1.01144,  2.50340,  1.76000),
-            new( 1.01144,  2.50340,  1.94000),
-        ],
-        PodReferenceElevationRad = 0.95993,          // 55 degrees
-        MuzzleForwardOffset = 5.446,
-        TubeRingRadius = 1.231,
-    };
-
     /// <summary>
     /// A single LAU-7 launch rail carrying one AIM-9J, attached to the side of whatever it is
     /// bolted to.
@@ -1085,12 +940,11 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [PantsirS1, SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus];
+        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
-        [Missile57E6, Cannon30Mm, Missile9J, Missile120C, MissileAgm88, Cannon20Mm,
-         NukeB61, ReentryVehicleMk21];
+        [Missile9J, Missile120C, MissileAgm88, Cannon20Mm, NukeB61, ReentryVehicleMk21];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
-        [SearchRadar1Rs1, SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
+        [SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
          BombSight, EoSensor, PodSensor, BusDesignation];
 
     /// <summary>
@@ -1114,25 +968,6 @@ public static class Arsenal
     /// </summary>
     public static readonly IReadOnlyList<ComponentProfile> Components =
     [
-        new ComponentProfile
-        {
-            PartId = PantsirS1.PartId,
-            Role = WeaponRole.Launcher,
-            DisplayName = PantsirS1.DisplayName,
-
-            // The Pantsir is one part. Its radar, optical head and cannon are subparts, so they
-            // are declared rather than found -- see ComponentProfile.Provides.
-            Provides =
-            [
-                new(WeaponRole.Sensor, SearchRadar1Rs1.DisplayName),
-                new(WeaponRole.Gun, Cannon30Mm.DisplayName),
-                new(WeaponRole.FireControl, "Pantsir-S1 fire control"),
-
-                // The director on its turret roof, which is subpart gear rather than a part a
-                // survey could find on its own -- exactly what Provides is for.
-                new(WeaponRole.Camera, PantsirDirector.DisplayName),
-            ],
-        },
         new ComponentProfile
         {
             PartId = EoDirector.PartId,

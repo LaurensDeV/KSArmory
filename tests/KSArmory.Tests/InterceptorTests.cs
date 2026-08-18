@@ -32,7 +32,7 @@ public class InterceptorTests
         double3 frameVelocityEcl = default)
     {
         var round = new Interceptor(launchPos, launchVel, TargetHandle, tube: 1, platformEcl: default,
-                                    frameVelocityEcl: default) { Munition = Arsenal.Missile57E6 };
+                                    frameVelocityEcl: default) { Munition = BuiltIns.Missile57E6 };
         double t = 0.0;
         double closest = double.MaxValue;
 
@@ -187,7 +187,7 @@ public class InterceptorTests
         MunitionProfile munition = Vacuum();
         munition.FuseArmSeconds = 1.0f;
 
-        var round = new Interceptor(new double3(0, 0, 0), new double3(50, 0, 0), TargetHandle, 1, default, default) { Munition = Arsenal.Missile57E6 };
+        var round = new Interceptor(new double3(0, 0, 0), new double3(50, 0, 0), TargetHandle, 1, default, default) { Munition = BuiltIns.Missile57E6 };
         var target = new TargetState(new double3(5, 0, 0), new double3(50, 0, 0), 1.0);
 
         round.Update(0.1, target, NoGravity, frameVelocityEcl: default, platformEcl: default, munition);
@@ -204,7 +204,7 @@ public class InterceptorTests
         munition.SeekerFovDeg = 20f;
 
         // Round flying +X; target sits hard abeam on +Y, well outside a 20 degree seeker.
-        var round = new Interceptor(new double3(0, 0, 0), new double3(500, 0, 0), TargetHandle, 1, default, default) { Munition = Arsenal.Missile57E6 };
+        var round = new Interceptor(new double3(0, 0, 0), new double3(500, 0, 0), TargetHandle, 1, default, default) { Munition = BuiltIns.Missile57E6 };
         var target = new TargetState(new double3(0, 2000, 0), new double3(0, 0, 0), 5.0);
 
         round.Update(1.0 / 60.0, target, NoGravity, frameVelocityEcl: default, platformEcl: default, munition);
@@ -219,7 +219,7 @@ public class InterceptorTests
         MunitionProfile munition = Vacuum();
         munition.MaxFlightSeconds = 3f;
 
-        var round = new Interceptor(new double3(0, 0, 0), new double3(200, 0, 0), TargetHandle, 1, default, default) { Munition = Arsenal.Missile57E6 };
+        var round = new Interceptor(new double3(0, 0, 0), new double3(200, 0, 0), TargetHandle, 1, default, default) { Munition = BuiltIns.Missile57E6 };
 
         double t = 0.0;
         while (round.State == RoundState.Flying && t < 10.0)

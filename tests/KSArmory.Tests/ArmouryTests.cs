@@ -63,7 +63,7 @@ public class ArmouryTests
             <WeaponPack Schema="1">
               <Munition Name="Bolt" DisplayName="Bolt" />
               <Sensor Name="Eye" DisplayName="Eye" />
-              <Launcher PartId="{Arsenal.PantsirS1.PartId}" DisplayName="Not a Pantsir"
+              <Launcher PartId="{BuiltIns.PantsirS1.PartId}" DisplayName="Not a Pantsir"
                         Munition="Bolt" Sensor="Eye">
                 <Tube Position="0, 0, 1" />
               </Launcher>
@@ -73,7 +73,7 @@ public class ArmouryTests
         PackResult result = Armoury.Register(stealing, "ThiefPack");
 
         Assert.Contains(result.Faults, f => f.Reason.Contains("already registered"));
-        Assert.Same(Arsenal.PantsirS1, Catalogue.LauncherForPart(Arsenal.PantsirS1.PartId));
+        Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
     }
 
     /// <summary>
