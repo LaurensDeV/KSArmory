@@ -124,6 +124,17 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  vehicle's propellant, so a deeply staged rocket may still make it");
         }
 
+        // The explanation for an otherwise inexplicable number. A deorbit onto the ground track
+        // costs a hundred metres a second; the same shot at a place well off the plane costs
+        // thousands, and nothing else on this panel says which of those is being quoted — or that
+        // the answer is a different orbit rather than a bigger tank.
+        if (computer.OffPlaneDegrees > OrbitPlane.NotableDegrees && computer.Target.IsSet)
+        {
+            ImGui.TextColored(Working, $"Target is {computer.OffPlaneDegrees:F0} deg off this orbit's plane");
+            ImGui.TextDisabled($"  turning the plane that far is about {computer.PlaneChangeCost:F0} m/s of the");
+            ImGui.TextDisabled("  figure below. Waiting will not help - only a different orbit will.");
+        }
+
         ImGui.TextColored(PhaseColour(command.Phase), $"Phase: {command.Phase}");
         ImGui.TextColored(command.Phase == IcbmPhase.NoSolution ? Bad : Working, $"Holding: {command.Hold}");
 

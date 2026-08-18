@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-146 types and 402 members across 7 assemblies.
+146 types and 404 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -416,6 +416,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.FlightComputer
 
 - `Brutal.Numerics.double3 CustomAttitudeTarget`
+- `Brutal.Numerics.float3 ErrorAngles`
+- `Brutal.Numerics.float3 ErrorRates`
 - `KSA.ActiveEnginePerformance ActiveEnginePerformanceMax`
 - `KSA.FlightComputerAttitudeMode AttitudeMode`
 - `KSA.FlightComputerAttitudeTrackTarget AttitudeTrackTarget`

@@ -277,6 +277,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BallisticArc.cs` | what a vehicle must be doing at burnout for the fall afterwards to arrive |
 | `Sim/Kepler.cs` | where a coasting body will be later, in closed form — **so a search can ask thousands of times** |
 | `Sim/AimFrame.cs` | which way is up for a vehicle told to point somewhere — **the roll a pointing command leaves undecided** |
+| `Sim/OrbitPlane.cs` | how far off the plane a target sits, and what that costs — **the explanation for an inexplicable burn** |
 | `Sim/BurnWindow.cs` | **when** to start burning, which is not the same question as how to fly it |
 | `Sim/ImpactPredictor.cs` | where it would come down if the engines stopped now — flown, not solved |
 | `Sim/BoosterPerformance.cs` | what the stack can still do, as the four numbers guidance needs |
@@ -401,7 +402,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 402 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 404 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |

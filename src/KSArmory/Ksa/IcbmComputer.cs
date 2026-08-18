@@ -35,6 +35,11 @@ internal sealed class IcbmComputer
     private double3 _rollReference;
     private bool _warpIsOurs;
     private IcbmPhase _reported = IcbmPhase.Idle;
+    private double _sinceProbe;
+    private double3 _lastCommanded;
+
+    // Often enough to see an oscillation, rare enough not to fill the log with a burn's worth.
+    private const double ProbeIntervalSeconds = 0.5;
 
     // How much of the remaining wait each warp leaves for the next one, and the most it will leave.
     // A fraction rather than a constant because the span is what decides how fast KSA warps: a
@@ -67,6 +72,12 @@ internal sealed class IcbmComputer
 
     /// <summary>Height over the mean sphere, for readouts that mean nothing on the ground.</summary>
     public double AltitudeMetres { get; private set; }
+
+    /// <summary>How far off the plane the vehicle is flying in the target sits, in degrees.</summary>
+    public double OffPlaneDegrees { get; private set; }
+
+    /// <summary>Roughly what turning the orbit that far would cost on its own.</summary>
+    public double PlaneChangeCost { get; private set; }
 
     /// <summary>
     /// Seconds until the warheads arrive, from now.
@@ -159,10 +170,13 @@ internal sealed class IcbmComputer
             Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: {Command.Phase} at "
                      + $"{AltitudeMetres / 1000.0:F0} km, {Command.VelocityToGain:F0} m/s to gain, "
                      + $"burn in {IcbmProgram.Clock(Command.SecondsToBurn)}, "
-                     + $"impact in {IcbmProgram.Clock(SecondsToArrival)} :: {Command.Hold}");
+                     + $"impact in {IcbmProgram.Clock(SecondsToArrival)}, "
+                     + $"target {OffPlaneDegrees:F1} deg off plane ({PlaneChangeCost:F0} m/s), "
+                     + $"reach {Command.Reach} :: {Command.Hold}");
         }
 
         Predict(simStep, state);
+        ProbeAttitude(playerStep);
 
         // Attitude is driven for every phase that is doing something, not only while an engine is
         // lit. A hold can be an hour long and the vehicle is pointed at the burn for all of it; and
@@ -281,6 +295,30 @@ internal sealed class IcbmComputer
     }
 
     /// <summary>The trajectory, in the ecliptic, for drawing. Empty until a prediction has run.</summary>
+    // What the flight computer makes of the attitude it is being given, which is the only way to
+    // tell a command that is swinging from a vehicle that cannot hold a steady one. Both look like
+    // tumbling from outside, and they want opposite fixes.
+    private void ProbeAttitude(double playerStep)
+    {
+        if (!Program.IsBurning || Log.Threshold > Log.Level.Debug) return;
+
+        _sinceProbe += playerStep;
+        if (_sinceProbe < ProbeIntervalSeconds) return;
+        _sinceProbe = 0.0;
+
+        double3 wanted = Vec.Unit(Command.ThrustDirectionCci);
+        double slew = _lastCommanded.Equals(Vec.Zero)
+                          ? 0.0
+                          : Vec.AngleBetween(_lastCommanded, wanted) * 180.0 / Math.PI;
+        _lastCommanded = wanted;
+
+        FlightComputer computer = Craft.FlightComputer;
+
+        Log.Debug($"{KsaWorld.DisplayName(Craft)} attitude: command slewed {slew:F1} deg, "
+                  + $"error {computer.ErrorAngles} rad, rates {computer.ErrorRates}, "
+                  + $"mode {computer.AttitudeMode}/{computer.AttitudeTrackTarget}");
+    }
+
     // Something square to the vertical for the roll to clock to when the planet cannot supply one,
     // which is the whole of a vertical rise. Downrange is horizontal by construction; before there
     // is one, the way the vehicle is already moving will do.
@@ -343,6 +381,18 @@ internal sealed class IcbmComputer
 
         usable = Body.IsUsable;
         AltitudeMetres = Body.AltitudeOf(positionCci);
+
+        if (hasAim)
+        {
+            double off = OrbitPlane.OffPlaneRadians(positionCci, velocityCci, aimCci);
+            OffPlaneDegrees = off * 180.0 / Math.PI;
+            PlaneChangeCost = OrbitPlane.PlaneChangeCost(Vec.Len(velocityCci), off);
+        }
+        else
+        {
+            OffPlaneDegrees = 0.0;
+            PlaneChangeCost = 0.0;
+        }
 
         return new IcbmState(Body, positionCci, velocityCci, aimCci, hasAim, booster, density,
                              Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep);
