@@ -394,7 +394,13 @@ public static class PackReader
 
     // A pack's own key, carrying the pack. Two packs shipping an "AIM-9X" are then two rounds
     // rather than a silent capture of whichever registered first.
-    private static string Qualify(string source, string name) => $"{source}:{name}";
+    //
+    // The built-ins are the exception and keep bare keys, because they are the namespace every
+    // qualified reference is resolved against -- KeyFor already strips "KSArmory:" for the same
+    // reason. It is also what lets this mod's own weapons move into a definitions file without
+    // renaming every key a saved setting or a pack reference already holds.
+    private static string Qualify(string source, string name)
+        => source == BuiltInSource ? name : $"{source}:{name}";
 
     private static T? Resolved<T>(string key, List<T> own, IReadOnlyList<T> known, Func<T, string> nameOf)
         where T : class
