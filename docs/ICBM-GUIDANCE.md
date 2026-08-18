@@ -363,13 +363,39 @@ Not only while an engine is lit. A hold can be an hour long with the vehicle poi
 all of it, and after cutoff the bus has to keep the line it was cut off on for the warheads to
 leave along it. Leaving either free is a vehicle drifting when it should be settled.
 
-## The wait is handed to the game
+## The wait is handed to the game, and taken back carefully
 
 A hold of an hour and a half is not something to sit through at one times, and KSA already has a
-warp-to-a-time. `IcbmConfig.AutoWarpToWindow` asks for it, stopping a minute short of the burn —
-because `WarpPolicy` cannot slow the world down at all while an auto-warp is running, and the last
-minute is exactly when the world has to be slow enough to cut an engine on. Only for the craft
-being flown: warping the world is not something a computer on some other vehicle gets to decide.
+warp-to-a-time. `IcbmConfig.AutoWarpToWindow` asks for it. Only for the craft being flown: warping
+the world is not something a computer on some other vehicle gets to decide.
+
+**Getting out of that warp is the part that needs care**, and getting it wrong pauses the game. KSA's
+auto-warp is still travelling when it reaches its target, so a hold that starts while it runs is
+trying to brake the world from a thousand times speed in one frame — and the first speed the policy
+computes from a step that size is nearly zero. Measured: `simulation speed 1213.07x -> 1.00x`, then
+`timewarp held at 0.0x`, then `0.00x (paused)`, then the burn abandoned for the world not running
+slow enough to simulate it.
+
+Two rules come out of that, and they are the same rule twice:
+
+- **The mod does not compete with the game's own warp.** While a computer is holding and an
+  auto-warp is running, it asks for nothing.
+- **It ends the warp itself** when the window is close, rather than letting it run out. Stopping an
+  auto-warp resets the speed, so the hold starts from something it can work with.
+
+And `MaxFaithfulStep` is deliberately no tighter than a round's. Asking the world to run slower than
+anything else in the mod needs buys a few hundred metres and costs the shot, because the policy
+answering that request is a control loop against an actuator shared with the player.
+
+## A stable orbit is known not to come down
+
+The impact prediction is flown, and a vehicle in a stable orbit never arrives — so flying it means
+integrating the whole six-hour horizon, several times a second, to reach that conclusion. Which is
+precisely the state a computer holding for a burn window sits in.
+
+`Kepler.PeriapsisRadius` answers it from the conic instead, for nothing. The clearance required is
+more than any mountain rather than merely positive, because terrain stands above the mean sphere the
+conic is measured against.
 
 ## What it tells the operator
 

@@ -99,16 +99,20 @@ internal sealed class IcbmProgram
     /// The longest step a guided burn survives.
     ///
     /// <para>An engine can only be shut down on a frame boundary, so the velocity left at cutoff is
-    /// whatever the last step added — <c>acceleration x step x throttle</c>. At a tenth of a second
-    /// and fifty metres a second squared that is metres per second, which is kilometres at the far
-    /// end of the arc; at the 170-second steps timewarp hands out it is <em>kilometres</em> per
-    /// second, and the shot lands on another continent.</para>
+    /// whatever the last step added — <c>acceleration x step x throttle</c>. At the 170-second steps
+    /// high timewarp hands out that is kilometres per second, and the shot lands on another
+    /// continent. So a burn is something warp has to be held down for, exactly as rounds in the air
+    /// are — see <see cref="WarpPolicy"/>, and this is the number that asks for it.</para>
     ///
-    /// <para>So a burn is not something to be integrated more carefully under warp. It is something
-    /// warp has to be held down for, exactly as rounds in the air are — see
-    /// <see cref="WarpPolicy"/>. This is the number that asks for it.</para>
+    /// <para><b>Deliberately no tighter than a round's.</b> Asking for more is asking the world to
+    /// run slower than anything else in the mod needs, and the policy answering that request is a
+    /// control loop against a shared actuator: from a thousand times speed the first thing it
+    /// computes is a speed of nearly zero, which pauses the game and then abandons the burn for not
+    /// being able to run slow enough. The accuracy bought is not worth what it costs — a third of a
+    /// second of step is a few hundred metres at the far end, and cancelling the shot is all of
+    /// it.</para>
     /// </summary>
-    public const double MaxFaithfulStep = 0.05;
+    public const double MaxFaithfulStep = 0.3;
 
     /// <summary>How often the trajectory is re-solved. Everything between is the countdown.</summary>
     public const double SolveIntervalSeconds = 0.25;

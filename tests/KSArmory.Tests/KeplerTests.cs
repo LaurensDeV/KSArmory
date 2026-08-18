@@ -98,4 +98,47 @@ public class KeplerTests
         Assert.Equal(r0, r1);
         Assert.Equal(v0, v1);
     }
+
+
+    /// <summary>
+    /// A stable orbit never arrives, and the conic says so without anything being flown. That is
+    /// what a computer holding for a burn window sits in, so the alternative is integrating the
+    /// whole horizon several times a second to reach the same conclusion.
+    /// </summary>
+    [Fact]
+    public void AStableOrbitIsKnownNotToComeDownWithoutFlyingIt()
+    {
+        double3 r0 = new(R + 300_000.0, 0, 0);
+        double3 circular = new(0, Math.Sqrt(Mu / (R + 300_000.0)), 0);
+
+        double periapsis = Kepler.PeriapsisRadius(Mu, r0, circular);
+        Assert.True(periapsis > R, $"periapsis came out at {(periapsis - R) / 1000.0:F0} km altitude");
+
+        BallisticBody earth = new(Mu, R, new double3(0, 0, 1), 0.0);
+        Assert.False(ImpactPredictor.TryPredict(earth, r0, circular, 2.0,
+                                                ImpactPredictor.DefaultMaxSeconds, out _));
+    }
+
+    /// <summary>And one that does dip into the ground still gets flown, which is the other half.</summary>
+    [Fact]
+    public void AnOrbitThatGrazesTheGroundIsStillFlown()
+    {
+        double3 r0 = new(R + 300_000.0, 0, 0);
+        double3 slow = new(0, Math.Sqrt(Mu / (R + 300_000.0)) * 0.85, 0);
+
+        double periapsis = Kepler.PeriapsisRadius(Mu, r0, slow);
+        Assert.True(periapsis < R, "this one should reach the ground");
+
+        BallisticBody earth = new(Mu, R, new double3(0, 0, 1), 0.0);
+        Assert.True(ImpactPredictor.TryPredict(earth, r0, slow, 2.0, 20_000.0, out _));
+    }
+
+    [Fact]
+    public void AnEscapeTrajectoryHasNoPeriapsisToReportOn()
+    {
+        double3 r0 = new(R + 300_000.0, 0, 0);
+        double3 escaping = new(0, Math.Sqrt(2.0 * Mu / (R + 300_000.0)) * 1.2, 0);
+
+        Assert.True(double.IsNaN(Kepler.PeriapsisRadius(Mu, r0, escaping)));
+    }
 }

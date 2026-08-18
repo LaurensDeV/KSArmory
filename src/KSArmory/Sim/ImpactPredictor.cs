@@ -42,6 +42,11 @@ internal static class ImpactPredictor
     // Where the bisection gives up, for an arc arriving too steeply to resolve.
     private const double MinRefineSeconds = 1e-6;
 
+    // How far a closed orbit's lowest point has to clear the mean sphere before it is called safe
+    // without flying it. Terrain stands above that sphere, so the clearance has to be more than any
+    // mountain rather than merely positive.
+    private const double NeverComesDownMargin = 12_000.0;
+
     /// <param name="stepSeconds">The coarse step. Refined automatically at the crossing.</param>
     /// <param name="terrainRadiusAt">
     /// Surface radius under a <em>body-fixed</em> point, i.e. one with the planet's rotation already
@@ -60,6 +65,16 @@ internal static class ImpactPredictor
         if (!body.IsUsable) return false;
         if (!Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci)) return false;
         if (!(stepSeconds > 0.0) || !(maxSeconds > 0.0)) return false;
+
+        // A closed orbit whose lowest point clears the ground never arrives, and asking the conic
+        // costs nothing. Flying it instead means integrating the whole horizon — ten thousand steps,
+        // several times a second — to reach the same conclusion about a vehicle in a stable orbit,
+        // which is exactly what a computer holding for a burn window is sitting in.
+        double periapsis = Kepler.PeriapsisRadius(body.Mu, positionCci, velocityCci);
+        if (double.IsFinite(periapsis) && periapsis > body.SurfaceRadius + NeverComesDownMargin)
+        {
+            return false;
+        }
 
         double3 r = positionCci;
         double3 v = velocityCci;

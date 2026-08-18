@@ -108,6 +108,32 @@ internal static class Kepler
         return 2.0 * Math.PI * Math.Sqrt(a * a * a / mu);
     }
 
+    /// <summary>
+    /// The lowest radius this trajectory reaches, or NaN for one that is not closed.
+    ///
+    /// <para>Cheap enough to ask before integrating anything, which is the point: a vehicle in a
+    /// stable orbit never comes down, and finding that out by flying it takes the whole horizon.
+    /// </para>
+    /// </summary>
+    public static double PeriapsisRadius(double mu, double3 positionCci, double3 velocityCci)
+    {
+        double r = positionCci.Length();
+        if (!(mu > 0.0) || !(r > 0.0)) return double.NaN;
+
+        double3 h = Vec.Cross(positionCci, velocityCci);
+        double hLen = h.Length();
+        if (!(hLen > 0.0)) return double.NaN;
+
+        double3 eVec = Vec.Cross(velocityCci, h) / mu - positionCci / r;
+        double e = eVec.Length();
+        if (e >= 1.0) return double.NaN;
+
+        double p = hLen * hLen / mu;
+        double radius = p / (1.0 + e);
+
+        return double.IsFinite(radius) ? radius : double.NaN;
+    }
+
     private static double InitialGuess(double mu, double r0, double rDotV, double alpha,
                                        double seconds, double sqrtMu)
     {

@@ -184,12 +184,27 @@ internal sealed class IcbmComputer
     // which cannot slow the world down at all while an auto-warp is running.
     private void WarpToWindow()
     {
-        if (!Config.AutoWarpToWindow) return;
         if (Program.Phase != IcbmPhase.Holding) return;
         if (!ReferenceEquals(Craft, KsaWorld.ControlledVehicle)) return;
-        if (KsaWorld.IsAutoWarpActive) return;
 
         double wait = Command.SecondsToBurn;
+
+        // Ended by this side rather than left to run out. KSA's warp is still travelling when it
+        // reaches its target, so handing over at speed leaves the hold trying to brake the world
+        // from a thousand times in one frame - which computes a speed of nearly zero and pauses the
+        // game. Stopping it resets the speed, and the hold then starts from something workable.
+        if (KsaWorld.IsAutoWarpActive)
+        {
+            if (double.IsFinite(wait) && wait <= IcbmProgram.WarpHoldLeadSeconds)
+            {
+                Log.Info($"stopping the warp on {KsaWorld.DisplayName(Craft)}, "
+                         + $"{IcbmProgram.Clock(wait)} to the burn");
+                KsaWorld.StopAutoWarp();
+            }
+            return;
+        }
+
+        if (!Config.AutoWarpToWindow) return;
         if (!double.IsFinite(wait) || wait <= IcbmProgram.WarpHoldLeadSeconds * 2.0) return;
 
         if (KsaWorld.TryAutoWarpTo(wait, IcbmProgram.WarpHoldLeadSeconds))

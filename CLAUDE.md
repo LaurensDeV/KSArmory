@@ -1055,6 +1055,16 @@ the answer outward and the shot chases a trajectory running away from it — 162
 The cheapest time is carried out of the solver separately from the one flown, and the arrival time
 is nailed down when closed-loop guidance takes over.
 
+**Do not compete with KSA's own warp, and do not ask the world for more than the rounds do.**
+Coming out of a warp-to-a-time is where this bites: KSA is still travelling when it reaches its
+target, so a hold beginning there tries to brake the world from a thousand times in one frame, and
+the first speed the policy computes from a step that size is nearly zero — measured as
+`1213.07x -> 1.00x`, `held at 0.0x`, `(paused)`, then the burn abandoned for the world not running
+slow enough. So the mod asks for nothing while an auto-warp runs and **ends the warp itself** when
+the window is close, which resets the speed to something the hold can work from. And
+`IcbmProgram.MaxFaithfulStep` is no tighter than a round's: the extra accuracy is a few hundred
+metres and the cost is the whole shot.
+
 **Pointing needs two directions, and the second one has a singularity.** KSA's aiming frame clocks
 the roll to the planet, which has no answer when the nose points at it or away from it — and
 *reverses* there rather than merely failing, because the side the planet is on has changed. A

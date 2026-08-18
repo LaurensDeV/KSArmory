@@ -42,7 +42,16 @@ internal sealed class IcbmComputers
 
         foreach (IcbmComputer computer in _computers.Values)
         {
-            if (computer.Program.NeedsShortSteps) anyBurning = true;
+            if (!computer.Program.NeedsShortSteps) continue;
+
+            // Not while KSA is running its own warp to a time. That mechanism lands the world where
+            // it was asked to and stops; racing it down is the fight WarpPolicy stands down from
+            // anyway, and from a thousand times speed the first slowdown it computes is nearly
+            // zero — which pauses the game. The computer stops the warp itself when the window is
+            // close, and the hold takes over from a speed it can work with.
+            if (computer.Program.Phase == IcbmPhase.Holding && KsaWorld.IsAutoWarpActive) continue;
+
+            anyBurning = true;
         }
 
         return anyBurning ? IcbmProgram.MaxFaithfulStep : double.MaxValue;
