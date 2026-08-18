@@ -372,16 +372,33 @@ public static class Arsenal
         Name = "B61",
         DisplayName = "B61 tactical bomb",
 
-        // The Mk 82's body, instanced again rather than modelled: at this range a free-fall bomb
-        // is a bomb-shaped object, and the shape is not what anyone will be looking at.
+        // The marker is this rack's own subpart. It is matched against the subparts of whichever
+        // part the launcher resolved, so naming the other rack's body resolves nowhere and the
+        // bomb is released invisibly.
         //
-        // The marker is this rack's own subpart, not the Mk 82's. It is matched against the
-        // subparts of whichever part the launcher resolved, so naming the other rack's body
-        // resolves nowhere and the bomb is released invisibly.
+        // Length is the B61-12's published 11 ft 8 in, and the mesh is built to it.
         BodyMarker = "B61",
-        BodyLength = 2.22f,
+        BodyLength = 3.556f,
 
-        Guidance = GuidanceMode.None,
+        // Four hinged blades rather than one deploying set: they are what steers, so they are
+        // drawn deflecting. The travel is deliberately larger than the real few degrees -- see
+        // FinDeflectionDeg.
+        FinMarker = "Blade",
+        FinsPerRound = 4,
+        FinHingeStation = -1.521f,
+        FinDeflectionDeg = 12f,
+
+        // The guided tail kit. It steers a fall onto a designated point and cannot follow anything
+        // that moves — see GuidanceMode.Inertial. Undesignated it is a dumb bomb, which is also
+        // what the real one is when released ballistically.
+        //
+        // Three g of fin authority against a missile's thirty-five, and no gravity compensation at
+        // all: the autopilot's job here is to steer the fall, not to resist it. Compensating would
+        // have it hold altitude, which is the one thing a bomb cannot do.
+        Guidance = GuidanceMode.Inertial,
+        NavConstant = 3f,
+        MaxLateralG = 3f,
+        GravityCompensation = 0f,
 
         LaunchSpeed = 4f,
         BoostSeconds = 0f,

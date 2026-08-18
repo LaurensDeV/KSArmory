@@ -69,6 +69,10 @@ EXEMPT = {
         "how a fin is hidden before it deploys, which is art rather than performance",
     "MunitionProfile.FinDeploySeconds":
         "as above",
+    "MunitionProfile.FinHingeStation":
+        "where a blade hinges is geometry; the mesh is exported recentred on it",
+    "MunitionProfile.FinsPerRound":
+        "as above -- it counts the subparts the model declares",
     "MunitionProfile.Stages":
         "a boost schedule is a table, not a slider",
     "MunitionProfile.MaxFaithfulStepSeconds":

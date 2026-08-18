@@ -256,8 +256,11 @@ internal static class LauncherPart
             missile.Scale = Shown;
             missile.ResetCachedPosMatrixValues();
 
-            // Stowed: flat against the casing, so the round clears the bore.
-            if (fins is not null) TryPlaceFins(fins, seated, rotation, 0.0, munition);
+            // Stowed: flat against the casing, so the round clears the bore. A hinged set has no
+            // stowed state and four blades rather than one, so the caller places those itself —
+            // scaling blade zero to nothing here is how they went missing on the rack.
+            if (fins is not null && munition.FinsPerRound == 0)
+                TryPlaceFins(fins, seated, rotation, 0.0, munition);
             return true;
         }
         catch (Exception e)
@@ -408,6 +411,40 @@ internal static class LauncherPart
             fins.Asmb2ParentAsmbSafe = rotation;
             fins.Scale = scale;
             fins.ResetCachedPosMatrixValues();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Places one hinged blade of a cruciform set on its round.
+    ///
+    /// <para>The blade's mesh is recentred on its hinge, so its origin rides the body axis at the
+    /// hinge station and its rotation is the hinge. Composed in that order: deflect about the
+    /// blade's own radial axis first, then roll it into position, then carry both through the
+    /// body's attitude. Rolling first would deflect it about somebody else's hinge.</para>
+    /// </summary>
+    public static bool TryPlaceFin(Part fin, double3 bodyPos, doubleQuat bodyRot,
+                                   double hingeStationPartFrame, double rollRad, double deflectRad)
+    {
+        try
+        {
+            doubleQuat local = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), rollRad)
+                               * doubleQuat.CreateFromAxisAngle(new double3(0, 1, 0), deflectRad);
+            doubleQuat rotation = bodyRot * local;
+            double3 position = bodyPos + bodyRot * new double3(hingeStationPartFrame, 0, 0);
+
+            if (!Vec.IsFinite(position)) return false;
+
+            fin.PositionParentAsmb = position;
+            fin.PositionParentAsmbSafe = position;
+            fin.Asmb2ParentAsmb = rotation;
+            fin.Asmb2ParentAsmbSafe = rotation;
+            fin.Scale = Shown;
+            fin.ResetCachedPosMatrixValues();
             return true;
         }
         catch

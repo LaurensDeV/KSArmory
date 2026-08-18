@@ -342,6 +342,38 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // The fin set belonging to a tube, or null if the launcher carries none.
     private Part? FinsFor(int index) => index >= 0 && index < _finBodies.Count ? _finBodies[index] : null;
 
+    // Puts a loaded round's blades on their hinges, undeflected -- a round on the rack is not
+    // steering. Needed because TrySeatMissile only knows about the older single fin set: without
+    // this the blades sit wherever the XML left them, which is inside the bomb.
+    private void SeatFinsFor(int tube)
+    {
+        if (Munition.FinsPerRound <= 0) return;
+        if (!LauncherPart.TryGetSeatedPartFrame(PodsPart, Profile, tube, Munition.BodyLength,
+                                                out double3 seated)) return;
+        if (!LauncherPart.TryGetTubeAxisPartFrame(PodsPart, Profile, tube, out double3 axis)) return;
+
+        doubleQuat rotation = FireGeometry.RotationFromNose(axis);
+        for (int blade = 0; blade < Munition.FinsPerRound; blade++)
+        {
+            if (FinsFor(tube * Munition.FinsPerRound + blade) is not { } part) continue;
+
+            double roll = FinMixer.FinRollRad(blade, Munition.FinsPerRound, Math.PI / 4.0);
+            LauncherPart.TryPlaceFin(part, seated, rotation, Munition.FinHingeStation, roll, 0.0);
+        }
+    }
+
+    // Hides every blade belonging to one tube's round: four on a hinged set, one on a set that
+    // scales. Hiding only the first leaves the rest frozen where they were last written, which
+    // reads as a stray blade hanging in the air beside an empty rack.
+    private void HideFinsFor(int tube)
+    {
+        int per = Math.Max(1, Munition.FinsPerRound);
+        for (int blade = 0; blade < per; blade++)
+        {
+            if (FinsFor(tube * per + blade) is { } part) LauncherPart.HideMissile(part);
+        }
+    }
+
     /// <summary>
     /// False once KSA has refused to place a round body. Unlike the turret, these travel
     /// kilometres from the vehicle they belong to, so the engine may well decline — hence the
@@ -786,10 +818,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // having never closed.
         if (!ThreatModel.InEngagementEnvelope(target, Munition)) return;
 
-        // A round that cannot steer has no business being launched at a track: it would leave the
-        // rail and fall, and the log would record a shot at something it was never going to reach.
+        // A released store has no business being launched at a track: it leaves the rack and
+        // falls, and the log would record a shot at something it was never going to reach. A tail
+        // kit does not change that -- it steers onto a fixed point, and cannot chase anything.
         // WhyNotFiring says the same thing to the operator.
-        if (Munition.Guidance == GuidanceMode.None) return;
+        if (!Munition.Powered) return;
 
         Fire(target);
     }
@@ -1259,6 +1292,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!_config.UseRoundBodies)
         {
             for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
+            for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
             return;
         }
 
@@ -1343,8 +1377,34 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
 
 
-            // Fins ride the body's own transform and open over the first fraction of a second.
-            if (FinsFor(index) is { } finSet)
+            // Hinged blades, or the older single set that opens by scaling. Which one a round has
+            // is the model's business, declared by FinsPerRound.
+            if (Munition.FinsPerRound > 0)
+            {
+                // The command is ecliptic and the blades are in the body's frame, so it is carried
+                // in through the launcher the same way every other world direction is: Asmb2Ego's
+                // conjugate for world-to-vehicle, then the body's own rotation off.
+                double3 commandBody = Vec.Zero;
+                if (!round.SteeringCommandEcl.Equals(Vec.Zero))
+                {
+                    double3 inAsmb = doubleQuat.Conjugate(platform.Asmb2Ego) * round.SteeringCommandEcl;
+                    commandBody = doubleQuat.Conjugate(bodyRot) * inAsmb;
+                }
+
+                for (int blade = 0; blade < Munition.FinsPerRound; blade++)
+                {
+                    if (FinsFor(index * Munition.FinsPerRound + blade) is not { } part) continue;
+
+                    double roll = FinMixer.FinRollRad(blade, Munition.FinsPerRound, Math.PI / 4.0);
+                    double deflect = FinMixer.DeflectionRad(commandBody, roll,
+                                                            Munition.MaxLateralAccel,
+                                                            Munition.FinDeflectionRad);
+
+                    LauncherPart.TryPlaceFin(part, bodyPos, bodyRot,
+                                             Munition.FinHingeStation, roll, deflect);
+                }
+            }
+            else if (FinsFor(index) is { } finSet)
             {
                 LauncherPart.TryPlaceFins(finSet, bodyPos, bodyRot,
                                           round.FinDeployment(Munition), Munition);
@@ -1449,7 +1509,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </summary>
     public bool Release()
     {
-        if (Munition.Guidance != GuidanceMode.None)
+        // Powered, not "guided": a tail-kit store dropped with nothing designated is a dumb bomb,
+        // which is exactly what the real one is when released ballistically.
+        if (Munition.Powered)
         {
             Announce($"refused: the {Munition.DisplayName} is guided - give it something to shoot at");
             return false;
@@ -1773,10 +1835,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // only one that cannot be.
         if (Profile.TubeCount == 0) return FireBurst();
 
-        // A bomb is released, not launched at something: it cannot steer, so a lock would tell it
-        // nothing and demanding one leaves the trigger dead. Same reasoning as the gun-only mount
-        // above -- what is being hand-aimed here is the aircraft.
-        if (Munition.Guidance == GuidanceMode.None) return Release();
+        // A store is released, not launched at something: nothing on the rack has a seeker for a
+        // lock to feed, so demanding one leaves the trigger dead. Same reasoning as the gun-only
+        // mount above -- what is being hand-aimed here is the aircraft.
+        //
+        // Asks Powered rather than "is it unguided". A guided tail kit steers after release and is
+        // still released, so keying this on guidance left the B61's trigger refusing "no lock" on
+        // a rack that has no radar at all.
+        if (!Munition.Powered) return Release();
 
         if (Radar.Locked is null) { Announce("refused: no lock"); return false; }
         return Fire(Radar.Locked);
@@ -2439,6 +2505,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         // Hide the round bodies that were riding those interceptors, or they freeze mid-air.
         for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
+        for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
 
         if (hadRounds) Announce($"rounds abandoned: {why}");
         else Log.Debug(() => $"tracking reset: {why}");
