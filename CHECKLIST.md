@@ -198,6 +198,29 @@ Re-check after any XML edit.
 **If it fails:** the schema differs from Core's. Compare against
 `Content/Core/CoreStructuralAAssets.xml`, which the mod's XML is modelled on.
 
+### 1.3 A weapon pack registers its own weapons
+
+**Confirmed against KSA `2026.8.19.5261`**, with `KSArmory-example-mod` installed beside the mod.
+
+- [x] StarMap prints `Loaded mod: ExampleMod from manifest`, and KSA `found mod 'ExampleMod'`.
+- [x] `KSArmory.log` reads `pack 'ExampleMod': 3 registered`, with no fault lines.
+- [x] The pack's launcher appears in the `ready -` roster beside the compiled-in ones.
+- [x] The audit is silent — the pack's part Id resolves and both its markers match one subpart.
+- [x] Its part renders correctly in the editor, right way up.
+- [ ] Release a bomb from it, and check the sight ring against where it lands.
+- [ ] The panel drives it exactly as it drives a compiled-in launcher.
+
+**Two bugs only the flight could find**, both invisible to the suite and to every offline gate:
+
+- `ModLibrary.Has<T>` and `TryGet<T>` dispatch through a branch chain with no `PartTemplate` case
+  and fall through to `false`, so the audit called **every** part in the game undeclared. Only
+  `Get<T>` reaches `AllParts`, and it reports a miss by throwing.
+- The pack's mesh was exported a quarter turn out, so its bomb hung across the hull instead of
+  along it. Blender's glTF importer always converts Y-up to Z-up, so a script that *round-trips* an
+  atlas needs `+Y Up` **on** — the opposite of the generator, which builds in Blender coordinates
+  and writes them raw. `checkmesh.py` passes a rotated body, because UV area and coplanarity are
+  both fine; comparing bounding boxes against the source is what catches it.
+
 ---
 
 ## 2. The part
@@ -493,7 +516,11 @@ Paths that have never once run. These are not "probably fine".
 
 - [x] Build a craft with the Pantsir, save the game, quit to menu, reload. Craft intact, part present.
 - [ ] Save *while rounds are in flight*, reload. No exception; rounds simply gone is fine.
-- [ ] A save made with the mod active still loads with the mod **removed** — or fails cleanly.
+- [x] A save made with the mod active still loads with the mod **removed** — **it does not, and
+      it does not fail cleanly.** `PartInstance.GetTemplate` calls `ModLibrary.Get<PartTemplate>`,
+      which throws `NullReferenceException` for an Id nothing declares. Same family as removing a
+      subpart. Proved by removing the Mk 82 rack: the three instances across two saves had to be
+      lifted out of `universe.xml` by hand first.
 
 **Why it matters:** the part goes into the save's part tree. If KSA cannot resolve
 `KSArmory_Prefab_Launcher6` on load, the craft — or the whole save — may fail.
