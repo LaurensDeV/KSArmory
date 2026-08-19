@@ -2182,9 +2182,35 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double miss = Vec.Len(burst - target.PositionEcl);
         if (!double.IsFinite(miss)) return string.Empty;
 
+        string where = WhereOnTheGround(burst, target.PositionEcl);
+
         return miss < 1000.0
-            ? $", {miss:F0} m from the aim point"
-            : $", {miss / 1000.0:F1} km from the aim point";
+            ? $", {miss:F0} m from the aim point{where}"
+            : $", {miss / 1000.0:F1} km from the aim point{where}";
+    }
+
+    // Both places as latitude and longitude. A distance says a shot missed; only the direction says
+    // what kind of miss it was - short or long is energy, left or right is the plane or the clock,
+    // and the two want completely different things looked at.
+    private string WhereOnTheGround(double3 burstEcl, double3 aimEcl)
+    {
+        Celestial? body = Platform is { } craft ? KsaWorld.ParentBody(craft) : _looseBody;
+        if (body is null) return string.Empty;
+
+        try
+        {
+            double3 centre = body.GetPositionEcl();
+            double burstLat = body.GetLatitudeFromCce(burstEcl - centre);
+            double burstLon = body.GetLongitudeFromCce(burstEcl - centre);
+            double aimLat = body.GetLatitudeFromCce(aimEcl - centre);
+            double aimLon = body.GetLongitudeFromCce(aimEcl - centre);
+
+            return $" (landed {burstLat:F3},{burstLon:F3} aimed {aimLat:F3},{aimLon:F3})";
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private TargetState? SampleTarget(IProjectile round)
