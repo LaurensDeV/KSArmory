@@ -212,6 +212,33 @@ public class PredictedDragTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// A warhead leaves its tube at <see cref="MunitionProfile.LaunchSpeed"/>, and on a deorbit the
+    /// bus is holding the retrograde attitude its braking burn ended on — so the ejection slows the
+    /// round and it falls short. Two metres a second is kilometres on this trajectory, which is why
+    /// predicting the bus's arc rather than the round's cannot be near enough.
+    /// </summary>
+    [Fact]
+    public void TheTwoMetresPerSecondOffTheTubeIsWorthKilometres()
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 from, out double3 _);
+        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+
+        // The bus is pointing retrograde, so the tube throws the warhead backwards along its track.
+        double3 retrograde = -Vec.Unit(arc.RequiredVelocityCci);
+        double3 ejected = arc.RequiredVelocityCci + retrograde * warhead.LaunchSpeed;
+
+        double3 bus = FlyTheRound(from, arc.RequiredVelocityCci, warhead);
+        double3 round = FlyTheRound(from, ejected, warhead);
+
+        double apart = GroundMetres(bus, round);
+        Out.WriteLine($"{warhead.LaunchSpeed} m/s off the tube moves the impact {apart / 1000.0:F1} km");
+        Out.WriteLine($"  ({apart / 1000.0 / warhead.LaunchSpeed:F1} km per m/s on this arc)");
+
+        Assert.True(apart > 2_000.0,
+                    $"the release impulse should be worth kilometres here; it was {apart:F0} m");
+    }
+
+    /// <summary>
     /// A round with no drag is unaffected, so the arithmetic above the atmosphere is untouched.
     /// </summary>
     [Fact]

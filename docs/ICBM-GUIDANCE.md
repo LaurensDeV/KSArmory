@@ -478,6 +478,21 @@ the prediction cannot see is a difference no amount of correcting removes — th
 drag-free prediction onto the target, reported convergence, and the warheads went on landing 59 km
 short. Flown. The instrument, not the loop, was the fault.
 
+## The prediction is of the warhead's state, not the bus's
+
+A warhead does not leave on the bus's velocity. Each is ejected along its own tube at
+`MunitionProfile.LaunchSpeed`, and a bus's tube cants cancel in the mean — the MIRV bus's six point
+along part `+X` with ±6° of cant — so what survives is the **whole** of that speed along the nose.
+
+On a deorbit the nose is held **retrograde**, because that is the attitude the braking burn ended
+on. So the ejection slows every warhead and they all fall short together. Measured on this
+trajectory: **1.8 km per m/s** purely retrograde, and the radial axis is worth more again
+(3.4–4.3 km per m/s), so 2 m/s off the tube is kilometres.
+
+Predicting the bus's arc instead of the round's leaves that entirely invisible to the aim
+correction — the same shape as the drag fault above, and found the same way, by measuring what the
+prediction and the round disagreed about rather than reasoning about it.
+
 ## The aim is corrected by what the flown prediction loses
 
 The transfer solver is exact, and exact for the wrong thing. It puts the arc through a **point**, and

@@ -346,7 +346,8 @@ internal sealed class IcbmComputer
         {
             doubleQuat cce2Cci = parent.GetCce2Cci();
             double3 positionCci = (KsaWorld.PositionEcl(Craft) - parent.GetPositionEcl()).Transform(cce2Cci);
-            double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci);
+            double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci)
+                                  + ReleaseImpulseCci();
 
             if (!ImpactPredictor.TryPredict(Body, positionCci, velocityCci, PredictStepSeconds,
                                             ImpactPredictor.DefaultMaxSeconds,
@@ -536,6 +537,22 @@ internal sealed class IcbmComputer
         }
     }
 
+    // A warhead does not leave on the bus's velocity. Each is ejected along its own tube at the
+    // munition's LaunchSpeed, and a bus's tube cants cancel in the mean, so what survives is the
+    // whole of it along the nose.
+    //
+    // On a deorbit that nose is held retrograde - it is the attitude the braking burn ended on - so
+    // the ejection *slows* every warhead and they all fall short together. Predicting the bus's arc
+    // rather than the round's leaves that invisible to the aim correction, and this trajectory
+    // moves about two kilometres per metre per second.
+    private double3 ReleaseImpulseCci()
+    {
+        if (_warhead is not { LaunchSpeed: > 0f } warhead) return Vec.Zero;
+
+        double3 nose = Command.ThrustDirectionCci;
+        return nose.Equals(Vec.Zero) || !Vec.IsFinite(nose) ? Vec.Zero : Vec.Unit(nose) * warhead.LaunchSpeed;
+    }
+
     // How thick the air is at a point on the arc. The same field the round's own drag is read from,
     // so the prediction and the round cannot disagree about the atmosphere they are flying through.
     private double DensityRatioAt(double3 pointCci)
@@ -580,6 +597,8 @@ internal sealed class IcbmComputer
 
         double3 fromCci = fromCutoff ? Program.CutoffPositionCci : state.PositionCci;
         double3 alongCci = fromCutoff ? Program.Arc!.Value.RequiredVelocityCci : state.VelocityCci;
+
+        alongCci += ReleaseImpulseCci();
 
         // Predicted with the warhead's drag rather than in vacuum. On a shallow deorbit arrival a
         // vacuum arc lands tens of kilometres beyond anything that actually flies it, and the aim
