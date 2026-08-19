@@ -72,4 +72,46 @@ public class PlatformHandoverTests
         Assert.Equal(HandoverVerdict.Move, h.Verdict);
         Assert.Equal(1, h.CraftIndex);
     }
+
+    /// <summary>
+    /// Two of the part on <em>one</em> craft agree about where it went, so there is nothing to be
+    /// ambiguous about. Refusing there is what strands both halves of a craft that carried a pair —
+    /// which is the case a roster keyed on an ordinal exists for.
+    /// </summary>
+    [Fact]
+    public void TwoSightingsOnOneCraftAreNotAmbiguous()
+    {
+        Handover h = PlatformHandover.Choose([At(4, 30.0, ordinal: 0), At(4, 30.0, ordinal: 1)]);
+
+        Assert.Equal(HandoverVerdict.Move, h.Verdict);
+        Assert.Equal(4, h.CraftIndex);
+    }
+
+    /// <summary>
+    /// And they are taken in part order, so the second entry to search finds the second part still
+    /// free. Whichever the caller walked first would otherwise decide it.
+    /// </summary>
+    [Fact]
+    public void TwoSightingsOnOneCraftAreTakenInPartOrder()
+    {
+        Handover first = PlatformHandover.Choose([At(4, 30.0, ordinal: 1), At(4, 30.0, ordinal: 0)]);
+        Assert.Equal(0, first.Ordinal);
+
+        // What the roster puts a second lost entry: the one just taken now reads as crewed.
+        Handover second = PlatformHandover.Choose(
+            [At(4, 30.0, ordinal: 0, crewed: true), At(4, 30.0, ordinal: 1)]);
+
+        Assert.Equal(HandoverVerdict.Move, second.Verdict);
+        Assert.Equal(1, second.Ordinal);
+    }
+
+    /// <summary>A second craft at the same range is still a guess, whatever else is on the first.</summary>
+    [Fact]
+    public void ASecondCraftStillMakesItAmbiguous()
+    {
+        Handover h = PlatformHandover.Choose(
+            [At(4, 30.0, ordinal: 0), At(4, 30.0, ordinal: 1), At(9, 40.0)]);
+
+        Assert.Equal(HandoverVerdict.Ambiguous, h.Verdict);
+    }
 }
