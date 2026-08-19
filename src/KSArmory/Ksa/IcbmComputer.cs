@@ -33,15 +33,8 @@ internal sealed class IcbmComputer
     private double _sincePredict = double.PositiveInfinity;
     private bool _driving;
     private double3 _rollReference;
-    private double3 _aimBiasCci;
+    private readonly AimCorrection _aim = new();
     private double3 _trueAimCci;
-
-    // How much of the flown error is taken out each time the prediction runs, and how far the aim
-    // may be moved in total. A fraction rather than the whole because this is a feedback loop
-    // against a solver that then moves the arc: taking all of it every half second oscillates.
-    private const double BiasGain = 0.5;
-
-    private const double MaxBiasMetres = 300_000.0;
     private bool _warpIsOurs;
     private IcbmPhase _reported = IcbmPhase.Idle;
     private double _sinceProbe;
@@ -115,7 +108,7 @@ internal sealed class IcbmComputer
         Target = site;
         Program.Reset();
         _reported = IcbmPhase.Idle;
-        _aimBiasCci = Vec.Zero;
+        _aim.Reset();
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -434,7 +427,7 @@ internal sealed class IcbmComputer
             // is, and on a shallow arrival over rising terrain that is tens of kilometres short of
             // a summit. Correcting the aim is the only thing that closes it, because there is
             // nothing wrong with the trajectory - it arrives exactly where it was asked to.
-            aimCci = _trueAimCci + _aimBiasCci;
+            aimCci = _aim.Apply(_trueAimCci);
             hasAim = true;
         }
 
@@ -508,7 +501,17 @@ internal sealed class IcbmComputer
         if (_sincePredict < PredictIntervalSeconds) return;
         _sincePredict = 0.0;
 
-        if (ImpactPredictor.TryPredict(Body, state.PositionCci, state.VelocityCci, PredictStepSeconds,
+        // While the engines are running, predict from where the arc *departs* rather than from
+        // where the vehicle is. The current state is mid-burn and describes a trajectory nobody
+        // intends to fly, so a correction driven by it never sees the shot being aimed - which
+        // leaves the aim uncorrected for the whole burn, and by the coast the arc is fixed and the
+        // warheads are already going.
+        bool fromCutoff = Program.IsBurning && Program.Arc is not null;
+
+        double3 fromCci = fromCutoff ? Program.CutoffPositionCci : state.PositionCci;
+        double3 alongCci = fromCutoff ? Program.Arc!.Value.RequiredVelocityCci : state.VelocityCci;
+
+        if (ImpactPredictor.TryPredict(Body, fromCci, alongCci, PredictStepSeconds,
                                        ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
                                        TerrainRadiusAt, _path))
         {
@@ -521,11 +524,7 @@ internal sealed class IcbmComputer
                 ? Body.SurfaceRadius * Vec.AngleBetween(hit.GroundFixedPointCci, _trueAimCci)
                 : double.NaN;
 
-            if (state.HasAim && !Program.IsBurning)
-            {
-                double3 error = hit.GroundFixedPointCci - _trueAimCci;
-                _aimBiasCci = Vec.ClampLength(_aimBiasCci - error * BiasGain, MaxBiasMetres);
-            }
+            if (state.HasAim) _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
         }
         else
         {

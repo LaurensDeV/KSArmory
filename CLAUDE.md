@@ -280,6 +280,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/OrbitPlane.cs` | how far off the plane a target sits, and what that costs — **the explanation for an inexplicable burn** |
 | `Sim/BurnWindow.cs` | **when** to start burning, which is not the same question as how to fly it |
 | `Sim/ImpactPredictor.cs` | where it would come down if the engines stopped now — flown, not solved |
+| `Sim/AimCorrection.cs` | where to aim so it lands on the target — **the solver arrives at a point, a round stops at the ground** |
 | `Sim/BoosterPerformance.cs` | what the stack can still do, as the four numbers guidance needs |
 | `Sim/BurnoutGuidance.cs` | where to point and when to stop — velocity still to be gained |
 | `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |

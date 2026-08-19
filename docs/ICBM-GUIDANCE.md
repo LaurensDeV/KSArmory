@@ -85,8 +85,9 @@ which is the answer to "why did my click do nothing" given before the click rath
 `AimpointKind.Ground` exists for, at a thousand times the flight time.
 
 **And it is aimed at the real ground, not the mean sphere.** The solve is a transfer between two
-*points*, so a target standing five kilometres up is hit by aiming at where it stands — no terrain
-model anywhere in the guidance and no correction afterwards.
+*points*, so a target standing five kilometres up is aimed at where it stands. That is necessary
+and not sufficient: a round stops at the ground rather than at a point, which the solver has no way
+to know — see *The aim is corrected by what the flown prediction loses*.
 
 ---
 
@@ -446,11 +447,24 @@ wrong. So the aim carries a **bias**, driven by the difference between where the
 lands and where the target is, taken at a fraction of the error each cycle because it is a feedback
 loop against a solver that then moves the arc.
 
-Two things make it honest rather than self-confirming:
+`Sim/AimCorrection.cs`, so it is testable: the same geometry lands **69.0 km** short uncorrected
+and on the target corrected, and `AimCorrectionTests` holds both halves of that pair.
 
+Four things make it honest rather than self-confirming, and the first two were each wrong once:
+
+- **The prediction is of the arc being flown *to*, not of the state being flown *through*.** While
+  the engines are burning, the vehicle is nowhere near its cutoff conic, so a prediction from the
+  current state measures an arc nobody will fly and the correction it feeds back is meaningless.
+  It is flown from `IcbmProgram.CutoffPositionCci` along the solved `RequiredVelocityCci` instead.
+  Getting this wrong is invisible in the worst way: the correction still converges after cutoff,
+  where the arc is already fixed and the warheads are gone.
+- **The corrected aim stays on the target's own radius.** The bias is a free vector and the
+  correction is a displacement *along the ground*, so adding it raw walks the aim off the surface
+  and asks the solver for an arc to a point underground — which it refuses, and the whole computer
+  then has no solution at all.
 - The prediction is flown **against the real height field**, not the mean sphere. Without that it
   descends four kilometres past the mountain it was aimed at and reports a miss in the opposite
-  direction.
+  direction. Flown: own prediction 60.4 km out, then 9.7 km.
 - The miss is scored against the **target**, never against the biased aim. Scoring the correction
   against itself reports a perfect shot however far the rounds actually land.
 

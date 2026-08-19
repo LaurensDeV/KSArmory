@@ -255,6 +255,15 @@ internal sealed class IcbmProgram
     /// <summary>The arc the last solve was flying to. Null until guidance has found one.</summary>
     public BallisticArc.Solution? Arc { get; private set; }
 
+    /// <summary>
+    /// Where the last solve expects the engines to stop.
+    ///
+    /// <para>Paired with <see cref="BallisticArc.Solution.RequiredVelocityCci"/> it is the state the
+    /// arc departs from — which is the only state worth predicting from during a burn. The
+    /// vehicle's current one is mid-ascent and describes a trajectory nobody intends to fly.</para>
+    /// </summary>
+    public double3 CutoffPositionCci { get; private set; }
+
     /// <summary>Which way downrange is, refreshed while the pitch programme runs.</summary>
     public double3 DownrangeCci { get; private set; }
 
@@ -516,6 +525,7 @@ internal sealed class IcbmProgram
         }
 
         Arc = command.Arc;
+        CutoffPositionCci = command.CutoffPositionCci;
         _cutoffSeed = command.SecondsToCutoff;
         _flightSeed = command.Arc.CheapestFlightSeconds;
         _countdown = command.SecondsToCutoff;
