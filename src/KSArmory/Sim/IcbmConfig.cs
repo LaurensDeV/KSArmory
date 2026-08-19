@@ -73,11 +73,16 @@ internal sealed class IcbmConfig
     /// released from one attitude leave on different vectors and scatter, and there is one aim for
     /// all of them. Measured in flight at about 1,200 m across six warheads.</para>
     ///
-    /// <para>On by default, and free for a launcher it does not describe: a single tube is the mean
-    /// of its own axes, so nothing is asked to turn. It costs release time on a launcher still
-    /// bolted to a spent stack, which is what the sequencer's window budget is for.</para>
+    /// <para><b>Off by default until the vehicle can hold the offset.</b> Flown on a separated MIRV
+    /// bus, commanding six degrees away from the held line made it hunt rather than settle: it swung
+    /// past the reference to ten degrees, never brought the tubes below 0.08 m/s of sweep against a
+    /// 0.05 gate, and every release was a timeout. The predicted miss went from 1.7-0.3 km to
+    /// 6-10 km. The hunting costs more than the cant it removes.</para>
+    ///
+    /// <para>Free for a launcher it does not describe: a single tube is the mean of its own axes, so
+    /// nothing is asked to turn.</para>
     /// </summary>
-    public bool RepointBetweenReleases = true;
+    public bool RepointBetweenReleases;
 
     /// <summary>
     /// Put the bus back on its solution with its own thrusters before letting anything go.

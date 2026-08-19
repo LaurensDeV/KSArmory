@@ -86,7 +86,36 @@ to move the camera that does not rebuild derived data.
 
 It fails safely: the camera stays on the spent stack and nothing else is lost.
 
-## 5. Re-pointing is built, wired, and unproven
+## 5. Re-pointing destabilises the vehicle — off by default
+
+**This is the finding that changes the plan.** Flown on a separated bus with the sequencer on,
+commanding six degrees away from the held line made the vehicle *hunt* rather than settle:
+
+```
+turning onto tube 1, 6.0 deg to go ... 1.3 ... back up to 10.3 ... back down ...
+releasing tube 2 with the tubes sweeping 0.082 m/s - the warheads will scatter
+(the same for tubes 3, 4, 5, 6)
+probe: 9.9, 8.6, 7.8, 7.0, 6.2, 6.6 km
+```
+
+It swung *past* the reference to 10.3° — nearly twice the cant it was correcting — never brought the
+sweep below 0.08 m/s against a 0.05 gate, so every release was a timeout and the sequence gave up
+after the first tube. Against 1.7-0.3 km on the same shot without it.
+
+So `IcbmConfig.RepointBetweenReleases` now defaults **off**. The give-up paths worked exactly as
+designed — it released rather than holding warheads, and said why every time — which is the only
+reason this was a bad salvo rather than a lost one.
+
+**What to investigate before turning it back on:** whether the oscillation is KSA's attitude
+controller, the RCS authority, or the command being rotated every frame while the reference is
+fixed in Cci and the vehicle's own frame is rotating under it. The last is the one I would look at
+first — a fixed target in an inertial frame is not a fixed target in the body frame, and the
+controller may be chasing a moving one.
+
+Note also the slew itself is fine: 6° in about four seconds, ~1.5°/s. **The 28 s per tube measured
+earlier was entirely settling**, so this is a stability problem and not an authority one.
+
+## 5b. Re-pointing is built and headlessly proven
 
 `Sim/ReleasePointing.cs` and `Sim/ReleaseSequence.cs`, on by default via
 `IcbmConfig.RepointBetweenReleases`. Headlessly it collapses the tube-cant spread from **1,730 m to
