@@ -22,7 +22,8 @@ internal sealed class Slug : IProjectile
 
     // The ground under the round, sampled once a frame. Held rather than re-read because the
     // terrain query is the expensive call and a sphere of this radius is the surface for the few
-    // metres of ground track one frame covers.
+    // metres of ground track one frame covers. The centre is carried across the frame with the
+    // round's own frame — see GroundCentreAt.
     private double3 _groundCentre;
     private double _groundRadius;
     private bool _haveGround;
@@ -240,6 +241,20 @@ internal sealed class Slug : IProjectile
         if (State == RoundState.Flying && Age >= munition.MaxFlightSeconds) State = RoundState.Expired;
     }
 
+    // The body the ground sits on is sampled once a frame and then stands still, while the round
+    // crosses the frame carrying the planet's ~29.8 km/s of ecliptic travel with it. Differencing
+    // the two reads that carrier as a change of altitude - up to 1.5 km of it across a 50 ms frame
+    // - so the round meets the ground wherever the carrier happens to point rather than where the
+    // terrain is. On a shallow arrival every metre of it is about eleven metres of ground.
+    //
+    // Carrying the centre with the round's own frame is the same back-dating the target samples
+    // get, in the direction the caller's phase asks for: the celestial state arrives in step with
+    // the round's position at the *start* of the frame, so the centre is carried forward from
+    // there. Spin is in this velocity and does no harm - it is perpendicular to the radius, so it
+    // cannot change the one thing read off this.
+    private double3 GroundCentreAt(double secondsIntoFrame)
+        => _groundCentre + _frameVelocityEcl * secondsIntoFrame;
+
     private void Step(double h, double elapsedInFrame, double frameSeconds, TargetState? target,
                       double3 gravity, MunitionProfile munition, double mediumDensityRatio)
     {
@@ -374,8 +389,8 @@ internal sealed class Slug : IProjectile
 
         if (_haveGround)
         {
-            double was = Vec.Len(before - _groundCentre) - _groundRadius;
-            double now = Vec.Len(PositionEcl - _groundCentre) - _groundRadius;
+            double was = Vec.Len(before - GroundCentreAt(elapsedInFrame)) - _groundRadius;
+            double now = Vec.Len(PositionEcl - GroundCentreAt(elapsedInFrame + h)) - _groundRadius;
 
             if (now <= 0.0)
             {
