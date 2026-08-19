@@ -39,6 +39,7 @@ internal sealed class IcbmComputer
     private readonly double3[] _tubeAxes = new double3[64];
     private bool _separated;
     private Vehicle? _viewWanted;
+    private string _saidLast = "";
     private double3 _trueAimCci;
     private MunitionProfile? _warhead;
     private double3 _releaseOffsetCci;
@@ -229,6 +230,14 @@ internal sealed class IcbmComputer
                                               -Vec.Unit(state.PositionCci), RollFallback(state));
 
             _deploy = DriveDeployment(simStep, release, state);
+
+            // Said once per change, because it is the only account of why a warhead is not going
+            // yet - and a sequence that stalls looks exactly like one that has finished.
+            if (_deploy.Said != _saidLast)
+            {
+                _saidLast = _deploy.Said;
+                if (_saidLast.Length > 0) Log.Info($"deploying: {_saidLast}");
+            }
 
             // Handed to the hook rather than written here. A write from this pass is discarded
             // before anything reads it - see AttitudeHook.
@@ -722,7 +731,11 @@ internal sealed class IcbmComputer
             {
                 doubleQuat cce2Cci = parent.GetCce2Cci();
                 for (int i = 0; i < found; i++) _tubeAxes[i] = _tubeAxes[i].Transform(cce2Cci);
-                _sequence.Begin(_tubeAxes.AsSpan(0, found));
+
+                if (_sequence.Begin(_tubeAxes.AsSpan(0, found)))
+                {
+                    Log.Info($"aiming each of {found} tube(s) before it fires");
+                }
             }
         }
 
