@@ -123,6 +123,8 @@ internal sealed class IcbmComputer
             _warpIsOurs = false;
         }
 
+        AttitudeHook.Release(Craft);
+
         if (_driving)
         {
             VehicleCommand.SetEngine(Craft, running: false);
@@ -195,9 +197,15 @@ internal sealed class IcbmComputer
             _rollReference = AimFrame.Advance(_rollReference, Command.ThrustDirectionCci,
                                               -Vec.Unit(state.PositionCci), RollFallback(state));
 
-            aimed = VehicleCommand.TryAim(Craft, Parent!, state.PositionCci,
-                                          Command.ThrustDirectionCci, _rollReference);
+            // Handed to the hook rather than written here. A write from this pass is discarded
+            // before anything reads it - see AttitudeHook.
+            AttitudeHook.Hold(Craft, Command.ThrustDirectionCci, _rollReference);
+            aimed = AttitudeHook.Installed;
             if (aimed) _driving = true;
+        }
+        else
+        {
+            AttitudeHook.Release(Craft);
         }
 
         ProbeAttitude(playerStep, wasMode, wasTrack, aimed);

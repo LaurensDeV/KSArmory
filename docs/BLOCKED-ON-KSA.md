@@ -27,10 +27,11 @@ happen rather than a member that moved.
 - [x] Custom part modules can be registered without patching
 - [x] Public accessor for the volumetric trail renderer
 - [x] A post-processing or full-screen shader hook a mod can register into
+- [x] **A hook between applying the vehicle solvers and snapshotting them** — delete `Ksa/AttitudeHook.cs`'s patch the day this exists
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 - [x] **`DistanceReference.IsValid()` stops requiring 100 km** — go back to `IsValid()` on the atmosphere and the ocean the day it does
 
-All twelve rechecked against 2026.8.19.5261 and still blocked. The line numbers below are against
+All thirteen rechecked against 2026.8.19.5261 and still blocked. The line numbers below are against
 that build's render path, in which `Program._offscreenTarget` is a `RenderTarget`; none of the
 structure these entries depend on differs from the build before it. `UncompressedVehicleSave.cs`
 does not mention `Character` at all; `KittenRenderable` writes an attachment's transform and
@@ -243,8 +244,11 @@ there. `docs/KSA-CAMERAS.md` has the full account of this and every other contro
 
 ## Commanding a vehicle's attitude from a mod hook
 
-**Wanted.** To point somebody else's rocket — the whole of `Ksa/VehicleCommand.cs`, and everything
-the ballistic computer does with it.
+**Solved by patching, like the post-processing entry above — recorded so the trade stays a
+deliberate one, and so it can be given up the day KSA offers a hook.**
+
+**Wanted.** To point somebody else's rocket, which is the whole of `Ksa/VehicleCommand.cs` and
+everything the ballistic computer does with it.
 
 **The engine reason.** `FlightComputer` is double-buffered across the frame, and every hook StarMap
 offers lands on the wrong side of it. In `Program.OnFrame`:
@@ -272,21 +276,23 @@ because it is not tracking anything. `FlightComputer.CopyFrom` does copy `Attitu
 `AttitudeTrackTarget` and `CustomAttitudeTarget`, so the round trip is not lossy — the write is
 simply on the wrong side of it.
 
-**What the ecosystem does instead.** cairn5's **PoweredGuidance** Harmony-prefixes
-`Vehicle.PrepareWorker`, which is the one point inside that window. It is a `public virtual` method,
-so unlike the ModMenu transpile this is a patch against declared API rather than against IL — it
-would appear in `docs/KSA-API-SURFACE.md` and a signature change would be a build error rather than
-a silent break.
+**What is done instead.** `Ksa/AttitudeHook.cs` puts a Harmony prefix on `Vehicle.PrepareWorker`,
+the one thing inside that window a mod can reach. cairn5's **PoweredGuidance** does the same, and
+its own comment gives the same reason: the prefix runs "right before the sim snapshots the flight
+computer".
 
-**What would unblock it.** Any hook between applying the solver results and taking the next
-snapshot. A single `[StarMapBeforeVehicleSolvers]` would do it, and so would a public
-`Vehicle.SetAttitudeCommand(...)` that writes into the pending snapshot rather than into the live
-object.
+**Why this is a much weaker thing than the ModMenu transpile above.** That one rewrites the IL of a
+game method. This one patches a **`public virtual`** method — declared API, not an implementation
+detail. `AttitudeHook.PinTheSignature` is never called and exists only to emit a reference to it, so
+it appears in `docs/KSA-API-SURFACE.md` and a signature change in KSA is a build error here rather
+than a silent break. Harmony ships with StarMap, so nothing is asked of a player. The one real cost
+is that a prefix runs inside the engine's frame loop, where an exception is the game rather than a
+log line — so it is wrapped, stands down on the first failure, and says so once.
 
-**Consequence in the mod.** The ballistic computer plans, times and predicts a shot correctly and
-cannot fly it. Everything that does not go through the flight computer works: designation, the burn
-window search, the plane analysis, staging and throttle — those go through `Vehicle.ProcessInput`,
-which is not double-buffered.
+**What would unblock it properly**, and let the patch be deleted. Any hook between applying the
+solver results and taking the next snapshot: a `[StarMapBeforeVehicleSolvers]` would do it, and so
+would a public `Vehicle.SetAttitudeCommand(...)` writing into the pending snapshot rather than into
+the live object.
 
 ## Custom part modules
 

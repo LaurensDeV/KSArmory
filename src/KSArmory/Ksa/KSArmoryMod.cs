@@ -120,6 +120,10 @@ public sealed class KSArmoryMod
         // bundle, so at that point there is no part in the world to check a profile against.
         foreach (PackFault fault in Catalogue.Audit(new DeclaredParts())) Log.Warn(fault.ToString());
 
+        // Before anything is crewed: without it nothing this mod does can point a vehicle, and the
+        // panel says so rather than leaving a rocket that refuses to steer unexplained.
+        AttitudeHook.Install();
+
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
         _icbms = new IcbmComputers();
@@ -572,6 +576,7 @@ public sealed class KSArmoryMod
         _heads = null;
         _icbms?.Clear();
         _icbms = null;
+        AttitudeHook.Remove();
         KsaWorld.ResetSimStepTracking();
         _roster = null;
         _ui = null;
@@ -789,6 +794,7 @@ public sealed class KSArmoryMod
         _heads = null;
         _icbms?.Clear();
         _icbms = null;
+        AttitudeHook.Remove();
         Log.Error("too many faults - air defence disabled for this session");
     }
 }

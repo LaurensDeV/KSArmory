@@ -97,6 +97,14 @@
       except Vehicle.ProcessInput, which takes the key action the keyboard would have sent.
     -->
     <Reference Include="$(KsaDllDir)Brutal.Glfw.dll" Private="false" />
+    <!--
+      Harmony, for Ksa/AttitudeHook.cs and nothing else. KSA double-buffers a vehicle's flight
+      computer across the frame and every StarMap hook lands on the wrong side of it, so an
+      attitude command written from one is overwritten before it is ever read - see
+      docs/BLOCKED-ON-KSA.md. It ships with StarMap, so this adds no dependency a player has to
+      install. Private=false for the same reason as the rest: it is already loaded.
+    -->
+    <Reference Include="$(KsaDllDir)0Harmony.dll" Private="false" />
   </ItemGroup>
 
   <!--

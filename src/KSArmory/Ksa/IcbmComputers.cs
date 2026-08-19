@@ -121,6 +121,10 @@ internal sealed class IcbmComputers
             if (!KsaWorld.IsAlive(kv.Key)) _stale.Add(kv.Key);
         }
 
-        for (int i = 0; i < _stale.Count; i++) _computers.Remove(_stale[i]);
+        for (int i = 0; i < _stale.Count; i++)
+        {
+            AttitudeHook.Release(_stale[i]);
+            _computers.Remove(_stale[i]);
+        }
     }
 }

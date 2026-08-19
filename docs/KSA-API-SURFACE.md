@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-146 types and 404 members across 7 assemblies.
+146 types and 405 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -827,6 +827,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float get_PropellantMass()`
 - `float get_TotalMass()`
 - `void AddToBubble(KSA.PhysicsBubble)`
+- `void PrepareWorker(KSA.SimStep)`
 - `void ProcessInput(KSA.InputAction, Brutal.GlfwApi.GlfwKeyAction, Brutal.GlfwApi.GlfwModifier)`
 - `void TeleportToLocation(KSA.Celestial, double, double)`
 - `void UpdateAfterPartTreeModification()`

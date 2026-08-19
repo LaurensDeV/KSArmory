@@ -110,7 +110,16 @@ internal sealed partial class Ui
             computer.Abort("aborted from the panel");
         }
 
-        // First, and unmissable. Everything below is detail about a shot that is not going to
+        // First of all, because without it none of the rest can happen. A rocket that plans a
+        // perfect shot and will not turn is the least explicable state this mod has.
+        if (!AttitudeHook.Installed)
+        {
+            ImGui.TextColored(Bad, "NO ATTITUDE CONTROL - this vehicle cannot be pointed");
+            ImGui.TextDisabled($"  {AttitudeHook.Trouble}");
+            ImGui.Separator();
+        }
+
+        // Then, and unmissable. Everything below is detail about a shot that is not going to
         // happen if this line is showing.
         if (command.Reach == IcbmReach.NoTrajectory)
         {

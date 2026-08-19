@@ -48,10 +48,15 @@ internal static class VehicleCommand
     /// zero: a commanded inertial direction wants no feed-forward, and the horizon frame's rates
     /// would have the flight computer chasing a rotation nobody asked for.</para>
     /// </summary>
-    public static bool TryAim(Vehicle craft, Celestial parent, double3 positionCci,
-                              double3 directionCci, double3 rollReferenceCci)
+    public static bool TryAim(Vehicle craft, double3 directionCci, double3 rollReferenceCci)
     {
         if (!KsaWorld.IsAlive(craft)) return false;
+        if (KsaWorld.ParentBody(craft) is not { } parent) return false;
+
+        // Resolved here rather than passed in, because this runs inside the engine's own frame pass
+        // where the vehicle's state is fresh and the caller's is a frame old.
+        doubleQuat cce2Cci = parent.GetCce2Cci();
+        double3 positionCci = (craft.GetPositionEcl() - parent.GetPositionEcl()).Transform(cce2Cci);
 
         double3 forward = Vec.Unit(directionCci);
         if (forward.Equals(Vec.Zero) || !Vec.IsFinite(positionCci)) return false;

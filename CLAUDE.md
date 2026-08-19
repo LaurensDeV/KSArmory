@@ -339,6 +339,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
 | `Ksa/IcbmComputers.cs` | one per craft this mod recognises a weapon on, crewed and forgotten with it |
+| `Ksa/AttitudeHook.cs` | **the one place this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
 | `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
 | `Ksa/SiteDesignator.cs` | click the world to name where the warheads go — **a mode, not a button** |
@@ -402,7 +403,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 404 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 405 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1138,6 +1139,22 @@ ecliptic carries 54 million kilometres of the planet's own travel; a body's spin
 angle-of-attack limiter on pressure rather than density or altitude is what makes a launch from the
 Moon work without anything knowing the Moon has no air — thin air at two kilometres a second is
 still kilopascals.
+
+**Attitude is written from a Harmony prefix, and nothing else in this mod is patched.** KSA
+double-buffers a vehicle's flight computer: `ApplyVehicleSolvers` writes the worker's result over
+it, `ExecuteNextVehicleSolvers` snapshots it for the next worker, and *then* the GUI pass runs — so
+a command written from any StarMap hook is not in the snapshot and is overwritten before anything
+reads it. Measured over thousands of frames as `before Manual/None -> after Auto/Custom`, every one,
+with the engine's own error angles at zero. `Vehicle.PrepareWorker` is the only thing inside that
+window a mod can reach, which is why `Ksa/AttitudeHook.cs` prefixes it and why cairn5's
+PoweredGuidance does the same.
+
+**The rule this bends is about *private* methods, and the target is `public virtual`.**
+`AttitudeHook.PinTheSignature` is never called and exists only to put the patched method in this
+assembly's metadata, so `docs/KSA-API-SURFACE.md` tracks it and a KSA signature change is a build
+error rather than a rocket that quietly stops steering. Harmony ships with StarMap, so this asks a
+player to install nothing. **Nothing in the prefix may throw** — it runs inside the engine's frame
+loop, where an exception is the game rather than a log line.
 
 **`Ksa/VehicleCommand.cs` is the only place this mod flies somebody else's rocket**, and every write
 in it is one the game already makes for itself: the flight computer's `Custom` attitude target,
