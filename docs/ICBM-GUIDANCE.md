@@ -425,6 +425,16 @@ precisely the state a computer holding for a burn window sits in.
 more than any mountain rather than merely positive, because terrain stands above the mean sphere the
 conic is measured against.
 
+## The attitude at cutoff is held, not solved
+
+Velocity still to gain is a *difference*, so as it closes on zero its direction is the difference of
+two nearly equal vectors and swings wildly — measured in flight at **161 degrees between consecutive
+samples**, right at the cutoff instant. Steering to that spins the bus at the exact moment it should
+be holding still, because the warheads leave along the line it was cut off on.
+
+So below `IcbmProgram.HoldDirectionBelow` the last direction that meant something is held, and the
+coast keeps it rather than swinging to prograde.
+
 ## What it tells the operator
 
 - **`IMPACT IN mm:ss`** — a countdown, taken from the plan while the burn is running and from the

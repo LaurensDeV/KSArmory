@@ -66,7 +66,9 @@ internal sealed class IcbmFlightRig
         IcbmPhase FinalPhase,
         string Hold,
         double PeakDynamicPressure,
-        double PeakAngleOfAttackDeg);
+        double PeakAngleOfAttackDeg,
+        double3 LastBurnDirectionCci,
+        double3 CoastDirectionCci);
 
     public double MassAbove(int from)
     {
@@ -102,6 +104,7 @@ internal sealed class IcbmFlightRig
         IcbmCommand command = default;
         double peakQ = 0.0;
         double peakAoa = 0.0;
+        double3 lastBurnDirection = Vec.Zero;
 
         while (elapsed < maxSeconds)
         {
@@ -130,13 +133,21 @@ internal sealed class IcbmFlightRig
             {
                 return new Flight(true, PositionCci, VelocityCci, elapsed,
                                   StageIndex < Stages.Count ? Stages[StageIndex].PropellantKg : 0.0,
-                                  program.Phase, command.Hold, peakQ, peakAoa);
+                                  program.Phase, command.Hold, peakQ, peakAoa,
+                                  lastBurnDirection, command.ThrustDirectionCci);
             }
 
             if (program.Phase == IcbmPhase.NoSolution || program.Phase == IcbmPhase.Idle)
             {
                 return new Flight(false, PositionCci, VelocityCci, elapsed, 0.0,
-                                  program.Phase, command.Hold, peakQ, peakAoa);
+                                  program.Phase, command.Hold, peakQ, peakAoa,
+                                  lastBurnDirection, command.ThrustDirectionCci);
+            }
+
+            // The last direction commanded while the burn still had real work left in it.
+            if (program.VelocityToGain > IcbmProgram.HoldDirectionBelow)
+            {
+                lastBurnDirection = command.ThrustDirectionCci;
             }
 
             Swing(command.ThrustDirectionCci, h);
@@ -151,7 +162,8 @@ internal sealed class IcbmFlightRig
         }
 
         return new Flight(false, PositionCci, VelocityCci, elapsed, 0.0, program.Phase,
-                          "ran out of time", peakQ, peakAoa);
+                          "ran out of time", peakQ, peakAoa, lastBurnDirection,
+                          command.ThrustDirectionCci);
     }
 
     private void Swing(double3 wanted, double step)

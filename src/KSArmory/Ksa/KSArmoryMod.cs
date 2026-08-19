@@ -228,7 +228,12 @@ public sealed class KSArmoryMod
             // any correction carries a dt that changes and returns as jitter. Stepping here makes
             // the offset and the anchor share an epoch by construction.
             KsaWorld.BeginFrame();
-            if (KsaWorld.InFlight) StepSimulation(dt);
+            // The *scene*, not the craft. Losing the vehicle being flown does not end the flight:
+            // KSA clears Program.ControlledVehicle and carries straight on, so gating the whole
+            // simulation on it freezes every round in the air the instant a launcher dies. They
+            // then neither land nor expire - a salvo suspended mid-flight, which reads as rounds
+            // that despawned. Nothing in here needs a controlled craft; it walks the roster.
+            if (KsaWorld.InFlightScene) StepSimulation(dt);
 
             _ui.Draw();
 

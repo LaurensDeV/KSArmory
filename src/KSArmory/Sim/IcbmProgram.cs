@@ -192,6 +192,17 @@ internal sealed class IcbmProgram
     /// <summary>The least thrust worth commanding. Below this, engines misbehave and so does the maths.</summary>
     public const double MinCommandedThrottle = 0.03;
 
+    /// <summary>
+    /// Below this much velocity still to gain, the direction it points in stops meaning anything.
+    ///
+    /// <para>Velocity-to-be-gained is a <em>difference</em>, so as it closes on zero its direction
+    /// is the difference of two nearly equal vectors and swings wildly — measured at 161 degrees
+    /// between one sample and the next, right at cutoff. Steering to that spins the vehicle at the
+    /// exact moment it should be holding still for its warheads to leave along the line it was cut
+    /// off on. So the last direction that meant something is held instead.</para>
+    /// </summary>
+    public const double HoldDirectionBelow = 5.0;
+
     // Every shot goes the direct way round. BallisticArc can fly the arc over the far side, and it
     // is not offered: that arc is a near-complete orbit, so it costs orbital-grade delta-v rather
     // than ballistic, and a switch for it would silently turn every shot into one that falls short.
@@ -490,7 +501,11 @@ internal sealed class IcbmProgram
         _countdown = command.SecondsToCutoff;
         _toGain = command.VelocityToGain;
         _lowestToGain = Math.Min(_lowestToGain, _toGain);
-        _thrustDirCci = command.ThrustDirectionCci;
+
+        if (_toGain > HoldDirectionBelow || _thrustDirCci.Equals(Vec.Zero))
+        {
+            _thrustDirCci = command.ThrustDirectionCci;
+        }
         AssessReach(state, command.VelocityToGain);
 
         if (Phase is IcbmPhase.Rising or IcbmPhase.PitchProgram)
@@ -636,7 +651,12 @@ internal sealed class IcbmProgram
             ? $"burn ended {shortBy:F0} m/s short of the solution"
             : ready ? "coasting, warheads may be released" : "coasting to release altitude";
 
-        return new IcbmCommand(IcbmPhase.Coast, Vec.Unit(state.AirflowCci), 0.0, EngineOn: false,
+        // The line it was cut off on, not the airflow. The warheads leave along it, and a bus that
+        // swings to prograde the moment the engines stop throws them off the solution it just spent
+        // the whole burn arriving at.
+        double3 held = _thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.AirflowCci) : _thrustDirCci;
+
+        return new IcbmCommand(IcbmPhase.Coast, held, 0.0, EngineOn: false,
                                RequestStage: false, VelocityToGain: shortBy, SecondsToCutoff: 0.0,
                                ReadyToDeploy: ready, Hold: hold, Reach: Reach,
                                SecondsToArrival: double.NaN, SecondsToBurn: double.NaN,

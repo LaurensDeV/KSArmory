@@ -393,4 +393,36 @@ public class IcbmFlightTests
         Assert.True(step > IcbmProgram.MaxFaithfulStep,
                     "and the policy must consider a step this long unflyable");
     }
+
+
+    /// <summary>
+    /// The bus must not spin at cutoff, and the reason it wants to is arithmetic rather than
+    /// control. Velocity still to gain is a <em>difference</em>, so as it closes on zero its
+    /// direction is the difference of two nearly equal vectors and swings wildly — measured in
+    /// flight at 161 degrees between consecutive samples, right at the cutoff instant.
+    ///
+    /// <para>That is the exact moment the vehicle should be holding still, because the warheads
+    /// leave along the line it was cut off on.</para>
+    /// </summary>
+    [Fact]
+    public void TheAttitudeAtCutoffIsHeldRatherThanChasingAVanishingDifference()
+    {
+        double3 pad = Equator(0.0);
+        double3 aim = Equator(0.7848);
+
+        IcbmFlightRig rig = Rig(pad, Earth);
+        IcbmProgram program = new(new IcbmConfig { Armed = true });
+
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 1200.0);
+        Assert.True(flight.Reached);
+
+        Assert.False(flight.LastBurnDirectionCci.Equals(Vec.Zero), "nothing was ever commanded");
+        Assert.False(flight.CoastDirectionCci.Equals(Vec.Zero), "the coast commands nothing at all");
+
+        double swing = Vec.AngleBetween(flight.LastBurnDirectionCci, flight.CoastDirectionCci)
+                       * 180.0 / Math.PI;
+
+        Assert.True(swing < 5.0,
+                    $"the attitude swung {swing:F0} deg between the burn and the coast");
+    }
 }

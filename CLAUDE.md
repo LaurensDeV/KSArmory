@@ -1722,6 +1722,13 @@ Restoring both drags them off the vessel they just switched to; restoring neithe
 Fixed, which is a mode no input can leave. The **field of view** is outside that rule and is always
 handed back — see `docs/KSA-CAMERAS.md`.
 
+**And the simulation itself is gated on the scene, not on the craft.** Gating it on
+`KsaWorld.InFlight` freezes every round in the air the instant a launcher dies: they stop being
+stepped, so they neither land nor expire, and a salvo hangs suspended mid-flight — which reads from
+outside as rounds that despawned. Confirmed in play with six warheads three minutes past their
+impact time. `GoLoose` exists precisely so a fired round outlives its launcher, and it is worth
+nothing if nothing steps it.
+
 **Losing the craft being flown is not leaving flight.** `Universe.DestroyVehicle` clears
 `Program.ControlledVehicle` and the scene carries straight on, so `KsaWorld.InFlight` is the wrong
 question for anything handing the view back — it reads a destroyed craft as a scene change and
