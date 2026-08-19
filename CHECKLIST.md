@@ -1098,19 +1098,29 @@ the same band section 7.1b needs — fly one engagement and check both.
 
 ---
 
-## 12. The ballistic computer — never flown in game
+## 12. The ballistic computer — flown, and arriving short
 
-Everything here is measured headlessly and none of it has been seen. `docs/ICBM-GUIDANCE.md` has
-the algorithm and the list of what a test cannot reach; this is the order to check it in, easiest
-failure first.
+It has been flown repeatedly. What it does **not** yet do is arrive: the last salvo put six
+warheads on the ground 53 km from the aim, and the correction that should close that has only just
+started reaching the aim (`fix(sim): correct the aim against the arc it will actually fly`). So
+12.4 is the open one and everything below it is unproven rather than failing.
+
+`docs/ICBM-GUIDANCE.md` has the algorithm and the list of what a test cannot reach; this is the
+order to check it in, easiest failure first. Ticks below are what a flight actually showed, with
+the number it showed.
+
+**Last flight, target in the Andes at ~4 km, from orbit:** coast at 199 km, 0 m/s left to gain,
+engines stopped 1.1 m/s short of the solution, own prediction 9.7 km off (it was 60.4 km before the
+predictor was given the real height field), six warheads released on their own, all six down
+52.4–53.1 km from the aim on the same bearing.
 
 Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — and open
 **Ballistic** on that craft's window.
 
 ### 12.1 It knows where it is
 
-- [ ] The tab says `flying about <body>` with the right body.
-- [ ] **Designate by clicking the world** on: a ring follows the cursor over the ground, and
+- [x] The tab says `flying about <body>` with the right body.
+- [x] **Designate by clicking the world** on: a ring follows the cursor over the ground, and
       vanishes over the sky. Clicking sets a latitude and longitude that match what KSA's own
       readouts say for that place.
 - [ ] The ring greys out over a body that is not the one being flown around.
@@ -1123,7 +1133,7 @@ Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — an
 
 ### 12.2 It solves a shot
 
-- [ ] Armed, on the pad, with a target a few thousand kilometres away: an apogee and a flight time
+- [x] Armed, on the pad, with a target a few thousand kilometres away: an apogee and a flight time
       appear, and both are plausible (hundreds of kilometres, tens of minutes).
 - [ ] A target on the far side of the planet says `not enough in the tanks` with two numbers, or
       solves — either is fine, a wrong-looking apogee is not.
@@ -1140,18 +1150,19 @@ is a rocket holding a perfectly steady attitude in the wrong direction.
 - [ ] It pitches over **toward the target**, not away from it and not sideways.
 - [ ] The nose stays near the airflow through max Q. The vehicle should not be visibly flying
       across its own slipstream at any point below 40 km.
-- [ ] It stages when a stage runs out, once, without repeatedly firing sequences.
-- [ ] `Phase` runs Rising → PitchProgram → ClosedLoop → Coast and never goes backwards.
-- [ ] *To gain* falls steadily to zero. It must not stall in the single digits and sit there.
-- [ ] The engines stop. If they hunt — thrusting, reversing, thrusting again — say so: that is the
-      cutoff-timing path and it is the one that took the longest to get right headlessly.
+- [x] It stages when a stage runs out, once, without repeatedly firing sequences.
+- [x] `Phase` runs Rising → PitchProgram → ClosedLoop → Coast and never goes backwards.
+- [x] *To gain* falls steadily to zero. It must not stall in the single digits and sit there.
+- [x] The engines stop. If they hunt — thrusting, reversing, thrusting again — say so: that is the
+      cutoff-timing path and it is the one that took the longest to get right headlessly. Flown:
+      stopped 1.1 m/s short, no hunting, once the cutoff was timed to the frame boundary.
 
 ### 12.4 It arrives
 
 - [ ] *Predicted impact* converges on the target as the burn ends, and reads under a kilometre at
-      cutoff.
+      cutoff. **Flown at 9.7 km**, which is the terrain correction not having converged.
 - [ ] The drawn arc's far end sits on the ring.
-- [ ] The warheads release on their own during the coast, one at a time, above the release
+- [x] The warheads release on their own during the coast, one at a time, above the release
       altitude — and they go **at the target**, not straight ahead.
 - [ ] With **Release warheads automatically** off, nothing leaves until the button is pressed.
 - [ ] A shot deliberately short of propellant says `burn ended N m/s short of the solution` and
@@ -1162,7 +1173,7 @@ is a rocket holding a perfectly steady attitude in the wrong direction.
 The phase machine no longer assumes a pad. Each of these should join at the right point rather than
 trying to fly a vertical rise.
 
-- [ ] Arm it **in orbit** with a target ahead on the ground track: it goes straight to a deorbit
+- [x] Arm it **in orbit** with a target ahead on the ground track: it goes straight to a deorbit
       burn, not a vertical rise.
 - [ ] Arm it with a target the craft has just **passed over**: it says
       `holding for the burn window, H:MM:SS away` and does **not** burn. Warp through the wait —
@@ -1170,7 +1181,7 @@ trying to fly a vertical rise.
 - [ ] Arm it **halfway up an ascent** already under way: it takes over without pitching back to
       vertical.
 - [ ] Arm it on something already **on a ballistic arc**: it corrects rather than starting over.
-- [ ] `IMPACT IN` counts down and keeps counting through the burn, the cutoff and the coast.
+- [x] `IMPACT IN` counts down and keeps counting through the burn, the cutoff and the coast.
 - [ ] The mark on the target stays on screen, and points from the edge when it is out of view.
 - [ ] A target the stack cannot afford reads `TARGET UNREACHABLE` with a shortfall in m/s.
 
