@@ -182,9 +182,7 @@ internal sealed class IcbmComputer
                      // is self-consistent and whatever missed happened to the round afterwards;
                      // large means the arc never pointed at the target and the burn flying it
                      // perfectly was never going to help.
-                     + (double.IsFinite(PredictedMissMetres)
-                            ? $", own prediction {PredictedMissMetres / 1000.0:F1} km off"
-                            : "")
+                     + PredictedImpactSaid()
                      + $" :: {Command.Hold}");
         }
 
@@ -347,6 +345,28 @@ internal sealed class IcbmComputer
                   + $"slew {slew:F1} deg | before {wasMode}/{wasTrack} "
                   + $"-> after {computer.AttitudeMode}/{computer.AttitudeTrackTarget} | "
                   + $"error {computer.ErrorAngles} rates {computer.ErrorRates}");
+    }
+
+    // Where the mod thinks the arc lands, as a place rather than a distance. A distance says the
+    // solution is wrong; the place says which way, and short-versus-sideways are different faults.
+    private string PredictedImpactSaid()
+    {
+        if (!double.IsFinite(PredictedMissMetres) || PredictedImpact is not { } hit) return "";
+        if (Parent is not { } parent) return "";
+
+        try
+        {
+            // The prediction is un-carried to its own epoch, so it is a place on the ground in the
+            // same terms the aim point is - which is what makes the two comparable at all.
+            double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
+
+            return $", own prediction {PredictedMissMetres / 1000.0:F1} km off "
+                   + $"(lands {parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3})";
+        }
+        catch
+        {
+            return $", own prediction {PredictedMissMetres / 1000.0:F1} km off";
+        }
     }
 
     // Something square to the vertical for the roll to clock to when the planet cannot supply one,
