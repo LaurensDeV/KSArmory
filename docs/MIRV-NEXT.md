@@ -1,30 +1,46 @@
 # What is left on the MIRV bus
 
-Written at the end of the session that built separation and re-pointing. Everything below is either
-measured in flight or explicitly marked as untested. `docs/ICBM-GUIDANCE.md` has the algorithm;
+Everything below is either measured in flight or explicitly marked as untested. `docs/ICBM-GUIDANCE.md` has the algorithm;
 `CHECKLIST.md` §12.7 has the in-flight list. This file is only the backlog.
 
-## The one number that matters
+## Where it stands
 
-Six warheads, released inside **0.24 s** off the same vehicle on the same trajectory. The only
-difference between the first and the other five is whether the decoupler had fired:
+Flown 20 August, with the trim in and tube re-pointing off. Six warheads at one aim point:
 
 | | miss |
 | --- | --- |
-| round 1 — left **before** the split | **163 m** |
-| rounds 2-6 — left **after** it | 3,100-4,100 m, tight to 1,000 m |
+| round 1 | **431 m** |
+| round 2 | 537 m |
+| round 6 | 607 m |
+| round 3 | 1.1 km |
+| round 5 | 1.2 km |
+| round 4 | 1.4 km |
 
-**The decoupler costs 3.5 km.** `CoreCouplingA_Prefab_Decoupler3WA` declares `Force="7000"`, which
-against a ~6,300 kg bus is about **1.1 m/s**, and at cutoff attitude most of it lands on the radial
-axis — the expensive one at 3,401 m per m/s against 1,769 along-track and 780 cross-track.
+Against 3,100-4,100 m the flight before. All six left within 67 ms and landed within 32 ms of each
+other, so every warhead shared a time-to-impact — which is what the old three-minute salvo was
+costing.
 
-It arrives *after* the last thing that could compensate for it: the arc is solved at cutoff and
-`Coast` never re-solves.
+**What is left is two terms, and they are separable.** The ~1 km *spread* is the tube cant, which
+is item 5. The ~900 m *bias* — every round landed the same way off — is item 2, and it is the same
+shot's release probe reading 0.1-0.2 km for all six while they landed at 0.4-1.4 km.
 
-163 m is also the best honest result of the day, and it is what the guidance does when nothing
-perturbs it.
+### What the trim cost to get there
 
-## 1. Null the separation impulse — built, unflown
+The decoupler is worth about 1.1 m/s against a ~6,300 kg bus, arriving after the last thing that
+could compensate for it, and at cutoff attitude most of it lands on the radial axis — the expensive
+one at 3,401 m per m/s against 1,769 along-track and 780 cross-track. Before the trim existed that
+was 3.5 km of the miss. It now goes out in under two seconds, `trimmed to 0.010 m/s`, off a cutoff
+that was already `0.0 km off`.
+
+Two failures on the way, both worth not repeating:
+
+- **The trim and the aim correction wound each other up.** Both drive the vehicle and both read the
+  same prediction, so the bias absorbed a displacement the trim had put there. 0.28 → 139 m/s in ten
+  seconds, jumping every 0.51 s, which is `PredictIntervalSeconds` exactly.
+- **Nulling the shove ends the separation**, because the shove *is* the separation velocity. The bus
+  trimmed 130 ms after the split at 12 m and then sat against the booster it had just dropped.
+
+## 1. Null the separation impulse — flown and working
 
 `Sim/BusTrim.cs`, on by default via `IcbmConfig.TrimBeforeRelease`, and it is a precondition of
 being ready to deploy rather than a step inside the release sequence. It re-solves the arc from the
@@ -35,35 +51,42 @@ control axes, and holds the corresponding `TranslateForward`/`Right`/`Down` flag
 
 Headlessly on this trajectory: a 1.1 m/s shove is **2.4 km of miss, trimmed to 2 m in 1.5 s**.
 
-**Flown once, and it destroyed the shot.** Confirmed working: the translation flags reach the bus's
-nozzles, they were measured at **0.9-1.1 m/s2**, and the loop closed at exactly that rate. What was
-not confirmed is the rest of it, because the trim and the aim correction turned out to be two loops
-driving one vehicle through one prediction and they wound each other up — 0.28 m/s to 139 m/s in ten
-seconds, jumping every 0.51 s, which is `PredictIntervalSeconds` exactly. The shot went from
-**0.1 km off at cutoff to 9.9 km at release**. `docs/ICBM-GUIDANCE.md` has the table.
+**Flown and working.** The translation flags reach the bus's nozzles, they were measured at
+**0.9-2.2 m/s2**, and the trim closes at that rate: `trimming 1.23 m/s on the tail` →
+`trimmed to 0.010 m/s` in 1.8 s.
 
-Fixed by holding `AimCorrection` out while the trim fires, with `BusTrim.MaxMetresPerSecond` as the
-backstop under it. **Neither has been flown.** Still to watch:
+**Unflown since:** the clearance wait added afterwards (`Sim/SeparationClearance.cs`, 50 m or 90 s),
+which delays the trim by roughly thirty-five seconds. Watch that the release window still has room
+for it, and what standoff it reports — the log prints the measured distance, so 50 m stops being a
+guess after one flight.
 
-- **Whether the trim now settles at the shove** — about a metre a second, in a second or two,
-  ending `trimmed to N m/s` rather than `stopped closing`.
-- **Whether the residual is small enough.** One step of firing is `acceleration x step`, so at
-  1 m/s2 and a 17 ms step it should land near 0.01 m/s. If it does not, the next lever is KSA's own
-  `FlightComputerManualThrustMode.Pulse`, a ~3.6% duty cycle and the exact analogue of the burn's
-  throttle ramp.
-- **Whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable on paper and has
-  never been spent.
+Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable
+on paper and nothing has spent it.
 
-The warp hold now covers the trim as well as the burn (`IcbmComputer.NeedsShortSteps`), for the
-same reason: the stop lands on a frame boundary.
+## 2. Every round lands beyond its own release probe
 
-## 2. The prediction under-reads the impulse by ~1.2 km
+Now the largest *systematic* term, and six samples from one shot say so cleanly. The probe flies the
+warhead from the actual release state, with the warhead's own drag and the real height field:
 
-The release probe said 2.4 km for the shoved rounds; they landed at 3.1-4.1 km. So the prediction
-sees *some* of the shove but not all of it — it is measuring the bus's post-split state, which
-should be complete. Worth finding out why before trusting the probe on any separated shot.
+| predicted at release | landed |
+| --- | --- |
+| 0.2 km | 431 m |
+| 0.1 km | 537 m |
+| 0.1 km | 607 m |
+| 0.1 km | 1.1 km |
+| 0.1 km | 1.2 km |
+| 0.1 km | 1.4 km |
 
-## 3. The first round races the separation — fixed with item 1, unflown
+All six landed the **same way** off (aimed `-26.485,-68.148`; landed between `-26.486,-68.152` and
+`-26.487,-68.161`), so it is a bias of roughly 900 m superimposed on the cant's ~1 km spread. One
+sided across every sample is the signature of a model difference rather than noise: the probe and
+the round are supposed to share a flight model, and something in the pair does not.
+
+`docs/ICBM-GUIDANCE.md` already records this shape once — a drag-free predictor converged, reported
+zero, and the warheads went on falling 59 km short, because a correction loop can only remove what
+its observer can see. This may be the same lesson at a smaller scale.
+
+## 3. The first round races the separation — fixed
 
 Flown: `round 1 away` at 23:04:26.025, the split applied at `.071`. One warhead left the attached
 stack and five left the shoved bus, which is why the salvo had a 163 m outlier and a 3.6 km group.
@@ -73,22 +96,20 @@ release until the split has landed — `BusTrim.SettleSeconds`, gated on the dec
 longer being there rather than on a timer. The state between "ready to deploy" and "releasing" is
 the trim itself.
 
-Worth confirming in flight that the first `round N away` line now follows the handover line rather
-than preceding it.
+Confirmed in flight: the split lands at `00:05:59.352` and the first `round 1 away` at
+`00:06:02.002`, well after it.
 
-## 4. The view change is still refused by the engine
+## 4. The view change — fixed, unflown
 
-```
-could not go to Rocket_1: The shapes registry cannot be mutated while the vehicle update is
-stepping; stage the change and apply it at the frame sync point
-```
+`KsaWorld.GoTo` ran four steps and claimed they were the four KSA's own "Control from here" runs.
+Three of them are. The fourth, `UpdateAfterPartTreeModification`, reaches `UpdateCollisionGeometry`
+and therefore the shapes registry, which is locked for the whole vehicle update — and every frame of
+this mod runs inside that lock, which is why deferring it a frame could never have helped.
 
-`KsaWorld.GoTo` calls `UpdateAfterPartTreeModification`. Deferring it one frame did **not** help,
-because every frame of this mod runs inside that same pass — `IcbmComputer.CarryTheView` is called
-from `Update`, which is inside `StepSimulation`. It needs a genuinely later hook, or a different way
-to move the camera that does not rebuild derived data.
-
-It fails safely: the camera stays on the spent stack and nothing else is lost.
+The engine does not call it on this path at all: `Camera.SetFollow` assigns `ControlledVehicle`
+itself and stops, and the game's only callers of `UpdateAfterPartTreeModification` are the ones that
+genuinely change a part tree. Pointing a camera at a craft changes no tree, so the call was never
+needed. It is gone, and the failure with it.
 
 ## 5. Re-pointing destabilises the vehicle — off by default
 
