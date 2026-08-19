@@ -29,7 +29,10 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     public SensorProfile Sensor { get; private set; } = Arsenal.EoSensor;
 
-    /// <summary>The craft it is bolted to. Pinned on creation; a head does not re-home.</summary>
+    /// <summary>
+    /// The craft it is bolted to. It moves for exactly one reason: <see cref="Rehome"/>, when a
+    /// decoupler carries this director onto another craft where it may sit at a different ordinal.
+    /// </summary>
     public Vehicle? Platform { get; private set; }
 
     public double3 PlatformEcl { get; private set; }
@@ -289,6 +292,46 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     /// <summary>Clears the refusal latches, because a new craft deserves a fresh assessment.</summary>
     public void Reset() => _driveWorks = _rollWorks = true;
+
+    /// <summary>
+    /// Follow this director onto the craft that now carries it, after a decoupler split it off the
+    /// one it was on.
+    ///
+    /// <para>The operator's settings, its designation and where it is looking come across by being
+    /// this same object — which is why the roster moves the entry rather than crewing a new head.
+    /// A new one would arrive parked, at default zoom, watching nothing.</para>
+    ///
+    /// <para>The drive is deliberately not disturbed: it holds a direction in the <em>director's
+    /// own</em> part frame, and the part is the same part. Resetting it would swing the head to its
+    /// rest position for no reason a player could account for.</para>
+    /// </summary>
+    public void Rehome(Vehicle craft, int ordinal)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        double3 toEcl = KsaWorld.PositionEcl(craft);
+        if (!Vec.IsFinite(toEcl)) return;
+
+        double moved = Vec.Len(toEcl - PlatformEcl);
+
+        Platform = craft;
+        Ordinal = ordinal;
+        PlatformEcl = toEcl;
+
+        // These belong to the part tree the director has left, and the one it now lives in is a
+        // different tree. Cleared so they are found again rather than written to parts on a craft
+        // this head no longer rides.
+        Director = null;
+        OpticPart = null;
+        RollPart = null;
+
+        // A latch left set from the stack it came off would leave the head reporting itself frozen
+        // on a craft whose engine has refused nothing.
+        Reset();
+
+        Log.Info($"director decoupled onto {KsaWorld.DisplayName(craft)} as director {ordinal + 1}, "
+                 + $"{moved:F0} m away");
+    }
 
     /// <summary>
     /// Where the head is looking from and along what, both in Ecl. False when the director, its
