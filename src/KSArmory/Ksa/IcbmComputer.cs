@@ -775,6 +775,18 @@ internal sealed class IcbmComputer
     // command, which is why it is second choice rather than the rule.
     private double3 ReleaseImpulseCci()
     {
+        // Once the sequence is turning the vehicle, the line every round leaves on is the latched
+        // reference and nothing else. The *live* mean of the tube axes swings by a full cant as
+        // each tube is brought onto that line, so predicting with it describes a round nobody is
+        // about to release - and feeds the aim correction a target that moves six times a salvo.
+        //
+        // It is also simply the right number: a re-pointed tube throws the whole LaunchSpeed along
+        // the reference, not its cosine.
+        if (_sequence.Begun && _warhead is { LaunchSpeed: > 0f } aimed)
+        {
+            return _sequence.ReferenceCci * aimed.LaunchSpeed;
+        }
+
         if (_releaseMeasured) return _releaseKickCci;
         if (_warhead is not { LaunchSpeed: > 0f } warhead) return Vec.Zero;
 
