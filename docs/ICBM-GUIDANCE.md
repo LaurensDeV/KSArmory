@@ -576,8 +576,19 @@ aim.
 
 **The aim correction cannot anticipate it.** It converges on a release kick during the burn, and the
 kick at release is a different one — so the error is not a bias it can remove but noise it chases.
-`IcbmComputer.ReleaseSteadyDegPerSec` holds the release until the bus is steady, which is what a
-real bus does before every separation.
+`IcbmComputer.ReleaseSteadyMetresPerSecond` holds the release until the tubes have stopped sweeping,
+which is what a real bus does before every separation.
+
+**Measured at the tube, not at the hull.** A warhead on top of a long stack is tens of metres from
+the centre of mass, so one degree a second of hull rate is half a metre a second at the tube — a
+quarter of the ejection speed, and kilometres of miss. A gate written in degrees a second passes a
+vehicle that is throwing its warheads sideways, and does it differently for every stack length.
+
+**And the spin stays out of the prediction.** It is what the vehicle happens to be doing this
+instant, so feeding it to the loop that corrects the aim hands that loop a moving target: putting it
+in took the cutoff residual from **0.15 m/s to 4.31** and the predicted miss from nothing to 6.1 km,
+because guidance never settled. The steady terms — where the tube is, which way it throws — belong
+in the prediction; the transient belongs only to the decision of whether to release at all.
 
 It gives up after `ReleaseSteadyTimeoutSeconds` and says so. A bus with no attitude authority left
 would otherwise hold its warheads for ever, and that is the worse failure of the two: the shot is

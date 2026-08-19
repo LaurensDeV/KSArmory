@@ -220,7 +220,14 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     /// in the mean by construction. What each tube does <em>differently</em> is dispersion, and no
     /// single aim can remove it.</para>
     /// </summary>
-    bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl);
+    /// <param name="spinSpeed">
+    /// How fast the tubes are being swept by the vehicle's own rotation, which is deliberately
+    /// <em>not</em> in <paramref name="velocityEcl"/>. It is a transient, and a guidance loop fed a
+    /// transient chases it rather than converging — measured as a cutoff residual going from 0.15
+    /// to 4.31 m/s the moment it was included. It belongs to the decision of whether to release at
+    /// all, not to the prediction of where the round goes once released.
+    /// </param>
+    bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl, out double spinSpeed);
 
     bool CanGuideOnto(double3 pointEcl);
 

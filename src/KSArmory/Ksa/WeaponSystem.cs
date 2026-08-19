@@ -1571,10 +1571,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// this and <see cref="Fire(Track)"/> share <c>Commit</c> rather than being written twice.</para>
     /// </summary>
     /// <inheritdoc cref="IManualFire.TryMeanReleaseStateEcl"/>
-    public bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl)
+    public bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl,
+                                       out double spinSpeed)
     {
         positionEcl = Vec.Zero;
         velocityEcl = Vec.Zero;
+        spinSpeed = 0.0;
 
         if (Platform is null || Launcher is null || !TubesResolved || !Profile.LaunchAlongTube) return false;
 
@@ -1584,6 +1586,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double3 sumPos = Vec.Zero;
         double3 sumVel = Vec.Zero;
+        double sumSpin = 0.0;
         int found = 0;
 
         for (int tube = 0; tube < Profile.Tubes.Length; tube++)
@@ -1597,12 +1600,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 continue;
             }
 
-            // The same three terms Commit builds a round's launch state from, so the two cannot
-            // describe different releases.
+            // The steady terms Commit builds a round's launch state from - where the tube is and
+            // which way it throws. The spin is reported beside them rather than added: it is what
+            // the vehicle happens to be doing this instant, and a prediction that carries it hands
+            // a moving target to the loop that corrects the aim.
+            double3 spin = FireGeometry.SpinVelocity(angular, mouth, centreOfMass);
+
             sumPos += mouth;
-            sumVel += platformVel
-                      + FireGeometry.SpinVelocity(angular, mouth, centreOfMass)
-                      + Vec.Unit(axis) * Munition.LaunchSpeed;
+            sumVel += platformVel + Vec.Unit(axis) * Munition.LaunchSpeed;
+            sumSpin += Vec.Len(spin);
             found++;
         }
 
@@ -1610,6 +1616,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         positionEcl = sumPos / found;
         velocityEcl = sumVel / found;
+        spinSpeed = sumSpin / found;
         return Vec.IsFinite(positionEcl) && Vec.IsFinite(velocityEcl);
     }
 

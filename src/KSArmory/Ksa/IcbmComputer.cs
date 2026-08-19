@@ -39,6 +39,7 @@ internal sealed class IcbmComputer
     private double3 _releaseOffsetCci;
     private double3 _releaseKickCci;
     private bool _releaseMeasured;
+    private double _tubeSpinSpeed;
     private bool _warpIsOurs;
     private IcbmPhase _reported = IcbmPhase.Idle;
     private double _sinceProbe;
@@ -585,14 +586,15 @@ internal sealed class IcbmComputer
     // the ejection *slows* every warhead and they all fall short together. Predicting the bus's arc
     // rather than the round's leaves that invisible to the aim correction, and this trajectory
     // moves about two kilometres per metre per second.
-    // How fast the bus may still be turning when it lets a warhead go. A tube sits metres from the
-    // centre of mass, so a turning bus throws each round at whatever speed that lever arm is
-    // sweeping - and every tube points a different way round the clock, so they are all thrown
-    // differently. Flown at 113 deg/s: five metres a second at the tube against a two metre a
-    // second ejection, and six warheads scattered across 1.5 km of ground 7 km from the aim. The
-    // aim correction cannot anticipate it, because it converges on a kick during the burn and the
-    // kick at release is a different one.
-    private const double ReleaseSteadyDegPerSec = 1.0;
+    // How fast the tubes may still be sweeping when the bus lets a warhead go, in metres a second
+    // at the tube rather than degrees a second at the hull. The hull's rate is the wrong measure: a
+    // warhead on top of a long stack is tens of metres from the centre of mass, so one degree a
+    // second there is half a metre a second at the tube - which is a quarter of the ejection speed
+    // and lands the salvo kilometres out. This is the quantity that actually reaches the round, and
+    // it does not care how long the vehicle is.
+    //
+    // Flown at 5 m/s: six warheads scattered across 1.5 km of ground, 7.4 km from the aim.
+    private const double ReleaseSteadyMetresPerSecond = 0.05;
 
     // How long to wait for that before letting them go anyway. A bus with no attitude authority
     // left would otherwise hold its warheads for ever, which is a worse failure than a scattered
@@ -605,18 +607,9 @@ internal sealed class IcbmComputer
     // the difference between a bus that is settling and one that has silently stopped deploying.
     private bool SteadyEnoughToRelease(double simStep)
     {
-        double rate;
+        double sweep = _tubeSpinSpeed;
 
-        try
-        {
-            rate = Vec.Len(KsaWorld.AngularVelocityEcl(Craft)) * 180.0 / Math.PI;
-        }
-        catch
-        {
-            return true;
-        }
-
-        if (!double.IsFinite(rate) || rate <= ReleaseSteadyDegPerSec)
+        if (!_releaseMeasured || !double.IsFinite(sweep) || sweep <= ReleaseSteadyMetresPerSecond)
         {
             _waitingToSettle = 0.0;
             return true;
@@ -626,8 +619,8 @@ internal sealed class IcbmComputer
 
         if (_waitingToSettle >= ReleaseSteadyTimeoutSeconds)
         {
-            Log.Info($"releasing at {rate:F1} deg/s after waiting {ReleaseSteadyTimeoutSeconds:F0} s "
-                     + "to settle - the warheads will scatter");
+            Log.Info($"releasing with the tubes sweeping {sweep:F3} m/s after waiting "
+                     + $"{ReleaseSteadyTimeoutSeconds:F0} s to settle - the warheads will scatter");
             _waitingToSettle = 0.0;
             return true;
         }
@@ -647,12 +640,19 @@ internal sealed class IcbmComputer
         _releaseMeasured = false;
         _releaseOffsetCci = Vec.Zero;
         _releaseKickCci = Vec.Zero;
+        _tubeSpinSpeed = 0.0;
 
         if (weapon is null || Parent is not { } parent) return;
 
         try
         {
-            if (!weapon.TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl)) return;
+            if (!weapon.TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl,
+                                               out double spinSpeed))
+            {
+                return;
+            }
+
+            _tubeSpinSpeed = spinSpeed;
 
             doubleQuat cce2Cci = parent.GetCce2Cci();
             double3 offset = (positionEcl - KsaWorld.PositionEcl(Craft)).Transform(cce2Cci);
