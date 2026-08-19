@@ -77,7 +77,17 @@ internal static class BurnWindow
         BallisticArc.Solution Arc,
         double Cost,
         double CostIfLeavingNow,
-        double3 BurnDirectionCci)
+        double3 BurnDirectionCci,
+
+        /// <summary>
+        /// The closest the target ever comes to the plane being flown in, across the whole horizon,
+        /// in radians.
+        ///
+        /// <para>The number that separates "wait" from "you cannot get there". The instantaneous
+        /// angle says the target is off the plane; this says whether it is ever going to stop
+        /// being, and a floor well above zero is an inclination the orbit does not have.</para>
+        /// </summary>
+        double ClosestOffPlaneRadians)
     {
         /// <summary>Nothing is gained by waiting, so the burn may as well start.</summary>
         public bool IsNow => WaitSeconds <= 0.0;
@@ -116,6 +126,8 @@ internal static class BurnWindow
         double3 bestDirection = directionNow;
         double bestSeed = double.IsFinite(costNow) ? arcNow.CheapestFlightSeconds : double.NaN;
 
+        double closest = double.PositiveInfinity;
+
         Span<double> whenCci = stackalloc double[Candidates];
         Span<double> howBad = stackalloc double[Candidates];
         for (int i = 0; i < Candidates; i++) { whenCci[i] = double.NaN; howBad[i] = double.PositiveInfinity; }
@@ -135,10 +147,10 @@ internal static class BurnWindow
             if (from.Length() <= body.SurfaceRadius) break;
 
             double3 aimThen = body.CarryCci(aimNowCci, wait);
-            double proxy = OrbitPlane.PlaneChangeCost(
-                Vec.Len(moving), OrbitPlane.OffPlaneRadians(from, moving, aimThen));
+            double offPlane = OrbitPlane.OffPlaneRadians(from, moving, aimThen);
+            closest = Math.Min(closest, offPlane);
 
-            Consider(whenCci, howBad, wait, proxy);
+            Consider(whenCci, howBad, wait, OrbitPlane.PlaneChangeCost(Vec.Len(moving), offPlane));
         }
 
         // Stage two: the first revolution costed properly at every step, because phasing is not
@@ -210,7 +222,12 @@ internal static class BurnWindow
             }
         }
 
-        window = new Window(bestWait, bestArc, best, costNow, bestDirection);
+        if (!double.IsFinite(closest))
+        {
+            closest = OrbitPlane.OffPlaneRadians(positionCci, velocityCci, aimNowCci);
+        }
+
+        window = new Window(bestWait, bestArc, best, costNow, bestDirection, closest);
         return true;
     }
 

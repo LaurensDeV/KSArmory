@@ -220,6 +220,7 @@ internal sealed class IcbmProgram
     private double _windowCost;
     private double3 _windowDirection;
     private double _shortfall;
+    private double _closestOffPlane = double.NaN;
 
     public IcbmConfig Config { get; }
 
@@ -238,6 +239,13 @@ internal sealed class IcbmProgram
 
     /// <summary>Velocity still to gain at the last solve. Zero once the burn is over.</summary>
     public double VelocityToGain => _toGain;
+
+    /// <summary>
+    /// The closest the target ever comes to the plane being flown in, in degrees, or NaN before
+    /// anything has looked. A floor well above zero is an inclination this orbit does not have.
+    /// </summary>
+    public double ClosestOffPlaneDegrees
+        => double.IsFinite(_closestOffPlane) ? _closestOffPlane * 180.0 / Math.PI : double.NaN;
 
     /// <summary>Seconds until the burn should start, or zero once it has. NaN when unknown.</summary>
     public double SecondsToBurn => Phase == IcbmPhase.Holding ? Math.Max(_windowWait, 0.0)
@@ -305,6 +313,7 @@ internal sealed class IcbmProgram
         _windowCost = 0.0;
         _windowDirection = Vec.Zero;
         _shortfall = 0.0;
+        _closestOffPlane = double.NaN;
     }
 
     public IcbmCommand Update(double stepSeconds, in IcbmState state)
@@ -403,6 +412,7 @@ internal sealed class IcbmProgram
                 _windowWait = worthWaiting ? window.WaitSeconds : 0.0;
                 _windowCost = window.Cost;
                 _windowDirection = window.BurnDirectionCci;
+                _closestOffPlane = window.ClosestOffPlaneRadians;
                 Arc = window.Arc;
                 _flightSeed = window.Arc.CheapestFlightSeconds;
                 AssessReach(state, window.Cost);

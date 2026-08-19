@@ -102,4 +102,58 @@ public class OrbitPlaneTests
         Assert.True(window.WaitSeconds > period,
                     $"found it {window.WaitSeconds / 60.0:F0} min out, inside one {period / 60.0:F0} min orbit");
     }
+
+
+    /// <summary>
+    /// Where a plane change belongs, checked rather than assumed. Reaching a target off to the side
+    /// is cheapest from the node — a quarter of an orbit before the target — and the burn there is
+    /// almost entirely normal to the plane being flown in.
+    ///
+    /// <para>That is a textbook result and the search is not told it. It falls out of costing
+    /// departures and taking the cheapest, which is the only reason it is worth testing: if the
+    /// search ever stops finding it, the shots get expensive and nothing else says why.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(45.0)]
+    [InlineData(90.0)]
+    [InlineData(135.0)]
+    public void ThePlaneChangeIsCheapestAQuarterOrbitBeforeTheTarget(double targetLongitudeDeg)
+    {
+        // No planet rotation, so the only thing varying is where along the orbit the burn happens.
+        BallisticBody earth = new(Mu, R, new double3(0, 0, 1), 0.0);
+
+        double altitude = 300_000.0;
+        double3 position = new(R + altitude, 0, 0);
+        double speed = Math.Sqrt(Mu / (R + altitude));
+        double3 velocity = new(0, speed, 0);
+
+        double3 target = At(20.0 * Math.PI / 180.0, targetLongitudeDeg * Math.PI / 180.0);
+        double period = Kepler.PeriodSeconds(Mu, position, velocity);
+
+        double best = double.PositiveInfinity;
+        double bestBefore = 0.0;
+        double bestNormalShare = 0.0;
+
+        for (int i = 0; i <= 360; i++)
+        {
+            double wait = period * i / 360.0;
+            if (!Kepler.TryCoast(Mu, position, velocity, wait, out double3 r, out double3 v)) continue;
+            if (!BallisticArc.TryCheapest(earth, r, v, target, out BallisticArc.Solution arc)) continue;
+
+            double3 change = arc.RequiredVelocityCci - v;
+            double cost = Vec.Len(change);
+            if (cost >= best) continue;
+
+            best = cost;
+            double departure = Math.Atan2(r.Y, r.X) * 180.0 / Math.PI;
+            bestBefore = ((targetLongitudeDeg - departure) % 360.0 + 360.0) % 360.0;
+            bestNormalShare = Math.Abs(Vec.Dot(Vec.Unit(change), Vec.Unit(Vec.Cross(r, v))));
+        }
+
+        Assert.True(Math.Abs(bestBefore - 90.0) < 10.0,
+                    $"cheapest departure was {bestBefore:F0} deg before the target, not a quarter orbit");
+
+        Assert.True(bestNormalShare > 0.9,
+                    $"only {bestNormalShare * 100:F0}% of the burn was normal to the plane");
+    }
 }

@@ -130,9 +130,25 @@ internal sealed partial class Ui
         // the answer is a different orbit rather than a bigger tank.
         if (computer.OffPlaneDegrees > OrbitPlane.NotableDegrees && computer.Target.IsSet)
         {
+            double closest = computer.Program.ClosestOffPlaneDegrees;
+
             ImGui.TextColored(Working, $"Target is {computer.OffPlaneDegrees:F0} deg off this orbit's plane");
-            ImGui.TextDisabled($"  turning the plane that far is about {computer.PlaneChangeCost:F0} m/s of the");
-            ImGui.TextDisabled("  figure below. Waiting will not help - only a different orbit will.");
+
+            // The instantaneous angle says the target is off the plane. Whether that is a wait or a
+            // dead end is the *closest* it ever comes, which is what the search already measured
+            // across a day of revolutions.
+            if (double.IsFinite(closest) && closest > OrbitPlane.NotableDegrees)
+            {
+                ImGui.TextColored(Bad, $"  and never closer than {closest:F0} deg - this orbit does not");
+                ImGui.TextColored(Bad, "  reach that latitude. Waiting cannot fix an inclination.");
+            }
+            else if (double.IsFinite(closest))
+            {
+                ImGui.TextDisabled($"  it comes within {closest:F0} deg later on, which is what the wait is for.");
+            }
+
+            ImGui.TextDisabled($"  turning the plane from here is about {computer.PlaneChangeCost:F0} m/s,");
+            ImGui.TextDisabled("  cheapest a quarter orbit before the target and burnt normal to the plane.");
         }
 
         ImGui.TextColored(PhaseColour(command.Phase), $"Phase: {command.Phase}");

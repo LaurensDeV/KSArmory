@@ -339,8 +339,16 @@ least well behaved.
 last few per cent is not a trade a weapon should make on its own, so the earliest window within
 `GoodEnoughFraction` of the best wins.
 
+**Where the plane change belongs falls out rather than being told.** Costing departures and taking
+the cheapest puts the burn a quarter of an orbit before the target, and makes it 97% normal to the
+plane — which is the textbook answer, arrived at without the textbook. `OrbitPlaneTests` pins it,
+because if the search ever stops finding it the shots simply get expensive and nothing says why.
+
 **What none of it fixes is an inclination.** A latitude the orbit never reaches is not reached by
-waiting, and the panel says so separately — see below.
+waiting, so the search reports the *closest* the target ever comes to the plane across the whole
+horizon, and the panel says which case it is: a number that falls to nothing later is a wait, and a
+floor well above zero is an orbit that does not go there. Those two are indistinguishable from the
+instantaneous angle, and only one of them has an answer.
 
 ## Nothing is flown open loop
 
