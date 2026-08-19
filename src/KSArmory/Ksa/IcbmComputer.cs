@@ -33,6 +33,15 @@ internal sealed class IcbmComputer
     private double _sincePredict = double.PositiveInfinity;
     private bool _driving;
     private double3 _rollReference;
+    private double3 _aimBiasCci;
+    private double3 _trueAimCci;
+
+    // How much of the flown error is taken out each time the prediction runs, and how far the aim
+    // may be moved in total. A fraction rather than the whole because this is a feedback loop
+    // against a solver that then moves the arc: taking all of it every half second oscillates.
+    private const double BiasGain = 0.5;
+
+    private const double MaxBiasMetres = 300_000.0;
     private bool _warpIsOurs;
     private IcbmPhase _reported = IcbmPhase.Idle;
     private double _sinceProbe;
@@ -106,6 +115,7 @@ internal sealed class IcbmComputer
         Target = site;
         Program.Reset();
         _reported = IcbmPhase.Idle;
+        _aimBiasCci = Vec.Zero;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -416,8 +426,15 @@ internal sealed class IcbmComputer
 
         if (Target.IsSet && Target.BodyName == Parent.Id)
         {
-            aimCci = (SurfacePointEcl(Parent, Target.LatitudeDeg, Target.LongitudeDeg)
-                      - Parent.GetPositionEcl()).Transform(cce2Cci);
+            _trueAimCci = (SurfacePointEcl(Parent, Target.LatitudeDeg, Target.LongitudeDeg)
+                           - Parent.GetPositionEcl()).Transform(cce2Cci);
+
+            // Aimed at the target plus whatever the flown prediction says the arc is losing. The
+            // solver is exact for a *point* in vacuum; the round stops where the ground actually
+            // is, and on a shallow arrival over rising terrain that is tens of kilometres short of
+            // a summit. Correcting the aim is the only thing that closes it, because there is
+            // nothing wrong with the trajectory - it arrives exactly where it was asked to.
+            aimCci = _trueAimCci + _aimBiasCci;
             hasAim = true;
         }
 
@@ -448,6 +465,32 @@ internal sealed class IcbmComputer
                              Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep);
     }
 
+    // Where the ground actually is under a point on the arc. Without this the prediction flies
+    // down to the mean sphere while the round it is predicting stops on terrain, and on a shallow
+    // deorbit that gap is enormous: the arc covers about twelve kilometres of ground per kilometre
+    // of height near the end, so a target four kilometres up - which is most of the Andes - puts
+    // the prediction fifty kilometres past where anything actually lands.
+    //
+    // The point arrives un-carried to the prediction's own epoch, so the body-fixed frame to read
+    // it in is the one at that epoch, which is the current one.
+    private double TerrainRadiusAt(double3 pointCci)
+    {
+        if (Parent is not { } parent) return Body.SurfaceRadius;
+
+        try
+        {
+            double3 dirCcf = Vec.Unit(pointCci).Transform(parent.GetCci2Ccf());
+            if (!Vec.IsFinite(dirCcf) || dirCcf.Equals(Vec.Zero)) return Body.SurfaceRadius;
+
+            double height = parent.GetTerrainHeightFromDirCcf(dirCcf, accurate: false);
+            return double.IsFinite(height) ? parent.MeanRadius + height : Body.SurfaceRadius;
+        }
+        catch
+        {
+            return Body.SurfaceRadius;
+        }
+    }
+
     // The aim point sits on the real ground rather than on the mean sphere, and that is not a
     // refinement. The whole solve is a transfer between two *points*, so a target standing five
     // kilometres up is hit by aiming at where it stands - no terrain model anywhere else in the
@@ -467,12 +510,22 @@ internal sealed class IcbmComputer
 
         if (ImpactPredictor.TryPredict(Body, state.PositionCci, state.VelocityCci, PredictStepSeconds,
                                        ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
-                                       pathCci: _path))
+                                       TerrainRadiusAt, _path))
         {
             PredictedImpact = hit;
+
+            // Measured against the *target*, not against the biased aim: the bias is the correction
+            // being applied, so scoring it against itself would report a perfect shot however far
+            // the rounds actually land from the place the player picked.
             PredictedMissMetres = state.HasAim
-                ? Body.SurfaceRadius * Vec.AngleBetween(hit.GroundFixedPointCci, state.AimNowCci)
+                ? Body.SurfaceRadius * Vec.AngleBetween(hit.GroundFixedPointCci, _trueAimCci)
                 : double.NaN;
+
+            if (state.HasAim && !Program.IsBurning)
+            {
+                double3 error = hit.GroundFixedPointCci - _trueAimCci;
+                _aimBiasCci = Vec.ClampLength(_aimBiasCci - error * BiasGain, MaxBiasMetres);
+            }
         }
         else
         {

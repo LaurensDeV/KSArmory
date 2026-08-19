@@ -403,7 +403,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 405 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 406 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1115,6 +1115,15 @@ So `IcbmProgram.MaxFaithfulStep` registers a burning computer with `WarpPolicy` 
 rounds, and a burn the world outran is **abandoned and reported** rather than flown into the wrong
 ocean. The coast afterwards is not held: a coast is not being integrated by anything, and once the
 warheads are away they are rounds, which the existing machinery already covers.
+
+**The transfer solver is exact, and exact for the wrong thing.** It puts the arc through a *point*,
+in vacuum; a round stops where the **ground** is. On a shallow arrival the arc covers about twelve
+kilometres of ground per kilometre of height, so a target four kilometres up lands tens of
+kilometres from a solution that is otherwise perfect — 47.9 km, measured, from a near-orbital
+burnout 2,580 km out. The trajectory is not wrong; the asking is. So the aim carries a bias driven
+by the flown prediction, the prediction is flown **against the real height field** rather than the
+mean sphere, and the miss is scored against the **target** rather than the biased aim — scoring a
+correction against itself reports a perfect shot however far the rounds land.
 
 **The miss is one product, and there is no floor under it.** Flown from the same cutoff position
 with the *exact* required velocity, the integrator lands on the target to under a metre — so the

@@ -425,6 +425,35 @@ precisely the state a computer holding for a burn window sits in.
 more than any mountain rather than merely positive, because terrain stands above the mean sphere the
 conic is measured against.
 
+## The aim is corrected by what the flown prediction loses
+
+The transfer solver is exact, and exact for the wrong thing. It puts the arc through a **point**, in
+vacuum, and a round does not stop at a point — it stops where the ground is. On a lofted shot those
+are nearly the same. On a shallow arrival they are not remotely: the arc covers about **twelve
+kilometres of ground per kilometre of height** near the end, so a target four kilometres up puts the
+real impact tens of kilometres from a solution that is otherwise perfect.
+
+Measured, from a near-orbital burnout 2,580 km out:
+
+| target elevation | where the flown arc lands |
+| --- | --- |
+| 0 m | on the aim |
+| 1,000 m | 11.8 km away |
+| 4,000 m | 47.9 km away |
+
+Nothing about the trajectory is wrong. It arrives exactly where it was asked to; the asking was
+wrong. So the aim carries a **bias**, driven by the difference between where the flown prediction
+lands and where the target is, taken at a fraction of the error each cycle because it is a feedback
+loop against a solver that then moves the arc.
+
+Two things make it honest rather than self-confirming:
+
+- The prediction is flown **against the real height field**, not the mean sphere. Without that it
+  descends four kilometres past the mountain it was aimed at and reports a miss in the opposite
+  direction.
+- The miss is scored against the **target**, never against the biased aim. Scoring the correction
+  against itself reports a perfect shot however far the rounds actually land.
+
 ## The attitude at cutoff is held, not solved
 
 Velocity still to gain is a *difference*, so as it closes on zero its direction is the difference of
