@@ -31,12 +31,20 @@ internal readonly record struct ReleaseCommand(
     string Said);
 
 /// <summary>
-/// Letting six warheads go one at a time, each along the same line.
+/// Letting a magazine go along one line.
 ///
 /// <para>The bus holds one attitude through its coast and the tubes are canted off it, so warheads
-/// released from that attitude leave on six different vectors and scatter. This turns the bus by
-/// one cant before each release so the tube about to fire lies on the mean — see
-/// <see cref="ReleasePointing"/> — waits for it to settle, releases, and moves on.</para>
+/// released from that attitude leave on six different vectors and scatter. Once <see cref="Begin"/>
+/// has latched the axes this turns the bus by one cant before each release so the tube about to fire
+/// lies on the mean — see <see cref="ReleasePointing"/> — waits for it to settle, releases, and moves
+/// on. One at a time, because each tube wants a different attitude.</para>
+///
+/// <para><b>Nothing paces a salvo it is not re-pointing.</b> With no axes latched every tube wants
+/// the same attitude, the only gate left is that the vehicle is steady, and a magazine empties in
+/// consecutive frames. That is the intent rather than an oversight: warheads off one release state
+/// share a time of flight and land together, where a paced salvo gives each of them a different one
+/// — and on a bus falling toward its release altitude that differential is a larger error than
+/// anything the pause would buy. <c>docs/ICBM-GUIDANCE.md</c> has the flown numbers.</para>
 ///
 /// <para><b>It gives up rather than holding warheads.</b> A bus that cannot point, or one running
 /// out of window, releases on the nominal line anyway: a scattered salvo beats one still aboard

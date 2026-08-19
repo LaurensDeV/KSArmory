@@ -706,6 +706,23 @@ Two things it is careful about:
   settles: the tube alternates between on the line and a full cant off it, and half the time it
   looks perfect.
 
+### Nothing paces a salvo it is not re-pointing
+
+Releases are one at a time only because each tube wants a different attitude. With no axes latched —
+`IcbmConfig.RepointBetweenReleases` off — every tube wants the same one, the only gate left is that
+the vehicle is steady, and the magazine empties in consecutive frames: **five rounds in 67 ms**,
+flown, and all six impacts inside 32 ms of each other.
+
+That is the intent rather than an oversight. Warheads off one release state share a time of flight,
+so their errors are one common offset plus each tube's own cant; a paced salvo gives each of them a
+different flight time on a bus that is falling toward its release altitude, and that differential is
+a larger error than anything the pause would buy. Nothing in this simulation is bought by the pause
+either — rounds do not collide with each other, and six tubes ejecting at 2 m/s on a 6° cone separate
+at 0.2–0.4 m/s regardless of whether they leave together.
+
+`ReleaseSequenceTests.TheWarheadsGoTogetherWhenThereIsNothingToTurnFor` is that decision written
+down, so nobody reads the one-at-a-time wording above as a rule about salvos.
+
 ### Separating first, when the part tree offers a joint
 
 Turning a launcher that is still bolted to a spent booster is correct and nearly useless: a

@@ -88,6 +88,24 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
         Assert.True(next.ReleaseNow);
     }
 
+    /// <summary>
+    /// The decision about pacing, made explicit. A sequencer with nothing to turn for lets the whole
+    /// magazine go as fast as the steadiness gate allows, because warheads off one release state
+    /// share a time of flight and a paced salvo gives each of them a different one.
+    /// </summary>
+    [Fact]
+    public void TheWarheadsGoTogetherWhenThereIsNothingToTurnFor()
+    {
+        ReleaseSequence deploy = new();
+
+        for (int tube = 0; tube < 6; tube++)
+        {
+            ReleaseCommand r = deploy.Update(1.0 / 60.0,
+                                             At(tube, Vec.Zero, sweep: 0.0, tubesLeft: 6 - tube));
+            Assert.True(r.ReleaseNow, $"tube {tube + 1} was held back with nothing to turn for");
+        }
+    }
+
     [Fact]
     public void RunningOutOfWindowStopsRepointingRatherThanHoldingWarheads()
     {
