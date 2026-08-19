@@ -1098,12 +1098,24 @@ the same band section 7.1b needs — fly one engagement and check both.
 
 ---
 
-## 12. The ballistic computer — flown, and arriving short
+## 12. The ballistic computer — flown, and arriving
 
-It has been flown repeatedly. What it does **not** yet do is arrive: the last salvo put six
-warheads on the ground 53 km from the aim, and the correction that should close that has only just
-started reaching the aim (`fix(sim): correct the aim against the arc it will actually fly`). So
-12.4 is the open one and everything below it is unproven rather than failing.
+Six warheads on the ground **433 m to 1.7 km** from the aim, on a 2,740 km deorbit onto a target
+4 km up in the Andes. It got there from 59 km in five flights, and every step was a difference
+between what the prediction modelled and what the round actually did:
+
+| | miss |
+| --- | --- |
+| a prediction flown in vacuum | 59 km |
+| + the warhead's drag | 17-20 km |
+| + terrain sampled the way the round samples it | 14 km |
+| + the 2 m/s the warhead gets off its tube | ~7 km |
+| + the burn stopped along the line it is thrusting | **0.4-1.7 km** |
+
+What is left is the **tube cant**: the six tubes sit at 6° in different clock positions, so each
+warhead leaves on a slightly different vector and the aim correction can only remove the common
+mode. That spread is physical, and closing it means aiming each round separately rather than
+correcting one arc.
 
 `docs/ICBM-GUIDANCE.md` has the algorithm and the list of what a test cannot reach; this is the
 order to check it in, easiest failure first. Ticks below are what a flight actually showed, with
@@ -1159,8 +1171,8 @@ is a rocket holding a perfectly steady attitude in the wrong direction.
 
 ### 12.4 It arrives
 
-- [ ] *Predicted impact* converges on the target as the burn ends, and reads under a kilometre at
-      cutoff. **Flown at 9.7 km**, which is the terrain correction not having converged.
+- [x] *Predicted impact* converges on the target as the burn ends, and reads under a kilometre at
+      cutoff. Flown at **0.1 km**, and the six warheads landed 433 m to 1.7 km from the aim.
 - [ ] The drawn arc's far end sits on the ring.
 - [x] The warheads release on their own during the coast, one at a time, above the release
       altitude — and they go **at the target**, not straight ahead.

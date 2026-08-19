@@ -535,6 +535,25 @@ Four things make it honest rather than self-confirming, and the first two were e
 - The miss is scored against the **target**, never against the biased aim. Scoring the correction
   against itself reports a perfect shot however far the rounds actually land.
 
+## Stop the burn along the line it is actually thrusting
+
+Below `HoldDirectionBelow` the steering direction is frozen, so thrust is no longer parallel to
+what is left to gain. The countdown was still the time to gain the whole **length** of it, so the
+burn ran past the point where the component along the frozen line reached zero — and past that
+point every further metre per second *grows* the residual. The backstop caught it, a full metre a
+second late, because its floor is `Math.Max(oneStep, 1.0)`.
+
+Counting down the **projection** onto the thrust line instead is identical whenever steering is
+following and strictly better when it is not. Flown: the residual at cutoff fell from **2.1 m/s to
+0.15 m/s**, which is below one frame's 0.44 m/s — the burn is now at its timing floor and there is
+nothing further to win there.
+
+**The rig could not see this, and the reason is worth keeping.** `IcbmFlightRig` swings at 12°/s,
+fast enough to follow the required-velocity vector all the way down, so almost no perpendicular
+component ever builds and the projection equals the length. The real vehicle is slower. A rig that
+is *better* than the thing it models is not conservative — it is blind, in exactly the region the
+fault lives in.
+
 ## The attitude at cutoff is held, not solved
 
 Velocity still to gain is a *difference*, so as it closes on zero its direction is the difference of
