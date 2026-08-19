@@ -1760,7 +1760,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Announce(aim.Kind == AimpointKind.None
                      ? $"round {tube + 1} released - {what}"
-                     : $"round {tube + 1} away at {what}");
+                     : $"round {tube + 1} away at {what}{Ejection(launchDir, platformVel, launchPos)}");
         return true;
     }
 
@@ -2069,6 +2069,36 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             _incoming.Add(airborne[i]);
             _incomingByHandle[airborne[i].Handle] = airborne[i];
         }
+    }
+
+    // Which way a round is actually thrown, against the direction the platform is travelling.
+    //
+    // A ballistic computer predicts the arc a *released* warhead flies, and to do that it has to
+    // assume something about this. The assumption is the whole of the difference between where the
+    // prediction lands and where the round does, and on a deorbit a metre a second is kilometres -
+    // so it is worth stating rather than inferring.
+    private string Ejection(double3 launchDirEcl, double3 platformVelEcl, double3 launchPosEcl)
+    {
+        if (Munition.LaunchSpeed <= 0f) return "";
+
+        double3 heading = Vec.Unit(platformVelEcl);
+        double3 thrown = Vec.Unit(launchDirEcl);
+        if (heading.Equals(Vec.Zero) || thrown.Equals(Vec.Zero)) return "";
+
+        double degrees = Vec.AngleBetween(thrown, heading) * 180.0 / Math.PI;
+
+        // Radially, because that is the axis a ballistic arc is most sensitive to - about thirteen
+        // metres of ground per metre of height on a shallow arrival. The tube's own offset up the
+        // stack is part of this and is metres; anything much larger is the analytic orbit position
+        // and the physics one disagreeing, which is a gap a prediction taken from the former cannot
+        // see.
+        if (Platform?.Parent is not Celestial parent) return "";
+
+        double3 up = Vec.Unit(launchPosEcl - KsaWorld.PositionEcl(parent));
+        double radial = Vec.Dot(launchPosEcl - PlatformEcl, up);
+
+        return $" ({Munition.LaunchSpeed:F1} m/s off the tube, {degrees:F0} deg from the platform's"
+               + $" track, launched {radial:+0.0;-0.0} m radially off the orbit position)";
     }
 
     // The frame a round flies in, asked of whatever this system still has: its craft's parent
