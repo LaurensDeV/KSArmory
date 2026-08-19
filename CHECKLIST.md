@@ -1199,8 +1199,8 @@ trying to fly a vertical rise.
 
 ### 12.7 It aims each tube, and lets go of its stack
 
-Nothing here has been flown. No shipped part declares a decoupler, so separation needs a craft built
-with a stock 3 m decoupler between the launcher and the stack below it.
+Separation, the handover and the deployment are flown. No shipped part declares a decoupler, so it
+needs a craft built with a stock 3 m decoupler between the launcher and the stack below it.
 
 - [ ] With **Aim each tube before it fires** on and no decoupler fitted: the warheads still all go,
       and the log says the tubes are being turned onto the line, or that it gave up and why.
@@ -1215,39 +1215,82 @@ with a stock 3 m decoupler between the launcher and the stack below it.
       arm state, its teams and its IFF policy. Six aboard after the handover, not refilled.
 - [x] The ballistic computer follows with it and keeps deploying — all six released.
 - [ ] The spent stack is left in `Manual/None` with its engine off, and is not still being pointed.
-- [ ] The view follows onto the separated craft, and only when it was watching the stack. The first
-      attempt was refused by the engine mid-step and is now staged for the frame sync point;
-      unflown.
+- [ ] The spent stack drifts clear rather than staying alongside the bus.
 
-**Accuracy, flown.** Separated and re-pointing, four warheads landed 0.66-1.4 km with each within
-0.16-0.5 km of its own prediction. That is worse than the ~775 m the same shot manages attached and
-un-re-pointed, and the cause is understood: the decoupler's ~1.1 m/s shove lands after the last
-thing that could compensate for it, and the salvo takes three minutes because each tube costs ~28 s
-to settle — so every warhead gets that error amplified by a different time-to-impact.
+**Accuracy, flown 20 August.** With the trim in and tube re-pointing off, six warheads landed
+**431 m, 537 m, 607 m, 1.1 km, 1.2 km and 1.4 km** — against 3,100-4,100 m before the trim existed.
+All six left within 67 ms and landed within 32 ms of each other, off a cutoff the mod's own
+prediction called `0.0 km off`.
 
-**The trim that answers that is built and has not been flown.** `Sim/BusTrim.cs`, on by default via
-**Trim the bus before releasing**. Headlessly it takes a 1.1 m/s shove from 2.4 km of miss to 2 m in
-1.5 s; what no test can reach is whether KSA's translation flags move the shipped bus at all. The
-whole point of this block is finding that out — none of it is a regression list.
+What is left is two terms. The ~1 km *spread* is the tube cant, which is what re-pointing is for and
+why §12.7a matters. The ~900 m *bias* is that every round landed beyond its own release probe —
+`docs/MIRV-NEXT.md` item 2.
 
-- [ ] The panel shows `Bus trim: trimming N m/s on the nose` (or the tail) after cutoff, and the log
-      carries the same line with `thrusters measured at N m/s2` beside it.
-- [ ] **Write down that acceleration.** It is the floor under the residual — one step of firing is
-      `acceleration x step` — and it decides whether the next lever (KSA's `Pulse` thrust mode) is
-      needed at all.
-- [ ] It settles rather than hunting: the readout closes on `trimmed to N m/s` and stops, rather
-      than oscillating for the rest of the coast.
-- [ ] Nothing leaves the bus until it has. The first `round 1 away` follows the handover line,
-      **not** precedes it — which is the 163 m outlier the last flight had.
-- [ ] With no decoupler fitted it still runs, removes the cutoff residual, and costs a second or two
-      rather than a minute.
+**The trim itself is flown and working.**
+
+- [x] The panel and log show `trimming N m/s on the tail` with `thrusters measured at N m/s2`
+      beside it. Measured **0.9-2.2 m/s2**, so KSA's translation flags do reach the bus's nozzles.
+- [x] It settles rather than hunting: `trimming 1.23 m/s` → `trimmed to 0.010 m/s` in 1.8 s.
+- [x] Nothing leaves the bus until it has. Split at `00:05:59.352`, first `round 1 away` at
+      `00:06:02.002`.
+- [x] Timewarp is held down through the trim as well as the burn.
+
+**What is new since that flight, and unflown.** The trim now waits to coast clear of the spent stack
+before firing, because nulling the decoupler's shove *is* nulling the separation — last flight the
+bus trimmed 130 ms after the split at 12 m and then sat against the booster.
+
+- [ ] After the split the log reads `waiting to clear the spent stack, N m of 50`, then
+      `clear of the spent stack at N m after N s`, and only then the trim.
+- [ ] **Write down the standoff and how long it took.** 50 m and the 90 s cap are both guesses; one
+      flight replaces them with a number.
+- [ ] The bus visibly drifts off the booster rather than sitting on it, and the release window still
+      has room for the wait — the sequencer must not start timing out on `SecondsLeftToDeploy`.
+- [ ] A shot with no decoupler fitted skips the wait entirely and trims within a second or two.
+- [ ] The view follows onto the separated craft, and only when it was watching the stack.
+      `KsaWorld.GoTo` no longer asks the engine to rebuild a part tree nobody changed, which is what
+      it was refusing; expect `view moved to <name>` rather than `could not go to <name>`.
 - [ ] If the flags reach nothing, the log says `nothing left aboard moves the bus` with the residual
       and the warheads go anyway. Warheads still aboard when the release altitude closes is the one
       failure this must not have.
-- [ ] Timewarp is held down through the trim as well as the burn, and given back after it.
-- [ ] With **Trim the bus before releasing** off, behaviour is exactly as it was: released as soon
-      as the tubes stop sweeping, with the shove still in.
-- [ ] The six land closer together, and closer in, than the 3.1-4.1 km group above.
+- [ ] With **Trim the bus before releasing** off, behaviour is as it was: released as soon as the
+      tubes stop sweeping, with the shove still in.
+
+**Never yet exercised:** whether the bus's ~183 kg of MMH/NTO lasts. Nothing has spent it.
+
+### 12.7b A director that rides away on a split
+
+Unflown, and **the case cannot be built from shipped parts alone** — nothing that separates carries
+a director. To construct it: root a stack on something that stacks, put a decoupler in it, surface-
+attach an **EO director** to the tank above the decoupler, and put a command part above so the upper
+half stays a live craft after the split.
+
+- [ ] Before staging, give the head something to lose: a distinctive magnification, tracking on, and
+      a shift-clicked designation.
+- [ ] Stage the decoupler. Expect **one** director in the panel afterwards, on the upper craft, still
+      at that magnification and still watching what it was told to. The bug being fixed looks like
+      *two* — the second parked at default zoom watching nothing.
+- [ ] The log names both craft, as the weapon roster's handover already does.
+- [ ] With **two** directors on the separating half: both follow, and their ordinals stay in part
+      order. This is the path the handover's ambiguity rule was changed to open, and it has no
+      in-game evidence at all.
+- [ ] Control: split a stack whose director stays on the *lower* half. Nothing should move and
+      nothing should log.
+- [ ] A Pantsir on a decoupler exercises both rosters at once, since its roof director shares the
+      launcher's part Id. They search independently and must agree — a disagreement shows as the
+      sight and the weapon reporting different craft.
+
+### 12.7c Shell labelling and the overrun warning
+
+Both unflown.
+
+- [ ] Fire the CIWS at something and confirm all four events — shot down, expired, arrived,
+      detonated — read `shell from barrel N` and never a negative number.
+- [ ] Confirm missiles still read `round 1..12`. The tube path is unchanged but shares the call.
+- [ ] Load a scene and confirm the ~48 s first frame produces **no** warning about rounds lagging,
+      with an empty sky. It should appear under **Verbose log** only.
+- [ ] Then warp hard with a salvo in the air and confirm the warning still fires on the *first*
+      such frame. That is what the per-kind rate limit exists to protect: with one shared counter
+      the load frame spends the slot and the real overrun is silent.
 
 **And the site shot two of them down.** The Pantsir at the target detected a warhead at 20 km, fired
 two interceptors, killed it at 11 m, re-laid on the next at 4.1 km and killed that at 15 m. The two
