@@ -755,10 +755,16 @@ it went. Opening a window is an action; tick boxes are for state — armed, auto
 draw, a tool being active. Tint the button if open/closed is worth showing.
 
 **A setting nobody can reach is not a setting, and that is enforced.** The panel enumerates its
-controls by hand, so a field added to `SensorProfile`, `MunitionProfile` or `SystemConfig` is read
-by the code, described in the docs, shipped in the archive, and untouchable. Nothing fails and
-nothing appears in any log. `SensorProfile.HorizonMasking` and `TerrainMarginMetres` shipped that
-way, with a whole section of `CHECKLIST.md` asking for them to be toggled.
+controls by hand, so a field added to `SensorProfile`, `MunitionProfile`, `SystemConfig`,
+`OpticConfig` or `IcbmConfig` is read by the code, described in the docs, shipped in the archive,
+and untouchable. Nothing fails and nothing appears in any log. `SensorProfile.HorizonMasking` and
+`TerrainMarginMetres` shipped that way, with a whole section of `CHECKLIST.md` asking for them to be
+toggled.
+
+**And the list of scanned types has to grow with the mod**, which is the failure one level up:
+`IcbmConfig` went unscanned for its whole first life, so a ballistic setting with no control would
+have passed. Adding a settings type without adding it to `TUNABLE` puts every field on it back
+outside the check, silently.
 
 `tools/check-tunables.py` fails the build on it. Textual, like `check-boundary.sh`, and for the
 same reason: the panel is under `Ksa/` and the test project cannot reference it. It requires a

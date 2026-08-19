@@ -121,9 +121,6 @@ that the attitude stops mattering and this becomes free.
   forgets a head "staged away". Untrue. Harmless until a director rides a separating craft.
 - **The load-frame warning.** A 48 s first frame logs `rounds in flight will lag the world` with an
   empty sky. Should say nothing when nothing is airborne.
-- **`check-tunables.py` does not scan `IcbmConfig`** (`tools/check-tunables.py:29`), so a ballistic
-  setting with no control would pass. Adding it would pass today and is a worthwhile separate
-  commit.
 
 ## What is already verified in flight
 

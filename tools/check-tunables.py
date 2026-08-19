@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Every setting a player is meant to reach must have a control that reaches it.
 
-A field added to SensorProfile, MunitionProfile or SystemConfig is live the moment it exists:
-the code reads it, the docs describe it, it ships. What does not happen on its own is a control
-in the panel, because Ksa/Ui enumerates them by hand -- so the field is real, documented,
-shipped, and no player can touch it. Nothing fails, and nothing in the log says so.
+A field added to any of the types in TUNABLE below is live the moment it exists: the code reads
+it, the docs describe it, it ships. What does not happen on its own is a control in the panel,
+because Ksa/Ui enumerates them by hand -- so the field is real, documented, shipped, and no player
+can touch it. Nothing fails, and nothing in the log says so.
+
+Which is also why the list has to grow with the mod. IcbmConfig went unscanned for its whole first
+life; it happened to be fully reachable, so adding it cost nothing -- but that was luck rather than
+a check.
 
 That is not hypothetical. SensorProfile.HorizonMasking and TerrainMarginMetres shipped that way,
 and a whole section of CHECKLIST.md asked for them to be toggled.
@@ -26,7 +30,7 @@ SIM = REPO / "src" / "KSArmory" / "Sim"
 UI = REPO / "src" / "KSArmory" / "Ksa" / "Ui"
 
 # The types whose members a player is meant to be able to reach.
-TUNABLE = ["SensorProfile", "MunitionProfile", "SystemConfig", "OpticConfig"]
+TUNABLE = ["SensorProfile", "MunitionProfile", "SystemConfig", "OpticConfig", "IcbmConfig"]
 
 # Members the panel drives through a helper rather than by name -- a tick box bound to a `ref` the
 # helper returns. The value is what must appear in the panel instead, so removing the control still
@@ -150,6 +154,7 @@ RECEIVERS = {
     "MunitionProfile": ("_munition", "round"),
     "SystemConfig": ("_policy",),
     "OpticConfig": ("policy",),
+    "IcbmConfig": ("config",),
 }
 
 
