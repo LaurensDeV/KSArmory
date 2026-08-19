@@ -286,6 +286,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |
 | `Sim/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
+| `Sim/SeparationClearance.cs` | whether what let go has got far enough away to manoeuvre — **the shove is the separation**, so nulling it ends it |
 | `Sim/ReleasePointing.cs` | which way a launcher must hold for one tube to throw along the line the others did |
 | `Sim/ReleaseSequence.cs` | letting a magazine go one round at a time, each along that same line |
 | `Sim/PlatformHandover.cs` | which craft a launcher went to, when a decoupler took it off the one carrying it |

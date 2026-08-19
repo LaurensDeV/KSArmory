@@ -40,7 +40,11 @@ internal sealed class IcbmComputer
     private readonly double3[] _tubeAxes = new double3[64];
     private bool _separated;
     private bool _awaitingSplit;
+    private bool _didSplit;
+    private Vehicle? _separatedFrom;
+    private double _sinceSplit;
     private string _saidTrim = "";
+
     private Vehicle? _viewWanted;
     private string _saidLast = "";
     private double3 _trueAimCci;
@@ -111,8 +115,15 @@ internal sealed class IcbmComputer
     /// <summary>How far off its solution the bus still is, or NaN while nothing is trimming it.</summary>
     public double TrimToGainMetresPerSecond => _trim.Armed ? _trim.ToGainMetresPerSecond : double.NaN;
 
-    /// <summary>What the trim is doing, or the residual it settled or gave up at. Empty before it starts.</summary>
-    public string TrimSaid => _trim.Said;
+    /// <summary>
+    /// What the trim is doing, or the residual it settled or gave up at. Empty before there is
+    /// anything to say.
+    ///
+    /// <para>Not <see cref="BusTrim.Said"/> alone: most of the wait happens before the trim is even
+    /// armed, while the bus coasts clear of the stack it dropped, and a readout that stays blank
+    /// through it is indistinguishable from one that has stopped working.</para>
+    /// </summary>
+    public string TrimSaid => _trim.Said.Length > 0 ? _trim.Said : _saidTrim;
 
     /// <summary>
     /// Whether the world has to be kept slow, which is the burn plus the trim.
@@ -146,6 +157,9 @@ internal sealed class IcbmComputer
         _sequence.Reset();
         _trim.Reset();
         _saidTrim = "";
+        _separatedFrom = null;
+        _didSplit = false;
+        _sinceSplit = 0.0;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -180,6 +194,9 @@ internal sealed class IcbmComputer
         Program.Reset();
         _trim.Reset();
         _saidTrim = "";
+        _separatedFrom = null;
+        _didSplit = false;
+        _sinceSplit = 0.0;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
 
@@ -442,6 +459,11 @@ internal sealed class IcbmComputer
         // derived data, and the engine refuses that while its own update is stepping - which is
         // exactly where a handover happens. It says so, and then nothing moves.
         if (KsaWorld.IsWatching(left)) _viewWanted = craft;
+
+        // Held only until the trim has run, and only to measure a distance from. The stack is alive
+        // rather than destroyed, so this is not the reference CLAUDE.md's rule about dead vehicles
+        // is about — but it is still dropped the moment it has nothing left to answer.
+        _separatedFrom = left;
     }
 
     // Deferred out of Rehome, which runs inside the engine's update pass.
@@ -483,10 +505,45 @@ internal sealed class IcbmComputer
         if (weapon.Separate())
         {
             _awaitingSplit = true;
+            _didSplit = true;
 
             Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} separating the launcher "
                      + "from the stack before deploying");
         }
+    }
+
+    // The world half of SeparationClearance: how far apart the two actually are. Both positions
+    // come from the same instant, so the ecliptic motion they each carry cancels in the difference
+    // - see docs/FRAMES-AND-EPOCHS.md. NaN rather than zero when the stack cannot be read, because
+    // the two mean opposite things there.
+    private bool Clear(double simStep)
+    {
+        _sinceSplit += simStep;
+
+        double apart = double.NaN;
+
+        if (_separatedFrom is { } stack && KsaWorld.IsAlive(stack))
+        {
+            double3 between = KsaWorld.PositionEcl(stack) - KsaWorld.PositionEcl(Craft);
+            if (Vec.IsFinite(between)) apart = Vec.Len(between);
+        }
+
+        // An unreadable stack falls back to the clock rather than to "clear": a part tree
+        // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
+        // case this exists to prevent.
+        Clearance clearance = SeparationClearance.Check(apart, _sinceSplit);
+
+        Say(clearance.Said);
+        return clearance.IsClear;
+    }
+
+    // One line per change, which is all any of this is worth while nothing is happening on screen.
+    private void Say(string what)
+    {
+        if (what == _saidTrim) return;
+
+        _saidTrim = what;
+        Log.Info($"trimming the bus on {KsaWorld.DisplayName(Craft)}: {what}");
     }
 
     // Put the bus back on its solution with its own thrusters, before anything leaves it. All the
@@ -512,6 +569,8 @@ internal sealed class IcbmComputer
             _awaitingSplit = false;
         }
 
+        if (!_trim.Armed && _didSplit && !Clear(simStep)) return;
+
         _trim.Begin();
 
         double3 nose = Vec.Zero;
@@ -532,15 +591,15 @@ internal sealed class IcbmComputer
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
+        // Nothing left to measure a distance from once the trim has run.
+        if (trim.Done) _separatedFrom = null;
+
         // Said once per change. A trim that stalls looks exactly like one that has finished, and
         // the difference between them is kilometres on the ground.
-        if (trim.Said == _saidTrim) return;
+        if (trim.Said.Length == 0) return;
 
-        _saidTrim = trim.Said;
-        if (_saidTrim.Length == 0) return;
-
-        Log.Info($"trimming the bus on {KsaWorld.DisplayName(Craft)}: {_saidTrim}"
-                 + (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : ""));
+        Say(trim.Said
+            + (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : ""));
     }
 
     /// <summary>Let one warhead go at the aim point, if there is one to let go and it is ready.</summary>
