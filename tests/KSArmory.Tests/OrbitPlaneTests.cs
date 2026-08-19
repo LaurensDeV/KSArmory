@@ -65,4 +65,41 @@ public class OrbitPlaneTests
         Assert.Equal(0.0, OrbitPlane.OffPlaneRadians(Vec.Zero, Vec.Zero, Vec.Zero));
         Assert.Equal(0.0, OrbitPlane.PlaneChangeCost(7800.0, 0.0), 9);
     }
+
+
+    /// <summary>
+    /// The point of searching more than one revolution. A target off the ground track costs a plane
+    /// change to reach <em>now</em> — kilometres a second — and costs a deorbit if you wait for the
+    /// planet to bring it under the plane. One revolution cannot see that: the ground turns about
+    /// twenty-two degrees in ninety minutes, so within one orbit the target is still off the track
+    /// and the only answer available is the expensive one.
+    /// </summary>
+    [Fact]
+    public void WaitingForThePlanetToTurnMakesAnOffTrackTargetCheap()
+    {
+        BallisticBody earth = new(Mu, R, new double3(0, 0, 1), 7.2921159e-5);
+
+        // A 50 degree orbit, which reaches the target's latitude but is not over it yet.
+        double altitude = 300_000.0;
+        double3 position = new(R + altitude, 0, 0);
+        double speed = Math.Sqrt(Mu / (R + altitude));
+        double3 velocity = new(0, speed * Math.Cos(0.87), speed * Math.Sin(0.87));
+
+        double3 target = At(-0.72, 2.4);
+
+        Assert.True(BurnWindow.TryFind(earth, position, velocity, target, out BurnWindow.Window window));
+
+        Assert.True(double.IsFinite(window.CostIfLeavingNow));
+        Assert.True(window.Cost < window.CostIfLeavingNow,
+                    $"waiting cost {window.Cost:F0} m/s against {window.CostIfLeavingNow:F0} now");
+
+        // And the saving is the kind that matters: a plane change's worth, not a rounding.
+        Assert.True(window.Saving > 1_000.0,
+                    $"only saved {window.Saving:F0} m/s by waiting {window.WaitSeconds / 60.0:F0} min");
+
+        // It had to look past one revolution to find it.
+        double period = Kepler.PeriodSeconds(Mu, position, velocity);
+        Assert.True(window.WaitSeconds > period,
+                    $"found it {window.WaitSeconds / 60.0:F0} min out, inside one {period / 60.0:F0} min orbit");
+    }
 }

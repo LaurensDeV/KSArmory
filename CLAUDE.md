@@ -1088,7 +1088,17 @@ reversing the whole orbital velocity, the long way round goes through the planet
 that can only leave *now* takes an eleven-kilometre-a-second answer, burns the tank dry and lands on
 the wrong continent. The same shot costs two hundred metres a second most of a revolution later.
 Waiting is a fallback rather than an optimisation: it has to save kilometres a second, because the
-thing being traded away is arriving.
+thing being traded away is arriving — and the earliest window within a margin of the best wins,
+because the cheapest departure in a day is not the one to want.
+
+**The horizon is a day, and the planet is why.** A revolution turns the ground twenty-two degrees,
+so within one orbit a target off the track stays off it and the only answer available is a plane
+change costing kilometres a second; sixteen revolutions brings it under the track and the same shot
+costs a deorbit. Searching a day properly would be thousands of solves, so the first revolution is
+costed at every step — **phasing is invisible to geometry**, and a target just passed over is dead
+in the plane and still unreachable — while the rest is scanned on the plane angle alone and only the
+best few moments are solved for real. None of it fixes an inclination: a latitude the orbit never
+reaches is not reached by waiting, which is what `Sim/OrbitPlane.cs` exists to say.
 
 **A solve that can fail on some geometry needs an answer for that geometry, not a `false`.** A
 latched arrival pins the transfer angle, and a pinned angle can land on the one case Lambert cannot

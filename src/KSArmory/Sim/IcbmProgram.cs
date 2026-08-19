@@ -140,7 +140,7 @@ internal sealed class IcbmProgram
     /// fast enough to want it more often than this, and the countdown in between is arithmetic.
     /// </para>
     /// </summary>
-    public const double WindowIntervalSeconds = 1.0;
+    public const double WindowIntervalSeconds = 5.0;
 
     /// <summary>
     /// How much waiting has to save, in metres per second, before it is worth doing.

@@ -319,8 +319,28 @@ all, it holds — and says how long for.
 solve; integrating to each one would turn a search into an afternoon. `Kepler.TryCoast` is checked
 against RK4 in `KeplerTests`, hyperbolic cases included.
 
-**What it does not cover** is waiting several revolutions for the planet to turn a target under the
-ground track. The horizon is one revolution, and a target far off the plane stays far off it.
+**The horizon is sixteen revolutions, which is a day**, and the planet is the reason rather than the
+orbit. A revolution takes about ninety minutes, in which the ground turns some twenty-two degrees
+underneath — so within one orbit a target off the track stays off it, and a search bounded there can
+only report the expensive answer: that reaching it costs a plane change of kilometres a second. Wait
+sixteen and the planet has turned right round, bringing the target under the track, and the same
+shot costs a deorbit.
+
+Searching a day properly would be thousands of trajectory solves, so it is done in three passes.
+The first revolution is costed at every step, because **phasing is not visible to geometry** — a
+target just passed over is dead in the plane and still unreachable, since the arc to it would have
+to go backwards. The rest of the day is scanned on geometry alone, which is a dot product, and only
+the handful of moments it likes are solved for real. The vehicle's own state repeats every
+revolution, so a coast of twenty hours is asked for as a coast of less than one — exact for a
+two-body orbit, and it keeps the solver away from the many-revolution case where its iteration is
+least well behaved.
+
+**And the cheapest departure in a day is not the one to want.** Waiting twenty hours to save the
+last few per cent is not a trade a weapon should make on its own, so the earliest window within
+`GoodEnoughFraction` of the best wins.
+
+**What none of it fixes is an inclination.** A latitude the orbit never reaches is not reached by
+waiting, and the panel says so separately — see below.
 
 ## Nothing is flown open loop
 

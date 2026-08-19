@@ -56,23 +56,29 @@ public class DeorbitTests
     /// rather than anything guidance can close.
     /// </param>
     [Theory]
-    [InlineData("in plane, ahead", 0.0, 0.0, 1.2, 300_000.0, 2_000.0)]
-    [InlineData("in plane, far ahead (a grazing entry)", 0.0, 0.0, 2.6, 300_000.0, 6_000.0)]
-    [InlineData("in plane, just ahead", 0.0, 0.0, 0.3, 300_000.0, 2_000.0)]
-    [InlineData("twenty degrees off the track", 0.0, 0.35, 1.2, 300_000.0, 2_000.0)]
-    [InlineData("forty-five degrees off it", 0.0, 0.79, 1.2, 300_000.0, 2_000.0)]
-    [InlineData("inclined orbit, equatorial target", 0.89, 0.0, 1.2, 300_000.0, 2_000.0)]
-    [InlineData("inclined orbit, northern target", 0.89, 0.79, 1.2, 300_000.0, 2_000.0)]
-    [InlineData("from 800 km", 0.0, 0.0, 1.2, 800_000.0, 2_000.0)]
-    [InlineData("from 150 km", 0.0, 0.0, 1.2, 150_000.0, 2_000.0)]
+    [InlineData("in plane, ahead", 0.0, 0.0, 1.2, 300_000.0, 2_000.0, 6_000.0)]
+    [InlineData("in plane, far ahead (a grazing entry)", 0.0, 0.0, 2.6, 300_000.0, 6_000.0, 6_000.0)]
+    [InlineData("in plane, just ahead", 0.0, 0.0, 0.3, 300_000.0, 2_000.0, 6_000.0)]
+    [InlineData("twenty degrees off the track", 0.0, 0.35, 1.2, 300_000.0, 2_000.0, 6_000.0)]
+    [InlineData("forty-five degrees off it", 0.0, 0.79, 1.2, 300_000.0, 2_000.0, 6_000.0)]
+    // From a steeply inclined orbit an equatorial target is reached at a node, and the cheapest
+    // node can be some way round — so this one is given room to wait for it.
+    [InlineData("inclined orbit, equatorial target", 0.89, 0.0, 1.2, 300_000.0, 2_000.0, 30_000.0)]
+    [InlineData("inclined orbit, northern target", 0.89, 0.79, 1.2, 300_000.0, 2_000.0, 6_000.0)]
+    [InlineData("from 800 km", 0.0, 0.0, 1.2, 800_000.0, 2_000.0, 6_000.0)]
+    [InlineData("from 150 km", 0.0, 0.0, 1.2, 150_000.0, 2_000.0, 6_000.0)]
     public void ItDeorbitsOntoTheTarget(string label, double inclination, double targetLat,
-                                        double targetLon, double altitude, double tolerance)
+                                        double targetLon, double altitude, double tolerance,
+                                        double horizonSeconds)
     {
         IcbmFlightRig rig = InOrbit(altitude, inclination);
         double3 aim = At(targetLat, targetLon);
 
         IcbmProgram program = new(new IcbmConfig { Armed = true });
-        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 1800.0);
+        // Long enough for the computer to wait out a window. It searches across a day's worth of
+        // revolutions, because the planet turning is what brings a target under the track, so a
+        // horizon of one orbit would be asserting that it never waits.
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, horizonSeconds);
 
         Assert.True(flight.Reached, $"{label}: never reached cutoff - {flight.Hold}");
         Assert.DoesNotContain("short of the solution", flight.Hold);

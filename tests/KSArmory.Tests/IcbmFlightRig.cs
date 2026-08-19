@@ -36,6 +36,10 @@ internal sealed class IcbmFlightRig
     /// The step used while the program says short ones are not needed — a coast, in other words.
     /// The game allows timewarp there for the same reason, and stepping it finely would spend
     /// minutes of test time integrating something nothing is steering.
+    ///
+    /// <para>Coarse on purpose. Guidance re-solves from wherever the vehicle actually is, so a
+    /// rough coast costs nothing at cutoff — it just moves the vehicle somewhere slightly
+    /// different, which the loop then flies from.</para>
     /// </summary>
     public double CoastStepSeconds = 2.0;
 
