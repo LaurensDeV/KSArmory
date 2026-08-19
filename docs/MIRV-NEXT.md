@@ -130,50 +130,59 @@ itself and stops, and the game's only callers of `UpdateAfterPartTreeModificatio
 genuinely change a part tree. Pointing a camera at a craft changes no tree, so the call was never
 needed. It is gone, and the failure with it.
 
-## 5. Re-pointing destabilises the vehicle — off by default
+## 5. Re-pointing destabilises the vehicle — off by default, instrument now sharp
 
 **This is the finding that changes the plan.** Flown on a separated bus with the sequencer on,
-commanding six degrees away from the held line made the vehicle *hunt* rather than settle:
+commanding six degrees away from the held line made the vehicle *hunt* rather than settle: the
+offset climbed monotonically from 5.9° to 10.3° — nearly twice the cant it was correcting — the
+sweep never came under 0.08 m/s against a 0.05 gate, every release was a timeout, and the salvo took
+three minutes. Against 1.7-0.3 km on the same shot without it. So `RepointBetweenReleases` defaults
+**off**, and the ~1 km spread in the current group is the cant it would have removed.
 
-```
-turning onto tube 1, 6.0 deg to go ... 1.3 ... back up to 10.3 ... back down ...
-releasing tube 2 with the tubes sweeping 0.082 m/s - the warheads will scatter
-(the same for tubes 3, 4, 5, 6)
-probe: 9.9, 8.6, 7.8, 7.0, 6.2, 6.6 km
-```
+**The command is exonerated, by reading rather than by flying.** `held` is genuinely frozen —
+`IcbmProgram._thrustDirCci` is latched at the burn, `Coasting()` returns it unchanged, and nothing
+feeds `_deploy` back into it. The sense of the rotation is right: `Repoint(a,R)*a == R` is pinned,
+and `VehicleCommand.TryAim` builds the attitude purely from cross products of `(direction, roll)`,
+so it is equivariant under any proper rotation applied to both — rotating the command by `turn`
+rotates the body by `turn`. Since `TryAim` demonstrably works during boost, it cannot be inverted
+here. The latched-axis-to-command, live-axis-to-error pairing is also correct.
 
-It swung *past* the reference to 10.3° — nearly twice the cant it was correcting — never brought the
-sweep below 0.08 m/s against a 0.05 gate, so every release was a timeout and the sequence gave up
-after the first tube. Against 1.7-0.3 km on the same shot without it.
+**So a monotonically growing error is the vehicle, and the sequencer now says which way it is
+failing** instead of waiting out a 60 s timeout and reporting only that it gave up:
 
-So `IcbmConfig.RepointBetweenReleases` now defaults **off**. The give-up paths worked exactly as
-designed — it released rather than holding warheads, and said why every time — which is the only
-reason this was a bad salvo rather than a lost one.
+| what the angle does | what it means | gate |
+| --- | --- | --- |
+| falls under 0.5° | the turn worked | `AlignedDegrees` |
+| grows 1° past where it started | the vehicle is not holding what it was given | `NotFollowingDegrees` |
+| fails to close 0.25° in 10 s | the vehicle is not turning at all | `ClosingDegrees` |
 
-**What to investigate before turning it back on:** whether the oscillation is KSA's attitude
-controller, the RCS authority, or the command being rotated every frame while the reference is
-fixed in Cci and the vehicle's own frame is rotating under it. The last is the one I would look at
-first — a fixed target in an inertial frame is not a fixed target in the body frame, and the
-controller may be chasing a moving one.
+That distinction is the whole point of tomorrow's flight: *not following* means the bus is being
+pushed off a command it accepted, which is residual tumble it cannot null and is fixed on the craft
+or accepted as a limit; *stopped closing* means nothing is moving at all, which is authority or a
+command that is not arriving.
 
-Note also the slew itself is fine: 6° in about four seconds, ~1.5°/s. **The 28 s per tube measured
-earlier was entirely settling**, so this is a stability problem and not an authority one.
+**Three real defects fell out of building that instrument**, all unflown:
 
-## 5b. Re-pointing is built and headlessly proven
+- **An unresolvable tube axis read as zero degrees off the line.** `Vec.AngleBetween(Zero, R)` is
+  0.0, so a part tree that stopped answering released every warhead immediately. Same rule as an
+  unreadable height field not standing in for flat ground.
+- **One tube's timeout is evidence about the vehicle, not about that tube.** A tube that times out
+  with the tubes still sweeping now latches "this one will not settle" and the rest go as offered.
+  The flown numbers reproduced headlessly — 0.082 m/s sweep, 170 s window, six tubes — take **282 s**
+  on the old code and under 30 s now.
+- **Every release now leaves a record**, not only the failures: which tube, how far off the line,
+  how fast the tubes were sweeping. Six impacts are only diagnosable against six release states, and
+  those were silent.
 
-`Sim/ReleasePointing.cs` and `Sim/ReleaseSequence.cs`, on by default via
-`IcbmConfig.RepointBetweenReleases`. Headlessly it collapses the tube-cant spread from **1,730 m to
-0 m** and is roll-independent; in flight its benefit was buried under item 1, which is now built and
-wants flying before this can be judged.
+The gates themselves are unchanged. `AlignedDegrees` 0.5° and `SteadyMetresPerSecond` 0.05 were
+calibrated against a launcher bolted to a full stack and are probably far too tight for a 6,300 kg
+bus with a 2.6 m lever arm — but loosening them silently accepts dispersion, and the evidence for
+what to loosen them *to* is one flight away. If the log shows the bus holding a steady offset it
+cannot improve on, that is the case for making `AlignedDegrees` a convergence test rather than an
+absolute one.
 
-Two things to look at once the impulse is nulled:
-
-- **~28 s per tube.** Measured, and it is genuinely the settle rather than a cadence
-  (`SalvoSpacing` is 0.45 s). The gates — `ReleaseSequence.AlignedDegrees` 0.5° and
-  `SteadyMetresPerSecond` 0.05 — were calibrated against an attached stack. On a 6,300 kg bus with
-  a 2.6 m lever arm they are probably far too cautious. The log now says what it is waiting for.
-- **Three minutes of salvo means every warhead gets its error amplified by a different
-  time-to-impact.** That was the 2.4 → 0.3 km ramp. Faster settling fixes it for free.
+Headlessly the mechanism still collapses the tube-cant spread from **1,730 m to 0 m**, and is
+roll-independent.
 
 ## 6. Point the bus at the target on release — cosmetic, do it last
 

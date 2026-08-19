@@ -1257,6 +1257,28 @@ bus trimmed 130 ms after the split at 12 m and then sat against the booster.
 
 **Never yet exercised:** whether the bus's ~183 kg of MMH/NTO lasts. Nothing has spent it.
 
+### 12.7a Turn re-pointing back on and read one line
+
+The ~1 km spread in the flown group **is** the tube cant, so this is now the largest thing left to
+win. It is off by default because it made the bus hunt; the sequencer has not been made to work, it
+has been made to say which way it is failing. One flight decides where the fix goes.
+
+- [ ] Tick **Aim each tube before it fires** and fly the same shot. Read the deploy lines.
+- [ ] **Which of these two appears is the whole result:**
+      `tube 1 is not following the turn, X deg off the line against Y when it started` — the bus
+      accepted the command and is being pushed off it, so the fix is on the craft (more RCS) or is a
+      documented limit; or `tube 1 has stopped closing on the line` — nothing is moving at all, so it
+      is authority, or the attitude write is not reaching the bus at all.
+- [ ] If it says *stopped closing* with no movement whatever, check `AttitudeHook.Hold` is landing on
+      the bus rather than on the discarded stack — the handover re-homes `Craft`, but that was read
+      rather than observed.
+- [ ] The salvo takes about one tube's timeout, not three minutes, whatever else goes wrong.
+- [ ] Every release logs which tube went, how far off the line and how fast the tubes were sweeping
+      — including the ones that worked. Six impacts are only diagnosable against six release states.
+- [ ] If the bus holds a *steady* offset it cannot improve on, write the number down: that is the
+      evidence for making `AlignedDegrees` a convergence test rather than an absolute one, which is
+      the one gate change worth making and cannot be justified without it.
+
 ### 12.7b A director that rides away on a split
 
 Unflown, and **the case cannot be built from shipped parts alone** — nothing that separates carries
