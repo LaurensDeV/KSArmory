@@ -178,6 +178,13 @@ internal sealed class IcbmComputer
                      + (double.IsFinite(Program.ResidualAtCutoff)
                             ? $", cut off {Program.ResidualAtCutoff:F1} m/s short"
                             : "")
+                     // The mod's own prediction against its own aim. Near zero means the solution
+                     // is self-consistent and whatever missed happened to the round afterwards;
+                     // large means the arc never pointed at the target and the burn flying it
+                     // perfectly was never going to help.
+                     + (double.IsFinite(PredictedMissMetres)
+                            ? $", own prediction {PredictedMissMetres / 1000.0:F1} km off"
+                            : "")
                      + $" :: {Command.Hold}");
         }
 
