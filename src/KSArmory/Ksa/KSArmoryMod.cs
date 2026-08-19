@@ -733,7 +733,12 @@ public sealed class KSArmoryMod
         // the one the panel happens to be showing. And small enough for the fussiest round in the
         // air, which is the one that manoeuvres hardest: a ballistic weapon alongside an
         // interceptor must not let the interceptor be stepped over.
-        double faithful = _roster.FaithfulStep(out bool anyInFlight);
+        _roster.FaithfulStep(out bool anyInFlight);
+
+        // The step the world is asked to hold to, not the one a round can survive. Those differ
+        // while a round is in air, and holding the world is the half that keeps the round in step
+        // with it - clamping the round's own step only drops the difference.
+        double faithful = _roster.WarpTargetStep();
 
         // A guided burn counts too, and for the same reason a round does: it is a thing being
         // integrated that a long step ruins. The difference is where the damage lands — a round

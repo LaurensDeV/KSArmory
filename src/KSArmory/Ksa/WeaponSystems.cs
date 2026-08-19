@@ -75,10 +75,10 @@ internal sealed class WeaponSystems(Config config)
     /// clamp are two readings of the same question and must not disagree.</para>
     /// </summary>
     /// <remarks>
-    /// Asked of the round rather than of its profile, because what a round needs depends on where
-    /// it is: a warhead coasting in vacuum can take a third of a second and the same warhead
-    /// entering the atmosphere cannot. That is what lets the world run fast through a six-minute
-    /// coast and slow itself for the minute of entry that decides where the round lands.
+    /// The <em>integration</em> limit: how long a step the sub-stepping inside a round can still
+    /// resolve. It bounds a clamp that discards time, so tightening it does not slow anything down
+    /// — it makes the round fall behind the world. What a round would <em>prefer</em> is
+    /// <see cref="WarpTargetStep"/>, which slows the world instead.
     /// </remarks>
     public double FaithfulStep(out bool anyInFlight)
     {
@@ -90,7 +90,7 @@ internal sealed class WeaponSystems(Config config)
             foreach (IProjectile round in e.Battery.Rounds)
             {
                 anyInFlight = true;
-                faithful = Math.Min(faithful, round.FaithfulStepSeconds);
+                faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
             }
         }
 
@@ -99,11 +99,47 @@ internal sealed class WeaponSystems(Config config)
             foreach (IProjectile round in _loose[i].Rounds)
             {
                 anyInFlight = true;
-                faithful = Math.Min(faithful, round.FaithfulStepSeconds);
+                faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
             }
         }
 
         return anyInFlight ? faithful : Interceptor.MaxFaithfulStep;
+    }
+
+    /// <summary>
+    /// The step the world should be held to, which is not the same as the one a round can survive.
+    ///
+    /// <para>Asked of each round rather than of its profile, because what a round needs depends on
+    /// where it is: a warhead coasting in vacuum can take a third of a second and the same warhead
+    /// entering the atmosphere cannot. Driving <see cref="WarpPolicy"/> with this is what lets the
+    /// world run fast through a six-minute coast and slow itself for the minute of entry that
+    /// decides where the round lands — <b>without</b> shortening the round's own step, which would
+    /// simply drop the difference on the floor.</para>
+    /// </summary>
+    public double WarpTargetStep()
+    {
+        double target = double.MaxValue;
+        bool any = false;
+
+        foreach (Entry e in _entries.Values)
+        {
+            foreach (IProjectile round in e.Battery.Rounds)
+            {
+                any = true;
+                target = Math.Min(target, round.FaithfulStepSeconds);
+            }
+        }
+
+        for (int i = 0; i < _loose.Count; i++)
+        {
+            foreach (IProjectile round in _loose[i].Rounds)
+            {
+                any = true;
+                target = Math.Min(target, round.FaithfulStepSeconds);
+            }
+        }
+
+        return any ? target : Interceptor.MaxFaithfulStep;
     }
 
     /// <summary>

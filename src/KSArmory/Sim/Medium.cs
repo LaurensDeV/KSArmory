@@ -39,8 +39,10 @@ internal static class Medium
     /// — how far a round may move before it steps over its own proximity radius. Entry is a
     /// different problem with a different answer: air density falls off on a scale height of a few
     /// kilometres and a re-entering round crosses that in seconds, so a step sized for fusing flies
-    /// it through air that is nothing like what is there. Flown at a 170 ms step, six warheads
-    /// landed <b>381 km</b> beyond where the same shot puts them at 17 ms.</para>
+    /// it through air that is nothing like what is there. Measured on a 2,700 km deorbit against a
+    /// 1 ms reference, the impact moves about <b>1.7 m per millisecond of frame</b> — smoothly and
+    /// without a threshold, so this bounds an ordinary integration error rather than guarding
+    /// against a cliff.</para>
     /// </summary>
     public const double FaithfulStepInAir = 0.05;
 

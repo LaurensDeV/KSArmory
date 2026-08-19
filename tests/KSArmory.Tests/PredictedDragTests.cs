@@ -275,7 +275,7 @@ public class PredictedDragTests(ITestOutputHelper Out)
 
             // The whole point: the round reads the air where it is, not where it was when the
             // frame began.
-            AirDensityAt = DensityAt,
+            AirDensityAt = (pos, _) => DensityAt(pos),
         };
 
         for (int i = 0; i < (int)(3000 / dt) && round.State == RoundState.Flying; i++)

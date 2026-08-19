@@ -49,7 +49,13 @@ internal sealed class Slug : IProjectile
     /// <para>Null falls back to the frame's single sample, which is what a round flying through no
     /// atmosphere worth resolving needs.</para>
     /// </summary>
-    public Func<double3, double>? AirDensityAt { get; set; }
+    /// <param name="secondsIntoFrame">
+    /// How far into the frame the sub-step is. The world's own bodies are sampled once a frame and
+    /// stand still through it, while the round moves — carrying the planet's ~30 km/s of ecliptic
+    /// travel with it — so a lookup measured against a frozen body reads an altitude that ramps
+    /// across the frame. This is what lets the far side put that back.
+    /// </param>
+    public Func<double3, double, double>? AirDensityAt { get; set; }
 
     /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
     public double FaithfulStepSeconds
@@ -205,10 +211,11 @@ internal sealed class Slug : IProjectile
             // Re-read inside the loop, because air density is the one thing the round flies
             // through that changes materially within a frame. It falls off on an 8 km scale
             // height, and a re-entering round covers a kilometre a frame at ordinary speeds and
-            // far more under warp - so holding the frame's first sample for the whole frame flies
-            // the round through the thinner air it had at the top of it. Flown at 10x: the
-            // warheads under-dragged so badly they landed 381 km LONG.
-            double density = AirDensityAt?.Invoke(PositionEcl) ?? mediumDensityRatio;
+            // more under warp, so holding the frame's first sample for the whole frame flies the
+            // round through the thinner air it had at the top of it. Measured against a 1 ms
+            // reference on a 2,700 km deorbit: a 170 ms frame lands 510 m long sampling once and
+            // 249 m sampling per sub-step, and a 320 ms frame 1,046 m against 550 m.
+            double density = AirDensityAt?.Invoke(PositionEcl, elapsed) ?? mediumDensityRatio;
             if (!double.IsFinite(density) || density < 0.0) density = mediumDensityRatio;
             _lastDensity = density;
 

@@ -2169,7 +2169,31 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                ? KsaWorld.GravityAt(body, positionEcl)
                : KsaWorld.GravityAt(Platform!, positionEcl);
 
-    private Func<double3, double>? _airDensityAt;
+    private Func<double3, double, double>? _airDensityAt;
+    private double3 _bodyVelocityEcl;
+
+    // The round moves through a frame; the body it is measured against does not, because KSA
+    // samples celestials once a frame. Both carry the planet's ~30 km/s of ecliptic travel, so
+    // differencing a moving round against a frozen body reads an altitude that ramps by kilometres
+    // across a long frame - and density falls off on an 8 km scale height, so that is most of the
+    // drag. Putting the body's own travel back is what makes a per-sub-step lookup an improvement
+    // rather than a much larger error than the once-a-frame one it replaced.
+    private double AirDensityIntoFrame(double3 positionEcl, double secondsIntoFrame)
+        => MediumAtRound(positionEcl - (_bodyVelocityEcl * secondsIntoFrame));
+
+    private double3 BodyVelocityEcl()
+    {
+        try
+        {
+            Celestial? body = _looseBody ?? (Platform?.Parent as Celestial);
+            double3 v = body?.GetVelocityEcl() ?? Vec.Zero;
+            return Vec.IsFinite(v) ? v : Vec.Zero;
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
 
     private double MediumAtRound(double3 positionEcl)
         => _looseBody is { } body
@@ -2184,6 +2208,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // A burst is dozens of shells and the world does not move between them, so the candidate
         // list is built at most once here rather than once per round.
         _contactsFresh = false;
+        _bodyVelocityEcl = BodyVelocityEcl();
 
         for (int i = _rounds.Count - 1; i >= 0; i--)
         {
@@ -2231,7 +2256,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
                 // Cached rather than a fresh method group per round per frame: a cannon burst is
                 // 150 shells and this is assigned to every one of them.
-                slug.AirDensityAt = _airDensityAt ??= MediumAtRound;
+                slug.AirDensityAt = _airDensityAt ??= AirDensityIntoFrame;
             }
 
             round.Update(dt, SampleTarget(round), gravity, airVelocity, PlatformEcl,

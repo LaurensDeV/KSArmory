@@ -643,12 +643,25 @@ frame, so it flies the whole frame through the thinner air it had at the top of 
 re-samples inside the sub-step loop through `AirDensityAt`, which halves the frame-length
 sensitivity — measured across 17, 170 and 320 ms frames.
 
-**But that is not the whole 381 km, and the rest is not identified.** Headlessly, a 170 ms frame
-moves the impact 0.57 km without the fix and 0.31 km with it — three orders of magnitude short of
-what flight showed. The likeliest explanation is that a grazing entry sits near a **skip
-threshold**: under-drag slightly and the round fails to capture, stays high, and travels hundreds of
-kilometres further. That is consistent with the enormous, strongly non-linear amplification and with
-the sign, and it is **unconfirmed**.
+**The 381 km is not in the fall, and that is now measured rather than assumed.** Sweeping the frame
+step from 1 ms to 320 ms on this trajectory moves the impact **smoothly and linearly, about 1.7 m
+per millisecond of frame** — 249 m at 170 ms, 550 m at 320 ms. No threshold anywhere. Three
+candidates were killed outright:
+
+- **Sub-step saturation** cannot fire inside the legal range: `steps = min(64, ceil(dt/0.005))`
+  holds the effective sub-step at exactly 5.00 ms at both 170 ms and 320 ms, and only grows past
+  `dt > 0.32 s`, which is where the clamp already refuses.
+- **Atmospheric skip** is real as a regime but nowhere near this shot: the flown arc's perigee is
+  **675 km below the surface**, a committed entry. The 17 ms and 170 ms trajectories lie on top of
+  each other the whole way down. The worst frame-length error obtainable anywhere in the skip family
+  is 57.7 km, on a 12,500 km grazing arc unlike this one in every respect.
+- **A missed ground crossing** is bounded by one frame of travel — 561 m at 170 ms — because the
+  stale radius is re-read at the top of the next frame and the round detonates on the first sub-step
+  below it. It cannot tunnel: a sub-step is tens of metres against a 6,371 km sphere.
+
+So the cause is **still unidentified**, and it is somewhere other than the round's own integration.
+What it would take is large: +371 km needs 203 m/s prograde, or 90 m/s radial, or 28 km of release
+altitude.
 
 `Interceptor.MaxFaithfulStep` was the wrong guard for it either way. It is 0.32 s because that is
 where a round starts stepping over its own **fuse radius** — a rule about proximity fusing, and
