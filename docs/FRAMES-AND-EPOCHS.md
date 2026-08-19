@@ -18,6 +18,24 @@ The arithmetic is always the same:
 something real in the frame.** A magnitude on its own identifies nothing: the division against the
 carrier speed is the diagnosis.
 
+## A carry belongs to a consumer, not to a round
+
+`KSArmoryMod.AddAirborne` carries every round forward by `VelocityEcl * step` before publishing it
+as a contact, because it is about to be compared against vehicle positions the engine writes later
+in the frame. That is correct **for that consumer** and is not a general fact about rounds.
+
+`WeaponSystem.UpdateRounds` samples gravity, air density and the air's own velocity at the round's
+position **as it stands**, with no carry. The celestial state those differences are taken against
+belongs to the start of the step about to be integrated, so the two are already in phase.
+
+Applying `AddAirborne`'s carry here — on the reasoning that a round's position is a frame behind the
+celestials — puts them a step apart instead. **Flown: the rounds diverged from their own prediction
+by 2 km, and the salvo's common miss went from 782 m to 2,667 m.** The prediction did not move at
+all, which is what identified it: only the round's own flight had changed.
+
+The rule: before reusing a carry, ask which two samples the consumer is pairing and at which phase
+each is written. Two consumers of the same round can need opposite answers.
+
 ## The epoch contract
 
 This is what KSA does, read from the decompiled source rather than inferred:

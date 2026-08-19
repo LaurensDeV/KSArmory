@@ -2198,29 +2198,26 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 continue;
             }
 
-            // Carried forward by the step it is about to be integrated across, because everything
-            // it is about to be differenced against is a frame ahead of it. A round's PositionEcl
-            // is where the last update left it; a Celestial's is written by the engine's own
-            // per-frame pass, which has already run by the time this mod's hook does. Pairing the
-            // two as they stand mis-states the separation by the body's ecliptic motion in one
-            // frame - 497 m at 60 fps near Earth - which lands on the altitude the air is read at,
-            // on the distance gravity is computed over, and on where the ground is looked up.
+            // At the round's position as it stands, with no carry forward. The celestial state this
+            // is differenced against belongs to the start of the step about to be integrated, so
+            // the two are already in phase - carrying the round forward to meet it puts them a
+            // step apart instead. Flown: the rounds diverged from their own prediction by 2 km.
             //
-            // Same carry, and the same reason, as KSArmoryMod.AddAirborne.
-            double3 sampleAt = round.PositionEcl + round.VelocityEcl * dt;
-
-            double3 gravity = GravityAtRound(sampleAt);
+            // KSArmoryMod.AddAirborne does carry, and is not a precedent for this. It publishes a
+            // round as a contact to be compared against vehicle positions read later in the frame,
+            // which is a different consumer at a different phase. See docs/FRAMES-AND-EPOCHS.md.
+            double3 gravity = GravityAtRound(round.PositionEcl);
 
             // Read at the round's own position, not the platform's. A round climbing out of the
             // atmosphere leaves the air behind long before the launcher does, and that is the
             // whole point of scaling drag rather than fixing it per profile.
-            double mediumDensity = MediumAtRound(sampleAt);
+            double mediumDensity = MediumAtRound(round.PositionEcl);
 
             // The ground under the round, not under the launcher. Identical while the two are
             // metres apart, which is every shell this mod fires; a warhead 2,700 km downrange is
             // over ground moving in a measurably different direction, and its drag is measured
             // against that. See KsaWorld.GroundVelocityAt.
-            double3 airVelocity = GroundVelocityAtRound(sampleAt);
+            double3 airVelocity = GroundVelocityAtRound(round.PositionEcl);
 
             // Everything it could run into, which is not the same list as what it was aimed at,
             // and the geometry that decides whether it truly met any of them.
