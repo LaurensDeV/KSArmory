@@ -1998,6 +1998,28 @@ internal static class KsaWorld
 
 
     /// <summary>
+    /// Whether the player is watching this craft — flying it, or pointing the camera at it.
+    ///
+    /// <para>Both, because the two come apart: the camera is left on whatever it was following when
+    /// control moves elsewhere. Anything that wants to move the view politely has to ask about
+    /// both, or it will drag somebody off a craft they are deliberately looking at.</para>
+    /// </summary>
+    public static bool IsWatching(Vehicle? vehicle)
+    {
+        if (!IsAlive(vehicle)) return false;
+        if (ReferenceEquals(ControlledVehicle, vehicle)) return true;
+
+        try
+        {
+            return Program.GetMainCamera() is { } camera && ReferenceEquals(camera.Following, vehicle);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Points the camera at a craft and takes control of it.
     ///
     /// <para>The same four steps KSA's own "Control from here" runs, in the same order — follow,

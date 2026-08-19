@@ -373,6 +373,13 @@ internal sealed class IcbmComputer
 
         Log.Info($"ICBM computer followed its weapon from {KsaWorld.DisplayName(left)} "
                  + $"onto {KsaWorld.DisplayName(craft)}");
+
+        // And take the player with it, but only if they were watching the thing that just split.
+        // Somebody flying an aircraft on the other side of the planet did not ask to be moved.
+        if (KsaWorld.IsWatching(left) && KsaWorld.GoTo(craft))
+        {
+            Log.Info($"view moved to {KsaWorld.DisplayName(craft)}, which is where the warheads are");
+        }
     }
 
     // Whether the next sequence would fire the joint the launcher hangs on. The staging list is
