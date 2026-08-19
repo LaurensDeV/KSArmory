@@ -576,7 +576,7 @@ aim.
 
 **The aim correction cannot anticipate it.** It converges on a release kick during the burn, and the
 kick at release is a different one — so the error is not a bias it can remove but noise it chases.
-`IcbmComputer.ReleaseSteadyMetresPerSecond` holds the release until the tubes have stopped sweeping,
+`ReleaseSequence.SteadyMetresPerSecond` holds the release until the tubes have stopped sweeping,
 which is what a real bus does before every separation.
 
 **Measured at the tube, not at the hull.** A warhead on top of a long stack is tens of metres from
@@ -590,9 +590,16 @@ in took the cutoff residual from **0.15 m/s to 4.31** and the predicted miss fro
 because guidance never settled. The steady terms — where the tube is, which way it throws — belong
 in the prediction; the transient belongs only to the decision of whether to release at all.
 
-It gives up after `ReleaseSteadyTimeoutSeconds` and says so. A bus with no attitude authority left
-would otherwise hold its warheads for ever, and that is the worse failure of the two: the shot is
-already paid for.
+It gives up after `ReleaseSequence.PerTubeTimeoutSeconds` and says so. A bus with no attitude
+authority left would otherwise hold its warheads for ever, and that is the worse failure of the two:
+the shot is already paid for.
+
+**And it only gathers that evidence once.** One tube's whole clock spent not settling answers the
+question for the vehicle, not for the tube, so every later warhead goes as soon as it is offered
+rather than paying the same wait for the same answer. Six of those waits is what turned a salvo into
+**282 seconds** — reproduced headlessly in `ReleaseSequenceTests` at the sweep and window one flight
+sat at — and each of them puts the next warhead on a different release state and a different time of
+flight, which is the error the whole salvo is being kept short to avoid.
 
 **What that flight also showed is that the prediction is sound.** Against each round's own impact it
 was out by a mean of **647 m** and as little as 100 m, on a salvo that missed by 7.4 km — so the
@@ -722,6 +729,34 @@ at 0.2–0.4 m/s regardless of whether they leave together.
 
 `ReleaseSequenceTests.TheWarheadsGoTogetherWhenThereIsNothingToTurnFor` is that decision written
 down, so nobody reads the one-at-a-time wording above as a rule about salvos.
+
+### A turn that is not being followed is measured, not waited out
+
+The command is one constant rotation of the frozen coast attitude, rebuilt from the same latched axis
+every frame. So the off-line angle is a measurement of the *vehicle*, and three shapes are worth
+telling apart — from one frame they all read as "N degrees to go":
+
+| What the angle does | What it means |
+| --- | --- |
+| falls to under `AlignedDegrees` | the turn worked |
+| grows past where it started, by `NotFollowingDegrees` | the vehicle is not holding what it was given |
+| stops closing by `ClosingDegrees` for `NoProgressSeconds` | the vehicle is not turning at all |
+
+Flown on a separated ~6,300 kg bus, the reported angle climbed **monotonically from 5.9° to 10.3°
+over seven seconds** and the sequencer spent the whole per-tube clock on it. The last two rows are
+given up on in seconds rather than at the sixty-second timeout, and each says which one it was — the
+rest of the salvo then goes on the mean axis, which is the same shot the setting-off case gets.
+
+Whether that flight's drift was residual tumble from the decoupler, or something moving the command,
+is **not established**: the sequencer's own command is provably constant, so the log now separates
+"still coming round" from "not following", and every release records which tube went, how far off the
+line, and how fast the tubes were sweeping. Six impact points are only diagnosable against the six
+release states that produced them.
+
+**An unresolvable tube axis makes no claim.** The angle between a degenerate direction and the
+reference is zero, so reading it as a measurement releases every warhead the instant the launcher's
+part tree stops answering — the same rule as an unreadable height field not standing in for flat
+ground.
 
 ### Separating first, when the part tree offers a joint
 
