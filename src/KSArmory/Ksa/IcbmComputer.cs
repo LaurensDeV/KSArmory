@@ -176,23 +176,31 @@ internal sealed class IcbmComputer
         }
 
         Predict(simStep, state);
-        ProbeAttitude(playerStep);
+
+        // Read before anything is written this frame. KSA replaces the whole flight computer from
+        // its worker every frame, so this is what survived of last frame's command — and comparing
+        // it with what is read straight after writing is the only way to tell a write that never
+        // lands from one the engine reverts.
+        FlightComputerAttitudeMode wasMode = Craft.FlightComputer.AttitudeMode;
+        FlightComputerAttitudeTrackTarget wasTrack = Craft.FlightComputer.AttitudeTrackTarget;
 
         // Attitude is driven for every phase that is doing something, not only while an engine is
         // lit. A hold can be an hour long and the vehicle is pointed at the burn for all of it; and
         // after cutoff the bus has to keep the line it was cut off on for the warheads to leave
         // along. Both were left free before, which is a vehicle drifting when it should be settled.
+        bool aimed = false;
+
         if (Command.Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution))
         {
             _rollReference = AimFrame.Advance(_rollReference, Command.ThrustDirectionCci,
                                               -Vec.Unit(state.PositionCci), RollFallback(state));
 
-            if (VehicleCommand.TryAim(Craft, Parent!, state.PositionCci, Command.ThrustDirectionCci,
-                                      _rollReference))
-            {
-                _driving = true;
-            }
+            aimed = VehicleCommand.TryAim(Craft, Parent!, state.PositionCci,
+                                          Command.ThrustDirectionCci, _rollReference);
+            if (aimed) _driving = true;
         }
+
+        ProbeAttitude(playerStep, wasMode, wasTrack, aimed);
 
         if (Command.EngineOn)
         {
@@ -298,7 +306,8 @@ internal sealed class IcbmComputer
     // What the flight computer makes of the attitude it is being given, which is the only way to
     // tell a command that is swinging from a vehicle that cannot hold a steady one. Both look like
     // tumbling from outside, and they want opposite fixes.
-    private void ProbeAttitude(double playerStep)
+    private void ProbeAttitude(double playerStep, FlightComputerAttitudeMode wasMode,
+                               FlightComputerAttitudeTrackTarget wasTrack, bool aimed)
     {
         if (!Program.IsBurning || Log.Threshold > Log.Level.Debug) return;
 
@@ -314,9 +323,11 @@ internal sealed class IcbmComputer
 
         FlightComputer computer = Craft.FlightComputer;
 
-        Log.Debug($"{KsaWorld.DisplayName(Craft)} attitude: command slewed {slew:F1} deg, "
-                  + $"error {computer.ErrorAngles} rad, rates {computer.ErrorRates}, "
-                  + $"mode {computer.AttitudeMode}/{computer.AttitudeTrackTarget}");
+        Log.Debug($"{KsaWorld.DisplayName(Craft)} attitude: aimed={aimed} "
+                  + $"dir={(Vec.Len(Command.ThrustDirectionCci) > 0.0 ? "set" : "ZERO")} "
+                  + $"slew {slew:F1} deg | before {wasMode}/{wasTrack} "
+                  + $"-> after {computer.AttitudeMode}/{computer.AttitudeTrackTarget} | "
+                  + $"error {computer.ErrorAngles} rates {computer.ErrorRates}");
     }
 
     // Something square to the vertical for the roll to clock to when the planet cannot supply one,
