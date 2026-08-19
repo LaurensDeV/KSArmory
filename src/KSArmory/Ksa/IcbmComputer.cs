@@ -334,9 +334,11 @@ internal sealed class IcbmComputer
     // and while the engines are still lit, so it carries a prediction of the *solved* cutoff arc.
     // Only these two numbers isolate what the prediction and the round still disagree about, which
     // is the difference every remaining metre of the miss lives in.
+    //
+    // At INFO, and it earns it: this fires once per warhead released rather than per frame, and a
+    // diagnostic nobody has switched on is one that is never there in the salvo that needed it.
     private void ProbeRelease()
     {
-        if (Log.Threshold > Log.Level.Debug) return;
         if (Parent is not { } parent) return;
         if (_warhead is not { } warhead) return;
 
@@ -351,14 +353,14 @@ internal sealed class IcbmComputer
                                             out ImpactPredictor.Impact hit, TerrainRadiusAt, null,
                                             new ImpactPredictor.Drag(DensityRatioAt, warhead)))
             {
-                Log.Debug("release probe: no impact predicted from the release state");
+                Log.Info("release probe: no impact predicted from the release state");
                 return;
             }
 
             double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
             double miss = Body.SurfaceRadius * Vec.AngleBetween(hit.GroundFixedPointCci, _trueAimCci);
 
-            Log.Debug($"release probe: predicted from the release state -> "
+            Log.Info($"release probe: predicted from the release state -> "
                       + $"{parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}, "
                       + $"{miss / 1000.0:F1} km from the target, {hit.Seconds:F0} s of flight");
         }
