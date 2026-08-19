@@ -493,6 +493,18 @@ Predicting the bus's arc instead of the round's leaves that entirely invisible t
 correction — the same shape as the drag fault above, and found the same way, by measuring what the
 prediction and the round disagreed about rather than reasoning about it.
 
+**And the direction has to come from the tubes, not from the commanded attitude.** A vehicle
+settles on an attitude command and stops a few degrees off it; the tubes go where the airframe is.
+Measured in flight at **ten degrees apart** — the release line reported the tubes at a mean of 71°
+from the platform's track while the prediction assumed 81°. Two metres a second misapplied by ten
+degrees is 0.35 m/s thrown the wrong way, and radially that is **1,181 m** against a measured
+common-mode miss of **1,088 m**. `IManualFire.TryLaunchAxisEcl` is the launcher's own axis, with the
+tube cants cancelling in the average by construction.
+
+Two other candidates were measured and killed rather than argued about: the spin the tube's lever
+arm adds to a released round is 0.007–0.039 m/s (at most 133 m), and the rounds leave 10 m below
+the craft's analytic orbit position the prediction is taken from (134 m).
+
 ## The aim is corrected by what the flown prediction loses
 
 The transfer solver is exact, and exact for the wrong thing. It puts the arc through a **point**, and

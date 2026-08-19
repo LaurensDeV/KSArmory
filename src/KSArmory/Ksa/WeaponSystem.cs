@@ -1570,6 +1570,32 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// a place has said what they want. Everything after the aimpoint is identical, which is why
     /// this and <see cref="Fire(Track)"/> share <c>Commit</c> rather than being written twice.</para>
     /// </summary>
+    /// <inheritdoc cref="IManualFire.TryLaunchAxisEcl"/>
+    public bool TryLaunchAxisEcl(out double3 directionEcl)
+    {
+        directionEcl = Vec.Zero;
+        if (Launcher is null || !Profile.LaunchAlongTube) return false;
+
+        double3 sum = Vec.Zero;
+        int found = 0;
+
+        for (int tube = 0; tube < Profile.Tubes.Length; tube++)
+        {
+            if (LauncherPart.TryGetTubeAxisEcl(Platform, Launcher, PodsPart, Profile, tube,
+                                               out double3 axis)
+                && Vec.IsFinite(axis))
+            {
+                sum += Vec.Unit(axis);
+                found++;
+            }
+        }
+
+        if (found == 0) return false;
+
+        directionEcl = Vec.Unit(sum);
+        return !directionEcl.Equals(Vec.Zero);
+    }
+
     public bool FireAt(double3 pointEcl)
     {
         if (!Vec.IsFinite(pointEcl)) { Announce("refused: designation is not a position"); return false; }

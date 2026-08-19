@@ -206,6 +206,20 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
 
     bool FireAt(double3 pointEcl);
 
+    /// <summary>
+    /// Which way the tubes point, as one direction — what a released round is actually thrown
+    /// along, rather than what the vehicle was asked to hold.
+    ///
+    /// <para>Those are not the same: a vehicle settles on a commanded attitude and stops a few
+    /// degrees off it, and the tubes go where the airframe is, not where the command was. Measured
+    /// at ten degrees apart on a coasting bus — which for a two metre a second ejection is a third
+    /// of a metre a second thrown in the wrong direction, and a kilometre of miss.</para>
+    ///
+    /// <para>The tube cants cancel in this average by construction, so it is the launcher's own
+    /// axis and not any one tube's.</para>
+    /// </summary>
+    bool TryLaunchAxisEcl(out double3 directionEcl);
+
     bool CanGuideOnto(double3 pointEcl);
 
     /// <summary>Opens a cannon burst along wherever the mount is laid.</summary>

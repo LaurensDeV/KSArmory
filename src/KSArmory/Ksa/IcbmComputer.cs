@@ -36,6 +36,7 @@ internal sealed class IcbmComputer
     private readonly AimCorrection _aim = new();
     private double3 _trueAimCci;
     private MunitionProfile? _warhead;
+    private double3 _launchAxisCci;
     private bool _warpIsOurs;
     private IcbmPhase _reported = IcbmPhase.Idle;
     private double _sinceProbe;
@@ -151,6 +152,7 @@ internal sealed class IcbmComputer
         // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
         // the way down through it, and they are the things that have to arrive.
         _warhead = release?.Munition;
+        _launchAxisCci = LaunchAxisCci(release);
 
         if (!Config.Armed)
         {
@@ -582,8 +584,32 @@ internal sealed class IcbmComputer
     {
         if (_warhead is not { LaunchSpeed: > 0f } warhead) return Vec.Zero;
 
-        double3 nose = Command.ThrustDirectionCci;
+        // The tubes, not the commanded attitude. A vehicle settles a few degrees off what it was
+        // asked to hold and the tubes go with the airframe - measured at ten degrees apart on a
+        // coasting bus, which throws a third of a metre a second the wrong way and lands the
+        // warheads a kilometre short. The command is only the fallback for a launcher whose tube
+        // axes cannot be resolved.
+        double3 nose = _launchAxisCci.Equals(Vec.Zero) ? Command.ThrustDirectionCci : _launchAxisCci;
+
         return nose.Equals(Vec.Zero) || !Vec.IsFinite(nose) ? Vec.Zero : Vec.Unit(nose) * warhead.LaunchSpeed;
+    }
+
+    private double3 LaunchAxisCci(IManualFire? weapon)
+    {
+        if (weapon is null || Parent is not { } parent) return Vec.Zero;
+
+        try
+        {
+            if (!weapon.TryLaunchAxisEcl(out double3 axisEcl)) return Vec.Zero;
+
+            // A direction, so the ecliptic and the body's inertial frame differ by a rotation only.
+            double3 axisCci = axisEcl.Transform(parent.GetCce2Cci());
+            return Vec.IsFinite(axisCci) ? axisCci : Vec.Zero;
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
     }
 
     // How thick the air is at a point on the arc. The same field the round's own drag is read from,
