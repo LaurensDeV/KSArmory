@@ -199,6 +199,17 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _icbms.Sync(_systems, _batteries.Handovers);
 
 
+        // Follow a weapon that a decoupler carried onto another craft, before the test below
+        // notices the old one has nothing left and shuts the window - which would happen in the
+        // middle of a deployment, on the frame the operator most wants to be watching.
+        for (int i = 0; i < _batteries.Handovers.Count; i++)
+        {
+            if (ReferenceEquals(_managed, _batteries.Handovers[i].From))
+            {
+                _managed = _batteries.Handovers[i].To;
+            }
+        }
+
         // Dropped when the craft has nothing left to manage -- a battery *or* a director. Testing
         // the battery alone clears the selection on the frame after a camera-only craft is picked,
         // so the window opens and shuts again before it is ever drawn.
