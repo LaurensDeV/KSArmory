@@ -93,7 +93,7 @@ internal static class Visuals
         {
             // Negative tube numbers mark the cannon; the magazine owns zero and up, and a missile
             // has a real subpart body of its own.
-            if (round.Tube >= 0 || round.State != RoundState.Flying) continue;
+            if (!RoundLabel.IsGunRound(round.Tube) || round.State != RoundState.Flying) continue;
 
             // Local, never VelocityEcl: the latter carries 29.8 km/s of ecliptic motion and would
             // lay every streak along the same direction whatever the gun did.
@@ -329,8 +329,8 @@ internal static class Visuals
 
             // A shell gets only the last few segments. Its trail holds 32 points, which at
             // 1100 m/s is close to 600 m of line, and drawn back to the muzzle it reads as a beam
-            // rather than as a round. Negative tube numbers are what mark the cannon.
-            int from = round.Tube < 0
+            // rather than as a round.
+            int from = RoundLabel.IsGunRound(round.Tube)
                            ? Math.Max(1, round.TrailOffsets.Count - TracerSegments)
                            : 1;
 
@@ -339,7 +339,7 @@ internal static class Visuals
                 KsaWorld.DrawLineEgo(
                     KsaWorld.AnchorEgo + round.TrailOffsets[i - 1],
                     KsaWorld.AnchorEgo + round.TrailOffsets[i],
-                    round.Tube < 0 ? TracerColour : TrailColour);
+                    RoundLabel.IsGunRound(round.Tube) ? TracerColour : TrailColour);
             }
 
             if (round.TrailOffsets.Count > 0)

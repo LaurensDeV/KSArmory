@@ -320,7 +320,7 @@ internal sealed class ChaseCamera
                 _blend = 1.0;
             }
 
-            Log.Info($"chase: taking the main view for round {round.Tube}");
+            Log.Info($"chase: taking the main view for {RoundLabel.For(round.Tube)}");
         }
 
         _round = round;

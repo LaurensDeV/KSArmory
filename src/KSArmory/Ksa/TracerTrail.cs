@@ -77,7 +77,7 @@ internal sealed class TracerTrail
         foreach (IProjectile round in battery.Rounds)
         {
             // Negative tube numbers mark the cannon; the magazine owns zero and up.
-            if (round.Tube < 0 && round.State == RoundState.Flying) _candidates.Add(round);
+            if (RoundLabel.IsGunRound(round.Tube) && round.State == RoundState.Flying) _candidates.Add(round);
         }
 
         // Keep the ones already lit before taking on new ones. Swapping which shells are traced

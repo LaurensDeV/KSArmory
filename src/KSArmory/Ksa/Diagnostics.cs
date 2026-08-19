@@ -328,7 +328,7 @@ internal static class Diagnostics
 
         foreach (IProjectile round in battery.Rounds)
         {
-            Log.Debug($"  round {round.Tube}: age {round.Age:F1}s, speed {round.Speed:F0} m/s, lock={round.HasLock}");
+            Log.Debug($"  {RoundLabel.For(round.Tube)}: age {round.Age:F1}s, speed {round.Speed:F0} m/s, lock={round.HasLock}");
         }
     }
 

@@ -41,12 +41,9 @@ internal sealed class RoundContact(IProjectile round, string? firedBy, KSA.Vehic
     public object Handle => Round;
 
     /// <summary>
-    /// Named for the launcher and the tube, which is how the log already identifies a round. The
-    /// cannon use negative tube numbers, so a shell reads as a shell.
+    /// Named for the launcher and the tube, which is how the log already identifies a round.
     /// </summary>
-    public string DisplayName => Round.Tube < 0
-                                 ? $"{firedBy ?? "unknown"} shell"
-                                 : $"{firedBy ?? "unknown"} round {Round.Tube}";
+    public string DisplayName => $"{firedBy ?? "unknown"} {RoundLabel.For(Round.Tube)}";
 
     /// <summary>Its shooter's craft, so a round is on the side that fired it.</summary>
     public string TeamKey => firedBy ?? string.Empty;
