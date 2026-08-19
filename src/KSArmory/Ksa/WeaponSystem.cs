@@ -25,6 +25,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     // This installation's own settings. Shared Config stays for the session-wide ones.
     private readonly SystemConfig _policy = policy;
+    private bool _loadoutSized;
+
     private readonly List<IProjectile> _rounds = [];
 
     // The same rounds as a set. The airborne list is every round in the world and this system has
@@ -521,7 +523,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // follows without knowing which launcher this is.
         if (LauncherPart.FindNth(Platform, LauncherOrdinal, _launcherScratch) is var (part, profile))
         {
-            bool changed = !ReferenceEquals(profile, Profile) || Launcher is null;
+            // One-shot, not "the launcher was missing last frame". A part tree is rebuilt during
+            // staging and docking, so a read can fail for a frame and come back - and on the
+            // Launcher-is-null test that silently refilled the magazine behind the operator. A
+            // launcher that leaves its craft entirely and is followed onto another does the same
+            // thing, which would hand a half-empty bus six warheads back.
+            bool changed = !ReferenceEquals(profile, Profile) || !_loadoutSized;
             Launcher = part;
             Profile = profile;
             (Munition, Sensor) = Catalogue.LoadoutFor(profile);
@@ -539,6 +546,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 _guns.Fill(profile.GunAmmo);
                 _nextBarrel = 0;
                 _burstTrack = null;
+                _loadoutSized = true;
             }
         }
         else
