@@ -134,6 +134,55 @@ internal sealed class Magazine
     }
 
     /// <summary>
+    /// Which tube would be handed out next, without spending it.
+    ///
+    /// <para>A sequencer that has to aim a tube before firing it needs to know which one is coming,
+    /// and asking by taking it would spend the round on a frame that is not going to shoot.</para>
+    /// </summary>
+    public bool TryPeekTube(IReadOnlyList<IProjectile> inFlight, out int tubeIndex)
+    {
+        tubeIndex = -1;
+
+        if (Depth > 0)
+        {
+            if (_reserve <= 0) return false;
+
+            for (int i = 0; i < _loaded.Length; i++)
+            {
+                if (IsOccupied(inFlight, i)) continue;
+                tubeIndex = i;
+                return true;
+            }
+            return false;
+        }
+
+        for (int i = 0; i < _loaded.Length; i++)
+        {
+            if (!_loaded[i]) continue;
+            if (IsOccupied(inFlight, i)) continue;
+            tubeIndex = i;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>How many more rounds could still be handed out, ignoring how long that would take.</summary>
+    public int CountReadyToFire(IReadOnlyList<IProjectile> inFlight)
+    {
+        int free = 0;
+
+        for (int i = 0; i < _loaded.Length; i++)
+        {
+            if (Depth <= 0 && !_loaded[i]) continue;
+            if (IsOccupied(inFlight, i)) continue;
+            free++;
+        }
+
+        return Depth > 0 ? Math.Min(free, _reserve) : free;
+    }
+
+    /// <summary>
     /// The lowest tube that is both loaded and not already occupied by a round in the air, and
     /// takes its round. False when there is none.
     /// </summary>
