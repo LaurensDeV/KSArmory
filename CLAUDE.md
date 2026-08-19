@@ -1117,14 +1117,28 @@ rounds, and a burn the world outran is **abandoned and reported** rather than fl
 ocean. The coast afterwards is not held: a coast is not being integrated by anything, and once the
 warheads are away they are rounds, which the existing machinery already covers.
 
-**The transfer solver is exact, and exact for the wrong thing.** It puts the arc through a *point*,
-in vacuum; a round stops where the **ground** is. On a shallow arrival the arc covers about twelve
+**The transfer solver is exact, and exact for the wrong thing.** It puts the arc through a *point*;
+a round stops where the **ground** is. On a shallow arrival the arc covers about twelve
 kilometres of ground per kilometre of height, so a target four kilometres up lands tens of
 kilometres from a solution that is otherwise perfect — 47.9 km, measured, from a near-orbital
 burnout 2,580 km out. The trajectory is not wrong; the asking is. So the aim carries a bias driven
 by the flown prediction, the prediction is flown **against the real height field** rather than the
 mean sphere, and the miss is scored against the **target** rather than the biased aim — scoring a
 correction against itself reports a perfect shot however far the rounds land.
+
+**And the prediction has to fly the warhead, not the bus.** The guidance reasons about a vehicle
+that cuts off above the atmosphere, so a vacuum predictor is right for everything it was built for
+and wrong for the one thing that has to arrive. Path length through air goes as `1/sin(γ)`, which
+makes a **grazing deorbit arrival the worst case for drag rather than the mildest**: at ~5° a Mk 21
+keeps a quarter of its speed and lands **54.6 km** short of the vacuum arc, measured through both
+models from one cutoff state. `ImpactPredictor.Drag` goes through `Medium.Drag` — the same call the
+round makes, because a prediction modelling drag its own way is a second flight model to keep in
+step with the first — and the step comes down only where there is density, so a coast pays nothing.
+
+That is also the shape of how it hid for so long: **a correction loop can only remove what its
+observer can see.** The aim correction reads the prediction, so a drag-free prediction converged,
+reported zero, and the warheads went on falling 59 km short in flight. The loop was right and the
+instrument was blind, which reads from outside exactly like a working feature.
 
 **The miss is one product, and there is no floor under it.** Flown from the same cutoff position
 with the *exact* required velocity, the integrator lands on the target to under a metre — so the

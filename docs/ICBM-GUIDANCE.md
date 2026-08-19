@@ -426,10 +426,48 @@ precisely the state a computer holding for a burn window sits in.
 more than any mountain rather than merely positive, because terrain stands above the mean sphere the
 conic is measured against.
 
+## The prediction flies the warhead, not the bus
+
+The impact prediction and the round have to be flying the same trajectory, and for a long time they
+were not: `ImpactPredictor` integrated gravity alone while the released warhead flew through air.
+Above the atmosphere that is the same thing, which is why it survived so long — the bus cuts off at
+200 km and everything the guidance reasons about happens up there.
+
+**A deorbit arrival is where it stops being the same thing.** Path length through the atmosphere goes
+as `1/sin(γ)`, so a grazing arrival is the *worst* case for drag rather than the mildest. At the ~5°
+this shot arrives at, a Mk 21 keeps about a quarter of its speed:
+
+| arrival angle | ground per height | speed left after entry |
+| --- | --- | --- |
+| 25° — an ICBM lob | 2.1 km/km | 75 % |
+| 12° | 4.7 km/km | 56 % |
+| **~5° — a deorbit** | **11.4 km/km** | **25 %** |
+
+Measured, same cutoff state through both models: the vacuum arc lands 2,764 km downrange and the
+round lands 2,709 km downrange — **54.6 km short**. With the warhead's own `DragK` in the predictor
+the two agree to **40 m**.
+
+`ImpactPredictor.Drag` carries the density lookup and the munition, and the acceleration goes
+through `Medium.Drag` — the same call the round makes, deliberately, because a prediction that
+models drag its own way is a second flight model to keep in step with the first. Airspeed is
+measured against the turning air via `BallisticBody.GroundVelocityCci`. Two consequences worth
+keeping:
+
+- **The step has to come down in the air.** The coarse step is sized for a vacuum arc where the
+  acceleration barely changes across it; entry sheds most of the speed in tens of seconds.
+  `AtmosphericStepSeconds` applies only once there is density worth integrating, so a coast pays
+  nothing.
+- **`DragK = 0` reproduces the vacuum answer exactly**, so nothing above the atmosphere moved.
+
+**And this is what made the aim correction below inert.** It observes the *prediction*. A difference
+the prediction cannot see is a difference no amount of correcting removes — the loop drove the
+drag-free prediction onto the target, reported convergence, and the warheads went on landing 59 km
+short. Flown. The instrument, not the loop, was the fault.
+
 ## The aim is corrected by what the flown prediction loses
 
-The transfer solver is exact, and exact for the wrong thing. It puts the arc through a **point**, in
-vacuum, and a round does not stop at a point — it stops where the ground is. On a lofted shot those
+The transfer solver is exact, and exact for the wrong thing. It puts the arc through a **point**, and
+a round does not stop at a point — it stops where the ground is. On a lofted shot those
 are nearly the same. On a shallow arrival they are not remotely: the arc covers about **twelve
 kilometres of ground per kilometre of height** near the end, so a target four kilometres up puts the
 real impact tens of kilometres from a solution that is otherwise perfect.

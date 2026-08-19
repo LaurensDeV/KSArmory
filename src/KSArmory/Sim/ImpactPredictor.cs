@@ -42,6 +42,32 @@ internal static class ImpactPredictor
     // Where the bisection gives up, for an arc arriving too steeply to resolve.
     private const double MinRefineSeconds = 1e-6;
 
+    /// <summary>
+    /// The step used once there is air worth integrating.
+    ///
+    /// <para>The coarse step is chosen for a vacuum arc, where the acceleration barely changes
+    /// across it. Entry is the opposite: the round sheds most of its speed in a few tens of
+    /// seconds, and a step sized for the coast integrates straight through that.</para>
+    /// </summary>
+    public const double AtmosphericStepSeconds = 0.25;
+
+    // Below this the drag term cannot move the answer, and paying for a fine step through the whole
+    // coast to discover that is the one cost this has to avoid.
+    private const double NoticeableDensity = 1e-7;
+
+    /// <summary>
+    /// The air, and what it does to the particular round being predicted.
+    ///
+    /// <para>Without it the prediction is a vacuum arc. That is right for the bus, which cuts off
+    /// above the atmosphere, and wrong for the warheads it releases — and on a shallow arrival the
+    /// difference is tens of kilometres, always short. <see cref="Medium.Drag"/> is the same call
+    /// the round itself makes, deliberately: a prediction that models drag its own way is a second
+    /// flight model to keep in step with the first.</para>
+    /// </summary>
+    /// <param name="DensityRatioAt">Air density at a point on the arc, relative to sea level.</param>
+    /// <param name="Munition">The round whose <c>DragK</c> applies — the warhead, not the bus.</param>
+    internal readonly record struct Drag(Func<double3, double> DensityRatioAt, MunitionProfile Munition);
+
     // How far a closed orbit's lowest point has to clear the mean sphere before it is called safe
     // without flying it. Terrain stands above that sphere, so the clearance has to be more than any
     // mountain rather than merely positive.
@@ -54,10 +80,12 @@ internal static class ImpactPredictor
     /// height field is reachable rather than a silent flat-Earth assumption.
     /// </param>
     /// <param name="pathCci">Optional, filled with the trajectory for drawing.</param>
+    /// <param name="drag">The air. Null flies in vacuum, which is right only above the atmosphere.</param>
     public static bool TryPredict(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double stepSeconds, double maxSeconds, out Impact impact,
                                   Func<double3, double>? terrainRadiusAt = null,
-                                  List<double3>? pathCci = null)
+                                  List<double3>? pathCci = null,
+                                  Drag? drag = null)
     {
         impact = default;
         pathCci?.Clear();
@@ -90,7 +118,9 @@ internal static class ImpactPredictor
 
         while (t < maxSeconds)
         {
-            Step(body, r, v, h, out double3 rNext, out double3 vNext);
+            if (DensityAt(body, r, drag) > NoticeableDensity) h = Math.Min(h, AtmosphericStepSeconds);
+
+            Step(body, r, v, h, drag, out double3 rNext, out double3 vNext);
             double tNext = t + h;
 
             if (!Vec.IsFinite(rNext) || !Vec.IsFinite(vNext)) return false;
@@ -150,22 +180,40 @@ internal static class ImpactPredictor
         return double.IsFinite(radius) && radius > 0.0 ? radius : body.SurfaceRadius;
     }
 
-    // Classical fourth-order Runge-Kutta. Gravity is the only force: above the atmosphere that is
-    // the whole of it, and the part of the fall where it is not is flown by the round itself once
-    // the warheads are away.
-    private static void Step(BallisticBody body, double3 r, double3 v, double h,
+    private static double DensityAt(BallisticBody body, double3 pointCci, Drag? drag)
+    {
+        if (drag is not { } air) return 0.0;
+
+        double density = air.DensityRatioAt(pointCci);
+        return double.IsFinite(density) && density > 0.0 ? density : 0.0;
+    }
+
+    // Airspeed is measured against the air, which turns with the body - the same frame a round's
+    // own drag is measured in, and worth several hundred metres a second at the equator.
+    private static double3 Accel(BallisticBody body, double3 r, double3 v, Drag? drag)
+    {
+        double3 accel = body.GravityCci(r);
+
+        double density = DensityAt(body, r, drag);
+        if (density <= 0.0 || drag is not { } air) return accel;
+
+        return accel - Medium.Drag(v - body.GroundVelocityCci(r), air.Munition, density);
+    }
+
+    // Classical fourth-order Runge-Kutta.
+    private static void Step(BallisticBody body, double3 r, double3 v, double h, Drag? drag,
                              out double3 rNext, out double3 vNext)
     {
-        double3 k1v = body.GravityCci(r);
+        double3 k1v = Accel(body, r, v, drag);
         double3 k1r = v;
 
-        double3 k2v = body.GravityCci(r + k1r * (h * 0.5));
+        double3 k2v = Accel(body, r + k1r * (h * 0.5), v + k1v * (h * 0.5), drag);
         double3 k2r = v + k1v * (h * 0.5);
 
-        double3 k3v = body.GravityCci(r + k2r * (h * 0.5));
+        double3 k3v = Accel(body, r + k2r * (h * 0.5), v + k2v * (h * 0.5), drag);
         double3 k3r = v + k2v * (h * 0.5);
 
-        double3 k4v = body.GravityCci(r + k3r * h);
+        double3 k4v = Accel(body, r + k3r * h, v + k3v * h, drag);
         double3 k4r = v + k3v * h;
 
         rNext = r + (k1r + k2r * 2.0 + k3r * 2.0 + k4r) * (h / 6.0);

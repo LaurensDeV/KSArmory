@@ -35,6 +35,7 @@ internal sealed class IcbmComputer
     private double3 _rollReference;
     private readonly AimCorrection _aim = new();
     private double3 _trueAimCci;
+    private MunitionProfile? _warhead;
     private bool _warpIsOurs;
     private IcbmPhase _reported = IcbmPhase.Idle;
     private double _sinceProbe;
@@ -146,6 +147,10 @@ internal sealed class IcbmComputer
     public void Update(double simStep, double playerStep, IManualFire? release)
     {
         if (!KsaWorld.IsAlive(Craft)) return;
+
+        // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
+        // the way down through it, and they are the things that have to arrive.
+        _warhead = release?.Munition;
 
         if (!Config.Armed)
         {
@@ -484,6 +489,24 @@ internal sealed class IcbmComputer
         }
     }
 
+    // How thick the air is at a point on the arc. The same field the round's own drag is read from,
+    // so the prediction and the round cannot disagree about the atmosphere they are flying through.
+    private double DensityRatioAt(double3 pointCci)
+    {
+        if (Parent is not { } parent) return 0.0;
+
+        try
+        {
+            double3 positionEcl = pointCci.Transform(parent.GetCci2Cce()) + parent.GetPositionEcl();
+            double density = KsaWorld.MediumDensityRatioAt(parent, positionEcl);
+            return double.IsFinite(density) && density > 0.0 ? density : 0.0;
+        }
+        catch
+        {
+            return 0.0;
+        }
+    }
+
     // The aim point sits on the real ground rather than on the mean sphere, and that is not a
     // refinement. The whole solve is a transfer between two *points*, so a target standing five
     // kilometres up is hit by aiming at where it stands - no terrain model anywhere else in the
@@ -511,9 +534,16 @@ internal sealed class IcbmComputer
         double3 fromCci = fromCutoff ? Program.CutoffPositionCci : state.PositionCci;
         double3 alongCci = fromCutoff ? Program.Arc!.Value.RequiredVelocityCci : state.VelocityCci;
 
+        // Predicted with the warhead's drag rather than in vacuum. On a shallow deorbit arrival a
+        // vacuum arc lands tens of kilometres beyond anything that actually flies it, and the aim
+        // correction reads its own drag-free prediction - so it converges, reports zero, and the
+        // rounds go on falling short. Measured at 54.6 km.
+        ImpactPredictor.Drag? air =
+            _warhead is { } warhead ? new ImpactPredictor.Drag(DensityRatioAt, warhead) : null;
+
         if (ImpactPredictor.TryPredict(Body, fromCci, alongCci, PredictStepSeconds,
                                        ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
-                                       TerrainRadiusAt, _path))
+                                       TerrainRadiusAt, _path, air))
         {
             PredictedImpact = hit;
 
