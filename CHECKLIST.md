@@ -1208,13 +1208,27 @@ with a stock 3 m decoupler between the launcher and the stack below it.
 - [ ] With it off, behaviour is exactly as before — released as soon as the tubes stop sweeping.
 - [ ] A vehicle that cannot point releases anyway after a minute and says so, rather than holding
       warheads until the release altitude closes.
-- [ ] **With a decoupler fitted**, the launcher separates at cutoff, once, and the log names both
-      craft. It must not separate twice, and it must not fire on a shot that fell short.
-- [ ] The weapon follows onto the separated craft carrying its magazine, its rounds in flight, its
-      arm state, its teams and its IFF policy — check the panel still shows what it did before.
-- [ ] The ballistic computer follows with it and keeps deploying. If the shot stops after
-      separation, this is the thing that failed.
+- [x] **With a decoupler fitted**, the launcher separates at cutoff, once, and the log names both
+      craft. Flown twice: `separating the launcher from the stack before deploying`, then
+      `launcher decoupled onto Rocket_1 as launcher 1, 12 m away - 6 round(s) aboard, 0 in flight`.
+- [x] The weapon follows onto the separated craft carrying its magazine, its rounds in flight, its
+      arm state, its teams and its IFF policy. Six aboard after the handover, not refilled.
+- [x] The ballistic computer follows with it and keeps deploying — all six released.
 - [ ] The spent stack is left in `Manual/None` with its engine off, and is not still being pointed.
+- [ ] The view follows onto the separated craft, and only when it was watching the stack. The first
+      attempt was refused by the engine mid-step and is now staged for the frame sync point;
+      unflown.
+
+**Accuracy, flown.** Separated and re-pointing, four warheads landed 0.66-1.4 km with each within
+0.16-0.5 km of its own prediction. That is worse than the ~775 m the same shot manages attached and
+un-re-pointed, and the cause is understood: the decoupler's ~1.1 m/s shove lands after the last
+thing that could compensate for it, and the salvo takes three minutes because each tube costs ~28 s
+to settle — so every warhead gets that error amplified by a different time-to-impact.
+
+**And the site shot two of them down.** The Pantsir at the target detected a warhead at 20 km, fired
+two interceptors, killed it at 11 m, re-laid on the next at 4.1 km and killed that at 15 m. The two
+it picked were the most accurate of the salvo, because flying accurately means flying at the
+defended point.
 
 ### 12.6 It gives the vehicle back
 
