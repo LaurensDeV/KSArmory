@@ -38,6 +38,7 @@ internal sealed class IcbmComputer
     private ReleaseCommand _deploy;
     private readonly double3[] _tubeAxes = new double3[64];
     private bool _separated;
+    private Vehicle? _viewWanted;
     private double3 _trueAimCci;
     private MunitionProfile? _warhead;
     private double3 _releaseOffsetCci;
@@ -271,6 +272,7 @@ internal sealed class IcbmComputer
         if (Config.AutoRelease && _deploy.ReleaseNow) Release(release);
 
         CarryOurWarp();
+        CarryTheView();
     }
 
     /// <summary>
@@ -376,7 +378,22 @@ internal sealed class IcbmComputer
 
         // And take the player with it, but only if they were watching the thing that just split.
         // Somebody flying an aircraft on the other side of the planet did not ask to be moved.
-        if (KsaWorld.IsWatching(left) && KsaWorld.GoTo(craft))
+        //
+        // Staged for the next frame rather than done here: moving the view rebuilds the vehicle's
+        // derived data, and the engine refuses that while its own update is stepping - which is
+        // exactly where a handover happens. It says so, and then nothing moves.
+        if (KsaWorld.IsWatching(left)) _viewWanted = craft;
+    }
+
+    // Deferred out of Rehome, which runs inside the engine's update pass.
+    private void CarryTheView()
+    {
+        if (_viewWanted is not { } craft) return;
+        _viewWanted = null;
+
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        if (KsaWorld.GoTo(craft))
         {
             Log.Info($"view moved to {KsaWorld.DisplayName(craft)}, which is where the warheads are");
         }
