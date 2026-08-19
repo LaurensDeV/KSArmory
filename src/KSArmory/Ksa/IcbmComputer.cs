@@ -272,12 +272,17 @@ internal sealed class IcbmComputer
 
             _deploy = DriveDeployment(simStep, release, state);
 
-            // Said once per change, because it is the only account of why a warhead is not going
-            // yet - and a sequence that stalls looks exactly like one that has finished.
-            if (_deploy.Said != _saidLast)
+            // Once per change of *state*, not per change of the number in it: the angle counts down
+            // by a tenth of a degree a frame, and deduplicating on the whole sentence writes sixty
+            // lines a turn. What is worth a line is that it started turning, started settling, or
+            // gave up - and a sequence that stalls still looks exactly like one that has finished
+            // if none of it is said at all.
+            string stage = _deploy.Said.Length > 0 ? _deploy.Said.Split(',')[0] : "";
+
+            if (stage != _saidLast)
             {
-                _saidLast = _deploy.Said;
-                if (_saidLast.Length > 0) Log.Info($"deploying: {_saidLast}");
+                _saidLast = stage;
+                if (_deploy.Said.Length > 0) Log.Info($"deploying: {_deploy.Said}");
             }
 
             // Handed to the hook rather than written here. A write from this pass is discarded
