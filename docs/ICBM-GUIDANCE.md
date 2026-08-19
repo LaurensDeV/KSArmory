@@ -599,6 +599,38 @@ was out by a mean of **647 m** and as little as 100 m, on a salvo that missed by
 flight model was tracking the rounds while the aim was wrong. Separating those two is what the
 release probe is for.
 
+## What is left, and the shape of it
+
+Flown, on a 2,500-2,800 km deorbit onto a target 4 km up: **best 371 m, CEP ~710 m**, from 59 km at
+the start of the work. Every warhead's miss is one common offset plus its own tube cant, and the two
+are separable by regressing the six misses against their tube's cant.
+
+**The cant term is geometry and is not a defect.** Six tubes on a 6° cone, one aim, so each warhead
+leaves on its own vector — ±400 to ±590 m depending on range. Removing it means aiming each tube
+separately, which is what a real bus does by re-pointing between releases.
+
+**The common term is a constant ~730 m, and its signature is the useful part:**
+
+| flight | range | cutoff residual | common offset |
+| --- | --- | --- | --- |
+| 17:24 | 2,806 km | 0.29 m/s | 727 m |
+| 17:36 | 2,521 km | 0.12 m/s | 734 m |
+
+It does not move with the cutoff residual — halving that changed nothing — and it does not scale with
+range, so it is a **fixed distance rather than a fixed angle**. The release probe reads 0.1 km on
+both, so it is a difference between the prediction and the round rather than an error in the aim.
+
+A term that is constant in metres, independent of trajectory and of how well the burn ended, is
+per-frame rather than per-flight. That points at the epoch family — of which the one item still
+unaddressed is `Slug`'s ground test, which reads its body centre a frame ahead of the sub-step
+positions it compares against.
+
+**Do not act on that without the experiment first.** The same reasoning applied to gravity, air
+density and air velocity made the miss 2 km *worse* (see `docs/FRAMES-AND-EPOCHS.md`). The
+experiment is cheap and decisive: **fly the same shot at half the frame rate.** Everything in this
+family scales linearly with the step, so the offset either roughly doubles — and the ground test is
+where to look — or it does not move, and the whole family is dead.
+
 ## The attitude at cutoff is held, not solved
 
 Velocity still to gain is a *difference*, so as it closes on zero its direction is the difference of
