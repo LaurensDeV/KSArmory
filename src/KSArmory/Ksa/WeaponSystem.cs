@@ -1760,7 +1760,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Announce(aim.Kind == AimpointKind.None
                      ? $"round {tube + 1} released - {what}"
-                     : $"round {tube + 1} away at {what}{Ejection(launchDir, platformVel, launchPos)}");
+                     : $"round {tube + 1} away at {what}{Ejection(launchDir, platformVel, launchPos, spinVel)}");
         return true;
     }
 
@@ -2077,7 +2077,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // assume something about this. The assumption is the whole of the difference between where the
     // prediction lands and where the round does, and on a deorbit a metre a second is kilometres -
     // so it is worth stating rather than inferring.
-    private string Ejection(double3 launchDirEcl, double3 platformVelEcl, double3 launchPosEcl)
+    private string Ejection(double3 launchDirEcl, double3 platformVelEcl, double3 launchPosEcl,
+                           double3 spinVelEcl)
     {
         if (Munition.LaunchSpeed <= 0f) return "";
 
@@ -2097,8 +2098,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double3 up = Vec.Unit(launchPosEcl - KsaWorld.PositionEcl(parent));
         double radial = Vec.Dot(launchPosEcl - PlatformEcl, up);
 
+        // The spin term is the one a prediction taken from the craft's own state cannot have: the
+        // tube is metres from the centre of mass, so a bus holding attitude on its thrusters throws
+        // the round with however fast that lever arm is sweeping. A third of a metre a second of it
+        // is a kilometre of miss on this arc, and it is invisible from the orbit state.
         return $" ({Munition.LaunchSpeed:F1} m/s off the tube, {degrees:F0} deg from the platform's"
-               + $" track, launched {radial:+0.0;-0.0} m radially off the orbit position)";
+               + $" track, launched {radial:+0.0;-0.0} m radially off the orbit position,"
+               + $" {Vec.Len(spinVelEcl):F3} m/s of spin at the tube)";
     }
 
     // The frame a round flies in, asked of whatever this system still has: its craft's parent
