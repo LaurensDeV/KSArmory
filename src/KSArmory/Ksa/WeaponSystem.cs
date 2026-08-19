@@ -967,7 +967,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double3 frameVel = KsaWorld.GroundVelocityAt(Platform, PlatformEcl);
 
         // Negative tube numbers mark the cannon: the magazine owns 0..TubeCount-1, and a shell
-        // must never be mistaken for a missile that could claim a tube back.
+        // must never be mistaken for a missile that could claim a tube back. It is a sentinel
+        // rather than an index, so nothing may print it -- RoundLabel is what reads it back.
         //
         // A null track is the tail of a burst whose target died: the shell is unguided and aimed
         // by the turret, so it still flies, with nothing to fuse against.
@@ -2323,7 +2324,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // where it happened.
             if (round.State == RoundState.ShotDown)
             {
-                Announce($"round {round.Tube} was shot down after {round.Age:F1}s, " +
+                Announce($"{RoundLabel.For(round.Tube)} was shot down after {round.Age:F1}s, " +
                          $"{round.DistanceFlown / 1000.0:F1} km out");
                 DropRound(i);
                 continue;
@@ -2377,7 +2378,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                     // Report how it failed: converged-but-short reads very differently from
                     // never-converged, and the numbers say which.
                     Announce(
-                        $"round {round.Tube} expired after {round.Age:F1}s - " +
+                        $"{RoundLabel.For(round.Tube)} expired after {round.Age:F1}s - " +
                         $"closest {(round.ClosestApproach == double.MaxValue ? "n/a" : $"{round.ClosestApproach:F0} m")}, " +
                         $"flew {round.DistanceFlown / 1000.0:F1} km, final speed {round.Speed:F0} m/s, " +
                         $"lock={round.HasLock}");
@@ -2577,7 +2578,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // arrive, announce, and do nothing whatsoever.
         if (round.Aimpoint.Kind == AimpointKind.Part)
         {
-            Announce($"round {round.Tube} arrived at its {round.Aimpoint.Kind} aimpoint");
+            Announce($"{RoundLabel.For(round.Tube)} arrived at its {round.Aimpoint.Kind} aimpoint");
             return;
         }
 
@@ -2601,7 +2602,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             _ => "with nothing in range",
         };
 
-        Announce($"round {round.Tube} detonated{fuse} {how}{MissFromAimpoint(round)}");
+        Announce($"{RoundLabel.For(round.Tube)} detonated{fuse} {how}{MissFromAimpoint(round)}");
 
         // Which effect is decided after the blast sweep, once it is known whether anything died.
         _burstKilled = false;

@@ -265,6 +265,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/CoarseGroundTest.cs` | the sight's ground test, which skips the lookups a falling round cannot need |
 | `Sim/MushroomCloud.cs` | the shape of a nuclear cloud over time, as offsets from the burst |
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
+| `Sim/RoundLabel.cs` | what to call a round in a line somebody reads — **the one place the tube field's sentinel is decoded**, because a shell has no tube |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives |
 | `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
