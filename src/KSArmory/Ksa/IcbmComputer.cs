@@ -324,7 +324,48 @@ internal sealed class IcbmComputer
         if (weapon is null || !weapon.ReadyToFire) return false;
         if (TargetEcl() is not { } targetEcl) return false;
 
-        return weapon.FireAt(targetEcl);
+        bool away = weapon.FireAt(targetEcl);
+        if (away) ProbeRelease();
+        return away;
+    }
+
+    // What the prediction says about the state the warhead is actually leaving on, beside where the
+    // round then lands. The phase line cannot answer this: it is printed before the frame's Predict
+    // and while the engines are still lit, so it carries a prediction of the *solved* cutoff arc.
+    // Only these two numbers isolate what the prediction and the round still disagree about, which
+    // is the difference every remaining metre of the miss lives in.
+    private void ProbeRelease()
+    {
+        if (Log.Threshold > Log.Level.Debug) return;
+        if (Parent is not { } parent) return;
+        if (_warhead is not { } warhead) return;
+
+        try
+        {
+            doubleQuat cce2Cci = parent.GetCce2Cci();
+            double3 positionCci = (KsaWorld.PositionEcl(Craft) - parent.GetPositionEcl()).Transform(cce2Cci);
+            double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci);
+
+            if (!ImpactPredictor.TryPredict(Body, positionCci, velocityCci, PredictStepSeconds,
+                                            ImpactPredictor.DefaultMaxSeconds,
+                                            out ImpactPredictor.Impact hit, TerrainRadiusAt, null,
+                                            new ImpactPredictor.Drag(DensityRatioAt, warhead)))
+            {
+                Log.Debug("release probe: no impact predicted from the release state");
+                return;
+            }
+
+            double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
+            double miss = Body.SurfaceRadius * Vec.AngleBetween(hit.GroundFixedPointCci, _trueAimCci);
+
+            Log.Debug($"release probe: predicted from the release state -> "
+                      + $"{parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}, "
+                      + $"{miss / 1000.0:F1} km from the target, {hit.Seconds:F0} s of flight");
+        }
+        catch
+        {
+            // A probe that throws inside the frame hook is worse than one that says nothing.
+        }
     }
 
     /// <summary>The trajectory, in the ecliptic, for drawing. Empty until a prediction has run.</summary>
