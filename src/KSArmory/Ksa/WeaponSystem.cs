@@ -2092,10 +2092,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         if (_rounds.Count == 0) return;
 
-        // The ground under the launcher, not the launcher. Identical for a site standing still on
-        // it, and the difference is the whole behaviour of a store released from something moving.
-        // See KsaWorld.GroundVelocityAt.
-        double3 platformVelocityEcl = GroundVelocityAtRound(PlatformEcl);
 
         // A burst is dozens of shells and the world does not move between them, so the candidate
         // list is built at most once here rather than once per round.
@@ -2123,8 +2119,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // whole point of scaling drag rather than fixing it per profile.
             double mediumDensity = MediumAtRound(round.PositionEcl);
 
-            // The platform's velocity defines the local frame: it carries the parent body's
-            // orbital and rotational motion, which is not airspeed and not a heading.
+            // The ground under the round, not under the launcher. Identical while the two are
+            // metres apart, which is every shell this mod fires; a warhead 2,700 km downrange is
+            // over ground moving in a measurably different direction, and its drag is measured
+            // against that. See KsaWorld.GroundVelocityAt.
+            double3 airVelocity = GroundVelocityAtRound(round.PositionEcl);
+
             // Everything it could run into, which is not the same list as what it was aimed at,
             // and the geometry that decides whether it truly met any of them.
             if (round is Slug slug)
@@ -2134,7 +2134,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 slug.Ground = GroundTest.Shared;
             }
 
-            round.Update(dt, SampleTarget(round), gravity, platformVelocityEcl, PlatformEcl,
+            round.Update(dt, SampleTarget(round), gravity, airVelocity, PlatformEcl,
                          round.Munition, mediumDensity);
 
 
