@@ -455,9 +455,11 @@ internal sealed class IcbmComputer
         // And take the player with it, but only if they were watching the thing that just split.
         // Somebody flying an aircraft on the other side of the planet did not ask to be moved.
         //
-        // Staged for the next frame rather than done here: moving the view rebuilds the vehicle's
-        // derived data, and the engine refuses that while its own update is stepping - which is
-        // exactly where a handover happens. It says so, and then nothing moves.
+        // Staged rather than done here, and no longer because the engine refuses it - GoTo stopped
+        // rebuilding derived data, which was the thing it refused. What is left is ordering: a
+        // handover is decided during the panel's own pass, and taking the player's camera in the
+        // middle of it moves the craft out from under a panel that has already read which one it
+        // is showing.
         if (KsaWorld.IsWatching(left)) _viewWanted = craft;
 
         // Held only until the trim has run, and only to measure a distance from. The stack is alive

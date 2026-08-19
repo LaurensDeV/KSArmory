@@ -2062,10 +2062,16 @@ internal static class KsaWorld
     /// <summary>
     /// Points the camera at a craft and takes control of it.
     ///
-    /// <para>The same four steps KSA's own "Control from here" runs, in the same order — follow,
-    /// control, match the zoom, then let the vehicle rebuild its derived data. Doing fewer of
-    /// them leaves the camera watching one craft while the controls drive another, or the view
-    /// snapped to a zoom that belonged to the last vehicle.</para>
+    /// <para>Three steps: follow, control, match the zoom. Doing fewer leaves the camera watching
+    /// one craft while the controls drive another, or the view snapped to a zoom that belonged to
+    /// the last vehicle.</para>
+    ///
+    /// <para><b>It deliberately does not rebuild the vehicle's derived data.</b> Nothing here
+    /// modifies a part tree, and the engine does not do it either when it switches which vehicle is
+    /// followed and controlled — <c>Camera.SetFollow</c> sets <c>ControlledVehicle</c> and stops.
+    /// The rebuild reaches the shapes registry, which is locked for the whole vehicle update, and
+    /// every frame of this mod runs inside that lock; it threw from here on every handover after a
+    /// decoupler split. There is no later hook to move it to, and there does not need to be.</para>
     /// </summary>
     /// <returns>False if the craft is gone, or the engine refused any part of it.</returns>
     public static bool GoTo(Vehicle? vehicle)
@@ -2080,7 +2086,6 @@ internal static class KsaWorld
             camera.SetFollow(vehicle!, tidalLocking: true);
             Program.ControlledVehicle = vehicle;
             Program.MainViewport.OrbitController.DistancePower = vehicle!.OrbitView.DistancePower;
-            vehicle.UpdateAfterPartTreeModification();
             return true;
         }
         catch (Exception e)
