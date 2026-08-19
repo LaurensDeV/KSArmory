@@ -85,6 +85,44 @@ public class AimCorrectionTests
     }
 
     /// <summary>
+    /// And it has to be fed the arc being flown <em>to</em>, not the state being flown
+    /// <em>through</em>. Mid-burn the vehicle is nowhere near its cutoff conic, so a prediction
+    /// from where it currently is measures a trajectory nobody intends to fly — and the correction
+    /// that comes back is about that trajectory rather than about the shot.
+    /// </summary>
+    [Fact]
+    public void PredictingFromTheStateBeingFlownThroughCorrectsTheWrongArc()
+    {
+        double3 from = new(R + 200_000.0, 0, 0);
+        double3 orbital = new(0, Math.Sqrt(Mu / (R + 200_000.0)), 0);
+        double3 target = new(R * Math.Cos(0.405), R * Math.Sin(0.405), 0);
+
+        Func<double3, double> ground = RisingGround(target, 12_000.0);
+
+        // Still under power: lower, slower, and a long way from the conic it will depart on.
+        double3 midBurnFrom = new(R + 60_000.0, 0, 0);
+        double3 midBurnVelocity = orbital * 0.7;
+
+        AimCorrection correction = new();
+        double miss = double.NaN;
+
+        for (int i = 0; i < 12; i++)
+        {
+            double3 aim = correction.Apply(target);
+            Assert.True(BallisticArc.TryCheapest(Earth, from, orbital, aim, out BallisticArc.Solution s));
+
+            // What the shot will actually do, which is not what is being observed.
+            miss = R * Vec.AngleBetween(FlyAndLand(from, s.RequiredVelocityCci, ground), target);
+
+            correction.Observe(FlyAndLand(midBurnFrom, midBurnVelocity, ground), target);
+        }
+
+        Assert.True(miss > 20_000.0,
+                    $"correcting off the mid-burn state should not close the shot; it reached "
+                    + $"{miss / 1000.0:F1} km, which means the two states are not distinguishable here");
+    }
+
+    /// <summary>
     /// The correction is scored against the target, never against the aim it produced. Scoring it
     /// on its own output reports a perfect shot however far the rounds land.
     /// </summary>
