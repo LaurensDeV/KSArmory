@@ -174,7 +174,11 @@ internal sealed class IcbmComputer
                      + $"burn in {IcbmProgram.Clock(Command.SecondsToBurn)}, "
                      + $"impact in {IcbmProgram.Clock(SecondsToArrival)}, "
                      + $"target {OffPlaneDegrees:F1} deg off plane ({PlaneChangeCost:F0} m/s), "
-                     + $"reach {Command.Reach} :: {Command.Hold}");
+                     + $"reach {Command.Reach}"
+                     + (double.IsFinite(Program.ResidualAtCutoff)
+                            ? $", cut off {Program.ResidualAtCutoff:F1} m/s short"
+                            : "")
+                     + $" :: {Command.Hold}");
         }
 
         Predict(simStep, state);

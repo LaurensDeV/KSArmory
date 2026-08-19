@@ -425,4 +425,37 @@ public class IcbmFlightTests
         Assert.True(swing < 5.0,
                     $"the attitude swung {swing:F0} deg between the burn and the coast");
     }
+
+
+    /// <summary>
+    /// What is left to gain when the engines stop, which is the whole story of a shot that lands
+    /// short on an otherwise perfect trajectory.
+    ///
+    /// <para>A salvo that lands short as a tight group has spent too little velocity, and the
+    /// amount is small: at about a kilometre of range per metre a second, forty of them is fifty
+    /// kilometres. So the burn ending a few tens of metres a second early and the burn ending
+    /// perfectly look identical from anywhere except this number, which is why it is asserted
+    /// rather than watched.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(0.7848)]
+    [InlineData(1.2)]
+    [InlineData(0.405)]
+    public void TheBurnEndsWithAlmostNothingLeftToGain(double downrangeRadians)
+    {
+        double3 pad = Equator(0.0);
+        double3 aim = Equator(downrangeRadians);
+
+        IcbmFlightRig rig = Rig(pad, Earth);
+        IcbmProgram program = new(new IcbmConfig { Armed = true });
+
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 1200.0);
+        Assert.True(flight.Reached, flight.Hold);
+
+        Assert.True(double.IsFinite(program.ResidualAtCutoff),
+                    "the residual at cutoff has to be recorded, not cleared and reported as zero");
+
+        Assert.True(program.ResidualAtCutoff < 1.0,
+                    $"cut off {program.ResidualAtCutoff:F1} m/s short, which is kilometres at the far end");
+    }
 }

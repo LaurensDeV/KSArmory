@@ -171,6 +171,18 @@ internal sealed class IcbmProgram
     /// <summary>Long enough for the stack to settle before the next stage is considered.</summary>
     public const double StageCooldownSeconds = 1.5;
 
+    /// <summary>
+    /// How little must be left before the rising-again backstop may end a burn.
+    ///
+    /// <para>That backstop exists for a solve that never converges, and it has to be held to
+    /// <em>nearly finished</em> or it becomes the thing that ruins a shot rather than the thing
+    /// that saves one. Velocity still to gain is noisy near the end, so a loose threshold lets one
+    /// upward tick cut the engines with tens of metres a second unspent — and at a thousand-odd
+    /// metres of range per metre a second, forty of those is fifty kilometres short, on an
+    /// otherwise perfect trajectory.</para>
+    /// </summary>
+    public const double BackstopBelow = 2.0;
+
     /// <summary>Propellant unavailable for this long, with a stage already asked for, ends the burn.</summary>
     public const double DrySecondsBeforeGivingUp = 4.0;
 
@@ -252,6 +264,12 @@ internal sealed class IcbmProgram
     public double VelocityToGain => _toGain;
 
     /// <summary>
+    /// What was still to gain the instant the engines stopped — the number that says whether a
+    /// shot's error is the burn or the aim. NaN until a burn has ended.
+    /// </summary>
+    public double ResidualAtCutoff { get; private set; } = double.NaN;
+
+    /// <summary>
     /// The closest the target ever comes to the plane being flown in, in degrees, or NaN before
     /// anything has looked. A floor well above zero is an inclination this orbit does not have.
     /// </summary>
@@ -317,6 +335,7 @@ internal sealed class IcbmProgram
         _throttle = 1.0;
         _lowestToGain = double.PositiveInfinity;
         _fellShort = false;
+        ResidualAtCutoff = double.NaN;
         _arrivalFromLaunch = double.NaN;
         _reachHold = "";
         _sinceWindow = double.PositiveInfinity;
@@ -370,6 +389,7 @@ internal sealed class IcbmProgram
         if (_drySeconds > DrySecondsBeforeGivingUp)
         {
             _fellShort = _toGain > BurnoutGuidance.CutoffMetresPerSecond;
+            ResidualAtCutoff = _toGain;
             Phase = IcbmPhase.Coast;
             return Coasting(state);
         }
@@ -598,6 +618,11 @@ internal sealed class IcbmProgram
     {
         if (ShouldCutOff(state))
         {
+            // Recorded here rather than in Coasting, which clears it. What was left when the
+            // engines stopped is the whole story of a shot that lands short on an otherwise
+            // perfect trajectory, and reporting a zero says every burn closed perfectly - which is
+            // exactly what a burn that ended forty metres a second early also says.
+            ResidualAtCutoff = _toGain;
             Phase = IcbmPhase.Coast;
             return Coasting(state);
         }
@@ -631,7 +656,7 @@ internal sealed class IcbmProgram
         if (_countdown <= 0.5 * _lastStep * Math.Max(achieved, 1e-3)) return true;
 
         double oneStep = state.Booster.AccelerationNow * _lastStep;
-        return _lowestToGain < 50.0 && _toGain > _lowestToGain + Math.Max(oneStep, 1.0);
+        return _lowestToGain < BackstopBelow && _toGain > _lowestToGain + Math.Max(oneStep, 1.0);
     }
 
     private IcbmCommand Coasting(in IcbmState state)
