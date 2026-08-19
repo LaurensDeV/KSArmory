@@ -36,7 +36,9 @@ internal sealed class IcbmComputer
     private readonly AimCorrection _aim = new();
     private double3 _trueAimCci;
     private MunitionProfile? _warhead;
-    private double3 _launchAxisCci;
+    private double3 _releaseOffsetCci;
+    private double3 _releaseKickCci;
+    private bool _releaseMeasured;
     private bool _warpIsOurs;
     private IcbmPhase _reported = IcbmPhase.Idle;
     private double _sinceProbe;
@@ -152,7 +154,7 @@ internal sealed class IcbmComputer
         // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
         // the way down through it, and they are the things that have to arrive.
         _warhead = release?.Munition;
-        _launchAxisCci = LaunchAxisCci(release);
+        MeasureRelease(release);
 
         if (!Config.Armed)
         {
@@ -347,7 +349,8 @@ internal sealed class IcbmComputer
         try
         {
             doubleQuat cce2Cci = parent.GetCce2Cci();
-            double3 positionCci = (KsaWorld.PositionEcl(Craft) - parent.GetPositionEcl()).Transform(cce2Cci);
+            double3 positionCci = (KsaWorld.PositionEcl(Craft) - parent.GetPositionEcl()).Transform(cce2Cci)
+                                  + ReleaseOffsetCci();
             double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci)
                                   + ReleaseImpulseCci();
 
@@ -370,8 +373,9 @@ internal sealed class IcbmComputer
             double3 impulse = ReleaseImpulseCci();
             string thrown = impulse.Equals(Vec.Zero)
                 ? ""
-                : $", assumed thrown {Vec.AngleBetween(impulse, velocityCci) * 180.0 / Math.PI:F0} deg "
-                  + "from the platform's track";
+                : $", {(_releaseMeasured ? "measured" : "assumed")} thrown "
+                  + $"{Vec.AngleBetween(impulse, velocityCci) * 180.0 / Math.PI:F0} deg from the "
+                  + $"platform's track, {Vec.Len(ReleaseOffsetCci()):F1} m off the orbit position";
 
             Log.Info($"release probe: predicted from the release state -> "
                       + $"{parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}, "
@@ -580,37 +584,54 @@ internal sealed class IcbmComputer
     // the ejection *slows* every warhead and they all fall short together. Predicting the bus's arc
     // rather than the round's leaves that invisible to the aim correction, and this trajectory
     // moves about two kilometres per metre per second.
-    private double3 ReleaseImpulseCci()
+    // Where a released round starts, as a difference from where the craft is.
+    //
+    // A difference rather than a state, because the prediction is taken from two different places -
+    // the solved cutoff while burning, the live state while coasting - and the tube's offset from
+    // the craft applies to both. It carries all three things a prediction taken from the orbit
+    // state gets wrong: the tube mouth is metres away, the lever arm is sweeping, and the round is
+    // thrown along the tube rather than along whatever attitude was commanded.
+    private void MeasureRelease(IManualFire? weapon)
     {
-        if (_warhead is not { LaunchSpeed: > 0f } warhead) return Vec.Zero;
+        _releaseMeasured = false;
+        _releaseOffsetCci = Vec.Zero;
+        _releaseKickCci = Vec.Zero;
 
-        // The tubes, not the commanded attitude. A vehicle settles a few degrees off what it was
-        // asked to hold and the tubes go with the airframe - measured at ten degrees apart on a
-        // coasting bus, which throws a third of a metre a second the wrong way and lands the
-        // warheads a kilometre short. The command is only the fallback for a launcher whose tube
-        // axes cannot be resolved.
-        double3 nose = _launchAxisCci.Equals(Vec.Zero) ? Command.ThrustDirectionCci : _launchAxisCci;
-
-        return nose.Equals(Vec.Zero) || !Vec.IsFinite(nose) ? Vec.Zero : Vec.Unit(nose) * warhead.LaunchSpeed;
-    }
-
-    private double3 LaunchAxisCci(IManualFire? weapon)
-    {
-        if (weapon is null || Parent is not { } parent) return Vec.Zero;
+        if (weapon is null || Parent is not { } parent) return;
 
         try
         {
-            if (!weapon.TryLaunchAxisEcl(out double3 axisEcl)) return Vec.Zero;
+            if (!weapon.TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl)) return;
 
-            // A direction, so the ecliptic and the body's inertial frame differ by a rotation only.
-            double3 axisCci = axisEcl.Transform(parent.GetCce2Cci());
-            return Vec.IsFinite(axisCci) ? axisCci : Vec.Zero;
+            doubleQuat cce2Cci = parent.GetCce2Cci();
+            double3 offset = (positionEcl - KsaWorld.PositionEcl(Craft)).Transform(cce2Cci);
+            double3 kick = (velocityEcl - KsaWorld.VelocityEcl(Craft)).Transform(cce2Cci);
+
+            if (!Vec.IsFinite(offset) || !Vec.IsFinite(kick)) return;
+
+            _releaseOffsetCci = offset;
+            _releaseKickCci = kick;
+            _releaseMeasured = true;
         }
         catch
         {
-            return Vec.Zero;
+            // A launcher whose tubes will not resolve falls back to the commanded attitude below.
         }
     }
+
+    // The fallback when the tubes cannot be resolved: the munition's ejection speed along the
+    // direction the vehicle was told to hold. Wrong by however far the vehicle settled off that
+    // command, which is why it is second choice rather than the rule.
+    private double3 ReleaseImpulseCci()
+    {
+        if (_releaseMeasured) return _releaseKickCci;
+        if (_warhead is not { LaunchSpeed: > 0f } warhead) return Vec.Zero;
+
+        double3 nose = Command.ThrustDirectionCci;
+        return nose.Equals(Vec.Zero) || !Vec.IsFinite(nose) ? Vec.Zero : Vec.Unit(nose) * warhead.LaunchSpeed;
+    }
+
+    private double3 ReleaseOffsetCci() => _releaseMeasured ? _releaseOffsetCci : Vec.Zero;
 
     // How thick the air is at a point on the arc. The same field the round's own drag is read from,
     // so the prediction and the round cannot disagree about the atmosphere they are flying through.
@@ -657,6 +678,7 @@ internal sealed class IcbmComputer
         double3 fromCci = fromCutoff ? Program.CutoffPositionCci : state.PositionCci;
         double3 alongCci = fromCutoff ? Program.Arc!.Value.RequiredVelocityCci : state.VelocityCci;
 
+        fromCci += ReleaseOffsetCci();
         alongCci += ReleaseImpulseCci();
 
         // Predicted with the warhead's drag rather than in vacuum. On a shallow deorbit arrival a

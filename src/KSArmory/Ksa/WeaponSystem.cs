@@ -1570,30 +1570,47 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// a place has said what they want. Everything after the aimpoint is identical, which is why
     /// this and <see cref="Fire(Track)"/> share <c>Commit</c> rather than being written twice.</para>
     /// </summary>
-    /// <inheritdoc cref="IManualFire.TryLaunchAxisEcl"/>
-    public bool TryLaunchAxisEcl(out double3 directionEcl)
+    /// <inheritdoc cref="IManualFire.TryMeanReleaseStateEcl"/>
+    public bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl)
     {
-        directionEcl = Vec.Zero;
-        if (Launcher is null || !Profile.LaunchAlongTube) return false;
+        positionEcl = Vec.Zero;
+        velocityEcl = Vec.Zero;
 
-        double3 sum = Vec.Zero;
+        if (Platform is null || Launcher is null || !TubesResolved || !Profile.LaunchAlongTube) return false;
+
+        double3 platformVel = KsaWorld.VelocityEcl(Platform);
+        double3 centreOfMass = KsaWorld.CentreOfMassEcl(Platform);
+        double3 angular = KsaWorld.AngularVelocityEcl(Platform);
+
+        double3 sumPos = Vec.Zero;
+        double3 sumVel = Vec.Zero;
         int found = 0;
 
         for (int tube = 0; tube < Profile.Tubes.Length; tube++)
         {
-            if (LauncherPart.TryGetTubeAxisEcl(Platform, Launcher, PodsPart, Profile, tube,
-                                               out double3 axis)
-                && Vec.IsFinite(axis))
+            if (!LauncherPart.TryGetTubeMuzzleEcl(Platform, Launcher, PodsPart, Profile, tube,
+                                                  PlatformEcl, out double3 mouth)
+                || !LauncherPart.TryGetTubeAxisEcl(Platform, Launcher, PodsPart, Profile, tube,
+                                                   out double3 axis)
+                || !Vec.IsFinite(mouth) || !Vec.IsFinite(axis))
             {
-                sum += Vec.Unit(axis);
-                found++;
+                continue;
             }
+
+            // The same three terms Commit builds a round's launch state from, so the two cannot
+            // describe different releases.
+            sumPos += mouth;
+            sumVel += platformVel
+                      + FireGeometry.SpinVelocity(angular, mouth, centreOfMass)
+                      + Vec.Unit(axis) * Munition.LaunchSpeed;
+            found++;
         }
 
         if (found == 0) return false;
 
-        directionEcl = Vec.Unit(sum);
-        return !directionEcl.Equals(Vec.Zero);
+        positionEcl = sumPos / found;
+        velocityEcl = sumVel / found;
+        return Vec.IsFinite(positionEcl) && Vec.IsFinite(velocityEcl);
     }
 
     public bool FireAt(double3 pointEcl)

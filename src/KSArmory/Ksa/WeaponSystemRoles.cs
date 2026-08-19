@@ -207,18 +207,20 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     bool FireAt(double3 pointEcl);
 
     /// <summary>
-    /// Which way the tubes point, as one direction — what a released round is actually thrown
-    /// along, rather than what the vehicle was asked to hold.
+    /// The state a released round would actually leave with, averaged over the tubes.
     ///
-    /// <para>Those are not the same: a vehicle settles on a commanded attitude and stops a few
-    /// degrees off it, and the tubes go where the airframe is, not where the command was. Measured
-    /// at ten degrees apart on a coasting bus — which for a two metre a second ejection is a third
-    /// of a metre a second thrown in the wrong direction, and a kilometre of miss.</para>
+    /// <para>A ballistic computer predicts from the craft's own orbit state, and a round does not
+    /// start there. It starts at a tube mouth metres away, carrying the spin that lever arm is
+    /// sweeping at, and thrown along the tube rather than along whatever attitude was commanded —
+    /// a vehicle settles a few degrees off a command and the tubes go with the airframe. Measured
+    /// on a coasting bus: ten degrees of direction error, ten metres of radial offset, and up to
+    /// four hundredths of a metre a second of spin.</para>
     ///
-    /// <para>The tube cants cancel in this average by construction, so it is the launcher's own
-    /// axis and not any one tube's.</para>
+    /// <para>Averaged over the tubes because there is one aim for all of them and the cants cancel
+    /// in the mean by construction. What each tube does <em>differently</em> is dispersion, and no
+    /// single aim can remove it.</para>
     /// </summary>
-    bool TryLaunchAxisEcl(out double3 directionEcl);
+    bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl);
 
     bool CanGuideOnto(double3 pointEcl);
 
