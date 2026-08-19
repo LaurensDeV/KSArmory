@@ -278,11 +278,28 @@ internal sealed class WeaponSystems(Config config)
     }
 
     /// <summary>
-    /// Brings the roster in line with what has been surveyed: crew anything new, forget anything
-    /// destroyed.
+    /// Where a launcher went this frame, for anything else that has to follow it.
+    ///
+    /// <para>One decision, consulted twice: the ballistic computer keys on the craft too, and a
+    /// disagreement about which craft the shot is on breaks the release in either direction.</para>
+    /// </summary>
+    public IReadOnlyList<(Vehicle From, Vehicle To)> Handovers => _handovers;
+
+    private readonly List<(Vehicle From, Vehicle To)> _handovers = [];
+    private readonly List<HandoverCandidate> _candidates = [];
+    private readonly List<Vehicle> _handoverScratch = [];
+
+    /// <summary>
+    /// Brings the roster in line with what has been surveyed: crew anything new, follow anything
+    /// a decoupler carried onto another craft, forget anything destroyed.
     /// </summary>
     public void Sync(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems)
     {
+        // Before the crewing loop below, and it has to be: it re-keys entries onto craft the loop
+        // is about to walk, and crewing first would put a second battery on the same launcher with
+        // a full magazine and default settings.
+        FollowDecoupledLaunchers();
+
         for (int i = 0; i < systems.Count; i++)
         {
             Vehicle craft = systems[i].Craft;
@@ -404,6 +421,105 @@ internal sealed class WeaponSystems(Config config)
     // several still restores. Anything beyond it is suffixed, because two racks on one craft
     // sharing one entry would share an arm switch -- and arming one to drop a bomb would arm the
     // other.
+    // A launcher that is no longer on the craft it was crewed on, because a decoupler carried it
+    // onto another. Retirement is the wrong answer - that throws the magazine away and stops fire
+    // control for good, and this launcher is alive with rounds still in its tubes.
+    //
+    // Costs nothing when nothing has separated: an entry only loses its launcher if a part tree
+    // says so, so the vehicle scan below runs on the frame after a split and on no other.
+    private void FollowDecoupledLaunchers()
+    {
+        _handovers.Clear();
+
+        bool anyLost = false;
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
+        {
+            if (kv.Value.Battery is { Platform: not null, Launcher: null }) { anyLost = true; break; }
+        }
+
+        if (!anyLost) return;
+
+        KsaWorld.CollectVehicles(_handoverScratch);
+        if (_handoverScratch.Count == 0) return;
+
+        _gone.Clear();
+        foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
+        {
+            if (kv.Value.Battery is not { Platform: not null, Launcher: null }) continue;
+            _gone.Add(kv.Key);
+        }
+
+        for (int i = 0; i < _gone.Count; i++)
+        {
+            if (!_entries.TryGetValue(_gone[i], out Entry entry)) continue;
+            TryFollow(_gone[i], entry);
+        }
+
+        _gone.Clear();
+    }
+
+    private void TryFollow((Vehicle Craft, int Ordinal) key, Entry entry)
+    {
+        WeaponSystem battery = entry.Battery;
+        string wanted = battery.Profile.PartId;
+
+        _candidates.Clear();
+
+        for (int i = 0; i < _handoverScratch.Count; i++)
+        {
+            Vehicle craft = _handoverScratch[i];
+            if (!KsaWorld.IsAlive(craft) || ReferenceEquals(craft, key.Craft)) continue;
+
+            LauncherPart.FindAll(craft, _launcherScratch);
+
+            for (int ordinal = 0; ordinal < _launcherScratch.Count; ordinal++)
+            {
+                // On the part Id, not on the Part reference: KSA rebuilds the tree during staging,
+                // so a reference does not survive the very event this is reacting to.
+                if (_launcherScratch[ordinal].Profile.PartId != wanted) continue;
+
+                _candidates.Add(new HandoverCandidate(
+                    i, ordinal,
+                    Vec.Len(KsaWorld.PositionEcl(craft) - battery.PlatformEcl),
+                    _entries.ContainsKey((craft, ordinal))));
+            }
+        }
+
+        Handover choice = PlatformHandover.Choose(_candidates);
+
+        if (choice.Verdict == HandoverVerdict.Ambiguous)
+        {
+            Log.Warn($"{KsaWorld.DisplayName(key.Craft)} launcher {key.Ordinal + 1} lost its "
+                     + $"launcher and {choice.Why} - leaving it where it is");
+            return;
+        }
+
+        if (choice.Verdict != HandoverVerdict.Move) return;
+
+        Vehicle to = _handoverScratch[choice.CraftIndex];
+        (Vehicle, int) newKey = (to, choice.Ordinal);
+
+        if (_entries.ContainsKey(newKey)) return;
+
+        _entries.Remove(key);
+        _entries[newKey] = entry with { Craft = to, Ordinal = choice.Ordinal };
+
+        if (_selected.TryGetValue(key.Craft, out int selected) && selected == key.Ordinal)
+        {
+            _selected.Remove(key.Craft);
+            _selected[to] = choice.Ordinal;
+        }
+
+        if (choice.Ordinal == 0) WarnIfNameIsTaken(to);
+
+        battery.Rehome(to, choice.Ordinal);
+        _handovers.Add((key.Craft, to));
+
+        Log.Info($"{KsaWorld.DisplayName(key.Craft)} launcher {key.Ordinal + 1} followed its "
+                 + $"launcher onto {KsaWorld.DisplayName(to)} launcher {choice.Ordinal + 1} "
+                 + $"({choice.Why}); settings now filed under \"{SettingsKey(to, choice.Ordinal)}\"");
+    }
+
     private static string SettingsKey(Vehicle craft, int ordinal)
         => ordinal == 0 ? KsaWorld.DisplayName(craft) : $"{KsaWorld.DisplayName(craft)}#{ordinal + 1}";
 

@@ -196,7 +196,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         RefreshSystems();
         _batteries.Sync(_systems);
-        _icbms.Sync(_systems);
+        _icbms.Sync(_systems, _batteries.Handovers);
 
 
         // Dropped when the craft has nothing left to manage -- a battery *or* a director. Testing

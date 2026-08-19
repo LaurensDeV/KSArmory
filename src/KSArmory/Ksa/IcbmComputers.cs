@@ -66,8 +66,11 @@ internal sealed class IcbmComputers
         }
     }
 
-    public void Sync(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems)
+    public void Sync(IReadOnlyList<(Vehicle Craft, WeaponInventory Inventory)> systems,
+                     IReadOnlyList<(Vehicle From, Vehicle To)> handovers)
     {
+        Follow(handovers);
+
         for (int i = 0; i < systems.Count; i++)
         {
             Vehicle craft = systems[i].Craft;
@@ -80,6 +83,28 @@ internal sealed class IcbmComputers
         }
 
         Retire();
+    }
+
+    // A weapon that a decoupler carried onto another craft takes its computer with it, because the
+    // trajectory belongs to the shot rather than to the hull it was flown from. Before the crewing
+    // loop above, or that would put a second, disarmed, targetless computer on the craft the
+    // warheads are now riding.
+    //
+    // Only when nothing crewed is left behind: one computer per craft is the invariant, and a
+    // stack that keeps another weapon keeps its own trajectory to fly.
+    private void Follow(IReadOnlyList<(Vehicle From, Vehicle To)> handovers)
+    {
+        for (int i = 0; i < handovers.Count; i++)
+        {
+            (Vehicle from, Vehicle to) = handovers[i];
+
+            if (!_computers.TryGetValue(from, out IcbmComputer? computer)) continue;
+            if (_computers.ContainsKey(to)) continue;
+
+            _computers.Remove(from);
+            _computers[to] = computer;
+            computer.Rehome(to);
+        }
     }
 
     /// <summary>

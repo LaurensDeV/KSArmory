@@ -56,7 +56,7 @@ internal sealed class IcbmComputer
     private const double MaxMarginSeconds = 900.0;
     private double _throttleAchieved = 1.0;
 
-    public Vehicle Craft { get; }
+    public Vehicle Craft { get; private set; }
 
     public IcbmConfig Config { get; }
 
@@ -323,6 +323,39 @@ internal sealed class IcbmComputer
     // Hand the wait to KSA's own warp-to-a-time. Only while holding, only for the craft being
     // flown, and only out to a margin short of the burn - the last minute belongs to WarpPolicy,
     // which cannot slow the world down at all while an auto-warp is running.
+
+    /// <summary>
+    /// Follow the weapon onto the craft that now carries it, after a decoupler split the stack.
+    ///
+    /// <para>The flight continues. The phase, the held cutoff line, the aim bias, the roll
+    /// reference and the target are all about the shot rather than about the hull, and they come
+    /// across by staying where they are — which is the argument for rehoming rather than building a
+    /// fresh computer. A fresh one re-enters the phase machine at
+    /// <see cref="IcbmPhase.Holding"/>, and only <c>Coast</c> ever sets <c>ReadyToDeploy</c>, so it
+    /// would never release a warhead at all.</para>
+    /// </summary>
+    public void Rehome(Vehicle craft)
+    {
+        if (!KsaWorld.IsAlive(craft) || ReferenceEquals(craft, Craft)) return;
+
+        Vehicle left = Craft;
+
+        // Before anything else: the hook is keyed on the vehicle and is only ever cleared here, so
+        // without this the spent stack is held on the cutoff line for the rest of the session.
+        AttitudeHook.Release(left);
+
+        // And hand it back the way a player expects to find it. Only what this mod switched on.
+        if (_driving)
+        {
+            VehicleCommand.SetEngine(left, running: false);
+            VehicleCommand.ReleaseAttitude(left);
+        }
+
+        Craft = craft;
+
+        Log.Info($"ICBM computer followed its weapon from {KsaWorld.DisplayName(left)} "
+                 + $"onto {KsaWorld.DisplayName(craft)}");
+    }
 
     /// <summary>Let one warhead go at the aim point, if there is one to let go and it is ready.</summary>
     public bool Release(IManualFire? weapon)
