@@ -23,6 +23,16 @@ internal interface IProjectile
     /// <summary>Seconds since launch.</summary>
     double Age { get; }
 
+    /// <summary>
+    /// The longest step this round can be integrated across <em>right now</em>.
+    ///
+    /// <para>Not a constant, because a round's needs change with where it is: coasting in vacuum it
+    /// can take a step of a third of a second, and the same round entering the atmosphere cannot.
+    /// Asking the round rather than its profile is what lets the world run fast for the long coast
+    /// and slow itself for the minute that matters.</para>
+    /// </summary>
+    double FaithfulStepSeconds { get; }
+
     // ---- Where it is ----------------------------------------------------
 
     /// <summary>Absolute position in the ecliptic frame.</summary>

@@ -33,6 +33,21 @@ internal static class Medium
     }
 
     /// <summary>
+    /// The longest step a round can be integrated across while there is air worth resolving.
+    ///
+    /// <para>A munition's own <see cref="MunitionProfile.MaxFaithfulStepSeconds"/> is about fusing
+    /// — how far a round may move before it steps over its own proximity radius. Entry is a
+    /// different problem with a different answer: air density falls off on a scale height of a few
+    /// kilometres and a re-entering round crosses that in seconds, so a step sized for fusing flies
+    /// it through air that is nothing like what is there. Flown at a 170 ms step, six warheads
+    /// landed <b>381 km</b> beyond where the same shot puts them at 17 ms.</para>
+    /// </summary>
+    public const double FaithfulStepInAir = 0.05;
+
+    /// <summary>Below this the air cannot move the answer within one step, whatever the step.</summary>
+    public const double NoticeableDensity = 1e-4;
+
+    /// <summary>
     /// The drag deceleration, as a vector to <b>subtract</b> from a round's acceleration.
     ///
     /// <para>Quadratic in airspeed, so a coasting round bleeds speed instead of holding it, and

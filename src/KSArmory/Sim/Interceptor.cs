@@ -78,6 +78,15 @@ internal sealed class Interceptor : IProjectile
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
 
+    /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
+    public double FaithfulStepSeconds
+        => _lastDensity > Medium.NoticeableDensity
+               ? Math.Min(Munition.MaxFaithfulStepSeconds, Medium.FaithfulStepInAir)
+               : Munition.MaxFaithfulStepSeconds;
+
+    // What the round last flew through, so it can say what step it needs before the next one.
+    private double _lastDensity;
+
     public RoundState State { get; private set; } = RoundState.Flying;
 
     /// <inheritdoc cref="IProjectile.ShootDown"/>
@@ -352,6 +361,8 @@ internal sealed class Interceptor : IProjectile
         // behaves - which way it points, what the air does to it - is about this, not about
         // the absolute ecliptic velocity it inherited from the planet.
         double3 localVelocity = VelocityEcl - frameVelocityEcl;
+
+        _lastDensity = mediumDensityRatio;
 
         double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
 

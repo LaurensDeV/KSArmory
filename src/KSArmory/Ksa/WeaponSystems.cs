@@ -74,6 +74,12 @@ internal sealed class WeaponSystems(Config config)
     /// radius exactly as it would any other. One walk, because the warp policy and the integration
     /// clamp are two readings of the same question and must not disagree.</para>
     /// </summary>
+    /// <remarks>
+    /// Asked of the round rather than of its profile, because what a round needs depends on where
+    /// it is: a warhead coasting in vacuum can take a third of a second and the same warhead
+    /// entering the atmosphere cannot. That is what lets the world run fast through a six-minute
+    /// coast and slow itself for the minute of entry that decides where the round lands.
+    /// </remarks>
     public double FaithfulStep(out bool anyInFlight)
     {
         double faithful = double.MaxValue;
@@ -84,7 +90,7 @@ internal sealed class WeaponSystems(Config config)
             foreach (IProjectile round in e.Battery.Rounds)
             {
                 anyInFlight = true;
-                faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
+                faithful = Math.Min(faithful, round.FaithfulStepSeconds);
             }
         }
 
@@ -93,7 +99,7 @@ internal sealed class WeaponSystems(Config config)
             foreach (IProjectile round in _loose[i].Rounds)
             {
                 anyInFlight = true;
-                faithful = Math.Min(faithful, round.Munition.MaxFaithfulStepSeconds);
+                faithful = Math.Min(faithful, round.FaithfulStepSeconds);
             }
         }
 

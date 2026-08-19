@@ -51,6 +51,15 @@ internal sealed class Slug : IProjectile
     /// </summary>
     public Func<double3, double>? AirDensityAt { get; set; }
 
+    /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
+    public double FaithfulStepSeconds
+        => _lastDensity > Medium.NoticeableDensity
+               ? Math.Min(Munition.MaxFaithfulStepSeconds, Medium.FaithfulStepInAir)
+               : Munition.MaxFaithfulStepSeconds;
+
+    // What the round last flew through, so it can say what step it needs before the next one.
+    private double _lastDensity;
+
     public RoundState State { get; private set; } = RoundState.Flying;
 
     /// <inheritdoc cref="IProjectile.ShootDown"/>
@@ -201,6 +210,7 @@ internal sealed class Slug : IProjectile
             // warheads under-dragged so badly they landed 381 km LONG.
             double density = AirDensityAt?.Invoke(PositionEcl) ?? mediumDensityRatio;
             if (!double.IsFinite(density) || density < 0.0) density = mediumDensityRatio;
+            _lastDensity = density;
 
             // Incremented after the step, so the round's position and the back-dated target share
             // an instant. Splitting them across a sub-step costs ~142 m at 29.8 km/s.

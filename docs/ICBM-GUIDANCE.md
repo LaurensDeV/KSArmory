@@ -631,7 +631,7 @@ experiment is cheap and decisive: **fly the same shot at half the frame rate.** 
 family scales linearly with the step, so the offset either roughly doubles — and the ground test is
 where to look — or it does not move, and the whole family is dead.
 
-## Do not warp a warhead's descent
+## The world slows itself for the entry, not for the coast
 
 Flown at 10x simulation speed, with no clamp and no discarded time — the step stayed inside what a
 round can integrate — six warheads landed **381 km long**. At 1x the same shot lands within a
@@ -650,9 +650,20 @@ threshold**: under-drag slightly and the round fails to capture, stays high, and
 kilometres further. That is consistent with the enormous, strongly non-linear amplification and with
 the sign, and it is **unconfirmed**.
 
-Until it is understood, `Interceptor.MaxFaithfulStep` is the wrong guard for this case. It is 0.32 s
-because that is where a round starts stepping over its own fuse radius — a rule about
-proximity fusing, not about atmospheric entry, where the same step is worth hundreds of kilometres.
+`Interceptor.MaxFaithfulStep` was the wrong guard for it either way. It is 0.32 s because that is
+where a round starts stepping over its own **fuse radius** — a rule about proximity fusing, and
+nothing to do with atmospheric entry, where the same step is worth hundreds of kilometres.
+
+**So a round is asked what step it needs rather than its profile being consulted.**
+`IProjectile.FaithfulStepSeconds` answers from where the round actually is: a warhead coasting in
+vacuum still allows a third of a second, and the same warhead in air demands
+`Medium.FaithfulStepInAir`. `WeaponSystems.FaithfulStep` takes the minimum across everything
+airborne, which is what `WarpPolicy` already holds the world to.
+
+That is what makes a six-minute fall watchable **and** accurate: the long coast above the atmosphere
+warps at whatever the player asks for, and the world slows itself for the minute of entry that
+decides where the round lands. Nobody has to know to do it by hand, and the accuracy does not depend
+on their remembering.
 
 ## The attitude at cutoff is held, not solved
 
