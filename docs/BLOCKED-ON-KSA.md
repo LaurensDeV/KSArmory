@@ -241,6 +241,53 @@ There is a second way to divide by zero here, and it is easier to hit: the contr
 local zenith under `Surface` — fails the same way. A round launched vertically points exactly
 there. `docs/KSA-CAMERAS.md` has the full account of this and every other controller.
 
+## Commanding a vehicle's attitude from a mod hook
+
+**Wanted.** To point somebody else's rocket — the whole of `Ksa/VehicleCommand.cs`, and everything
+the ballistic computer does with it.
+
+**The engine reason.** `FlightComputer` is double-buffered across the frame, and every hook StarMap
+offers lands on the wrong side of it. In `Program.OnFrame`:
+
+```
+1968   Universe.ApplyVehicleSolvers()          // vehicle.FlightComputer.CopyFrom(worker result)
+2003   Universe.ExecuteNextVehicleSolvers()    // PrepareWorker snapshots vehicle.FlightComputer
+2051   OnDrawUiViewports()                     // [StarMapBeforeGui] / [StarMapAfterGui]
+```
+
+A write made at 2051 is not in the snapshot taken at 2003, so the result applied at 1968 of the
+*next* frame — computed from that snapshot — overwrites it. Then 2003 snapshots the overwritten
+value. `[StarMapAfterOnFrame]` is later still. There is no hook between 1968 and 2003, which is the
+only window where a write survives.
+
+Confirmed in flight rather than inferred. A probe reading the flight computer either side of the
+write reports, every frame without exception:
+
+```
+aimed=True dir=set | before Manual/None -> after Auto/Custom | error <0,0,0> rates <0,0,0>
+```
+
+The write lands and is gone by the next frame, and the engine's own error angles stay at zero
+because it is not tracking anything. `FlightComputer.CopyFrom` does copy `AttitudeMode`,
+`AttitudeTrackTarget` and `CustomAttitudeTarget`, so the round trip is not lossy — the write is
+simply on the wrong side of it.
+
+**What the ecosystem does instead.** cairn5's **PoweredGuidance** Harmony-prefixes
+`Vehicle.PrepareWorker`, which is the one point inside that window. It is a `public virtual` method,
+so unlike the ModMenu transpile this is a patch against declared API rather than against IL — it
+would appear in `docs/KSA-API-SURFACE.md` and a signature change would be a build error rather than
+a silent break.
+
+**What would unblock it.** Any hook between applying the solver results and taking the next
+snapshot. A single `[StarMapBeforeVehicleSolvers]` would do it, and so would a public
+`Vehicle.SetAttitudeCommand(...)` that writes into the pending snapshot rather than into the live
+object.
+
+**Consequence in the mod.** The ballistic computer plans, times and predicts a shot correctly and
+cannot fly it. Everything that does not go through the flight computer works: designation, the burn
+window search, the plane analysis, staging and throttle — those go through `Vehicle.ProcessInput`,
+which is not double-buffered.
+
 ## Custom part modules
 
 **Wanted.** Rounds as real part-based vehicles, with the engine integrating them.
