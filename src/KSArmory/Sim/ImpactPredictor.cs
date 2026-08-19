@@ -176,6 +176,13 @@ internal static class ImpactPredictor
                                        Func<double3, double>? terrainRadiusAt)
     {
         if (terrainRadiusAt is null) return body.SurfaceRadius;
+
+        // No terrain reaches up here, so the answer cannot change the only question asked of it -
+        // whether the point is underground. The lookup is the expensive part of a prediction and
+        // most of an arc is nowhere near the ground, so skipping it is what lets the remaining
+        // samples be the accurate ones.
+        if (pointCci.Length() > body.SurfaceRadius + NeverComesDownMargin) return body.SurfaceRadius;
+
         double radius = terrainRadiusAt(body.UncarryCci(pointCci, seconds));
         return double.IsFinite(radius) && radius > 0.0 ? radius : body.SurfaceRadius;
     }

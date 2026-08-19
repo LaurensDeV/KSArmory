@@ -109,12 +109,16 @@ public class PredictedDragTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// Sampling the air at the launcher rather than at the round is worth nothing for a shell and
-    /// kilometres for a warhead a quarter of the way round the planet — the air over the two points
-    /// moves in measurably different directions.
+    /// Sampling the air at a <em>stationary</em> platform rather than at the round is worth nothing
+    /// for a shell and kilometres for a warhead a quarter of the way round the planet — the air over
+    /// the two points moves in measurably different directions.
+    ///
+    /// <para>This is the launcher case, and it is the bound rather than the typical cost. A bus
+    /// coasts on nearly the warheads' own arc, so it stays beside them and the two readings barely
+    /// differ — which is why fixing this did not move an ICBM's impact.</para>
     /// </summary>
     [Fact]
-    public void TheAirIsMeasuredOverTheRoundRatherThanOverWhatThrewIt()
+    public void TheAirIsMeasuredOverTheRoundRatherThanOverAStationaryPlatform()
     {
         BallisticArc.Solution arc = Deorbit(out double3 from, out double3 _);
         MunitionProfile warhead = Arsenal.ReentryVehicleMk21;

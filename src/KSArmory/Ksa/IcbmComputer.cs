@@ -521,7 +521,11 @@ internal sealed class IcbmComputer
             double3 dirCcf = Vec.Unit(pointCci).Transform(parent.GetCci2Ccf());
             if (!Vec.IsFinite(dirCcf) || dirCcf.Equals(Vec.Zero)) return Body.SurfaceRadius;
 
-            double height = parent.GetTerrainHeightFromDirCcf(dirCcf, accurate: false);
+            // Accurate, because GroundTest is accurate and the round stops where *it* says. A
+            // coarse sample is a different height field, and on a shallow arrival every metre of
+            // disagreement is about eleven metres of ground. Affordable because ImpactPredictor
+            // only asks near the surface.
+            double height = parent.GetTerrainHeightFromDirCcf(dirCcf, accurate: true);
             return double.IsFinite(height) ? parent.MeanRadius + height : Body.SurfaceRadius;
         }
         catch
