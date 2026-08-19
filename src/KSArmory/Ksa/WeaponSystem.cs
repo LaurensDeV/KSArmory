@@ -2304,10 +2304,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double3 burst = round.PositionEcl;
         if (!Vec.IsFinite(burst) || !Vec.IsFinite(target.PositionEcl)) return string.Empty;
 
-        double miss = Vec.Len(burst - target.PositionEcl);
+        // Advanced to the instant the round burst, which is somewhere inside this frame while the
+        // world sample is at its edge. The gap is nothing but the target's ecliptic velocity times
+        // that offset - up to 507 m at 60 fps near Earth, and in a fixed inertial direction, so it
+        // reads as a common bias on every round of a salvo rather than as scatter. The blast sweep
+        // and the diagnostic below already do this; scoring the shot was the one place that did
+        // not, which made it the only number of the three that was wrong.
+        double3 aimAtBurst = target.PositionEcl + (target.VelocityEcl * round.DetonationElapsedInFrame);
+        if (!Vec.IsFinite(aimAtBurst)) aimAtBurst = target.PositionEcl;
+
+        double miss = Vec.Len(burst - aimAtBurst);
         if (!double.IsFinite(miss)) return string.Empty;
 
-        string where = WhereOnTheGround(burst, target.PositionEcl);
+        string where = WhereOnTheGround(burst, aimAtBurst);
 
         return miss < 1000.0
             ? $", {miss:F0} m from the aim point{where}"
