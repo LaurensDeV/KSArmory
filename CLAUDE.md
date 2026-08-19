@@ -290,7 +290,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SeparationClearance.cs` | whether what let go has got far enough away to manoeuvre — **the shove is the separation**, so nulling it ends it |
 | `Sim/ReleasePointing.cs` | which way a launcher must hold for one tube to throw along the line the others did |
 | `Sim/ReleaseSequence.cs` | letting a magazine go one round at a time, each along that same line |
-| `Sim/PlatformHandover.cs` | which craft a launcher went to, when a decoupler took it off the one carrying it |
+| `Sim/PlatformHandover.cs` | which craft a part went to, when a decoupler took it off the one carrying it — **one decision, every roster that follows a part** |
 | `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, ascent, staging, trim |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
@@ -330,7 +330,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |
 | `Ksa/KsaWorld.cs` | most KSA contact is funnelled here — keep it that way |
-| `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed and forgotten with the craft |
+| `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed with the craft and followed across a split |
 | `Ksa/WeaponSystem.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
@@ -338,7 +338,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/LauncherSeparation.cs` | the decoupler on the joint holding a launcher on — **a property of the part, not the craft** |
 | `Ksa/OpticParts.cs` | finds a director on a craft, and turns its head |
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
-| `Ksa/OpticalHeads.cs` | one head per director fitted, crewed and forgotten with the craft |
+| `Ksa/OpticalHeads.cs` | one head per director fitted, crewed with the craft and followed across a split |
 | `Ksa/InstalledPacks.cs` | reads those folders and registers what is in them — **what lets a pack be assets only** |
 | `Ksa/DeclaredParts.cs` | the part library as that seam — off `PartTemplate`, because the question is what was *declared*, not what is on a craft |
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |

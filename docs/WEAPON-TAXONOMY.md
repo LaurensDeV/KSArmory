@@ -198,8 +198,9 @@ instance as the pattern to stop repeating, and `Tube.Direction`, `BoresightMode`
   is crewed per director, finds its own targets through its own `SensorProfile`, and needs no weapon
   on the craft. The generalisation that made it cheap is `Sim/OpticGeometry.MountFrame`: the head
   *reads* its base's finished pose rather than being handed the mover's angles. A launcher reading a
-  track from a sensor it does not own is the same move at the fire-control level. `Ksa/OpticalHeads.cs`
-  is also the worked example for the plural keying that `WeaponSystems` has not done.
+  track from a sensor it does not own is the same move at the fire-control level. Both rosters
+  now key plurally and follow their part across a decoupler split through the same
+  `Sim/PlatformHandover.cs` decision, which is the shape a third would take too.
 - **3 is nearly free and lands in a seam that already exists.** `Slug` asks `Sim/IHullTest.cs` and
   `Interceptor` never does, deliberately. A hit-to-kill round is precisely an `Interceptor` that
   does. What blocks it is `Sim/Warhead.cs`: every radius derives from `ChargeKg` by a cube root, so

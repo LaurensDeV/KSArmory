@@ -167,14 +167,14 @@ that the attitude stops mattering and this becomes free.
 
 ## Smaller things
 
-- **Negative tube numbers in the log.** `round -4 was shot down` — tube indices are numbered from
-  one, so something is handing out an index below zero. Probably cannon shells, which do not come
-  from tubes at all. Cosmetic, likely a real off-by-one underneath.
-- **`OpticalHeads` has the stranding bug the weapon roster had** — keyed on `(Vehicle, Ordinal)`,
-  retired only on `!IsAlive`, and its own comment at `Ksa/OpticalHeads.cs:87` already claims it
-  forgets a head "staged away". Untrue. Harmless until a director rides a separating craft.
-- **The load-frame warning.** A 48 s first frame logs `rounds in flight will lag the world` with an
-  empty sky. Should say nothing when nothing is airborne.
+- **The load-frame warning** and **the `OpticalHeads` stranding bug** are both fixed and unflown;
+  the first now goes to DEBUG with an empty sky, the second follows a director across a split
+  through the same `PlatformHandover` decision the launcher roster uses.
+
+- **Negative tube numbers in the log** — fixed, unflown. Not an off-by-one: `FireGun` assigns
+  `-(barrel + 1)` deliberately, so a shell can never be reclaimed as a tube. The *display* was
+  wrong, and inconsistently — three call sites already decoded it. `Sim/RoundLabel.cs` is the one
+  place that does now, and a shell reads `shell from barrel 4`.
 
 ## What is already verified in flight
 
