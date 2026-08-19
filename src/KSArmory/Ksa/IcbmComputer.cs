@@ -113,6 +113,7 @@ internal sealed class IcbmComputer
         Program.Reset();
         _reported = IcbmPhase.Idle;
         _aim.Reset();
+        _waitingToSettle = 0.0;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -248,7 +249,7 @@ internal sealed class IcbmComputer
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, 1.0);
         }
 
-        if (Config.AutoRelease && Command.ReadyToDeploy) Release(release);
+        if (Config.AutoRelease && Command.ReadyToDeploy && SteadyEnoughToRelease(simStep)) Release(release);
 
         CarryOurWarp();
     }
@@ -584,6 +585,56 @@ internal sealed class IcbmComputer
     // the ejection *slows* every warhead and they all fall short together. Predicting the bus's arc
     // rather than the round's leaves that invisible to the aim correction, and this trajectory
     // moves about two kilometres per metre per second.
+    // How fast the bus may still be turning when it lets a warhead go. A tube sits metres from the
+    // centre of mass, so a turning bus throws each round at whatever speed that lever arm is
+    // sweeping - and every tube points a different way round the clock, so they are all thrown
+    // differently. Flown at 113 deg/s: five metres a second at the tube against a two metre a
+    // second ejection, and six warheads scattered across 1.5 km of ground 7 km from the aim. The
+    // aim correction cannot anticipate it, because it converges on a kick during the burn and the
+    // kick at release is a different one.
+    private const double ReleaseSteadyDegPerSec = 1.0;
+
+    // How long to wait for that before letting them go anyway. A bus with no attitude authority
+    // left would otherwise hold its warheads for ever, which is a worse failure than a scattered
+    // salvo: the shot is already paid for.
+    private const double ReleaseSteadyTimeoutSeconds = 60.0;
+
+    private double _waitingToSettle;
+
+    // Turning fast enough to throw its warheads differently is a reason to wait, and saying so is
+    // the difference between a bus that is settling and one that has silently stopped deploying.
+    private bool SteadyEnoughToRelease(double simStep)
+    {
+        double rate;
+
+        try
+        {
+            rate = Vec.Len(KsaWorld.AngularVelocityEcl(Craft)) * 180.0 / Math.PI;
+        }
+        catch
+        {
+            return true;
+        }
+
+        if (!double.IsFinite(rate) || rate <= ReleaseSteadyDegPerSec)
+        {
+            _waitingToSettle = 0.0;
+            return true;
+        }
+
+        _waitingToSettle += simStep;
+
+        if (_waitingToSettle >= ReleaseSteadyTimeoutSeconds)
+        {
+            Log.Info($"releasing at {rate:F1} deg/s after waiting {ReleaseSteadyTimeoutSeconds:F0} s "
+                     + "to settle - the warheads will scatter");
+            _waitingToSettle = 0.0;
+            return true;
+        }
+
+        return false;
+    }
+
     // Where a released round starts, as a difference from where the craft is.
     //
     // A difference rather than a state, because the prediction is taken from two different places -

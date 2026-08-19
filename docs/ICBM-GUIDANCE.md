@@ -566,6 +566,28 @@ component ever builds and the projection equals the length. The real vehicle is 
 is *better* than the thing it models is not conservative — it is blind, in exactly the region the
 fault lives in.
 
+## A tumbling bus does not deploy
+
+A tube sits metres from the centre of mass, so a turning bus throws each warhead at whatever speed
+that lever arm is sweeping — and the tubes point different ways round the clock, so they are all
+thrown differently. Flown at **113 deg/s**: five metres a second at the tube against a two metre a
+second ejection, six warheads spread across 1.5 km of ground and the whole salvo 7.4 km from the
+aim.
+
+**The aim correction cannot anticipate it.** It converges on a release kick during the burn, and the
+kick at release is a different one — so the error is not a bias it can remove but noise it chases.
+`IcbmComputer.ReleaseSteadyDegPerSec` holds the release until the bus is steady, which is what a
+real bus does before every separation.
+
+It gives up after `ReleaseSteadyTimeoutSeconds` and says so. A bus with no attitude authority left
+would otherwise hold its warheads for ever, and that is the worse failure of the two: the shot is
+already paid for.
+
+**What that flight also showed is that the prediction is sound.** Against each round's own impact it
+was out by a mean of **647 m** and as little as 100 m, on a salvo that missed by 7.4 km — so the
+flight model was tracking the rounds while the aim was wrong. Separating those two is what the
+release probe is for.
+
 ## The attitude at cutoff is held, not solved
 
 Velocity still to gain is a *difference*, so as it closes on zero its direction is the difference of
