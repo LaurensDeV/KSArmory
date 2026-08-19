@@ -361,9 +361,19 @@ internal sealed class IcbmComputer
             double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
             double miss = Body.SurfaceRadius * Vec.AngleBetween(hit.GroundFixedPointCci, _trueAimCci);
 
+            // The angle this reports has to match the one the release line reports for the tube.
+            // The prediction throws the warhead along the direction the vehicle was commanded to
+            // hold; the round actually leaves along its tube. If those disagree, two metres a
+            // second is being applied in the wrong direction, and radially that is 3.4 km per m/s.
+            double3 impulse = ReleaseImpulseCci();
+            string thrown = impulse.Equals(Vec.Zero)
+                ? ""
+                : $", assumed thrown {Vec.AngleBetween(impulse, velocityCci) * 180.0 / Math.PI:F0} deg "
+                  + "from the platform's track";
+
             Log.Info($"release probe: predicted from the release state -> "
                       + $"{parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}, "
-                      + $"{miss / 1000.0:F1} km from the target, {hit.Seconds:F0} s of flight");
+                      + $"{miss / 1000.0:F1} km from the target, {hit.Seconds:F0} s of flight{thrown}");
         }
         catch
         {
