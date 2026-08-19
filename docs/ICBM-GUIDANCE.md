@@ -453,6 +453,16 @@ models drag its own way is a second flight model to keep in step with the first.
 measured against the turning air via `BallisticBody.GroundVelocityCci`. Two consequences worth
 keeping:
 
+**And *where* the air is sampled is worth as much as whether it is modelled at all.** The round's
+own update read the air's velocity once, at the launcher, and used it for every round it owned —
+right to the metre for a shell, and wrong by 24° of bearing for a warhead 2,700 km downrange.
+Measured at **29.4 km** of impact movement on this shot, which is the same order as the miss that
+survived the drag fix. Gravity and density were already read at the round's position; the air was
+the one that was not.
+
+Flown: 59 km short with neither, **17 km** with drag alone.
+
+
 - **The step has to come down in the air.** The coarse step is sized for a vacuum arc where the
   acceleration barely changes across it; entry sheds most of the speed in tens of seconds.
   `AtmosphericStepSeconds` applies only once there is density worth integrating, so a coast pays

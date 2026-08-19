@@ -69,6 +69,67 @@ public class PredictedDragTests(ITestOutputHelper Out)
 
     private static double GroundMetres(double3 a, double3 b) => R * Vec.AngleBetween(a, b);
 
+    private const double EarthSpin = 7.2921159e-5;
+
+    private static BallisticBody Spinning => new(Mu, R, new double3(0, 0, 1), EarthSpin);
+
+    /// <summary>
+    /// Where the round comes down, as a place on the ground, with the air's motion chosen by the
+    /// caller — at the round, or at some other point, which is the thing under test.
+    /// </summary>
+    private static double3 FlyOverSpinningGround(double3 fromCci, double3 velocityCci,
+                                                 MunitionProfile munition, bool airAtTheRound)
+    {
+        Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
+        {
+            Munition = munition,
+            Ground = new Ball(),
+        };
+
+        BallisticBody body = Spinning;
+        const double dt = 1.0 / 60.0;
+        double elapsed = 0.0;
+
+        for (int i = 0; i < 60 * 3000 && round.State == RoundState.Flying; i++)
+        {
+            double r = Vec.Len(round.PositionEcl);
+            double3 gravity = Vec.Unit(-round.PositionEcl) * (Mu / (r * r));
+
+            // The whole question: the air over the round, or the air over what threw it.
+            double3 air = body.GroundVelocityCci(airAtTheRound ? round.PositionEcl : fromCci);
+
+            round.Update(dt, null, gravity, air, fromCci, munition, DensityAt(round.PositionEcl));
+            elapsed += dt;
+        }
+
+        Assert.NotEqual(RoundState.Flying, round.State);
+
+        // Back to a place on the ground, so two flights of different length are comparable.
+        return body.UncarryCci(round.PositionEcl, elapsed);
+    }
+
+    /// <summary>
+    /// Sampling the air at the launcher rather than at the round is worth nothing for a shell and
+    /// kilometres for a warhead a quarter of the way round the planet — the air over the two points
+    /// moves in measurably different directions.
+    /// </summary>
+    [Fact]
+    public void TheAirIsMeasuredOverTheRoundRatherThanOverWhatThrewIt()
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 from, out double3 _);
+        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+
+        double3 atRound = FlyOverSpinningGround(from, arc.RequiredVelocityCci, warhead, true);
+        double3 atPlatform = FlyOverSpinningGround(from, arc.RequiredVelocityCci, warhead, false);
+
+        double apart = GroundMetres(atRound, atPlatform);
+        Out.WriteLine($"air sampled at the platform moves the impact {apart / 1000.0:F1} km");
+
+        Assert.True(apart > 1_000.0,
+                    $"the two air frames should differ over this range; they were "
+                    + $"{apart / 1000.0:F2} km apart, so this no longer measures anything");
+    }
+
     [Fact]
     public void APredictionInVacuumLandsTensOfKilometresBeyondTheRoundItPredicts()
     {
