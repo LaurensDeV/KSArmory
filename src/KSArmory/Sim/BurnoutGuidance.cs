@@ -37,9 +37,18 @@ internal static class BurnoutGuidance
     public const double CutoffMetresPerSecond = 0.01;
 
     /// <summary>What to do about it this instant.</summary>
+    /// <param name="ToGainVectorCci">
+    /// Velocity still to gain, as a vector.
+    ///
+    /// <para>Its <em>length</em> is what the burn is trying to zero, but its direction is what
+    /// decides what a residual costs: on a deorbit, a metre a second left along the track is 1.8 km
+    /// of miss and the same metre left radially is 3.4 km. A caller holding only the length cannot
+    /// tell those apart, and cannot tell whether burning on would still help.</para>
+    /// </param>
     internal readonly record struct Command(
         double3 ThrustDirectionCci,
         double VelocityToGain,
+        double3 ToGainVectorCci,
         double SecondsToCutoff,
         double3 CutoffPositionCci,
         BallisticArc.Solution Arc,
@@ -81,6 +90,7 @@ internal static class BurnoutGuidance
         if (thrustDir.Equals(Vec.Zero)) thrustDir = Vec.Unit(positionCci);
 
         double3 cutoffPosition = positionCci;
+        double3 toGainOut = Vec.Zero;
         BallisticArc.Solution arc = default;
         double toGain = 0.0;
         bool solved = false;
@@ -151,6 +161,7 @@ internal static class BurnoutGuidance
 
             double3 toGainVector = arc.RequiredVelocityCci - velocityAtCutoffUnpowered;
             toGain = Vec.Len(toGainVector);
+            toGainOut = toGainVector;
 
             double3 next = Vec.Unit(toGainVector);
             if (!next.Equals(Vec.Zero)) thrustDir = next;
@@ -177,7 +188,7 @@ internal static class BurnoutGuidance
 
         if (!solved) return false;
 
-        command = new Command(thrustDir, toGain, wanted, cutoffPosition, arc, heldTheArrival);
+        command = new Command(thrustDir, toGain, toGainOut, wanted, cutoffPosition, arc, heldTheArrival);
         return true;
     }
 

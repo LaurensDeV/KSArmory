@@ -184,7 +184,7 @@ internal sealed class IcbmComputer
                      + $"target {OffPlaneDegrees:F1} deg off plane ({PlaneChangeCost:F0} m/s), "
                      + $"reach {Command.Reach}"
                      + (double.IsFinite(Program.ResidualAtCutoff)
-                            ? $", cut off {Program.ResidualAtCutoff:F1} m/s short"
+                            ? $", cut off {Program.ResidualAtCutoff:F2} m/s short{ResidualSaid()}"
                             : "")
                      // The mod's own prediction against its own aim. Near zero means the solution
                      // is self-consistent and whatever missed happened to the round afterwards;
@@ -535,6 +535,29 @@ internal sealed class IcbmComputer
         {
             return Body.SurfaceRadius;
         }
+    }
+
+    // Which way the leftover points, because that is what decides what it costs: on a deorbit a
+    // metre a second left along the track is about 1.8 km of miss and the same metre left radially
+    // is about 3.4 km. The acceleration and step come with it because together they are the floor -
+    // one frame of burning is accel x step x throttle, and a residual near that is a timing limit
+    // rather than a guidance error, which wants a completely different fix.
+    private string ResidualSaid()
+    {
+        double3 leftover = Program.ResidualVectorCci;
+        if (leftover.Equals(Vec.Zero) || !Vec.IsFinite(leftover)) return "";
+
+        double3 up = Vec.Unit(Program.CutoffPositionCci);
+        double3 along = Vec.Unit(Vec.Cross(Vec.Cross(up, Program.Arc?.RequiredVelocityCci ?? up), up));
+
+        if (along.Equals(Vec.Zero)) return "";
+
+        double radial = Vec.Dot(leftover, up);
+        double track = Vec.Dot(leftover, along);
+        double cross = Vec.Len(leftover - up * radial - along * track);
+
+        return $" ({track:F2} along, {radial:F2} radial, {cross:F2} cross"
+               + $"; one frame is {Program.AccelerationAtCutoff * Program.StepAtCutoff:F2} m/s)";
     }
 
     // A warhead does not leave on the bus's velocity. Each is ejected along its own tube at the

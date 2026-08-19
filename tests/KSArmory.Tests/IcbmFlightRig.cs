@@ -43,6 +43,31 @@ internal sealed class IcbmFlightRig
     /// </summary>
     public double CoastStepSeconds = 2.0;
 
+    /// <summary>
+    /// Frames between a command being issued and the vehicle acting on it.
+    ///
+    /// <para>Zero is the rig's original behaviour and is a lie the real game does not tell: KSA
+    /// copies control inputs into its worker in <c>PrepareWorker</c>, which runs before this mod's
+    /// hook, so a write lands on the <em>next</em> frame. A cutoff therefore arrives late and the
+    /// stack burns on past it. With this at zero the rig cannot see any error in the cutoff at all.
+    /// </para>
+    /// </summary>
+    public int CommandLatencyFrames;
+
+    /// <summary>
+    /// How fast the throttle can actually move, in fraction per second.
+    ///
+    /// <para>Infinite is the rig's original behaviour — a servo that arrives instantly, which is
+    /// what hid the cost of the throttle-down ramp. <b>Zero or less means the stack cannot throttle
+    /// at all</b> and stays at full until the engine is shut off, which is the case the cutoff has
+    /// to survive: it is what a solid motor does, and what any engine does if the mod's throttle
+    /// write does not reach it.</para>
+    /// </summary>
+    public double ThrottleRatePerSecond = double.PositiveInfinity;
+
+    /// <summary>What the throttle actually is, as opposed to what was asked for.</summary>
+    public double ThrottleAchieved { get; private set; } = 1.0;
+
     public int StageIndex;
 
     private double3 _pointing;
@@ -105,6 +130,8 @@ internal sealed class IcbmFlightRig
         double peakQ = 0.0;
         double peakAoa = 0.0;
         double3 lastBurnDirection = Vec.Zero;
+        Queue<IcbmCommand> inFlight = new();
+        ThrottleAchieved = 1.0;
 
         while (elapsed < maxSeconds)
         {
@@ -119,10 +146,9 @@ internal sealed class IcbmFlightRig
                                       Performance(), density,
                                       PropellantAvailable: StageIndex < Stages.Count
                                                            && Stages[StageIndex].PropellantKg > 0.0,
-                                      // This rig honours a throttle command exactly. A real stack
-                                      // ramps, and one with solid motors ignores it entirely, which
-                                      // is why the program is told what it got rather than assuming.
-                                      ThrottleAchieved: command.EngineOn ? command.Throttle : 1.0);
+                                      // What the stack has, never what was asked of it. A real one
+                                      // ramps, and one with solid motors ignores the ask entirely.
+                                      ThrottleAchieved: ThrottleAchieved);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
 
@@ -150,13 +176,23 @@ internal sealed class IcbmFlightRig
                 lastBurnDirection = command.ThrustDirectionCci;
             }
 
-            Swing(command.ThrustDirectionCci, h);
+            // What the vehicle is acting on this frame, which is not what was just decided.
+            IcbmCommand applied = command;
+            if (CommandLatencyFrames > 0)
+            {
+                inFlight.Enqueue(command);
+                applied = inFlight.Count > CommandLatencyFrames ? inFlight.Dequeue() : default;
+            }
+
+            SlewThrottle(applied, h);
+
+            Swing(applied.ThrustDirectionCci, h);
 
             double q = 0.5 * density * SeaLevelDensity * Vec.Len2(airflow);
             peakQ = Math.Max(peakQ, q);
             if (q > 200.0) peakAoa = Math.Max(peakAoa, Vec.AngleBetween(airflow, _pointing) * 180.0 / Math.PI);
 
-            Integrate(command, h, density, airflow);
+            Integrate(applied, h, density, airflow);
 
             elapsed += h;
         }
@@ -164,6 +200,27 @@ internal sealed class IcbmFlightRig
         return new Flight(false, PositionCci, VelocityCci, elapsed, 0.0, program.Phase,
                           "ran out of time", peakQ, peakAoa, lastBurnDirection,
                           command.ThrustDirectionCci);
+    }
+
+    private void SlewThrottle(in IcbmCommand command, double step)
+    {
+        double wanted = command.EngineOn ? Math.Clamp(command.Throttle, 0.0, 1.0) : 1.0;
+
+        if (ThrottleRatePerSecond <= 0.0)
+        {
+            ThrottleAchieved = 1.0;
+            return;
+        }
+
+        if (double.IsInfinity(ThrottleRatePerSecond))
+        {
+            ThrottleAchieved = wanted;
+            return;
+        }
+
+        double limit = ThrottleRatePerSecond * step;
+        double error = wanted - ThrottleAchieved;
+        ThrottleAchieved += Math.Clamp(error, -limit, limit);
     }
 
     private void Swing(double3 wanted, double step)
@@ -193,14 +250,16 @@ internal sealed class IcbmFlightRig
             acceleration -= airflow * (0.5 * density * SeaLevelDensity * speed * DragAreaOverMass);
         }
 
-        bool burning = command.EngineOn && command.Throttle > 0.0
+        double throttle = Math.Clamp(ThrottleAchieved, 0.0, 1.0);
+
+        bool burning = command.EngineOn && throttle > 0.0
                        && StageIndex < Stages.Count && Stages[StageIndex].PropellantKg > 0.0;
 
         if (burning && mass > 0.0)
         {
             Stage s = Stages[StageIndex];
-            double burnt = Math.Min(s.PropellantKg, s.MassFlow * command.Throttle * step);
-            acceleration += _pointing * (s.ThrustNewtons * command.Throttle / mass);
+            double burnt = Math.Min(s.PropellantKg, s.MassFlow * throttle * step);
+            acceleration += _pointing * (s.ThrustNewtons * throttle / mass);
             s.PropellantKg -= burnt;
         }
 

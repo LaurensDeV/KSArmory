@@ -279,6 +279,24 @@ internal sealed class IcbmProgram
     public double ResidualAtCutoff { get; private set; } = double.NaN;
 
     /// <summary>
+    /// The same residual as a vector, latched at cutoff, and it is the more useful of the two.
+    ///
+    /// <para>What a metre a second left over costs depends entirely on which way it points: on a
+    /// deorbit, along the track it is about 1.8 km of miss and radially about 3.4 km. A magnitude
+    /// cannot tell those apart, so a residual reported as a number alone leaves the miss it implies
+    /// uncertain by a factor of two.</para>
+    /// </summary>
+    public double3 ResidualVectorCci { get; private set; }
+
+    private double3 _toGainVectorCci;
+
+    /// <summary>What the stack could do at cutoff, latched with the residual to explain it.</summary>
+    public double AccelerationAtCutoff { get; private set; } = double.NaN;
+
+    /// <summary>The step the cutoff landed on, which sets the floor under the residual.</summary>
+    public double StepAtCutoff { get; private set; } = double.NaN;
+
+    /// <summary>
     /// The closest the target ever comes to the plane being flown in, in degrees, or NaN before
     /// anything has looked. A floor well above zero is an inclination this orbit does not have.
     /// </summary>
@@ -345,6 +363,9 @@ internal sealed class IcbmProgram
         _lowestToGain = double.PositiveInfinity;
         _fellShort = false;
         ResidualAtCutoff = double.NaN;
+        ResidualVectorCci = Vec.Zero;
+        AccelerationAtCutoff = double.NaN;
+        StepAtCutoff = double.NaN;
         _arrivalFromLaunch = double.NaN;
         _reachHold = "";
         _sinceWindow = double.PositiveInfinity;
@@ -399,6 +420,9 @@ internal sealed class IcbmProgram
         {
             _fellShort = _toGain > BurnoutGuidance.CutoffMetresPerSecond;
             ResidualAtCutoff = _toGain;
+            ResidualVectorCci = _toGainVectorCci;
+            AccelerationAtCutoff = state.Booster.AccelerationNow;
+            StepAtCutoff = _lastStep;
             Phase = IcbmPhase.Coast;
             return Coasting(state);
         }
@@ -528,13 +552,25 @@ internal sealed class IcbmProgram
         CutoffPositionCci = command.CutoffPositionCci;
         _cutoffSeed = command.SecondsToCutoff;
         _flightSeed = command.Arc.CheapestFlightSeconds;
-        _countdown = command.SecondsToCutoff;
         _toGain = command.VelocityToGain;
+        _toGainVectorCci = command.ToGainVectorCci;
         _lowestToGain = Math.Min(_lowestToGain, _toGain);
 
         if (_toGain > HoldDirectionBelow || _thrustDirCci.Equals(Vec.Zero))
         {
             _thrustDirCci = command.ThrustDirectionCci;
+            _countdown = command.SecondsToCutoff;
+        }
+        else
+        {
+            // Steering is frozen, so thrust is no longer parallel to what is left to gain, and the
+            // solver's countdown - the time to gain the whole *length* of it - overshoots. Only the
+            // component along the line actually being thrust can still be removed; burning past it
+            // grows the residual again, which is what the backstop was catching a whole metre a
+            // second late.
+            double along = Vec.Dot(command.ToGainVectorCci, _thrustDirCci);
+            double seconds = state.Booster.SecondsToGain(Math.Max(along, 0.0));
+            _countdown = double.IsFinite(seconds) ? seconds : 0.0;
         }
         AssessReach(state, command.VelocityToGain);
 
@@ -633,6 +669,9 @@ internal sealed class IcbmProgram
             // perfect trajectory, and reporting a zero says every burn closed perfectly - which is
             // exactly what a burn that ended forty metres a second early also says.
             ResidualAtCutoff = _toGain;
+            ResidualVectorCci = _toGainVectorCci;
+            AccelerationAtCutoff = state.Booster.AccelerationNow;
+            StepAtCutoff = _lastStep;
             Phase = IcbmPhase.Coast;
             return Coasting(state);
         }
