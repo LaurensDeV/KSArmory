@@ -80,6 +80,21 @@ internal sealed class IcbmConfig
     public bool RepointBetweenReleases = true;
 
     /// <summary>
+    /// Put the bus back on its solution with its own thrusters before letting anything go.
+    ///
+    /// <para>The burn ends exact and two things then move the vehicle off it: whatever the cutoff
+    /// left, and the decoupler that drops the spent stack — about a metre a second, arriving after
+    /// the last thing that could have compensated for it. Measured in flight as 3.5 km between the
+    /// one warhead that left before the split and the five that left after it.</para>
+    ///
+    /// <para>On by default, and free for a vehicle it does not describe: a launcher with no
+    /// decoupler and a clean cutoff has nothing to trim, so <see cref="BusTrim"/> finds nothing to
+    /// gain and stands aside. It costs release time on a bus whose thrusters are weak, which is
+    /// what the trim's own budget is for.</para>
+    /// </summary>
+    public bool TrimBeforeRelease = true;
+
+    /// <summary>
     /// Keep a mark on the designated target, with the time to impact beside it.
     ///
     /// <para>Separate from the trajectory, and on by default, because it answers a different

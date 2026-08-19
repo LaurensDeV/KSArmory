@@ -208,6 +208,16 @@ internal sealed partial class Ui
             ImGui.Text($"Still to gain: {command.VelocityToGain:F0} m/s   -   {cutoff}");
         }
 
+        // What the bus is doing between the burn ending and the first warhead leaving, which is
+        // otherwise a stretch of coast with nothing happening on screen and the release held.
+        if (computer.TrimSaid.Length > 0)
+        {
+            double left = computer.TrimToGainMetresPerSecond;
+
+            ImGui.TextColored(double.IsFinite(left) && left <= BusTrim.SettledMetresPerSecond ? Good : Working,
+                              $"Bus trim: {computer.TrimSaid}");
+        }
+
         // Named for what it actually is. It is a free-fall prediction, so on the pad the honest
         // answer is "on the pad" - true, useless, and worth saying rather than dressing up.
         if (double.IsFinite(computer.PredictedMissMetres))
@@ -278,6 +288,12 @@ internal sealed partial class Ui
         ImGui.TextDisabled(config.AutoRelease
             ? "  one at a time from the coast, once past the release altitude"
             : "  nothing leaves the bus until the button above is pressed");
+
+        bool trim = config.TrimBeforeRelease;
+        if (ImGui.Checkbox("Trim the bus before releasing", ref trim)) config.TrimBeforeRelease = trim;
+        ImGui.TextDisabled(config.TrimBeforeRelease
+            ? "  thrusters put it back on the solution after the split, which the burn cannot"
+            : "  the warheads leave on whatever the cutoff and the decoupler left the bus doing");
 
         bool repoint = config.RepointBetweenReleases;
         if (ImGui.Checkbox("Aim each tube before it fires", ref repoint))

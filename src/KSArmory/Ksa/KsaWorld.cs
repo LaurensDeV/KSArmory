@@ -873,6 +873,46 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// The craft's control frame, as three axes in the parent body's inertial frame: the nose, the
+    /// starboard beam and the belly.
+    ///
+    /// <para>The control frame rather than the assembly frame, because it is what KSA maps its
+    /// thrusters against — <c>ThrusterController</c> flags a nozzle
+    /// <c>TranslateForward</c>/<c>Right</c>/<c>Down</c> by which of these three its thrust points
+    /// along. So a translation command resolved in any other frame fires the wrong jets, and on a
+    /// craft whose command pod is mounted square to the stack it does it without looking wrong.
+    /// </para>
+    /// </summary>
+    public static bool TryControlFrameCci(Vehicle craft, Celestial parent,
+                                          out double3 noseCci, out double3 rightCci, out double3 downCci)
+    {
+        noseCci = default;
+        rightCci = default;
+        downCci = default;
+
+        try
+        {
+            doubleQuat ctrl2Body = craft.Ctrl2Body;
+            doubleQuat body2Cce = craft.Body2Cce;
+            doubleQuat cce2Cci = parent.GetCce2Cci();
+
+            noseCci = Axis(double3.UnitX);
+            rightCci = Axis(double3.UnitY);
+            downCci = Axis(double3.UnitZ);
+
+            return Vec.IsFinite(noseCci) && Vec.IsFinite(rightCci) && Vec.IsFinite(downCci)
+                   && !noseCci.Equals(Vec.Zero) && !rightCci.Equals(Vec.Zero) && !downCci.Equals(Vec.Zero);
+
+            double3 Axis(double3 ctrl)
+                => Vec.Unit(ctrl.Transform(ctrl2Body).Transform(body2Cce).Transform(cce2Cci));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// How fast the ground under a point is moving, in the ecliptic frame: the parent body's own
     /// motion plus its spin at that radius.
     ///

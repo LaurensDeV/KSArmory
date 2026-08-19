@@ -24,20 +24,34 @@ It arrives *after* the last thing that could compensate for it: the arc is solve
 163 m is also the best honest result of the day, and it is what the guidance does when nothing
 perturbs it.
 
-## 1. Null the separation impulse — the whole job
+## 1. Null the separation impulse — built, unflown
 
-The bus carries sixteen `RocketThrusterController` nozzles, its own MMH/NTO tank (~183 kg) and a
-`<Control/>` module (`src/KSArmory/KSArmoryGameData.xml:479-555`), and currently never uses any of
-it for anything but attitude. Trimming ~1.1 m/s is what a post-boost vehicle's propellant is *for*,
-and it removes the error at source rather than working around it.
+`Sim/BusTrim.cs`, on by default via `IcbmConfig.TrimBeforeRelease`, and it is a precondition of
+being ready to deploy rather than a step inside the release sequence. It re-solves the arc from the
+bus's state to `IcbmProgram.CommittedArrivalFromNow`, resolves the difference onto the vehicle's own
+control axes, and holds the corresponding `TranslateForward`/`Right`/`Down` flags through
+`Vehicle.ProcessInput` — the same channel the throttle already uses, so nothing new is patched.
+`docs/ICBM-GUIDANCE.md` has the full account.
 
-Sketch: after the split, compare the bus's actual velocity against `Program.Arc.RequiredVelocityCci`
-carried to now, and burn the difference on RCS before the first release. The velocity-to-be-gained
-machinery in `Sim/BurnoutGuidance.cs` already answers "what is left to gain" — the new part is an
-actuator that is not the main engine.
+Headlessly on this trajectory: a 1.1 m/s shove is **2.4 km of miss, trimmed to 2 m in 1.5 s**.
 
-**Until this lands, re-pointing cannot pay for itself** and separation is a net loss of ~3.4 km in
-exchange for turning authority.
+**What has to be watched in flight**, because no headless test can reach it:
+
+- **Do the translation flags move the shipped bus at all?** The four clusters are laid out for
+  pitch, yaw, roll and axial thrust, so `ThrusterController.ComputeControlMap` should give the
+  axial pair `TranslateForward`/`Backward` and the tangential jets whatever their thrust happens to
+  point along. If nothing answers, the log says `nothing left aboard moves the bus` with the
+  residual, and the warheads go anyway.
+- **What acceleration they give it.** That number is the floor under the residual — one step of
+  firing is `acceleration x step` — and it is logged (`thrusters measured at N m/s2`). If it is
+  large enough that the residual lands above ~0.05 m/s at a sensible step, the next lever is KSA's
+  own `FlightComputerManualThrustMode.Pulse`, which is a ~3.6% duty cycle and the exact analogue of
+  the burn's throttle ramp.
+- **Whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable on paper and has
+  never been spent.
+
+The warp hold now covers the trim as well as the burn (`IcbmComputer.NeedsShortSteps`), for the
+same reason: the stop lands on a frame boundary.
 
 ## 2. The prediction under-reads the impulse by ~1.2 km
 
@@ -45,14 +59,18 @@ The release probe said 2.4 km for the shoved rounds; they landed at 3.1-4.1 km. 
 sees *some* of the shove but not all of it — it is measuring the bus's post-split state, which
 should be complete. Worth finding out why before trusting the probe on any separated shot.
 
-## 3. The first round races the separation
+## 3. The first round races the separation — fixed with item 1, unflown
 
 Flown: `round 1 away` at 23:04:26.025, the split applied at `.071`. One warhead left the attached
 stack and five left the shoved bus, which is why the salvo had a 163 m outlier and a 3.6 km group.
 
-Harmless today — the outlier is the *good* one — but the salvo should be consistent. Separation
-should complete before the first release, which means a state between "ready to deploy" and
-"releasing" rather than both firing on the same frame.
+Separation now runs before anything decides whether a warhead may go, and the trim then holds the
+release until the split has landed — `BusTrim.SettleSeconds`, gated on the decoupler's joint no
+longer being there rather than on a timer. The state between "ready to deploy" and "releasing" is
+the trim itself.
+
+Worth confirming in flight that the first `round N away` line now follows the handover line rather
+than preceding it.
 
 ## 4. The view change is still refused by the engine
 
@@ -72,7 +90,8 @@ It fails safely: the camera stays on the spent stack and nothing else is lost.
 
 `Sim/ReleasePointing.cs` and `Sim/ReleaseSequence.cs`, on by default via
 `IcbmConfig.RepointBetweenReleases`. Headlessly it collapses the tube-cant spread from **1,730 m to
-0 m** and is roll-independent; in flight its benefit is buried under item 1.
+0 m** and is roll-independent; in flight its benefit was buried under item 1, which is now built and
+wants flying before this can be judged.
 
 Two things to look at once the impulse is nulled:
 

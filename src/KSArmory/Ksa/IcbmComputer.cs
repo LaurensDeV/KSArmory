@@ -35,9 +35,12 @@ internal sealed class IcbmComputer
     private double3 _rollReference;
     private readonly AimCorrection _aim = new();
     private readonly ReleaseSequence _sequence = new();
+    private readonly BusTrim _trim = new();
     private ReleaseCommand _deploy;
     private readonly double3[] _tubeAxes = new double3[64];
     private bool _separated;
+    private bool _awaitingSplit;
+    private string _saidTrim = "";
     private Vehicle? _viewWanted;
     private string _saidLast = "";
     private double3 _trueAimCci;
@@ -105,6 +108,22 @@ internal sealed class IcbmComputer
                ? Program.SecondsToArrival
                : PredictedImpact?.Seconds ?? double.NaN;
 
+    /// <summary>How far off its solution the bus still is, or NaN while nothing is trimming it.</summary>
+    public double TrimToGainMetresPerSecond => _trim.Armed ? _trim.ToGainMetresPerSecond : double.NaN;
+
+    /// <summary>What the trim is doing, or the residual it settled or gave up at. Empty before it starts.</summary>
+    public string TrimSaid => _trim.Said;
+
+    /// <summary>
+    /// Whether the world has to be kept slow, which is the burn plus the trim.
+    ///
+    /// <para>The trim stops on a frame boundary exactly as the burn does, so the velocity it leaves
+    /// behind is what one step of its thrusters adds. At a tenth of a second that is centimetres a
+    /// second and the whole point of doing it; at the steps high timewarp hands out it is metres a
+    /// second, which is worse than never having trimmed at all.</para>
+    /// </summary>
+    public bool NeedsShortSteps => Program.NeedsShortSteps || (_trim.Armed && !_trim.Done);
+
     public Celestial? Parent { get; private set; }
 
     public IcbmComputer(Vehicle craft, IcbmConfig config)
@@ -121,6 +140,8 @@ internal sealed class IcbmComputer
         _reported = IcbmPhase.Idle;
         _aim.Reset();
         _sequence.Reset();
+        _trim.Reset();
+        _saidTrim = "";
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -147,7 +168,14 @@ internal sealed class IcbmComputer
             _driving = false;
         }
 
+        // Outside that block, and before the reset that forgets what was being fired: the thruster
+        // flags are held keys, so a stood-down computer that leaves one down hands the player a bus
+        // translating on its own with nothing on screen saying why.
+        VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+
         Program.Reset();
+        _trim.Reset();
+        _saidTrim = "";
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
 
@@ -215,6 +243,19 @@ internal sealed class IcbmComputer
         FlightComputerAttitudeMode wasMode = Craft.FlightComputer.AttitudeMode;
         FlightComputerAttitudeTrackTarget wasTrack = Craft.FlightComputer.AttitudeTrackTarget;
 
+        // At cutoff rather than at the first release, which on a nominal shot is the same frame:
+        // the launcher has the whole coast to settle, and every kilogram of spent stack is mass its
+        // own thrusters would otherwise have to turn between releases.
+        //
+        // Both of these run before anything decides whether a warhead may go, and the ordering is
+        // the point. The decoupler's shove is about a metre a second and it arrives after the last
+        // thing that could compensate for it; letting a round go on the same frame the split is
+        // asked for sends one warhead on the attached stack's solution and the rest on the shoved
+        // bus's. Measured in flight as a 163 m outlier inside a 3.6 km group.
+        if (Command.ReadyToDeploy) SeparateOnce(release);
+
+        DriveTrim(simStep, state, release);
+
         // Attitude is driven for every phase that is doing something, not only while an engine is
         // lit. A hold can be an hour long and the vehicle is pointed at the burn for all of it; and
         // after cutoff the bus has to keep the line it was cut off on for the warheads to leave
@@ -272,11 +313,6 @@ internal sealed class IcbmComputer
             VehicleCommand.SetEngine(Craft, running: false);
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, 1.0);
         }
-
-        // At cutoff rather than at the first release, which on a nominal shot is the same frame:
-        // the launcher has the whole coast to settle, and every kilogram of spent stack is mass its
-        // own thrusters would otherwise have to turn between releases.
-        if (Command.ReadyToDeploy) SeparateOnce(release);
 
         if (Config.AutoRelease && _deploy.ReleaseNow) Release(release);
 
@@ -380,6 +416,11 @@ internal sealed class IcbmComputer
             VehicleCommand.ReleaseAttitude(left);
         }
 
+        // Unconditionally, and not with the rest. The rehome lands a frame after the split, so the
+        // trim can already have commanded the half being left behind - and a thruster flag is a
+        // held key, so nothing would ever let go of it again.
+        VehicleCommand.DriveTranslation(left, TrimAxes.None);
+
         Craft = craft;
 
         Log.Info($"ICBM computer followed its weapon from {KsaWorld.DisplayName(left)} "
@@ -432,9 +473,65 @@ internal sealed class IcbmComputer
 
         if (weapon.Separate())
         {
+            _awaitingSplit = true;
+
             Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} separating the launcher "
                      + "from the stack before deploying");
         }
+    }
+
+    // Put the bus back on its solution with its own thrusters, before anything leaves it. All the
+    // deciding is in BusTrim; what is here is the same two conversions as everywhere else in this
+    // file - the world into a situation and the answer into writes on somebody else's vehicle -
+    // plus the one thing only this side can know, which is whether the split has actually landed.
+    private void DriveTrim(double simStep, in IcbmState state, IManualFire? weapon)
+    {
+        if (!Config.TrimBeforeRelease || !Command.ReadyToDeploy)
+        {
+            if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+            return;
+        }
+
+        // The error this exists to remove arrives *with* the split, and the split is deferred
+        // through the engine's input buffer. Asking the joint again is the split itself rather than
+        // a timer: the decoupler that was there is the one that just came apart, so the question
+        // stops answering yes the moment it has. A launcher that never had one is past this
+        // already, because SeparateOnce never set the flag.
+        if (_awaitingSplit)
+        {
+            if (weapon is { CanSeparate: true }) return;
+            _awaitingSplit = false;
+        }
+
+        _trim.Begin();
+
+        double3 nose = Vec.Zero;
+        double3 right = Vec.Zero;
+        double3 down = Vec.Zero;
+
+        // A frame that will not resolve is handed in as zeroes rather than skipped, because the
+        // trim's own budget is what has to bound a part tree that never comes back - and it can
+        // only run that budget down if it is being stepped.
+        if (Parent is { } parent)
+        {
+            KsaWorld.TryControlFrameCci(Craft, parent, out nose, out right, out down);
+        }
+
+        TrimCommand trim = _trim.Update(simStep, new TrimSituation(
+            state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
+            Program.CommittedArrivalFromNow, nose, right, down));
+
+        VehicleCommand.DriveTranslation(Craft, trim.Fire);
+
+        // Said once per change. A trim that stalls looks exactly like one that has finished, and
+        // the difference between them is kilometres on the ground.
+        if (trim.Said == _saidTrim) return;
+
+        _saidTrim = trim.Said;
+        if (_saidTrim.Length == 0) return;
+
+        Log.Info($"trimming the bus on {KsaWorld.DisplayName(Craft)}: {_saidTrim}"
+                 + (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : ""));
     }
 
     /// <summary>Let one warhead go at the aim point, if there is one to let go and it is ready.</summary>
@@ -715,7 +812,13 @@ internal sealed class IcbmComputer
         double3 held = Command.ThrustDirectionCci;
         double3 roll = _rollReference;
 
-        if (weapon is null || !Command.ReadyToDeploy)
+        // The trim is a precondition of being ready rather than a step inside the sequence, and
+        // that is what keeps the sequencer's reference honest: it latches the tube axes on the
+        // first frame the launcher is both ready and settled, and a reference latched before the
+        // decoupler's shove has been taken back out describes a line no warhead will leave on.
+        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy && !_trim.Done;
+
+        if (weapon is null || !Command.ReadyToDeploy || trimming)
         {
             return new ReleaseCommand(held, roll, false, -1, 0.0, "");
         }

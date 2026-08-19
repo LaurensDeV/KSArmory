@@ -42,7 +42,7 @@ internal sealed class IcbmComputers
 
         foreach (IcbmComputer computer in _computers.Values)
         {
-            if (!computer.Program.NeedsShortSteps) continue;
+            if (!computer.NeedsShortSteps) continue;
 
             // Not while KSA is running its own warp to a time. That mechanism lands the world where
             // it was asked to and stops; racing it down is the fight WarpPolicy stands down from

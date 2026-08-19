@@ -134,6 +134,40 @@ internal static class VehicleCommand
         return have;
     }
 
+    /// <summary>
+    /// Hold the attitude-control thrusters on in the named directions, and off in the rest.
+    ///
+    /// <para>The same held-key model the throttle uses: <c>ProcessInput</c> sets and clears bits in
+    /// the vehicle's own <c>ThrusterCommandFlags</c>, which persist until released, so every
+    /// direction has to be written every cycle rather than only the ones wanted. This is the
+    /// keyboard's channel and nothing else — the translation flags survive the flight computer's
+    /// automatic attitude hold untouched, because that only ever clears the <em>rotation</em>
+    /// ones.</para>
+    ///
+    /// <para>Whether a direction does anything is the vehicle's business. KSA works out which
+    /// nozzles answer to which flag from where they point, so a bus whose clusters are laid out for
+    /// roll and pitch has no lateral translation at all and the command is simply ignored — which
+    /// is why <see cref="BusTrim"/> measures rather than assumes.</para>
+    /// </summary>
+    public static void DriveTranslation(Vehicle craft, TrimAxes fire)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        Hold(InputAction.TranslateForward, TrimAxes.Forward);
+        Hold(InputAction.TranslateBackward, TrimAxes.Backward);
+        Hold(InputAction.TranslateRight, TrimAxes.Right);
+        Hold(InputAction.TranslateLeft, TrimAxes.Left);
+        Hold(InputAction.TranslateDown, TrimAxes.Down);
+        Hold(InputAction.TranslateUp, TrimAxes.Up);
+
+        void Hold(InputAction action, TrimAxes direction)
+            => craft.ProcessInput(action,
+                                  (fire & direction) != TrimAxes.None
+                                      ? GlfwKeyAction.Press
+                                      : GlfwKeyAction.Release,
+                                  default);
+    }
+
     /// <summary>Fire the next stage, which is how an engine is lit as well as how one is dropped.</summary>
     public static void Stage(Vehicle craft)
     {

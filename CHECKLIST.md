@@ -1225,6 +1225,30 @@ un-re-pointed, and the cause is understood: the decoupler's ~1.1 m/s shove lands
 thing that could compensate for it, and the salvo takes three minutes because each tube costs ~28 s
 to settle — so every warhead gets that error amplified by a different time-to-impact.
 
+**The trim that answers that is built and has not been flown.** `Sim/BusTrim.cs`, on by default via
+**Trim the bus before releasing**. Headlessly it takes a 1.1 m/s shove from 2.4 km of miss to 2 m in
+1.5 s; what no test can reach is whether KSA's translation flags move the shipped bus at all. The
+whole point of this block is finding that out — none of it is a regression list.
+
+- [ ] The panel shows `Bus trim: trimming N m/s on the nose` (or the tail) after cutoff, and the log
+      carries the same line with `thrusters measured at N m/s2` beside it.
+- [ ] **Write down that acceleration.** It is the floor under the residual — one step of firing is
+      `acceleration x step` — and it decides whether the next lever (KSA's `Pulse` thrust mode) is
+      needed at all.
+- [ ] It settles rather than hunting: the readout closes on `trimmed to N m/s` and stops, rather
+      than oscillating for the rest of the coast.
+- [ ] Nothing leaves the bus until it has. The first `round 1 away` follows the handover line,
+      **not** precedes it — which is the 163 m outlier the last flight had.
+- [ ] With no decoupler fitted it still runs, removes the cutoff residual, and costs a second or two
+      rather than a minute.
+- [ ] If the flags reach nothing, the log says `nothing left aboard moves the bus` with the residual
+      and the warheads go anyway. Warheads still aboard when the release altitude closes is the one
+      failure this must not have.
+- [ ] Timewarp is held down through the trim as well as the burn, and given back after it.
+- [ ] With **Trim the bus before releasing** off, behaviour is exactly as it was: released as soon
+      as the tubes stop sweeping, with the shove still in.
+- [ ] The six land closer together, and closer in, than the 3.1-4.1 km group above.
+
 **And the site shot two of them down.** The Pantsir at the target detected a warhead at 20 km, fired
 two interceptors, killed it at 11 m, re-laid on the next at 4.1 km and killed that at 15 m. The two
 it picked were the most accurate of the salvo, because flying accurately means flying at the

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-149 types and 415 members across 7 assemblies.
+149 types and 419 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -30,6 +30,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.double3
 
 - `Brutal.Numerics.double3 Cross(Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `Brutal.Numerics.double3 get_UnitX()`
+- `Brutal.Numerics.double3 get_UnitY()`
+- `Brutal.Numerics.double3 get_UnitZ()`
 - `Brutal.Numerics.double3 get_Zero()`
 - `Brutal.Numerics.double3 op_Addition(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `Brutal.Numerics.double3 op_Division(Brutal.Numerics.double3, double)`
@@ -830,6 +833,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double4x4 GetMatrixAsmb2Ego(KSA.Camera)`
 - `Brutal.Numerics.doubleQuat get_Asmb2Ego()`
 - `Brutal.Numerics.doubleQuat get_Body2Cce()`
+- `Brutal.Numerics.doubleQuat get_Ctrl2Body()`
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
 - `KSA.FlightComputer get_FlightComputer()`
 - `KSA.IParentBody get_Parent()`

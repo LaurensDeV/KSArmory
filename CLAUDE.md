@@ -285,10 +285,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BurnoutGuidance.cs` | where to point and when to stop — velocity still to be gained |
 | `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |
 | `Sim/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
+| `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
 | `Sim/ReleasePointing.cs` | which way a launcher must hold for one tube to throw along the line the others did |
 | `Sim/ReleaseSequence.cs` | letting a magazine go one round at a time, each along that same line |
 | `Sim/PlatformHandover.cs` | which craft a launcher went to, when a decoupler took it off the one carrying it |
-| `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, ascent, staging |
+| `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, ascent, staging, trim |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
@@ -408,7 +409,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/apidump/` | reflection dumper for the game assemblies |
 | `tools/apisurface/` | reads the KSA API this mod binds to out of its own metadata |
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 415 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 419 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1084,6 +1085,23 @@ construction, because it never asks again. Third time this mod has met this shap
 **Attitude is driven for every phase that is doing something**, not only while an engine is lit — a
 hold is an hour of being pointed at a burn, and after cutoff the bus keeps the line the warheads
 leave along.
+
+**The burn is exact when it ends, and two things then move the vehicle off it.** The frame the
+cutoff landed on, and the decoupler that drops the spent stack — 7 kN against a six-tonne bus is
+about 1.1 m/s, arriving *after* the last thing that could compensate for it, and measured in flight
+as **3.5 km** between the one warhead that left before the split and the five that left after.
+Nothing in the guidance can answer it, because the guidance is over. `Sim/BusTrim.cs` is the same
+loop against a different actuator — re-solve to the **committed** arrival, thrust along the
+difference on the attitude-control jets, stop when less than one frame of firing is left.
+
+Three things about it are the decisions, and each cost a wrong version first. It resolves onto the
+**vehicle's own control axes** rather than turning to point at the answer, because by the coast the
+attitude *is* the release line and the dominant component is axial anyway — a decoupler pushes along
+the joint. It fires **one direction at a time**, because the stop threshold is half a frame of a
+thrust that is only measurable along the direction being fired, and a bus's lateral authority is
+whatever its nozzle layout happened to give it — the shipped one has none. And it is a **precondition
+of being ready to deploy** rather than a step inside the release sequence, which is what stops one
+warhead leaving on the attached stack's solution and the rest on the shoved bus's.
 
 **It joins the flight wherever the vehicle already is, and "when to burn" is its own question.**
 The phase machine is entered by looking at the vehicle rather than by assuming a pad: low and still

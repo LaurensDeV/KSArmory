@@ -735,6 +735,75 @@ breaks the release in either direction.
 The computer is **moved rather than rebuilt**: a fresh one re-enters the phase machine at `Holding`,
 and only `Coast` ever sets `ReadyToDeploy`, so it would never release a warhead at all.
 
+## The split costs a metre a second, and only the bus can pay it back
+
+Separating is worth two to three orders of magnitude of turning authority and it arrives with a
+bill. `CoreCouplingA_Prefab_Decoupler3WA` declares `Force="7000"`, which against a ~6,300 kg bus is
+about **1.1 m/s** — and it lands *after* the last thing that could compensate for it, because the
+arc is solved at cutoff and `Coast` never re-solves.
+
+Flown, six warheads off one vehicle on one trajectory inside 0.24 s, the only difference between
+them being whether the decoupler had fired:
+
+| | miss |
+| --- | --- |
+| the one that left **before** the split | **163 m** |
+| the five that left **after** it | 3,100–4,100 m, tight to 1,000 m |
+
+**The decoupler costs 3.5 km**, and at cutoff attitude most of it lands on the radial axis — the
+expensive one, at 3,401 m of miss per m/s against 1,769 along-track and 780 cross-track.
+
+`Sim/BusTrim.cs` is the answer, and it is the same loop as the burn against a different actuator:
+re-solve the arc from where the bus is now to the arrival it was already committed to, take the
+difference, thrust along it with the attitude-control jets, stop when less than one frame of firing
+is left. Nothing accumulates because nothing is remembered, so it is exact at the instant it ends
+however badly the split went. **It removes the cutoff residual too** — a bus with no decoupler at all
+still arrives at the coast holding whatever the last frame of the upper stage added.
+
+Headlessly, through the real transfer solver, on the flown 2,700 km deorbit: a 1.1 m/s shove is
+**2.4 km of miss, trimmed to 2 m in 1.5 s**.
+
+Five things it is careful about, and each is a way it went wrong first:
+
+- **The arrival is the committed one, never a fresh choice.** The cheapest arc from any state
+  converges on the arc that state is already flying, so a trim that chose its own arrival would
+  decide the bus was exactly where it should be and null nothing — reporting success on a shot it
+  never touched. `IcbmProgram.CommittedArrivalFromNow` is deliberately separate from
+  `SecondsToArrival`, which stops answering at cutoff because the flown prediction is better by then.
+- **It resolves onto the vehicle's own axes rather than pointing at the answer.** By the coast the
+  attitude *is* the release line, so turning to burn and turning back costs the whole settle twice
+  and disturbs the thing the sequencer is about to latch. KSA maps a nozzle to
+  `TranslateForward`/`Right`/`Down` by which control-frame axis its thrust points along, so
+  `KsaWorld.TryControlFrameCci` reads `Ctrl2Body ∘ Body2Cce ∘ Cce2Cci` and the flags fall out. And
+  the dominant component is axial anyway: a decoupler pushes along the joint it came apart at.
+- **One direction at a time, because the stop threshold is only knowable where it was measured.**
+  Half a frame of thrust is the rule, and the acceleration in it is measured — the velocity change
+  less what gravity did over the same interval — which is only attributable along the direction
+  actually being fired. The shipped bus is four clusters of four laid out for pitch, yaw, roll and
+  axial thrust, with **no lateral translation at all**, so a loop that assumed three-axis authority
+  would push at nothing for ever. A direction that fires without moving its own component is struck
+  off and the next one tried, which is what lets a bus with only an axial pair still get the axial
+  error out.
+- **It may not finish before the shove has arrived.** The split is deferred through the engine's
+  input buffer, so for the first frames after it is asked for the bus is still exactly on its
+  solution. Stopping there is stopping on a problem that has not arrived, and nothing afterwards
+  looks again. `SettleSeconds` is the guard, and it is also why separation now runs *before*
+  anything decides whether a warhead may go: flown, the first round left at `23:04:26.025` and the
+  split landed at `.071`, which is how one warhead came off the attached stack and five off the
+  shoved bus.
+- **It gives up rather than holding warheads**, on the same argument `ReleaseSequence` gives up on.
+  A stall on the total — not on one direction — is what stops it: with a fixed arrival, a lateral
+  error the bus cannot null grows a fresh axial requirement every cycle, so the axial jets chase it
+  until something says stop. The overall clock has to be longer than the per-direction one, or the
+  loop gives up before the direction that does not work has been struck off.
+
+**The residual is a timing limit, not a control error**, exactly as it is at cutoff: one step of the
+thrusters is `acceleration × step`. Headlessly at 3 m/s², a 17 ms step leaves 0.001 m/s and a 300 ms
+step leaves 0.202 m/s. So the trim registers with `WarpPolicy` alongside a burn — `IcbmComputer`
+answers `NeedsShortSteps` for it — and the known next lever, if the flown number turns out too
+coarse, is KSA's own `FlightComputerManualThrustMode.Pulse`: a 5.4 ms pulse every 0.15 s is the same
+trick as the burn's throttle ramp at a ~3.6% duty cycle.
+
 ## The attitude at cutoff is held, not solved
 
 Velocity still to gain is a *difference*, so as it closes on zero its direction is the difference of
@@ -761,8 +830,15 @@ coast keeps it rather than swinging to prograde.
 
 ## Not done, and not verified
 
-**None of this has been flown in game.** Everything above is measured headlessly. The parts most
-likely to be wrong are the ones a test cannot reach:
+**The flight works end to end and the numbers above say how well.** `CHECKLIST.md` §12 is the list
+of what has been confirmed and what has not, and it is the one to read — what follows is only the
+parts a headless test cannot reach at all.
+
+**The bus trim has not been flown.** Everything in *The split costs a metre a second* is measured
+headlessly against a bus this mod invented for the test. What it stands on that no test can check:
+whether KSA's translation flags reach the shipped bus's nozzles at all, and what acceleration they
+give it — which is the number that sets the floor under the residual, and is the reason the loop
+measures it and logs it rather than assuming one.
 
 - **Which way the nose points.** `GetTgt2Cci` is the engine's own aiming frame and is used exactly
   as the engine uses it, but whether KSA's idea of a vehicle's nose matches a player's rocket has

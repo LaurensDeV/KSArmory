@@ -350,6 +350,18 @@ internal sealed class IcbmProgram
         }
     }
 
+    /// <summary>
+    /// The arrival the shot was committed to, as seconds from now. NaN before commitment.
+    ///
+    /// <para>Deliberately not <see cref="SecondsToArrival"/>, which stops answering once the burn
+    /// is over because the flown prediction is better by then. This one is the <em>parameter</em>
+    /// the arc was solved against rather than an estimate of when anything lands, and it is what a
+    /// correction made after cutoff has to re-solve to: asking for the cheapest arrival instead
+    /// gets back the trajectory the vehicle is already on, however far off the shot that is.</para>
+    /// </summary>
+    public double CommittedArrivalFromNow
+        => double.IsFinite(_arrivalFromLaunch) ? _arrivalFromLaunch - _sinceLaunch : double.NaN;
+
     public IcbmProgram(IcbmConfig config) => Config = config;
 
     /// <summary>Back to the pad. The one way a flight can be un-flown.</summary>
