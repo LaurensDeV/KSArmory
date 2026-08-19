@@ -574,8 +574,15 @@ internal sealed class IcbmComputer
         double track = Vec.Dot(leftover, along);
         double cross = Vec.Len(leftover - up * radial - along * track);
 
+        // The frame quantum at the throttle the stack actually had, beside the same quantum at
+        // full thrust. A commanded ramp that never arrives makes those two equal, and is otherwise
+        // indistinguishable from never having asked for one.
+        double full = Program.AccelerationAtCutoff * Program.StepAtCutoff;
+        double achieved = Program.ThrottleAtCutoff;
+
         return $" ({track:F2} along, {radial:F2} radial, {cross:F2} cross"
-               + $"; one frame is {Program.AccelerationAtCutoff * Program.StepAtCutoff:F2} m/s)";
+               + $"; one frame is {full * (double.IsFinite(achieved) ? achieved : 1.0):F3} m/s at "
+               + $"{achieved:P0} throttle, {full:F2} at full)";
     }
 
     // A warhead does not leave on the bus's velocity. Each is ejected along its own tube at the

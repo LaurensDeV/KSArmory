@@ -297,6 +297,16 @@ internal sealed class IcbmProgram
     public double StepAtCutoff { get; private set; } = double.NaN;
 
     /// <summary>
+    /// The throttle the stack actually had when the engines stopped.
+    ///
+    /// <para>The floor under the residual is <c>acceleration x step x throttle</c>, so this is the
+    /// third of the three and the only one anything can change. A ramp that is commanded and never
+    /// arrives leaves the other two multiplied by one, and looks identical from outside to a ramp
+    /// that was never asked for.</para>
+    /// </summary>
+    public double ThrottleAtCutoff { get; private set; } = double.NaN;
+
+    /// <summary>
     /// The closest the target ever comes to the plane being flown in, in degrees, or NaN before
     /// anything has looked. A floor well above zero is an inclination this orbit does not have.
     /// </summary>
@@ -366,6 +376,7 @@ internal sealed class IcbmProgram
         ResidualVectorCci = Vec.Zero;
         AccelerationAtCutoff = double.NaN;
         StepAtCutoff = double.NaN;
+        ThrottleAtCutoff = double.NaN;
         _arrivalFromLaunch = double.NaN;
         _reachHold = "";
         _sinceWindow = double.PositiveInfinity;
@@ -423,6 +434,7 @@ internal sealed class IcbmProgram
             ResidualVectorCci = _toGainVectorCci;
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
+            ThrottleAtCutoff = state.ThrottleAchieved;
             Phase = IcbmPhase.Coast;
             return Coasting(state);
         }
@@ -672,6 +684,7 @@ internal sealed class IcbmProgram
             ResidualVectorCci = _toGainVectorCci;
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
+            ThrottleAtCutoff = state.ThrottleAchieved;
             Phase = IcbmPhase.Coast;
             return Coasting(state);
         }
