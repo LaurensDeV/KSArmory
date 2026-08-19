@@ -269,12 +269,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// the part tree during staging and docking and the ordinal survives that where a reference
     /// does not.</para>
     ///
-    /// <para>Fixed for the system's life. A craft carrying several launchers is crewed once per
-    /// launcher, so switching weapons selects a different <em>system</em> rather than re-pointing
-    /// this one — which is what keeps each launcher's magazine, drives and rounds its own. Moving
-    /// this instead would refill the magazine on every switch.</para>
+    /// <para>Fixed for the system's life on one craft. A craft carrying several launchers is crewed
+    /// once per launcher, so switching weapons selects a different <em>system</em> rather than
+    /// re-pointing this one — which is what keeps each launcher's magazine, drives and rounds its
+    /// own. Moving this instead would refill the magazine on every switch.</para>
+    ///
+    /// <para>It moves for exactly one reason: <see cref="Rehome"/>, when a decoupler carries this
+    /// launcher onto another craft where it may sit at a different ordinal.</para>
     /// </summary>
-    public int LauncherOrdinal { get; } = launcherOrdinal;
+    public int LauncherOrdinal { get; private set; } = launcherOrdinal;
     private readonly List<(Part, LauncherProfile)> _launcherScratch = [];
 
     private bool _hasPlatformSample;
@@ -507,6 +510,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (_lastPlatform is not null && _rounds.Count > 0)
             {
                 Announce($"platform changed to {KsaWorld.DisplayName(Platform)}, re-basing {_rounds.Count} round(s) in flight");
+                ReanchorRounds(KsaWorld.PositionEcl(Platform));
             }
             _lastPlatform = Platform;
         }
@@ -2048,6 +2052,67 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// Hands this system's rounds over to the body they are flying over, because the craft that
     /// fired them has been destroyed.
     /// </summary>
+    // Every offset a round holds, moved onto a new anchor at once. OffsetFromPlatform would sort
+    // itself out on the next step, which is exactly what makes a partial re-anchor look right --
+    // and the launch offset and the trail would go on being measured from where the old anchor
+    // was. See IProjectile.Reanchor.
+    private void ReanchorRounds(double3 toEcl)
+    {
+        if (!Vec.IsFinite(toEcl)) return;
+
+        double3 shift = PlatformEcl - toEcl;
+        for (int i = 0; i < _rounds.Count; i++) _rounds[i].Reanchor(shift);
+    }
+
+    /// <summary>
+    /// Follow this launcher onto the craft that now carries it, after a decoupler split it off the
+    /// one it was on.
+    ///
+    /// <para>The magazine, the rounds in flight, the settings and the teams come across by being
+    /// this same object — which is why the roster moves the entry rather than crewing a new
+    /// system. A new one would arrive with a full magazine, default settings and no teams.</para>
+    ///
+    /// <para><b>Not <see cref="GoLoose"/>.</b> That is for a launcher that <em>died</em>: no craft
+    /// is left, the rounds are handed to the body they are flying over, fire control stops for good
+    /// and the system is dropped when the last one lands. Here the launcher is alive on a live
+    /// craft with rounds still in its tubes, and all of it has to keep running.</para>
+    /// </summary>
+    public void Rehome(Vehicle craft, int ordinal)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        double3 toEcl = KsaWorld.PositionEcl(craft);
+        if (!Vec.IsFinite(toEcl)) return;
+
+        int aboard = Ammo;
+        int flying = _rounds.Count;
+        double moved = Vec.Len(toEcl - PlatformEcl);
+
+        ReanchorRounds(toEcl);
+
+        PlatformEcl = toEcl;
+        PlatformStepEcl = Vec.Zero;
+        LauncherOrdinal = ordinal;
+
+        // The subpart references are this craft's part tree, and the tree the launcher now lives in
+        // is a different one. Cleared so they are found again rather than written to parts that
+        // belong to the craft it left.
+        _loggedSubParts = false;
+        _missileBodies.Clear();
+        _finBodies.Clear();
+
+        // A different platform deserves a fresh assessment: a latch left set from the stack it came
+        // off means IsLaid never goes true and the launcher holds fire without saying why.
+        _drives.Clear();
+        RoundBodiesWork = true;
+
+        PinPlatform(craft);
+        _lastPlatform = craft;
+
+        Announce($"launcher decoupled onto {KsaWorld.DisplayName(craft)} as launcher {ordinal + 1}, "
+                 + $"{moved:F0} m away - {aboard} round(s) aboard, {flying} in flight");
+    }
+
     /// <returns>False if there was nothing in the air, in which case there is nothing to keep.</returns>
     public bool GoLoose(Celestial? body, string firedBy)
     {
@@ -2056,10 +2121,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double3 bodyEcl = KsaWorld.PositionEcl(body);
         if (!Vec.IsFinite(bodyEcl)) return false;
 
-        // Before anything reads them. OffsetFromPlatform would sort itself out on the next step,
-        // which is what makes a partial re-anchor look right -- and the trail would go on being
-        // drawn from where the launcher was, which is a planet's radius away.
-        for (int i = 0; i < _rounds.Count; i++) _rounds[i].Reanchor(PlatformEcl - bodyEcl);
+        ReanchorRounds(bodyEcl);
 
         _looseBody = body;
         _looseName = firedBy;
