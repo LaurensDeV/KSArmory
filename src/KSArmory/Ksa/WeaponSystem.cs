@@ -1582,6 +1582,40 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// a place has said what they want. Everything after the aimpoint is identical, which is why
     /// this and <see cref="Fire(Track)"/> share <c>Commit</c> rather than being written twice.</para>
     /// </summary>
+    /// <inheritdoc cref="IManualFire.NextTube"/>
+    public int NextTube
+        => _magazine.TryPeekTube(_rounds, out int tube) ? tube : -1;
+
+    /// <inheritdoc cref="IManualFire.TubesReadyToFire"/>
+    public int TubesReadyToFire => _magazine.CountReadyToFire(_rounds);
+
+    /// <inheritdoc cref="IManualFire.TubeAxesEcl"/>
+    public int TubeAxesEcl(Span<double3> into)
+    {
+        if (Platform is null || Launcher is null || !Profile.LaunchAlongTube) return 0;
+        if (into.Length < Profile.Tubes.Length) return 0;
+
+        for (int tube = 0; tube < Profile.Tubes.Length; tube++)
+        {
+            if (!LauncherPart.TryGetTubeAxisEcl(Platform, Launcher, PodsPart, Profile, tube,
+                                                out double3 axis)
+                || !Vec.IsFinite(axis))
+            {
+                return 0;
+            }
+
+            into[tube] = Vec.Unit(axis);
+        }
+
+        return Profile.Tubes.Length;
+    }
+
+    /// <inheritdoc cref="IManualFire.CanSeparate"/>
+    public bool CanSeparate => LauncherSeparation.CanSeparate(Launcher);
+
+    /// <inheritdoc cref="IManualFire.Separate"/>
+    public bool Separate() => LauncherSeparation.Separate(Platform, Launcher);
+
     /// <inheritdoc cref="IManualFire.TryMeanReleaseStateEcl"/>
     public bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl,
                                        out double spinSpeed)

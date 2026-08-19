@@ -229,6 +229,35 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     /// </param>
     bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl, out double spinSpeed);
 
+    /// <summary>
+    /// Whether a decoupler holds this launcher on, so it could be let off the stack it rode up.
+    ///
+    /// <para>A property of the part rather than of the craft, and knowable before the shot rather
+    /// than at the moment of deployment.</para>
+    /// </summary>
+    bool CanSeparate { get; }
+
+    /// <summary>
+    /// Let the launcher off that stack. False when there is no joint to let go of.
+    ///
+    /// <para>The split lands on the following frame, and it cannot be undone.</para>
+    /// </summary>
+    bool Separate();
+
+    /// <summary>Which tube fires next, or -1 when nothing more will be handed out.</summary>
+    int NextTube { get; }
+
+    /// <summary>How many rounds could still go, which sets each one's share of the release window.</summary>
+    int TubesReadyToFire { get; }
+
+    /// <summary>
+    /// Where every tube points now, in tube order.
+    ///
+    /// <para>All or nothing: a partial set averages to a direction that is not the one the aim
+    /// correction assumed, which is worse than not turning at all.</para>
+    /// </summary>
+    int TubeAxesEcl(Span<double3> into);
+
     bool CanGuideOnto(double3 pointEcl);
 
     /// <summary>Opens a cannon burst along wherever the mount is laid.</summary>

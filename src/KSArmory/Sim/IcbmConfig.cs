@@ -67,6 +67,19 @@ internal sealed class IcbmConfig
     public bool AutoRelease = true;
 
     /// <summary>
+    /// Turn the vehicle between releases so each tube in turn throws along the same line.
+    ///
+    /// <para>Tubes are canted — a MIRV bus's six sit six degrees off its own axis — so rounds
+    /// released from one attitude leave on different vectors and scatter, and there is one aim for
+    /// all of them. Measured in flight at about 1,200 m across six warheads.</para>
+    ///
+    /// <para>On by default, and free for a launcher it does not describe: a single tube is the mean
+    /// of its own axes, so nothing is asked to turn. It costs release time on a launcher still
+    /// bolted to a spent stack, which is what the sequencer's window budget is for.</para>
+    /// </summary>
+    public bool RepointBetweenReleases = true;
+
+    /// <summary>
     /// Keep a mark on the designated target, with the time to impact beside it.
     ///
     /// <para>Separate from the trajectory, and on by default, because it answers a different

@@ -279,6 +279,15 @@ internal sealed partial class Ui
             ? "  one at a time from the coast, once past the release altitude"
             : "  nothing leaves the bus until the button above is pressed");
 
+        bool repoint = config.RepointBetweenReleases;
+        if (ImGui.Checkbox("Aim each tube before it fires", ref repoint))
+        {
+            config.RepointBetweenReleases = repoint;
+        }
+        ImGui.TextDisabled(config.RepointBetweenReleases
+            ? "  turns between releases so every round leaves on the same line"
+            : "  all rounds leave on the attitude the burn ended on, and spread by the tube cant");
+
         bool autoStage = config.AutoStage;
         if (ImGui.Checkbox("Stage automatically", ref autoStage)) config.AutoStage = autoStage;
         ImGui.TextDisabled(config.AutoStage

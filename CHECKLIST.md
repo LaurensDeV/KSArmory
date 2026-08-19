@@ -1197,6 +1197,25 @@ trying to fly a vertical rise.
 - [ ] The mark on the target stays on screen, and points from the edge when it is out of view.
 - [ ] A target the stack cannot afford reads `TARGET UNREACHABLE` with a shortfall in m/s.
 
+### 12.7 It aims each tube, and lets go of its stack
+
+Nothing here has been flown. No shipped part declares a decoupler, so separation needs a craft built
+with a stock 3 m decoupler between the launcher and the stack below it.
+
+- [ ] With **Aim each tube before it fires** on and no decoupler fitted: the warheads still all go,
+      and the log says the tubes are being turned onto the line, or that it gave up and why.
+- [ ] The six land closer together than the ~1,200 m they spread over without it.
+- [ ] With it off, behaviour is exactly as before — released as soon as the tubes stop sweeping.
+- [ ] A vehicle that cannot point releases anyway after a minute and says so, rather than holding
+      warheads until the release altitude closes.
+- [ ] **With a decoupler fitted**, the launcher separates at cutoff, once, and the log names both
+      craft. It must not separate twice, and it must not fire on a shot that fell short.
+- [ ] The weapon follows onto the separated craft carrying its magazine, its rounds in flight, its
+      arm state, its teams and its IFF policy — check the panel still shows what it did before.
+- [ ] The ballistic computer follows with it and keeps deploying. If the shot stops after
+      separation, this is the thing that failed.
+- [ ] The spent stack is left in `Manual/None` with its engine off, and is not still being pointed.
+
 ### 12.6 It gives the vehicle back
 
 - [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately

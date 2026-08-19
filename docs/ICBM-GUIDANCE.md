@@ -678,6 +678,63 @@ warps at whatever the player asks for, and the world slows itself for the minute
 decides where the round lands. Nobody has to know to do it by hand, and the accuracy does not depend
 on their remembering.
 
+## Each tube is aimed before it fires, and the launcher may let go of its stack first
+
+A launcher's tubes can be canted — a MIRV bus's six sit six degrees off its own axis at six clock
+positions — so rounds released from one attitude leave on six different vectors. There is one aim
+for all of them, so no aim correction can remove it. Measured in flight: **about 1,200 m across six
+warheads**, and regressing each warhead's miss against its own tube's cant gives **−3,246 m per m/s**
+of lateral impulse against an independently measured radial sensitivity of −3,401. It is the tube
+geometry printing itself onto the ground.
+
+`Sim/ReleasePointing.cs` turns the vehicle by one cant before each release so the tube about to fire
+lies on the mean of the tube axes — which is the line the aim correction already assumes a round is
+thrown along. Flown headlessly through the real drag model from one cutoff state: **1,730 m of
+spread as canted, 0 m re-pointed**, and unchanged by the vehicle's roll.
+
+**It costs nothing on a launcher it does not describe.** A single tube is the mean of its own axes,
+so the rotation is the identity and `Sim/ReleaseSequence.cs` reduces to releasing when the vehicle is
+steady — the gate that already flew. No flag and no branch.
+
+Two things it is careful about:
+
+- **The command is rotated, not rebuilt.** Both the direction and the roll reference are turned by
+  the same quaternion. Building an aiming frame here means deciding which body axis is the nose, and
+  getting that wrong is a vehicle holding a perfectly steady attitude ninety degrees from the one
+  asked for.
+- **The tube axis is latched at the nominal attitude.** Feeding it the live axis instead never
+  settles: the tube alternates between on the line and a full cant off it, and half the time it
+  looks perfect.
+
+### Separating first, when the part tree offers a joint
+
+Turning a launcher that is still bolted to a spent booster is correct and nearly useless: a
+6,300 kg bus alone is I ≈ 3.6×10³ kg·m² against 10⁶–10⁷ for a spent stack, so the same thrusters
+give **two to three orders of magnitude** less angular acceleration — and the tube lever arm, which
+is what throws each round as the vehicle turns, collapses from tens of metres to under three.
+
+So `Ksa/LauncherSeparation.cs` asks one question: **is there a decoupler on the joint holding my
+launcher on?** A launcher declaring its own separates itself; one bolted to a stock decoupler
+separates at that; one with neither deploys attached. Nothing in the guidance names a weapon, and no
+shipped part declares a decoupler — so this is inert until a craft is built with one.
+
+Only that joint. A decoupler one hop further up the tree is the interstage, and firing it drops the
+whole upper stage rather than releasing the launcher, with the rounds still aboard on a trajectory
+nobody solved. For the same reason the program's own auto-staging is interlocked against it: a stage
+that runs dry asks for the next sequence every second and a half, and a shot that fell short must
+hold its rounds rather than shed them.
+
+**The rosters follow the launcher, they do not rediscover it.** Both key on the `Vehicle`, and a
+decoupled booster is not destroyed — so without a handover the weapon stays pinned to a stack with
+no launcher while a second battery is crewed on the far half with a full magazine and default
+settings, and the ballistic computer goes on holding the dead ring's attitude for the rest of the
+session. `WeaponSystems.Sync` runs the handover ahead of crewing and `IcbmComputers` consults that
+same decision rather than making its own, because a disagreement about which craft the shot is on
+breaks the release in either direction.
+
+The computer is **moved rather than rebuilt**: a fresh one re-enters the phase machine at `Holding`,
+and only `Coast` ever sets `ReadyToDeploy`, so it would never release a warhead at all.
+
 ## The attitude at cutoff is held, not solved
 
 Velocity still to gain is a *difference*, so as it closes on zero its direction is the difference of

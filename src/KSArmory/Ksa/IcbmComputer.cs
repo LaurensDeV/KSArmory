@@ -34,6 +34,10 @@ internal sealed class IcbmComputer
     private bool _driving;
     private double3 _rollReference;
     private readonly AimCorrection _aim = new();
+    private readonly ReleaseSequence _sequence = new();
+    private ReleaseCommand _deploy;
+    private readonly double3[] _tubeAxes = new double3[64];
+    private bool _separated;
     private double3 _trueAimCci;
     private MunitionProfile? _warhead;
     private double3 _releaseOffsetCci;
@@ -114,7 +118,7 @@ internal sealed class IcbmComputer
         Program.Reset();
         _reported = IcbmPhase.Idle;
         _aim.Reset();
-        _waitingToSettle = 0.0;
+        _sequence.Reset();
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -217,12 +221,17 @@ internal sealed class IcbmComputer
 
         if (Command.Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution))
         {
+            // Advanced on the *nominal* line, not on the sequencer's offset one. The carried
+            // reference is about continuity, and a direction that steps by a cant six times would
+            // re-flatten it six times for nothing.
             _rollReference = AimFrame.Advance(_rollReference, Command.ThrustDirectionCci,
                                               -Vec.Unit(state.PositionCci), RollFallback(state));
 
+            _deploy = DriveDeployment(simStep, release, state);
+
             // Handed to the hook rather than written here. A write from this pass is discarded
             // before anything reads it - see AttitudeHook.
-            AttitudeHook.Hold(Craft, Command.ThrustDirectionCci, _rollReference);
+            AttitudeHook.Hold(Craft, _deploy.DirectionCci, _deploy.RollCci);
             aimed = AttitudeHook.Installed;
             if (aimed) _driving = true;
         }
@@ -238,7 +247,11 @@ internal sealed class IcbmComputer
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Throttle);
             VehicleCommand.SetEngine(Craft, running: true);
 
-            if (Command.RequestStage)
+            // Never past the launcher. A stage runs dry with the engines still commanded on and
+            // the program asks for the next sequence every second and a half; if the joint holding
+            // the launcher is the next thing in that list, a shot that fell short drops its rounds
+            // instead of holding them.
+            if (Command.RequestStage && !StagingWouldDropTheLauncher(release))
             {
                 Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} staging: {Command.Hold}");
                 VehicleCommand.Stage(Craft);
@@ -250,7 +263,12 @@ internal sealed class IcbmComputer
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, 1.0);
         }
 
-        if (Config.AutoRelease && Command.ReadyToDeploy && SteadyEnoughToRelease(simStep)) Release(release);
+        // At cutoff rather than at the first release, which on a nominal shot is the same frame:
+        // the launcher has the whole coast to settle, and every kilogram of spent stack is mass its
+        // own thrusters would otherwise have to turn between releases.
+        if (Command.ReadyToDeploy) SeparateOnce(release);
+
+        if (Config.AutoRelease && _deploy.ReleaseNow) Release(release);
 
         CarryOurWarp();
     }
@@ -355,6 +373,35 @@ internal sealed class IcbmComputer
 
         Log.Info($"ICBM computer followed its weapon from {KsaWorld.DisplayName(left)} "
                  + $"onto {KsaWorld.DisplayName(craft)}");
+    }
+
+    // Whether the next sequence would fire the joint the launcher hangs on. The staging list is
+    // the player's and the mod does not read it; asking whether the launcher could come off is
+    // enough, because a launcher that cannot separate cannot be staged away either.
+    private static bool StagingWouldDropTheLauncher(IManualFire? weapon)
+        => weapon is { CanSeparate: true };
+
+    // Once, and only where the part tree offers a joint to let go of. Nothing shipped declares one,
+    // so this does nothing until a craft is built with a decoupler under its launcher.
+    private void SeparateOnce(IManualFire? weapon)
+    {
+        if (_separated || weapon is null) return;
+
+        if (!weapon.CanSeparate)
+        {
+            _separated = true;
+            return;
+        }
+
+        // Latched before the call, not after: the split lands a frame later and the module does not
+        // de-duplicate, so a second request queues a second decouple.
+        _separated = true;
+
+        if (weapon.Separate())
+        {
+            Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} separating the launcher "
+                     + "from the stack before deploying");
+        }
     }
 
     /// <summary>Let one warhead go at the aim point, if there is one to let go and it is ready.</summary>
@@ -626,46 +673,52 @@ internal sealed class IcbmComputer
     // the ejection *slows* every warhead and they all fall short together. Predicting the bus's arc
     // rather than the round's leaves that invisible to the aim correction, and this trajectory
     // moves about two kilometres per metre per second.
-    // How fast the tubes may still be sweeping when the bus lets a warhead go, in metres a second
-    // at the tube rather than degrees a second at the hull. The hull's rate is the wrong measure: a
-    // warhead on top of a long stack is tens of metres from the centre of mass, so one degree a
-    // second there is half a metre a second at the tube - which is a quarter of the ejection speed
-    // and lands the salvo kilometres out. This is the quantity that actually reaches the round, and
-    // it does not care how long the vehicle is.
-    //
-    // Flown at 5 m/s: six warheads scattered across 1.5 km of ground, 7.4 km from the aim.
-    private const double ReleaseSteadyMetresPerSecond = 0.05;
 
-    // How long to wait for that before letting them go anyway. A bus with no attitude authority
-    // left would otherwise hold its warheads for ever, which is a worse failure than a scattered
-    // salvo: the shot is already paid for.
-    private const double ReleaseSteadyTimeoutSeconds = 60.0;
-
-    private double _waitingToSettle;
-
-    // Turning fast enough to throw its warheads differently is a reason to wait, and saying so is
-    // the difference between a bus that is settling and one that has silently stopped deploying.
-    private bool SteadyEnoughToRelease(double simStep)
+    // What the launcher should be holding, and whether a round may go. The sequencer turns the
+    // vehicle so the tube about to fire lies on the line the aim correction assumed - which for a
+    // launcher whose tubes are not canted is the line it is already on, and costs nothing.
+    private ReleaseCommand DriveDeployment(double simStep, IManualFire? weapon, in IcbmState state)
     {
-        double sweep = _tubeSpinSpeed;
+        double3 held = Command.ThrustDirectionCci;
+        double3 roll = _rollReference;
 
-        if (!_releaseMeasured || !double.IsFinite(sweep) || sweep <= ReleaseSteadyMetresPerSecond)
+        if (weapon is null || !Command.ReadyToDeploy)
         {
-            _waitingToSettle = 0.0;
-            return true;
+            return new ReleaseCommand(held, roll, false, -1, 0.0, "");
         }
 
-        _waitingToSettle += simStep;
+        int next = weapon.NextTube;
 
-        if (_waitingToSettle >= ReleaseSteadyTimeoutSeconds)
+        // Latched at the attitude the aim correction converged against, which is this one: the
+        // first frame the launcher is both ready to deploy and no longer turning.
+        if (!_sequence.Begun && Config.RepointBetweenReleases && !(_tubeSpinSpeed > ReleaseSequence.SteadyMetresPerSecond))
         {
-            Log.Info($"releasing with the tubes sweeping {sweep:F3} m/s after waiting "
-                     + $"{ReleaseSteadyTimeoutSeconds:F0} s to settle - the warheads will scatter");
-            _waitingToSettle = 0.0;
-            return true;
+            int found = weapon.TubeAxesEcl(_tubeAxes);
+            if (found > 0 && Parent is { } parent)
+            {
+                doubleQuat cce2Cci = parent.GetCce2Cci();
+                for (int i = 0; i < found; i++) _tubeAxes[i] = _tubeAxes[i].Transform(cce2Cci);
+                _sequence.Begin(_tubeAxes.AsSpan(0, found));
+            }
         }
 
-        return false;
+        double3 nextAxis = Vec.Zero;
+        if (next >= 0 && Parent is { } body && weapon.TubeAxesEcl(_tubeAxes) > next)
+        {
+            nextAxis = _tubeAxes[next].Transform(body.GetCce2Cci());
+        }
+
+        // How long the release window has left, from the descent rather than from the arrival: it
+        // closes when the launcher falls through the deploy altitude, not when the rounds land.
+        double descent = -Vec.Dot(state.VelocityCci, state.UpCci);
+        double window = descent > 0.0
+                            ? (AltitudeMetres - Config.DeployAltitudeMetres) / descent
+                            : double.NaN;
+
+        return _sequence.Update(simStep, new ReleaseSituation(
+            ReadyToDeploy: true, NextTube: next, TubesLeft: Math.Max(1, weapon.TubesReadyToFire),
+            NextTubeAxisCci: nextAxis, SweepMetresPerSecond: _tubeSpinSpeed,
+            SecondsLeftToDeploy: window, HeldDirectionCci: held, HeldRollCci: roll));
     }
 
     // Where a released round starts, as a difference from where the craft is.
