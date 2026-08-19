@@ -285,6 +285,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BurnoutGuidance.cs` | where to point and when to stop — velocity still to be gained |
 | `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |
 | `Sim/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
+| `Sim/BusPointing.cs` | which way a bus must hold for one tube to throw along the line the others did |
 | `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, ascent, staging |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
