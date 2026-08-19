@@ -63,10 +63,11 @@ guess after one flight.
 Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable
 on paper and nothing has spent it.
 
-## 2. Every round lands beyond its own release probe
+## 2. Every round landed beyond its own release probe — cause found, fixed, unflown
 
-Now the largest *systematic* term, and six samples from one shot say so cleanly. The probe flies the
-warhead from the actual release state, with the warhead's own drag and the real height field:
+Six samples from one shot, and all of them the **same way** off (aimed `-26.485,-68.148`; landed
+between `-26.486,-68.152` and `-26.487,-68.161`) — a bias of roughly 900 m superimposed on the
+cant's ~1 km spread:
 
 | predicted at release | landed |
 | --- | --- |
@@ -77,14 +78,32 @@ warhead from the actual release state, with the warhead's own drag and the real 
 | 0.1 km | 1.2 km |
 | 0.1 km | 1.4 km |
 
-All six landed the **same way** off (aimed `-26.485,-68.148`; landed between `-26.486,-68.152` and
-`-26.487,-68.161`), so it is a bias of roughly 900 m superimposed on the cant's ~1 km spread. One
-sided across every sample is the signature of a model difference rather than noise: the probe and
-the round are supposed to share a flight model, and something in the pair does not.
+**`Slug` differenced a frozen body centre against a position moving through the frame.** `IGroundTest`
+answers with a centre and a surface radius, and the round holds both for the frame — one terrain
+lookup rather than one per sub-step, which is what makes a 150-shell burst affordable. But the centre
+carries the planet's ~29.8 km/s of ecliptic travel and so does `PositionEcl`, so
+`Len(PositionEcl - centre) - radius` reads the carrier as a change of *altitude*: up to 500 m across
+a 16.7 ms frame. On a ~5° arrival every metre of that is about eleven metres of ground.
 
-`docs/ICBM-GUIDANCE.md` already records this shape once — a drag-free predictor converged, reported
-zero, and the warheads went on falling 59 km short, because a correction loop can only remove what
-its observer can see. This may be the same lesson at a smaller scale.
+Invisible from both sides, which is why it survived. `ImpactPredictor` integrates in the body's own
+frame, where there is no carrier at all — so the prediction was right and the round was wrong, and
+the aim correction reads the prediction. And **every headless rig flew the round about a planet
+sitting still at the origin**, which is the one case where the fault is identically zero.
+
+Measured headlessly on the flown deorbit, carrier straight up at the impact point: **850 m** at a
+16.7 ms frame, **1,027 m** at 50 ms, and **790 m** between the round and its own release prediction.
+Without a carrier the two agree to 60 m, so the integrator, the step size and the ground model were
+never the problem.
+
+The centre is now carried across the frame with the round's own frame. The phase is the whole
+correction and is worth 7 km taken the other way: the celestial state belongs to the *start* of the
+step, so it is carried forward from there — the same phase `AirDensityIntoFrame` and `GravityAtRound`
+already use. `GroundFrameTests` fails against the frozen centre at exactly the numbers above.
+
+**Unflown.** If the flown bias does not close, the next term is already measured and is a different
+shape: the terrain *radius* is held for the frame too, so the round crosses a sphere sampled behind
+the impact point — 20-275 m on a ±10% local slope, and it does **not** scale with the frame, which
+is what tells the two apart.
 
 ## 3. The first round races the separation — fixed
 
