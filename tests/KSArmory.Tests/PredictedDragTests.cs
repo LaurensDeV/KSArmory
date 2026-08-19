@@ -239,6 +239,57 @@ public class PredictedDragTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// A warhead flown on long frames has to land where one flown on short frames does.
+    ///
+    /// <para>Air density falls off on an 8 km scale height and a re-entering round covers a
+    /// kilometre a frame at 1x — far more under warp. Sampling it once a frame and holding it flies
+    /// the round through the thinner air it had at the top of the frame, so it under-drags and
+    /// overshoots. Flown at 10x before this was fixed: <b>381 km long</b>.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(1.0 / 60.0)]
+    [InlineData(0.17)]
+    [InlineData(0.32)]
+    public void TheFrameLengthDoesNotChangeWhereTheRoundLands(double dt)
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 from, out double3 _);
+        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+
+        double3 fine = FlyAtStep(from, arc.RequiredVelocityCci, warhead, 1.0 / 240.0);
+        double3 coarse = FlyAtStep(from, arc.RequiredVelocityCci, warhead, dt);
+
+        double apart = GroundMetres(fine, coarse);
+        Out.WriteLine($"a {dt * 1000:F0} ms frame moves the impact {apart / 1000.0:F2} km");
+
+        Assert.True(apart < 2_000.0,
+                    $"a {dt * 1000:F0} ms frame moved the impact {apart / 1000.0:F1} km");
+    }
+
+    private static double3 FlyAtStep(double3 fromCci, double3 velocityCci, MunitionProfile munition,
+                                     double dt)
+    {
+        Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
+        {
+            Munition = munition,
+            Ground = new Ball(),
+
+            // The whole point: the round reads the air where it is, not where it was when the
+            // frame began.
+            AirDensityAt = DensityAt,
+        };
+
+        for (int i = 0; i < (int)(3000 / dt) && round.State == RoundState.Flying; i++)
+        {
+            double r = Vec.Len(round.PositionEcl);
+            double3 gravity = Vec.Unit(-round.PositionEcl) * (Mu / (r * r));
+            round.Update(dt, null, gravity, Vec.Zero, Vec.Zero, munition, DensityAt(round.PositionEcl));
+        }
+
+        Assert.NotEqual(RoundState.Flying, round.State);
+        return round.PositionEcl;
+    }
+
+    /// <summary>
     /// A round with no drag is unaffected, so the arithmetic above the atmosphere is untouched.
     /// </summary>
     [Fact]

@@ -2169,6 +2169,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                ? KsaWorld.GravityAt(body, positionEcl)
                : KsaWorld.GravityAt(Platform!, positionEcl);
 
+    private Func<double3, double>? _airDensityAt;
+
     private double MediumAtRound(double3 positionEcl)
         => _looseBody is { } body
                ? KsaWorld.MediumDensityRatioAt(body, positionEcl)
@@ -2226,6 +2228,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 slug.Contacts = ContactCandidates();
                 slug.Hull = HullTest.Shared;
                 slug.Ground = GroundTest.Shared;
+
+                // Cached rather than a fresh method group per round per frame: a cannon burst is
+                // 150 shells and this is assigned to every one of them.
+                slug.AirDensityAt = _airDensityAt ??= MediumAtRound;
             }
 
             round.Update(dt, SampleTarget(round), gravity, airVelocity, PlatformEcl,

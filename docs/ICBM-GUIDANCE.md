@@ -631,6 +631,29 @@ experiment is cheap and decisive: **fly the same shot at half the frame rate.** 
 family scales linearly with the step, so the offset either roughly doubles — and the ground test is
 where to look — or it does not move, and the whole family is dead.
 
+## Do not warp a warhead's descent
+
+Flown at 10x simulation speed, with no clamp and no discarded time — the step stayed inside what a
+round can integrate — six warheads landed **381 km long**. At 1x the same shot lands within a
+kilometre. Long means too little drag, and the step was ~170 ms against ~17 ms at 1x.
+
+Part of that is a round reading the air **once a frame** and holding it across every 5 ms sub-step:
+density falls off on an 8 km scale height and a re-entering round covers more than a kilometre a
+frame, so it flies the whole frame through the thinner air it had at the top of it. `Slug` now
+re-samples inside the sub-step loop through `AirDensityAt`, which halves the frame-length
+sensitivity — measured across 17, 170 and 320 ms frames.
+
+**But that is not the whole 381 km, and the rest is not identified.** Headlessly, a 170 ms frame
+moves the impact 0.57 km without the fix and 0.31 km with it — three orders of magnitude short of
+what flight showed. The likeliest explanation is that a grazing entry sits near a **skip
+threshold**: under-drag slightly and the round fails to capture, stays high, and travels hundreds of
+kilometres further. That is consistent with the enormous, strongly non-linear amplification and with
+the sign, and it is **unconfirmed**.
+
+Until it is understood, `Interceptor.MaxFaithfulStep` is the wrong guard for this case. It is 0.32 s
+because that is where a round starts stepping over its own fuse radius — a rule about
+proximity fusing, not about atmospheric entry, where the same step is worth hundreds of kilometres.
+
 ## The attitude at cutoff is held, not solved
 
 Velocity still to gain is a *difference*, so as it closes on zero its direction is the difference of

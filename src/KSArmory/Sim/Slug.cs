@@ -43,6 +43,14 @@ internal sealed class Slug : IProjectile
         _frameVelocityEcl = frameVelocityEcl;
     }
 
+    /// <summary>
+    /// The air where the round is, asked per sub-step rather than once a frame.
+    ///
+    /// <para>Null falls back to the frame's single sample, which is what a round flying through no
+    /// atmosphere worth resolving needs.</para>
+    /// </summary>
+    public Func<double3, double>? AirDensityAt { get; set; }
+
     public RoundState State { get; private set; } = RoundState.Flying;
 
     /// <inheritdoc cref="IProjectile.ShootDown"/>
@@ -185,9 +193,18 @@ internal sealed class Slug : IProjectile
 
         for (int i = 0; i < steps && State == RoundState.Flying; i++)
         {
+            // Re-read inside the loop, because air density is the one thing the round flies
+            // through that changes materially within a frame. It falls off on an 8 km scale
+            // height, and a re-entering round covers a kilometre a frame at ordinary speeds and
+            // far more under warp - so holding the frame's first sample for the whole frame flies
+            // the round through the thinner air it had at the top of it. Flown at 10x: the
+            // warheads under-dragged so badly they landed 381 km LONG.
+            double density = AirDensityAt?.Invoke(PositionEcl) ?? mediumDensityRatio;
+            if (!double.IsFinite(density) || density < 0.0) density = mediumDensityRatio;
+
             // Incremented after the step, so the round's position and the back-dated target share
             // an instant. Splitting them across a sub-step costs ~142 m at 29.8 km/s.
-            Step(h, elapsed, dt, target, gravity, munition, mediumDensityRatio);
+            Step(h, elapsed, dt, target, gravity, munition, density);
             elapsed += h;
         }
 
