@@ -320,6 +320,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SmoothedStep.cs` | the step evened out, for the one consumer that wants a smooth clock |
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
+| `Sim/OverrunLog.cs` | how much simulated time the clamp threw away, and whether that cost anything — **an empty sky loses nothing**, and a scene load is always one |
 | `Sim/ChaseView.cs` | where to put a camera riding behind a round |
 | `Sim/ViewClaim.cs` | who may hold the player's main view, and what that means for the loser |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |

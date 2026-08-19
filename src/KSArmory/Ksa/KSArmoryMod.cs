@@ -37,9 +37,7 @@ public sealed class KSArmoryMod
     private int _viewTrace;
 
     // Overrun bookkeeping. See ReportOverrun.
-    private const int OverrunReportEvery = 120;
-    private int _overrunFrames;
-    private double _overrunDiscarded;
+    private readonly OverrunLog _overruns = new();
     private bool _disabled;
     private readonly WarpPolicy _warp = new();
 
@@ -700,20 +698,27 @@ public sealed class KSArmoryMod
         }
     }
 
-    // Says how much simulated time the clamp threw away, and how often. Rate-limited because
-    // sustained warp overruns every frame, and a line per frame buries the first one - which is
-    // the only one that says when it started.
+    // Says how much simulated time the clamp threw away, and how often. OverrunLog holds the
+    // counting and the rate limit; what is left here is reading the sky and choosing the words.
     private void ReportOverrun(double stepSeconds)
     {
-        _overrunFrames++;
-        _overrunDiscarded += stepSeconds - Interceptor.MaxFaithfulStep;
+        // Rounds are the only thing this clamp reaches -- the heads and the ballistic computers
+        // take the step as it comes -- so an empty sky means nothing was left behind, whatever
+        // the clamp discarded. The first frame after a scene load is tens of seconds long and is
+        // always that case.
+        bool anyInFlight = false;
+        _roster?.FaithfulStep(out anyInFlight);
 
-        if (_overrunFrames != 1 && _overrunFrames % OverrunReportEvery != 0) return;
+        OverrunLog.Notice notice = _overruns.Observe(stepSeconds, anyInFlight);
+        if (notice == OverrunLog.Notice.Silent) return;
 
-        Log.Warn($"step {stepSeconds * 1000.0:F0} ms exceeds the {Interceptor.MaxFaithfulStep * 1000.0:F0} ms "
-                 + $"a round can integrate faithfully; clamped and carried on. "
-                 + $"{_overrunFrames} frame(s), {_overrunDiscarded:F2} s of simulated time discarded. "
-                 + $"Rounds in flight will lag the world.");
+        string what =
+            $"step {stepSeconds * 1000.0:F0} ms exceeds the {Interceptor.MaxFaithfulStep * 1000.0:F0} ms "
+            + $"a round can integrate faithfully; clamped and carried on. "
+            + $"{_overruns.Frames} frame(s), {_overruns.DiscardedSeconds:F2} s of simulated time discarded.";
+
+        if (notice == OverrunLog.Notice.Lagging) Log.Warn($"{what} Rounds in flight will lag the world.");
+        else Log.Debug($"{what} Nothing was in the air across it.");
     }
 
     // The shortest step any round in the air needs, which is what the world is held down to and
