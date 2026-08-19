@@ -2162,6 +2162,31 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     // Reads the round's target out of the world once per frame. Returns null when the target is
     // gone, which breaks the round's lock and leaves it coasting.
+    // How far a round that arrived landed from the place it was aimed at. Not MissDistance, which
+    // is the range at the fuse trigger and is bounded by the fuse radius - a proximity round
+    // reports its own envelope every time. This is the only number that answers "did it hit", and
+    // without it a shot's outcome is a visual impression: six warheads land, the log says they
+    // landed, and whether that was on the target or a hundred kilometres away is unrecorded.
+    //
+    // Re-sampled rather than read off the stored aimpoint, because a place on a body moves: held as
+    // the coordinate it was designated at, it is left behind by the planet over a half-hour flight
+    // and the miss would come out as the planet's own travel.
+    private string MissFromAimpoint(IProjectile round)
+    {
+        if (round.Aimpoint.Kind is AimpointKind.None) return string.Empty;
+        if (SampleTarget(round) is not { } target) return string.Empty;
+
+        double3 burst = round.PositionEcl;
+        if (!Vec.IsFinite(burst) || !Vec.IsFinite(target.PositionEcl)) return string.Empty;
+
+        double miss = Vec.Len(burst - target.PositionEcl);
+        if (!double.IsFinite(miss)) return string.Empty;
+
+        return miss < 1000.0
+            ? $", {miss:F0} m from the aim point"
+            : $", {miss / 1000.0:F1} km from the aim point";
+    }
+
     private TargetState? SampleTarget(IProjectile round)
     {
         // A place on a body has to be re-read every frame. Held as the coordinate it was when it
@@ -2312,7 +2337,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             _ => "with nothing in range",
         };
 
-        Announce($"round {round.Tube} detonated{fuse} {how}");
+        Announce($"round {round.Tube} detonated{fuse} {how}{MissFromAimpoint(round)}");
 
         // Which effect is decided after the blast sweep, once it is known whether anything died.
         _burstKilled = false;
