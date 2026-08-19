@@ -7,7 +7,7 @@ namespace KSArmory.Tests;
 /// <summary>
 /// Turning the bus so each tube in turn throws along one line.
 /// </summary>
-public class BusPointingTests(ITestOutputHelper Out)
+public class ReleasePointingTests(ITestOutputHelper Out)
 {
     private static double3[] BusTubes()
     {
@@ -22,7 +22,7 @@ public class BusPointingTests(ITestOutputHelper Out)
     [Fact]
     public void TheMeanOfTheBusTubesIsThePartsOwnAxis()
     {
-        double3 reference = BusPointing.ReferenceAxis(BusTubes());
+        double3 reference = ReleasePointing.ReferenceAxis(BusTubes());
 
         Assert.True(Vec.AngleBetween(reference, new double3(1, 0, 0)) < 1e-12,
                     "the cants are meant to cancel in the mean; if they do not, the launcher's "
@@ -33,11 +33,11 @@ public class BusPointingTests(ITestOutputHelper Out)
     public void EveryTubeLandsOnTheReferenceAfterItsRepoint()
     {
         double3[] axes = BusTubes();
-        double3 reference = BusPointing.ReferenceAxis(axes);
+        double3 reference = ReleasePointing.ReferenceAxis(axes);
 
         for (int tube = 0; tube < axes.Length; tube++)
         {
-            double3 pointed = BusPointing.Repoint(axes[tube], reference) * axes[tube];
+            double3 pointed = ReleasePointing.Repoint(axes[tube], reference) * axes[tube];
             Assert.True(Vec.AngleBetween(pointed, reference) < 1e-9, $"tube {tube + 1} missed the line");
         }
     }
@@ -50,7 +50,7 @@ public class BusPointingTests(ITestOutputHelper Out)
     public void TheRepointIsOneCantAndItsAxisWalksRoundTheClock()
     {
         double3[] axes = BusTubes();
-        double3 reference = BusPointing.ReferenceAxis(axes);
+        double3 reference = ReleasePointing.ReferenceAxis(axes);
 
         double3[] turnAxes = new double3[axes.Length];
 
@@ -72,13 +72,13 @@ public class BusPointingTests(ITestOutputHelper Out)
     public void TheCommandIsTurnedRatherThanRebuilt()
     {
         double3[] axes = BusTubes();
-        double3 reference = BusPointing.ReferenceAxis(axes);
+        double3 reference = ReleasePointing.ReferenceAxis(axes);
 
         double3 held = Vec.Unit(new double3(0.3, -0.9, 0.2));
         double3 roll = Vec.Unit(new double3(0.7, 0.4, 0.1));
         double before = Vec.AngleBetween(held, roll);
 
-        Assert.True(BusPointing.TryAimTube(axes[2], reference, held, roll,
+        Assert.True(ReleasePointing.TryAimTube(axes[2], reference, held, roll,
                                            out double3 direction, out double3 turnedRoll));
 
         Assert.Equal(before, Vec.AngleBetween(direction, turnedRoll), 12);
@@ -99,7 +99,7 @@ public class BusPointingTests(ITestOutputHelper Out)
     public void TakingTheLiveAxisInsteadOfTheLatchedOneNeverSettles()
     {
         double3[] axes = BusTubes();
-        double3 reference = BusPointing.ReferenceAxis(axes);
+        double3 reference = ReleasePointing.ReferenceAxis(axes);
         double3 nominal = axes[0];
 
         double worst = 0.0;
@@ -107,7 +107,7 @@ public class BusPointingTests(ITestOutputHelper Out)
 
         for (int i = 0; i < 200; i++)
         {
-            live = Vec.Unit(BusPointing.Repoint(live, reference) * nominal);
+            live = Vec.Unit(ReleasePointing.Repoint(live, reference) * nominal);
             if (i > 100) worst = Math.Max(worst, Degrees(Vec.AngleBetween(live, reference)));
         }
 
@@ -117,7 +117,7 @@ public class BusPointingTests(ITestOutputHelper Out)
                                  + "latch is no longer what makes this exact and this test is moot");
 
         // Where the latched rule puts it, for contrast.
-        double3 latched = BusPointing.Repoint(nominal, reference) * nominal;
+        double3 latched = ReleasePointing.Repoint(nominal, reference) * nominal;
         Assert.True(Vec.AngleBetween(latched, reference) < 1e-9);
     }
 }

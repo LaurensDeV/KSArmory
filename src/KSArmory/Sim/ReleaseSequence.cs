@@ -2,7 +2,7 @@ using Brutal.Numerics;
 
 namespace KSArmory;
 
-/// <summary>What the bus is doing this frame, as the sequencer needs to see it.</summary>
+/// <summary>What the launcher is doing this frame, as the sequencer needs to see it.</summary>
 /// <param name="NextTube">Which tube fires next, or -1 when nothing more will be handed out.</param>
 /// <param name="TubesLeft">How many rounds could still go, which sets each one's share of the window.</param>
 /// <param name="NextTubeAxisCci">Where that tube points now, measured this frame.</param>
@@ -11,7 +11,7 @@ namespace KSArmory;
 /// How long the release window has left. NaN when unknown, which is treated as "plenty" — a
 /// sequencer that stops re-pointing because it cannot see the clock would never re-point at all.
 /// </param>
-internal readonly record struct BusSituation(
+internal readonly record struct ReleaseSituation(
     bool ReadyToDeploy,
     int NextTube,
     int TubesLeft,
@@ -22,7 +22,7 @@ internal readonly record struct BusSituation(
     double3 HeldRollCci);
 
 /// <summary>What to hold and whether to let one go.</summary>
-internal readonly record struct BusRelease(
+internal readonly record struct ReleaseCommand(
     double3 DirectionCci,
     double3 RollCci,
     bool ReleaseNow,
@@ -36,13 +36,13 @@ internal readonly record struct BusRelease(
 /// <para>The bus holds one attitude through its coast and the tubes are canted off it, so warheads
 /// released from that attitude leave on six different vectors and scatter. This turns the bus by
 /// one cant before each release so the tube about to fire lies on the mean — see
-/// <see cref="BusPointing"/> — waits for it to settle, releases, and moves on.</para>
+/// <see cref="ReleasePointing"/> — waits for it to settle, releases, and moves on.</para>
 ///
 /// <para><b>It gives up rather than holding warheads.</b> A bus that cannot point, or one running
 /// out of window, releases on the nominal line anyway: a scattered salvo beats one still aboard
 /// when the release altitude closes, because the shot is already paid for.</para>
 /// </summary>
-internal sealed class BusDeployment
+internal sealed class ReleaseSequence
 {
     /// <summary>
     /// How near the line a tube must be before its warhead goes.
@@ -58,9 +58,9 @@ internal sealed class BusDeployment
     /// How fast the tubes may still be sweeping when a warhead goes, in metres a second at the
     /// tube rather than degrees a second at the hull.
     ///
-    /// <para>The hull's rate is the wrong measure: a warhead on top of a long stack is tens of
-    /// metres from the centre of mass, so one degree a second there is half a metre a second at the
-    /// tube. This is the quantity that actually reaches the round and it does not care how long the
+    /// <para>The hull's rate is the wrong measure: a round on top of a long stack is tens of metres
+    /// from the centre of mass, so one degree a second there is half a metre a second at the tube.
+    /// This is the quantity that actually reaches the round and it does not care how long the
     /// vehicle is.</para>
     /// </summary>
     public const double SteadyMetresPerSecond = 0.05;
@@ -68,7 +68,7 @@ internal sealed class BusDeployment
     /// <summary>
     /// How long to wait for one tube before letting it go anyway.
     ///
-    /// <para>A bus with no attitude authority would otherwise hold its warheads for ever, which is
+    /// <para>A vehicle with no attitude authority would otherwise hold its rounds for ever, which is
     /// the worse failure of the two.</para>
     /// </summary>
     public const double PerTubeTimeoutSeconds = 60.0;
@@ -76,7 +76,7 @@ internal sealed class BusDeployment
     /// <summary>
     /// Below this much window per remaining warhead, stop turning and just get them away.
     ///
-    /// <para>Spread on the ground is a worse shot; warheads still aboard when the release altitude
+    /// <para>Spread on the ground is a worse shot; rounds still aboard when the release altitude
     /// closes are no shot at all.</para>
     /// </summary>
     public const double NotWorthRepointingBelowSeconds = 5.0;
@@ -95,9 +95,9 @@ internal sealed class BusDeployment
     /// <summary>
     /// Latch the tube axes and the line they average to.
     ///
-    /// <para>Called on the frame the bus is first both ready and settled — which is the attitude
-    /// the aim correction converged against, and therefore the one the reference has to be measured
-    /// at. Everything after is an offset from it.</para>
+    /// <para>Called on the frame the vehicle is first both ready and settled — which is the
+    /// attitude the aim correction converged against, and therefore the one the reference has to be
+    /// measured at. Everything after is an offset from it.</para>
     /// </summary>
     public bool Begin(ReadOnlySpan<double3> tubeAxesCci)
     {
@@ -113,7 +113,7 @@ internal sealed class BusDeployment
             if (axes[i].Equals(Vec.Zero)) return false;
         }
 
-        double3 reference = BusPointing.ReferenceAxis(axes);
+        double3 reference = ReleasePointing.ReferenceAxis(axes);
         if (!Vec.IsFinite(reference) || reference.Equals(Vec.Zero)) return false;
 
         _axes = axes;
@@ -132,9 +132,9 @@ internal sealed class BusDeployment
         _gaveUp = false;
     }
 
-    public BusRelease Update(double stepSeconds, in BusSituation now)
+    public ReleaseCommand Update(double stepSeconds, in ReleaseSituation now)
     {
-        BusRelease held = new(now.HeldDirectionCci, now.HeldRollCci, false, now.NextTube, 0.0, "");
+        ReleaseCommand held = new(now.HeldDirectionCci, now.HeldRollCci, false, now.NextTube, 0.0, "");
 
         if (!now.ReadyToDeploy || now.NextTube < 0)
         {
@@ -168,7 +168,7 @@ internal sealed class BusDeployment
         double3 roll = now.HeldRollCci;
 
         if (turning
-            && !BusPointing.TryAimTube(_axes[now.NextTube], ReferenceCci,
+            && !ReleasePointing.TryAimTube(_axes[now.NextTube], ReferenceCci,
                                        now.HeldDirectionCci, now.HeldRollCci,
                                        out direction, out roll))
         {
@@ -178,7 +178,7 @@ internal sealed class BusDeployment
         }
 
         double offDegrees = Begun
-                                ? BusPointing.OffReferenceRadians(now.NextTubeAxisCci, ReferenceCci)
+                                ? ReleasePointing.OffReferenceRadians(now.NextTubeAxisCci, ReferenceCci)
                                   * 180.0 / Math.PI
                                 : 0.0;
 
@@ -211,7 +211,7 @@ internal sealed class BusDeployment
             said = $"settling, tubes sweeping {now.SweepMetresPerSecond:F3} m/s";
         }
 
-        return new BusRelease(direction, roll, (inPlace && steady) || late,
+        return new ReleaseCommand(direction, roll, (inPlace && steady) || late,
                               now.NextTube, offDegrees, said);
     }
 }

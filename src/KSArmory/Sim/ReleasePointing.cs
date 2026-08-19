@@ -3,21 +3,27 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// Which way a bus must hold for one tube to throw its warhead along the line every warhead is
+/// Which way a launcher must hold for one tube to throw its round along the line every round is
 /// meant to leave on.
 ///
-/// <para>Tubes are canted — a MIRV bus's six sit six degrees off its own axis at six clock
-/// positions — so each warhead is ejected on its own vector and they scatter. There is one aim for
-/// all of them, so no aim correction can remove it: the bus has to turn between releases and put
-/// each tube in turn on the same line. That is what a real post-boost vehicle does.</para>
+/// <para>Tubes can be canted — a MIRV bus's six sit six degrees off its own axis at six clock
+/// positions — so each round is ejected on its own vector and they scatter. There is one aim for
+/// all of them, so no aim correction can remove it: the launcher has to turn between releases and
+/// put each tube in turn on the same line, which is what a real post-boost vehicle does.</para>
+///
+/// <para>It costs nothing on a launcher this does not describe. A single tube <em>is</em> the mean
+/// of its own axes, so the rotation is the identity and everything below reduces to releasing when
+/// the vehicle is steady.</para>
 /// </summary>
-internal static class BusPointing
+internal static class ReleasePointing
 {
     /// <summary>
-    /// The line every warhead is meant to leave along: the mean of the tube axes.
+    /// The line every round is meant to leave along: the mean of the tube axes.
     ///
-    /// <para>Their cants cancel in the mean by construction, so this is the launcher's own axis and
-    /// is the direction the aim correction already assumes a round is thrown along.</para>
+    /// <para>Symmetric cants cancel in the mean, so this is the launcher's own axis and is the
+    /// direction the aim correction already assumes a round is thrown along. One tube gives its own
+    /// axis back, which is what makes the whole mechanism free for a launcher that does not
+    /// scatter.</para>
     /// </summary>
     public static double3 ReferenceAxis(ReadOnlySpan<double3> tubeAxes)
     {
@@ -37,7 +43,7 @@ internal static class BusPointing
     /// reference.
     /// </summary>
     /// <param name="tubeAxisAtNominal">
-    /// Where that tube points while the bus holds its <em>nominal</em> attitude, latched once.
+    /// Where that tube points while the vehicle holds its <em>nominal</em> attitude, latched once.
     ///
     /// <para>Measuring it live instead makes a unity-gain loop whose fixed point sits at exactly
     /// half the cant: the correction shrinks as the tube approaches the line, so it converges,

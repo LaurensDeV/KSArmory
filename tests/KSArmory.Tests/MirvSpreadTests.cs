@@ -47,7 +47,7 @@ public class MirvSpreadTests(ITestOutputHelper Out)
         double3[] axes = new double3[tubes.Length];
         for (int i = 0; i < tubes.Length; i++) axes[i] = Vec.Unit(busAttitude * tubes[i].Direction);
 
-        double3 reference = BusPointing.ReferenceAxis(axes);
+        double3 reference = ReleasePointing.ReferenceAxis(axes);
         double3[] landed = new double3[tubes.Length];
 
         for (int tube = 0; tube < tubes.Length; tube++)
@@ -55,7 +55,7 @@ public class MirvSpreadTests(ITestOutputHelper Out)
             // Through the function under test, not by asserting the answer: a re-pointed bus throws
             // along the reference because it has been turned there, which is the claim.
             double3 thrown = repoint
-                ? Vec.Unit(BusPointing.Repoint(axes[tube], reference) * axes[tube])
+                ? Vec.Unit(ReleasePointing.Repoint(axes[tube], reference) * axes[tube])
                 : axes[tube];
 
             Assert.True(ImpactPredictor.TryPredict(Earth, fromCci,
