@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-146 types and 406 members across 7 assemblies.
+149 types and 415 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -385,6 +385,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.Camera Camera`
 
+### KSA.Decoupler
+
+- `Connector Connector`
+- `bool get_IsEnabled()`
+- `void SetIsActive(KSA.Vehicle, bool)`
+
 ### KSA.DefaultVehicleSaves
 
 - `KSA.VehicleSave FindSave(string)`
@@ -576,6 +582,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.ModuleList
 
+- `System.Span`1<!!0> Get<1>()`
 - `bool HasAny<1>()`
 
 ### KSA.Module`1
@@ -616,6 +623,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat get_Asmb2ParentAsmb()`
 - `Brutal.Numerics.doubleQuat get_Asmb2VehicleAsmb()`
 - `KSA.ModuleList Modules`
+- `KSA.Part TreeParent`
+- `KSA.Part get_FullPart()`
 - `System.ReadOnlySpan`1<KSA.Part> get_SubParts()`
 - `bool RayCastEgo(ref Brutal.Numerics.double4x4, KSA.Ray, ref double, ref double, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref KSA.Part, ref KSA.Part)`
 - `string get_Id()`
@@ -625,6 +634,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void set_PositionParentAsmb(Brutal.Numerics.double3)`
 - `void set_PositionParentAsmbSafe(Brutal.Numerics.double3)`
 - `void set_Scale(Brutal.Numerics.double3)`
+
+### KSA.Part+Connection
+
+- `KSA.Part OtherPart(KSA.Part)`
+
+### KSA.Part+Connector
+
+- `Connection Connection`
+- `KSA.Part get_ConnectionPart()`
 
 ### KSA.PartInstance
 
