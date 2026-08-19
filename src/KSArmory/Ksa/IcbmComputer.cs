@@ -119,11 +119,12 @@ internal sealed class IcbmComputer
     /// What the trim is doing, or the residual it settled or gave up at. Empty before there is
     /// anything to say.
     ///
-    /// <para>Not <see cref="BusTrim.Said"/> alone: most of the wait happens before the trim is even
-    /// armed, while the bus coasts clear of the stack it dropped, and a readout that stays blank
-    /// through it is indistinguishable from one that has stopped working.</para>
+    /// <para>Not <see cref="BusTrim.Said"/>: most of the wait happens before the trim is even armed,
+    /// while the bus coasts clear of the stack it dropped, and a readout that stays blank through it
+    /// is indistinguishable from one that has stopped working. This is the last thing said about
+    /// either, which is the same string the log carries.</para>
     /// </summary>
-    public string TrimSaid => _trim.Said.Length > 0 ? _trim.Said : _saidTrim;
+    public string TrimSaid => _saidTrim;
 
     /// <summary>
     /// Whether the world has to be kept slow, which is the burn plus the trim.
