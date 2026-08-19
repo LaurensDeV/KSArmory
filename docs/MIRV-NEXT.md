@@ -35,18 +35,22 @@ control axes, and holds the corresponding `TranslateForward`/`Right`/`Down` flag
 
 Headlessly on this trajectory: a 1.1 m/s shove is **2.4 km of miss, trimmed to 2 m in 1.5 s**.
 
-**What has to be watched in flight**, because no headless test can reach it:
+**Flown once, and it destroyed the shot.** Confirmed working: the translation flags reach the bus's
+nozzles, they were measured at **0.9-1.1 m/s2**, and the loop closed at exactly that rate. What was
+not confirmed is the rest of it, because the trim and the aim correction turned out to be two loops
+driving one vehicle through one prediction and they wound each other up — 0.28 m/s to 139 m/s in ten
+seconds, jumping every 0.51 s, which is `PredictIntervalSeconds` exactly. The shot went from
+**0.1 km off at cutoff to 9.9 km at release**. `docs/ICBM-GUIDANCE.md` has the table.
 
-- **Do the translation flags move the shipped bus at all?** The four clusters are laid out for
-  pitch, yaw, roll and axial thrust, so `ThrusterController.ComputeControlMap` should give the
-  axial pair `TranslateForward`/`Backward` and the tangential jets whatever their thrust happens to
-  point along. If nothing answers, the log says `nothing left aboard moves the bus` with the
-  residual, and the warheads go anyway.
-- **What acceleration they give it.** That number is the floor under the residual — one step of
-  firing is `acceleration x step` — and it is logged (`thrusters measured at N m/s2`). If it is
-  large enough that the residual lands above ~0.05 m/s at a sensible step, the next lever is KSA's
-  own `FlightComputerManualThrustMode.Pulse`, which is a ~3.6% duty cycle and the exact analogue of
-  the burn's throttle ramp.
+Fixed by holding `AimCorrection` out while the trim fires, with `BusTrim.MaxMetresPerSecond` as the
+backstop under it. **Neither has been flown.** Still to watch:
+
+- **Whether the trim now settles at the shove** — about a metre a second, in a second or two,
+  ending `trimmed to N m/s` rather than `stopped closing`.
+- **Whether the residual is small enough.** One step of firing is `acceleration x step`, so at
+  1 m/s2 and a 17 ms step it should land near 0.01 m/s. If it does not, the next lever is KSA's own
+  `FlightComputerManualThrustMode.Pulse`, a ~3.6% duty cycle and the exact analogue of the burn's
+  throttle ramp.
 - **Whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable on paper and has
   never been spent.
 

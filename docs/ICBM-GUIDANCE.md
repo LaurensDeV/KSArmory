@@ -797,6 +797,27 @@ Five things it is careful about, and each is a way it went wrong first:
   until something says stop. The overall clock has to be longer than the per-direction one, or the
   loop gives up before the direction that does not work has been struck off.
 
+**The aim correction sits out while it fires, and that is not tidiness — it is the difference
+between the trim working and the shot being destroyed.** Both loops drive the same vehicle and both
+read the same prediction, so a bias that keeps observing absorbs a displacement the trim itself put
+there, the trim reads the moved aim as a larger error, and the pair wind each other up. Flown, on a
+shot that was **0.1 km from the target at cutoff**: jumps every 0.51 s — exactly
+`PredictIntervalSeconds` — each larger than the last, closing correctly at the measured 1.0 m/s²
+in between.
+
+| | |
+| --- | --- |
+| 0.28 m/s | the cutoff residual, correctly seen |
+| 1.23 m/s | the decoupler, correctly seen |
+| 2.47 → 4.98 → 7.66 → … → 139 m/s | the two loops winding each other up, ten seconds |
+
+It gave up at 139 m/s having applied about ten metres a second to the bus, and the release probe
+went from 0.1 km to 9.9 km. Same shape as the release sequence's latched reference, and for the same
+reason: *what a correction observes must not be something the thing it corrects is moving.*
+`BusTrim.MaxMetresPerSecond` is the backstop under it — an answer in the tens is the solve being
+asked the wrong question rather than a bus that was shoved, and it refuses rather than burning at
+it.
+
 **The residual is a timing limit, not a control error**, exactly as it is at cutoff: one step of the
 thrusters is `acceleration × step`. Headlessly at 3 m/s², a 17 ms step leaves 0.001 m/s and a 300 ms
 step leaves 0.202 m/s. So the trim registers with `WarpPolicy` alongside a burn — `IcbmComputer`
@@ -834,11 +855,11 @@ coast keeps it rather than swinging to prograde.
 of what has been confirmed and what has not, and it is the one to read — what follows is only the
 parts a headless test cannot reach at all.
 
-**The bus trim has not been flown.** Everything in *The split costs a metre a second* is measured
-headlessly against a bus this mod invented for the test. What it stands on that no test can check:
-whether KSA's translation flags reach the shipped bus's nozzles at all, and what acceleration they
-give it — which is the number that sets the floor under the residual, and is the reason the loop
-measures it and logs it rather than assuming one.
+**The bus trim has been flown once, and it destroyed the shot.** The mechanism works: KSA's
+translation flags do reach the bus's nozzles, and they were measured at **0.9–1.1 m/s²** — so the
+thruster half of it is confirmed, and the loop closed at exactly that rate between disturbances. The
+feedback loop above is fixed and **that fix has not been flown**. Nothing else about the trim has
+been seen working end to end yet.
 
 - **Which way the nose points.** `GetTgt2Cci` is the engine's own aiming frame and is used exactly
   as the engine uses it, but whether KSA's idea of a vehicle's nose matches a player's rocket has

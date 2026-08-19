@@ -122,7 +122,11 @@ internal sealed class IcbmComputer
     /// second and the whole point of doing it; at the steps high timewarp hands out it is metres a
     /// second, which is worse than never having trimmed at all.</para>
     /// </summary>
-    public bool NeedsShortSteps => Program.NeedsShortSteps || (_trim.Armed && !_trim.Done);
+    public bool NeedsShortSteps => Program.NeedsShortSteps || TrimIsFiring;
+
+    // Whether the trim is still moving the vehicle, which is what the aim correction has to sit
+    // out: its only observer is a prediction taken from the vehicle the trim is perturbing.
+    private bool TrimIsFiring => _trim.Armed && !_trim.Done;
 
     public Celestial? Parent { get; private set; }
 
@@ -1002,7 +1006,13 @@ internal sealed class IcbmComputer
                 ? Body.SurfaceRadius * Vec.AngleBetween(hit.GroundFixedPointCci, _trueAimCci)
                 : double.NaN;
 
-            if (state.HasAim) _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
+            // Not while the trim is firing, and this is the whole reason the two can coexist. The
+            // correction's only observer is this prediction, and the trim is actively moving the
+            // vehicle it is taken from - so the bias absorbs a displacement the trim then reads as
+            // a larger error and burns harder at. Same shape as the release sequence's latched
+            // reference, and it runs away rather than merely drifting: flown, a shot 0.1 km off at
+            // cutoff wound up by a factor of ten every ten cycles to 139 m/s of commanded trim.
+            if (state.HasAim && !TrimIsFiring) _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
         }
         else
         {

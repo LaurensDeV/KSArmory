@@ -351,6 +351,139 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// The trim and the aim correction must not both be running, and this is what happens when
+    /// they are.
+    ///
+    /// <para>Both drive the same vehicle and both read the same prediction, so the bias absorbs a
+    /// displacement the trim itself put there, the trim reads the moved aim as a larger error, and
+    /// the pair wind each other up. Flown: jumps every 0.51 s — exactly the prediction interval —
+    /// each bigger than the last, from 0.28 m/s to 139 m/s in ten seconds, on a shot that had been
+    /// 0.1 km from the target at cutoff.</para>
+    ///
+    /// <para>Runs the loop both ways off one setup. <b>It reproduces the coupling, not the flown
+    /// divergence</b> — the loop gain depends on which axis the bus can push and how sensitive the
+    /// arc is to it, and in flight the trim happened to be firing radially, which is twice as
+    /// expensive as the along-track axis this rig picks. So the assertion is on the mechanism
+    /// rather than the magnitude: the correction must not absorb a displacement the trim put there.
+    /// The log is the evidence for how far that goes when it does.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void TheAimCorrectionMustSitOutWhileTheTrimIsFiring(bool observeWhileTrimming)
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
+        double3 nose = Vec.Unit(arc.RequiredVelocityCci);
+
+        Bus bus = new()
+        {
+            PositionCci = fromCci,
+            VelocityCci = arc.RequiredVelocityCci,
+            NoseCci = nose,
+            RightCci = Vec.Unit(Vec.Cross(fromCci, nose)),
+            DownCci = -Vec.Unit(fromCci),
+
+            // The bus's own, measured in flight rather than assumed: the thrusters logged
+            // 0.9-1.1 m/s2, and the runaway outruns exactly that.
+            AxialAcceleration = 1.0,
+            LateralAcceleration = 1.0,
+        };
+
+        // Warheads are thrown off the tubes rather than dropped, so the aim the guidance solved to
+        // is displaced to absorb that. It is what gives the correction something to hold, and
+        // therefore something to wind up.
+        double3 kick = Vec.Unit(Vec.Cross(nose, fromCci)) * 2.0;
+
+        AimCorrection aim = new();
+
+        // The state the trim actually starts from, which is not a fresh one: by cutoff the
+        // correction has been running for the whole burn and the guidance has been solving to the
+        // aim it produced. Starting from zero bias instead lets the first observation do work that
+        // is genuinely owed, and the runaway never gets going -- the setup hides the fault.
+        for (int i = 0; i < 40; i++)
+        {
+            Assert.True(BallisticArc.TrySolve(Earth, fromCci, aim.Apply(aimAtEpoch),
+                                              arc.FlightSeconds, out BallisticArc.Solution onAim));
+
+            bus.VelocityCci = onAim.RequiredVelocityCci;
+
+            Assert.True(ImpactPredictor.TryPredict(Earth, fromCci, bus.VelocityCci + kick, 2.0,
+                                                   20_000.0, out ImpactPredictor.Impact settled));
+
+            aim.Observe(settled.GroundFixedPointCci, aimAtEpoch);
+        }
+
+        Out.WriteLine($"bias converged to {Vec.Len(aim.BiasCci) / 1000.0:F1} km before the split");
+
+        // And now the decoupler, which is the only thing the trim is there for.
+        bus.VelocityCci += nose * 1.1;
+
+        double3 biasAtCutoff = aim.BiasCci;
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        double step = 1.0 / 60.0;
+        double sincePredict = 0.0;
+        double elapsed = 0.0;
+        double peak = 0.0;
+        TrimCommand last = default;
+
+        for (int i = 0; i < 3000 && !last.Done; i++)
+        {
+            double3 trueAim = Earth.CarryCci(aimAtEpoch, elapsed);
+
+            sincePredict += step;
+            if (sincePredict >= 0.5)
+            {
+                sincePredict = 0.0;
+
+                // The same observer the mod has: fly the warhead from the bus's live state, and
+                // score where it lands against the target.
+                if ((observeWhileTrimming || last.Done)
+                    && ImpactPredictor.TryPredict(Earth, bus.PositionCci, bus.VelocityCci + kick,
+                                                  2.0, 20_000.0, out ImpactPredictor.Impact hit))
+                {
+                    aim.Observe(hit.GroundFixedPointCci, trueAim);
+                }
+            }
+
+            last = trim.Update(step, new TrimSituation(
+                Earth, bus.PositionCci, bus.VelocityCci, aim.Apply(trueAim),
+                arc.FlightSeconds - elapsed, bus.NoseCci, bus.RightCci, bus.DownCci));
+
+            peak = Math.Max(peak, double.IsFinite(last.ToGainMetresPerSecond)
+                                      ? last.ToGainMetresPerSecond : 0.0);
+
+            if (last.Done) break;
+
+            bus.Step(last.Fire, step);
+            elapsed += step;
+        }
+
+        double moved = Vec.Len(aim.BiasCci - biasAtCutoff);
+
+        Out.WriteLine($"observing={observeWhileTrimming}: peaked at {peak:F2} m/s after {elapsed:F1} s"
+                      + $", bias moved {moved:F0} m -- {last.Said}");
+
+        if (observeWhileTrimming)
+        {
+            // The coupling has to still be here, or the case below is measuring nothing. Both
+            // halves of it: the correction takes in the trim's own displacement, and the trim then
+            // burns at what that put in front of it.
+            Assert.True(moved > 100.0, $"the correction should have absorbed the trim's own work; moved {moved:F0} m");
+            Assert.True(peak > 1.1 * 1.5, $"and the trim should have chased it; peaked at {peak:F2} m/s");
+            return;
+        }
+
+        Assert.True(last.Done && !trim.GaveUp, last.Said);
+
+        // The whole fix, stated exactly: the aim the trim is solving to does not move under it.
+        Assert.Equal(0.0, moved, 6);
+        Assert.True(peak <= 1.2, $"nothing should have grown it past the 1.1 m/s shove; peaked at {peak:F2} m/s");
+    }
+
+    /// <summary>
     /// Without a committed arrival there is nothing to trim towards, and it refuses rather than
     /// picking one.
     ///

@@ -102,6 +102,21 @@ internal sealed class BusTrim
     /// </summary>
     public const double SettleSeconds = 1.5;
 
+    /// <summary>
+    /// The most this will accept as a trim, in metres per second.
+    ///
+    /// <para>A separation transient is about a metre a second and a cutoff residual is a fraction
+    /// of one. An answer in the tens is not a bus that has been shoved off its arc — it is the solve
+    /// being asked the wrong question, and thrusting at it makes the shot worse rather than better
+    /// while looking exactly like work.</para>
+    ///
+    /// <para>Checked every cycle rather than once at the start, because the way it went wrong in
+    /// flight was a runaway rather than a bad first answer: the aim correction and the trim drove
+    /// the same vehicle through the same prediction, and the pair wound each other up by a factor
+    /// of ten every ten cycles.</para>
+    /// </summary>
+    public const double MaxMetresPerSecond = 10.0;
+
     /// <summary>How long one direction may fire without moving its own component before it is struck off.</summary>
     public const double DirectionStallSeconds = 4.0;
 
@@ -253,6 +268,11 @@ internal sealed class BusTrim
         if (_toGain <= band && _since >= SettleSeconds)
         {
             return Finish(gaveUp: false, $"trimmed to {_toGain:F3} m/s");
+        }
+
+        if (_toGain > MaxMetresPerSecond)
+        {
+            return Finish(gaveUp: true, Left("more than a separation could have cost"));
         }
 
         // A loop that has stopped helping is not the same as one that has stopped firing, and it is
