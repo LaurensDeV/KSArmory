@@ -122,6 +122,23 @@ internal sealed class ReleaseSequence
     public const double SweepClosingMetresPerSecond = 0.005;
 
     /// <summary>
+    /// How steady the tubes must be before <see cref="Begin"/> will latch their axes, in metres a
+    /// second at the tube.
+    ///
+    /// <para><b>An order of magnitude looser than the release budget, and deliberately.</b> Latching
+    /// is a measurement and releasing is an act: a reference taken slightly off is a bias the
+    /// sequencer then applies to every tube equally, where a release taken off the line is on that
+    /// round and permanent. What it has to exclude is the large transient right after a split —
+    /// flown at 0.438 m/s, which is about ten degrees a second — not the residual jitter a light
+    /// bus can never null.</para>
+    ///
+    /// <para>Gating this on the release budget instead is why re-pointing could be switched on and
+    /// never start: a vehicle whose sweep floors above the budget never latches, so the cant it
+    /// exists to remove stays in and nothing says why.</para>
+    /// </summary>
+    public const double SteadyToLatchMetresPerSecond = 0.5;
+
+    /// <summary>
     /// How long to wait for one tube before letting it go anyway.
     ///
     /// <para>A vehicle with no attitude authority would otherwise hold its rounds for ever, which is

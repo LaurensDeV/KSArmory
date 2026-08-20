@@ -317,11 +317,6 @@ internal sealed class BusTrim
         double quantum = _accel > 0.0 ? 0.5 * _accel * step : 0.0;
         double band = Math.Max(SettledMetresPerSecond, quantum);
 
-        if (_toGain <= band && _since >= SettleSeconds)
-        {
-            return Finish(gaveUp: false, $"trimmed to {_toGain:F3} m/s");
-        }
-
         if (_toGain > MaxMetresPerSecond)
         {
             return Finish(gaveUp: true, Left("more than a separation could have cost"));
@@ -336,12 +331,21 @@ internal sealed class BusTrim
 
         TrimAxes pick = Choose(in now, toGainCci, band, out double component);
 
+        // Finished when there is no direction left worth firing, which is the honest definition —
+        // and it is per direction rather than on the total, because the total is spread over three
+        // axes and none of its shares need exceed what one more frame of firing would overshoot.
+        // Testing the total instead leaves a residual that is inside the band on every axis and
+        // marginally outside it as a length, which nothing can act on and nothing declares done.
         if (pick == TrimAxes.None)
         {
-            // Everything worth pushing is on a direction that moves nothing — unless the whole
-            // remainder is already inside the band, which is the settle window still running.
-            return _toGain <= band
-                       ? Command(TrimAxes.None, "settling before the first release")
+            if (_since < SettleSeconds) return Command(TrimAxes.None, "settling before the first release");
+
+            // Whether that is success or defeat turns on *why* nothing was picked. A direction is
+            // only struck off after firing without moving its own component, so a strike is the
+            // evidence that something aboard does not work; without one, there was simply nothing
+            // left worth a burn.
+            return _dead == TrimAxes.None
+                       ? Finish(gaveUp: false, $"trimmed to {_toGain:F3} m/s")
                        : Finish(gaveUp: true, Left("nothing left aboard moves the bus"));
         }
 

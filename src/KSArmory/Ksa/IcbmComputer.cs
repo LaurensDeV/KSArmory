@@ -977,9 +977,11 @@ internal sealed class IcbmComputer
 
         int next = weapon.NextTube;
 
-        // Latched at the attitude the aim correction converged against, which is this one: the
-        // first frame the launcher is both ready to deploy and no longer turning.
-        if (!_sequence.Begun && Config.RepointBetweenReleases && !(_tubeSpinSpeed > ReleaseSequence.SteadyMetresPerSecond))
+        // Latched once the launcher is ready to deploy and the split's transient has died down —
+        // not once it is steady enough to release, which is a far tighter number and one a light
+        // bus may never reach.
+        if (!_sequence.Begun && Config.RepointBetweenReleases
+            && !(_tubeSpinSpeed > ReleaseSequence.SteadyToLatchMetresPerSecond))
         {
             int found = weapon.TubeAxesEcl(_tubeAxes);
             if (found > 0 && Parent is { } parent)
