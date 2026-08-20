@@ -9,6 +9,10 @@ namespace KSArmory.Tests;
 /// </summary>
 public class ReleaseSequenceTests(ITestOutputHelper Out)
 {
+    // What the bus throws at, which is what prices a cant. Off the profile rather than repeated,
+    // because the sequencer takes it from the munition now and a second copy here would drift.
+    private static readonly double Ejection = Arsenal.ReentryVehicleMk21.LaunchSpeed;
+
     private const double Step = 1.0 / 60.0;
 
     private static double3[] Axes()
@@ -32,7 +36,7 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
                                    double windowSeconds = double.PositiveInfinity,
                                    int tubesLeft = 6)
         => new(ReadyToDeploy: true, NextTube: tube, TubesLeft: tubesLeft, NextTubeAxisCci: axisNow,
-               SweepMetresPerSecond: sweep, SecondsLeftToDeploy: windowSeconds,
+               EjectionMetresPerSecond: Ejection, SweepMetresPerSecond: sweep, SecondsLeftToDeploy: windowSeconds,
                HeldDirectionCci: new double3(1, 0, 0), HeldRollCci: new double3(0, 0, 1));
 
     // A tube axis a stated number of degrees off the line, turned about one fixed perpendicular so
@@ -294,7 +298,7 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
 
         ReleaseCommand r = deploy.Update(Step, At(0, OffTheLine(reference, offDegrees), sweep));
 
-        Out.WriteLine($"{ReleaseSequence.LateralFromCant(offDegrees) + sweep:F3} m/s at the tube: {r.Said}");
+        Out.WriteLine($"{ReleaseSequence.LateralFromCant(offDegrees, Ejection) + sweep:F3} m/s at the tube: {r.Said}");
         Assert.Equal(releases, r.ReleaseNow);
     }
 
@@ -320,7 +324,7 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
                                        sweep: 0.113, windowSeconds: 143.0));
         }
 
-        double lateral = 0.113 + ReleaseSequence.LateralFromCant(r.OffLineDegrees);
+        double lateral = 0.113 + ReleaseSequence.LateralFromCant(r.OffLineDegrees, Ejection);
         Out.WriteLine($"{elapsed:F1} s  {r.Said}  ({lateral:F3} m/s at the tube)");
 
         Assert.True(r.ReleaseNow);
@@ -367,7 +371,7 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
             r = deploy.Update(Step, At(0, OffTheLine(reference, off), sweep));
         }
 
-        double lateral = sweep + ReleaseSequence.LateralFromCant(r.OffLineDegrees);
+        double lateral = sweep + ReleaseSequence.LateralFromCant(r.OffLineDegrees, Ejection);
         Out.WriteLine($"{elapsed:F1} s  {r.Said}  ({lateral:F3} m/s at the tube)");
 
         Assert.True(r.ReleaseNow);

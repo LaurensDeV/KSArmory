@@ -7,6 +7,15 @@ namespace KSArmory;
 /// <param name="TubesLeft">How many rounds could still go, which sets each one's share of the window.</param>
 /// <param name="NextTubeAxisCci">Where that tube points now, measured this frame.</param>
 /// <param name="SweepMetresPerSecond">How fast the vehicle's own turn is sweeping the tubes.</param>
+/// <param name="EjectionMetresPerSecond">
+/// What the tubes throw a round at, which is what turns a cant into the currency a release is
+/// decided in: a tube <c>θ</c> off the line throws its round <c>2·sin(θ/2)</c> of this away from
+/// where it was aimed.
+///
+/// <para>Carried rather than assumed, because it belongs to the munition and two canted launchers
+/// need not agree about it. Zero or less prices the cant at nothing and spends only the sweep,
+/// which is the honest answer for a store that is dropped rather than thrown.</para>
+/// </param>
 /// <param name="SecondsLeftToDeploy">
 /// How long the release window has left. NaN when unknown, which is treated as "plenty" — a
 /// sequencer that stops re-pointing because it cannot see the clock would never re-point at all.
@@ -17,6 +26,7 @@ internal readonly record struct ReleaseSituation(
     int TubesLeft,
     double3 NextTubeAxisCci,
     double SweepMetresPerSecond,
+    double EjectionMetresPerSecond,
     double SecondsLeftToDeploy,
     double3 HeldDirectionCci,
     double3 HeldRollCci);
@@ -88,29 +98,6 @@ internal sealed class ReleaseSequence
     /// every tube is canted, which is the whole reason the sequence exists.</para>
     /// </summary>
     public const double SteadyMetresPerSecond = LateralBudgetMetresPerSecond;
-
-    /// <summary>
-    /// The ejection speed a cant is priced at, in metres a second.
-    ///
-    /// <para>A tube <c>θ</c> off the line throws its round <c>2·sin(θ/2)</c> of the ejection speed
-    /// away from where it was aimed, so a speed is what turns an angle into the budget's currency.
-    /// The only launcher whose tubes are canted is the MIRV bus and this is what it throws at;
-    /// everywhere else the mean of one tube's axes is that axis, the cant is zero, and this
-    /// multiplies nothing. A second canted launcher throwing at a different speed wants it carried
-    /// on <see cref="ReleaseSituation"/> rather than assumed here.</para>
-    /// </summary>
-    public const double EjectionMetresPerSecond = 2.0;
-
-    /// <summary>
-    /// How far off the line a tube may be for the pointing alone to fit inside the budget.
-    ///
-    /// <para>Derived rather than chosen: the cant whose lateral velocity is the whole of
-    /// <see cref="LateralBudgetMetresPerSecond"/>, which is 1.4°. An absolute angle picked beside a
-    /// separate sweep gate cannot be right — the two trade against each other, and which of them
-    /// binds depends on the vehicle.</para>
-    /// </summary>
-    public static readonly double AlignedDegrees =
-        2.0 * Math.Asin(LateralBudgetMetresPerSecond / (2.0 * EjectionMetresPerSecond)) * 180.0 / Math.PI;
 
     /// <summary>
     /// How long a term has to go without getting better before it is read as this vehicle's floor
@@ -201,8 +188,10 @@ internal sealed class ReleaseSequence
     /// What a tube that far off the line throws its round sideways at, in metres a second — the
     /// currency a release is decided in.
     /// </summary>
-    public static double LateralFromCant(double offDegrees)
-        => 2.0 * EjectionMetresPerSecond * Math.Sin(0.5 * offDegrees * Math.PI / 180.0);
+    public static double LateralFromCant(double offDegrees, double ejectionMetresPerSecond)
+        => ejectionMetresPerSecond > 0.0
+               ? 2.0 * ejectionMetresPerSecond * Math.Sin(0.5 * offDegrees * Math.PI / 180.0)
+               : 0.0;
 
     /// <summary>
     /// Latch the tube axes and the line they average to.
@@ -322,7 +311,9 @@ internal sealed class ReleaseSequence
         // A launcher that is not being re-pointed is canted by design and no waiting changes that,
         // so only a turn in progress spends any of the budget on its pointing.
         bool blind = turning && !measured;
-        double cant = turning && measured ? LateralFromCant(offDegrees) : 0.0;
+        double cant = turning && measured
+                          ? LateralFromCant(offDegrees, now.EjectionMetresPerSecond)
+                          : 0.0;
         double lateral = now.SweepMetresPerSecond + cant;
 
         RecordSweep(stepSeconds, now.SweepMetresPerSecond);

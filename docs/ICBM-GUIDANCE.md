@@ -823,7 +823,7 @@ inside the budget, which `ReleaseSequenceTests.AVehicleThatCanHoldIsStillRelease
 pins — against the two thresholds that flew, the same vehicle went at **0.062 m/s**, outside a budget
 it could have met.
 
-`AlignedDegrees` is now derived rather than chosen: the cant whose lateral velocity is the whole
+The alignment threshold stops existing as a number of its own: what a cant costs is the whole
 budget, 1.4°. An absolute angle picked beside a separate sweep gate cannot be right, because which of
 the two binds depends on the vehicle.
 
@@ -854,7 +854,7 @@ telling apart — from one frame they all read as "N degrees to go":
 
 | What the angle does | What it means |
 | --- | --- |
-| falls to under `AlignedDegrees` | the turn worked |
+| the pair fits inside the budget | the turn worked |
 | passes its own best by `ClosingDegrees` | the turn is over, whatever it reached |
 | grows past where it started, by `NotFollowingDegrees` | the vehicle is not holding what it was given |
 | stops closing by `ClosingDegrees` for `NoProgressSeconds` | the vehicle is not turning at all |

@@ -212,7 +212,7 @@ failing** instead of waiting out a 60 s timeout and reporting only that it gave 
 
 | what the angle does | what it means | gate |
 | --- | --- | --- |
-| falls under 0.5° | the turn worked | `AlignedDegrees` |
+| the cant and the sweep fit one budget | the turn worked | `LateralBudgetMetresPerSecond` |
 | grows 1° past where it started | the vehicle is not holding what it was given | `NotFollowingDegrees` |
 | fails to close 0.25° in 10 s | the vehicle is not turning at all | `ClosingDegrees` |
 
@@ -234,12 +234,19 @@ command that is not arriving.
   how fast the tubes were sweeping. Six impacts are only diagnosable against six release states, and
   those were silent.
 
-The gates themselves are unchanged. `AlignedDegrees` 0.5° and `SteadyMetresPerSecond` 0.05 were
-calibrated against a launcher bolted to a full stack and are probably far too tight for a 6,300 kg
-bus with a 2.6 m lever arm — but loosening them silently accepts dispersion, and the evidence for
-what to loosen them *to* is one flight away. If the log shows the bus holding a steady offset it
-cannot improve on, that is the case for making `AlignedDegrees` a convergence test rather than an
-absolute one.
+**The gates are now one budget rather than two thresholds**, which is what this morning's flight
+justified: the bus reached 0.5° and was refused for sweeping at 0.113 m/s, then released fifteen
+seconds later at 5.1° — a *larger* lateral error, because both terms are lateral velocity at the
+tube and the pair were being compared against separate limits. Priced in one currency,
+`sweep + 2·v_eject·sin(θ/2)` against the old sweep gate's 0.05 m/s, the same flown numbers give
+**4.4 s at 0.8° off and 0.139 m/s at the tube**, against 23.9 s at 5.1° and 0.291 m/s.
+
+A vehicle that cannot reach the budget releases at the pointing's best rather than on a deadline,
+and the "will not settle" latch now records a *floor* found above budget so the rest of the salvo
+skips re-confirming it — 28 s to 3 s for the whole salvo on the flown case.
+
+The ejection speed that prices a cant comes off the munition rather than being assumed, so a
+launcher carrying nothing prices it at nothing and two canted launchers need not agree.
 
 Headlessly the mechanism still collapses the tube-cant spread from **1,730 m to 0 m**, and is
 roll-independent.

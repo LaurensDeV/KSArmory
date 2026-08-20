@@ -1280,8 +1280,9 @@ has been made to say which way it is failing. One flight decides where the fix g
 - [ ] Every release logs which tube went, how far off the line and how fast the tubes were sweeping
       — including the ones that worked. Six impacts are only diagnosable against six release states.
 - [ ] If the bus holds a *steady* offset it cannot improve on, write the number down: that is the
-      evidence for making `AlignedDegrees` a convergence test rather than an absolute one, which is
-      the one gate change worth making and cannot be justified without it.
+      number: the release is now budgeted in metres per second of lateral velocity at the tube, so
+      a steady offset it cannot improve on is what `LateralBudgetMetresPerSecond` has to be sized
+      against.
 
 ### 12.7b A director that rides away on a split
 

@@ -1010,6 +1010,12 @@ internal sealed class IcbmComputer
         return _sequence.Update(simStep, new ReleaseSituation(
             ReadyToDeploy: true, NextTube: next, TubesLeft: Math.Max(1, weapon.TubesReadyToFire),
             NextTubeAxisCci: nextAxis, SweepMetresPerSecond: _tubeSpinSpeed,
+
+            // Off the munition rather than assumed: it is what turns a tube's cant into the lateral
+            // velocity the release is budgeted in, and it belongs to the round rather than to the
+            // sequencer. A launcher carrying nothing prices a cant at nothing, which is right —
+            // there is no round to throw off the line.
+            EjectionMetresPerSecond: _warhead?.LaunchSpeed ?? 0.0,
             SecondsLeftToDeploy: window, HeldDirectionCci: held, HeldRollCci: roll));
     }
 
