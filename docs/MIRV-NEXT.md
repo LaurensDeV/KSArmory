@@ -40,54 +40,6 @@ Two failures on the way, both worth not repeating:
 - **Nulling the shove ends the separation**, because the shove *is* the separation velocity. The bus
   trimmed 130 ms after the split at 12 m and then sat against the booster it had just dropped.
 
-## 0. Radial translation jets — built, unflown
-
-Four nozzles added, one per cluster, seated at the cluster centre and firing straight out along the
-bisector at exactly `(0, ±0.70711, ±0.70711)`. Appended as `KSArmory_Mirv_Rcs16`–`Rcs19`; no
-`SubPartGameData` was needed, because KSA keys that on the subpart definition rather than the
-instance, and no mesh changed.
-
-**What decides whether a nozzle serves a translation, read off `ThrusterController`.**
-`RecomputeDynamicData` normalises each controller's summed thrust, resolves it onto the control
-frame, and `ComputeControlMap` sets a Translate flag for any component over **0.5** — a 60° half
-cone, per nozzle, with no reference to lever arms or to the layout as a whole. Torque flags are a
-separate threshold at **0.1** on `dot(thrust, unit(ctrlAxis × (loc − CoM)))`, which is *normalized*,
-so lever-arm length never enters it.
-
-Two things follow that were not previously written down:
-
-- **The shipped bus already had lateral authority, and nobody designed it.** Its eight roll jets are
-  canted 29° radially inward, which puts a 0.94 component on one control axis — over the threshold.
-  Each lateral direction therefore had two nozzles and zero net torque already. That is almost
-  certainly the low end of the flown **0.9–2.2 m/s²**, and it means CLAUDE.md's old "the shipped one
-  has none" was wrong before this change as well as after.
-- **One radial jet per cluster serves every lateral direction**, because each sits 45° between two
-  control axes and so carries two flags. Lateral net force goes **1.88 → 3.29** thrust-units, with
-  the direction exact and the residual roll zero.
-
-**Why one and not a straddling pair.** `<SolidSphereMass>` on the bus declares no `<LocationAsmb>`,
-and `AsmbTransformTemplate` defaults it to zero — so KSA puts all 6,300 kg on the mounting face at
-X = 0, while the geometry's own centre is near X ≈ 1.4. Every cluster pad lies at X 0.15–0.45, all
-one side of it, so no pair of stations can straddle the CoM and a pair's torques *add*. A single jet
-at X = 0.30 has the same torque per unit thrust as a pair at 0.18 + 0.42, so the pair bought thrust
-and nothing else. Nor does the CoM move as warheads leave: rounds are self-simulated, so nothing is
-removed from the vehicle when one goes.
-
-**The mass declaration is worth its own look.** A CoM on the mounting face is not where the part's
-geometry is, and it sets every RCS lever arm on the bus. Left alone here because it changes the
-whole vehicle's rotational behaviour, not just this.
-
-**The cosmetic cost.** All four shipped bells radiate from the cluster centre at 0.09, so a fifth
-seated there merges 20–28 mm into their roots. `validate-parts.py`'s cross-body pass is clean — the
-overlap produces no shared planes — and it is hidden at every angle rendered, reading as a common
-manifold. The alternative was a pair offset ±5° in clock, which seats cleanly but cannot fire exactly
-radially and sits 0.087 from the roll-flag threshold, crossing it once the CoM wanders 0.1 m
-off-axis.
-
-**Unflown.** Nothing has been in the air with these. What has to be watched is in `CHECKLIST.md`
-§12: that `BusTrim` stops striking lateral directions off, and what the measured lateral
-acceleration actually becomes.
-
 ## 1. Null the separation impulse — reformulated, unflown
 
 **The mechanism is flown and confirmed.** KSA's translation flags reach the bus's nozzles, they were

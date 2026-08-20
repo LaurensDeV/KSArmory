@@ -461,7 +461,7 @@
   </PartGameData>
 
   <!--
-    One attitude-control nozzle, declared once and inherited by all twenty instances: KSA keys
+    One attitude-control nozzle, declared once and inherited by all sixteen instances: KSA keys
     SubPartGameData on the subpart *definition*, not on the instance.
 
     This is the first thing in this mod that uses KSA's own simulation rather than replacing it.
@@ -516,7 +516,7 @@
 
     <!--
       A post-boost vehicle carries its own propellant: it separates from the stack and then has to
-      fly for the whole deployment, with nothing upstream left to draw from. So the twenty nozzles
+      fly for the whole deployment, with nothing upstream left to draw from. So the sixteen nozzles
       feed from a tank on this part rather than through the mounting connector - the same shape as
       the kitten jetpack, which is the other self-contained thruster set in the game.
 
@@ -537,7 +537,7 @@
       supplies it, or KSA logs "no ConsumerFeedWiring wiring for it" at load and nothing fires.
 
       Id matches the Combustor's, and there is deliberately no SubPartId - one entry covers all
-      twenty instances of the nozzle, exactly as Core's own RCS sets do.
+      sixteen instances of the nozzle, exactly as Core's own RCS sets do.
     -->
     <ConsumerFeedWiring Id="Chamber">
       <FeedsFrom Container="MirvPropellant" />
@@ -545,7 +545,7 @@
 
     <!--
       A post-boost vehicle flies itself: that is the whole job, and it starts at the moment it
-      stops being attached to anything that has a command pod. Without <Control /> the twenty
+      stops being attached to anything that has a command pod. Without <Control /> the sixteen
       thrusters answer to the stack below and go dead on separation, which is exactly backwards.
 
       Its own battery for the same reason - a bus is under power from separation to the last
