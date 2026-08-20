@@ -286,7 +286,24 @@ gain. So the miss-against-bias curve is not monotonic — there is a hump betwee
 guard patient enough to cross it is also patient enough to let a real divergence run. Two runs from
 the identical save took different paths, so it is timing-dependent rather than structural.
 
-**Three candidates, none tested:**
+**Measuring the step did not fix it, and the reason is the interesting part.** Sizing the step by
+the response measured from consecutive cycles converges against any fixed plant — the test drives
+0.5 through 8 — and in flight it changed nothing: 63 km with a fixed fraction, 60 km measured.
+
+Because **the miss is not a function of the bias.** Two flights from the identical save, at the same
+28.6 km of bias, one predicted 54.3 km of miss and the other 0.06 km. The correction moves the aim,
+the guidance re-solves, a different arc comes back, and the arrival was latched against a state that
+no longer applies — so the loop's plant is its own output history. Step sizing cannot fix that,
+whatever the step.
+
+**The one structural candidate left**, and the only one that addresses the cause rather than
+damping it: `IcbmProgram.Resolve` latches `_arrivalFromLaunch` on the *first* closed-loop cycle,
+before the correction has moved anything. Latching it after the correction has settled leaves both
+loops solving the same problem instead of one solving against the other's leftovers. The risk is
+named in `docs/ICBM-GUIDANCE.md`: the latch exists to stop a lofted shot chasing its own arc
+outward, which cost 162 km, so the window before it is latched has to be bounded.
+
+**Three older candidates, none tested:**
 
 - **A lower gain.** Principled for a marginally stable loop, and the flight has 922 observations
   against the dozen the tests use — but four tests encode a convergence rate chosen for a half, and
