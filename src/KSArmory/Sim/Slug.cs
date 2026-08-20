@@ -202,7 +202,7 @@ internal sealed class Slug : IProjectile
                       && Ground.TryGround(PositionEcl, out _groundCentre, out _groundRadius)
                       && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
 
-        int steps = Math.Min(Interceptor.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / Interceptor.SubStep)));
+        int steps = Math.Min(munition.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / munition.SubStep)));
         double h = dt / steps;
         double elapsed = 0.0;
 

@@ -224,6 +224,38 @@ public sealed class MunitionProfile
     public float MaxFaithfulStepSeconds = (float)Interceptor.MaxFaithfulStep;
 
     /// <summary>
+    /// How finely this round integrates its own flight, in seconds. Zero takes
+    /// <see cref="Interceptor.SubStep"/>.
+    ///
+    /// <para><b>It buys accuracy linearly and costs work linearly</b>, which is why it is per round
+    /// rather than one constant. The integrator is symplectic Euler, so the impact moves
+    /// <b>30.6 m per millisecond</b> of step on a shallow arrival — 145.3 / 68.8 / 22.9 / 7.6 m at
+    /// 5.00 / 2.50 / 1.00 / 0.50 ms against a quarter-millisecond reference. Nine tenths of that is
+    /// a genuinely different trajectory rather than an arrival-time error.</para>
+    ///
+    /// <para>A warhead is worth spending it on and a cannon shell is not. Six warheads at a
+    /// millisecond is about 300 sub-steps a frame; a 150-shell burst at the same step is 7,500, and
+    /// that cost has never been measured. So the default stays where the shipped rounds already
+    /// fly and only a round that needs the precision asks for more.</para>
+    ///
+    /// <para><b>The count scales with it so the faithful step does not move.</b> A finer step with
+    /// the same sub-step cap would shorten <see cref="MaxFaithfulStepSeconds"/> for this round and
+    /// hold the whole world's timewarp down with it — which is the trap that cost 164 km when the
+    /// integration clamp and the warp target were confused for each other.</para>
+    /// </summary>
+    public float SubStepSeconds;
+
+    /// <summary>This round's integration step, resolved against the shared default.</summary>
+    public double SubStep => SubStepSeconds > 0.0f ? SubStepSeconds : Interceptor.SubStep;
+
+    /// <summary>
+    /// How many sub-steps one frame may be cut into for this round, chosen so that
+    /// <c>SubStep * MaxSubSteps</c> still spans <see cref="MaxFaithfulStepSeconds"/>.
+    /// </summary>
+    public int MaxSubSteps =>
+        Math.Max(Interceptor.MaxSubSteps, (int)Math.Ceiling(MaxFaithfulStepSeconds / SubStep));
+
+    /// <summary>
     /// How far this round can usefully be sent, in metres.
     ///
     /// <para>On the round rather than on the set that finds the target or the launcher that throws
