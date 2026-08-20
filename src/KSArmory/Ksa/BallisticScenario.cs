@@ -74,6 +74,7 @@ internal sealed class BallisticScenario
     private double _sinceComplaint;
     private Vehicle? _defendedSite;
     private bool _watchedTheTarget;
+    private bool _onThePad;
 
     private IcbmPhase _reported = IcbmPhase.Idle;
     private bool _saidCutoff;
@@ -197,21 +198,24 @@ internal sealed class BallisticScenario
             double airspeed = Vec.Len(KsaWorld.VelocityEcl(computer.Craft)
                                       - KsaWorld.GroundVelocityAt(parent, KsaWorld.PositionEcl(computer.Craft)));
 
-            if (!IcbmProgram.IsOnTheGround(computer.AltitudeMetres, airspeed,
-                                           computer.Config.TurnStartMetres))
-            {
-                why.Add($"{name} is at {computer.AltitudeMetres / 1000.0:F1} km doing "
-                        + $"{airspeed:F0} m/s, which is not on a pad");
-                continue;
-            }
+            // Wherever it is. The phase machine joins a flight by looking at the vehicle rather
+            // than by assuming a pad — low and still is the launch sequence, dynamic pressure is an
+            // ascent already under way, above the air is a hold — so a scenario that insists on a
+            // pad refuses the case the operator most often tests, which is a save resumed near
+            // apogee with the boost already flown.
+            _onThePad = IcbmProgram.IsOnTheGround(computer.AltitudeMetres, airspeed,
+                                                  computer.Config.TurnStartMetres);
 
             _computer = computer;
             _loaded = battery.Ammo;
             _ammoWas = battery.Ammo;
             _flownFrom = computer.Craft;
 
-            _say($"{KsaWorld.DisplayName(computer.Craft)} on the ground at {WhereItStands(computer)}, "
-                 + $"{battery.Ammo} x {battery.Munition.DisplayName} aboard");
+            _say(_onThePad
+                     ? $"{name} on the ground at {WhereItStands(computer)}, "
+                       + $"{battery.Ammo} x {battery.Munition.DisplayName} aboard"
+                     : $"{name} already flying at {computer.AltitudeMetres / 1000.0:F0} km doing "
+                       + $"{airspeed:F0} m/s, {battery.Ammo} x {battery.Munition.DisplayName} aboard");
 
             double aimLat = _shot.LatitudeDeg;
             double aimLon = _shot.LongitudeDeg;
@@ -268,12 +272,24 @@ internal sealed class BallisticScenario
 
         ReportPhase();
 
-        if (computer.Program.Phase != IcbmPhase.Rising) return;
+        // A vehicle already flying needs no engine lit: the phase machine picks it up holding or
+        // guiding, and staging into that would fire whatever the operator left in the next
+        // sequence. Only a launch needs a push.
+        if (_onThePad)
+        {
+            if (computer.Program.Phase != IcbmPhase.Rising) return;
 
-        VehicleCommand.Stage(computer.Craft);
+            VehicleCommand.Stage(computer.Craft);
+            _say($"staged, reach {computer.Program.Reach}");
+        }
+        else
+        {
+            if (computer.Program.Phase is IcbmPhase.Idle or IcbmPhase.NoSolution) return;
+
+            _say($"picked up in {computer.Program.Phase}, reach {computer.Program.Reach}");
+        }
+
         _committed = true;
-
-        _say($"staged, reach {computer.Program.Reach}");
 
         if (KsaWorld.SetSimulationSpeed(WarpFactor))
         {
