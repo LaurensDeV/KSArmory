@@ -244,6 +244,41 @@ launcher carrying nothing prices it at nothing and two canted launchers need not
 Headlessly the mechanism still collapses the tube-cant spread from **1,730 m to 0 m**, and is
 roll-independent.
 
+## 5b. Firing each tube on its own crossing — tried on paper, does not win
+
+The bus tumbles, so rather than commanding an attitude it cannot hold, wait for each tube's axis to
+sweep past the reference and fire on the crossing. It loses, for three reasons any one of which is
+fatal, and `TumblingBusTests` holds the arithmetic.
+
+**The premise was wrong first.** The sweep at the tube is `mean |ω × (mouth − CoM)|`, which under a
+constant tumble is a *constant* — a floor, not a transient — so it costs the same whenever the round
+goes. There is no "the sweep is worst exactly where the cant is best" trade to exploit. That is only
+true of a vehicle that is settling.
+
+- **The case that looks ideal is the null case.** A roll about the bus's own axis carries all six
+  tubes round one cone of the cant's half-angle, so each tube arrives exactly where the last one
+  was: six degrees off, for ever. Measured at zero variation through two full rolls — there is no
+  crossing to predict.
+- **The ceiling is unreachable anyway.** Under a fixed-axis tumble a tube's nearest approach is one
+  cant times the cosine of its clock angle from the tumble plane, so two tubes of six can reach the
+  line and the two a quarter-turn away never leave the full cant. Best over every tumble axis is
+  3.37°, or 0.117 m/s at the tube against 0.209 firing now — and that is an oracle with no window,
+  no clock and no magazine order.
+- **Waiting is self-defeating.** The reference is latched while the bus is on it, so from that
+  instant the bus walks away at the tumble rate and every second spent on one tube adds drift to
+  every tube not yet fired. The two cancel: over 0.5–6 °/s the mean release angle goes 6.0° to
+  5.2–7.2°. It does not come down.
+
+Priced with waiting free it is 76–94% of firing now, and one geometry at 6 °/s reaches 122% —
+worse. A salvo runs 7.7–60 s, so item 2b's ~26 m per second of holding adds 200–1,560 m on top of
+that, uncounted. Nearest-tube-first ordering is worse still, because it breaks the ring's symmetry
+without shrinking its radius.
+
+**What would reopen it:** the whole argument assumes the bus's residual motion is a fixed-axis
+tumble at roughly constant rate. If a flown `SweepMetresPerSecond` turns out to *oscillate* — a
+floor with peaks well above it — the bus is settling badly rather than tumbling, the third leg
+weakens, and the geometry is a different problem.
+
 ## 6. Point the bus at the target on release — cosmetic, do it last
 
 Mechanically a couple of lines: the sequencer rotates whatever attitude it is handed, and the
