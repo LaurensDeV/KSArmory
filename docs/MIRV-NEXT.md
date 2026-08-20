@@ -331,7 +331,30 @@ the guidance re-solves, a different arc comes back, and the arrival was latched 
 no longer applies — so the loop's plant is its own output history. Step sizing cannot fix that,
 whatever the step.
 
-**The one structural candidate left**, and the only one that addresses the cause rather than
+**Sequencing the two loops is what worked.** Leaving the arrival free until the aim stops moving,
+then committing and freezing the aim, took the same shot from **226 km to 11.3 km**:
+
+| | miss |
+| --- | --- |
+| clamp only | 226 km |
+| stop when it stops helping | 63 km |
+| measured step, bounded by the error | 60 km |
+| arrival left free until the aim is steady | 12.3 km |
+| and the aim frozen when it commits | **11.3 km** |
+
+**What is left is not the aim.** Flown with the freeze in, the correction converges to **1.2 km** of
+predicted miss and holds its bias — and the prediction then drifts to 10.9 km with the aim
+unchanged. The shot goes on evolving through the rest of the burn after the arrival is committed,
+and a frozen correction cannot follow it.
+
+So the next question is when to commit, not how to correct. The arrival is latched as soon as the
+aim is steady, which on this shot is well before cutoff; latching at cutoff instead would let the
+aim track the whole burn. What stops that being obviously right is the reason the latch exists —
+a loft above one walks the answer outward every cycle, 162 km measured — so the case to check first
+is whether that failure needs the latch *early* or merely needs it *at all*. With `Loft` at one the
+cheapest arc is the natural one and there is nothing to chase.
+
+**The older structural candidate**, and the only one that addresses the cause rather than
 damping it: `IcbmProgram.Resolve` latches `_arrivalFromLaunch` on the *first* closed-loop cycle,
 before the correction has moved anything. Latching it after the correction has settled leaves both
 loops solving the same problem instead of one solving against the other's leftovers. The risk is
