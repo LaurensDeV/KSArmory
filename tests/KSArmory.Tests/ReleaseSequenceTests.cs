@@ -279,6 +279,123 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
         Out.WriteLine(r.Said);
     }
 
+    /// <summary>
+    /// The two gates that flew were independent thresholds, and independent thresholds compare
+    /// nothing. One budget swaps both of these verdicts round, because what reaches the round is the
+    /// sum: 0.4° while sweeping 0.045 m/s is 0.059 m/s at the tube, and a full degree while dead
+    /// still is 0.035.
+    /// </summary>
+    [Theory]
+    [InlineData(0.4, 0.045, false)]
+    [InlineData(1.0, 0.000, true)]
+    public void ItIsTheSumThatDecides(double offDegrees, double sweep, bool releases)
+    {
+        ReleaseSequence deploy = Started(out _, out double3 reference);
+
+        ReleaseCommand r = deploy.Update(Step, At(0, OffTheLine(reference, offDegrees), sweep));
+
+        Out.WriteLine($"{ReleaseSequence.LateralFromCant(offDegrees) + sweep:F3} m/s at the tube: {r.Said}");
+        Assert.Equal(releases, r.ReleaseNow);
+    }
+
+    /// <summary>
+    /// A bus that cannot null its residual rate has a sweep no waiting improves, so the pointing is
+    /// the only term left and the release goes at the pointing's own best. Flown, the tube reached
+    /// the line four seconds in against a sweep that floored at 0.113 m/s, was refused for being
+    /// unsteady, and went fifteen seconds later at 5.1° — a larger lateral error, not a smaller one.
+    /// </summary>
+    [Fact]
+    public void ABusWithAFloorUnderItsSweepReleasesAtThePointingsBest()
+    {
+        ReleaseSequence deploy = Started(out _, out double3 reference);
+
+        ReleaseCommand r = default;
+        double elapsed = 0.0;
+
+        // A window giving each of six warheads the ~24 s that flight's deadline came to.
+        for (int i = 0; i < 60 * 60 && !r.ReleaseNow; i++)
+        {
+            elapsed = i * Step;
+            r = deploy.Update(Step, At(0, OffTheLine(reference, FlownOffDegrees(elapsed)),
+                                       sweep: 0.113, windowSeconds: 143.0));
+        }
+
+        double lateral = 0.113 + ReleaseSequence.LateralFromCant(r.OffLineDegrees);
+        Out.WriteLine($"{elapsed:F1} s  {r.Said}  ({lateral:F3} m/s at the tube)");
+
+        Assert.True(r.ReleaseNow);
+        Assert.True(elapsed < 6.0,
+                    $"the best the vehicle offered was four seconds in; this released at {elapsed:F1} s");
+        Assert.True(r.OffLineDegrees < 1.5,
+                    $"released {r.OffLineDegrees:F1} deg off the line, having been on it earlier");
+
+        // The turn worked — it is the vehicle that will not hold still — so the rest are still
+        // turned onto rather than dumped on the mean axis.
+        ReleaseCommand next = deploy.Update(Step, At(1, OffTheLine(reference, 6.0), sweep: 0.113,
+                                                     windowSeconds: 143.0));
+        Assert.False(next.ReleaseNow);
+        Assert.Contains("turning onto tube 2", next.Said);
+    }
+
+    /// <summary>
+    /// A vehicle that can hold is released inside the budget and not a moment before. It crosses the
+    /// line three times on the way, each time with the tubes sweeping hard, and none of those is the
+    /// best it will give — a release taken at one of them would be several times the dispersion of
+    /// waiting.
+    /// </summary>
+    [Fact]
+    public void AVehicleThatCanHoldIsStillReleasedInsideTheBudget()
+    {
+        ReleaseSequence deploy = Started(out _, out double3 reference);
+
+        ReleaseCommand r = default;
+        double elapsed = 0.0;
+        double sweep = 0.0;
+        bool temptedMidSwing = false;
+
+        for (int i = 0; i < 60 * 30 && !r.ReleaseNow; i++)
+        {
+            elapsed = i * Step;
+            double off = Math.Abs(SettlingOffDegrees(elapsed));
+            sweep = SettlingSweep(elapsed);
+
+            if (off < 0.5 && sweep > 4.0 * ReleaseSequence.LateralBudgetMetresPerSecond)
+            {
+                temptedMidSwing = true;
+            }
+
+            r = deploy.Update(Step, At(0, OffTheLine(reference, off), sweep));
+        }
+
+        double lateral = sweep + ReleaseSequence.LateralFromCant(r.OffLineDegrees);
+        Out.WriteLine($"{elapsed:F1} s  {r.Said}  ({lateral:F3} m/s at the tube)");
+
+        Assert.True(r.ReleaseNow);
+        Assert.True(temptedMidSwing, "the model never put the tube on the line while sweeping hard, "
+                                     + "so it does not exercise what it claims to");
+        Assert.True(lateral <= ReleaseSequence.LateralBudgetMetresPerSecond,
+                    $"a vehicle that can hold released at {lateral:F3} m/s at the tube, outside the "
+                    + $"{ReleaseSequence.LateralBudgetMetresPerSecond:F3} budget it could have met");
+    }
+
+    // The three angles one flight left in the log, joined by straight lines: 6.0° when the turn was
+    // commanded, 0.5° at 4.2 s, 7.0° at 8.5 s, and back to the 5.1° it was eventually released at.
+    private static double FlownOffDegrees(double seconds)
+        => seconds <= 4.2 ? 6.0 - (5.5 / 4.2) * seconds
+         : seconds <= 8.5 ? 0.5 + (6.5 / 4.3) * (seconds - 4.2)
+         : seconds <= 18.5 ? 7.0 - (1.9 / 10.0) * (seconds - 8.5)
+         : 5.1;
+
+    // A stack with authority: it swings onto the commanded attitude, overshoots, and settles.
+    private static double SettlingOffDegrees(double seconds)
+        => 6.0 * Math.Exp(-seconds / 2.0) * Math.Cos(2.0 * seconds);
+
+    // The tube's own motion, 2.6 m out from the axis the vehicle is turning about.
+    private static double SettlingSweep(double seconds)
+        => 2.6 * Math.Abs(6.0 * Math.Exp(-seconds / 2.0)
+                          * (-0.5 * Math.Cos(2.0 * seconds) - 2.0 * Math.Sin(2.0 * seconds)))
+           * Math.PI / 180.0;
+
     [Fact]
     public void NothingLeftToFireHoldsTheNominalLine()
     {

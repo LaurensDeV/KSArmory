@@ -39,6 +39,19 @@ internal readonly record struct ReleaseCommand(
 /// lies on the mean — see <see cref="ReleasePointing"/> — waits for it to settle, releases, and moves
 /// on. One at a time, because each tube wants a different attitude.</para>
 ///
+/// <para><b>What decides a release is one number.</b> Both things held against it — how far off the
+/// line the tube is, and how fast the vehicle is sweeping it — are lateral velocity put on the
+/// round, so they are added and spent against <see cref="LateralBudgetMetresPerSecond"/> rather than
+/// tested separately. Two independent thresholds compare nothing: a tube on the line while the
+/// vehicle sweeps is a <em>smaller</em> error than one canted while it is still, and a pair of gates
+/// refuses the first and accepts the second.</para>
+///
+/// <para><b>Where the budget cannot be met, the best the vehicle will give is taken.</b> A separated
+/// bus that cannot null its residual rate has a sweep no waiting improves, so the only term left is
+/// the pointing and the release goes at the pointing's own best — see
+/// <see cref="StoppedImprovingSeconds"/>. A vehicle that is still settling keeps improving one term
+/// or the other and is never offered that, which is what stops a rigid stack releasing mid-swing.</para>
+///
 /// <para><b>Nothing paces a salvo it is not re-pointing.</b> With no axes latched every tube wants
 /// the same attitude, the only gate left is that the vehicle is steady, and a magazine empties in
 /// consecutive frames. That is the intent rather than an oversight: warheads off one release state
@@ -53,25 +66,73 @@ internal readonly record struct ReleaseCommand(
 internal sealed class ReleaseSequence
 {
     /// <summary>
-    /// How near the line a tube must be before its warhead goes.
+    /// How much lateral velocity a release may put on a round, in metres a second at the tube.
     ///
-    /// <para>Half a degree admits <c>2·sin(0.5°)</c> = 0.017 m/s of lateral velocity, which on a
-    /// deorbit's ~3,400 m per m/s is about 59 m — a factor of three under what the sweep gate below
-    /// already accepts, so the pointing is not the binding term. Tightening it buys nothing until
-    /// that one comes down with it.</para>
-    /// </summary>
-    public const double AlignedDegrees = 0.5;
-
-    /// <summary>
-    /// How fast the tubes may still be sweeping when a warhead goes, in metres a second at the
-    /// tube rather than degrees a second at the hull.
+    /// <para>The whole of it: the vehicle's sweep and the tube's cant are the same quantity and are
+    /// added before the comparison. On a deorbit's ~3,400 m per m/s it is about 170 m of spread, and
+    /// it is what the flown salvos were released inside.</para>
     ///
-    /// <para>The hull's rate is the wrong measure: a round on top of a long stack is tens of metres
+    /// <para><b>At the tube, not at the hull.</b> A round on top of a long stack is tens of metres
     /// from the centre of mass, so one degree a second there is half a metre a second at the tube.
     /// This is the quantity that actually reaches the round and it does not care how long the
     /// vehicle is.</para>
     /// </summary>
-    public const double SteadyMetresPerSecond = 0.05;
+    public const double LateralBudgetMetresPerSecond = 0.05;
+
+    /// <summary>
+    /// The same budget, asked of the sweep alone.
+    ///
+    /// <para>What a caller deciding when the tube axes may be latched has to ask: the reference is
+    /// the attitude the aim correction converged against, so it can only be measured on a vehicle
+    /// that has stopped turning. The cant is not part of that question — at the nominal attitude
+    /// every tube is canted, which is the whole reason the sequence exists.</para>
+    /// </summary>
+    public const double SteadyMetresPerSecond = LateralBudgetMetresPerSecond;
+
+    /// <summary>
+    /// The ejection speed a cant is priced at, in metres a second.
+    ///
+    /// <para>A tube <c>θ</c> off the line throws its round <c>2·sin(θ/2)</c> of the ejection speed
+    /// away from where it was aimed, so a speed is what turns an angle into the budget's currency.
+    /// The only launcher whose tubes are canted is the MIRV bus and this is what it throws at;
+    /// everywhere else the mean of one tube's axes is that axis, the cant is zero, and this
+    /// multiplies nothing. A second canted launcher throwing at a different speed wants it carried
+    /// on <see cref="ReleaseSituation"/> rather than assumed here.</para>
+    /// </summary>
+    public const double EjectionMetresPerSecond = 2.0;
+
+    /// <summary>
+    /// How far off the line a tube may be for the pointing alone to fit inside the budget.
+    ///
+    /// <para>Derived rather than chosen: the cant whose lateral velocity is the whole of
+    /// <see cref="LateralBudgetMetresPerSecond"/>, which is 1.4°. An absolute angle picked beside a
+    /// separate sweep gate cannot be right — the two trade against each other, and which of them
+    /// binds depends on the vehicle.</para>
+    /// </summary>
+    public static readonly double AlignedDegrees =
+        2.0 * Math.Asin(LateralBudgetMetresPerSecond / (2.0 * EjectionMetresPerSecond)) * 180.0 / Math.PI;
+
+    /// <summary>
+    /// How long a term has to go without getting better before it is read as this vehicle's floor
+    /// rather than as a transient.
+    ///
+    /// <para>This is what separates a bus that cannot hold from a stack that has not finished
+    /// settling, and no single frame can tell them apart. A settling vehicle improves one term or
+    /// the other every few tenths of a second — an exponential approach on a twenty-second time
+    /// constant is still closing by <see cref="SweepClosingMetresPerSecond"/> inside three seconds
+    /// until it is well within the budget — so patience costs it nothing and buys the
+    /// distinction.</para>
+    /// </summary>
+    public const double StoppedImprovingSeconds = 3.0;
+
+    /// <summary>
+    /// How much lower the sweep must get to count as still coming down.
+    ///
+    /// <para>A tenth of the budget: small enough that a vehicle slowly braking its own rotation
+    /// keeps resetting the clock above — that is the vehicle which must not be released mid-settle —
+    /// and large enough that noise on a floor does not.</para>
+    /// </summary>
+    public const double SweepClosingMetresPerSecond = 0.005;
 
     /// <summary>
     /// How long to wait for one tube before letting it go anyway.
@@ -109,6 +170,10 @@ internal sealed class ReleaseSequence
     /// for one cant, which is past <see cref="PerTubeTimeoutSeconds"/> anyway — so nothing that could
     /// have finished is given up on, and a bus that is simply not moving is found in ten seconds
     /// rather than sixty.</para>
+    ///
+    /// <para>Measured in degrees rather than in the budget's currency on purpose: whether the vehicle
+    /// is following a rotation it was commanded is a question about the turn, not about what the
+    /// release costs the round.</para>
     /// </summary>
     public const double ClosingDegrees = 0.25;
 
@@ -123,12 +188,21 @@ internal sealed class ReleaseSequence
     private double _startedOff = double.NaN;
     private double _bestOff = double.PositiveInfinity;
     private double _sinceClosing;
+    private double _bestSweep = double.PositiveInfinity;
+    private double _sinceSweepFell;
 
     /// <summary>Whether the tube axes have been latched and the sequence is running.</summary>
     public bool Begun { get; private set; }
 
     /// <summary>The line every warhead is being sent along, latched with the axes.</summary>
     public double3 ReferenceCci { get; private set; }
+
+    /// <summary>
+    /// What a tube that far off the line throws its round sideways at, in metres a second — the
+    /// currency a release is decided in.
+    /// </summary>
+    public static double LateralFromCant(double offDegrees)
+        => 2.0 * EjectionMetresPerSecond * Math.Sin(0.5 * offDegrees * Math.PI / 180.0);
 
     /// <summary>
     /// Latch the tube axes and the line they average to.
@@ -245,25 +319,59 @@ internal sealed class ReleaseSequence
             }
         }
 
-        bool onLine = !turning || (measured && offDegrees <= AlignedDegrees);
-        bool steady = !(now.SweepMetresPerSecond > SteadyMetresPerSecond);
+        // A launcher that is not being re-pointed is canted by design and no waiting changes that,
+        // so only a turn in progress spends any of the budget on its pointing.
+        bool blind = turning && !measured;
+        double cant = turning && measured ? LateralFromCant(offDegrees) : 0.0;
+        double lateral = now.SweepMetresPerSecond + cant;
+
+        RecordSweep(stepSeconds, now.SweepMetresPerSecond);
+
+        // Two questions, and both have to answer yes: has nothing better than this sweep turned up
+        // in a while, and is the vehicle at that floor now rather than at the top of a swing? A
+        // vehicle still oscillating is on the line and still at different instants, so it satisfies
+        // both only once it has stopped.
+        bool sweepIsAFloor = !(now.SweepMetresPerSecond > _bestSweep + LateralBudgetMetresPerSecond)
+                             && (_wontSettle || _sinceSweepFell >= StoppedImprovingSeconds);
+
+        bool pointed = !blind && !(cant > LateralBudgetMetresPerSecond);
+        bool withinBudget = !blind && !(lateral > LateralBudgetMetresPerSecond);
+
+        bool turnGotSomewhere = turning && measured && !double.IsNaN(_startedOff)
+                                && _bestOff <= _startedOff - ClosingDegrees;
+
+        // The pointing has nothing left to give: it has passed its own best, or it has stopped
+        // finding a better one. Nothing left to give is not the same as good — where the sweep is a
+        // floor above the budget the pointing is the only term still moving, and this is the moment
+        // it is worth the most.
+        bool pointingIsDone = !turning
+                              || (turnGotSomewhere
+                                  && (offDegrees > _bestOff + ClosingDegrees
+                                      || _sinceClosing >= StoppedImprovingSeconds));
+
         bool late = _waiting >= deadline;
 
-        // One tube's whole clock spent not settling is the evidence, and it is not worth gathering
-        // six times over: every later tube pays the same wait for the same answer, and each of those
-        // waits puts the next warhead on a different release state and a different time of flight.
-        // What the gate holds out for is bounded by the sweep; what the waiting costs is not.
-        if (late && !steady) _wontSettle = true;
+        // One tube's whole clock spent above the budget on a sweep that will not come down is the
+        // evidence, and it is not worth gathering six times over: every later tube pays the same
+        // wait for the same answer, and each of those waits puts the next warhead on a different
+        // release state and a different time of flight.
+        if ((sweepIsAFloor || late) && now.SweepMetresPerSecond > LateralBudgetMetresPerSecond)
+        {
+            _wontSettle = true;
+        }
 
-        bool go = (onLine && (steady || _wontSettle)) || late;
+        bool best = sweepIsAFloor && pointingIsDone;
+        bool go = withinBudget || best || late;
 
-        // Releasing off the line means the turn failed, and the remaining tubes go on the mean axis
-        // rather than each spending its own clock discovering the same thing.
-        if (go && !onLine) _gaveUp = true;
+        // Releasing off the line because the clock ran out means the turn failed, and the rest go on
+        // the mean axis rather than each spending its own clock discovering the same thing. Releasing
+        // at the pointing's own best is the turn working, however far off the line that best is.
+        if (go && !pointed && !pointingIsDone) _gaveUp = true;
 
         string said = abandoned.Length > 0
                           ? abandoned
-                          : Say(now, go, onLine, steady, late, measured, offDegrees);
+                          : Say(now, go, withinBudget, best, pointed, blind, measured, offDegrees,
+                                lateral);
 
         return new ReleaseCommand(direction, roll, go, now.NextTube, offDegrees, said);
     }
@@ -273,6 +381,8 @@ internal sealed class ReleaseSequence
         _startedOff = double.NaN;
         _bestOff = double.PositiveInfinity;
         _sinceClosing = 0.0;
+        _bestSweep = double.PositiveInfinity;
+        _sinceSweepFell = 0.0;
     }
 
     private void Record(double stepSeconds, bool measured, double offDegrees)
@@ -290,6 +400,18 @@ internal sealed class ReleaseSequence
         }
 
         if (stepSeconds > 0.0) _sinceClosing += stepSeconds;
+    }
+
+    private void RecordSweep(double stepSeconds, double sweepMetresPerSecond)
+    {
+        if (sweepMetresPerSecond < _bestSweep - SweepClosingMetresPerSecond)
+        {
+            _bestSweep = sweepMetresPerSecond;
+            _sinceSweepFell = 0.0;
+            return;
+        }
+
+        if (stepSeconds > 0.0) _sinceSweepFell += stepSeconds;
     }
 
     // Why this turn will not finish, or nothing while it still might. The command is one constant
@@ -314,34 +436,34 @@ internal sealed class ReleaseSequence
 
     // What this frame did, as the per-tube record a salvo leaves behind. A release says so even when
     // nothing went wrong: six impact points are only diagnosable against the six release states that
-    // produced them, and those are gone by the time anything lands.
-    private string Say(in ReleaseSituation now, bool go, bool onLine, bool steady, bool late,
-                       bool measured, double offDegrees)
+    // produced them, and those are gone by the time anything lands. What was spent is quoted against
+    // the budget, because the number alone does not say which side of it the release fell.
+    private string Say(in ReleaseSituation now, bool go, bool withinBudget, bool best, bool pointed,
+                       bool blind, bool measured, double offDegrees, double lateral)
     {
         int tube = now.NextTube + 1;
         string line = measured ? $"{offDegrees:F1} deg off the line and " : "";
         string sweeping = $"tubes sweeping {now.SweepMetresPerSecond:F3} m/s";
+        string spent = $"{lateral:F3} m/s at the tube against {LateralBudgetMetresPerSecond:F3} wanted";
 
         if (!go)
         {
-            if (onLine) return $"settling, {sweeping}";
+            if (blind) return $"turning onto tube {tube} blind, its axis will not resolve";
+            if (!pointed) return $"turning onto tube {tube}, {offDegrees:F1} deg to go";
 
-            return measured
-                       ? $"turning onto tube {tube}, {offDegrees:F1} deg to go"
-                       : $"turning onto tube {tube} blind, its axis will not resolve";
+            return $"settling, {sweeping} - {spent}";
         }
 
-        if (!onLine)
+        if (withinBudget) return $"releasing tube {tube}, {line}{sweeping}";
+
+        if (best) return $"releasing tube {tube} on the best it will give, {line}{sweeping} - {spent}";
+
+        if (!pointed)
         {
             return $"releasing tube {tube} off the line, {offDegrees:F1} deg out - the rest will go "
                    + "on the mean axis";
         }
 
-        if (steady) return $"releasing tube {tube}, {line}{sweeping}";
-
-        return late
-                   ? $"releasing tube {tube} late, {line}{sweeping} - the warheads will scatter"
-                   : $"releasing tube {tube} without settling, {line}{sweeping} - this vehicle has "
-                     + "already shown it will not";
+        return $"releasing tube {tube} late, {line}{sweeping} - {spent}, the warheads will scatter";
     }
 }
