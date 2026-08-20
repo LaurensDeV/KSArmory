@@ -175,6 +175,7 @@ internal sealed class BusTrim
     private bool _gaveUp;
     private double _since;
     private double _accel;
+    private double _spent;
     private double3 _velocityPrev;
     private bool _havePrev;
     private int _firingFor;
@@ -214,6 +215,21 @@ internal sealed class BusTrim
 
     /// <summary>What the thrusters were measured doing, or zero before they have been fired.</summary>
     public double Acceleration => _accel;
+
+    /// <summary>
+    /// What the thrusters have taken out of the tank since the trim was first armed, in metres per
+    /// second.
+    ///
+    /// <para>Across every null rather than per null: <see cref="Resume"/> re-arms onto a fresh
+    /// reference and a tank does not refill with it. It is what <see cref="PostBoostAim"/> budgets
+    /// the correction's passes against — see
+    /// <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>.</para>
+    ///
+    /// <para>Off the measured acceleration rather than off a declared thrust, so a bus whose jets
+    /// are weaker than its part list claims spends its budget at the rate it really burns. The two
+    /// frames before the first measurement lands are uncounted, which at 3 m/s² is 0.1 m/s.</para>
+    /// </summary>
+    public double SpentMetresPerSecond => _spent;
 
     /// <summary>What it is doing or waiting for, for the one line the log prints per change.</summary>
     public string Said => _said;
@@ -265,6 +281,7 @@ internal sealed class BusTrim
         _gaveUp = false;
         _since = 0.0;
         _accel = 0.0;
+        _spent = 0.0;
         _velocityPrev = Vec.Zero;
         _havePrev = false;
         _firingFor = 0;
@@ -538,6 +555,11 @@ internal sealed class BusTrim
                 _accel = _accel > 0.0 ? _accel + (measured - _accel) * AccelerationGain : measured;
             }
         }
+
+        // Charged across the interval the command was in force for, which is the one Measure
+        // describes. Whether it was a good burn or a wasted one is not this loop's question: the
+        // budget is what the tank has lost either way.
+        if (_fire != TrimAxes.None) _spent += _accel * step;
 
         _velocityPrev = now.VelocityCci;
         _havePrev = true;

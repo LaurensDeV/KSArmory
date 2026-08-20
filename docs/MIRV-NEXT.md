@@ -826,10 +826,101 @@ that is one correcting makes worse.
 
 Flown at 3,459 km: four passes, predicted miss 2.9 -> 2.9 -> 2.1 -> 1.2 km, then release.
 
+**Three things stop it now, not one.** The payback rule alone never fired: at ~2 s cycles it is a
+~52 m bar, and a miss wandering at 100-400 m clears it every time. Item 8b has the rest.
+
 **What it does not fix** is anything the prediction cannot see. It flies the *bus*, so the six tubes'
 6-degree ejection cone is invisible to it — 1.9 km of spread flown. The 2.6 km that figure was
 measured against belongs to an idealised arc rather than to the one the guidance leaves the bus on;
 item 9 has what the cant is worth on each.
+
+
+## 8b. The correction was reading a moving instrument — apportioned, fixed, unflown
+
+**Flown symptom.** With the aim frozen at a constant 102.2 km of bias, the logged predicted miss
+swung smoothly from 3.2 km up to 14.0 km and back down to 2.2 km. The correction did nothing during
+that excursion. Two candidates, and a live log cannot separate them: the trim firing one direction
+at a time, which deliberately leaves the bus on a wrong trajectory mid-sequence; or the bus's nose
+drifting, because `Predict` adds `ReleaseImpulseCci()` — the modelled 2 m/s ejection kick — along
+that nose before flying the prediction.
+
+**It is the nose, by a factor of 126.** `PostBoostObserverTests` sweeps both terms on the guided
+cutoff state at 3,459 km, with the aim converged to a 30.5 km bias and a baseline predicted miss of
+0.72 km:
+
+| what moved | predicted miss |
+| --- | --- |
+| nothing — kick on the nose | 0.72 km |
+| nose turned 11.06° (half the measured band) | 0.88 / 1.08 km |
+| nose turned 22.11° (the whole band) | 1.33 / 1.72 km |
+| **nose turned 95°** (low end of the flown throw band) | **9.40 / 10.50 km** |
+| **nose turned 119°** (high end) | **12.57 / 13.54 km** |
+| nose turned 180° | 16.68 km |
+| bus 0.02 m/s off its arc (`BusTrim.SettledMetresPerSecond`) | 0.78 km |
+| bus 0.05 m/s off | 0.89 km |
+| bus 1.10 m/s off (a whole decoupler shove, un-nulled) | 4.51 km |
+
+The 95-119° row is item 5's own evidence read back: the release probe reports the salvo thrown 95,
+116 and 119 degrees from the platform's track on three otherwise identical runs, because a separated
+bus has a 22.11° pointing band, `roll Decoupled` and no elected control part. On this arc that band
+of *directions* is 8.7-12.8 km of predicted miss with nothing about the shot having changed — which
+brackets the flown 14.0 km peak.
+
+**The trim cannot reach it, and never could.** At the readings the sequencer actually admits — it
+already waits for `_trim.Done` — the residual is 0.02 m/s, worth **70 m**. Even at its worst, a
+whole 1.1 m/s separation shove with nothing taken out yet, it is 3.79 km, and that is a state no
+reading is ever taken in. The gate that mattered was never on the thrusters.
+
+### The gate
+
+`PostBoostAim` now watches the release direction itself, handed in as a `double3` so the
+differencing happens in `Sim/` where a test can reach it and can be checked for invariance under a
+rotation of both samples.
+
+**Steady means the direction has stayed inside 2° of one anchor for 2 s.** An anchor rather than a
+per-frame rate: a per-frame turn is an angle between two samples a frame apart, and KSA's step beats
+8.33/25.0 ms on a 120 Hz display — a rate test rejects a bus holding perfectly still and accepts one
+drifting slowly enough to stay under it for ever. The 2° is priced: the predicted impact moves
+**14-22 m per degree** of nose near the boresight on this arc, so a reading admitted by the gate
+carries at most 44 m — inside the 250 m (`AimCorrection.ImprovedByMetres`) a pass is judged by.
+
+**And it gives up rather than waiting the tumble out.** `SettlesWithinSeconds` is 10 s, worth 260 m
+of leverage at item 2b's 26 m/s. Holding out for `MaxSeconds` instead costs 3,120 m, and on the
+flown bus there is nothing at the end of the wait to collect: its attitude is not tracked at all.
+So the cost of the gate is **260 m in the bad case and nothing in the good one** — a bus whose nose
+is held settles inside one pass.
+
+### Two defects in `PostBoostAim` itself, both fixed
+
+- **No best-tracking.** It stopped on a payback rule that at ~2 s cycles is a ~52 m bar, which a
+  miss jittering at 100-400 m always clears. Flown, it converged by pass 5 (3.3 -> 0.4 km) and then
+  oscillated 0.1-0.5 km for seven more. It now counts **failures to improve on the best**, which is
+  the whole difference from `AimCorrection.WorseBeforeStopping`: that counts passes strictly *worse*
+  than the best, and a reading oscillating inside the 250 m band is never worse by enough, so it
+  never trips. Three failures in a row stops it — pass 8 rather than 12 on that flight, worth 208 m
+  of leverage and a third of the propellant.
+
+  `WorseBeforeStopping` is untouched at 12; item 7c is why, and it is load-bearing at 7,645 km.
+
+  **The best is a stopping rule and not an aim that gets restored.** A bias only reaches the shot
+  through an arc the trim then has to fly, so reverting to an earlier one costs a whole further
+  pass. That is a different trade and is not made — and it should not be made off readings taken
+  before the settle gate existed.
+
+- **No propellant budget.** Measured in flight: **1,943 frames with thrusters firing against 24
+  settled**, roughly 36 m/s of Delta-v on a bus carrying about 70-90. `BusTrim.SpentMetresPerSecond`
+  now accumulates the measured acceleration across every null — surviving `Resume()`, because a tank
+  does not refill with a fresh reference — and `PostBoostAim.MaxTrimMetresPerSecond` stops the
+  passes at 40 m/s. That leaves 30 m/s on the smallest bus in the range: three nulls at the largest
+  trim `BusTrim.MaxMetresPerSecond` will accept, or twenty-seven separation shoves. A bus that
+  arrives dry cannot null the shove, and that is 3.8 km.
+
+  Forty is above what a converged correction spends, so it is the backstop against a loop that will
+  not stop rather than the thing that stops one — the best-tracking rule is what cuts the 36 m/s.
+
+**Unflown.** All of it is headless. What a flight would show is whether the settle gate ever opens
+on a separated bus at all: if it does not, every shot releases 10 s after the trim finishes with the
+aim the burn earned, which is the honest outcome and is 260 m worse than a bus that holds still.
 
 
 ## 9. The budget at the 0.65 km level
@@ -933,6 +1024,9 @@ kick to its prediction.
    is the lever and is not modelled headlessly — what the rig says is that a loop still observing
    ends at 18 m against 760. The flown passes went 2.9 -> 2.9 -> 2.1 -> 1.2 km, so the question is
    how far they actually get, not whether the mechanism works.
+
+   Item 8b is between this and the answer: until the settle gate is flown, what those passes were
+   reading is a nose direction as much as a shot.
 3. **Log the held nose in the velocity frame.** Costs nothing, and turns the cant from a
    141-1,684 m band into one number. Until it is logged, item 5's payoff is unknown by a factor of
    twelve.
