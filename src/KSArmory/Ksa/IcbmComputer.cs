@@ -95,6 +95,15 @@ internal sealed class IcbmComputer
     /// </summary>
     public MunitionProfile? Munition => _warhead;
 
+    /// <summary>
+    /// How far the aim has been moved to make the flown arc arrive, in metres.
+    ///
+    /// <para>Worth reading beside the predicted miss rather than on its own: the correction is
+    /// clamped, so the pair says whether a miss is one the loop has not finished removing or one it
+    /// has run out of room to remove. At the clamp they stop being independent.</para>
+    /// </summary>
+    public double AimBiasMetres => Vec.Len(_aim.BiasCci);
+
     /// <summary>The body the flight is around, as the guidance sees it.</summary>
     public BallisticBody Body { get; private set; }
 
