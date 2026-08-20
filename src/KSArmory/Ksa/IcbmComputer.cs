@@ -1213,6 +1213,12 @@ internal sealed class IcbmComputer
         double3 fromCci = fromCutoff ? Program.CutoffPositionCci : state.PositionCci;
         double3 alongCci = fromCutoff ? Program.Arc!.Value.RequiredVelocityCci : state.VelocityCci;
 
+        // How far in the future the predicted arc departs. Zero once the engines are off, and the
+        // rest of the burn while they are running.
+        double departsIn = fromCutoff && double.IsFinite(Command.SecondsToCutoff)
+                         ? Math.Max(0.0, Command.SecondsToCutoff)
+                         : 0.0;
+
         fromCci += ReleaseOffsetCci();
         alongCci += ReleaseImpulseCci();
 
@@ -1227,6 +1233,22 @@ internal sealed class IcbmComputer
                                        ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
                                        TerrainRadiusAt, _path, air))
         {
+            // The predictor un-carries its impact by its own flight time, which puts the ground
+            // point in the body-fixed frame of the instant the arc *departs*. Mid-burn that instant
+            // is the cutoff, seconds away, while the target is known in the frame of now - so
+            // comparing them measures the planet's turn over the rest of the burn and calls it miss.
+            //
+            // It is not a small term and it is not a bias: it shrinks to nothing as cutoff arrives,
+            // so the correction chases a ruler moving at ~400 m/s against a target moving at 465.
+            // Flown headless at 2,000 km, a shot needing no correction at all was put 191.6 km wrong
+            // by nulling it; at 3,459 km, 37.1 km against 0.4 km once both are in one epoch.
+            hit = hit with
+            {
+                GroundFixedPointCci = departsIn > 0.0
+                                    ? Body.CarryCci(hit.GroundFixedPointCci, -departsIn)
+                                    : hit.GroundFixedPointCci,
+            };
+
             PredictedImpact = hit;
 
             // Measured against the *target*, not against the biased aim: the bias is the correction

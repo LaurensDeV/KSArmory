@@ -1172,6 +1172,16 @@ models from one cutoff state. `ImpactPredictor.Drag` goes through `Medium.Drag` 
 round makes, because a prediction modelling drag its own way is a second flight model to keep in
 step with the first — and the step comes down only where there is density, so a coast pays nothing.
 
+**And the observer has to be reading the same clock as the thing it is scored against.** Mid-burn
+the prediction departs from the *cutoff* state, seconds in the future, so `ImpactPredictor` un-carries
+its impact into the body-fixed frame of that instant — while the target is known in the frame of
+*now*. Comparing them measures the planet's turn over the rest of the burn and calls it miss. It is
+not a bias that can be tuned out: it shrinks to nothing as cutoff arrives, so the correction chases a
+ruler moving at ~400 m/s against ground moving at 465. Headless at 2,000 km it put a shot needing
+**no correction at all** 191.6 km wrong; flown, closing it took the warheads from 11.25 km to
+**5.35 km**. The same trap reaches `TerrainRadiusAt`, which samples the height field in the wrong
+orientation for the same reason.
+
 That is also the shape of how it hid for so long: **a correction loop can only remove what its
 observer can see.** The aim correction reads the prediction, so a drag-free prediction converged,
 reported zero, and the warheads went on falling 59 km short in flight. The loop was right and the

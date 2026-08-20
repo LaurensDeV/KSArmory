@@ -370,6 +370,49 @@ outward, which cost 162 km, so the window before it is latched has to be bounded
   than the symptom: the plant only changes because the arrival is pinned first.
 - **A guard on the trend rather than the value**, so a hump is crossed and a divergence is not.
 
+## 7b. The correction was nulling the planet's rotation — fixed, flown
+
+**This is what item 7 was actually about**, and it is not a stability problem.
+
+`ImpactPredictor` un-carries its impact by its own flight time, which puts the ground point in the
+body-fixed frame of the instant the arc **departs**. While the engines burn, `Predict` departs from
+`CutoffPositionCci` — `SecondsToCutoff` in the future. It was then scored against `_trueAimCci`, the
+target in the frame of **now**. The difference is the planet's turn over the rest of the burn:
+465 m/s at the equator, 416 m/s at the flown -26.5 degrees.
+
+The tell, headless over a 55 s burn with no correction running: the **true** miss is flat at
+85.66 -> 85.02 km across the whole burn, while the **reported** miss walks 60.18 -> 85.02 km,
+tracking the carry term for term. Nothing about the shot moves. Only the ruler does.
+
+So the correction converged on the artefact, and whatever was left of it when the aim froze became a
+permanent bias pointing the wrong way.
+
+| range | uncorrected | as shipped | scored in one epoch |
+| --- | --- | --- | --- |
+| 2,000 km | 0.01 km | **191.59 km** | 0.01 km |
+| 3,459 km | 19.56 km | 37.10 km | 0.38 km |
+| 5,000 km | 64.48 km | 22.62 km | 1.16 km |
+| 7,645 km | 186.13 km | 2.11 km | 15.74 km |
+
+The 2,000 km row is the damning one: a shot that needed no correction at all was put 191 km wrong by
+nulling the rotation. The 7,645 km row is the reverse coincidence — the artefact happened to point
+the same way as a 186 km drag shortfall, which is how a broken loop can look like a working one.
+
+**Flown at 3,459 km: 11.25 km mean -> 5.35 km mean**, six of six arriving.
+
+**What this retires.** The diagnosis in `41dc88d` — that the arrival latch changes the plant and the
+4.9 -> 13.4 km walk is the correction going unstable — is wrong. With the arrival latched and the aim
+frozen the true miss does not move at all; only the reported one does, and by exactly the carry.
+`AimCorrection`'s best-tracking and measured response are still worth having, but they were treating
+a symptom.
+
+**Still open at long range.** At 7,645 km one epoch leaves 15.74 km, and it is a different limit:
+the loop moves the aim 196 km and stops on `WorseBeforeStopping` before the burn ends. That is
+headroom in the stopping rule, not the ruler.
+
+**And `TerrainRadiusAt` has the same fault**, reading the height field in the frame of now for a
+point un-carried to the cutoff epoch. Not yet fixed.
+
 ## 8. The bus corrects its own aim after cutoff — flown
 
 The correction has always been able to move the aim during the coast. What it had no way to do was
