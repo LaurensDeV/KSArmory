@@ -75,7 +75,7 @@ internal sealed class BallisticScenario
     private Vehicle? _defendedSite;
     private bool _watchedTheTarget;
     private bool _onThePad;
-    private WeaponSystem? _battery;
+    private SystemConfig? _policy;
     private bool _warped;
 
     private IcbmPhase _reported = IcbmPhase.Idle;
@@ -183,7 +183,8 @@ internal sealed class BallisticScenario
                 continue;
             }
 
-            WeaponSystem? battery = roster.For(computer.Craft)?.Battery;
+            WeaponSystems.Entry? entry = roster.For(computer.Craft);
+            WeaponSystem? battery = entry?.Battery;
 
             if (battery?.Launcher is null)
             {
@@ -209,7 +210,7 @@ internal sealed class BallisticScenario
                                                   computer.Config.TurnStartMetres);
 
             _computer = computer;
-            _battery = battery;
+            _policy = entry?.Policy;
             _loaded = battery.Ammo;
             _ammoWas = battery.Ammo;
             _flownFrom = computer.Craft;
@@ -275,9 +276,9 @@ internal sealed class BallisticScenario
             // set, the sequencer decides to release over and over and fire control answers
             // "holding fire: safe -- master arm is off" every time, so the bus carries the whole
             // salvo into the ground.
-            if (_battery is { } battery && !battery.Config.Armed)
+            if (_policy is { } policy && !policy.Armed)
             {
-                battery.Config.Armed = true;
+                policy.Armed = true;
                 _say("armed: the ballistic computer and the weapon's master arm");
             }
             else
