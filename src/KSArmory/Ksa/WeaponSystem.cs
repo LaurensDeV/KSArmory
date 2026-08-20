@@ -116,6 +116,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     public IReadOnlyList<IProjectile> Rounds => _rounds;
 
+    /// <summary>
+    /// Told about every round the instant it stops flying, before it is reaped.
+    ///
+    /// <para>The rounds list is the only handle on one, and a round that ended has left it by the
+    /// time anything outside this class runs — so an observer sampling per frame sees the state one
+    /// step short of the impact, which at a reentry vehicle's speed is kilometres. Nothing on this
+    /// path may throw: it runs inside the round loop, which runs inside the engine's frame
+    /// hook.</para>
+    /// </summary>
+    public Action<IProjectile>? RoundEnded;
+
     public IReadOnlyList<SystemEvent> Events => _events;
 
     /// <summary>Seconds left on the reload cycle, or zero when not reloading.</summary>
@@ -2367,6 +2378,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             round.Update(dt, SampleTarget(round), gravity, airVelocity, PlatformEcl,
                          round.Munition, mediumDensity);
 
+
+            // Paired with the switch below rather than with "no longer flying": a round shot down
+            // is reaped somewhere else, so a test on the state alone would report it once per frame
+            // for as long as it took to be swept up.
+            if (round.State is RoundState.Detonated or RoundState.Expired) RoundEnded?.Invoke(round);
 
             switch (round.State)
             {

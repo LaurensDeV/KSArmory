@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 #
-# Flies one scripted engagement with nobody watching, and reports pass or fail.
+# Flies one scripted scenario with nobody watching, and reports pass or fail.
 #
 #   ./tools/scenario.sh head-on          # build, deploy, launch, fly it, report
 #   ./tools/scenario.sh overhead
 #   ./tools/scenario.sh passing
+#   ./tools/scenario.sh mirv             # the ballistic shot, end to end
+#   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
+#   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
 #
@@ -13,16 +16,37 @@
 # behaviour change otherwise needs a person to click things. The game still draws to a window;
 # nobody has to look at it.
 #
-# The mod reads the scenario from a one-line file beside its log, drives the engagement, and writes
-# SCENARIO lines. This waits for the verdict, screenshots whenever the mod says CAPTURE, and exits
-# non-zero on FAIL or TIMEOUT so it can sit in a script.
+# The mod reads the scenario from a one-line file beside its log, drives it, and writes SCENARIO
+# lines. This waits for the verdict, screenshots whenever the mod says CAPTURE, and exits non-zero
+# on FAIL or TIMEOUT so it can sit in a script.
 #
 # What it cannot judge is appearance. That is what the screenshots are for: they arrive without
 # anyone sitting through the flight, and a person -- or a model -- looks at them afterwards.
 #
+# ---------------------------------------------------------------------------------------------
+# mirv: what it needs of you, and what it does for you
+#
+# You have to supply the rocket. A mod cannot put one on the pad -- LoadVehicleFromLibrary
+# resolves under the game install, see CLAUDE.md -- so this needs a craft carrying a MIRV bus,
+# already loaded, on the ground, with a launch solution available. Point settings.toml's
+# startVehicle at it, or name it here:
+#
+#   KSARMORY_SCENARIO_CRAFT="Peacekeeper" ./tools/scenario.sh mirv
+#
+# Everything after that is done for you: it finds whichever craft in the scene has a ballistic
+# computer and its wheels on the ground, designates the aim point, arms, stages, asks the world
+# for timewarp once, and follows the flight -- cutoff, separation, the trim, every release with
+# how far off the salvo's line its tube was, and every impact with its miss. The verdict is the
+# worst warhead of the group against a bar you can move from the request line.
+#
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    sed -n '2,40p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
+    exit 0
+fi
 
 SCENARIO="${1:-head-on}"
 KEEP=0
@@ -41,11 +65,30 @@ done
 # to KSA's terminal commands in principle, but it does not fire: the game boots its default
 # situation with no save-load line in its own log. Install the craft with
 # tools/install-testcraft.sh.
-SAVE="${KSARMORY_SCENARIO_SAVE:-rocket missile}"
+CRAFT="${KSARMORY_SCENARIO_CRAFT:-}"
 
-case "$SCENARIO" in
-    head-on|overhead|passing) ;;
-    *) echo "usage: $0 {head-on|overhead|passing} [--keep]" >&2; exit 2 ;;
+# How long to wait for a verdict, and the scenario's own budget. A ballistic shot is seven minutes
+# of simulated flight and the timewarp it asks for can be refused, so its budget has to cover the
+# whole thing at one times speed -- a deadline that cuts a working shot short reports a timeout
+# for something that was going fine.
+DEADLINE_SECONDS=300
+
+case "${SCENARIO%%:*}" in
+    head-on|overhead|passing)
+        # A save game, because these need a launcher on the ground and a scene to spawn a drone
+        # into, and the boot craft alone is neither.
+        SAVE="${KSARMORY_SCENARIO_SAVE:-rocket missile}"
+        ;;
+    mirv)
+        # No save by default: the rocket is the operator's, wherever they keep it, and a scenario
+        # that insists on one particular save is one that only works on one machine.
+        SAVE="${KSARMORY_SCENARIO_SAVE:-}"
+        DEADLINE_SECONDS=1800
+        ;;
+    *)
+        echo "usage: $0 {head-on|overhead|passing|mirv[:<lat>,<lon>[,<km>]]} [--keep] [--shots]" >&2
+        exit 2
+        ;;
 esac
 
 USER_DIR="$("$REPO_ROOT/tools/ksa-user-dir.sh")"
@@ -69,12 +112,13 @@ if [[ -f "$SETTINGS" ]]; then
 
     sed -i 's/^selectSystemOnStart = true/selectSystemOnStart = false/' "$SETTINGS"
 
+    [[ -n "$CRAFT" ]] && sed -i "s|^startVehicle = \".*\"|startVehicle = \"$CRAFT\"|" "$SETTINGS"
 fi
 
 echo "== deploying"
 "$REPO_ROOT/tools/deploy.sh" >/dev/null
 
-echo "== launching, scenario '$SCENARIO', save '$SAVE'"
+echo "== launching, scenario '$SCENARIO', save '$SAVE'${CRAFT:+, craft '$CRAFT'}"
 : > "$LOG" 2>/dev/null || true
 "$REPO_ROOT/tools/run.sh" --no-build >/dev/null 2>&1 &
 LAUNCHER=$!
@@ -99,7 +143,7 @@ trap cleanup EXIT
 
 # StarMap shows a configuration dialog before the game starts, so the wall-clock budget has to
 # cover a human-free start plus the flight itself.
-DEADLINE=$(( SECONDS + 300 ))
+DEADLINE=$(( SECONDS + DEADLINE_SECONDS ))
 VERDICT=""
 SEEN=""
 
@@ -143,7 +187,7 @@ done
 echo
 case "$VERDICT" in
     PASS) echo "scenario '$SCENARIO': PASS" ;;
-    "")   echo "scenario '$SCENARIO': no verdict within $(( 300 / 60 )) minutes" >&2
+    "")   echo "scenario '$SCENARIO': no verdict within $(( DEADLINE_SECONDS / 60 )) minutes" >&2
           echo "  the game may still be on StarMap's configuration dialog -- it needs START KSA clicked" >&2
           exit 1 ;;
     *)    echo "scenario '$SCENARIO': $VERDICT" >&2; exit 1 ;;

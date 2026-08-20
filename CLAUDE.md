@@ -207,6 +207,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
 ./tools/run.sh --attach                    # follow a game that's already running
 ./tools/scenario.sh head-on                # fly one engagement unattended and report pass/fail
+./tools/scenario.sh mirv                   # ...or the whole ballistic shot, and score the group
 ./tools/ksa-user-dir.sh                    # where KSA keeps Logs/, mods/ and saves on this box
 ./tools/setup-starmap.sh                   # one-off: install StarMap and write its config
 ./tools/check-assemblies.sh --game         # has the installed game moved past the lock?
@@ -290,6 +291,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SeparationClearance.cs` | whether what let go has got far enough away to manoeuvre — **the shove is the separation**, so nulling it ends it |
 | `Sim/ReleasePointing.cs` | which way a launcher must hold for one tube to throw along the line the others did |
 | `Sim/ReleaseSequence.cs` | letting a magazine go one round at a time, each along that same line |
+| `Sim/ShotRequest.cs` | where a scripted shot is aimed and the bar it is judged against — **text in**, so the harness's one line is testable headlessly |
+| `Sim/ShotGroup.cs` | where a salvo landed, and whether that is a pass — **scored on the worst warhead**, and one that never arrived counts |
 | `Sim/PlatformHandover.cs` | which craft a part went to, when a decoupler took it off the one carrying it — **one decision, every roster that follows a part** |
 | `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, ascent, staging, trim |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
@@ -389,7 +392,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/RoundContact.cs` | somebody else's round in the air, as a thing a radar can see and a gun can shoot at |
 | `Ksa/Track.cs` | one contact, with the kinematics the threat model reasons about |
 | `Ksa/TestTarget.cs` | spawns drones to shoot at, from the panel |
-| `Ksa/ScenarioRunner.cs` | flies a scripted engagement with nobody watching, and says what happened |
+| `Ksa/ScenarioRunner.cs` | flies a scripted scenario with nobody watching, and says what happened |
+| `Ksa/BallisticScenario.cs` | the ballistic one of those — designate, arm, stage, and report what the warheads did |
 | `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
@@ -444,7 +448,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
-| `tools/scenario.sh` | drives one engagement end to end and exits pass/fail; screenshots on cue |
+| `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
 | `tools/sounds.py` | synthesises the explosion samples, and the fallback cannon behind `--synth-cannon` |
 | `tools/cut-cannon.py` | cuts a gunfire recording into spin-up, loop and tail, on measured envelope boundaries |
 | `tools/audio/` | the CC0 Phalanx recording the cannon is cut from, and its provenance |
