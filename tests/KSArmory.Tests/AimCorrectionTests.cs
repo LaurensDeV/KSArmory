@@ -15,6 +15,77 @@ namespace KSArmory.Tests;
 public class AimCorrectionTests
 {
     /// <summary>
+    /// One noisy reading must not buy a step larger than the miss it is removing.
+    ///
+    /// <para>The step is the error divided by how much the aim was last measured to be worth, so an
+    /// estimate below one asks to move the aim further than the error itself — and two observations
+    /// taken a moment apart can produce one from noise alone. Flown, before the bound: 28.6 km of
+    /// bias to 192.9 in a single cycle, then the clamp, then 205 km of miss.</para>
+    /// </summary>
+    [Fact]
+    public void ItNeverMovesTheAimFurtherThanTheMissItIsRemoving()
+    {
+        AimCorrection aim = new();
+        double3 target = new(6_371_000.0, 0, 0);
+        double3 along = new(0, 1, 0);
+
+        // A plant that answers with noise rather than a response: the impact barely moves however
+        // far the aim is pushed, which is what drives the estimate towards zero.
+        for (int i = 0; i < 20; i++)
+        {
+            double3 before = aim.BiasCci;
+            double wobble = (i % 2 == 0 ? 1.0 : -1.0) * 40.0;
+
+            aim.Observe(target + along * (50_000.0 + wobble), target);
+
+            double step = Vec.Len(aim.BiasCci - before);
+
+            Assert.True(step <= 50_100.0,
+                        $"cycle {i} moved the aim {step / 1000.0:F1} km to remove 50 km of miss");
+        }
+    }
+
+    /// <summary>
+    /// It converges whatever the aim is worth, which is the whole point of measuring rather than
+    /// assuming.
+    ///
+    /// <para>The plant is not one this loop chooses. While the solver may pick its own flight time,
+    /// moving the aim moves the impact by about as much again; once the guidance latches the
+    /// arrival, the same aim change forces a different trajectory to arrive at the same instant and
+    /// the impact moves several times further. A fixed fraction can only be right for one of those,
+    /// and at 3,459 km the wrong one walked the bias to its 300 km limit with 209 km of miss.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(1.0)]
+    [InlineData(3.0)]
+    [InlineData(5.0)]
+    [InlineData(0.5)]
+
+    // Stiff enough that any fixed fraction large enough to converge the slack plants above will
+    // oscillate here instead: at a quarter this is a loop gain of two, which never settles.
+    [InlineData(8.0)]
+    public void ItConvergesWhateverMovingTheAimIsWorth(double plant)
+    {
+        AimCorrection aim = new();
+        double3 target = new(6_371_000.0, 0, 0);
+        double3 along = new(0, 1, 0);
+
+        for (int i = 0; i < 60; i++)
+        {
+            // The loop's own convention: the arc is aimed at target + bias and lands that plus
+            // whatever the flight loses, so moving the aim by one moves the impact by the plant.
+            double missAlong = 50_000.0 + plant * Vec.Dot(aim.BiasCci, along);
+            aim.Observe(target + along * missAlong, target);
+        }
+
+        double left = Math.Abs(50_000.0 + plant * Vec.Dot(aim.BiasCci, along));
+
+        Assert.True(left < 500.0,
+                    $"a plant of {plant:F1} left {left / 1000.0:F1} km of miss after sixty cycles");
+        Assert.False(aim.Settled, "it should have converged rather than given up");
+    }
+
+    /// <summary>
     /// A correction that is making the miss worse stops, and keeps the best aim it found.
     ///
     /// <para>It is a feedback loop against a plant that is not always the one its gain was chosen

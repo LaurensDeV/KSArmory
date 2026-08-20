@@ -22,8 +22,37 @@ namespace KSArmory;
 /// </summary>
 internal sealed class AimCorrection
 {
-    /// <summary>How much of each measured error is taken out. Below one, or it rings.</summary>
-    public const double Gain = 0.5;
+    /// <summary>
+    /// How much of each measured error is taken out before the loop has watched itself work.
+    ///
+    /// <para>Only the first step. After that the response is measured — see <see cref="Observe"/> —
+    /// because the number that would be right here depends on a plant this loop does not choose.
+    /// Low, because the first step is the one taken blind.</para>
+    /// </summary>
+    public const double Gain = 0.25;
+
+    /// <summary>
+    /// The range the measured response is trusted within, as impact moved per unit of aim moved.
+    ///
+    /// <para>Outside it the estimate is noise rather than a plant: two observations a fraction of a
+    /// kilometre apart divide by nearly nothing, and one bad reading would otherwise size every
+    /// step after it. Clamping is what lets the estimate be taken from consecutive cycles instead
+    /// of from a deliberate probe.</para>
+    ///
+    /// <para><b>The lower bound is one, and it is the load-bearing end.</b> A response under one
+    /// says moving the aim barely moves the impact, which asks for a step <em>larger</em> than the
+    /// miss being removed — so a single noisy reading buys an enormous wrong move. Flown at a
+    /// quarter: 28.6 km of bias to 192.9 in one cycle, then the 300 km clamp and 205 km of miss.
+    /// Never stepping further than the error is what makes an estimate taken from two consecutive
+    /// cycles safe to use at all.</para>
+    /// </summary>
+    public const double MinResponse = 1.0;
+
+    /// <inheritdoc cref="MinResponse"/>
+    public const double MaxResponse = 6.0;
+
+    /// <summary>How far the aim must have moved for the response it produced to mean anything.</summary>
+    public const double ResponseFromMetres = 500.0;
 
     /// <summary>
     /// The furthest the aim may be moved.
@@ -59,6 +88,10 @@ internal sealed class AimCorrection
     /// </summary>
     public bool Settled { get; private set; }
 
+    private double _response = 1.0 / Gain;
+    private double3 _lastBias;
+    private double3 _lastError;
+    private bool _haveLast;
     private double _bestMiss = double.PositiveInfinity;
     private double3 _bestBias;
     private int _worseFor;
@@ -113,6 +146,37 @@ internal sealed class AimCorrection
         // So: keep the best aim found and stop when it cannot be improved on. What remains after
         // that is a shot that wants a different trajectory rather than a different aim, which is
         // the thing the miss should be reporting.
+        // The step is sized by what the aim was last measured to be worth, not by a fixed fraction.
+        //
+        // A fixed fraction is only right for a fixed plant, and this one changes underneath the
+        // loop: while the solver may pick its own flight time, moving the aim moves the impact by
+        // about as much again, and a half converges. Once the guidance latches the arrival the same
+        // aim change forces a different trajectory to arrive at the same instant, and on a shallow
+        // near-orbital arrival the impact moves several times further — at which point a half is
+        // above the stability limit and the loop walks away from its own best.
+        //
+        // Measuring it needs no probe: every cycle already moves the aim and sees what the impact
+        // did, which is the same secant a Newton step is built from.
+        double3 movedAim = BiasCci - _lastBias;
+        double movedBy = Vec.Len(movedAim);
+
+        if (movedBy >= ResponseFromMetres && _haveLast)
+        {
+            double impactAlong = Vec.Dot(error - _lastError, Vec.Unit(movedAim));
+
+            // Only a response in the direction the aim was pushed. A negative one means the impact
+            // went the other way, which is a plant nothing here models, and the safe reading of it
+            // is "do not trust the estimate" rather than "invert the loop".
+            if (impactAlong > 0.0)
+            {
+                _response = Math.Clamp(impactAlong / movedBy, MinResponse, MaxResponse);
+            }
+        }
+
+        _lastBias = BiasCci;
+        _lastError = error;
+        _haveLast = true;
+
         double miss = Vec.Len(error);
 
         if (miss < _bestMiss - ImprovedByMetres)
@@ -128,7 +192,7 @@ internal sealed class AimCorrection
             return;
         }
 
-        BiasCci = Vec.ClampLength(BiasCci - error * Gain, MaxMetres);
+        BiasCci = Vec.ClampLength(BiasCci - error / _response, MaxMetres);
     }
 
     public void Reset()
@@ -138,5 +202,9 @@ internal sealed class AimCorrection
         _bestMiss = double.PositiveInfinity;
         _bestBias = Vec.Zero;
         _worseFor = 0;
+        _response = 1.0 / Gain;
+        _lastBias = Vec.Zero;
+        _lastError = Vec.Zero;
+        _haveLast = false;
     }
 }
