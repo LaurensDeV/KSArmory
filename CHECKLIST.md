@@ -1235,25 +1235,29 @@ why §12.7a matters. The ~900 m *bias* is that every round landed beyond its own
       `00:06:02.002`.
 - [x] Timewarp is held down through the trim as well as the burn.
 
-**What is new since that flight, and unflown.** The trim now waits to coast clear of the spent stack
-before firing, because nulling the decoupler's shove *is* nulling the separation — last flight the
-bus trimmed 130 ms after the split at 12 m and then sat against the booster.
+**What is new since those flights, and unflown.** The trim no longer re-solves a transfer; it
+carries the guidance's own cutoff state forward and subtracts what the vehicle is doing, so its
+answer no longer depends on when it runs. The clearance wait is sized off the discarded stage's own
+bounding sphere and capped at 20 s rather than 90, because holding a salvo back was measured to cost
+kilometres.
 
-- [ ] After the split the log reads `waiting to clear the spent stack, N m of 50`, then
-      `clear of the spent stack at N m after N s`, and only then the trim.
-- [ ] **Write down the standoff and how long it took.** 50 m and the 90 s cap are both guesses; one
-      flight replaces them with a number.
-- [ ] The bus visibly drifts off the booster rather than sitting on it, and the release window still
-      has room for the wait — the sequencer must not start timing out on `SecondsLeftToDeploy`.
-- [ ] A shot with no decoupler fitted skips the wait entirely and trims within a second or two.
-- [ ] The view follows onto the separated craft, and only when it was watching the stack.
-      `KsaWorld.GoTo` no longer asks the engine to rebuild a part tree nobody changed, which is what
-      it was refusing; expect `view moved to <name>` rather than `could not go to <name>`.
-- [ ] If the flags reach nothing, the log says `nothing left aboard moves the bus` with the residual
-      and the warheads go anyway. Warheads still aboard when the release altitude closes is the one
-      failure this must not have.
-- [ ] With **Trim the bus before releasing** off, behaviour is as it was: released as soon as the
-      tubes stop sweeping, with the shove still in.
+- [ ] After the split: `waiting to clear the spent stack, N m of M` where **M now comes from the
+      stage** rather than being 50, then either `clear of the spent stack at N m` or
+      `going ahead ... after 20 s`.
+- [ ] **The two numbers in the annotation should now agree**: `owed X m/s at the split, Y after N s
+      of clearing`. X and Y within a few per cent of each other is the whole point of the change.
+      They read 0.21 → 228.97 before it.
+- [ ] The trim runs and ends `trimmed to 0.0N m/s` rather than
+      `more than a separation could have cost`.
+- [ ] Release follows within a few seconds of cutoff, not a minute and a half. The release probe
+      should read close to what the cutoff line said (`own prediction 0.1 km off`), not kilometres
+      more — that gap is item 2b and is the thing this shortening is working around.
+- [ ] Write down the standoff it settled for and whether it timed out. Twenty seconds at the flown
+      0.26 m/s of decoupler shove is about five metres, so expect a timeout and a small number;
+      the question is whether that is visibly a problem.
+- [ ] The bus still visibly comes off the booster rather than sitting on it.
+- [ ] Impacts. Anything worse than the 431 m - 1.4 km best means the shortening did not buy what it
+      was meant to.
 
 **Never yet exercised:** whether the bus's ~183 kg of MMH/NTO lasts. Nothing has spent it.
 
