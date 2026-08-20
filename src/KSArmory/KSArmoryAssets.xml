@@ -1171,8 +1171,15 @@
       </Transform>
     </SubPart>
 
-    <!-- Four clusters of five: axial fore and aft for pitch, yaw and dV, two tangential for roll,
-         one radial for translation. -->
+    <!--
+      Four clusters of five, each a cross of four square to the pad with one standing out of it:
+      axial fore and aft for pitch, yaw and dV, two tangential for roll, one radial for translation.
+
+      The roll pair is exactly tangential rather than canted. A cant costs roll authority as its
+      cosine, and costs translation outright: KSA flags a nozzle for a lateral axis on a thrust
+      component over 0.5, so a tangential bell on a cluster clocked 45 degrees between two axes
+      clears it on both, where a canted one clears only the axis it leans towards.
+    -->
     <SubPart Id="KSArmory_Mirv_Rcs00" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
         <Position X="0.42000" Y="1.10309" Z="1.10309" />
@@ -1187,14 +1194,16 @@
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs02" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
-        <Position X="0.30000" Y="1.06204" Z="1.21585" />
-        <Rotation Y="1.22173" Z="1.57080" />
+        <Position X="0.30000" Y="1.01823" Z="1.18794" />
+        <!-- fires along -Y+Z -->
+        <Rotation Y="0.78540" Z="1.57080" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs03" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
-        <Position X="0.30000" Y="1.21585" Z="1.06204" />
-        <Rotation Y="-0.34907" Z="-1.57080" />
+        <Position X="0.30000" Y="1.18794" Z="1.01823" />
+        <!-- fires along +Y-Z -->
+        <Rotation Y="-0.78540" Z="-1.57080" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs04" InstanceOf="KSArmory_MirvRcs_SubPart">
@@ -1211,14 +1220,16 @@
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs06" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
-        <Position X="0.30000" Y="-1.21585" Z="1.06204" />
-        <Rotation Y="-0.34907" Z="1.57080" />
+        <Position X="0.30000" Y="-1.18794" Z="1.01823" />
+        <!-- fires along -Y-Z -->
+        <Rotation Y="-0.78540" Z="1.57080" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs07" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
-        <Position X="0.30000" Y="-1.06204" Z="1.21585" />
-        <Rotation Y="1.22173" Z="-1.57080" />
+        <Position X="0.30000" Y="-1.01823" Z="1.18794" />
+        <!-- fires along +Y+Z -->
+        <Rotation Y="0.78540" Z="-1.57080" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs08" InstanceOf="KSArmory_MirvRcs_SubPart">
@@ -1235,14 +1246,16 @@
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs10" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
-        <Position X="0.30000" Y="-1.06204" Z="-1.21585" />
-        <Rotation Y="-1.22173" Z="-1.57080" />
+        <Position X="0.30000" Y="-1.01823" Z="-1.18794" />
+        <!-- fires along +Y-Z -->
+        <Rotation Y="-0.78540" Z="-1.57080" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs11" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
-        <Position X="0.30000" Y="-1.21585" Z="-1.06204" />
-        <Rotation Y="0.34907" Z="1.57080" />
+        <Position X="0.30000" Y="-1.18794" Z="-1.01823" />
+        <!-- fires along -Y+Z -->
+        <Rotation Y="0.78540" Z="1.57080" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs12" InstanceOf="KSArmory_MirvRcs_SubPart">
@@ -1259,14 +1272,16 @@
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs14" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
-        <Position X="0.30000" Y="1.21585" Z="-1.06204" />
-        <Rotation Y="0.34907" Z="-1.57080" />
+        <Position X="0.30000" Y="1.18794" Z="-1.01823" />
+        <!-- fires along +Y+Z -->
+        <Rotation Y="0.78540" Z="-1.57080" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rcs15" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
-        <Position X="0.30000" Y="1.06204" Z="-1.21585" />
-        <Rotation Y="-1.22173" Z="1.57080" />
+        <Position X="0.30000" Y="1.01823" Z="-1.18794" />
+        <!-- fires along -Y-Z -->
+        <Rotation Y="-0.78540" Z="1.57080" />
       </Transform>
     </SubPart>
 
