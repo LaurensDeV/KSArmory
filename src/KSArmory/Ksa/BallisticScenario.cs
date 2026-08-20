@@ -75,6 +75,8 @@ internal sealed class BallisticScenario
     private Vehicle? _defendedSite;
     private bool _watchedTheTarget;
     private bool _onThePad;
+    private WeaponSystem? _battery;
+    private bool _warped;
 
     private IcbmPhase _reported = IcbmPhase.Idle;
     private bool _saidCutoff;
@@ -207,6 +209,7 @@ internal sealed class BallisticScenario
                                                   computer.Config.TurnStartMetres);
 
             _computer = computer;
+            _battery = battery;
             _loaded = battery.Ammo;
             _ammoWas = battery.Ammo;
             _flownFrom = computer.Craft;
@@ -266,7 +269,22 @@ internal sealed class BallisticScenario
         if (!computer.Config.Armed)
         {
             computer.Config.Armed = true;
-            _say("armed");
+
+            // Two interlocks, and arming one is not arming the other. The computer's flies the
+            // rocket; the weapon system's is what lets a round leave a tube. With only the first
+            // set, the sequencer decides to release over and over and fire control answers
+            // "holding fire: safe -- master arm is off" every time, so the bus carries the whole
+            // salvo into the ground.
+            if (_battery is { } battery && !battery.Config.Armed)
+            {
+                battery.Config.Armed = true;
+                _say("armed: the ballistic computer and the weapon's master arm");
+            }
+            else
+            {
+                _say("armed");
+            }
+
             return;
         }
 
@@ -290,12 +308,6 @@ internal sealed class BallisticScenario
         }
 
         _committed = true;
-
-        if (KsaWorld.SetSimulationSpeed(WarpFactor))
-        {
-            _say($"asked the world for {WarpFactor:F0}x; the warp policy takes it back "
-                 + "for the burn, the trim and the rounds in the air");
-        }
     }
 
     // The computer never stages past a launcher that could come off, because the next sequence on
@@ -337,6 +349,22 @@ internal sealed class BallisticScenario
         _say($"{_reported} at {computer.AltitudeMetres / 1000.0:F0} km, "
              + $"{computer.Command.VelocityToGain:F0} m/s to gain, "
              + $"impact in {IcbmProgram.Clock(computer.SecondsToArrival)} :: {computer.Command.Hold}");
+
+        // Warp the coast and nothing before it. WarpPolicy bounds the *step* rather than the
+        // speed, so a burn at 8x is inside what it allows and it never intervenes — and the
+        // velocity left ungained at cutoff is one frame of thrust, which at 8x measured 3.16 m/s
+        // against 0.40 at normal speed. That is a residual six times worse before anything
+        // downstream has had a chance to be wrong.
+        if (_reported == IcbmPhase.Coast && !_warped)
+        {
+            _warped = true;
+
+            if (KsaWorld.SetSimulationSpeed(WarpFactor))
+            {
+                _say($"asked the world for {WarpFactor:F0}x now the burn is over; the warp policy "
+                     + "still holds it down for the trim and for rounds in the air");
+            }
+        }
     }
 
     // The two numbers that separate a shot that was never aimed right from one that was aimed right
