@@ -42,10 +42,22 @@ internal sealed class PostBoostAim
     /// long before this on any shot that is already close. This is for the case where each cycle
     /// keeps promising an improvement it does not deliver.</para>
     /// </summary>
-    public const double MaxSeconds = 45.0;
+    public const double MaxSeconds = 120.0;
 
-    /// <summary>How many measure-and-retrim cycles are worth running at most.</summary>
-    public const int MaxCycles = 5;
+    /// <summary>
+    /// How many measure-and-retrim cycles are worth running at most.
+    ///
+    /// <para><b>The payback rule is meant to be what stops it, not this.</b> At five the flown
+    /// salvo ran out of passes with its predicted miss still falling — 2.9, 2.9, 2.1, 1.2 km — and
+    /// the aim it released on was the one it happened to hold when the count ran out. Headless, the
+    /// residue that leaves is the largest single term in the whole shot: 760 m of group offset
+    /// against 18 m for a correction allowed to finish.</para>
+    ///
+    /// <para>Raising it costs nothing when the shot is already close, because the payback test
+    /// stops those on the first pass. It only spends passes on shots with kilometres on the
+    /// table.</para>
+    /// </summary>
+    public const int MaxCycles = 20;
 
     /// <summary>
     /// How long one cycle is assumed to take when deciding whether the next one pays.
