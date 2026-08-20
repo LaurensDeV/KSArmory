@@ -89,6 +89,12 @@ internal sealed class IcbmComputer
     /// <summary>How far the predicted impact is from the aim point, along the ground.</summary>
     public double PredictedMissMetres { get; private set; } = double.NaN;
 
+    /// <summary>
+    /// The warhead aboard, or null for a vehicle carrying nothing that lets go. What the overlay
+    /// sizes its aim ring from, so the circle on the ground is what one of these actually reaches.
+    /// </summary>
+    public MunitionProfile? Munition => _warhead;
+
     /// <summary>The body the flight is around, as the guidance sees it.</summary>
     public BallisticBody Body { get; private set; }
 

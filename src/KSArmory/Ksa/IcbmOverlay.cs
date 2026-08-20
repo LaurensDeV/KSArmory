@@ -8,8 +8,8 @@ namespace KSArmory;
 /// when they arrive.
 ///
 /// <para>Two marks rather than one, and the gap between them is the whole point. The line is the
-/// trajectory <see cref="ImpactPredictor"/> flew from the vehicle's actual state; the ring is the
-/// place it was aimed at. While they disagree the burn is not finished — which is a thing to look
+/// trajectory <see cref="ImpactPredictor"/> flew from the vehicle's actual state; the ring on the
+/// ground is the place it was aimed at, sized to what the warhead reaches. While they disagree the burn is not finished — which is a thing to look
 /// at rather than a number to read, and the reason this is drawn at all.</para>
 ///
 /// <para>The aim point keeps its mark whatever the vehicle is doing, and carries the time to
@@ -30,6 +30,10 @@ internal static class IcbmOverlay
     // Coarse enough that a half-hour arc is a few dozen lines rather than a few thousand.
     private const int MaxSegments = 96;
 
+    // What to circle when there is no warhead to ask. Small enough to read as a mark rather than
+    // a claim about anything.
+    private const double UnarmedRingMetres = 250.0;
+
     private const float Half = 9f;
     private const float Tick = 5f;
 
@@ -47,7 +51,7 @@ internal static class IcbmOverlay
 
             if (computer.Config.MarkTarget && computer.TargetEcl() is { } target)
             {
-                KsaWorld.DrawSphereEcl(target, 2000f, Aim);
+                DrawAimRing(computer, target);
             }
 
             if (!computer.Config.DrawTrajectory) continue;
@@ -64,6 +68,27 @@ internal static class IcbmOverlay
 
             KsaWorld.DrawLineEcl(scratch[^Math.Min(scratch.Count, stride + 1)], scratch[^1], Arc);
         }
+    }
+
+    // A ring draped on the terrain rather than a solid at the aim point, for two reasons that both
+    // matter: anything large enough to see from orbit is large enough to sit over the target and
+    // hide it, and a shape with no radius says nothing about how far the warhead reaches - which is
+    // the question a mark on a target is being asked. Same shape as the bomb sight's pipper.
+    private static void DrawAimRing(IcbmComputer computer, double3 target)
+    {
+        // Off gravity, because that is the one direction the mod already resolves everywhere.
+        double3 up = Vec.Unit(KsaWorld.GravityAt(computer.Craft, target) * -1.0);
+        if (Vec.Len2(up) < 0.5) return;
+
+        // The warhead's own lethal radius, so what the ring circles is what arriving there does.
+        // A vehicle carrying nothing that lets go still gets a mark, because the aim point is a
+        // designation rather than a property of the payload.
+        double radius = computer.Munition is { } warhead
+                            ? Warhead.LethalRadius(warhead.ChargeKg)
+                            : UnarmedRingMetres;
+
+        KsaWorld.DrawCircleEcl(target, up, radius, Aim);
+        KsaWorld.DrawCircleEcl(target, up, radius * 0.15, Aim, segments: 16);
     }
 
     // The screen-space half: a mark on the aim point wherever it is, with the countdown beside it.
