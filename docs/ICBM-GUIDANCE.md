@@ -547,6 +547,46 @@ Four things make it honest rather than self-confirming, and the first two were e
 - The miss is scored against the **target**, never against the biased aim. Scoring the correction
   against itself reports a perfect shot however far the rounds actually land.
 
+## The correction is also right for one release epoch, and the bus lets go at another
+
+**Unfixed. Measured headlessly; the mechanism is established and the flown magnitude is not.**
+
+Flown, four deorbits of the same 2,300–2,700 km range, every one cutting off within 0.1 km of its
+own prediction: the warheads landed further off the later they were let go — 431 m at a ~50 s
+release, 8.2–9.0 km at ~106 s, and grouped tightly each time. A tight group far from the target is a
+bias, and nothing was burning, so something moved the shot while the bus coasted.
+
+**Nothing moved the arc.** `LateReleaseTests` flies one converged cutoff state and releases the same
+warhead at t+0, t+50, t+106 and t+200 with the separation spring switched off: the impact does not
+move at all — 0.0 m at t+50, 0.1 m at t+106. Every epoch term in the prediction cancels exactly, so
+this is not the frame bookkeeping.
+
+**What moved is the spring's leverage.** Two metres a second applied at cutoff walks the impact
+**8.421 km**; the same two metres a second applied 106 s down the same arc walks it **5.672 km**.
+The correction converges during the burn against a prediction flown from `CutoffPositionCci` with
+the ejection kick already added — a release the instant the engines stop — so it takes out the
+leverage the kick has *there*, and every second the bus then holds the warhead is leverage already
+spent. Converged for t+0 the shot is exact at t+0 and **2,748 m** off at t+106; converged for t+106
+it is 2,745 m off at t+0 and exact at t+106. One quantity, taken out at the wrong point on the arc,
+and symmetric in the delay.
+
+It is exactly proportional to what the spring throws — 1.374 / 2.748 / 5.496 km at 1, 2 and 4 m/s —
+which is the shape that says the ejection is being mis-timed rather than the arc being wrong.
+
+**The other candidate is real and an order of magnitude too small.** `AimCorrection.BiasCci` is a
+free vector in the body's *inertial* frame while the target it is added to is a point on a turning
+planet, so an aim that is right at one instant goes stale at the next — and the loop stops
+re-converging for the whole of the bus trim, which was 48 s in flight. Measured over 106 s with the
+136 km bias rising ground drives: **0 m at the equator, 469 m at 26.5°, 910 m at 60°**. Most of what
+goes stale is radial and `Apply` renormalises that away, which is why it is second-order rather than
+`bias × ωt`. Correcting it needs the spin axis, so it is a signature change rather than a local one.
+
+**The fix is to model the release at the epoch the release happens**, in `IcbmComputer.Predict`:
+coast the cutoff state forward by the bus's own cutoff-to-release delay before adding
+`ReleaseOffsetCci` and `ReleaseImpulseCci`. It can only be right for one warhead of a salvo — six
+released over twenty seconds still spread by the same rate, about **26 m per second of delay** at
+2 m/s from a 200 km deorbit — so the second half of the answer is releasing promptly.
+
 ## Stop the burn along the line it is actually thrusting
 
 Below `HoldDirectionBelow` the steering direction is frozen, so thrust is no longer parallel to
