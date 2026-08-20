@@ -826,13 +826,16 @@ that is one correcting makes worse.
 
 Flown at 3,459 km: four passes, predicted miss 2.9 -> 2.9 -> 2.1 -> 1.2 km, then release.
 
+**Three things stop it now, not one.** The payback rule alone never fired: at ~2 s cycles it is a
+~52 m bar, and a miss wandering at 100-400 m clears it every time. Item 8b has the rest.
+
 **What it does not fix** is anything the prediction cannot see. It flies the *bus*, so the six tubes'
 6-degree ejection cone is invisible to it — 1.9 km of spread flown. The 2.6 km that figure was
 measured against belongs to an idealised arc rather than to the one the guidance leaves the bus on;
 item 9 has what the cant is worth on each.
 
 
-## 8b. The correction was reading a moving instrument — apportioned, gated, unflown
+## 8b. The correction was reading a moving instrument — apportioned, fixed, unflown
 
 **Flown symptom.** With the aim frozen at a constant 102.2 km of bias, the logged predicted miss
 swung smoothly from 3.2 km up to 14.0 km and back down to 2.2 km. The correction did nothing during
@@ -887,9 +890,37 @@ flown bus there is nothing at the end of the wait to collect: its attitude is no
 So the cost of the gate is **260 m in the bad case and nothing in the good one** — a bus whose nose
 is held settles inside one pass.
 
-**Unflown.** All of it is headless. What a flight would show is whether the gate ever opens on a
-separated bus at all: if it does not, every shot releases 10 s after the trim finishes with the aim
-the burn earned, which is the honest outcome and is 260 m worse than a bus that holds still.
+### Two defects in `PostBoostAim` itself, both fixed
+
+- **No best-tracking.** It stopped on a payback rule that at ~2 s cycles is a ~52 m bar, which a
+  miss jittering at 100-400 m always clears. Flown, it converged by pass 5 (3.3 -> 0.4 km) and then
+  oscillated 0.1-0.5 km for seven more. It now counts **failures to improve on the best**, which is
+  the whole difference from `AimCorrection.WorseBeforeStopping`: that counts passes strictly *worse*
+  than the best, and a reading oscillating inside the 250 m band is never worse by enough, so it
+  never trips. Three failures in a row stops it — pass 8 rather than 12 on that flight, worth 208 m
+  of leverage and a third of the propellant.
+
+  `WorseBeforeStopping` is untouched at 12; item 7c is why, and it is load-bearing at 7,645 km.
+
+  **The best is a stopping rule and not an aim that gets restored.** A bias only reaches the shot
+  through an arc the trim then has to fly, so reverting to an earlier one costs a whole further
+  pass. That is a different trade and is not made — and it should not be made off readings taken
+  before the settle gate existed.
+
+- **No propellant budget.** Measured in flight: **1,943 frames with thrusters firing against 24
+  settled**, roughly 36 m/s of Delta-v on a bus carrying about 70-90. `BusTrim.SpentMetresPerSecond`
+  now accumulates the measured acceleration across every null — surviving `Resume()`, because a tank
+  does not refill with a fresh reference — and `PostBoostAim.MaxTrimMetresPerSecond` stops the
+  passes at 40 m/s. That leaves 30 m/s on the smallest bus in the range: three nulls at the largest
+  trim `BusTrim.MaxMetresPerSecond` will accept, or twenty-seven separation shoves. A bus that
+  arrives dry cannot null the shove, and that is 3.8 km.
+
+  Forty is above what a converged correction spends, so it is the backstop against a loop that will
+  not stop rather than the thing that stops one — the best-tracking rule is what cuts the 36 m/s.
+
+**Unflown.** All of it is headless. What a flight would show is whether the settle gate ever opens
+on a separated bus at all: if it does not, every shot releases 10 s after the trim finishes with the
+aim the burn earned, which is the honest outcome and is 260 m worse than a bus that holds still.
 
 
 ## 9. The budget at the 0.65 km level

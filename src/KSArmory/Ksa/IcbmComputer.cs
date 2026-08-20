@@ -701,7 +701,8 @@ internal sealed class IcbmComputer
             TrimSettled: _trim.Done,
             ReleaseDirectionCci: ReleaseImpulseCci(),
             PredictedMissMetres: _freshMiss,
-            AimHasSettled: _aim.Settled || _trim.GaveUp));
+            AimHasSettled: _aim.Settled || _trim.GaveUp,
+            TrimSpentMetresPerSecond: _trim.SpentMetresPerSecond));
 
         if (pass.MayMeasure) _measureDue = true;
 

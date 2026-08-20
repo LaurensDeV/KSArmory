@@ -488,4 +488,68 @@ public class BusTrimTests(ITestOutputHelper Out)
         Assert.True(left <= Math.Max(BusTrim.SettledMetresPerSecond, 0.5 * quantum),
                     $"{left:F3} m/s left against a {quantum:F3} m/s step");
     }
+
+    /// <summary>
+    /// What the passes cost the tank, counted across all of them. A correction pass re-arms the
+    /// trim onto a moved arc, and a bus that arrives at the release dry cannot null the separation
+    /// impulse — 1.1 m/s of it is worth 3.8 km on this arc.
+    ///
+    /// <para>Measured in flight: 1,943 frames with thrusters firing against 24 settled, about
+    /// 36 m/s, on a bus carrying 70-90. <see cref="PostBoostAim.MaxTrimMetresPerSecond"/> is what
+    /// reads this.</para>
+    /// </summary>
+    [Fact]
+    public void WhatTheThrustersSpendIsCountedAcrossPassesRatherThanPerNull()
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
+        double3 nose = Vec.Unit(arc.RequiredVelocityCci);
+
+        TrimBus bus = new()
+        {
+            PositionCci = fromCci,
+            VelocityCci = arc.RequiredVelocityCci + nose * 1.1,
+            NoseCci = nose,
+            RightCci = Vec.Unit(Vec.Cross(fromCci, nose)),
+            DownCci = -Vec.Unit(fromCci),
+        };
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        (double firstTook, _, _) =
+            Trim(trim, bus, aimAtEpoch, fromCci, arc.RequiredVelocityCci, 1.0 / 60.0);
+
+        double afterFirst = trim.SpentMetresPerSecond;
+        Out.WriteLine($"one null of a 1.1 m/s shove cost {afterFirst:F2} m/s of tank");
+
+        Assert.True(afterFirst > 0.5, $"a 1.1 m/s null spent only {afterFirst:F2} m/s");
+
+        // A second pass: the arc moves under the bus and the trim is re-armed onto it, which is
+        // exactly what one post-boost correction pass does.
+        // Carried on from where the first left off. The trim solves against the cutoff trajectory
+        // propagated by SecondsSinceReference, so restarting that clock reads the coast since
+        // cutoff as error and the loop refuses the answer rather than firing at it.
+        bus.VelocityCci += nose * 1.1;
+        trim.Resume();
+
+        Trim(trim, bus, aimAtEpoch, fromCci, arc.RequiredVelocityCci, 1.0 / 60.0, since: firstTook);
+
+        Out.WriteLine($"two nulls: {trim.SpentMetresPerSecond:F2} m/s of tank");
+
+        Assert.True(trim.SpentMetresPerSecond > afterFirst * 1.5,
+                    $"a second null left the total at {trim.SpentMetresPerSecond:F2} m/s "
+                    + $"against {afterFirst:F2} m/s after the first — the tank refilled");
+    }
+
+    /// <summary>A bus that has fired nothing has spent nothing, and a reset one starts again.</summary>
+    [Fact]
+    public void ABusThatHasNotFiredHasSpentNothing()
+    {
+        BusTrim trim = new();
+
+        Assert.Equal(0.0, trim.SpentMetresPerSecond);
+
+        trim.Reset();
+        Assert.Equal(0.0, trim.SpentMetresPerSecond);
+    }
 }

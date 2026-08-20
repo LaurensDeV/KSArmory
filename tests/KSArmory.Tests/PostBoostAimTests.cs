@@ -23,8 +23,9 @@ public class PostBoostAimTests
     /// </summary>
     private static PostBoostSituation Bus(bool trimSettled, double missMetres,
                                           bool aimHasSettled = false,
-                                          double3? directionCci = null)
-        => new(trimSettled, directionCci ?? Held, missMetres, aimHasSettled);
+                                          double3? directionCci = null,
+                                          double spentMetresPerSecond = 0.0)
+        => new(trimSettled, directionCci ?? Held, missMetres, aimHasSettled, spentMetresPerSecond);
 
     /// <summary>
     /// Hold the bus still long enough for the settle gate to open, taking no reading on the way.
@@ -296,5 +297,109 @@ public class PostBoostAimTests
         var aim = new PostBoostAim();
 
         Assert.True(aim.Update(Step, Bus(true, double.NaN, directionCci: Vec.Zero)).MayMeasure);
+    }
+
+    // ------------------------------------------------- the best, and the tank
+
+    /// <summary>
+    /// Passes stop when they stop beating the best seen. Flown, the correction converges by pass 5
+    /// — 3.3 km down to 0.4 — and then wanders between 0.1 and 0.5 km for seven more, improving on
+    /// nothing: at about two seconds a pass the payback bar is ~13 m, which a wander of hundreds
+    /// clears every time.
+    /// </summary>
+    [Fact]
+    public void PassesThatStopBeatingTheBestEndIt()
+    {
+        var aim = new PostBoostAim();
+        Settle(aim);
+
+        double[] flown = [3300, 2000, 1200, 700, 400, 300, 500, 200, 400, 100, 500, 300];
+
+        int read = 0;
+        bool released = false;
+
+        foreach (double miss in flown)
+        {
+            read++;
+            released = aim.Update(Step, Bus(true, miss)).MayRelease;
+            if (released) break;
+        }
+
+        Assert.True(released, "the wander after convergence never stopped it");
+        Assert.True(read <= 8, $"it took {read} readings to stop, against 5 that improved plus "
+                               + $"{PostBoostAim.PassesWithoutImprovement} that did not");
+        Assert.True(aim.Cycles < PostBoostAim.MaxCycles);
+        Assert.Equal(400.0, aim.BestMissMetres);
+    }
+
+    /// <summary>
+    /// And the counter is failures to improve rather than worsenings, which is the whole difference
+    /// from <see cref="AimCorrection.WorseBeforeStopping"/>. A reading that oscillates inside the
+    /// band is never <em>worse</em> than the best by enough to count, so that rule alone never
+    /// trips.
+    /// </summary>
+    [Fact]
+    public void ReadingsThatOscillateInsideTheBandStillStopIt()
+    {
+        var aim = new PostBoostAim();
+        Settle(aim);
+
+        // Never worse than the first by AimCorrection.ImprovedByMetres, and never better either.
+        double[] wander = [1_000, 1_100, 900, 1_050, 950, 1_000, 1_100, 900, 1_050, 950,
+                           1_000, 1_100, 900, 1_050, 950, 1_000, 1_100, 900, 1_050, 950];
+
+        int read = 0;
+        bool released = false;
+
+        foreach (double miss in wander)
+        {
+            read++;
+            released = aim.Update(Step, Bus(true, miss)).MayRelease;
+            if (released) break;
+        }
+
+        Assert.True(released, "a reading that never worsens by enough to count never stopped it");
+        Assert.True(read <= PostBoostAim.PassesWithoutImprovement + 1,
+                    $"it took {read} readings against {AimCorrection.WorseBeforeStopping} "
+                    + "the worsening counter would have needed and never reached");
+    }
+
+    /// <summary>
+    /// The passes are what the correction costs in propellant, and a bus that arrives at the
+    /// release dry cannot null the separation impulse — 1.1 m/s of decoupler shove takes the
+    /// predicted impact from 0.7 km to 4.5 km on this arc. Measured in flight: 1,943 frames with
+    /// thrusters firing against 24 settled, about 36 m/s, on a bus carrying 70-90.
+    /// </summary>
+    [Fact]
+    public void ItStopsOnceThePassesHaveSpentTheBudget()
+    {
+        var aim = new PostBoostAim();
+        Settle(aim);
+
+        PostBoostAim.Decision d = aim.Update(Step, Bus(
+            trimSettled: true, 500_000.0,
+            spentMetresPerSecond: PostBoostAim.MaxTrimMetresPerSecond));
+
+        Assert.True(d.MayRelease, "half a megametre of miss bought passes past the tank");
+        Assert.Equal(0, aim.Cycles);
+        Assert.Contains("budget", d.Said);
+    }
+
+    /// <summary>
+    /// And the budget leaves a reserve worth having: at least one null at the largest trim
+    /// <see cref="BusTrim.MaxMetresPerSecond"/> will accept, on the smallest bus the shipped rack
+    /// is flown on.
+    /// </summary>
+    [Fact]
+    public void TheBudgetLeavesEnoughToNullASeparation()
+    {
+        const double smallestTankMetresPerSecond = 70.0;
+
+        Assert.True(
+            smallestTankMetresPerSecond - PostBoostAim.MaxTrimMetresPerSecond
+                >= BusTrim.MaxMetresPerSecond,
+            $"a correction spending {PostBoostAim.MaxTrimMetresPerSecond:F0} m/s of a "
+            + $"{smallestTankMetresPerSecond:F0} m/s tank cannot afford a "
+            + $"{BusTrim.MaxMetresPerSecond:F0} m/s null afterwards");
     }
 }

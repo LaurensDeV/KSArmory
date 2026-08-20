@@ -19,11 +19,15 @@ namespace KSArmory;
 /// Whether the correction has stopped improving on its own best. It knows things this does not —
 /// that a cycle made the miss worse, that the response is not what it modelled.
 /// </param>
+/// <param name="TrimSpentMetresPerSecond">
+/// What the passes have taken out of the tank so far — <see cref="BusTrim.SpentMetresPerSecond"/>.
+/// </param>
 internal readonly record struct PostBoostSituation(
     bool TrimSettled,
     double3 ReleaseDirectionCci,
     double PredictedMissMetres,
-    bool AimHasSettled);
+    bool AimHasSettled,
+    double TrimSpentMetresPerSecond);
 
 /// <summary>
 /// Correcting the aim after the engines have stopped, with the trim as the actuator.
@@ -47,8 +51,8 @@ internal readonly record struct PostBoostSituation(
 ///
 /// <para><b>And holding is not free.</b> A warhead still aboard loses the leverage its ejection kick
 /// has along the arc at about <see cref="HoldingCostsMetresPerSecond"/>, so a cycle has to remove
-/// more miss than the seconds it spends are worth. That is the whole stopping rule: it stops when
-/// another cycle would cost more than it can win, not after a count somebody picked.</para>
+/// more miss than the seconds it spends are worth. Every stopping rule here is that trade in a
+/// different currency: seconds, passes that buy nothing, and propellant.</para>
 /// </summary>
 internal sealed class PostBoostAim
 {
@@ -64,16 +68,16 @@ internal sealed class PostBoostAim
     /// <summary>
     /// The longest the bus may spend correcting before it releases regardless.
     ///
-    /// <para>A backstop on the clock, not the budget that decides: the payback rule below stops it
-    /// long before this on any shot that is already close. This is for the case where each cycle
-    /// keeps promising an improvement it does not deliver.</para>
+    /// <para>A backstop on the clock, not the budget that decides: the rules below stop it long
+    /// before this on any shot that is either close or getting nowhere. This is for the case where
+    /// each cycle keeps promising an improvement it does not deliver.</para>
     /// </summary>
     public const double MaxSeconds = 120.0;
 
     /// <summary>
     /// How many measure-and-retrim cycles are worth running at most.
     ///
-    /// <para><b>The payback rule is meant to be what stops it, not this.</b> At
+    /// <para><b>The payback and improvement rules are meant to be what stop it, not this.</b> At
     /// five the flown salvo ran out of passes with its predicted miss still falling — 2.9, 2.9,
     /// 2.1, 1.2 km — and the aim it released on was the one it happened to hold when the count ran
     /// out. Headless, the residue that leaves is the largest single term in the whole shot: 760 m
@@ -136,6 +140,52 @@ internal sealed class PostBoostAim
     /// </summary>
     public const double SettlesWithinSeconds = 10.0;
 
+    /// <summary>
+    /// How much closer a pass has to bring the predicted miss to count as an improvement.
+    ///
+    /// <para>The same resolution the correction itself judges a cycle at, deliberately aliased
+    /// rather than restated: they are the same quantity read off the same prediction, and two
+    /// numbers for it would drift.</para>
+    /// </summary>
+    public const double ImprovedByMetres = AimCorrection.ImprovedByMetres;
+
+    /// <summary>
+    /// How many passes may fail to improve on the best seen before it stops.
+    ///
+    /// <para><b>Failures to improve, not worsenings</b>, and that is the whole difference from
+    /// <see cref="AimCorrection.WorseBeforeStopping"/> — which counts passes strictly worse than the
+    /// best and so never trips on a reading that oscillates inside the band. Flown: the correction
+    /// converges by pass 5, 3.3 km down to 0.4 km, then wanders between 0.1 and 0.5 km for seven
+    /// more passes, improving on nothing and satisfying neither that rule nor the payback one.</para>
+    ///
+    /// <para>Three rather than one, so a single noisy reading and one genuine hump do not end it.
+    /// On that flight it stops at pass 8 rather than 12: four passes at about two seconds each,
+    /// worth 208 m of leverage and a third of the propellant the correction spends.</para>
+    ///
+    /// <para><b>The best is a stopping rule and not an aim that gets restored.</b> A bias only
+    /// reaches the shot through an arc the trim then has to fly, so going back to an earlier one
+    /// costs a whole further pass — which is a different trade from this one and is not made
+    /// here.</para>
+    /// </summary>
+    public const int PassesWithoutImprovement = 3;
+
+    /// <summary>
+    /// The most thruster velocity the correction's passes may spend, in metres per second.
+    ///
+    /// <para>Every pass re-arms the trim onto a moved arc and the trim thrusts until it is back on
+    /// it, so passes are what the correction costs in propellant. Measured in flight: 1,943 frames
+    /// with thrusters firing against 24 settled, about 36 m/s, on a bus carrying 70–90.</para>
+    ///
+    /// <para><b>What the reserve protects is the separation null</b>, which is the one piece of
+    /// trimming that cannot be skipped: a 1.1 m/s decoupler shove takes the predicted impact from
+    /// 0.7 km to 4.5 km on this arc, and a bus that arrives at the release dry cannot take it back
+    /// out. Forty leaves 30 m/s on the smallest bus in that range — three nulls at the largest trim
+    /// <see cref="BusTrim.MaxMetresPerSecond"/> will accept, or twenty-seven separation shoves — and
+    /// sits above what a converged correction spends, so it is the backstop against a loop that will
+    /// not stop rather than the thing that stops one.</para>
+    /// </summary>
+    public const double MaxTrimMetresPerSecond = 40.0;
+
     /// <summary>What the state machine wants of the caller this step.</summary>
     public readonly record struct Decision(bool MayMeasure, bool MayRelease, string Said);
 
@@ -144,6 +194,9 @@ internal sealed class PostBoostAim
 
     /// <summary>How many cycles have been run, for the log and the panel.</summary>
     public int Cycles { get; private set; }
+
+    /// <summary>The closest any pass has predicted, or NaN before there has been one.</summary>
+    public double BestMissMetres => double.IsPositiveInfinity(_bestMiss) ? double.NaN : _bestMiss;
 
     /// <summary>Whether the release direction is currently holding still enough to be read off.</summary>
     public bool Steady => _nothingTurning || _steadyFor >= SteadySeconds;
@@ -159,6 +212,8 @@ internal sealed class PostBoostAim
     private bool _nothingTurning;
     private double _steadyFor;
     private double _unsteadyFor;
+    private double _bestMiss = double.PositiveInfinity;
+    private int _noImprovement;
     private string _said = "";
 
     /// <summary>
@@ -176,6 +231,12 @@ internal sealed class PostBoostAim
         Watch(step, now.ReleaseDirectionCci, now.TrimSettled);
 
         if (_elapsed >= MaxSeconds) return Finish($"released after {_elapsed:F0} s of correcting");
+
+        if (now.TrimSpentMetresPerSecond >= MaxTrimMetresPerSecond)
+        {
+            return Finish($"released on {now.TrimSpentMetresPerSecond:F0} m/s of trim, "
+                          + "which is the bus's budget for correcting");
+        }
 
         // Nothing may be read off a vehicle the thrusters are still moving.
         if (!now.TrimSettled)
@@ -205,6 +266,18 @@ internal sealed class PostBoostAim
         if (now.AimHasSettled)
         {
             return Finish($"aim settled {now.PredictedMissMetres / 1000.0:F1} km out");
+        }
+
+        // A pass that cannot beat the best any pass has managed is a pass that bought nothing, and
+        // enough of those in a row is a correction that has finished whatever its readings say.
+        if (now.PredictedMissMetres < _bestMiss - ImprovedByMetres)
+        {
+            _bestMiss = now.PredictedMissMetres;
+            _noImprovement = 0;
+        }
+        else if (++_noImprovement >= PassesWithoutImprovement)
+        {
+            return Finish($"{_noImprovement} passes without beating {_bestMiss / 1000.0:F1} km");
         }
 
         if (Cycles >= MaxCycles) return Finish($"released after {Cycles} corrections");
@@ -301,6 +374,8 @@ internal sealed class PostBoostAim
         _nothingTurning = false;
         _steadyFor = 0.0;
         _unsteadyFor = 0.0;
+        _bestMiss = double.PositiveInfinity;
+        _noImprovement = 0;
         Cycles = 0;
         _said = "";
     }
