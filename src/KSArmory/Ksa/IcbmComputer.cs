@@ -1185,6 +1185,14 @@ internal sealed class IcbmComputer
             // a larger error and burns harder at. Same shape as the release sequence's latched
             // reference, and it runs away rather than merely drifting: flown, a shot 0.1 km off at
             // cutoff wound up by a factor of ten every ten cycles to 139 m/s of commanded trim.
+            // What the correction is being told and what it has done about it, per cycle. A bias
+            // that ends at its limit says nothing about how it got there - walked, jumped, or
+            // pushed back and forth - and those want different fixes.
+            Log.Debug($"aim: bias {AimBiasMetres / 1000.0:F1} km, predicted miss "
+                      + $"{PredictedMissMetres / 1000.0:F1} km, from "
+                      + $"{(fromCutoff ? "the solved cutoff" : "the live state")}, "
+                      + $"kick {Vec.Len(ReleaseImpulseCci()):F2} m/s");
+
             if (state.HasAim && !TrimIsFiring) _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
         }
         else

@@ -254,6 +254,14 @@ internal sealed class BallisticScenario
             computer.Designate(new AimSite(parent.Id, aimLat, aimLon, "scenario aim point"));
 
             _say($"aimed at {computer.Target.Describe()}{Downrange(computer)}");
+
+            // Nobody is watching this one, so there is no cost to the detail and no second chance
+            // to ask for it: a shot that goes wrong unattended has only what it wrote down.
+            if (Log.Threshold > Log.Level.Debug)
+            {
+                Log.Threshold = Log.Level.Debug;
+                _say("verbose logging on for the flight");
+            }
             return;
         }
 
