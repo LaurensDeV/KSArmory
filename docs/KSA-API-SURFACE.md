@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-149 types and 419 members across 7 assemblies.
+149 types and 420 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -200,6 +200,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void Text(Brutal.ImGuiApi.ImString)`
 - `void TextColored(ref Brutal.Numerics.float4, Brutal.ImGuiApi.ImString)`
 - `void TextDisabled(Brutal.ImGuiApi.ImString)`
+- `void TextWrapped(Brutal.ImGuiApi.ImString)`
 - `void TreePop()`
 
 ### Brutal.ImGuiApi.ImGuiCol

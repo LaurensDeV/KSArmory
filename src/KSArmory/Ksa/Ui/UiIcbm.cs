@@ -214,8 +214,14 @@ internal sealed partial class Ui
         {
             double left = computer.TrimToGainMetresPerSecond;
 
-            ImGui.TextColored(double.IsFinite(left) && left <= BusTrim.SettledMetresPerSecond ? Good : Working,
-                              $"Bus trim: {computer.TrimSaid}");
+            // Wrapped, because this line is a sentence rather than a readout and the panel is
+            // narrow by default: unwrapped it runs off the edge and is only legible with the
+            // window pulled across the whole screen.
+            ImGui.PushStyleColor(ImGuiCol.Text,
+                                 double.IsFinite(left) && left <= BusTrim.SettledMetresPerSecond
+                                     ? Good : Working);
+            ImGui.TextWrapped($"Bus trim: {computer.TrimSaid}");
+            ImGui.PopStyleColor();
         }
 
         // Named for what it actually is. It is a free-fall prediction, so on the pad the honest

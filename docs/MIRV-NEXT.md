@@ -69,16 +69,28 @@ for every second the arrival is out**: an arrival 50 s stale asks for 1,055 m/s.
 about ten seconds of arrival disagreement, which is a far smaller and more likely fault than
 anything that could have pushed a coasting bus that hard.
 
-**The next flight decides it**, and the log now prints what it needs. The trim solves through the
-whole clearance wait instead of only after it, so the flown log carries what the bus owed at the
-split beside what it owed on release — the same number twice means the wait was free, a number
-that grew means something moved the vehicle or the aim while it coasted. And a refusal now names
-the arrival it was solving to beside what the flown prediction says.
+**The next flight decided it.** Held 48 s for clearance, the log said:
 
-**If it is the arrival**, the fix is already written down and is what this item's original sketch
-said: compare against `Program.Arc.RequiredVelocityCci` carried to now, rather than re-solving
-Lambert against a latched arrival time. Re-solving is what makes the answer swing 20 m/s per second
-of parameter error; the arc the guidance actually flew does not.
+```
+owed 0.21 m/s at the split, 228.97 after 48 s of clearing
+```
+
+Nothing pushed the bus. What moved was the **aim**: the correction's only observer is a prediction
+of where a released warhead lands, and that prediction carries the ejection kick along the *live*
+mean of the tube axes. A bus coasting clear of its spent stack is also tumbling, so that vector
+swings, so the predicted impact swings, and the correction chases it at half the error every half
+second for the whole wait.
+
+It is the same fault as the original runaway — a correction observing something the thing it
+corrects is moving — arriving by a second route, and the reason the first fix missed it is that the
+aim was held out only while the thrusters were *firing*. It is now held out from the split to the
+trim being done.
+
+The sensitivity is what turns a wandering aim into hundreds of metres a second: what the trim nulls
+is `RequiredVelocity(arrival) − v`, and on this deorbit that required velocity moves about **20 m/s
+for every second of arrival error**, and comparably fast for a displaced aim point. That fragility
+is worth removing on its own merits — comparing against `Program.Arc.RequiredVelocityCci` carried
+forward, as this item's original sketch said, rather than re-solving Lambert every cycle.
 
 Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is
 comfortable on paper and nothing has spent it.

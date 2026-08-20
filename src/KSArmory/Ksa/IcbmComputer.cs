@@ -138,9 +138,16 @@ internal sealed class IcbmComputer
     /// </summary>
     public bool NeedsShortSteps => Program.NeedsShortSteps || TrimIsFiring;
 
-    // Whether the trim is still moving the vehicle, which is what the aim correction has to sit
-    // out: its only observer is a prediction taken from the vehicle the trim is perturbing.
-    private bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;
+    // The whole span the aim correction has to sit out, which is from the split to the trim being
+    // done - not merely the part where thrusters are firing.
+    //
+    // Its only observer is a prediction of where a released warhead lands, and that prediction
+    // carries the ejection kick along the live mean of the tube axes. A bus coasting clear of its
+    // spent stack is also tumbling, so that vector swings, so the predicted impact swings, and the
+    // correction chases it at half the error every half second. Measured across a 48 s wait: the
+    // bus owed 0.21 m/s at the split and 228.97 m/s by the time it was let go, having been pushed
+    // by nothing at all.
+    private bool TrimIsFiring => _trim.Armed && !_trim.Done;
 
     public Celestial? Parent { get; private set; }
 
@@ -543,13 +550,15 @@ internal sealed class IcbmComputer
         return SeparationClearance.Check(apart, _sinceSplit);
     }
 
-    // One line per change, which is all any of this is worth while nothing is happening on screen.
-    private void Say(string what)
+    // One line per change of state, which is all any of this is worth while nothing is happening
+    // on screen. The detail rides along with it rather than driving it: a number that moves every
+    // frame would otherwise log every frame.
+    private void Say(string what, string detail = "")
     {
         if (what == _saidTrim) return;
 
         _saidTrim = what;
-        Log.Info($"trimming the bus on {KsaWorld.DisplayName(Craft)}: {what}");
+        Log.Info($"trimming the bus on {KsaWorld.DisplayName(Craft)}: {what}{detail}");
     }
 
     // Put the bus back on its solution with its own thrusters, before anything leaves it. All the
@@ -614,11 +623,10 @@ internal sealed class IcbmComputer
         // the difference between them is kilometres on the ground.
         if (trim.Said.Length == 0) return;
 
-        // The clearance and the trim are one wait to anybody reading the log, so they are one line
-        // — and while the trim is held, the pair of numbers side by side is the diagnosis.
-        Say((_mayTrim ? "" : clearance.Said + "; ")
-            + trim.Said
-            + (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : "")
+        // Two audiences, one state. The panel gets a sentence it can fit; the log gets the numbers
+        // that diagnose it, which are long enough to run off the edge of a narrow window.
+        Say(_mayTrim ? trim.Said : clearance.Said + "; " + trim.Said,
+            (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : "")
             + Grew()
             + Arrivals(trim));
     }
