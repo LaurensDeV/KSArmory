@@ -115,6 +115,15 @@ if [[ -f "$SETTINGS" ]]; then
     [[ -n "$CRAFT" ]] && sed -i "s|^startVehicle = \".*\"|startVehicle = \"$CRAFT\"|" "$SETTINGS"
 fi
 
+# Any instance still up is one an earlier run left behind -- this launches its own either way, and
+# a running game holds the mod's DLL, so leaving it alone means every interrupted run poisons the
+# next one with a lock error rather than a verdict.
+if tasklist.exe 2>/dev/null | grep -q StarMap; then
+    echo "== closing a game left running"
+    taskkill.exe /IM StarMap.exe /F >/dev/null 2>&1 || true
+    sleep 2
+fi
+
 echo "== deploying"
 "$REPO_ROOT/tools/deploy.sh" >/dev/null
 

@@ -406,9 +406,15 @@ internal sealed class BallisticScenario
     private void ReportTrim()
     {
         if (_computer is not { } computer) return;
-        if (computer.TrimSaid.Length == 0 || computer.TrimSaid == _saidTrim) return;
+        if (computer.TrimSaid.Length == 0) return;
 
-        _saidTrim = computer.TrimSaid;
+        // On what it is doing rather than on the number it is doing it at. The trim reports a fresh
+        // figure every frame while it closes, and a report that echoes each of them is a hundred
+        // lines saying one thing - the numbers that matter are the two it carries either side.
+        string doing = computer.TrimSaid.Split(',')[0];
+        if (doing == _saidTrim) return;
+
+        _saidTrim = doing;
 
         _say($"trim: {computer.TrimSaid} -- owed "
              + $"{Rate(computer.TrimOwedAtSplitMetresPerSecond)} at the split, "
