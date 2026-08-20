@@ -215,6 +215,18 @@ internal sealed class IcbmProgram
     /// </summary>
     public const double HoldDirectionBelow = 5.0;
 
+    /// <summary>
+    /// The same limit as frames of the burn <em>actually happening</em>, which is what it really is.
+    ///
+    /// <para>Five metres a second is about ten frames of a full-throttle stack, and
+    /// <see cref="ThrottleDownSeconds"/> makes a frame an order of magnitude smaller — so a fixed
+    /// number holds the direction seconds before cutoff instead of frames before it, and everything
+    /// the required velocity does in between is left square to a line nothing can still thrust
+    /// along. Anywhere from ten to eighty frames measures the same, so this is the middle of a
+    /// plateau rather than a tuned value.</para>
+    /// </summary>
+    public const double HoldDirectionFrames = 20.0;
+
     // Every shot goes the direct way round. BallisticArc can fly the arc over the far side, and it
     // is not offered: that arc is a near-complete orbit, so it costs orbital-grade delta-v rather
     // than ballistic, and a switch for it would silently turn every shot into one that falls short.
@@ -566,6 +578,17 @@ internal sealed class IcbmProgram
                                ShortfallMetresPerSecond: _shortfall);
     }
 
+    // Never looser than HoldDirectionBelow, so a stack burning at full thrust holds where it
+    // always did and only a throttled-down one holds later.
+    private double HoldDirectionThreshold(in IcbmState state)
+    {
+        double frame = state.Booster.AccelerationNow * _lastStep
+                     * Math.Clamp(state.ThrottleAchieved, 0.0, 1.0);
+
+        return frame > 0.0 ? Math.Min(HoldDirectionBelow, HoldDirectionFrames * frame)
+                           : HoldDirectionBelow;
+    }
+
     private void Resolve(in IcbmState state)
     {
         bool burning = IsBurning;
@@ -602,7 +625,9 @@ internal sealed class IcbmProgram
         _toGainVectorCci = command.ToGainVectorCci;
         _lowestToGain = Math.Min(_lowestToGain, _toGain);
 
-        if (_toGain > HoldDirectionBelow || _thrustDirCci.Equals(Vec.Zero))
+        double holdBelow = HoldDirectionThreshold(state);
+
+        if (_toGain > holdBelow || _thrustDirCci.Equals(Vec.Zero))
         {
             _thrustDirCci = command.ThrustDirectionCci;
             _countdown = command.SecondsToCutoff;

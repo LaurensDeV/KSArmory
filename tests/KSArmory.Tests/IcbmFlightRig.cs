@@ -65,6 +65,28 @@ internal sealed class IcbmFlightRig
     /// </summary>
     public double ThrottleRatePerSecond = double.PositiveInfinity;
 
+    /// <summary>
+    /// The least throttle the engine will hold, whatever it is asked for.
+    ///
+    /// <para>Zero is the rig's original behaviour and is another thing the game does not do:
+    /// KSA clamps a throttle command to the craft's own <c>GetMinThrottle</c>, so the ramp bottoms
+    /// out an order of magnitude above <see cref="IcbmProgram.MinCommandedThrottle"/> and the burn
+    /// creeps at that for the last couple of seconds.</para>
+    /// </summary>
+    public double MinThrottle;
+
+    /// <summary>
+    /// How unevenly the step arrives, as a fraction either side of the nominal one.
+    ///
+    /// <para>Zero is a metronome, which nothing outside a test is. KSA's step is
+    /// <c>dtPlayer x achievedFraction x simSpeed</c> and <c>dtPlayer</c> carries the display's
+    /// frame pacing — measured in flight alternating between 8.33 ms and 25.0 ms on a 120 Hz
+    /// screen, which is 0.5 here. <b>A constant step cannot see the cutoff defect this exists to
+    /// catch</b>, because what the frozen thrust line leaves behind is driven by the solve moving
+    /// between frames.</para>
+    /// </summary>
+    public double StepJitter;
+
     /// <summary>What the throttle actually is, as opposed to what was asked for.</summary>
     public double ThrottleAchieved { get; private set; } = 1.0;
 
@@ -132,10 +154,16 @@ internal sealed class IcbmFlightRig
         double3 lastBurnDirection = Vec.Zero;
         Queue<IcbmCommand> inFlight = new();
         ThrottleAchieved = 1.0;
+        int frame = 0;
 
         while (elapsed < maxSeconds)
         {
             double h = program.NeedsShortSteps ? step : Math.Max(step, CoastStepSeconds);
+            if (program.NeedsShortSteps && StepJitter > 0.0)
+            {
+                h = step * (frame++ % 2 == 0 ? 1.0 + StepJitter : 1.0 - StepJitter);
+            }
+
             double altitude = Body.AltitudeOf(PositionCci);
             double density = DensityRatioAt(altitude);
             double3 airflow = VelocityCci - Body.GroundVelocityCci(PositionCci);
@@ -204,7 +232,7 @@ internal sealed class IcbmFlightRig
 
     private void SlewThrottle(in IcbmCommand command, double step)
     {
-        double wanted = command.EngineOn ? Math.Clamp(command.Throttle, 0.0, 1.0) : 1.0;
+        double wanted = command.EngineOn ? Math.Clamp(command.Throttle, MinThrottle, 1.0) : 1.0;
 
         if (ThrottleRatePerSecond <= 0.0)
         {

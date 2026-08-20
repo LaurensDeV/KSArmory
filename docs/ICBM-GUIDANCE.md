@@ -163,6 +163,10 @@ fraction. Nothing depends on the vehicle honouring it: the cutoff test is writte
 throttle the vehicle *reports having*, not the one that was asked for, so a stack with solid motors
 gets the error it would have had rather than a wrong answer.
 
+**A smaller frame is only worth having if the frame is still what sets the residual**, and the ramp
+is what stops that being true — see [Hold the direction frames before cutoff, not
+seconds](#hold-the-direction-frames-before-cutoff-not-seconds).
+
 ---
 
 ## Measured
@@ -222,6 +226,12 @@ belongs to the trajectory, so the only term left is the throttle: coming back to
 That is the entire reason the throttle ramp exists, and it is why it is written against the throttle
 the vehicle *reports having* rather than the one commanded — a stack that cannot throttle gets the
 error it would have had rather than a wrong cutoff.
+
+**That is the floor, not the residual.** A residual several times what one frame adds is not a
+rounding at all and no amount of throttle will move it, because whatever is setting it is not the
+frame. Flown residuals of 0.24–0.29 m/s against a 0.048–0.060 m/s frame are that shape, and the
+term they are made of is in [Hold the direction frames before cutoff, not
+seconds](#hold-the-direction-frames-before-cutoff-not-seconds).
 
 ## What it commands, and what it does not
 
@@ -605,6 +615,45 @@ fast enough to follow the required-velocity vector all the way down, so almost n
 component ever builds and the projection equals the length. The real vehicle is slower. A rig that
 is *better* than the thing it models is not conservative — it is blind, in exactly the region the
 fault lives in.
+
+## Hold the direction frames before cutoff, not seconds
+
+Freezing the steering leaves whatever is square to the frozen line in the residual for good, so what
+matters is not only *that* the direction is held but **how long it is held for**. `HoldDirectionBelow`
+is five metres a second, which is about ten frames of a stack at full thrust — and the throttle ramp
+makes a frame an order of magnitude smaller, so on a throttled-down burn the same number holds the
+direction for **seconds** rather than frames. Everything the required velocity does in those seconds
+lands square to a line nothing can still thrust along.
+
+The signature is unmistakable once it is looked for: the residual is several times what one frame
+adds, and nearly all of it is perpendicular to the direction the burn ended on. Measured headlessly
+over 90 shots — two thrusts, two planes, three step patterns, two slew rates, four ranges:
+
+| | fixed five metres a second | counted in frames |
+| --- | --- | --- |
+| mean residual | 0.0653 m/s | **0.0184 m/s** |
+| median | 0.0403 m/s | **0.0096 m/s** |
+| 90th percentile | 0.1744 m/s | **0.0561 m/s** |
+| worst | 0.2476 m/s | **0.1365 m/s** |
+| mean multiple of one frame | 4.5x | **0.8x** |
+| worst multiple of one frame | 25.2x | **3.0x** |
+| mean share square to the thrust line | 71% | **6%** |
+
+So `HoldDirectionFrames` is that same limit counted in frames of the burn *actually happening* —
+`acceleration x step x throttle achieved` — capped by the old constant, so a stack at full thrust
+holds exactly where it always did and only a throttled-down one holds later. Anywhere between ten
+and eighty frames measures the same, which is why twenty is the middle of a plateau rather than a
+tuned number.
+
+**A constant step cannot see any of it.** With an even step the residual is a few thousandths of a
+metre a second either way; the fault only appears once the step is uneven, because what the frozen
+line leaves behind is driven by the solve moving between frames. KSA's step carries the display's
+frame pacing — 8.33 ms against 25.0 ms measured in flight on a 120 Hz screen — so
+`IcbmFlightRig.StepJitter` is that fact, and `CutoffResidualTests` sets it to 0.5 for exactly this.
+It is the fourth thing the rig had to stop being better than the game at, after the command latency,
+the throttle servo and the throttle floor.
+
+**Not yet flown.** The mechanism, the reproduction and the improvement are all headless.
 
 ## A tumbling bus does not deploy
 
@@ -1013,7 +1062,10 @@ samples**, right at the cutoff instant. Steering to that spins the bus at the ex
 be holding still, because the warheads leave along the line it was cut off on.
 
 So below `IcbmProgram.HoldDirectionBelow` the last direction that meant something is held, and the
-coast keeps it rather than swinging to prograde.
+coast keeps it rather than swinging to prograde. **How near cutoff that happens is
+`HoldDirectionFrames`**, because five metres a second is a different number of frames at full thrust
+and at the bottom of the throttle ramp — see [Hold the direction frames before cutoff, not
+seconds](#hold-the-direction-frames-before-cutoff-not-seconds).
 
 ## What it tells the operator
 
