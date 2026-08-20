@@ -1255,12 +1255,22 @@ subparts, scaled to nothing until fired, with their transform written each frame
 
 `RoundBodyAnchorTests` and `FireGeometryTests` hold both.
 
-**A fully self-contained scenario is not possible from a mod.** `LoadVehicleFromLibrary` in a
-system XML resolves through `DefaultVehicleSaves`, whose `SaveFolderPath` is **hardcoded** to
-`Content/Core/defaultvehicles` under the game install — not per-mod, and not writable without
-elevation. So a one-click "everything placed and ready" scenario would mean writing into
-Program Files. Instead: `tools/install-testcraft.sh` writes a craft into the *user's* vehicle
-folder (which is writable), and `TestTarget` spawns drones on demand from the panel.
+**A scenario cannot place a craft through the *system XML*, but the mod can place one itself.**
+`LoadVehicleFromLibrary` in a system XML resolves through `DefaultVehicleSaves`, whose
+`SaveFolderPath` is **hardcoded** to `Content/Core/defaultvehicles` under the game install — not
+per-mod, and not writable without elevation. That door is shut.
+
+`VehicleSaves` is a different registry and is not: its `SaveFolderPath` is the user's own
+`Documents/Vehicles`, which is exactly where `tools/install-testcraft.sh` writes, and
+`Refresh()`/`AsSpan()`, `UncompressedVehicleSave.FromDirectory`, `VehicleSave.Load(Viewport)` and
+`Vehicle.GetInitialKinematicStateForLocation` — the launch menu's own pad-placement maths — are all
+public. `TestTarget` already walks most of that chain to spawn drones.
+
+**Not built, and two things are unknown before it is:** whether
+`InputEvents.CreateVehicleBuffer` wants the frame ordering it gets from `VehicleLaunchMenu`, and
+whether a craft spawned past `CrewAssignmentWindow.FillSeats` is controllable — fine for a drone,
+untested for a vehicle that has to fly. `tools/scenario.sh mirv` therefore automates everything
+after the craft is on the pad, and getting it there is still the operator's.
 
 **A system mounts to the craft carrying the launcher part, and stays there.** It does not
 follow the player's control: a system that re-homed onto whichever craft was being flown would
