@@ -146,6 +146,30 @@ Item 9 has it.
 phases of it were flown and neither beat leaving it alone, but those flights predate the harness fix
 below and are inside its noise.
 
+## 2d. Re-reading gravity per sub-step — flown, and it loses
+
+`Slug` takes gravity as a frame-level argument and holds it across every 5 ms sub-step, while
+`ImpactPredictor` re-evaluates it at each RK4 stage. Headless that costs 23 m at a 17 ms frame,
+220 at 130 and 654 at 320, and re-reading it pins the error near 60 m at every frame size — about
+**284 m at the step the shipped coast is held to**, and it should have removed the last of the
+1x-versus-8x split.
+
+Flown three times against the same pick-up: **1.80, 2.27, 2.01 km** (mean 2.03, spreads 2.49-2.59)
+where the build without it flies **0.75-1.91 km** (mean 1.04, spreads 1.08-1.56). Worse on every
+run and on both numbers. Reverted.
+
+**It is not an implementation error, which is what makes it worth writing down.** The engine's own
+gravity is a single-body inverse square about `body.GetPositionEcl()` (`KsaWorld.GravityAt`), so
+scaling the frame's sample by `(r0/r)^2` about that same centre reproduces it exactly — the round
+was getting the same vector the engine would have returned, just per sub-step instead of per frame.
+The centre was deliberately **not** back-dated, after item 7b's lesson.
+
+So the state is: a term the headless rig prices at 284 m of improvement costs about a kilometre in
+flight, and nothing here explains the sign. The rig flies a planet at the origin with no carrier,
+which is where it is known to be blind — but this fix does not involve a carrier, so that is not an
+explanation either. **Do not retry it without a mechanism**; two flights' worth of evidence say the
+frozen sample is somehow load-bearing.
+
 ## 2b. Holding a warhead past cutoff costs ~26 m a second — understood
 
 Same shot, cutoff prediction `0.1 km off` every time; release at +50 s and the probe said 0.1-0.2 km,
