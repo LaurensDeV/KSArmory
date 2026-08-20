@@ -576,8 +576,8 @@ aim.
 
 **The aim correction cannot anticipate it.** It converges on a release kick during the burn, and the
 kick at release is a different one — so the error is not a bias it can remove but noise it chases.
-`ReleaseSequence.SteadyMetresPerSecond` holds the release until the tubes have stopped sweeping,
-which is what a real bus does before every separation.
+`ReleaseSequence.LateralBudgetMetresPerSecond` holds the release until the tubes have stopped
+sweeping, which is what a real bus does before every separation.
 
 **Measured at the tube, not at the hull.** A warhead on top of a long stack is tens of metres from
 the centre of mass, so one degree a second of hull rate is half a metre a second at the tube — a
@@ -594,12 +594,12 @@ It gives up after `ReleaseSequence.PerTubeTimeoutSeconds` and says so. A bus wit
 authority left would otherwise hold its warheads for ever, and that is the worse failure of the two:
 the shot is already paid for.
 
-**And it only gathers that evidence once.** One tube's whole clock spent not settling answers the
-question for the vehicle, not for the tube, so every later warhead goes as soon as it is offered
-rather than paying the same wait for the same answer. Six of those waits is what turned a salvo into
+**And it only gathers that evidence once.** A sweep found to be a floor above the budget answers the
+question for the vehicle, not for the tube, so every later warhead goes as soon as its own pointing is
+done rather than re-confirming the floor. Six of those waits is what turned a salvo into
 **282 seconds** — reproduced headlessly in `ReleaseSequenceTests` at the sweep and window one flight
-sat at — and each of them puts the next warhead on a different release state and a different time of
-flight, which is the error the whole salvo is being kept short to avoid.
+sat at, and now **3 seconds** — and each of them puts the next warhead on a different release state
+and a different time of flight, which is the error the whole salvo is being kept short to avoid.
 
 **What that flight also showed is that the prediction is sound.** Against each round's own impact it
 was out by a mean of **647 m** and as little as 100 m, on a salvo that missed by 7.4 km — so the
@@ -733,8 +733,8 @@ thrown along. Flown headlessly through the real drag model from one cutoff state
 spread as canted, 0 m re-pointed**, and unchanged by the vehicle's roll.
 
 **It costs nothing on a launcher it does not describe.** A single tube is the mean of its own axes,
-so the rotation is the identity and `Sim/ReleaseSequence.cs` reduces to releasing when the vehicle is
-steady — the gate that already flew. No flag and no branch.
+so the rotation is the identity, the cant spends none of the release budget, and
+`Sim/ReleaseSequence.cs` reduces to releasing when the vehicle is steady. No flag and no branch.
 
 Two things it is careful about:
 
@@ -745,6 +745,49 @@ Two things it is careful about:
 - **The tube axis is latched at the nominal attitude.** Feeding it the live axis instead never
   settles: the tube alternates between on the line and a full cant off it, and half the time it
   looks perfect.
+
+### The release gate is one budget, not two thresholds
+
+How far off the line the tube is and how fast the vehicle is sweeping it are **the same quantity**:
+lateral velocity put on the round, in metres a second at the tube. A cant of `θ` puts
+`2·sin(θ/2)` of the ejection speed there — 0.017 m/s at half a degree on the bus's 2 m/s — and the
+sweep is already measured in it. `ReleaseSequence.LateralBudgetMetresPerSecond` is the sum of the
+two against 0.05 m/s, which on a deorbit's ~3,400 m per m/s is about 170 m of spread.
+
+Two independent thresholds compare nothing, and a marginal vehicle is where that shows. Flown on a
+separated bus whose sweep floored at **0.113 m/s** against a 0.05 gate:
+
+```
+09:36:27.212  turning onto tube 1, 6.0 deg to go
+09:36:31.411  turning onto tube 1, 0.5 deg to go      <- on the line, refused for being unsteady
+09:36:35.726  tube 1 is not following the turn, 7.0 deg off against 6.0 when it started
+09:36:51.044  releasing tube 1 late, 5.1 deg off the line and tubes sweeping 0.058 m/s
+```
+
+The moment it refused was **0.130 m/s** at the tube; the one it took fifteen seconds later was
+**0.291**. It chose the worse of the two, and no tightening or loosening of either threshold fixes
+that — the pair cannot see that one term is spent against the other.
+
+**Where the budget cannot be met, the pointing is spent as far as it will go.** A sweep that is a
+floor is not a wait: the release goes at the pointing's own best, which is recognisable only by it
+passing — `ClosingDegrees` past the closest the turn ever got. Reproduced headlessly on those flown
+numbers, the release moves from **23.9 s at 5.1° to 4.4 s at 0.8°**, and 0.291 m/s at the tube to
+0.139.
+
+**What arms that is the sweep having stopped coming down**, over `StoppedImprovingSeconds` and with
+the vehicle at that floor now rather than at the top of a swing. Both are needed and neither alone
+would do: a vehicle still braking its own rotation improves its floor every few tenths of a second,
+and one still oscillating is *on the line* and *still* at different instants, so it can satisfy the
+pair only once it has stopped. A rigid stack therefore never reaches the fallback and is released
+inside the budget, which `ReleaseSequenceTests.AVehicleThatCanHoldIsStillReleasedInsideTheBudget`
+pins — against the two thresholds that flew, the same vehicle went at **0.062 m/s**, outside a budget
+it could have met.
+
+`AlignedDegrees` is now derived rather than chosen: the cant whose lateral velocity is the whole
+budget, 1.4°. An absolute angle picked beside a separate sweep gate cannot be right, because which of
+the two binds depends on the vehicle.
+
+**None of this has been flown.** It is arithmetic and a headless reproduction of one flight's log.
 
 ### Nothing paces a salvo it is not re-pointing
 
@@ -772,6 +815,7 @@ telling apart — from one frame they all read as "N degrees to go":
 | What the angle does | What it means |
 | --- | --- |
 | falls to under `AlignedDegrees` | the turn worked |
+| passes its own best by `ClosingDegrees` | the turn is over, whatever it reached |
 | grows past where it started, by `NotFollowingDegrees` | the vehicle is not holding what it was given |
 | stops closing by `ClosingDegrees` for `NoProgressSeconds` | the vehicle is not turning at all |
 
