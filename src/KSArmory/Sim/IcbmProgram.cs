@@ -53,7 +53,15 @@ internal readonly record struct IcbmState(
     /// being two milliseconds of real time — and a search costing most of a frame then costs
     /// every frame.</para>
     /// </summary>
-    double PlayerStepSeconds = 0.0)
+    double PlayerStepSeconds = 0.0,
+
+    /// <summary>
+    /// Whether whatever is correcting the aim has stopped moving it.
+    ///
+    /// <para>True for a caller that corrects nothing, which is every test and every vehicle whose
+    /// aim is simply where it was pointed.</para>
+    /// </summary>
+    bool AimIsSteady = true)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -168,6 +176,15 @@ internal sealed class IcbmProgram
     /// <summary>Warp is held this long before the window opens, not only during the burn itself.</summary>
     public const double WarpHoldLeadSeconds = 60.0;
 
+    /// <summary>
+    /// The longest the arrival is left free while the aim is still moving.
+    ///
+    /// <para>Left free the arc follows the aim, which is the plant the correction converges
+    /// against. But the latch exists for a reason — a lofted shot chases its own arc outward
+    /// without it — so this bounds how long that reason is suspended.</para>
+    /// </summary>
+    public const double LatchArrivalWithinSeconds = 20.0;
+
     /// <summary>Long enough for the stack to settle before the next stage is considered.</summary>
     public const double StageCooldownSeconds = 1.5;
 
@@ -244,6 +261,7 @@ internal sealed class IcbmProgram
     private double _drySeconds;
     private double _sinceLaunch;
     private double _sinceCutoff;
+    private double _sinceClosedLoop;
     private double _lastStep;
     private double _throttle = 1.0;
     private double _lowestToGain = double.PositiveInfinity;
@@ -403,6 +421,7 @@ internal sealed class IcbmProgram
         _drySeconds = 0.0;
         _sinceLaunch = 0.0;
         _sinceCutoff = 0.0;
+        _sinceClosedLoop = 0.0;
         _lastStep = 0.0;
         _throttle = 1.0;
         _lowestToGain = double.PositiveInfinity;
@@ -433,6 +452,7 @@ internal sealed class IcbmProgram
         if (double.IsFinite(_windowWait)) _windowWait -= step;
         if (Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution)) _sinceLaunch += step;
         if (Phase == IcbmPhase.Coast) _sinceCutoff += step;
+        if (Phase == IcbmPhase.ClosedLoop) _sinceClosedLoop += step;
 
         if (!Config.Armed) return Idle(state, "not armed");
         if (!state.HasAim) return Idle(state, "no target designated");
@@ -654,7 +674,20 @@ internal sealed class IcbmProgram
         // The moment closed-loop guidance takes the vehicle, the arrival is nailed down. Before
         // that the cheapest shot is the right thing to follow, because the state is changing far too
         // much for any arrival time chosen on the pad to still be the cheapest one.
-        if (Phase == IcbmPhase.ClosedLoop && !double.IsFinite(_arrivalFromLaunch))
+        // Committed once the aim has stopped moving, or once the window runs out.
+        //
+        // Both loops are solving the same shot. Latching the arrival first makes the aim correction
+        // solve against a pinned parameter: moving the aim then forces a different trajectory to
+        // arrive at the same *instant*, which on a shallow arrival moves the impact several times
+        // further than the aim moved and puts the correction above its stability limit. Left free,
+        // the arc simply follows the aim and the same loop converges in a handful of cycles.
+        //
+        // Bounded, because the reason for latching at all is real: the cheapest arc from the
+        // vehicle's current state converges on the arc it is already flying, so a loft above one
+        // walks the answer outward every cycle and the shot chases a trajectory running away from
+        // it — 162 km, measured. The window is what stops that being unbounded.
+        if (Phase == IcbmPhase.ClosedLoop && !double.IsFinite(_arrivalFromLaunch)
+            && (state.AimIsSteady || _sinceClosedLoop >= LatchArrivalWithinSeconds))
         {
             _arrivalFromLaunch = _sinceLaunch + command.SecondsToCutoff + command.Arc.FlightSeconds;
         }

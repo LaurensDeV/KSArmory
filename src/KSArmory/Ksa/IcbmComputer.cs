@@ -305,6 +305,10 @@ internal sealed class IcbmComputer
                      + $" :: {Command.Hold}");
         }
 
+        // The aim stops moving when the arrival stops being free. They are one problem solved in
+        // two halves, and the second half is only solvable once the first has finished.
+        if (double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze();
+
         Predict(simStep, state);
 
         // Read before anything is written this frame. KSA replaces the whole flight computer from
@@ -915,7 +919,8 @@ internal sealed class IcbmComputer
         }
 
         return new IcbmState(Body, positionCci, velocityCci, aimCci, hasAim, booster, density,
-                             Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep);
+                             Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep,
+                             _aim.IsSteady);
     }
 
     // Where the ground actually is under a point on the arc. Without this the prediction flies

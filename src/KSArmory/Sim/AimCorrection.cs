@@ -77,8 +77,20 @@ internal sealed class AimCorrection
     /// <inheritdoc cref="ImprovedByMetres"/>
     public const int WorseBeforeStopping = 3;
 
+    /// <summary>How little the aim may move for the correction to count as having stopped.</summary>
+    public const double SteadyMetres = 2_000.0;
+
     /// <summary>What is currently being added to the aim point, in the body's inertial frame.</summary>
     public double3 BiasCci { get; private set; }
+
+    /// <summary>
+    /// Whether the aim has stopped moving, either by converging or by giving up.
+    ///
+    /// <para>What the guidance waits for before it commits to an arrival time. Both loops are
+    /// solving the same shot, and pinning one while the other is still moving makes the second
+    /// solve against the first's leftovers.</para>
+    /// </summary>
+    public bool IsSteady => Settled || (_haveLast && Vec.Len(BiasCci - _lastBias) < SteadyMetres);
 
     /// <summary>
     /// Whether the loop has stopped because it could not improve on its own best.
@@ -193,6 +205,22 @@ internal sealed class AimCorrection
         }
 
         BiasCci = Vec.ClampLength(BiasCci - error / _response, MaxMetres);
+    }
+
+    /// <summary>
+    /// Stop correcting and keep the best aim found.
+    ///
+    /// <para>Called when the guidance commits to an arrival. Until then the arc follows the aim and
+    /// the loop converges; from then on the same aim change forces a different trajectory to arrive
+    /// at the same instant, which is the plant it cannot hold. Flown: 4.9 km of predicted miss
+    /// while free, degrading to 13.4 km by cutoff if it keeps going.</para>
+    /// </summary>
+    public void Freeze()
+    {
+        if (Settled) return;
+
+        if (double.IsFinite(_bestMiss)) BiasCci = _bestBias;
+        Settled = true;
     }
 
     public void Reset()
