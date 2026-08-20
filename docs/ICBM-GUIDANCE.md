@@ -872,6 +872,42 @@ reference is zero, so reading it as a measurement releases every warhead the ins
 part tree stops answering — the same rule as an unreadable height field not standing in for flat
 ground.
 
+### Waiting for the tube to cross the line does not work either
+
+The bus reaches the commanded attitude in about four seconds and then drifts straight back out: it
+has slew authority and no ability to hold. The obvious answer is to stop commanding anything and let
+the geometry come instead — the tubes sweep as the bus tumbles, so fire each one at the moment its
+own axis is nearest the line. **It loses**, for three separate reasons, any one of which is enough.
+`TumblingBusTests` holds all three; none of it has been flown.
+
+**The case that looks ideal is the null case.** A roll about the bus's own axis does carry the six
+tubes through each other's clock positions — but they all ride one cone of the cant's own half-angle,
+so each tube arrives exactly where the last one was, which is six degrees off the line. Measured at
+0.000000000° of variation through two full rolls. The offset is not merely un-improved by waiting, it
+is *constant*: there is no crossing to predict and no moment better than now.
+
+**The ceiling is a mean of 3.4°, and nothing can reach it.** Under a fixed-axis tumble a tube traces
+a cone about that axis, so the nearest it ever comes to the line is one cant times the cosine of its
+clock angle from the plane the tumble axis and the reference share. Two tubes of six can reach the
+line; the two a quarter-turn from them can never leave the full cant. Over every tumble axis tried
+the luckiest leaves the ring a mean **3.37° off — 0.117 m/s at the tube against 0.209 firing now** —
+and that is an oracle with no window, no clock and no magazine order to obey.
+
+**What kills it is that waiting is self-defeating.** The reference is latched while the bus is *on*
+it, so from that instant the bus axis is walking away at the tumble rate — and every second spent
+waiting for one tube's crossing is a second of that walk added to *every tube not yet fired*. The two
+effects very nearly cancel: over tumble rates of 0.5–6 °/s the mean angle a salvo is released at goes
+from 6.0° to **5.2–7.2°**, which is to say it does not come down at all.
+
+Priced as the spread of lateral velocity the salvo puts on its six rounds, and with waiting **free**
+— no window and none of the ~26 m per second of holding in `docs/MIRV-NEXT.md` item 2b — the best any
+tumble axis offers is **76–94% of firing now**, and at 6 °/s one geometry reaches **122%**, which is
+worse. The salvos that get there run **7.7–60 s**, so the holding costs another 200–1,560 m of spread
+on top, uncounted in those percentages.
+
+So the cant is removed by turning the bus or not at all, and what would change the answer is a
+vehicle that can hold an attitude. Same finding as the section above, from the other side.
+
 ### Separating first, when the part tree offers a joint
 
 Turning a launcher that is still bolted to a spent booster is correct and nearly useless: a
