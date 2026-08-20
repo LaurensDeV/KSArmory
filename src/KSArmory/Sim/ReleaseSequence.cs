@@ -6,6 +6,14 @@ namespace KSArmory;
 /// <param name="NextTube">Which tube fires next, or -1 when nothing more will be handed out.</param>
 /// <param name="TubesLeft">How many rounds could still go, which sets each one's share of the window.</param>
 /// <param name="NextTubeAxisCci">Where that tube points now, measured this frame.</param>
+/// <param name="NoseAxisCci">
+/// Where the launcher's own axis points now — the mean of its live tube axes, which is what the
+/// cants cancel to.
+///
+/// <para>The frame each turn is applied to, and it has to be this one rather than the held command:
+/// see <see cref="ReleasePointing.TryAimTubeFromHere"/>. Zero where the part tree will not answer,
+/// which falls back to turning the held command by the latched axis.</para>
+/// </param>
 /// <param name="SweepMetresPerSecond">How fast the vehicle's own turn is sweeping the tubes.</param>
 /// <param name="EjectionMetresPerSecond">
 /// What the tubes throw a round at, which is what turns a cant into the currency a release is
@@ -25,6 +33,7 @@ internal readonly record struct ReleaseSituation(
     int NextTube,
     int TubesLeft,
     double3 NextTubeAxisCci,
+    double3 NoseAxisCci,
     double SweepMetresPerSecond,
     double EjectionMetresPerSecond,
     double SecondsLeftToDeploy,
@@ -55,6 +64,11 @@ internal readonly record struct ReleaseCommand(
 /// tested separately. Two independent thresholds compare nothing: a tube on the line while the
 /// vehicle sweeps is a <em>smaller</em> error than one canted while it is still, and a pair of gates
 /// refuses the first and accepts the second.</para>
+///
+/// <para><b>Each turn is measured from where the launcher is, not from what it was told to hold.</b>
+/// Those two differ by the vehicle's own pointing error, and KSA leaves a vehicle's roll free
+/// entirely — see <see cref="ReleasePointing.TryAimTubeFromHere"/> and <c>docs/MIRV-NEXT.md</c>
+/// item 5.</para>
 ///
 /// <para><b>Where the budget cannot be met, the best the vehicle will give is taken.</b> A separated
 /// bus that cannot null its residual rate has a sweep no waiting improves, so the only term left is
@@ -285,19 +299,6 @@ internal sealed class ReleaseSequence
                        && now.NextTube >= 0 && now.NextTube < _axes.Length
                        && deadline >= NotWorthRepointingBelowSeconds;
 
-        double3 direction = now.HeldDirectionCci;
-        double3 roll = now.HeldRollCci;
-
-        if (turning
-            && !ReleasePointing.TryAimTube(_axes[now.NextTube], ReferenceCci,
-                                       now.HeldDirectionCci, now.HeldRollCci,
-                                       out direction, out roll))
-        {
-            turning = false;
-            direction = now.HeldDirectionCci;
-            roll = now.HeldRollCci;
-        }
-
         // An unresolvable axis is not an axis on the line. The angle between a degenerate direction
         // and the reference is zero, so reading it as a measurement releases every warhead the
         // instant the launcher's part tree stops answering.
@@ -308,6 +309,34 @@ internal sealed class ReleaseSequence
                                 ? ReleasePointing.OffReferenceRadians(now.NextTubeAxisCci, ReferenceCci)
                                   * 180.0 / Math.PI
                                 : 0.0;
+
+        double3 direction = now.HeldDirectionCci;
+        double3 roll = now.HeldRollCci;
+
+        // Turned off where the launcher is now, not off what it was told to hold. The latched form
+        // is the fallback for a part tree that will not say where it is pointing, and it leaves the
+        // vehicle's own standing pointing error and everything its roll has done in the answer.
+        bool fromHere = measured && Vec.IsFinite(now.NoseAxisCci)
+                        && !Vec.Unit(now.NoseAxisCci).Equals(Vec.Zero);
+
+        if (turning)
+        {
+            bool aimed = fromHere
+                             ? ReleasePointing.TryAimTubeFromHere(
+                                   now.NextTubeAxisCci, now.NoseAxisCci, ReferenceCci,
+                                   now.HeldRollCci, out direction, out roll)
+                             : ReleasePointing.TryAimTube(
+                                   _axes[now.NextTube], ReferenceCci,
+                                   now.HeldDirectionCci, now.HeldRollCci,
+                                   out direction, out roll);
+
+            if (!aimed)
+            {
+                turning = false;
+                direction = now.HeldDirectionCci;
+                roll = now.HeldRollCci;
+            }
+        }
 
         string abandoned = "";
 

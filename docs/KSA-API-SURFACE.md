@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-149 types and 420 members across 7 assemblies.
+152 types and 429 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -308,6 +308,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.PhysicalAtmosphereReference Physical`
 
+### KSA.AttitudeControlSystem
+
+*referenced as a type only*
+
 ### KSA.BubbleFrame
 
 *referenced as a type only*
@@ -427,13 +431,18 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.FlightComputer
 
 - `Brutal.Numerics.double3 CustomAttitudeTarget`
+- `Brutal.Numerics.float3 AngleTurnaround`
 - `Brutal.Numerics.float3 ErrorAngles`
 - `Brutal.Numerics.float3 ErrorRates`
+- `Brutal.Numerics.float3 RateBit`
 - `KSA.ActiveEnginePerformance ActiveEnginePerformanceMax`
 - `KSA.FlightComputerAttitudeMode AttitudeMode`
 - `KSA.FlightComputerAttitudeTrackTarget AttitudeTrackTarget`
 - `KSA.FlightComputerBurnMode BurnMode`
+- `KSA.FlightComputerRollMode RollMode`
+- `KSA.PerAxisAttitudeControlSystem ActiveControlSystem`
 - `KSA.VehicleReferenceFrame AttitudeFrame`
+- `float AngleDeadband`
 
 ### KSA.FlightComputerAttitudeMode
 
@@ -444,6 +453,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 *referenced as a type only*
 
 ### KSA.FlightComputerBurnMode
+
+*referenced as a type only*
+
+### KSA.FlightComputerRollMode
 
 *referenced as a type only*
 
@@ -667,6 +680,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `int get_Count()`
 - `void RecomputeAllDerivedData()`
 
+### KSA.PerAxisAttitudeControlSystem
+
+- `KSA.AttitudeControlSystem X`
+- `KSA.AttitudeControlSystem Y`
+- `KSA.AttitudeControlSystem Z`
+
 ### KSA.PhysicalAtmosphereReference
 
 - `KSA.DensityReference SeaLevelDensity`
@@ -838,6 +857,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
 - `KSA.FlightComputer get_FlightComputer()`
 - `KSA.IParentBody get_Parent()`
+- `KSA.Part get_ControlPart()`
 - `KSA.PartTree get_Parts()`
 - `KSA.PhysicsBubble get_PhysicsBubble()`
 - `KSA.Situation get_Situation()`

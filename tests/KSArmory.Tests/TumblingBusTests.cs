@@ -307,6 +307,9 @@ public class TumblingBusTests(ITestOutputHelper Out)
             ReleaseCommand r = deploy.Update(Step, new ReleaseSituation(
                 ReadyToDeploy: true, NextTube: tube, TubesLeft: axes.Length - tube,
                 NextTubeAxisCci: Tumbled(axes[tube], tumble, rate * elapsed),
+
+                // The whole bus turns, so its own axis goes round with the tubes.
+                NoseAxisCci: Tumbled(reference, tumble, rate * elapsed),
                 SweepMetresPerSecond: 0.113, EjectionMetresPerSecond: Ejection,
                 SecondsLeftToDeploy: 170.0,
                 HeldDirectionCci: reference, HeldRollCci: Vec.AnyPerpendicular(reference)));
