@@ -90,15 +90,6 @@ internal sealed class IcbmComputer
     public double PredictedMissMetres { get; private set; } = double.NaN;
 
     /// <summary>
-    /// How far the aim has been moved to make the flown arc arrive, in metres.
-    ///
-    /// <para>Worth reading beside the predicted miss rather than on its own: the correction is
-    /// clamped, so the pair says whether a miss is one the loop has not finished removing or one it
-    /// has run out of room to remove. At the clamp they stop being independent.</para>
-    /// </summary>
-    public double AimBiasMetres => Vec.Len(_aim.BiasCci);
-
-    /// <summary>
     /// The warhead aboard, or null for a vehicle carrying nothing that lets go. What the overlay
     /// sizes its aim ring from, so the circle on the ground is what one of these actually reaches.
     /// </summary>

@@ -31,6 +31,10 @@ internal sealed class AimCorrection
     /// <para>A correction larger than this is not a terrain effect being trimmed out; it is a shot
     /// that cannot be made, and walking the aim across a continent chasing it turns a visible miss
     /// into a wild one.</para>
+    ///
+    /// <para>It bounds the <em>observation</em> as well as the accumulation, and that is the load
+    /// bearing half — see <see cref="Observe"/>. A limit on the accumulation alone is an integrator
+    /// clamp, and one bad reading pins it there for the rest of the flight.</para>
     /// </summary>
     public const double MaxMetres = 300_000.0;
 
@@ -67,6 +71,20 @@ internal sealed class AimCorrection
         // correction on its own output reports a perfect shot however far the rounds land.
         double3 error = landedCci - targetCci;
         if (!Vec.IsFinite(error)) return;
+
+        // An error this large is not a terrain effect being trimmed out — it is an arc that has not
+        // been aimed yet, which is every cycle before the solve settles and all of them for a
+        // vehicle picked up mid-flight. Folding one in moves the accumulated bias straight into its
+        // own limit, and a bias pinned there feeds the solver a displaced aim point, which produces
+        // an arc whose error keeps it pinned. The loop can then no longer tell converged from stuck.
+        //
+        // Rejecting the observation rather than clamping what it accumulates is what separates the
+        // two: a shot that genuinely cannot be made goes on producing errors this large, none of
+        // them are folded in, the bias stays where it was and the miss is reported honestly.
+        //
+        // Flown at 3,459 km from a near-orbital pickup: pinned at the 300 km limit with 229 km of
+        // miss, against 29 km of bias and 0.06 km of miss once these are ignored.
+        if (Vec.Len(error) > MaxMetres) return;
 
         BiasCci = Vec.ClampLength(BiasCci - error * Gain, MaxMetres);
     }

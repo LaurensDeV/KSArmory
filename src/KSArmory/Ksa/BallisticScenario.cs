@@ -398,15 +398,8 @@ internal sealed class BallisticScenario
             ? $"{computer.PredictedMissMetres / 1000.0:F2} km off"
             : "nothing predicted";
 
-        // The bias beside the miss, because a correction at its clamp and one still working look
-        // identical from the miss alone - and only one of them is fixable by waiting.
-        double bias = computer.AimBiasMetres;
-        string aim = bias >= AimCorrection.MaxMetres - 1.0
-                         ? $"aim moved {bias / 1000.0:F0} km, which is its limit"
-                         : $"aim moved {bias / 1000.0:F0} km";
-
         _say($"CAPTURE cutoff: residual {computer.Program.ResidualAtCutoff:F2} m/s, "
-             + $"own prediction {predicted}, {aim}");
+             + $"own prediction {predicted}");
     }
 
     // The computer moves onto the craft the launcher is now riding, so the craft it is flying

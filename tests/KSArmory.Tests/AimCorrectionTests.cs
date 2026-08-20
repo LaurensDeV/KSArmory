@@ -14,6 +14,32 @@ namespace KSArmory.Tests;
 /// </summary>
 public class AimCorrectionTests
 {
+    /// <summary>
+    /// One absurd reading must not pin the correction at its limit for the rest of the flight.
+    ///
+    /// <para>A vehicle picked up mid-flight is on a trajectory aimed at nothing, so the first
+    /// observations are thousands of kilometres out. Folding one in at gain 0.5 puts the
+    /// accumulated bias straight into its own clamp — and a bias held there displaces the aim the
+    /// solver is given, which produces an arc whose error keeps it there. Flown: pinned at 300 km
+    /// with 229 km of miss, against 29 km of bias and 0.06 km of miss once it is ignored.</para>
+    /// </summary>
+    [Fact]
+    public void AnImplausibleObservationIsIgnoredRatherThanPinningTheBias()
+    {
+        AimCorrection aim = new();
+        double3 target = new(6_371_000.0, 0, 0);
+
+        // Half the planet away: an arc nobody has aimed yet, not terrain.
+        aim.Observe(new double3(0, 6_371_000.0, 0), target);
+        Assert.Equal(0.0, Vec.Len(aim.BiasCci), 3);
+
+        // And the loop still works on a reading that is a terrain effect.
+        aim.Observe(target + new double3(0, 20_000.0, 0), target);
+
+        double moved = Vec.Len(aim.BiasCci);
+        Assert.InRange(moved, 1_000.0, AimCorrection.MaxMetres);
+    }
+
     private const double Mu = 3.986004418e14;
     private const double R = 6_371_000.0;
 
