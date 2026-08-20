@@ -12,10 +12,10 @@ namespace KSArmory.Tests;
 /// </summary>
 public class ErrorBudgetTests(ITestOutputHelper Out)
 {
-    private const double Mu = 3.986004418e14;
-    private const double R = 6_371_000.0;
-    private const double ScaleHeight = 8_000.0;
-    private const double EarthSpin = 7.2921159e-5;
+    private const double Mu = DeorbitShot.Mu;
+    private const double R = DeorbitShot.R;
+    private const double ScaleHeight = DeorbitShot.ScaleHeight;
+    private const double EarthSpin = DeorbitShot.EarthSpin;
 
     /// <summary>The flown residual this budget is being spent against.</summary>
     private const double FlownResidual = 0.36;
@@ -26,38 +26,19 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
     /// </summary>
     private const double BallisticScenarioWarp = 8.0;
 
-    private static BallisticBody Earth => new(Mu, R, new double3(0, 0, 1), EarthSpin);
+    private static BallisticBody Earth => DeorbitShot.Earth;
 
-    private static double DensityAt(double3 pointCci)
-        => Math.Exp(-Math.Max(0.0, Vec.Len(pointCci) - R) / ScaleHeight);
+    private static double DensityAt(double3 pointCci) => DeorbitShot.DensityAt(pointCci);
 
-    private sealed class Ball : IGroundTest
-    {
-        public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
-        {
-            centreEcl = Vec.Zero;
-            surfaceRadius = R;
-            return true;
-        }
-    }
+    private static MunitionProfile Warhead => DeorbitShot.Warhead;
 
-    private static MunitionProfile Warhead => Arsenal.ReentryVehicleMk21;
-
-    private static double GroundMetres(double3 a, double3 b) => R * Vec.AngleBetween(a, b);
+    private static double GroundMetres(double3 a, double3 b) => DeorbitShot.GroundMetres(a, b);
 
     /// <summary>
     /// The shot: picked up at near-orbital speed 200 km up, aimed 3,459 km downrange.
     /// </summary>
     private static BallisticArc.Solution Shot(out double3 from, out double3 target)
-    {
-        from = new double3(R + 200_000.0, 0, 0);
-        const double range = 3_459_000.0;
-        target = new double3(R * Math.Cos(range / R), R * Math.Sin(range / R), 0);
-
-        double3 circular = new(0, Math.Sqrt(Mu / (R + 200_000.0)), 0);
-        Assert.True(BallisticArc.TryCheapest(Earth, from, circular, target, out BallisticArc.Solution s));
-        return s;
-    }
+        => DeorbitShot.Shot(out from, out target);
 
     [Fact]
     public void WhatTheGeometryIs()
@@ -133,12 +114,7 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
 
     /// <summary>Where a warhead released from this state comes down, as a place on the ground.</summary>
     private static double3 Land(double3 fromCci, double3 velocityCci)
-    {
-        Assert.True(ImpactPredictor.TryPredict(Earth, fromCci, velocityCci, 1.0, 20_000.0,
-                                               out ImpactPredictor.Impact hit, null, null,
-                                               new ImpactPredictor.Drag(DensityAt, Warhead)));
-        return hit.GroundFixedPointCci;
-    }
+        => DeorbitShot.Land(fromCci, velocityCci);
 
     /// <summary>
     /// Term 3. The predictor and the round flown from one identical cutoff state.
@@ -181,49 +157,8 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
     private static (double3 GroundFixed, double Seconds) FlyTheRound(double3 fromCci, double3 velocityCci,
                                                                     double dt,
                                                                     bool gravityPerSubStep = false)
-    {
-        BallisticBody body = Earth;
-
-        Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
-        {
-            Munition = Warhead,
-            Ground = new Ball(),
-            AirDensityAt = (pos, _) => DensityAt(pos),
-        };
-
-        double elapsed = 0.0;
-
-        for (int i = 0; i < (int)(20_000.0 / dt) && round.State == RoundState.Flying; i++)
-        {
-            double3 gravity = body.GravityCci(round.PositionEcl);
-
-            // The air over the round, which is what KsaWorld.GroundVelocityAt gives it in flight.
-            double3 air = body.GroundVelocityCci(round.PositionEcl);
-
-            // Gravity and the air's motion are frame-level arguments, so the round holds them
-            // across every sub-step. Splitting the frame into 5 ms Updates is what the round would
-            // see if they were re-read per sub-step, and the difference is the whole of the term.
-            if (gravityPerSubStep)
-            {
-                int n = Math.Max(1, (int)Math.Ceiling(dt / Interceptor.SubStep));
-                for (int k = 0; k < n && round.State == RoundState.Flying; k++)
-                {
-                    round.Update(dt / n, null, body.GravityCci(round.PositionEcl),
-                                 body.GroundVelocityCci(round.PositionEcl), fromCci, Warhead,
-                                 DensityAt(round.PositionEcl));
-                }
-            }
-            else
-            {
-                round.Update(dt, null, gravity, air, fromCci, Warhead, DensityAt(round.PositionEcl));
-            }
-
-            elapsed += dt;
-        }
-
-        Assert.NotEqual(RoundState.Flying, round.State);
-        return (body.UncarryCci(round.PositionEcl, elapsed), elapsed);
-    }
+        => DeorbitShot.FlyTheRound(fromCci, velocityCci, dt,
+                                   new DeorbitShot.Refresh(gravityPerSubStep, gravityPerSubStep));
 
     /// <summary>
     /// Term 3, at the step the world is actually held to: coarse through the vacuum coast, fine
@@ -240,31 +175,8 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
                                                out ImpactPredictor.Impact predicted, null, null,
                                                new ImpactPredictor.Drag(DensityAt, Warhead)));
 
-        BallisticBody body = Earth;
-        Slug round = new(from, v, null, 1, from, Vec.Zero)
-        {
-            Munition = Warhead,
-            Ground = new Ball(),
-            AirDensityAt = (pos, _) => DensityAt(pos),
-        };
-
-        double elapsed = 0.0;
-        double dt = 1.0 / 60.0;
-
-        while (round.State == RoundState.Flying && elapsed < 20_000.0)
-        {
-            round.Update(dt, null, body.GravityCci(round.PositionEcl),
-                         body.GroundVelocityCci(round.PositionEcl), from, Warhead,
-                         DensityAt(round.PositionEcl));
-            elapsed += dt;
-
-            // What the mod asks the world for on the next frame, capped by the speed the
-            // scenario runner asks for once the salvo is away.
-            dt = Math.Clamp(round.FaithfulStepSeconds, 1.0 / 60.0, BallisticScenarioWarp / 60.0);
-        }
-
-        Assert.NotEqual(RoundState.Flying, round.State);
-        double3 landed = body.UncarryCci(round.PositionEcl, elapsed);
+        (double3 landed, double _) =
+            DeorbitShot.FlyTheRoundAsWarped(from, v, BallisticScenarioWarp);
 
         Out.WriteLine($"held to the round's own faithful step: "
                       + $"{GroundMetres(predicted.GroundFixedPointCci, landed):F0} m from the prediction");
@@ -300,7 +212,7 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
         Slug round = new(from, v, null, 1, from, Vec.Zero)
         {
             Munition = Warhead,
-            Ground = new Ball(),
+            Ground = new DeorbitShot.Ball(),
             AirDensityAt = (pos, _) => DensityAt(pos),
         };
 
