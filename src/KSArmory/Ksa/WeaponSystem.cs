@@ -2341,14 +2341,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 continue;
             }
 
-            // At the round's position as it stands, with no carry forward. The celestial state this
-            // is differenced against belongs to the start of the step about to be integrated, so
-            // the two are already in phase - carrying the round forward to meet it puts them a
-            // step apart instead. Flown: the rounds diverged from their own prediction by 2 km.
+            // At the round's position as it stands, with no carry forward. Carrying it by
+            // VelocityEcl to meet the celestial sample - KSArmoryMod.AddAirborne's carry, which is
+            // for a different consumer at a different phase - costs 2 km of divergence from the
+            // round's own prediction.
             //
-            // KSArmoryMod.AddAirborne does carry, and is not a precedent for this. It publishes a
-            // round as a contact to be compared against vehicle positions read later in the frame,
-            // which is a different consumer at a different phase. See docs/FRAMES-AND-EPOCHS.md.
+            // The sample is still one applied step ahead of the pre-step round, and the correction
+            // for that is to put the *body* back by bodyVelocityEcl*dt rather than the round
+            // forward, which is what AirDensityIntoFrame does below and this does not. Unmeasured:
+            // docs/KSA-FRAME-ORDER.md section 5.
             double3 gravity = GravityAtRound(round.PositionEcl);
 
             // Read at the round's own position, not the platform's. A round climbing out of the

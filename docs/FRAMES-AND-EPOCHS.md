@@ -25,8 +25,7 @@ as a contact, because it is about to be compared against vehicle positions the e
 in the frame. That is correct **for that consumer** and is not a general fact about rounds.
 
 `WeaponSystem.UpdateRounds` samples gravity, air density and the air's own velocity at the round's
-position **as it stands**, with no carry. The celestial state those differences are taken against
-belongs to the start of the step about to be integrated, so the two are already in phase.
+position **as it stands**, with no carry.
 
 Applying `AddAirborne`'s carry here — on the reasoning that a round's position is a frame behind the
 celestials — puts them a step apart instead. **Flown: the rounds diverged from their own prediction
@@ -36,15 +35,29 @@ all, which is what identified it: only the round's own flight had changed.
 The rule: before reusing a carry, ask which two samples the consumer is pairing and at which phase
 each is written. Two consumers of the same round can need opposite answers.
 
+**What that flight does *not* show is that the two are in phase — they are not.** The engine's
+samples belong to the end of the step the mod is about to integrate, so the pre-step round is one
+whole step behind them; `docs/KSA-FRAME-ORDER.md` §5 has the source. `AddAirborne`'s carry is by
+the round's own `VelocityEcl`, which is a different correction from putting the *body* back by
+`bodyVelocityEcl * dt` — the one `WeaponSystem.AirDensityIntoFrame` already applies to the density
+lookup. Gravity and air velocity do not have it. Unmeasured, and it needs a flight.
+
 ## The epoch contract
 
-This is what KSA does, read from the decompiled source rather than inferred:
+This is what KSA does, read from the decompiled source rather than inferred.
+**`docs/KSA-FRAME-ORDER.md` is the long form** — the whole frame in order, what stamps each
+sample, and what a mod can read instead of assuming. The short version:
 
 - `Universe.ApplyVehicleSolvers` sets `_lastSimStep = _nextSimStep` and then calls
-  `CurrentSystem.UpdatePerFrameData()` back to back (`Universe.cs:1699-1701`), which is where every
-  `Vehicle._positionEcl` / `_velocityEcl` is written (`Vehicle.cs:2346-2352`).
-- That runs inside `PrepareFrame` (`Program.cs:1985-1986`), ~80 lines before `OnDrawUiViewports`
-  (`Program.cs:2068`), which is the mod's GUI hook.
+  `CurrentSystem.UpdatePerFrameData()` back to back (`Universe.cs:1712-1714`), which walks the
+  whole system parent-first and is where every `Celestial._positionEcl` (`Celestial.cs:594-609`)
+  and `Vehicle._positionEcl` (`Vehicle.cs:2491-2525`) is written. **Celestials and vehicles share
+  one epoch because they are advanced in one call.**
+- That runs inside `PrepareFrame` (`Program.cs:1968`), 83 lines and six phases before
+  `OnDrawUiViewports` (`Program.cs:2051`), which is the mod's GUI hook.
+- The epoch is `Universe.GetElapsedTime()`, which *is* `_lastSimStep.NextTime`
+  (`Universe.cs:2124-2126`) — so the interval and the instant are two fields of one struct and
+  cannot drift apart.
 
 Three consequences, all load-bearing:
 
