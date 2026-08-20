@@ -1132,9 +1132,26 @@ Three things about it are the decisions, and each cost a wrong version first. It
 attitude *is* the release line and the dominant component is axial anyway — a decoupler pushes along
 the joint. It fires **one direction at a time**, because the stop threshold is half a frame of a
 thrust that is only measurable along the direction being fired, and a bus's lateral authority is
-whatever its nozzle layout happened to give it — the shipped one has none. And it is a **precondition
+whatever its nozzle layout happened to give it. And it is a **precondition
 of being ready to deploy** rather than a step inside the release sequence, which is what stops one
 warhead leaving on the attached stack's solution and the rest on the shoved bus's.
+
+**A nozzle serves a translation if its thrust lies within 60° of a control axis, and that is the
+whole rule.** `ThrusterController.ComputeControlMap` thresholds the thrust direction at **0.5** per
+axis — nothing about lever arms or the layout as a whole — so a bell clocked 45° between two axes
+carries a flag for both. Two consequences neither obvious nor derivable from the part: the shipped
+bus's *roll* jets, canted 29° radially inward, cleared that threshold and gave it lateral authority
+nobody designed; and one radial bell per cluster is enough to serve every lateral direction, because
+each is 45° between two of them. The torque flags are a separate threshold at 0.1 on a **normalized**
+efficiency, `dot(thrust, unit(axis × r))`, so a jet with any lever arm at all is flagged and the
+length of it changes nothing.
+
+**The bus's declared mass sits at X = 0, and no nozzle station can straddle it.**
+`<SolidSphereMass>` names no `<LocationAsmb>` and `AsmbTransformTemplate` defaults it to zero, so
+KSA puts all 6,300 kg on the mounting face while the geometry's own centre is near X ≈ 1.4. Every
+pad is at X 0.15–0.45, all on one side of it, so a translation jet's pitch/yaw torque cannot be
+cancelled by pairing — which is why there is **one** radial jet per cluster rather than two. Warheads
+leaving do not move it either: rounds are self-simulated, so nothing is removed from the vehicle.
 
 **It joins the flight wherever the vehicle already is, and "when to burn" is its own question.**
 The phase machine is entered by looking at the vehicle rather than by assuming a pad: low and still

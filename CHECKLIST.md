@@ -1240,6 +1240,21 @@ What is left is two terms. The ~1 km *spread* is the tube cant, which is what re
 why §12.7a matters. The ~900 m *bias* is that every round landed beyond its own release probe —
 `docs/MIRV-NEXT.md` item 2.
 
+**Four radial translation jets, unflown.** One per cluster, `KSArmory_Mirv_Rcs16`–`Rcs19`, firing
+straight out of the pad. Nothing has been in the air with them.
+
+- [ ] The bus loads and the four new bells are there, one in the middle of each cluster. No sparkle
+      or flicker where they meet the four around them — their roots overlap by 20–28 mm, which
+      `validate-parts.py` passes and only the game can settle.
+- [ ] The trim's `thrusters measured at N m/s2` on a **lateral** direction is roughly **1.75×** what
+      it was, the ratio of 3.29 to 1.88 in thrust-units. Write down what it actually reads.
+- [ ] `BusTrim` stops striking lateral directions off as moving nothing.
+- [ ] A shot flown with `IcbmConfig.MinArrivalAngleDeg` at 15° trims out rather than leaving
+      **8.54 m/s on the bus**, and the group lands nearer than the 2.68 km it was off.
+- [ ] Nothing gets *worse* at a zero arrival floor: the jets add a pitch/yaw disturbance on every
+      lateral command, because the declared CoM is at X = 0 and no station can straddle it. The
+      axial jets have ~3× the authority to trim it, so the attitude hold should absorb it silently.
+
 **The trim itself is flown and working.**
 
 - [x] The panel and log show `trimming N m/s on the tail` with `thrusters measured at N m/s2`

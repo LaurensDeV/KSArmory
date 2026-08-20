@@ -253,7 +253,7 @@
     </MeshView>
   </SubPart>
 
-  <!-- One attitude-control nozzle, instanced sixteen times. Fires along its own -X. -->
+  <!-- One attitude-control nozzle, instanced twenty times. Fires along its own -X. -->
   <SubPart Id="KSArmory_MirvRcs_SubPart">
     <PartModel Id="KSArmory_Subpart_MirvRcs_Model">
       <Mesh Id="KSArmory_Subpart_RcsNozzle" />
@@ -1171,7 +1171,8 @@
       </Transform>
     </SubPart>
 
-    <!-- Four clusters of four: axial fore and aft for pitch, yaw and dV, two tangential for roll. -->
+    <!-- Four clusters of five: axial fore and aft for pitch, yaw and dV, two tangential for roll,
+         one radial for translation. -->
     <SubPart Id="KSArmory_Mirv_Rcs00" InstanceOf="KSArmory_MirvRcs_SubPart">
       <Transform>
         <Position X="0.42000" Y="1.10309" Z="1.10309" />
@@ -1266,6 +1267,47 @@
       <Transform>
         <Position X="0.30000" Y="1.06204" Z="-1.21585" />
         <Rotation Y="-1.22173" Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+    <!--
+      One radial jet per cluster, firing straight out of the pad. Without it the bus can turn but
+      cannot shove itself sideways, and the correction a steep arrival needs is lateral.
+
+      KSA flags a nozzle for translation on a thrust component over 0.5 of a control-frame axis -
+      a 60 degree half-cone - so one bell sitting 45 degrees between two axes serves both, and a
+      lateral command fires the two clusters facing it.
+
+      It seats on the cluster centre, where the other four bells already converge, so their roots
+      merge. That is the seat rather than a mistake: the centre is the only place a fifth bell is
+      exactly on the bisector, and only an exactly radial thrust carries no roll torque.
+    -->
+    <SubPart Id="KSArmory_Mirv_Rcs16" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="1.12430" Z="1.12430" />
+        <!-- fires out along +Y+Z -->
+        <Rotation Y="0.78540" Z="-1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs17" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="-1.12430" Z="1.12430" />
+        <!-- fires out along -Y+Z -->
+        <Rotation Y="0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs18" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="-1.12430" Z="-1.12430" />
+        <!-- fires out along -Y-Z -->
+        <Rotation Y="-0.78540" Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Mirv_Rcs19" InstanceOf="KSArmory_MirvRcs_SubPart">
+      <Transform>
+        <Position X="0.30000" Y="1.12430" Z="-1.12430" />
+        <!-- fires out along +Y-Z -->
+        <Rotation Y="-0.78540" Z="-1.57080" />
       </Transform>
     </SubPart>
 
