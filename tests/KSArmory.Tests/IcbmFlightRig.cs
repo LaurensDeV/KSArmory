@@ -90,6 +90,27 @@ internal sealed class IcbmFlightRig
     /// <summary>What the throttle actually is, as opposed to what was asked for.</summary>
     public double ThrottleAchieved { get; private set; } = 1.0;
 
+    /// <summary>
+    /// Something riding the flight that moves the aim and watches what the shot does about it —
+    /// <see cref="AimCorrection"/> wired the way <c>Ksa/IcbmComputer.cs</c> wires it.
+    ///
+    /// <para>Null is a vehicle aimed exactly where it was pointed, which is every other suite.</para>
+    /// </summary>
+    public IAimLoop? AimLoop;
+
+    /// <inheritdoc cref="AimLoop"/>
+    internal interface IAimLoop
+    {
+        /// <summary>Where to actually solve to, given where the shot is meant to land.</summary>
+        double3 Apply(double3 aimNowCci);
+
+        /// <summary>Whether the aim has stopped moving, which is what the arrival latch waits for.</summary>
+        bool IsSteady { get; }
+
+        /// <summary>One cycle, after the program has been stepped and before the vehicle acts.</summary>
+        void AfterUpdate(IcbmProgram program, in IcbmCommand command, double3 aimNowCci, double stepSeconds);
+    }
+
     public int StageIndex;
 
     private double3 _pointing;
@@ -168,20 +189,28 @@ internal sealed class IcbmFlightRig
             double density = DensityRatioAt(altitude);
             double3 airflow = VelocityCci - Body.GroundVelocityCci(PositionCci);
 
+            double3 aimNow = Body.CarryCci(aimAtEpoch, elapsed);
+
             {
                 IcbmState state = new(Body, PositionCci, VelocityCci,
-                                      Body.CarryCci(aimAtEpoch, elapsed), HasAim: true,
+                                      AimLoop?.Apply(aimNow) ?? aimNow, HasAim: true,
                                       Performance(), density,
                                       PropellantAvailable: StageIndex < Stages.Count
                                                            && Stages[StageIndex].PropellantKg > 0.0,
                                       // What the stack has, never what was asked of it. A real one
                                       // ramps, and one with solid motors ignores the ask entirely.
-                                      ThrottleAchieved: ThrottleAchieved);
+                                      ThrottleAchieved: ThrottleAchieved,
+                                      AimIsSteady: AimLoop?.IsSteady ?? true);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
 
                 if (command.RequestStage && StageIndex < Stages.Count) StageIndex++;
             }
+
+            // After the step and before the vehicle acts on it, which is where the computer's own
+            // freeze and prediction sit. The cutoff frame is observed too: it is the last cycle the
+            // correction would ever have seen, and leaving it out hides what the aim ended up worth.
+            AimLoop?.AfterUpdate(program, command, aimNow, h);
 
             if (program.Phase == IcbmPhase.Coast)
             {

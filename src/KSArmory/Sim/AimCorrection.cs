@@ -223,6 +223,30 @@ internal sealed class AimCorrection
         Settled = true;
     }
 
+    /// <summary>
+    /// Start correcting again from the aim already found, against a plant that has changed.
+    ///
+    /// <para>Called when the engines stop. Everything the loop learned during the burn was learned
+    /// about a shot still being flown, and none of it transfers: the response was whatever the
+    /// guidance's own re-solving made it, and the record of which cycles helped was kept against
+    /// that. What does transfer is the aim itself, which is most of the answer.</para>
+    ///
+    /// <para>The response is seeded at one because that is what the coast plant actually is — the
+    /// arc is re-solved to the aim at a fixed arrival, so the impact moves by about what the aim
+    /// did. Seeding it wrong costs the first step, which is the expensive one.</para>
+    /// </summary>
+    public void Resume()
+    {
+        if (!Settled) return;
+
+        Settled = false;
+        _bestMiss = double.PositiveInfinity;
+        _bestBias = BiasCci;
+        _worseFor = 0;
+        _response = 1.0;
+        _haveLast = false;
+    }
+
     public void Reset()
     {
         BiasCci = Vec.Zero;

@@ -263,6 +263,7 @@ internal sealed class IcbmProgram
     private double _sinceCutoff;
     private double _sinceClosedLoop;
     private double _lastStep;
+    private bool _resolveCoastArc;
     private double _throttle = 1.0;
     private double _lowestToGain = double.PositiveInfinity;
     private bool _fellShort;
@@ -294,6 +295,19 @@ internal sealed class IcbmProgram
     /// vehicle's current one is mid-ascent and describes a trajectory nobody intends to fly.</para>
     /// </summary>
     public double3 CutoffPositionCci { get; private set; }
+
+    /// <summary>
+    /// Where the arc the trim nulls onto departs from, and how long ago that was.
+    ///
+    /// <para>The cutoff state while the shot is the one the burn solved. It moves to the vehicle's
+    /// own position each time the coast arc is re-solved, because a transfer solved from where the
+    /// bus <em>is</em> is the one it can actually fly — nulling onto a velocity required at a point
+    /// the vehicle has since left spends propellant reproducing an error.</para>
+    /// </summary>
+    public double3 ReferencePositionCci { get; private set; }
+
+    /// <inheritdoc cref="ReferencePositionCci"/>
+    public double SecondsSinceReference { get; private set; }
 
     /// <summary>Which way downrange is, refreshed while the pitch programme runs.</summary>
     public double3 DownrangeCci { get; private set; }
@@ -410,6 +424,9 @@ internal sealed class IcbmProgram
         Phase = IcbmPhase.Idle;
         Reach = IcbmReach.Unknown;
         Arc = null;
+        ReferencePositionCci = Vec.Zero;
+        SecondsSinceReference = 0.0;
+        _resolveCoastArc = false;
         DownrangeCci = Vec.Zero;
         _cutoffSeed = 0.0;
         _flightSeed = double.NaN;
@@ -452,6 +469,7 @@ internal sealed class IcbmProgram
         if (double.IsFinite(_windowWait)) _windowWait -= step;
         if (Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution)) _sinceLaunch += step;
         if (Phase == IcbmPhase.Coast) _sinceCutoff += step;
+        if (Phase == IcbmPhase.Coast) SecondsSinceReference += step;
         if (Phase == IcbmPhase.ClosedLoop) _sinceClosedLoop += step;
 
         if (!Config.Armed) return Idle(state, "not armed");
@@ -639,6 +657,8 @@ internal sealed class IcbmProgram
 
         Arc = command.Arc;
         CutoffPositionCci = command.CutoffPositionCci;
+        ReferencePositionCci = command.CutoffPositionCci;
+        SecondsSinceReference = 0.0;
         _cutoffSeed = command.SecondsToCutoff;
         _flightSeed = command.Arc.CheapestFlightSeconds;
         _toGain = command.VelocityToGain;
@@ -813,8 +833,47 @@ internal sealed class IcbmProgram
         return _lowestToGain < BackstopBelow && _toGain > _lowestToGain + Math.Max(oneStep, 1.0);
     }
 
+    /// <summary>
+    /// Ask for the arc to be re-solved from where the bus is now, to the aim it has now.
+    ///
+    /// <para>What turns the aim correction from a readout back into a lever after the engines stop.
+    /// The warheads coast along whatever arc the bus is on, so moving the aim alone changes nothing
+    /// — re-solving the transfer to the corrected point gives the trim something to null onto, and
+    /// the trim is the only thing left aboard that can still move the impact.</para>
+    ///
+    /// <para>The arrival stays where the burn committed it. Solving to a fixed instant is what makes
+    /// the plant a plain one: the aim moves, the arc follows it, and the impact moves by about as
+    /// much again.</para>
+    /// </summary>
+    public void CorrectCoastArc() => _resolveCoastArc = true;
+
+    private void ResolveCoastArc(in IcbmState state)
+    {
+        double remaining = CommittedArrivalFromNow;
+        if (!double.IsFinite(remaining)) return;
+
+        // From the vehicle's own position, not from the cutoff state. The bus has coasted since, and
+        // a velocity required at a point it has left is one the trim would spend propellant flying
+        // back to.
+        if (!BallisticArc.TrySolve(state.Body, state.PositionCci, state.AimNowCci, remaining,
+                                   out BallisticArc.Solution corrected, LongWay))
+        {
+            return;
+        }
+
+        Arc = corrected;
+        ReferencePositionCci = state.PositionCci;
+        SecondsSinceReference = 0.0;
+    }
+
     private IcbmCommand Coasting(in IcbmState state)
     {
+        if (_resolveCoastArc)
+        {
+            _resolveCoastArc = false;
+            ResolveCoastArc(state);
+        }
+
         double shortBy = _fellShort ? _toGain : 0.0;
         Phase = IcbmPhase.Coast;
         _toGain = 0.0;

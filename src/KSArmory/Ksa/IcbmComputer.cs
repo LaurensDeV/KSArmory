@@ -36,6 +36,10 @@ internal sealed class IcbmComputer
     private readonly AimCorrection _aim = new();
     private readonly ReleaseSequence _sequence = new();
     private readonly BusTrim _trim = new();
+    private readonly PostBoostAim _postBoost = new();
+    private bool _measureDue;
+    private double _freshMiss = double.NaN;
+    private bool _resumedForCoast;
     private ReleaseCommand _deploy;
     private readonly double3[] _tubeAxes = new double3[64];
     private bool _separated;
@@ -202,6 +206,10 @@ internal sealed class IcbmComputer
         _aim.Reset();
         _sequence.Reset();
         _trim.Reset();
+        _postBoost.Reset();
+        _measureDue = false;
+        _freshMiss = double.NaN;
+        _resumedForCoast = false;
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -241,6 +249,10 @@ internal sealed class IcbmComputer
 
         Program.Reset();
         _trim.Reset();
+        _postBoost.Reset();
+        _measureDue = false;
+        _freshMiss = double.NaN;
+        _resumedForCoast = false;
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -307,7 +319,16 @@ internal sealed class IcbmComputer
 
         // The aim stops moving when the arrival stops being free. They are one problem solved in
         // two halves, and the second half is only solvable once the first has finished.
-        if (double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze();
+        if (Program.IsBurning && double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze();
+
+        // And starts again the moment the engines do stop, because the thing that made the two
+        // halves fight is the burn: with the trajectory fixed, the arc follows the aim and the trim
+        // flies the difference. Once only, so a coast pass that genuinely settles stays settled.
+        if (!Program.IsBurning && !_resumedForCoast)
+        {
+            _resumedForCoast = true;
+            _aim.Resume();
+        }
 
         Predict(simStep, state);
 
@@ -657,10 +678,31 @@ internal sealed class IcbmComputer
 
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci,
-            Program.CutoffPositionCci, referenceVelocity, Program.SecondsSinceCutoff,
+            Program.ReferencePositionCci, referenceVelocity, Program.SecondsSinceReference,
             nose, right, down, _mayTrim));
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
+
+        // The post-boost passes. With the thrusters quiet the correction gets a clean look at where
+        // the bus is actually going; moving the aim and re-solving the arc from here gives the trim
+        // something new to null onto, and the trim is the only thing left aboard that can still move
+        // the impact. A trim that has given up ends it, because further passes have no actuator.
+        int passesBefore = _postBoost.Cycles;
+
+        PostBoostAim.Decision pass =
+            _postBoost.Update(simStep, _trim.Done, _freshMiss, _aim.Settled || _trim.GaveUp);
+
+        if (pass.MayMeasure) _measureDue = true;
+
+        if (_postBoost.Cycles > passesBefore)
+        {
+            // Consumed, so the next decision waits for a reading taken after this correction has
+            // actually been flown rather than re-reading the one that prompted it.
+            _freshMiss = double.NaN;
+            Program.CorrectCoastArc();
+            _trim.Resume();
+            Say($"post-boost: {pass.Said}", "");
+        }
 
         if (!double.IsFinite(_owedAtSplit) && double.IsFinite(trim.ToGainMetresPerSecond))
         {
@@ -1004,7 +1046,8 @@ internal sealed class IcbmComputer
         // that is what keeps the sequencer's reference honest: it latches the tube axes on the
         // first frame the launcher is both ready and settled, and a reference latched before the
         // decoupler's shove has been taken back out describes a line no warhead will leave on.
-        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy && !_trim.Done;
+        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy
+                        && (!_trim.Done || _postBoost.Correcting);
 
         if (weapon is null || !Command.ReadyToDeploy || trimming)
         {
@@ -1207,7 +1250,20 @@ internal sealed class IcbmComputer
                       + $"{(fromCutoff ? "the solved cutoff" : "the live state")}, "
                       + $"kick {Vec.Len(ReleaseImpulseCci()):F2} m/s");
 
-            if (state.HasAim && !TrimIsFiring) _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
+            // During the burn every cycle is a measurement. After it they are rationed: the
+            // correction's only observer is this prediction, so one taken between the aim moving
+            // and the trim having flown the new arc reads its own unspent correction as error and
+            // steps again on top of it.
+            if (state.HasAim && !TrimIsFiring && (Program.IsBurning || _measureDue))
+            {
+                _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
+
+                if (!Program.IsBurning)
+                {
+                    _measureDue = false;
+                    _freshMiss = PredictedMissMetres;
+                }
+            }
         }
         else
         {

@@ -232,6 +232,32 @@ internal sealed class BusTrim
         _since = 0.0;
     }
 
+    /// <summary>
+    /// Re-arm onto a fresh reference, keeping what has been learned about the vehicle.
+    ///
+    /// <para>The measured thruster acceleration is a property of the bus rather than of the burn it
+    /// was measured during, so throwing it away makes every pass after the first start blind and
+    /// overshoot again. Everything that records how <em>this</em> null went — the stalls, the dead
+    /// axes, the low-water mark — is cleared, because they are about a reference that no longer
+    /// exists.</para>
+    /// </summary>
+    public void Resume()
+    {
+        _armed = true;
+        _done = false;
+        _gaveUp = false;
+        _since = 0.0;
+        _firingFor = 0;
+        _fire = TrimAxes.None;
+        _dead = TrimAxes.None;
+        _watching = TrimAxes.None;
+        _watchedFrom = double.NaN;
+        _watchingFor = 0.0;
+        _watched = false;
+        _lowest = double.PositiveInfinity;
+        _sinceProgress = 0.0;
+    }
+
     public void Reset()
     {
         _armed = false;

@@ -370,6 +370,37 @@ outward, which cost 162 km, so the window before it is latched has to be bounded
   than the symptom: the plant only changes because the arrival is pinned first.
 - **A guard on the trend rather than the value**, so a hump is crossed and a divergence is not.
 
+## 8. The bus corrects its own aim after cutoff — flown
+
+The correction has always been able to move the aim during the coast. What it had no way to do was
+*act* on it: the warheads coast along whatever arc the bus is already on, so a bias moved after the
+engines stop changes the readout and nothing else. Item 2b said as much — "it simply had no lever
+left, because the correction can only act through an arc nothing is still burning."
+
+The trim is that lever. It nulls to 0.017 m/s, measured in flight, which is enough to fly any arc
+worth asking for. So `Sim/PostBoostAim.cs` sequences the two:
+
+1. the trim nulls onto the arc the burn solved,
+2. with the thrusters quiet, one measurement is taken and the aim moves,
+3. `IcbmProgram.CorrectCoastArc` re-solves the transfer from where the bus *now is* to the corrected
+   point, at the arrival the burn committed to,
+4. the trim nulls onto that instead, and it repeats.
+
+**They alternate rather than running together**, and that is the whole reason they can coexist. The
+correction's only observer is a prediction flown from the vehicle's own state, so a measurement taken
+while the thrusters fire reads the trim's own displacement as error and burns harder at it — the
+runaway that produced 139 m/s of commanded trim. Waiting for the trim to settle removes the
+interaction rather than damping it.
+
+**The stopping rule is a payback, not a count.** Holding a warhead costs ~26 m of miss per second
+(item 2b), so a pass has to remove more than the seconds it spends are worth. A shot already inside
+that is one correcting makes worse.
+
+Flown at 3,459 km: four passes, predicted miss 2.9 -> 2.9 -> 2.1 -> 1.2 km, then release.
+
+**What it does not fix** is anything the prediction cannot see. It flies the *bus*, so the six tubes'
+6-degree ejection cone is invisible to it — 2.6 km of spread by measurement, 1.9 km flown.
+
 ## Smaller things
 
 - **The load-frame warning** and **the `OpticalHeads` stranding bug** are both fixed and unflown;
