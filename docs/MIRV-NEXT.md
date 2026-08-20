@@ -940,6 +940,12 @@ kick to its prediction.
    up to 1,684 m at the worst. Still blocked on why a separated bus will not hold a 6 degree command.
 5. Everything else is under 60 m and not worth a flight of its own.
 
+**And there is a floor under all of it.** `docs/KINETIC-FLOOR.md` prices what is left when every
+item above has landed: on this 7.1-degree arrival about **160 m**, dominated by the round's own 5 ms
+symplectic-Euler step at 30.6 m per millisecond, and multiplied again by a terrain gain that at
+shallow angles has no fixed point. The same budget at an 88-degree arrival is **1.2 m**. The arrival
+angle is a larger lever than anything on this list.
+
 **None of it is flown.** The rig's planet sits at the origin and carries no velocity, which is the one
 case where a frame carrier is identically zero — so nothing above can see an epoch fault, and item 2c
 is why that matters. And a single flight cannot resolve anything under about 0.5 km (item 7d), so the
