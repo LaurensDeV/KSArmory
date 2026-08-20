@@ -20,45 +20,6 @@ public class BusTrimTests(ITestOutputHelper Out)
 
     private static BallisticBody Earth => new(Mu, R, new double3(0, 0, 1), 7.2921159e-5);
 
-    /// <summary>
-    /// A bus in flight, with a thruster set and nothing else. Its control frame is fixed, because
-    /// the trim never turns it: the whole reason it resolves onto the vehicle's own axes rather
-    /// than pointing at the answer is that the release line is already decided by then.
-    /// </summary>
-    private sealed class Bus
-    {
-        public double3 PositionCci;
-        public double3 VelocityCci;
-
-        public double3 NoseCci;
-        public double3 RightCci;
-        public double3 DownCci;
-
-        /// <summary>What the axial pair can do. Every thruster set has one.</summary>
-        public double AxialAcceleration = 3.0;
-
-        /// <summary>What the lateral jets can do. Zero is the layout the shipped bus has.</summary>
-        public double LateralAcceleration;
-
-        public void Step(TrimAxes fire, double seconds)
-        {
-            double3 thrust = Push(fire, TrimAxes.Forward, NoseCci, AxialAcceleration)
-                           + Push(fire, TrimAxes.Backward, -NoseCci, AxialAcceleration)
-                           + Push(fire, TrimAxes.Right, RightCci, LateralAcceleration)
-                           + Push(fire, TrimAxes.Left, -RightCci, LateralAcceleration)
-                           + Push(fire, TrimAxes.Down, DownCci, LateralAcceleration)
-                           + Push(fire, TrimAxes.Up, -DownCci, LateralAcceleration);
-
-            double3 gravity = Earth.GravityCci(PositionCci);
-
-            VelocityCci += (gravity + thrust) * seconds;
-            PositionCci += VelocityCci * seconds;
-        }
-
-        private static double3 Push(TrimAxes fire, TrimAxes direction, double3 along, double magnitude)
-            => (fire & direction) != TrimAxes.None ? Vec.Unit(along) * magnitude : Vec.Zero;
-    }
-
     /// <summary>A deorbit from 200 km arriving about 2,700 km downrange — the flown shot.</summary>
     private static BallisticArc.Solution Deorbit(out double3 fromCci, out double3 aimAtEpoch)
     {
@@ -96,7 +57,7 @@ public class BusTrimTests(ITestOutputHelper Out)
     /// arrival the bus is left.
     /// </summary>
     private (double Seconds, double Miss, TrimCommand Last) Trim(
-        BusTrim trim, Bus bus, double3 aimAtEpoch, double3 referenceFrom, double3 referenceVelocity,
+        BusTrim trim, TrimBus bus, double3 aimAtEpoch, double3 referenceFrom, double3 referenceVelocity,
         double step, double maxSeconds = 300.0, bool log = false, double since = 0.0)
     {
         double elapsed = since;
@@ -111,7 +72,7 @@ public class BusTrimTests(ITestOutputHelper Out)
 
             if (last.Done) break;
 
-            bus.Step(last.Fire, step);
+            bus.Step(Earth, last.Fire, step);
             elapsed += step;
         }
 
@@ -137,7 +98,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         // the coast for the warheads to leave along.
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
 
-        Bus bus = new()
+        TrimBus bus = new()
         {
             PositionCci = fromCci,
             VelocityCci = arc.RequiredVelocityCci + nose * 1.1,
@@ -177,7 +138,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
 
-        Bus bus = new()
+        TrimBus bus = new()
         {
             PositionCci = fromCci,
             VelocityCci = arc.RequiredVelocityCci + nose * 1.1,
@@ -209,7 +170,7 @@ public class BusTrimTests(ITestOutputHelper Out)
             // is being pinned is that a held trim reports the real number the whole time.
             Assert.InRange(held.ToGainMetresPerSecond, 0.5, 2.0);
 
-            bus.Step(TrimAxes.None, step);
+            bus.Step(Earth, TrimAxes.None, step);
             elapsed += step;
         }
 
@@ -237,7 +198,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
 
-        Bus bus = new()
+        TrimBus bus = new()
         {
             PositionCci = fromCci,
             VelocityCci = arc.RequiredVelocityCci,
@@ -262,7 +223,7 @@ public class BusTrimTests(ITestOutputHelper Out)
             everFired |= c.Fire;
             if (c.Done) break;
 
-            bus.Step(c.Fire, 1.0 / 60.0);
+            bus.Step(Earth, c.Fire, 1.0 / 60.0);
             elapsed += 1.0 / 60.0;
         }
 
@@ -285,7 +246,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
 
-        Bus bus = new()
+        TrimBus bus = new()
         {
             PositionCci = fromCci,
             VelocityCci = arc.RequiredVelocityCci,
@@ -312,7 +273,7 @@ public class BusTrimTests(ITestOutputHelper Out)
 
             if (c.Done) break;
 
-            bus.Step(c.Fire, step);
+            bus.Step(Earth, c.Fire, step);
             elapsed += step;
 
             // The decoupler, half a second late — well inside the settle and well outside a frame.
@@ -346,7 +307,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
         double3 right = Vec.Unit(Vec.Cross(fromCci, nose));
 
-        Bus bus = new()
+        TrimBus bus = new()
         {
             PositionCci = fromCci,
 
@@ -394,7 +355,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
 
-        Bus bus = new()
+        TrimBus bus = new()
         {
             PositionCci = fromCci,
             VelocityCci = arc.RequiredVelocityCci + nose * 1.1,
@@ -501,7 +462,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
 
-        Bus bus = new()
+        TrimBus bus = new()
         {
             PositionCci = fromCci,
             VelocityCci = arc.RequiredVelocityCci + nose * 1.1,

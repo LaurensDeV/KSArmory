@@ -279,6 +279,56 @@ tumble at roughly constant rate. If a flown `SweepMetresPerSecond` turns out to 
 floor with peaks well above it — the bus is settling badly rather than tumbling, the third leg
 weakens, and the geometry is a different problem.
 
+## 5c. Trimming the bus between releases — priced, and the bus cannot fly it
+
+The velocity-side version of item 5: rather than turning the bus so each tube lies on the line,
+leave the attitude alone and change the bus's *velocity* before each release, so that
+`bus velocity + this tube's kick` is what the arc wants. That is what a real post-boost vehicle
+does, and the machinery for it already exists — `CorrectCoastArc`, `BusTrim.Resume` and
+`PostBoostAim` were all flown this session.
+
+**The trade is favourable and it is not close.** `PerTubeTrimTests` prices it on the 3,459 km shot
+through the real predictor and drag model:
+
+| | spread across the six |
+| --- | --- |
+| as canted, released together | **2,692 m** |
+| as canted, at the magazine's own 3 s pace | 2,521 m |
+| per-tube trim, 3 s pace | **231 m** |
+| per-tube trim, 8 s pace | 625 m |
+| per-tube trim, 30 s pace | 2,410 m |
+
+Holding costs `~15.4 m` of miss a second on this trajectory — the ejection kick losing its leverage,
+item 2b's mechanism, which was 26 m/s on the flown one — and the salvo has five gaps in it, so the
+ramp is about 77 m of spread per second of pace. Break-even is around **35 seconds a tube**, and
+driving the real `BusTrim` against a bus that *has* lateral jets nulls one tube's 0.209 m/s in
+**1.5 s**, which is `BusTrim.SettleSeconds` and nothing else. On paper it wins 2.3 km of spread.
+
+**And it cannot be flown, because the correction is exactly the one thing the bus cannot do.** A
+cant is a *cone*, so every tube's kick carries the same axial share and the difference between any
+two of them is perpendicular to the bus's axis. Measured off `Arsenal.MirvBus.Tubes`: each tube is
+0.2093 m/s from the mean, of which **0.0110 is axial and 0.2091 lateral**, and every tube-to-tube
+step is **1.5e-6 m/s axial** — a pure lateral translation to six significant figures. The shipped
+bus is four clusters of four laid out for pitch, yaw, roll and axial thrust, with no lateral
+translation at all, so the axial pair has literally nothing to fire at. Run against that layout the
+real loop strikes off each lateral direction in turn and gives up after **4.0 s with the whole
+0.209 m/s still on the vehicle** — six times over, for 24 s of coast and no change to the group.
+
+**Nothing rescues it.** Turning the bus so the axial pair points along the needed lateral is two
+full settles per tube on a vehicle that item 5 measured *hunting* at a six-degree command — and a
+vehicle that could do that could do the six-degree turn instead, which costs no propellant at all
+and removes the term completely. Letting the arrival time float per tube is one parameter against a
+two-dimensional lateral error. Firing opposite pairs cancels on the bus and not on the warheads.
+
+**What would reopen it:** lateral translation on the bus. That is a craft-design change — RCS
+blocks placed for translation rather than for attitude — not a mod change, and the arithmetic above
+says the moment one exists this is worth about 2.3 km of spread. `PerTubeTrimTests` is kept so it
+can be re-priced against a different cant, ejection speed or trajectory without redoing any of
+this.
+
+**So item 5 is still the answer to the cant**, and its open question is unchanged: why a separated
+bus does not hold a six-degree command.
+
 ## 6. Point the bus at the target on release — cosmetic, do it last
 
 Mechanically a couple of lines: the sequencer rotates whatever attitude it is handed, and the

@@ -1047,7 +1047,9 @@ Five things it is careful about, and each is a way it went wrong first:
   axial thrust, with **no lateral translation at all**, so a loop that assumed three-axis authority
   would push at nothing for ever. A direction that fires without moving its own component is struck
   off and the next one tried, which is what lets a bus with only an axial pair still get the axial
-  error out.
+  error out. That layout is also what settles `docs/MIRV-NEXT.md` item 5c: the correction that would
+  put one tube's kick where the last one's was is perpendicular to the bus's axis by construction,
+  so the axial pair has nothing in it to fire at.
 - **It may not finish before the shove has arrived.** The split is deferred through the engine's
   input buffer, so for the first frames after it is asked for the bus is still exactly on its
   solution. Stopping there is stopping on a problem that has not arrived, and nothing afterwards
