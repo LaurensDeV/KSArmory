@@ -25,6 +25,16 @@ namespace KSArmory;
 internal sealed class BallisticScenario
 {
     /// <summary>
+    /// How fast the world runs while the shot is being set up.
+    ///
+    /// <para>Slow enough that a vehicle resumed mid-flight moves a negligible distance across the
+    /// frames arming takes, so the state it is picked up in is the same on every run and two builds
+    /// can be compared. Not paused, because the computer cannot sample a paused world and the
+    /// scenario would wait for a craft it can never see.</para>
+    /// </summary>
+    public const double SetupSpeed = 0.01;
+
+    /// <summary>
     /// How fast the world is asked to run, once, when the shot is committed.
     ///
     /// <para>Under the ceiling <see cref="WarpPolicy"/> allows a guided burn — one
@@ -171,9 +181,14 @@ internal sealed class BallisticScenario
         // the world inside the mod's clock gate — so on a paused world nothing is ever true, and a
         // scenario that only waits waits for ever. Unpausing is the scenario's business rather than
         // the computer's: a player who paused did so on purpose.
-        if (KsaWorld.IsPaused && KsaWorld.SetSimulationSpeed(1.0))
+        // Slowly, not at 1x. A save resumed mid-flight has a vehicle that keeps moving while this
+        // runs, so the state it is picked up in depends on how many frames arming happened to take
+        // - and two builds compared against each other are then two different shots. Measured: the
+        // same save picked up at 415 s of flight on one build and 450 s on another, which is 164 km
+        // of difference that belongs to the harness rather than to anything being tested.
+        if (KsaWorld.IsPaused && KsaWorld.SetSimulationSpeed(SetupSpeed))
         {
-            _say("the world was paused; asked for 1x so the flight can start");
+            _say($"the world was paused; asked for {SetupSpeed:0.##}x while the shot is set up");
         }
 
         List<string> why = [];
@@ -262,6 +277,10 @@ internal sealed class BallisticScenario
                 Log.Threshold = Log.Level.Debug;
                 _say("verbose logging on for the flight");
             }
+
+            // Everything is aimed and armed, so the vehicle may have the clock back.
+            if (KsaWorld.SetSimulationSpeed(1.0)) _say("set up; running at 1x");
+
             return;
         }
 
