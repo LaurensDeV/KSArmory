@@ -218,7 +218,48 @@ itself and stops, and the game's only callers of `UpdateAfterPartTreeModificatio
 genuinely change a part tree. Pointing a camera at a craft changes no tree, so the call was never
 needed. It is gone, and the failure with it.
 
-## 5. Re-pointing — off again, and this time flown
+## 5. Re-pointing — closed. The turn is inside the engine's own dead zone
+
+**Measured in flight on the separated bus: a pointing band of 22.11 degrees.** The cant it would
+have to correct is six. The vehicle's own controller will not make that turn, and no command the
+mod can issue changes that — there is no convergence test to satisfy and nothing refusing the
+request, the bang-bang tracker simply does not fire inside its dead zone.
+
+```
+Rocket_1 control: None/None/None, roll Decoupled, control part NONE
+  | deadband 12.87 deg, turnaround 15.68/15.68 deg, rate bit 1.568/1.568 deg/s
+  | pointing band 22.11 deg
+```
+
+Three things in that line, and each closes a question:
+
+- **22.11 deg of band against a 6 deg turn.** Item 5a predicted this: the band is
+  `0.5*AngleDeadband + AngleTurnaround`, and `AngleTurnaround` is about ten seconds of one minimum
+  thruster pulse divided by inertia — so dropping the spent stack is exactly what widens it. This
+  bus lands far on the wrong side.
+- **`roll Decoupled`.** Roll *rate* is damped and roll *angle* is free, so even a turn that took
+  would not hold: a latched tube axis walks a cone at about 1.8 deg/s.
+- **`control part NONE`.** Nothing re-elects a control part on the separated half, so which body
+  axis is the nose is undefined on the vehicle the turn would be commanded against.
+
+**What this also explains** is the flown scatter. The release probe reports the salvo thrown 95,
+116 and 119 degrees from the platform's track on three otherwise identical runs — the bus drifting
+freely inside that 22 degree band. The cant is a cone about the nose, so where the nose happens to
+sit decides whether the six kicks cancel or add, across a 141-1,684 m band. That is the
+unaccounted spread in the budget and much of the run-to-run variation, and it is not something an
+attitude command can reach.
+
+**So the cant stays.** All three routes to it are now closed with numbers: firing on each tube's own
+crossing (5b), trimming between releases (5c), and re-pointing (here). Reopening any of them means
+a different bus — finer RCS, more inertia, or thrusters placed for translation — which is a craft
+design change rather than a mod change. On the guided arc the term is worth **233 m** of spread,
+not the 2.69 km an earlier pass priced it at on an arc nobody flies.
+
+The mod-side defect 5a found is still worth having and stays in, behind `RepointBetweenReleases`
+and still off: the turn is now built from the live tube axis rather than the commanded one, so if a
+bus ever exists that can hold the command, it will hold the right one.
+
+## 5-old. Re-pointing — off again, and this time flown
 
 **This is the finding that changes the plan.** Flown on a separated bus with the sequencer on,
 commanding six degrees away from the held line made the vehicle *hunt* rather than settle: the
