@@ -38,8 +38,30 @@ internal sealed class AimCorrection
     /// </summary>
     public const double MaxMetres = 300_000.0;
 
+    /// <summary>
+    /// How much closer the impact must come for a cycle to count as an improvement, and how many
+    /// cycles may make it worse before the loop stops. Two of them, because one bad reading is
+    /// noise and a run of them is a direction.
+    /// </summary>
+    public const double ImprovedByMetres = 250.0;
+
+    /// <inheritdoc cref="ImprovedByMetres"/>
+    public const int WorseBeforeStopping = 3;
+
     /// <summary>What is currently being added to the aim point, in the body's inertial frame.</summary>
     public double3 BiasCci { get; private set; }
+
+    /// <summary>
+    /// Whether the loop has stopped because it could not improve on its own best.
+    ///
+    /// <para>Not a failure: it means the aim is as good as this correction can make it, and what
+    /// remains is a shot that wants a different trajectory rather than a different aim.</para>
+    /// </summary>
+    public bool Settled { get; private set; }
+
+    private double _bestMiss = double.PositiveInfinity;
+    private double3 _bestBias;
+    private int _worseFor;
 
     /// <summary>
     /// Where to actually aim, given where the shot is meant to land.
@@ -72,22 +94,49 @@ internal sealed class AimCorrection
         double3 error = landedCci - targetCci;
         if (!Vec.IsFinite(error)) return;
 
-        // An error this large is not a terrain effect being trimmed out — it is an arc that has not
-        // been aimed yet, which is every cycle before the solve settles and all of them for a
-        // vehicle picked up mid-flight. Folding one in moves the accumulated bias straight into its
-        // own limit, and a bias pinned there feeds the solver a displaced aim point, which produces
-        // an arc whose error keeps it pinned. The loop can then no longer tell converged from stuck.
+        // Stopped means stopped. Without this the loop goes on integrating after it has decided
+        // not to, and walks away from the best aim it just chose to keep.
+        if (Settled) return;
+
+        // It is a feedback loop and the plant is not always the one the gain was chosen for.
+        // Moving the aim moves the impact by about as much again while the solver may pick its own
+        // flight time; once the arrival is latched, the same aim change forces a different
+        // trajectory to arrive at the same instant, and on a shallow near-orbital shot that
+        // amplifies the response past where a gain of a half is stable. The loop then walks away
+        // from its own best while the miss it is removing grows.
         //
-        // Rejecting the observation rather than clamping what it accumulates is what separates the
-        // two: a shot that genuinely cannot be made goes on producing errors this large, none of
-        // them are folded in, the bias stays where it was and the miss is reported honestly.
+        // Flown at 3,459 km from a near-orbital pickup: 55.1 km of miss down to 43.7 at 77 km of
+        // bias, then 44.7, 47.9, 65.2, 126.1, and pinned at the 300 km limit with 209 km of miss.
+        // The same loop converges in eight cycles when the flight time is free, which is why this
+        // is not a gain that is too high but a plant that changes underneath one.
         //
-        // Flown at 3,459 km from a near-orbital pickup: pinned at the 300 km limit with 229 km of
-        // miss, against 29 km of bias and 0.06 km of miss once these are ignored.
-        if (Vec.Len(error) > MaxMetres) return;
+        // So: keep the best aim found and stop when it cannot be improved on. What remains after
+        // that is a shot that wants a different trajectory rather than a different aim, which is
+        // the thing the miss should be reporting.
+        double miss = Vec.Len(error);
+
+        if (miss < _bestMiss - ImprovedByMetres)
+        {
+            _bestMiss = miss;
+            _bestBias = BiasCci;
+            _worseFor = 0;
+        }
+        else if (miss > _bestMiss + ImprovedByMetres && ++_worseFor >= WorseBeforeStopping)
+        {
+            BiasCci = _bestBias;
+            Settled = true;
+            return;
+        }
 
         BiasCci = Vec.ClampLength(BiasCci - error * Gain, MaxMetres);
     }
 
-    public void Reset() => BiasCci = Vec.Zero;
+    public void Reset()
+    {
+        BiasCci = Vec.Zero;
+        Settled = false;
+        _bestMiss = double.PositiveInfinity;
+        _bestBias = Vec.Zero;
+        _worseFor = 0;
+    }
 }

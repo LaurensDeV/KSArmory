@@ -15,29 +15,50 @@ namespace KSArmory.Tests;
 public class AimCorrectionTests
 {
     /// <summary>
-    /// One absurd reading must not pin the correction at its limit for the rest of the flight.
+    /// A correction that is making the miss worse stops, and keeps the best aim it found.
     ///
-    /// <para>A vehicle picked up mid-flight is on a trajectory aimed at nothing, so the first
-    /// observations are thousands of kilometres out. Folding one in at gain 0.5 puts the
-    /// accumulated bias straight into its own clamp — and a bias held there displaces the aim the
-    /// solver is given, which produces an arc whose error keeps it there. Flown: pinned at 300 km
-    /// with 229 km of miss, against 29 km of bias and 0.06 km of miss once it is ignored.</para>
+    /// <para>It is a feedback loop against a plant that is not always the one its gain was chosen
+    /// for. While the solver may pick its own flight time, moving the aim moves the impact by about
+    /// as much again and a gain of a half converges; once the arrival is latched, the same aim
+    /// change forces a different trajectory to arrive at the same instant, and on a shallow
+    /// near-orbital shot the response is amplified past where that gain is stable.</para>
+    ///
+    /// <para>Flown at 3,459 km: 55.1 km of miss down to 43.7 at 77 km of bias, then 44.7, 47.9,
+    /// 65.2, 126.1, and pinned at the 300 km limit with 209 km of miss — the loop walking away from
+    /// its own best while the thing it was removing grew.</para>
     /// </summary>
     [Fact]
-    public void AnImplausibleObservationIsIgnoredRatherThanPinningTheBias()
+    public void ACorrectionThatStopsHelpingKeepsItsBestRatherThanRunningAway()
     {
         AimCorrection aim = new();
         double3 target = new(6_371_000.0, 0, 0);
+        double3 along = new(0, 1, 0);
 
-        // Half the planet away: an arc nobody has aimed yet, not terrain.
-        aim.Observe(new double3(0, 6_371_000.0, 0), target);
-        Assert.Equal(0.0, Vec.Len(aim.BiasCci), 3);
+        // A plant that over-responds: the impact moves three times whatever the aim was moved, so
+        // every correction overshoots and the next one is larger. Gain 0.5 diverges against it.
+        const double PlantGain = 3.0;
+        double bestSeen = double.PositiveInfinity;
 
-        // And the loop still works on a reading that is a terrain effect.
-        aim.Observe(target + new double3(0, 20_000.0, 0), target);
+        for (int i = 0; i < 40; i++)
+        {
+            double biasAlong = Vec.Dot(aim.BiasCci, along);
+            double missAlong = 50_000.0 - PlantGain * biasAlong;
 
-        double moved = Vec.Len(aim.BiasCci);
-        Assert.InRange(moved, 1_000.0, AimCorrection.MaxMetres);
+            bestSeen = Math.Min(bestSeen, Math.Abs(missAlong));
+            aim.Observe(target + along * missAlong, target);
+        }
+
+        Assert.True(aim.Settled, "it should have noticed it was not improving");
+
+        // And it kept the best it found rather than the last thing it tried.
+        double left = Math.Abs(50_000.0 - PlantGain * Vec.Dot(aim.BiasCci, along));
+
+        Assert.True(left <= bestSeen + AimCorrection.ImprovedByMetres,
+                    $"kept an aim worth {left:F0} m against a best of {bestSeen:F0} m");
+
+        // The point of the rule: it is nowhere near the clamp it would have run to.
+        Assert.True(Vec.Len(aim.BiasCci) < AimCorrection.MaxMetres / 2.0,
+                    $"bias ran to {Vec.Len(aim.BiasCci) / 1000.0:F0} km");
     }
 
     private const double Mu = 3.986004418e14;
