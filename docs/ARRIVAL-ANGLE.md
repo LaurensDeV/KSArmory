@@ -415,3 +415,45 @@ velocity it throws away to get there.
 - **A constrained arrival is not re-checked once the arrival instant is latched.** The bound is on
   the search; the latch pins a time. How far the arrival drifts across the rest of a burn is
   bounded by how far the cutoff point moves and has not been measured.
+
+
+## Flown: the floor works and the coast correction will not fly it
+
+Two shots at `MinArrivalAngleDeg = 15`, against the same pick-up every other measurement here uses.
+
+| | miss | spread |
+| --- | --- | --- |
+| floor off | 0.38 / 0.96 / 1.47 km | 0.07 / 0.08 / 0.14 km |
+| **floor 15 deg** | **2.28 / 2.68 km** | **0.03 / 0.00 km** |
+
+**The search half works.** The shot flies the constrained arc, reports `reach Reachable`, and cuts
+off **0.01 m/s short** — the burn ends on its solution. And the group is the tightest ever measured
+here: 0.00 km of spread on the second shot, six warheads on one point, which is what a steep arrival
+is supposed to buy.
+
+**The coast half refuses.** `BusTrim` reports
+
+```
+more than a separation could have cost, 10.97 m/s left on the bus
+  -- owed 0.01 m/s at the split, 1.11 m/s on release
+```
+
+so the post-boost correction is asking for **eleven metres a second** on a bus that separated owing
+one hundredth of one. That trips `BusTrim.MaxMetresPerSecond`, the guard that exists to catch a
+runaway, and the trim declines entirely — the lateral jets added for exactly this are never fired.
+
+**What it is not.** Not authority: the jets were never asked. Not the separation: 0.01 m/s. Not the
+burn: 0.01 m/s short of its own solution.
+
+**The suspicion, unproven.** `IcbmProgram.ResolveCoastArc` re-solves through `BallisticArc.TrySolve`
+to the committed arrival and passes **no floor**, where the burn solved with one. If the constrained
+and unconstrained arcs to that same arrival differ, the coast correction is trying to fly the bus
+from the steep solution it just burned onto a shallow one, and eleven metres a second is what that
+costs. The satisfying flight times are known not to form one interval, which gives the two searches
+room to disagree.
+
+**Why it is only written down.** The floor defaults to off, so nothing shipped is affected; the fix
+is a guidance interaction rather than a constant; and the guard it trips is the one standing between
+this loop and a measured 139 m/s runaway. Widening it to admit a legitimate eleven would admit that
+too. **The next step is to establish whether the two solves actually disagree**, headlessly — solve
+one cutoff state both ways and difference the required velocities — rather than to relax anything.
