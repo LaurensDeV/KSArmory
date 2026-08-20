@@ -86,6 +86,44 @@ internal static class ReleasePointing
         return true;
     }
 
+    /// <summary>
+    /// The same turn, built from where the tube is <em>now</em> and applied to where the launcher
+    /// is <em>now</em> — rather than from a latched axis applied to the attitude it was told to
+    /// hold.
+    ///
+    /// <para><b>Two frames, and they are not the same one.</b> A latched axis and the reference it
+    /// averages to were measured at the launcher's <em>actual</em> attitude; the held command is
+    /// the attitude it was <em>asked</em> for. Rotating the second by a turn built from the first
+    /// leaves the difference between them — the vehicle's standing pointing error — in the answer,
+    /// so the fixed point of the whole sequence is one pointing error off the line rather than on
+    /// it.</para>
+    ///
+    /// <para><b>And the roll is nobody's.</b> KSA's flight computer tracks pointing only, so a
+    /// launcher's roll about its own axis is free — which carries a canted tube right round a cone
+    /// of twice the cant, at whatever rate the vehicle happens to be rolling. A latched axis is
+    /// stale the moment that starts. Rebuilding the turn from the live axis every cycle is what
+    /// closes the loop on it. <c>docs/MIRV-NEXT.md</c> item 5 has the engine's side.</para>
+    ///
+    /// <para>This is <em>not</em> the unity-gain trap <see cref="Repoint"/> warns about. That one
+    /// applies a live turn to a <em>fixed</em> attitude, which halves as the tube approaches and
+    /// settles at half the cant. Applying it to the live attitude has its fixed point exactly where
+    /// the tube lies on the line, because the turn is the identity there and nowhere else.</para>
+    ///
+    /// <para><b>Only the direction is the answer.</b> The roll is carried through so the command is
+    /// a pose at all — KSA's flight computer discards it, rebuilding the error as a pointing-only
+    /// rotation, so the commanded roll reaches nothing. That is also the whole reason this has to be
+    /// re-solved every cycle rather than latched: what the engine will not hold, it will not hold
+    /// still.</para>
+    /// </summary>
+    /// <param name="noseAxisNow">
+    /// The launcher's own axis as it is now — the mean of its live tube axes, which is what the
+    /// cants cancel to.
+    /// </param>
+    public static bool TryAimTubeFromHere(double3 tubeAxisNow, double3 noseAxisNow,
+                                          double3 referenceAxis, double3 heldRoll,
+                                          out double3 direction, out double3 roll)
+        => TryAimTube(tubeAxisNow, referenceAxis, noseAxisNow, heldRoll, out direction, out roll);
+
     /// <summary>How far a tube still is off the line, in radians.</summary>
     public static double OffReferenceRadians(double3 tubeAxisNow, double3 referenceAxis)
         => Vec.AngleBetween(tubeAxisNow, referenceAxis);

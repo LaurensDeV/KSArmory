@@ -222,16 +222,17 @@ sweep never came under 0.08 m/s against a 0.05 gate, every release was a timeout
 three minutes. Against 1.7-0.3 km on the same shot without it. So `RepointBetweenReleases` defaults
 **off**, and the ~1 km spread in the current group is the cant it would have removed.
 
-**The command is exonerated, by reading rather than by flying.** `held` is genuinely frozen —
-`IcbmProgram._thrustDirCci` is latched at the burn, `Coasting()` returns it unchanged, and nothing
-feeds `_deploy` back into it. The sense of the rotation is right: `Repoint(a,R)*a == R` is pinned,
-and `VehicleCommand.TryAim` builds the attitude purely from cross products of `(direction, roll)`,
-so it is equivariant under any proper rotation applied to both — rotating the command by `turn`
-rotates the body by `turn`. Since `TryAim` demonstrably works during boost, it cannot be inverted
-here. The latched-axis-to-command, live-axis-to-error pairing is also correct.
+**The command's arithmetic is sound and its *frame* was not**, which took reading the engine to
+see — 5a below has it. `held` is genuinely frozen: `IcbmProgram._thrustDirCci` is latched at the
+burn, `Coasting()` returns it unchanged, and nothing feeds `_deploy` back into it. The sense of the
+rotation is right, `Repoint(a,R)*a == R` is pinned, and `VehicleCommand.TryAim` is equivariant under
+any proper rotation applied to both its directions. What was wrong is that the turn was measured at
+the launcher's *actual* attitude and applied to the attitude it was *asked* for — and KSA holds no
+roll angle at all, so a latched tube axis goes stale as the bus rolls under it. Both terms show up
+as an error that grows.
 
-**So a monotonically growing error is the vehicle, and the sequencer now says which way it is
-failing** instead of waiting out a 60 s timeout and reporting only that it gave up:
+**The sequencer says which way it is failing either way**, instead of waiting out a 60 s timeout and
+reporting only that it gave up:
 
 | what the angle does | what it means | gate |
 | --- | --- | --- |
@@ -273,6 +274,137 @@ launcher carrying nothing prices it at nothing and two canted launchers need not
 
 Headlessly the mechanism still collapses the tube-cant spread from **1,730 m to 0 m**, and is
 roll-independent.
+
+### 5a. What the engine actually does with the command — read out of the source
+
+**The "unknown" in item 5 is closed on two counts, and neither of them is the command being wrong.**
+Everything below is cited into `../ksa-game-assemblies/current/src/KSA/KSA`; none of it is flown.
+
+#### The control law
+
+`VehicleCommand.TryAim` sets `AttitudeMode = Auto`, `AttitudeTrackTarget = Custom`,
+`AttitudeFrame = EclBody`. That routes to `FlightComputer.UpdateAttitudeTarget`
+(`FlightComputer.cs:924-932`), which turns the Euler triple back into `AttitudeTarget.Target2Cci`
+and sets `AttitudeTarget.RatesCci` from the frame — zero for `EclBody`
+(`VehicleReferenceFrameEx.cs:61`), which is why the mod picked that frame.
+
+The error is built in `UpdateAttitudeTrackError` (`FlightComputer.cs:1160-1209`) and consumed by
+`ComputeRcsTrackControl` → `ComputeRcsTrackAxis` (`:1285-1400`), which is a **per-axis bang-bang
+phase-plane tracker**: three switching lines (`EvaluateTargetLine`, `EvaluateUpperSwitchingLine`,
+`EvaluateLowerSwitchingLine`, `:1431-1512`) and a latched `DeadbandState` per axis. It runs once per
+sim step per vehicle from `PhysicsBubble` (`PhysicsBubble.cs:892`, `:1386`);
+`MaxFlightComputerRate` (default **10 Hz**, `GameSettings.cs:983`) only schedules *extra* intra-step
+recomputes and can never make it faster than the frame rate.
+
+There is **no convergence or settling test anywhere in the engine**. The only reader of
+`ErrorAngles` outside the loop is the auto-burn ignition gate (`FlightComputer.cs:356-359`), and
+`PhysicsBubble` tests wake and on-rails rather than attitude. So nothing refuses a command for being
+small; it is simply not acted on.
+
+#### Why six degrees is not special in the law, and is on this vehicle
+
+The tracker's dead zone is not `AngleDeadband`. It is
+
+```
+band = 0.5 * AngleDeadband + AngleTurnaround
+```
+
+(`ComputeRcsTrackAxis`, `FlightComputer.cs:1370`; the same offset shifts every switching line).
+Inside it the target rate is a flat `±0.5 * RateDeadband` — a crawl, not a null — and the state
+machine latches `Inside` and stops firing. And `AngleTurnaround` is floored at **ten times**
+`RateDeadband` (`:1079-1083`), where `RateDeadband == RateBit` exactly in `EclBody` and
+
+```
+RateBit = MinRotationalImpulse / inertia            (FlightComputer.cs:1052)
+MinRotationalImpulse = Σ MinimumPulseTime · torque  over the jets on that axis
+                                                   (ThrusterController.cs:213-248)
+```
+
+So the pointing band is about **ten seconds of one minimum thruster pulse**, and it scales as
+`1/inertia`. Dropping the spent stack is precisely what collapses the inertia, so **separation
+widens the engine's own pointing deadband by the mass ratio** — the deadband is a property of the
+vehicle, and the vehicle changed. Core's RCS thrusters declare `MinimumPulseTime = 0.00545 s`
+(`Content/Core/CorePropulsionBGameData.xml`), which puts the band near `0.055 ×` the bus's RCS
+angular authority in rad/s²: negligible at 0.05 rad/s², about 1.6° at 0.5, and past the cant
+somewhere near 2. Which side of that the shipped bus is on has never been measured — see the probe
+below.
+
+`AngleDeadband` and `RateLimit` are also **ratcheted and never lowered** (`MaxIfRhsFinite`,
+`:1071-1076`), copied back to the main-thread computer and persisted into the save; only an explicit
+attitude-profile change resets them (`:1647-1651`). They are the smaller term, but they do not come
+back down after a separation has inflated them.
+
+#### What separation changes
+
+- **Authority is re-derived correctly.** `ThrusterControllerGlobalState.IsCacheValid` keys on mass
+  and centre of mass (`ThrusterControllerGlobalState.cs:51-72`), both of which move a lot at a split,
+  and `FlightComputer.ReadUpdatedVehicleConfiguration` is called on both halves inside the same
+  `Program.PrepareFrame` (`Vehicle.cs:1457`, `:1406`, `InputEvents.cs:993`). Nothing here is stale.
+- **The split-off half gets a brand-new `FlightComputer`** (`Vehicle.cs:1329`) — `AttitudeMode` back
+  to `Manual`, no target, deadbands back to Balanced. That costs this mod nothing: `AttitudeHook`
+  rewrites the whole command every frame, and `Rehome` follows the launcher onto whichever half it
+  went to.
+- **`ControlPart` can end up null**, and then `Ctrl2Body` falls back to `Identity`
+  (`Vehicle.cs:574`, `ValidateControlPart` at `:2047-2053`): the retained half drops it if the
+  control part left, and the split-off half is never given one. Nothing re-elects a replacement. The
+  probe reports it, because it silently redefines which body axis the engine calls the nose.
+- **What does not change** is the inertia's effect above, which is the whole of it.
+
+#### The real defect was on this side of the line, and it is fixed
+
+**The turn was built in one frame and applied to another.** `Begin` latches the tube axes and the
+reference at the launcher's *actual* attitude; the command was `turn · held`, where `held` is the
+attitude the vehicle was *asked* for. Those differ by whatever the flight computer's deadband is
+leaving on the vehicle, and that difference passes straight through into where the tube ends up —
+the fixed point of the sequence is one pointing error off the line rather than on it.
+
+**And KSA holds no roll angle at all in this mode.** `RollMode` defaults to `Decoupled`
+(`FlightComputer.cs:48`), and `UpdateAttitudeTrackError` then rebuilds the error as a *pointing-only*
+rotation about `cross(bodyX, targetX)` and leaves `ErrorAngles.X` at zero (`:1165-1180`,
+`:1192-1204`). Roll *rate* is damped to about the rate deadband; roll *angle* is nobody's. So a
+canted tube walks round a cone of twice the cant at whatever the residual roll rate is, and a latched
+axis is stale within seconds. The flown 0.08 m/s sweep at the tube is of order 1.8 °/s of body rate,
+which walks a tube from 6° off the line to 10° in the seconds the flight measured — **that is the
+5.9° → 10.3° climb**, and it is not the vehicle refusing the command.
+
+`ReleasePointing.TryAimTubeFromHere` rebuilds the turn from the **live** tube axis and applies it to
+the **live** launcher axis, so the fixed point is the tube on the line and nothing else.
+`ReleaseFrameTests` holds it, and fails against the latched form by exactly the pointing error
+(3° → 3.0° off, 9° → 9.0°) and, under a free roll, by **12.0°** — twice the cant, which is the whole
+cone. The latched form stays as the fallback for a part tree that will not say where it is pointing.
+
+Only the *direction* is the answer: the roll is carried through so the command is a pose at all, and
+the engine discards it.
+
+#### The other three questions
+
+- **A better command?** No. `AttitudeTrackTarget.None` is a rate command through
+  `UpdateAttitudeRateError` and `ComputeRcsRateControl` (`:1313-1341`), which will not act below
+  `0.75 · RateDeadband` — the same quantum, one derivative down. The direct rotation flags are
+  cleared by `WithNoRotation()` while `AttitudeMode == Auto` (`:544-552`), so driving the jets by
+  hand means taking the attitude to `Manual` and writing a control loop against an actuator that
+  answers a frame late. TVC has a continuous proportional law with no deadband
+  (`ComputeTvcControlAxis`, `:706-737`) and needs the engine lit, which a coast does not have.
+  Setting the target once rather than every frame is not an option either: `PrepareWorker` is the
+  only window in which the write survives, so it has to be re-made every frame regardless.
+- **Coupling the roll** is the one thing that would let the axes be latched again.
+  `FlightComputerRollMode.Up` makes the engine track the full attitude — but it clocks roll to the
+  planet (`-atan2(-z.Y, z.Z)`, `:1195`), which is exactly the reference `Sim/AimFrame.cs` exists to
+  avoid because it reverses when the nose points at or away from the planet, and its authority only
+  fades in inside 15° of pointing (`:1196-1203`). Not built, and not worth building on a guess.
+- **Releasing without waiting to settle** does not win. A release costs
+  `sweep + 2·v_eject·sin(θ/2)` at the tube whatever the vehicle is doing, and the sweep under a
+  constant residual rate is a floor rather than a transient — item 5b's arithmetic, which does not
+  change here. What waiting buys is the *cant* term coming down, and only if the vehicle turns at
+  all. On the flown numbers the cant is worth 0.209 m/s and the sweep floor 0.08, so a turn that
+  works is worth roughly 0.9 km of spread and one that does not is worth nothing. There is no
+  version of "release early" that recovers any of it.
+
+#### What is shipped, and what still has to be flown
+
+The re-point stays **off**, and what changed is the command it issues when it is switched on. That
+much is arithmetic and is held headlessly; whether the bus will then *follow* a six-degree command is
+the pointing band above, and nothing here measures it.
 
 ## 5b. Firing each tube on its own crossing — tried on paper, does not win
 
@@ -356,8 +488,9 @@ says the moment one exists this is worth about 2.3 km of spread. `PerTubeTrimTes
 can be re-priced against a different cant, ejection speed or trajectory without redoing any of
 this.
 
-**So item 5 is still the answer to the cant**, and its open question is unchanged: why a separated
-bus does not hold a six-degree command.
+**So item 5 is still the answer to the cant.** Its open question — why a separated bus does not hold
+a six-degree command — is answered in 5a as far as reading can take it, and what is left is one
+number the probe there prints in flight.
 
 ## 6. Point the bus at the target on release — cosmetic, do it last
 

@@ -34,8 +34,9 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
 
     private static ReleaseSituation At(int tube, double3 axisNow, double sweep,
                                    double windowSeconds = double.PositiveInfinity,
-                                   int tubesLeft = 6)
+                                   int tubesLeft = 6, double3 noseNow = default)
         => new(ReadyToDeploy: true, NextTube: tube, TubesLeft: tubesLeft, NextTubeAxisCci: axisNow,
+               NoseAxisCci: noseNow,
                EjectionMetresPerSecond: Ejection, SweepMetresPerSecond: sweep, SecondsLeftToDeploy: windowSeconds,
                HeldDirectionCci: new double3(1, 0, 0), HeldRollCci: new double3(0, 0, 1));
 

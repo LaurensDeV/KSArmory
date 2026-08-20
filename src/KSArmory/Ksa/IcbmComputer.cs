@@ -1080,9 +1080,24 @@ internal sealed class IcbmComputer
         }
 
         double3 nextAxis = Vec.Zero;
-        if (next >= 0 && Parent is { } body && weapon.TubeAxesEcl(_tubeAxes) > next)
+        double3 noseAxis = Vec.Zero;
+
+        if (next >= 0 && Parent is { } body)
         {
-            nextAxis = _tubeAxes[next].Transform(body.GetCce2Cci());
+            int live = weapon.TubeAxesEcl(_tubeAxes);
+
+            if (live > next)
+            {
+                doubleQuat cce2Cci = body.GetCce2Cci();
+                for (int i = 0; i < live; i++) _tubeAxes[i] = _tubeAxes[i].Transform(cce2Cci);
+
+                nextAxis = _tubeAxes[next];
+
+                // The launcher's own axis, read the same way the reference was: the cants cancel in
+                // the mean. It is what the turn is applied to, so it has to be measured now rather
+                // than taken from the attitude the vehicle was asked for.
+                noseAxis = ReleasePointing.ReferenceAxis(_tubeAxes.AsSpan(0, live));
+            }
         }
 
         // How long the release window has left, from the descent rather than from the arrival: it
@@ -1094,7 +1109,7 @@ internal sealed class IcbmComputer
 
         return _sequence.Update(simStep, new ReleaseSituation(
             ReadyToDeploy: true, NextTube: next, TubesLeft: Math.Max(1, weapon.TubesReadyToFire),
-            NextTubeAxisCci: nextAxis, SweepMetresPerSecond: _tubeSpinSpeed,
+            NextTubeAxisCci: nextAxis, NoseAxisCci: noseAxis, SweepMetresPerSecond: _tubeSpinSpeed,
 
             // Off the munition rather than assumed: it is what turns a tube's cant into the lateral
             // velocity the release is budgeted in, and it belongs to the round rather than to the
