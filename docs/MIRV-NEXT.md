@@ -253,6 +253,48 @@ reference is measured from wherever the bus holds, so the geometry and the predi
 that error lands on, and nothing compensates post-cutoff. After item 1 the error is small enough
 that the attitude stops mattering and this becomes free.
 
+## 7. The aim correction is marginally stable, and that is the open one
+
+Found by flying the scenario, which is what it is for. On a near-orbital pickup aimed 3,459 km
+downrange the correction walked past its own best and kept going while the miss grew:
+
+```
+bias   0.0 km  miss  55.1 km
+bias  76.9 km  miss  43.7 km   <- best
+bias  98.7 km  miss  44.7 km
+bias 172.0 km  miss  65.2 km
+bias 300.0 km  miss 209.2 km   <- pinned at the limit
+```
+
+**The gain is right for one plant and not the other.** While the solver may pick its own flight
+time, moving the aim moves the impact by about as much again and a half is stable — that is the
+case `AimCorrectionTests` covers and it converges in a dozen cycles. Once the guidance latches the
+arrival, the same aim change forces a different trajectory to arrive at the same *instant*, and on a
+shallow arrival that amplifies the response past where a half holds.
+
+Keeping the best and stopping when it cannot be improved took the shot from **226 km to 63 km**, and
+that is in. What it does not do is find the good answer:
+
+| | bias | miss |
+| --- | --- | --- |
+| clamp at 300 km, no guard | 300 (pinned) | 226 km |
+| clamp at 300 km, guard | 77 (its best) | 63 km |
+| clamp at 2,000 km as a probe | **29** | **0.06 km** |
+
+The probe is the interesting row: the loop *can* reach a 29 km bias and a converged shot at the same
+gain. So the miss-against-bias curve is not monotonic — there is a hump between 0 and 29, and a
+guard patient enough to cross it is also patient enough to let a real divergence run. Two runs from
+the identical save took different paths, so it is timing-dependent rather than structural.
+
+**Three candidates, none tested:**
+
+- **A lower gain.** Principled for a marginally stable loop, and the flight has 922 observations
+  against the dozen the tests use — but four tests encode a convergence rate chosen for a half, and
+  changing them to suit a tuning change wants better evidence than one run.
+- **Not latching the arrival until the correction has settled.** This addresses the cause rather
+  than the symptom: the plant only changes because the arrival is pinned first.
+- **A guard on the trend rather than the value**, so a hump is crossed and a divergence is not.
+
 ## Smaller things
 
 - **The load-frame warning** and **the `OpticalHeads` stranding bug** are both fixed and unflown;
