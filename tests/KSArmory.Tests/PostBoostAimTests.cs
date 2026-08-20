@@ -1,3 +1,4 @@
+using Brutal.Numerics;
 using Xunit;
 
 namespace KSArmory.Tests;
@@ -13,13 +14,40 @@ public class PostBoostAimTests
 {
     private const double Step = 0.5;
 
+    /// <summary>A nose that is not moving, which is the only kind a reading may be taken off.</summary>
+    private static readonly double3 Held = new(1, 0, 0);
+
+    /// <summary>
+    /// The sequencer with the bus holding still and the tank untouched, so a test says which of the
+    /// gates it is about by naming only that one.
+    /// </summary>
+    private static PostBoostSituation Bus(bool trimSettled, double missMetres,
+                                          bool aimHasSettled = false,
+                                          double3? directionCci = null)
+        => new(trimSettled, directionCci ?? Held, missMetres, aimHasSettled);
+
+    /// <summary>
+    /// Hold the bus still long enough for the settle gate to open, taking no reading on the way.
+    ///
+    /// <para>Every rule below this one is about what happens once a reading may be taken, so a test
+    /// that did not do this would be measuring <see cref="PostBoostAim.SteadySeconds"/> instead of
+    /// the rule it names.</para>
+    /// </summary>
+    private static void Settle(PostBoostAim aim, double3? directionCci = null)
+    {
+        for (double t = 0.0; t <= PostBoostAim.SteadySeconds; t += Step)
+        {
+            aim.Update(Step, Bus(true, double.NaN, directionCci: directionCci));
+        }
+    }
+
     /// <summary>Nothing may be read off a vehicle its own thrusters are still moving.</summary>
     [Fact]
     public void NoMeasurementIsTakenWhileTheTrimIsFiring()
     {
         var aim = new PostBoostAim();
 
-        PostBoostAim.Decision d = aim.Update(Step, trimSettled: false, 50_000.0, aimHasSettled: false);
+        PostBoostAim.Decision d = aim.Update(Step, Bus(trimSettled: false, 50_000.0));
 
         Assert.False(d.MayMeasure);
         Assert.False(d.MayRelease);
@@ -30,7 +58,8 @@ public class PostBoostAimTests
     {
         var aim = new PostBoostAim();
 
-        Assert.True(aim.Update(Step, true, double.NaN, false).MayMeasure);
+        Settle(aim);
+        Assert.True(aim.Update(Step, Bus(true, double.NaN)).MayMeasure);
     }
 
     /// <summary>
@@ -44,7 +73,9 @@ public class PostBoostAimTests
         double cannotPayBack =
             0.5 * PostBoostAim.FirstCycleSeconds * PostBoostAim.HoldingCostsMetresPerSecond;
 
-        PostBoostAim.Decision d = aim.Update(Step, true, cannotPayBack, false);
+        Settle(aim);
+
+        PostBoostAim.Decision d = aim.Update(Step, Bus(true, cannotPayBack));
 
         Assert.True(d.MayRelease);
         Assert.Equal(0, aim.Cycles);
@@ -58,7 +89,9 @@ public class PostBoostAimTests
         double paysBack =
             4.0 * PostBoostAim.FirstCycleSeconds * PostBoostAim.HoldingCostsMetresPerSecond;
 
-        PostBoostAim.Decision d = aim.Update(Step, true, paysBack, false);
+        Settle(aim);
+
+        PostBoostAim.Decision d = aim.Update(Step, Bus(true, paysBack));
 
         Assert.True(d.MayMeasure);
         Assert.False(d.MayRelease);
@@ -75,7 +108,9 @@ public class PostBoostAimTests
         var aim = new PostBoostAim();
         double large = 100_000.0;
 
-        PostBoostAim.Decision d = aim.Update(Step, true, large, aimHasSettled: true);
+        Settle(aim);
+
+        PostBoostAim.Decision d = aim.Update(Step, Bus(true, large, aimHasSettled: true));
 
         Assert.True(d.MayRelease);
         Assert.Equal(0, aim.Cycles);
@@ -96,7 +131,7 @@ public class PostBoostAimTests
         for (double t = 0.0; t < PostBoostAim.MaxSeconds * 3.0 && !released; t += Step)
         {
             // Settling and measuring alternate, which is the shape that would otherwise never end.
-            released = aim.Update(Step, trimSettled: true, huge, false).MayRelease;
+            released = aim.Update(Step, Bus(trimSettled: true, huge)).MayRelease;
         }
 
         Assert.True(released);
@@ -108,10 +143,11 @@ public class PostBoostAimTests
     public void ReleasingIsFinal()
     {
         var aim = new PostBoostAim();
-        aim.Update(Step, true, 1.0, aimHasSettled: true);
+        Settle(aim);
+        aim.Update(Step, Bus(true, 1.0, aimHasSettled: true));
 
-        Assert.True(aim.Update(Step, false, 500_000.0, false).MayRelease);
-        Assert.False(aim.Update(Step, true, 500_000.0, false).MayMeasure);
+        Assert.True(aim.Update(Step, Bus(false, 500_000.0)).MayRelease);
+        Assert.False(aim.Update(Step, Bus(true, 500_000.0)).MayMeasure);
     }
 
     /// <summary>
@@ -125,8 +161,140 @@ public class PostBoostAimTests
 
         for (double t = 0.0; t < PostBoostAim.MaxSeconds * 2.0; t += Step)
         {
-            bool release = aim.Update(Step, t % 2.0 < 1.0, 80_000.0, false).MayRelease;
+            bool release = aim.Update(Step, Bus(t % 2.0 < 1.0, 80_000.0)).MayRelease;
             Assert.NotEqual(release, aim.Correcting);
         }
+    }
+
+    // ------------------------------------------------- the nose the reading is taken through
+
+    /// <summary>
+    /// The prediction the correction reads adds the ejection kick along the bus's nose, so a nose
+    /// that is turning is a moving instrument and nothing may be read off it.
+    ///
+    /// <para>Measured on the 3,459 km shot: 14-22 m of predicted impact per degree the kick turns
+    /// near the nose, and 16.0 km of swing available at a full turn - against 0.17 km the trim can
+    /// leave behind at a reading the gate admits.</para>
+    /// </summary>
+    [Fact]
+    public void NoMeasurementIsTakenOffANoseThatIsStillTurning()
+    {
+        var aim = new PostBoostAim();
+
+        // Well outside the band every step, which is a bus tumbling rather than one settling.
+        for (double t = 0.0; t < PostBoostAim.SteadySeconds * 4.0; t += Step)
+        {
+            double turn = t * 20.0 * Math.PI / 180.0;
+
+            PostBoostAim.Decision d = aim.Update(Step, Bus(
+                trimSettled: true, 50_000.0,
+                directionCci: new double3(Math.Cos(turn), Math.Sin(turn), 0)));
+
+            Assert.False(d.MayMeasure);
+        }
+
+        Assert.Equal(0, aim.Cycles);
+    }
+
+    /// <summary>
+    /// And it gives up rather than waiting the tumble out. Holding costs
+    /// <see cref="PostBoostAim.HoldingCostsMetresPerSecond"/> a second and a bus that will not
+    /// settle has nothing to hand over at the end of the wait — a separated one is measured in
+    /// flight with a 22.11 deg pointing band and free roll angle.
+    /// </summary>
+    [Fact]
+    public void ABusThatWillNotHoldStillStopsCorrectingRatherThanWaitingItOut()
+    {
+        var aim = new PostBoostAim();
+        double elapsed = 0.0;
+        PostBoostAim.Decision d = default;
+
+        for (; elapsed < PostBoostAim.MaxSeconds && !d.MayRelease; elapsed += Step)
+        {
+            double turn = elapsed * 20.0 * Math.PI / 180.0;
+
+            d = aim.Update(Step, Bus(
+                trimSettled: true, 50_000.0,
+                directionCci: new double3(Math.Cos(turn), Math.Sin(turn), 0)));
+        }
+
+        Assert.True(d.MayRelease, "a tumbling bus held its warheads for the whole backstop");
+
+        // Which rule stopped it is the point: releasing because the readings happened to stop
+        // improving is releasing on readings that never meant anything.
+        Assert.Contains("holding still", d.Said);
+        Assert.True(elapsed <= PostBoostAim.SettlesWithinSeconds + PostBoostAim.SteadySeconds + Step,
+                    $"gave up after {elapsed:F1} s, which is more than the "
+                    + $"{PostBoostAim.SettlesWithinSeconds:F0} s it is allowed to wait");
+        Assert.Equal(0, aim.Cycles);
+    }
+
+    /// <summary>
+    /// A nose drifting slowly enough to stay inside the band is steady, whatever the frame rate —
+    /// the gate is an angle across a window and not a per-frame rate, so the frame pacing cannot
+    /// decide the answer. KSA's step alternates 8.33 / 25.0 ms on a 120 Hz screen at a nominal 60.
+    /// </summary>
+    [Theory]
+    [InlineData(0.00833)]
+    [InlineData(0.025)]
+    [InlineData(0.5)]
+    public void TheSettleGateReadsTheSameWhateverTheFrameItIsSampledOn(double step)
+    {
+        var aim = new PostBoostAim();
+
+        // Half the band per window: inside it, and moving the whole time.
+        double ratePerSecond = 0.5 * PostBoostAim.SteadyWithinDegrees / PostBoostAim.SteadySeconds;
+
+        for (double t = 0.0; t < PostBoostAim.SteadySeconds * 2.0; t += step)
+        {
+            double turn = t * ratePerSecond * Math.PI / 180.0;
+
+            aim.Update(step, Bus(trimSettled: true, double.NaN,
+                                 directionCci: new double3(Math.Cos(turn), Math.Sin(turn), 0)));
+        }
+
+        Assert.True(aim.Steady, $"a drift of {ratePerSecond:F2} deg/s read as unsteady at a "
+                                + $"{step * 1000.0:F1} ms step");
+    }
+
+    /// <summary>
+    /// The differencing is the measurement, so it has to be invariant under a rotation applied to
+    /// every sample — the same test <c>docs/FRAMES-AND-EPOCHS.md</c> asks of anything that
+    /// subtracts two frame-carrying terms.
+    /// </summary>
+    [Fact]
+    public void WhatCountsAsSteadyDoesNotDependOnTheFrameTheDirectionsAreExpressedIn()
+    {
+        doubleQuat turned = doubleQuat.CreateFromAxisAngle(Vec.Unit(new double3(0.3, -0.8, 0.5)), 1.1);
+
+        double rate = 0.5 * PostBoostAim.SteadyWithinDegrees / PostBoostAim.SteadySeconds;
+
+        var plain = new PostBoostAim();
+        var rotated = new PostBoostAim();
+        bool everSteady = false;
+
+        for (double t = 0.0; t < PostBoostAim.SteadySeconds * 6.0; t += Step)
+        {
+            double a = t * rate * Math.PI / 180.0;
+            double3 nose = new(Math.Cos(a), Math.Sin(a), 0);
+
+            plain.Update(Step, Bus(true, double.NaN, directionCci: nose));
+            rotated.Update(Step, Bus(true, double.NaN, directionCci: turned * nose));
+
+            Assert.Equal(plain.Steady, rotated.Steady);
+            everSteady |= plain.Steady;
+        }
+
+        // Otherwise two sequencers that both never settle would agree about nothing.
+        Assert.True(everSteady, "neither read steady, so the agreement proved nothing");
+    }
+
+    /// <summary>A bus with no modelled kick has no turning instrument, so nothing is waited on.</summary>
+    [Fact]
+    public void ALauncherThatThrowsNothingIsSteadyRatherThanNeverReady()
+    {
+        var aim = new PostBoostAim();
+
+        Assert.True(aim.Update(Step, Bus(true, double.NaN, directionCci: Vec.Zero)).MayMeasure);
     }
 }

@@ -687,14 +687,21 @@ internal sealed class IcbmComputer
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
-        // The post-boost passes. With the thrusters quiet the correction gets a clean look at where
-        // the bus is actually going; moving the aim and re-solving the arc from here gives the trim
-        // something new to null onto, and the trim is the only thing left aboard that can still move
-        // the impact. A trim that has given up ends it, because further passes have no actuator.
+        // The post-boost passes. With the thrusters quiet and the nose steady the correction gets a
+        // clean look at where the bus is actually going; moving the aim and re-solving the arc from
+        // here gives the trim something new to null onto, and the trim is the only thing left
+        // aboard that can still move the impact. A trim that has given up ends it, because further
+        // passes have no actuator.
+        //
+        // The same call ReleaseImpulseCci() feeds the prediction, so what the sequencer watches for
+        // steadiness is the term that actually moves the reading rather than a proxy for it.
         int passesBefore = _postBoost.Cycles;
 
-        PostBoostAim.Decision pass =
-            _postBoost.Update(simStep, _trim.Done, _freshMiss, _aim.Settled || _trim.GaveUp);
+        PostBoostAim.Decision pass = _postBoost.Update(simStep, new PostBoostSituation(
+            TrimSettled: _trim.Done,
+            ReleaseDirectionCci: ReleaseImpulseCci(),
+            PredictedMissMetres: _freshMiss,
+            AimHasSettled: _aim.Settled || _trim.GaveUp));
 
         if (pass.MayMeasure) _measureDue = true;
 
