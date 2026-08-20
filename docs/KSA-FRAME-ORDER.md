@@ -261,6 +261,25 @@ bubble-origin difference and never a timing one, and no amount of re-phasing wil
 
 ---
 
+## 5. The one live claim the source contradicts — and the flight that refused the fix
+
+> **Flown, and it lost.** The correction below was applied to all three force samples — gravity, the
+> air's motion and the once-a-frame density — as `GravityIntoFrame`/`GroundVelocityIntoFrame` called
+> with `-dt`. Three flights: **2.80, 3.50, 3.74 km** of miss against a six-flight baseline of
+> 0.65-2.07 km (mean 1.39). No overlap. Reverted.
+>
+> The epoch analysis below is confirmed from source and is not what failed. What failed is the
+> assumption that closing the gap by moving the *sample point* is therefore right. For **density**
+> it is — the same correction is worth 4.4 km there, because altitude is a scalar and the error is
+> genuinely in it. For **gravity** it is not: shifting where the field is read translates the whole
+> field, so the round is pulled toward a centre displaced from the one the ground test uses, and
+> over a 400-second arc that integrates into more error than it removes.
+>
+> So the rule is narrower than it looks. **A phase correction is right for a term read *at* a
+> position and wrong for a term that *is* a field about a body.** The remaining honest form would
+> re-read gravity at the round's own sub-step position against an unshifted centre — which is a
+> different change, priced at 284 m in `docs/MIRV-NEXT.md`, and not this one.
+
 ## 5. The one live claim the source contradicts — read this one
 
 **`WeaponSystem.UpdateRounds` says the round and the celestial it is differenced against are
