@@ -44,7 +44,7 @@ internal sealed class BallisticScenario
     /// far shorter step than that, and the policy slows the world for it and gives this back
     /// afterwards.</para>
     /// </summary>
-    public const double WarpFactor = 8.0;
+    public const double WarpFactor = 1.0;
 
     /// <summary>
     /// How long after the last release, in simulated seconds, before a salvo is called finished.

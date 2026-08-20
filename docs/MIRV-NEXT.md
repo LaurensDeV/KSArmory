@@ -463,7 +463,10 @@ That is 7c.
 
 **`TerrainRadiusAt` had the same fault**, reading the height field in the frame of now for a point
 un-carried to the cutoff epoch — so the arrival was flown against ground a whole burn's rotation
-away. Flown: **5.35 km mean -> 4.85 km**.
+away. Flown at 4.85 km mean against 5.35 before it, **which is inside the noise**: the harness was
+not yet controlled (see below) and repeat runs on one build vary by about half a kilometre. The
+change is right for the same reason the one above it is; the flight neither confirms nor refutes its
+size.
 
 ## 7c. The stopping rule could not cross a hump — fixed, unflown
 
@@ -533,6 +536,21 @@ cycle) is not visible in this rig at all. `WorseBeforeStopping` is the only one 
 three ranges bit-identical at every value swept.
 
 **Unflown.** Headless across four ranges, and no more than that.
+
+## 7d. What a flight can actually resolve
+
+Two things were being measured that belonged to the harness rather than to the mod.
+
+**The save is resumed mid-flight**, so the vehicle kept moving while the scenario found it, aimed it
+and armed it — and the state it was picked up in depended on how many frames that took. The same
+save was picked up at 415 s of flight on one build and 450 s on another, and the second is a
+worse-conditioned arc worth 164 km. Setting the shot up at `BallisticScenario.SetupSpeed` (0.01x)
+pins it: every run since reports the identical pick-up, 207 km doing 7362 m/s.
+
+**What is left is about 0.5 km**, run to run, on an identical pick-up — frame pacing during the
+flight. So a single run each way cannot resolve anything under about a kilometre, and several of the
+numbers recorded above were taken before this was known. Where a claim is inside that band it now
+says so.
 
 ## 8. The bus corrects its own aim after cutoff — flown
 
