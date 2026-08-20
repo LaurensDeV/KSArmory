@@ -338,7 +338,7 @@ reference is measured from wherever the bus holds, so the geometry and the predi
 that error lands on, and nothing compensates post-cutoff. After item 1 the error is small enough
 that the attitude stops mattering and this becomes free.
 
-## 7. The aim correction is marginally stable, and that is the open one
+## 7. The aim correction is marginally stable — retired by 7b and 7c
 
 Found by flying the scenario, which is what it is for. On a near-orbital pickup aimed 3,459 km
 downrange the correction walked past its own best and kept going while the miss grew:
@@ -419,6 +419,8 @@ outward, which cost 162 km, so the window before it is latched has to be bounded
 - **Not latching the arrival until the correction has settled.** This addresses the cause rather
   than the symptom: the plant only changes because the arrival is pinned first.
 - **A guard on the trend rather than the value**, so a hump is crossed and a divergence is not.
+  Answered by 7c, and by patience rather than by trend: the guard already keeps the best aim and
+  reverts to it, so a hump is crossed by simply allowing more cycles.
 
 ## 7b. The correction was nulling the planet's rotation — fixed, flown
 
@@ -456,13 +458,81 @@ frozen the true miss does not move at all; only the reported one does, and by ex
 `AimCorrection`'s best-tracking and measured response are still worth having, but they were treating
 a symptom.
 
-**Still open at long range.** At 7,645 km one epoch leaves 15.74 km, and it is a different limit:
-the loop moves the aim 196 km and stops on `WorseBeforeStopping` before the burn ends. That is
-headroom in the stopping rule, not the ruler.
+**The 7,645 km row is a different limit** — headroom in the stopping rule rather than the ruler.
+That is 7c.
 
 **`TerrainRadiusAt` had the same fault**, reading the height field in the frame of now for a point
 un-carried to the cutoff epoch — so the arrival was flown against ground a whole burn's rotation
 away. Flown: **5.35 km mean -> 4.85 km**.
+
+## 7c. The stopping rule could not cross a hump — fixed, unflown
+
+With the epoch fault gone, 7,645 km was the one range left at 15.74 km. The per-cycle trace says
+why, and it is not stability: the loop finds a good aim, walks past it, and is stopped three cycles
+into a patch that is **five** cycles long.
+
+```
+t       bias        predicted miss   worse
+0.00      0.00 km   173.23 km        0
+0.51     43.31 km   147.39 km        0
+1.03    190.69 km     5.79 km        0
+1.55    196.48 km     3.34 km        0   <- banked as the best
+2.07    194.36 km     5.06 km        1
+2.59    191.16 km     5.70 km        2
+3.11    187.54 km     5.89 km        3   <- WorseBeforeStopping, revert to 196.48 km
+3.63    196.48 km    15.86 km            <- the same aim, now worth five times the record
+```
+
+Let the same run continue and the patch turns over: 5.83, 3.64, 3.31, 3.10, 2.85 and on down to
+1.73 km at a 158 km bias — **1.15 km flown**, against 15.74. So the miss is not a monotonic function
+of the aim, and the best has to be walked past to reach the answer beyond it.
+
+**Stopping early is not the conservative choice.** The last two rows are the whole finding. Giving
+up is what makes `AimCorrection.IsSteady` true, which is what commits the arrival, and the aim the
+loop kept is then being judged against a different trajectory — banked at 3.34 km, reverted to, and
+worth 15.86 km one cycle later. The record it stopped for describes a plant that no longer exists,
+and nothing re-opens the loop. Waiting, by contrast, costs cycles and nothing else: the best aim is
+kept and reverted to either way, and `MaxMetres` bounds where the aim can go meanwhile.
+
+So `WorseBeforeStopping` is 12 rather than 3 — twice the measured patch, and six seconds at the
+half-second prediction interval, which leaves a real runaway back on its best well inside
+`IcbmProgram.LatchArrivalWithinSeconds`. Past that window the arrival commits whatever the aim is
+doing and the loop is frozen on it, so that is the bound at the other end. The threshold is sharp
+and the result beyond it is flat: 3, 4 and 5 leave 15.74, 18.99 and 22.36 km; 6, 8, 12, 20 and 40
+all leave 1.15 km at the same 158.1 km bias.
+
+| range | uncorrected | before | after |
+| --- | --- | --- | --- |
+| 2,000 km | 0.01 km | 0.01 km | 0.01 km |
+| 3,459 km | 19.56 km | 0.38 km | 0.38 km |
+| 5,000 km | 64.48 km | 1.16 km | 1.16 km |
+| 7,645 km | 186.13 km | **15.74 km** | **1.15 km** |
+
+`AimConvergenceTests.TheLoopWalksPastItsOwnBestToReachTheAnswerBeyondIt` is the regression, and it
+fails against the old constant on the aim the loop ends up holding rather than on the flown miss —
+that is the reading that says *why*.
+
+**Ruled out by measurement, each swept across all four ranges:**
+
+- **`ImprovedByMetres`, absolute or relative.** The excursion is 1.7 km above the banked best, far
+  outside any sane dead band. 50, 250 and 1,000 m all leave 7,645 km at 15.74 km; only 3,000 m — a
+  band the size of the whole miss — crosses it, and that costs 3,459 km 0.38 -> 1.41 km. A bar
+  relative to the best does not reach it either: five per cent of 3.34 km is 167 m, under the 250 m
+  floor.
+- **`ResponseFromMetres`.** Every step through the patch is 2.1-8.9 km, so the 500 m gate is open on
+  every cycle. 50, 500 and 5,000 m are identical at 7,645 km.
+- **`MaxResponse`.** 3, 6, 12 and 40 are identical at 7,645 km.
+- **Running out of burn.** The shot gives 75 prediction cycles and the loop used seven of them.
+
+**`MinResponse` and `Gain` do move the number, and neither is the cause.** They size the blind first
+steps, so the loop meets the curve somewhere else and lands somewhere else: `MinResponse = 0.5`
+leaves 7,645 km at 0.74 km and `Gain = 1.0` at 1.79 km. Neither is a fix. Both are one geometry's
+luck and the neighbouring values are damaging — `MinResponse = 1.5` and `Gain = 0.1` put 5,000 km at
+63.1 and 65.8 km — and the flown reason for `MinResponse = 1` (28.6 -> 192.9 km of bias in a single
+cycle) is not visible in this rig at all. `WorseBeforeStopping` is the only one that leaves the other
+three ranges bit-identical at every value swept.
+
+**Unflown.** Headless across four ranges, and no more than that.
 
 ## 8. The bus corrects its own aim after cutoff — flown
 
