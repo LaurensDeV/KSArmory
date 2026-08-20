@@ -83,21 +83,41 @@ public class SeparationClearanceTests
     }
 
     /// <summary>
-    /// The wait always ends. A stack that barely moved is a worse shot; warheads still aboard when
-    /// the release altitude closes are no shot at all.
+    /// The wait always ends — but what ends is the <em>manoeuvre</em>, not the distance.
+    ///
+    /// <para>Thrusting two metres from the stack nulls the shove that is the only thing carrying
+    /// the pair apart, so the bus drives back into what it just dropped. Releasing untrimmed costs
+    /// the kilometres the trim would have removed; hitting the stack costs the shot, so the trade
+    /// only goes one way.</para>
     /// </summary>
     [Fact]
-    public void ItGivesUpWaitingRatherThanHoldingForEver()
+    public void StillTooCloseWhenPatienceRunsOutAbandonsTheTrimRatherThanFiring()
     {
         Clearance c = SeparationClearance.Check(2.0, StageRadius, SeparationClearance.TimeoutSeconds);
 
+        Assert.False(c.IsClear);
+        Assert.True(c.Abandoned);
+
+        // And it says the distance it refused at, because that is the number that explains a salvo
+        // released without a trim.
+        Assert.Contains("2 m", c.Said);
+        Assert.Contains("without trimming", c.Said);
+    }
+
+    /// <summary>
+    /// A stage that cannot be read still goes ahead, and that asymmetry is the point: the trade
+    /// above needs a distance to make, and refusing to release on a reading nobody has holds the
+    /// warheads for ever.
+    /// </summary>
+    [Fact]
+    public void AnUnreadableStageStillGoesAheadOnTheClock()
+    {
+        Clearance c = SeparationClearance.Check(double.NaN, StageRadius,
+                                                SeparationClearance.TimeoutSeconds);
+
         Assert.True(c.IsClear);
         Assert.True(c.OnTheClock);
-
-        // And it says the distance it settled for, because that is the number that explains a
-        // salvo released closer than intended.
-        Assert.Contains("2 m", c.Said);
-        Assert.Contains("short", c.Said);
+        Assert.False(c.Abandoned);
     }
 
     /// <summary>

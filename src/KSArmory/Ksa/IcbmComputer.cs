@@ -40,6 +40,7 @@ internal sealed class IcbmComputer
     private bool _measureDue;
     private double _freshMiss = double.NaN;
     private bool _resumedForCoast;
+    private bool _trimAbandoned;
     private double _departsIn;
     private ReleaseCommand _deploy;
     private readonly double3[] _tubeAxes = new double3[64];
@@ -211,6 +212,7 @@ internal sealed class IcbmComputer
         _measureDue = false;
         _freshMiss = double.NaN;
         _resumedForCoast = false;
+        _trimAbandoned = false;
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -254,6 +256,7 @@ internal sealed class IcbmComputer
         _measureDue = false;
         _freshMiss = double.NaN;
         _resumedForCoast = false;
+        _trimAbandoned = false;
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -660,6 +663,17 @@ internal sealed class IcbmComputer
         // moment the decoupler fired — which is the only thing that separates an error the
         // separation caused from one that grew while the vehicle coasted clear of it.
         Clearance clearance = _didSplit ? Clear(simStep) : new Clearance(true, false, "");
+
+        // Given up on rather than waited out: the stack is readable and still too close, so there
+        // is no manoeuvre to make here that does not fly into it. Release proceeds untrimmed.
+        if (clearance.Abandoned)
+        {
+            _trimAbandoned = true;
+            if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+            Say(clearance.Said, "");
+            return;
+        }
+
         _mayTrim = clearance.IsClear;
 
         _trim.Begin();
@@ -1092,7 +1106,7 @@ internal sealed class IcbmComputer
         // that is what keeps the sequencer's reference honest: it latches the tube axes on the
         // first frame the launcher is both ready and settled, and a reference latched before the
         // decoupler's shove has been taken back out describes a line no warhead will leave on.
-        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy
+        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy && !_trimAbandoned
                         && (!_trim.Done || _postBoost.Correcting);
 
         if (weapon is null || !Command.ReadyToDeploy || trimming)

@@ -1,7 +1,8 @@
 namespace KSArmory;
 
 /// <summary>Whether the thing that let go has got far enough away to act, and what to say about it.</summary>
-internal readonly record struct Clearance(bool IsClear, bool OnTheClock, string Said);
+internal readonly record struct Clearance(bool IsClear, bool OnTheClock, string Said,
+                                         bool Abandoned = false);
 
 /// <summary>
 /// Whether a vehicle has coasted far enough from the stage it just dropped to start manoeuvring.
@@ -76,13 +77,25 @@ internal static class SeparationClearance
                                  + $"after {secondsSinceSplit:F0} s");
         }
 
+        // Out of patience and still visibly too close: give up the manoeuvre, not the distance.
+        // Thrusting here nulls the shove that is the only thing carrying the two apart, and the
+        // stack is a few metres away -- so the trim drives the bus back into what it just dropped.
+        // Releasing untrimmed costs the kilometres the trim would have removed; hitting the stack
+        // costs the shot. Only the *readable* case can make that trade, which is why the reading
+        // being absent still goes ahead below.
+        if (late && known && metresApart < wanted)
+        {
+            return new Clearance(false, OnTheClock: true,
+                                 $"still {metresApart:F0} m from the spent stack after "
+                                 + $"{secondsSinceSplit:F0} s, which is inside the {wanted:F0} m it "
+                                 + "needs -- releasing without trimming rather than manoeuvring into it",
+                                 Abandoned: true);
+        }
+
         if (late)
         {
             return new Clearance(true, OnTheClock: true,
-                                 known
-                                     ? $"going ahead {metresApart:F0} m from the spent stack, "
-                                       + $"which stopped {wanted:F0} m short after {secondsSinceSplit:F0} s"
-                                     : $"going ahead with no clearance reading after {secondsSinceSplit:F0} s");
+                                 $"going ahead with no clearance reading after {secondsSinceSplit:F0} s");
         }
 
         return new Clearance(false, OnTheClock: !known,
