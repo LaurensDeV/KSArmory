@@ -163,7 +163,7 @@ internal sealed class BallisticScenario
             _say("the world was paused; asked for 1x so the flight can start");
         }
 
-        string why = "nothing in the scene carries a ballistic computer";
+        List<string> why = [];
 
         foreach (IcbmComputer computer in icbms.All)
         {
@@ -176,7 +176,7 @@ internal sealed class BallisticScenario
             // looked yet" rather than "looked and the answer was no".
             if (computer.Parent is not { } parent)
             {
-                why = $"{name} has a ballistic computer that has not sampled the world yet";
+                why.Add($"{name} has not sampled the world yet");
                 continue;
             }
 
@@ -184,13 +184,13 @@ internal sealed class BallisticScenario
 
             if (battery?.Launcher is null)
             {
-                why = $"{name} has a ballistic computer but no launcher the mod recognises";
+                why.Add($"{name} carries no launcher the mod recognises");
                 continue;
             }
 
             if (battery.Ammo <= 0)
             {
-                why = $"{name}'s launcher is empty";
+                why.Add($"{name}'s launcher is empty");
                 continue;
             }
 
@@ -200,8 +200,8 @@ internal sealed class BallisticScenario
             if (!IcbmProgram.IsOnTheGround(computer.AltitudeMetres, airspeed,
                                            computer.Config.TurnStartMetres))
             {
-                why = $"{name} is at {computer.AltitudeMetres / 1000.0:F1} km doing {airspeed:F0} m/s, "
-                      + "which is not on a pad";
+                why.Add($"{name} is at {computer.AltitudeMetres / 1000.0:F1} km doing "
+                        + $"{airspeed:F0} m/s, which is not on a pad");
                 continue;
             }
 
@@ -242,9 +242,12 @@ internal sealed class BallisticScenario
         if (_sinceComplaint < 10.0) return;
         _sinceComplaint = 0.0;
 
-        // Which test failed, not that one did. A scenario nobody is watching has to say what it is
-        // waiting for or a mis-set save costs a whole timeout to learn nothing from.
-        _say($"waiting -- {why}");
+        // Every craft's verdict, not the last one looked at. A scene has several weapon-carrying
+        // craft and the interesting refusal is rarely the final one - reporting a single reason
+        // hides the launcher behind whatever happened to be iterated after it.
+        _say(why.Count > 0
+                 ? $"waiting -- {string.Join("; ", why)}"
+                 : "waiting -- nothing in the scene carries a ballistic computer");
     }
 
     // Arm, and then light the first engine once the program has a trajectory to fly.
