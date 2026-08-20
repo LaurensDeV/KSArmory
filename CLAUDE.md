@@ -1186,6 +1186,16 @@ seconds divides the miss by the same fraction. It is written against the throttl
 *reports having* rather than the one commanded, so a stack that cannot throttle gets the error it
 would have had rather than a wrong cutoff.
 
+**And a residual several times what one frame adds is not a rounding, so the throttle cannot reach
+it.** Freezing the steering leaves whatever is square to the frozen line in the residual for good,
+and `HoldDirectionBelow` is a fixed five metres a second — about ten frames at full thrust, and
+*seconds* of them once the ramp has taken the throttle down. `IcbmProgram.HoldDirectionFrames`
+counts the same limit in frames of the burn actually happening, capped by the old constant so full
+thrust behaves as before. Measured headlessly across 90 shots: mean residual 0.065 → 0.018 m/s, and
+the share square to the thrust line 71% → 6%. **A constant step cannot see it** — the fault is
+driven by the solve moving between frames, so `IcbmFlightRig.StepJitter` is the fourth thing the rig
+had to stop being better than the game at.
+
 **A crossing search that stops on the first sample past the boundary is biased, not merely
 imprecise.** `ImpactPredictor` accepted the first point below the ground, so a tolerance expressed
 as a *time step* left the answer metres deep — which at 7 km/s on a shallow arc is tens of metres
