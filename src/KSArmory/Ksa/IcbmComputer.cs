@@ -1024,7 +1024,7 @@ internal sealed class IcbmComputer
             // coarse sample is a different height field, and on a shallow arrival every metre of
             // disagreement is about eleven metres of ground. Affordable because ImpactPredictor
             // only asks near the surface.
-            double height = parent.GetTerrainHeightFromDirCcf(dirCcf, accurate: true);
+            double height = SurfaceHeight(parent, parent.GetTerrainHeightFromDirCcf(dirCcf, accurate: true));
             return double.IsFinite(height) ? parent.MeanRadius + height : Body.SurfaceRadius;
         }
         catch
@@ -1223,6 +1223,25 @@ internal sealed class IcbmComputer
 
     // How thick the air is at a point on the arc. The same field the round's own drag is read from,
     // so the prediction and the round cannot disagree about the atmosphere they are flying through.
+    // The same clamp the round's own ground test applies. A height field answers with terrain, so
+    // over an ocean it reports the seabed - and 71% of Earth is below its waterline at a mean depth
+    // of 3,776 m, which on a seven-degree arrival is about 35 km of ground. Without it the aim is
+    // placed on the bottom and the prediction agrees, so the correction converges and reports zero
+    // while the warheads splash short: the same blindness as a drag-free predictor.
+    private static double SurfaceHeight(Celestial body, double terrainHeight)
+    {
+        try
+        {
+            return body.GetOceanReference() is { } sea && sea.Density > 0.0
+                       ? GroundSurface.Height(terrainHeight, sea.Level, hasSea: true)
+                       : terrainHeight;
+        }
+        catch
+        {
+            return terrainHeight;
+        }
+    }
+
     private double DensityRatioAt(double3 pointCci)
     {
         if (Parent is not { } parent) return 0.0;
@@ -1246,7 +1265,7 @@ internal sealed class IcbmComputer
     private static double3 SurfacePointEcl(Celestial body, double latitudeDeg, double longitudeDeg)
     {
         double3 dirCcf = body.GetDirCcfFromLatLon(latitudeDeg, longitudeDeg);
-        double height = body.GetTerrainHeightFromDirCcf(dirCcf, accurate: true);
+        double height = SurfaceHeight(body, body.GetTerrainHeightFromDirCcf(dirCcf, accurate: true));
         return dirCcf.Transform(body.GetCcf2Cce()) * (body.MeanRadius + height) + body.GetPositionEcl();
     }
 
