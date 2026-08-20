@@ -837,6 +837,21 @@ item 9 has what the cant is worth on each.
 
 ## 8b. The correction was reading a moving instrument — apportioned, fixed, unflown
 
+> **Flown, and it does all three things it was built for.** Three shots at 3,459 km against three
+> without it:
+>
+> | | without | with |
+> | --- | --- | --- |
+> | group miss | 0.45 / 0.59 / **6.85** km | 0.63 / 0.70 / **1.18** km |
+> | frames with thrusters firing | 1,943 | **959** |
+> | correction passes | 12 | **4** |
+>
+> The best case is slightly worse and the **worst case is 5.8x better**, which is the trade: a
+> reading taken off a turning nose is what put the 6.85 there, and refusing those costs a little
+> convergence. The passes now read 2.0, 2.0, 1.0, 0.3 km and stop — monotonic, where before they
+> converged by pass 5 and then wandered inside 0.1-0.5 km for seven more. Half the propellant, and
+> the tank is no longer the thing at risk.
+
 **Flown symptom.** With the aim frozen at a constant 102.2 km of bias, the logged predicted miss
 swung smoothly from 3.2 km up to 14.0 km and back down to 2.2 km. The correction did nothing during
 that excursion. Two candidates, and a live log cannot separate them: the trim firing one direction
