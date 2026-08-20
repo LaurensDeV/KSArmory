@@ -64,10 +64,11 @@ uniform. On Earth (`MeanRadius` 6,371 km, 4096 texels across a face):
 | face corner | **1,466 m** |
 
 So the *base* field is a 1.5–3.1 km grid. Everything finer than that on Earth comes from the
-procedural modifiers, which are evaluated analytically and have no resolution limit. Order of
-magnitude for the finest of them: erosion's seventh octave runs at 150 × 4 × 2⁶ cycles across the
-unit direction with the amplitude halved six times, which is a wavelength of roughly 170 m at
-about 16 m.
+procedural modifiers — which are analytic, but **not** unlimited in resolution: they are evaluated
+on a direction packed to `float3`, which is a floor of about a third of a metre of ground. See
+[The modifiers run in single precision](#the-modifiers-run-in-single-precision) for that and
+[Where the detail actually comes from](#where-the-detail-actually-comes-from) for what fills the
+scales in between.
 
 ### Quantisation
 
@@ -75,6 +76,52 @@ about 16 m.
 answer this field can give, and at a six-degree arrival it is **3.40 m of ground** —
 `SurfaceAgreementTests.TheHeightFieldsOwnQuantumIsMetresOfGroundAndNoMore`. The procedural
 modifiers are continuous and add on top, so the *returned* height is not quantised; the base term is.
+
+### The modifiers run in single precision
+
+**The base bicubic is `double` end to end; the procedural stack on top of it is not.** On a body with
+a normal cubemap *and* biome materials — Earth has both — `GetTerrainHeightFromDirCcf` packs the
+direction down before the modifier loop:
+
+```csharp
+float3 float6 = float3.Pack(in vector);        // Celestial.cs:1637
+float heightKm = (float)num2;                  // Celestial.cs:1650
+modData = new ... { Position = float6, TextureNormal = float6, ... };
+```
+
+`float3.Pack(in double3)` defaults to a plain cast, so the direction every modifier is evaluated at
+is a single-precision unit vector. Its neighbours are `2^-24` to `2^-23` apart, which on Earth is
+**0.38 m to 0.76 m of ground**; measured by walking a great circle and counting distinct packed
+directions, the tread is **0.31 m** and the worst displacement over 20,000 random directions is
+**0.307 m** (`KineticFloorTests.TheProceduralTerrainIsEvaluatedOnAFloatDirection`).
+
+So below about a third of a metre the modifier stack answers with one value: **the surface is a
+staircase.** It is deterministic and identical for every caller, so it biases nothing — the round,
+the prediction and the aim point all read the same treads. What it does is put a floor under how
+finely the surface can be asked about at all. The base term is unaffected: `SampleHeightBicubic` is
+`double` throughout and its texel samples are exact 16-bit integers.
+
+A body with no normal map returns before any of this, in `double`.
+
+### Where the detail actually comes from
+
+Between the base grid and that staircase there are two mechanisms and one gap, all on Earth:
+
+| scale | what shapes it |
+| --- | --- |
+| coarser than **3,111 m** | the base cubemap, Catmull-Rom |
+| 3,111 m down to **166 m** | `EarthErosion` — 7 octaves, lacunarity 2, gain 0.5, sampled at `direction x 600 x 2^i`, so 10.6 km down to 166 m of wavelength at 500 m down to 7.8 m of amplitude |
+| 166 m down to **7-19 m** | the four `TilingDetail` modifiers — each a 4096-square `R16` texture whose UV is `direction x Frequency`, giving 7.4 m/texel (Alpine, f=209) to 20.5 m/texel (Desert Mountains, f=76) |
+| **10 m down to 0.38 m** | nothing: a bilinear ramp between two detail texels, which is locally a tilted plane |
+| below **0.38 m** | the float staircase above |
+
+Each erosion octave carries an undamped slope of up to **0.30** — amplitude halves as frequency
+doubles, so every octave contributes the same. What survives is that times the biome weight, times a
+gradient-falloff power of the angle between the texture and surface normals, times `1 - |dot|` of
+those two again, all near zero over flat ground. **The product is unmeasured here**; only the
+geometry is.
+
+`docs/KINETIC-FLOOR.md` has what all of this is worth to a round trying to land on a point.
 
 ### Interpolation
 

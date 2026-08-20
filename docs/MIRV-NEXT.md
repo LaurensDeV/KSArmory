@@ -946,6 +946,12 @@ twenty degrees divides the first group by eight and the second by nearly three â
 this list is touched. `docs/ARRIVAL-ANGLE.md` has what that costs and whether the guidance can be
 told to do it, which today it cannot.
 
+**And there is a floor under all of it.** `docs/KINETIC-FLOOR.md` prices what is left when every
+item above has landed: on this 7.1-degree arrival about **160 m**, dominated by the round's own 5 ms
+symplectic-Euler step at 30.6 m per millisecond, and multiplied again by a terrain gain that at
+shallow angles has no fixed point. The same budget at an 88-degree arrival is **1.2 m**. The arrival
+angle is a larger lever than anything on this list.
+
 **None of it is flown.** The rig's planet sits at the origin and carries no velocity, which is the one
 case where a frame carrier is identically zero â€” so nothing above can see an epoch fault, and item 2c
 is why that matters. And a single flight cannot resolve anything under about 0.5 km (item 7d), so the
