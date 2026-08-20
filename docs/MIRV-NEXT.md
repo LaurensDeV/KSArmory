@@ -183,7 +183,7 @@ itself and stops, and the game's only callers of `UpdateAfterPartTreeModificatio
 genuinely change a part tree. Pointing a camera at a craft changes no tree, so the call was never
 needed. It is gone, and the failure with it.
 
-## 5. Re-pointing destabilises the vehicle — off by default, instrument now sharp
+## 5. Re-pointing — on by default again, unflown
 
 **This is the finding that changes the plan.** Flown on a separated bus with the sequencer on,
 commanding six degrees away from the held line made the vehicle *hunt* rather than settle: the

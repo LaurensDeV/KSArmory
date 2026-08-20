@@ -1267,7 +1267,7 @@ The ~1 km spread in the flown group **is** the tube cant, so this is now the lar
 win. It is off by default because it made the bus hunt; the sequencer has not been made to work, it
 has been made to say which way it is failing. One flight decides where the fix goes.
 
-- [ ] Tick **Aim each tube before it fires** and fly the same shot. Read the deploy lines.
+- [ ] It is **on by default** now. Fly the shot and read the deploy lines.
 - [ ] **Which of these two appears is the whole result:**
       `tube 1 is not following the turn, X deg off the line against Y when it started` — the bus
       accepted the command and is being pushed off it, so the fix is on the craft (more RCS) or is a

@@ -73,16 +73,25 @@ internal sealed class IcbmConfig
     /// released from one attitude leave on different vectors and scatter, and there is one aim for
     /// all of them. Measured in flight at about 1,200 m across six warheads.</para>
     ///
-    /// <para><b>Off by default until the vehicle can hold the offset.</b> Flown on a separated MIRV
-    /// bus, commanding six degrees away from the held line made it hunt rather than settle: it swung
-    /// past the reference to ten degrees, never brought the tubes below 0.08 m/s of sweep against a
-    /// 0.05 gate, and every release was a timeout. The predicted miss went from 1.7-0.3 km to
-    /// 6-10 km. The hunting costs more than the cant it removes.</para>
+    /// <para><b>On, because the cant is the largest error left and what made turning cost more than
+    /// it saved has been rebuilt.</b> It was off after a flight where a separated bus hunted rather
+    /// than settled — every release a timeout, a three-minute salvo, and the miss going from
+    /// 1.7-0.3 km to 6-10 km. Three things have changed since. One tube's failure now latches for
+    /// the vehicle instead of being re-proved five times, which took that salvo from 282 s to under
+    /// 30. The release is budgeted in one currency rather than gated on an angle and a sweep
+    /// independently, so a bus that cannot hold still releases at its best rather than at a
+    /// deadline — 0.8 deg off and 0.139 m/s at the tube on the flown numbers, against 5.1 deg and
+    /// 0.291. And the give-up paths name which failure it is rather than only that there was one.
+    /// </para>
+    ///
+    /// <para>All three are measured headlessly against flown inputs rather than observed, which is
+    /// the standing doubt. If a salvo scatters, this is the switch — and the failure is a spread
+    /// group rather than a lost one, because a launcher that cannot point releases anyway.</para>
     ///
     /// <para>Free for a launcher it does not describe: a single tube is the mean of its own axes, so
     /// nothing is asked to turn.</para>
     /// </summary>
-    public bool RepointBetweenReleases;
+    public bool RepointBetweenReleases = true;
 
     /// <summary>
     /// Put the bus back on its solution with its own thrusters before letting anything go.
