@@ -445,7 +445,29 @@ runaway, and the trim declines entirely — the lateral jets added for exactly t
 **What it is not.** Not authority: the jets were never asked. Not the separation: 0.01 m/s. Not the
 burn: 0.01 m/s short of its own solution.
 
-**The suspicion, unproven.** `IcbmProgram.ResolveCoastArc` re-solves through `BallisticArc.TrySolve`
+**A better explanation, and it is not a bug.** Lambert to a fixed point and a fixed time is unique,
+so re-solving to the committed arrival should reproduce the arc the burn flew — unless the *aim* has
+moved, which during the coast is exactly what the post-boost correction does.
+
+And the cost of moving it is the whole point of flying steep, read backwards. The sensitivity table
+above says the impact moves **5,614 m per m/s at 7.5° and 686 m per m/s at 20°**; inverted, shifting
+the impact one kilometre costs **0.18 m/s shallow and 1.46 m/s steep**. Eight times dearer. The
+correction opened on about seven kilometres of error, which is a metre a second's worth of aim change
+on the arc the mod usually flies and **seven or more on a constrained one** — and the rest of the
+eleven is the same factor applied to everything else it wanted.
+
+So the two properties are one property: a steep arrival is eight times less sensitive to a velocity
+error *and* eight times more expensive to correct after cutoff. The trim was sized for the shallow
+case and inherits none of the benefit.
+
+**Which points the fix somewhere else entirely.** The correction wants to happen where velocity is
+cheap, and that is *during the burn*, where an engine supplies it — not during the coast, where a
+handful of attitude jets do. The delivery on these two shots was superb (0.00 km of spread, cut off
+0.01 m/s short); what failed was applying a correction after the only cheap source of velocity had
+been switched off. Relaxing `MaxMetresPerSecond` would buy the correction at eight times the price
+while re-opening the runaway it guards.
+
+**The earlier suspicion, and why it is probably wrong.** `IcbmProgram.ResolveCoastArc` re-solves through `BallisticArc.TrySolve`
 to the committed arrival and passes **no floor**, where the burn solved with one. If the constrained
 and unconstrained arcs to that same arrival differ, the coast correction is trying to fly the bus
 from the steep solution it just burned onto a shallow one, and eleven metres a second is what that

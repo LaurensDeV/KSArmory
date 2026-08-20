@@ -40,6 +40,54 @@ Two failures on the way, both worth not repeating:
 - **Nulling the shove ends the separation**, because the shove *is* the separation velocity. The bus
   trimmed 130 ms after the split at 12 m and then sat against the booster it had just dropped.
 
+## 0. Radial translation jets — built, flown, reverted
+
+**They made the shot four times worse and were taken out again.** Seven shots with them against six
+without, same pick-up, everything else identical:
+
+| | shots | median | worst | failures |
+| --- | --- | --- | --- | --- |
+| without jets | 0.38 / 0.63 / 0.70 / 0.96 / 1.18 / 1.47 km | **0.83 km** | 1.47 km | 0 |
+| **with jets** | 0.09 / 0.41 / 0.83 / 3.26 / 4.43 / 10.60 / 18.01 km | **3.26 km** | **18.01 km** | 2 |
+
+The best single result ever measured here is in that second row — 0.09 km — which is the trap. The
+jets do work, and when the correction is good they beat anything else. What they remove is the
+*floor* under how wrong it can go.
+
+**Why more actuator was worse.** `BusTrim` used to strike lateral directions off as dead, and that
+was accidentally protective: it bounded how far the post-boost correction could move the bus,
+whatever it asked for. With the jets it follows — including onto a bad reading. And the readings are
+known not to be trustworthy yet: the modelled release direction swings the predicted impact
+8.7–12.8 km across the throw band the bus actually drifts through (item 8b), and the gate that
+refuses those readings admits fewer of them the more the trim fires, because it waits for the
+thrusters to go quiet. The last flight before the revert took **two** passes and released with 3.7 km
+still on the table.
+
+So the chain is: more authority → more trimming → fewer quiet windows → fewer passes → a correction
+that stops early, now able to act on whatever it last believed.
+
+**What would make them worth re-adding**, in order:
+
+1. **A correction worth following.** The observer gate was the first half. What it has not fixed is
+   that a bus with `control part NONE` and `roll Decoupled` inside a 22° dead zone rarely holds still
+   long enough to be measured at all. Until a reading is reliable, authority amplifies.
+2. **The steep-arrival case, which still needs them.** `docs/ARRIVAL-ANGLE.md` records a constrained
+   shot asking the trim for eleven metres a second and being refused — and that the reason is not the
+   jets but the eight-fold price of moving an aim on a steep arc. That correction wants to happen
+   during the burn, where an engine supplies velocity, not during the coast.
+3. **The mass declaration.** `<SolidSphereMass>` carries no `<LocationAsmb>`, so KSA puts all
+   6,300 kg on the mounting face while the geometry centres near X ≈ 1.4. Every lever arm on the bus
+   is set by that.
+
+Both commits and both reverts are on `dev`, so the geometry is one `git revert` away when the
+correction is ready for it.
+
+**The engine rule they established stands regardless**, and is the durable part of the work:
+`ThrusterController.ComputeControlMap` flags a nozzle for a translation on any thrust component over
+**0.5** — a 60° half cone, judged per nozzle with no reference to lever arms or to the layout as a
+whole. That is why one radial jet per cluster serves every lateral direction, and why the whole ring
+lights up for a single command.
+
 ## 1. Null the separation impulse — reformulated, unflown
 
 **The mechanism is flown and confirmed.** KSA's translation flags reach the bus's nozzles, they were
