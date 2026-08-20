@@ -671,45 +671,42 @@ A term that is constant in metres, independent of trajectory and of how well the
 per-frame rather than per-flight. That is the epoch family, and the item it turned out to be is the
 next section.
 
-## The ground a round meets travels with the planet
+## The ground a round meets, and a correction that did not survive flight
+
+**Open.** A round lands further from its own release prediction than either the flight model or the
+predictor can account for, and the obvious fix made it worse.
 
 `IGroundTest` answers with a **body centre and a surface radius**, and the round holds both for the
 frame — one terrain lookup instead of one per sub-step, which is what makes a 150-shell burst
-affordable. The centre is a sample of something moving at ~29.8 km/s in the ecliptic, and the
-round's own position carries that same motion, so a round crossing the frame against a frozen centre
-reads the carrier as a change of **altitude**: up to 500 m on a 16.7 ms frame and 1.5 km on a 50 ms
-one. On a ~5° arrival that is eleven times as much ground.
+affordable. The centre is a sample of something moving at ~29.8 km/s in the ecliptic and the round's
+own position carries that same motion, so on the face of it a round crossing the frame against a
+frozen centre reads the carrier as a change of **altitude**, which on a ~5° arrival is eleven times
+as much ground.
 
-Measured headless, flying the 2,764 km deorbit in a frame translating at 29.8 km/s and comparing
-against the same shot in a frame at rest — a Galilean translation of every input, so anything that
-moves at all is a leak:
+Headless, in a frame translating at 29.8 km/s against the same shot at rest, that reads as 850 m on
+a 16.7 ms frame and up to 10.8 km on a long one — and carrying the centre forward by the ground
+frame's velocity removes it completely, leaving the round 60 m from its own prediction instead of
+790.
 
-| carrier direction | 16.7 ms frame | 50 ms frame |
-| --- | --- | --- |
-| straight up at the impact point | 850 m | 1,027 m |
-| straight down at it | 3,462 m | 10,766 m |
-| along the ground track | 24 m | 64 m |
+**In flight it did the opposite.** The last build without the carry put six warheads 431 m – 1.4 km
+out, each within 0.3–1.2 km of its own release probe. Every build with it has been worse, and the
+cleanest of them is unambiguous: cutoff residual 0.24 m/s, bus trimmed to 0.017 m/s, **release probe
+0.0 km**, warheads down at **6.1–7.2 km**. Nothing upstream was wrong; only the round's own flight
+disagreed with the prediction of it.
 
-The two radial directions differ because a centre drifting *away* hides the ground until the round
-is already under it, which one frame of descent bounds; one drifting *towards* the round brings the
-ground up to meet it with no bound at all. Against the same release state `ImpactPredictor` was
-790 m away, and the predictor integrates in the body's own frame where there is no carrier — which
-is exactly why nothing saw it. Every headless rig before `GroundFrameTests` flew the round about a
-planet sitting still at the origin, the one case where the fault is identically zero.
+So the carry is reverted. Two things are worth keeping from the attempt:
 
-`Slug.GroundCentreAt` carries the centre across the frame with `_frameVelocityEcl`, which is the
-same statement as "the ground is at rest in the round's own frame". **The phase is the whole
-correction and it is worth 7 km** if taken the other way: the celestial state belongs to the *start*
-of the step about to be integrated (`docs/FRAMES-AND-EPOCHS.md`, flown), so the centre is carried
-**forward** from there, in step with the density lookup's `secondsIntoFrame`. The spin term in that
-velocity is perpendicular to the radius and cannot change the one thing read off it.
+- **The symptom is diagnostic on its own.** A prediction that does not move while the rounds do is
+  the signature `docs/FRAMES-AND-EPOCHS.md` already records from an earlier flown failure — a carry
+  applied to a sample that was already in phase. It is the same shape, and the size is right: the
+  phase was measured as worth about 7 km taken the wrong way, and the flight lost 6.5.
+- **Every headless rig flies the round about a planet sitting still at the origin**, which is the one
+  case where a carrier fault is identically zero — so a rig that introduces a carrier can measure a
+  real sensitivity and still get the *sign* from an assumption nothing tests.
 
-`BombSightOverlay` had already worked around this for the pipper by flying the sight in the ground's
-frame with the carrier subtracted out; the round in flight never got the same treatment, and its
-frames are short enough that it showed as hundreds of metres rather than as a pipper on the horizon.
-
-**Not flown.** Headless it removes the term completely, and the round then lands 60 m from its own
-prediction.
+What settles it is the phase at which `IGroundTest` writes the centre relative to the round's own
+position, and that is a fact about the engine's frame order rather than about this maths. Until it
+is measured in flight rather than reasoned about, the round keeps the behaviour that flew best.
 
 ## The world slows itself for the entry, not for the coast
 

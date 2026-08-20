@@ -36,15 +36,6 @@ all, which is what identified it: only the round's own flight had changed.
 The rule: before reusing a carry, ask which two samples the consumer is pairing and at which phase
 each is written. Two consumers of the same round can need opposite answers.
 
-**A sample the round *holds* needs the carry the samples it reads do not.** `IGroundTest` answers
-with a body centre, and `Slug` keeps it for the frame so a burst costs one terrain lookup rather
-than one per sub-step. That centre is then differenced against a position moving through the frame,
-so it is the one place the round pairs a *frozen* world sample with its own motion — and the
-difference is an altitude, which on a shallow arrival is worth eleven times as much ground.
-`Slug.GroundCentreAt` carries it forward by `secondsIntoFrame` from the phase above. Measured
-headless on a 2,764 km deorbit: **850 m to 10.8 km** without it, depending on where the carrier
-points and how long the frame is, and **0 m** with it.
-
 ## The epoch contract
 
 This is what KSA does, read from the decompiled source rather than inferred:
