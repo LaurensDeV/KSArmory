@@ -21,8 +21,8 @@ other, so every warhead shared a time-to-impact — which is what the old three-
 costing.
 
 **What is left is two terms, and they are separable.** The ~1 km *spread* is the tube cant, which
-is item 5. The ~900 m *bias* — every round landed the same way off — is item 2, and it is the same
-shot's release probe reading 0.1-0.2 km for all six while they landed at 0.4-1.4 km.
+is item 5. The ~900 m *bias* — every round landed the same way off — is mostly the aim correction's
+frozen residue, which is item 9; item 2c retired the epoch fault that was on top of it.
 
 ### What the trim cost to get there
 
@@ -131,9 +131,14 @@ the step, and it jumps when the step changes.
 | 8x | 4.76 / 5.27 km | **0.65 / 0.76 km** |
 
 **The warp dependence is the whole of it.** Before, coasting at 8x cost about 4 km against 1x; after,
-8x and 1x agree. That also retires the standing "every round lands beyond its own release probe"
-gap: the probe said 0.2-0.4 km while the rounds landed 5 km out, and the rounds now arrive where the
-probe says.
+8x and 1x agree to within what a single run can resolve. That also retires the standing "every round
+lands beyond its own release probe" gap: the probe said 0.2-0.4 km while the rounds landed 5 km out,
+and the rounds now arrive where the probe says.
+
+What is left of the warp dependence is a **different** term and is much smaller: gravity is held for
+the whole frame, so a coarse coast integrates worse. Measured headlessly at **243 m** between 1x and
+8x on one identical cutoff state, which is inside the half-kilometre a single flight can resolve.
+Item 9 has it.
 
 `AirSampleEpochTests` pins the convention and fails against the old form by a whole frame.
 
@@ -318,7 +323,9 @@ does, and the machinery for it already exists — `CorrectCoastArc`, `BusTrim.Re
 `PostBoostAim` were all flown this session.
 
 **The trade is favourable and it is not close.** `PerTubeTrimTests` prices it on the 3,459 km shot
-through the real predictor and drag model:
+through the real predictor and drag model — on the *idealised* arc from a 200 km circular pickup,
+held retrograde, which item 9 measures as about twice as sensitive to a metre a second as the one
+the guidance actually leaves the bus on. Read the ratios between the rows rather than the metres:
 
 | | spread across the six |
 | --- | --- |
@@ -611,7 +618,123 @@ that is one correcting makes worse.
 Flown at 3,459 km: four passes, predicted miss 2.9 -> 2.9 -> 2.1 -> 1.2 km, then release.
 
 **What it does not fix** is anything the prediction cannot see. It flies the *bus*, so the six tubes'
-6-degree ejection cone is invisible to it — 2.6 km of spread by measurement, 1.9 km flown.
+6-degree ejection cone is invisible to it — 1.9 km of spread flown. The 2.6 km that figure was
+measured against belongs to an idealised arc rather than to the one the guidance leaves the bus on;
+item 9 has what the cant is worth on each.
+
+
+## 9. The budget at the 0.65 km level
+
+`MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
+has been fixed. It flies the real `IcbmProgram` through `IcbmFlightRig` with the aim correction wired
+as `Ksa/IcbmComputer.cs` wires it, takes the state the engines actually stopped in, and puts six
+warheads off it — six real `Slug`s at the step `WarpPolicy` holds the world to.
+
+**The rig reproduces the flown bias and does not reproduce the flown spread.** Flown as the game
+flies it, the group's centre is **720 m** out at 1x and **963 m** at 8x, against a flown 650-760 m;
+the scatter is **235 m** against a flown 860-970 m. So the bias is accounted for and about 600 m of
+the spread is not — see the attitude entry below, which is the one candidate that fits.
+
+| term | bias | spread | how measured |
+| --- | --- | --- | --- |
+| **the aim correction's frozen residue** | **760 m** | — | the same flight with `Freeze()` never called lands the group at **18 m**; the loop's own readout says 0.78 km either way |
+| **the round against its own predictor, 8x coast** | **203 m** | — | one cutoff state through `ImpactPredictor` and through `Slug`; 40 m at 1x, 21 m at 50 ms, 636 m at 320 ms |
+| **the tube cant** | 43 m | **233 m** | six kicks 6 deg off the mean at 2 m/s, through the drag predictor, at the attitude the burn left |
+| the cutoff residual after the trim | 38 m | — | 0.017 m/s against 1,789 / 3,442 / 390 m per m/s on three axes, root mean square |
+| the 5 ms sub-step floor | ~60 m | — | the round at any frame with gravity re-read per sub-step, against a 1 ms flight |
+| the release gate's own budget | — | ≤ 55 m | two rounds a whole `LateralBudgetMetresPerSecond` apart square to the nose |
+| release pacing, 100 ms across six | 1 m | 2 m | six impacts 20 ms apart, each un-carried by its own delay |
+| the predictor's ground crossing | 1.5 m | — | it stops 18 cm under the surface on a 7.1 deg arrival, worth 8 m of ground per m of height |
+
+The bias terms are vectors and partly cancel, which is why they sum to more than the 720/963 m the
+group actually lands at.
+
+### The trajectory is half the budget, and the old rig had the wrong one
+
+Every velocity-side term is metres a second times a sensitivity, and the sensitivity belongs to the
+trajectory. The cheapest arc from a 200 km circular pickup — what `ErrorBudgetTests` and
+`PerTubeTrimTests` measure on — is **3,678 / 6,281 / 447** m per m/s prograde, radial and cross-track.
+What the guidance actually leaves the bus on is **1,789 / 3,442 / 390**, which is the flown
+3,401 / 1,769 / 780 to within a few per cent.
+
+So the 2,692 m of cant spread in `PerTubeTrimTests` is an idealised arc's number, not the flown one.
+On the guided trajectory the same cant is 233 m. Nothing removed two thirds of it; it was never
+there.
+
+### What the cant is worth depends on where the burn left the nose
+
+The cant is a cone about the bus's axis, so the six kicks differ only square to it — and the impact's
+sensitivity in that plane is whatever two directions the nose happens to leave there. Prograde and
+radial move the impact the same way, so a nose tipped between them leaves a combination that barely
+moves it at all. Swept over every attitude a bus could hold, on one trajectory and one cant:
+
+| the nose held | spread |
+| --- | --- |
+| best case anywhere on the sphere | 141 m |
+| as the burn left it (-0.32 prograde, -0.92 radial) | **233 m** |
+| nose-down (-radial) | **860 m** |
+| retrograde | 1,503 m |
+| worst case anywhere on the sphere | 1,684 m |
+
+**Nothing chooses this attitude for the cant's benefit** — it is where velocity-to-be-gained ran out.
+A nose-down bus gives 860 m, which is the flown spread, so the gap is most likely this and not a
+missing mechanism. It cannot be settled headlessly: the flown attitude is not recorded anywhere in
+this repository, though the release probe already prints `thrown N deg from the platform's track`,
+which is exactly that angle.
+
+### The round's frame-step error is entirely the frozen gravity
+
+`Slug.Update` takes gravity and the air's motion as frame-level arguments and holds both across every
+5 ms sub-step; `ImpactPredictor` re-evaluates gravity at each Runge-Kutta stage. Against a 1 ms
+flight of the same code:
+
+| frame | as flown | gravity re-read per sub-step | air re-read per sub-step |
+| --- | --- | --- | --- |
+| 17 ms | 23 m | 51 m | 23 m |
+| 50 ms | 38 m | 64 m | 37 m |
+| 130 ms | 220 m | 62 m | 218 m |
+| 320 ms | 654 m | 59 m | 647 m |
+
+**The air's motion is worth nothing** — it is the planet's spin at the round's radius and barely
+changes over a frame. **Gravity is the whole term**, and re-reading it pins the error at ~60 m at
+every frame size, which is the 5 ms symplectic-Euler floor. Held, it grows linearly with the step.
+
+At the step the world is actually held to — 8x through the coast, `Medium.FaithfulStepInAir` once
+there is air — the freeze moves the impact **284 m**, and takes the round from 64 m off a converged
+flight to 220 m. `Sim/BallisticBody.cs` already carries `Mu`, so an analytic per-sub-step gravity
+needs no call into the game.
+
+It is also the whole of the 1x-versus-8x difference: 720 m against 963 m of bias on one identical
+cutoff state.
+
+### An anomaly worth its own look
+
+At **5,000 km** the correction observes 126 cycles of an 83 km miss, finds every aim it tries worse
+than no aim at all, and reverts to a zero bias — with 34 t of propellant still aboard, so it is not
+the short-shot case. 2,000, 3,459 and 7,645 km all correct normally. Headless and rig-dependent;
+`AimConvergenceTests` reports 1.16 km at the same range through a loop that does not add the ejection
+kick to its prediction.
+
+### Ranked, cheapest first
+
+1. **Re-read gravity per sub-step, or cap the coast step.** ~160 m of bias at 8x and the whole
+   1x/8x split with it. One argument becomes a lambda and `Mu` is already to hand. A step cap is the
+   same win for free but costs the player their warp.
+2. **Reopen the aim far enough after cutoff.** 740 m, the largest single term. `Sim/PostBoostAim.cs`
+   is the lever and is not modelled headlessly — what the rig says is that a loop still observing
+   ends at 18 m against 760. The flown passes went 2.9 -> 2.9 -> 2.1 -> 1.2 km, so the question is
+   how far they actually get, not whether the mechanism works.
+3. **Log the held nose in the velocity frame.** Costs nothing, and turns the cant from a
+   141-1,684 m band into one number. Until it is logged, item 5's payoff is unknown by a factor of
+   twelve.
+4. **Re-pointing (item 5).** Removes the cant outright — 233 m at the attitude this rig flew,
+   up to 1,684 m at the worst. Still blocked on why a separated bus will not hold a 6 degree command.
+5. Everything else is under 60 m and not worth a flight of its own.
+
+**None of it is flown.** The rig's planet sits at the origin and carries no velocity, which is the one
+case where a frame carrier is identically zero — so nothing above can see an epoch fault, and item 2c
+is why that matters. And a single flight cannot resolve anything under about 0.5 km (item 7d), so the
+bias terms are testable in flight and the spread terms mostly are not.
 
 ## Smaller things
 

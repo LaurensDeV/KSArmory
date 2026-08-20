@@ -13,6 +13,11 @@ namespace KSArmory.Tests;
 /// arithmetic is the deliverable, and it says the shipped bus cannot fly this at all. The tests
 /// stay so that a bus with different thrusters, a different cant or a different trajectory can be
 /// priced again without redoing the reasoning.</para>
+///
+/// <para><b>The trajectory here is the idealised one</b> — the cheapest arc from a 200 km circular
+/// pickup, held retrograde — which <c>MirvBudgetTests</c> measures as about twice as sensitive to a
+/// metre a second as the one the guidance actually leaves the bus on. The ratios between the rows
+/// are what this file is for; the metres belong to this arc.</para>
 /// </summary>
 public class PerTubeTrimTests(ITestOutputHelper Out)
 {
