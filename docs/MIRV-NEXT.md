@@ -183,7 +183,7 @@ itself and stops, and the game's only callers of `UpdateAfterPartTreeModificatio
 genuinely change a part tree. Pointing a camera at a craft changes no tree, so the call was never
 needed. It is gone, and the failure with it.
 
-## 5. Re-pointing — on by default again, unflown
+## 5. Re-pointing — off again, and this time flown
 
 **This is the finding that changes the plan.** Flown on a separated bus with the sequencer on,
 commanding six degrees away from the held line made the vehicle *hunt* rather than settle: the

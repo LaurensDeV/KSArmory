@@ -73,25 +73,22 @@ internal sealed class IcbmConfig
     /// released from one attitude leave on different vectors and scatter, and there is one aim for
     /// all of them. Measured in flight at about 1,200 m across six warheads.</para>
     ///
-    /// <para><b>On, because the cant is the largest error left and what made turning cost more than
-    /// it saved has been rebuilt.</b> It was off after a flight where a separated bus hunted rather
-    /// than settled — every release a timeout, a three-minute salvo, and the miss going from
-    /// 1.7-0.3 km to 6-10 km. Three things have changed since. One tube's failure now latches for
-    /// the vehicle instead of being re-proved five times, which took that salvo from 282 s to under
-    /// 30. The release is budgeted in one currency rather than gated on an angle and a sweep
-    /// independently, so a bus that cannot hold still releases at its best rather than at a
-    /// deadline — 0.8 deg off and 0.139 m/s at the tube on the flown numbers, against 5.1 deg and
-    /// 0.291. And the give-up paths name which failure it is rather than only that there was one.
-    /// </para>
+    /// <para><b>Off, and now for a flown reason rather than a suspected one.</b> Flown once it
+    /// could actually latch its axes, a separated bus released its six tubes at 5.2, 2.1, 8.2,
+    /// 12.8, 14.1 and 11.7 degrees off the line — against the six degrees of cant the turning
+    /// exists to remove. It is not that the turn fails to help; it is that this vehicle cannot hold
+    /// the attitude it is turned to, so commanding one leaves the tube further off the line than
+    /// leaving it alone does.</para>
     ///
-    /// <para>All three are measured headlessly against flown inputs rather than observed, which is
-    /// the standing doubt. If a salvo scatters, this is the switch — and the failure is a spread
-    /// group rather than a lost one, because a launcher that cannot point releases anyway.</para>
+    /// <para>The machinery around it is worth keeping and is not the problem: the salvo no longer
+    /// takes three minutes, the release is budgeted in one currency, and the give-up paths name
+    /// which failure it is. What is missing is a bus that can hold an offset — more attitude
+    /// authority, or a turn small enough to be held.</para>
     ///
     /// <para>Free for a launcher it does not describe: a single tube is the mean of its own axes, so
     /// nothing is asked to turn.</para>
     /// </summary>
-    public bool RepointBetweenReleases = true;
+    public bool RepointBetweenReleases;
 
     /// <summary>
     /// Put the bus back on its solution with its own thrusters before letting anything go.

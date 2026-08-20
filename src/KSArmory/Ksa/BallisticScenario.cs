@@ -351,20 +351,26 @@ internal sealed class BallisticScenario
              + $"{computer.Command.VelocityToGain:F0} m/s to gain, "
              + $"impact in {IcbmProgram.Clock(computer.SecondsToArrival)} :: {computer.Command.Hold}");
 
-        // Warp the coast and nothing before it. WarpPolicy bounds the *step* rather than the
-        // speed, so a burn at 8x is inside what it allows and it never intervenes — and the
-        // velocity left ungained at cutoff is one frame of thrust, which at 8x measured 3.16 m/s
-        // against 0.40 at normal speed. That is a residual six times worse before anything
-        // downstream has had a chance to be wrong.
-        if (_reported == IcbmPhase.Coast && !_warped)
-        {
-            _warped = true;
+    }
 
-            if (KsaWorld.SetSimulationSpeed(WarpFactor))
-            {
-                _say($"asked the world for {WarpFactor:F0}x now the burn is over; the warp policy "
-                     + "still holds it down for the trim and for rounds in the air");
-            }
+    // Warp only once the salvo is away, and nothing before it.
+    //
+    // WarpPolicy bounds the *step* rather than the speed, so anything whose step stays inside
+    // MaxFaithfulStep is allowed and the policy never intervenes — 8x at sixty frames is 0.13 s,
+    // comfortably inside it. What that costs is whatever stops on a frame boundary: the cutoff
+    // residual measured 3.16 m/s a frame at 8x against 0.40 at normal speed, and the trim settles
+    // at 0.098 m/s against 0.017. Neither is a policy failure; both are the price of a long step,
+    // and the only part of this flight that has no such price is the coast after the last warhead
+    // has gone.
+    private void WarpTheCoast()
+    {
+        if (_warped) return;
+        _warped = true;
+
+        if (KsaWorld.SetSimulationSpeed(WarpFactor))
+        {
+            _say($"asked the world for {WarpFactor:F0}x now the salvo is away; "
+                 + "the warp policy holds it down again for the rounds in the air");
         }
     }
 
@@ -445,7 +451,11 @@ internal sealed class BallisticScenario
         // Once the bus has nothing left, the interesting half of the flight is at the other end.
         // Only after the last one: moving the view mid-salvo takes the operator off the thing still
         // releasing, and the releases are the part that is over in a fraction of a second.
-        if (ammo <= 0 && !_watchedTheTarget) WatchTheTarget();
+        if (ammo <= 0 && !_watchedTheTarget)
+        {
+            WatchTheTarget();
+            WarpTheCoast();
+        }
     }
 
     // Whatever else in the scene can shoot back, which is what a ballistic shot is worth aiming at.
