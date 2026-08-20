@@ -130,6 +130,16 @@ internal sealed class BallisticScenario
 
         if (!_committed)
         {
+            // A refusal is an answer, not a wait. The phase machine only reaches NoSolution after
+            // looking, and it never runs backwards — so a scenario that keeps waiting there spends
+            // a whole timeout to report something the first cycle already knew, which for an
+            // unattended run is the difference between a minute and a quarter of an hour.
+            if (_computer.Program.Phase == IcbmPhase.NoSolution)
+            {
+                return $"FAIL {_computer.Command.Hold} -- "
+                       + $"{_shot.Describe()}{Downrange(_computer)}";
+            }
+
             Commit();
             return null;
         }
