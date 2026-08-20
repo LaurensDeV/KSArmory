@@ -28,6 +28,9 @@ internal enum IcbmReach
 
     /// <summary>No arc reaches the target from anywhere on this orbit.</summary>
     NoTrajectory,
+
+    /// <summary>Arcs reach it and none of them arrives steeply enough to satisfy the floor.</summary>
+    TooShallow,
 }
 
 /// <summary>
@@ -269,6 +272,7 @@ internal sealed class IcbmProgram
     private bool _fellShort;
     private double _arrivalFromLaunch = double.NaN;
     private string _reachHold = "";
+    private IcbmReach _reachIfNoArc = IcbmReach.NoTrajectory;
 
     private double _sinceWindow = double.PositiveInfinity;
     private double _windowWait = double.NaN;
@@ -450,6 +454,7 @@ internal sealed class IcbmProgram
         ThrottleAtCutoff = double.NaN;
         _arrivalFromLaunch = double.NaN;
         _reachHold = "";
+        _reachIfNoArc = IcbmReach.NoTrajectory;
         _sinceWindow = double.PositiveInfinity;
         _windowWait = double.NaN;
         _windowCost = 0.0;
@@ -490,7 +495,7 @@ internal sealed class IcbmProgram
         if (Arc is null)
         {
             Phase = IcbmPhase.NoSolution;
-            Reach = IcbmReach.NoTrajectory;
+            Reach = _reachIfNoArc;
             return Idle(state, _reachHold);
         }
 
@@ -560,7 +565,7 @@ internal sealed class IcbmProgram
             _sinceWindow = 0.0;
 
             if (BurnWindow.TryFind(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
-                                   out BurnWindow.Window window, Config.Loft))
+                                   out BurnWindow.Window window, Config.Loft, Config.MinArrivalAngleDeg))
             {
                 // Waiting is a fallback, not an optimisation. A weapon whose whole point is
                 // arriving is not worth holding in orbit for ninety metres a second — but leaving
@@ -580,8 +585,8 @@ internal sealed class IcbmProgram
             else
             {
                 Phase = IcbmPhase.NoSolution;
-                Reach = IcbmReach.NoTrajectory;
-                return Idle(state, "no trajectory reaches that target from this orbit");
+                (Reach, string why) = NoWindow(state);
+                return Idle(state, why);
             }
         }
 
@@ -646,12 +651,13 @@ internal sealed class IcbmProgram
 
         if (!BurnoutGuidance.TrySteer(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
                                       state.Booster, out BurnoutGuidance.Command command,
-                                      Config.Loft, LongWay, _cutoffSeed, _flightSeed, arrivalFromNow))
+                                      Config.Loft, LongWay, _cutoffSeed, _flightSeed, arrivalFromNow,
+                                      Config.MinArrivalAngleDeg))
         {
             // A flight already under way keeps flying its schedule: the geometry a solve needs can
             // be momentarily out of reach on the way up, and abandoning a shot for it would throw
             // away a launch that is going perfectly well.
-            if (Arc is null) _reachHold = WhyNot(state);
+            if (Arc is null) (_reachIfNoArc, _reachHold) = WhyNot(state);
             return;
         }
 
@@ -741,22 +747,57 @@ internal sealed class IcbmProgram
         Reach = _shortfall > 0.0 ? IcbmReach.ShortOfPropellant : IcbmReach.Reachable;
     }
 
-    // Two different failures read identically from outside, and only one of them is the player's
-    // to fix. A target beyond any trajectory needs a different target; a target this stack cannot
-    // reach needs a bigger rocket.
-    private string WhyNot(in IcbmState state)
+    // Why there is no arc, as the banner to show and the line to print under it. A target beyond
+    // any trajectory needs a different target; one no arc arrives steeply enough at needs the floor
+    // lowered; one this stack cannot reach needs a bigger rocket.
+    private (IcbmReach Reach, string Why) WhyNot(in IcbmState state)
     {
         if (!BallisticArc.TryCheapest(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
-                                      out BallisticArc.Solution reachable, Config.Loft, LongWay))
+                                      out BallisticArc.Solution reachable, Config.Loft, LongWay,
+                                      double.NaN, Config.MinArrivalAngleDeg))
         {
-            return "no trajectory reaches that target";
+            // Asked again with the floor off, because "there is no trajectory" and "there is no
+            // trajectory that arrives that steeply" are the same silence from outside and only one
+            // of them is about a setting the operator can move.
+            if (Config.MinArrivalAngleDeg > 0.0
+                && BallisticArc.TryCheapest(state.Body, state.PositionCci, state.VelocityCci,
+                                            state.AimNowCci, out BallisticArc.Solution shallow,
+                                            Config.Loft, LongWay))
+            {
+                return (IcbmReach.TooShallow,
+                        $"nothing arrives at {Config.MinArrivalAngleDeg:F0} deg or steeper from here; "
+                        + $"the cheapest arc arrives at {shallow.ArrivalAngleDeg:F0} deg");
+            }
+
+            return (IcbmReach.NoTrajectory, "no trajectory reaches that target");
         }
 
-        if (!state.Booster.CanThrust) return "no engine running";
+        // Everything past here keeps NoTrajectory, which is not literally true of either — the
+        // detail is in the line beside it, and the reach is what the red banner reads. The floor
+        // above is the one exception because it is the only one a control on this panel fixes.
+        if (!state.Booster.CanThrust) return (IcbmReach.NoTrajectory, "no engine running");
 
         double needed = Vec.Len(reachable.VelocityToGain(state.VelocityCci));
         double have = state.Booster.DeltaVRemaining;
-        return $"not enough in the tanks: needs {needed / 1000.0:F1} km/s, has {have / 1000.0:F1} km/s";
+        return (IcbmReach.NoTrajectory,
+                $"not enough in the tanks: needs {needed / 1000.0:F1} km/s, has {have / 1000.0:F1} km/s");
+    }
+
+    // The same question for the orbital case, where the search is over departures as well as
+    // flight times: a floor that no window satisfies is not the same as a target the orbit cannot
+    // reach, and the unconstrained search already measures the steepest arrival it saw.
+    private (IcbmReach Reach, string Why) NoWindow(in IcbmState state)
+    {
+        if (Config.MinArrivalAngleDeg > 0.0
+            && BurnWindow.TryFind(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
+                                  out BurnWindow.Window any, Config.Loft))
+        {
+            return (IcbmReach.TooShallow,
+                    $"no window arrives at {Config.MinArrivalAngleDeg:F0} deg or steeper; "
+                    + $"the steepest one found arrives at {any.SteepestArrivalDeg:F0} deg");
+        }
+
+        return (IcbmReach.NoTrajectory, "no trajectory reaches that target from this orbit");
     }
 
     private IcbmCommand Rising(in IcbmState state)

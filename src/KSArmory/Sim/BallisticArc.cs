@@ -31,10 +31,25 @@ internal static class BallisticArc
     {
         /// <summary>What this shot still costs from a stated velocity — the number guidance nulls.</summary>
         public double3 VelocityToGain(double3 currentVelocityCci) => RequiredVelocityCci - currentVelocityCci;
+
+        /// <summary>
+        /// How far below the local horizontal this arc comes in, in degrees.
+        ///
+        /// <para>The arc's own angle, in vacuum and at the mean sphere, which is not quite the one
+        /// that lands: over 10 to 30 degrees the two agree to under half a degree, and drag only
+        /// bends the answer where the arrival is already a graze — a 3.6 degree arc arrives at 7.1
+        /// through the air. Flying the round instead would put a trajectory integration inside the
+        /// flight-time search. <c>docs/ARRIVAL-ANGLE.md</c> has both columns.</para>
+        /// </summary>
+        public double ArrivalAngleDeg => DescentAngleDeg(ImpactCciAtArrival, ArrivalVelocityCci);
     }
 
     /// <summary>Nothing usable comes of a shot that arrives sooner than this.</summary>
     public const double MinFlightSeconds = 20.0;
+
+    /// <summary>Degrees a velocity points below the local horizontal at a point, positive descending.</summary>
+    public static double DescentAngleDeg(double3 pointCci, double3 velocityCci)
+        => Vec.AngleBetween(pointCci, velocityCci) * 180.0 / Math.PI - 90.0;
 
     /// <summary>
     /// The transfer that departs <paramref name="fromCci"/> now and arrives at the aim point
@@ -88,10 +103,25 @@ internal static class BallisticArc
     /// which is most of the cost of a cycle, and the search cannot cross into the other basin
     /// halfway up the ascent. Pass NaN when there is nothing to go on.
     /// </param>
+    /// <param name="minArrivalDeg">
+    /// The shallowest arrival this shot may have, in degrees below the local horizontal. Zero is
+    /// off and rejects nothing, which is what makes it free for every caller that says nothing
+    /// about it.
+    ///
+    /// <para><b>A bound rather than a nudge, and that is the whole difference from
+    /// <paramref name="loft"/>.</b> A multiplier on the flight time re-applies itself every cycle
+    /// unless the cheapest time is carried separately; a predicate does not, because the answer
+    /// that satisfied it last cycle satisfies it again. So seeding the next search with a
+    /// constrained answer is safe where seeding it with a lofted one is not.</para>
+    ///
+    /// <para>Measured on the arc rather than through the air, which costs under half a degree: see
+    /// <see cref="Solution.ArrivalAngleDeg"/>.</para>
+    /// </param>
     public static bool TryCheapest(BallisticBody body, double3 fromCci, double3 fromVelocityCci,
                                    double3 aimNowCci, out Solution solution,
                                    double loft = 1.0, bool longWay = false,
-                                   double seedFlightSeconds = double.NaN)
+                                   double seedFlightSeconds = double.NaN,
+                                   double minArrivalDeg = 0.0)
     {
         solution = default;
         if (!body.IsUsable) return false;
@@ -99,36 +129,33 @@ internal static class BallisticArc
         double horizon = FlightTimeHorizon(body);
         if (!(horizon > MinFlightSeconds)) return false;
 
-        double lo, hi;
+        double floor = double.IsFinite(minArrivalDeg) && minArrivalDeg > 0.0 ? minArrivalDeg : 0.0;
 
-        if (double.IsFinite(seedFlightSeconds) && seedFlightSeconds > MinFlightSeconds)
+        double refined = Search(body, fromCci, fromVelocityCci, aimNowCci, longWay, floor,
+                                horizon, seedFlightSeconds);
+
+        // A seeded bracket is local to last cycle's answer, and the arrivals that satisfy a floor
+        // are not one interval: a short arc dives onto the target about as steeply as a long one
+        // lobs onto it, so the shallow ones sit in the middle and the steep ones are at both ends.
+        // A seed can therefore sit in a bracket with nothing feasible in it, and the full scan is
+        // the only thing that finds the other side.
+        if (!double.IsFinite(refined) && floor > 0.0 && double.IsFinite(seedFlightSeconds))
         {
-            lo = Math.Max(MinFlightSeconds, seedFlightSeconds * 0.6);
-            hi = Math.Min(horizon, seedFlightSeconds * 1.6);
-        }
-        else
-        {
-            const int ScanSamples = 96;
-            double best = double.PositiveInfinity;
-            double bestTime = double.NaN;
-
-            for (int i = 0; i <= ScanSamples; i++)
-            {
-                double t = MinFlightSeconds + (horizon - MinFlightSeconds) * i / ScanSamples;
-                double cost = CostAt(body, fromCci, fromVelocityCci, aimNowCci, t, longWay);
-                if (cost < best) { best = cost; bestTime = t; }
-            }
-
-            if (!double.IsFinite(bestTime)) return false;
-
-            double span = (horizon - MinFlightSeconds) / ScanSamples;
-            lo = Math.Max(MinFlightSeconds, bestTime - span);
-            hi = Math.Min(horizon, bestTime + span);
+            refined = Search(body, fromCci, fromVelocityCci, aimNowCci, longWay, floor,
+                             horizon, double.NaN);
         }
 
-        double refined = GoldenSection(body, fromCci, fromVelocityCci, aimNowCci, lo, hi, longWay);
+        if (!double.IsFinite(refined)) return false;
 
         double chosen = Math.Clamp(refined * loft, MinFlightSeconds, horizon);
+
+        // Where the two disagree the bound wins. Loft below one depresses the shot, which is
+        // exactly the arrival the floor exists to refuse, and a nudge cannot be allowed to walk
+        // out of a constraint the operator set.
+        if (floor > 0.0 && !(ArrivalAt(body, fromCci, aimNowCci, chosen, longWay) >= floor))
+        {
+            chosen = refined;
+        }
 
         if (!TrySolve(body, fromCci, aimNowCci, chosen, out solution, longWay)) return false;
 
@@ -158,19 +185,82 @@ internal static class BallisticArc
         return 3.0 * 2.0 * Math.PI * Math.Sqrt(r * r * r / body.Mu);
     }
 
+    // How many flight times the coarse scan looks at across the whole horizon.
+    private const int ScanSamples = 96;
+
+    // The cheapest flight time that satisfies the floor, or NaN if nothing here does. Seeded, it
+    // is a bracket round last cycle's answer; unseeded, a scan of the whole horizon.
+    private static double Search(BallisticBody body, double3 fromCci, double3 fromVelocityCci,
+                                 double3 aimNowCci, bool longWay, double floorDeg,
+                                 double horizon, double seedFlightSeconds)
+    {
+        double lo, hi, anchor;
+
+        if (double.IsFinite(seedFlightSeconds) && seedFlightSeconds > MinFlightSeconds)
+        {
+            lo = Math.Max(MinFlightSeconds, seedFlightSeconds * 0.6);
+            hi = Math.Min(horizon, seedFlightSeconds * 1.6);
+            anchor = Math.Clamp(seedFlightSeconds, lo, hi);
+        }
+        else
+        {
+            double best = double.PositiveInfinity;
+            double bestTime = double.NaN;
+
+            for (int i = 0; i <= ScanSamples; i++)
+            {
+                double t = MinFlightSeconds + (horizon - MinFlightSeconds) * i / ScanSamples;
+                double cost = CostAt(body, fromCci, fromVelocityCci, aimNowCci, t, longWay, floorDeg);
+                if (cost < best) { best = cost; bestTime = t; }
+            }
+
+            if (!double.IsFinite(bestTime)) return double.NaN;
+
+            double span = (horizon - MinFlightSeconds) / ScanSamples;
+            lo = Math.Max(MinFlightSeconds, bestTime - span);
+            hi = Math.Min(horizon, bestTime + span);
+            anchor = bestTime;
+        }
+
+        double refined = GoldenSection(body, fromCci, fromVelocityCci, aimNowCci, lo, hi, longWay, floorDeg);
+
+        if (floorDeg <= 0.0) return refined;
+
+        // Golden section over a cost with unreachable regions in it can walk into one, and a floor
+        // puts a whole edge of unreachable inside every bracket that straddles it. The refinement
+        // is an improvement or it is nothing: the anchor is a real flight time that was already
+        // costed, so falling back to it is falling back to an answer rather than to a failure.
+        double refinedCost = CostAt(body, fromCci, fromVelocityCci, aimNowCci, refined, longWay, floorDeg);
+        double anchorCost = CostAt(body, fromCci, fromVelocityCci, aimNowCci, anchor, longWay, floorDeg);
+
+        if (double.IsFinite(refinedCost) && refinedCost <= anchorCost) return refined;
+        return double.IsFinite(anchorCost) ? anchor : double.NaN;
+    }
+
+    // The arrival angle of one flight time, for deciding whether a lofted time still satisfies the
+    // floor. NaN for a time that has no arc at all, which fails every comparison and so is refused.
+    private static double ArrivalAt(BallisticBody body, double3 fromCci, double3 aimNowCci,
+                                    double flightSeconds, bool longWay)
+        => TrySolve(body, fromCci, aimNowCci, flightSeconds, out Solution s, longWay)
+               ? s.ArrivalAngleDeg
+               : double.NaN;
+
     private static double CostAt(BallisticBody body, double3 fromCci, double3 fromVelocityCci,
-                                 double3 aimNowCci, double flightSeconds, bool longWay)
+                                 double3 aimNowCci, double flightSeconds, bool longWay,
+                                 double floorDeg)
     {
         if (!TrySolve(body, fromCci, aimNowCci, flightSeconds, out Solution s, longWay))
         {
             return double.PositiveInfinity;
         }
         if (s.LowestRadius < body.SurfaceRadius - 1.0) return double.PositiveInfinity;
+        if (floorDeg > 0.0 && !(s.ArrivalAngleDeg >= floorDeg)) return double.PositiveInfinity;
         return Vec.Len(s.VelocityToGain(fromVelocityCci));
     }
 
     private static double GoldenSection(BallisticBody body, double3 fromCci, double3 fromVelocityCci,
-                                        double3 aimNowCci, double lo, double hi, bool longWay)
+                                        double3 aimNowCci, double lo, double hi, bool longWay,
+                                        double floorDeg)
     {
         const double Ratio = 0.6180339887498949;
         double c = hi - (hi - lo) * Ratio;
@@ -178,8 +268,8 @@ internal static class BallisticArc
 
         for (int i = 0; i < 48 && hi - lo > 0.01; i++)
         {
-            if (CostAt(body, fromCci, fromVelocityCci, aimNowCci, c, longWay)
-                < CostAt(body, fromCci, fromVelocityCci, aimNowCci, d, longWay))
+            if (CostAt(body, fromCci, fromVelocityCci, aimNowCci, c, longWay, floorDeg)
+                < CostAt(body, fromCci, fromVelocityCci, aimNowCci, d, longWay, floorDeg))
             {
                 hi = d;
             }

@@ -87,7 +87,21 @@ internal static class BurnWindow
         /// angle says the target is off the plane; this says whether it is ever going to stop
         /// being, and a floor well above zero is an inclination the orbit does not have.</para>
         /// </summary>
-        double ClosestOffPlaneRadians)
+        double ClosestOffPlaneRadians,
+
+        /// <summary>
+        /// The steepest arrival among the windows this search actually costed, in degrees.
+        ///
+        /// <para>The same job as <see cref="ClosestOffPlaneRadians"/> one field up, for the other
+        /// constraint: something to say to an operator whose floor found nothing, rather than the
+        /// silence of a failed solve. <b>Not the steepest arc that exists</b> — every departure is
+        /// costed by its own cheapest arc, so this is the steepest the search <em>chose</em>, and
+        /// a steeper one is nearly always available for more propellant.</para>
+        ///
+        /// <para>Only meaningful from a search that was not itself constrained: a constrained one
+        /// costs nothing that fails the floor, so every arrival it sees already satisfies it.</para>
+        /// </summary>
+        double SteepestArrivalDeg)
     {
         /// <summary>Nothing is gained by waiting, so the burn may as well start.</summary>
         public bool IsNow => WaitSeconds <= 0.0;
@@ -104,8 +118,18 @@ internal static class BurnWindow
     /// several revolutions for the planet to turn a target under the ground track, which is a
     /// real thing to want and is not built.</para>
     /// </summary>
+    /// <param name="minArrivalDeg">
+    /// The shallowest arrival any window may have. Zero is off.
+    ///
+    /// <para>Threaded into the cost, so a departure with no arc steep enough costs infinity and is
+    /// not a window at all. That is what makes the earliest affordable <em>satisfying</em>
+    /// departure fall out of the same search that already takes the earliest affordable one — and
+    /// it is the only thing that stops waiting from producing a shallower arrival than leaving now
+    /// would have.</para>
+    /// </param>
     public static bool TryFind(BallisticBody body, double3 positionCci, double3 velocityCci,
-                               double3 aimNowCci, out Window window, double loft = 1.0)
+                               double3 aimNowCci, out Window window, double loft = 1.0,
+                               double minArrivalDeg = 0.0)
     {
         window = default;
 
@@ -117,7 +141,7 @@ internal static class BurnWindow
         double horizon = bound ? period * Revolutions : UnboundHorizonSeconds;
 
         double costNow = CostAt(body, positionCci, velocityCci, aimNowCci, 0.0, loft, period,
-                                double.NaN, out BallisticArc.Solution arcNow,
+                                double.NaN, minArrivalDeg, out BallisticArc.Solution arcNow,
                                 out double3 directionNow, out _);
 
         double best = costNow;
@@ -127,6 +151,7 @@ internal static class BurnWindow
         double bestSeed = double.IsFinite(costNow) ? arcNow.CheapestFlightSeconds : double.NaN;
 
         double closest = double.PositiveInfinity;
+        double steepest = double.IsFinite(costNow) ? arcNow.ArrivalAngleDeg : double.NegativeInfinity;
 
         Span<double> whenCci = stackalloc double[Candidates];
         Span<double> howBad = stackalloc double[Candidates];
@@ -161,8 +186,8 @@ internal static class BurnWindow
         for (int i = 1; i <= NearSamples; i++)
         {
             double wait = near * i / NearSamples;
-            Weigh(body, positionCci, velocityCci, aimNowCci, wait, loft, period,
-                  ref best, ref bestWait, ref bestArc, ref bestDirection, ref bestSeed);
+            Weigh(body, positionCci, velocityCci, aimNowCci, wait, loft, period, minArrivalDeg,
+                  ref best, ref bestWait, ref bestArc, ref bestDirection, ref bestSeed, ref steepest);
         }
 
         // Stage three: the handful of later moments the geometry liked.
@@ -170,8 +195,8 @@ internal static class BurnWindow
         {
             if (!double.IsFinite(whenCci[i])) continue;
 
-            Weigh(body, positionCci, velocityCci, aimNowCci, whenCci[i], loft, period,
-                  ref best, ref bestWait, ref bestArc, ref bestDirection, ref bestSeed);
+            Weigh(body, positionCci, velocityCci, aimNowCci, whenCci[i], loft, period, minArrivalDeg,
+                  ref best, ref bestWait, ref bestArc, ref bestDirection, ref bestSeed, ref steepest);
         }
 
         if (!double.IsFinite(best)) return false;
@@ -188,7 +213,8 @@ internal static class BurnWindow
                 if (wait >= bestWait) break;
 
                 double cost = CostAt(body, positionCci, velocityCci, aimNowCci, wait, loft, period,
-                                     bestSeed, out BallisticArc.Solution arc, out double3 direction, out _);
+                                     bestSeed, minArrivalDeg, out BallisticArc.Solution arc,
+                                     out double3 direction, out _);
 
                 if (!(cost <= allowed)) continue;
 
@@ -204,10 +230,12 @@ internal static class BurnWindow
         {
             double span = horizon / CoarseSamples;
             double refined = Refine(body, positionCci, velocityCci, aimNowCci, loft, period,
-                                    Math.Max(0.0, bestWait - span), bestWait + span, bestSeed);
+                                    Math.Max(0.0, bestWait - span), bestWait + span, bestSeed,
+                                    minArrivalDeg);
 
             double refinedCost = CostAt(body, positionCci, velocityCci, aimNowCci, refined, loft,
-                                        period, bestSeed, out BallisticArc.Solution refinedArc,
+                                        period, bestSeed, minArrivalDeg,
+                                        out BallisticArc.Solution refinedArc,
                                         out double3 refinedDirection, out _);
 
             // The refinement is an improvement or it is nothing. Golden section over a function
@@ -227,18 +255,23 @@ internal static class BurnWindow
             closest = OrbitPlane.OffPlaneRadians(positionCci, velocityCci, aimNowCci);
         }
 
-        window = new Window(bestWait, bestArc, best, costNow, bestDirection, closest);
+        window = new Window(bestWait, bestArc, best, costNow, bestDirection, closest,
+                            double.IsFinite(steepest) ? steepest : double.NaN);
         return true;
     }
 
     // Costs one departure and keeps it if it beats what is held.
     private static void Weigh(BallisticBody body, double3 positionCci, double3 velocityCci,
                               double3 aimNowCci, double wait, double loft, double period,
+                              double minArrivalDeg,
                               ref double best, ref double bestWait, ref BallisticArc.Solution bestArc,
-                              ref double3 bestDirection, ref double bestSeed)
+                              ref double3 bestDirection, ref double bestSeed, ref double steepest)
     {
         double cost = CostAt(body, positionCci, velocityCci, aimNowCci, wait, loft, period,
-                             bestSeed, out BallisticArc.Solution arc, out double3 direction, out _);
+                             bestSeed, minArrivalDeg, out BallisticArc.Solution arc,
+                             out double3 direction, out _);
+
+        if (double.IsFinite(cost)) steepest = Math.Max(steepest, arc.ArrivalAngleDeg);
 
         if (!(cost < best)) return;
 
@@ -279,7 +312,7 @@ internal static class BurnWindow
 
     private static double CostAt(BallisticBody body, double3 positionCci, double3 velocityCci,
                                  double3 aimNowCci, double wait, double loft, double period,
-                                 double seed, out BallisticArc.Solution arc,
+                                 double seed, double minArrivalDeg, out BallisticArc.Solution arc,
                                  out double3 burnDirectionCci, out bool hitTheGround)
     {
         arc = default;
@@ -305,7 +338,8 @@ internal static class BurnWindow
         // arc solver is the same rule as everywhere else: whoever knows the interval applies it.
         double3 aimThen = body.CarryCci(aimNowCci, wait);
 
-        if (!BallisticArc.TryCheapest(body, from, moving, aimThen, out arc, loft, false, seed))
+        if (!BallisticArc.TryCheapest(body, from, moving, aimThen, out arc, loft, false, seed,
+                                      minArrivalDeg))
         {
             return double.PositiveInfinity;
         }
@@ -317,7 +351,7 @@ internal static class BurnWindow
 
     private static double Refine(BallisticBody body, double3 positionCci, double3 velocityCci,
                                  double3 aimNowCci, double loft, double period,
-                                 double lo, double hi, double seed)
+                                 double lo, double hi, double seed, double minArrivalDeg)
     {
         const double Ratio = 0.6180339887498949;
         double c = hi - (hi - lo) * Ratio;
@@ -325,8 +359,10 @@ internal static class BurnWindow
 
         for (int i = 0; i < 24 && hi - lo > 1.0; i++)
         {
-            double costC = CostAt(body, positionCci, velocityCci, aimNowCci, c, loft, period, seed, out _, out _, out _);
-            double costD = CostAt(body, positionCci, velocityCci, aimNowCci, d, loft, period, seed, out _, out _, out _);
+            double costC = CostAt(body, positionCci, velocityCci, aimNowCci, c, loft, period, seed,
+                                  minArrivalDeg, out _, out _, out _);
+            double costD = CostAt(body, positionCci, velocityCci, aimNowCci, d, loft, period, seed,
+                                  minArrivalDeg, out _, out _, out _);
 
             if (costC < costD) hi = d; else lo = c;
 

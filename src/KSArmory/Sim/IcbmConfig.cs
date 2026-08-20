@@ -19,8 +19,39 @@ internal sealed class IcbmConfig
     /// lofted trajectory that arrives steeper and later, below one is a depressed one that arrives
     /// sooner and costs far more. Both ends run out: a shot flat enough to pass through the planet
     /// is refused rather than flown.
+    ///
+    /// <para><b>Not an arrival-angle control, and from orbit it can invert one.</b> Raising it
+    /// makes leaving <em>now</em> dearer as well as making the arc taller, so
+    /// <see cref="BurnWindow"/> re-optimises the departure under the new cost and can defer to a
+    /// cheap flat window instead — measured at a 556 km shot going from 33.9 degrees at loft 1.0 to
+    /// 6.2 at loft 1.8. <see cref="MinArrivalAngleDeg"/> is the control that asks for an arrival
+    /// angle, and where the two disagree the floor wins.</para>
     /// </summary>
     public double Loft = 1.0;
+
+    /// <summary>
+    /// The shallowest the warheads may come in, in degrees below the local horizontal. Zero is off.
+    ///
+    /// <para><b>A bound on the search rather than a nudge to it.</b> Every arc the flight-time
+    /// search considers has to satisfy this, and the window search takes the earliest departure
+    /// whose cheapest satisfying arc is affordable — so waiting can no longer produce a shallower
+    /// arrival than leaving now would have, which is what <see cref="Loft"/> could not promise.
+    /// A shot with no arc steep enough is reported as such rather than flown flat.</para>
+    ///
+    /// <para><b>Off by default, and the default is what has been flown.</b> Every ballistic shot
+    /// this mod has made arrived at about seven degrees, which is the worst arrival there is for
+    /// precision: from 7.5 to 20 degrees the rms velocity sensitivity falls from 5,614 to 686
+    /// metres per metre a second, and the impact's sensitivity to a ten per cent error in the drag
+    /// model falls from 1,795 m to 29 — a factor of 62, and the one term no correction loop can
+    /// remove, because its only observer shares the model. 15 to 20 degrees is where the trade
+    /// turns; steeper buys tens of metres for kilometres a second of reach.
+    /// <c>docs/ARRIVAL-ANGLE.md</c> is the account.</para>
+    ///
+    /// <para>What it costs is propellant and downrange, and from orbit those are the same thing:
+    /// a 400 km platform reaches 6,379 km at 7.5 degrees for a 473 m/s brake, and 2,015 km at 20
+    /// degrees for 2,576 — 86% of the stack arriving against 44%.</para>
+    /// </summary>
+    public double MinArrivalAngleDeg;
 
     /// <summary>Altitude at which the pitch programme starts turning away from vertical.</summary>
     public double TurnStartMetres = 800.0;

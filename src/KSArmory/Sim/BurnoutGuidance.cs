@@ -72,11 +72,21 @@ internal static class BurnoutGuidance
     /// cycle and the shot runs away. Pass NaN before commitment, when following the cheapest is
     /// exactly right.
     /// </param>
+    /// <param name="minArrivalDeg">
+    /// The shallowest arrival the shot may have. Zero is off.
+    ///
+    /// <para>It bounds the <em>search</em> and not the latch: a committed arrival is one instant,
+    /// and the arc through it from a cutoff point that has since moved is whatever it is. Checking
+    /// it here would unlatch a shot mid-burn, which is the failure the latch exists to prevent —
+    /// the arrival was latched off an arc that satisfied the floor, and the cutoff point moves
+    /// only by what is left of the burn.</para>
+    /// </param>
     public static bool TrySteer(BallisticBody body, double3 positionCci, double3 velocityCci,
                                 double3 aimNowCci, BoosterPerformance booster,
                                 out Command command, double loft = 1.0, bool longWay = false,
                                 double cutoffSeed = 0.0, double flightSeed = double.NaN,
-                                double arrivalFromNowSeconds = double.NaN)
+                                double arrivalFromNowSeconds = double.NaN,
+                                double minArrivalDeg = 0.0)
     {
         command = default;
 
@@ -152,7 +162,8 @@ internal static class BurnoutGuidance
             if (!solvedArc)
             {
                 solvedArc = BallisticArc.TryCheapest(body, cutoffPosition, velocityAtCutoffUnpowered,
-                                                     aimAtCutoff, out arc, loft, longWay, flightSeed);
+                                                     aimAtCutoff, out arc, loft, longWay, flightSeed,
+                                                     minArrivalDeg);
             }
 
             if (!solvedArc) return false;

@@ -118,6 +118,42 @@ Two things fix it, and both are load-bearing:
 
 `IcbmFlightTests.EveryLoftArrivesOnTheTarget` covers 0.85 through 1.4.
 
+## Arrival angle is asked for, not read off
+
+`Loft` moves the flight time and lets the arrival angle fall out. `IcbmConfig.MinArrivalAngleDeg`
+does the opposite: it is the shallowest the warheads may come in, and it **bounds the search**
+rather than nudging it. A candidate flight time whose arc arrives shallower costs infinity, so the
+same golden section returns the cheapest arc that *satisfies* the floor, and `BurnWindow` threading
+the same number into its per-departure cost turns "the earliest affordable departure" into "the
+earliest affordable departure that satisfies it" with nothing else changed.
+
+**Why it had to be a bound rather than a second nudge.** Raising `Loft` makes leaving *now* dearer
+as well as making the arc taller, so the window search re-optimises the departure under the new cost
+and can defer to a cheap flat one instead — measured, a 556 km shot arriving at 33.9° at loft 1.0 and
+**6.2°** at loft 1.8. The operator asked for steeper and got the shallowest arrival available.
+`docs/ARRIVAL-ANGLE.md` has why that angle is worth eight times the precision and sixty-two times the
+immunity to a drag-model error.
+
+**A predicate is idempotent where a multiplier is not**, which is why the constrained flight time can
+be seeded straight back into the next cycle: the arc that satisfied the floor satisfies it again.
+That is the trap two paragraphs up, and the floor cannot fall into it.
+
+**Where the two disagree the floor wins.** Loft multiplies whatever the constrained search settled
+on, and a lofted time that no longer satisfies the floor is discarded for the constrained one —
+loft below one *depresses* the shot, which is exactly the arrival the floor exists to refuse.
+
+**It bounds the search and not the latch.** Once the arrival instant is committed the arc through it
+is whatever the moving cutoff point makes it; re-checking there would unlatch a shot mid-burn, which
+is the failure the latch exists to prevent.
+
+**Nothing satisfying it is its own answer.** `IcbmReach.TooShallow` sits beside `NoTrajectory` and
+`ShortOfPropellant` because only one of the three is fixed by a control on this panel, and from
+outside they are the same silence. Mid-ascent it is a real wall — from a 60 km pick-up a target 90°
+round the planet reaches 46° and no further. From orbit it is a price rather than a wall: across a
+day of departures every floor short of vertical is satisfiable, for up to the whole orbital velocity.
+
+**Off by default**, so nothing about the flights already measured changes until it is set.
+
 ---
 
 ## The ascent
@@ -1133,6 +1169,11 @@ seconds](#hold-the-direction-frames-before-cutoff-not-seconds).
   tanks cannot pay for it. The second is stated with the shortfall and with the caveat that it is
   measured with one stage's exhaust velocity over the whole vehicle's propellant — which understates
   a deeply staged rocket, and understating is the right way round to be wrong.
+- **`NO ARC ARRIVES AT n DEG OR STEEPER`**, which is the third and is separate because it is the one
+  a control on this panel fixes. It names the steepest arrival the search did find, so the operator
+  can see how far the minimum has to come down.
+- **The arrival angle asked for beside the one the planned arc achieves**, under the
+  steepest-arrival slider. Those two differing is the whole reason the control exists.
 - **A mark on the target** that stays on screen wherever it is, clamped to the edge when it is out
   of view, with the countdown beside it.
 
@@ -1187,6 +1228,13 @@ been seen working end to end yet.
 ballistic arc is a two-body problem about one planet. A target on another world is an interplanetary
 transfer — escape, a heliocentric leg, capture — which is a different manoeuvre rather than a longer
 one. The panel says so when the designated body is not the parent.
+
+**The arrival-angle floor has not been flown.** It is measured headlessly through the same solver
+and predictor as everything else, and what a flight would show that the rig cannot is what a
+constrained arc does to the aim-correction loop — which is where the flown misses actually come from.
+Two known bounds on it: the floor is applied to the *vacuum* arc, which agrees with the flown arrival
+to under half a degree over 10–30° and diverges only for a graze; and a latched arrival is not
+re-checked against it.
 
 **Nothing is persisted.** The target and the settings are lost on a reload; `SettingsStore` keys per
 craft and per launcher ordinal, and this roster keys per craft, so the two do not line up yet.

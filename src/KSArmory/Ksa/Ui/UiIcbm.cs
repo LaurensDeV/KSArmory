@@ -133,6 +133,14 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  vehicle's propellant, so a deeply staged rocket may still make it");
         }
 
+        // Its own line because it is the one unreachable a setting on this panel can fix, and
+        // reading it as "no trajectory" sends the operator after a different target instead.
+        if (command.Reach == IcbmReach.TooShallow)
+        {
+            ImGui.TextColored(Bad, $"NO ARC ARRIVES AT {config.MinArrivalAngleDeg:F0} DEG OR STEEPER");
+            ImGui.TextDisabled("  lower the steepest-arrival minimum below, or pick a nearer target");
+        }
+
         // The explanation for an otherwise inexplicable number. A deorbit onto the ground track
         // costs a hundred metres a second; the same shot at a place well off the plane costs
         // thousands, and nothing else on this panel says which of those is being quoted — or that
@@ -278,6 +286,30 @@ internal sealed partial class Ui
         ImGui.TextDisabled(config.DrawTrajectory
             ? "  the arc it is on now, and a ring on the aim point"
             : "  nothing is drawn in the world for this vehicle");
+
+        // Above Loft, because it overrides it: the two both move the flight time, and a control
+        // that wins an argument reads better before the one it wins it with than after.
+        float floor = (float)config.MinArrivalAngleDeg;
+        if (ImGui.SliderFloat("Steepest arrival", ref floor, 0f, 45f, "%.0f deg minimum"))
+        {
+            config.MinArrivalAngleDeg = floor;
+        }
+
+        // Asked beside achieved, because those two differing is the whole reason this control
+        // exists: before it, the arrival was whatever the cheapest arc happened to give.
+        double planned = computer.Program.Arc?.ArrivalAngleDeg ?? double.NaN;
+        string arriving = double.IsFinite(planned) ? $"; the arc it has arrives at {planned:F0} deg"
+                                                   : "; no arc solved yet";
+
+        ImGui.TextDisabled("  " + (config.MinArrivalAngleDeg < 0.5
+            ? "off - the cheapest arc wins, which from orbit is a graze at about 7 deg" + arriving
+            : $"no shallower than {config.MinArrivalAngleDeg:F0} deg{arriving}"));
+
+        if (config.MinArrivalAngleDeg >= 0.5)
+        {
+            ImGui.TextDisabled("  steeper is more accurate and costs reach: 15-20 deg is where");
+            ImGui.TextDisabled("  the trade turns, and it overrides Loft where they disagree");
+        }
 
         // A multiplier on the cheapest flight time, shown as one. Printed bare it reads as an
         // absolute setting, and then 1.00 needs a sentence to explain that it is not.

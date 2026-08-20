@@ -1153,6 +1153,20 @@ Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — an
       *To gain* of any setting.
 - [ ] The trajectory is drawn in the world as an arc, with a ring on the aim point.
 
+**Steepest arrival — nothing here has been flown.** It is off at zero, so leaving it alone is the
+behaviour every tick above was taken against.
+
+- [ ] At zero the line under it says `off`, and the arc's own arrival angle is printed beside it.
+- [ ] Raising it to 15–20 deg raises *To gain* and the arc's arrival angle together, and the
+      printed achieved angle reaches the minimum rather than stopping short of it.
+- [ ] It beats **Loft**: with the minimum at 15, dragging Loft from 0.6 to 1.8 never drops the
+      achieved arrival below 15. That is the whole defect it was built for — off, the same 556 km
+      shot arrives at 33.9 deg at loft 1.0 and 6.2 at loft 1.8.
+- [ ] A minimum nothing can reach says `NO ARC ARRIVES AT n DEG OR STEEPER` and names the steepest
+      it found, rather than reading as an unreachable target.
+- [ ] Flown at 15–20 deg, the group is tighter than the 433 m – 1.7 km above. **This is the point
+      of the whole control** and is the one line here worth a flight.
+
 ### 12.3 It flies
 
 **This is the one to watch closely.** The likeliest failure is the attitude convention: a wrong one
