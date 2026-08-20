@@ -850,11 +850,24 @@ Headlessly, through the real transfer solver, on the flown 2,700 km deorbit: a 1
 
 Five things it is careful about, and each is a way it went wrong first:
 
-- **The arrival is the committed one, never a fresh choice.** The cheapest arc from any state
-  converges on the arc that state is already flying, so a trim that chose its own arrival would
-  decide the bus was exactly where it should be and null nothing — reporting success on a shot it
-  never touched. `IcbmProgram.CommittedArrivalFromNow` is deliberately separate from
-  `SecondsToArrival`, which stops answering at cutoff because the flown prediction is better by then.
+- **It nulls against the trajectory the guidance flew to, not a transfer solved from where the bus
+  happens to be.** The pair `(CutoffPositionCci, Arc.RequiredVelocityCci)` is a conic; carry it
+  forward by `IcbmProgram.SecondsSinceCutoff` with `Sim/Kepler.cs` and subtract what the vehicle is
+  actually doing. **Re-solving looks equivalent and is not.** A transfer is parameterised by an
+  arrival time and an aim point, and on a deorbit it demands about **20 m/s more for every second
+  the arrival is out** — so the answer depends on *when* the trim is asked, and goes stale while
+  the vehicle coasts clear of what it dropped. Flown: a bus that owed **0.21 m/s at the split owed
+  228.97 after 48 s**, pushed by nothing at all. Propagated instead, the same shove reads 1.100,
+  1.0999, 1.0972 and 1.0370 m/s at 0, 10, 60 and 300 seconds — the few per cent of decay being the
+  two conics genuinely drifting apart rather than an error. `BusTrimTests` fails at 92 m/s after
+  ten seconds against a reference that is not carried.
+
+  It corrects velocity and not position, which is the right half: a shove displaces the vehicle by
+  the shove times the delay — tens of metres over a minute — where the velocity it leaves behind is
+  worth kilometres of miss per metre a second.
+
+  It also takes no aim point at all, so the loop that once wound the trim and the aim correction
+  together is gone by construction rather than by rule.
 - **It resolves onto the vehicle's own axes rather than pointing at the answer.** By the coast the
   attitude *is* the release line, so turning to burn and turning back costs the whole settle twice
   and disturbs the thing the sequencer is about to latch. KSA maps a nozzle to
@@ -882,8 +895,9 @@ Five things it is careful about, and each is a way it went wrong first:
   until something says stop. The overall clock has to be longer than the per-direction one, or the
   loop gives up before the direction that does not work has been struck off.
 
-**The aim correction sits out while it fires, and that is not tidiness — it is the difference
-between the trim working and the shot being destroyed.** Both loops drive the same vehicle and both
+**The aim correction still sits out while thrusters are firing.** Not because the trim reads it —
+it no longer does — but because the correction's only observer is a prediction taken from the
+vehicle the thrusters are moving. Both loops drive the same vehicle and both
 read the same prediction, so a bias that keeps observing absorbs a displacement the trim itself put
 there, the trim reads the moved aim as a larger error, and the pair wind each other up. Flown, on a
 shot that was **0.1 km from the target at cutoff**: jumps every 0.51 s — exactly

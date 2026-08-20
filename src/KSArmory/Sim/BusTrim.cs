@@ -20,10 +20,16 @@ internal enum TrimAxes
 }
 
 /// <summary>Everything the trim needs to know about the bus this cycle.</summary>
-/// <param name="SecondsToArrival">
-/// How long the warheads have left to fly, from now — the arrival the burn was solved against, not
-/// a fresh choice. Re-choosing it here would move the arc the trim is trying to get back onto.
+/// <param name="ReferencePositionCci">
+/// Where the guidance's own solution says the vehicle was when the engines stopped.
 /// </param>
+/// <param name="ReferenceVelocityCci">
+/// What it needed to be doing there — <see cref="BallisticArc.Solution.RequiredVelocityCci"/>.
+///
+/// <para>The pair is a <em>trajectory</em>, and it is the one the whole burn was flown to arrive
+/// at. Everything the trim does is putting the vehicle back on it.</para>
+/// </param>
+/// <param name="SecondsSinceReference">How far along that trajectory the vehicle should be by now.</param>
 /// <param name="NoseCci">The control frame's +X in the parent body's inertial frame.</param>
 /// <param name="RightCci">Its +Y.</param>
 /// <param name="DownCci">Its +Z.</param>
@@ -40,8 +46,9 @@ internal readonly record struct TrimSituation(
     BallisticBody Body,
     double3 PositionCci,
     double3 VelocityCci,
-    double3 AimNowCci,
-    double SecondsToArrival,
+    double3 ReferencePositionCci,
+    double3 ReferenceVelocityCci,
+    double SecondsSinceReference,
     double3 NoseCci,
     double3 RightCci,
     double3 DownCci,
@@ -72,11 +79,16 @@ internal readonly record struct TrimCommand(
 /// errors on an otherwise perfect arc, and at this trajectory's ~3,400 m of miss per m/s left
 /// radially, a metre a second is kilometres.</para>
 ///
-/// <para><b>It is the same loop as the burn, against a different actuator.</b> Re-solve the arc
-/// from where the bus is now to the arrival it was already going to, take the difference, thrust
-/// along it, stop when less than one frame of firing is left. Nothing accumulates, because nothing
-/// is remembered — which is what makes it exact at the instant it ends however badly the split
-/// went.</para>
+/// <para><b>It is the same loop as the burn, against a different actuator.</b> Take the trajectory
+/// the guidance flew to, carry it forward to now, subtract what the vehicle is actually doing, and
+/// thrust along the difference until less than one frame of firing is left.</para>
+///
+/// <para><b>Against the flown solution, never a fresh one.</b> Re-solving a transfer from wherever
+/// the bus happens to be looks equivalent and is not: a transfer is parameterised by an arrival
+/// time and an aim point, and on a deorbit it demands about twenty metres a second more for every
+/// second the arrival is out — so the answer depends on <em>when</em> it is asked, and goes stale
+/// while the vehicle coasts clear of what it dropped. Propagating the cutoff state has none of
+/// that. A shove of a metre a second reads as a metre a second however long the trim waits.</para>
 ///
 /// <para><b>One direction at a time, and it is not tidiness.</b> The stop threshold is half a
 /// frame's worth of thrust, and that number is only knowable along the direction actually being
@@ -258,12 +270,12 @@ internal sealed class BusTrim
         // over the same interval, which is the only part a thruster is responsible for.
         Measure(step, in now);
 
-        // Nothing to trim *towards*. The committed arrival is the parameter the whole burn was
-        // solved against, and without one there is no way to tell the bus being off its solution
-        // from the solution having been a different one - so this is a refusal rather than a wait.
-        if (!(now.SecondsToArrival >= BallisticArc.MinFlightSeconds))
+        // Nothing to trim *towards*. Without the trajectory the burn was flown to there is no way
+        // to tell a vehicle that has been pushed off its solution from one whose solution was
+        // always something else, so this is a refusal rather than a wait.
+        if (now.ReferenceVelocityCci.Equals(Vec.Zero) || !Vec.IsFinite(now.ReferenceVelocityCci))
         {
-            return Finish(gaveUp: true, "no committed arrival to trim against");
+            return Finish(gaveUp: true, "no cutoff solution to trim against");
         }
 
         if (_since >= MaxSeconds)
@@ -278,7 +290,7 @@ internal sealed class BusTrim
 
         if (!TrySolve(in now, out double3 toGainCci))
         {
-            return Command(TrimAxes.None, "waiting for an arc from the bus's state to the arrival");
+            return Command(TrimAxes.None, "waiting for the cutoff trajectory to propagate");
         }
 
         _toGain = Vec.Len(toGainCci);
@@ -438,26 +450,39 @@ internal sealed class BusTrim
         && !Vec.Unit(now.RightCci).Equals(Vec.Zero)
         && !Vec.Unit(now.DownCci).Equals(Vec.Zero);
 
-    // The transfer from where the bus is now to where the warheads were always going to arrive.
-    // Parameterised by the arrival rather than re-choosing the cheapest one: the cheapest arc from
-    // any state converges on the arc that state is already flying, so a trim that re-chose would
-    // decide the bus was exactly where it should be and null nothing.
+    // What the bus owes the trajectory the guidance actually flew to, rather than a fresh transfer
+    // solved from where it happens to be.
+    //
+    // Re-solving looks equivalent and is not. A transfer is parameterised by an arrival time and an
+    // aim point, and on a deorbit the velocity it demands moves about twenty metres a second for
+    // every second the arrival is out - so a trim built on one is only as good as those two
+    // parameters are fresh, and its answer depends on *when* it is asked. Measured in flight at
+    // 229 m/s after a wait that cost the vehicle nothing at all.
+    //
+    // Propagating the guidance's own cutoff state has none of that. It is the same conic the
+    // vehicle is supposed to be on, so a shove of a metre a second reads as a metre a second an
+    // hour later, and the answer does not care how long the trim took to get asked.
+    //
+    // It corrects velocity and not position, which is the right half: a shove displaces the vehicle
+    // by the shove times the delay - tens of metres over a minute - where the velocity it leaves
+    // behind is worth kilometres of miss per metre a second.
     private static bool TrySolve(in TrimSituation now, out double3 toGainCci)
     {
         toGainCci = Vec.Zero;
 
         if (!now.Body.IsUsable) return false;
-        if (!Vec.IsFinite(now.PositionCci) || !Vec.IsFinite(now.VelocityCci)) return false;
-        if (!Vec.IsFinite(now.AimNowCci)) return false;
-        if (!(now.SecondsToArrival >= BallisticArc.MinFlightSeconds)) return false;
+        if (!Vec.IsFinite(now.VelocityCci)) return false;
+        if (!Vec.IsFinite(now.ReferencePositionCci) || !Vec.IsFinite(now.ReferenceVelocityCci)) return false;
+        if (now.ReferenceVelocityCci.Equals(Vec.Zero)) return false;
+        if (!(now.SecondsSinceReference >= 0.0)) return false;
 
-        if (!BallisticArc.TrySolve(now.Body, now.PositionCci, now.AimNowCci, now.SecondsToArrival,
-                                   out BallisticArc.Solution arc))
+        if (!Kepler.TryCoast(now.Body.Mu, now.ReferencePositionCci, now.ReferenceVelocityCci,
+                             now.SecondsSinceReference, out _, out double3 shouldBeDoing))
         {
             return false;
         }
 
-        toGainCci = arc.VelocityToGain(now.VelocityCci);
+        toGainCci = shouldBeDoing - now.VelocityCci;
         return Vec.IsFinite(toGainCci);
     }
 

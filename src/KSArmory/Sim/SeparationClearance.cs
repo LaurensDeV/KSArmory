@@ -19,24 +19,32 @@ internal readonly record struct Clearance(bool IsClear, bool OnTheClock, string 
 internal static class SeparationClearance
 {
     /// <summary>
-    /// Far enough, in metres.
+    /// How much further than the discarded stage's own bounding sphere counts as clear.
     ///
-    /// <para>Sized against what gets released afterwards rather than against the vehicle: a store
-    /// leaves its tube at a couple of metres a second and a spent stack's own bounding sphere is
-    /// tens of metres across, so the standoff has to beat the coarse contact test rather than merely
-    /// look separated. At the ~1.1 m/s a stock 3 m decoupler gives a six-tonne bus, this is about
-    /// thirty-five seconds of a release window that runs to minutes.</para>
+    /// <para>Sized against the thing it is protecting against rather than picked: that sphere is
+    /// what the coarse contact test uses, so a store released inside it can be scored against the
+    /// stage. Beyond it, and the stores are leaving their tubes at a couple of metres a second and
+    /// fly for minutes, so they open the gap themselves.</para>
     /// </summary>
-    public const double Metres = 50.0;
+    public const double ClearOfTheSphereMetres = 10.0;
+
+    /// <summary>When the stage's own size cannot be read, which is most of the first frames.</summary>
+    public const double FallbackMetres = 25.0;
 
     /// <summary>
-    /// The most it will wait for that.
+    /// The most it will wait for that, and it is deliberately short.
     ///
-    /// <para>A discarded stage that barely moved — a heavy one, or a decoupler with little in it —
-    /// would otherwise hold the whole salvo for ever, and the release window closes on altitude
-    /// rather than on this. Going ahead untrimmed is a worse shot; not shooting is no shot.</para>
+    /// <para>Waiting is not free. The aim correction absorbs what the fall loses to drag and to real
+    /// terrain, and that changes as the release point descends — so a salvo held back arrives on a
+    /// correction tuned for a release it no longer is. Measured in flight: a ninety-second hold on
+    /// a shot whose cutoff prediction was 0.1 km put the release probe 6.8 km out.</para>
+    ///
+    /// <para>A stage that barely moved therefore gets a short grace and then the salvo goes anyway.
+    /// A decoupler with little in it separates at a quarter of a metre a second, which is metres in
+    /// this window — going ahead that close is a worse shot than going ahead clear, and both beat
+    /// arriving late on a stale correction.</para>
     /// </summary>
-    public const double TimeoutSeconds = 90.0;
+    public const double TimeoutSeconds = 20.0;
 
     /// <param name="metresApart">
     /// How far apart the two are, or NaN when the discarded stage cannot be read.
@@ -46,13 +54,22 @@ internal static class SeparationClearance
     /// reading that as clearance is the one case this exists to prevent, because it fires the
     /// manoeuvre at the instant the two are closest rather than at the moment they are furthest.
     /// </para>
-    /// </summary>
-    public static Clearance Check(double metresApart, double secondsSinceSplit)
+    /// </param>
+    /// <param name="stageRadiusMetres">
+    /// The discarded stage's own bounding sphere, or NaN when that cannot be read either. It is
+    /// what the coarse contact test uses, so it is the distance that has to be beaten rather than
+    /// any number somebody picked.
+    /// </param>
+    public static Clearance Check(double metresApart, double stageRadiusMetres, double secondsSinceSplit)
     {
+        double wanted = double.IsFinite(stageRadiusMetres) && stageRadiusMetres > 0.0
+                            ? stageRadiusMetres + ClearOfTheSphereMetres
+                            : FallbackMetres;
+
         bool known = double.IsFinite(metresApart) && metresApart >= 0.0;
         bool late = secondsSinceSplit >= TimeoutSeconds;
 
-        if (known && metresApart >= Metres)
+        if (known && metresApart >= wanted)
         {
             return new Clearance(true, OnTheClock: false,
                                  $"clear of the spent stack at {metresApart:F0} m "
@@ -64,13 +81,13 @@ internal static class SeparationClearance
             return new Clearance(true, OnTheClock: true,
                                  known
                                      ? $"going ahead {metresApart:F0} m from the spent stack, "
-                                       + $"which stopped {Metres:F0} m short after {secondsSinceSplit:F0} s"
+                                       + $"which stopped {wanted:F0} m short after {secondsSinceSplit:F0} s"
                                      : $"going ahead with no clearance reading after {secondsSinceSplit:F0} s");
         }
 
         return new Clearance(false, OnTheClock: !known,
                              known
-                                 ? $"waiting to clear the spent stack, {metresApart:F0} m of {Metres:F0}"
+                                 ? $"waiting to clear the spent stack, {metresApart:F0} m of {wanted:F0}"
                                  : "waiting to clear the spent stack, which cannot be read");
     }
 }

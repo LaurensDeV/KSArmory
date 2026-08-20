@@ -144,16 +144,15 @@ internal sealed class IcbmComputer
     /// </summary>
     public bool NeedsShortSteps => Program.NeedsShortSteps || TrimIsFiring;
 
-    // The whole span the aim correction has to sit out, which is from the split to the trim being
-    // done - not merely the part where thrusters are firing.
+    // The span the aim correction has to sit out, which is only while thrusters are actually
+    // moving the vehicle its observer reads.
     //
-    // Its only observer is a prediction of where a released warhead lands, and that prediction
-    // carries the ejection kick along the live mean of the tube axes. A bus coasting clear of its
-    // spent stack is also tumbling, so that vector swings, so the predicted impact swings, and the
-    // correction chases it at half the error every half second. Measured across a 48 s wait: the
-    // bus owed 0.21 m/s at the split and 228.97 m/s by the time it was let go, having been pushed
-    // by nothing at all.
-    private bool TrimIsFiring => _trim.Armed && !_trim.Done;
+    // It used to have to cover the clearance wait as well, because the trim solved a fresh transfer
+    // to the corrected aim and the two loops drove each other. The trim reads no aim at all now, so
+    // that coupling is gone at the source - and a correction frozen across a long wait is its own
+    // fault, since what it absorbs is what the fall loses to drag and terrain and that changes as
+    // the release point descends.
+    private bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;
 
     public Celestial? Parent { get; private set; }
 
@@ -543,17 +542,23 @@ internal sealed class IcbmComputer
         _sinceSplit += simStep;
 
         double apart = double.NaN;
+        double radius = double.NaN;
 
         if (_separatedFrom is { } stack && KsaWorld.IsAlive(stack))
         {
             double3 between = KsaWorld.PositionEcl(stack) - KsaWorld.PositionEcl(Craft);
             if (Vec.IsFinite(between)) apart = Vec.Len(between);
+
+            // The stage's own bounding sphere, which is what the coarse contact test a released
+            // store would be scored against actually uses.
+            try { radius = stack.MeanRadius; }
+            catch { radius = double.NaN; }
         }
 
         // An unreadable stack falls back to the clock rather than to "clear": a part tree
         // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
         // case this exists to prevent.
-        return SeparationClearance.Check(apart, _sinceSplit);
+        return SeparationClearance.Check(apart, radius, _sinceSplit);
     }
 
     // One line per change of state, which is all any of this is worth while nothing is happening
@@ -611,9 +616,14 @@ internal sealed class IcbmComputer
             KsaWorld.TryControlFrameCci(Craft, parent, out nose, out right, out down);
         }
 
+        // The trajectory the guidance flew to, which is the pair the arc and the cutoff position
+        // make, and how far along it the vehicle should be by now.
+        double3 referenceVelocity = Program.Arc?.RequiredVelocityCci ?? Vec.Zero;
+
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
-            state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
-            Program.CommittedArrivalFromNow, nose, right, down, _mayTrim));
+            state.Body, state.PositionCci, state.VelocityCci,
+            Program.CutoffPositionCci, referenceVelocity, Program.SecondsSinceCutoff,
+            nose, right, down, _mayTrim));
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 

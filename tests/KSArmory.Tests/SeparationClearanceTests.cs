@@ -12,10 +12,37 @@ namespace KSArmory.Tests;
 /// </summary>
 public class SeparationClearanceTests
 {
+    // A stage a few metres across, and what clearing it therefore asks for.
+    private const double StageRadius = 8.0;
+    private const double Wanted = StageRadius + SeparationClearance.ClearOfTheSphereMetres;
+
+    /// <summary>
+    /// How far is far enough comes from the stage rather than from a number somebody picked: its
+    /// own bounding sphere is what the coarse contact test uses, so that is the thing to beat.
+    /// </summary>
+    [Theory]
+    [InlineData(2.0)]
+    [InlineData(40.0)]
+    public void WhatCountsAsClearScalesWithTheStage(double radius)
+    {
+        double just = radius + SeparationClearance.ClearOfTheSphereMetres;
+
+        Assert.True(SeparationClearance.Check(just, radius, 1.0).IsClear);
+        Assert.False(SeparationClearance.Check(just - 1.0, radius, 1.0).IsClear);
+    }
+
+    /// <summary>An unreadable stage still has to clear something, so it falls back to a fixed span.</summary>
+    [Fact]
+    public void AStageWhoseSizeCannotBeReadUsesTheFallback()
+    {
+        Assert.True(SeparationClearance.Check(SeparationClearance.FallbackMetres, double.NaN, 1.0).IsClear);
+        Assert.False(SeparationClearance.Check(SeparationClearance.FallbackMetres - 1.0, double.NaN, 1.0).IsClear);
+    }
+
     [Fact]
     public void FarEnoughApartIsClear()
     {
-        Clearance c = SeparationClearance.Check(SeparationClearance.Metres + 1.0, 10.0);
+        Clearance c = SeparationClearance.Check(Wanted + 1.0, StageRadius, 10.0);
 
         Assert.True(c.IsClear);
         Assert.False(c.OnTheClock);
@@ -25,7 +52,7 @@ public class SeparationClearanceTests
     [Fact]
     public void StillCloseIsNotClear()
     {
-        Clearance c = SeparationClearance.Check(SeparationClearance.Metres - 1.0, 10.0);
+        Clearance c = SeparationClearance.Check(Wanted - 1.0, StageRadius, 10.0);
 
         Assert.False(c.IsClear);
         Assert.Contains("waiting", c.Said);
@@ -45,10 +72,10 @@ public class SeparationClearanceTests
     [InlineData(-1.0)]
     public void AnUnreadableStageWaitsOutTheClockRatherThanCountingAsGone(double reading)
     {
-        Assert.False(SeparationClearance.Check(reading, 0.0).IsClear);
-        Assert.False(SeparationClearance.Check(reading, SeparationClearance.TimeoutSeconds - 0.1).IsClear);
+        Assert.False(SeparationClearance.Check(reading, StageRadius, 0.0).IsClear);
+        Assert.False(SeparationClearance.Check(reading, StageRadius, SeparationClearance.TimeoutSeconds - 0.1).IsClear);
 
-        Clearance late = SeparationClearance.Check(reading, SeparationClearance.TimeoutSeconds);
+        Clearance late = SeparationClearance.Check(reading, StageRadius, SeparationClearance.TimeoutSeconds);
 
         Assert.True(late.IsClear);
         Assert.True(late.OnTheClock);
@@ -62,7 +89,7 @@ public class SeparationClearanceTests
     [Fact]
     public void ItGivesUpWaitingRatherThanHoldingForEver()
     {
-        Clearance c = SeparationClearance.Check(2.0, SeparationClearance.TimeoutSeconds);
+        Clearance c = SeparationClearance.Check(2.0, StageRadius, SeparationClearance.TimeoutSeconds);
 
         Assert.True(c.IsClear);
         Assert.True(c.OnTheClock);
@@ -79,7 +106,7 @@ public class SeparationClearanceTests
     [Fact]
     public void ClearanceIsReachedOnDistanceRatherThanOnTime()
     {
-        Clearance c = SeparationClearance.Check(SeparationClearance.Metres, 0.5);
+        Clearance c = SeparationClearance.Check(Wanted, StageRadius, 0.5);
 
         Assert.True(c.IsClear);
         Assert.False(c.OnTheClock);

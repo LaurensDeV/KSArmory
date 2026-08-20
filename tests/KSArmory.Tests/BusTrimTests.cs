@@ -96,8 +96,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     /// arrival the bus is left.
     /// </summary>
     private (double Seconds, double Miss, TrimCommand Last) Trim(
-        BusTrim trim, Bus bus, double3 aimAtEpoch, double arrival, double step,
-        double maxSeconds = 300.0, bool log = false, double since = 0.0)
+        BusTrim trim, Bus bus, double3 aimAtEpoch, double3 referenceFrom, double3 referenceVelocity,
+        double step, double maxSeconds = 300.0, bool log = false, double since = 0.0)
     {
         double elapsed = since;
         TrimCommand last = default;
@@ -106,7 +106,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         {
             last = trim.Update(step, new TrimSituation(
                 Earth, bus.PositionCci, bus.VelocityCci,
-                Earth.CarryCci(aimAtEpoch, elapsed), arrival - elapsed,
+                referenceFrom, referenceVelocity, elapsed,
                 bus.NoseCci, bus.RightCci, bus.DownCci));
 
             if (last.Done) break;
@@ -152,7 +152,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         trim.Begin();
 
         (double seconds, double miss, TrimCommand last) =
-            Trim(trim, bus, aimAtEpoch, arc.FlightSeconds, 1.0 / 60.0, log: true);
+            Trim(trim, bus, aimAtEpoch, fromCci, arc.RequiredVelocityCci, 1.0 / 60.0, log: true);
 
         Out.WriteLine($"untrimmed {untrimmed / 1000.0:F1} km -> trimmed {miss:F0} m in {seconds:F1} s");
 
@@ -198,7 +198,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         {
             TrimCommand held = trim.Update(step, new TrimSituation(
                 Earth, bus.PositionCci, bus.VelocityCci,
-                Earth.CarryCci(aimAtEpoch, elapsed), arc.FlightSeconds - elapsed,
+                fromCci, arc.RequiredVelocityCci, elapsed,
                 bus.NoseCci, bus.RightCci, bus.DownCci, MayFire: false));
 
             Assert.Equal(TrimAxes.None, held.Fire);
@@ -217,7 +217,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         // arrival keeps counting from where the hold left it — handing back the one latched at
         // cutoff would be 50 s of arrival error, which on this arc is over a kilometre a second.
         (double seconds, _, TrimCommand last) =
-            Trim(trim, bus, aimAtEpoch, arc.FlightSeconds, step, log: true, since: elapsed);
+            Trim(trim, bus, aimAtEpoch, fromCci, arc.RequiredVelocityCci, step, log: true, since: elapsed);
 
         Assert.True(last.Done && !trim.GaveUp, last.Said);
 
@@ -256,7 +256,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         {
             TrimCommand c = trim.Update(1.0 / 60.0, new TrimSituation(
                 Earth, bus.PositionCci, bus.VelocityCci,
-                Earth.CarryCci(aimAtEpoch, elapsed), arc.FlightSeconds - elapsed,
+                fromCci, arc.RequiredVelocityCci, elapsed,
                 bus.NoseCci, bus.RightCci, bus.DownCci));
 
             everFired |= c.Fire;
@@ -305,7 +305,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         {
             TrimCommand c = trim.Update(step, new TrimSituation(
                 Earth, bus.PositionCci, bus.VelocityCci,
-                Earth.CarryCci(aimAtEpoch, elapsed), arc.FlightSeconds - elapsed,
+                fromCci, arc.RequiredVelocityCci, elapsed,
                 bus.NoseCci, bus.RightCci, bus.DownCci));
 
             Assert.False(c.Done && !shoved, $"finished at {elapsed:F2} s, before the split landed");
@@ -363,7 +363,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         trim.Begin();
 
         (double seconds, _, TrimCommand last) =
-            Trim(trim, bus, aimAtEpoch, arc.FlightSeconds, 1.0 / 60.0, log: true);
+            Trim(trim, bus, aimAtEpoch, fromCci, arc.RequiredVelocityCci, 1.0 / 60.0, log: true);
 
         // Against the arc from where the bus ended up, not the one solved from where it started:
         // a minute of coast puts those hundreds of kilometres apart, and the required velocity with
@@ -409,7 +409,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         trim.Begin();
 
         (double seconds, _, TrimCommand last) =
-            Trim(trim, bus, aimAtEpoch, arc.FlightSeconds, 1.0 / 60.0, log: true);
+            Trim(trim, bus, aimAtEpoch, fromCci, arc.RequiredVelocityCci, 1.0 / 60.0, log: true);
 
         Assert.True(last.Done && trim.GaveUp, last.Said);
         Assert.True(seconds < BusTrim.MaxSeconds, $"it took the whole budget: {seconds:F0} s");
@@ -417,158 +417,69 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The trim and the aim correction must not both be running, and this is what happens when
-    /// they are.
+    /// The answer does not depend on when the trim is asked, and that is the whole change.
     ///
-    /// <para>Both drive the same vehicle and both read the same prediction, so the bias absorbs a
-    /// displacement the trim itself put there, the trim reads the moved aim as a larger error, and
-    /// the pair wind each other up. Flown: jumps every 0.51 s — exactly the prediction interval —
-    /// each bigger than the last, from 0.28 m/s to 139 m/s in ten seconds, on a shot that had been
-    /// 0.1 km from the target at cutoff.</para>
+    /// <para>A trim built on a re-solved transfer is only as good as the arrival time and aim point
+    /// it is parameterised by, and on a deorbit it demands about twenty metres a second more for
+    /// every second the arrival is out. Flown: a bus that owed 0.21 m/s at the split owed 228.97
+    /// after coasting 48 s clear of its spent stack, pushed by nothing at all. Nulling against the
+    /// trajectory the guidance actually flew to has no such parameter.</para>
     ///
-    /// <para>Runs the loop both ways off one setup. <b>It reproduces the coupling, not the flown
-    /// divergence</b> — the loop gain depends on which axis the bus can push and how sensitive the
-    /// arc is to it, and in flight the trim happened to be firing radially, which is twice as
-    /// expensive as the along-track axis this rig picks. So the assertion is on the mechanism
-    /// rather than the magnitude: the correction must not absorb a displacement the trim put there.
-    /// The log is the evidence for how far that goes when it does.</para>
+    /// <para>The aim does not appear in <see cref="TrimSituation"/> at all any more, so the loop
+    /// that once wound the two together is gone by construction rather than by rule.</para>
     /// </summary>
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void TheAimCorrectionMustSitOutWhileTheTrimIsFiring(bool observeWhileTrimming)
+    [InlineData(0.0)]
+    [InlineData(10.0)]
+    [InlineData(60.0)]
+    [InlineData(300.0)]
+    public void WhatItOwesDoesNotDependOnWhenItIsAsked(double delay)
     {
-        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out _);
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
 
-        Bus bus = new()
-        {
-            PositionCci = fromCci,
-            VelocityCci = arc.RequiredVelocityCci,
-            NoseCci = nose,
-            RightCci = Vec.Unit(Vec.Cross(fromCci, nose)),
-            DownCci = -Vec.Unit(fromCci),
+        // The shove, applied at the split and never touched again.
+        double3 shoved = arc.RequiredVelocityCci + nose * 1.1;
 
-            // The bus's own, measured in flight rather than assumed: the thrusters logged
-            // 0.9-1.1 m/s2, and the runaway outruns exactly that.
-            AxialAcceleration = 1.0,
-            LateralAcceleration = 1.0,
-        };
-
-        // Warheads are thrown off the tubes rather than dropped, so the aim the guidance solved to
-        // is displaced to absorb that. It is what gives the correction something to hold, and
-        // therefore something to wind up.
-        double3 kick = Vec.Unit(Vec.Cross(nose, fromCci)) * 2.0;
-
-        AimCorrection aim = new();
-
-        // The state the trim actually starts from, which is not a fresh one: by cutoff the
-        // correction has been running for the whole burn and the guidance has been solving to the
-        // aim it produced. Starting from zero bias instead lets the first observation do work that
-        // is genuinely owed, and the runaway never gets going -- the setup hides the fault.
-        for (int i = 0; i < 40; i++)
-        {
-            Assert.True(BallisticArc.TrySolve(Earth, fromCci, aim.Apply(aimAtEpoch),
-                                              arc.FlightSeconds, out BallisticArc.Solution onAim));
-
-            bus.VelocityCci = onAim.RequiredVelocityCci;
-
-            Assert.True(ImpactPredictor.TryPredict(Earth, fromCci, bus.VelocityCci + kick, 2.0,
-                                                   20_000.0, out ImpactPredictor.Impact settled));
-
-            aim.Observe(settled.GroundFixedPointCci, aimAtEpoch);
-        }
-
-        Out.WriteLine($"bias converged to {Vec.Len(aim.BiasCci) / 1000.0:F1} km before the split");
-
-        // And now the decoupler, which is the only thing the trim is there for.
-        bus.VelocityCci += nose * 1.1;
-
-        double3 biasAtCutoff = aim.BiasCci;
+        // Coast the shoved bus, in closed form so the rig's own integrator cannot muddy it.
+        Assert.True(Kepler.TryCoast(Mu, fromCci, shoved, delay, out double3 p, out double3 v));
 
         BusTrim trim = new();
         trim.Begin();
 
-        double step = 1.0 / 60.0;
-        double sincePredict = 0.0;
-        double elapsed = 0.0;
-        double peak = 0.0;
-        TrimCommand last = default;
+        TrimCommand c = trim.Update(1.0 / 60.0, new TrimSituation(
+            Earth, p, v, fromCci, arc.RequiredVelocityCci, delay,
+            nose, Vec.Unit(Vec.Cross(fromCci, nose)), -Vec.Unit(fromCci), MayFire: false));
 
-        for (int i = 0; i < 3000 && !last.Done; i++)
-        {
-            double3 trueAim = Earth.CarryCci(aimAtEpoch, elapsed);
+        Out.WriteLine($"asked {delay,5:F0} s after cutoff -> owes {c.ToGainMetresPerSecond:F4} m/s");
 
-            sincePredict += step;
-            if (sincePredict >= 0.5)
-            {
-                sincePredict = 0.0;
-
-                // The same observer the mod has: fly the warhead from the bus's live state, and
-                // score where it lands against the target.
-                if ((observeWhileTrimming || last.Done)
-                    && ImpactPredictor.TryPredict(Earth, bus.PositionCci, bus.VelocityCci + kick,
-                                                  2.0, 20_000.0, out ImpactPredictor.Impact hit))
-                {
-                    aim.Observe(hit.GroundFixedPointCci, trueAim);
-                }
-            }
-
-            last = trim.Update(step, new TrimSituation(
-                Earth, bus.PositionCci, bus.VelocityCci, aim.Apply(trueAim),
-                arc.FlightSeconds - elapsed, bus.NoseCci, bus.RightCci, bus.DownCci));
-
-            peak = Math.Max(peak, double.IsFinite(last.ToGainMetresPerSecond)
-                                      ? last.ToGainMetresPerSecond : 0.0);
-
-            if (last.Done) break;
-
-            bus.Step(last.Fire, step);
-            elapsed += step;
-        }
-
-        double moved = Vec.Len(aim.BiasCci - biasAtCutoff);
-
-        Out.WriteLine($"observing={observeWhileTrimming}: peaked at {peak:F2} m/s after {elapsed:F1} s"
-                      + $", bias moved {moved:F0} m -- {last.Said}");
-
-        if (observeWhileTrimming)
-        {
-            // The coupling has to still be here, or the case below is measuring nothing. Both
-            // halves of it: the correction takes in the trim's own displacement, and the trim then
-            // burns at what that put in front of it.
-            Assert.True(moved > 100.0, $"the correction should have absorbed the trim's own work; moved {moved:F0} m");
-            Assert.True(peak > 1.1 * 1.5, $"and the trim should have chased it; peaked at {peak:F2} m/s");
-            return;
-        }
-
-        Assert.True(last.Done && !trim.GaveUp, last.Said);
-
-        // The whole fix, stated exactly: the aim the trim is solving to does not move under it.
-        Assert.Equal(0.0, moved, 6);
-        Assert.True(peak <= 1.2, $"nothing should have grown it past the 1.1 m/s shove; peaked at {peak:F2} m/s");
+        // Still the shove five minutes later. It decays a few per cent rather than holding exactly,
+        // because the shoved vehicle is on a different conic and the two drift apart — which is the
+        // real answer rather than an error in it. The old formulation asked for hundreds.
+        Assert.InRange(c.ToGainMetresPerSecond, 1.0, 1.15);
     }
 
     /// <summary>
-    /// Without a committed arrival there is nothing to trim towards, and it refuses rather than
-    /// picking one.
+    /// Without the trajectory the burn was flown to there is nothing to trim towards, and it
+    /// refuses rather than inventing one.
     ///
-    /// <para>The cheapest arc from any state converges on the arc that state is already flying, so
-    /// a trim that chose its own arrival would decide the bus was exactly where it should be and
-    /// null nothing — reporting success at a shot it never touched.</para>
+    /// <para>Anything it could invent would be a transfer from wherever the vehicle happens to be,
+    /// which is the trajectory it is already on — so it would decide the bus was exactly where it
+    /// should be and null nothing, reporting success at a shot it never touched.</para>
     /// </summary>
     [Fact]
-    public void WithNoCommittedArrivalItRefusesRatherThanChoosingOne()
+    public void WithNoCutoffSolutionItRefusesRatherThanInventingOne()
     {
-        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out _);
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
 
         BusTrim trim = new();
         trim.Begin();
 
         TrimCommand c = trim.Update(1.0 / 60.0, new TrimSituation(
-            Earth, fromCci, arc.RequiredVelocityCci + nose * 1.1, aimAtEpoch,
-            double.NaN, nose, Vec.Unit(Vec.Cross(fromCci, nose)), -Vec.Unit(fromCci)));
+            Earth, fromCci, arc.RequiredVelocityCci + nose * 1.1,
+            fromCci, Vec.Zero, 0.0,
+            nose, Vec.Unit(Vec.Cross(fromCci, nose)), -Vec.Unit(fromCci)));
 
         Assert.True(c.Done && trim.GaveUp, c.Said);
         Assert.Equal(TrimAxes.None, c.Fire);
@@ -602,7 +513,7 @@ public class BusTrimTests(ITestOutputHelper Out)
         BusTrim trim = new();
         trim.Begin();
 
-        (_, _, TrimCommand last) = Trim(trim, bus, aimAtEpoch, arc.FlightSeconds, step, log: true);
+        (_, _, TrimCommand last) = Trim(trim, bus, aimAtEpoch, fromCci, arc.RequiredVelocityCci, step, log: true);
 
         // The loop's own last solve, which is the residual against the arc from where the bus
         // actually is. Differencing against the velocity solved at the start would measure the

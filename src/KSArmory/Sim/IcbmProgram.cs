@@ -231,6 +231,7 @@ internal sealed class IcbmProgram
     private double _stageCooldown;
     private double _drySeconds;
     private double _sinceLaunch;
+    private double _sinceCutoff;
     private double _lastStep;
     private double _throttle = 1.0;
     private double _lowestToGain = double.PositiveInfinity;
@@ -268,6 +269,15 @@ internal sealed class IcbmProgram
     public double3 DownrangeCci { get; private set; }
 
     public double SecondsSinceLaunch => _sinceLaunch;
+
+    /// <summary>
+    /// How long the engines have been out, which is how far the coast has carried the vehicle from
+    /// the state <see cref="Arc"/> and <see cref="CutoffPositionCci"/> describe.
+    ///
+    /// <para>That pair is a trajectory rather than a moment, so anything correcting the vehicle
+    /// back onto it needs to know how far along it should be by now. Zero until the burn ends.</para>
+    /// </summary>
+    public double SecondsSinceCutoff => _sinceCutoff;
 
     /// <summary>Velocity still to gain at the last solve. Zero once the burn is over.</summary>
     public double VelocityToGain => _toGain;
@@ -380,6 +390,7 @@ internal sealed class IcbmProgram
         _stageCooldown = 0.0;
         _drySeconds = 0.0;
         _sinceLaunch = 0.0;
+        _sinceCutoff = 0.0;
         _lastStep = 0.0;
         _throttle = 1.0;
         _lowestToGain = double.PositiveInfinity;
@@ -409,6 +420,7 @@ internal sealed class IcbmProgram
         _sinceWindow += state.PlayerStepSeconds > 0.0 ? state.PlayerStepSeconds : step;
         if (double.IsFinite(_windowWait)) _windowWait -= step;
         if (Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution)) _sinceLaunch += step;
+        if (Phase == IcbmPhase.Coast) _sinceCutoff += step;
 
         if (!Config.Armed) return Idle(state, "not armed");
         if (!state.HasAim) return Idle(state, "no target designated");

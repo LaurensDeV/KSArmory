@@ -40,60 +40,41 @@ Two failures on the way, both worth not repeating:
 - **Nulling the shove ends the separation**, because the shove *is* the separation velocity. The bus
   trimmed 130 ms after the split at 12 m and then sat against the booster it had just dropped.
 
-## 1. Null the separation impulse — works, then refused itself
+## 1. Null the separation impulse — reformulated, unflown
 
-**Flown twice, and the second flight is the open problem.**
+**The mechanism is flown and confirmed.** KSA's translation flags reach the bus's nozzles, they were
+measured at **0.9-2.2 m/s2**, and the loop closes at that rate: `trimming 1.23 m/s on the tail` →
+`trimmed to 0.010 m/s` in 1.8 s.
 
-First flight, trimming 130 ms after the split: `trimming 1.23 m/s on the tail` → `trimmed to
-0.010 m/s` in 1.8 s, thrusters measured at 0.9-2.2 m/s2. The mechanism is confirmed — KSA's
-translation flags reach the bus's nozzles and the loop closes at the measured rate.
+**What was wrong was the question it asked.** It re-solved a transfer from wherever the bus happened
+to be, to a latched arrival and the corrected aim. A transfer is parameterised by those two, and on
+a deorbit it demands about **20 m/s more for every second the arrival is out** — so the answer
+depended on *when* the trim ran and went stale while the bus coasted clear of its spent stack:
 
-Second flight, after the clearance wait was added, the trim was **held for 35 s and then refused**:
+| flown | owed at the split | owed on release | result |
+| --- | --- | --- | --- |
+| trim at +0.13 s | 1.23 m/s | 1.23 | 431 m - 1.4 km |
+| held 48 s | 0.21 m/s | **228.97** | refused, 5.7-6.5 km |
+| held 90 s | 0.26 m/s | 1.47 | trimmed, but released late — 8.2-9.0 km |
 
-```
-waiting to clear the spent stack, 12 m of 50   ...   50 m of 50
-clear of the spent stack at 50 m after 35 s
-more than a separation could have cost, 203.83 m/s left on the bus
-```
+It now nulls against the trajectory the guidance actually flew to: carry
+`(CutoffPositionCci, Arc.RequiredVelocityCci)` forward by `SecondsSinceCutoff` with `Sim/Kepler.cs`
+and subtract what the vehicle is doing. Same shove, asked at 0, 10, 60 and 300 s after cutoff:
+**1.1000, 1.0999, 1.0972, 1.0370 m/s**. The few per cent of decay is the two conics genuinely
+drifting apart. Against a reference that is not carried forward the same test reads 92 m/s after ten
+seconds.
 
-The refusal is `BusTrim.MaxMetresPerSecond` doing its job — the shot went out untrimmed at
-5.7-6.5 km rather than being flown into the ground by a 200 m/s burn. But nothing was trimmed.
+Two things fall out of it. The trim **takes no aim point**, so the loop that wound it together with
+the aim correction is gone by construction rather than by rule — the correction now sits out only
+while thrusters are actually firing. And **the clearance wait stops being expensive to the trim**,
+because the answer no longer decays while it waits.
 
-**What is ruled out.** A pure ballistic coast produces *exactly zero* velocity to gain at any
-delay — 0, 5, 15 and 35 s all give 0.000 m/s — so the arrival bookkeeping does not drift on its
-own and the wait is not the fault by itself.
+The wait is still expensive to the *shot* — see item 2b — so it is now sized off the discarded
+stage's own bounding sphere, which is what the coarse contact test uses, and capped at **20 s**
+rather than 90.
 
-**What the number is sensitive to, measured.** What the trim nulls is
-`RequiredVelocity(arrival) − v`, and on this deorbit that required velocity moves about **20 m/s
-for every second the arrival is out**: an arrival 50 s stale asks for 1,055 m/s. So 203 m/s is
-about ten seconds of arrival disagreement, which is a far smaller and more likely fault than
-anything that could have pushed a coasting bus that hard.
-
-**The next flight decided it.** Held 48 s for clearance, the log said:
-
-```
-owed 0.21 m/s at the split, 228.97 after 48 s of clearing
-```
-
-Nothing pushed the bus. What moved was the **aim**: the correction's only observer is a prediction
-of where a released warhead lands, and that prediction carries the ejection kick along the *live*
-mean of the tube axes. A bus coasting clear of its spent stack is also tumbling, so that vector
-swings, so the predicted impact swings, and the correction chases it at half the error every half
-second for the whole wait.
-
-It is the same fault as the original runaway — a correction observing something the thing it
-corrects is moving — arriving by a second route, and the reason the first fix missed it is that the
-aim was held out only while the thrusters were *firing*. It is now held out from the split to the
-trim being done.
-
-The sensitivity is what turns a wandering aim into hundreds of metres a second: what the trim nulls
-is `RequiredVelocity(arrival) − v`, and on this deorbit that required velocity moves about **20 m/s
-for every second of arrival error**, and comparably fast for a displaced aim point. That fragility
-is worth removing on its own merits — comparing against `Program.Arc.RequiredVelocityCci` carried
-forward, as this item's original sketch said, rather than re-solving Lambert every cycle.
-
-Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is
-comfortable on paper and nothing has spent it.
+Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable
+on paper and nothing has spent it.
 
 ## 2. Every round landed beyond its own release probe — cause found, fixed, unflown
 
@@ -136,6 +117,19 @@ already use. `GroundFrameTests` fails against the frozen centre at exactly the n
 shape: the terrain *radius* is held for the frame too, so the round crosses a sphere sampled behind
 the impact point — 20-275 m on a ±10% local slope, and it does **not** scale with the frame, which
 is what tells the two apart.
+
+## 2b. Releasing later misses further, cause not yet established
+
+Same shot, cutoff prediction `0.1 km off` every time. Release at +50 s and the probe says 0.1-0.2 km;
+release at +106 s and it says **6.8 km**, with impacts at 8.2-9.0 km in a tight group. A tight group
+far out is a systematic bias, and something moved it 6.7 km while the bus coasted ballistically.
+
+The suspect is `AimCorrection`: its bias absorbs what the flown fall loses to drag and to real
+terrain, and that changes as the release point descends — so a correction converged for a release at
+cutoff is wrong for one 90 s later. A second candidate is that the bias is a free vector held in Cci
+while the target rotates under it. Under investigation; nothing has been changed for it yet.
+
+**Until it is understood, do not hold a salvo back.** That is why the clearance cap came down to 20 s.
 
 ## 3. The first round races the separation — fixed
 
