@@ -295,7 +295,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ShotRequest.cs` | where a scripted shot is aimed and the bar it is judged against — **text in**, so the harness's one line is testable headlessly |
 | `Sim/ShotGroup.cs` | where a salvo landed, and whether that is a pass — **scored on the worst warhead**, and one that never arrived counts |
 | `Sim/PlatformHandover.cs` | which craft a part went to, when a decoupler took it off the one carrying it — **one decision, every roster that follows a part** |
-| `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, ascent, staging, trim |
+| `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, arrival angle, ascent, staging, trim |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
@@ -426,7 +426,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/ICBM-GUIDANCE.md` | **the ballistic computer** — the algorithm, the frames, the cutoff, and what has not been flown |
 | `docs/MIRV-NEXT.md` | **the backlog for the bus** — what separation costs, and what has to happen before re-pointing pays |
-| `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, and why seven degrees is the air's answer rather than the guidance's |
+| `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why seven degrees is the air's answer rather than the guidance's, and the control that asks for another |
 | `docs/KINETIC-FLOOR.md` | **how accurate a round could possibly be** — the terms no amount of guidance work removes, and why the arrival angle is the whole lever |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
@@ -1081,6 +1081,21 @@ state converges on the arc it is already flying, so a loft factor applied to tha
 the answer outward and the shot chases a trajectory running away from it — 162 km out at a 1.4 loft.
 The cheapest time is carried out of the solver separately from the one flown, and the arrival time
 is nailed down when closed-loop guidance takes over.
+
+**Arrival angle is asked for with a bound, not with a nudge.** It is the dominant precision lever —
+7.5° to 20° is eight times the velocity sensitivity and sixty-two times the immunity to a
+drag-model error, which is the one term no correction loop can remove — and it used to be an output
+of a delta-v minimisation. `Loft` is not a control for it and from orbit will *invert* it: raising
+loft makes leaving now dearer too, so `BurnWindow` re-optimises the departure and defers to a cheap
+flat window — 33.9° at loft 1.0 becoming **6.2°** at loft 1.8 on a 556 km shot.
+
+So `IcbmConfig.MinArrivalAngleDeg` constrains the search instead: an arc arriving shallower costs
+infinity, and the window search's "earliest affordable departure" becomes "earliest affordable
+*satisfying* departure" with nothing else changed. **A predicate is idempotent where a multiplier is
+not**, which is why the constrained flight time can be seeded straight back in and a lofted one
+cannot. Where the two disagree the floor wins, nothing satisfying it is `IcbmReach.TooShallow`
+rather than a silent graze, and it is **off at zero**, which is the default.
+`docs/ARRIVAL-ANGLE.md` is the whole account. **Unflown.**
 
 **Do not compete with KSA's own warp, and do not ask the world for more than the rounds do.**
 Coming out of a warp-to-a-time is where this bites: KSA is still travelling when it reaches its

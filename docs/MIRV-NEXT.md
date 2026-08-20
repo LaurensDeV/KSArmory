@@ -650,6 +650,13 @@ a loft above one walks the answer outward every cycle, 162 km measured — so th
 is whether that failure needs the latch *early* or merely needs it *at all*. With `Loft` at one the
 cheapest arc is the natural one and there is nothing to chase.
 
+**`IcbmConfig.MinArrivalAngleDeg` does not reopen that.** It constrains the flight-time search rather
+than multiplying its answer, and a predicate is idempotent where a multiplier is not: the arc that
+satisfied the floor satisfies it again, so seeding the next cycle with the constrained time returns
+the same time. Measured over twelve cycles at loft 1.4 with an 18 degree floor: 639.6 s every one.
+So a steep shot asked for with the floor is a shot with nothing to chase, and the question above is
+still about `Loft`.
+
 **The older structural candidate**, and the only one that addresses the cause rather than
 damping it: `IcbmProgram.Resolve` latches `_arrivalFromLaunch` on the *first* closed-loop cycle,
 before the correction has moved anything. Latching it after the correction has settled leaves both

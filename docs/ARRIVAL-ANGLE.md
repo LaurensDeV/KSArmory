@@ -3,11 +3,15 @@
 **The question.** A kinetic round has no lethal radius to hide inside, so precision *is* the weapon.
 Every ballistic shot this mod has flown arrives at about **seven degrees**, and every large term in
 the miss budget is that angle multiplied by something. This is what a steeper arrival is worth, what
-it costs, and whether the guidance can be told to fly one.
+it costs, and how the guidance is told to fly one.
 
-**Everything below is measured** by `tests/KSArmory.Tests/ArrivalAngleTests.cs` and nothing has been
-flown. `docs/ICBM-GUIDANCE.md` is the guidance itself; `docs/KSA-TERRAIN.md` is where the surface
-numbers come from.
+**The control is `IcbmConfig.MinArrivalAngleDeg`**, and it is **off by default**, so everything about
+the shots described here is still what the mod does out of the box. *The floor, which is what
+expresses it* is the section on how it works and what it costs.
+
+**Everything below is measured** by `tests/KSArmory.Tests/ArrivalAngleTests.cs` and
+`tests/KSArmory.Tests/ArrivalFloorTests.cs`, and nothing has been flown. `docs/ICBM-GUIDANCE.md` is
+the guidance itself; `docs/KSA-TERRAIN.md` is where the surface numbers come from.
 
 **What the rig cannot see.** The planet sits at the origin and does not move, which is the one case
 where a frame carrier is identically zero — so nothing here can measure an epoch fault, including the
@@ -180,14 +184,16 @@ component, and that is a question about the penetrator rather than about the tra
 
 ---
 
-## Can the guidance be told to arrive steeply today?
+## What `Loft` alone could do, and why it was not enough
 
-**No, and the one knob that looks like it can will sometimes do the opposite.**
+**`IcbmConfig.MinArrivalAngleDeg` now asks for an arrival angle directly.** What follows is
+why it had to exist: before it, the only knob that looked like it could ask for one would
+sometimes do the opposite.
 
-There is no arrival-angle parameter anywhere in `Sim/`. `BallisticArc.TryCheapest` minimises the
+There was no arrival-angle parameter anywhere in `Sim/`. `BallisticArc.TryCheapest` minimises the
 length of the velocity still to gain over flight time, `BurnWindow.TryFind` minimises the same thing
 over departure time as well, and `IcbmConfig.Loft` multiplies the flight time the first of those
-settled on. Arrival angle is an output of all three.
+settled on. Arrival angle was an output of all three.
 
 `BurnWindow` searches a day of departures and takes the earliest within `GoodEnoughFraction` of the
 cheapest. The cheapest is the graze, always — so the search actively *avoids* the geometry a rod
@@ -218,22 +224,136 @@ steeper and got the shallowest arrival on the page.
 already chosen and loft then buys 0.0° → 17.8° for 2.4 km/s. Whether it helps or inverts depends on a
 threshold nothing in the panel shows.
 
-### What would express it
+---
 
-The machinery is already there and the objective is wrong. `BurnWindow` coasts the state through
-`Kepler.TryCoast` and costs departures across sixteen revolutions — everything needed to wait for the
-pass a steep shot requires. What is missing is a term that is not `|Δv|`: a *minimum arrival angle*
-that constrains `BallisticArc`'s flight-time search, and a window search that takes the earliest
-departure whose cheapest satisfying arc is affordable rather than the cheapest arc there is.
+## The floor, which is what expresses it
 
-That is a behaviour change and is not made here.
+`IcbmConfig.MinArrivalAngleDeg` is the shallowest the warheads may come in, in degrees below the
+local horizontal. **Zero is off and off is the default**, so nothing above this line changed until
+somebody moves the slider.
+
+**It is a bound on the search rather than a nudge to it**, and that one distinction is the whole
+design:
+
+- `BallisticArc.TryCheapest` costs a candidate flight time at infinity if its arc arrives shallower
+  than the floor, so the golden section returns the cheapest arc that *satisfies* it rather than the
+  cheapest arc there is.
+- `BurnWindow.TryFind` threads the same number into its per-departure cost, so a departure with no
+  satisfying arc is not a window at all — and the machinery that already takes the earliest
+  affordable departure then takes the earliest affordable *satisfying* one, with nothing else
+  changed.
+- Nothing anywhere satisfying it is `IcbmReach.TooShallow`, which is a third answer beside
+  `NoTrajectory` and `ShortOfPropellant`. It says which of the three it is because only one of them
+  is fixed by a control on the panel.
+
+**A predicate is idempotent where a multiplier is not**, which is why the floor can be seeded back
+into the next cycle's search and `Loft` cannot. The arc that satisfied the floor satisfies it again;
+a flight time multiplied by 1.4 and fed back is multiplied again, which is the 162 km runaway
+`docs/ICBM-GUIDANCE.md` records and the reason `CheapestFlightSeconds` is carried separately.
+`ArrivalFloorTests.ReSolvingFromItsOwnAnswerDoesNotWalkTheShotOut` runs twelve cycles at loft 1.4
+with an 18° floor and gets 639.6 s every time.
+
+### The two coexist, and the floor wins
+
+`Loft` is kept. It is load-bearing for the arrival latch — `docs/MIRV-NEXT.md` item 7b — and it is
+still the way to ask for a taller arc at a range where the floor is already satisfied. What changed
+is the order of precedence: loft multiplies whatever the constrained search settled on, and if the
+lofted time no longer satisfies the floor the constrained time is flown instead. A nudge does not
+get to walk out of a bound the operator set.
+
+That is not a hypothetical. Loft below one *depresses* the shot, which is exactly the arrival the
+floor exists to refuse: without the check, a 0.6 flattens a satisfying 20° arc back to **3.53°**.
+`ArrivalFloorTests.LoftBelowOneCannotFlattenAnArcBackUnderTheFloor` fails with that number against
+the old search.
+
+And the inversion is gone. The same 556 km shot, floor at 15°:
+
+| loft | floored | free |
+| --- | --- | --- |
+| 0.6 | waits 4,229 s, 1,851 m/s, **15.00°** | 5,525 m/s, 32.29° |
+| 1.0 | waits 4,229 s, 1,851 m/s, **15.00°** | 3,974 m/s, 33.91° |
+| 1.4 | waits 3,411 s, 3,233 m/s, **21.92°** | 4,308 m/s, 36.54° |
+| 1.8 | waits 3,639 s, 3,973 m/s, **27.10°** | waits 5,441 s, 634 m/s, **6.24°** |
+
+The bottom-right cell is the defect: asking for the panel's steepest loft got the shallowest arrival
+on the page. With the floor set it is monotone.
+
+### Measured on the arc, not through the air
+
+The floor is applied to the vacuum arc, because the arc is what the search has — the drag model
+lives in `ImpactPredictor`, and flying one per candidate flight time would put a trajectory
+integration inside a golden section. What that approximation costs, from a 400 km platform onto a
+target 2,224 km ahead:
+
+| floor | arc arrives | flown arrives |
+| --- | --- | --- |
+| 10° | 10.29° | 10.44° |
+| 12° | 12.00° | 12.01° |
+| 15° | 15.00° | 14.85° |
+| 20° | 20.00° | 19.68° |
+| 30° | 30.00° | 29.51° |
+
+Under half a degree across the useful range, conservative at the shallow end and optimistic at the
+steep. It only diverges where the arrival is already a graze, which is the 3.6° → 7.1° at the top of
+this page and is the regime the floor exists to leave.
+
+### What it costs, asked the other way round
+
+The table near the top brakes a platform by hand and reads off the arrival. This asks the guidance
+for the arrival and reads off the brake, which is the number an operator actually spends. 400 km
+platform, `ExhaustVelocity` 3,100 m/s:
+
+| target | floor | wait | burn | arc | flown | stack arriving | impact |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2,224 km ahead | off | 0 s | 1,149 | 10.29° | 10.44° | 69.0% | 4,355 m/s |
+| | 10° | 5,198 s | 1,021 | 10.00° | 10.22° | 71.9% | 4,187 m/s |
+| | **15°** | 4,201 s | **1,927** | 15.00° | 14.81° | **53.7%** | 5,287 m/s |
+| | **20°** | 4,303 s | **2,596** | 20.00° | 19.70° | **43.3%** | 5,818 m/s |
+| | 30° | 4,505 s | 3,953 | 30.00° | 29.64° | 27.9% | 6,497 m/s |
+| 5,004 km ahead | off | 4,849 s | 153 | 1.72° | 7.54° | 95.2% | 2,484 m/s |
+| | 10° | 173 s | 972 | 10.00° | 10.25° | 73.1% | 4,077 m/s |
+| | **15°** | 0 s | **1,691** | 15.00° | 14.83° | **58.0%** | 4,635 m/s |
+| | **20°** | 0 s | **2,342** | 20.00° | 19.68° | **47.0%** | 4,890 m/s |
+| | 30° | 0 s | 3,521 | 30.00° | 29.57° | 32.1% | 5,161 m/s |
+
+So at a **fixed** target the trade is the one the recommendation already describes, priced in the
+operator's own currency: 15° costs 0.8–1.5 km/s over the graze and about a third of the stack, and
+20° costs 1.4–2.2 km/s and about half. The reach is not given up at all here, because the target is
+where it is — what the earlier table calls "downrange" is what the *cheapest* shot at that angle
+happens to reach, and constraining the angle at a fixed range spends the difference on propellant
+instead.
+
+### From orbit the floor is a price, not a wall
+
+Searching a day of departures, every floor short of vertical is satisfiable from a 400 km circular
+platform — measured at 45°, 60°, 75°, 85° and 89.5°, costing 5.0, 6.2, 7.5, 7.4 and 8.1 km/s, which
+is the orbital velocity being spent. Only an exactly vertical arrival has no window at all, because a
+transfer arriving radially at a point is the degenerate case where no plane is determined.
+
+**Mid-ascent is where a floor is a wall.** From a 60 km pick-up already committed to a direction, a
+target 90° round the planet reaches 46° of arrival and no further, and a 55° floor is refused with
+`IcbmReach.TooShallow` and the line *"nothing arrives at 55 deg or steeper from here; the cheapest
+arc arrives at 17 deg"*.
+
+### What the floor is still not
+
+- **It does not constrain a latched arrival.** Once closed-loop guidance commits the arrival
+  instant, the arc through that instant from a cutoff point that has since moved is whatever it is.
+  Re-checking it there would unlatch a shot mid-burn, which is the failure the latch exists to
+  prevent. The arrival was latched off an arc that satisfied the floor and the cutoff point moves
+  only by what is left of the burn, so the drift is bounded and unmeasured.
+- **It does not know about propellant.** A floor that turns a 150 m/s deorbit into a 3.5 km/s one is
+  accepted by the search and then reported as `ShortOfPropellant` by `AssessReach`, which is the
+  right division of labour and still two readouts to look at rather than one.
+- **None of it is flown.**
 
 ---
 
 ## Recommendation
 
-**Fly a 15–20 degree arrival, deorbited by braking hard onto a target 2,000–2,700 km ahead. Do not
-loft.**
+**Fly a 15–20 degree arrival, deorbited by braking hard onto a target 2,000–2,700 km ahead.** Set
+`MinArrivalAngleDeg` to 15 or 20 and leave `Loft` at one: the floor asks for the angle directly,
+where loft asks for a flight time and lets the angle fall out of it.
 
 | | at the flown 7.1° | at 15° | at 20° |
 | --- | --- | --- | --- |
@@ -288,3 +408,10 @@ velocity it throws away to get there.
   against 10.4 at twenty. Steepening reduces it by a factor of three; it does not remove it.
 - **The floor is the Mk 21's.** A dedicated rod would want its own `MunitionProfile`, and a denser one
   moves the floor the wrong way — see the table at the top.
+- **`MinArrivalAngleDeg` has not been flown either.** It is measured headlessly through the same
+  solver and predictor as everything else here, and the one thing a flight would show that this
+  cannot is what a constrained arc does to the aim-correction loop, which is where the flown misses
+  actually come from — `docs/MIRV-NEXT.md` item 9.
+- **A constrained arrival is not re-checked once the arrival instant is latched.** The bound is on
+  the search; the latch pins a time. How far the arrival drifts across the rest of a burn is
+  bounded by how far the cutoff point moves and has not been measured.
