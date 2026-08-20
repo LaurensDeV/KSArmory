@@ -97,12 +97,12 @@ public class BusTrimTests(ITestOutputHelper Out)
     /// </summary>
     private (double Seconds, double Miss, TrimCommand Last) Trim(
         BusTrim trim, Bus bus, double3 aimAtEpoch, double arrival, double step,
-        double maxSeconds = 300.0, bool log = false)
+        double maxSeconds = 300.0, bool log = false, double since = 0.0)
     {
-        double elapsed = 0.0;
+        double elapsed = since;
         TrimCommand last = default;
 
-        while (elapsed < maxSeconds)
+        while (elapsed - since < maxSeconds)
         {
             last = trim.Update(step, new TrimSituation(
                 Earth, bus.PositionCci, bus.VelocityCci,
@@ -115,9 +115,9 @@ public class BusTrimTests(ITestOutputHelper Out)
             elapsed += step;
         }
 
-        if (log) Out.WriteLine($"{elapsed:F1} s, {last.Said}, measured {last.Acceleration:F3} m/s2");
+        if (log) Out.WriteLine($"{elapsed - since:F1} s, {last.Said}, measured {last.Acceleration:F3} m/s2");
 
-        return (elapsed, MissMetres(bus.PositionCci, bus.VelocityCci, aimAtEpoch, elapsed), last);
+        return (elapsed - since, MissMetres(bus.PositionCci, bus.VelocityCci, aimAtEpoch, elapsed), last);
     }
 
     /// <summary>
@@ -159,6 +159,72 @@ public class BusTrimTests(ITestOutputHelper Out)
         Assert.True(untrimmed > 2_000.0, $"the shove should be kilometres, was {untrimmed:F0} m");
         Assert.True(last.Done && !trim.GaveUp, last.Said);
         Assert.True(miss < untrimmed / 20.0, $"trimmed to {miss:F0} m against {untrimmed:F0} m untrimmed");
+    }
+
+    /// <summary>
+    /// Held, it still solves — and that is the whole reason the flag exists.
+    ///
+    /// <para>The trim waits for the bus to coast clear of the stack it dropped, because nulling the
+    /// decoupler's shove is nulling the separation. A loop that only starts looking once it is
+    /// allowed to act cannot tell an error that arrived with the separation from one that grew
+    /// during the wait, and those are different faults with different fixes. Flown: 203.83 m/s at
+    /// the moment it was released, against 1.23 m/s the flight before when it was not held at all.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AHeldTrimStillSolvesAndStillFiresNothing()
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
+        double3 nose = Vec.Unit(arc.RequiredVelocityCci);
+
+        Bus bus = new()
+        {
+            PositionCci = fromCci,
+            VelocityCci = arc.RequiredVelocityCci + nose * 1.1,
+            NoseCci = nose,
+            RightCci = Vec.Unit(Vec.Cross(fromCci, nose)),
+            DownCci = -Vec.Unit(fromCci),
+        };
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        double step = 1.0 / 60.0;
+        double elapsed = 0.0;
+
+        // Far longer than SettleSeconds and than the stall clocks, so anything that ran while held
+        // would have ended it.
+        for (int i = 0; i < 3000; i++)
+        {
+            TrimCommand held = trim.Update(step, new TrimSituation(
+                Earth, bus.PositionCci, bus.VelocityCci,
+                Earth.CarryCci(aimAtEpoch, elapsed), arc.FlightSeconds - elapsed,
+                bus.NoseCci, bus.RightCci, bus.DownCci, MayFire: false));
+
+            Assert.Equal(TrimAxes.None, held.Fire);
+            Assert.False(held.Done, held.Said);
+
+            // Still the shove, not zero and not hundreds. A band rather than a value because the
+            // rig integrates by Euler and wanders a few centimetres a second over a minute; what
+            // is being pinned is that a held trim reports the real number the whole time.
+            Assert.InRange(held.ToGainMetresPerSecond, 0.5, 2.0);
+
+            bus.Step(TrimAxes.None, step);
+            elapsed += step;
+        }
+
+        // And the moment it is let go it works, having spent none of its budget waiting. The
+        // arrival keeps counting from where the hold left it — handing back the one latched at
+        // cutoff would be 50 s of arrival error, which on this arc is over a kilometre a second.
+        (double seconds, _, TrimCommand last) =
+            Trim(trim, bus, aimAtEpoch, arc.FlightSeconds, step, log: true, since: elapsed);
+
+        Assert.True(last.Done && !trim.GaveUp, last.Said);
+
+        // What it owed when it was released, which is the number the log prints beside what it
+        // owed at the split.
+        Assert.InRange(trim.AtReleaseMetresPerSecond, 0.5, 2.0);
+        Assert.True(seconds < 5.0, $"the wait should have cost it no budget; took {seconds:F1} s");
     }
 
     /// <summary>

@@ -27,6 +27,15 @@ internal enum TrimAxes
 /// <param name="NoseCci">The control frame's +X in the parent body's inertial frame.</param>
 /// <param name="RightCci">Its +Y.</param>
 /// <param name="DownCci">Its +Z.</param>
+/// <param name="MayFire">
+/// Whether the vehicle is allowed to push yet. False while it is still coasting clear of whatever
+/// it dropped — see <see cref="SeparationClearance"/>.
+///
+/// <para>It keeps <em>solving</em> either way, and that is the point: what the bus owes its
+/// solution is the one number that says whether the wait is harmless, and a loop that only starts
+/// looking when it is allowed to act cannot tell an error that was always there from one that grew
+/// while it waited.</para>
+/// </param>
 internal readonly record struct TrimSituation(
     BallisticBody Body,
     double3 PositionCci,
@@ -35,7 +44,8 @@ internal readonly record struct TrimSituation(
     double SecondsToArrival,
     double3 NoseCci,
     double3 RightCci,
-    double3 DownCci);
+    double3 DownCci,
+    bool MayFire = true);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -162,6 +172,8 @@ internal sealed class BusTrim
     private double _watchedFrom;
     private double _watchingFor;
     private double _toGain = double.NaN;
+    private bool _watched;
+    private double _atRelease = double.NaN;
     private double _lowest = double.PositiveInfinity;
     private double _sinceProgress;
     private string _said = "";
@@ -177,6 +189,16 @@ internal sealed class BusTrim
 
     /// <summary>Velocity still to trim off, or NaN before anything has been solved.</summary>
     public double ToGainMetresPerSecond => _toGain;
+
+    /// <summary>
+    /// What it owed the moment it was first allowed to push, or NaN if it was never held.
+    ///
+    /// <para>Beside <see cref="ToGainMetresPerSecond"/> at the split this is the whole diagnosis of
+    /// a wait that costs something: the same number twice means the wait was harmless and the error
+    /// came from the separation, and a number that has grown means something moved the vehicle or
+    /// the aim while it coasted.</para>
+    /// </summary>
+    public double AtReleaseMetresPerSecond => _atRelease;
 
     /// <summary>What the thrusters were measured doing, or zero before they have been fired.</summary>
     public double Acceleration => _accel;
@@ -214,6 +236,8 @@ internal sealed class BusTrim
         _watchedFrom = double.NaN;
         _watchingFor = 0.0;
         _toGain = double.NaN;
+        _watched = false;
+        _atRelease = double.NaN;
         _lowest = double.PositiveInfinity;
         _sinceProgress = 0.0;
         _said = "";
@@ -227,7 +251,7 @@ internal sealed class BusTrim
         // it stopped, and both are gone the moment the frame after it overwrites them.
         if (!_armed || _done) return new TrimCommand(TrimAxes.None, _done, _toGain, _accel, _said);
 
-        _since += step;
+        if (now.MayFire) _since += step;
 
         // Measured before this cycle's command is chosen, so what it describes is the interval the
         // last one was in force for. Proper acceleration: the velocity change less what gravity did
@@ -258,6 +282,22 @@ internal sealed class BusTrim
         }
 
         _toGain = Vec.Len(toGainCci);
+
+        // Watching rather than working. None of the clocks run and nothing is judged: a trim that
+        // has not been allowed to push has neither settled nor stalled, and starting its budget
+        // here would spend it on a wait it does not control.
+        if (!now.MayFire)
+        {
+            _watched = true;
+            return Command(TrimAxes.None, $"holding, {_toGain:F2} m/s off the solution");
+        }
+
+        // The first thing it is allowed to say, and the one that separates an error that was
+        // already there at the split from one that grew during the wait.
+        if (_watched && !double.IsFinite(_atRelease))
+        {
+            _atRelease = _toGain;
+        }
 
         // The same rule the main burn cuts off on: stop when less than one more frame of firing
         // would remove. A threshold below what a frame adds is a threshold nothing can reach, and

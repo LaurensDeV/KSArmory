@@ -40,28 +40,48 @@ Two failures on the way, both worth not repeating:
 - **Nulling the shove ends the separation**, because the shove *is* the separation velocity. The bus
   trimmed 130 ms after the split at 12 m and then sat against the booster it had just dropped.
 
-## 1. Null the separation impulse — flown and working
+## 1. Null the separation impulse — works, then refused itself
 
-`Sim/BusTrim.cs`, on by default via `IcbmConfig.TrimBeforeRelease`, and it is a precondition of
-being ready to deploy rather than a step inside the release sequence. It re-solves the arc from the
-bus's state to `IcbmProgram.CommittedArrivalFromNow`, resolves the difference onto the vehicle's own
-control axes, and holds the corresponding `TranslateForward`/`Right`/`Down` flags through
-`Vehicle.ProcessInput` — the same channel the throttle already uses, so nothing new is patched.
-`docs/ICBM-GUIDANCE.md` has the full account.
+**Flown twice, and the second flight is the open problem.**
 
-Headlessly on this trajectory: a 1.1 m/s shove is **2.4 km of miss, trimmed to 2 m in 1.5 s**.
+First flight, trimming 130 ms after the split: `trimming 1.23 m/s on the tail` → `trimmed to
+0.010 m/s` in 1.8 s, thrusters measured at 0.9-2.2 m/s2. The mechanism is confirmed — KSA's
+translation flags reach the bus's nozzles and the loop closes at the measured rate.
 
-**Flown and working.** The translation flags reach the bus's nozzles, they were measured at
-**0.9-2.2 m/s2**, and the trim closes at that rate: `trimming 1.23 m/s on the tail` →
-`trimmed to 0.010 m/s` in 1.8 s.
+Second flight, after the clearance wait was added, the trim was **held for 35 s and then refused**:
 
-**Unflown since:** the clearance wait added afterwards (`Sim/SeparationClearance.cs`, 50 m or 90 s),
-which delays the trim by roughly thirty-five seconds. Watch that the release window still has room
-for it, and what standoff it reports — the log prints the measured distance, so 50 m stops being a
-guess after one flight.
+```
+waiting to clear the spent stack, 12 m of 50   ...   50 m of 50
+clear of the spent stack at 50 m after 35 s
+more than a separation could have cost, 203.83 m/s left on the bus
+```
 
-Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable
-on paper and nothing has spent it.
+The refusal is `BusTrim.MaxMetresPerSecond` doing its job — the shot went out untrimmed at
+5.7-6.5 km rather than being flown into the ground by a 200 m/s burn. But nothing was trimmed.
+
+**What is ruled out.** A pure ballistic coast produces *exactly zero* velocity to gain at any
+delay — 0, 5, 15 and 35 s all give 0.000 m/s — so the arrival bookkeeping does not drift on its
+own and the wait is not the fault by itself.
+
+**What the number is sensitive to, measured.** What the trim nulls is
+`RequiredVelocity(arrival) − v`, and on this deorbit that required velocity moves about **20 m/s
+for every second the arrival is out**: an arrival 50 s stale asks for 1,055 m/s. So 203 m/s is
+about ten seconds of arrival disagreement, which is a far smaller and more likely fault than
+anything that could have pushed a coasting bus that hard.
+
+**The next flight decides it**, and the log now prints what it needs. The trim solves through the
+whole clearance wait instead of only after it, so the flown log carries what the bus owed at the
+split beside what it owed on release — the same number twice means the wait was free, a number
+that grew means something moved the vehicle or the aim while it coasted. And a refusal now names
+the arrival it was solving to beside what the flown prediction says.
+
+**If it is the arrival**, the fix is already written down and is what this item's original sketch
+said: compare against `Program.Arc.RequiredVelocityCci` carried to now, rather than re-solving
+Lambert against a latched arrival time. Re-solving is what makes the answer swing 20 m/s per second
+of parameter error; the arc the guidance actually flew does not.
+
+Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is
+comfortable on paper and nothing has spent it.
 
 ## 2. Every round landed beyond its own release probe — cause found, fixed, unflown
 

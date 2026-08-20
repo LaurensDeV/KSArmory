@@ -41,6 +41,8 @@ internal sealed class IcbmComputer
     private bool _separated;
     private bool _awaitingSplit;
     private bool _didSplit;
+    private bool _mayTrim = true;
+    private double _owedAtSplit = double.NaN;
     private Vehicle? _separatedFrom;
     private double _sinceSplit;
     private string _saidTrim = "";
@@ -138,7 +140,7 @@ internal sealed class IcbmComputer
 
     // Whether the trim is still moving the vehicle, which is what the aim correction has to sit
     // out: its only observer is a prediction taken from the vehicle the trim is perturbing.
-    private bool TrimIsFiring => _trim.Armed && !_trim.Done;
+    private bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;
 
     public Celestial? Parent { get; private set; }
 
@@ -161,6 +163,8 @@ internal sealed class IcbmComputer
         _separatedFrom = null;
         _didSplit = false;
         _sinceSplit = 0.0;
+        _mayTrim = true;
+        _owedAtSplit = double.NaN;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -198,6 +202,8 @@ internal sealed class IcbmComputer
         _separatedFrom = null;
         _didSplit = false;
         _sinceSplit = 0.0;
+        _mayTrim = true;
+        _owedAtSplit = double.NaN;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
 
@@ -519,7 +525,7 @@ internal sealed class IcbmComputer
     // come from the same instant, so the ecliptic motion they each carry cancels in the difference
     // - see docs/FRAMES-AND-EPOCHS.md. NaN rather than zero when the stack cannot be read, because
     // the two mean opposite things there.
-    private bool Clear(double simStep)
+    private Clearance Clear(double simStep)
     {
         _sinceSplit += simStep;
 
@@ -534,10 +540,7 @@ internal sealed class IcbmComputer
         // An unreadable stack falls back to the clock rather than to "clear": a part tree
         // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
         // case this exists to prevent.
-        Clearance clearance = SeparationClearance.Check(apart, _sinceSplit);
-
-        Say(clearance.Said);
-        return clearance.IsClear;
+        return SeparationClearance.Check(apart, _sinceSplit);
     }
 
     // One line per change, which is all any of this is worth while nothing is happening on screen.
@@ -572,7 +575,12 @@ internal sealed class IcbmComputer
             _awaitingSplit = false;
         }
 
-        if (!_trim.Armed && _didSplit && !Clear(simStep)) return;
+        // Armed at the split rather than at clearance, and held rather than skipped. It keeps
+        // solving through the whole wait, so what the bus owes its solution is on record from the
+        // moment the decoupler fired — which is the only thing that separates an error the
+        // separation caused from one that grew while the vehicle coasted clear of it.
+        Clearance clearance = _didSplit ? Clear(simStep) : new Clearance(true, false, "");
+        _mayTrim = clearance.IsClear;
 
         _trim.Begin();
 
@@ -590,9 +598,14 @@ internal sealed class IcbmComputer
 
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
-            Program.CommittedArrivalFromNow, nose, right, down));
+            Program.CommittedArrivalFromNow, nose, right, down, _mayTrim));
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
+
+        if (!double.IsFinite(_owedAtSplit) && double.IsFinite(trim.ToGainMetresPerSecond))
+        {
+            _owedAtSplit = trim.ToGainMetresPerSecond;
+        }
 
         // Nothing left to measure a distance from once the trim has run.
         if (trim.Done) _separatedFrom = null;
@@ -601,8 +614,52 @@ internal sealed class IcbmComputer
         // the difference between them is kilometres on the ground.
         if (trim.Said.Length == 0) return;
 
-        Say(trim.Said
-            + (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : ""));
+        // The clearance and the trim are one wait to anybody reading the log, so they are one line
+        // — and while the trim is held, the pair of numbers side by side is the diagnosis.
+        Say((_mayTrim ? "" : clearance.Said + "; ")
+            + trim.Said
+            + (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : "")
+            + Grew()
+            + Arrivals(trim));
+    }
+
+    // Which arrival the trim is solving to, beside when the flown prediction says the warheads
+    // actually get there. Printed only when the answer is too large to be a separation, because
+    // that is the one case where it is the first thing to check: what the trim nulls is
+    // RequiredVelocity(arrival) - v, and on a deorbit that required velocity moves about 20 m/s
+    // for every second the arrival is out. A trim asking for hundreds is a handful of seconds of
+    // disagreement long before it is anything wrong with the vehicle.
+    //
+    // The two are not the same quantity and need not match: the arrival is when a vacuum transfer
+    // reaches the aim point, the prediction is when a warhead with drag reaches the ground. Their
+    // gap is the measurement, not an error on its face.
+    private string Arrivals(in TrimCommand trim)
+    {
+        if (!(trim.ToGainMetresPerSecond > BusTrim.MaxMetresPerSecond)) return "";
+
+        double committed = Program.CommittedArrivalFromNow;
+        double flown = PredictedImpact?.Seconds ?? double.NaN;
+
+        if (!double.IsFinite(committed)) return " [no committed arrival]";
+
+        return double.IsFinite(flown)
+            ? $" [solving to an arrival {committed:F0} s away; the flown prediction says {flown:F0} s]"
+            : $" [solving to an arrival {committed:F0} s away; nothing predicted]";
+    }
+
+    // What coasting clear cost, said only when it cost something. The same number at the split and
+    // at the release means the wait was free and the error came off the decoupler; a number that
+    // has grown means something moved the vehicle or the aim while it waited, which is a different
+    // fault with a different fix.
+    private string Grew()
+    {
+        double atRelease = _trim.AtReleaseMetresPerSecond;
+
+        if (!double.IsFinite(atRelease) || !double.IsFinite(_owedAtSplit)) return "";
+        if (Math.Abs(atRelease - _owedAtSplit) < 0.05) return "";
+
+        return $" [owed {_owedAtSplit:F2} m/s at the split, {atRelease:F2} after "
+               + $"{_sinceSplit:F0} s of clearing]";
     }
 
     /// <summary>Let one warhead go at the aim point, if there is one to let go and it is ready.</summary>
