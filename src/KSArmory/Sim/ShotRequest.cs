@@ -15,7 +15,13 @@ namespace KSArmory;
 /// How far the worst warhead of the group may land from the aim point and still be a pass. A bar
 /// rather than a mean, because a salvo is only as good as the round that went furthest astray.
 /// </param>
-internal readonly record struct ShotRequest(double LatitudeDeg, double LongitudeDeg, double BarMetres)
+/// <param name="AimWasGiven">
+/// Whether the aim point came from the request rather than from the default. A scenario that finds
+/// a defended site in the scene should shoot at <em>it</em> — that is the engagement worth flying —
+/// but not over the top of somewhere the operator named explicitly.
+/// </param>
+internal readonly record struct ShotRequest(double LatitudeDeg, double LongitudeDeg, double BarMetres,
+                                            bool AimWasGiven = false)
 {
     /// <summary>
     /// Where a shot goes when nobody says. It is the aim point <c>docs/ICBM-GUIDANCE.md</c>'s flown
@@ -105,7 +111,7 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
             bar = km * 1000.0;
         }
 
-        shot = new ShotRequest(lat, lon, bar);
+        shot = new ShotRequest(lat, lon, bar, AimWasGiven: true);
         return true;
     }
 

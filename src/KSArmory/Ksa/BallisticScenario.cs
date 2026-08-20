@@ -46,6 +46,12 @@ internal sealed class BallisticScenario
     public const double SalvoOverSeconds = 120.0;
 
     private readonly ShotRequest _shot;
+    // How far back the view sits once it moves to the target. A power rather than a distance:
+    // KSA scales the orbit camera by the followed craft's mean radius, so one number frames a
+    // ground vehicle and a rocket alike, and this is far enough that a warhead is in shot before
+    // it arrives rather than after.
+    private const double WatchZoomPower = 3.0;
+
     private readonly Action<string> _say;
     private readonly ShotGroup _group = new();
 
@@ -66,6 +72,8 @@ internal sealed class BallisticScenario
     private int _ended;
     private double _sinceRelease;
     private double _sinceComplaint;
+    private Vehicle? _defendedSite;
+    private bool _watchedTheTarget;
 
     private IcbmPhase _reported = IcbmPhase.Idle;
     private bool _saidCutoff;
@@ -205,10 +213,29 @@ internal sealed class BallisticScenario
             _say($"{KsaWorld.DisplayName(computer.Craft)} on the ground at {WhereItStands(computer)}, "
                  + $"{battery.Ammo} x {battery.Munition.DisplayName} aboard");
 
-            computer.Designate(new AimSite(parent.Id, _shot.LatitudeDeg, _shot.LongitudeDeg,
-                                           "scenario aim point"));
+            double aimLat = _shot.LatitudeDeg;
+            double aimLon = _shot.LongitudeDeg;
 
-            _say($"aimed at {_shot.Describe()}{Downrange(computer)}");
+            // Shoot at whatever is defending, when there is something. A shot at bare ground proves
+            // the guidance and nothing else; a shot at a site that can see it coming is the
+            // engagement worth flying, and it puts the impact somewhere with a camera on it.
+            // An aim the operator named explicitly still wins.
+            if (!_shot.AimWasGiven && FindDefendedSite(roster, computer.Craft) is { } site
+                && KsaWorld.TryCraftSurfacePoint(site, out _, out double siteLat, out double siteLon,
+                                                 out string siteBody)
+                && siteBody == parent.Id)
+            {
+                aimLat = siteLat;
+                aimLon = siteLon;
+                _defendedSite = site;
+
+                _say($"aiming at {KsaWorld.DisplayName(site)}, which is defended, "
+                     + $"rather than at bare ground");
+            }
+
+            computer.Designate(new AimSite(parent.Id, aimLat, aimLon, "scenario aim point"));
+
+            _say($"aimed at {computer.Target.Describe()}{Downrange(computer)}");
             return;
         }
 
@@ -366,6 +393,56 @@ internal sealed class BallisticScenario
         }
 
         _ammoWas = ammo;
+
+        // Once the bus has nothing left, the interesting half of the flight is at the other end.
+        // Only after the last one: moving the view mid-salvo takes the operator off the thing still
+        // releasing, and the releases are the part that is over in a fraction of a second.
+        if (ammo <= 0 && !_watchedTheTarget) WatchTheTarget();
+    }
+
+    // Whatever else in the scene can shoot back, which is what a ballistic shot is worth aiming at.
+    // Anything crewed that is not the launching craft: the roster only holds craft the survey
+    // recognised a weapon on, so there is nothing else it could be.
+    private static Vehicle? FindDefendedSite(WeaponSystems roster, Vehicle launching)
+    {
+        foreach (WeaponSystems.Entry entry in roster.All)
+        {
+            Vehicle craft = entry.Battery.Platform;
+
+            if (craft is null || ReferenceEquals(craft, launching)) continue;
+            if (!KsaWorld.IsAlive(craft)) continue;
+
+            return craft;
+        }
+
+        return null;
+    }
+
+    // Put the operator where the warheads are going. The bus is finished — everything left happens
+    // at the other end of the arc, minutes away and far too small to see from the launch site.
+    private void WatchTheTarget()
+    {
+        _watchedTheTarget = true;
+
+        if (_defendedSite is not { } site || !KsaWorld.IsAlive(site))
+        {
+            _say("nothing at the target to watch from; the view stays with the bus");
+            return;
+        }
+
+        if (!KsaWorld.GoTo(site))
+        {
+            _say($"could not move the view to {KsaWorld.DisplayName(site)}");
+            return;
+        }
+
+        // Pulled back far enough to see a warhead arrive rather than to inspect the site. The zoom
+        // is a power rather than a distance — KSA scales it by the followed craft's mean radius, so
+        // the same number frames a truck and a rocket alike.
+        KsaWorld.SetOrbitZoomPower(WatchZoomPower);
+
+        _say($"CAPTURE watching: the view is on {KsaWorld.DisplayName(site)}, "
+             + "which is where they are coming down");
     }
 
     private void ReportImpacts()

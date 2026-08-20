@@ -2060,6 +2060,29 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// How far back the orbit camera sits, as the power KSA stores it in.
+    ///
+    /// <para>A power rather than a distance: the engine scales it by the followed object's mean
+    /// radius, so one number frames a ground vehicle and a rocket alike. Written straight onto the
+    /// controller, which is what <see cref="GoTo"/> does when it carries a craft's own saved
+    /// zoom across.</para>
+    /// </summary>
+    public static bool SetOrbitZoomPower(double power)
+    {
+        try
+        {
+            if (!double.IsFinite(power)) return false;
+
+            Program.MainViewport.OrbitController.DistancePower = power;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Points the camera at a craft and takes control of it.
     ///
     /// <para>Three steps: follow, control, match the zoom. Doing fewer leaves the camera watching

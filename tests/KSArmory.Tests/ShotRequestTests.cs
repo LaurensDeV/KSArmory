@@ -11,6 +11,19 @@ namespace KSArmory.Tests;
 /// </summary>
 public class ShotRequestTests
 {
+    /// <summary>
+    /// A request has to know whether the operator named a place, because the scenario shoots at a
+    /// defended site when one is in the scene and must not do that over the top of an explicit aim.
+    /// </summary>
+    [Fact]
+    public void AParsedAimIsMarkedAsGivenAndTheDefaultIsNot()
+    {
+        Assert.False(ShotRequest.Default.AimWasGiven);
+
+        Assert.True(ShotRequest.TryParse("26.485S,68.148W", out ShotRequest shot, out string trouble), trouble);
+        Assert.True(shot.AimWasGiven);
+    }
+
     /// <summary>A bare scenario name is the flown aim point, which is what makes a run comparable.</summary>
     [Theory]
     [InlineData(null)]
