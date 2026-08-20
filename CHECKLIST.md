@@ -1324,6 +1324,22 @@ two interceptors, killed it at 11 m, re-laid on the next at 4.1 km and killed th
 it picked were the most accurate of the salvo, because flying accurately means flying at the
 defended point.
 
+### 12.7d The aim correction is allowed to walk past its own best
+
+Unflown, and headless only. The predicted miss is not a monotonic function of the aim, so
+`AimCorrection.WorseBeforeStopping` is 12 rather than 3 and the loop crosses a patch of cycles that
+make it worse before it improves again. Headless at 7,645 km that is 15.74 km of flown miss down to
+1.15; 2,000, 3,459 and 5,000 km are unchanged. Read it off the `aim: bias N km, predicted miss N km`
+lines under **Verbose log**.
+
+- [ ] Fly a long shallow shot and watch those lines. The predicted miss **rising for a few seconds
+      and then falling again** is the loop crossing the hump, not a failure.
+- [ ] The bias stops moving before cutoff and the arrival commits. A loop still walking when
+      `IcbmProgram.LatchArrivalWithinSeconds` runs out is frozen wherever it happens to be, which is
+      the one thing more patience can cost.
+- [ ] Impacts at the flown 3,459 km geometry are no worse than the 431 m - 1.4 km group. Nothing
+      about that range changed headlessly, so anything that did move is the extra patience.
+
 ### 12.6 It gives the vehicle back
 
 - [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately

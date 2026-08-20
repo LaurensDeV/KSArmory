@@ -1187,6 +1187,17 @@ observer can see.** The aim correction reads the prediction, so a drag-free pred
 reported zero, and the warheads went on falling 59 km short in flight. The loop was right and the
 instrument was blind, which reads from outside exactly like a working feature.
 
+**And the miss is not a monotonic function of the aim, so a loop that stops the first time it stops
+improving stops in the wrong place.** Measured at 7,645 km: a best of 3.34 km banked, then a
+**five**-cycle patch out to 5.89 km, and beyond it 1.73 km at a bias 38 km further on — 1.15 km of
+flown miss against 15.74 for a loop that gave up inside the patch. Stopping early is not the
+conservative choice, because stopping is what makes `AimCorrection.IsSteady` true and *that* commits
+the arrival: the aim it kept is then judged against a different trajectory, and the 3.34 km it
+stopped for measures 15.86 km one cycle later. Waiting costs cycles and nothing else — the best aim
+is kept and reverted to either way, and `MaxMetres` bounds where the aim can wander meanwhile. So
+`WorseBeforeStopping` is patient, bounded above by `IcbmProgram.LatchArrivalWithinSeconds`, past
+which the arrival commits whatever the aim is doing.
+
 **The miss is one product, and there is no floor under it.** Flown from the same cutoff position
 with the *exact* required velocity, the integrator lands on the target to under a metre — so the
 whole error is `velocity still to gain at cutoff x dMiss/dV`, and each half is worth knowing.

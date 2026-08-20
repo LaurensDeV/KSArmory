@@ -324,7 +324,7 @@ public class AimConvergenceTests(ITestOutputHelper Out)
                       + $"right epoch {epoch / 1000.0,6:F2} km, "
                       + $"right epoch and never frozen {epochRunning / 1000.0,6:F2} km");
         Out.WriteLine($"            at the right epoch the aim moved {atEpoch.Loop.BiasMetres / 1000.0:F1} km"
-                      + (atEpoch.Loop.Settled ? ", and the loop gave up before the burn ended" : ""));
+                      + (atEpoch.Loop.Settled ? ", and it had stopped correcting by cutoff" : ""));
 
         // The claim that has to hold everywhere: scored at the right epoch the correction is at
         // worst harmless. As shipped it is not — on a shot that needed no correction at all it
@@ -332,6 +332,60 @@ public class AimConvergenceTests(ITestOutputHelper Out)
         Assert.True(epoch <= uncorrected + 2_000.0,
                     $"scoring at the right epoch left {epoch / 1000.0:F1} km against "
                     + $"{uncorrected / 1000.0:F1} km for not correcting at all");
+    }
+
+    /// <summary>
+    /// The predicted miss is not a monotonic function of the aim, so the loop has to be allowed to
+    /// walk past its own best to reach the answer on the far side of the hump.
+    ///
+    /// <para>At 7,645 km the worsening patch is five cycles long — 3.34 km of predicted miss out to
+    /// 5.89 and back — and beyond it the aim is worth 1.73 km. Giving up inside the patch does not
+    /// merely keep the worse aim: it is what makes <see cref="AimCorrection.IsSteady"/> true, so the
+    /// arrival commits, and the aim that was kept is then worth 15.86 km against the 3.34 it was
+    /// kept for. Flown from the real cutoff state, 15.74 km against 1.15.</para>
+    /// </summary>
+    [Fact]
+    public void TheLoopWalksPastItsOwnBestToReachTheAnswerBeyondIt()
+    {
+        Shot shot = Fly(l => l.UncarryToTheCutoffEpoch = true, 7_645_000.0);
+        List<Cycle> trace = shot.Loop.Trace;
+
+        // The patch itself, and then where the aim ended up — a loop that stopped inside it holds an
+        // aim it has since measured to be several times worse than the best it stopped for.
+        double best = double.PositiveInfinity;
+        int worst = 0;
+        int run = 0;
+
+        for (int i = 0; i < trace.Count; i++)
+        {
+            if (i < 12 || i == trace.Count - 1)
+            {
+                Out.WriteLine($"    {trace[i].Seconds,6:F2} s  bias {trace[i].BiasMetres / 1000.0,8:F2} km"
+                              + $"  predicted miss {trace[i].ScoredMissMetres / 1000.0,8:F2} km"
+                              + (trace[i].Latched ? "  arrival committed" : ""));
+            }
+
+            // Counted the way the loop counts it, so the number printed is the one
+            // AimCorrection.WorseBeforeStopping has to be larger than.
+            double miss = trace[i].ScoredMissMetres;
+
+            if (miss < best - AimCorrection.ImprovedByMetres) { best = miss; run = 0; }
+            else if (miss > best + AimCorrection.ImprovedByMetres) worst = Math.Max(worst, ++run);
+        }
+
+        double actual = ActualMissMetres(shot);
+
+        Out.WriteLine($"    the longest run of cycles worse than the best so far: {worst}");
+        Out.WriteLine($"    ACTUAL miss flown from the real cutoff state: {actual / 1000.0:F2} km");
+
+        Assert.True(trace[^1].ScoredMissMetres < 3_000.0,
+                    $"the loop ended holding an aim it predicts is {trace[^1].ScoredMissMetres / 1000.0:F1} km "
+                    + $"off, having banked {best / 1000.0:F1} km — the record it kept is of a plant "
+                    + "that has since moved, so it gave up inside the hump");
+
+        Assert.True(actual < 3_000.0,
+                    $"the warheads land {actual / 1000.0:F1} km off, against 1.15 km for a loop "
+                    + $"patient enough to cross a {worst}-cycle worsening patch");
     }
 
     /// <summary>

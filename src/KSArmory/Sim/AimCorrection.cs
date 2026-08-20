@@ -68,14 +68,31 @@ internal sealed class AimCorrection
     public const double MaxMetres = 300_000.0;
 
     /// <summary>
-    /// How much closer the impact must come for a cycle to count as an improvement, and how many
-    /// cycles may make it worse before the loop stops. Two of them, because one bad reading is
-    /// noise and a run of them is a direction.
+    /// How much closer the impact must come for a cycle to count as an improvement.
     /// </summary>
     public const double ImprovedByMetres = 250.0;
 
-    /// <inheritdoc cref="ImprovedByMetres"/>
-    public const int WorseBeforeStopping = 3;
+    /// <summary>
+    /// How many cycles may fail to improve on the best before the loop calls it a direction rather
+    /// than a hump.
+    ///
+    /// <para><b>The miss is not a monotonic function of the aim, so the best has to be walked
+    /// past.</b> Headless at 7,645 km the worsening patch is <em>five</em> cycles long — 3.34 km of
+    /// predicted miss out to 5.89 and back — and the far side of it is the better answer: 1.73 km
+    /// predicted, and 15.74 km of flown miss down to 1.15. Twelve is twice that patch.</para>
+    ///
+    /// <para><b>Waiting is nearly free and stopping early is not.</b> The best aim is kept and
+    /// reverted to, so patience costs cycles and nothing else. Stopping does not merely keep a worse
+    /// aim: it makes <see cref="IsSteady"/> true, which is what commits the arrival, and the aim
+    /// that was kept is then being judged against a different trajectory — banked at 3.34 km on that
+    /// shot, reverted to, and worth 15.86 km one cycle later.</para>
+    ///
+    /// <para>The bound at the other end is <see cref="IcbmProgram.LatchArrivalWithinSeconds"/>:
+    /// past that window the arrival commits whatever the aim is doing and a runaway is frozen in.
+    /// Twelve is six seconds at the half-second prediction interval, so a loop that really is
+    /// running away is back on its best well inside it.</para>
+    /// </summary>
+    public const int WorseBeforeStopping = 12;
 
     /// <summary>How little the aim may move for the correction to count as having stopped.</summary>
     public const double SteadyMetres = 2_000.0;
