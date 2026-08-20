@@ -16,6 +16,11 @@ namespace KSArmory;
 /// an explosion sounds right: those still need eyes. The <c>CAPTURE</c> markers exist for that —
 /// the harness screenshots when it sees one, so the pictures at least arrive without anyone
 /// sitting through the flight.</para>
+///
+/// <para>Two shapes of scenario, and this file owns the half they share: the request, the save, the
+/// clocks and the verdict. An engagement is short enough to run inline; a ballistic shot is seven
+/// minutes of flight with a state machine of its own, and lives in
+/// <see cref="BallisticScenario"/>.</para>
 /// </summary>
 internal sealed class ScenarioRunner
 {
@@ -29,6 +34,7 @@ internal sealed class ScenarioRunner
         WaitingForWorld,
         Arming,
         Engaging,
+        Flying,
         Done,
     }
 
@@ -37,16 +43,30 @@ internal sealed class ScenarioRunner
 
     private string _name = string.Empty;
     private TestTarget.Profile _profile;
+    private BallisticScenario? _ballistic;
     private double _elapsed;
+    private double _simElapsed;
+    private double _budget = EngagementBudgetSeconds;
     private double _sinceSpawn;
     private bool _spawned;
     private bool _capturedLaunch;
     private double _lastComplaint;
     private string _save = string.Empty;
 
-    // Longest a scenario may take before it is called a failure. Generous: a 20 km engagement at
+    // Longest an engagement may take before it is called a failure. Generous: a 20 km engagement at
     // 300 m/s closing is over a minute of flight before anything is decided.
-    private const double TimeoutSeconds = 90.0;
+    private const double EngagementBudgetSeconds = 90.0;
+
+    // The same for a ballistic shot, which is a different order of thing: seven minutes of
+    // simulated flight, and the warp it asks for can be refused. Wide enough to cover the whole
+    // shot at one times speed, because a run that gives up early reports a timeout for a shot that
+    // was going perfectly well.
+    private const double BallisticBudgetSeconds = 1500.0;
+
+    // And its budget in simulated seconds, which is the one that catches a flight that is stuck
+    // rather than slow. A reentry vehicle expires at half an hour; a shot that has not resolved in
+    // an hour of world time is not going to.
+    private const double BallisticSimBudgetSeconds = 3600.0;
 
     // The world needs a few seconds after load before a craft is flyable and a battery is crewed.
     private const double SettleSeconds = 4.0;
@@ -93,9 +113,19 @@ internal sealed class ScenarioRunner
         // the only way in that does not need a click, and GameSaves.LoadSaveGame is public.
         string[] parts = request.Split('|', 2);
         _save = parts.Length > 1 ? parts[1].Trim() : string.Empty;
-        request = parts[0];
 
-        _name = request.Trim();
+        // "name" or "name:arguments". Only the ballistic scenario carries any, and it carries them
+        // in the name rather than in a second file because the harness already has one channel to
+        // the game and a second one is a second thing that can go stale.
+        string[] named = parts[0].Trim().Split(':', 2);
+        _name = named[0].Trim();
+
+        if (_name == "mirv")
+        {
+            BeginBallistic(named.Length > 1 ? named[1].Trim() : string.Empty);
+            return;
+        }
+
         _profile = _name switch
         {
             "overhead" => TestTarget.Profile.Overhead,
@@ -103,21 +133,53 @@ internal sealed class ScenarioRunner
             _ => TestTarget.Profile.HeadOn,
         };
 
+        _budget = EngagementBudgetSeconds;
         _phase = Phase.LoadingSave;
         Report($"{_name}: START profile={_profile} save='{_save}'");
     }
 
-    /// <summary>One frame of the scenario. Does nothing unless one was asked for.</summary>
-    public void Update(WeaponSystems roster, double dt)
+    private void BeginBallistic(string arguments)
+    {
+        if (!ShotRequest.TryParse(arguments, out ShotRequest shot, out string trouble))
+        {
+            Finish($"FAIL the request could not be read -- {trouble}");
+            return;
+        }
+
+        _ballistic = new BallisticScenario(shot, line => Report($"{_name}: {line}"));
+        _budget = BallisticBudgetSeconds;
+        _phase = Phase.LoadingSave;
+        Report($"{_name}: START {shot.Describe()} save='{_save}'");
+    }
+
+    /// <summary>
+    /// One frame of the scenario. Does nothing unless one was asked for.
+    ///
+    /// <para>Two clocks, and which is which matters. Everything about the <em>world</em> runs on
+    /// <paramref name="simStep"/>, because a scenario that accumulates while the game is paused or
+    /// under timewarp measures something nobody is watching — the same rule fire control obeys. The
+    /// budgets are the exception and are wall clock on purpose: they are what stops an unattended
+    /// run hanging, and a run that waits on simulated time waits for ever on a paused game.</para>
+    /// </summary>
+    public void Update(WeaponSystems roster, IcbmComputers? icbms, double simStep, double playerStep)
     {
         if (_phase is Phase.Idle or Phase.Done) return;
-        if (!double.IsFinite(dt) || dt <= 0.0) return;
+        if (!double.IsFinite(playerStep) || playerStep <= 0.0) return;
 
-        _elapsed += dt;
+        double dt = double.IsFinite(simStep) && simStep > 0.0 ? simStep : 0.0;
 
-        if (_elapsed > TimeoutSeconds)
+        _elapsed += playerStep;
+        _simElapsed += dt;
+
+        if (_elapsed > _budget)
         {
-            Finish($"TIMEOUT after {_elapsed:F0} s in {_phase}");
+            Finish($"TIMEOUT after {_elapsed:F0} s of wall clock -- {Stuck()}");
+            return;
+        }
+
+        if (_ballistic is not null && _simElapsed > BallisticSimBudgetSeconds)
+        {
+            Finish($"TIMEOUT after {_simElapsed / 60.0:F0} minutes of world time -- {Stuck()}");
             return;
         }
 
@@ -148,7 +210,11 @@ internal sealed class ScenarioRunner
                     }
                 }
 
-                _phase = Phase.WaitingForWorld;
+                _phase = _ballistic is null ? Phase.WaitingForWorld : Phase.Flying;
+                return;
+
+            case Phase.Flying:
+                if (_ballistic!.Update(roster, icbms, dt, playerStep) is { } outcome) Finish(outcome);
                 return;
 
             case Phase.WaitingForWorld:
@@ -240,9 +306,21 @@ internal sealed class ScenarioRunner
         }
     }
 
+    // What a timeout was waiting for. The phase names a state and says nothing about which of the
+    // things that state needed was missing, which is the whole of what a run that never finished
+    // has to answer. For a shot that got some of its warheads away it carries the group too: those
+    // are the numbers the run was for, and a bare "TIMEOUT" throws them away.
+    private string Stuck()
+    {
+        if (_ballistic is null || _phase != Phase.Flying) return _phase.ToString();
+
+        return $"{_ballistic.Where}; {_ballistic.Judge().Said}";
+    }
+
     private void Finish(string outcome)
     {
         _phase = Phase.Done;
+        _ballistic?.Release();
         Report($"{_name}: {outcome}");
         Report($"{_name}: END");
     }

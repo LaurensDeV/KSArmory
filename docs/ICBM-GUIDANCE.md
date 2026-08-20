@@ -1029,6 +1029,30 @@ coast keeps it rather than swinging to prograde.
 - **A mark on the target** that stays on screen wherever it is, clamped to the edge when it is out
   of view, with the countdown beside it.
 
+## Flying one without watching it
+
+`./tools/scenario.sh mirv` drives the whole shot: it finds whichever craft in the scene has a
+ballistic computer and its wheels on the ground, designates, arms, stages, and follows the flight to
+the last impact. `mirv:26.485S,68.148W,2` moves the aim point and the bar it is judged against.
+
+The operator still supplies the rocket — a mod cannot put one on the pad, see `CLAUDE.md` — so the
+craft has to be the one the game boots into, or named in `KSARMORY_SCENARIO_CRAFT`.
+
+Two things about it are worth knowing before reading a result:
+
+- **It asks the world for timewarp once and never again.** `WarpPolicy` owns the speed after that,
+  and it holds the world down for the burn, the trim and the rounds in the air. Competing with it is
+  a loop neither side wins.
+- **It stages exactly once**, which lights the first engine. The computer will not stage past a
+  launcher that could come off — `IcbmComputer.StagingWouldDropTheLauncher` — so a multi-stage stack
+  needs its later stages by hand, and the run says so when the program asks for one it cannot have.
+
+The output is the report: cutoff residual and the computer's own predicted miss, the separation, the
+trim's two numbers, every release with how far off the salvo's line its tube was, and every impact
+with its miss. The verdict is the **worst** warhead of the group against a stated bar — the failures
+above are all common offsets kilometres wide, and a mean would say the same thing about those while
+hiding a group that scattered either side.
+
 ## Not done, and not verified
 
 **The flight works end to end and the numbers above say how well.** `CHECKLIST.md` §12 is the list

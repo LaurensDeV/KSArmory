@@ -135,6 +135,28 @@ internal sealed class IcbmComputer
     public string TrimSaid => _saidTrim;
 
     /// <summary>
+    /// What the bus owed its solution the moment the decoupler fired, or NaN if it never split.
+    ///
+    /// <para>Beside <see cref="TrimOwedOnReleaseMetresPerSecond"/> this is the whole diagnosis of a
+    /// wait that costs something: the same number twice means the wait was harmless and the error
+    /// came off the separation, and a number that has grown means something moved the vehicle or
+    /// the aim while it coasted clear.</para>
+    /// </summary>
+    public double TrimOwedAtSplitMetresPerSecond => _owedAtSplit;
+
+    /// <summary>The other half of that pair — what it still owed when it was first allowed to push.</summary>
+    public double TrimOwedOnReleaseMetresPerSecond => _trim.AtReleaseMetresPerSecond;
+
+    /// <summary>
+    /// What the launcher is being told to hold this frame, and whether a warhead may go.
+    ///
+    /// <para>Read for <see cref="ReleaseCommand.OffLineDegrees"/> on the frame a round leaves: how
+    /// far off the salvo's own line that tube was pointing is what says whether re-pointing worked,
+    /// and it is gone by the next frame, when the sequencer has moved on to the next tube.</para>
+    /// </summary>
+    public ReleaseCommand Deployment => _deploy;
+
+    /// <summary>
     /// Whether the world has to be kept slow, which is the burn plus the trim.
     ///
     /// <para>The trim stops on a frame boundary exactly as the burn does, so the velocity it leaves

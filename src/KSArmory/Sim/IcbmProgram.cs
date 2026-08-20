@@ -472,13 +472,23 @@ internal sealed class IcbmProgram
         };
     }
 
+    /// <summary>
+    /// Whether a vehicle is still sitting on the ground rather than already flying.
+    ///
+    /// <para>The test the phase machine picks a vehicle up by, and public because anything deciding
+    /// whether a shot can be <em>started</em> from here has to ask the same question. Two of them
+    /// would drift, and the failure is silent: a launch sequence entered for a vehicle that is
+    /// already airborne flies a pitch programme from wherever it happens to be.</para>
+    /// </summary>
+    public static bool IsOnTheGround(double altitudeMetres, double airspeedMetresPerSecond,
+                                     double turnStartMetres)
+        => altitudeMetres < turnStartMetres
+        && airspeedMetresPerSecond < AscentProfile.VerticalRiseSpeed;
+
     // Which phase this vehicle belongs in, given what it is doing rather than what it did.
     private IcbmPhase PickUpFrom(in IcbmState state)
     {
-        bool onTheGround = state.Altitude < Config.TurnStartMetres
-                        && Vec.Len(state.AirflowCci) < AscentProfile.VerticalRiseSpeed;
-
-        if (onTheGround)
+        if (IsOnTheGround(state.Altitude, Vec.Len(state.AirflowCci), Config.TurnStartMetres))
         {
             _sinceLaunch = 0.0;
             return IcbmPhase.Rising;

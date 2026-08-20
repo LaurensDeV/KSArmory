@@ -532,9 +532,10 @@ public sealed class KSArmoryMod
         _flashes.Sweep(_roster);
         _gunSound.Sweep(_roster);
 
-        // After the batteries have run, so a scenario reads the state this frame produced rather
-        // than the one before it.
-        _scenario.Update(_roster, dtPlayer);
+        // After the batteries and the ballistic computers have run, so a scenario reads the state
+        // this frame produced rather than the one before it. Both steps: the world it watches runs
+        // on the simulated one, and the budget that stops an unattended run hanging cannot.
+        _scenario.Update(_roster, _icbms, _lastSimStep, dtPlayer);
 
         // The panel has no change notification, so settings are written by comparing against what
         // is already stored. Every frame rather than on a timer: a save and a load both fit inside
