@@ -118,18 +118,52 @@ shape: the terrain *radius* is held for the frame too, so the round crosses a sp
 the impact point — 20-275 m on a ±10% local slope, and it does **not** scale with the frame, which
 is what tells the two apart.
 
-## 2b. Releasing later misses further, cause not yet established
+## 2b. Holding a warhead past cutoff costs ~26 m a second — understood
 
-Same shot, cutoff prediction `0.1 km off` every time. Release at +50 s and the probe says 0.1-0.2 km;
-release at +106 s and it says **6.8 km**, with impacts at 8.2-9.0 km in a tight group. A tight group
-far out is a systematic bias, and something moved it 6.7 km while the bus coasted ballistically.
+Same shot, cutoff prediction `0.1 km off` every time; release at +50 s and the probe said 0.1-0.2 km,
+release at +106 s and it said **6.8 km**, impacts 8.2-9.0 km in a tight group.
 
-The suspect is `AimCorrection`: its bias absorbs what the flown fall loses to drag and to real
-terrain, and that changes as the release point descends — so a correction converged for a release at
-cutoff is wrong for one 90 s later. A second candidate is that the bias is a free vector held in Cci
-while the target rotates under it. Under investigation; nothing has been changed for it yet.
+**It is the ejection kick losing its leverage along the arc.** A control settles it: with the
+separation spring switched off, the impact does not move *at all* across release epochs — 0.0 m at
++50 s, 0.1 m at +106 s. So this is not frame bookkeeping and not the predictor. What changes is what
+the same 2 m/s is worth:
 
-**Until it is understood, do not hold a salvo back.** That is why the clearance cap came down to 20 s.
+| the spring applied at | moves the impact |
+| --- | --- |
+| cutoff | 8.421 km |
+| +50 s | 7.103 km |
+| +106 s | 5.672 km |
+| +200 s | 3.335 km |
+
+The aim correction converges during the burn against a prediction flown from `CutoffPositionCci`
+*with the kick already added* — a release the instant the engines stop — so it takes out the 8.4 km
+the kick is worth **there**. Every second the bus then holds on is leverage already spent. The A/B is
+symmetric: converged for t+0 is exact at t+0 and 2,748 m off at t+106; converged for t+106 is 2,745 m
+off at t+0 and exact at t+106. And it scales exactly with the spring — 1.374 / 2.748 / 5.496 km at
+1 / 2 / 4 m/s. About **26 m of miss per second of holding**, or 3,805 m at +106 s over rising terrain.
+
+**Why it bit when it did.** During a coast `Predict` flies from the *live* state, so a correction
+that is still observing re-converges for the release epoch the bus has actually reached. The flight
+that lost 6.8 km had the correction frozen for the whole ninety-second clearance wait. Both halves
+are now fixed: the correction sits out only while thrusters are firing, and the wait is capped at
+20 s.
+
+**What remains is scheduling.** A salvo spread over N seconds still spreads at ~26 m per second
+whatever epoch the correction is tuned for, so release promptly. The mod's own probe was never
+wrong about any of this — it reported 6.8 km accurately. It simply had no lever left, because the
+correction can only act through an arc nothing is still burning.
+
+**Not done, and the trap that comes with it.** `Predict` could coast the departure state to the
+epoch the warhead will actually leave before adding the kick, which removes the term properly. But
+three things downstream assume the prediction's epoch is *now* — the miss comparison against
+`_trueAimCci`, `AimCorrection.Observe`, and `TerrainRadiusAt` through `GetCci2Ccf` — and all three
+must be carried by the same delay. Measured cost of getting it wrong: **49.2 km at 106 s**, so it
+trades a 2.7 km bias for a 49 km one. Worth doing only if prompt release turns out not to be enough.
+
+A second mechanism is real and an order of magnitude smaller: `AimCorrection.BiasCci` is a free
+vector frozen in the body's inertial frame while the target turns under it — 0 m at the equator,
+**469 m at the flown 26.5°**, 910 m at 60°, over 106 s at a 136 km bias. It only accrues while the
+correction is held out, since otherwise the loop re-converges twice a second.
 
 ## 3. The first round races the separation — fixed
 
