@@ -146,12 +146,45 @@ internal sealed class BallisticScenario
     // drift apart silently.
     private void Find(WeaponSystems roster, IcbmComputers icbms)
     {
+        // KSA loads a save paused, and everything below is read from a computer that only samples
+        // the world inside the mod's clock gate — so on a paused world nothing is ever true, and a
+        // scenario that only waits waits for ever. Unpausing is the scenario's business rather than
+        // the computer's: a player who paused did so on purpose.
+        if (KsaWorld.IsPaused && KsaWorld.SetSimulationSpeed(1.0))
+        {
+            _say("the world was paused; asked for 1x so the flight can start");
+        }
+
+        string why = "nothing in the scene carries a ballistic computer";
+
         foreach (IcbmComputer computer in icbms.All)
         {
-            if (!KsaWorld.IsAlive(computer.Craft) || computer.Parent is not { } parent) continue;
+            if (!KsaWorld.IsAlive(computer.Craft)) continue;
+
+            string name = KsaWorld.DisplayName(computer.Craft);
+
+            // Null until the computer has sampled the world once, which it cannot do while the
+            // clock gate is shut. Named separately from the tests below because it means "not
+            // looked yet" rather than "looked and the answer was no".
+            if (computer.Parent is not { } parent)
+            {
+                why = $"{name} has a ballistic computer that has not sampled the world yet";
+                continue;
+            }
 
             WeaponSystem? battery = roster.For(computer.Craft)?.Battery;
-            if (battery?.Launcher is null || battery.Ammo <= 0) continue;
+
+            if (battery?.Launcher is null)
+            {
+                why = $"{name} has a ballistic computer but no launcher the mod recognises";
+                continue;
+            }
+
+            if (battery.Ammo <= 0)
+            {
+                why = $"{name}'s launcher is empty";
+                continue;
+            }
 
             double airspeed = Vec.Len(KsaWorld.VelocityEcl(computer.Craft)
                                       - KsaWorld.GroundVelocityAt(parent, KsaWorld.PositionEcl(computer.Craft)));
@@ -159,6 +192,8 @@ internal sealed class BallisticScenario
             if (!IcbmProgram.IsOnTheGround(computer.AltitudeMetres, airspeed,
                                            computer.Config.TurnStartMetres))
             {
+                why = $"{name} is at {computer.AltitudeMetres / 1000.0:F1} km doing {airspeed:F0} m/s, "
+                      + "which is not on a pad";
                 continue;
             }
 
@@ -180,8 +215,9 @@ internal sealed class BallisticScenario
         if (_sinceComplaint < 10.0) return;
         _sinceComplaint = 0.0;
 
-        _say("waiting -- no craft in the scene has a ballistic computer, a loaded launcher and "
-             + "its wheels on the ground");
+        // Which test failed, not that one did. A scenario nobody is watching has to say what it is
+        // waiting for or a mis-set save costs a whole timeout to learn nothing from.
+        _say($"waiting -- {why}");
     }
 
     // Arm, and then light the first engine once the program has a trajectory to fly.
