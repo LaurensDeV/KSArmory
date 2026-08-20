@@ -1140,11 +1140,9 @@ warhead leaving on the attached stack's solution and the rest on the shoved bus'
 whole rule.** `ThrusterController.ComputeControlMap` thresholds the thrust direction at **0.5** per
 axis — nothing about lever arms or the layout as a whole — so a bell clocked 45° between two axes
 carries a flag for both. Two consequences neither obvious nor derivable from the part: the shipped
-bus's *roll* jets, canted 25° off tangential, cleared that threshold and gave it lateral authority
+bus's *roll* jets, canted 29° radially inward, cleared that threshold and gave it lateral authority
 nobody designed; and one radial bell per cluster is enough to serve every lateral direction, because
-each is 45° between two of them. It is also why those roll jets are now **exactly** tangential: a
-cant leans a bell far enough to clear 0.5 on only one of the two axes it sits between, so squaring
-them up is worth a translation flag each as well as the cosine of the cant in roll. The torque flags are a separate threshold at 0.1 on a **normalized**
+each is 45° between two of them. The torque flags are a separate threshold at 0.1 on a **normalized**
 efficiency, `dot(thrust, unit(axis × r))`, so a jet with any lever arm at all is flagged and the
 length of it changes nothing.
 

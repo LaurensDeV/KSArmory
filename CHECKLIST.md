@@ -1243,14 +1243,11 @@ why §12.7a matters. The ~900 m *bias* is that every round landed beyond its own
 **Four radial translation jets, unflown.** One per cluster, `KSArmory_Mirv_Rcs16`–`Rcs19`, firing
 straight out of the pad. Nothing has been in the air with them.
 
-- [ ] The bus loads and the four new bells are there, one in the middle of each cluster, with the
-      roll pair now square to the pad rather than canted. No sparkle or flicker where the centre bell
-      meets the four around it — their roots overlap by 20 mm, which `validate-parts.py` passes and
-      only the game can settle.
-- [ ] The trim's `thrusters measured at N m/s2` on a **lateral** direction is roughly **2.26×** what
-      it was, the ratio of 4.24 to 1.88 in thrust-units. Write down what it actually reads.
-- [ ] Roll still works and in the same sense — the eight roll jets each moved 25°, which should be
-      **10%** more authority, not a reversal.
+- [ ] The bus loads and the four new bells are there, one in the middle of each cluster. No sparkle
+      or flicker where they meet the four around them — their roots overlap by 20–28 mm, which
+      `validate-parts.py` passes and only the game can settle.
+- [ ] The trim's `thrusters measured at N m/s2` on a **lateral** direction is roughly **1.75×** what
+      it was, the ratio of 3.29 to 1.88 in thrust-units. Write down what it actually reads.
 - [ ] `BusTrim` stops striking lateral directions off as moving nothing.
 - [ ] A shot flown with `IcbmConfig.MinArrivalAngleDeg` at 15° trims out rather than leaving
       **8.54 m/s on the bus**, and the group lands nearer than the 2.68 km it was off.

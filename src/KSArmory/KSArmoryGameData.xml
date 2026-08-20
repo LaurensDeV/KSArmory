@@ -570,7 +570,7 @@
 
     <!--
       Two boxes rather than the atlas's single _ColPrim_ cylinder: most of the volume around the
-      warheads is empty air, and a box pair says so for nothing. The RCS bells reach radius 1.68
+      warheads is empty air, and a box pair says so for nothing. The RCS bells reach radius 1.71
       and are deliberately outside both - small protrusions are not worth colliding.
     -->
     <Collider Id="KSArmory_MirvCollider">

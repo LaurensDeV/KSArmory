@@ -56,32 +56,14 @@ so lever-arm length never enters it.
 
 Two things follow that were not previously written down:
 
-- **The shipped bus already had lateral authority, and nobody designed it.** Its eight roll jets
-  were canted 25° off tangential, which puts a 0.94 component on one control axis — over the
-  threshold. Each lateral direction therefore had two nozzles and zero net torque already. That is
-  almost certainly the low end of the flown **0.9–2.2 m/s²**, and it means CLAUDE.md's old "the
-  shipped one has none" was wrong before this change as well as after.
+- **The shipped bus already had lateral authority, and nobody designed it.** Its eight roll jets are
+  canted 29° radially inward, which puts a 0.94 component on one control axis — over the threshold.
+  Each lateral direction therefore had two nozzles and zero net torque already. That is almost
+  certainly the low end of the flown **0.9–2.2 m/s²**, and it means CLAUDE.md's old "the shipped one
+  has none" was wrong before this change as well as after.
 - **One radial jet per cluster serves every lateral direction**, because each sits 45° between two
-  control axes and so carries two flags — with the direction exact and the residual roll zero.
-
-**The roll jets were then squared up, and that is worth more than the radial jets are.** Nothing
-recorded why they were canted; it arrived with the part in `31862fe` with no rationale, and it is not
-load-bearing — a tangential plume leaves the hull at radius 1.61 and diverges, so it buys no
-clearance. The cant costs on both axes it touches. Roll torque goes as its cosine, **1.414 → 1.560**
-per jet. And it costs a translation flag outright: a *tangential* bell on a cluster clocked 45°
-between two control axes clears 0.5 on **both**, where a canted one leans far enough to clear only
-one. So each lateral direction goes from four nozzles to six.
-
-| | lateral \|F\| | roll authority |
-| --- | --- | --- |
-| shipped | 1.88 | 11.31 |
-| + radial jets, cant kept | 3.29 | 11.31 |
-| + radial jets, roll jets squared | **4.24** | **12.48** |
-
-Net force stays exactly on-axis in every case. The eight moved 25° each, keeping their roll sense and
-their subpart Ids — only `<Transform>` changed, which is not the append-only rule. The pad also reads
-as a deliberate cross now, and the centre bell's overlap with its neighbours drops from 28 mm to
-20 mm.
+  control axes and so carries two flags. Lateral net force goes **1.88 → 3.29** thrust-units, with
+  the direction exact and the residual roll zero.
 
 **Why one and not a straddling pair.** `<SolidSphereMass>` on the bus declares no `<LocationAsmb>`,
 and `AsmbTransformTemplate` defaults it to zero — so KSA puts all 6,300 kg on the mounting face at
@@ -95,8 +77,8 @@ removed from the vehicle when one goes.
 geometry is, and it sets every RCS lever arm on the bus. Left alone here because it changes the
 whole vehicle's rotational behaviour, not just this.
 
-**The cosmetic cost.** All four peripheral bells radiate from the cluster centre at 0.09, so a fifth
-seated there merges 20 mm into their roots. `validate-parts.py`'s cross-body pass is clean — the
+**The cosmetic cost.** All four shipped bells radiate from the cluster centre at 0.09, so a fifth
+seated there merges 20–28 mm into their roots. `validate-parts.py`'s cross-body pass is clean — the
 overlap produces no shared planes — and it is hidden at every angle rendered, reading as a common
 manifold. The alternative was a pair offset ±5° in clock, which seats cleanly but cannot fire exactly
 radially and sits 0.087 from the roll-flag threshold, crossing it once the CoM wanders 0.1 m
