@@ -1138,41 +1138,36 @@
 
     <SubPart Id="KSArmory_Mirv_Bus" InstanceOf="KSArmory_MirvBus_SubPart" />
 
-    <!-- Six RVs on an 0.86 bolt circle, canted 6 degrees outward so they release diverging. -->
+    <!-- Six RVs on an 0.86 bolt circle, parallel: a canted release spreads the group by an
+         amount the bus's own drifting attitude decides, and nothing aboard can correct it. -->
     <SubPart Id="KSArmory_Mirv_Rv00" InstanceOf="KSArmory_MirvRv_SubPart">
       <Transform>
-        <Position X="1.73452" Y="0.96453" Z="0.00000" />
-        <Rotation Z="0.10472" />
+        <Position X="1.74010" Y="0.86000" Z="0.00000" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rv01" InstanceOf="KSArmory_MirvRv_SubPart">
       <Transform>
-        <Position X="1.73452" Y="0.48226" Z="0.83531" />
-        <Rotation Y="-0.09065" Z="0.05250" />
+        <Position X="1.74010" Y="0.43000" Z="0.74478" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rv02" InstanceOf="KSArmory_MirvRv_SubPart">
       <Transform>
-        <Position X="1.73452" Y="-0.48226" Z="0.83531" />
-        <Rotation Y="-0.09065" Z="-0.05250" />
+        <Position X="1.74010" Y="-0.43000" Z="0.74478" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rv03" InstanceOf="KSArmory_MirvRv_SubPart">
       <Transform>
-        <Position X="1.73452" Y="-0.96453" Z="0.00000" />
-        <Rotation Z="-0.10472" />
+        <Position X="1.74010" Y="-0.86000" Z="0.00000" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rv04" InstanceOf="KSArmory_MirvRv_SubPart">
       <Transform>
-        <Position X="1.73452" Y="-0.48226" Z="-0.83531" />
-        <Rotation Y="0.09065" Z="-0.05250" />
+        <Position X="1.74010" Y="-0.43000" Z="-0.74478" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Mirv_Rv05" InstanceOf="KSArmory_MirvRv_SubPart">
       <Transform>
-        <Position X="1.73452" Y="0.48226" Z="-0.83531" />
-        <Rotation Y="0.09065" Z="0.05250" />
+        <Position X="1.74010" Y="0.43000" Z="-0.74478" />
       </Transform>
     </SubPart>
 

@@ -56,7 +56,7 @@ public class PerTubeTrimTests(ITestOutputHelper Out)
     /// <summary>The six tube axes in the frame the bus is holding.</summary>
     private static double3[] Axes(doubleQuat attitude)
     {
-        Tube[] tubes = Arsenal.MirvBus.Tubes;
+        Tube[] tubes = CantedRing.Tubes;
         double3[] axes = new double3[tubes.Length];
 
         for (int i = 0; i < tubes.Length; i++) axes[i] = Vec.Unit(attitude * tubes[i].Direction);

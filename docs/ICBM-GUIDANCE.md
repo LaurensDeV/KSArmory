@@ -491,8 +491,9 @@ short. Flown. The instrument, not the loop, was the fault.
 ## The prediction is of the warhead's state, not the bus's
 
 A warhead does not leave on the bus's velocity. Each is ejected along its own tube at
-`MunitionProfile.LaunchSpeed`, and a bus's tube cants cancel in the mean — the MIRV bus's six point
-along part `+X` with ±6° of cant — so what survives is the **whole** of that speed along the nose.
+`MunitionProfile.LaunchSpeed`, and a bus's tube cants cancel in the mean — the MIRV bus's six now
+point along part `+X` with no cant at all — so what survives is the **whole** of that speed along
+the nose.
 
 On a deorbit the nose is held **retrograde**, because that is the attitude the braking burn ended
 on. So the ejection slows every warhead and they all fall short together. Measured on this
@@ -701,7 +702,8 @@ Flown, on a 2,500-2,800 km deorbit onto a target 4 km up: **best 371 m, CEP ~710
 the start of the work. Every warhead's miss is one common offset plus its own tube cant, and the two
 are separable by regressing the six misses against their tube's cant.
 
-**The cant term is geometry and is not a defect.** Six tubes on a 6° cone, one aim, so each warhead
+**The cant term is geometry and is not a defect.** On a launcher whose tubes sit on a cone — which
+the MIRV bus no longer does, see below — one aim means each warhead
 leaves on its own vector — ±400 to ±590 m depending on range. Removing it means aiming each tube
 separately, which is what a real bus does by re-pointing between releases.
 
@@ -806,7 +808,7 @@ on their remembering.
 
 ## Each tube is aimed before it fires, and the launcher may let go of its stack first
 
-A launcher's tubes can be canted — a MIRV bus's six sit six degrees off its own axis at six clock
+A launcher's tubes can be canted — some sit degrees off the launcher's own axis at several clock
 positions — so rounds released from one attitude leave on six different vectors. There is one aim
 for all of them, so no aim correction can remove it. Measured in flight: **about 1,200 m across six
 warheads**, and regressing each warhead's miss against its own tube's cant gives **−3,246 m per m/s**
@@ -821,6 +823,16 @@ spread as canted, 0 m re-pointed**, and unchanged by the vehicle's roll.
 **It costs nothing on a launcher it does not describe.** A single tube is the mean of its own axes,
 so the rotation is the identity, the cant spends none of the release budget, and
 `Sim/ReleaseSequence.cs` reduces to releasing when the vehicle is steady. No flag and no branch.
+
+**And the MIRV bus is now one of those launchers.** Its six tubes were straightened, so every tube
+*is* the mean and the re-pointing rotation is the identity for it too. That is deliberate rather
+than a loss: the turn this machinery makes is one KSA's own attitude controller will not perform on
+a separated bus — the pointing band measured **22.11°** against a 6° cant, and inside its dead zone
+the tracker simply does not fire. `docs/MIRV-NEXT.md` item 5 has the evidence. So the cant was not
+correctable in flight, and the cheaper answer was to stop creating it.
+
+The code stays because it is general: a weapon pack may register a canted launcher on a vehicle that
+*can* hold the command, and nothing about it names the bus.
 
 Two things it is careful about:
 

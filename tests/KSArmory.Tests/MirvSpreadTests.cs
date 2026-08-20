@@ -42,7 +42,7 @@ public class MirvSpreadTests(ITestOutputHelper Out)
                                        bool repoint, ITestOutputHelper? log = null)
     {
         MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
-        Tube[] tubes = Arsenal.MirvBus.Tubes;
+        Tube[] tubes = CantedRing.Tubes;
 
         double3[] axes = new double3[tubes.Length];
         for (int i = 0; i < tubes.Length; i++) axes[i] = Vec.Unit(busAttitude * tubes[i].Direction);

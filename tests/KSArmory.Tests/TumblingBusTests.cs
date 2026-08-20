@@ -26,7 +26,7 @@ public class TumblingBusTests(ITestOutputHelper Out)
 
     private static double3[] BusTubes()
     {
-        Tube[] tubes = Arsenal.MirvBus.Tubes;
+        Tube[] tubes = CantedRing.Tubes;
         double3[] axes = new double3[tubes.Length];
         for (int i = 0; i < tubes.Length; i++) axes[i] = Vec.Unit(tubes[i].Direction);
         return axes;
