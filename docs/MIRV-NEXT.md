@@ -410,8 +410,9 @@ a symptom.
 the loop moves the aim 196 km and stops on `WorseBeforeStopping` before the burn ends. That is
 headroom in the stopping rule, not the ruler.
 
-**And `TerrainRadiusAt` has the same fault**, reading the height field in the frame of now for a
-point un-carried to the cutoff epoch. Not yet fixed.
+**`TerrainRadiusAt` had the same fault**, reading the height field in the frame of now for a point
+un-carried to the cutoff epoch — so the arrival was flown against ground a whole burn's rotation
+away. Flown: **5.35 km mean -> 4.85 km**.
 
 ## 8. The bus corrects its own aim after cutoff — flown
 

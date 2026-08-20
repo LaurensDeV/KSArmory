@@ -40,6 +40,7 @@ internal sealed class IcbmComputer
     private bool _measureDue;
     private double _freshMiss = double.NaN;
     private bool _resumedForCoast;
+    private double _departsIn;
     private ReleaseCommand _deploy;
     private readonly double3[] _tubeAxes = new double3[64];
     private bool _separated;
@@ -971,15 +972,18 @@ internal sealed class IcbmComputer
     // of height near the end, so a target four kilometres up - which is most of the Andes - puts
     // the prediction fifty kilometres past where anything actually lands.
     //
-    // The point arrives un-carried to the prediction's own epoch, so the body-fixed frame to read
-    // it in is the one at that epoch, which is the current one.
+    // The point arrives un-carried to the prediction's own epoch, which mid-burn is the cutoff and
+    // not now - so it is brought back the rest of the way before being read in the body-fixed frame
+    // this frame has. Skipping that samples the height field a whole burn's worth of rotation away,
+    // which is tens of kilometres of the wrong ground on the arrival the correction then reads.
     private double TerrainRadiusAt(double3 pointCci)
     {
         if (Parent is not { } parent) return Body.SurfaceRadius;
 
         try
         {
-            double3 dirCcf = Vec.Unit(pointCci).Transform(parent.GetCci2Ccf());
+            double3 nowCci = _departsIn > 0.0 ? Body.CarryCci(pointCci, -_departsIn) : pointCci;
+            double3 dirCcf = Vec.Unit(nowCci).Transform(parent.GetCci2Ccf());
             if (!Vec.IsFinite(dirCcf) || dirCcf.Equals(Vec.Zero)) return Body.SurfaceRadius;
 
             // Accurate, because GroundTest is accurate and the round stops where *it* says. A
@@ -1218,6 +1222,9 @@ internal sealed class IcbmComputer
         double departsIn = fromCutoff && double.IsFinite(Command.SecondsToCutoff)
                          ? Math.Max(0.0, Command.SecondsToCutoff)
                          : 0.0;
+
+        // Held in a field because the terrain callback runs inside the prediction and needs it too.
+        _departsIn = departsIn;
 
         fromCci += ReleaseOffsetCci();
         alongCci += ReleaseImpulseCci();
