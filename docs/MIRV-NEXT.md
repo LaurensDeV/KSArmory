@@ -111,6 +111,36 @@ position — a fact about the engine's frame order, not about this maths. **It n
 varies the phase, not more reasoning.** Until then the round keeps the behaviour that flew best, and
 a ~0.3-1.2 km round-versus-probe gap is the standing error.
 
+## 2c. The air was sampled a frame ahead of the body — fixed, flown
+
+**This is what item 2 was measuring**, and it is why the answer kept depending on timewarp.
+
+`Slug` asks `AirDensityAt(position, secondsIntoFrame)`, and the far side puts the body's own travel
+back so that a round moving through a frame is not differenced against a body sampled once in it.
+It was passing `elapsed` — the time *into* the frame, running 0 up to `dt`. Every other sample in
+the same file is back-dated by `elapsedInFrame - frameSeconds`, running from minus a frame up to
+zero, because the samples are end-of-frame and the round is part-way through.
+
+The two differ by exactly one frame of the planet's ~30 km/s: **0.9 km at normal speed, 3.9 km at
+eight times**, read as altitude, on air that falls off over 8 km. So it lands on drag, it grows with
+the step, and it jumps when the step changes.
+
+| coast | before | after |
+| --- | --- | --- |
+| 1x | 1.10 km | — |
+| 8x | 4.76 / 5.27 km | **0.65 / 0.76 km** |
+
+**The warp dependence is the whole of it.** Before, coasting at 8x cost about 4 km against 1x; after,
+8x and 1x agree. That also retires the standing "every round lands beyond its own release probe"
+gap: the probe said 0.2-0.4 km while the rounds landed 5 km out, and the rounds now arrive where the
+probe says.
+
+`AirSampleEpochTests` pins the convention and fails against the old form by a whole frame.
+
+**What this does not settle** is item 2's own carry, which was reverted and stays reverted — both
+phases of it were flown and neither beat leaving it alone, but those flights predate the harness fix
+below and are inside its noise.
+
 ## 2b. Holding a warhead past cutoff costs ~26 m a second — understood
 
 Same shot, cutoff prediction `0.1 km off` every time; release at +50 s and the probe said 0.1-0.2 km,

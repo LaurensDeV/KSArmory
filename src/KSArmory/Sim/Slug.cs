@@ -215,7 +215,13 @@ internal sealed class Slug : IProjectile
             // round through the thinner air it had at the top of it. Measured against a 1 ms
             // reference on a 2,700 km deorbit: a 170 ms frame lands 510 m long sampling once and
             // 249 m sampling per sub-step, and a 320 ms frame 1,046 m against 550 m.
-            double density = AirDensityAt?.Invoke(PositionEcl, elapsed) ?? mediumDensityRatio;
+            // Back-dated, like every other sample this round is measured against: the body it is
+            // differenced from was sampled at the end of the frame, and the round is part-way
+            // through it. Passing the time *into* the frame instead offsets the lookup by a whole
+            // frame of the planet's ~30 km/s -- 0.9 km at normal speed and 3.9 km at eight times,
+            // read as altitude, on air that falls off over 8 km. That makes the error grow with the
+            // step and jump when the step changes, which is what a warp change does mid-flight.
+            double density = AirDensityAt?.Invoke(PositionEcl, elapsed - dt) ?? mediumDensityRatio;
             if (!double.IsFinite(density) || density < 0.0) density = mediumDensityRatio;
             _lastDensity = density;
 
