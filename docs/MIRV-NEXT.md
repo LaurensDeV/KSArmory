@@ -940,6 +940,12 @@ kick to its prediction.
    up to 1,684 m at the worst. Still blocked on why a separated bus will not hold a 6 degree command.
 5. Everything else is under 60 m and not worth a flight of its own.
 
+**And every one of them is priced on a seven-degree arrival.** The velocity-side terms scale with the
+trajectory's sensitivity and the surface-side terms with `cot γ`, so flying the shot in at fifteen to
+twenty degrees divides the first group by eight and the second by nearly three — before anything on
+this list is touched. `docs/ARRIVAL-ANGLE.md` has what that costs and whether the guidance can be
+told to do it, which today it cannot.
+
 **None of it is flown.** The rig's planet sits at the origin and carries no velocity, which is the one
 case where a frame carrier is identically zero — so nothing above can see an epoch fault, and item 2c
 is why that matters. And a single flight cannot resolve anything under about 0.5 km (item 7d), so the
