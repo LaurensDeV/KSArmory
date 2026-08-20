@@ -49,6 +49,10 @@ without, same pick-up, everything else identical:
 | --- | --- | --- | --- | --- |
 | without jets | 0.38 / 0.63 / 0.70 / 0.96 / 1.18 / 1.47 km | **0.83 km** | 1.47 km | 0 |
 | **with jets** | 0.09 / 0.41 / 0.83 / 3.26 / 4.43 / 10.60 / 18.01 km | **3.26 km** | **18.01 km** | 2 |
+| after the revert | 0.42 / 0.49 / 0.82 / 2.10 km | 0.66 km | 2.10 km | 0 |
+
+The third row is the control: reverting restores the first, so the difference is the jets and not
+something that drifted alongside them. Ten shots without them now, none failing, worst 2.10 km.
 
 The best single result ever measured here is in that second row — 0.09 km — which is the trap. The
 jets do work, and when the correction is good they beat anything else. What they remove is the
