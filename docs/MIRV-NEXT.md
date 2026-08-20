@@ -404,7 +404,18 @@ the engine discards it.
 
 The re-point stays **off**, and what changed is the command it issues when it is switched on. That
 much is arithmetic and is held headlessly; whether the bus will then *follow* a six-degree command is
-the pointing band above, and nothing here measures it.
+the pointing band above, and only a flight measures it.
+
+So `IcbmComputer.ProbeControlLimits` prints it. It runs through the coast as well as the burn under
+a verbose log and quotes the engine's own numbers — `ActiveControlSystem`, `RollMode`, whether a
+control part is still held, `AngleDeadband`, `AngleTurnaround`, `RateBit`, and the band the three of
+them add up to, all in degrees.
+
+**One flight with the verbose log settles the rest.** If the pointing band on the separated bus reads
+well under six degrees, the corrected command is worth switching on and the ~0.9 km of spread is
+recoverable. If it reads at or above six degrees, item 5 closes the way 5b and 5c did — the
+correction needs a turn the vehicle's own controller will not make — and the way to reopen it is a
+bus with finer RCS or more inertia, which is a craft-design change rather than a mod change.
 
 ## 5b. Firing each tube on its own crossing — tried on paper, does not win
 

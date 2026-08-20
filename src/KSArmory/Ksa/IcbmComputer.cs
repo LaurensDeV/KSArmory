@@ -393,7 +393,10 @@ internal sealed class IcbmComputer
             AttitudeHook.Release(Craft);
         }
 
-        ProbeAttitude(playerStep, wasMode, wasTrack, aimed);
+        // The direction actually handed to the hook, not the nominal one: the release sequence turns
+        // the vehicle off that line by a cant, and a probe reading the nominal cannot see it happen.
+        ProbeAttitude(playerStep, aimed ? _deploy.DirectionCci : Command.ThrustDirectionCci,
+                      wasMode, wasTrack, aimed);
 
         if (Command.EngineOn)
         {
@@ -829,21 +832,26 @@ internal sealed class IcbmComputer
         }
     }
 
-    /// <summary>The trajectory, in the ecliptic, for drawing. Empty until a prediction has run.</summary>
     // What the flight computer makes of the attitude it is being given, which is the only way to
     // tell a command that is swinging from a vehicle that cannot hold a steady one. Both look like
     // tumbling from outside, and they want opposite fixes.
-    private void ProbeAttitude(double playerStep, FlightComputerAttitudeMode wasMode,
+    //
+    // It runs through the coast as well as the burn, because that is where the release sequence
+    // lives and the vehicle it is asking to turn is a different one: the spent stack is gone, so
+    // the inertia has collapsed and every limit below has moved with it.
+    private void ProbeAttitude(double playerStep, double3 commandedCci,
+                               FlightComputerAttitudeMode wasMode,
                                FlightComputerAttitudeTrackTarget wasTrack, bool aimed)
     {
-        if (!Program.IsBurning || Log.Threshold > Log.Level.Debug) return;
+        if (Command.Phase is IcbmPhase.Idle or IcbmPhase.NoSolution) return;
+        if (Log.Threshold > Log.Level.Debug) return;
 
         _sinceProbe += playerStep;
         if (_sinceProbe < ProbeIntervalSeconds) return;
         _sinceProbe = 0.0;
 
-        double3 wanted = Vec.Unit(Command.ThrustDirectionCci);
-        double slew = _lastCommanded.Equals(Vec.Zero)
+        double3 wanted = Vec.Unit(commandedCci);
+        double slew = _lastCommanded.Equals(Vec.Zero) || wanted.Equals(Vec.Zero)
                           ? 0.0
                           : Vec.AngleBetween(_lastCommanded, wanted) * 180.0 / Math.PI;
         _lastCommanded = wanted;
@@ -851,11 +859,36 @@ internal sealed class IcbmComputer
         FlightComputer computer = Craft.FlightComputer;
 
         Log.Debug($"{KsaWorld.DisplayName(Craft)} attitude: aimed={aimed} "
-                  + $"dir={(Vec.Len(Command.ThrustDirectionCci) > 0.0 ? "set" : "ZERO")} "
+                  + $"dir={(wanted.Equals(Vec.Zero) ? "ZERO" : "set")} "
                   + $"slew {slew:F1} deg | before {wasMode}/{wasTrack} "
                   + $"-> after {computer.AttitudeMode}/{computer.AttitudeTrackTarget} | "
                   + $"error {computer.ErrorAngles} rates {computer.ErrorRates}");
+
+        ProbeControlLimits(computer);
     }
+
+    // The engine's own attitude limits, read back after its worker has written them. They are what
+    // says whether a small command is asked for at all: KSA's RCS tracker crawls at half a rate bit
+    // anywhere inside 0.5*AngleDeadband + AngleTurnaround and latches its deadband there, and
+    // AngleTurnaround is at least ten seconds of one rate bit - which is a minimum thruster pulse
+    // divided by the vehicle's inertia, so dropping a spent stack widens the whole band by the mass
+    // ratio. docs/MIRV-NEXT.md item 5 has the law and the citations.
+    private void ProbeControlLimits(FlightComputer computer)
+    {
+        double band = 0.5 * computer.AngleDeadband
+                      + Math.Max(computer.AngleTurnaround.Y, computer.AngleTurnaround.Z);
+
+        Log.Debug($"{KsaWorld.DisplayName(Craft)} control: "
+                  + $"{computer.ActiveControlSystem.X}/{computer.ActiveControlSystem.Y}/"
+                  + $"{computer.ActiveControlSystem.Z}, roll {computer.RollMode}, "
+                  + $"control part {(Craft.ControlPart is null ? "NONE" : "held")} | "
+                  + $"deadband {Degrees(computer.AngleDeadband):F2} deg, turnaround "
+                  + $"{Degrees(computer.AngleTurnaround.Y):F2}/{Degrees(computer.AngleTurnaround.Z):F2} deg, "
+                  + $"rate bit {Degrees(computer.RateBit.Y):F3}/{Degrees(computer.RateBit.Z):F3} deg/s | "
+                  + $"pointing band {Degrees(band):F2} deg");
+    }
+
+    private static double Degrees(double radians) => radians * 180.0 / Math.PI;
 
     // Where the mod thinks the arc lands, as a place rather than a distance. A distance says the
     // solution is wrong; the place says which way, and short-versus-sideways are different faults.
@@ -885,6 +918,7 @@ internal sealed class IcbmComputer
     private double3 RollFallback(in IcbmState state)
         => Program.DownrangeCci.Equals(Vec.Zero) ? state.VelocityCci : Program.DownrangeCci;
 
+    /// <summary>The trajectory, in the ecliptic, for drawing. Empty until a prediction has run.</summary>
     public void PathEcl(List<double3> into)
     {
         into.Clear();
