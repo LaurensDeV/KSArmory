@@ -142,14 +142,9 @@ That is the trap two paragraphs up, and the floor cannot fall into it.
 on, and a lofted time that no longer satisfies the floor is discarded for the constrained one —
 loft below one *depresses* the shot, which is exactly the arrival the floor exists to refuse.
 
-**And the bound has to survive the latch, because pinning the arrival instant does not pin the
-angle.** The instant is `cutoff + flight`, the two halves trade against each other inside it, and
-the cheaper split is the longer coast — which onto the same target arrives shallower. Measured, a
-15° floor flown at **11.29°** and a 20° floor at **15.20°**, which is most of what the operator paid
-for. So the held solve carries the bound too: an arc under it is refused, which hands the cycle back
-to the constrained search and re-commits to a satisfying arrival. Safe here where re-checking a
-*loft* would not be, for the idempotence reason above — and measured not to thrash, one latch
-transition per flight across twenty range-and-floor combinations.
+**It bounds the search and not the latch.** Once the arrival instant is committed the arc through it
+is whatever the moving cutoff point makes it; re-checking there would unlatch a shot mid-burn, which
+is the failure the latch exists to prevent.
 
 **Nothing satisfying it is its own answer.** `IcbmReach.TooShallow` sits beside `NoTrajectory` and
 `ShortOfPropellant` because only one of the three is fixed by a control on this panel, and from

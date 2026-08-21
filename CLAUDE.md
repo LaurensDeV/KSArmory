@@ -1095,13 +1095,6 @@ infinity, and the window search's "earliest affordable departure" becomes "earli
 not**, which is why the constrained flight time can be seeded straight back in and a lofted one
 cannot. Where the two disagree the floor wins, nothing satisfying it is `IcbmReach.TooShallow`
 rather than a silent graze, and it is **off at zero**, which is the default.
-
-**And the bound has to survive the arrival latch**, because pinning the arrival *instant* does not
-pin the angle: the instant is `cutoff + flight`, the two halves trade against each other inside it,
-and the cheaper split is the longer coast — which onto the same target arrives shallower. A 15°
-floor flew at **11.29°** and a 20° floor at **15.20°** before the held solve carried the bound too.
-Refusing an arc under it unlatches and re-commits to a satisfying arrival, which is safe for the same
-idempotence reason and measured not to thrash.
 `docs/ARRIVAL-ANGLE.md` is the whole account. **Unflown.**
 
 **Do not compete with KSA's own warp, and do not ask the world for more than the rounds do.**
@@ -1223,16 +1216,6 @@ stopped for measures 15.86 km one cycle later. Waiting costs cycles and nothing 
 is kept and reverted to either way, and `MaxMetres` bounds where the aim can wander meanwhile. So
 `WorseBeforeStopping` is patient, bounded above by `IcbmProgram.LatchArrivalWithinSeconds`, past
 which the arrival commits whatever the aim is doing.
-
-**And that is the only thing the arrival commits.** `AimCorrection` is stopped by its own rule and
-by the engines, never by the arrival — `IsSteady` is a step-size test, so a small step between two
-large ones passes it, and stopping there banks whatever the loop happens to hold. With no floor set
-the loop has already converged by then and what the freeze cost was the refinement afterwards:
-**717 m** of group bias against 26. With a floor it is ruinous, because a steep arrival abolishes
-the drag shortfall the loop locks onto and leaves it reading the constrained search alternating
-between two satisfying flight times — **8.41 km** banked on a shot that lands 0.00 km off
-uncorrected. `Freeze()` and `Resume()` therefore sit together at cutoff, which is also what keeps
-`Resume` working at all: it returns early unless the loop is settled.
 
 **The miss is one product, and there is no floor under it.** Flown from the same cutoff position
 with the *exact* required velocity, the integrator lands on the target to under a metre — so the
