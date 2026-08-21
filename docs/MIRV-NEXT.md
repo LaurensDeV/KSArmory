@@ -959,11 +959,13 @@ drifting slowly enough to stay under it for ever. The 2° is priced: the predict
 **14-22 m per degree** of nose near the boresight on this arc, so a reading admitted by the gate
 carries at most 44 m — inside the 250 m (`AimCorrection.ImprovedByMetres`) a pass is judged by.
 
-**And it gives up rather than waiting the tumble out.** `SettlesWithinSeconds` is 10 s, worth 260 m
-of leverage at item 2b's 26 m/s. Holding out for `MaxSeconds` instead costs 3,120 m, and on the
-flown bus there is nothing at the end of the wait to collect: its attitude is not tracked at all.
-So the cost of the gate is **260 m in the bad case and nothing in the good one** — a bus whose nose
-is held settles inside one pass.
+**And it holds out for the settle rather than waiting the tumble out.** `SettlesWithinSeconds` is
+10 s, worth 260 m of leverage at item 2b's 26 m/s. Holding out for `MaxSeconds` instead costs
+3,120 m. So the cost of the wait is **260 m in the bad case and nothing in the good one** — a bus
+whose nose is held settles inside one pass.
+
+**What is at the end of that wait is a reading with an error bar, not nothing** — see 8c, which is
+where that was got backwards.
 
 ### Two defects in `PostBoostAim` itself, both fixed
 
@@ -994,8 +996,114 @@ is held settles inside one pass.
   not stop rather than the thing that stops one — the best-tracking rule is what cuts the 36 m/s.
 
 **Unflown.** All of it is headless. What a flight would show is whether the settle gate ever opens
-on a separated bus at all: if it does not, every shot releases 10 s after the trim finishes with the
-aim the burn earned, which is the honest outcome and is 260 m worse than a bus that holds still.
+on a separated bus at all — and 8c is the answer to what should happen when it does not, which is
+not what this section assumed.
+
+
+## 8c. The gate was right to distrust the reading and wrong to give up on it — fixed, unflown
+
+**8b's gate is the correct half of a rule whose other half was backwards.** It is right that a
+reading taken off a turning nose is worth less than one taken off a still one. It is wrong that it
+is worth *nothing*, and the whole cost of the mistake lands on exactly the bus this weapon has: one
+that never holds still.
+
+**Above 1°/s the gate cannot open at all.** Steady means inside `SteadyWithinDegrees` (2°) of one
+anchor for `SteadySeconds` (2 s), so any drift over one degree a second crosses the band before the
+window closes, for ever. A separated bus's minimum rate bit is measured at **1.568°/s** and its roll
+angle is free — so the shipped gate is shut for the entire coast on the only vehicle it runs on.
+
+**And the wait that was supposed to bound that never ran out**, which is a separate defect in the
+same method. `_unsteadyFor` was accumulated only on the frames the anchor was *reset* on — about one
+frame per band crossing — so at 1.8°/s and 60 fps it banked about a sixtieth of a second per second
+and `SettlesWithinSeconds` arrived after **eleven minutes**. `MaxSeconds` ended the shot first: 120 s
+of holding at item 2b's 26 m/s, with no reading ever taken, and the group at **4,772 m** in the same
+rig that lands it at 1,579 m once the reading is taken.
+
+**The existing test could not see it**, and the reason is the shape CLAUDE.md warns about. It drives
+the sequencer at a 0.5 s step, where a 20°/s tumble leaves the band on *every* frame and the two
+counting rules agree exactly. Re-measured at a frame the game actually hands out, it fails:
+`no reading in 120 s at 1.8 deg/s`.
+
+### What a reading off a moving nose is actually worth
+
+The thing that makes it worth taking is that **this is a loop that re-reads**. It converges against
+whatever direction it last saw and re-solves the arc each pass, so a nose that keeps turning is
+*tracked* rather than mistaken, and only the last cycle's drift reaches the release. Driving the
+real `PostBoostAim` and the real `AimCorrection` against a coasting bus, at the 3,459 km shot:
+
+| the nose | reading it | giving up after 10 s |
+| --- | --- | --- |
+| still | 1,563 m (7 reads) | 1,563 m (7) |
+| 1.0°/s | 1,793 m (7) | 1,793 m (7) |
+| 1.8°/s — a free-rolling bus | 1,579 m (7) | 1,411 m (**0**) |
+| 3.0°/s | **251 m** (15) | 2,156 m (0) |
+| 6.0°/s | 673 m (15) | 4,483 m (0) |
+| **worst across the band** | **1,793 m** | **4,483 m** |
+
+**What it buys is the floor, not the best case.** At 1.8°/s giving up is 168 m *better*, because the
+aim the burn earned happened to be the luckier one — on any single rate the sign can go either way.
+What changes is that a bus which never settles stops releasing on a shot nothing has looked at since
+cutoff. Same trade as item 0, the right way round this time.
+
+The first two rows are the ones that make it safe to ship: wherever the gate ever opened, the
+behaviour is **unchanged to the metre**.
+
+### The two alternatives, both measured and both worse
+
+Whether the prediction should model the ejection kick at all is the question underneath this, and it
+has a number. `ReleaseDirectionTests` prices a converged aim's residual directly: converging against
+`k0` puts `I(x, v+k0)` on the target, the warhead leaves with `k1`, so the miss is the ground
+distance between the two predictions.
+
+| what the prediction models | residual |
+| --- | --- |
+| the bus alone — no kick | **7.96 km** |
+| the kick, direction 2° stale | 44 m |
+| the kick, 10° stale | 314 m |
+| the kick, a whole 22.11° pointing band stale | 1,004 m |
+| the kick, 60° stale | 4,946 m |
+| the kick, 180° stale | 15,959 m |
+
+**Predicting the bus is ruled out**, and not narrowly: it converges the *bus* onto the target and
+lets every warhead miss by the entire kick. A stale direction beats it out to about **60°** of
+drift, which is far more than a correction accumulates.
+
+**And latching the direction is ruled out too** — the obvious answer to a moving instrument, and the
+wrong one. A latched direction is one the loop converges against and then does *not* release along,
+so the whole correction's drift lands in the residual instead of one cycle's: 2,152 m against 251 m
+for tracking, at 3°/s.
+
+### The one lever that shrinks all of it
+
+Every metre above is **exactly proportional to `MunitionProfile.LaunchSpeed`** — measured at
+**3,979 m of impact per m/s** on this arc, constant to 0.3% from 0.1 to 2 m/s:
+
+| ejection | bus-only residual | 22° stale |
+| --- | --- | --- |
+| **2 m/s — shipped** | 7,958 m | 1,004 m |
+| 1 m/s | 3,984 m | 504 m |
+| 0.5 m/s | 1,994 m | 252 m |
+| 0.25 m/s | 998 m | 127 m |
+| 0.1 m/s | 399 m | 50 m |
+
+At 0.25 m/s the *worst possible* mismodelling of the direction — half a turn out — is 2.0 km, where
+today's 2 m/s bus swings its observer 16 km on nose movement alone. The tubes are parallel now and
+on a 0.86 m bolt circle, so the warheads never converge and the kick has only to unseat them.
+
+**This is the operator's call, not a guidance decision.** How briskly a bus should push its warheads
+off is a design question about the weapon, and three tests pin the 2 m/s behaviour deliberately —
+`PredictedDragTests.TheTwoMetresPerSecondOffTheTubeIsWorthKilometres`,
+`ReleaseSequenceTests.ItIsTheSumThatDecides` and
+`PostBoostObserverTests.EvenAWhollyUnNulledSeparationIsSmallerThanTheNoseTerm`. Changing the profile
+means giving those an explicit 2 m/s specimen, the way `tests/KSArmory.Tests/CantedRing.cs` keeps
+the cant tests alive after the bus was straightened. **Not done here.**
+
+### Unflown
+
+Headless throughout. What a flight would show is the drift rate the bus actually has — the table
+above is flat between 0 and 1°/s and only separates above it, and nothing in this repository records
+where a separated bus's nose goes. `PostBoostAim.ReadingIsUnsteady` is the readout that answers it,
+and it is the first thing to look at in the log.
 
 
 ## 9. The budget at the 0.65 km level
@@ -1105,7 +1213,14 @@ kick to its prediction.
    how far they actually get, not whether the mechanism works.
 
    Item 8b is between this and the answer: until the settle gate is flown, what those passes were
-   reading is a nose direction as much as a shot.
+   reading is a nose direction as much as a shot. **And 8c is why there were passes at all** — on a
+   bus rolling faster than 1°/s the gate never opened, so the flown alternative was not a worse
+   correction but none.
+
+   The rig now models the coast loop, and what it says is that at the shipped 2 m/s ejection the
+   correction stalls around **1.5 km** whatever the nose does, against tens of metres at 1 m/s and
+   below. That points at the stopping rules — `ImprovedByMetres` is 250 m against a term worth
+   3,979 m per m/s — rather than at the observer, and it is the next thing to measure.
 3. **Log the held nose in the velocity frame.** Costs nothing, and turns the cant from a
    141-1,684 m band into one number. Until it is logged, item 5's payoff is unknown by a factor of
    twelve.

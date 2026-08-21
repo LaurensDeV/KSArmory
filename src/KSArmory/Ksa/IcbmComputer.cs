@@ -729,7 +729,12 @@ internal sealed class IcbmComputer
             _freshMiss = double.NaN;
             Program.CorrectCoastArc();
             _trim.Resume();
-            Say($"post-boost: {pass.Said}", "");
+
+            // Whether the nose held still is the difference between a group that missed and one
+            // whose observer was never trustworthy, and no other number separates them. The drift
+            // rate of a separated bus is not recorded anywhere, so this is what would settle it.
+            Say($"post-boost: {pass.Said}",
+                _postBoost.ReadingIsUnsteady ? " (read off a nose that would not hold still)" : "");
         }
 
         if (!double.IsFinite(_owedAtSplit) && double.IsFinite(trim.ToGainMetresPerSecond))
