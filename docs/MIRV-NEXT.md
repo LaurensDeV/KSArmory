@@ -40,6 +40,30 @@ Two failures on the way, both worth not repeating:
 - **Nulling the shove ends the separation**, because the shove *is* the separation velocity. The bus
   trimmed 130 ms after the split at 12 m and then sat against the booster it had just dropped.
 
+## -1a. The round and its predictor must agree — being right alone is worth nothing
+
+`KsaWorld.GravityAt` gives a round only its parent body's pull, and Ecl is heliocentric — so the
+engine carries the planet along its orbit and the round is not carried with it. That is a real
+omission, worth 733 m over an eight-minute coast and up to 9.7 km at the Mk 21's flight-time limit.
+Adding the star's pull makes the round's flight **more correct**.
+
+Flown four times: **4.78 / 4.78 / 5.93 / 5.93 km** against a 1.67 km baseline. Reverted.
+
+**`ImpactPredictor` does not model the term either**, and does not need to: it works in the body's
+own frame, where the star's pull and the frame's acceleration cancel to first order. So before the
+change the two models were wrong *identically*, which is self-consistent — and the aim correction
+converges the **predictor** onto the target, so what reaches the ground is the round's disagreement
+with the predictor, not either one's disagreement with physics.
+
+Correcting one side alone converts a shared error into a difference, and the difference is the miss.
+
+**The rule, which is more general than this one term:** the round and the instrument that aims it
+are a pair. A change to either is only safe if the other moves with it, and an *improvement* to one
+is a regression unless it is. Three of this session's failures are the same shape — this, the
+per-sub-step gravity that removed the half of a cancelling pair (item 2d), and the force-sample phase
+(`KSA-FRAME-ORDER.md` §5), which corrected the round by a whole frame where the flight behaves as if
+its samples are a tenth of one stale.
+
 ## -1. The headless rig and the game disagree, and the game has won every time
 
 **Seven changes this session were measured headlessly, argued from the code, and refused by
