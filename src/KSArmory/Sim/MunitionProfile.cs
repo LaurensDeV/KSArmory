@@ -211,12 +211,18 @@ public sealed class MunitionProfile
     /// cannot tunnel through its own fuse radius at any speed; what a long step drops is the
     /// curvature, and that error is about half the lateral acceleration times the step squared.
     /// A 35 g endgame round at 0.32 s loses roughly its own fuse radius, which is why 0.32 is the
-    /// default. A round coasting ballistically loses centimetres.
+    /// default.
     ///
     /// It matters because the world is slowed to keep this step, so a weapon that flies for
     /// minutes holds the player's timewarp down for all of them and eventually trips the policy's
-    /// own abandon guard. Raising it for a round that does not manoeuvre costs nothing and is what
-    /// makes a long-range weapon playable.
+    /// own abandon guard.
+    ///
+    /// <b>A ballistic coast is not exempt, and the manoeuvre argument above is not the whole
+    /// story.</b> Gravity is a frame-level argument to <see cref="Slug"/>, held across every
+    /// sub-step, so a coarse frame integrates the fall on a stale one however gently the round is
+    /// flying: measured at <b>4.2 m of downrange per millisecond of frame</b> on the 3,459 km
+    /// deorbit, which is 560 m at the 133 ms an eight-times coast hands out.
+    /// <c>ProbeGapTests</c> has the table and <c>docs/MIRV-NEXT.md</c> item 2 what it is worth.
     ///
     /// The step at which a real intercept starts to degrade is unmeasured. 0.32 s is the value the
     /// shipped rounds fly at, so treat it as a default to keep rather than a licence to raise it.

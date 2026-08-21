@@ -218,7 +218,7 @@ rather than 90.
 Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable
 on paper and nothing has spent it.
 
-## 2. Every round lands beyond its own release probe — reverted, still open
+## 2. Every round lands beyond its own release probe — decomposed, unflown
 
 The largest remaining term, and the one attempt at it made things worse.
 
@@ -250,8 +250,118 @@ Two things worth keeping:
 
 What settles it is the phase at which `IGroundTest` writes the centre relative to the round's own
 position — a fact about the engine's frame order, not about this maths. **It needs a flight that
-varies the phase, not more reasoning.** Until then the round keeps the behaviour that flew best, and
-a ~0.3-1.2 km round-versus-probe gap is the standing error.
+varies the phase, not more reasoning.** Until then the round keeps the behaviour that flew best.
+
+### The gap taken apart — measured, unflown
+
+Flown 21 August with the guidance essentially solved: the aim correction converged
+**0.8 -> 0.3 -> 0.1 km**, the release probe reported **0.1 km**, and the warheads landed **1.7 km**
+out. Four shots at 1.57 / 1.61 / 1.74 / 1.88 km with groups 0.02-0.03 km wide. So the whole
+residual is one bias, and it is the round flying differently from the prediction of it.
+
+`ProbeGapTests` flies one identical release state through both models and differences the impacts.
+At the step the scenario actually uses — 8x through the coast, `Medium.FaithfulStepInAir` once
+there is air — the round lands **394 m** downrange of its own probe on the mean sphere and
+**400 m** over `DeorbitShot.RoughGround`. Each term measured on its own against that same baseline:
+
+| removing | moves the impact |
+| --- | --- |
+| the ground held for a whole frame | **0 m** (2 m at 50 ms, 22 m at 320 ms, over relief only) |
+| gravity held for a whole frame | **-545 m** |
+| the air's motion held for a whole frame | -2 m |
+| symplectic Euler at 5 ms against RK4 | **+165 m** |
+| all four together | -402 m |
+| **unaccounted for** | **-8 m** |
+
+So the two flight models are **fully explained by two terms**, and the crossing rules
+(0.39 m against 0.00 m), the air's motion, the terrain sampling and everything else are noise.
+
+**The two terms have opposite signs and partly cancel**, which is the thing worth not
+rediscovering. The gap is 394 m; the gravity freeze alone is worth 545 m the other way.
+
+**And only one of them scales with the frame.** Against the coast's own step, everything else held:
+
+| coast | frame | as flown | gravity per sub-step | converged sub-step | both |
+| --- | --- | --- | --- | --- | --- |
+| 1x | 17 ms | **-73 m** | -127 m | 65 m | -7 m |
+| 2x | 33 ms | -20 m | -145 m | 138 m | -7 m |
+| 4x | 67 ms | 121 m | -147 m | 281 m | -6 m |
+| **8x** | 133 ms | **394 m** | -150 m | 559 m | -6 m |
+| 16x | 267 ms | 950 m | -150 m | 1115 m | -6 m |
+| 19x | 317 ms | **1159 m** | -151 m | 1324 m | **-6 m** |
+
+Read the columns rather than the rows. The sub-step's own error is **flat at about -150 m** at every
+frame size, because `steps = ceil(dt / SubStep)` keeps the sub-step at 5 ms whatever the frame. The
+gravity freeze is **linear at 4.2 m of downrange per millisecond of frame**, on all six rows. And
+with both removed the two models agree to **6 m at every coast speed**, which is what says the
+decomposition is complete rather than merely plausible.
+
+**That retires item 2d's unexplained sign.** Re-reading gravity per sub-step was priced headlessly
+as a large win and flew worse three times out of three, and nothing explained it. It removes the one
+term that was cancelling the round's own integration error: at 1x it takes the shot from -73 m to
+-127 m, which is worse, and the cancellation is a coincidence of frame size rather than a design.
+**Do not fix either half alone.**
+
+### What the rig cannot see, and why 394 m is not 1,700
+
+Three candidates for the remaining ~1.3 km, none of them measurable here:
+
+- **The terrain's own gain.** A round stopping past its prediction stops on ground that has itself
+  fallen away, so the residual is re-multiplied by `1/(1 - s/tan y)` — and at this 7.1-degree
+  arrival that is unbounded past about a 12% slope. Measured against a ramp of stated gradient:
+  1.13x at 2%, 1.41x at 5%, 1.80x at 8%, 2.32x at 10%. Reaching 1,700 m from 394 needs about 4.3x,
+  which the closed form puts at a ~9.6% mean slope over the last kilometres. **`RoughGround`
+  presents about 1%**, so every relief number in this file is a floor and not an estimate.
+- **The ground centre's ecliptic carrier**, which is item 2's own hypothesis above. Identically zero
+  in every rig here, because the planet sits at the origin. `Slug` holds `_groundCentre` for the
+  frame while `PositionEcl` advances at the planet's ~29.8 km/s — 1,490 m of relative drift across a
+  50 ms frame, of which the radial part is read as altitude at 8 m of ground per metre. Large
+  enough, and both phases of the fix have been flown and neither beat leaving it alone.
+- **The waterline.** `Ksa/GroundTest.cs` clamps the height field to sea level and
+  `Ksa/IcbmComputer.cs`'s `TerrainRadiusAt` does not, so over water the round stops kilometres above
+  the surface the prediction flew to — 35 km of ground at the mean depth. Zero over dry land, which
+  is what this shot's arrival is in the rig; whether the flown one was is worth reading off the log
+  before anything else here is attempted. `SurfaceAgreementTests` prices it.
+
+### Ranked, cheapest first
+
+1. **Cap the warhead's coast frame.** `MunitionProfile.MaxFaithfulStepSeconds` on the Mk 21,
+   0.32 -> **0.10**, which is what `WarpPolicy` holds the world down to while the salvo flies. Priced
+   through the real policy from the scenario's own 8x request:
+
+   | cap | world held to | frame | gap | the 497 s coast takes |
+   | --- | --- | --- | --- | --- |
+   | **320 ms**, as shipped | 8.0x | 133 ms | **394 m** | 62 s |
+   | 200 ms | 8.0x | 133 ms | 394 m | 62 s |
+   | **100 ms** | 3.6x | 60 ms | **87 m** | 138 s |
+   | 50 ms | 1.8x | 30 ms | -43 m | 276 s |
+
+   **307 m for 76 seconds of the player's evening**, and the next 44 m costs another 138. No sign
+   risk: both models converge on one answer as the step shrinks, and the round's error is monotone
+   in the frame across the whole table. **Not done** — it trades against a decision `WarpPolicy`
+   made deliberately, and 307 m is inside the +/- 700 m a single batch can resolve (item 7d), so a
+   flight cannot confirm it either way. The number is here so the trade can be re-made rather than
+   re-argued.
+
+2. **Steepen the arrival**, which is the only lever on the terrain gain and is already built:
+   `IcbmConfig.MinArrivalAngleDeg`. 7.1 degrees trades 8.0 m of ground per metre of height and a
+   ~4.3x gain; 15 degrees trades 3.7 and about 1.5x. `docs/ARRIVAL-ANGLE.md` has what it costs.
+
+3. **Route `TerrainRadiusAt` and `SurfacePointEcl` through `GroundSurface.Height`**, so the
+   prediction stops on the same surface the round does. Zero over land and tens of kilometres over
+   water, so it is worth nothing on a shot that arrives inland and is the whole miss on one that
+   does not.
+
+4. **The ground centre's carrier.** Unchanged: it needs a flight that varies the phase.
+
+5. **Both flight-model terms together** — gravity per sub-step *and* `SubStepSeconds` on the Mk 21 at
+   about 1 ms — which the table above says lands at -6 m. Two coupled behaviour changes at once,
+   one of which has three flights against it, and the cheaper item 1 gets most of it. Last.
+
+One term is **zero and worth recording as zero**: `Slug` takes gravity through `Medium.Buoyancy` and
+`ImpactPredictor` takes it raw, so a round declaring a `NeutralDensityRatio` is predicted by a model
+that does not know it floats. Nothing in `Arsenal` declares one, but `Sim/PackReader.cs` reads the
+field — so it is latent rather than absent.
 
 ## 2c. The air was sampled a frame ahead of the body — fixed, flown
 
