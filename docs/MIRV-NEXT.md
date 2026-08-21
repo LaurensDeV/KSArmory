@@ -327,7 +327,7 @@ term that was cancelling the round's own integration error: at 1x it takes the s
 
 ### What the rig cannot see, and why 394 m is not 1,700
 
-Three candidates for the remaining ~1.3 km, none of them measurable here:
+Four candidates for the remaining ~1.3 km, none of them measurable in a rig whose planet sits still:
 
 - **The terrain's own gain.** A round stopping past its prediction stops on ground that has itself
   fallen away, so the residual is re-multiplied by `1/(1 - s/tan y)` — and at this 7.1-degree
@@ -340,11 +340,71 @@ Three candidates for the remaining ~1.3 km, none of them measurable here:
   frame while `PositionEcl` advances at the planet's ~29.8 km/s — 1,490 m of relative drift across a
   50 ms frame, of which the radial part is read as altitude at 8 m of ground per metre. Large
   enough, and both phases of the fix have been flown and neither beat leaving it alone.
-- **The waterline.** `Ksa/GroundTest.cs` clamps the height field to sea level and
-  `Ksa/IcbmComputer.cs`'s `TerrainRadiusAt` does not, so over water the round stops kilometres above
-  the surface the prediction flew to — 35 km of ground at the mean depth. Zero over dry land, which
-  is what this shot's arrival is in the rig; whether the flown one was is worth reading off the log
-  before anything else here is attempted. `SurfaceAgreementTests` prices it.
+- **The waterline** — **closed.** `IcbmComputer.SurfaceHeight` now routes `TerrainRadiusAt` and
+  `SurfacePointEcl` through `GroundSurface.Height`, so all three surfaces clamp to sea level.
+  `SurfaceAgreementTests` prices what it was worth (35 km of ground at Earth's mean depth) and
+  `docs/KSA-TERRAIN.md` has the three call sites.
+- **The planet's own fall toward the Sun.** See below — the only one of the four that is a
+  disagreement about the *inputs* rather than about the flight models, and the only one that is
+  exactly zero in every rig by construction rather than by the relief being gentle.
+
+### The two models are handed the same world, except for one force
+
+`ModelInputAgreementTests` is the other half of `ProbeGapTests`: that one hands both models one
+world and prices what their integrators do differently, this one asks whether the game hands them
+one world at all. In flight the round takes its inputs through `Ksa/WeaponSystem.cs` in `Ecl` and
+the prediction takes its own through `Ksa/IcbmComputer.cs` in `Cci`, and those are different code
+paths reading different engine calls.
+
+**Four of the five agree, and three of them agree exactly rather than closely:**
+
+| input | round | prediction | |
+| --- | --- | --- | --- |
+| gravitational parameter | `((IParentBody)body).Mu` | `Parent.Mass * 6.6743e-11` | the same expression — `Mu` is a default interface member with that body |
+| air density | `MediumDensityRatioAt(body, posEcl)` | the same call, via `Cci -> Ecl` | the `+ parent.GetPositionEcl()` and the `- body.GetPositionEcl()` inside cancel, so the prediction's altitude is `\|pointCci\|` and carries **no epoch term at all** — which is why it needs none of `AirDensityIntoFrame`'s back-dating |
+| the air's motion | `GetAngularVelocityCce() x (posEcl - bodyEcl)` | `(0,0,GetAngularVelocity()) x posCci` | `GetAngularVelocityCce()` *is* the second rotated into `Cce`, and the spin axis is exactly `+Z` in `Cci` |
+| the ground | `GetTerrainHeightFromDirCce` | `GetTerrainHeightFromDirCcf` | one entry point, and the `Cce` one applies the rotation for you off the same per-frame `_ccf2Cci`. Both `accurate: true`, both waterline-clamped |
+
+So the asymmetry that looks most suspicious from the code — `AirDensityIntoFrame` back-dates by
+`_bodyVelocityEcl` and `DensityRatioAt` back-dates nothing — **is not one.** The prediction's density
+lookup makes a round trip through `Ecl` that cancels the body sample exactly, so there is no epoch in
+it to correct.
+
+**The fifth does not agree, and it is not an epoch fault.** `KsaWorld.GravityAt` pulls the round
+toward `body.GetPositionEcl()` — wherever KSA has moved the planet to — while the round itself feels
+nothing else. KSA is meanwhile accelerating that planet along its own orbit. In the planet's frame the
+round therefore carries an unmodelled `-a_body`, and `ImpactPredictor` in `Cci` has no such term.
+
+`Ecl` really is heliocentric: `StellarBody.GetPositionEcl()` returns `double3.Zero` and
+`Celestial.UpdatePerFrameData` sets `_positionEcl = _positionCce + Parent.GetPositionEcl()`, so
+Earth's ecliptic position *is* its Keplerian orbit about Sol and its second derivative is `mu/r²`.
+
+| | |
+| --- | --- |
+| KSA's Earth, `Mass Suns="1"` at `a = 1.4954e8 km` | **5.936 mm/s²** |
+| drift over the 497 s coast, `a·T²/2` | **733 m** |
+| worst case at the impact, over every direction the Sun could lie in | **9.68 km** |
+| ...resolved radially / along the track / across it | -9,651 m / -239 m / +654 m |
+
+Three things make it fit the flown signature better than anything else on the list. It is **common to
+the whole salvo**, which is a bias with a 20-30 m group rather than a spread. It is **quadratic in the
+flight time**, so it is 30 m for a 100 s shot and 9.6 km at the Mk 21's own `MaxFlightSeconds` — which
+is why nothing before the ballistic weapon ever met it. And it is **invisible to every rig in this
+repository**, because `DeorbitShot`'s planet sits at the origin and does not move, which is the same
+blindness item -1 keeps warning about.
+
+**What it is not** is an explanation of 1,700 m specifically: the fraction that lands downrange
+depends entirely on where the Sun is relative to the arrival, and that is a per-shot fact this rig
+cannot know. It is 0 to 9.7 km, sign included.
+
+**What would settle it** is one line in the release probe: the direction from the parent to *its*
+parent at release, resolved onto the arrival's up / along / cross. If the radial component is large
+and its sign matches the miss, this is it; if it is near zero and the warheads still land 1.7 km
+long, it is not.
+
+**And the fix, if it is, is one term** — give the round the grandparent's gravity as well, which makes
+its `Ecl` frame consistent with the planet's and leaves only the solar tide (0.009% of the term).
+That is a behaviour change reaching every round the mod fires, and belongs in a flight.
 
 ### Ranked, cheapest first
 
@@ -370,10 +430,9 @@ Three candidates for the remaining ~1.3 km, none of them measurable here:
    `IcbmConfig.MinArrivalAngleDeg`. 7.1 degrees trades 8.0 m of ground per metre of height and a
    ~4.3x gain; 15 degrees trades 3.7 and about 1.5x. `docs/ARRIVAL-ANGLE.md` has what it costs.
 
-3. **Route `TerrainRadiusAt` and `SurfacePointEcl` through `GroundSurface.Height`**, so the
-   prediction stops on the same surface the round does. Zero over land and tens of kilometres over
-   water, so it is worth nothing on a shot that arrives inland and is the whole miss on one that
-   does not.
+3. **Log where the Sun is at release**, resolved onto the arrival's axes. Costs nothing and is the
+   only thing that separates the planet's own fall from every other candidate here — the term is
+   0 to 9.7 km on this coast and the log says which end of that it is at.
 
 4. **The ground centre's carrier.** Unchanged: it needs a flight that varies the phase.
 
