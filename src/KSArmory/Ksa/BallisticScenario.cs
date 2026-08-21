@@ -517,11 +517,14 @@ internal sealed class BallisticScenario
         // Once the bus has nothing left, the interesting half of the flight is at the other end.
         // Only after the last one: moving the view mid-salvo takes the operator off the thing still
         // releasing, and the releases are the part that is over in a fraction of a second.
-        if (ammo <= 0 && !_watchedTheTarget)
-        {
-            WatchTheTarget();
-            WarpTheCoast();
-        }
+        if (ammo <= 0 && !_watchedTheTarget) WatchTheTarget();
+
+        // Warped as soon as anything has left, not once the tubes are empty. The coast's frame is
+        // what the round's own error accumulates against -- measured at 0.06 m/s of drift per
+        // millisecond of frame -- so tying the warp to a full salvo meant a shot that held one
+        // warhead back coasted at 1x and a shot that emptied coasted at 8x. The term under test
+        // then changes with the thing being tested, which is no way to measure anything.
+        if (ammo < _loaded) WarpTheCoast();
     }
 
     // Whatever else in the scene can shoot back, which is what a ballistic shot is worth aiming at.

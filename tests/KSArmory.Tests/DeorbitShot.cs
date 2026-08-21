@@ -309,8 +309,13 @@ internal static class DeorbitShot
     /// </summary>
     public const double ScenarioWarp = 8.0;
 
-    /// <summary>A frame at 60 fps, which is what a warp factor multiplies.</summary>
-    public const double NominalFrame = 1.0 / 60.0;
+    /// <summary>
+    /// The frame a warp factor multiplies. Measured from flight rather than assumed: a traced coast
+    /// ran a median 198.5 ms at the scenario's 8x, so the unwarped frame under that load is nearer
+    /// 25 ms than the 16.7 ms sixty frames a second would give. The rig's own gap is linear in this
+    /// at about 4.2 m per millisecond, so assuming 60 fps understates it by a third.
+    /// </summary>
+    public const double NominalFrame = 0.025;
 
     /// <summary>
     /// The round at the step the world is actually held to: coarse through the vacuum coast, fine

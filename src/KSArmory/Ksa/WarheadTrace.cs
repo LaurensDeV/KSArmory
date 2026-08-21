@@ -341,8 +341,8 @@ internal sealed class WarheadTrace
         double3 separation = atReleaseEpochCci - _probeGroundCci;
 
         return $" | walk from the release probe {metres:F0} m"
-               + $" ({Vec.Dot(separation, _probeAlong):+0;-0} down,"
-               + $" {Vec.Dot(separation, _probeCross):+0;-0} cross)";
+               + $" ({Vec.Dot(separation, _probeAlong):+0;-0;0} down,"
+               + $" {Vec.Dot(separation, _probeCross):+0;-0;0} cross)";
     }
 
     private bool Predict(in Setup setup, double3 positionCci, double3 velocityCci,
