@@ -617,31 +617,6 @@ internal static class KsaWorld
         }
     }
 
-    // The pull of whatever the body orbits, at the round's own position. One level only: the star's
-    // own acceleration about the galaxy is not modelled by the engine either, so adding it would put
-    // the round somewhere the planet is not.
-    private static double3 GravityFromWhatItOrbits(Celestial body, double3 positionEcl)
-    {
-        try
-        {
-            if (body.Parent is not { } above) return Vec.Zero;
-
-            double mu = above.Mu;
-            if (!(mu > 0.0)) return Vec.Zero;
-
-            double3 toward = above.GetPositionEcl() - positionEcl;
-            double dist2 = Vec.Len2(toward);
-            if (!(dist2 > 1.0)) return Vec.Zero;
-
-            double3 pull = Vec.Unit(toward) * (mu / dist2);
-            return Vec.IsFinite(pull) ? pull : Vec.Zero;
-        }
-        catch
-        {
-            return Vec.Zero;
-        }
-    }
-
     /// <summary>
     /// Sets a craft down at a latitude and longitude on the body it is nearest.
     ///
@@ -1039,16 +1014,7 @@ internal static class KsaWorld
             double dist2 = Vec.Len2(toBody);
             if (dist2 < 1.0) return Vec.Zero;
 
-            // And whatever the body itself is falling towards. Ecl is heliocentric, so a round given
-            // only its planet's pull does not fall with that planet -- the engine carries the planet
-            // along its own orbit and the round is left behind by half the star's acceleration times
-            // the flight time squared. About 6 mm/s2 here, which is metres for a cannon shell and
-            // 733 m over an eight-minute ballistic coast.
-            //
-            // ImpactPredictor never needed it: it works in the body's own frame, where the star's
-            // pull and the frame's acceleration cancel to first order. That is why the two models
-            // disagreed only on a flight long enough for the term to matter.
-            return Vec.Unit(toBody) * (mu / dist2) + GravityFromWhatItOrbits(body, positionEcl);
+            return Vec.Unit(toBody) * (mu / dist2);
         }
         catch
         {
