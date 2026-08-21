@@ -163,6 +163,25 @@ Arm names are `+`-joined factor names, and the report pools on them:
 
 `base` must be first — the report takes the first arm in `arms.tsv` as the baseline.
 
+### What an arm actually edits
+
+An arm is a commit, so a one-constant arm is a one-line commit on a branch. The scenario sets
+`IcbmConfig.Armed` and **nothing else** — every other setting flies at the default declared in its
+own file, which is what makes a constant an arm at all. The knobs `MIRV-NEXT.md` currently ranks:
+
+| the arm | file, and what to change |
+| --- | --- |
+| gravity re-read per sub-step | `src/KSArmory/Sim/Slug.cs` — gravity arrives as a frame-level argument and is held across every 5 ms sub-step; `Sim/BallisticBody.cs` already carries `Mu`, so this needs no call into the game. ~160 m of bias at 8× and the whole 1×/8× split. |
+| the coast step the warhead is integrated across | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.PreferredStepSeconds`. **Not `MaxFaithfulStepSeconds`** — that bounds a clamp that *discards* time, and tightening it flew at 48–60 km (item −0b). Two questions with one shape; the answer to one is never the answer to the other. |
+| how far after cutoff the aim reopens | `src/KSArmory/Sim/PostBoostAim.cs` — `MaxSeconds`, `MaxCycles`, `PassesWithoutImprovement`. The largest single term at 740 m, and the one the rig cannot price. |
+| re-pointing between releases | `src/KSArmory/Sim/IcbmConfig.cs`, `RepointBetweenReleases` |
+| the arrival-angle floor | `src/KSArmory/Sim/IcbmConfig.cs`, `MinArrivalAngleDeg` — the largest lever there is, and it changes every other term's price, so it is a poor thing to have as a *factor* alongside others. Fly it as its own night. |
+| the ejection kick | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.LaunchSpeed` |
+
+**Pick factors whose mechanisms are separate.** Two arms that both act on the aim correction
+interact by construction, and a 2×2 that spends its interaction budget on something already known
+to interact has learnt nothing the cells did not already say.
+
 ### If there is only one question
 
 Then it is one question, and the night is 25 `base` and 25 `arm`, interleaved:
