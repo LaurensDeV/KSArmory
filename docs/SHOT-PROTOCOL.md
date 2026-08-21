@@ -1,0 +1,334 @@
+# How to spend a night of ballistic shots
+
+Ten changes were flown in one session and every one lost. Some of them deserved to; several were
+priced below what the measurement could ever have resolved, and were argued about anyway. This
+file is the protocol that stops that happening again — how many shots a question needs, what the
+baseline is, what order to fly them in, what to write down, and when to stop.
+
+It is executable. `tools/shot-batch.sh` runs it and `tools/shot-report.py` reads the result and
+prints the verdict, so the operator makes no judgement calls between starting the batch and
+reading the table in the morning.
+
+`docs/MIRV-NEXT.md` is what the shots are *for*; item **-1** there is the record of the session
+this exists because of.
+
+## The measurement, before anything else
+
+Run-to-run scatter on an identical pick-up, from the only two batches recorded shot by shot
+(`MIRV-NEXT.md` item 0, ten shots with no intervening change):
+
+```
+0.38  0.42  0.49  0.63  0.70  0.82  0.96  1.18  1.47  2.10  km
+median 0.76   mean 0.92   sd 0.54   max/min 5.5x
+```
+
+Fitted lognormal: **median 0.79 km, geometric sd ×1.74** (σ on logs 0.555). The older sixteen-shot
+batch, with the 2 m/s ejection kick still in, implies σ 0.83 and reached 3.43 km — so the tail has
+come in, and the distribution is still multiplicative and still right-skewed.
+
+That distribution is the whole constraint. Everything below follows from it.
+
+### What a batch of n can resolve
+
+Two-sided rank test at 5%, 80% power, simulated on the fitted distribution:
+
+| shots per arm | smallest difference it settles |
+| --- | --- |
+| 6 | ×0.33 — **530 m** |
+| 8 | ×0.42 — 460 m |
+| 12 | ×0.50 — **400 m** |
+| 16 | ×0.56 — 350 m |
+| 20 | ×0.58 — 330 m |
+| 25 | ×0.62 — **300 m** |
+
+Read the last row twice. **Fifty shots split evenly between one change and a re-flown baseline is
+what a 300 m difference costs.** A whole night, for one question, at four-in-five odds of seeing
+the effect if it is there.
+
+A **1 km** difference is cheap by comparison, and the reason is arithmetic rather than luck: the
+median is 0.79 km, so a kilometre downward is not a shift but the near-total removal of the miss —
+a factor under 0.25, which **six shots an arm** settle at 99%. A kilometre *upward* is a factor of
+2.2, which eight an arm catch at about two-thirds. This asymmetry is worth keeping in mind, because
+ten of ten flown changes lost: catching losses is the common case and it is the cheap one.
+
+The corollary nobody likes: **a change priced headlessly at 60 m, or 160 m, or 235 m is not
+flyable.** It is not that it needs more shots than the night has; it needs more shots than a week
+has. Land those on the strength of the rig and the argument, batched together so their sum clears
+the bar, or leave them.
+
+## 1. The statistic
+
+**Endpoint: the group's `mean` miss, on a log scale.** Not `worst`, which is the pass/fail bar and
+is a maximum over six warheads — the noisiest of the four numbers `ShotGroup.Judge` prints. Not
+`spread`, which is a different mechanism (the tube cant against the attitude the burn left) and is
+analysed *beside* the mean, never mixed into it. `spread` gets its own table in the report and its
+own verdict.
+
+**Comparison: Wilcoxon rank-sum, exact null.** Ranks, because at n=12 nothing here is normal and a
+t-test on a lognormal tail is a machine for generating significant nonsense. Exact rather than the
+normal approximation, because the approximation is loosest at exactly these sizes and the whole
+point is not to over-claim. `tools/shot-report.py` builds the null by the standard recurrence; it
+costs milliseconds.
+
+**Effect size: Hodges–Lehmann, the median pairwise log-ratio, with a distribution-free interval.**
+Not a difference of medians. Two reasons:
+
+- A difference of medians is a point with no interval, and **the interval is what makes an
+  unresolved arm a finding instead of a shrug**. "Unresolved, and the night ruled out anything
+  better than ×0.75" is a real result. "No significant difference" is not.
+- On a log scale the estimator is a *ratio*, which is the right shape: every term in the error
+  budget is a velocity error times a trajectory sensitivity, so the mechanisms multiply. A change
+  that halves a term halves it at every median.
+
+**Report the median for reading, never the mean.** In the sixteen-shot batch the mean is 1.20 km
+against a median of 0.85 — one shot in sixteen moved the arithmetic mean by 40%. And the single
+best result ever recorded here, 0.09 km, came from the radial-jets arm, which was four times worse
+overall. Any statistic that reads the best, or that a tail can drag, is actively misleading on this
+data.
+
+**Two looks, so α is 0.0294.** The gate looks once mid-batch and the report once at the end;
+Pocock's constant boundary for two looks spends 5% overall. Do not add a third look by eye.
+
+## 2. The baseline
+
+**The baseline is an arm of the same batch, flown on the same schedule as every other arm.** It is
+not a number from an earlier night, from an earlier commit, or from this file. Every comparison
+`shot-report.py` makes is against the baseline arm's shots from the same directory; anything older
+is printed for drift and never entered into a test.
+
+That answers "how often should it be re-flown" by construction: **every block, which is every
+fourth shot, about half an hour apart all night.**
+
+### Interleave. Always.
+
+Arms are flown in a randomised order *within each block* rather than in blocks of one arm at a
+time. It costs one file copy per shot — a second against eight minutes of flight, 0.2% — and it
+buys the difference between a nuisance being noise and a nuisance being the answer:
+
+| a linear drift across the night | what a blocked design turns it into |
+| --- | --- |
+| 0.2 km | 0.10 km of pure artefact between arms — a third of a 300 m effect |
+| 0.4 km | 0.20 km — two thirds of it |
+| 0.8 km | 0.40 km — **larger than the effect being chased**, with the right sign or the wrong one by chance |
+
+There is no measurement of whether this machine drifts across eight hours. That is the point: a
+blocked design has to assume it does not, and an interleaved one does not have to know.
+
+Randomised *within* the block, not rotated, because a fixed order confounds the arm with its
+position in the block — the first game launched after the machine has been idle for eight minutes
+is not in the state the fourth is. The seed is recorded in `batch.tsv`.
+
+## 3. The run order
+
+**Fly a 2×2 factorial, not one arm at a time.** This is the single largest change to how the last
+session was measured, and it is close to free.
+
+Pick two changes, A and B. Four cells:
+
+| arm name | A | B |
+| --- | --- | --- |
+| `base` | off | off |
+| `a` | **on** | off |
+| `b` | off | **on** |
+| `a+b` | **on** | **on** |
+
+Twelve shots per cell, 48 shots, plus two held back for re-flights. Then:
+
+- **The main effect of A** is `{a, a+b}` against `{base, b}` — 24 shots against 24, which resolves
+  **300 m**.
+- **The main effect of B** is the same, also at 24 against 24, also **300 m**.
+- The **interaction** — whether A and B only help together — is estimable, but only at about a
+  kilometre. It is the question one-at-a-time testing cannot ask at all, and this is the cheapest
+  way to ask it. Do not read a small interaction as real.
+
+Compare that with the alternative: 48 shots one-at-a-time gives you **one** 300 m answer, or two
+400 m answers, and no way to see a combination. The factorial gives two 300 m answers and a look at
+the combination, from the same night, because every shot is used twice.
+
+The catch is stated plainly: the main effect of A is only a clean single number if A's effect does
+not depend much on B. Where the interaction turns out large, the main effects stop meaning anything
+and what you have is four cells of twelve — four 400 m pairwise comparisons, which is still more
+than one-at-a-time would have given.
+
+### Naming
+
+Arm names are `+`-joined factor names, and the report pools on them:
+
+```bash
+./tools/shot-batch.sh --aim 26.5S,64.0W --blocks 12 \
+    --arms base=dev,grav=arm/subgravity,reopen=arm/postboost,grav+reopen=arm/both
+./tools/shot-report.py ~/shots/<night> --main grav      # the 24-vs-24 main effect
+./tools/shot-report.py ~/shots/<night> --main reopen
+```
+
+`base` must be first — the report takes the first arm in `arms.tsv` as the baseline.
+
+### If there is only one question
+
+Then it is one question, and the night is 25 `base` and 25 `arm`, interleaved:
+
+```bash
+./tools/shot-batch.sh --aim 26.5S,64.0W --blocks 25 --arms base=dev,arm=arm/whatever
+```
+
+That is the right shape when a change is expected to be worth 300 m and nothing else is ready to
+fly. It is the *wrong* shape when two changes are ready, because it wastes half the night proving
+a baseline that a factorial would have proved anyway.
+
+## 4. What to capture, and what each thing attributes
+
+Everything below is already in the log at the verbosity `BallisticScenario` turns on for a
+scenario run. None of it costs a flight. **All of it is gone the moment the next shot starts** —
+`scenario.sh` truncates `KSArmory.log` at every launch — which is why `shot-batch.sh` copies the
+log out between runs and why a bare `for` loop around `scenario.sh` loses the entire diagnostic
+half of the night.
+
+| captured | from | what it attributes |
+| --- | --- | --- |
+| **pick-up altitude and speed** | `already flying at N km doing M m/s` | **whether two shots are the same shot at all.** The same save picked up 35 s further on is a differently conditioned arc worth 164 km (item 7d). If this varies across the batch, nothing else in the table means anything, and the report says so in capitals. |
+| **the deployed DLL's SHA-256** | `shot-batch.sh` | which binary flew. Not a diagnostic — the proof against contamination, see §5. |
+| cutoff residual, and the computer's own predicted miss | `CAPTURE cutoff: residual R m/s, own prediction P km off` | splits the shot at the burn. A large residual is an ascent problem and not the thing under test; a clean cutoff with a bad impact puts the whole miss after the engines stopped. |
+| trim owed at the split and on release | `trim: ... owed X at the split, Y on release` | whether `BusTrim` converged before the warheads went. Item 0's failure mode is releasing with metres a second still owed, and it is invisible in the miss alone. |
+| per tube: degrees off the salvo's line | `warhead away from tube N, D deg off` | the cant, per round — the only per-warhead term that is meant to produce *spread* rather than bias. |
+| **per tube: the release probe's own miss** | `release probe: ... N km from the target` | **the aim's error at the instant of release** — everything upstream of the round. Subtract it from the impact and what is left is the round disagreeing with its own predictor, which is the exact quantity item −1a says is the miss. The single most attributive number available. |
+| **per tube: `thrown D deg from the platform's track`** | release probe | **the held nose in the velocity frame.** `MIRV-NEXT.md` item 9 ranks logging this third — "costs nothing, and turns the cant from a 141–1,684 m band into one number". It is already logged and has never been captured. |
+| per warhead: `Cci r=(...) v=(...)` at release | `warhead trace: <round> away` | full precision, deliberately: the seed that re-flies that exact release in `tests/KSArmory.Tests` with no game. **This is what makes a losing night still productive** — a loss gets diagnosed offline instead of costing more flights. |
+| per warhead: arrival speed and degrees below the horizontal | trace probe | every surface-side term scales as `cot γ` and every velocity-side term with the trajectory's sensitivity. If γ varies shot to shot, that is a large share of the scatter, and it can be conditioned on rather than suffered. |
+| per warhead: **the final walk** from the release probe, split down/cross | trace finish | splits the miss into "the arc was already wrong at release" and "the round left the arc afterwards", and says which sensitivity it went out through. The probe miss and the walk are the two halves; they are not summaries of each other. |
+| per warhead: `lag N ms = M m`, and world clock against own clock | trace finish | **the clamp's discarded time, in metres.** Item 7d attributes the whole residual scatter to frame pacing; this is that quantity measured. If it correlates with the score it is a covariate, and conditioning on it is free power. |
+| the surface disagreement at the landing point | `warhead trace: surface at the landing point:` | the height field as the round reads it against as the prediction reads it — the one comparison the headless rig cannot make at all. |
+| coast `dt`, `step`, `sim` per sampled frame | trace samples | the frame pacing itself. Separates "this build is slower" from "this build aims worse": a change that costs frame time degrades the shot through the clamp without being wrong about anything, and would otherwise be recorded as a guidance regression. |
+
+`shot-report.py` reduces all of it to one line per arm and, with `--shots`, one line per shot. The
+raw logs stay under `shots/` so a surprising line can be read in full.
+
+## 5. Contamination, and why the tree is frozen
+
+Three batches in the last session were contaminated by the tree being edited, or a second batch
+being launched, while one ran. `scenario.sh` calls `deploy.sh`, which *builds from the working
+tree*, so an edit at any point in the night silently changes what every subsequent shot flies.
+
+Four things close it, and none of them rely on the operator remembering:
+
+1. **Every arm is built once, up front, and stashed.** `shot-batch.sh` checks out each arm's ref,
+   builds it, copies the whole deploy payload into `<batch>/arms/<name>/`, and returns the tree to
+   where it started. During the night nothing reads the tree at all: each shot is a file copy
+   followed by `scenario.sh ... --no-deploy`.
+2. **The build is byte-reproducible**, verified: a clean rebuild of the same commit gives the
+   identical `KSArmory.dll` down to the SHA-256. So the deployed DLL's hash *is* the arm's
+   identity. `shot-batch.sh` re-hashes it after every copy and refuses to launch if it is not the
+   arm it meant to fly; `shot-report.py` prints the hashes per arm and shouts if one arm flew more
+   than one binary.
+3. **Two arms that build the same binary are refused before the night starts.** It happens — a
+   constant edited in a file the build does not reach, a ref that resolves to the baseline. Without
+   the check the night runs to completion and reports a dead heat.
+4. **One batch at a time**, held with `flock`. Two batches share one mods folder, one log and one
+   game process; they kill each other's runs and produce shots belonging to neither.
+
+The tree must be **clean** when the batch starts — `shot-batch.sh` refuses otherwise. An arm built
+from uncommitted work is a binary nobody can rebuild, and the entire night hangs on being able to
+say what flew.
+
+Editing the tree *after* the arms are built is harmless and still not advised: `git checkout` of
+another branch mid-batch would only confuse the operator, and `--resume` needs the batch directory
+rather than the tree.
+
+### Before starting
+
+- `./tools/check-all.sh` passes, and every arm is committed on its own ref.
+- The craft is on the pad or in the save the batch will pick up, and `KSARMORY_SCENARIO_CRAFT` /
+  `KSARMORY_SCENARIO_SAVE` are exported if the defaults are not right.
+- **Windows will not sleep, hibernate, or turn the display off**, and Windows Update is not going
+  to reboot. A night that sleeps at shot 12 is a night lost.
+- One shot flown by hand end to end, to confirm the aim point produces a verdict rather than a
+  timeout. Fifty timeouts is the same information as one.
+
+## 6. The stopping rule
+
+Two looks, both mechanical, both in `tools/shot-report.py`.
+
+### The gate — mid-batch, removal only
+
+Runs after every block. It can only take an arm *out*; it never calls a win, because a win is a
+question the whole batch has to be in hand to answer and stopping early on one biases it upward.
+Shots freed by a removal go to the arms that are left.
+
+An arm is dropped when any of these is true:
+
+| | |
+| --- | --- |
+| **Broken** | two or more of its shots produced no verdict, or released fewer warheads than arrived. That is a failure, not a miss distance, and a rank test on miss distance must not absorb it. |
+| **Wild** | two or more shots at or beyond **4 km**. The widest baseline ever recorded here is 3.43 km in 26 shots; two from one arm is that arm, not the tail. |
+| **Catastrophic** | from 4 shots each: the arm's median is **3× the baseline's or worse**, *and* its best shot is worse than the baseline's median. The flown losses ran 4×, 11× and 29×; none of them needed twelve shots to see. |
+| **Settled loss** | from 6 shots each: rank test **p < 0.0294** with the arm's median above the baseline's. |
+
+### The verdict — morning, per arm and per main effect
+
+| verdict | condition | what to do |
+| --- | --- | --- |
+| **WIN** | p < 0.0294 and the Hodges–Lehmann ratio below 1 | commit it as a `fix`, quoting n, the ratio and the interval |
+| **LOSS** | p < 0.0294 and the ratio above 1 | revert, and write the mechanism into `MIRV-NEXT.md` |
+| **UNRESOLVED, ruled out** | not significant, and the interval's lower bound is above **0.75** | the night ruled out anything better than ~200 m. Do not re-fly it. Record the interval — that is the finding. |
+| **UNRESOLVED, open** | not significant, and the interval still admits a ratio below **0.6** | worth another night, and only if nothing better is queued. Expect it to need 25 an arm. |
+| **TOO FEW** | fewer than 3 usable shots | say nothing about it at all |
+
+**Never report an unresolved arm as "no difference".** Report the interval. Half the wasted
+argument in the last session was about arms whose measurement admitted everything from a large win
+to a large loss.
+
+**And never compare an arm to a number from another night.** If the baseline arm's median has moved
+against the last batch's, that is drift, and it invalidates cross-night comparison rather than
+telling you something about the arm.
+
+## 7. What fifty shots cannot do
+
+Worth being blunt about, because the last session was blunt about it too late.
+
+- **It cannot settle a change worth 200 m.** Not with more patience — with more nights, four or
+  five of them, which is not what any of these changes are worth.
+- **It cannot settle an interaction worth less than a kilometre.** The factorial can *see* a large
+  interaction; it cannot measure a modest one.
+- **It cannot rank two arms against each other.** Every comparison here is an arm against the
+  baseline. Comparing two non-baseline arms directly costs the same shots again and spends α on a
+  question nobody asked.
+- **It cannot tell a guidance regression from a frame-rate regression** — but the captured coast
+  `dt` can, which is why it is captured.
+- **It cannot prove a headless result.** `MIRV-NEXT.md` item −1 is seven headless improvements and
+  seven flights that refused them. The rig prices a term; the flight says whether that term was
+  the one that mattered. A batch that comes back UNRESOLVED has not confirmed the rig.
+
+## 8. Running it
+
+```bash
+# once, before the night: build the arms, print the order, fly nothing
+./tools/shot-batch.sh --aim 26.5S,64.0W --blocks 12 --plan-only \
+    --arms base=dev,grav=arm/subgravity,reopen=arm/postboost,grav+reopen=arm/both
+
+# the night itself -- 48 shots, about 6.5 hours
+./tools/shot-batch.sh --aim 26.5S,64.0W --blocks 12 --out ~/shots/2026-08-23 \
+    --arms base=dev,grav=arm/subgravity,reopen=arm/postboost,grav+reopen=arm/both
+
+# it was interrupted
+./tools/shot-batch.sh --resume ~/shots/2026-08-23
+
+# the morning
+./tools/shot-report.py ~/shots/2026-08-23
+./tools/shot-report.py ~/shots/2026-08-23 --main grav
+./tools/shot-report.py ~/shots/2026-08-23 --main reopen
+./tools/shot-report.py ~/shots/2026-08-23 --shots     # every shot, for the surprising one
+```
+
+What lands in `~/shots/2026-08-23`:
+
+```
+batch.tsv          when, where, which seed, which base commit, which KSA build
+arms.tsv           arm -> ref, commit SHA, DLL SHA-256
+plan.tsv           the run order, as flown
+shots.tsv          one row per shot: n, block, arm, verdict, DLL hash, seconds, start time
+arms/<name>/       the built payload each arm was deployed from
+shots/NNN-<arm>.out   scenario.sh's stdout -- the SCENARIO lines and the verdict
+shots/NNN-<arm>.log   the whole mod log, copied out before the next shot truncated it
+```
+
+Keep the whole directory. It is small next to what it cost, the release states in it re-fly
+headlessly, and it is the only thing that makes the *next* protocol argument settleable.

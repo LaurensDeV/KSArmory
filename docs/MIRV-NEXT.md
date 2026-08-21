@@ -121,6 +121,13 @@ roughly +/- 700 m with a tail to 3.4 km, so six shots settle a change worth a ki
 nothing worth two hundred metres. Several of the reverted changes were priced below that line and
 could never have been confirmed either way.
 
+**`docs/SHOT-PROTOCOL.md` is what to do about that**, with the arithmetic done: on the ten shots
+recorded here the distribution is lognormal about a 0.79 km median with a geometric sd of 1.74, so
+a **300 m** difference costs **25 shots an arm** at four-in-five odds and a whole night buys one
+such question — or two, flown as a 2x2 factorial, which is also the only way to see a change that
+only helps in combination. `tools/shot-batch.sh` runs it and `tools/shot-report.py` says what it
+settled.
+
 ## -0b. Capping the warhead's faithful step — flown, catastrophic, reverted
 
 `MunitionProfile.MaxFaithfulStepSeconds` on the Mk 21, 0.32 -> 0.10, to shorten the coast frame the
@@ -1476,6 +1483,10 @@ angle is a larger lever than anything on this list.
 case where a frame carrier is identically zero — so nothing above can see an epoch fault, and item 2c
 is why that matters. And a single flight cannot resolve anything under about 0.5 km (item 7d), so the
 bias terms are testable in flight and the spread terms mostly are not.
+
+**Items 1 and 5 are under the line a night can settle, and item 2's is unknown** — 233 m of cant
+against a 300 m floor at 25 shots an arm. Fly them *together* as one arm, or as the two factors of a
+factorial, so their sum is what is being measured; `docs/SHOT-PROTOCOL.md` is the arithmetic.
 
 ## Smaller things
 
