@@ -421,3 +421,29 @@ the floor, but reaching the floor at all from a shot that would otherwise be a k
 - **The designation numbers assume 1080 lines.** A different render or display scale moves them in
   proportion, and `Sim/CursorAim.cs` already exists because the viewport and the framebuffer need
   not be the same size.
+
+
+## Flown: the integrator term is real and below what a shot can resolve
+
+`MunitionProfile.SubStepSeconds` was set to 1 ms on the Mk 21 and flown four times against four at
+the shared 5 ms, same pick-up:
+
+| | shots | mean |
+| --- | --- | --- |
+| 5 ms (shipped) | 0.42 / 0.49 / 0.82 / 2.10 km | 0.96 km |
+| 1 ms | 0.13 / 2.02 / 1.28 / 2.75 km | 1.55 km |
+
+**No effect visible, and none should have been.** The headless figure is 30.6 m per millisecond, so
+5 ms → 1 ms is about **122 m** — against run-to-run scatter of roughly **±700 m** on an identical
+pick-up. The term is real, first-order and cleanly measured; it is simply five times under the
+noise floor of the only instrument that can confirm it.
+
+**So it is not enabled**, and the reason is the trade rather than the term: it multiplies the
+integration work per round by five, that wall-clock cost has never been timed, and `CLAUDE.md`'s
+rule about unmeasured per-frame costs applies. Paying an unmeasured cost for an unmeasurable gain is
+the wrong way round.
+
+**When to turn it on.** When the terms above it are gone — the ~800 m the aim correction currently
+leaves (`docs/MIRV-NEXT.md` items 0 and 8b) and the arrival geometry (`docs/ARRIVAL-ANGLE.md`).
+At that point 122 m is a large share of what is left rather than a sixth of the noise, and the
+measurement becomes possible. The mechanism is shipped and costs nothing until a profile asks.

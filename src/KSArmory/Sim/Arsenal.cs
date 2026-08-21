@@ -342,6 +342,7 @@ public static class Arsenal
 
         // A separation spring, not a motor. It is the bus's own velocity that matters.
         LaunchSpeed = 2f,
+
         BoostSeconds = 0f,
         BoostAccel = 0f,
 
