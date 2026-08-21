@@ -59,7 +59,7 @@ public class MirvSpreadTests(ITestOutputHelper Out)
                 : axes[tube];
 
             Assert.True(ImpactPredictor.TryPredict(Earth, fromCci,
-                                                   velocityCci + (thrown * warhead.LaunchSpeed),
+                                                   velocityCci + (thrown * LoudKick.MetresPerSecond),
                                                    2.0, 20_000.0, out ImpactPredictor.Impact hit,
                                                    null, null,
                                                    new ImpactPredictor.Drag(DensityAt, warhead)),

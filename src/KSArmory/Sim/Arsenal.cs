@@ -341,7 +341,7 @@ public static class Arsenal
         Guidance = GuidanceMode.None,
 
         // A separation spring, not a motor. It is the bus's own velocity that matters.
-        LaunchSpeed = 2f,
+        LaunchSpeed = 0.5f,
 
         BoostSeconds = 0f,
         BoostAccel = 0f,

@@ -207,7 +207,11 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
         Out.WriteLine($"trim, at a reading the gate admits:     {trimSwing / 1000.0:F2} km");
         Out.WriteLine($"ratio: {noseSwing / trimSwing:F0}x");
 
-        Assert.True(noseSwing > 8_000.0,
+        // Two kilometres, not the eight this read when the round left its tube at 2 m/s. The term
+        // is exactly linear in the kick and the shipped one is a quarter of that, so the bar moved
+        // with it. What is being asserted is the ratio below; this only keeps the test honest about
+        // the term still being large in absolute terms.
+        Assert.True(noseSwing > 2_000.0,
                     $"the nose only moved the reading {noseSwing / 1000.0:F2} km across the flown band");
         Assert.True(trimSwing < AimCorrection.ImprovedByMetres,
                     $"the trim leaves {trimSwing:F0} m at a settled reading, which is more than the "
@@ -218,11 +222,21 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// Even at its worst the trim cannot reach what the nose does — and its worst is a state no
-    /// reading is ever taken in, because the sequencer waits for the trim to finish first.
+    /// Quietening the round's ejection kick took the nose out of first place.
+    ///
+    /// <para>At 2 m/s off the tube the nose dominated everything, including a separation shove that
+    /// nothing had taken out — which is why the observer gates on it. At the shipped quarter of that
+    /// the two have crossed over, because the nose term is linear in the kick and the shove is not
+    /// affected by it at all.</para>
+    ///
+    /// <para><b>It does not make the gate pointless.</b> A wholly un-nulled shove is a state no
+    /// reading is ever taken in — the sequencer waits for the trim to finish first — so the nose is
+    /// still the largest thing present when a reading is actually taken, which
+    /// <see cref="TheNoseMovesTheReadingFarFurtherThanTheTrimCan"/> holds. What the crossover does
+    /// change is which term is worth attacking next.</para>
     /// </summary>
     [Fact]
-    public void EvenAWhollyUnNulledSeparationIsSmallerThanTheNoseTerm()
+    public void TheQuieterKickTookTheNoseOutOfFirstPlace()
     {
         Cutoff at = AtCutoff();
         double onTheNose = MissWithKickTurned(at, 0.0, otherPlane: false);
@@ -233,9 +247,10 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
         Out.WriteLine($"a whole {SeparationShove} m/s shove un-nulled: {worstTrim / 1000.0:F2} km");
         Out.WriteLine($"the nose at {FlownLowDegrees:F0} deg:                {nose / 1000.0:F2} km");
 
-        Assert.True(nose > 2.0 * worstTrim,
+        Assert.True(nose < worstTrim,
                     $"the nose is {nose / 1000.0:F2} km against {worstTrim / 1000.0:F2} km for a "
-                    + "separation nothing has taken out yet");
+                    + "wholly un-nulled separation — at this kick the nose should no longer be the "
+                    + "larger of the two");
     }
 
     /// <summary>

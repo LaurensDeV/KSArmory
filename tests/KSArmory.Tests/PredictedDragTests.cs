@@ -225,14 +225,14 @@ public class PredictedDragTests(ITestOutputHelper Out)
 
         // The bus is pointing retrograde, so the tube throws the warhead backwards along its track.
         double3 retrograde = -Vec.Unit(arc.RequiredVelocityCci);
-        double3 ejected = arc.RequiredVelocityCci + retrograde * warhead.LaunchSpeed;
+        double3 ejected = arc.RequiredVelocityCci + retrograde * LoudKick.MetresPerSecond;
 
         double3 bus = FlyTheRound(from, arc.RequiredVelocityCci, warhead);
         double3 round = FlyTheRound(from, ejected, warhead);
 
         double apart = GroundMetres(bus, round);
-        Out.WriteLine($"{warhead.LaunchSpeed} m/s off the tube moves the impact {apart / 1000.0:F1} km");
-        Out.WriteLine($"  ({apart / 1000.0 / warhead.LaunchSpeed:F1} km per m/s on this arc)");
+        Out.WriteLine($"{LoudKick.MetresPerSecond} m/s off the tube moves the impact {apart / 1000.0:F1} km");
+        Out.WriteLine($"  ({apart / 1000.0 / LoudKick.MetresPerSecond:F1} km per m/s on this arc)");
 
         Assert.True(apart > 2_000.0,
                     $"the release impulse should be worth kilometres here; it was {apart:F0} m");

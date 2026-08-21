@@ -84,7 +84,7 @@ public class LateReleaseTests(ITestOutputHelper Out)
 
             // The bus holds the line it was cut off on, and the tubes point along it, so that is
             // the direction the separation spring throws.
-            kickCci = Vec.Unit(cutoffVelocityCci - CircularVelocityCci) * Warhead.LaunchSpeed;
+            kickCci = Vec.Unit(cutoffVelocityCci - CircularVelocityCci) * LoudKick.MetresPerSecond;
 
             // Both terms at the same epoch. The landing is a ground point in the release epoch's
             // frame and the target is held at cutoff, so the landing is the one that moves.
@@ -138,12 +138,15 @@ public class LateReleaseTests(ITestOutputHelper Out)
             double leverage = R * Vec.AngleBetween(Released(cutoffVelocityCci, tau, kickCci),
                                                    Earth.CarryCci(unkicked, tau));
 
-            Out.WriteLine($"  {Warhead.LaunchSpeed} m/s applied at t+{tau,5:F0} moves the impact "
+            Out.WriteLine($"  {LoudKick.MetresPerSecond} m/s applied at t+{tau,5:F0} moves the impact "
                           + $"{leverage / 1000.0:F3} km");
 
             if (tau > 0.0)
             {
-                Assert.True(leverage < previous - 500.0,
+                // A quarter of the old bar, because the whole term is linear in the kick and the
+                // shipped one is a quarter of what it was. Testing the *shape* -- leverage running
+                // down as the arc does -- rather than a magnitude that moves with the profile.
+                Assert.True(leverage < previous - 125.0,
                             $"the kick's leverage at t+{tau:F0} was {leverage / 1000.0:F3} km against "
                             + $"{previous / 1000.0:F3} km before it, which is not it running down");
             }

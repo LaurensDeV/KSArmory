@@ -11,7 +11,7 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
 {
     // What the bus throws at, which is what prices a cant. Off the profile rather than repeated,
     // because the sequencer takes it from the munition now and a second copy here would drift.
-    private static readonly double Ejection = Arsenal.ReentryVehicleMk21.LaunchSpeed;
+    private static readonly double Ejection = LoudKick.MetresPerSecond;
 
     private const double Step = 1.0 / 60.0;
 

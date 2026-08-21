@@ -80,6 +80,37 @@ roughly +/- 700 m with a tail to 3.4 km, so six shots settle a change worth a ki
 nothing worth two hundred metres. Several of the reverted changes were priced below that line and
 could never have been confirmed either way.
 
+## 0a. A quieter ejection kick — flown, and it takes the tail off
+
+`MunitionProfile.LaunchSpeed` on the Mk 21, 2 m/s -> **0.5**. Flown six times against the sixteen-shot
+baseline:
+
+| | shots | median | worst |
+| --- | --- | --- | --- |
+| 2 m/s | 16 | 0.85 km | **3.43 km** |
+| **0.5 m/s** | 6 | 0.89 km | **1.13 km** |
+
+**The median barely moves and the tail disappears**, which is the mechanism rather than luck. The
+impact moves **3,979 m per m/s of kick**, measured constant to 0.3% from 0.1 to 2 — and the bad runs
+were that leverage multiplied by a nose the engine will not hold still. Divide the leverage by four
+and the tail divides with it; the median is set by other terms and does not.
+
+Everything downstream scaled as predicted. Across the flown drift band the nose moves the reading
+**8.7-13.5 km -> 2.17 km**; holding a warhead costs **26 -> ~6.5 m of miss per second**; and the
+nose is no longer the largest term present — at 2.44 km it now sits *under* a wholly un-nulled
+separation shove at 3.79.
+
+**What makes it safe is a change already flown.** With the tubes on a 6-degree cone the kick *was*
+the separation, and quietening it would have put six warheads on converging paths. Parallel on an
+0.86 m bolt circle they never converge, so the kick only has to unseat them: at 0.5 m/s they are 5 m
+clear after ten seconds and never approach again. It is also what a real post-boost vehicle does —
+ejection is for clearance, and the aiming is done by manoeuvring.
+
+**Four tests kept the loud specimen** (`tests/KSArmory.Tests/LoudKick.cs`), the same shape as
+`CantedRing` after the tubes were straightened: they are about what a kick *does*, and a weapon pack
+may still register a loud one. Two were claims about the shipped round and were retuned, one of them
+because its ordering genuinely inverted.
+
 ## 0. Radial translation jets — built, flown, reverted
 
 **They made the shot four times worse and were taken out again.** Seven shots with them against six
