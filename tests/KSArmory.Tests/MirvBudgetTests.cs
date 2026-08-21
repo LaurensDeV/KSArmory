@@ -158,8 +158,8 @@ public class MirvBudgetTests(ITestOutputHelper Out)
         /// <summary>Do not correct at all — the aim stays exactly where it was pointed.</summary>
         public bool Off;
 
-        /// <summary>Let the correction keep observing after the arrival commits.</summary>
-        public bool NeverFreeze;
+        /// <summary>Stop the correction when the arrival commits, which is not what ships.</summary>
+        public bool StopAtTheArrival;
 
         /// <summary>The last predicted miss the loop was told about, in metres.</summary>
         public double LastMissMetres { get; private set; } = double.NaN;
@@ -180,7 +180,7 @@ public class MirvBudgetTests(ITestOutputHelper Out)
         public void AfterUpdate(IcbmProgram program, in IcbmCommand command, double3 aimNowCci,
                                 double step)
         {
-            if (!NeverFreeze && double.IsFinite(program.CommittedArrivalFromNow)) _aim.Freeze();
+            if (StopAtTheArrival && double.IsFinite(program.CommittedArrivalFromNow)) _aim.Freeze();
 
             _sincePredict += step;
             if (_sincePredict < PredictIntervalSeconds) return;
@@ -636,8 +636,8 @@ public class MirvBudgetTests(ITestOutputHelper Out)
     /// Term: what the aim correction leaves on the table. Pure bias — one aim serves all six.
     ///
     /// <para>The loop converges against a prediction taken from a cutoff state that is still moving,
-    /// then freezes when the arrival commits. Whatever the shot does after that, a frozen aim cannot
-    /// follow — so the residue is not a convergence failure and is not visible in the loop's own
+    /// and runs until the engines stop. Stopping it when the <em>arrival</em> commits leaves a
+    /// residue the aim cannot follow — not a convergence failure, and not visible in the loop's own
     /// readout, which reports the miss it last measured rather than the one it ends up with.</para>
     ///
     /// <para><c>Sim/PostBoostAim.cs</c> is the lever that reopens it after cutoff and is not
@@ -651,7 +651,7 @@ public class MirvBudgetTests(ITestOutputHelper Out)
                  {
                      ("no correction at all", l => l.Off = true),
                      ("as shipped", null),
-                     ("never frozen", l => l.NeverFreeze = true),
+                     ("stopped at the arrival", l => l.StopAtTheArrival = true),
                  })
         {
             double bias = double.NaN;
@@ -668,24 +668,29 @@ public class MirvBudgetTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// And whether the freeze is one geometry's luck. Four ranges, the same two wirings.
+    /// And whether that is one geometry's luck. Four ranges, the same two wirings.
     ///
     /// <para>The bias here is where the six actually go, not what the loop reported — those are
     /// different numbers and only the first is the shot.</para>
+    ///
+    /// <para>7,645 km is the one range where stopping early wins — 1.28 km against 3.23 — and it is
+    /// the same geometry item 7c is about, where the miss is furthest from a monotonic function of
+    /// the aim and the loop is walking a 200 km bias. Everything inside the flown envelope goes the
+    /// other way.</para>
     /// </summary>
     [Theory]
     [InlineData(2_000_000.0)]
     [InlineData(3_459_000.0)]
     [InlineData(5_000_000.0)]
     [InlineData(7_645_000.0)]
-    public void WhetherFreezingTheAimPaysAtEveryRange(double rangeMetres)
+    public void WhetherStoppingTheAimAtTheArrivalPaysAtAnyRange(double rangeMetres)
     {
         foreach ((string what, Action<ShippedAimLoop>? configure) in
                  new (string, Action<ShippedAimLoop>?)[]
                  {
                      ("no correction", l => l.Off = true),
                      ("as shipped", null),
-                     ("never frozen", l => l.NeverFreeze = true),
+                     ("stopped at the arrival", l => l.StopAtTheArrival = true),
                  })
         {
             double moved = double.NaN;

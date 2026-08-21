@@ -106,6 +106,11 @@ internal sealed class AimCorrection
     /// <para>What the guidance waits for before it commits to an arrival time. Both loops are
     /// solving the same shot, and pinning one while the other is still moving makes the second
     /// solve against the first's leftovers.</para>
+    ///
+    /// <para><b>A step-size test, so a small step between two large ones passes it.</b> That is a
+    /// loop being fed alternating answers rather than a converged one, and it is what an arrival
+    /// floor produces — so the arrival can commit on a shot whose aim is nowhere near settled. It
+    /// commits the arrival and nothing else: this loop stops on <see cref="Settled"/>.</para>
     /// </summary>
     public bool IsSteady => Settled || (_haveLast && Vec.Len(BiasCci - _lastBias) < SteadyMetres);
 
@@ -227,10 +232,14 @@ internal sealed class AimCorrection
     /// <summary>
     /// Stop correcting and keep the best aim found.
     ///
-    /// <para>Called when the guidance commits to an arrival. Until then the arc follows the aim and
-    /// the loop converges; from then on the same aim change forces a different trajectory to arrive
-    /// at the same instant, which is the plant it cannot hold. Flown: 4.9 km of predicted miss
-    /// while free, degrading to 13.4 km by cutoff if it keeps going.</para>
+    /// <para>Called when the engines stop, which is the one event that really does end this plant:
+    /// there is no burn left for a moved aim to reach the shot through. <see cref="Resume"/> follows
+    /// it immediately, against the coast plant.</para>
+    ///
+    /// <para><b>Not when the arrival commits</b>, which can be the third cycle of a loop still being
+    /// fed the solver's own transient — 8.41 km of flown miss banked that way against 0.11 km left
+    /// running, on a 15 degree shot needing no correction at all. What stops this loop is its own
+    /// best-tracking; <c>docs/ARRIVAL-ANGLE.md</c> has the trace.</para>
     /// </summary>
     public void Freeze()
     {

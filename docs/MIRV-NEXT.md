@@ -21,8 +21,9 @@ other, so every warhead shared a time-to-impact — which is what the old three-
 costing.
 
 **What is left is two terms, and they are separable.** The ~1 km *spread* is the tube cant, which
-is item 5. The ~900 m *bias* — every round landed the same way off — is mostly the aim correction's
-frozen residue, which is item 9; item 2c retired the epoch fault that was on top of it.
+is item 5. The ~900 m *bias* — every round landed the same way off — was mostly the aim correction
+being stopped at the arrival, which is item 10; item 2c retired the epoch fault that was on top of
+it. That is fixed and unflown, and takes the rig's bias from 717 m to 26 m.
 
 ### What the trim cost to get there
 
@@ -1004,14 +1005,18 @@ has been fixed. It flies the real `IcbmProgram` through `IcbmFlightRig` with the
 as `Ksa/IcbmComputer.cs` wires it, takes the state the engines actually stopped in, and puts six
 warheads off it — six real `Slug`s at the step `WarpPolicy` holds the world to.
 
-**The rig reproduces the flown bias and does not reproduce the flown spread.** Flown as the game
-flies it, the group's centre is **720 m** out at 1x and **963 m** at 8x, against a flown 650-760 m;
-the scatter is **235 m** against a flown 860-970 m. So the bias is accounted for and about 600 m of
+**The rig reproduced the flown bias and did not reproduce the flown spread.** Flown as the game
+flew it, the group's centre was **720 m** out at 1x and **963 m** at 8x, against a flown 650-760 m;
+the scatter is **235 m** against a flown 860-970 m. So the bias was accounted for and about 600 m of
 the spread is not — see the attitude entry below, which is the one candidate that fits.
+
+**The bias term is now gone and the spread is untouched**, which makes the spread the whole budget:
+item 10 stopped the aim correction being cut off at the arrival, and the same rig puts the group's
+centre at **26 m**. Unflown.
 
 | term | bias | spread | how measured |
 | --- | --- | --- | --- |
-| **the aim correction's frozen residue** | **760 m** | — | the same flight with `Freeze()` never called lands the group at **18 m**; the loop's own readout says 0.78 km either way |
+| ~~the aim correction's frozen residue~~ — **fixed, unflown** | ~~760 m~~ **26 m** | — | stopping the loop when the *arrival* commits banked 717 m; run to cutoff, 26 m. It is no longer stopped there — see item 10 |
 | **the round against its own predictor, 8x coast** | **203 m** | — | one cutoff state through `ImpactPredictor` and through `Slug`; 40 m at 1x, 21 m at 50 ms, 636 m at 320 ms |
 | **the tube cant** | 43 m | **233 m** | six kicks 6 deg off the mean at 2 m/s, through the drag predictor, at the attitude the burn left |
 | the cutoff residual after the trim | 38 m | — | 0.017 m/s against 1,789 / 3,442 / 390 m per m/s on three axes, root mean square |
@@ -1124,6 +1129,57 @@ angle is a larger lever than anything on this list.
 case where a frame carrier is identically zero — so nothing above can see an epoch fault, and item 2c
 is why that matters. And a single flight cannot resolve anything under about 0.5 km (item 7d), so the
 bias terms are testable in flight and the spread terms mostly are not.
+
+## 10. The aim correction was stopped by the arrival, not by itself — fixed, unflown
+
+**The top bias term in item 9, and it is one line of wiring.** `AimCorrection` was frozen the moment
+the guidance committed to an arrival, and the arrival commits when the aim goes steady. `IsSteady` is
+a step-size test: the last step was under two kilometres. That is not the same as converged.
+
+**With no floor set the ordering is harmless, because the loop converges first.** The drag shortfall
+it exists to remove is 20 to 190 km and dominates every other signal, so the loop lands on its answer
+in four cycles and the arrival commits on the fifth — and the bias is already still by then. What the
+freeze cost there was the refinement afterwards: 717 m of group bias against **26 m**, measured
+through this rig at the flown 3,459 km.
+
+**With `IcbmConfig.MinArrivalAngleDeg` set it is ruinous**, because a steep arrival abolishes the
+signal the loop locks onto — 0.3 km of drag loss at 15 degrees against 13.4 at 7.5. What it is fed
+instead is the constrained search alternating between two satisfying flight times, cycle by cycle;
+the aim stops moving because it is being told two different things in turn, and the arrival commits
+on whichever arc that cycle returned. Measured at 3,459 km: **8.41 km** of miss banked that way, on a
+shot that lands **0.00 km** off with no correction at all. `docs/ARRIVAL-ANGLE.md` has the trace.
+
+**So the loop is stopped by its own rule.** It has one — best-tracked over
+`AimCorrection.WorseBeforeStopping` cycles — and it now runs until the engines do, where `Freeze()`
+banks the best and `Resume()` reopens it against the coast plant. The two calls sit together, which
+is also what keeps `Resume` working: it returns early unless the loop is settled, so removing the
+freeze outright would have handed the post-boost half the burn's own response estimate and
+best-tracking record.
+
+| | 2,000 km | 3,459 km | 5,000 km | 7,645 km |
+| --- | --- | --- | --- | --- |
+| no floor, stopped at the arrival | 0.01 km | 0.38 km | 1.16 km | 1.15 km |
+| no floor, run to cutoff | **0.00** | **0.06** | **0.04** | **0.56** |
+| floor 15, stopped at the arrival | 0.06 km | 8.41 km | 10.49 km | 0.41 km |
+| floor 15, run to cutoff | **0.02** | **0.11** | **0.11** | **0.08** |
+
+Twenty range-and-floor combinations through `ArrivalFloorFlightTests`: worst case **0.60 km** against
+20.28 km.
+
+**Where it costs.** `MirvBudgetTests`, which is a different bus and adds the ejection kick to the
+prediction, agrees at 2,000 and 3,459 km and disagrees at **7,645 km** — 1.28 km stopped against 3.23
+running. That is the geometry item 7c is about, where the miss is furthest from a monotonic function
+of the aim and the loop is walking a 200 km bias. It is outside the flown envelope and it is recorded
+rather than tuned around.
+
+**And the handover was on the wrong test.** It fired on `!IsBurning`, which is also true of a shot
+*waiting* for a burn window — so a computer that deferred spent its one handover during the hold and
+never ran it at the cutoff it exists for, leaving the post-boost half holding the burn's own response
+estimate and best-tracking record. On `IcbmPhase.Coast` instead, which is only reachable through a
+burn. It never showed because the flown shots left immediately; an arrival floor makes waiting far
+more likely, which is how it surfaced.
+
+**And what it does not fix**: the ~1 km spread, which is the tube cant and is item 5.
 
 ## Smaller things
 
