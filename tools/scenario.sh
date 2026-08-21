@@ -10,6 +10,7 @@
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
+#   ./tools/scenario.sh mirv --no-deploy # fly whatever is already in the mods folder
 #
 # The gap this closes is not headless rendering -- KSA ships Windows-only natives and threads its
 # simulation through a Vulkan renderer, so there is no headless to have. It is that verifying a
@@ -51,10 +52,19 @@ fi
 SCENARIO="${1:-head-on}"
 KEEP=0
 SHOTS_ON=0
+
+# Whether to build and install the tree before flying it.
+#
+# On by default, because a scenario run from a checkout should fly that checkout. Off is for a
+# batch that pre-built every arm before it started: what flies is then pinned to a binary rather
+# than to a working tree, so nothing anyone does to the tree overnight can reach the shot in
+# flight. tools/shot-batch.sh is the caller that wants it.
+DEPLOY=1
 for arg in "${@:2}"; do
     case "$arg" in
-        --keep)  KEEP=1 ;;
-        --shots) SHOTS_ON=1 ;;
+        --keep)      KEEP=1 ;;
+        --shots)     SHOTS_ON=1 ;;
+        --no-deploy) DEPLOY=0 ;;
     esac
 done
 
@@ -91,7 +101,8 @@ case "${SCENARIO%%:*}" in
         DEADLINE_SECONDS=3000
         ;;
     *)
-        echo "usage: $0 {head-on|overhead|passing|mirv[:<lat>,<lon>[,<km>]]} [--keep] [--shots]" >&2
+        echo "usage: $0 {head-on|overhead|passing|mirv[:<lat>,<lon>[,<km>]]}" \
+             "[--keep] [--shots] [--no-deploy]" >&2
         exit 2
         ;;
 esac
@@ -129,8 +140,12 @@ if tasklist.exe 2>/dev/null | grep -q StarMap; then
     sleep 2
 fi
 
-echo "== deploying"
-"$REPO_ROOT/tools/deploy.sh" >/dev/null
+if (( DEPLOY )); then
+    echo "== deploying"
+    "$REPO_ROOT/tools/deploy.sh" >/dev/null
+else
+    echo "== flying what is already installed"
+fi
 
 echo "== launching, scenario '$SCENARIO', save '$SAVE'${CRAFT:+, craft '$CRAFT'}"
 : > "$LOG" 2>/dev/null || true
