@@ -19,7 +19,8 @@ Three things in this mod sample the surface and they have to agree:
 | `IcbmComputer.SurfacePointEcl` | `GetTerrainHeightFromDirCcf(dir, accurate: true)` | where the aim point is placed |
 
 Two use `Ccf` and one uses `Cce`. **That is correct** — see [Cce against Ccf](#cce-against-ccf).
-What is *not* correct is the ocean; see [The defect](#the-defect-the-sea).
+All three clamp to the waterline; see [The sea](#the-sea-all-three-clamp-to-it) for why that matters
+more than it sounds.
 
 ## The field itself
 
@@ -250,28 +251,29 @@ Nothing rounds the stored value. `Sim/AimSite.cs` holds `double` latitude and lo
 only, because 0.001° of latitude is **111 m** of ground — a designation typed to three places rather
 than picked would carry that.
 
-## The defect: the sea
+## The sea: all three clamp to it
 
-**`GroundTest` clamps the height field to the waterline. The other two do not.**
+**All three route the height field through `GroundSurface.Height`**, so the surface the round stops
+on, the surface the prediction flies to and the surface the aim point sits on are one surface over
+water as well as over land.
 
 ```csharp
 // Ksa/GroundTest.cs
 if (nearest.GetOceanReference() is { } sea && sea.Density > 0.0) { hasSea = true; seaLevel = sea.Level; }
 height = GroundSurface.Height(height, seaLevel, hasSea);
+
+// Ksa/IcbmComputer.cs -- SurfaceHeight, called by TerrainRadiusAt and by SurfacePointEcl
+return body.GetOceanReference() is { } sea && sea.Density > 0.0
+           ? GroundSurface.Height(terrainHeight, sea.Level, hasSea: true)
+           : terrainHeight;
 ```
 
-```csharp
-// Ksa/IcbmComputer.cs -- TerrainRadiusAt and SurfacePointEcl
-double height = parent.GetTerrainHeightFromDirCcf(dirCcf, accurate: true);
-return parent.MeanRadius + height;     // no clamp
-```
+The height field answers with **terrain**, which under an ocean is the seabed, so without the clamp a
+contact-fused round falls through the waterline and bursts on the bottom while the prediction of it
+agrees and reports zero miss. `SurfaceAgreementTests` is what holds the three together, and the
+numbers below are what the disagreement was worth when there was one.
 
-The height field answers with **terrain**, which under an ocean is the seabed —
-`GroundSurface.Height` exists because a contact-fused round otherwise falls through the waterline and
-bursts on the bottom. Commit `0e74e7a` added that clamp to the round's path and to nothing else. The
-guidance's prediction and the aim point were never taught about it.
-
-**What it is worth.** Measured over all 100,663,296 texels of `Earth_Height.ktx2`:
+**What it would be worth.** Measured over all 100,663,296 texels of `Earth_Height.ktx2`:
 
 | | |
 | --- | --- |
@@ -284,28 +286,24 @@ At the flown arrival angle,
 `SurfaceAgreementTests.ThePredictionFliesToTheSeabedAndTheRoundStopsOnTheSeaAboveIt` measures the
 mean depth as **35.0 km of ground**. The median is worse. The deepest trench is about 100 km.
 
-Two shapes it takes:
+Two shapes it takes, and both are what the clamp exists to stop:
 
-- **An aim point over water** is placed on the seabed, which is a point no round can reach. The
-  prediction agrees with it, so `AimCorrection` converges, reports zero, and the warheads splash tens
-  of kilometres short. This is the same failure mode `docs/ICBM-GUIDANCE.md` records for drag —
-  *a correction loop can only remove what its observer can see* — with a different blind spot.
+- **An aim point over water** placed on the seabed is a point no round can reach. A prediction that
+  agrees with it makes `AimCorrection` converge and report zero while the warheads splash tens of
+  kilometres short — the same failure mode `docs/ICBM-GUIDANCE.md` records for drag, *a correction
+  loop can only remove what its observer can see*, with a different blind spot.
 - **A coastal target approached from the sea.** The last few kilometres of a six-degree arrival are
-  only hundreds of metres up. Where the arc crosses the waterline short of the shore the round bursts
-  on the sea while the prediction carries on to the seabed and reports an impact tens of kilometres
-  inland.
+  only hundreds of metres up, so where the arc crosses the waterline short of the shore the round
+  bursts on the sea and an unclamped prediction carries on to the seabed tens of kilometres inland.
 
-Over dry land the terrain is above the waterline and the clamp is a no-op, so a purely inland shot is
-unaffected — which is why this has not shown up in a scored flight yet.
+Over dry land the terrain is above the waterline and the clamp is a no-op either way, which is why a
+purely inland shot never showed it.
 
-**Not fixed here.** The obvious change is to route both `IcbmComputer` samples through
-`GroundSurface.Height` with the parent's `GetOceanReference()`, exactly as `GroundTest` does. It is a
-behaviour change and belongs in a flight.
-
-One footnote if that is done: KSA's own physics uses `OceanRenderer.GetOceanHeightAtPositionCcf`,
+**One residual, and it is small.** KSA's own physics uses `OceanRenderer.GetOceanHeightAtPositionCcf`,
 the *displaced wave* surface, not the flat level (`PhysicsEnvironment.cs:120`). The mod uses
-`OceanReference.Level`. Waves are metres, which is tens of metres of ground here — below the noise,
-but it is the reason the two will never agree exactly.
+`OceanReference.Level` on all three paths, so they agree with each other and not with the engine.
+Waves are metres, which is tens of metres of ground here — below the noise, and the reason the mod's
+surface and KSA's will never agree exactly.
 
 ## Is there anything more exact?
 

@@ -15,6 +15,10 @@ namespace KSArmory.Tests;
 /// carrier is identically zero, so nothing measured through this rig can see an epoch fault in a
 /// term differenced against a body sample. <c>docs/FRAMES-AND-EPOCHS.md</c> has why, and
 /// <c>AirSampleEpochTests</c> is where that convention is pinned instead.</para>
+///
+/// <para>It does not <em>accelerate</em> either, which is a second thing the game does and this does
+/// not — hence <c>bodyAccelCci</c>, the one switch here that puts a real-world term back rather than
+/// taking one of the round's own approximations away.</para>
 /// </summary>
 internal static class DeorbitShot
 {
@@ -214,10 +218,12 @@ internal static class DeorbitShot
     /// <param name="dt">The frame the round is handed, which is what the world is warped to.</param>
     /// <param name="refresh">Which frame-level inputs to re-read per sub-step instead of holding.</param>
     /// <param name="ground">Where the ground is. Null is the mean sphere.</param>
+    /// <param name="bodyAccelCci"><inheritdoc cref="FlyTheRoundAsWarped" path="/param[@name='bodyAccelCci']"/></param>
     public static (double3 GroundFixed, double Seconds) FlyTheRound(double3 fromCci, double3 velocityCci,
                                                                    double dt,
                                                                    Refresh refresh = default,
-                                                                   IGroundTest? ground = null)
+                                                                   IGroundTest? ground = null,
+                                                                   double3 bodyAccelCci = default)
     {
         BallisticBody body = Earth;
 
@@ -232,7 +238,7 @@ internal static class DeorbitShot
 
         for (int i = 0; i < (int)(20_000.0 / dt) && round.State == RoundState.Flying; i++)
         {
-            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed);
+            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed, bodyAccelCci);
         }
 
         return Arrived(body, round, elapsed);
@@ -247,7 +253,8 @@ internal static class DeorbitShot
     /// than all of them at once.</para>
     /// </summary>
     private static double OneFrame(BallisticBody body, Slug round, double dt, double3 fromCci,
-                                   Refresh refresh, IGroundTest? ground, double elapsed)
+                                   Refresh refresh, IGroundTest? ground, double elapsed,
+                                   double3 bodyAccelCci = default)
     {
         int n = refresh.Any ? Math.Max(1, (int)Math.Ceiling(dt / refresh.Slice)) : 1;
 
@@ -262,7 +269,12 @@ internal static class DeorbitShot
 
         for (int k = 0; k < n && round.State == RoundState.Flying; k++)
         {
-            double3 gravity = refresh.Gravity ? body.GravityCci(round.PositionEcl) : heldGravity;
+            // Less the body's own acceleration, because the round is integrated about a centre that
+            // is itself falling and the prediction of it is not. Subtracting it here is exact
+            // rather than approximate: the solar tide across a planet's radius is 0.009% of the
+            // term, so the field really is uniform over everything a round can reach.
+            double3 gravity = (refresh.Gravity ? body.GravityCci(round.PositionEcl) : heldGravity)
+                              - bodyAccelCci;
             double3 air = refresh.AirMotion ? body.GroundVelocityCci(round.PositionEcl) : heldAir;
 
             if (ground is Relief r) r.Seconds = elapsed;
@@ -312,9 +324,14 @@ internal static class DeorbitShot
     /// <param name="warp">The simulation speed held during the coast.</param>
     /// <param name="refresh">Which frame-level inputs to re-read per sub-step instead of holding.</param>
     /// <param name="ground">Where the ground is. Null is the mean sphere.</param>
+    /// <param name="bodyAccelCci">
+    /// The parent body's own acceleration about whatever it orbits — the one force a round in
+    /// <c>Ecl</c> feels and <see cref="ImpactPredictor"/> in <c>Cci</c> cannot. Zero is this rig's
+    /// usual planet at the origin. <c>ModelInputAgreementTests</c> prices it.
+    /// </param>
     public static (double3 GroundFixed, double Seconds) FlyTheRoundAsWarped(
         double3 fromCci, double3 velocityCci, double warp, Refresh refresh = default,
-        IGroundTest? ground = null)
+        IGroundTest? ground = null, double3 bodyAccelCci = default)
     {
         BallisticBody body = Earth;
 
@@ -330,7 +347,7 @@ internal static class DeorbitShot
 
         while (round.State == RoundState.Flying && elapsed < 20_000.0)
         {
-            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed);
+            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed, bodyAccelCci);
 
             // What the mod asks the world for on the next frame, capped by the speed the scenario
             // runner asks for once the salvo is away.
