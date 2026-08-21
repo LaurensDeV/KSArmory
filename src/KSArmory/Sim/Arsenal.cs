@@ -389,6 +389,12 @@ public static class Arsenal
         // with a 97% interval of 0.55-0.90. What is new here is getting it every shot.
         PreferredStepSeconds = 0.180f,
         HitsTerrain = true,
+
+        // The one round in the arsenal fast enough for a frame's ground track to matter: 350 m of
+        // it at 7 km/s, against a bomb's 12 m. Held for the frame, the round stops on the height it
+        // was over at the top of it, which on a 5% slope at the 7 degree arrival this actually
+        // flies is tens of metres of ground. Six of these is sixty terrain lookups a frame.
+        SamplesGroundPerSubStep = true,
     };
     /// <summary>
     /// The rail's own infrared search head: short-ranged, narrow, and pointed where the rail is.

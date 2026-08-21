@@ -399,6 +399,27 @@ public sealed class MunitionProfile
     /// </summary>
     public bool HitsTerrain;
 
+    /// <summary>
+    /// Whether that sample is taken again at every sub-step rather than held for the whole frame.
+    ///
+    /// <para>Held, the round stops on the height that was under it at the <em>top</em> of the frame,
+    /// which over sloping ground is stale by the track it covered. With slope <c>s</c>, arrival
+    /// angle <c>y</c> and a frame's ground track <c>d</c> the stopping error is
+    /// <c>s*d / (tan y + s)</c> — centimetres for a bomb crossing 12 m of ground a frame, and tens
+    /// of metres for a warhead crossing 350 m of it at a shallow arrival, where it is the largest
+    /// term in the whole miss after the integrator itself. <c>docs/KINETIC-FLOOR.md</c> has the
+    /// budget.</para>
+    ///
+    /// <para>Re-sampled, it costs one terrain query per sub-step instead of one per frame — ten at
+    /// <see cref="Interceptor.SubStep"/> in the 50 ms the world is held to in air. That is nothing
+    /// for six warheads and is the whole objection for a 150-shell burst, which is why it belongs
+    /// to the round rather than to one constant: the same split <see cref="SubStepSeconds"/> is
+    /// already on.</para>
+    ///
+    /// <para>Off by default, so a round that says nothing behaves exactly as it did.</para>
+    /// </summary>
+    public bool SamplesGroundPerSubStep;
+
     /// <summary>Radius inside which a detonation is unconditionally lethal (m).</summary>
     public float LethalRadius => (float)Warhead.LethalRadius(ChargeKg);
 

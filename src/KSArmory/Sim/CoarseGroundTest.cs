@@ -5,10 +5,11 @@ namespace KSArmory;
 /// <summary>
 /// A ground test that reuses its last answer while the round is nowhere near the ground.
 ///
-/// <para>For the sight rather than for a round in flight. A round samples the surface once per
-/// frame, which costs nothing; <see cref="BombSight"/> flies a whole trajectory inside one frame
-/// and so pays a terrain lookup per integration step — up to <see cref="BombSight.MaxSteps"/> of
-/// them for one pipper, several times a second.</para>
+/// <para>For the sight rather than for a round in flight. A round samples the surface once a frame,
+/// or once a sub-step if its profile asks, which is tens of lookups at most;
+/// <see cref="BombSight"/> flies a whole trajectory inside one frame and so pays a terrain lookup
+/// per integration step — up to <see cref="BombSight.MaxSteps"/> of them for one pipper, several
+/// times a second.</para>
 ///
 /// <para>Almost all of that is spent kilometres above the ground, where the answer cannot change
 /// the outcome: the surface is not reachable this step whatever it says. So the sample is reused

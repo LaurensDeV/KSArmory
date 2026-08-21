@@ -26,7 +26,7 @@ orbital velocity taken out, which is what a rod actually is.
 | limit | at 7.1 deg | at 88 deg | what sets it | reducible? |
 | --- | --- | --- | --- | --- |
 | **the round's integrator** | **82–153 m** | **1.1 m** | `Interceptor.SubStep` = 5 ms, symplectic Euler in `Sim/Slug.cs` | yes, linear in the step — 10x the sub-steps for 10x the accuracy |
-| **the ground sampled once a frame** | 10–39 m | 0.2–0.8 m | `Slug.Update` calls `IGroundTest` before the sub-step loop | yes, at one height query per sub-step |
+| **the ground sampled once a frame** | ~~10–39 m~~ 1.0 m | 0.2 m | `Slug.Update` held the answer across the sub-step loop | **done** — `SamplesGroundPerSubStep`, at ten height queries a frame |
 | **the height field's own quantum** | 2.40 m | 0.01 m | `R16_UNORM` over 19,561 m = 0.2985 m | **no** — it is the shipped texture |
 | **the predictor's ground crossing** | 2.01 m | 0.01 m | `ImpactPredictor.CrossingToleranceMetres` = 0.25 m | yes, at more bisection steps |
 | **the float terrain staircase** | ≤ 0.9 m | ≤ 0.02 m | `Celestial.cs:833` packs the direction to `float3` | **no** — inside the engine |
@@ -112,13 +112,19 @@ step `WarpPolicy` already holds the world to once there is air.
 
 ## 2. The ground, sampled once a frame and held as a sphere
 
-`Slug.Update` asks `IGroundTest.TryGround` **before** the sub-step loop and holds the answer — a
-centre and a radius — for the whole frame. That is deliberate and documented: the terrain query is
-the expensive call. The consequence is that the round stops on the height that was under it at the
-*top* of the frame, and over sloping ground that is stale by the track it covered.
+**Closed for the Mk 21, and still there for everything else.** `MunitionProfile.SamplesGroundPerSubStep`
+re-reads `IGroundTest.TryGround` at every sub-step for a round that asks; it is off by default and
+the reentry vehicle is the only profile that sets it. What follows is the term, and what turning it
+on is worth. **Headless only — none of it has been flown.**
+
+`Slug.Update` otherwise asks once, **before** the sub-step loop, and holds the answer — a centre and
+a radius — for the whole frame. The terrain query is the expensive call, and for a bomb crossing
+12 m of ground in a frame the held answer is exact. The consequence for anything faster is that the
+round stops on the height that was under it at the *top* of the frame, stale by the track it
+covered.
 
 With slope `s`, arrival `gamma` and a frame's ground track `d`, the stopping error is
-`s.d / (tan gamma + s)`. Measured through that at 2,713 m/s
+`s.d / (tan gamma + s)`. Analytically at 2,713 m/s
 (`TheGroundSphereIsSampledOnceAFrameAndHeldFlat`):
 
 | frame | arrival | 1% slope | 5% slope | 20% slope |
@@ -130,8 +136,76 @@ With slope `s`, arrival `gamma` and a frame's ground track `d`, the stopping err
 | 320 ms | 7.1 deg | 64.0 m | 246.8 m | 530.9 m |
 
 Note the sphere itself is **concentric with the body**, so planetary curvature is exact and only the
-slope term is left. Reducible by re-sampling per sub-step, which costs a bicubic plus the whole
-modifier stack ten times a frame per round instead of once.
+slope term is left.
+
+### Flown against a surface that actually slopes
+
+`GroundSampleRateTests` flies the real `Slug` at a linear ramp, three ways: held for the frame,
+re-read per sub-step, and a converged reference whose frame is one sub-step long. The gap to that
+reference is the term (`WhatAStaleGroundSampleCostsByArrivalAngle`, 50 ms frame, entering 200 km up):
+
+| arrival | slope | held | re-read | removed |
+| --- | --- | --- | --- | --- |
+| **8.6 deg** at 7,212 m/s | 1% | 11.34 m | 5.13 m | 55% |
+| | 5% | 21.27 m | **1.01 m** | 95% |
+| | 20% | 369.97 m | **0.13 m** | > 99% |
+| 40.1 deg at 3,924 m/s | 1% | 1.27 m | 0.44 m | 65% |
+| | 5% | 2.42 m | 0.37 m | 85% |
+| | 20% | 24.59 m | 0.81 m | 97% |
+| 79.0 deg at 1,990 m/s | any | ≤ 0.13 m | ≤ 0.19 m | nothing to remove |
+
+**At a near-vertical arrival there is nothing here at all** — every row is under the harness's 13.4 cm
+ruler. It is the shallow arrival that pays, which is the same headline as everything else in this
+file, and it is worth more the rougher the ground: at 20% the held sample is the single largest term
+in the whole budget.
+
+And by the frame the world is running at, which is what timewarp moves
+(`WhatAStaleGroundSampleCostsByFrameSize`, 8.6 deg, 5% slope):
+
+| frame | held | re-read |
+| --- | --- | --- |
+| 17 ms | 21.23 m | 0.62 m |
+| 50 ms (`FaithfulStepInAir`) | 21.27 m | 1.01 m |
+| 160 ms | 259.67 m | 1.31 m |
+| 320 ms | 375.15 m | 1.74 m |
+
+The held column grows with the step and the re-read column does not, because the sub-step is what
+sets it and the sub-step does not move. So the term is one more thing that gets worse under warp,
+and re-reading is what makes the round's stopping accuracy independent of the frame it is given.
+
+### What it costs, counted rather than timed
+
+`WhatResamplingTheGroundCostsInTerrainQueries`, per round per 50 ms frame: **1 query held, 10
+re-read**. Six warheads is 6 → 60 a frame; over one whole 631-frame re-entry it is 631 → 20,267
+queries, or 122,000 for a group of six.
+
+A 150-shell CIWS burst would be 150 → 1,500 a frame, and pays **neither**: a shell's `HitsTerrain`
+is false, so it asks the terrain nothing at all. That is what makes the flag affordable — it is per
+munition, like `SubStepSeconds`, so the round that needs it is the only round that buys it.
+
+**Wall-clock cost is not measured**, here or anywhere in this repository. The query in the rig is a
+lambda over a sphere; the real one is a bicubic over a cubemap plus Earth's whole modifier stack.
+Counting is what can be done headlessly.
+
+### The epoch, and why this one is not back-dated
+
+Everything else in `Slug` back-dates its world samples by `elapsedInFrame - frameSeconds`, and this
+does not. `docs/KSA-FRAME-ORDER.md` §5 splits the correction in two: right for **a scalar read at a
+position** — the air density, worth 4.4 km — and wrong for **a field about a body**, where gravity
+flew it and lost 2 km.
+
+A terrain height is a scalar read at a position taken on its own. `IGroundTest` does not answer with
+one: it answers with a **centre and a radius**, and the centre is the geometric reference the
+crossing test runs against. The aim point (`IcbmComputer.SurfacePointEcl`), the flown prediction
+(`TerrainRadiusAt`), the miss scoring and the gravity term are all differenced against the *same*
+frame's body sample, so moving this one alone would translate the surface relative to every one of
+them — up to a frame of the planet's ecliptic travel, put somewhere else rather than taken out. That
+is the gravity failure with the sign reversed.
+
+So it is the field kind, by coupling, and the per-sub-step sample is taken at the round's raw
+`PositionEcl`. What that buys is exact rather than approximate: the sample is taken at the point the
+crossing test is then evaluated at, in the frame the aim point already lives in, so the two agree by
+construction. **The change moves where the terrain is asked about and nothing about when.**
 
 **Measured end to end it is smaller still**, because the table above prices the *stopping* error
 against ground the round has already reached rather than the whole flight: flown through
@@ -386,19 +460,19 @@ Root-sum-square at 88 degrees, a 17 ms frame, 5% ground slope and an exactly-kno
 | | |
 | --- | --- |
 | integrator at 5 ms | 1.11 m |
-| ground held for a frame | 0.28 m |
+| ground, re-read per sub-step | 0.19 m |
 | height quantum + crossing tolerance | 0.02 m |
 | float terrain staircase | ≤ 0.02 m |
 | ecliptic doubles, engine clock | 0.002 m |
 | **root sum square** | **≈ 1.2 m** |
 
 Take `Interceptor.SubStep` to 1 ms and it becomes **≈ 0.4 m**; to 0.25 ms, **≈ 0.3 m**, at which
-point the frame-held ground sample and the float staircase are the whole of it and further
-integration accuracy buys nothing.
+point the ground sample and the float staircase are the whole of it and further integration accuracy
+buys nothing — and both of those follow the sub-step down, because the ground is now sampled on it.
 
-**On the 7.1-degree arrival the mod actually flies, the same budget is ≈ 160 m** — 153 m of
-integrator, 4.4 m of quanta, 10–39 m of frame-held ground, the whole lot multiplied by a terrain
-gain of 1.2x to unbounded. That is not a precision weapon and no amount of guidance work makes it
+**On the 7.1-degree arrival the mod actually flies, the same budget is ≈ 153 m** — 153 m of
+integrator, 4.4 m of quanta, about 1 m of ground sample, the whole lot multiplied by a terrain gain
+of 1.2x to unbounded. That is not a precision weapon and no amount of guidance work makes it
 one; the geometry has to change.
 
 ### A terminally guided kinetic round

@@ -352,12 +352,18 @@ negative* holds only up to that sampling. The alternative, `Astronomical.MaxTerr
 (`Astronomical.cs:116`), is `MeanRadius + HeightReference.Maximum` — a hard bound on the base texture
 that does not bound the modifiers standing on top of it. Neither is a guarantee.
 
-**The round samples the ground once a frame and holds it across every sub-step.** `Sim/Slug.cs` calls
-`Ground.TryGround` before the sub-step loop by design — the sample is the expensive call, and
+**How often a round samples the ground is the round's own decision.** `Sim/Slug.cs` calls
+`Ground.TryGround` before the sub-step loop by default — the sample is the expensive call, and
 `IGroundTest` answers as a centre and a radius precisely so the sub-steps cost a subtraction. The
 consequence on a shallow arrival is that the round stops on the surface as it was up to one frame of
 ground track behind: with slope `s` and arrival angle `γ`, the error is about `s·Δ / (tan γ + s)`
 where `Δ` is the ground track covered in a frame. At an impact speed near 1.8 km/s and 60 fps that is
 30 m of track — about 9 m of stopping error on a 5% slope — and it grows in proportion to the step,
-so it is one more thing that gets worse under timewarp. `Sim/ImpactPredictor.cs` re-samples every
-integration step, so the prediction sees the terrain more finely than the round does.
+so it is one more thing that gets worse under timewarp.
+
+`MunitionProfile.SamplesGroundPerSubStep` re-reads it at every sub-step instead, which takes the term
+to about a metre and makes it independent of the frame. It is off by default and the Mk 21 is the
+only profile that asks: ten queries a frame per round is affordable for six warheads and is the whole
+objection for a 150-shell burst. `Sim/ImpactPredictor.cs` re-samples every integration step, so the
+prediction saw the terrain more finely than the round did — which for the reentry vehicle they now
+agree on. `docs/KINETIC-FLOOR.md` §2 has what it is worth by angle, slope and frame. **Unflown.**

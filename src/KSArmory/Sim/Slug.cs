@@ -20,9 +20,9 @@ internal sealed class Slug : IProjectile
     private double3 _frameVelocityEcl;
     private double _trailTimer;
 
-    // The ground under the round, sampled once a frame. Held rather than re-read because the
-    // terrain query is the expensive call and a sphere of this radius is the surface for the few
-    // metres of ground track one frame covers.
+    // The ground under the round: once a frame, or once a sub-step for a round whose profile asks.
+    // Held as a centre and a radius either way, so a crossing test costs a subtraction -- the
+    // terrain query is the expensive call and that is what decides how often it is worth paying.
     private double3 _groundCentre;
     private double _groundRadius;
     private bool _haveGround;
@@ -209,9 +209,8 @@ internal sealed class Slug : IProjectile
         // round — nothing to steer at either, so it finishes the fall ballistically.
         if (target is null) TargetRef = null;
 
-        _haveGround = munition.HitsTerrain && Ground is not null
-                      && Ground.TryGround(PositionEcl, out _groundCentre, out _groundRadius)
-                      && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
+        bool wantsGround = munition.HitsTerrain && Ground is not null;
+        _haveGround = wantsGround && TrySampleGround();
 
         int steps = Math.Min(munition.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / munition.SubStep)));
         double h = dt / steps;
@@ -244,6 +243,21 @@ internal sealed class Slug : IProjectile
 
             Step(h, elapsed, dt, target, pull, munition, density);
             elapsed += h;
+
+            // Re-read where the round now is, for a round that asks: a sphere sampled at the top
+            // of the frame is the surface the round was over then, and a warhead covers 350 m of
+            // ground in one. See MunitionProfile.SamplesGroundPerSubStep.
+            //
+            // Not back-dated, unlike the density lookup above -- it answers with a centre as well
+            // as a height, and every other reader of that separation takes the same frame's body
+            // sample. IGroundTest has why; docs/KSA-FRAME-ORDER.md section 5 has the two shapes.
+            //
+            // `i + 1 < steps`: a sample after the last sub-step is one nothing reads.
+            if (munition.SamplesGroundPerSubStep && wantsGround
+                && State == RoundState.Flying && i + 1 < steps)
+            {
+                _haveGround = TrySampleGround();
+            }
         }
 
         // After the step, against this frame's platform sample, no extrapolation: both terms then
@@ -260,6 +274,13 @@ internal sealed class Slug : IProjectile
 
         if (State == RoundState.Flying && Age >= munition.MaxFlightSeconds) State = RoundState.Expired;
     }
+
+    // The sphere the crossing test below runs against. One place, because it is taken once a frame
+    // or once a sub-step depending on the round and both want the same guards.
+    private bool TrySampleGround()
+        => Ground is not null
+           && Ground.TryGround(PositionEcl, out _groundCentre, out _groundRadius)
+           && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
 
     private void Step(double h, double elapsedInFrame, double frameSeconds, TargetState? target,
                       double3 gravity, MunitionProfile munition, double mediumDensityRatio)

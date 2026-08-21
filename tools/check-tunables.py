@@ -97,6 +97,10 @@ EXEMPT = {
         "as above",
     "MunitionProfile.HitsTerrain":
         "costs a terrain sample per round per frame; a weapon's design, not a preference",
+    "MunitionProfile.SamplesGroundPerSubStep":
+        "how often that sample is paid for -- the same fidelity-against-frame-time trade as "
+        "SubStepSeconds, and one a player raising would cost frame time rather than buy anything "
+        "they can see",
     "MunitionProfile.TimedFuse":
         "the flak fuse of a secondary armament, set under Tuning -> Warhead",
     "MunitionProfile.Guidance":

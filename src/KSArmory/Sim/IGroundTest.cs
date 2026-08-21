@@ -6,18 +6,21 @@ namespace KSArmory;
 /// Where the ground is under a round.
 ///
 /// <para>Answered as a <b>centre and a surface radius</b> rather than as an altitude, and that is
-/// the point of the shape: a round samples it once a frame and then knows its own height above the
-/// ground at every sub-step for the cost of a subtraction. An altitude would have to be re-read
-/// per sub-step to mean anything, and a terrain sample is the expensive call here.</para>
+/// the point of the shape: one sample makes the round's height above the ground a subtraction at
+/// every sub-step that follows. A terrain query is the expensive call here, so how often it is
+/// worth paying is the round's own decision — <see cref="MunitionProfile.SamplesGroundPerSubStep"/>
+/// is where a round says it wants one per sub-step instead of one per frame.</para>
 ///
-/// <para>The approximation it buys is that the surface under the round is treated as a sphere of
-/// that radius for the frame. Over the few metres of ground track a falling round covers in one
-/// frame that is exact except across a cliff edge, and a cliff is where the engine's own height
-/// query is discontinuous anyway.</para>
+/// <para>The approximation a held sample buys is that the surface is a sphere of that radius for as
+/// long as it is held. Across the few metres a bomb covers in a frame that is exact but for a cliff
+/// edge, where the engine's own height query is discontinuous anyway; across the hundreds of metres
+/// a re-entering warhead covers it is a real term, and <c>docs/KINETIC-FLOOR.md</c> prices it.</para>
 ///
-/// <para>Unlike <see cref="IHullTest"/> this takes an absolute position, and it is entitled to:
-/// terrain is a property of the world rather than of a separation between two things, so there is
-/// no pair of epochs to mismatch and nothing for the ecliptic carrier to leak through.</para>
+/// <para>Unlike <see cref="IHullTest"/> this takes an absolute position, and it is entitled to: it
+/// answers with a <em>centre</em> as well as a radius, so the height above ground is a difference
+/// taken against the same body sample the aim point, the flown prediction and the gravity term are
+/// all measured from. That is why the sample is <b>not</b> back-dated the way the air-density lookup
+/// is — moving it alone would translate the surface relative to every one of them.</para>
 /// </summary>
 internal interface IGroundTest
 {

@@ -2090,7 +2090,19 @@ should not be weakened without understanding what they buy:
 - Rounds collide with terrain only when their profile asks. `MunitionProfile.HitsTerrain` is set
   for the bomb and the reentry vehicle and nothing else, because it costs a terrain sample per
   round per frame and a CIWS burst is 150 shells in the air — so a shell still passes through a
-  hill and a missile that misses still carries on into space. Structures are not collided with at all: where a launch
+  hill and a missile that misses still carries on into space.
+
+  **How often that sample is taken is the round's own decision too.**
+  `MunitionProfile.SamplesGroundPerSubStep` re-reads it at every sub-step rather than holding it
+  for the frame, which is ten queries a frame instead of one. Off by default, and only the Mk 21
+  asks: held for a frame the round stops on the height it was over at the *top* of it, worth 21 m
+  on the 8.6° arrival it flies and 370 m over 20% ground, against about a metre re-read —
+  `docs/KINETIC-FLOOR.md` §2, **headless, unflown**. A bomb crossing 12 m of ground a frame gains
+  nothing and does not ask. The sample is deliberately **not** back-dated the way the air-density
+  lookup is: `IGroundTest` answers with a centre as well as a height, and that centre is the same
+  body sample the aim point, the prediction and gravity are all measured from.
+
+  Structures are not collided with at all: where a launch
   pad's surface is has no answer in this engine, so a bomb dropped on one bursts at ground level
   beside it.
 - The radar can mask against the real skyline, and ships not doing it.
