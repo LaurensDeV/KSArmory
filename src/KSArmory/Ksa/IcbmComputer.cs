@@ -321,16 +321,18 @@ internal sealed class IcbmComputer
                      + $" :: {Command.Hold}");
         }
 
-        // The aim stops moving when the arrival stops being free. They are one problem solved in
-        // two halves, and the second half is only solvable once the first has finished.
-        if (Program.IsBurning && double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze();
-
-        // And starts again the moment the engines do stop, because the thing that made the two
-        // halves fight is the burn: with the trajectory fixed, the arc follows the aim and the trim
-        // flies the difference. Once only, so a coast pass that genuinely settles stays settled.
-        if (!Program.IsBurning && !_resumedForCoast)
+        // The aim runs for the whole burn, where an engine is still there to fly what it asks for.
+        // It is banked at the engines stopping and reopened against the coast plant — best kept,
+        // the burn's learning discarded. Stopping it earlier banks whatever it happens to hold;
+        // docs/ARRIVAL-ANGLE.md has what that costs. Once only, so a coast pass that genuinely
+        // settles stays settled.
+        //
+        // On the phase and not on `!IsBurning`: a shot waiting for a burn window is not burning
+        // either, and this would spend itself during the hold and never run at the cutoff it is for.
+        if (Program.Phase == IcbmPhase.Coast && !_resumedForCoast)
         {
             _resumedForCoast = true;
+            _aim.Freeze();
             _aim.Resume();
         }
 
