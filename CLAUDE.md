@@ -1093,9 +1093,15 @@ So `IcbmConfig.MinArrivalAngleDeg` constrains the search instead: an arc arrivin
 infinity, and the window search's "earliest affordable departure" becomes "earliest affordable
 *satisfying* departure" with nothing else changed. **A predicate is idempotent where a multiplier is
 not**, which is why the constrained flight time can be seeded straight back in and a lofted one
-cannot. Where the two disagree the floor wins, nothing satisfying it is `IcbmReach.TooShallow`
+cannot — and why the bound is re-checked against a *latched* arrival too, where re-checking a loft
+would unlatch the shot. It has to be: pinning the arrival instant leaves the burn time and the flight
+time trading against each other inside it, the cheaper split is the longer coast, and a longer coast
+onto the same target is shallower — so a 15° floor flew **11.42°** until the held arc was made to
+satisfy it. Where the two disagree the floor wins, nothing satisfying it is `IcbmReach.TooShallow`
 rather than a silent graze, and it is **off at zero**, which is the default.
-`docs/ARRIVAL-ANGLE.md` is the whole account. **Unflown.**
+`docs/ARRIVAL-ANGLE.md` is the whole account, including what a floored shot's remaining miss actually
+is: the aim correction opening on the trajectory search rather than on a drag shortfall the steep
+arrival has abolished.
 
 **Do not compete with KSA's own warp, and do not ask the world for more than the rounds do.**
 Coming out of a warp-to-a-time is where this bites: KSA is still travelling when it reaches its

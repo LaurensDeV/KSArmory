@@ -127,6 +127,13 @@ same golden section returns the cheapest arc that *satisfies* the floor, and `Bu
 the same number into its per-departure cost turns "the earliest affordable departure" into "the
 earliest affordable departure that satisfies it" with nothing else changed.
 
+**And the bound is re-checked when the arrival latches**, which a loft could not be. Pinning the
+arrival *instant* leaves the burn time and the flight time trading against each other inside it; the
+cheaper split is the longer coast, and a longer coast onto the same target arrives shallower. So a
+15° floor flew **11.42°** until the held arc had to satisfy the bound too. Refusing it hands the
+cycle back to the constrained search, which re-commits — one transition, not a thrash, because a
+predicate is idempotent.
+
 **Why it had to be a bound rather than a second nudge.** Raising `Loft` makes leaving *now* dearer
 as well as making the arc taller, so the window search re-optimises the departure under the new cost
 and can defer to a cheap flat one instead — measured, a 556 km shot arriving at 33.9° at loft 1.0 and

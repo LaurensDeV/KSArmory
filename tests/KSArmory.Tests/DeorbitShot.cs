@@ -39,6 +39,31 @@ internal static class DeorbitShot
     /// <summary>Ground distance between two places on the mean sphere.</summary>
     public static double GroundMetres(double3 a, double3 b) => R * Vec.AngleBetween(a, b);
 
+    /// <summary>
+    /// Surface radius under a body-fixed point, with relief on it.
+    ///
+    /// <para><b>The mean sphere is the one thing a correction loop must not be measured against.</b>
+    /// <see cref="AimCorrection"/>'s only observer is <see cref="ImpactPredictor"/>, so a smooth
+    /// planet makes that observer noiseless and every extra cycle free averaging of a clean signal —
+    /// which is the shape of change this rig keeps scoring as a large win and flight keeps refusing.
+    /// The three terms are the continental relief, ranges, and the height field's own interpolation
+    /// disagreement; <c>docs/KSA-TERRAIN.md</c> has the measured figures and the 0.2985 m quantum
+    /// they are rounded onto.</para>
+    /// </summary>
+    public static double RoughGround(double3 bodyFixedCci)
+    {
+        double3 u = Vec.Unit(bodyFixedCci);
+
+        double height = 800.0 * Math.Sin(u.X * 12.0) * Math.Cos(u.Y * 9.0)
+                      + 150.0 * Math.Sin(u.Y * 130.0 + 1.7) * Math.Cos(u.Z * 110.0)
+                      +  40.0 * Math.Sin(u.X * 2100.0 + 0.4) * Math.Sin(u.Y * 1900.0 + 2.1);
+
+        return R + Math.Round(height / HeightQuantumMetres) * HeightQuantumMetres;
+    }
+
+    /// <summary>`R16_UNORM` over the 19,561 m range the height field declares.</summary>
+    public const double HeightQuantumMetres = 0.2985;
+
     /// <summary>The mean sphere, as the thing a round asks where the ground is.</summary>
     public sealed class Ball : IGroundTest
     {

@@ -73,13 +73,18 @@ internal static class BurnoutGuidance
     /// exactly right.
     /// </param>
     /// <param name="minArrivalDeg">
-    /// The shallowest arrival the shot may have. Zero is off.
+    /// The shallowest arrival the shot may have. Zero is off, and then a committed arrival is held
+    /// whatever it arrives at — which is the whole of the default path.
     ///
-    /// <para>It bounds the <em>search</em> and not the latch: a committed arrival is one instant,
-    /// and the arc through it from a cutoff point that has since moved is whatever it is. Checking
-    /// it here would unlatch a shot mid-burn, which is the failure the latch exists to prevent —
-    /// the arrival was latched off an arc that satisfied the floor, and the cutoff point moves
-    /// only by what is left of the burn.</para>
+    /// <para><b>Pinning the arrival instant does not pin the arrival angle.</b> The burn time and
+    /// the flight time trade against each other inside it, the cheaper split is the longer coast,
+    /// and a longer coast onto the same target is a shallower arrival — so a held arrival walks
+    /// straight out of the bound the search was constrained by. Measured at 3,459 km: a 10 degree
+    /// floor flown at 9.21, a 15 at 11.42, a 20 at 15.51.</para>
+    ///
+    /// <para>Refusing the held arc hands the cycle to the constrained search, which re-commits to an
+    /// arrival that satisfies the bound. Safe where re-checking a <em>loft</em> would not be: a
+    /// predicate is idempotent and a multiplier is not.</para>
     /// </param>
     public static bool TrySteer(BallisticBody body, double3 positionCci, double3 velocityCci,
                                 double3 aimNowCci, BoosterPerformance booster,
@@ -148,7 +153,8 @@ internal static class BurnoutGuidance
             {
                 solvedArc = BallisticArc.TrySolve(body, cutoffPosition, aimAtCutoff,
                                                   arrivalFromNowSeconds - timeToCutoff, out arc, longWay)
-                            && arc.LowestRadius >= body.SurfaceRadius - 1.0;
+                            && arc.LowestRadius >= body.SurfaceRadius - 1.0
+                            && (!(minArrivalDeg > 0.0) || arc.ArrivalAngleDeg >= minArrivalDeg);
 
                 heldTheArrival = solvedArc;
             }
