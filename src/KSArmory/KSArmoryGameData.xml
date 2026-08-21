@@ -492,7 +492,18 @@
       </Reaction>
       <MaxPressure Bar="7" />
       <ThermalEfficiency Value="0.95" />
-      <MinimumPulseTime Seconds="0.0054489795" />
+      <!--
+        A quarter of Core's pulse, and it buys pointing rather than thrust. KSA's attitude tracker
+        will not fire inside a dead zone of 0.5*AngleDeadband + AngleTurnaround, and the turnaround
+        is ten times the rate bit, which is one minimum impulse over the vehicle's inertia. Minimum
+        impulse is thrust x lever arm x this, so shortening it makes the quantum finer without
+        costing any peak authority.
+
+        Measured on the separated bus at Core's value: a 22.11 degree band against a nose whose
+        drift is the largest error left in the shot. The floor is 0.5*AngleDeadband, about 6.4, so
+        this cannot close it entirely.
+      -->
+      <MinimumPulseTime Seconds="0.0013622449" />
     </Combustor>
     <DeLavalNozzle Id="Nozzle">
       <ExitDiameter M="0.4" />
