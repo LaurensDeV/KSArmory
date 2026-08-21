@@ -366,6 +366,14 @@ public static class Arsenal
         FuseArmSeconds = 10f,
 
         ChargeKg = 20_000_000f,
+
+        // Fifty milliseconds rather than the shared 0.32, and it asks the world to run slower
+        // rather than shortening this round's own step. The gap between a warhead and the
+        // prediction aiming it grows at about 86 m per millisecond of frame -- the samples it is
+        // differenced against carry the planet's ecliptic motion -- and a coast at eight times runs
+        // 194 ms frames. Bought with the player's clock: the coast runs at about a quarter of the
+        // speed it otherwise would.
+        PreferredStepSeconds = 0.05f,
         HitsTerrain = true,
     };
     /// <summary>

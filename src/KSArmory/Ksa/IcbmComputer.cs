@@ -153,11 +153,10 @@ internal sealed class IcbmComputer
     private double ArrivalFromTheLastPrediction()
     {
         if (_roundsAboard <= 0) return double.NaN;
-        if (PredictedImpact is not { } hit) return double.NaN;
-
-        double left = hit.Seconds - _sincePredict;
-        return double.IsFinite(left) && left > 0.0 ? left : double.NaN;
+        return _arrivalLeft > 0.0 ? _arrivalLeft : double.NaN;
     }
+
+    private double _arrivalLeft = double.NaN;
 
     /// <summary>
     /// Whether the arrival time above is a forecast rather than a measurement.
@@ -339,6 +338,10 @@ internal sealed class IcbmComputer
         // the phase has moved past deployment, which leaves a stale count behind and puts the
         // arrival readout back to counting down to an impact nothing was going to make.
         _roundsAboard = release?.Ammo ?? 0;
+
+        // Run down on the world's own clock. Everything else the readout could be aged by stops
+        // when this computer stops predicting; the step does not.
+        if (double.IsFinite(_arrivalLeft)) _arrivalLeft -= simStep;
         MeasureRelease(release);
 
         if (!Config.Armed)
@@ -1528,6 +1531,12 @@ internal sealed class IcbmComputer
             };
 
             PredictedImpact = hit;
+
+            // Restarted, not aged. Ageing it by the interval since the last prediction freezes the
+            // readout the moment predicting stops, which is what left a timer holding at twenty or
+            // thirty seconds while the warheads landed. This is run down by the simulated step in
+            // Update instead, so it keeps counting for as long as the world does.
+            _arrivalLeft = hit.Seconds;
 
             // Measured against the *target*, not against the biased aim: the bias is the correction
             // being applied, so scoring it against itself would report a perfect shot however far

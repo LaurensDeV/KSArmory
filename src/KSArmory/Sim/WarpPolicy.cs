@@ -49,6 +49,12 @@ internal sealed class WarpPolicy
     public const double Margin = 0.6;
 
     /// <summary>
+    /// The slowest this will ever ask the world to run. One, and not by coincidence — below it the
+    /// player is waiting on the mod rather than the other way round.
+    /// </summary>
+    public const double RealTime = 1.0;
+
+    /// <summary>
     /// Steps to let pass after a request lands before judging it.
     ///
     /// <para>The step arriving on the frame a write takes effect still measures the interval
@@ -168,6 +174,13 @@ internal sealed class WarpPolicy
         // target step needs no knowledge of the frame rate. That also makes a slow frame and a
         // high warp the same problem, which to a round they are.
         double target = currentSpeed * (faithfulStep * Margin) / dtSim;
+
+        // Never below real time. A round that would rather the world ran slower than the player's
+        // own clock does not get it: the mod is a guest, and a game that crawls is a worse thing to
+        // hand somebody than a round integrated on a longer step. Where the two conflict, the round
+        // takes the coarser step and the accuracy that comes with it.
+        target = Math.Max(target, RealTime);
+
         if (!double.IsFinite(target) || target <= 0.0 || target >= currentSpeed)
         {
             return WarpDecision.Nothing;

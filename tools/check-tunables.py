@@ -81,6 +81,9 @@ EXEMPT = {
         "a boost schedule is a table, not a slider",
     "MunitionProfile.MaxFaithfulStepSeconds":
         "the integrator's own limit; WarpPolicy reads it and a player must not raise it",
+    "MunitionProfile.PreferredStepSeconds":
+        "what the round would rather the world ran at -- a property of the round, and one a player "
+        "lowering would spend their own clock rather than buy anything they can see",
     "MunitionProfile.SubStepSeconds":
         "how finely the round integrates itself -- a property of the round, and one a player "
         "lowering would cost frame time rather than buy anything they can see",

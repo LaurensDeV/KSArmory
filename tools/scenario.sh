@@ -69,8 +69,13 @@ CRAFT="${KSARMORY_SCENARIO_CRAFT:-}"
 
 # How long to wait for a verdict, and the scenario's own budget. A ballistic shot is seven minutes
 # of simulated flight and the timewarp it asks for can be refused, so its budget has to cover the
-# whole thing at one times speed -- a deadline that cuts a working shot short reports a timeout
-# for something that was going fine.
+# whole thing -- a deadline that cuts a working shot short reports a timeout for something that was
+# going fine.
+#
+# And the floor is no longer one times speed. A round may now ask the world to run *slower* than
+# real time through MunitionProfile.PreferredStepSeconds, which is how the ballistic warhead buys
+# accuracy back from the frame it is integrated across -- so seven minutes of flight can be eight
+# or more of wall clock, on top of the ascent.
 DEADLINE_SECONDS=300
 
 case "${SCENARIO%%:*}" in
@@ -83,7 +88,7 @@ case "${SCENARIO%%:*}" in
         # No save by default: the rocket is the operator's, wherever they keep it, and a scenario
         # that insists on one particular save is one that only works on one machine.
         SAVE="${KSARMORY_SCENARIO_SAVE:-}"
-        DEADLINE_SECONDS=1800
+        DEADLINE_SECONDS=3000
         ;;
     *)
         echo "usage: $0 {head-on|overhead|passing|mirv[:<lat>,<lon>[,<km>]]} [--keep] [--shots]" >&2

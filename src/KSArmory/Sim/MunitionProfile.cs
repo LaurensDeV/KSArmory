@@ -230,6 +230,27 @@ public sealed class MunitionProfile
     public float MaxFaithfulStepSeconds = (float)Interceptor.MaxFaithfulStep;
 
     /// <summary>
+    /// The step this round would <em>prefer</em> the world ran at, in seconds. Zero takes
+    /// <see cref="MaxFaithfulStepSeconds"/>.
+    ///
+    /// <para><b>Distinct from that field on purpose, because the two do opposite things.</b>
+    /// <c>MaxFaithfulStepSeconds</c> bounds an integration clamp that <em>discards</em> time, so
+    /// tightening it makes the round fall behind the world — measured at fifty kilometres. This one
+    /// reaches <c>WeaponSystems.WarpTargetStep</c> and slows the world instead, which is the only
+    /// one of the two that buys accuracy.</para>
+    ///
+    /// <para>What it buys, for a round that coasts: the gap between a round and the prediction
+    /// aiming it grows at about <b>86 m per millisecond of frame</b>, because the samples it is
+    /// differenced against carry the planet's own ecliptic motion. A ballistic coast at eight times
+    /// runs 194 ms frames; asking for less is asking the world to run slower while the round
+    /// falls.</para>
+    /// </summary>
+    public float PreferredStepSeconds;
+
+    /// <summary>The step this round would rather the world ran at, resolved against the default.</summary>
+    public double PreferredStep => PreferredStepSeconds > 0.0f ? PreferredStepSeconds : MaxFaithfulStepSeconds;
+
+    /// <summary>
     /// How finely this round integrates its own flight, in seconds. Zero takes
     /// <see cref="Interceptor.SubStep"/>.
     ///

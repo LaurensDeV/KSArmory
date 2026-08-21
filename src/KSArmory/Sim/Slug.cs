@@ -60,8 +60,8 @@ internal sealed class Slug : IProjectile
     /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
     public double FaithfulStepSeconds
         => _lastDensity > Medium.NoticeableDensity
-               ? Math.Min(Munition.MaxFaithfulStepSeconds, Medium.FaithfulStepInAir)
-               : Munition.MaxFaithfulStepSeconds;
+               ? Math.Min(Munition.PreferredStep, Medium.FaithfulStepInAir)
+               : Munition.PreferredStep;
 
     // What the round last flew through, so it can say what step it needs before the next one.
     private double _lastDensity;
