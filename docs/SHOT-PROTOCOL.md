@@ -215,13 +215,20 @@ Four things close it, and none of them rely on the operator remembering:
    where it started. During the night nothing reads the tree at all: each shot is a file copy
    followed by `scenario.sh ... --no-deploy`.
 2. **The build is byte-reproducible**, verified: a clean rebuild of the same commit gives the
-   identical `KSArmory.dll` down to the SHA-256. So the deployed DLL's hash *is* the arm's
-   identity. `shot-batch.sh` re-hashes it after every copy and refuses to launch if it is not the
-   arm it meant to fly; `shot-report.py` prints the hashes per arm and shouts if one arm flew more
-   than one binary.
-3. **Two arms that build the same binary are refused before the night starts.** It happens — a
+   identical `KSArmory.dll` down to the SHA-256, and SourceLink stamps the commit itself into
+   `AssemblyInformationalVersion`. So the deployed DLL's hash *is* the arm's identity, exactly.
+   `shot-batch.sh` re-hashes it after every copy and refuses to launch if it is not the arm it
+   meant to fly; `shot-report.py` prints the hashes per arm and shouts if one arm flew more than
+   one binary, or if two arms flew the same one.
+3. **Two arms that ship identical source are refused before the night starts.** It happens — a
    constant edited in a file the build does not reach, a ref that resolves to the baseline. Without
    the check the night runs to completion and reports a dead heat.
+
+   Compared on `src/KSArmory` between the two refs, **not** on the DLLs, which cannot answer it:
+   that same SourceLink stamp makes two arms differ by one string whatever their code says. It was
+   measured — two commits with byte-identical `src/` produced DLLs differing in exactly that one
+   string and nothing else. The property that makes the hash a perfect identity is the property
+   that stops it being a sameness test.
 4. **One batch at a time**, held with `flock`. Two batches share one mods folder, one log and one
    game process; they kill each other's runs and produce shots belonging to neither.
 
