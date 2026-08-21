@@ -65,6 +65,23 @@ prediction's epoch, the terrain sample's epoch, the air sample's epoch, the tube
 cannot see any of that. What it *can* see is control-loop arithmetic, and that is exactly the class
 it has been confidently wrong about seven times.
 
+**And there is a second reason, specific to the aim correction and now measured.** That loop's only
+observer is `ImpactPredictor`, and every rig here flew it over a **mean sphere** — so the observer is
+noiseless. A change that lets the loop run longer is then free averaging of a clean signal and cannot
+lose, which is precisely the shape five of the seven refusals had.
+`DeorbitShot.RoughGround` gives the predictor relief and the height field's own 0.2985 m quantum to
+cross, and the *shipped* configuration moves by kilometres where the smooth rig reports tens of metres:
+
+| floor off, as shipped | 2,000 km | 3,459 km | 7,645 km |
+| --- | --- | --- | --- |
+| mean sphere | 0.01 km | 0.38 km | 1.15 km |
+| with relief | **4.31 km** | 1.35 km | **3.82 km** |
+
+So a correction-loop result taken on a smooth planet is not merely unproven, it is measured against an
+instrument the real one does not have.
+`ArrivalFloorFlightTests.GroundUnderTheObserverMovesTheShippedShot` holds it, and the next attempt
+here should start rough.
+
 So the two instruments are not ranked, they are **complementary and each blind where the other is
 sharp**. The rig is the only way to price a term; flight is the only way to find out whether the
 term was the one that mattered.
@@ -116,9 +133,11 @@ that stops early, now able to act on whatever it last believed.
    that a bus with `control part NONE` and `roll Decoupled` inside a 22° dead zone rarely holds still
    long enough to be measured at all. Until a reading is reliable, authority amplifies.
 2. **The steep-arrival case, which still needs them.** `docs/ARRIVAL-ANGLE.md` records a constrained
-   shot asking the trim for eleven metres a second and being refused — and that the reason is not the
-   jets but the eight-fold price of moving an aim on a steep arc. That correction wants to happen
-   during the burn, where an engine supplies velocity, not during the coast.
+   shot asking the trim for eleven metres a second and being refused. It is **not** a price for
+   arriving steeply — at a pinned arrival a kilometre of aim costs 1.468 m/s at 20° against 2.145 at
+   3.6°, so steep is slightly cheaper. It is seven kilometres of aim error the burn handed over,
+   built by the correction out of the trajectory search's own transient on a shot that needed no
+   correction at all.
 3. **The mass declaration.** `<SolidSphereMass>` carries no `<LocationAsmb>`, so KSA puts all
    6,300 kg on the mounting face while the geometry centres near X ≈ 1.4. Every lever arm on the bus
    is set by that.
