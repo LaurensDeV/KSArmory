@@ -353,12 +353,16 @@ term that was cancelling the round's own integration error: at 1x it takes the s
 
 Four candidates for the remaining ~1.3 km, none of them measurable in a rig whose planet sits still:
 
-- **The terrain's own gain.** A round stopping past its prediction stops on ground that has itself
-  fallen away, so the residual is re-multiplied by `1/(1 - s/tan y)` — and at this 7.1-degree
-  arrival that is unbounded past about a 12% slope. Measured against a ramp of stated gradient:
-  1.13x at 2%, 1.41x at 5%, 1.80x at 8%, 2.32x at 10%. Reaching 1,700 m from 394 needs about 4.3x,
-  which the closed form puts at a ~9.6% mean slope over the last kilometres. **`RoughGround`
-  presents about 1%**, so every relief number in this file is a floor and not an estimate.
+- **The terrain's own gain — retired by the trace.** A round stopping past its prediction stops on
+  ground that has itself fallen away, so the residual is re-multiplied by `1/(1 - s/tan y)` — and at
+  this 7.1-degree arrival that is unbounded past about a 12% slope: 1.13x at 2%, 1.41x at 5%, 1.80x
+  at 8%, 2.32x at 10%. Reaching 1,700 m from 394 needs about 4.3x, or a ~9.6% mean slope.
+
+  **The flight says it is worth 4 m.** Between the last re-flight at 394 m of altitude and the
+  impact the walk moves 1,939 -> 1,943 m, and the two surfaces agree at the landing point to
+  **+0.0 m**. A gain multiplies ground distance and cannot touch a clock, so it would have raised
+  the flight's metres-per-second-of-arrival-delay above the rig's; it is 12% **below**. Whatever is
+  scaling the error is scaling the arc, not the last kilometre of it.
 - **The ground centre's ecliptic carrier**, which is item 2's own hypothesis above. Identically zero
   in every rig here, because the planet sits at the origin. `Slug` holds `_groundCentre` for the
   frame while `PositionEcl` advances at the planet's ~29.8 km/s — 1,490 m of relative drift across a
@@ -438,7 +442,7 @@ That is a behaviour change reaching every round the mod fires, and belongs in a 
   is re-multiplied by the arrival's ~8 m of ground per metre of height, and only a flight can say
   whether there is one left.
 
-### The instrument — built, unflown
+### The instrument — flown 22 August, and what it read
 
 `Ksa/WarheadTrace.cs`, behind `Config.TraceWarhead` (**Debug → Trace one warhead**, off; on for a
 `tools/scenario.sh mirv` run). It follows the **first** warhead of a designation from the tube to the
@@ -471,6 +475,97 @@ while the round's own `FaithfulStepSeconds` says it is in air, and the last 10 s
 per-frame half needs `Config.VerboseLog`; without it only the release and the impact are written,
 and no re-flight is paid for.
 
+#### The reading
+
+One flight, round 1 of six, 410.27 s, 7,840 trace lines. The other five landed 1.67-1.74 km, so the
+traced round is the group rather than an outlier.
+
+**It is the smooth shape, and it is entirely the coarse frame.** The walk starts 12 m *uprange*,
+crosses zero at t≈30 s, reaches **+2,206 m at t=249.1 s** — and stops there, because that is the
+frame the warp came off at. Through the whole 1x entry it *decays* to +1,943 m.
+
+| stretch | walk | mean frame |
+| --- | --- | --- |
+| release to 30 s | **-58 m** | 159 ms |
+| 30-100 s | +298 m | 198 ms |
+| 100-200 s | **+1,093 m** | 199 ms |
+| 200 s to the warp coming off | +672 m | 238 ms |
+| the whole 1x entry, 249-410 s | **-265 m** | 20 ms |
+
+**The rate is proportional to the frame and to nothing else.** Over t=100-250 s the frame swings
+197 -> 266 ms and `rate / frame` holds at **0.0614 m/s per ms**, ±5%. The one interval that looks
+like a step — +13.5 to +18.1 m/s at t=234 — is the frame growing to 266.7 ms, which is the same
+proportionality.
+
+**Three of the four shapes are absent.** `lag` is **0.0 ms on every one of 7,491 sampled frames** and
+`dt - step` never exceeds 0.1 ms, so the integration clamp discarded nothing and the round was never
+short of the world. Cross-track never leaves ±26 m and ends at +8 m. The two surfaces agree at the
+landing point to **+0.0 m**. Nothing steps.
+
+**The warp ran unheld for 61% of the flight, and that is `MaxFaithfulStepSeconds` working as
+written.** The Mk 21 takes the 0.32 s default, so `WarpPolicy` allowed 8x until `Slug` first read
+air at 73 km — `timewarp held at 1.0x` is logged 249 s of simulated time after release, and the walk
+stops growing on that frame.
+
+#### 394 m against 1,943 m
+
+**Three numbers get conflated and only one of them is the probe gap.** The round landed **1,675 m**
+from the aim, its own release probe landed **269 m** from the aim *uprange*, and the gap between the
+round and that probe — what `ProbeGapTests` models — is **1,943 m**. The 1.7 km everyone quotes is
+the probe gap minus the correction's own residue.
+
+**The rig's 394 m is at 133 ms, and the flight ran at 202 ms.** `DeorbitShot.ScenarioWarp x
+NominalFrame` is 8 x 1/60; the flight's unwarped frame during that stretch was ~25 ms, not 16.7, so
+8x delivered a **median 198.5 / mean 201.9 ms, peaking at 266.7**. The rig's own table is linear at
+4.15 m per ms above 67 ms, so the frame alone carries 394 -> **~680 m**.
+
+| | |
+| --- | --- |
+| flown probe gap | **1,943 m** |
+| rig at its assumed 133 ms | 394 m |
+| rig at the frame the flight actually ran | ~680 m |
+| **left over** | **~1,263 m, a factor of 2.9** |
+
+**The residual is in the arrival time as well, which is what makes it a trajectory difference.** The
+predictor's own answer for when the round arrives moves **+0.30 s** (peak +0.36 s) against the rig's
++0.054 s at 130 ms and +0.170 s at 320 ms — interpolated to 202 ms, +0.098 s. **The same 3.1x.** Two
+columns, one from ground distance and one from a clock.
+
+**And the perturbation is the same *character* as the rig's, ~3x larger.** Ground displacement per
+second of arrival delay is 7,389 m/s in the rig at 130 ms, 7,288 at 320 ms, and **6,477 in flight** —
+agreeing to 12%. Whatever scales the flight's error scales the arc, not the landing.
+
+#### What it cannot say, and the four lines that would
+
+**The trace records the round's state and the predictor's answer, and never the round's integration
+inputs** — so the flight cannot be decomposed the way `ProbeGapTests` decomposes the rig. The rig
+puts the whole frame term on the frozen gravity at 4.2 m per ms; the flight behaves like ~15. That
+is the 2.9x, and the trace watches every consequence of it and none of its causes.
+
+- **The gravity vector the round was handed.** `gravity` is a frame-level argument to `Slug.Step`
+  and is never re-read or back-dated, while density beside it is
+  (`AirDensityAt(PositionEcl, elapsed - dt)`). Log its magnitude and its angle from
+  `-Vec.Unit(positionCci)`. The suspicion it would settle is an epoch one:
+  `WeaponSystem.GravityAtRound` pairs the round's start-of-frame `PositionEcl` with
+  `body.GetPositionEcl()`, which is the end-of-frame sample — **6.0 km of ecliptic carry in the
+  lookup at a 202 ms frame**, and exactly the fault the density path back-dates away. One
+  `Log.Debug`, and the highest-value line on this list.
+- **A closed-form reference.** `Sim/Kepler.cs` propagated from the release state, differenced
+  against the round in Cci and resolved radial / along / cross. The walk compares two *predictions*;
+  nothing in it compares the round against anything, so "the round left the arc" and "the predictor
+  disagrees about where the arc goes" are one number.
+- **The sub-step count and `h`.** `steps = ceil(dt / SubStep)` capped at `MaxSubSteps`: 54 of 64 at
+  266.7 ms, so it is not clamping — but the trace cannot show that, and the cap is where the next
+  warp increase would land.
+- **Where the Sun is at release**, on the arrival's axes. Already asked for above; the trace is its
+  natural home, and it is the one candidate the flight's own shape neither confirms nor kills.
+
+Two smaller things the flight turned up. `Walk`'s `{...:+0;-0}` renders a negative zero as **`-+0`**
+— .NET prints the sign of `-0.0` and then applies the positive section's literal `+` — which made
+one line in 7,836 unparseable; harmless to read, fatal to a script. And
+`MunitionProfile.PreferredStepSeconds` claims **86 m per millisecond of frame**, which nothing here
+reproduces: the rig gives 4.2 and this flight ~15.
+
 ### Ranked, cheapest first
 
 1. **Cap the warhead's coast frame.** `MunitionProfile.MaxFaithfulStepSeconds` on the Mk 21,
@@ -484,16 +579,21 @@ and no re-flight is paid for.
    | **100 ms** | 3.6x | 60 ms | **87 m** | 138 s |
    | 50 ms | 1.8x | 30 ms | -43 m | 276 s |
 
+   **Every frame in that table is 1.5x too small.** It is `warp x DeorbitShot.NominalFrame`, a
+   hardcoded 60 fps; the flight ran the warped coast at a **median 198.5 ms**, because six warheads
+   and their effects cost ~25 ms a frame rather than 16.7. So the shipped row is 202 ms and ~680 m
+   rather than 133 ms and 394 m, and a cap bites *sooner* than the table says — 200 ms is a real
+   reduction in flight where the rig reads it as a no-op.
+
    **307 m for 76 seconds of the player's evening**, and the next 44 m costs another 138. No sign
    risk: both models converge on one answer as the step shrinks, and the round's error is monotone
    in the frame across the whole table. **Not done** — it trades against a decision `WarpPolicy`
-   made deliberately, and 307 m is inside the +/- 700 m a single batch can resolve (item 7d), so a
-   flight cannot confirm it either way. The number is here so the trade can be re-made rather than
-   re-argued.
+   made deliberately. The trace now puts the frame-driven share at ~680 m of a 1,943 m gap, so this
+   is worth more than the table claims and still not most of it.
 
-2. **Steepen the arrival**, which is the only lever on the terrain gain and is already built:
-   `IcbmConfig.MinArrivalAngleDeg`. 7.1 degrees trades 8.0 m of ground per metre of height and a
-   ~4.3x gain; 15 degrees trades 3.7 and about 1.5x. `docs/ARRIVAL-ANGLE.md` has what it costs.
+2. **Steepen the arrival** — `IcbmConfig.MinArrivalAngleDeg`, already built. **Demoted**: it is the
+   only lever on the terrain gain, and the trace prices that gain at 4 m. It still buys what a
+   residual costs on the ground, so it is a lever on the whole miss and not on this term.
 
 3. **Log where the Sun is at release**, resolved onto the arrival's axes. Costs nothing and is the
    only thing that separates the planet's own fall from every other candidate here — the term is
