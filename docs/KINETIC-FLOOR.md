@@ -133,6 +133,11 @@ Note the sphere itself is **concentric with the body**, so planetary curvature i
 slope term is left. Reducible by re-sampling per sub-step, which costs a bicubic plus the whole
 modifier stack ten times a frame per round instead of once.
 
+**Measured end to end it is smaller still**, because the table above prices the *stopping* error
+against ground the round has already reached rather than the whole flight: flown through
+`ProbeGapTests`, re-sampling per sub-step moves the impact 2 m at 50 ms and 22 m at 320 ms over
+`DeorbitShot.RoughGround`. That relief is about 1%, so read it against the first column.
+
 ---
 
 ## 3. The two fixed vertical quanta

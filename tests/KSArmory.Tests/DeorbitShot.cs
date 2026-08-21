@@ -64,6 +64,17 @@ internal static class DeorbitShot
     /// <summary>`R16_UNORM` over the 19,561 m range the height field declares.</summary>
     public const double HeightQuantumMetres = 0.2985;
 
+    /// <summary>
+    /// The same relief with the sea filled in, which is the surface a round actually stops on.
+    ///
+    /// <para><c>Ksa/GroundTest.cs</c> passes the height field through <see cref="GroundSurface"/>
+    /// and <c>Ksa/IcbmComputer.cs</c>'s <c>TerrainRadiusAt</c> does not, so the round and the
+    /// prediction of it read two different surfaces wherever the terrain is under water.
+    /// <c>docs/KSA-TERRAIN.md</c> has the measurement.</para>
+    /// </summary>
+    public static double RoughGroundAtSea(double3 bodyFixedCci)
+        => R + GroundSurface.Height(RoughGround(bodyFixedCci) - R, seaLevel: 0.0, hasSea: true);
+
     /// <summary>The mean sphere, as the thing a round asks where the ground is.</summary>
     public sealed class Ball : IGroundTest
     {
@@ -89,25 +100,92 @@ internal static class DeorbitShot
     }
 
     /// <summary>Where a warhead released from this state comes down, as a place on the ground.</summary>
-    public static double3 Land(double3 fromCci, double3 velocityCci)
+    /// <param name="terrainRadiusAt">The surface to stop on. Null is the mean sphere.</param>
+    public static double3 Land(double3 fromCci, double3 velocityCci,
+                               Func<double3, double>? terrainRadiusAt = null)
     {
         Assert.True(ImpactPredictor.TryPredict(Earth, fromCci, velocityCci, 1.0, 20_000.0,
-                                               out ImpactPredictor.Impact hit, null, null,
+                                               out ImpactPredictor.Impact hit, terrainRadiusAt, null,
                                                new ImpactPredictor.Drag(DensityAt, Warhead)));
         return hit.GroundFixedPointCci;
     }
 
     /// <summary>
+    /// <see cref="RoughGround"/> as the thing a round asks where the ground is, which is not the
+    /// question <see cref="ImpactPredictor"/> asks of the same relief.
+    ///
+    /// <para>Three of the round's own approximations live here rather than in the terrain: the
+    /// answer is a <b>sphere</b> — one centre and one radius for a whole frame — it is taken at the
+    /// round's position at the <em>top</em> of that frame while the round crosses it, and it is
+    /// clamped to the waterline. Each is a switch because each is a term, and the predictor has
+    /// none of them.</para>
+    /// </summary>
+    public sealed class Relief : IGroundTest
+    {
+        private bool _held;
+        private double3 _centre;
+        private double _radius;
+
+        /// <summary>
+        /// Flight time so far. The engine's <c>Cce</c> entry point applies the planet's current
+        /// phase for free; here the un-carry is by hand, and skipping it reads the ground the shot
+        /// started over rather than the ground under the round.
+        /// </summary>
+        public double Seconds { get; set; }
+
+        /// <summary>Clamp to the waterline, as <c>Ksa/GroundTest.cs</c> does and the predictor does not.</summary>
+        public bool Waterline { get; set; }
+
+        /// <summary>
+        /// The surface under a body-fixed point. Null is <see cref="RoughGround"/>.
+        ///
+        /// <para>Whatever it is, the round reads it through the three approximations above and
+        /// <see cref="ImpactPredictor"/> reads it directly — which is the only way to hand both
+        /// sides one surface and still have the difference be the round's.</para>
+        /// </summary>
+        public Func<double3, double>? Surface { get; init; }
+
+        /// <summary>Hold one answer for a whole frame, which is what <see cref="Slug"/> asks for.</summary>
+        public bool HoldForTheFrame { get; set; } = true;
+
+        /// <summary>Terrain lookups taken. The cost every re-sampling proposal is traded against.</summary>
+        public int Sampled { get; private set; }
+
+        /// <summary>A new frame, so a held answer is stale.</summary>
+        public void BeginFrame() => _held = false;
+
+        /// <inheritdoc />
+        public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
+        {
+            if (!_held || !HoldForTheFrame)
+            {
+                Sampled++;
+                double3 bodyFixed = Earth.UncarryCci(positionEcl, Seconds);
+
+                _centre = Vec.Zero;
+                _radius = Surface is { } surface
+                        ? surface(bodyFixed)
+                        : Waterline ? RoughGroundAtSea(bodyFixed) : RoughGround(bodyFixed);
+                _held = true;
+            }
+
+            centreEcl = _centre;
+            surfaceRadius = _radius;
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Which of the round's frame-level inputs are re-read per sub-step rather than held for the
-    /// whole frame.
+    /// whole frame, and how finely it integrates while that happens.
     ///
-    /// <para>Neither is what the game does: <c>WeaponSystem</c> samples gravity and the air's motion
-    /// once, at the round's position at the top of the frame, and <see cref="Slug"/> holds both
-    /// across every 5 ms sub-step inside it.</para>
+    /// <para>None of it is what the game does: <c>WeaponSystem</c> samples gravity and the air's
+    /// motion once, at the round's position at the top of the frame, and <see cref="Slug"/> holds
+    /// both — and the ground — across every 5 ms sub-step inside it.</para>
     ///
-    /// <para>The ground under the round is sampled the same way and has no switch here, because
-    /// this rig answers with a sphere at the origin: re-sampling it cannot change the answer. Only
-    /// a real height field makes it a term.</para>
+    /// <para>Re-reading the ground is only a term over real relief. Against <see cref="Ball"/> the
+    /// answer cannot change, which is why every budget taken on the mean sphere reports it as
+    /// nothing.</para>
     /// </summary>
     /// <param name="Gravity">Re-evaluate gravity at the round's own position each sub-step.</param>
     /// <param name="AirMotion">Re-evaluate the air's own velocity each sub-step.</param>
@@ -116,22 +194,37 @@ internal static class DeorbitShot
         /// <summary>Nothing re-read: the round exactly as the game flies it.</summary>
         public static Refresh AsFlown => new(false, false);
 
-        public bool Any => Gravity || AirMotion;
+        /// <summary>Re-sample the ground each sub-step. Needs a <see cref="Relief"/> to mean anything.</summary>
+        public bool Ground { get; init; }
+
+        /// <summary>
+        /// Integrate at this step rather than the round's own 5 ms, by handing it <c>Update</c>s
+        /// that short — <c>steps = ceil(dt / SubStep)</c> bottoms out at one, so a shorter frame
+        /// <em>is</em> a shorter sub-step. Zero leaves it alone.
+        /// </summary>
+        public double StepSeconds { get; init; }
+
+        public bool Any => Gravity || AirMotion || Ground || StepSeconds > 0.0;
+
+        /// <summary>How long each <c>Update</c> the frame is divided into may be.</summary>
+        internal double Slice => StepSeconds > 0.0 ? StepSeconds : Interceptor.SubStep;
     }
 
     /// <summary>The round as the game flies it: sub-stepped, air re-read per sub-step, ground sphere.</summary>
     /// <param name="dt">The frame the round is handed, which is what the world is warped to.</param>
     /// <param name="refresh">Which frame-level inputs to re-read per sub-step instead of holding.</param>
+    /// <param name="ground">Where the ground is. Null is the mean sphere.</param>
     public static (double3 GroundFixed, double Seconds) FlyTheRound(double3 fromCci, double3 velocityCci,
                                                                    double dt,
-                                                                   Refresh refresh = default)
+                                                                   Refresh refresh = default,
+                                                                   IGroundTest? ground = null)
     {
         BallisticBody body = Earth;
 
         Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
         {
             Munition = Warhead,
-            Ground = new Ball(),
+            Ground = ground ?? new Ball(),
             AirDensityAt = (pos, _) => DensityAt(pos),
         };
 
@@ -139,28 +232,46 @@ internal static class DeorbitShot
 
         for (int i = 0; i < (int)(20_000.0 / dt) && round.State == RoundState.Flying; i++)
         {
-            // A frame split into 5 ms Updates re-reads every frame-level input, because each of
-            // them is then one sub-step long. Holding the ones not being refreshed at the frame's
-            // own sample is what leaves the difference being one named term rather than all of them.
-            int n = refresh.Any
-                    ? Math.Max(1, (int)Math.Ceiling(dt / Interceptor.SubStep))
-                    : 1;
-
-            double3 heldGravity = body.GravityCci(round.PositionEcl);
-            double3 heldAir = body.GroundVelocityCci(round.PositionEcl);
-
-            for (int k = 0; k < n && round.State == RoundState.Flying; k++)
-            {
-                double3 gravity = refresh.Gravity ? body.GravityCci(round.PositionEcl) : heldGravity;
-                double3 air = refresh.AirMotion ? body.GroundVelocityCci(round.PositionEcl) : heldAir;
-
-                round.Update(dt / n, null, gravity, air, fromCci, Warhead,
-                             DensityAt(round.PositionEcl));
-                elapsed += dt / n;
-            }
+            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed);
         }
 
         return Arrived(body, round, elapsed);
+    }
+
+    /// <summary>
+    /// One frame of the world handed to the round, divided into as many <c>Update</c>s as the
+    /// switches ask for.
+    ///
+    /// <para>Everything not being re-read is held at the sample taken here, at the top of the
+    /// frame — which is what leaves the difference between two runs being one named term rather
+    /// than all of them at once.</para>
+    /// </summary>
+    private static double OneFrame(BallisticBody body, Slug round, double dt, double3 fromCci,
+                                   Refresh refresh, IGroundTest? ground, double elapsed)
+    {
+        int n = refresh.Any ? Math.Max(1, (int)Math.Ceiling(dt / refresh.Slice)) : 1;
+
+        double3 heldGravity = body.GravityCci(round.PositionEcl);
+        double3 heldAir = body.GroundVelocityCci(round.PositionEcl);
+
+        if (ground is Relief relief)
+        {
+            relief.HoldForTheFrame = !refresh.Ground;
+            relief.BeginFrame();
+        }
+
+        for (int k = 0; k < n && round.State == RoundState.Flying; k++)
+        {
+            double3 gravity = refresh.Gravity ? body.GravityCci(round.PositionEcl) : heldGravity;
+            double3 air = refresh.AirMotion ? body.GroundVelocityCci(round.PositionEcl) : heldAir;
+
+            if (ground is Relief r) r.Seconds = elapsed;
+
+            round.Update(dt / n, null, gravity, air, fromCci, Warhead, DensityAt(round.PositionEcl));
+            elapsed += dt / n;
+        }
+
+        return elapsed;
     }
 
     /// <summary>
@@ -199,15 +310,18 @@ internal static class DeorbitShot
     /// </para>
     /// </summary>
     /// <param name="warp">The simulation speed held during the coast.</param>
+    /// <param name="refresh">Which frame-level inputs to re-read per sub-step instead of holding.</param>
+    /// <param name="ground">Where the ground is. Null is the mean sphere.</param>
     public static (double3 GroundFixed, double Seconds) FlyTheRoundAsWarped(
-        double3 fromCci, double3 velocityCci, double warp, Refresh refresh = default)
+        double3 fromCci, double3 velocityCci, double warp, Refresh refresh = default,
+        IGroundTest? ground = null)
     {
         BallisticBody body = Earth;
 
         Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
         {
             Munition = Warhead,
-            Ground = new Ball(),
+            Ground = ground ?? new Ball(),
             AirDensityAt = (pos, _) => DensityAt(pos),
         };
 
@@ -216,22 +330,7 @@ internal static class DeorbitShot
 
         while (round.State == RoundState.Flying && elapsed < 20_000.0)
         {
-            int n = refresh.Any
-                    ? Math.Max(1, (int)Math.Ceiling(dt / Interceptor.SubStep))
-                    : 1;
-
-            double3 heldGravity = body.GravityCci(round.PositionEcl);
-            double3 heldAir = body.GroundVelocityCci(round.PositionEcl);
-
-            for (int k = 0; k < n && round.State == RoundState.Flying; k++)
-            {
-                double3 gravity = refresh.Gravity ? body.GravityCci(round.PositionEcl) : heldGravity;
-                double3 air = refresh.AirMotion ? body.GroundVelocityCci(round.PositionEcl) : heldAir;
-
-                round.Update(dt / n, null, gravity, air, fromCci, Warhead,
-                             DensityAt(round.PositionEcl));
-                elapsed += dt / n;
-            }
+            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed);
 
             // What the mod asks the world for on the next frame, capped by the speed the scenario
             // runner asks for once the salvo is away.
