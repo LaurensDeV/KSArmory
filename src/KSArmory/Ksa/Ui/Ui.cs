@@ -363,8 +363,13 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 // That row's own load, never the focused system's. The panes read whichever
                 // system is focused and a row is not it, so borrowing the focused launcher here
                 // reports one installation's magazine against another's name.
+                // How fast it is going, beside what it is holding. A row for a craft on its way
+                // down says nothing useful about its master arm -- what an observer wants to know
+                // about something falling towards them is how fast, and the arm state is the
+                // operator's own business on their own installation.
                 ImGui.TextColored(e.Policy.Armed ? Red : Grey,
-                                  $"{(e.Policy.Armed ? "ARMED" : "safe")}  {Tally(e.Battery)}");
+                                  $"{(e.Policy.Armed ? "ARMED" : "safe")}  {Tally(e.Battery)}"
+                                  + Speed(e.Battery));
             }
             else
             {
@@ -490,6 +495,27 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     }
 
     // What one system is holding, in a table cell: every armament it carries, however many that is.
+    // Airspeed against the ground under it, the way a round's is measured -- in the ecliptic every
+    // craft on the planet reads 29.8 km/s and none of them are going anywhere. Blank below walking
+    // pace, because a row for a launcher parked on its pad does not need a zero in it.
+    private static string Speed(IWeaponSystemView battery)
+    {
+        if (battery.Platform is not { } craft || !KsaWorld.IsAlive(craft)) return "";
+
+        try
+        {
+            double3 at = KsaWorld.PositionEcl(craft);
+            double3 through = KsaWorld.VelocityEcl(craft) - KsaWorld.GroundVelocityAt(craft, at);
+            double speed = Vec.Len(through);
+
+            return double.IsFinite(speed) && speed >= 1.0 ? $"   {speed:N0} m/s" : "";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
     private static string Tally(WeaponSystem battery)
     {
         WeaponFit fit = WeaponFit.Of(battery.Profile, battery.Sensor);

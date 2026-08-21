@@ -154,6 +154,7 @@ internal sealed class IcbmComputer
     // to an impact nothing was going to make, and as a predicted miss climbing past 500 km once the
     // real warheads were long down.
     private int _roundsAboard;
+    private bool _saidClearOnce;
 
     /// <summary>How far off its solution the bus still is, or NaN while nothing is trimming it.</summary>
     public double TrimToGainMetresPerSecond => _trim.Armed ? _trim.ToGainMetresPerSecond : double.NaN;
@@ -297,6 +298,11 @@ internal sealed class IcbmComputer
         // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
         // the way down through it, and they are the things that have to arrive.
         _warhead = release?.Munition;
+
+        // Read every frame, not inside DriveTrim: that returns early whenever the trim is off or
+        // the phase has moved past deployment, which leaves a stale count behind and puts the
+        // arrival readout back to counting down to an impact nothing was going to make.
+        _roundsAboard = release?.Ammo ?? 0;
         MeasureRelease(release);
 
         if (!Config.Armed)
@@ -678,6 +684,15 @@ internal sealed class IcbmComputer
             catch { radius = double.NaN; }
         }
 
+        if (!_saidClearOnce)
+        {
+            _saidClearOnce = true;
+            Log.Info($"clearance on {KsaWorld.DisplayName(Craft)}: "
+                     + $"stack {(_separatedFrom is null ? "null" : "held")}, "
+                     + $"alive {KsaWorld.IsAlive(_separatedFrom)}, "
+                     + $"apart {apart:F1} m, radius {radius:F1} m");
+        }
+
         // An unreadable stack falls back to the clock rather than to "clear": a part tree
         // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
         // case this exists to prevent.
@@ -722,14 +737,23 @@ internal sealed class IcbmComputer
             // IsAlive says so, and the clearance test reads no distance at all. Prefer whichever
             // half is actually alive.
             if (!KsaWorld.IsAlive(_separatedFrom)) _separatedFrom = WhatWasDropped();
+
+            // Said once, because two guesses at why the distance reads as unknown have both been
+            // wrong and the next step is a measurement rather than a third. Everything the
+            // clearance test depends on, at the one instant it is decided.
+            _afterSplit.Clear();
+            KsaWorld.CollectVehicles(_afterSplit);
+
+            Log.Info($"split on {KsaWorld.DisplayName(Craft)}: "
+                     + $"{(_separatedFrom is null ? "no stack captured" : KsaWorld.DisplayName(_separatedFrom))}, "
+                     + $"alive {KsaWorld.IsAlive(_separatedFrom)}, "
+                     + $"{_wasBeforeSplit.Count} vehicles before and {_afterSplit.Count} after");
         }
 
         // Armed at the split rather than at clearance, and held rather than skipped. It keeps
         // solving through the whole wait, so what the bus owes its solution is on record from the
         // moment the decoupler fired — which is the only thing that separates an error the
         // separation caused from one that grew while the vehicle coasted clear of it.
-        _roundsAboard = weapon?.Ammo ?? 0;
-
         Clearance clearance = _didSplit ? Clear(simStep) : new Clearance(true, false, "");
 
         // Given up on rather than waited out: the stack is readable and still too close, so there
