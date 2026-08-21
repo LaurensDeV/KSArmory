@@ -198,24 +198,19 @@ public class PostBoostAimTests
     }
 
     /// <summary>
-    /// And it reads the tumble rather than waiting it out — but only after holding out for the
-    /// settle, because holding costs <see cref="PostBoostAim.HoldingCostsMetresPerSecond"/> a
-    /// second.
-    ///
-    /// <para>What is at the end of the wait is a reading with an error bar rather than nothing:
-    /// the correction re-reads every cycle, so a direction that keeps moving is tracked rather
-    /// than mistaken and only the last cycle's drift reaches the release.
-    /// <c>ReleaseDirectionTests</c> prices it across the whole drift band — 1,793 m at worst
-    /// against 4,483 m for releasing on the aim the burn earned.</para>
+    /// And it gives up rather than waiting the tumble out. Holding costs
+    /// <see cref="PostBoostAim.HoldingCostsMetresPerSecond"/> a second and a bus that will not
+    /// settle has nothing to hand over at the end of the wait — a separated one is measured in
+    /// flight with a 22.11 deg pointing band and free roll angle.
     /// </summary>
     [Fact]
-    public void ABusThatWillNotHoldStillIsReadAnywayRatherThanReleasedOn()
+    public void ABusThatWillNotHoldStillStopsCorrectingRatherThanWaitingItOut()
     {
         var aim = new PostBoostAim();
         double elapsed = 0.0;
         PostBoostAim.Decision d = default;
 
-        for (; elapsed < PostBoostAim.MaxSeconds && !d.MayMeasure; elapsed += Step)
+        for (; elapsed < PostBoostAim.MaxSeconds && !d.MayRelease; elapsed += Step)
         {
             double turn = elapsed * 20.0 * Math.PI / 180.0;
 
@@ -224,55 +219,15 @@ public class PostBoostAimTests
                 directionCci: new double3(Math.Cos(turn), Math.Sin(turn), 0)));
         }
 
-        Assert.True(d.MayMeasure, "a tumbling bus never took a reading at all");
-        Assert.False(d.MayRelease, "it released instead of correcting");
-        Assert.True(aim.ReadingIsUnsteady,
-                    "it read without recording that the instrument was moving");
+        Assert.True(d.MayRelease, "a tumbling bus held its warheads for the whole backstop");
 
+        // Which rule stopped it is the point: releasing because the readings happened to stop
+        // improving is releasing on readings that never meant anything.
+        Assert.Contains("holding still", d.Said);
         Assert.True(elapsed <= PostBoostAim.SettlesWithinSeconds + PostBoostAim.SteadySeconds + Step,
-                    $"waited {elapsed:F1} s before reading, which is more than the "
-                    + $"{PostBoostAim.SettlesWithinSeconds:F0} s it is allowed to hold out for");
-    }
-
-    /// <summary>
-    /// The wait has to run on the clock, not on how often the drift happens to cross the band.
-    ///
-    /// <para>Counting only the frames the anchor is reset on measures the frame rate against the
-    /// drift rate: at 1.8 deg/s a nose crosses a 2 deg band about once a second, so a 60 fps
-    /// sequencer banks a sixtieth of a second per second and
-    /// <see cref="PostBoostAim.SettlesWithinSeconds"/> arrives after <b>eleven minutes</b> —
-    /// <see cref="PostBoostAim.MaxSeconds"/> ends the shot first, with no reading ever taken.</para>
-    ///
-    /// <para><b>A coarse step cannot see this.</b> At the half-second step the rest of this file
-    /// uses, a 20 deg/s tumble leaves the band every single frame and the two forms agree
-    /// exactly — which is why it is measured here at a frame the game actually hands out.</para>
-    /// </summary>
-    [Fact]
-    public void TheWaitForTheBusToSettleRunsOnTheClockRatherThanOnBandCrossings()
-    {
-        const double frame = 1.0 / 60.0;
-        const double ratePerSecond = 1.8;
-
-        var aim = new PostBoostAim();
-        double elapsed = 0.0;
-        PostBoostAim.Decision d = default;
-
-        for (; elapsed < PostBoostAim.MaxSeconds && !d.MayMeasure; elapsed += frame)
-        {
-            double turn = elapsed * ratePerSecond * Math.PI / 180.0;
-
-            d = aim.Update(frame, Bus(
-                trimSettled: true, 50_000.0,
-                directionCci: new double3(Math.Cos(turn), Math.Sin(turn), 0)));
-        }
-
-        Assert.True(d.MayMeasure,
-                    $"no reading in {elapsed:F0} s at {ratePerSecond:F1} deg/s — the wait is "
-                    + "counting band crossings rather than seconds");
-
-        Assert.True(elapsed <= PostBoostAim.SettlesWithinSeconds + PostBoostAim.SteadySeconds + frame,
-                    $"waited {elapsed:F1} s, which is more than the "
-                    + $"{PostBoostAim.SettlesWithinSeconds:F0} s it is allowed to hold out for");
+                    $"gave up after {elapsed:F1} s, which is more than the "
+                    + $"{PostBoostAim.SettlesWithinSeconds:F0} s it is allowed to wait");
+        Assert.Equal(0, aim.Cycles);
     }
 
     /// <summary>

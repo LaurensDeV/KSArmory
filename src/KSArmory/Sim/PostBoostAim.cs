@@ -43,16 +43,11 @@ internal readonly record struct PostBoostSituation(
 /// Re-solving that arc to the corrected aim and letting the trim null onto it is the only thing
 /// aboard that can still move the impact, and it nulls to hundredths of a metre a second.</para>
 ///
-/// <para><b>A reading is worth more off an instrument that is holding still, and there are two ways
-/// for it not to be.</b> The thrusters move the vehicle the prediction is flown from, so the trim
-/// has to be quiet. And the prediction adds the ejection kick along the bus's <em>nose</em>, so a
-/// nose that is turning moves the predicted impact with nothing about the shot having changed — see
-/// <see cref="SteadyWithinDegrees"/>, which is much the larger of the two.</para>
-///
-/// <para><b>Neither is worth refusing to read over for ever.</b> This is a loop that re-reads every
-/// cycle, so a direction that keeps moving is tracked rather than mistaken and only the last cycle's
-/// drift reaches the release — which is why <see cref="SettlesWithinSeconds"/> bounds the wait and
-/// then reads anyway, instead of releasing on the aim the burn earned.</para>
+/// <para><b>A reading is only worth taking off an instrument that is holding still, and there are
+/// two ways for it not to be.</b> The thrusters move the vehicle the prediction is flown from, so
+/// the trim has to be quiet. And the prediction adds the ejection kick along the bus's <em>nose</em>,
+/// so a nose that is turning moves the predicted impact with nothing about the shot having changed
+/// — see <see cref="SteadyWithinDegrees"/>, which is much the larger of the two.</para>
 ///
 /// <para><b>And holding is not free.</b> A warhead still aboard loses the leverage its ejection kick
 /// has along the arc at about <see cref="HoldingCostsMetresPerSecond"/>, so a cycle has to remove
@@ -130,24 +125,18 @@ internal sealed class PostBoostAim
     public const double SteadySeconds = 2.0;
 
     /// <summary>
-    /// How long to hold out for the bus to be still before reading it anyway.
+    /// How long to wait for the bus to hold still before giving up on correcting at all.
     ///
-    /// <para><b>Not waited out indefinitely</b>, because waiting costs
-    /// <see cref="HoldingCostsMetresPerSecond"/>. Ten seconds is 260 m of leverage.</para>
-    ///
-    /// <para><b>And not given up on either, which is the thing that is easy to get backwards.</b>
-    /// Past the wait the choice is not between a good reading and a bad one but between a bad
-    /// reading and none: the correction re-reads every cycle, so it <em>tracks</em> a direction that
-    /// is moving and carries only the last cycle's drift into the release. Headless on the 3,459 km
-    /// shot, swept over the rates a separated bus turns at, the worst case is <b>1,793 m</b>
-    /// reading against <b>4,483 m</b> releasing on the aim the burn earned. On any one rate the
-    /// sign can go either way — what reading removes is the floor, not the best case.</para>
+    /// <para><b>Not holding out for it</b>, because waiting costs
+    /// <see cref="HoldingCostsMetresPerSecond"/> and a bus whose nose will not settle is one whose
+    /// observer cannot be trusted — there is nothing at the end of the wait to collect. Ten seconds
+    /// is 260 m of leverage, against the 3,120 m that running <see cref="MaxSeconds"/> out on
+    /// unreadable measurements costs.</para>
     ///
     /// <para>A separated bus is measured in flight with a 22.11° pointing band, free roll angle and
     /// no elected control part, and its salvo thrown 95–119° off the platform's track across three
-    /// identical runs. Above 1°/s the nose never holds inside
-    /// <see cref="SteadyWithinDegrees"/> for <see cref="SteadySeconds"/> at all, so waiting for it
-    /// is waiting for something that cannot happen.</para>
+    /// identical runs. On this arc that band of directions is 9.8–13.5 km of predicted miss with
+    /// nothing about the shot having changed.</para>
     /// </summary>
     public const double SettlesWithinSeconds = 10.0;
 
@@ -212,15 +201,6 @@ internal sealed class PostBoostAim
     /// <summary>Whether the release direction is currently holding still enough to be read off.</summary>
     public bool Steady => _nothingTurning || _steadyFor >= SteadySeconds;
 
-    /// <summary>
-    /// Whether the passes are being run off a direction that would not hold still.
-    ///
-    /// <para>Worth saying rather than merely doing: it is the difference between a group that
-    /// missed and a group whose observer was never trustworthy, and nothing else on the panel
-    /// separates them.</para>
-    /// </summary>
-    public bool ReadingIsUnsteady { get; private set; }
-
     private enum Stage { Settling, Measuring, Finished }
 
     private Stage _stage = Stage.Settling;
@@ -265,17 +245,18 @@ internal sealed class PostBoostAim
             return new Decision(false, false, _said);
         }
 
-        // Nor off one whose nose is turning under the kick the prediction adds - while there is
-        // still any prospect of it holding still. Past that wait the reading is taken anyway: this
-        // is a loop that re-reads every cycle, so a moving direction is tracked rather than
-        // mistaken, and only one cycle's drift reaches the release.
-        if (!Steady && _unsteadyFor < SettlesWithinSeconds)
+        // Nor off one whose nose is turning under the kick the prediction adds. Given up on rather
+        // than waited out: the wait is charged at the holding rate and a bus that will not settle
+        // has nothing to hand over at the end of it.
+        if (!Steady)
         {
             _stage = Stage.Settling;
-            return new Decision(false, false, _said);
+
+            return _unsteadyFor >= SettlesWithinSeconds
+                       ? Finish($"released after {_unsteadyFor:F0} s of the bus not holding still")
+                       : new Decision(false, false, _said);
         }
 
-        ReadingIsUnsteady = !Steady;
         _stage = Stage.Measuring;
 
         // The first settle is what the guidance's own cutoff solution earned. Measuring is free from
@@ -366,18 +347,13 @@ internal sealed class PostBoostAim
         if (Vec.AngleBetween(_anchor, now) * 180.0 / Math.PI <= SteadyWithinDegrees)
         {
             _steadyFor += step;
-        }
-        else
-        {
-            _anchor = now;
-            _steadyFor = 0.0;
+            if (Steady) _unsteadyFor = 0.0;
+            return;
         }
 
-        // Every frame it is not steady, not only the ones the anchor was reset on. A bus turning
-        // slowly enough crosses the band once every few seconds, so counting crossings measures the
-        // frame rate against the drift rate and the wait never runs out at all.
-        if (Steady) _unsteadyFor = 0.0;
-        else if (waiting) _unsteadyFor += step;
+        _anchor = now;
+        _steadyFor = 0.0;
+        if (waiting) _unsteadyFor += step;
     }
 
     private Decision Finish(string why)
@@ -401,7 +377,6 @@ internal sealed class PostBoostAim
         _bestMiss = double.PositiveInfinity;
         _noImprovement = 0;
         Cycles = 0;
-        ReadingIsUnsteady = false;
         _said = "";
     }
 }
