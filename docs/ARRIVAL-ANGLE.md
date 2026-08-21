@@ -9,9 +9,10 @@ it costs, and how the guidance is told to fly one.
 the shots described here is still what the mod does out of the box. *The floor, which is what
 expresses it* is the section on how it works and what it costs.
 
-**Everything below is measured** by `tests/KSArmory.Tests/ArrivalAngleTests.cs` and
-`tests/KSArmory.Tests/ArrivalFloorTests.cs`, and nothing has been flown. `docs/ICBM-GUIDANCE.md` is
-the guidance itself; `docs/KSA-TERRAIN.md` is where the surface numbers come from.
+**Everything below is measured** by `tests/KSArmory.Tests/ArrivalAngleTests.cs`,
+`ArrivalFloorTests.cs` — the search — and `ArrivalFloorFlightTests.cs`, which flies the whole program
+at a floor. Only the two shots under *Flown* have left the ground. `docs/ICBM-GUIDANCE.md` is the
+guidance itself; `docs/KSA-TERRAIN.md` is where the surface numbers come from.
 
 **What the rig cannot see.** The planet sits at the origin and does not move, which is the one case
 where a frame carrier is identically zero — so nothing here can measure an epoch fault, including the
@@ -337,11 +338,23 @@ arc arrives at 17 deg"*.
 
 ### What the floor is still not
 
-- **It does not constrain a latched arrival.** Once closed-loop guidance commits the arrival
-  instant, the arc through that instant from a cutoff point that has since moved is whatever it is.
-  Re-checking it there would unlatch a shot mid-burn, which is the failure the latch exists to
-  prevent. The arrival was latched off an arc that satisfied the floor and the cutoff point moves
-  only by what is left of the burn, so the drift is bounded and unmeasured.
+- **It now constrains a latched arrival too, and the drift it was assumed to bound was not bounded.**
+  Pinning the arrival *instant* leaves the burn time and the flight time free to trade against each
+  other inside it; the cheaper split is the longer coast, and a longer coast onto the same target is
+  a shallower arrival. Measured at 3,459 km, the flown arc against the floor asked for:
+
+  | floor | flown, before | flown, now |
+  | --- | --- | --- |
+  | 10° | **9.21°** | 11.07° |
+  | 15° | **11.42°** | 20.36° |
+  | 20° | **15.51°** | 26.94° |
+
+  So the operator was handed the arrival they had refused — a fifth of the sensitivity benefit at
+  15°, which is the whole reason the control exists. `BurnoutGuidance.TrySteer` now refuses a held
+  arc under the bound, which hands the cycle back to the constrained search and re-commits to an
+  arrival that satisfies it. **Gated on the bound being set**, so nothing on the default path can
+  reach it; `ArrivalFloorFlightTests.AHeldArrivalIsHeldWhateverItArrivesAtWhenNoFloorIsSet` is where
+  that is decided rather than in a downstream miss. Unflown.
 - **It does not know about propellant.** A floor that turns a 150 m/s deorbit into a 3.5 km/s one is
   accepted by the search and then reported as `ShortOfPropellant` by `AssessReach`, which is the
   right division of labour and still two readouts to look at rather than one.
@@ -445,37 +458,88 @@ runaway, and the trim declines entirely — the lateral jets added for exactly t
 **What it is not.** Not authority: the jets were never asked. Not the separation: 0.01 m/s. Not the
 burn: 0.01 m/s short of its own solution.
 
-**A better explanation, and it is not a bug.** Lambert to a fixed point and a fixed time is unique,
-so re-solving to the committed arrival should reproduce the arc the burn flew — unless the *aim* has
-moved, which during the coast is exactly what the post-boost correction does.
 
-And the cost of moving it is the whole point of flying steep, read backwards. The sensitivity table
-above says the impact moves **5,614 m per m/s at 7.5° and 686 m per m/s at 20°**; inverted, shifting
-the impact one kilometre costs **0.18 m/s shallow and 1.46 m/s steep**. Eight times dearer. The
-correction opened on about seven kilometres of error, which is a metre a second's worth of aim change
-on the arc the mod usually flies and **seven or more on a constrained one** — and the rest of the
-eleven is the same factor applied to everything else it wanted.
+### It is the aim correction, and it is not a price
 
-So the two properties are one property: a steep arrival is eight times less sensitive to a velocity
-error *and* eight times more expensive to correct after cutoff. The trim was sized for the shallow
-case and inherits none of the benefit.
+Both explanations written down when this was first flown are wrong, and each was checked.
 
-**Which points the fix somewhere else entirely.** The correction wants to happen where velocity is
-cheap, and that is *during the burn*, where an engine supplies it — not during the coast, where a
-handful of attitude jets do. The delivery on these two shots was superb (0.00 km of spread, cut off
-0.01 m/s short); what failed was applying a correction after the only cheap source of velocity had
-been switched off. Relaxing `MaxMetresPerSecond` would buy the correction at eight times the price
-while re-opening the runaway it guards.
+**Not the coast re-solve.** `IcbmProgram.ResolveCoastArc` goes through `BallisticArc.TrySolve`, which
+takes no floor — because there is none to take: the bound lives in the search over flight *time*, and
+Lambert between two points in a stated time is unique. Solving one cutoff state both ways and
+differencing the required velocities gives **0.0 m/s** at every floor from 10° to 20°.
 
-**The earlier suspicion, and why it is probably wrong.** `IcbmProgram.ResolveCoastArc` re-solves through `BallisticArc.TrySolve`
-to the committed arrival and passes **no floor**, where the burn solved with one. If the constrained
-and unconstrained arcs to that same arrival differ, the coast correction is trying to fly the bus
-from the steep solution it just burned onto a shallow one, and eleven metres a second is what that
-costs. The satisfying flight times are known not to form one interval, which gives the two searches
-room to disagree.
+**And not the arrival angle.** `dMiss/dV` in the table above is measured with the trajectory
+*free*, which is a different question from what a coast correction faces: `ResolveCoastArc` pins the
+arrival, and at a pinned arrival one kilometre of aim costs **2.145 m/s at 3.6° and 1.468 at 20°** —
+slightly *cheaper* the steeper it comes in. So the trim inherits the benefit rather than paying eight
+times for it, and eleven metres a second is about seven kilometres of aim at the ordinary rate.
 
-**Why it is only written down.** The floor defaults to off, so nothing shipped is affected; the fix
-is a guidance interaction rather than a constant; and the guard it trips is the one standing between
-this loop and a measured 139 m/s runaway. Widening it to admit a legitimate eleven would admit that
-too. **The next step is to establish whether the two solves actually disagree**, headlessly — solve
-one cutoff state both ways and difference the required velocities — rather than to relax anything.
+**Those seven kilometres are the aim correction's, and the shot never needed them.** The loop exists
+to remove the drag shortfall between the point the arc was solved to and where a warhead flying it
+lands, and that is exactly what a steep arrival abolishes — 22 km on the graze, **0.11 km** at
+fifteen degrees, which is this page's own prediction arriving. Flown headlessly at 3,459 km with a
+15° floor: **0.003 km uncorrected against 9.98 km corrected**, on a shot whose burn ends 0.01 m/s
+short of its own solution.
+
+**What it opens on instead is the trajectory search.** The instant the guidance expects to cut off at
+is revised by under a second per cycle with no floor set, and by **145 seconds** under one. Per
+prediction cycle at 3,459 km, 15° floor:
+
+```
+t      flight   arrival   cutoff revised   shortfall   bias    reported miss
+2.00   602 s    46.04°           --         10.90 km   0.00 km   10.90 km
+2.51   335 s    15.00°       144.80 s       24.70 km   2.72 km   21.97 km
+3.03   360 s    15.00°         2.23 s       12.99 km   8.22 km    4.77 km   <- banked as the best
+3.55   398 s    11.54°        43.92 s        0.22 km   8.22 km    8.43 km   <- arrival latched, aim frozen
+4.07   397 s    11.51°         0.06 s        0.11 km   8.22 km    8.32 km
+```
+
+The first three readings are of three different shots. By the fourth the search has settled and the
+thing being corrected has gone — and 8.22 km of bias, built to cancel a 12.99 km shortfall that no
+longer exists, is frozen onto a shot that needed nothing. `AimCorrection.IsSteady` is a step-size
+test, so a small step between two large ones reads as convergence; that commits the arrival, and the
+freeze follows it.
+
+With no floor the same trace opens on a shortfall of 22.75 km that is still 21.96 km six cycles
+later. That is a real, steady, physical quantity, and the loop converges on it in four cycles. **The
+loop is not unstable and its gain is not wrong. Its signal goes to nothing under a floor while its
+noise does not.**
+
+### What is not being done about it, and why
+
+Two changes fix it headlessly and neither is shipped.
+
+| | 2,000 km | 3,459 km | 5,000 km | 7,645 km |
+| --- | --- | --- | --- | --- |
+| shipped, floor 15° | 0.06 | **9.98** | **10.49** | 0.52 |
+| correction off | 0.10 | 0.00 | 0.56 | 0.47 |
+| correction run to cutoff | 0.02 | 0.28 | 0.11 | 0.09 |
+| shipped, floor off | 0.01 | 0.38 | 1.16 | 1.15 |
+| correction off, floor off | 0.01 | **19.56** | **64.48** | **186.13** |
+
+Letting the loop run to cutoff wins **all twenty** cells of that sweep, worst case 0.56 km against
+20.83. It is also exactly the change `docs/MIRV-NEXT.md` item -1 records being flown eleven times and
+losing — 1.29 km median against 0.85, with three shots past 5 km. Turning the correction off under a
+floor scores nearly as well and is a switch rather than a fix; the bottom row is why it cannot simply
+be removed.
+
+**And the rig has a new reason to be disbelieved here, which is the durable finding.** The
+correction's only observer is `ImpactPredictor`, and every headless rig flies it over a **mean
+sphere** — so the observer is noiseless, and any change that lets the loop run longer is free
+averaging of a clean signal. `DeorbitShot.RoughGround` gives the predictor relief and the height
+field's own quantum to cross, and the *shipped* configuration with the floor off moves by kilometres
+at ranges where the smooth rig reports tens of metres:
+
+| floor off, as shipped | 2,000 km | 3,459 km | 7,645 km |
+| --- | --- | --- | --- |
+| mean sphere | 0.01 km | 0.38 km | 1.15 km |
+| with relief | **4.31 km** | 1.35 km | **3.82 km** |
+
+Five of the seven refused changes made the loop act more on its own prediction. That is the shape of
+change a smooth planet cannot price, and `ArrivalFloorFlightTests.GroundUnderTheObserverMovesTheShippedShot`
+is there so the next attempt starts from a rig that can see it.
+
+**So the floor half is fixed and the correction half is only written down.** What ships is the bound
+surviving the latch — gated on the bound, unreachable by default. Anything touching the correction
+wants flights, and `docs/MIRV-NEXT.md` item 7d says six of them settle a change worth a kilometre and
+settle nothing worth two hundred metres.
