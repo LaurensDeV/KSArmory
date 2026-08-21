@@ -208,6 +208,8 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/run.sh --attach                    # follow a game that's already running
 ./tools/scenario.sh head-on                # fly one engagement unattended and report pass/fail
 ./tools/scenario.sh mirv                   # ...or the whole ballistic shot, and score the group
+./tools/shot-batch.sh --arms base=dev,x=arm/x --blocks 12   # fly a night of them, interleaved
+./tools/shot-report.py ~/shots/<night>     # ...and say what it settled -- read SHOT-PROTOCOL.md
 ./tools/ksa-user-dir.sh                    # where KSA keeps Logs/, mods/ and saves on this box
 ./tools/setup-starmap.sh                   # one-off: install StarMap and write its config
 ./tools/check-assemblies.sh --game         # has the installed game moved past the lock?
@@ -427,6 +429,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/ICBM-GUIDANCE.md` | **the ballistic computer** — the algorithm, the frames, the cutoff, and what has not been flown |
 | `docs/MIRV-NEXT.md` | **the backlog for the bus** — what separation costs, and what has to happen before re-pointing pays |
+| `docs/SHOT-PROTOCOL.md` | **how to spend a night of shots** — how many a difference costs, why the baseline is re-flown all night, and the rule that says when to stop |
 | `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why seven degrees is the air's answer rather than the guidance's, and the control that asks for another |
 | `docs/KINETIC-FLOOR.md` | **how accurate a round could possibly be** — the terms no amount of guidance work removes, and why the arrival angle is the whole lever |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
@@ -455,6 +458,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
+| `tools/shot-batch.sh` | a night of ballistic shots, **arms interleaved and every arm built before the first one flies** — so nothing done to the tree overnight can reach a shot in flight |
+| `tools/shot-report.py` | what that night settled — the rank test, the effect with its interval, and the arms to stop flying |
 | `tools/sounds.py` | synthesises the explosion samples, and the fallback cannon behind `--synth-cannon` |
 | `tools/cut-cannon.py` | cuts a gunfire recording into spin-up, loop and tail, on measured envelope boundaries |
 | `tools/audio/` | the CC0 Phalanx recording the cannon is cut from, and its provenance |
