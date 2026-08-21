@@ -40,6 +40,116 @@ Two failures on the way, both worth not repeating:
 - **Nulling the shove ends the separation**, because the shove *is* the separation velocity. The bus
   trimmed 130 ms after the split at 12 m and then sat against the booster it had just dropped.
 
+## -2. Ten from ten is not chance, and the correction is not what does it
+
+**Ten changes flown in one session, every one argued and measured beforehand, every one refused.**
+Item -1a explains three and item -1 explains the shape of the rest. What follows is what those two
+do *not* cover, and it changes where the next flight should be pointed.
+
+The obvious suspect is the aim correction — a loop that converges the predictor onto the target
+will absorb whatever it can see, so a physics fix might be re-expressed as bias rather than as
+accuracy. **It is not that**, and the reason is structural rather than measured.
+
+### The correction cannot see the round, so a round-only fix arrives undamped
+
+`_aim.Observe(hit.GroundFixedPointCci, _trueAimCci)` is the only observation, and `hit` comes from
+`ImpactPredictor.TryPredict` flown from `Program.CutoffPositionCci`, `Arc.RequiredVelocityCci`,
+`ReleaseOffsetCci()` and `ReleaseImpulseCci()`. **No `Slug` appears anywhere on that path.** So for
+a change confined to the round's own flight model, the bias, the trajectory, the arrival latch and
+the release sequence are all unchanged, and
+
+```
+Δmiss = G × Δgap                 gap = round − its own predictor
+```
+
+The loop is a **subtractor**, not an absorber: it removes everything the predictor can see and
+leaves exactly `gap` on the ground. That is why item 2's whole decomposition is the right frame for
+six of the ten — the star's gravity, the per-sub-step gravity, the 1 ms sub-step, the capped
+faithful step, the shorter coast frame and the force-sample phase are all round-only.
+
+**So the hypothesis to abandon is that the correction converts improvements into regressions.** It
+converts them into `G × Δgap`, and `G` is the term nobody has measured.
+
+### `G` is singular at this arrival angle, and past the singularity it is negative
+
+`docs/KINETIC-FLOOR.md` §5 has the gain as `s / tan(gamma)` with the amplification
+`1/(1 − s/tan gamma)`. At the flown **7.1 degrees**, `tan gamma` is 0.1246 — so a downrange ground
+slope of **12.5%** is a pole, and anything steeper inverts the sign: moving the arc further
+downrange moves the *impact* uprange. That file already says there is no fixed point at gain one or
+above, and that `EarthErosion` allows per-octave slopes to **0.30**, and that what the product
+actually is "needs the game".
+
+That un-measured number multiplies every headless prediction in this file. Three of its
+consequences fit the flown record better than anything else on the list:
+
+- **The sign is not predictable**, so a correct fix losing is the expected outcome rather than a
+  surprise.
+- **The magnitude is not bounded**, which is how 200-700 m of priced improvement comes back as
+  1-3 km of flown regression.
+- **It is re-drawn wherever the round happens to land**, which is a per-shot lottery and fits the
+  run-to-run scatter without needing the loop to explain it.
+
+The drag term scales the same way and is worse: `docs/ARRIVAL-ANGLE.md` prices a ten per cent
+drag-model error at **1.8 km** at 7.5 degrees against **77 m** at 15 — a factor of 62 — and a
+drag-model disagreement is precisely what `gap` is made of.
+
+### For the four loop-touching changes, the baseline is a selected survivor
+
+Item 9 measures the frozen residue at **760 m** of an 850 m median, and the same flight with
+`Freeze()` never called lands the group at **18 m**. Item 7 measures the loop's plant as its own
+output history — two runs from an identical save, at the same 28.6 km of bias, predicted 54.3 km
+and 0.06 km. So the residue is path-dependent, and the observer gate, the burn convergence, the
+arrival floor and the lateral jets all re-draw it.
+
+**The shipped build is not a random draw from that distribution — it is the survivor of roughly ten
+previous accept/reject decisions**, each taken on six shots. It was therefore selected for a low
+draw, and a re-draw loses in expectation whatever the change was worth. That is the winner's curse,
+and it produces ten from ten without any of the ten being wrong.
+
+### Two harness confounds, both of which change the physics under test
+
+- **The coast speed depends on whether the magazine emptied.** `BallisticScenario.WarpTheCoast` is
+  called only from the `ammo <= 0` branch, so a shot that holds a warhead back coasts at **1x** and
+  one that empties coasts at **8x**. Item 2's table puts `gap` at **−73 m** and **+394 m**
+  respectively — *the term under test changes sign with an unrelated outcome.*
+- **The 0.01x pick-up pin has no `else`.** It is asked for only when `KsaWorld.IsPaused`, so a world
+  already running gets no pin at all, and the only thing separating the two cases in the log is the
+  presence of `the world was paused; asked for 0.01x`. Item 7d prices a different pick-up at
+  **164 km**.
+
+And the miss the harness reports is a **3-D Euclidean distance** (`BallisticScenario.MissFromAim`),
+so it is unsigned: short, long and cross-track are one number, and a gain inversion is invisible in
+it. The decomposition exists only in `Ksa/WarheadTrace.cs`, which reports the walk downrange and
+cross-track — and which `ScenarioRunner` already switches on for every `mirv` run.
+
+### What would settle it
+
+**The trace has never been read.** It is on by default in the scenario and verbose logging is forced
+on with it, so `gap` and the surfaces are already being written to
+`<KSA user dir>/Logs/KSArmory.log` on every run — `release probe:`, `warhead trace: probe from the
+round's own state`, the per-cycle `walk from the release probe M m (+D down, +C cross)`, and the
+impact line against both the aim and the probe. Reading one existing log separates `gap` from `G`
+before anything is flown.
+
+Then a 2x2, six shots a cell, at one aim point:
+
+| | shipped | + `Arsenal.ReentryVehicleMk21.PreferredStepSeconds = 0.05f` |
+| --- | --- | --- |
+| **shipped** | the baseline draw | the known failure, replicated |
+| **`AimCorrection.MaxMetres = 0.0`** | the noise floor with no loop in it | does raw accuracy track the physics? |
+
+`MaxMetres = 0` is a clean total ablation — `Vec.ClampLength(v, 0)` returns zero, `Apply`
+degenerates to the identity, and the post-boost loop goes with it because the bias is its actuator.
+It costs 17 headless tests, all of them assertions about a loop that is no longer there.
+`PreferredStepSeconds` is a one-line restore of what `631f0ac` removed: round-only, and priced at
+about 675 m of `gap` off item 2's frame table.
+
+**The reading that matters is whether `Δmiss` is the same in both correction arms.** Equal says the
+loop is blind to the round and the residue is `G`; unequal says the loop is re-expressing the fix
+after all. Either way the scatter of the ablated arm is the first honest noise floor this shot has
+had, and a sea aim point — where `GroundSurface.Height` clamps both surfaces to sea level and `G` is
+one by construction — is the control that prices `G` directly.
+
 ## -1a. The round and its predictor must agree — being right alone is worth nothing
 
 `KsaWorld.GravityAt` gives a round only its parent body's pull, and Ecl is heliocentric — so the
