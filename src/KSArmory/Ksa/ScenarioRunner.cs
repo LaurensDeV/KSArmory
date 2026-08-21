@@ -147,6 +147,11 @@ internal sealed class ScenarioRunner
         }
 
         _ballistic = new BallisticScenario(shot, line => Report($"{_name}: {line}"));
+
+        // Nobody is watching a scripted shot and there is no second chance to ask for the numbers,
+        // which is the same reason BallisticScenario turns verbose logging on. Off everywhere else.
+        _config.TraceWarhead = true;
+
         _budget = BallisticBudgetSeconds;
         _phase = Phase.LoadingSave;
         Report($"{_name}: START {shot.Describe()} save='{_save}'");

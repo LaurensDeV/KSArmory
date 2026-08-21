@@ -235,6 +235,22 @@ internal sealed partial class Ui
         }
         ImGui.TextDisabled("  -> Logs/KSArmory.log");
 
+        ImGui.Checkbox("Trace one warhead", ref _config.TraceWarhead);
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Measurement. Follows the first warhead of the next shot all the way\n"
+                             + "down, beside the impact prediction re-flown from wherever it has\n"
+                             + "got to. A prediction that walks away smoothly and one that jumps\n"
+                             + "have different causes -- that is what this separates.\n\n"
+                             + "Wants Verbose log for the per-frame half; without it only the\n"
+                             + "release and the impact are written.");
+        }
+        ImGui.TextDisabled(_config.TraceWarhead
+                               ? (_config.VerboseLog
+                                      ? "  on -- release, every few seconds, and impact"
+                                      : "  on -- release and impact only; tick Verbose log for the rest")
+                               : "  off");
+
         // A diagnostic about the render rate rather than a state of any weapon: it means the
         // frames are outrunning the simulation clock, which is what explains stuttering round
         // bodies. Reads the selected system, so it needs one.
