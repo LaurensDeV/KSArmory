@@ -97,6 +97,29 @@ roughly +/- 700 m with a tail to 3.4 km, so six shots settle a change worth a ki
 nothing worth two hundred metres. Several of the reverted changes were priced below that line and
 could never have been confirmed either way.
 
+## -0b. Capping the warhead's faithful step — flown, catastrophic, reverted
+
+`MunitionProfile.MaxFaithfulStepSeconds` on the Mk 21, 0.32 -> 0.10, to shorten the coast frame the
+round is integrated across. Priced headlessly at **394 m -> 87 m** through the real `WarpPolicy`.
+
+Flown four times: **48.38 / 52.79 / 48.08 / 59.58 km.** Reverted.
+
+**It is the integration clamp, not only the warp target**, and the two do opposite things. That field
+feeds `WeaponSystems.FaithfulStep`, whose own remarks say it plainly: *"It bounds a clamp that
+discards time, so tightening it does not slow anything down — it makes the round fall behind the
+world."* Every coast step longer than the cap had its excess thrown away, and fifty kilometres is
+what four hundred seconds of that costs.
+
+**The same confusion cost 164 km earlier the same day**, from the other direction — feeding
+`WarpTargetStep`'s question to `FaithfulStep`'s consumer. Twice now, so it is worth stating as a
+rule: **`FaithfulStep` is how short a step the round can still integrate, and tightening it drops
+time on the floor. `WarpTargetStep` is how short a step the round would prefer, and tightening it
+slows the world.** Only the second buys accuracy. They are two questions with one shape and the
+answer to one is never the answer to the other.
+
+The headless price was not wrong about the flight model; it simply did not model the clamp, because
+the rig integrates whatever step it is handed.
+
 ## 0a. A quieter ejection kick — flown, and it takes the tail off
 
 `MunitionProfile.LaunchSpeed` on the Mk 21, 2 m/s -> **0.5**. Flown six times against the sixteen-shot

@@ -135,7 +135,20 @@ internal sealed class IcbmComputer
     public double SecondsToArrival
         => Program.IsBurning || Program.Phase == IcbmPhase.Holding
                ? Program.SecondsToArrival
-               : _roundsAboard > 0 ? PredictedImpact?.Seconds ?? double.NaN : double.NaN;
+               : ArrivalFromTheLastPrediction();
+
+    // Aged by the time since the prediction was made, which is what makes it a countdown rather
+    // than a snapshot. ImpactPredictor answers "this many seconds from the state it was given", and
+    // that state is up to PredictIntervalSeconds old -- so read raw it sits still between solves and
+    // freezes at whatever it last said if solving stops, which is a timer that never reaches zero.
+    private double ArrivalFromTheLastPrediction()
+    {
+        if (_roundsAboard <= 0) return double.NaN;
+        if (PredictedImpact is not { } hit) return double.NaN;
+
+        double left = hit.Seconds - _sincePredict;
+        return double.IsFinite(left) && left > 0.0 ? left : double.NaN;
+    }
 
     /// <summary>
     /// Whether the arrival time above is a forecast rather than a measurement.
