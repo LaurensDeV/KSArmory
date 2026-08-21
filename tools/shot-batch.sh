@@ -139,15 +139,26 @@ else
 
     restore_tree
 
-    # Two arms with one binary is not a comparison. It happens: a constant edited in a file the
+    # Two arms with one behaviour is not a comparison. It happens: a constant edited in a file the
     # build does not reach, a revert that reverted more than it meant to, an arm ref that resolved
     # to the same commit as the baseline. The night would run to completion and report a dead heat.
-    dupes="$(tail -n +2 "$ARMS_TSV" | cut -f4 | sort | uniq -d)"
-    if [[ -n "$dupes" ]]; then
-        echo "error: two arms built the same binary -- they would fly as one arm:" >&2
-        tail -n +2 "$ARMS_TSV" | grep -F "$dupes" | cut -f1,4 | sed 's/^/       /' >&2
-        exit 1
-    fi
+    #
+    # Compared on the source, because the DLLs cannot answer it: SourceLink stamps the commit into
+    # AssemblyInformationalVersion, so two arms always differ by that one string whatever their
+    # code says. That stamp is what makes the DLL hash an exact arm identity below, and it is
+    # exactly why the hash cannot also be the sameness test.
+    mapfile -t ARM_NAMES < <(tail -n +2 "$ARMS_TSV" | cut -f1)
+    mapfile -t ARM_SHAS  < <(tail -n +2 "$ARMS_TSV" | cut -f3)
+    for (( i = 0; i < ${#ARM_SHAS[@]}; i++ )); do
+        for (( j = i + 1; j < ${#ARM_SHAS[@]}; j++ )); do
+            if git -C "$REPO_ROOT" diff --quiet \
+                   "${ARM_SHAS[i]}" "${ARM_SHAS[j]}" -- src/KSArmory; then
+                echo "error: arms '${ARM_NAMES[i]}' and '${ARM_NAMES[j]}' ship identical source --" >&2
+                echo "       they would fly as one arm." >&2
+                exit 1
+            fi
+        done
+    done
 
     # Randomised within each block rather than a fixed rotation. A fixed order confounds the arm
     # with its position in the block, and position is not nothing: the first game launched after
@@ -175,7 +186,7 @@ PY
         printf 'seed\t%s\n'    "$SEED"
         printf 'blocks\t%s\n'  "$BLOCKS"
         printf 'base\t%s\n'    "$STARTED_ON"
-        printf 'ksa\t%s\n'     "$(grep -oE '^build[[:space:]]*=.*' "$REPO_ROOT/ksa-assemblies.lock" | head -1)"
+        printf 'ksa\t%s\n'     "$(grep -oE '^build[[:space:]]+\S+' "$REPO_ROOT/ksa-assemblies.lock" | head -1)"
         printf 'craft\t%s\n'   "${KSARMORY_SCENARIO_CRAFT:-<settings.toml>}"
         printf 'save\t%s\n'    "${KSARMORY_SCENARIO_SAVE:-<none>}"
     } > "$OUT/batch.tsv"
