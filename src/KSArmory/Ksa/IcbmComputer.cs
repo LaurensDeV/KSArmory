@@ -152,7 +152,6 @@ internal sealed class IcbmComputer
     // freezes at whatever it last said if solving stops, which is a timer that never reaches zero.
     private double ArrivalFromTheLastPrediction()
     {
-        if (_roundsAboard <= 0) return double.NaN;
         return _arrivalLeft > 0.0 ? _arrivalLeft : double.NaN;
     }
 
@@ -174,7 +173,7 @@ internal sealed class IcbmComputer
     // not exist -- the bus follows a similar arc and never goes off. Seen as a readout counting down
     // to an impact nothing was going to make, and as a predicted miss climbing past 500 km once the
     // real warheads were long down.
-    private int _roundsAboard;
+    private bool _salvoAway;
     private bool _saidClearOnce;
 
     /// <summary>How far off its solution the bus still is, or NaN while nothing is trimming it.</summary>
@@ -337,7 +336,12 @@ internal sealed class IcbmComputer
         // Read every frame, not inside DriveTrim: that returns early whenever the trim is off or
         // the phase has moved past deployment, which leaves a stale count behind and puts the
         // arrival readout back to counting down to an impact nothing was going to make.
-        _roundsAboard = release?.Ammo ?? 0;
+        // Whether anything is already flying, which is the only thing that actually changes when a
+        // warhead leaves. Neither Ammo nor TubesReadyToFire does: a warhead goes through the
+        // deployment path rather than the magazine's fire path, so both still read six with the
+        // salvo long gone -- which left this readout counting down to the *bus's* own impact, about
+        // half a minute after the warheads it dropped.
+        _salvoAway = release is IRoundsInFlight flying && flying.Rounds.Count > 0;
 
         // Run down on the world's own clock. Everything else the readout could be aged by stops
         // when this computer stops predicting; the step does not.
@@ -1028,6 +1032,14 @@ internal sealed class IcbmComputer
                   + $"{Vec.AngleBetween(impulse, velocityCci) * 180.0 / Math.PI:F0} deg from the "
                   + $"platform's track, {Vec.Len(ReleaseOffsetCci()):F1} m off the orbit position";
 
+            // The warheads' own ETA, latched here and never rewritten. This probe is flown from the
+            // state a warhead actually left in, so it is the one honest arrival time there is --
+            // and after this instant Predict is flying the *bus*, which coasts on to its own impact
+            // about half a minute later. Letting that overwrite the readout is what made a correct
+            // countdown reach zero as the warheads landed and then jump back to twenty seconds.
+            _arrivalLeft = hit.Seconds;
+            _salvoAway = true;
+
             Log.Info($"release probe: predicted from the release state -> "
                       + $"{parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}, "
                       + $"{miss / 1000.0:F1} km from the target, {hit.Seconds:F0} s of flight{thrown}");
@@ -1536,7 +1548,7 @@ internal sealed class IcbmComputer
             // readout the moment predicting stops, which is what left a timer holding at twenty or
             // thirty seconds while the warheads landed. This is run down by the simulated step in
             // Update instead, so it keeps counting for as long as the world does.
-            _arrivalLeft = hit.Seconds;
+            if (!_salvoAway) _arrivalLeft = hit.Seconds;
 
             // Measured against the *target*, not against the biased aim: the bias is the correction
             // being applied, so scoring it against itself would report a perfect shot however far
