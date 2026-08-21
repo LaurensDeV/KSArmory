@@ -213,11 +213,23 @@ cp -f "$USER_DIR/settings.toml" "$OUT/settings.toml.before" 2>/dev/null || true
 SCENARIO_ARG="mirv:$AIM"
 [[ -n "$BAR" ]] && SCENARIO_ARG="$SCENARIO_ARG,$BAR"
 
+# Read once, into memory. A dropped arm cannot be taken out of the file the loop is reading:
+# `mv` replaces the inode while the loop's redirect still holds the old one, so the drop would
+# apply to nothing and every dead arm would fly its full share anyway.
+mapfile -t PLAN_ROWS < "$PLAN"
+DROPPED=""
+
 flown=0
-while IFS=$'\t' read -r n block arm; do
+at=0
+while (( at < ${#PLAN_ROWS[@]} )); do
+    row="${PLAN_ROWS[at]}"
+    at=$(( at + 1 ))
+    IFS=$'\t' read -r n block arm <<< "$row"
+
     # Resume skips what is already recorded, so an interrupted night carries on rather than
     # re-flying shots whose logs are already on disk.
     if cut -f1 "$SHOTS_TSV" | grep -qx "$n"; then continue; fi
+    if [[ " $DROPPED " == *" $arm "* ]]; then continue; fi
 
     want="$(awk -F'\t' -v a="$arm" '$1 == a { print $4 }' "$ARMS_TSV")"
 
@@ -260,14 +272,38 @@ while IFS=$'\t' read -r n block arm; do
     # the whole batch has to be in hand to answer. --gate prints the arms to drop, if any.
     if (( flown % 4 == 0 )); then
         dropped="$("$REPO_ROOT/tools/shot-report.py" "$OUT" --gate || true)"
-        if [[ -n "$dropped" ]]; then
-            echo "    gate: dropping $dropped"
-            for dead in $dropped; do
-                grep -vP "\t$dead$" "$PLAN" > "$PLAN.tmp" && mv "$PLAN.tmp" "$PLAN"
+        for dead in $dropped; do
+            [[ " $DROPPED " == *" $dead "* ]] && continue
+            DROPPED="$DROPPED $dead"
+            printf '%s\t%s\n' "$dead" "$(date -Is)" >> "$OUT/dropped.tsv"
+
+            # The budget is a night, not a count. An arm dropped early still has most of its share
+            # sitting in the plan, and simply skipping those finishes hours short -- so they are
+            # appended over the arms still flying, a whole block at a time, which is what keeps the
+            # interleaving intact through a removal.
+            freed=0
+            for (( k = at; k < ${#PLAN_ROWS[@]}; k++ )); do
+                [[ "${PLAN_ROWS[k]}" == *$'\t'"$dead" ]] && freed=$(( freed + 1 ))
             done
-        fi
+
+            mapfile -t ALIVE < <(tail -n +2 "$ARMS_TSV" | cut -f1 \
+                | grep -vxF "$(printf '%s\n' $DROPPED)")
+            (( ${#ALIVE[@]} < 2 )) && { echo "    gate: only ${#ALIVE[@]} arm left"; break; }
+
+            echo "    gate: dropping '$dead'; its $freed remaining shots go to ${ALIVE[*]}"
+            extra="$(( ${#PLAN_ROWS[@]} + 1 ))"
+            while (( freed > 0 )); do
+                for alive in "${ALIVE[@]}"; do
+                    (( freed > 0 )) || break
+                    PLAN_ROWS+=("$(printf '%03d\tx\t%s' "$extra" "$alive")")
+                    extra=$(( extra + 1 ))
+                    freed=$(( freed - 1 ))
+                done
+            done
+            printf '%s\n' "${PLAN_ROWS[@]}" > "$PLAN"
+        done
     fi
-done < "$PLAN"
+done
 
 echo
 echo "== $flown shots flown into $OUT"

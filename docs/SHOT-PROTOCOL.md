@@ -277,7 +277,12 @@ Two looks, both mechanical, both in `tools/shot-report.py`.
 
 Runs after every block. It can only take an arm *out*; it never calls a win, because a win is a
 question the whole batch has to be in hand to answer and stopping early on one biases it upward.
-Shots freed by a removal go to the arms that are left.
+
+**Shots freed by a removal are appended to the arms that are left**, a block at a time, so the
+interleaving survives it and the night stays the length it was budgeted for. Dropping one cell of
+a 2×2 after three blocks frees nine shots and takes the other three from 12 to **15** each — 400 m
+of resolution to about 360 — for no extra wall clock. The budget is a night, not a count, and a
+batch that finishes two hours early has thrown the difference away.
 
 An arm is dropped when any of these is true:
 
