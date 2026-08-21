@@ -40,6 +40,46 @@ Two failures on the way, both worth not repeating:
 - **Nulling the shove ends the separation**, because the shove *is* the separation velocity. The bus
   trimmed 130 ms after the split at 12 m and then sat against the booster it had just dropped.
 
+## -1. The headless rig and the game disagree, and the game has won every time
+
+**Seven changes this session were measured headlessly, argued from the code, and refused by
+flight.** The force-sample phase correction, per-sub-step gravity, the lateral thrusters, a 1 ms
+integration step, the observer-gate rewrite, the burn-convergence fix, and the 15-degree arrival
+floor. Not one survived a shot.
+
+Measured on one pick-up, medians over the batches flown:
+
+| build | shots | median | mean | worst |
+| --- | --- | --- | --- | --- |
+| **shipped** | 16 | **0.85 km** | **1.20 km** | 3.43 km |
+| + burn convergence | 11 | 1.29 km | 2.60 km | 6.48 km |
+| + burn convergence + gate rewrite | 6 | 2.14 km | 3.28 km | 7.46 km |
+
+Monotonic, and each of those two was predicted headlessly to be a large improvement — 717 m -> 26 m
+for the first, 1,793 m against 4,483 m for the second.
+
+**Why the rig is wrong in a particular direction.** It flies a planet at the origin with no orbital
+motion, which is the one case where a frame carrier is identically zero. Every change that has
+*worked* this session came from finding two quantities compared across different instants — the
+prediction's epoch, the terrain sample's epoch, the air sample's epoch, the tube geometry. The rig
+cannot see any of that. What it *can* see is control-loop arithmetic, and that is exactly the class
+it has been confidently wrong about seven times.
+
+So the two instruments are not ranked, they are **complementary and each blind where the other is
+sharp**. The rig is the only way to price a term; flight is the only way to find out whether the
+term was the one that mattered.
+
+**What follows for anyone working here.** A headless improvement is a hypothesis, not a result, and
+the bar in `CLAUDE.md` — a behaviour change is unverified until flown — is doing more work than it
+appears to. Budget flights for every behaviour change, expect roughly half to lose, and treat a
+change that makes the loop act *more* on its own prediction as guilty until proven innocent: five of
+the seven were exactly that shape.
+
+**And note what a single batch cannot resolve.** Run-to-run scatter on an identical pick-up is
+roughly +/- 700 m with a tail to 3.4 km, so six shots settle a change worth a kilometre and settle
+nothing worth two hundred metres. Several of the reverted changes were priced below that line and
+could never have been confirmed either way.
+
 ## 0. Radial translation jets — built, flown, reverted
 
 **They made the shot four times worse and were taken out again.** Seven shots with them against six
