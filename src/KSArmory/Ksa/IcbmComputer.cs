@@ -50,6 +50,8 @@ internal sealed class IcbmComputer
     private bool _mayTrim = true;
     private double _owedAtSplit = double.NaN;
     private Vehicle? _separatedFrom;
+    private readonly List<Vehicle> _wasBeforeSplit = [];
+    private readonly List<Vehicle> _afterSplit = [];
     private double _sinceSplit;
     private string _saidTrim = "";
 
@@ -590,10 +592,49 @@ internal sealed class IcbmComputer
         {
             _awaitingSplit = true;
             _didSplit = true;
+            _wasBeforeSplit.Clear();
+            KsaWorld.CollectVehicles(_wasBeforeSplit);
 
             Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} separating the launcher "
                      + "from the stack before deploying");
         }
+    }
+
+    // The half of the stack this vehicle let go of, found by difference: the decoupler makes a
+    // vehicle that did not exist a frame ago, and everything else in the world did.
+    //
+    // Rehome captures it too, but only when the computer follows its weapon onto the *other* half.
+    // The ordinary case is the bus keeping both the launcher and the computer, where Rehome never
+    // runs -- so without this the distance is unreadable on every flight and SeparationClearance
+    // falls back to a blind clock, which is the trim being authorised while the stack is still
+    // metres away.
+    private Vehicle? WhatWasDropped()
+    {
+        _afterSplit.Clear();
+        KsaWorld.CollectVehicles(_afterSplit);
+
+        Vehicle? found = null;
+        double nearest = double.PositiveInfinity;
+
+        for (int i = 0; i < _afterSplit.Count; i++)
+        {
+            Vehicle other = _afterSplit[i];
+            if (ReferenceEquals(other, Craft) || _wasBeforeSplit.Contains(other)) continue;
+
+            // Nearest of them, because a decoupler firing elsewhere in the world the same frame
+            // would otherwise be adopted as this vehicle's own spent stack.
+            double3 between = KsaWorld.PositionEcl(other) - KsaWorld.PositionEcl(Craft);
+            if (!Vec.IsFinite(between)) continue;
+
+            double apart = Vec.Len(between);
+            if (apart >= nearest) continue;
+
+            nearest = apart;
+            found = other;
+        }
+
+        _wasBeforeSplit.Clear();
+        return found;
     }
 
     // The world half of SeparationClearance: how far apart the two actually are. Both positions
@@ -656,6 +697,7 @@ internal sealed class IcbmComputer
         {
             if (weapon is { CanSeparate: true }) return;
             _awaitingSplit = false;
+            _separatedFrom ??= WhatWasDropped();
         }
 
         // Armed at the split rather than at clearance, and held rather than skipped. It keeps
