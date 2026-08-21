@@ -340,11 +340,47 @@ Three candidates for the remaining ~1.3 km, none of them measurable here:
   frame while `PositionEcl` advances at the planet's ~29.8 km/s — 1,490 m of relative drift across a
   50 ms frame, of which the radial part is read as altitude at 8 m of ground per metre. Large
   enough, and both phases of the fix have been flown and neither beat leaving it alone.
-- **The waterline.** `Ksa/GroundTest.cs` clamps the height field to sea level and
-  `Ksa/IcbmComputer.cs`'s `TerrainRadiusAt` does not, so over water the round stops kilometres above
-  the surface the prediction flew to — 35 km of ground at the mean depth. Zero over dry land, which
-  is what this shot's arrival is in the rig; whether the flown one was is worth reading off the log
-  before anything else here is attempted. `SurfaceAgreementTests` prices it.
+- **The waterline — closed, and worth keeping as the shape.** `Ksa/GroundTest.cs` clamps the height
+  field to sea level and `Ksa/IcbmComputer.cs`'s `TerrainRadiusAt` now does too, through the same
+  `GroundSurface.Height`. While it did not, a round over water stopped kilometres above the surface
+  the prediction flew to — 35 km of ground at the mean depth, and zero over dry land, so a shot that
+  arrived inland saw none of it. `SurfaceAgreementTests` prices it. The class of fault is not closed:
+  **any** disagreement between the surface the round stops on and the surface the prediction flies to
+  is re-multiplied by the arrival's ~8 m of ground per metre of height, and only a flight can say
+  whether there is one left.
+
+### The instrument — built, unflown
+
+`Ksa/WarheadTrace.cs`, behind `Config.TraceWarhead` (**Debug → Trace one warhead**, off; on for a
+`tools/scenario.sh mirv` run). It follows the **first** warhead of a designation from the tube to the
+ground and writes, in Cci:
+
+- **at release** — the round's own position and velocity at full precision, so the same shot can be
+  re-flown in `ProbeGapTests`, and `ImpactPredictor` flown from exactly that state. Not the same
+  probe as the existing `release probe:` line, which departs from the bus's orbit state plus an
+  assumed offset and kick; the gap between the two lines is what the tube did.
+- **per frame** — `t` against the round's own `age`, so `lag` is the simulated time the integration
+  clamp has discarded, and `dt`/`step` beside the simulation speed, so a single clamped frame or a
+  warp transition can be pinned to the frame it happened on.
+- **on a slow cadence** — the same predictor re-flown from where the round has got to, as `walk`
+  from the release probe decomposed **downrange and cross-track**, and as the arrival instant it
+  now predicts. If the round were still on the probe's arc both would be flat.
+- **at impact** — where and when, against the aim and against the probe, and the surface the round
+  stopped on beside the surface the prediction flew to.
+
+**What each shape would mean.** A `walk` that ramps smoothly through the coast is the two flight
+models integrating apart, which is item 2's own decomposition and is priced at 394 m — more than that
+and something the rig cannot model is scaling it. A `walk` that is flat through the coast and ramps
+at entry is drag or the air sample. A `walk` that **steps** is discrete, and the frame it steps on
+says which: `lag` moving is the clamp, `sim` moving is a warp transition, neither moving is the
+prediction's own inputs changing under it. A flat `walk` with a large final miss is the surfaces
+disagreeing, which the impact line reads off directly.
+
+Cadence: the cheap line every **2 s** of simulated time and every frame for the first 3 s, all the
+while the round's own `FaithfulStepSeconds` says it is in air, and the last 10 s; the re-flight every
+**10 s**, and **0.5 s** in those same stretches. About five hundred lines for a 400 s flight. The
+per-frame half needs `Config.VerboseLog`; without it only the release and the impact are written,
+and no re-flight is paid for.
 
 ### Ranked, cheapest first
 
@@ -370,10 +406,11 @@ Three candidates for the remaining ~1.3 km, none of them measurable here:
    `IcbmConfig.MinArrivalAngleDeg`. 7.1 degrees trades 8.0 m of ground per metre of height and a
    ~4.3x gain; 15 degrees trades 3.7 and about 1.5x. `docs/ARRIVAL-ANGLE.md` has what it costs.
 
-3. **Route `TerrainRadiusAt` and `SurfacePointEcl` through `GroundSurface.Height`**, so the
-   prediction stops on the same surface the round does. Zero over land and tens of kilometres over
-   water, so it is worth nothing on a shot that arrives inland and is the whole miss on one that
-   does not.
+3. **Route `TerrainRadiusAt` and `SurfacePointEcl` through `GroundSurface.Height`** — **done**, so
+   the prediction now stops on the same surface the round does. Zero over land and tens of kilometres
+   over water, so it was worth nothing on a shot that arrived inland and the whole miss on one that
+   did not. What is not settled is whether the two surfaces agree over *land*; the trace's impact
+   line reads both off at the one point where it matters.
 
 4. **The ground centre's carrier.** Unchanged: it needs a flight that varies the phase.
 

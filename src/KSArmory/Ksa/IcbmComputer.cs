@@ -68,6 +68,15 @@ internal sealed class IcbmComputer
     private double _sinceProbe;
     private double3 _lastCommanded;
 
+    private readonly WarheadTrace _trace = new();
+    private bool _traceWanted;
+    private bool _tracedThisShot;
+
+    // Cached rather than converted at each call site: a method group becomes a delegate by
+    // allocating one, and the trace builds its Setup on every frame of a four-hundred-second fall.
+    private Func<double3, double>? _terrainRadius;
+    private Func<double3, double>? _densityRatio;
+
     // Often enough to see an oscillation, rare enough not to fill the log with a burn's worth.
     private const double ProbeIntervalSeconds = 0.5;
 
@@ -256,6 +265,13 @@ internal sealed class IcbmComputer
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
+
+        // A new aim point is a new shot, and the trace's walk is measured against an aim that has
+        // just moved. Whatever is still in the air from the last one is dropped rather than scored
+        // against the wrong target.
+        _tracedThisShot = false;
+        _trace.Forget();
+
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
     }
 
@@ -304,9 +320,16 @@ internal sealed class IcbmComputer
     /// The weapon aboard, as the one thing this needs of it: something that can be told to shoot at
     /// a place. Null for a vehicle carrying nothing that lets go, which flies the arc regardless.
     /// </param>
-    public void Update(double simStep, double playerStep, IManualFire? release)
+    /// <param name="traceWarhead">
+    /// Follow one released warhead down and write the comparison to the log.
+    /// <see cref="WarheadTrace"/> — measurement only, and off unless somebody asked for it.
+    /// </param>
+    public void Update(double simStep, double playerStep, IManualFire? release,
+                       bool traceWarhead = false)
     {
         if (!KsaWorld.IsAlive(Craft)) return;
+
+        _traceWanted = traceWarhead;
 
         // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
         // the way down through it, and they are the things that have to arrive.
@@ -324,11 +347,19 @@ internal sealed class IcbmComputer
             // would take the vehicle away from a player who is flying it by hand, on a computer
             // that is switched off.
             if (_driving) Abort("disarmed");
-            Command = Program.Update(simStep, Sample(playerStep, out _));
+            IcbmState idle = Sample(playerStep, out _);
+            StepTrace(simStep);
+            Command = Program.Update(simStep, idle);
             return;
         }
 
         IcbmState state = Sample(playerStep, out bool usable);
+
+        // After Sample, which is what writes Parent, Body and the aim in this frame's coordinates,
+        // and before Release below - so a warhead let go this frame is picked up with its clock at
+        // zero rather than a frame in.
+        StepTrace(simStep);
+
         if (!usable)
         {
             Command = Program.Update(simStep, state);
@@ -901,8 +932,53 @@ internal sealed class IcbmComputer
         if (TargetEcl() is not { } targetEcl) return false;
 
         bool away = weapon.FireAt(targetEcl);
-        if (away) ProbeRelease();
+
+        if (away)
+        {
+            ProbeRelease();
+            BeginTrace(weapon);
+        }
+
         return away;
+    }
+
+    // One warhead per designation, and it is the first away. A salvo leaves inside a tenth of a
+    // second and lands in a group tens of metres wide, so any of the six answers the question and
+    // six traces answer it six times.
+    //
+    // The round is reached by casting past IManualFire on purpose: a launcher owes a ballistic
+    // computer the ability to shoot and nothing else, and widening that role for a diagnostic would
+    // put rounds in front of everything else that takes it.
+    private void BeginTrace(IManualFire weapon)
+    {
+        if (!_traceWanted || _tracedThisShot) return;
+        if (TraceSetup() is not { } setup) return;
+        if (weapon is not IRoundsInFlight inFlight) return;
+
+        // The round just fired is the one just appended - nothing runs between FireAt and here.
+        if (inFlight.Rounds is not { Count: > 0 } rounds) return;
+
+        _tracedThisShot = true;
+        _trace.Begin(rounds[^1], setup);
+    }
+
+    private void StepTrace(double simStep)
+    {
+        if (!_traceWanted) { _trace.Forget(); return; }
+        if (!_trace.Watching) return;
+        if (TraceSetup() is not { } setup) return;
+
+        _trace.Update(simStep, setup);
+    }
+
+    private WarheadTrace.Setup? TraceSetup()
+    {
+        if (Parent is not { } parent) return null;
+        if (_warhead is not { } warhead) return null;
+
+        return new WarheadTrace.Setup(parent, Body, warhead, _trueAimCci, PredictStepSeconds,
+                                      _terrainRadius ??= TerrainRadiusAt,
+                                      _densityRatio ??= DensityRatioAt);
     }
 
     // What the prediction says about the state the warhead is actually leaving on, beside where the

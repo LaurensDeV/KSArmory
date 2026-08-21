@@ -115,11 +115,12 @@ internal sealed class IcbmComputers
     /// It is resolved here rather than held, so a craft that loses its launcher stops being able
     /// to release without the computer having to notice.</para>
     /// </summary>
-    public void Update(double simStep, double playerStep, WeaponSystems weapons)
+    public void Update(double simStep, double playerStep, WeaponSystems weapons,
+                       bool traceWarhead = false)
     {
         foreach (IcbmComputer computer in _computers.Values)
         {
-            computer.Update(simStep, playerStep, weapons.For(computer.Craft)?.Battery);
+            computer.Update(simStep, playerStep, weapons.For(computer.Craft)?.Battery, traceWarhead);
         }
     }
 

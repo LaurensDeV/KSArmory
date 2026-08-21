@@ -476,7 +476,7 @@ public sealed class KSArmoryMod
                 // guidance loop has no fuse. It has a cutoff instead, which is timed against
                 // whatever step it is handed - so a long one costs accuracy honestly rather than
                 // being hidden by a truncation the loop cannot see.
-                if (_icbms is not null) _icbms.Update(dtSim, dtPlayer, _roster);
+                if (_icbms is not null) _icbms.Update(dtSim, dtPlayer, _roster, _config.TraceWarhead);
             }
         }
 

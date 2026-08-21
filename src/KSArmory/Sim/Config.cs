@@ -211,6 +211,20 @@ public sealed class Config
     public bool VerboseLog;
 
     /// <summary>
+    /// Follow one released warhead all the way down, beside <see cref="ImpactPredictor"/> re-flown
+    /// from wherever it has got to. See <c>Ksa/WarheadTrace.cs</c>.
+    ///
+    /// <para>Off, and a measurement rather than a setting: it decides nothing and costs a
+    /// four-hundred-step re-flight a few times a minute. It answers one question — whether the
+    /// warhead leaves its own release probe smoothly or in a step — and the two have different
+    /// causes and different fixes.</para>
+    ///
+    /// <para>Needs <see cref="VerboseLog"/> for the per-frame half. Without it only the release and
+    /// the impact are written, which says how far but not where it went wrong.</para>
+    /// </summary>
+    public bool TraceWarhead;
+
+    /// <summary>
     /// Sweep a seated round's fins continuously, the way a guided store exercises them on
     /// power-up, so the hinges can be watched without dropping the round.
     ///

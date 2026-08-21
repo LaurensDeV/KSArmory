@@ -355,6 +355,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/AttitudeHook.cs` | **the one place this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
 | `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
+| `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
 | `Ksa/SiteDesignator.cs` | click the world to name where the warheads go — **a mode, not a button** |
 | `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
 | `Ksa/Ui/UiSession.cs` | the world clock, and what the session draws and hears |
