@@ -135,7 +135,25 @@ internal sealed class IcbmComputer
     public double SecondsToArrival
         => Program.IsBurning || Program.Phase == IcbmPhase.Holding
                ? Program.SecondsToArrival
-               : PredictedImpact?.Seconds ?? double.NaN;
+               : _roundsAboard > 0 ? PredictedImpact?.Seconds ?? double.NaN : double.NaN;
+
+    /// <summary>
+    /// Whether the arrival time above is a forecast rather than a measurement.
+    ///
+    /// <para>It always is, and the distinction is worth drawing because the number reads like a
+    /// countdown. During the coast it is <em>when a warhead released this instant would land</em>,
+    /// and release actually waits for the bus to clear the stack and for the trim to finish — so it
+    /// runs early by however long that takes. The mod says "if the engines stopped now" about the
+    /// same kind of number elsewhere, and this is the same kind of number.</para>
+    /// </summary>
+    public bool ArrivalIsIfReleasedNow => !Program.IsBurning && Program.Phase != IcbmPhase.Holding;
+
+    // Nothing left to release means nothing this bus does predicts an impact. Predict keeps flying
+    // its live state with a modelled kick on it, which after the salvo describes a warhead that does
+    // not exist -- the bus follows a similar arc and never goes off. Seen as a readout counting down
+    // to an impact nothing was going to make, and as a predicted miss climbing past 500 km once the
+    // real warheads were long down.
+    private int _roundsAboard;
 
     /// <summary>How far off its solution the bus still is, or NaN while nothing is trimming it.</summary>
     public double TrimToGainMetresPerSecond => _trim.Armed ? _trim.ToGainMetresPerSecond : double.NaN;
@@ -309,7 +327,8 @@ internal sealed class IcbmComputer
             Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: {Command.Phase} at "
                      + $"{AltitudeMetres / 1000.0:F0} km, {Command.VelocityToGain:F0} m/s to gain, "
                      + $"burn in {IcbmProgram.Clock(Command.SecondsToBurn)}, "
-                     + $"impact in {IcbmProgram.Clock(SecondsToArrival)}, "
+                     + $"{(ArrivalIsIfReleasedNow ? "impact if released now in" : "impact in")} "
+                     + $"{IcbmProgram.Clock(SecondsToArrival)}, "
                      + $"target {OffPlaneDegrees:F1} deg off plane ({PlaneChangeCost:F0} m/s), "
                      + $"reach {Command.Reach}"
                      + (double.IsFinite(Program.ResidualAtCutoff)
@@ -697,13 +716,20 @@ internal sealed class IcbmComputer
         {
             if (weapon is { CanSeparate: true }) return;
             _awaitingSplit = false;
-            _separatedFrom ??= WhatWasDropped();
+
+            // Not `??=`. Rehome captures the vehicle the computer came *from*, and a decoupler
+            // disposes the pre-split vehicle to make two new ones -- so that capture is a corpse,
+            // IsAlive says so, and the clearance test reads no distance at all. Prefer whichever
+            // half is actually alive.
+            if (!KsaWorld.IsAlive(_separatedFrom)) _separatedFrom = WhatWasDropped();
         }
 
         // Armed at the split rather than at clearance, and held rather than skipped. It keeps
         // solving through the whole wait, so what the bus owes its solution is on record from the
         // moment the decoupler fired — which is the only thing that separates an error the
         // separation caused from one that grew while the vehicle coasted clear of it.
+        _roundsAboard = weapon?.Ammo ?? 0;
+
         Clearance clearance = _didSplit ? Clear(simStep) : new Clearance(true, false, "");
 
         // Given up on rather than waited out: the stack is readable and still too close, so there

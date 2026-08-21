@@ -252,18 +252,40 @@ internal sealed class BallisticScenario
             // Shoot at whatever is defending, when there is something. A shot at bare ground proves
             // the guidance and nothing else; a shot at a site that can see it coming is the
             // engagement worth flying, and it puts the impact somewhere with a camera on it.
-            // An aim the operator named explicitly still wins.
-            if (!_shot.AimWasGiven && FindDefendedSite(roster, computer.Craft) is { } site
+            Vehicle? site = FindDefendedSite(roster, computer.Craft);
+
+            if (site is not null
                 && KsaWorld.TryCraftSurfacePoint(site, out _, out double siteLat, out double siteLon,
                                                  out string siteBody)
                 && siteBody == parent.Id)
             {
-                aimLat = siteLat;
-                aimLon = siteLon;
                 _defendedSite = site;
 
-                _say($"aiming at {KsaWorld.DisplayName(site)}, which is defended, "
-                     + $"rather than at bare ground");
+                if (_shot.AimWasGiven)
+                {
+                    // The operator named a point, so the site goes to it rather than the aim coming
+                    // here. Moving what is already in the world beats spawning a second one: two
+                    // identical launchers is a scene nobody can read, and the shot stays at the
+                    // coordinates every other run was measured at.
+                    if (KsaWorld.TryPlaceOnSurface(site, parent.Id, aimLat, aimLon))
+                    {
+                        _say($"moved {KsaWorld.DisplayName(site)} to the aim point, so the impact "
+                             + "lands somewhere with a camera on it");
+                    }
+                    else
+                    {
+                        _say($"could not move {KsaWorld.DisplayName(site)} to the aim point; "
+                             + "it stays where it is");
+                    }
+                }
+                else
+                {
+                    aimLat = siteLat;
+                    aimLon = siteLon;
+
+                    _say($"aiming at {KsaWorld.DisplayName(site)}, which is defended, "
+                         + $"rather than at bare ground");
+                }
             }
 
             computer.Designate(new AimSite(parent.Id, aimLat, aimLon, "scenario aim point"));
@@ -386,7 +408,8 @@ internal sealed class BallisticScenario
 
         _say($"{_reported} at {computer.AltitudeMetres / 1000.0:F0} km, "
              + $"{computer.Command.VelocityToGain:F0} m/s to gain, "
-             + $"impact in {IcbmProgram.Clock(computer.SecondsToArrival)} :: {computer.Command.Hold}");
+             + $"{(computer.ArrivalIsIfReleasedNow ? "impact if released now in" : "impact in")} "
+             + $"{IcbmProgram.Clock(computer.SecondsToArrival)} :: {computer.Command.Hold}");
 
     }
 

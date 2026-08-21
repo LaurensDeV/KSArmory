@@ -177,7 +177,13 @@ internal sealed partial class Ui
         double arrival = computer.SecondsToArrival;
         if (double.IsFinite(arrival))
         {
-            ImGui.TextColored(Good, $"IMPACT IN  {IcbmProgram.Clock(arrival)}");
+            // Said differently once the engines are off, because it means something different: a
+            // warhead released *this instant* would land then, and release waits for the bus to
+            // clear the stack and for the trim to finish. Reading it as a countdown to the impact
+            // is reading it early by however long that takes.
+            ImGui.TextColored(Good, computer.ArrivalIsIfReleasedNow
+                                        ? $"IMPACT IF RELEASED NOW  {IcbmProgram.Clock(arrival)}"
+                                        : $"IMPACT IN  {IcbmProgram.Clock(arrival)}");
         }
         else
         {
