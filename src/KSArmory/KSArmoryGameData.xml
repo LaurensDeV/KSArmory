@@ -507,19 +507,21 @@
     </Combustor>
     <DeLavalNozzle Id="Nozzle">
       <!--
-        An attitude thruster, sized as one. KSA's attitude tracker will not fire inside
-        0.5*AngleDeadband + AngleTurnaround, and on the separated bus both halves are set by
-        MinRotationalImpulse / inertia rather than by the profile - 12.8 degrees of deadband
-        against a Balanced profile floor of 1. Thrust is the only lever left once MinimumPulseTime
-        is on its floor, and it moves both halves together because it is a factor on the whole
-        product.
+        Sized for authority, not for the pointing band. An attitude thruster this size is a
+        main-engine bell on a 6,300 kg bus and the drawn bell beside it is 0.11 m, so 0.4 is
+        indefensible on its own terms - but the bus needs it to get itself off a spent stack.
 
-        0.13 m of exit takes one nozzle from about 3.7 kN to about 394 N, which is where the
-        impulse term meets the profile floor and stops mattering. Below that nothing further is
-        bought. It is also the honest size: 3.7 kN is a main-engine bell on a 6,300 kg bus, and
-        the drawn bell beside it has always been 0.11 m.
+        At 394 N the trim measures 0.257 m/s2 and takes nine times as long to null anything, and
+        SeparationClearance's margin is a fixed 25 m and 20 s that knows nothing about how hard
+        the bus can push. Flown at a 15 degree arrival floor that put the bus into the stack on
+        every shot: "nothing left aboard moves the bus, 1.61 m/s left", which is what the trim
+        reports when firing moves nothing because it is resting against something.
+
+        The pointing band does not need it. AngleDeadband is held at the attitude profile's floor
+        by VehicleCommand re-deriving it each frame, so thrust only reaches the turnaround term:
+        9.63 degrees to about 2.6 rather than to 0.37.
       -->
-      <ExitDiameter M="0.13" />
+      <ExitDiameter M="0.4" />
       <FxExitDiameter M="0.11" />
       <AreaRatio Value="40" />
       <FlowEfficiency Value="1" />
