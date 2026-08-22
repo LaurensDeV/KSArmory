@@ -136,6 +136,57 @@ public class ProbeGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// A prediction that integrates the way the round does agrees with it.
+    ///
+    /// <para><b>The gap is the observer, not the round.</b> Every flown attempt at this bias has
+    /// moved the round onto the predictor — carrying the ground centre, re-reading gravity per
+    /// sub-step, phase-shifting the force samples — and all three cost kilometres. The predictor is
+    /// the tidier of the two: RK4 with gravity re-read at every stage against symplectic Euler with
+    /// it frozen for the frame. So the aim converges on an arc nothing flies.</para>
+    ///
+    /// <para>Fails against a predictor left on RK4, which cannot agree with the round however many
+    /// cycles the correction is given.</para>
+    /// </summary>
+    [Fact]
+    public void APredictionThatIntegratesLikeTheRoundAgreesWithIt()
+    {
+        ReleaseState(out double3 from, out double3 v);
+        double3 along = AlongTrack(from, v);
+
+        foreach ((string what, Func<double3, double>? terrain) in Surfaces)
+        {
+            (double3 landed, double _) =
+                DeorbitShot.FlyTheRoundAsWarped(from, v, DeorbitShot.ScenarioWarp, default,
+                                                GroundFor(terrain));
+
+            double tidy = Downrange(Probe(from, v, terrain), landed, along);
+            double flown = Downrange(ProbeAsFlown(from, v, terrain), landed, along);
+
+            Out.WriteLine($"{what}: RK4 probe {tidy,7:F0} m from the round, "
+                          + $"as-flown probe {flown,7:F0} m");
+
+            Assert.True(Math.Abs(flown) < Math.Abs(tidy) * 0.25,
+                        $"{what}: as-flown probe {flown:F0} m against RK4's {tidy:F0} m");
+        }
+    }
+
+    /// <summary>The same probe, integrated the way the round will be.</summary>
+    private static double3 ProbeAsFlown(double3 fromCci, double3 velocityCci,
+                                        Func<double3, double>? terrain)
+    {
+        ImpactPredictor.AsFlown schedule =
+            ImpactPredictor.AsFlown.For(DeorbitShot.Warhead,
+                                        DeorbitShot.ScenarioWarp * DeorbitShot.NominalFrame);
+
+        Assert.True(ImpactPredictor.TryPredict(
+            DeorbitShot.Earth, fromCci, velocityCci, schedule.FrameSeconds, 20_000.0,
+            out ImpactPredictor.Impact hit, terrain, null,
+            new ImpactPredictor.Drag(DeorbitShot.DensityAt, DeorbitShot.Warhead), schedule));
+
+        return hit.GroundFixedPointCci;
+    }
+
+    /// <summary>
     /// The decomposition: one difference removed at a time from the round as flown, each measured
     /// as how far the impact moves.
     ///

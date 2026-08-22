@@ -1637,9 +1637,20 @@ internal sealed class IcbmComputer
         ImpactPredictor.Drag? air =
             _warhead is { } warhead ? new ImpactPredictor.Drag(DensityRatioAt, warhead) : null;
 
+        // Integrated the way the warhead will be, not the way this predictor would prefer. RK4 with
+        // gravity re-read at every stage is the tidier of the two models, and the correction's only
+        // observer is this call - so a tidier prediction converges on an arc nothing flies, reports
+        // itself satisfied, and the rounds land past it. Measured in flight as 350 m of downrange
+        // bias, repeatable to 85 m; headlessly the gap goes 671 m to 127 m.
+        //
+        // The frame is the step the round asks the world for and WarpPolicy holds it to, so the
+        // prediction is stepped exactly as the thing it predicts.
+        ImpactPredictor.AsFlown? asFlown =
+            _warhead is { } flown ? ImpactPredictor.AsFlown.For(flown, flown.PreferredStep) : null;
+
         if (ImpactPredictor.TryPredict(Body, fromCci, alongCci, PredictStepSeconds,
                                        ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
-                                       TerrainRadiusAt, _path, air))
+                                       TerrainRadiusAt, _path, air, asFlown))
         {
             // The predictor un-carries its impact by its own flight time, which puts the ground
             // point in the body-fixed frame of the instant the arc *departs*. Mid-burn that instant
