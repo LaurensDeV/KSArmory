@@ -197,6 +197,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/pack-api.py --check                # has the API weapon packs bind to moved?
 ./tools/model/build.sh                     # rebuild every part's mesh and textures (needs Blender)
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
+./tools/model/checkring.py --check         # is a thruster ring steering on more than its axial pair?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
 ./tools/check-network.sh                   # the mod only reaches the network when Send is clicked
 ./tools/check-tunables.py                  # every setting has a control that reaches it
@@ -422,7 +423,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 429 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 430 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -455,6 +456,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/checkmesh.py` | finds unpaired node/mesh names, zero-UV-area triangles and coplanar faces in a `.glb`; takes several at once, and `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/dilate-atlas.py` | fills the empty space around a baked atlas's islands from their nearest neighbour — **what a bake margin cannot do**, because a margin wide enough to survive mipmapping is wide enough to write one body's dilation over another's |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
+| `tools/model/checkring.py` | what KSA's flight computer will make of a thruster ring — **which nozzles end up steering**, and how coarse that makes the attitude quantum |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
@@ -916,7 +918,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 660,000 lines to the files
-defining the 152 types this mod actually uses.
+defining the 153 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 12 MB —
@@ -1285,6 +1287,29 @@ which is how `PhysicsBubble` points a manoeuvring unit, and `Vehicle.ProcessInpu
 the keyboard calls. Nothing is patched. The aiming rotation comes from KSA's own `GetTgt2Cci` rather
 than being built here, because building one means guessing which body axis is the nose — and getting
 that wrong is a vehicle holding a perfectly steady attitude ninety degrees from the one asked for.
+
+**The pointing deadband is a high-water mark, and it has to be put back each frame.** KSA widens
+`AngleDeadband` to whatever one control period of the minimum thruster impulse can produce — a
+stability guard, because a tracker asked to settle inside its own quantum limit-cycles instead — but
+`RecomputeDynamicData` takes a `max` against the standing value and nothing lowers it. At the frame a
+MIRV bus separates and becomes its own vehicle its mass properties resolve and the rate bit
+momentarily reads **55 deg/s**; `0.2 x 55` is 11.04, and that one frame sets the guard for the whole
+deployment. Measured: an 11.40° deadband held against a live rate bit worth 0.07, and it did not
+move when the impulse driving it was cut 35% — it went slightly *up*. That was 5.7° of a 9.63°
+pointing band, and it is why nothing done to the thrusters ever shifted it.
+
+Assigning the profile in `VehicleCommand.TryAim` puts it back and KSA's own `max` re-establishes the
+real floor on the same frame, so the guard ends up sized for what is actually aboard: **9.63° to
+0.37°**. `Strict` rather than `Balanced` because it is also the fastest of the three — 30 deg/s of
+rate limit against 5 — and the mod has already taken the vehicle by the time this runs.
+
+**A nozzle is enrolled in a rotation axis at 0.1, not at the 0.5 translation uses, and the enrolled
+set is summed.** `MinRotationalImpulse` is therefore a property of the whole ring rather than of one
+thruster, so a nozzle nobody meant to steer with still coarsens the quantum that does — and what
+decides enrolment is the axial gap between the ring and where the part declares its mass, which
+defaults to the mounting face where nothing physically is. `tools/model/checkring.py` gates it;
+nothing else could, because the mesh is clean, the pivots agree and `checkswept.py` finds no
+intersection.
 
 **One computer per craft, not per launcher.** A craft can carry two rails and shoot them at
 different things; it has exactly one trajectory, so a second computer aboard is a second autopilot

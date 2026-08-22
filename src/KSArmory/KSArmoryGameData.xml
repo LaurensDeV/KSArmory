@@ -493,20 +493,33 @@
       <MaxPressure Bar="7" />
       <ThermalEfficiency Value="0.95" />
       <!--
-        A quarter of Core's pulse, and it buys pointing rather than thrust. KSA's attitude tracker
+        KSA's floor, and it buys pointing rather than thrust. KSA's attitude tracker
         will not fire inside a dead zone of 0.5*AngleDeadband + AngleTurnaround, and the turnaround
         is ten times the rate bit, which is one minimum impulse over the vehicle's inertia. Minimum
         impulse is thrust x lever arm x this, so shortening it makes the quantum finer without
         costing any peak authority.
 
         Measured on the separated bus at Core's value: a 22.11 degree band against a nose whose
-        drift is the largest error left in the shot. The floor is 0.5*AngleDeadband, about 6.4, so
-        this cannot close it entirely.
+        drift is the largest error left in the shot. CombustorTemplate clamps up to 1 ms at load,
+        so this is as far as the lever goes; the residue is 0.5*AngleDeadband, about 6.4.
       -->
-      <MinimumPulseTime Seconds="0.0013622449" />
+      <MinimumPulseTime Seconds="0.001" />
     </Combustor>
     <DeLavalNozzle Id="Nozzle">
-      <ExitDiameter M="0.4" />
+      <!--
+        An attitude thruster, sized as one. KSA's attitude tracker will not fire inside
+        0.5*AngleDeadband + AngleTurnaround, and on the separated bus both halves are set by
+        MinRotationalImpulse / inertia rather than by the profile - 12.8 degrees of deadband
+        against a Balanced profile floor of 1. Thrust is the only lever left once MinimumPulseTime
+        is on its floor, and it moves both halves together because it is a factor on the whole
+        product.
+
+        0.13 m of exit takes one nozzle from about 3.7 kN to about 394 N, which is where the
+        impulse term meets the profile floor and stops mattering. Below that nothing further is
+        bought. It is also the honest size: 3.7 kN is a main-engine bell on a 6,300 kg bus, and
+        the drawn bell beside it has always been 0.11 m.
+      -->
+      <ExitDiameter M="0.13" />
       <FxExitDiameter M="0.11" />
       <AreaRatio Value="40" />
       <FlowEfficiency Value="1" />
@@ -577,6 +590,18 @@
     <SolidSphereMass>
       <Mass Kg="6300" />
       <Radius M="1.20" />
+      <!--
+        Seated in the plane of the thruster ring rather than the loaded centroid near X = 1.77.
+        KSA enrols a nozzle in a rotation axis on a torque efficiency over 0.1 and then sums the
+        whole enrolled set into MinRotationalImpulse, which sets the attitude deadband - so an
+        axial offset between the ring and the centre of mass turns all twelve non-axial nozzles
+        into pitch and yaw actuators and coarsens the quantum that aims the release. At X = 0.30
+        their axial lever arm is zero and only the axial pair can pitch: 4.412 against 5.685.
+
+        It is a choice inside a mass model that is already approximate - the six RVs are rounds
+        this mod simulates and carry no KSA mass, so the lump never sheds as they leave.
+      -->
+      <LocationAsmb X="0.30" />
     </SolidSphereMass>
 
     <!--

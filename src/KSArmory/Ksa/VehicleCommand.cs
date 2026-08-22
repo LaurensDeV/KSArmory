@@ -82,6 +82,15 @@ internal static class VehicleCommand
         computer.CustomAttitudeTarget = VehicleReferenceFrame.EclBody.QuaternionToEulerAngles(target2Frame);
         computer.AttitudeMode = FlightComputerAttitudeMode.Auto;
 
+        // Re-derive the pointing deadband from the thrusters actually aboard. KSA widens it to
+        // whatever one control period of the minimum impulse can produce -- a stability guard, so
+        // the tracker is not asked to settle inside its own quantum -- but it only ever raises it.
+        // A stack that staged carries the guard sized for its boost RCS onto a bus whose thrusters
+        // are two orders finer, and nothing lowers it again: measured at 11.4 degrees of deadband
+        // against a live rate bit worth 0.07. Assigning the profile puts it back, and KSA's own max
+        // re-establishes the real floor on the same frame.
+        computer.SetAttitudeProfile(FlightComputerAttitudeProfile.Strict);
+
         // An automatic burn would fight this for the attitude and run its own throttle.
         computer.BurnMode = FlightComputerBurnMode.Manual;
 

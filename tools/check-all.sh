@@ -127,6 +127,8 @@ else
     skip "Textures are reproducible" "Pillow not installed (pip install pillow)"
 fi
 
+run "Thruster rings steer on their axial pair" ./tools/model/checkring.py --check
+
 # Slow, and off by default: the defect it finds is only reachable by changing the model or the
 # drive limits, so it does not belong in the loop you run on every push.
 if (( WITH_SWEEP )) || (( LIST )); then

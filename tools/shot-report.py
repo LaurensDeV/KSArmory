@@ -64,6 +64,8 @@ WALK = re.compile(r"walk from the release probe\s+([-\d.]+)\s*m\s*\(([-+\d.]+)\s
 LAG = re.compile(r"lag\s+([-\d.]+)ms\s*=\s*([-\d.]+)\s*m at")
 CLOCKS = re.compile(r"flight\s+([\d.]+)s by the world clock,\s*([\d.]+)s by its own")
 SAMPLE = re.compile(r"dt=([\d.]+)ms step=([\d.]+)ms sim=([\d.]+)x")
+BAND = re.compile(
+    r"DEBUG\s+(\S+)\s+control:.*?pointing band\s+([\d.]+)\s*deg")
 BANNER = re.compile(r"KSArmory\s+(\S+)\s+built for KSA\s+(\S+),\s*running\s+(\S+)")
 
 
@@ -81,6 +83,7 @@ def read_shot(out_path, log_path):
             "residual": None, "own_km": None, "trim_split": None, "trim_release": None,
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
+            "band_deg": [],
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "version": None}
 
     text = out_path.read_text(errors="replace") if out_path.exists() else ""
@@ -115,6 +118,11 @@ def read_shot(out_path, log_path):
         shot["trace_km"].append(aim / 1000.0)
         shot["arrival_ms"].append(speed)
         shot["arrival_deg"].append(deg)
+    seen = BAND.findall(log)
+    if seen:
+        last = seen[-1][0]
+        shot["band_deg"] = [float(v) for name, v in seen if name == last]
+
     for metres, down, cross in _floats(WALK, log, 3):
         shot["walk_m"].append(metres)
         shot["walk_down"].append(down)
@@ -413,7 +421,7 @@ def main():
 
     print("\n== attribution (medians over usable shots)")
     print(f"   {'arm':<14}{'residual':>9}{'own km':>8}{'trim rel':>9}{'probe km':>9}"
-          f"{'thrown':>8}{'arr deg':>8}{'walk m':>8}{'lag m':>8}{'dt ms':>7}")
+          f"{'thrown':>8}{'arr deg':>8}{'band deg':>9}{'walk m':>8}{'lag m':>8}{'dt ms':>7}")
     for arm in arms:
         mine = [s for s in shots if s["arm"] == arm and usable(s)]
         if not mine:
@@ -432,6 +440,7 @@ def main():
         print(f"   {arm:<14}{med('residual'):>9.3f}{med('own_km'):>8.2f}"
               f"{med('trim_release'):>9.3f}{med('probe_km', True):>9.2f}"
               f"{med('thrown', True):>8.0f}{med('arrival_deg', True):>8.1f}"
+              f"{med('band_deg', True):>9.2f}"
               f"{med('walk_m', True):>8.0f}{med('lag_m', True):>8.0f}{med('dt_ms', True):>7.1f}")
 
     if args.shots:
