@@ -506,7 +506,20 @@
       <MinimumPulseTime Seconds="0.001" />
     </Combustor>
     <DeLavalNozzle Id="Nozzle">
-      <ExitDiameter M="0.4" />
+      <!--
+        An attitude thruster, sized as one. KSA's attitude tracker will not fire inside
+        0.5*AngleDeadband + AngleTurnaround, and on the separated bus both halves are set by
+        MinRotationalImpulse / inertia rather than by the profile - 12.8 degrees of deadband
+        against a Balanced profile floor of 1. Thrust is the only lever left once MinimumPulseTime
+        is on its floor, and it moves both halves together because it is a factor on the whole
+        product.
+
+        0.13 m of exit takes one nozzle from about 3.7 kN to about 394 N, which is where the
+        impulse term meets the profile floor and stops mattering. Below that nothing further is
+        bought. It is also the honest size: 3.7 kN is a main-engine bell on a 6,300 kg bus, and
+        the drawn bell beside it has always been 0.11 m.
+      -->
+      <ExitDiameter M="0.13" />
       <FxExitDiameter M="0.11" />
       <AreaRatio Value="40" />
       <FlowEfficiency Value="1" />
