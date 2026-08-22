@@ -37,6 +37,7 @@ internal sealed class IcbmComputer
     private readonly ReleaseSequence _sequence = new();
     private readonly BusTrim _trim = new();
     private readonly PostBoostAim _postBoost = new();
+    private bool _postBoostSaid;
     private bool _measureDue;
     private double _freshMiss = double.NaN;
     private bool _resumedForCoast;
@@ -250,6 +251,7 @@ internal sealed class IcbmComputer
         _sequence.Reset();
         _trim.Reset();
         _postBoost.Reset();
+        _postBoostSaid = false;
         _measureDue = false;
         _freshMiss = double.NaN;
         _resumedForCoast = false;
@@ -301,6 +303,7 @@ internal sealed class IcbmComputer
         Program.Reset();
         _trim.Reset();
         _postBoost.Reset();
+        _postBoostSaid = false;
         _measureDue = false;
         _freshMiss = double.NaN;
         _resumedForCoast = false;
@@ -871,6 +874,16 @@ internal sealed class IcbmComputer
             Program.CorrectCoastArc();
             _trim.Resume();
             Say($"post-boost: {pass.Said}", "");
+        }
+
+        // The reason it stopped, which Say above cannot report: that fires on a cycle being taken,
+        // and finishing is precisely the decision that takes none. It is the line that says how
+        // much of the miss was still on the table and why it was left there -- the largest term in
+        // where the warheads land, and until now the only one never written down.
+        if (pass.MayRelease && !_postBoostSaid)
+        {
+            _postBoostSaid = true;
+            Log.Info($"post-boost: {pass.Said}");
         }
 
         if (!double.IsFinite(_owedAtSplit) && double.IsFinite(trim.ToGainMetresPerSecond))
