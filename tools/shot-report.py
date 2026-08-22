@@ -84,7 +84,8 @@ def read_shot(out_path, log_path):
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "band_deg": [],
-            "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "version": None}
+            "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
+            "version": None}
 
     text = out_path.read_text(errors="replace") if out_path.exists() else ""
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
@@ -132,8 +133,18 @@ def read_shot(out_path, log_path):
         shot["lag_m"].append(metres)
     for world, own in _floats(CLOCKS, log, 2):
         shot["clock_gap"].append(world - own)
-    for dt, _step, sim in _floats(SAMPLE, log, 3):
+    for dt, step, sim in _floats(SAMPLE, log, 3):
         shot["dt_ms"].append(dt)
+
+        # The step the coast is actually integrated at, which is not the median frame: the entry
+        # runs at 1x and supplies most of the samples, so a median over all of them reports the
+        # entry and hides the coast entirely. WarpPolicy holds the world down the first time a
+        # frame exceeds the round's preferred step and never lifts it, so which side of that a
+        # shot lands on decides its coast step for the whole flight -- and the walk is linear in
+        # it. Reported per arm because it is a covariate, not noise: a shot that releases higher
+        # trips less often, so it correlates with the arm rather than averaging out.
+        if sim > 1.5:
+            shot["coast_ms"].append(step)
         shot["sim"].append(sim)
     return shot
 
@@ -421,7 +432,8 @@ def main():
 
     print("\n== attribution (medians over usable shots)")
     print(f"   {'arm':<14}{'residual':>9}{'own km':>8}{'trim rel':>9}{'probe km':>9}"
-          f"{'thrown':>8}{'arr deg':>8}{'band deg':>9}{'walk m':>8}{'lag m':>8}{'dt ms':>7}")
+          f"{'thrown':>8}{'arr deg':>8}{'band deg':>9}{'walk m':>8}{'lag m':>8}"
+          f"{'dt ms':>7}{'coast ms':>9}")
     for arm in arms:
         mine = [s for s in shots if s["arm"] == arm and usable(s)]
         if not mine:
@@ -441,7 +453,8 @@ def main():
               f"{med('trim_release'):>9.3f}{med('probe_km', True):>9.2f}"
               f"{med('thrown', True):>8.0f}{med('arrival_deg', True):>8.1f}"
               f"{med('band_deg', True):>9.2f}"
-              f"{med('walk_m', True):>8.0f}{med('lag_m', True):>8.0f}{med('dt_ms', True):>7.1f}")
+              f"{med('walk_m', True):>8.0f}{med('lag_m', True):>8.0f}"
+              f"{med('dt_ms', True):>7.1f}{med('coast_ms', True):>9.1f}")
 
     if args.shots:
         print("\n== every shot")
