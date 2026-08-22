@@ -1354,6 +1354,43 @@ lines under **Verbose log**.
 - [ ] Impacts at the flown 3,459 km geometry are no worse than the 431 m - 1.4 km group. Nothing
       about that range changed headlessly, so anything that did move is the extra patience.
 
+### 12.7e The bus's pointing band — three changes, flown as one arm
+
+The separated bus held a **9.63 degree** pointing band and it was almost all one artefact. KSA
+widens `AngleDeadband` to what one control period of the minimum thruster impulse can produce — a
+stability guard, so the tracker is not asked to settle inside its own quantum — but it takes a max
+against the standing value and nothing lowers it. At the frame the bus becomes its own vehicle its
+mass properties resolve and the rate bit momentarily reads **55 deg/s**; `0.2 x 55 = 11.04`, and
+that one frame set the guard for the entire deployment.
+
+Measured, same aim point, arms interleaved:
+
+| | base | with all three |
+| --- | --- | --- |
+| `AngleDeadband` | 11.40° | **0.20°** |
+| pitch/yaw rate bit | 0.393 °/s | **0.027 °/s** |
+| **pointing band, separated bus** | **9.63°** | **0.37°** |
+| band while attached | 0.70° | 0.31° |
+
+- [ ] **The band holds at ~0.37°.** Read `Rocket_N control:` under **Verbose log**. One reading of
+      a few hundred degrees at the separation frame is the transient and is expected; a *second*
+      one, or a band that stays wide afterwards, means the profile assignment is not landing.
+- [ ] **No chatter.** A deadband below what the thrusters can settle inside is a limit cycle rather
+      than precision. `0.2 x rate bit` is 0.005° against a 0.20° floor, so the guard is not binding
+      — but watch the bus for buzzing, and watch RCS propellant to the last release.
+- [ ] **The ascent is unharmed.** `SetAttitudeProfile` also sets `RateLimit`, and Strict's is
+      30 deg/s against Balanced's 5. The commanded direction is still limited by the ascent
+      profile's angle-of-attack limiter, so this should only make small corrections quicker.
+      Anything that looks like a snap or a slew off the pitch programme is this.
+- [ ] **The trim still converges.** Nozzles at ~394 N give 0.25 m/s², so a direction moves 1.0 m/s
+      inside the 4 s it has to prove itself. Watch for `nothing left aboard moves the bus` or
+      `the trim stopped closing`, either of which means the cut went too far. First flight trimmed
+      to 0.032 m/s against a baseline 0.010, which is worth watching over a batch rather than one
+      shot.
+- [ ] **Warheads leave on the line.** `warhead away from tube N, X deg off the salvo's line` — the
+      first flight read 0.00 for all six. That number is the band converted into what it was
+      costing.
+
 ### 12.6 It gives the vehicle back
 
 - [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately
