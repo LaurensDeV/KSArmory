@@ -375,6 +375,23 @@ putting it there would give every nozzle a 1.4 m arm and a far worse quantum. It
 model that is already approximate — the six RVs are rounds this mod simulates and carry no KSA mass,
 so the 6,300 kg never sheds as they leave.
 
+**And what it costs is velocity, not pointing.** That is what made it invisible. All three arms
+release their warheads at **0.00 degrees** off the salvo's line, and the arm that trims *tightest*
+(0.016 m/s) misses *worst* — so neither release direction nor trim residual is the channel.
+
+A correctly enrolled set is a pure couple. A wrongly enrolled one is not, so every attitude
+correction is also a shove:
+
+| command | base: nozzles | net force | seated: nozzles | net force |
+| --- | --- | --- | --- | --- |
+| pitch± | 6 | **1.879** | 4 | **0.000** |
+| yaw± | 6 | **1.879** | 4 | **0.000** |
+| roll± | 4 | 0.000 | 4 | 0.000 |
+
+0.378 of net force per unit of commanded torque, against 0.000 once the mass is seated. Combined
+with a deadband ratcheted wide by the separation transient — which makes those corrections both
+large and frequent — that is the whole path from a missing `<LocationAsmb>` to a kilometre of miss.
+
 `tools/model/checkring.py` gates it. Nothing else here could: the mesh is clean, the pivots agree,
 `checkswept.py` finds no intersection, and the vehicle simply holds its nose less well than it
 could. **Unflown** — the arm carrying it is in the air as this is written.
