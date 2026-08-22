@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-152 types and 429 members across 7 assemblies.
+153 types and 430 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -443,8 +443,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.PerAxisAttitudeControlSystem ActiveControlSystem`
 - `KSA.VehicleReferenceFrame AttitudeFrame`
 - `float AngleDeadband`
+- `void SetAttitudeProfile(KSA.FlightComputerAttitudeProfile)`
 
 ### KSA.FlightComputerAttitudeMode
+
+*referenced as a type only*
+
+### KSA.FlightComputerAttitudeProfile
 
 *referenced as a type only*
 
