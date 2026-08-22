@@ -92,8 +92,8 @@ internal readonly record struct TrimCommand(
 ///
 /// <para><b>One direction at a time, and it is not tidiness.</b> The stop threshold is half a
 /// frame's worth of thrust, and that number is only knowable along the direction actually being
-/// fired: a bus's lateral authority is whatever its nozzle layout happened to give it, which for
-/// four clusters arranged for roll and pitch may be nothing at all. Firing one direction means
+/// fired: a bus's lateral authority is whatever its nozzle layout happened to give it, and KSA
+/// decides that per nozzle from its thrust direction alone. Firing one direction means
 /// every number in the loop was observed rather than assumed, and a direction that turns out to
 /// move nothing is struck off and the next one tried — so a vehicle with only an axial pair still
 /// gets the whole axial error out, which is nearly all of it.</para>
