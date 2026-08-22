@@ -366,6 +366,17 @@ public static class Arsenal
         FuseArmSeconds = 10f,
 
         ChargeKg = 20_000_000f,
+
+        // The coast frame this round would rather the world ran at. Its disagreement with its own
+        // predictor is two terms of opposite sign -- one proportional to the frame at about 31 m
+        // per millisecond, one constant near -4.2 km -- so the error crosses zero at a frame of
+        // roughly 138 ms rather than falling to nothing as the frame shrinks. Measured at three
+        // frames: +1,806 m at 194 ms, -1,400 at 96, -3,493 at 24.
+        //
+        // Warp is quantised to powers of two, so 138 ms is not reachable; this asks for it and gets
+        // the 96 ms below it, which is the nearer side. Flown five against five interleaved:
+        // median 1.66 -> 1.06 km, ratio 0.65 with a 97% interval of 0.55-0.90.
+        PreferredStepSeconds = 0.225f,
         HitsTerrain = true,
     };
     /// <summary>
