@@ -292,7 +292,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/PostBoostAim.cs` | correcting the aim after the engines stop — **the trim is the actuator**, and holding the warheads to do it has a price. **Nothing is read off a bus whose nose is turning**: the prediction carries the kick along it |
 | `Sim/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
-| `Sim/SeparationClearance.cs` | whether what let go has got far enough away to manoeuvre — **the shove is the separation**, so nulling it ends it |
+| `Sim/SeparationClearance.cs` | whether what let go has got far enough away to manoeuvre, and how much may be spent back along the line to it — **the shove is the separation**, so nulling it ends it and spending past it flies into it |
 | `Sim/ReleasePointing.cs` | which way a launcher must hold for one tube to throw along the line the others did |
 | `Sim/ReleaseSequence.cs` | letting a magazine go one round at a time, each along that same line |
 | `Sim/ShotRequest.cs` | where a scripted shot is aimed and the bar it is judged against — **text in**, so the harness's one line is testable headlessly |
@@ -1149,6 +1149,20 @@ thrust that is only measurable along the direction being fired, and a bus's late
 whatever its nozzle layout happened to give it — the shipped one has none. And it is a **precondition
 of being ready to deploy** rather than a step inside the release sequence, which is what stops one
 warhead leaving on the attached stack's solution and the rest on the shoved bus's.
+
+**The rate the two are parting at is a budget as well as a wait, and only the budget survives a
+second null.** Nulling the shove leaves the pair co-moving, which is safe at any distance; a metre a
+second past it gives the bus a closing rate, and a closing rate closes any gap given time — so
+`SeparationClearance.ClearOfTheSphereMetres` and its timeout cannot make it safe, however generous.
+The post-boost passes are second nulls: `CorrectCoastArc` moves the reference and `BusTrim.Resume`
+nulls onto it, and that correction has no relation to the separation at all. Flown 22 August with an
+arrival floor set it was **2.7 m/s of retrograde**, straight down the line to the stack, and hit it
+eleven seconds in — a proper acceleration of **26.8 m/s²** against thrusters measured at 0.25, on
+**eight** shots of eight with a floor and none of four without. So
+`SeparationClearance.WithoutClosingOnTheStack` takes the closing part of the command out before an
+axis is chosen, and a residual that can only be nulled by flying back into the stack is reported and
+released untrimmed. The clearance latches once granted for the same reason: re-running the wait
+against a gap that has stopped opening would abandon every pass after the first.
 
 **It joins the flight wherever the vehicle already is, and "when to burn" is its own question.**
 The phase machine is entered by looking at the vehicle rather than by assuming a pad: low and still

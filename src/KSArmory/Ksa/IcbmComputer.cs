@@ -48,6 +48,7 @@ internal sealed class IcbmComputer
     private bool _awaitingSplit;
     private bool _didSplit;
     private bool _mayTrim = true;
+    private bool _clearedOnce = true;
     private double _owedAtSplit = double.NaN;
     private Vehicle? _separatedFrom;
     private readonly List<Vehicle> _wasBeforeSplit = [];
@@ -259,6 +260,7 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
+        _clearedOnce = true;
         _owedAtSplit = double.NaN;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
@@ -310,6 +312,7 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
+        _clearedOnce = true;
         _owedAtSplit = double.NaN;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
@@ -622,9 +625,10 @@ internal sealed class IcbmComputer
         // is showing.
         if (KsaWorld.IsWatching(left)) _viewWanted = craft;
 
-        // Held only until the trim has run, and only to measure a distance from. The stack is alive
-        // rather than destroyed, so this is not the reference CLAUDE.md's rule about dead vehicles
-        // is about — but it is still dropped the moment it has nothing left to answer.
+        // Held for the whole post-boost phase, because every null after the first is still a
+        // manoeuvre that could fly into it. The stack is alive rather than destroyed, so this is not
+        // the reference CLAUDE.md's rule about dead vehicles is about, and Clear reads it through
+        // IsAlive either way.
         _separatedFrom = left;
     }
 
@@ -668,6 +672,7 @@ internal sealed class IcbmComputer
         {
             _awaitingSplit = true;
             _didSplit = true;
+            _clearedOnce = false;
             _wasBeforeSplit.Clear();
             KsaWorld.CollectVehicles(_wasBeforeSplit);
 
@@ -750,6 +755,24 @@ internal sealed class IcbmComputer
         return SeparationClearance.Check(apart, radius, _sinceSplit);
     }
 
+    // The discarded stage in the frame the trim reasons in, so the budget it spends against is
+    // comparing like with like. Both terms of each pair are handed over rather than differenced
+    // here: the subtraction that cancels the ecliptic motion belongs in Sim/, where a test can add
+    // the same velocity to both and require the answer not to move.
+    private DiscardedStack? StackState()
+    {
+        if (Parent is not { } parent) return null;
+        if (_separatedFrom is not { } stack || !KsaWorld.IsAlive(stack)) return null;
+
+        doubleQuat cce2Cci = parent.GetCce2Cci();
+        double3 position = (KsaWorld.PositionEcl(stack) - parent.GetPositionEcl()).Transform(cce2Cci);
+        double3 velocity = (KsaWorld.VelocityEcl(stack) - parent.GetVelocityEcl()).Transform(cce2Cci);
+
+        return Vec.IsFinite(position) && Vec.IsFinite(velocity)
+                   ? new DiscardedStack(position, velocity)
+                   : null;
+    }
+
     // One line per change of state, which is all any of this is worth while nothing is happening
     // on screen. The detail rides along with it rather than driving it: a number that moves every
     // frame would otherwise log every frame.
@@ -807,9 +830,15 @@ internal sealed class IcbmComputer
         // separation caused from one that grew while the vehicle coasted clear of it.
         Clearance clearance = _didSplit ? Clear(simStep) : new Clearance(true, false, "");
 
+        // Latched, because the wait is about the *first* null. What keeps a later one out of the
+        // stack is the budget BusTrim spends against, not a second wait -- and by then the pair has
+        // stopped opening, so re-running the wait would abandon every post-boost pass on a gap that
+        // is already as wide as it is ever going to get.
+        _clearedOnce |= clearance.IsClear;
+
         // Given up on rather than waited out: the stack is readable and still too close, so there
         // is no manoeuvre to make here that does not fly into it. Release proceeds untrimmed.
-        if (clearance.Abandoned)
+        if (clearance.Abandoned && !_clearedOnce)
         {
             _trimAbandoned = true;
             if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
@@ -817,7 +846,7 @@ internal sealed class IcbmComputer
             return;
         }
 
-        _mayTrim = clearance.IsClear;
+        _mayTrim = _clearedOnce;
 
         _trim.Begin();
 
@@ -840,7 +869,7 @@ internal sealed class IcbmComputer
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci,
             Program.ReferencePositionCci, referenceVelocity, Program.SecondsSinceReference,
-            nose, right, down, _mayTrim));
+            nose, right, down, _mayTrim, StackState()));
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
@@ -877,9 +906,6 @@ internal sealed class IcbmComputer
         {
             _owedAtSplit = trim.ToGainMetresPerSecond;
         }
-
-        // Nothing left to measure a distance from once the trim has run.
-        if (trim.Done) _separatedFrom = null;
 
         // Said once per change. A trim that stalls looks exactly like one that has finished, and
         // the difference between them is kilometres on the ground.
