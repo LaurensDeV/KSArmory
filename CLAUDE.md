@@ -1288,6 +1288,29 @@ the keyboard calls. Nothing is patched. The aiming rotation comes from KSA's own
 than being built here, because building one means guessing which body axis is the nose — and getting
 that wrong is a vehicle holding a perfectly steady attitude ninety degrees from the one asked for.
 
+**The pointing deadband is a high-water mark, and it has to be put back each frame.** KSA widens
+`AngleDeadband` to whatever one control period of the minimum thruster impulse can produce — a
+stability guard, because a tracker asked to settle inside its own quantum limit-cycles instead — but
+`RecomputeDynamicData` takes a `max` against the standing value and nothing lowers it. At the frame a
+MIRV bus separates and becomes its own vehicle its mass properties resolve and the rate bit
+momentarily reads **55 deg/s**; `0.2 x 55` is 11.04, and that one frame sets the guard for the whole
+deployment. Measured: an 11.40° deadband held against a live rate bit worth 0.07, and it did not
+move when the impulse driving it was cut 35% — it went slightly *up*. That was 5.7° of a 9.63°
+pointing band, and it is why nothing done to the thrusters ever shifted it.
+
+Assigning the profile in `VehicleCommand.TryAim` puts it back and KSA's own `max` re-establishes the
+real floor on the same frame, so the guard ends up sized for what is actually aboard: **9.63° to
+0.37°**. `Strict` rather than `Balanced` because it is also the fastest of the three — 30 deg/s of
+rate limit against 5 — and the mod has already taken the vehicle by the time this runs.
+
+**A nozzle is enrolled in a rotation axis at 0.1, not at the 0.5 translation uses, and the enrolled
+set is summed.** `MinRotationalImpulse` is therefore a property of the whole ring rather than of one
+thruster, so a nozzle nobody meant to steer with still coarsens the quantum that does — and what
+decides enrolment is the axial gap between the ring and where the part declares its mass, which
+defaults to the mounting face where nothing physically is. `tools/model/checkring.py` gates it;
+nothing else could, because the mesh is clean, the pivots agree and `checkswept.py` finds no
+intersection.
+
 **One computer per craft, not per launcher.** A craft can carry two rails and shoot them at
 different things; it has exactly one trajectory, so a second computer aboard is a second autopilot
 fighting the first for the same engines. That is the one place the ICBM roster and `WeaponSystems`
