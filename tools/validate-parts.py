@@ -80,7 +80,7 @@ def atlas_mesh_names(glb_path):
     return {m.get("name") for m in gltf.get("meshes", [])}
 
 
-def check_file(path, core_subparts, core_materials):
+def check_file(path, core_subparts, core_materials, core_substances):
     """Returns (problems, references checked) for one asset XML."""
     problems = checked = 0
 
@@ -157,6 +157,9 @@ def check_file(path, core_subparts, core_materials):
             print(f"  UNRESOLVED SubPart InstanceOf=\"{source}\"", file=sys.stderr)
             problems += 1
 
+    # <Material> names two different things depending on where it sits: a PbrMaterial, which is
+    # how something is drawn, and a Substance, which is what it is made of -- and a substance is
+    # referenced by phase, "Aluminum.2014(s)" for the solid Core declares as "Aluminum.2014".
     for el in root.iter("Material"):
         ident = el.get("Id")
         if not ident:
@@ -164,9 +167,12 @@ def check_file(path, core_subparts, core_materials):
         checked += 1
         if core_materials is None:
             continue
-        if ident not in core_materials and ident not in local_materials:
-            print(f"  UNRESOLVED Material Id=\"{ident}\"", file=sys.stderr)
-            problems += 1
+        substance = re.sub(r"\((s|l|g)\)$", "", ident)
+        if (ident in core_materials or ident in local_materials
+                or substance in core_substances):
+            continue
+        print(f"  UNRESOLVED Material Id=\"{ident}\"", file=sys.stderr)
+        problems += 1
 
     for el in root.iter("PartGameData"):
         print(f"  part: {el.get('Id')}  \"{el.get('DisplayName', '')}\"")
@@ -1526,7 +1532,7 @@ def main():
 
     if offline:
         print("offline: skipping the checks that need KSA's Core assets\n")
-        core_subparts = core_materials = None
+        core_subparts = core_materials = core_substances = None
     elif not CORE.is_dir():
         print(f"error: Core content not found at {CORE}", file=sys.stderr)
         print("       set KSA_DIR to your install, or pass --offline", file=sys.stderr)
@@ -1536,7 +1542,9 @@ def main():
         declared = collect_core_ids(CORE)
         core_subparts = declared.get("SubPart", set())
         core_materials = declared.get("PbrMaterial", set())
-        print(f"  {len(core_subparts)} subparts, {len(core_materials)} materials declared\n")
+        core_substances = declared.get("Substance", set())
+        print(f"  {len(core_subparts)} subparts, {len(core_materials)} materials, "
+              f"{len(core_substances)} substances declared\n")
 
     files = sorted(MOD.glob("KSArmory*.xml"))
     if not files:
@@ -1546,7 +1554,7 @@ def main():
     problems = checked = 0
     for path in files:
         print(f"checking {path.relative_to(REPO)}")
-        p, c = check_file(path, core_subparts, core_materials)
+        p, c = check_file(path, core_subparts, core_materials, core_substances)
         problems += p
         checked += c
 
