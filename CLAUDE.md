@@ -197,6 +197,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/pack-api.py --check                # has the API weapon packs bind to moved?
 ./tools/model/build.sh                     # rebuild every part's mesh and textures (needs Blender)
 ./tools/model/checkswept.py                # does any assembly pass through another in its travel?
+./tools/model/checkring.py --check         # is a thruster ring steering on more than its axial pair?
 ./tools/check-boundary.sh                  # Sim/ must not reference KSA types
 ./tools/check-network.sh                   # the mod only reaches the network when Send is clicked
 ./tools/check-tunables.py                  # every setting has a control that reaches it
@@ -455,6 +456,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/checkmesh.py` | finds unpaired node/mesh names, zero-UV-area triangles and coplanar faces in a `.glb`; takes several at once, and `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/dilate-atlas.py` | fills the empty space around a baked atlas's islands from their nearest neighbour — **what a bake margin cannot do**, because a margin wide enough to survive mipmapping is wide enough to write one body's dilation over another's |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
+| `tools/model/checkring.py` | what KSA's flight computer will make of a thruster ring — **which nozzles end up steering**, and how coarse that makes the attitude quantum |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
