@@ -507,21 +507,19 @@
     </Combustor>
     <DeLavalNozzle Id="Nozzle">
       <!--
-        Sized for authority, not for the pointing band. An attitude thruster this size is a
-        main-engine bell on a 6,300 kg bus and the drawn bell beside it is 0.11 m, so 0.4 is
-        indefensible on its own terms - but the bus needs it to get itself off a spent stack.
+        An attitude thruster, sized as one: 0.4 m of exit is a main-engine bell on a 6,300 kg bus
+        and the drawn bell beside it is 0.11 m. 0.13 m is about 394 N.
 
-        At 394 N the trim measures 0.257 m/s2 and takes nine times as long to null anything, and
-        SeparationClearance's margin is a fixed 25 m and 20 s that knows nothing about how hard
-        the bus can push. Flown at a 15 degree arrival floor that put the bus into the stack on
-        every shot: "nothing left aboard moves the bus, 1.61 m/s left", which is what the trim
-        reports when firing moves nothing because it is resting against something.
+        Flown, it is worth about 1.3 km and nothing else found this year comes close - five shots
+        at 0.4 m land 1.31-1.91 km where four at 0.13 land 0.05-0.43, two distributions that do
+        not overlap. That is far more than the pointing band accounts for, and why it is not
+        understood is written up in docs/MIRV-NEXT.md.
 
-        The pointing band does not need it. AngleDeadband is held at the attitude profile's floor
-        by VehicleCommand re-deriving it each frame, so thrust only reaches the turnaround term:
-        9.63 degrees to about 2.6 rather than to 0.37.
+        It is safe on its own: no shot without an arrival floor has ever put the bus into the
+        spent stack, at either size. What collides is a floor plus a bus that cannot shove itself
+        clear, and that is a separation problem rather than a reason to carry a bigger nozzle.
       -->
-      <ExitDiameter M="0.4" />
+      <ExitDiameter M="0.13" />
       <FxExitDiameter M="0.11" />
       <AreaRatio Value="40" />
       <FlowEfficiency Value="1" />
