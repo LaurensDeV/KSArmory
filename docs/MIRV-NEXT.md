@@ -333,9 +333,7 @@ that stops early, now able to act on whatever it last believed.
    3.6°, so steep is slightly cheaper. It is seven kilometres of aim error the burn handed over,
    built by the correction out of the trajectory search's own transient on a shot that needed no
    correction at all.
-3. **The mass declaration.** `<SolidSphereMass>` carries no `<LocationAsmb>`, so KSA puts all
-   6,300 kg on the mounting face while the geometry centres near X ≈ 1.4. Every lever arm on the bus
-   is set by that.
+3. **The mass declaration** — now understood, and acted on. See below.
 
 Both commits and both reverts are on `dev`, so the geometry is one `git revert` away when the
 correction is ready for it.
@@ -345,6 +343,41 @@ correction is ready for it.
 **0.5** — a 60° half cone, judged per nozzle with no reference to lever arms or to the layout as a
 whole. That is why one radial jet per cluster serves every lateral direction, and why the whole ring
 lights up for a single command.
+
+### The rotation rule is a different rule, and it is what the mass seat was doing
+
+**Rotation is enrolled at 0.1, not 0.5, and the enrolled set is summed.** A nozzle joins a rotation
+axis when `dot(thrust, normalize(axis × r))` exceeds **0.1** — a far wider net than translation's
+60° cone, and one that depends only on *direction*, not on how long the lever is. What is then
+added to `MinRotationalImpulse` for that axis is the nozzle's **full torque**, accumulated across
+every nozzle enrolled. So the quantum that sets the attitude deadband is a property of the whole
+ring, and a nozzle nobody intended to steer with still coarsens it.
+
+That is what the missing `<LocationAsmb>` was worth. Every non-axial nozzle sits at X = 0.30 and
+the mass sat at X = 0, so all twelve carried a 0.30 m axial lever arm and enrolled in pitch and yaw:
+
+| ring | pitch/yaw quantum | enrolled |
+| --- | --- | --- |
+| canted 16 | 4.976 | 12 |
+| canted + radial 20 | 5.408 | 16 |
+| squared + radial 20 | 5.685 | 20 |
+| **any of them, mass seated at X = 0.30** | **4.412** | **8** |
+
+4.412 is `4 × 1.103` — the axial nozzles alone, whose lever arm is in the radial plane whatever the
+mass seat is. It is the floor for this ring, and seating the mass in the ring plane reaches it.
+
+It also explains a flown result rather than only predicting one: the canted+radial arm carried
+1.085× the quantum and flew with **26% more attitude walk** than the arm without it, 1,316 m against
+1,044 m, while beating it on both cutoff residual and trim. More actuator, worse hold.
+
+**The seat is a choice and is written down as one.** The loaded centroid is near X = 1.77, and
+putting it there would give every nozzle a 1.4 m arm and a far worse quantum. It sits inside a mass
+model that is already approximate — the six RVs are rounds this mod simulates and carry no KSA mass,
+so the 6,300 kg never sheds as they leave.
+
+`tools/model/checkring.py` gates it. Nothing else here could: the mesh is clean, the pivots agree,
+`checkswept.py` finds no intersection, and the vehicle simply holds its nose less well than it
+could. **Unflown** — the arm carrying it is in the air as this is written.
 
 ## 1. Null the separation impulse — reformulated, unflown
 
