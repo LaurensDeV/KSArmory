@@ -362,6 +362,99 @@ internal static class DeorbitShot
         return Arrived(body, round, elapsed);
     }
 
+    /// <summary>What one flight under <see cref="WarpPolicy"/> did, beside where it landed.</summary>
+    /// <param name="GroundFixed">Where it came down, body-fixed.</param>
+    /// <param name="Seconds">How long it took.</param>
+    /// <param name="MeanStep">
+    /// The mean simulated step across the vacuum coast, which is the number the round's
+    /// disagreement with its own probe is nearly linear in.
+    /// </param>
+    /// <param name="HeldSpeed">The speed the policy settled the coast at, or the request if it never acted.</param>
+    /// <param name="HeldAt">
+/// When it first acted <em>during the coast</em>, in seconds of flight. NaN if it never did — the
+/// entry pulls the world to real time on every flight, so a hold from there on is not one.
+/// </param>
+    public readonly record struct WarpedFlight(double3 GroundFixed, double Seconds, double MeanStep,
+                                               double HeldSpeed, double HeldAt);
+
+    /// <summary>
+    /// The round flown against the speed <see cref="WarpPolicy"/> actually settles on, driven by a
+    /// stream of wall-clock frame times rather than by an assumed constant step.
+    ///
+    /// <para><see cref="FlyTheRoundAsWarped"/> assumes the coast runs at the requested warp for its
+    /// whole length, which is the one thing about it that is not true: the policy only acts once a
+    /// frame overruns, and it never gives the speed back while a round is in the air. So the step a
+    /// shot is flown at depends on <em>whether</em> a frame overran and <em>when</em> — which is
+    /// what this reproduces and that one cannot.</para>
+    ///
+    /// <para>The order is the mod's own: decide on the step just applied, then integrate across it
+    /// clamped by what the round can survive (<c>Ksa/KSArmoryMod.cs</c>).</para>
+    /// </summary>
+    /// <param name="requestedWarp">The speed the scenario asks for once the salvo is away.</param>
+    /// <param name="wallFrameSeconds">How long the next frame takes, given the flight time so far.</param>
+    /// <param name="ground">Where the ground is. Null is the mean sphere.</param>
+    public static WarpedFlight FlyTheRoundUnderTheWarpPolicy(double3 fromCci, double3 velocityCci,
+                                                             double requestedWarp,
+                                                             Func<double, double> wallFrameSeconds,
+                                                             IGroundTest? ground = null)
+    {
+        BallisticBody body = Earth;
+
+        Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
+        {
+            Munition = Warhead,
+            Ground = ground ?? new Ball(),
+            AirDensityAt = (pos, _) => DensityAt(pos),
+        };
+
+        WarpPolicy policy = new();
+        double speed = requestedWarp;
+        double elapsed = 0.0;
+        double heldAt = double.NaN;
+        double heldSpeed = requestedWarp;
+
+        double coastSteps = 0.0;
+        int coastFrames = 0;
+
+        while (round.State == RoundState.Flying && elapsed < 20_000.0)
+        {
+            double dtSim = speed * wallFrameSeconds(elapsed);
+
+            // The coast is what the frame reaches: once there is air the round asks for a step of
+            // its own and the world is pulled to real time whatever it was doing, so a hold from
+            // there on says nothing about the coast.
+            bool coasting = round.FaithfulStepSeconds >= Warhead.PreferredStep;
+
+            // The world's own speed is decided on the step just applied, before anything integrates
+            // across it -- so a frame that overruns is flown at the old speed and only the next one
+            // is slower.
+            WarpDecision d = policy.Decide(dtSim, speed, true, true, round.FaithfulStepSeconds);
+            if (d.Action is WarpAction.Slow or WarpAction.Restore)
+            {
+                if (d.Action == WarpAction.Slow && coasting && double.IsNaN(heldAt))
+                {
+                    heldAt = elapsed;
+                    heldSpeed = d.Speed;
+                }
+
+                speed = d.Speed;
+            }
+
+            double step = Math.Min(dtSim, Warhead.MaxFaithfulStepSeconds);
+
+            if (coasting)
+            {
+                coastSteps += step;
+                coastFrames++;
+            }
+
+            elapsed = OneFrame(body, round, step, fromCci, Refresh.AsFlown, ground, elapsed);
+        }
+
+        (double3 landed, double seconds) = Arrived(body, round, elapsed);
+        return new WarpedFlight(landed, seconds, coastSteps / Math.Max(1, coastFrames), heldSpeed, heldAt);
+    }
+
     /// <summary>The widest gap between any two of a group's impacts, on the ground.</summary>
     public static double Spread(IReadOnlyList<double3> landed)
     {

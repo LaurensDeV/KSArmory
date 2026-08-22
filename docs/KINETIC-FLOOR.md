@@ -388,10 +388,10 @@ the floor, but reaching the floor at all from a shot that would otherwise be a k
 
 - **Neither is a CEP in the statistical sense.** Every term here is a deterministic bias of a
   deterministic simulation: the same shot flown twice gives the same answer to the bit. What makes
-  a flown group scatter is frame pacing, which is `docs/MIRV-NEXT.md` item 7d and is worth about
-  0.5 km run to run today — dominated by the frozen gravity, whose error grows with the step. Fix
-  that and the run-to-run variation largely goes with it, because the remaining terms are
-  step-independent.
+  a flown group scatter is the frozen gravity, whose error grows with the step — but the step's own
+  run-to-run variation is **not** pacing. It is a single latched `WarpPolicy` decision that either
+  happens or does not, worth 0.7-2.6 km; `docs/MIRV-NEXT.md` item 7e has the measurement and
+  conditioning on the coast step leaves 10-88 m.
 - **Nothing here is flown.** It is all headless, and the rig's planet is at the origin.
 - **The 13 cm ruler.** Every budget in this repository scores a miss with
   `R * Vec.AngleBetween`, an arc cosine, whose resolution at Earth's radius is **13.4 cm**

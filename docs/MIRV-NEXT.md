@@ -1476,6 +1476,84 @@ flight. So a single run each way cannot resolve anything under about a kilometre
 numbers recorded above were taken before this was known. Where a claim is inside that band it now
 says so.
 
+## 7e. That 0.5 km is one latched warp decision, not frame pacing — measured, unfixed
+
+**The coast's integration step is bimodal, and which mode a shot gets is decided by the length of a
+single frame.** Conditioned on it, the run-to-run scatter in the walk falls from a standard
+deviation of 91-1,155 m to a residual of **10-88 m**. Nothing else in the shot is doing anything.
+
+`Slug.FaithfulStepSeconds` off the coast is `MunitionProfile.PreferredStep`, **225 ms** on the Mk 21,
+and `WarpPolicy.Decide` returns `Nothing` while the step is inside it. At the scenario's 8x that
+threshold is a wall-clock frame of **28.125 ms**, against a coast that runs at a median of
+**23.1-24.5 ms**. So the mod does not hold the world down at all unless one frame lands in the top
+of that band — and when one does, `_restoreTo` is set and nothing lifts it while a round is in the
+air, so the whole rest of the coast runs at the speed computed from that one anomalous frame.
+
+| | coast step | walk from the release probe |
+| --- | --- | --- |
+| never tripped, 8x throughout | **185-190 ms** | arr15 **+875 / +845 m**, com **+1,283 / +1,281 m** |
+| tripped, 4.0-4.8x thereafter | **95-120 ms** | arr15 **+107 / +102 m**, com **-1,028 to -1,603 m** |
+
+**The threshold separates 37 flown shots with no exceptions.** Taking the first full 8x frame after
+the salvo, every shot above 225.0 ms of step had the world held down on it and every shot below did
+not; the nearest pair either side is **223.5 ms and 225.4 ms**. The held speed is
+`8 x 0.6 x 0.225 / dtSim` to the printed digit — 4.05x off a 266.7 ms frame, 4.79x off a 225.4 ms
+one — so the whole flight's step is calibrated off the one outlier that tripped it, and varies 20%
+for that reason alone.
+
+**The walk is linear in the mean coast step**, at the arrival angle's own leverage:
+
+| arm | arrival | m of walk per ms of coast step | R² on step alone | residual |
+| --- | --- | --- | --- | --- |
+| base / com / thr | 7.1° | **53.4 / 36.1 / 17.1** | 0.94 / 0.99 / 0.53 | 74 / 88 / 62 m |
+| arr15 | 15.2° | **13.9** | 1.00 | 13 m |
+| arr20 | 20.3° | **9.1** | 0.99 | 19 m |
+
+Adding flight time as a second term takes every arm to **R² 0.98-0.99** with residuals of 10-88 m.
+The ratio between the arms is `cot γ` to within 20%, which is what says it is one term seen through
+three arrival geometries rather than three effects.
+
+**It is worse than a nuisance, because it is correlated with the arm.** The release frame at
+152-195 km hits KSA's own frame cap — `dt` 266.7 ms is exactly 8 x 1/30 s, and the p99 wall frame in
+every flight is 33.3 ms — so a low release trips **every time**; at 282-340 km the same frame is
+177-224 ms and trips **once in eight**. An arm that releases higher therefore flies a systematically
+coarser coast, and half its measured effect is that rather than its guidance.
+
+**And the instrument was pointing at it and could not see it.** `shot-report.py` medians `dt` over
+every sampled frame, and the 1x entry supplies ~90% of them: 24.4 ms against 23.7 ms for two shots
+whose *coast* medians are 185.4 ms and 101.9 ms. The number to condition on is the median step over
+frames with `sim > 1`, which is already in the logs.
+
+`WarpLatchScatterTests` is the headless reproduction: the same release state, one frame moved from
+27.94 ms to 28.18 ms, two landing points. It reads **313 m** where the flight reads 773-2,564 —
+the standing rig-versus-flight factor from item 2, so the mechanism reproduces and the size does
+not.
+
+### Ranked, cheapest first
+
+1. **Condition on the coast step in `shot-report.py`** — median `step` over `sim > 1` frames, per
+   shot, beside the walk. Costs a line, changes no behaviour, and turns the largest nuisance in the
+   protocol into a covariate. It also says immediately whether an arm is being scored on its
+   release altitude.
+2. **Make the trip deterministic.** Any `PreferredStep` below `8 x` the median frame — under about
+   **190 ms** — trips on the first full frame of every shot, which removes the branch without
+   touching the policy. It does not remove the 20% calibration spread, because the target is still
+   computed from whichever frame tripped it.
+3. **Stop calibrating a whole flight off one frame.** `Decide` freezes the requested speed at the
+   first overrun and never revisits it while the air is busy. Re-solving it against the step the
+   world settled at would put every shot on `Margin x PreferredStep` regardless of what tripped it.
+   This is a control loop with three flown lessons against it — `SettleSteps`, `OverridesBeforeYielding`
+   and the abandon guard are all scar tissue — so it is a change to make deliberately or not at all.
+4. **Hold the world unconditionally while rounds fly**, dropping the `dtSim <= faithfulStep` early
+   return and letting the margin decide. Every coast then runs at `0.6 x PreferredStep` = 135 ms.
+   Deterministic, and it takes timewarp away from a player who was inside the limit — which the
+   early return exists to avoid.
+
+**What would falsify it.** Fly a batch with `PreferredStepSeconds` at 0.19 and check that every shot
+logs `timewarp held at` within the first second: if the trip becomes universal and the walk's
+spread within an arm collapses toward the 10-88 m residual, this is the whole of it. If the spread
+survives, something else is in the coast step.
+
 ## 8. The bus corrects its own aim after cutoff — flown
 
 The correction has always been able to move the aim during the coast. What it had no way to do was
