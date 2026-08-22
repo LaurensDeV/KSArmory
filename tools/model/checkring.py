@@ -18,6 +18,11 @@ The floor is the ring's axial nozzles alone: those have a lever arm in the radia
 the mass seat is, so their contribution cannot be designed away. Anything above it is coupling
 that can be.
 
+It also reports the *leak*: the net force a rotation command makes, per unit of the torque it was
+asked for. A correctly enrolled set is a pure couple and leaks nothing. A wrongly enrolled one
+translates the vehicle every time it corrects its attitude, which is how a pointing fault turns
+into a velocity error -- measured on the MIRV bus at 0.378, against 0.000 once the mass was seated.
+
 Assumes the control frame is the part frame. KSA rotates by ctrl2Body first; a part whose control
 axes are turned relative to its own would need that rotation applying here.
 """
@@ -33,6 +38,7 @@ GAMEDATA = ROOT / "src/KSArmory/KSArmoryGameData.xml"
 
 ENROL_THRESHOLD = 0.1          # ThrusterController.ComputeControlMap, torque efficiency
 TOLERANCE = 1.01               # how far above its own floor a ring may sit
+COUPLE_TOLERANCE = 0.01        # net force per unit torque a rotation command may leak
 
 
 def xyz(node, default=0.0):
@@ -85,11 +91,13 @@ def rings(assets, gamedata):
 
 
 def analyse(nozzles, com):
-    """MinRotationalImpulse per axis, in units of thrust x MinimumPulseTime, and who is enrolled."""
+    """MinRotationalImpulse per axis, who is enrolled, and what each command leaks as translation."""
     axes = np.eye(3)
     impulse = np.zeros((3, 2))
     enrolled = [set() for _ in range(3)]
     axial = np.zeros((3, 2))
+    leak = np.zeros((3, 2))
+    net = [[np.zeros(3), np.zeros(3)] for _ in range(3)]
     for label, pos, rot in nozzles:
         thrust = rot @ np.array([1.0, 0.0, 0.0])
         arm = pos - com
@@ -108,9 +116,14 @@ def analyse(nozzles, com):
             side = 1 if efficiency > 0 else 0
             impulse[a][side] += abs(torque[a])
             enrolled[a].add(label)
+            net[a][side] += thrust
             if is_axial:
                 axial[a][side] += abs(torque[a])
-    return impulse.max(axis=1), axial.max(axis=1), enrolled
+    for a in range(3):
+        for side in (0, 1):
+            spin = impulse[a][side]
+            leak[a][side] = np.linalg.norm(net[a][side]) / spin if spin > 1e-9 else 0.0
+    return impulse.max(axis=1), axial.max(axis=1), enrolled, leak.max(axis=1)
 
 
 def main():
@@ -122,15 +135,17 @@ def main():
 
     for part_id, nozzles, com in rings(assets, gamedata):
         found += 1
-        worst, floor, enrolled = analyse(nozzles, com)
+        worst, floor, enrolled, leak = analyse(nozzles, com)
         print(f"{part_id}: {len(nozzles)} thrusters, mass seated at "
               f"X={com[0]:.3f} Y={com[1]:.3f} Z={com[2]:.3f}")
         for a, name in enumerate(("roll", "pitch", "yaw")):
             over = worst[a] > floor[a] * TOLERANCE and floor[a] > 0
+            leaky = leak[a] > COUPLE_TOLERANCE
             mark = "  <-- coupled" if over else ""
+            mark += "  <-- not a couple" if leaky else ""
             print(f"    {name:5s} quantum {worst[a]:6.3f}   floor {floor[a]:6.3f}   "
-                  f"{len(enrolled[a]):2d} enrolled{mark}")
-            if over:
+                  f"{len(enrolled[a]):2d} enrolled   leak {leak[a]:5.3f}{mark}")
+            if over or leaky:
                 problems += 1
         if problems:
             coupled = sorted(set().union(*enrolled) - {n[0] for n in nozzles if abs((n[2] @ np.array([1.0, 0, 0]))[0]) > 0.5})
@@ -141,9 +156,11 @@ def main():
         print("no thruster rings declared")
         return 0
     if check and problems:
-        print(f"\nFAILED: {problems} axis/axes above the ring's own floor.\n"
+        print(f"\nFAILED: {problems} axis/axes above the ring's own floor or leaking translation.\n"
               "A non-axial nozzle is steering. Seat the part's mass in the ring plane, or move\n"
-              "the ring into the mass plane -- the coupling is the axial gap between the two.",
+              "the ring into the mass plane -- the coupling is the axial gap between the two.\n"
+              "Leak is net force per unit torque: a rotation command that is not a pure couple\n"
+              "shoves the vehicle every time it corrects its attitude.",
               file=sys.stderr)
         return 1
     print("\nring ok" if check else "")
