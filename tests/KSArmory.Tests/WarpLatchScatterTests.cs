@@ -28,7 +28,7 @@ public class WarpLatchScatterTests(ITestOutputHelper Out)
     /// <summary>
     /// The wall-clock frame at which the world is slowed, at the speed the scenario asks for.
     ///
-    /// <para>Measured against 37 flown shots: every shot whose first full 8x frame was longer than
+    /// <para>Measured against 38 flown shots: every shot whose first full 8x frame was longer than
     /// this had the world held down on it, and every shot below it did not. The nearest pair either
     /// side is 27.94 ms and 28.18 ms.</para>
     /// </summary>

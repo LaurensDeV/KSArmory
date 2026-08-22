@@ -1494,7 +1494,7 @@ air, so the whole rest of the coast runs at the speed computed from that one ano
 | never tripped, 8x throughout | **185-190 ms** | arr15 **+875 / +845 m**, com **+1,283 / +1,281 m** |
 | tripped, 4.0-4.8x thereafter | **95-120 ms** | arr15 **+107 / +102 m**, com **-1,028 to -1,603 m** |
 
-**The threshold separates 37 flown shots with no exceptions.** Taking the first full 8x frame after
+**The threshold separates 38 flown shots with no exceptions.** Taking the first full 8x frame after
 the salvo, every shot above 225.0 ms of step had the world held down on it and every shot below did
 not; the nearest pair either side is **223.5 ms and 225.4 ms**. The held speed is
 `8 x 0.6 x 0.225 / dtSim` to the printed digit — 4.05x off a 266.7 ms frame, 4.79x off a 225.4 ms
@@ -1528,6 +1528,21 @@ frames with `sim > 1`, which is already in the logs.
 27.94 ms to 28.18 ms, two landing points. It reads **313 m** where the flight reads 773-2,564 —
 the standing rig-versus-flight factor from item 2, so the mechanism reproduces and the size does
 not.
+
+### A second discrete event, rarer and unexplained
+
+One shot in 38 shows the *other* shape the trace was built to tell apart. A single frame at 8x came
+in at **56 ms** — 0.45 s of step, past `MunitionProfile.MaxFaithfulStepSeconds` — so the clamp
+discarded **138.9 ms**, which `lag` then reported for the rest of the flight. On that one frame the
+walk went from **-37 m to +11,446 m** and the round's own predicted arrival jumped **+2.09 s**;
+everything after it is flat. It is a *step*, not a ramp, so it is not the latch and not the
+integrator.
+
+The arithmetic does not explain it. Gravity frozen across one 0.32 s step at 371 km is worth under a
+metre of impact, and 138.9 ms of discarded flight is 0.14 s of arrival, not 2.09. It happened on the
+2354 batch, whose base is the `arm/clearance` merge that was reverted, so that batch is excluded from
+every figure above — but the event is the clamp's and would reach any build. **Worth its own look**;
+until then a shot logging non-zero `lag` should be dropped rather than scored.
 
 ### Ranked, cheapest first
 
