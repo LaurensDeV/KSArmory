@@ -81,11 +81,46 @@ internal static class ImpactPredictor
     /// </param>
     /// <param name="pathCci">Optional, filled with the trajectory for drawing.</param>
     /// <param name="drag">The air. Null flies in vacuum, which is right only above the atmosphere.</param>
+    /// <summary>
+    /// The round's own integration, for a prediction that must not be tidier than the thing it
+    /// predicts.
+    ///
+    /// <para><b>A prediction is an observer, and a correction loop can only remove what its
+    /// observer can see.</b> This predictor is classical RK4 with gravity re-evaluated at every
+    /// stage; <see cref="Slug"/> is symplectic Euler with gravity frozen across the frame. So the
+    /// aim converges on an arc the round does not fly, reports itself satisfied, and the warheads
+    /// land beyond their own release probe — measured in flight as a bias of <b>350 m</b>
+    /// downrange, the same 394 m <c>ProbeGapTests</c> prices headlessly, and repeatable to 85 m
+    /// shot to shot.</para>
+    ///
+    /// <para><b>It is the predictor that moves, not the round.</b> Three flown attempts have gone
+    /// the other way — carrying the ground centre, re-reading gravity per sub-step, phase-shifting
+    /// the force samples — and all three cost kilometres. They changed how the round flies; this
+    /// changes only where the aim points, so being wrong is bounded by the size of the bias
+    /// rather than by what a destabilised trajectory can do.</para>
+    /// </summary>
+    /// <param name="FrameSeconds">The step the round is integrated across while it coasts.</param>
+    /// <param name="AirFrameSeconds">And once there is air, which the round holds itself down to.</param>
+    /// <param name="SubStepSeconds">What it subdivides a frame into.</param>
+    /// <param name="MaxSubSteps">The cap that makes a long frame coarse rather than slow.</param>
+    public readonly record struct AsFlown(double FrameSeconds, double AirFrameSeconds,
+                                          double SubStepSeconds, int MaxSubSteps)
+    {
+        public bool IsUsable => FrameSeconds > 0.0 && AirFrameSeconds > 0.0
+                                && SubStepSeconds > 0.0 && MaxSubSteps > 0;
+
+        /// <summary>The schedule a round of this profile will actually be given at this frame size.</summary>
+        public static AsFlown For(MunitionProfile munition, double frameSeconds)
+            => new(frameSeconds, Math.Min(frameSeconds, Medium.FaithfulStepInAir),
+                   munition.SubStep, munition.MaxSubSteps);
+    }
+
     public static bool TryPredict(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double stepSeconds, double maxSeconds, out Impact impact,
                                   Func<double3, double>? terrainRadiusAt = null,
                                   List<double3>? pathCci = null,
-                                  Drag? drag = null)
+                                  Drag? drag = null,
+                                  AsFlown? asFlown = null)
     {
         impact = default;
         pathCci?.Clear();
@@ -115,12 +150,38 @@ internal static class ImpactPredictor
         // Climbing out of it is normal on the pad, so the first crossing is only believed once the
         // vehicle has been above ground at least once.
         bool everAboveGround = r.Length() > SurfaceUnder(body, r, t, terrainRadiusAt);
+        double3 rNext2;
+        double3 vNext2;
 
         while (t < maxSeconds)
         {
-            if (DensityAt(body, r, drag) > NoticeableDensity) h = Math.Min(h, AtmosphericStepSeconds);
+            bool inAir = DensityAt(body, r, drag) > NoticeableDensity;
 
-            Step(body, r, v, h, drag, out double3 rNext, out double3 vNext);
+            // Capped rather than assigned, because the crossing search below refines by halving h
+            // and reads it back on the next pass: assigning here restores the step it just halved,
+            // so the bisection never converges and the arc never lands.
+            if (asFlown is { IsUsable: true } schedule)
+            {
+                // The round's own schedule, not this predictor's: it holds itself to a tighter step
+                // once there is air, and that cap is a different number from AtmosphericStepSeconds.
+                h = Math.Min(h, inAir ? schedule.AirFrameSeconds : schedule.FrameSeconds);
+            }
+            else if (inAir)
+            {
+                h = Math.Min(h, AtmosphericStepSeconds);
+            }
+
+            if (asFlown is { IsUsable: true } flown)
+            {
+                StepAsFlown(body, r, v, h, drag, flown, out rNext2, out vNext2);
+            }
+            else
+            {
+                Step(body, r, v, h, drag, out rNext2, out vNext2);
+            }
+
+            double3 rNext = rNext2;
+            double3 vNext = vNext2;
             double tNext = t + h;
 
             if (!Vec.IsFinite(rNext) || !Vec.IsFinite(vNext)) return false;
@@ -205,6 +266,50 @@ internal static class ImpactPredictor
         if (density <= 0.0 || drag is not { } air) return accel;
 
         return accel - Medium.Drag(v - body.GroundVelocityCci(r), air.Munition, density);
+    }
+
+    // The round's own scheme: gravity read once and held for the frame, symplectic Euler across
+    // sub-steps of it. Deliberately the worse integrator -- it is here to reproduce the round's
+    // error, not to avoid one, so anything that makes this more accurate defeats the purpose.
+    private static void StepAsFlown(BallisticBody body, double3 r, double3 v, double h, Drag? drag,
+                                    AsFlown flown, out double3 rNext, out double3 vNext)
+    {
+        int steps = Math.Min(flown.MaxSubSteps,
+                             Math.Max(1, (int)Math.Ceiling(h / flown.SubStepSeconds)));
+        double hs = h / steps;
+
+        // Frozen across the whole frame, which is the term ProbeGapTests prices at -545 m.
+        double3 gravity = body.GravityCci(r);
+
+        rNext = r;
+        vNext = v;
+
+        // Above the air the acceleration is constant across the whole frame -- gravity is frozen
+        // and there is no drag -- and symplectic Euler under a constant acceleration has a closed
+        // form. Summing it is exact rather than an approximation of the loop, so the coast costs one
+        // evaluation instead of forty, which is what makes this affordable as an observer at all:
+        // the loop is a density lookup per sub-step, and the coast is most of the flight.
+        if (!(DensityAt(body, r, drag) > NoticeableDensity))
+        {
+            vNext = v + gravity * (hs * steps);
+            rNext = r + v * (hs * steps)
+                      + gravity * (hs * hs * (steps * (steps + 1) * 0.5));
+            return;
+        }
+
+        for (int i = 0; i < steps; i++)
+        {
+            double3 accel = gravity;
+
+            double density = DensityAt(body, rNext, drag);
+            if (density > 0.0 && drag is { } air)
+            {
+                accel -= Medium.Drag(vNext - body.GroundVelocityCci(rNext), air.Munition, density);
+            }
+
+            vNext += accel * hs;
+            rNext += vNext * hs;
+        }
     }
 
     // Classical fourth-order Runge-Kutta.
