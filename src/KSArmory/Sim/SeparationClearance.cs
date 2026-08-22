@@ -1,5 +1,3 @@
-using Brutal.Numerics;
-
 namespace KSArmory;
 
 /// <summary>Whether the thing that let go has got far enough away to act, and what to say about it.</summary>
@@ -18,11 +16,6 @@ internal readonly record struct Clearance(bool IsClear, bool OnTheClock, string 
 /// <para>So the manoeuvre waits, and this is the whole of the decision. Measured rather than timed
 /// wherever the discarded stage can still be read: how fast two halves part depends on the
 /// decoupler's impulse and on what each half weighs, and nothing in this mod knows either.</para>
-///
-/// <para><b>Waiting is only half of it, because the shove is also a budget.</b> Nulling it leaves
-/// the pair co-moving, which is safe at any distance; spending a metre a second more than it drives
-/// the bus back into what it dropped, however far it has coasted first.
-/// <see cref="WithoutClosingOnTheStack"/> is that half.</para>
 /// </summary>
 internal static class SeparationClearance
 {
@@ -109,51 +102,5 @@ internal static class SeparationClearance
                              known
                                  ? $"waiting to clear the spent stack, {metresApart:F0} m of {wanted:F0}"
                                  : "waiting to clear the spent stack, which cannot be read");
-    }
-
-    /// <summary>
-    /// A velocity the post-boost vehicle is about to spend, with any part of it that would start
-    /// the gap closing again taken out.
-    ///
-    /// <para><b>The rate the two are parting at is the whole budget.</b> Spend all of it and they
-    /// co-move at whatever distance the coast reached, which is the outcome this class is built
-    /// around. Spend more and the range rate goes negative — and a negative range rate closes any
-    /// gap given time, so no distance the wait can reach makes it safe.</para>
-    ///
-    /// <para>Only the component along the line between them is touched. A push square to that line
-    /// cannot change the range rate, so a lateral trim is spent in full however close the stack
-    /// is.</para>
-    ///
-    /// <para>It is re-asked every cycle against the range rate actually measured, so a bang-bang
-    /// loop that overshoots the budget by a quantum sees the budget go to zero on the next cycle
-    /// rather than accumulating the overshoot.</para>
-    /// </summary>
-    /// <param name="stackPositionCci">
-    /// Where the discarded stage is. Both halves of each pair are taken so the differencing happens
-    /// here, where a test can add the same velocity to vehicle and stage and require the answer not
-    /// to move — see <c>docs/FRAMES-AND-EPOCHS.md</c>.
-    /// </param>
-    public static double3 WithoutClosingOnTheStack(double3 toGainCci,
-                                                   double3 positionCci, double3 velocityCci,
-                                                   double3 stackPositionCci, double3 stackVelocityCci)
-    {
-        if (!Vec.IsFinite(toGainCci)) return toGainCci;
-
-        double3 offset = stackPositionCci - positionCci;
-        double range = Vec.Len(offset);
-
-        if (!Vec.IsFinite(offset) || !(range > 0.0)) return toGainCci;
-
-        double3 relative = stackVelocityCci - velocityCci;
-        if (!Vec.IsFinite(relative)) return toGainCci;
-
-        double3 towards = offset / range;
-
-        // How fast the gap is growing, and how much of the push is aimed down it. A push toward the
-        // stage subtracts from the first, so the second may not exceed it.
-        double opening = Math.Max(0.0, Vec.Dot(relative, towards));
-        double spent = Vec.Dot(toGainCci, towards);
-
-        return spent > opening ? toGainCci - towards * (spent - opening) : toGainCci;
     }
 }

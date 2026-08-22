@@ -19,12 +19,6 @@ internal enum TrimAxes
     Up = 32,
 }
 
-/// <summary>
-/// Where the stage the vehicle let go of is and what it is doing, in the same frame the trim
-/// reasons in. Null while it cannot be read, which is most of the first frames after a split.
-/// </summary>
-internal readonly record struct DiscardedStack(double3 PositionCci, double3 VelocityCci);
-
 /// <summary>Everything the trim needs to know about the bus this cycle.</summary>
 /// <param name="ReferencePositionCci">
 /// Where the guidance's own solution says the vehicle was when the engines stopped.
@@ -48,14 +42,6 @@ internal readonly record struct DiscardedStack(double3 PositionCci, double3 Velo
 /// looking when it is allowed to act cannot tell an error that was always there from one that grew
 /// while it waited.</para>
 /// </param>
-/// <param name="Stack">
-/// The stage the vehicle dropped, while it can still be read.
-///
-/// <para>It bounds what may be spent back along the line to it — see
-/// <see cref="SeparationClearance.WithoutClosingOnTheStack"/>. Null is a reading the world could
-/// not give rather than a stage that has gone, so nothing is bounded and the loop behaves as it
-/// does on a vehicle that never separated from anything.</para>
-/// </param>
 internal readonly record struct TrimSituation(
     BallisticBody Body,
     double3 PositionCci,
@@ -66,8 +52,7 @@ internal readonly record struct TrimSituation(
     double3 NoseCci,
     double3 RightCci,
     double3 DownCci,
-    bool MayFire = true,
-    DiscardedStack? Stack = null);
+    bool MayFire = true);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -113,18 +98,10 @@ internal readonly record struct TrimCommand(
 /// move nothing is struck off and the next one tried — so a vehicle with only an axial pair still
 /// gets the whole axial error out, which is nearly all of it.</para>
 ///
-/// <para><b>What it may spend back along the line to the spent stack is bounded by the shove.</b>
-/// The separation is the only thing carrying the two apart, so nulling it is the end of the
-/// separation and a metre a second past it is the bus flying into what it dropped — at any
-/// distance, because a closing rate closes any gap given time. Clearance is a wait and this is a
-/// budget; only the second one survives a second null, and the post-boost passes are second
-/// nulls.</para>
-///
 /// <para><b>It gives up rather than holding warheads</b>, exactly as <see cref="ReleaseSequence"/>
-/// does. A bus with no thrusters, one that has run its tank dry, or one whose remaining error can
-/// only be nulled by flying back into the stack, releases on the trajectory it has: an untrimmed
-/// salvo is a worse shot, and one still aboard when the release altitude closes is no shot at
-/// all.</para>
+/// does. A bus with no thrusters, or one that has run its tank dry, releases on the trajectory it
+/// has: an untrimmed salvo is a worse shot, and one still aboard when the release altitude closes
+/// is no shot at all.</para>
 /// </summary>
 internal sealed class BusTrim
 {
@@ -395,18 +372,7 @@ internal sealed class BusTrim
         // better than when the last real progress was made.
         if (Stalled(step)) return Finish(gaveUp: true, Left("the trim stopped closing"));
 
-        // What the vehicle owes and what it is allowed to spend are different vectors whenever the
-        // stack is still there to run into. _toGain stays the true residual, because that is what
-        // the miss is made of and what the panel reads.
-        double3 spendable = now.Stack is { } stack
-                                ? SeparationClearance.WithoutClosingOnTheStack(
-                                      toGainCci, now.PositionCci, now.VelocityCci,
-                                      stack.PositionCci, stack.VelocityCci)
-                                : toGainCci;
-
-        double heldBack = Vec.Len(toGainCci - spendable);
-
-        TrimAxes pick = Choose(in now, spendable, band, out double component);
+        TrimAxes pick = Choose(in now, toGainCci, band, out double component);
 
         // Finished when there is no direction left worth firing, which is the honest definition —
         // and it is per direction rather than on the total, because the total is spread over three
@@ -416,15 +382,6 @@ internal sealed class BusTrim
         if (pick == TrimAxes.None)
         {
             if (_since < SettleSeconds) return Command(TrimAxes.None, "settling before the first release");
-
-            // Named ahead of the struck-off directions because it is the more actionable of the
-            // two: this residual is one the vehicle could remove and is being refused, so the
-            // untrimmed salvo that follows is a deliberate trade rather than a broken bus.
-            if (heldBack > band)
-            {
-                return Finish(gaveUp: true,
-                              Left("nulling the rest would drive the bus back into the spent stack"));
-            }
 
             // Whether that is success or defeat turns on *why* nothing was picked. A direction is
             // only struck off after firing without moving its own component, so a strike is the
@@ -451,11 +408,11 @@ internal sealed class BusTrim
     /// being made worse, so it is not a candidate — which is also what makes "nothing to push"
     /// distinguishable from "nothing that pushes".
     /// </param>
-    private TrimAxes Choose(in TrimSituation now, double3 spendableCci, double band, out double component)
+    private TrimAxes Choose(in TrimSituation now, double3 toGainCci, double band, out double component)
     {
-        double along = Vec.Dot(spendableCci, Vec.Unit(now.NoseCci));
-        double across = Vec.Dot(spendableCci, Vec.Unit(now.RightCci));
-        double under = Vec.Dot(spendableCci, Vec.Unit(now.DownCci));
+        double along = Vec.Dot(toGainCci, Vec.Unit(now.NoseCci));
+        double across = Vec.Dot(toGainCci, Vec.Unit(now.RightCci));
+        double under = Vec.Dot(toGainCci, Vec.Unit(now.DownCci));
 
         TrimAxes best = TrimAxes.None;
         double bestSize = band;

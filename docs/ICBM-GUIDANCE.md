@@ -1074,7 +1074,7 @@ still arrives at the coast holding whatever the last frame of the upper stage ad
 Headlessly, through the real transfer solver, on the flown 2,700 km deorbit: a 1.1 m/s shove is
 **2.4 km of miss, trimmed to 2 m in 1.5 s**.
 
-Six things it is careful about, and each is a way it went wrong first:
+Five things it is careful about, and each is a way it went wrong first:
 
 - **It nulls against the trajectory the guidance flew to, not a transfer solved from where the bus
   happens to be.** The pair `(CutoffPositionCci, Arc.RequiredVelocityCci)` is a conic; carry it
@@ -1117,22 +1117,11 @@ Six things it is careful about, and each is a way it went wrong first:
   anything decides whether a warhead may go: flown, the first round left at `23:04:26.025` and the
   split landed at `.071`, which is how one warhead came off the attached stack and five off the
   shoved bus.
-- **What it may spend back along the line to the spent stack is the rate the two are parting at,
-  and no more.** Nulling the shove ends the separation and leaves the pair co-moving, which is safe
-  at any distance; a metre a second past it gives the bus a closing rate, and a closing rate closes
-  any gap given time — so `SeparationClearance`'s wait cannot cover it however long it runs. It bites
-  on the *second* null: a post-boost pass re-solves the arc and re-arms the trim onto a correction
-  with no relation to the separation at all, which flown was **2.7 m/s of retrograde** into a stack
-  dropped tail-ward and a contact eleven seconds later, read as **26.8 m/s²** of proper acceleration
-  against thrusters measured at 0.25. `SeparationClearance.WithoutClosingOnTheStack` takes that
-  component out before an axis is picked; only the part along the line is touched, so a lateral trim
-  is spent in full at any range. `docs/MIRV-NEXT.md` item 1a has the flight.
 - **It gives up rather than holding warheads**, on the same argument `ReleaseSequence` gives up on.
   A stall on the total — not on one direction — is what stops it: with a fixed arrival, a lateral
   error the bus cannot null grows a fresh axial requirement every cycle, so the axial jets chase it
   until something says stop. The overall clock has to be longer than the per-direction one, or the
-  loop gives up before the direction that does not work has been struck off. A residual that can
-  only be nulled by flying back into the stack ends it the same way, and says so.
+  loop gives up before the direction that does not work has been struck off.
 
 **The aim correction still sits out while thrusters are firing.** Not because the trim reads it —
 it no longer does — but because the correction's only observer is a prediction taken from the

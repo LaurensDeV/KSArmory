@@ -432,66 +432,6 @@ rather than 90.
 Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable
 on paper and nothing has spent it.
 
-### 1a. The bus flew back into the stack it dropped — fixed in `Sim/`, unflown
-
-The wait is a *distance* and the thing that hurts is a *rate*, and the second null is where they
-come apart.
-
-The night of 22 August, twelve shots. Every arm with an arrival floor set — 15° and 20°, eight shots
-of eight — put the bus into the spent stack; none of the four baselines did. The reading is
-unambiguous: `BusTrim` measures its own proper acceleration each cycle, and against thrusters
-measured at **0.25 m/s²** the collision frame reads **25.5–35.5 m/s²** on all eight. The four
-baselines never exceed **0.34**. Six of the eight then stayed wedged — a thruster firing into a hull
-moves nothing, so every direction gets struck off and the loop reports `nothing left aboard moves
-the bus`, which is the tell but is downstream of the contact rather than the contact itself.
-
-The sequence, from `002-arr15.log`:
-
-| t after split | what |
-| --- | --- |
-| 0.0 s | split, 13.1 m apart, pair opening at **1.15 m/s** |
-| 10.4 s | clearance granted at 25 m |
-| 15.5 s | first null done: **1.14 → 0.021 m/s**, pair now co-moving and the gap frozen at ~27 m |
-| 15.7 s | post-boost pass 1: `CorrectCoastArc` moves the reference, the trim is re-armed and owes **2.72 m/s** |
-| 20 s | authorised again |
-| 31.1 s | **26.8 m/s²** — contact. Residual jumps 0.52 → 2.75 m/s |
-| 39 s | every direction struck off, `nothing left aboard moves the bus`, 2.59 m/s still owed |
-
-Three things had to be true at once, and each of them is worth stating on its own:
-
-- **Nulling the shove is safe; spending past it is not, at any distance.** The separation is the
-  only thing carrying the two apart, so the opening rate *is* the budget. Below it the pair end up
-  co-moving a stack length apart, which is the outcome item 1 was designed around. Above it the range
-  rate goes negative, and a negative range rate closes any gap given time — so no
-  `ClearOfTheSphereMetres` and no timeout makes it safe.
-- **The second null is not a separation transient.** It is a fresh correction of whatever size the
-  re-solved arc asks for, and with an arrival floor set it came out **overwhelmingly retrograde**:
-  718 of 898 firing frames on the tail, against 372 of 3,810 in the baseline, which spreads its
-  correction across all six directions. The stack is dropped tail-ward. The floor did not cause the
-  bug; it aimed it.
-- **The gate had been switched off by then.** `IcbmComputer` dropped its reference to the stack the
-  moment the trim first reported done, so `Clear` read no distance for every null after the first
-  and the blind-timeout branch granted them unconditionally.
-
-Fixed as a budget rather than a longer wait. `SeparationClearance.WithoutClosingOnTheStack` takes
-the component of the command that would make the range rate negative out before `BusTrim.Choose`
-picks an axis; a residual that can only be nulled by flying back into the stack is reported and the
-salvo goes untrimmed, which is the same trade the abandon branch already makes. Only the component
-along the line is touched, so a lateral trim is spent in full however close the stack is. The
-reference is now held for the whole post-boost phase, and the clearance latches once granted —
-re-running the wait against a gap that has stopped opening would abandon every pass after the first.
-
-`BusTrimTests.ASecondNullDoesNotFlyTheBusBackIntoTheSpentStack` is the flight headless: the pair
-close to **0.0 m** against the old code and never come back inside their 12.3 m split distance
-against the new, with the first null still removing the shove to 0.017 m/s.
-`NoAmountOfClearanceMakesASecondNullSafe` is the same thing from a hundred metres, which is why the
-answer was not a bigger number.
-
-**Unflown.** What the headless rig cannot say is what the residual costs on the ground: the trade is
-now some untrimmed velocity against a collision, and how much is left depends on how much of a
-post-boost correction points at the stack. Worth reading `trim: nulling the rest would drive the bus
-back into the spent stack` out of the next night's logs and pricing it against item 1's own numbers.
-
 ## 2. Every round lands beyond its own release probe — decomposed, unflown
 
 The largest remaining term, and the one attempt at it made things worse.
