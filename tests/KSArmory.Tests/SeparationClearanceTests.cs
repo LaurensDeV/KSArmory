@@ -1,3 +1,4 @@
+using Brutal.Numerics;
 using Xunit;
 
 namespace KSArmory.Tests;
@@ -130,5 +131,117 @@ public class SeparationClearanceTests
 
         Assert.True(c.IsClear);
         Assert.False(c.OnTheClock);
+    }
+
+    // A bus 20 m ahead of the stage it dropped, parting at a metre a second -- the shape every
+    // flown split has: the stage behind, and the shove along the vehicle's own axis.
+    private static readonly double3 Bus = new(0, 0, 0);
+    private static readonly double3 Stage = new(-20.0, 0, 0);
+    private static readonly double3 BusVelocity = new(1.0, 0, 0);
+    private static readonly double3 StageVelocity = new(0, 0, 0);
+
+    private static double3 Spendable(double3 toGain)
+        => SeparationClearance.WithoutClosingOnTheStack(toGain, Bus, BusVelocity, Stage, StageVelocity);
+
+    /// <summary>
+    /// Nulling the shove is the whole of the separation and is spent in full. It is the case the
+    /// trim exists for, and clamping any of it away would be clamping away the fix.
+    /// </summary>
+    [Fact]
+    public void TheShoveItselfIsSpentInFull()
+    {
+        double3 toGain = new(-1.0, 0, 0);
+
+        Assert.Equal(toGain, Spendable(toGain));
+    }
+
+    /// <summary>
+    /// Past the shove there is nothing left to spend, because the rate the two are parting at is
+    /// the entire budget: one metre a second more and the range rate is negative, which closes any
+    /// gap given time.
+    /// </summary>
+    [Fact]
+    public void NothingPastTheShoveMayBeSpentBackAlongTheLine()
+    {
+        double3 spendable = Spendable(new double3(-2.7, 0, 0));
+
+        Assert.Equal(-1.0, spendable.X, 9);
+    }
+
+    /// <summary>
+    /// And a pair that has stopped parting has no budget at all — which is the state a second null
+    /// finds, because the first one spent the shove.
+    /// </summary>
+    [Fact]
+    public void APairThatHasStoppedPartingHasNothingLeftToSpend()
+    {
+        double3 spendable = SeparationClearance.WithoutClosingOnTheStack(
+            new double3(-2.7, 0, 0), Bus, StageVelocity, Stage, StageVelocity);
+
+        Assert.Equal(0.0, spendable.X, 9);
+    }
+
+    /// <summary>
+    /// A push square to the line between them cannot change the range rate, so it is spent in full
+    /// however close the stage is. Clamping the whole command instead would throw away the part of
+    /// the trim that was never dangerous.
+    /// </summary>
+    [Fact]
+    public void APushSquareToTheLineIsNeverClamped()
+    {
+        double3 toGain = new(0, 5.0, -3.0);
+
+        Assert.Equal(toGain, SeparationClearance.WithoutClosingOnTheStack(
+                                 toGain, Bus, StageVelocity, Stage, StageVelocity));
+    }
+
+    /// <summary>
+    /// Pushing away from the stage is never the thing that runs into it, whatever the range rate.
+    /// </summary>
+    [Fact]
+    public void PushingAwayIsNeverClamped()
+    {
+        double3 toGain = new(4.0, 0, 0);
+
+        Assert.Equal(toGain, SeparationClearance.WithoutClosingOnTheStack(
+                                 toGain, Bus, StageVelocity, Stage, StageVelocity));
+    }
+
+    /// <summary>
+    /// Both halves of each pair are handed in so the differencing happens inside, which is what
+    /// makes the answer independent of the frame the two are travelling in — and they travel in one
+    /// carrying ~29.8 km/s. See <c>docs/FRAMES-AND-EPOCHS.md</c>.
+    /// </summary>
+    [Fact]
+    public void TheBudgetCarriesNoneOfTheFramesOwnMotion()
+    {
+        double3 toGain = new(-2.7, 0, 0);
+        double3 carrier = new(29_800.0, -11_000.0, 4_000.0);
+
+        double3 still = Spendable(toGain);
+        double3 carried = SeparationClearance.WithoutClosingOnTheStack(
+            toGain, Bus, BusVelocity + carrier, Stage, StageVelocity + carrier);
+
+        Assert.Equal(still.X, carried.X, 6);
+        Assert.Equal(still.Y, carried.Y, 6);
+        Assert.Equal(still.Z, carried.Z, 6);
+    }
+
+    /// <summary>
+    /// A stage that cannot be read bounds nothing, exactly as an unreadable distance waits on the
+    /// clock rather than reading as clearance: the two halves of this class agree about what
+    /// "no reading" means.
+    /// </summary>
+    [Fact]
+    public void AnUnreadableStageBoundsNothing()
+    {
+        double3 toGain = new(-2.7, 0, 0);
+
+        Assert.Equal(toGain, SeparationClearance.WithoutClosingOnTheStack(
+                                 toGain, Bus, BusVelocity, Bus, StageVelocity));
+
+        Assert.Equal(toGain, SeparationClearance.WithoutClosingOnTheStack(
+                                 toGain, Bus, BusVelocity,
+                                 new double3(double.NaN, 0, 0), StageVelocity));
     }
 }

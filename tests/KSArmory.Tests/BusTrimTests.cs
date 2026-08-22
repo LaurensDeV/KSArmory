@@ -541,6 +541,173 @@ public class BusTrimTests(ITestOutputHelper Out)
                     + $"against {afterFirst:F2} m/s after the first — the tank refilled");
     }
 
+
+    /// <summary>What the flown decoupler leaves: the bus ahead, the spent stack behind it.</summary>
+    private const double StageRadiusMetres = 3.5;
+
+    /// <summary>
+    /// What the trim jets were measured doing in flight. The default axial figure is an order of
+    /// magnitude more, which finishes a null before the bus has travelled anywhere and hides the
+    /// whole of this.
+    /// </summary>
+    private const double FlownAcceleration = 0.25;
+
+    /// <summary>
+    /// The bus must not fly back into the stage it dropped, and one null is not the whole flight.
+    ///
+    /// <para>Two nulls, because that is what a post-boost pass makes: the first spends the shove
+    /// and leaves the pair co-moving, and the second is a fresh correction with no relation to the
+    /// separation at all. Flown 22 August as a proper acceleration of <b>26.8 m/s2</b> against
+    /// thrusters measured at 0.25 — a contact — eleven seconds into a 2.7 m/s second null, on eight
+    /// shots out of eight with an arrival floor set and none of four without.</para>
+    ///
+    /// <para>Scored on the range rather than on the loop's own numbers, and run well past the trim
+    /// finishing: a closing rate closes any gap given time, so a test that stops when the trim stops
+    /// passes against the fault.</para>
+    /// </summary>
+    [Fact]
+    public void ASecondNullDoesNotFlyTheBusBackIntoTheSpentStack()
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out _);
+        double3 nose = Vec.Unit(arc.RequiredVelocityCci);
+
+        TrimBus bus = new()
+        {
+            PositionCci = fromCci,
+            VelocityCci = arc.RequiredVelocityCci + nose * 1.1,
+            NoseCci = nose,
+            RightCci = Vec.Unit(Vec.Cross(fromCci, nose)),
+            DownCci = -Vec.Unit(fromCci),
+            AxialAcceleration = FlownAcceleration,
+        };
+
+        // Where a decoupler on the mounting joint leaves it: behind the bus, and carrying almost
+        // none of the shove — the flown pair opened at 1.15 m/s against a bus shove of 1.14.
+        TrimBus stack = new()
+        {
+            PositionCci = fromCci - nose * 12.3,
+            VelocityCci = arc.RequiredVelocityCci,
+        };
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        double step = 1.0 / 60.0;
+        double elapsed = 0.0;
+        double closest = double.PositiveInfinity;
+        double afterFirstNull = double.NaN;
+        bool corrected = false;
+
+        // The reference the trim nulls onto. The post-boost pass re-solves the arc, which moves it
+        // — and a correction that wants the bus slower is a correction that points the whole null
+        // straight back down the line to the stack.
+        double3 reference = arc.RequiredVelocityCci;
+
+        // Well past the trim finishing, because the bus keeps whatever closing rate the trim left
+        // it with. The flown release is seconds after the trim, not the instant of it.
+        while (elapsed < 90.0)
+        {
+            double apart = Vec.Len(stack.PositionCci - bus.PositionCci);
+            closest = Math.Min(closest, apart);
+
+            Clearance clearance = SeparationClearance.Check(apart, StageRadiusMetres, elapsed);
+
+            TrimCommand command = trim.Update(step, new TrimSituation(
+                Earth, bus.PositionCci, bus.VelocityCci,
+                fromCci, reference, elapsed,
+                bus.NoseCci, bus.RightCci, bus.DownCci,
+                clearance.IsClear,
+                new DiscardedStack(stack.PositionCci, stack.VelocityCci)));
+
+            // One pass, at the moment the first null reports itself finished. Same order the
+            // computer runs them in: the correction is what re-arms the trim.
+            if (command.Done && !corrected)
+            {
+                corrected = true;
+                afterFirstNull = trim.ToGainMetresPerSecond;
+                reference = arc.RequiredVelocityCci - nose * 2.7;
+                trim.Resume();
+            }
+
+            bus.Step(Earth, command.Fire, step);
+            stack.Step(Earth, TrimAxes.None, step);
+            elapsed += step;
+        }
+
+        Out.WriteLine($"first null left {afterFirstNull:F3} m/s; closest approach {closest:F1} m; "
+                      + $"{trim.ToGainMetresPerSecond:F2} m/s left, {trim.Said}");
+
+        // The budget is the shove, so the null the shove pays for still happens in full. A rule
+        // that kept the bus clear by refusing to trim at all would pass the assertion below and
+        // undo the whole of item 1 in docs/MIRV-NEXT.md.
+        Assert.True(afterFirstNull < 0.05,
+                    $"the first null left {afterFirstNull:F3} m/s of a 1.1 m/s shove");
+
+        Assert.True(closest > StageRadiusMetres,
+                    $"the bus closed to {closest:F1} m of a {StageRadiusMetres:F1} m stage");
+    }
+
+    /// <summary>
+    /// And the wait on its own does not prevent it, which is why the budget had to be a second
+    /// rule rather than a longer clearance.
+    ///
+    /// <para>A gap the pair has stopped opening never grows again however long anything waits, so
+    /// there is no distance and no timeout that makes a second null safe. This is the same flight
+    /// with the trim held until the pair are a hundred metres apart.</para>
+    /// </summary>
+    [Fact]
+    public void NoAmountOfClearanceMakesASecondNullSafe()
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out _);
+        double3 nose = Vec.Unit(arc.RequiredVelocityCci);
+
+        TrimBus bus = new()
+        {
+            PositionCci = fromCci,
+            VelocityCci = arc.RequiredVelocityCci + nose * 1.1,
+            NoseCci = nose,
+            RightCci = Vec.Unit(Vec.Cross(fromCci, nose)),
+            DownCci = -Vec.Unit(fromCci),
+            AxialAcceleration = FlownAcceleration,
+        };
+
+        TrimBus stack = new()
+        {
+            PositionCci = fromCci - nose * 100.0,
+            VelocityCci = arc.RequiredVelocityCci,
+        };
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        double step = 1.0 / 60.0;
+        double elapsed = 0.0;
+        double closest = double.PositiveInfinity;
+        double3 reference = arc.RequiredVelocityCci - nose * 2.7;
+
+        while (elapsed < 180.0)
+        {
+            double apart = Vec.Len(stack.PositionCci - bus.PositionCci);
+            closest = Math.Min(closest, apart);
+
+            TrimCommand command = trim.Update(step, new TrimSituation(
+                Earth, bus.PositionCci, bus.VelocityCci,
+                fromCci, reference, elapsed,
+                bus.NoseCci, bus.RightCci, bus.DownCci,
+                MayFire: true,
+                new DiscardedStack(stack.PositionCci, stack.VelocityCci)));
+
+            bus.Step(Earth, command.Fire, step);
+            stack.Step(Earth, TrimAxes.None, step);
+            elapsed += step;
+        }
+
+        Out.WriteLine($"from 100 m: closest approach {closest:F1} m, {trim.Said}");
+
+        Assert.True(closest > StageRadiusMetres,
+                    $"a hundred metres of clearance still ended at {closest:F1} m");
+    }
+
     /// <summary>A bus that has fired nothing has spent nothing, and a reset one starts again.</summary>
     [Fact]
     public void ABusThatHasNotFiredHasSpentNothing()
