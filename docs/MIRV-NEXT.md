@@ -28,6 +28,23 @@ Everything else is flown, closed, or retired, and says so in its own heading.
 > It was corrected because it was wrong, and because 6,300 kg on the nose made a stack chatter
 > against the ground hard enough to be unflyable: measured at ±2,116 deg/s² of angular acceleration
 > while in contact, against nothing measurable at all afterwards.
+>
+> **And the mass is not the only thing that moved.** On 2026-08-23 the shot also changed at five
+> other points, each of which shifts where a warhead lands:
+>
+> | | |
+> | --- | --- |
+> | release | on time to arrival rather than on 100 km of altitude, so they leave near the end of the coast rather than near the start |
+> | staging | a multi-stage stack stages at all; before, the guard refused every stage and the second one never lit |
+> | reach | judged on the stack's own delta-v across every stage, not on the running stage over the whole load |
+> | arrival floor | a floor nothing satisfies is flown at what is affordable rather than refused |
+> | coast warp | 100x through the coast with a hand-back before release, where it was 8x from the first release |
+>
+> Two of those change the *frame the rounds are integrated at* and one changes *when they are let
+> go*, so the walk, the spread and the group's own miss are all measured against a different flight
+> from the one every table below records. **Nothing here is comparable to a shot flown after this
+> date.** The night in item 7e is the one to re-fly first, and it wants re-flying whole rather than
+> as one arm against a stale baseline.
 
 ## Where it stands
 
@@ -1708,7 +1725,10 @@ KSARMORY_SCENARIO_SAVE="AUTO NUKE DECOUPLER" ./tools/shot-batch.sh \
 ./tools/shot-report.py ~/shots/<night>          # in the morning
 ```
 
-`base` is the commit before the change and `coast` is the change. 24 shots at about six minutes
+`base` is the commit before the change and `coast` is the change. **Both predate 2026-08-23's
+staging, release-timing, reach and coast-warp changes**, so the pair still isolates the coast step
+honestly against each other and neither is the shot that ships now. Re-point both arms at current
+commits before reading the result as anything about today's flight. 24 shots at about six minutes
 each — roughly two and a half hours, and it holds the game for all of it, so start it on the way to
 bed. Twelve an arm settles a factor of 0.50; a smaller effect comes back `UNRESOLVED` with an
 interval saying what was ruled out, and `--resume <dir>` carries the same batch on for more.
