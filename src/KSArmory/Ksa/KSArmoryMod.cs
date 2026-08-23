@@ -220,7 +220,7 @@ public sealed class KSArmoryMod
             // Simulate here, not in the frame hook. KSA's order is reset gizmos -> draw UI (this
             // hook) -> render -> postfix on OnFrame, so a step in the frame hook lands after this
             // pass and every draw would anchor a one-frame-old offset to the platform's position
-            // now - about 600 m of ecliptic motion at 1x.
+            // now - about 500 m of ecliptic motion at 1x.
             //
             // Compensating at draw time cannot work: the drag is one step of platform motion, so
             // any correction carries a dt that changes and returns as jitter. Stepping here makes

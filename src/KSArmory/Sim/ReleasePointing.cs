@@ -6,10 +6,12 @@ namespace KSArmory;
 /// Which way a launcher must hold for one tube to throw its round along the line every round is
 /// meant to leave on.
 ///
-/// <para>Tubes can be canted — a MIRV bus's six sit six degrees off its own axis at six clock
-/// positions — so each round is ejected on its own vector and they scatter. There is one aim for
-/// all of them, so no aim correction can remove it: the launcher has to turn between releases and
-/// put each tube in turn on the same line, which is what a real post-boost vehicle does.</para>
+/// <para>Tubes can be canted — sitting some degrees off the launcher's own axis at their several
+/// clock positions — so each round is ejected on its own vector and they scatter. There is one aim
+/// for all of them, so no aim correction can remove it: the launcher has to turn between releases
+/// and put each tube in turn on the same line, which is what a real post-boost vehicle does. No
+/// shipped launcher is canted; the shipped bus's six were straightened for exactly this reason, and
+/// a weapon pack may still register one that is not.</para>
 ///
 /// <para>It costs nothing on a launcher this does not describe. A single tube <em>is</em> the mean
 /// of its own axes, so the rotation is the identity and everything below reduces to releasing when

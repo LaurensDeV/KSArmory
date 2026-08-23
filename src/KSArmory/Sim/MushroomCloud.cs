@@ -744,7 +744,7 @@ public static class MushroomCloud
     ///
     /// <para><b>This is what makes the cloud grow out of the explosion rather than replace it.</b>
     /// Every pen starts on the burst point, and at the cap's own tube what arrives there in a single
-    /// frame is 224 m across against a 90 m fireball. That does not read as an explosion becoming a
+    /// frame is 224 m across against a 109 m fireball. That does not read as an explosion becoming a
     /// cloud; it reads as a small flash, and then a large cloud, and the cloud is judged against the
     /// flash and found far too big for it.</para>
     ///
@@ -752,7 +752,7 @@ public static class MushroomCloud
     /// while they climb, and the raymarcher takes the deeper of two overlapping capsules rather than
     /// summing them, so any number of coincident tubes of radius <c>r</c> render as one tube of
     /// radius <c>r</c>. Dividing by <c>cbrt(count)</c> — as would be right if the engine were
-    /// merging them into a single fat ball — lays a 14 m thread where a 45 m ball belongs, and a
+    /// merging them into a single fat ball — lays a 17 m thread where a 55 m ball belongs, and a
     /// thread that climbs is a pillar rising out of the ground. The engine's merge does exist, and
     /// never runs on these pens: <c>docs/NUCLEAR-EFFECT.md</c> has the frame ordering.</para>
     /// </summary>

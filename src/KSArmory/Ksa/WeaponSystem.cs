@@ -2348,8 +2348,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             //
             // The sample is still one applied step ahead of the pre-step round, and the correction
             // for that is to put the *body* back by bodyVelocityEcl*dt rather than the round
-            // forward, which is what AirDensityIntoFrame does below and this does not. Unmeasured:
-            // docs/KSA-FRAME-ORDER.md section 5.
+            // forward, which is what AirDensityIntoFrame does below and this does not. Flown, and
+            // it lost: shifting where a *field* is read translates the whole field, so the round is
+            // pulled toward a centre the ground test does not use. docs/KSA-FRAME-ORDER.md
+            // section 5.
             double3 gravity = GravityAtRound(round.PositionEcl);
 
             // Read at the round's own position, not the platform's. A round climbing out of the

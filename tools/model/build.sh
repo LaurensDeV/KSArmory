@@ -69,7 +69,7 @@ echo "building mesh (headless Blender)..."
     "${EXPORT_FLAG[@]}" \
     2>&1 | grep -v '^Fra:' | sed '/^$/d'
 
-# The muzzle table validate-parts.py checks LauncherPart.cs against.
+# The muzzle table validate-parts.py checks the launcher profiles against.
 cp "$WORK/muzzles.json" "$REPO_ROOT/tools/model/"
 
 if [[ $PREVIEWS_ONLY -eq 0 ]]; then
