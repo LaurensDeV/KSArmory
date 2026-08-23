@@ -46,6 +46,64 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
         => Vec.Unit(doubleQuat.CreateFromAxisAngle(Vec.AnyPerpendicular(reference),
                                                    degrees * Math.PI / 180.0) * reference);
 
+    /// <summary>
+    /// One magazine per sequence. A launcher reloads — three seconds after a salvo it is full again
+    /// — and a ballistic missile deploys once.
+    ///
+    /// <para>Flown 2026-08-24 before the latch: a six-tube bus put <b>sixty</b> warheads down. The
+    /// first six grouped at 2.88-2.90 km and every salvo after them went as the previous one landed,
+    /// the last of them from a few hundred metres up, 606 km from the aim point. The scenario scored
+    /// all sixty — docs/MIRV-NEXT.md item 0c.</para>
+    /// </summary>
+    [Fact]
+    public void AReloadedLauncherDoesNotGetASecondSalvo()
+    {
+        ReleaseSequence deploy = Started(out double3[] axes, out _);
+
+        // Let the whole magazine go, one tube at a time on its own axis.
+        int released = 0;
+
+        for (int tube = 0; tube < axes.Length; tube++)
+        {
+            for (int frame = 0; frame < 60 * 120; frame++)
+            {
+                ReleaseCommand r = deploy.Update(
+                    Step, At(tube, axes[tube], 0.0, tubesLeft: axes.Length - tube));
+
+                if (r.ReleaseNow) { released++; break; }
+            }
+        }
+
+        Assert.Equal(axes.Length, released);
+        Assert.False(deploy.Emptied, "it latched before the last round had gone");
+
+        // The magazine reports empty, which is the frame the latch is taken on.
+        deploy.Update(Step, At(-1, Vec.Zero, 0.0, tubesLeft: 0));
+        Assert.True(deploy.Emptied, "an emptied magazine did not end the sequence");
+
+        // ...and now the launcher reloads, exactly as it does in flight.
+        int again = 0;
+
+        for (int tube = 0; tube < axes.Length; tube++)
+        {
+            for (int frame = 0; frame < 60 * 120; frame++)
+            {
+                ReleaseCommand r = deploy.Update(
+                    Step, At(tube, axes[tube], 0.0, tubesLeft: axes.Length - tube));
+
+                if (r.ReleaseNow) { again++; break; }
+            }
+        }
+
+        Out.WriteLine($"{released} away, {again} after the reload");
+
+        Assert.Equal(0, again);
+
+        // A reset is a new flight, and it does fill again.
+        deploy.Reset();
+        Assert.False(deploy.Emptied);
+    }
+
     [Fact]
     public void ItWillNotReleaseWhileTheTubeIsOffTheLine()
     {

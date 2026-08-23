@@ -1429,7 +1429,10 @@ internal sealed class IcbmComputer
                             : double.NaN;
 
         return _sequence.Update(simStep, new ReleaseSituation(
-            ReadyToDeploy: true, NextTube: next, TubesLeft: Math.Max(1, weapon.TubesReadyToFire),
+            // The honest count, not a floor of one. The share-of-the-window division guards zero
+            // itself, and the sequencer has to see the magazine reach empty -- that is what ends
+            // the deployment, and a launcher reloads a few seconds later.
+            ReadyToDeploy: true, NextTube: next, TubesLeft: weapon.TubesReadyToFire,
             NextTubeAxisCci: nextAxis, NoseAxisCci: noseAxis, SweepMetresPerSecond: _tubeSpinSpeed,
 
             // Off the munition rather than assumed: it is what turns a tube's cant into the lateral

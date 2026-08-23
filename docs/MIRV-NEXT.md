@@ -10,6 +10,7 @@ its number wherever its state ends up. What is still open:
 | | |
 | --- | --- |
 | [0c](#0c-the-budget-stopped-the-trim-dead-and-a-stopped-trim-never-lets-the-warheads-go--fixed-unflown) | **the budget held every warhead aboard — fixed, and it wants the flight** |
+| [0d](#0d-a-reloaded-launcher-gets-a-second-salvo-and-a-tenth--fixed-unflown) | **the bus fired ten salvos, so every group figure was over sixty warheads — fixed** |
 | [1](#1-null-the-separation-impulse---reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
 | [2](#2-every-round-lands-beyond-its-own-release-probe---decomposed-unflown) | the walk past the release probe: ~1.3 km, and the whole remaining story after 2e and 2f |
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
@@ -369,6 +370,46 @@ shot four times worse. What is answered is that the shot could not be scored at 
 clearance sentence carries a running second count — so it logs every frame instead of once per
 change: 21,000 lines from one coast. Frame time is what item 7e says sets the coast step, so this is
 not only untidiness.
+
+## 0d. A reloaded launcher gets a second salvo, and a tenth — fixed, unflown
+
+**A six-tube bus put sixty warheads down.** Flown 2026-08-24 — the first flight on which anything
+was released at all, item 0c being why. The salvo that matters is the first six: **2.88-2.90 km,
+ten metres apart**. Everything after it is the launcher doing what a launcher does:
+
+```
+00:16:12.426  holding fire: reloading (3 s)
+00:16:15.376  launcher reloaded
+```
+
+Three seconds after a salvo the magazine is full again. Nothing in the ballistic computer said a
+deployment happens once, so the next six went the moment the first six landed, and the six after
+that when *those* landed — at 44 s, then 37, 30, 23, 18, 12, 7, 3 and 1 seconds of flight, each
+salvo from lower down. The last nine groups all read **606.5 km**, which is simply where the bus
+itself came down.
+
+**The reload is right and the second salvo is not**, which is why the latch is in the sequencer and
+not in the magazine: a Pantsir reloading its pods is the same code, and a weapon pack's launcher may
+reload however it likes. `ReleaseSequence.Emptied` latches on the magazine reaching empty — watched
+rather than counted, because how many it started with is the launcher's business and a reload is
+indistinguishable from a fuller load — and only `Reset` clears it, which is a new flight.
+
+`AReloadedLauncherDoesNotGetASecondSalvo` reads *6 away, 6 after the reload* against the old code
+and *6 away, 0* against this.
+
+**And the latch did not work on its first flight, for a reason worth keeping.** `IcbmComputer` passed
+`TubesLeft: Math.Max(1, weapon.TubesReadyToFire)`, so the magazine reported one round left forever
+and the sequencer never saw it empty — sixty warheads again, from a build whose unit test said six.
+The floor was there to protect a division that already guards zero itself. **A quantity with a floor
+under it cannot express "none"**, so anything downstream that has to notice *none* is broken by the
+floor rather than by the arithmetic it was protecting. The test could not catch it: it hands the
+sequencer the count directly, and the distortion was in the caller, under `Ksa/`, where the test
+project cannot reach. Every other `Math.Max(1, …)` in the mod guards a divisor or a stride, where
+zero has no meaning and nothing downstream is watching for it.
+
+**What it cost before it was found**: every figure a scenario run reports is taken over the whole
+group, so with sixty warheads in it `worst`, `mean` and `spread` are meaningless and the verdict is
+always FAIL. `best` was the only honest number on the sheet, and it was the real salvo's.
 
 ## 0a. A quieter ejection kick — flown, and it takes the tail off
 
