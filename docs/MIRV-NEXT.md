@@ -9,6 +9,7 @@ its number wherever its state ends up. What is still open:
 
 | | |
 | --- | --- |
+| [0c](#0c-the-trim-cannot-read-its-clearance-and-gives-up-owing-metres-a-second) | **the trim gives up owing 3-4 m/s — the largest error left in the shot** |
 | [1](#1-null-the-separation-impulse---reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
 | [2](#2-every-round-lands-beyond-its-own-release-probe---decomposed-unflown) | the walk past the release probe: ~1.3 km, and the whole remaining story after 2e and 2f |
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
@@ -299,6 +300,38 @@ answer to one is never the answer to the other.
 
 The headless price was not wrong about the flight model; it simply did not model the clamp, because
 the rig integrates whatever step it is handed.
+
+## 0c. The trim cannot read its clearance and gives up, owing metres a second
+
+**This is the biggest single error left in a shot, and it is not the guidance.** The bus trim exists
+to null what the decoupler did to it — `docs/ICBM-GUIDANCE.md` prices that shove at about 1.1 m/s
+and measures 3.5 km between the warhead that left before the split and the five after. It cannot run
+until the spent stack is clear, and on the flights of 2026-08-23 it never got a reading:
+
+```
+trim: waiting to clear the spent stack, which cannot be read; nothing left aboard moves the bus,
+      3.82 m/s left on the bus -- owed 0.97 m/s at the split, 3.99 m/s on release
+Bus trim: going ahead with no clearance reading after 112 s; holding, 3.25 m/s off the solution
+```
+
+Both flights released with **3.25 and 3.82 m/s owed**, and both put the group 3.4-3.75 km out. At
+this range that residual is very nearly the whole miss: everything else in the shot — the arrival
+floor, the coast step, the release timing — moves hundreds of metres, and this moves kilometres.
+
+Two separate faults are tangled in those lines and they want separating before either is fixed:
+
+- **The clearance cannot be read.** `SeparationClearance` is given the spent stack to measure
+  against and reports "which cannot be read", then times out at `TimeoutSeconds` and proceeds
+  untrimmed. Whether the stack is gone from the roster, is the wrong vehicle, or is simply never
+  resolved is not established.
+- **"Nothing left aboard moves the bus."** `BusTrim` strikes a direction off after
+  `DirectionStallSeconds` of firing without moving its own component, and it struck off all of
+  them. The bus has radial jets again since `dbbbd30` and its mass is now 2,750 kg rather than
+  6,300, so it has more authority than when those thresholds were set, not less.
+
+**What it is worth**: the difference between a 3.5 km group and whatever the guidance alone gives,
+which on the same flights read 0.31 m/s of cutoff residual and a 4.6 km own-prediction error. Do
+this before anything else on this list.
 
 ## 0a. A quieter ejection kick — flown, and it takes the tail off
 
