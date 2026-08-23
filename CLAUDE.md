@@ -1120,8 +1120,8 @@ the first speed the policy computes from a step that size is nearly zero — mea
 `1213.07x -> 1.00x`, `held at 0.0x`, `(paused)`, then the burn abandoned for the world not running
 slow enough. So the mod asks for nothing while an auto-warp runs and **ends the warp itself** when
 the window is close, which resets the speed to something the hold can work from. And
-`IcbmProgram.MaxFaithfulStep` is no tighter than a round's: the extra accuracy is a few hundred
-metres and the cost is the whole shot.
+`IcbmProgram.MaxFaithfulStep` is a round third of a second, a round's 0.32 to within a rounding:
+the extra accuracy is a few hundred metres and the cost is the whole shot.
 
 **Pointing needs two directions, and the second one has a singularity.** KSA's aiming frame clocks
 the roll to the planet, which has no answer when the nose points at it or away from it — and

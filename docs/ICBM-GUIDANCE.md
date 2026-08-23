@@ -485,7 +485,8 @@ Two rules come out of that, and they are the same rule twice:
   over. Each hop covers a shorter span and so runs gentler. A warp the computer started is also
   one it ends outright the moment the hold is over.
 
-And `MaxFaithfulStep` is deliberately no tighter than a round's. Asking the world to run slower than
+And `MaxFaithfulStep` is a round third of a second, which is a round's 0.32 to within a rounding —
+18.0x against 19.2x at 60 fps. Asking the world to run materially slower than
 anything else in the mod needs buys a few hundred metres and costs the shot, because the policy
 answering that request is a control loop against an actuator shared with the player.
 

@@ -125,7 +125,8 @@ internal sealed class IcbmProgram
     /// continent. So a burn is something warp has to be held down for, exactly as rounds in the air
     /// are — see <see cref="WarpPolicy"/>, and this is the number that asks for it.</para>
     ///
-    /// <para><b>Deliberately no tighter than a round's.</b> Asking for more is asking the world to
+    /// <para><b>Deliberately a round third of a second, which is a round's 0.32 to within a
+    /// rounding.</b> Asking for materially less is asking the world to
     /// run slower than anything else in the mod needs, and the policy answering that request is a
     /// control loop against a shared actuator: from a thousand times speed the first thing it
     /// computes is a speed of nearly zero, which pauses the game and then abandons the burn for not
