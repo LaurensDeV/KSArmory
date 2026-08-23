@@ -42,6 +42,14 @@ internal enum TrimAxes
 /// looking when it is allowed to act cannot tell an error that was always there from one that grew
 /// while it waited.</para>
 /// </param>
+/// <param name="BudgetMetresPerSecond">
+/// All the attitude-control propellant the flight may spend on trimming, across every null.
+/// Negative is unlimited.
+///
+/// <para>Held here rather than gating <see cref="MayFire"/> from outside, because the two stops are
+/// not the same shape: a clearance wait lifts, and a spent tank does not. Withholding fire for one
+/// that never lifts holds the warheads for the rest of the flight.</para>
+/// </param>
 internal readonly record struct TrimSituation(
     BallisticBody Body,
     double3 PositionCci,
@@ -52,7 +60,8 @@ internal readonly record struct TrimSituation(
     double3 NoseCci,
     double3 RightCci,
     double3 DownCci,
-    bool MayFire = true);
+    bool MayFire = true,
+    double BudgetMetresPerSecond = -1.0);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -231,6 +240,16 @@ internal sealed class BusTrim
     /// </summary>
     public double SpentMetresPerSecond => _spent;
 
+    /// <summary>
+    /// Whether a budget for the whole flight still leaves room to trim. Negative is unlimited.
+    ///
+    /// <para>Asked of the trim rather than worked out from <see cref="SpentMetresPerSecond"/>
+    /// outside it: that figure is cumulative across every null, so a caller keeping a running total
+    /// of its own counts each finished run once more for every run that follows.</para>
+    /// </summary>
+    public bool WithinBudget(double metresPerSecond)
+        => metresPerSecond < 0.0 || _spent < metresPerSecond;
+
     /// <summary>What it is doing or waiting for, for the one line the log prints per change.</summary>
     public string Said => _said;
 
@@ -324,6 +343,15 @@ internal sealed class BusTrim
         if (_since >= MaxSeconds)
         {
             return Finish(gaveUp: true, Left("the trim ran out of time"));
+        }
+
+        // Finished rather than held. Nothing downstream releases a warhead until the trim is done,
+        // so a stop that never lifts is the salvo never leaving -- and this one never lifts, since
+        // only firing spends the tank. Same trade as a bus with nothing to fire with: an untrimmed
+        // salvo beats one still aboard.
+        if (!WithinBudget(now.BudgetMetresPerSecond))
+        {
+            return Finish(gaveUp: true, Left("the trim has spent its budget"));
         }
 
         // Both of these are transient right after a split, which is precisely when the trim starts:
