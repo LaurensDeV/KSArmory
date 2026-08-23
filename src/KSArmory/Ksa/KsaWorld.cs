@@ -1023,6 +1023,41 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// What the parent body itself is doing — its own fall toward whatever it orbits, in the
+    /// ecliptic frame. Zero for a body with no primary, and zero when anything cannot be read.
+    ///
+    /// <para><b>A round does not have this and the ground under it does.</b> A round is integrated
+    /// against its parent body's gravity and nothing else, so over a long coast it is left behind by
+    /// exactly this — where a real warhead and a real planet fall toward the Sun together and the
+    /// term cancels. KSA's Earth falls at 5.9 mm/s², which is 733 m over an eight-minute coast, and
+    /// a shallow arrival multiplies whatever share of that lies along local up by <c>cot γ</c>.
+    /// <c>docs/MIRV-NEXT.md</c> item 2 has the measurement.</para>
+    ///
+    /// <para>Reported rather than applied: what it is worth depends on where the primary lies
+    /// against the arrival, which is a number no shot has ever written down.</para>
+    /// </summary>
+    public static double3 BodyFallEcl(Celestial body)
+    {
+        try
+        {
+            if (body.Parent is not Celestial primary) return Vec.Zero;
+
+            double mu = ((IParentBody)primary).Mu;
+            if (mu <= 0.0) return Vec.Zero;
+
+            double3 toPrimary = primary.GetPositionEcl() - body.GetPositionEcl();
+            double dist2 = Vec.Len2(toPrimary);
+            if (dist2 < 1.0) return Vec.Zero;
+
+            return Vec.Unit(toPrimary) * (mu / dist2);
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
+
+    /// <summary>
     /// Density of whatever the round is flying through, as a multiple of the parent body's
     /// sea-level air density.
     ///

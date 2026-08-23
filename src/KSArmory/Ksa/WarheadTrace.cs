@@ -154,10 +154,13 @@ internal sealed class WarheadTrace
             _probeSeconds = hit.Seconds;
             _remaining = hit.Seconds;
 
-            double3 up = Vec.Unit(hit.PointCci);
-            _probeAlong = Vec.Unit(Vec.RejectFrom(hit.VelocityCci, up));
-            _probeCross = Vec.Cross(up, _probeAlong);
-            _haveProbe = !_probeAlong.Equals(Vec.Zero);
+            _haveProbe = ArrivalFrame.TryAt(hit.PointCci, hit.VelocityCci, out ArrivalFrame arrival);
+
+            if (_haveProbe)
+            {
+                _probeAlong = arrival.Downrange;
+                _probeCross = arrival.Cross;
+            }
 
             Log.Info($"warhead trace: probe from the round's own state ->"
                      + $" {LatLon(setup, hit.GroundFixedPointCci)},"
@@ -165,11 +168,39 @@ internal sealed class WarheadTrace
                      + $" {Ground(setup, hit.GroundFixedPointCci, setup.TrueAimCci):F0} m from the aim,"
                      + $" arriving at {Vec.Len(hit.VelocityCci):F0} m/s,"
                      + $" {ArrivalAngleDeg(hit):F1} deg below the horizontal");
+
+            if (_haveProbe) SayWhereThePrimaryLies(setup, arrival, hit.Seconds);
         }
         catch
         {
             // A diagnostic that throws inside the frame loop is the game, not a log line.
         }
+    }
+
+    // Where the body's own fall lies against the arrival, which is the one thing that decides what
+    // it costs. The round carries none of this acceleration and the ground under it carries all of
+    // it, so the round is left behind by half of it times the square of the coast -- and the share
+    // resolved along local up is multiplied by cot(gamma) again before it reaches the ground.
+    //
+    // Reported, not corrected. It is a term nothing has ever written down, and the flown spread of
+    // what it can be worth on this trajectory is nought to nearly ten kilometres.
+    private static void SayWhereThePrimaryLies(in Setup setup, in ArrivalFrame arrival, double seconds)
+    {
+        double3 fallEcl = KsaWorld.BodyFallEcl(setup.Parent);
+        double magnitude = Vec.Len(fallEcl);
+
+        if (magnitude <= 0.0 || !double.IsFinite(seconds) || seconds <= 0.0) return;
+
+        // A direction is identical in Ecl and Cci -- the two differ by a translation -- so the
+        // acceleration needs no conversion before it is resolved. Only a position would.
+        double3 parts = arrival.Resolve(Vec.Unit(fallEcl));
+        double drift = 0.5 * magnitude * seconds * seconds;
+
+        Log.Info($"warhead trace: the body falls at {magnitude * 1000.0:F3} mm/s2 toward its primary,"
+                 + $" lying ({parts.X:+0.00;-0.00} up, {parts.Y:+0.00;-0.00} downrange,"
+                 + $" {parts.Z:+0.00;-0.00} across) of the arrival"
+                 + $" -- {drift:F0} m of drift over {seconds:F0} s, of which"
+                 + $" {Math.Abs(drift * parts.X):F0} m is up");
     }
 
     /// <summary>
