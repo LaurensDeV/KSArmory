@@ -16,6 +16,10 @@ internal sealed class Slug : IProjectile
     private const int TrailCapacity = 32;
     private const double TrailIntervalSeconds = 0.05;
 
+    // Halvings of the crossing interval. Twelve takes a re-entry body's ~120 m of step to
+    // centimetres, and they are paid once, on the step that crosses.
+    private const int CrossingRefinements = 12;
+
     private readonly List<double3> _trail = new(TrailCapacity);
     private double3 _frameVelocityEcl;
     private double _trailTimer;
@@ -198,9 +202,23 @@ internal sealed class Slug : IProjectile
         // round — nothing to steer at either, so it finishes the fall ballistically.
         if (target is null) TargetRef = null;
 
+        // Both ends of the frame's travel, and the HIGHER surface wins. A broad phase may reject
+        // and may not miss: sampled at the top of the frame alone it reads the ground behind the
+        // round, so ground rising under it is terrain the sphere does not have and the round goes
+        // straight through the crossing — measured in flight as a warhead finishing 19.6 m under
+        // its own surface. The second sample is the cost of the guarantee, and it is one call a
+        // frame, not one a sub-step.
         _haveGround = munition.HitsTerrain && Ground is not null
                       && Ground.TryGround(PositionEcl, out _groundCentre, out _groundRadius)
                       && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
+
+        if (_haveGround
+            && Ground!.TryGround(PositionEcl + VelocityEcl * dt, out double3 aheadCentre, out double aheadRadius)
+            && double.IsFinite(aheadRadius) && aheadRadius > _groundRadius)
+        {
+            _groundCentre = aheadCentre;
+            _groundRadius = aheadRadius;
+        }
 
         int steps = Math.Min(munition.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / munition.SubStep)));
         double h = dt / steps;
@@ -388,14 +406,21 @@ internal sealed class Slug : IProjectile
                 // Back to where it crossed, so the burst is on the surface rather than up to a
                 // sub-step underneath it. Linear across the step: the round's own drop over 1.5 m
                 // is not where the curvature lives.
-                double f = was > 0.0 ? was / (was - now) : 0.0;
+                double linear = Math.Clamp(was > 0.0 ? was / (was - now) : 0.0, 0.0, 1.0);
 
-                PositionEcl = before + stepEcl * Math.Clamp(f, 0.0, 1.0);
-                MissDistance = 0.0;
-                HitGround = true;
-                DetonationElapsedInFrame = elapsedInFrame + h * Math.Clamp(f, 0.0, 1.0) - frameSeconds;
-                State = RoundState.Detonated;
-                return;
+                // The sphere only rejects; the ground decides. Same split as the hull test, and
+                // for the same reason: a sphere that contains the surface cannot miss a crossing,
+                // so it is safe in front of the exact test and saves it on every step that does
+                // not cross.
+                if (CrossesGround(before, stepEcl, linear, out double f))
+                {
+                    PositionEcl = before + stepEcl * f;
+                    MissDistance = 0.0;
+                    HitGround = true;
+                    DetonationElapsedInFrame = elapsedInFrame + h * f - frameSeconds;
+                    State = RoundState.Detonated;
+                    return;
+                }
             }
         }
 
@@ -403,4 +428,64 @@ internal sealed class Slug : IProjectile
         // orbit regardless of what the round did.
         DistanceFlown += Vec.Len(stepEcl - _frameVelocityEcl * h);
     }
+
+    // The sphere only rejects; the ground decides. IGroundTest answers with a sphere and says
+    // outright that it is the surface "over the few metres of ground track a falling round covers
+    // in one frame" -- a re-entry body covers about 120 m of it, and across that the real field
+    // departs from the sphere by tens of metres.
+    //
+    // Bisects on DEPTH rather than on how small the interval became, which is what makes it
+    // scale-free across bodies, and stops on ImpactPredictor's own tolerance: the round and its
+    // predictor disagreeing about where the ground is IS the miss.
+    //
+    // False leaves the round flying, because the sphere is entitled to be wrong in that direction.
+    private bool CrossesGround(double3 before, double3 stepEcl, double linear, out double f)
+    {
+        f = linear;
+        if (Ground is null) return true;
+
+        // Above the real ground at the far end of the step: the sphere was reporting terrain that
+        // is not there, and the round has not arrived yet. A ground test that will not answer
+        // leaves the sphere's own crossing standing, which is the behaviour the round had before
+        // this existed.
+        if (!TryHeightAbove(before + stepEcl, out double atEnd)) return true;
+        if (atEnd > ImpactPredictor.CrossingToleranceMetres) return false;
+
+        // Already under it when the step began — the crossing happened earlier, and the nearest
+        // honest answer inside this step is its start.
+        if (!TryHeightAbove(before, out double atStart)) return true;
+        if (atStart <= 0.0) { f = 0.0; return true; }
+
+        double above = 0.0;
+        double below = 1.0;
+
+        for (int i = 0; i < CrossingRefinements; i++)
+        {
+            f = 0.5 * (above + below);
+
+            if (!TryHeightAbove(before + stepEcl * f, out double height)) return true;
+            if (Math.Abs(height) <= ImpactPredictor.CrossingToleranceMetres) return true;
+
+            if (height > 0.0) above = f; else below = f;
+        }
+
+        return true;
+    }
+
+    // Height of a point above the ground actually under it, through the seam.
+    private bool TryHeightAbove(double3 at, out double height)
+    {
+        height = 0.0;
+
+        if (Ground is null
+            || !Ground.TryGround(at, out double3 centreEcl, out double radius)
+            || !double.IsFinite(radius) || radius <= 0.0)
+        {
+            return false;
+        }
+
+        height = Vec.Len(at - centreEcl) - radius;
+        return double.IsFinite(height);
+    }
+
 }

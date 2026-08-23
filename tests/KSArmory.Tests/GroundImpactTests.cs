@@ -103,9 +103,18 @@ public class GroundImpactTests
     }
 
     /// <summary>
-    /// One terrain sample a frame, whatever the sub-step count. That is the reason the seam answers
-    /// with a centre and a radius rather than an altitude — an altitude would have to be re-read
-    /// per sub-step to mean anything, and the sample is the expensive half.
+    /// Two terrain samples a frame, whatever the sub-step count, plus a bounded few on the single
+    /// step that crosses. That is the reason the seam answers with a centre and a radius rather
+    /// than an altitude — an altitude would have to be re-read per sub-step to mean anything, and
+    /// the sample is the expensive half.
+    ///
+    /// <para>Two rather than one because the sphere is a broad phase and may not miss a crossing:
+    /// the frame's far end is sampled as well as its start and the higher surface wins, or ground
+    /// rising under the round is terrain the sphere does not have. The crossing step then pays a
+    /// few more because the real ground, not the sphere, decides where the burst goes.</para>
+    ///
+    /// <para>What this still catches is the thing worth catching: a sample per <em>sub-step</em>,
+    /// which at this frame and sub-step would be some two thousand rather than twelve hundred.</para>
     /// </summary>
     [Fact]
     public void TheGroundIsSampledOncePerFrameNotPerSubStep()
@@ -122,7 +131,7 @@ public class GroundImpactTests
         }
 
         Assert.True(Interceptor.SubStep < Dt, "a frame must span several sub-steps for this to bite");
-        Assert.Equal(frames, ground.Samples);
+        Assert.InRange(ground.Samples, 2 * frames, 2 * frames + 14);
     }
 
     /// <summary>
