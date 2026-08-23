@@ -2,7 +2,7 @@
 
 A survey of real weapon systems by *functional architecture*, mapped onto this mod's vocabulary.
 Its question is not "what else could we model" but "which real families share a data model with the
-four we ship, and which need a different one".
+seven we ship, and which need a different one".
 
 **Relation to the other docs.** `docs/MODULARITY.md` asks how far the profile/registry split
 stretches, from the inside. This asks the same question from the outside, starting from the
@@ -28,7 +28,7 @@ here:
 
 | Part | Question it answers | Where it lives in this mod |
 | --- | --- | --- |
-| Sensor chain | what can be seen, and how well | `SensorProfile`, one per launcher |
+| Sensor chain | what can be seen, and how well | `SensorProfile`, one per launcher and one per optical head |
 | Fire control | what to shoot at, when, where to point | `WeaponSystem`, `ThreatModel`, `FireGate` |
 | Mount | how the effector is pointed and released | `LauncherProfile`, `Turret`, `TubeGeometry` |
 | Munition | how it flies | `MunitionProfile`, `Interceptor`, `Slug` |
@@ -102,8 +102,8 @@ is one radar, a fire distribution centre and launchers scattered kilometres apar
 only because the round is active-homing and the launcher needs no illuminator.
 
 Here `SensorProfile` belonging to a launcher and boresighting off it (`LocalUp`, `PartForward`,
-`TurretAxis`) is the blocker. Everything in this cluster needs a launcher that fires on a track it
-did not generate.
+`TurretAxis`, `MountNormal`) is the blocker. Everything in this cluster needs a launcher that fires
+on a track it did not generate.
 
 Two behaviours inside it are worth stealing on their own merits:
 
@@ -140,7 +140,7 @@ Loitering munitions (Switchblade, Lancet, Harop) transit, orbit for tens of minu
 dive, and can be **waved off seconds before impact**. Mines have an arming delay of weeks and a
 ship counter, and a CAPTOR is a mine that releases a torpedo.
 
-`IProjectile` is `Flying → Detonated | Expired`, and `Interceptor.TargetRef` is
+`IProjectile` is `Flying → Detonated | Expired | ShotDown`, and `Interceptor.TargetRef` is
 `{ get; private set; }`, so a round in the air cannot change its mind at all. `AUDIT-2026-08`
 records three separate blockers for a mine, of which self-detonation on a `Point` aimpoint is the
 one that bites first.
@@ -171,8 +171,9 @@ construction.
 
 Ranked by how many families each unlocks, with the repo's own discipline applied: **an abstraction
 with zero real instances should not be built.** `docs/AUDIT-2026-08.md` names shipping ahead of an
-instance as the pattern to stop repeating, and `Tube.Direction`, `BoresightMode` and
-`NeutralDensityRatio` are the evidence.
+instance as the pattern to stop repeating; of the three it cites, `Tube.Direction` and
+`BoresightMode` have since found instances and `MunitionProfile.NeutralDensityRatio` still has
+none.
 
 | # | Gap | Unlocks | Instances today |
 | --- | --- | --- | --- |
@@ -233,7 +234,8 @@ Extending the same list in `AUDIT-2026-08`. All are a profile entry plus art:
   `ForwardArcDeg`. Roll stabilisation is free, because the command is recomputed in the part frame
   every frame.
 - **Torpedo**: a small `DragK` and `NeutralDensityRatio` near 840. No new flight model.
-- **Multi-stage rounds**: `BoostStage[]` exists and is used by nothing. See the defects below.
+- **Multi-stage rounds**: `MunitionProfile.Stages`, which the HARM's dual-thrust motor already
+  uses.
 - **Mechanically scanned radar**: the mod already behaves as an AESA, tracking everything in the
   field of view with no scan penalty or revisit interval. The buildable thing is the *penalty*, and
   `RadarSpinRad` already advances on simulated time and currently feeds only the mesh.
@@ -266,25 +268,3 @@ and `MunitionProfile.Stages` having no instance — the HARM's dual-thrust motor
 Four capabilities are off by default and that is **deliberate**, recorded in CLAUDE.md rather than
 missing: `ReferenceCrossSectionM2`, `NotchSpeed`, `ClutterFloorMetres` and `TerrainSamples`. They
 are real capabilities with real costs, not upgrades.
-
-## Where `docs/MODULARITY.md` is now wrong
-
-Checked against the working tree, not assumed:
-
-- "`Interceptor` never names a munition. Every number arrives as a `MunitionProfile` argument per
-  `Update`" is **wrong**: a round carries its launcher's profile in a `required` field, and only
-  `WeaponSystem` reads it. The parameter is still how every test supplies one, so nothing in `Sim/`
-  can see a wrong value there.
-- "exactly **one** branch on round type in the whole flight model" is stale: `SeekerInView` now has
-  three terms, the added one being a `Ground` aimpoint.
-- "**Nothing upstream of a round can name a coordinate** ... `Track` is a `required Vehicle`" is
-  stale and the retype has landed. `Track.Contact` is `required IContact`, `Radar.Scan` takes
-  contacts rather than vehicles, and `Sim/Iff.cs`, `Sim/Aimpoint.cs` and `Designator` all work. What
-  genuinely remains is narrower: **auto-engage** still requires a lock.
-- "the `stackalloc` in `WeaponSystem.Fire`" is in `SyncRoundBodies`.
-- "worth 117 → 203 tests" is stale; 941 pass today.
-- The articulation section's counts are stale in the direction that strengthens its argument: five
-  `Find*`, five `TryApply*`, four `*Pose` and twelve profile fields, since `OpticBaseMarker` landed.
-
-`docs/BATTERY-SPLIT.md` is in better shape. Its two named defects are genuinely fixed, and its
-consumer-role item landed as `Ksa/WeaponSystemRoles.cs`; only the line count is stale.

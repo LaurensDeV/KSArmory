@@ -3,9 +3,8 @@
 The mod is built around three profile types and a registry so that a second weapon system is *data
 plus art*. This is how far that holds, read out of the code rather than out of the design notes.
 
-**Two of the four changes proposed below have landed, 2 is all but one step done, and 4 is still a
-plan.** The test work they depend on is done, and the last section records where the coverage now
-sits.
+**Three of the four changes proposed below have landed, and 4 is still a plan.** The test work
+they depend on is done, and the last section records where the coverage now sits.
 
 **Cite symbols here, never file and line.** A line citation is wrong within a few months, and a
 rename deletes the file it names. A symbol survives edits above it, and `grep` finds it.
@@ -48,7 +47,7 @@ flamethrower. See *What the architecture genuinely cannot express* below.
 
 ### Different launchers — modular in count, rigid in articulation
 
-Discovery is `Arsenal.LauncherForPart(part.Id)` (`LauncherPart.Find`); nothing hardcodes an
+Discovery is `Catalogue.LauncherForPart(part.Id)` (`LauncherPart.Find`); nothing hardcodes an
 Id. Tube count is fully derived — `Magazine` and the `stackalloc` in `WeaponSystem.SyncRoundBodies`
 both size off `profile.TubeCount`, and `WeaponSystem.SampleWorld` re-sizes the
 magazine when a *different* profile is recognised. A non-training launcher (`TurretMarker = null`)
@@ -77,10 +76,11 @@ works structurally, since a part on a vehicle is a part on a vehicle. What decid
 behaves is where its sensor looks, and one limit is still pinned:
 
 - **Where the search cone points is the sensor's choice**, not a constant. `SensorProfile.BoresightSource`
-  offers `LocalUp`, `PartForward` and `TurretAxis`, resolved by `TubeGeometry.TryBoresightPartFrame`. The
-  Pantsir keeps `LocalUp`, because its set sweeps a hemisphere regardless of where the tubes are
-  aimed; the LAU-7 rail uses `PartForward`, because a seeker head looks where the rail points, and
-  that is what makes a launcher on something that manoeuvres work.
+  offers `LocalUp`, `PartForward`, `TurretAxis` and `MountNormal`, resolved by
+  `TubeGeometry.TryBoresightPartFrame`. The Pantsir keeps `LocalUp`, because its set sweeps a
+  hemisphere regardless of where the tubes are aimed; the LAU-7 rail uses `PartForward`, because
+  a seeker head looks where the rail points, and that is what makes a launcher on something that
+  manoeuvres work.
 - **One weapon system per launcher part**, keyed on the craft and the launcher's ordinal. A craft
   carrying two rails is two weapons, each with its own `SystemConfig`, magazine, drives and rounds,
   and the panel's selector picks which one the trigger drives.
@@ -92,17 +92,17 @@ behaves is where its sensor looks, and one limit is still pinned:
 | # | Change | Size | Mostly lands in | Unlocks |
 | --- | --- | --- | --- | --- |
 | 1 | ~~`TubeOffsets` becomes `Tube(position, direction)`~~ | **landed** | `Sim/LauncherProfile.cs` | any launcher whose tubes are not parallel |
-| 2 | `WeaponSystem` becomes a list, one per launcher part found | medium | `Ksa/WeaponSystems.cs` | static site + vehicle + rocket at once |
+| 2 | ~~`WeaponSystem` becomes a list, one per launcher part found~~ | **landed** | `Ksa/WeaponSystems.cs` | static site + vehicle + rocket at once |
 | 3 | ~~`BoresightMode` on `SensorProfile`~~ | **landed** | `Sim/SensorProfile.cs` | a launcher on anything that pitches |
 | 4 | Articulation as a list of drives rather than three named roles | large | `Sim/TubeGeometry.cs`, `Sim/LauncherProfile.cs` | drums, rails, per-tube motion |
 
 **4 is deliberately last and should not be attempted speculatively.** It is the one whose shape is
 least knowable before a second launcher exists that actually needs it.
 
-**1 and 3 are landed**, both cheaply, because the geometry they rewrite had already moved into
-`Sim/` and was covered — see the section below. 4 stays last.
+**1, 2 and 3 are landed**, the first and third cheaply, because the geometry they rewrite had
+already moved into `Sim/` and was covered — see the section below. 4 stays last.
 
-**2 has moved most of the way.** `Config` holds no launcher, round or sensor;
+**The first step of 2:** `Config` holds no launcher, round or sensor;
 `WeaponSystem.Profile`/`.Munition`/`.Sensor` are the system's own, paired by `Arsenal.LoadoutFor`,
 and `WeaponSystems` makes the class plural: every craft carrying a recognised part is crewed and
 pinned there. Two craft can therefore be two *different* weapon systems, which is what the LAU-7
@@ -126,17 +126,18 @@ Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → `Arsenal` b
 across a boundary drifts, and that validator is the only thing holding these two copies together —
 see CLAUDE.md.
 
-One minor item is still open: `Arsenal.MunitionNamed` falls back to `Munitions[0]` on an unknown
-name with no warning, so a typo'd key silently flies the wrong round — a 30 mm barrel throwing
-45 m/s SAMs. The fallback is pinned by `WeaponSystemSelectionTests` rather than merely noted.
-`Ui.DrawStatus` names no system: it reads the fitted profile's `DisplayName`.
+One minor item is still open: `Catalogue.MunitionNamed` falls back to the first registered entry
+on an unknown name with no warning, so a typo'd key silently flies the wrong round — a 30 mm
+barrel throwing 45 m/s SAMs. The fallback is pinned by `WeaponSystemSelectionTests` rather than
+merely noted.
+`Sight.DrawStatus` names no system: it reads the fitted profile's `DisplayName`.
 
 ---
 
 ## Test coverage
 
 Where coverage exists it is dense: eight offset/phase tests, each verified to fail against its
-predecessor, 22 on the turret drive, 21 on the threat model, plus fuse and
+predecessor, 29 on the turret drive, 24 on the threat model, plus fuse and
 guidance-discrimination suites.
 
 **The coverage boundary is drawn at the file layout, not at the risk.** The test project links
@@ -146,11 +147,11 @@ disproportionately the logic the changes above rewrite.
 
 That logic is lifted into `Sim/`, the same way `FireGeometry` came out of `LauncherPart`, and the
 `Ksa/` side keeps only the property writes. The extraction was worth **117 → 203 tests** when it
-landed, and the suite has grown to 749 since.
+landed, and the suite has grown many times over since.
 
 | Was stranded in `Ksa/` | Now | Tested by |
 | --- | --- | --- |
-| tube occupancy, `NextFreeTube`, refill | `Sim/Magazine.cs` | `MagazineTests` |
+| tube occupancy, `TryTakeTube`, refill | `Sim/Magazine.cs` | `MagazineTests` |
 | the seat-then-hide decision | `Sim/Magazine.cs` (`TubeVisual`) | `MagazineTests` |
 | tube muzzle / axis / seated maths | `Sim/TubeGeometry.cs` | `TubeGeometryTests` |
 | `MuzzleEcl` ring fallback | `Sim/TubeGeometry.cs` | `TubeGeometryTests` |
@@ -206,7 +207,7 @@ Extraction has limits, and these remain untestable because they genuinely need a
 - fire-control *sequencing* — salvo spacing and the reload timer. The magazine is out; the timing
   is not. The `IsLaid` *decision* is out too, into `FireGate`: it depends on four booleans and a
   settle time, none of them KSA types. What is still in `Ksa/` is the mode ladder above it —
-  spin, manual, stow, track — and the ordering of the four transform writes.
+  spin, manual, stow, track — and the ordering of the five transform writes.
 - `ResolvePlatform`, and the platform-election order.
 - `LauncherPart.Find` and subpart resolution by marker substring.
 - the centre-of-mass correction in `TryGetTubeMuzzleEcl`, and `ResolveOriginEcl`'s camera round trip.
@@ -296,7 +297,7 @@ across the reap switch, `Detonate`, round-body placement keyed on tube number, `
 | 2 | **Target abstraction** — `Sim/Aimpoint.cs`, vehicle / part / point | **done** |
 | 3 | **Medium generalisation** — density ratio covers vacuum, air and water, plus buoyancy | **done** |
 | 4 | **Magazine decoupled from tubes** — `LauncherProfile.MagazineDepth` | **done** |
-| 5 | **Per-craft weapon manager** — `Ksa/WeaponSystems.cs` | **done, for one launcher per craft** |
+| 5 | **Per-launcher weapon manager** — `Ksa/WeaponSystems.cs` | **done** |
 
 "Done" here means shipped and covered, with every regression check verified against the bug it
 guards. It does not mean flown: `CHECKLIST.md` is where in-game confirmation is recorded, and a
@@ -312,11 +313,10 @@ What each unblocked, concretely:
   The Mk 15 Phalanx is that shape.
 - A weapon system can be told whose side it is on, and refuses friendlies.
 
-**5 reaches as far as the craft and stops there.** `WeaponSystems` crews every craft carrying a
-recognised part; `WeaponSystem.LauncherOrdinal` is still pinned to the first launcher on it. That
-last step is the one piece that restructures `Ksa/` rather than adding to `Sim/`, so it is the one
-with no test coverage to fall back on. It wants doing on its own, with a flight after it, rather
-than at the end of a long change — `docs/BATTERY-SPLIT.md` item 6.
+**5 reaches past the craft to the launcher.** `WeaponSystems` keys on the craft *and* the
+launcher's ordinal, so a craft carrying two rails runs two weapons. That last step restructured
+`Ksa/` rather than adding to `Sim/`, so it is the one with no test coverage to fall back on: only
+the stepping arithmetic is reachable, in `Sim/WeaponSelection.cs`.
 
 A continuous-effect abstraction (beams, flamethrowers) and AI pilots sit after all of that, and
 neither should be attempted speculatively.
@@ -361,8 +361,7 @@ the whole thing. Reach for the record when something has to be **positioned** th
 joints; a passenger that can ask where it ended up does not. What *is* earned is per-channel
 elevation (a `TraverseDrive` plus N `ElevationDrive`s, with per-channel `IsLaid`): two real
 trunnions exist and share one angle. It is still a restructuring of the region where a mistake
-shows up only in flight, so it wants a flight after it and should follow `docs/BATTERY-SPLIT.md`
-item 6 rather than precede it.
+shows up only in flight, so it wants a flight after it.
 
 ### Geometry that is known wrong
 

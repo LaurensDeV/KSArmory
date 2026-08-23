@@ -84,7 +84,7 @@ The obvious reading is a *mount*, a *magazine and its rounds*, a *fire-control l
 
 | Part | What it owns today | The CIWS | The rail |
 | --- | --- | --- | --- |
-| **Mount** | `Launcher`, `TurretPart`, `PodsPart`, `RadarPart`, `GunsPart`, `OpticPart`, `Turret`, the optic `PointingDrive`, `DriveStatus`, `RadarSpinRad`, `MountEcl`, `UpdateTurret`, `ResolveBoresight`, `IsLaid`, `GunsAreLaid` | trains, with a turret and guns and no pods | degenerate: `Trains` false, no subparts, always laid |
+| **Mount** | `Launcher`, `TurretPart`, `PodsPart`, `RadarPart`, `GunsPart`, `OpticBasePart`, `Turret`, `DriveStatus`, `RadarSpinRad`, `MountEcl`, `UpdateTurret`, `ResolveBoresight`, `IsLaid`, `GunsAreLaid` | trains, with a turret and guns and no pods | degenerate: `Trains` false, no subparts, always laid |
 | **Missile channel** | `Magazine`, the missile bodies and fins, `Commit`, `SyncRoundBodies`, the salvo and reload timers, `Holding()` | **absent**: `TubeCount` is zero and the magazine holds nothing | the whole weapon: one tube, no reload |
 | **Gun channel** | `GunChannel`, `_nextBarrel`, `_burstTrack`, `_manualTrigger`, `FireGun`, `UpdateGunFireControl`, the belt timer | the whole weapon | **absent**: `HasCannon` is false |
 | **The flight** | `_rounds`, `UpdateRounds`, `SampleTarget`, `Detonate`, the blast sweep, `_pendingKills`, `AttributeRoundsToTracks` | shells | missiles |
@@ -111,12 +111,13 @@ type would inherit both, unchanged.
 **The missile channel and the gun channel are not symmetric today, and the asymmetry is the
 work.** The gun channel is nearly self-contained: `UpdateGunFireControl` composes its own
 `wantToFire`, runs its own belt timer and returns early on `!Profile.HasCannon`. The missile
-channel is not a channel at all: it *is* the class. `Holding()`, `Commit`, `FireAtLock`,
-`ReadyToFire`, `Reload` and `UpdateFireControl`'s reload gate all speak for the missiles by
-default, and each one carries a `Profile.TubeCount == 0` or `Profile.TubeCount > 0` special case
-so a gun-only launcher can slip past. The panel has none of that shape left: `Ui/UiSystem.cs`
-reads `Sim/WeaponFit.cs` and asks the system what it is fitted with, which is the shape item 1
-proposes for fire control.
+channel is not a channel at all: it *is* the class. `Commit`, `FireAtLock`, `ReadyToFire`,
+`Reload` and `UpdateFireControl`'s reload gate all speak for the missiles by default, and each one
+carries a `Profile.TubeCount == 0` or `Profile.TubeCount > 0` special case so a gun-only launcher
+can slip past. `Holding()` is the one that no longer does: item 1 moved it into
+`Sim/FireLadder.cs`, where the two channels are alternative rungs off `FireConditions.HasTubes`.
+The panel has none of that shape left either: `Ui/UiSystem.cs` reads `Sim/WeaponFit.cs` and asks
+the system what it is fitted with, which is the shape item 1 proposed for fire control.
 
 That is a type test standing in for polymorphism, and it is the thing a third weapon would have to
 be added to nine times. It is also what produced defect 1: the missile ladder answers for a
@@ -136,11 +137,10 @@ mount, which is what owns the bearing.
 
 **The word has to be two words, because the class is two things.** "Battery" is not merely too
 grand for a rail. It names the per-craft owner and the per-launcher weapon at the same time, and
-that conflation is exactly why a craft carrying two LAU-7 rails fires one of them:
-`LauncherOrdinal` is pinned to the first launcher found and `BatteryRoster` keys on `Vehicle`, so
-the object that holds the policy and the object that runs the launcher have to be the same object.
-Picking two words is therefore not cosmetic. It is the same decision as `docs/MODULARITY.md`
-change 2.
+that conflation is why a craft carrying two LAU-7 rails fired one of them until item 6 keyed the
+roster on `(Vehicle, ordinal)`: the object that holds the policy and the object that runs the
+launcher were the same object. Picking two words is therefore not cosmetic. It is the same
+decision as `docs/MODULARITY.md` change 2.
 
 ### For the per-craft owner: `WeaponSystem`
 
@@ -165,8 +165,9 @@ fitted to a craft. Say that once in `Arsenal`'s summary and the ambiguity is spe
 **The case.** It is the term of art for the smallest element that can engage a target on its own,
 and it is true of all three without strain. A Pantsir vehicle is a fire unit. A LAU-7 rail is a
 fire unit. A Phalanx mount is a fire unit. A *battery* is several fire units under one fire
-control, which is precisely the word that was wrong. It also names the thing that has to become
-plural for two rails on one craft to both work, so it arrives with a job rather than as a tidy-up.
+control, which is precisely the word that was wrong. What it no longer arrives with is a job:
+two rails on one craft already both work, so the split it was meant to ride on has happened
+without it.
 
 **The cost.** Jargon. `docs/FROM-KSP-MODDING.md` exists for exactly this and would gain a line.
 
@@ -182,8 +183,8 @@ plural for two rails on one craft to both work, so it arrives with a job rather 
 
 **Recommendation: `DefenceBattery` becomes `WeaponSystem`, `BatteryRoster` becomes
 `WeaponSystems`, `BatteryConfig` and `BatterySettings` become `SystemConfig` and `SystemSettings`,
-and `FireUnit` is introduced only in the commit that makes a craft able to carry two.** Renaming
-`BatteryConfig` matters more than it looks: it is a `Sim/` type, so it is in the tests, and it is
+and `FireUnit` is introduced only when something needs the word.** Renaming `BatteryConfig`
+matters more than it looks: it is a `Sim/` type, so it is in the tests, and it is
 the file whose summary already had to reach for the word "installation" because "battery" would
 not carry it.
 
@@ -205,7 +206,7 @@ assembly, so anything moved there is covered the moment it exists, and anything 
 | **The hold ladder, one per channel.** `Holding()` reads about a dozen booleans, two counts, a range and profile fields. | Nothing in it is a KSA type; `TrackState` is already `Sim/`. | Defect 1 becomes a test, not a report. Every rung becomes assertable in the order it answers, which is the order the panel prints. A gun-only profile, a missile-only profile and both-fitted become three parameterised cases. |
 | **The launch cycle.** Salvo spacing, the missile reload gate, the belt gate. | Two timers and a `TubeCount > 0` guard. | A CIWS reloading forever is this shape, and it is invisible to every existing test. `docs/MODULARITY.md` lists fire-control *sequencing* as the first thing extraction did not reach. |
 | **The blast sweep.** Given a burst position, an elapsed-into-frame, the warhead radii, the protection policy and a list of (handle, position, velocity, radius), produce kills and near misses. | The world lookup is already hoisted into `_blastScratch` before the loop. Only the arithmetic moves. | This is the one operation in the class that is irreversible and has no test whatsoever. It also closes `docs/AUDIT-2026-08.md` defects 4 and 5 by construction: `MissDistance` defaulting to 0 becomes representable as "no fuse fired" rather than "a perfect hit". |
-| **The turret mode ladder.** spin / manual / cursor / stow / track, producing a command rather than writing a part. | All four inputs are part-frame directions and policy booleans. `Turret` and `PointingDrive` are already `Sim/`. | `docs/MODULARITY.md` names this explicitly as what `FireGate` left behind. The ordering of the four transform writes stays in `Ksa/` and is untestable either way. |
+| **The turret mode ladder.** spin / manual / cursor / stow / track, producing a command rather than writing a part. | All four inputs are part-frame directions and policy booleans. `Turret` and `PointingDrive` are already `Sim/`. | `docs/MODULARITY.md` names this explicitly as what `FireGate` left behind. The ordering of the five transform writes stays in `Ksa/` and is untestable either way. |
 | **The body plan.** Which round claims which body index, which index is double-booked, which is seated and which hidden. | `Magazine.Plan` is already there; the loop that assigns rounds to indices is not. | The double-booking warning is what stands in for a test today, which means the check runs in flight and nowhere else. |
 
 ### Rearrangements inside `Ksa/`: tidiness, and sometimes a precondition
@@ -287,16 +288,17 @@ the shape where a regression test passes against the broken and the fixed code a
 Ordered by what unblocks the next weapon system, not by how ugly the code looks. Items come off
 this list one at a time as they land.
 
-1. **Extract the fire-control ladder into `Sim/`, one per channel, with the launch cycle timers.**
-   The largest testability gain on the list and the smallest structural risk: no object moves, a
-   private method becomes a pure function over its inputs. It removes the `TubeCount == 0` special
-   cases scattered through the class — a set that grows rather than shrinks while each gun-only
-   case is patched where it surfaces — and gives fire control the
-   per-armament answer `Sim/WeaponFit.cs` already gives the panel. It is also the half of a third
-   weapon channel that can be built without touching `Ksa/` structure at all.
-2. **Extract the blast sweep into `Sim/`.** The only irreversible thing the class does and the
-   only one with no test. Closes `docs/AUDIT-2026-08.md` defects 4 and 5 by construction. Pure
-   arithmetic over a list the class already collects into a scratch buffer.
+1. ~~**Extract the fire-control ladder into `Sim/`, one per channel**~~ — **done**, as
+   `Sim/FireLadder.cs`, with `FireLadder.Holding` a pure function over `FireConditions` and the two
+   channels alternative rungs off `HasTubes`. `FireLadderTests` asserts the order the panel prints.
+   **The launch cycle timers did not come with it**: salvo spacing and the missile reload gate are
+   computed in `Ksa/` and handed down as numbers, and the seven remaining `TubeCount == 0` special
+   cases — `Commit`, `FireAtLock`, `ReadyToFire`, `Reload` — are still where they were. That
+   remainder is the half of a third weapon channel that can be built without touching `Ksa/`
+   structure at all, and it still wants the per-armament answer `Sim/WeaponFit.cs` gives the panel.
+2. ~~**Extract the blast sweep into `Sim/`.**~~ **Done**, as `Sim/BlastSweep.cs` with
+   `BlastSweepTests` holding the back-dating frame rule for invariance. The only irreversible thing
+   the class does, and it had no test at all.
 3. ~~**Fix `_gunFlightTime`, or delete it and the `TimedFuse` control with it.**~~ **Done**, by
    taking the flight time from the same lead solve that produces the aim point. Kept here for the
    reasoning: defect 2 is a field one assignment away from working behind a panel control that
@@ -306,21 +308,21 @@ this list one at a time as they land.
    mechanical across 19 files, no on-disk format change. Ride it on item 1's commit so it lands
    with a change that makes it true rather than on its own.
 5. **A `Mount` type in `Ksa/`: the parts, the drives, the latches, the writes and the arbiter.**
-   Buys no coverage on its own. Its value is that it turns item 6 from a rewrite into a list
-   change, and it is the natural home for the bearing arbitration that currently reaches across
-   the whole class through one private bool.
-6. **The installation / fire-unit seam: several fire units per weapon system.** Unpins
-   `LauncherOrdinal` and makes a craft carrying two rails fire both. The biggest capability gate
-   here, and deliberately below the two moves that make it safer to attempt.
-   `docs/MODULARITY.md` change 2 and `docs/AUDIT-2026-08.md`'s per-craft weapon manager are the
-   same item. **Alone, with a flight after it.**
+   Buys no coverage on its own, and item 6 landed without it, so what is left of its value is the
+   bearing arbitration: `_ringIsOnGunLead` and `_ringIsOnCursor` reach across the whole class
+   through two private bools, and a mount is what owns the bearing.
+6. ~~**The installation / fire-unit seam: several fire units per weapon system.**~~ **Done**, and
+   not by the route proposed: rather than one system owning several fire units, `WeaponSystems`
+   keys on `(Vehicle, ordinal)` and crews one whole system per launcher part, with the panel's
+   selector choosing which the trigger drives. So a craft carrying two rails fires both, item 5 was
+   not a precondition after all, and no `FireUnit` type was needed to say it.
 7. **The turret mode ladder into `Sim/`.** Named in `docs/MODULARITY.md` as what the `FireGate`
    extraction left behind. Below the seam because the seam changes what its inputs are.
 8. ~~**Narrow the effects consumers to a rounds-in-flight interface.**~~ **Done**, and wider than
-   proposed: ten consumers now take one of six roles. See `Ksa/WeaponSystemRoles.cs`. `MotorSound`, `MotorPlume`,
-   `TracerTrail` and `ChaseCamera` need five members; give them five. Tidiness, but it is the
-   cheapest item here and it is what stops the next effect class taking a dependency on
-   everything.
+   proposed: twelve consumers now take one of eight roles. See `Ksa/WeaponSystemRoles.cs`.
+   `MotorSound`, `MotorPlume`, `TracerTrail` and `ChaseCamera` need five members; give them five.
+   Tidiness, but it is the cheapest item here and it is what stops the next effect class taking a
+   dependency on everything.
 9. **The body plan into `Sim/`.** Smallest gain, since `Magazine.Plan` already covers most of it.
 
 **Do nothing yet:** an `IWeapon` interface, a per-channel round list, splitting the file into

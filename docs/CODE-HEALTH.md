@@ -15,7 +15,7 @@ not will be found again by the next reader.
 
 Things that are wrong now, not things that could be tidier.
 
-- [x] **A load-bearing test asserts `f(x) == f(x)`.** `tests/ChaseBlendFrameTests.cs`,
+- [x] **A load-bearing test asserts `f(x) == f(x)`.** `tests/KSArmory.Tests/ChaseBlendFrameTests.cs`,
   `SharedMotionDoesNotReachTheBlend` calls `BlendedOffset` twice with byte-identical arguments and
   asserts the results agree. Its own doc says it adds a common velocity to the launcher, the round
   and the scene; it adds none, and an inline comment rationalises the identical inputs. CLAUDE.md
@@ -42,7 +42,7 @@ Things that are wrong now, not things that could be tidier.
 ## Modularity
 
 - [x] **Testable maths stranded in `Ksa/`.** Highest value first:
-  - [x] `Radar.TeamOf` — now `Sim/Teams.TeamFor`, with the substring trap pinned.
+  - [x] `Radar.TeamOf` — now `Teams.TeamFor` in `Sim/Iff.cs`, with the substring trap pinned.
   - [x] `WeaponSystem.Holding()` — now `Sim/FireLadder.cs`, with the rung order tested.
   - [x] The blast sweep in `WeaponSystem.Detonate` — the geometry is now `Sim/BlastSweep.cs`,
     with the back-dating frame rule tested for invariance.
@@ -118,7 +118,7 @@ is the failure CLAUDE.md rates worse than a missing comment.
   go", "it began at", "and it did", "first attempt", "two earlier versions", "once claimed", and a
   block quoting a commit subject verbatim. Widen the regex rather than fixing the instances alone.
 
-- [ ] **`Sim/MushroomCloud.cs` duplicates `docs/NUCLEAR-EFFECT.md`** — 503 comment lines to 212 of
+- [ ] **`Sim/MushroomCloud.cs` duplicates `docs/NUCLEAR-EFFECT.md`** — 498 comment lines to 217 of
   code, with three sentences near-verbatim from the doc it cites twice.
 
   Lowest value on this list and the easiest to do damage with: the ratio is high because the file
