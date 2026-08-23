@@ -841,6 +841,60 @@ which is where it is known to be blind — but this fix does not involve a carri
 explanation either. **Do not retry it without a mechanism**; two flights' worth of evidence say the
 frozen sample is somehow load-bearing.
 
+## 2e. KSA 2026.8.22.5348 halved the residual and doubled the walk — measured
+
+The retarget to KSA `2026.8.22.5348` was flown as a 12-shot baseline against the same save, the
+same aim and the same `base=dev` arm as a 5-shot night on `2026.8.19.5261` twelve hours earlier,
+with the pick-up `[207] km, [7360] m/s` identical across all seventeen. The only mod-side commits
+between them are a log line, a drone-spawner fix and a tooling script, none of which a warhead can
+reach — so the difference is the game's.
+
+| | 2026.8.19.5261, n=5 | 2026.8.22.5348, n=12 | |
+| --- | --- | --- | --- |
+| **mean miss** | 0.37 km | **0.86 km** | x2.43 |
+| cutoff residual | 0.320 m/s | **0.040 m/s** | x8 better |
+| release-probe miss | 0.80 km | **0.40 km** | x2 better |
+| walk from the probe | 503 m | **1339 m** | x2.7 |
+| frame time | 23.4 ms | 17.7 ms | 24% faster |
+
+Hodges-Lehmann x2.43 on the miss, exact rank-sum p 0.00065, one of twelve inside the old range.
+That is a **drift comparison and not a test** — the protocol's baseline is an arm of the same batch
+and this one is a night apart — but the pick-up is identical and the samples barely overlap.
+
+**Everything upstream of the release got better and the whole loss is after it.** The burn now ends
+eight times tighter, which is KSA's fix to a transposed row-times-column in
+`FlightComputer.GenerateSingleAxisTvcTrackGains` and the Q retune that came with it, and the aim at
+release is twice as good. Item 2 is what ate it: the walk roughly doubled, 92% of it downrange and
+short, on a term that was already the largest one left.
+
+**So this is the phase experiment item 2 said it needed and could not run.** It asks for "a flight
+that varies the phase" of `IGroundTest`'s centre against the round's own position, and this update
+varied it for free -- it moved physics-bubble ownership into `VehicleUpdateTask`, associated orphans
+on the thread worker rather than the main thread, and took bubble merge checks out of the critical
+section between frames. The walk did **not** change sign; it grew, ~770 m to ~1307 m per warhead,
+while the frame it is differenced across got *shorter*. A pure `29.8 km/s x dt` carrier would have
+shrunk by a quarter. That it grew instead is the most informative number here and is not yet
+explained.
+
+**A second, smaller term appeared beside it.** The round now finishes **19.6 m below its own
+surface** where it used to finish **0.1 m** off it, because KSA fixed the tiling-detail modifier's
+sampling and restored terrain detail that `Slug`'s once-per-frame ground sphere had been standing
+in for -- `IGroundTest` promises the sphere is the surface "over the few metres of ground track a
+falling round covers in one frame", and a Mk 21 covers about 120 m of it. At a 7.1 deg arrival
+19.6 m of penetration is ~157 m of ground, and it lands the round **long**, which is the opposite
+sign to the regression: fixing it makes the walk slightly worse before it makes anything better.
+`arm/ground-crossing` is built and **unflown**. It turned out to be two faults rather than one: the
+sphere misplaces the crossing, which bisecting against the real field fixes, and — sampled at the
+top of the frame, where it reads the ground *behind* the round — it also fails to offer the crossing
+at all when the ground rises, which no amount of refinement downstream can recover. A broad phase
+that can miss is the thing `Ksa/HullTest.cs` is careful never to be. Both ends of the frame's travel
+are now sampled and the higher surface kept. It is a correctness fix worth ~157 m rather than an
+answer to this item.
+
+**Do not read the x2.43 as the mod getting worse.** Two of the three terms that make up a shot
+improved sharply and are permanent; one regressed and is item 2, which was already the thing to fix
+and is now both larger and better instrumented.
+
 ## 2b. Holding a warhead past cutoff costs ~26 m a second — understood
 
 Same shot, cutoff prediction `0.1 km off` every time; release at +50 s and the probe said 0.1-0.2 km,
