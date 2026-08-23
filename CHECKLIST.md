@@ -86,8 +86,8 @@ made from reading.
 - [ ] A craft carrying **only a director** opens the window, lists its Camera and Sensor rows,
       and says *no weapons system on this craft* on the rest — **without faulting**. This is the
       case that crashed twice tonight; both were null `_battery` reads on an uncrewed path.
-- [ ] *KSArmory settings* holds Display, Sound, the warp hold and Debug. The main panel is the
-      craft list and nothing else.
+- [ ] *KSArmory settings* holds Display, Sound and the warp hold; *Debug tools* is a window of
+      its own beside it. The main panel is the craft list and nothing else.
 - [ ] **Tuning** says at the top that it edits every system running that loadout.
 
 
@@ -130,8 +130,8 @@ Ranked by how likely a failure is. Worth reading before you start.
 | **Medium** | `mod.toml` serving as both content manifest and StarMap manifest. Plausible, untested. | [1.1](#11-the-mod-loads) |
 | **Medium** | `Program.VehiclesInFrame` may not contain the loaded vehicles, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
 | **Medium** | Boresight is local "up" derived from the parent body; if `Vehicle.Parent` misbehaves the cone points somewhere daft. | [3.2](#32-the-search-cone-is-drawn) |
-| **Medium** | Shooting down a round. Three seams changed at once and none of them is reachable from the test project. | [7.1d](#71d-shooting-down-a-round--never-once-worked-so-nothing-here-has-ever-been-seen) |
-| **High** | The ballistic computer has never flown in game. It writes attitude, throttle and staging on a vehicle nobody designed for it. | [12](#12-the-ballistic-computer--never-flown-in-game) |
+| **Medium** | Shooting down a round. Three seams changed at once and none of them is reachable from the test project. | [7.1g](#71g-shooting-down-a-round---never-once-worked-so-nothing-here-has-ever-been-seen) |
+| **Medium** | The ballistic computer writes attitude, throttle and staging on a vehicle nobody designed for it. Flown and arriving; what is unwatched is each change since. | [12](#12-the-ballistic-computer--flown-and-arriving) |
 | **Low** | Guidance and fuse maths — covered by the headless suite, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
 | **Low** | `DestroyVehicleFromEvent` may behave oddly with `Cause = Collision`. | [4.4](#44-the-warhead-kills) |
 
@@ -145,11 +145,12 @@ cannot build it — the scripts put the right SDK on PATH for you.
 - [x] **0.1** `./tools/sync-import.sh` — Import/ populated, no errors.
 - [x] **0.2** `./tools/build.sh` — succeeds.
 - [x] **0.3** `./tools/test.sh` — the suite passes.
-- [x] **0.4** `./tools/validate-parts.py` — "OK: 26 asset reference(s) resolve".
+- [x] **0.4** `./tools/validate-parts.py` — ends "OK: N asset reference(s) resolve" with no
+      errors above it.
 - [ ] **0.5** `./tools/deploy.sh` — prints an install path containing `KSArmory.dll`,
-      `mod.toml`, **two XML files at the root**, `Meshes/KSArmory_MeshAtlas.glb` and three
-      PNGs under `Textures/`. An `Assets/` folder left by a previous layout must have been
-      deleted by the script — two copies of the part would fight over one Id.
+      `mod.toml`, **the `KSArmory*.xml` files at the root**, `KSArmory/Weapons.xml`, and the
+      `Meshes/`, `Textures/` and `Sounds/` folders. An `Assets/` folder left by a previous layout
+      must have been deleted by the script — two copies of the part would fight over one Id.
 - [ ] **0.6** Re-run `./tools/deploy.sh` — it must say it **registered the mod in
       manifest.toml**.
 - [ ] **0.7** `./tools/setup-starmap.sh` — installs StarMap and writes `StarMapConfig.json`.
@@ -202,7 +203,7 @@ If you cannot find it, ignore it — the log files cover everything on this chec
 - [x] `KittenSpaceAgency.log` contains `INFO found mod 'KSArmory'`.
 - [x] StarMap prints `Loaded mod: KSArmory from manifest`.
 - [x] `Logs/KSArmory.log` contains `loading (mod id: KSArmory)`.
-- [ ] Then `ready - 12 tubes, safe.`
+- [ ] Then `ready - <every registered launcher>, safe.`
 
 Both StarMap hooks fire. `[StarMapAllModsLoaded]` lands about **21 s** after
 `[StarMapImmediateLoad]` — it waits for the game to finish loading, so the `ready` line appearing
@@ -254,11 +255,12 @@ Re-check after any XML edit.
 ### 2.1 The part appears in the editor
 
 - [x] Open the vehicle editor.
-- [x] Under **Structural**, find **Pantsir-S1 Point Defence System**.
+- [x] Under **Weapons**, find **Pantsir-S1 Point Defence System**.
 
-**If it fails:** the `PartGameData` didn't register. Check the `EditorTag Value="Structural"`
-and that `mod.toml`'s `assets` paths match where deploy.sh put the files — they are now at the
-mod root, **not** under `Assets/`.
+**If it fails:** the `PartGameData` didn't register. Check the `EditorTag Value="Weapons"` — and
+that the `<EditorTagDef>` declaring it is still there, since a tag nothing defines groups nothing —
+and that `mod.toml`'s `assets` paths match where deploy.sh put the files. They are at the mod root,
+**not** under `Assets/`.
 
 ### 2.2 The part renders
 
@@ -292,15 +294,20 @@ two can be compared directly.
 
 ### 2.3 The part attaches
 
-- [ ] Surface-attaches to the side of a fuel tank.
-- [ ] Attaches to the top of a stack via its rear node.
+It stacks rather than surface-attaching. `_adConnectorAft` is a node connector with no
+`<Flags>`, because `IsAllowedAsRootPart` rejects a part any of whose connectors is `ToSurface`
+— so a vehicle roots and a store rides, and this is a truck.
+
+- [ ] Attaches to the top of a 3 m stack via its node.
 - [ ] Symmetry placement works (2×, 4×).
 - [ ] **Stands alone** — a craft consisting of only the launcher builds and launches, with no
       command pod. This is the quickest way to test everything else.
+- [ ] A director or another store can be mounted **on** it. It carries `NoFaceSnapping` and
+      deliberately not Core's `Radial`, which is a face-snap target blacklist that beats the
+      `Weapons` whitelist.
 
-**If it fails:** connector flags. `_adConnectorAft` needs `<Flags>ToSurface</Flags>` in
-GameData and a matching `<Connector Id="_adConnectorAft">` with a `<Transform>` in Assets —
-the Ids must match exactly between the two files.
+**If it fails:** the connector Ids must match exactly between GameData and Assets, and the
+Assets one needs a `<Transform>`.
 
 ### 2.4 The part behaves physically
 
@@ -318,12 +325,13 @@ the Ids must match exactly between the two files.
 
 - [x] In flight, a **KSArmory** window is visible.
 - [x] Closing it leaves a small **KSArmory** button that reopens it.
-- [ ] Header shows `Platform: <your craft>` and `Launcher: Pantsir-S1 fitted` in green.
-- [ ] Shows `MASTER ARM: SAFE` in green and `Rounds: 12/12`.
+- [ ] The **Components** tab lists the Pantsir's launcher, gun, sensor and fire-control rows.
+- [ ] The strip above the tabs shows the master arm safe and a full twelve-round tally.
 
-**If it fails:** `Launcher: none fitted` while the part *is* on the craft means
-`LauncherPart.Find` isn't matching — `Part.Id` may not equal the `PartGameData` Id. Untick
-**Require launcher part** to keep testing everything else, and report it.
+**If it fails:** `no weapons system on this craft` while the part *is* on it means
+`LauncherPart.Find` isn't matching — `Part.Id` may not equal the `PartGameData` Id, or the part
+is registered as a launcher and missing from `Arsenal.Components`, which is silent everywhere
+else.
 
 ### 3.1b The turret slews
 
@@ -331,15 +339,16 @@ the Ids must match exactly between the two files.
 here is instrumented so the answer is readable either way.
 
 - [ ] `KSArmory.log` has a `launcher subparts: ...` line naming both subparts. If the turret
-      one is missing or oddly named, `Part.ResolveRuntimeId` rewrote it and `TurretMarker` in
-      `LauncherPart.cs` needs to match whatever is actually there.
+      one is missing or oddly named, `Part.ResolveRuntimeId` rewrote it and the profile's
+      `TurretMarker` needs to match whatever is actually there.
 - [ ] The panel shows `Turret: N deg` and not `subpart not found` or `engine refused`.
 - [ ] A **cyan line** points out from above the vehicle. That is where the drive *thinks* it is
       aimed — it comes from the mod's own maths, not from the engine.
 - [ ] Spawn a test target. The cyan line sweeps round to follow it, taking about a second.
 - [ ] **The turret mesh follows the cyan line.** This is the actual test.
 - [ ] The twelve tube markers stay on the container mouths as it turns.
-- [ ] Turning **Track with turret** off in *Radar → Turret* returns it to facing forward.
+- [ ] Turning **Track with turret** off on the launcher's *Components* row returns it to facing
+      forward.
 
 **If the line moves but the mesh does not:** the slew maths is right and the engine is ignoring
 `Asmb2ParentAsmb`. Next thing to try is splitting the turret into its own `<Part>` joined by a
@@ -357,7 +366,7 @@ than translate-then-rotate. Compare `TURRET_PIVOT` in `pantsir.py` against the `
 - [ ] **Twelve** dots at the tube mouths: **green** = loaded. They must sit *on* the container
       mouths, not in a ring floating beside them — that is what `validate-parts.py`'s launch
       geometry check is guarding, but only the game proves it.
-- [ ] Adjusting *Radar → Range* and *Cone half-angle* resizes it live.
+- [ ] Adjusting *Tuning → Radar*'s **Range** and **Cone half-angle** resizes it live.
 
 **If it fails:** cone pointing sideways or through the ground means `KsaWorld.LocalUp` is
 picking a bad parent body. Cone missing entirely means gizmo rendering isn't reaching the
@@ -376,10 +385,10 @@ after installing the craft.
 > the craft file did not load. If the menu item is live but the craft is missing from the
 > dropdown, the folder was read but that save was rejected.
 
-**Use the built-in spawner.** *KSArmory settings → Debug → Test targets*: set time-to-pass,
-speed and miss distance, then press **Overhead**, **Head-on** or **Passing by**. A drone
-appears that far out on exactly that course, so a 60 s / 400 m/s overhead pass spawns 24 km
-away and arrives in a minute. Drones are clones of your own craft, so no second craft needed.
+**Use the built-in spawner.** *Debug tools → Test targets*: set time-to-pass, speed and miss
+distance, then press **Overhead**, **Head-on** or **Passing by**. A drone appears that far out on
+exactly that course, so a 60 s / 400 m/s overhead pass spawns 24 km away and arrives in a minute.
+Drones are clones of your own craft, so no second craft needed.
 
 Arm the battery *before* the drone arrives — with **Auto engage** on it will handle the rest.
 
@@ -404,7 +413,7 @@ The distinction that matters: **passing by** should engage, not just **incoming*
 - [ ] A vessel crossing nearby but not aimed at you: **also** marked a threat, if its CPA is
       under *Threat radius*.
 - [ ] A vessel heading away: shown as a track but **not** a threat.
-- [ ] Lock indicator goes `acquiring...` → `LOCKED` after *Lock time* (0.8 s).
+- [ ] Lock indicator goes `acquiring...` → `LOCKED` after *Lock time* (1.5 s).
 
 ---
 
@@ -508,7 +517,7 @@ Where latent bugs are most likely.
       log is the arbiter — the fuse trigger ranges stay ~22 m either way.)*
 - [ ] **6.3** **Target dies mid-flight** — destroy the target another way while rounds chase it.
       They should lose lock and expire, not throw.
-- [ ] **6.5** **Rocket smoke trail** — fire a Sidewinder or a HARM and watch the trail behind it
+- [ ] **6.3b** **Rocket smoke trail** — fire a Sidewinder or a HARM and watch the trail behind it
   while the motor burns, then that it stops laying at burnout and the trail stays put and drifts.
   Nothing on an airless world or above the atmosphere, which is the renderer's own limit. Check a
   CIWS burst does **not** lay one (`TotalBoostSeconds` is zero), and that a salvo beside a standing
@@ -522,10 +531,13 @@ Where latent bugs are most likely.
   stream should carry on across the frame its gun is destroyed rather than stopping dead. A missile
   keeps its flame only while boosting and has no body once loose, so past burnout there is nothing
   to see and the log is the only witness. See `docs/CODE-HEALTH.md`.
-- [ ] **6.5** **Pin platform** — press *Pin to this vehicle*, switch control elsewhere. The
-      pinned craft keeps defending itself.
-- [ ] **6.6** **Staging away the launcher** — `Launcher: none fitted` appears, firing refuses.
-- [ ] **6.7** **Two launchers** on one craft — should work, still one system of twelve (by design).
+- [ ] **6.5** **Switching control away** — a system is pinned to the craft carrying its launcher
+      when it is crewed and nothing moves it after, so taking control of something else leaves it
+      defending itself. There is no button: pinning is not the operator's.
+- [ ] **6.6** **Staging away the launcher** — the craft reports no weapons system, firing refuses.
+- [ ] **6.7** **Two launchers** on one craft — **two** weapons, each with its own magazine, arm
+      switch and rounds in the air. The header's selector chooses which one the panel and the
+      trigger are pointed at.
 - [ ] **6.8** **Long session** — leave auto-engage on for a while. No unbounded log growth, no
       frame-rate decay.
 - [ ] **6.9** **Fault handling** — if anything throws, the console shows
@@ -599,7 +611,7 @@ ridge, and the cost is the thing no test can answer.
       *does* move, it is not.
 - [ ] Nothing throws over a body with no height map, and over a moon.
 
-### 7.1d Shooting down a round  ← never once worked, so nothing here has ever been seen
+### 7.1g Shooting down a round  ← never once worked, so nothing here has ever been seen
 
 Rounds have been visible to radar and engageable by fire control from the start, and could not be
 hit by anything: a round is not a `Vehicle`, so the shell's contact list never held one, the
@@ -659,7 +671,7 @@ round leaving the rail. The unticked boxes below are those.
 A *fixed* launcher — no turret, no pods, one round, no reload — takes paths the Pantsir never
 does, so a green suite says little about it.
 
-- [ ] The rail appears in the editor under Structural, and **surface-attaches** to the side of a
+- [ ] The rail appears in the editor under **Weapons**, and **surface-attaches** to the side of a
       stack. It is not a command source, so a craft made only of a rail will not fly — expected.
 - [ ] The AIM-9J is **visible on the rail** before firing. A tube launcher hides its rounds inside
       the containers; a rail cannot, so `TubeVisual.Loaded` is exercised here and nowhere else.
@@ -680,8 +692,9 @@ does, so a green suite says little about it.
       case: a session-scoped profile shows up here as one site drawing the other's numbers, and
       nowhere else.
 
-- [ ] Two rails on one craft: expected to fire **one**. `LauncherOrdinal` is pinned and the roster
-      crews one battery per craft. Recorded so it is not mistaken for a bug.
+- [ ] Two rails on one craft: **two** weapons. The roster keys on the craft and the launcher's
+      ordinal, so each has its own magazine and arm switch, and the header's selector chooses which
+      one the trigger is pointed at. Dropping one must not refill the other.
 
 ### 7.1d2 The AMRAAM rail — it loads and lays, and nothing past that is confirmed
 
@@ -834,7 +847,8 @@ Still open below.
 - [ ] **Stock drones** — Gemini7 / Hunter / Banjo / Polaris / Rocket each spawn and fly.
 - [ ] **Battery stays put** — fly a second craft; the battery remains on the launcher and the
       panel says so.
-- [ ] **Two launchers on one craft** — still one battery of twelve, no double-firing.
+- [ ] **Two launchers on one craft** — two weapons, each with its own magazine, and the selector
+      switching between them without either refilling.
 - [ ] **Reload cycle** — let it run dry and auto-reload rather than reloading by hand.
 - [ ] **Manual designation** — designate a non-priority track and confirm it is engaged.
 
@@ -859,13 +873,14 @@ Still open below.
 
 ### 7.6b The EO director — the sight as a part of its own
 
-**Never flown.** The head is no longer launcher gear: it is a part anything can carry, it finds
-its own targets through its own sensor, and it drives the view with no weapon involved. A Pantsir
-that has not been given one has no sight at all, which is the intended state and not a fault.
+The head is no longer launcher gear: it is a part anything can carry, it finds its own targets
+through its own sensor, and it drives the view with no weapon involved. A Pantsir that has not been
+given one has no sight at all, which is the intended state and not a fault.
 
-Everything in 7.6 below was flown against a head bolted to the Pantsir's turret. The maths it
-proved still holds — the same `PointingDrive`, the same in-phase resolve, the same zoom — but the
-thing it was proved on no longer exists, so the items are worth re-running rather than trusted.
+Everything in 7.6 below was flown against a head bolted to the Pantsir's turret. That head is
+still there — `PantsirDirector` is a second `OpticProfile` on the launcher's own part Id, riding
+the traverse — but what carries it is now a mount frame read off the engine rather than the
+launcher's angle, so the items are worth re-running rather than trusted.
 
 **Flown and working.** The faults found along the way, all fixed and confirmed: the panel not
 listing a camera-only craft and dropping the selection when it was managed; the horizon drawn
@@ -887,7 +902,8 @@ and looking sideways stays sideways. **Level the horizon** is the opt-in.
       mast, which is a fact about the model rather than a preference.
 - [ ] On an unarmed craft: bracket, horizontal reference, edge cue and zoom, and **no** arm state,
       ammo or gun pipper. On a craft with a Pantsir *and* a director, all of it.
-- [ ] A **Pantsir with no director** reports no sight rather than a broken one.
+- [ ] A launcher carrying **no director** — a rail, or the CIWS — reports no sight rather than a
+      broken one. The Pantsir cannot show this: its turret roof carries one.
 - [ ] Two directors on one craft are two heads, each pointed independently.
 - [x] **Mouse aim.** The ring holds the head inside it and follows outside it, the speed builds
       from the ring's edge rather than from the middle of the view, and resting the cursor leaves
@@ -934,25 +950,18 @@ maps are all unproven paths.
       from. The sensor cone points out of the mounting face, which keeps it off that direction
       without forbidding it.
 
-### 7.6d The suspension rail — carriage gear, and whether things mount on it
+### 7.6d The suspension rail — carriage gear the builder cannot place
 
-**Never flown.** Authored, clean under `checkmesh`, and declared with the collider read off its
-own `_ColPrim_` node. It has no profile in `Sim/Arsenal.cs` at all: it neither shoots nor sees.
+**Hidden rather than deleted.** A bare rail carries nothing and is registered as no launcher, so
+placing one would do nothing at all — but the asset is shared with the stores that ship, and a part
+removed outright stops every saved craft carrying it from loading. It therefore carries
+`EditorTag Value="Hidden"`, which `PartTemplate.IsHidden` reads and `VehicleEditor` checks in the
+part list, the diameter filter and the root-part test. It has no profile in `Sim/Arsenal.cs` at
+all: it neither shoots nor sees.
 
-- [ ] `14-inch Suspension Rail` appears under **Weapons** in the editor and surface-attaches to a
-      wing or fuselage, hooks downward.
-- [ ] It renders and is textured. Its atlas and material are its own; a magenta or untextured rail
-      means the Ids, not the mesh.
-- [ ] **A pod or a rack can be mounted on it.** This is the item worth the most: it carries no
-      `Radial` tag on purpose, because that tag is a `FaceSnapTargetBlacklist` and the blacklist
-      beats the `Weapons` whitelist — the same trap that stopped anything being mounted on the
-      Pantsir. If nothing will attach to the rail, the gate has moved and
-      `docs/KSA-MODDING-NOTES.md` wants correcting.
-- [ ] It cannot start a craft, which is right: any `ToSurface` connector bars a part from being a
-      root whatever its tags say.
-- [ ] The store sits **on the hooks** rather than intersecting the beam. The rail's hooks are at
-      14-inch spacing and the pod's lugs are modelled to match, but nothing checks that the two
-      line up — the editor places the store wherever the player drops it.
+- [ ] It is **absent** from the editor's part list, and a saved craft carrying one still loads.
+- [ ] It renders and is textured on a craft that has one. Its atlas and material are its own; a
+      magenta or untextured rail means the Ids, not the mesh.
 
 ### 7.6e The terrain map
 
@@ -1236,15 +1245,14 @@ trying to fly a vertical rise.
 - [ ] The mark on the target stays on screen, and points from the edge when it is out of view.
 - [ ] A target the stack cannot afford reads `TARGET UNREACHABLE` with a shortfall in m/s.
 
-### 12.7 It aims each tube, and lets go of its stack
+### 12.7 It lets go of its stack
 
 Separation, the handover and the deployment are flown. No shipped part declares a decoupler, so it
 needs a craft built with a stock 3 m decoupler between the launcher and the stack below it.
 
-- [ ] With **Aim each tube before it fires** on and no decoupler fitted: the warheads still all go,
-      and the log says the tubes are being turned onto the line, or that it gave up and why.
-- [ ] The six land closer together than the ~1,200 m they spread over without it.
-- [ ] With it off, behaviour is exactly as before — released as soon as the tubes stop sweeping.
+**Aim each tube before it fires** is off and stays off — flown and lost, see §12.7a — so the rest
+of this section is the default path.
+
 - [ ] A vehicle that cannot point releases anyway after a minute and says so, rather than holding
       warheads until the release altitude closes.
 - [x] **With a decoupler fitted**, the launcher separates at cutoff, once, and the log names both
@@ -1261,8 +1269,8 @@ needs a craft built with a stock 3 m decoupler between the launcher and the stac
 All six left within 67 ms and landed within 32 ms of each other, off a cutoff the mod's own
 prediction called `0.0 km off`.
 
-What is left is two terms. The ~1 km *spread* is the tube cant, which is what re-pointing is for and
-why §12.7a matters. The ~900 m *bias* is that every round landed beyond its own release probe —
+What is left is two terms. The ~1 km *spread* is the tube cant, which re-pointing was for and could
+not remove — §12.7a. The ~900 m *bias* is that every round landed beyond its own release probe —
 `docs/MIRV-NEXT.md` item 2.
 
 **The trim itself is flown and working.**
@@ -1300,28 +1308,18 @@ kilometres.
 
 **Never yet exercised:** whether the bus's ~183 kg of MMH/NTO lasts. Nothing has spent it.
 
-### 12.7a Turn re-pointing back on and read one line
+### 12.7a Turn re-pointing — flown, and it lost
 
-The ~1 km spread in the flown group **is** the tube cant, so this is now the largest thing left to
-win. It is off by default because it made the bus hunt; the sequencer has not been made to work, it
-has been made to say which way it is failing. One flight decides where the fix goes.
+**Settled, and there is nothing to fly here.** Flown on a separated bus with the sequencer on and
+the axes latching properly: commanding six degrees off the held line made the vehicle *hunt*, the
+six tubes releasing at 5.2, 2.1, 8.2, 12.8, 14.1 and 11.7 degrees off it — against the six degrees
+of cant the turn exists to remove. The sweep never came under the gate, every release was a
+timeout, and the salvo took three minutes, against 1.7–0.3 km on the same shot without it. So
+`RepointBetweenReleases` stays **off**, and the ~1 km spread is the cant.
 
-- [ ] It is **on by default** now. Fly the shot and read the deploy lines.
-- [ ] **Which of these two appears is the whole result:**
-      `tube 1 is not following the turn, X deg off the line against Y when it started` — the bus
-      accepted the command and is being pushed off it, so the fix is on the craft (more RCS) or is a
-      documented limit; or `tube 1 has stopped closing on the line` — nothing is moving at all, so it
-      is authority, or the attitude write is not reaching the bus at all.
-- [ ] If it says *stopped closing* with no movement whatever, check `AttitudeHook.Hold` is landing on
-      the bus rather than on the discarded stack — the handover re-homes `Craft`, but that was read
-      rather than observed.
-- [ ] The salvo takes about one tube's timeout, not three minutes, whatever else goes wrong.
-- [ ] Every release logs which tube went, how far off the line and how fast the tubes were sweeping
-      — including the ones that worked. Six impacts are only diagnosable against six release states.
-- [ ] If the bus holds a *steady* offset it cannot improve on, write the number down: that is the
-      number: the release is now budgeted in metres per second of lateral velocity at the tube, so
-      a steady offset it cannot improve on is what `LateralBudgetMetresPerSecond` has to be sized
-      against.
+Reopening it means a different bus — finer RCS, more inertia, or thrusters placed for translation
+— which is a craft design change rather than a mod one. `docs/MIRV-NEXT.md` §5 and §5a carry the
+numbers and the engine reason.
 
 ### 12.7b A director that rides away on a split
 
@@ -1423,7 +1421,7 @@ Measured, same aim point, arms interleaved:
 - [ ] Disarming mid-flight does the same.
 - [ ] Destroying the craft mid-flight does not throw, and nothing in the log complains afterwards.
 
-### 12.7 Timewarp
+### 12.8 Timewarp
 
 A burn now asks `WarpPolicy` to hold the world down, the same way rounds in the air do. This is the
 section that proves it, and it is the failure that produced a 3,255 km miss before it existed.

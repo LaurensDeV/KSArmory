@@ -1,13 +1,14 @@
-# Model pipeline — the six generated parts
+# Model pipeline — the four generated parts
 
 **This is not how new assets are made.** New art is authored in Blender over MCP; see
-`.claude/skills/ksa-blender/SKILL.md`. What follows builds the six parts that already exist this
+`.claude/skills/ksa-blender/SKILL.md`. What follows builds the four parts that already exist this
 way, and has to keep working.
 
-Those six are **generated, not authored**: `pantsir.py` builds the Pantsir-S1 out of primitives in
-headless Blender, `palette.py` writes the textures, and `build.sh` runs both and installs the
-results. Nothing here needs the Blender UI, and there is no `.blend` to keep in sync — the script
-*is* the model, which is the one real advantage it still has.
+Those four — the Pantsir-S1, the LAU-7 rail, the Mk 15 CIWS and the EO director — are **generated,
+not authored**: `pantsir.py` builds them out of primitives in headless Blender, `palette.py` writes
+the textures, and `build.sh` runs both and installs the results. Nothing here needs the Blender
+UI, and there is no `.blend` to keep in sync — the script *is* the model, which is the one real
+advantage it still has.
 
 ```bash
 ./tools/model/build.sh              # textures, mesh, previews, install
@@ -18,12 +19,13 @@ Outputs land in `src/KSArmory/`:
 
 | File | What |
 | --- | --- |
-| `Meshes/KSArmory_MeshAtlas.glb` | `KSArmory_Subpart_{Chassis,Turret}` and their `_VM` previews |
+| `Meshes/KSArmory_MeshAtlas.glb` | one `KSArmory_Subpart_*` body per moving assembly, each with its `_VM` twin |
 | `Textures/KSArmory_{Diffuse,PBR,Normal}.png` | the palette |
-| `tools/model/muzzles.json` | launch geometry, checked against `LauncherPart.cs` |
+| `tools/model/muzzles.json` | launch geometry, checked against the launcher profiles |
 
-Previews (`preview_{3q,rear3q,side,front,top}.png`) go to `C:\Windows\Temp\airdefence-model`,
-readable from WSL at `/mnt/c/Windows/Temp/airdefence-model`.
+Previews (`preview_*.png` — five of the vehicle, and one set each for the missile, the rail and
+the CIWS) go to `C:\Windows\Temp\airdefence-model`, readable from WSL at
+`/mnt/c/Windows/Temp/airdefence-model`.
 
 ## The loop
 
@@ -68,13 +70,14 @@ installed.
 
 ## Launch geometry is generated too
 
-The tube muzzle positions exist in two places: here, where the containers are placed, and in
-`LauncherPart.cs`, which draws markers on them and spawns rounds from them. `build.sh` writes
-`muzzles.json` and **`tools/validate-parts.py` fails if the two disagree** — this repo has
+The tube muzzle positions exist in two places: here, where the containers are placed, and in the
+launcher's profile — `Sim/Arsenal.cs` or `KSArmory/Weapons.xml` — which draws markers on them
+and spawns rounds from them. `build.sh` writes `muzzles.json` and
+**`tools/validate-parts.py` fails if the two disagree** — this repo has
 already been bitten twice by geometry duplicated across a boundary with nothing checking it.
 
-After changing anything about the pods, rerun `build.sh` and paste the C# block it prints. If
-the tube count changes, `Config.TubeCount` has to change with it.
+After changing anything about the pods, rerun `build.sh` and paste the block it prints. The tube
+count is `LauncherProfile.Tubes.Length`, so it follows the block and nothing else has to change.
 
 ## Every face needs UV *area* — this is the one that cost the most
 
