@@ -234,7 +234,9 @@ def load(root):
             continue
         n, block, arm, verdict, dll = parts[0], parts[1], parts[2], parts[3], parts[4]
         rec = read_shot(root / "shots" / f"{n}-{arm}.out", root / "shots" / f"{n}-{arm}.log")
-        rec.update(n=n, block=int(block), arm=arm, verdict=verdict, dll=dll)
+        # Kept as text. shot-batch.sh writes 'x' for a shot re-allocated off a dropped arm, so
+        # anything numeric here refuses to read the one batch shape the gate actually produces.
+        rec.update(n=n, block=block, arm=arm, verdict=verdict, dll=dll)
         shots.append(rec)
     return root, shots
 
@@ -246,6 +248,11 @@ def usable(shot):
 
 
 def baseline_name(root, arms):
+    # A batch aborted before its first shot landed has arms declared and none flown, which is a
+    # night that answered nothing rather than a malformed directory.
+    if not arms:
+        sys.exit(f"no shots flown in {root} -- the batch was aborted before its first one landed")
+
     order = [line.split("\t")[0] for line in (root / "arms.tsv").read_text().splitlines()[1:]]
     for name in order:
         if name in arms:
