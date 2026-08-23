@@ -1655,6 +1655,24 @@ says so.
 > Measured through the rig only — **this has not been flown**, and the mechanism below is what says
 > it should help rather than a shot that did. `CoastStepDeterminismTests` pins the engagement.
 
+**The night that settles it**, ready to start. Both arms are commits, so nothing in the working
+tree reaches a shot and the tree can be worked on while it flies:
+
+```bash
+KSARMORY_SCENARIO_SAVE="AUTO NUKE DECOUPLER" ./tools/shot-batch.sh \
+    --aim 26.5S,64.0W --arms base=4e8be19,coast=23422a3 --blocks 12
+./tools/shot-report.py ~/shots/<night>          # in the morning
+```
+
+`base` is the commit before the change and `coast` is the change. 24 shots at about six minutes
+each — roughly two and a half hours, and it holds the game for all of it, so start it on the way to
+bed. Twelve an arm settles a factor of 0.50; a smaller effect comes back `UNRESOLVED` with an
+interval saying what was ruled out, and `--resume <dir>` carries the same batch on for more.
+
+The setup is checked: one shot flown 2026-08-23 arrived 6 of 6, 2.75 km mean with 0.01 km of
+spread, and the log carries the hold engaging after the salvo — which is the mechanism, not the
+size. **A single shot settles nothing** against a scatter of ×1.74, which is what the batch is for.
+
 **The coast's integration step is bimodal, and which mode a shot gets is decided by the length of a
 single frame.** Conditioned on it, the run-to-run scatter in the walk falls from a standard
 deviation of 91-1,155 m to a residual of **10-88 m**. Nothing else in the shot is doing anything.
