@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-153 types and 430 members across 7 assemblies.
+152 types and 429 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -700,10 +700,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double GetAtmosphericDensityAtAltitude(double)`
 - `double GetAtmosphericPressure(KSA.Camera)`
 
-### KSA.PhysicsBubble
-
-*referenced as a type only*
-
 ### KSA.PlumeTrailEmitterState
 
 - `void .ctor()`
@@ -864,18 +860,17 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.IParentBody get_Parent()`
 - `KSA.Part get_ControlPart()`
 - `KSA.PartTree get_Parts()`
-- `KSA.PhysicsBubble get_PhysicsBubble()`
 - `KSA.Situation get_Situation()`
 - `KSA.Vehicle CreateVehicle(KSA.CelestialSystem, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 - `KSA.Vehicle get_BubbleLeader()`
 - `bool IsAnyEnginePropellantAvailable()`
+- `bool get_HasPhysicsBubble()`
 - `bool get_IsControllable()`
 - `bool get_IsDisposed()`
 - `float GetManualThrottle()`
 - `float GetMinThrottle()`
 - `float get_PropellantMass()`
 - `float get_TotalMass()`
-- `void AddToBubble(KSA.PhysicsBubble)`
 - `void PrepareWorker(KSA.SimStep)`
 - `void ProcessInput(KSA.InputAction, Brutal.GlfwApi.GlfwKeyAction, Brutal.GlfwApi.GlfwModifier)`
 - `void TeleportToLocation(KSA.Celestial, double, double)`

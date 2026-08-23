@@ -1,8 +1,10 @@
 # Where KSA thinks the ground is
 
 Everything below comes from the decompiled corpus at `../ksa-game-assemblies` against build
-**2026.8.19.5261**, from the shipped `Content/Core/Astronomicals.xml`, and from measurements taken
-directly off the shipped `Earth_Height.ktx2`. Nothing here has been flown.
+**2026.8.22.5348**, from the shipped `Content/Core/Astronomicals.xml`, and from measurements taken
+directly off the shipped `Earth_Height.ktx2`. Nothing here has been flown. The measurements were
+taken against 2026.8.19.5261 and still stand: they are sampled well inside a face, and the only
+sampling change since is in the seam branch.
 
 **Why it matters now.** A MIRV shot lands at about **0.65 km** from a **six-to-seven-degree**
 arrival. At that angle one metre of disagreement about where the surface is costs **9.3 m of
@@ -134,6 +136,11 @@ geometry is.
   seams handled by re-deriving the direction and re-projecting. `lod` is a parameter and is always
   passed 0 — there is no exposed way to ask for a coarser one, and `SampleCubemapFaceSingleChannel`
   reads mip 0 regardless, so a non-zero `lod` would be a latent bug rather than a feature.
+
+  **The seam branch changed in 2026.8.22.5348**, and only that branch — a tap landing off its face
+  is now unfolded through `UnfoldCubeFaceUv` and point-fetched, where it used to be a bilinear
+  blend of four `FetchTexelSeamlessR` taps taken at a `-0.5` texel offset. So a height within a
+  face is the same number it was, and one within two texels of a cube edge is not.
 
 The two face-selection routines are written twice — `DirectionToCubemap` (`:1454`) for the bicubic
 path and an inlined copy inside the bilinear one — and they **agree**, face for face and axis for

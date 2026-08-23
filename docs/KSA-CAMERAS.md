@@ -23,7 +23,7 @@ relying on one.
 Grounded **only** in the decompiled engine at
 `../ksa-game-assemblies/current/src`.
 All citations are relative to that root. Nothing here is taken from any mod's own code or docs.
-Build: **2026.8.19.5261**. Line numbers move on every KSA update, so a citation that does not land
+Build: **2026.8.22.5348**. Line numbers move on every KSA update, so a citation that does not land
 on what it claims means this file is behind the corpus, not that the corpus is wrong.
 
 ---

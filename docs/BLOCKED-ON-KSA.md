@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.8.19.5261**. Paths are relative to
+Findings are against KSA **2026.8.22.5348**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -31,9 +31,13 @@ happen rather than a member that moved.
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 - [x] **`DistanceReference.IsValid()` stops requiring 100 km** — go back to `IsValid()` on the atmosphere and the ocean the day it does
 
-All thirteen rechecked against 2026.8.19.5261 and still blocked. The line numbers below are against
-that build's render path, in which `Program._offscreenTarget` is a `RenderTarget`; none of the
-structure these entries depend on differs from the build before it. `UncompressedVehicleSave.cs`
+All thirteen rechecked against 2026.8.22.5348 and still blocked. The line numbers below are against
+that build's render path, in which `Program._offscreenTarget` is a `RenderTarget`. Lighting did
+become a per-viewport choice — `Viewport.LightMode` is an `EViewportLightMode`, set to `Clustered`
+for the main viewport and `None` for the thumbnail one — but that is the pass a secondary viewport
+was already getting some of. `OnFrameCelestials` still resolves one camera through `GetCamera()`
+and still calls `_planetRenderer.OnFrame(FrameViewport, ...)`, so the planet, atmosphere and ocean
+passes remain the frame viewport's alone and the first two entries stand. `UncompressedVehicleSave.cs`
 does not mention `Character` at all; `KittenRenderable` writes an attachment's transform and
 submits its draw in consecutive statements; `KSA.Rendering.PostProcessing` is an anti-aliasing
 pass and a tone curve.

@@ -154,22 +154,12 @@ internal static class TestTarget
             string id = $"AD Test Drone {++_counter}";
             Vehicle drone = CreateDroneVehicle(blueprint, system, platform, parent, id, orbit);
 
-            // Constructing the Vehicle is not enough to put it in the world. KSA's own runtime
-            // spawn path (Vehicle.Split) attaches it to the parent's orbiter tree and to the
-            // launching craft's physics bubble; without the first,
+            // Constructing the Vehicle is not enough to put it in the world: without this,
             // CelestialSystem.UpdatePerFrameData never walks it, so its cached Ecl position stays
-            // at the frame origin and it neither moves nor can be seen. Without the second it is
-            // never simulated.
+            // at the frame origin and it neither moves nor can be seen. A bubble it does not need
+            // - Universe.PrepareVehicleWorkers collects every vehicle in no bubble and
+            // VehicleUpdateTask.IntakeOrphans gives it one before the step it was found on.
             parent.Children.Add(drone);
-
-            if (platform.PhysicsBubble is { } bubble)
-            {
-                drone.AddToBubble(bubble);
-            }
-            else
-            {
-                Log.Warn("test target: platform has no physics bubble, drone will not be simulated");
-            }
 
             // Work out how big it is.
             //
@@ -281,7 +271,7 @@ internal static class TestTarget
                    + $"zoomPow {v.OrbitView?.DistancePower ?? double.NaN:F2} "
                    + $"parts {v.Parts?.Count ?? -1} "
                    + $"bubbleLeader {(v.BubbleLeader is null ? "none" : "yes")} "
-                   + $"bubble {(v.PhysicsBubble is null ? "none" : "yes")} "
+                   + $"bubble {(v.HasPhysicsBubble ? "yes" : "none")} "
                    + $"controllable {v.IsControllable} "
                    + $"hasControlModule {HasControlModule(v)} controls {ControlCount(v)}";
         }

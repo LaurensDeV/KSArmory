@@ -31,6 +31,31 @@ magnification, the chase camera, the bomb rack, and the editor's **Weapons** cat
 which a headless scenario reaches. `validate-parts.py` passes against the install, so the tags are
 declared; that they still group the parts is unwatched.
 
+**Re-flown after the retarget to KSA `2026.8.22.5348`.** That build removed `Vehicle.PhysicsBubble`
+outright: a vehicle in no bubble is now collected by `Universe.PrepareVehicleWorkers` and given one
+by `VehicleUpdateTask.IntakeOrphans` before the step it was found on, so the manual `AddToBubble`
+the drone spawner did is gone rather than rewritten. The evidence inverts accordingly — a spawned
+drone reads **`bubble none`** in the world dump and flies anyway, where the previous build's proof
+was `bubble yes`. `scenario.sh head-on` passes unattended, the drone crossing 9 km and being
+destroyed by the round; the captured frame shows the plume smoke drawing, which is the reflected
+`Program._volumetricTrailRenderer` still binding, and the overlay on the craft rather than beside
+it.
+
+Two engine changes in that build survive into flight and were **not** flown, so they are the ones to
+watch. Staging became stage-accurate: `SequenceList.ActivateNextSequence` now calls
+`Part.ActivateSubtreeInStage(vehicle, sequenceNumber)`, which walks the part's whole subtree and
+fires only modules whose own stage matches, where it used to fire every `IActivate` on the listed
+part and nothing below it. The mod stages through KSA's own entry point so it inherits this, but a
+multi-stage ballistic shot has not been flown against it. And the terrain height field's **seam**
+sampling changed — a bicubic tap landing off its cube face is now unfolded and point-fetched
+instead of bilinear-blended at a half-texel offset — so a height within two texels of a cube edge is
+not the number it was, which reaches the bomb's ground test and the ballistic impact predictor.
+`docs/KSA-TERRAIN.md` has the detail.
+
+Unchanged from the note above: the sight at magnification, the chase camera, the bomb rack and the
+**Weapons** category stay unwatched, and this retarget flew the rail rather than the Pantsir, so the
+turret traverse and pod elevation are unwatched on this build too.
+
 The failure modes worth recognising before starting, and how to tell them apart, are in
 `docs/KSA-MODDING-NOTES.md` and `docs/FRAMES-AND-EPOCHS.md`.
 
