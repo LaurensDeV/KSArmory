@@ -11,41 +11,7 @@ not will be found again by the next reader.
 
 ---
 
-## Defects
-
-Things that are wrong now, not things that could be tidier.
-
-- [x] **A load-bearing test asserts `f(x) == f(x)`.** `tests/KSArmory.Tests/ChaseBlendFrameTests.cs`,
-  `SharedMotionDoesNotReachTheBlend` calls `BlendedOffset` twice with byte-identical arguments and
-  asserts the results agree. Its own doc says it adds a common velocity to the launcher, the round
-  and the scene; it adds none, and an inline comment rationalises the identical inputs. CLAUDE.md
-  names this suite as load-bearing. Give it the shared velocity it claims, and check it fails
-  against the differenced form.
-
-- [x] **The weapons switcher is unreachable with the panel closed.** `Ksa/Ui/Ui.cs` returns inside
-  the `if (!Visible)` branch, and `DrawWeaponsWindow()` sits after it — under a comment reading
-  "Not gated on the panel being open: the switcher is for use while flying." FIRE and the group
-  master arm go with it.
-
-- [x] **`ChaseCamera.Release` drops the view recording on a refused hand-back.** It discards
-  `BeginRestoreMainView`'s bool and clears `_saved` regardless. `SightCamera` retries for 180
-  frames, and its comment states what dropping it costs: the player is left in Fixed mode at the
-  borrowed pose with the only description of their view thrown away. Two copies of one hand-back
-  that have drifted apart.
-
-- [x] **`Armament.Steers` answers from the armament slot, not the round.** `Sim/WeaponFit.cs` reads
-  `Kind == ArmamentKind.Tubes`, while the flight model is chosen off
-  `Munition.Guidance == GuidanceMode.None`. Three registered munitions are unguided and two racks
-  declare tubes, so a bomb rack is offered seven guidance sliders its `Slug` never reads. The
-  sibling `Drop` already resolves correctly through `Arsenal.MunitionNamed`.
-
 ## Modularity
-
-- [x] **Testable maths stranded in `Ksa/`.** Highest value first:
-  - [x] `Radar.TeamOf` — now `Teams.TeamFor` in `Sim/Iff.cs`, with the substring trap pinned.
-  - [x] `WeaponSystem.Holding()` — now `Sim/FireLadder.cs`, with the rung order tested.
-  - [x] The blast sweep in `WeaponSystem.Detonate` — the geometry is now `Sim/BlastSweep.cs`,
-    with the back-dating frame rule tested for invariance.
 
 - [~] **`Interceptor` and `Slug` duplicate the frame and epoch bookkeeping.** The physics is done:
   buoyancy and drag were character-for-character identical and are now `Sim/Medium.cs`, so a third
@@ -57,11 +23,6 @@ Things that are wrong now, not things that could be tidier.
   place a mistake is a round that leaves the world. `ProjectileContractTests` already runs the frame
   and epoch rules against *every* `IProjectile`, so a third type is checked whether it inherits the
   lines or copies them. Worth doing behind a flight, not alongside a comment sweep.
-
-- [x] **Shortest-arc rotation implemented twice**, with different epsilons and different degenerate
-  axes — `TubeGeometry.RotationFromTo` and `FireGeometry.RotationFromNose`, where the second is
-  the first applied to `NoseAxis`. `OpticGeometry` reaches into `TubeGeometry` for the generic
-  helper.
 
 - [ ] **Emitter pooling is byte-identical across three files** — `MotorPlume`, `TracerTrail`,
   `MuzzleFlash` — including the Kill-before-`RemoveEmitter` safety comment, whose failure mode is
@@ -79,44 +40,12 @@ Things that are wrong now, not things that could be tidier.
   "checkable by reading" is exactly what CLAUDE.md says is not evidence. Do it as its own change,
   with the game open.
 
-- [x] **`UiSystem.cs` holds a different owner for a third of itself** — the optical-head block
-  never reads the battery or the policy, contradicting the file's own doc comment.
-
-- [x] **Nothing checks that `SystemSettings` covers every persistable `SystemConfig` field.** A new
-  field silently fails to persist across three hand-written lists, and `check-tunables.py` asks
-  for a control rather than for persistence.
 
 ## Comment hygiene
 
 The ratios are fine — `Sim/` is a data-and-contracts layer and its comments carry engine contracts
-and flown numbers. What is wrong is comments that have gone stale or slid off their subject, which
-is the failure CLAUDE.md rates worse than a missing comment.
-
-- [x] **Doc blocks have slid off their members.** `GenerateDocumentationFile` is off, so nothing
-  warns; blocks now hold more than one `<summary>`, each earlier one describing a member left
-  undocumented. Confirmed: `KsaWorld.ParentBody` (carrying `GravityAt`'s and `GroundVelocityAt`'s),
-  `KSArmoryMod`'s mushroom-cloud comment on `_motors`, an orphan "last kitten reported" comment for
-  a field that no longer exists.
-
-- [x] **`MuzzleFlash`'s class summary describes behaviour `b71fa90` removed** — "one endless
-  emitter per battery", anchored to the barrel cluster's centre "averaging them". That commit's own
-  message quotes this comment as the thing that defended the old behaviour.
-
-- [x] **Other stale claims.** `LauncherPart` ("several launchers on one craft still give one
-  battery" — false since the per-launcher roster), `ChaseCamera` ("a second and a half" against
-  `LingerSeconds = 3.0`), and dead `cref`s to `WeaponSystem.OpticOriginEcl` and `Sim/Designation`,
-  neither of which exists.
-
-- [x] **`CLAUDE.md`'s consumer count is wrong** — "ten of the thirteen consumers take a role" is
-  11 of 17. Three of the named exceptions need no widening at all: existing roles already cover
-  every member they touch.
-
-- [x] **`docs/MODULARITY.md` is stale on its own headline bug** — the `Interceptor.Munition`
-  default it describes is fixed; the property is `required` and set on both branches.
-
-- [x] **History narration that `check-comments.sh` does not catch.** Its regex misses "used to
-  go", "it began at", "and it did", "first attempt", "two earlier versions", "once claimed", and a
-  block quoting a commit subject verbatim. Widen the regex rather than fixing the instances alone.
+and flown numbers. What is left is prose duplicated between a file and the doc it cites, which goes
+stale in two places at once.
 
 - [ ] **`Sim/MushroomCloud.cs` duplicates `docs/NUCLEAR-EFFECT.md`** — 498 comment lines to 217 of
   code, with three sentences near-verbatim from the doc it cites twice.
@@ -126,7 +55,16 @@ is the failure CLAUDE.md rates worse than a missing comment.
   wants kept. What is actually duplicated is a handful of sentences, so the fix is to cut those and
   leave the pointer — not to thin the file toward a ratio.
 
+
 ## Known gaps, recorded rather than fixed
+
+- **Hand-copied counts in prose drift, and nothing checks most of them.** `check-docs.sh` reads
+  back the API totals, the KSA build and the layout table's coverage; every other figure in
+  `CLAUDE.md` and `README.md` is copied from output that moves. The consumer count has now been
+  found wrong twice — "ten of the thirteen" when it was 11 of 17, then "ten of the seventeen" when
+  it was 12 of 20 — and the same pass found the mirror's size, the subset's assembly count, the
+  corpus line count and the check count all stale. The fix is not a bigger `check-docs.sh` for
+  every number: it is preferring a figure a tool prints on demand over one written into a sentence.
 
 - **A coasting round that outlives its launcher cannot be seen.** It keeps its tracer (a shell,
   for its whole flight) and its plume (a missile, while the motor burns), because both hang on the
@@ -143,13 +81,16 @@ is the failure CLAUDE.md rates worse than a missing comment.
     craft's analytic and physics positions coincide. Off by default, so lowest priority of the
     three.
 
+
 ## Did not survive
 
 Reported and checked; leave these alone.
 
 - **`PlumeSmoke`'s reflection.** One site in the whole mod, not a family, and the file says why it
   must stay visible.
+
 - **`WatchCamera` outside the claim ladder.** It borrows nothing and restores nothing; folding it
   in would need the takeover its design note rules out.
+
 - **`tools/model/pantsir.py` at 1,194 lines.** CLAUDE.md already declares the headless generator
   frozen.
