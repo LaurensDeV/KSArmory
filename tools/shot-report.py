@@ -61,6 +61,13 @@ TRACEPROBE = re.compile(
     r"probe from the round's own state ->.*?([\d.]+)\s*s of flight,\s*([-\d.]+)\s*m from the aim,"
     r"\s*arriving at\s+([-\d.]+)\s*m/s,\s*([-\d.]+)\s*deg below")
 WALK = re.compile(r"walk from the release probe\s+([-\d.]+)\s*m\s*\(([-+\d.]+)\s*down,\s*([-+\d.]+)\s*cross\)")
+
+# What the round's own clock made of the flight beside what its predictor expected. The two use the
+# same ground and the same air; a round that arrives early against its own probe is short by that
+# time times its ground speed, which at a 7 deg arrival is most of the walk.
+FLIGHT = re.compile(
+    r"flight\s+([-\d.]+)s by the world clock,\s+([-\d.]+)s by its own, "
+    r"probe said\s+([-\d.]+)s")
 LAG = re.compile(r"lag\s+([-\d.]+)ms\s*=\s*([-\d.]+)\s*m at")
 CLOCKS = re.compile(r"flight\s+([\d.]+)s by the world clock,\s*([\d.]+)s by its own")
 SAMPLE = re.compile(r"dt=([\d.]+)ms step=([\d.]+)ms sim=([\d.]+)x")
@@ -83,6 +90,7 @@ def read_shot(out_path, log_path):
             "residual": None, "own_km": None, "trim_split": None, "trim_release": None,
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
+            "early_s": [],
             "band_deg": [],
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
             "version": None}
@@ -128,6 +136,10 @@ def read_shot(out_path, log_path):
         shot["walk_m"].append(metres)
         shot["walk_down"].append(down)
         shot["walk_cross"].append(cross)
+
+    # Positive is early: the round beat the flight time its own predictor gave it.
+    for _world, own, probe in _floats(FLIGHT, log, 3):
+        shot["early_s"].append(probe - own)
     for ms, metres in _floats(LAG, log, 2):
         shot["lag_ms"].append(ms)
         shot["lag_m"].append(metres)
@@ -439,7 +451,7 @@ def main():
 
     print("\n== attribution (medians over usable shots)")
     print(f"   {'arm':<14}{'residual':>9}{'own km':>8}{'trim rel':>9}{'probe km':>9}"
-          f"{'thrown':>8}{'arr deg':>8}{'band deg':>9}{'walk m':>8}{'lag m':>8}"
+          f"{'thrown':>8}{'arr deg':>8}{'band deg':>9}{'walk m':>8}{'early s':>9}{'lag m':>8}"
           f"{'dt ms':>7}{'coast ms':>9}")
     for arm in arms:
         mine = [s for s in shots if s["arm"] == arm and usable(s)]
@@ -460,7 +472,8 @@ def main():
               f"{med('trim_release'):>9.3f}{med('probe_km', True):>9.2f}"
               f"{med('thrown', True):>8.0f}{med('arrival_deg', True):>8.1f}"
               f"{med('band_deg', True):>9.2f}"
-              f"{med('walk_m', True):>8.0f}{med('lag_m', True):>8.0f}"
+              f"{med('walk_m', True):>8.0f}{med('early_s', True):>9.2f}"
+              f"{med('lag_m', True):>8.0f}"
               f"{med('dt_ms', True):>7.1f}{med('coast_ms', True):>9.1f}")
 
     if args.shots:
