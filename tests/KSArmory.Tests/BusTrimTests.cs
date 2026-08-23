@@ -541,6 +541,178 @@ public class BusTrimTests(ITestOutputHelper Out)
                     + $"against {afterFirst:F2} m/s after the first — the tank refilled");
     }
 
+    /// <summary>
+    /// The flight-long budget is judged on what the tank has actually lost, whatever number of
+    /// nulls that was spread across — and it is asked every frame, which is where a caller keeping
+    /// its own running total comes apart.
+    ///
+    /// <para><see cref="BusTrim.SpentMetresPerSecond"/> is cumulative across every null — the test
+    /// above pins that — so banking it when a run finishes and adding the running total to the bank
+    /// counts each finished run once more for every run that follows. The overcount grows with the
+    /// square of the pass count rather than with the propellant, so it arrives suddenly and never
+    /// clears.</para>
+    ///
+    /// <para>In flight that stopped a bus on its third null having spent about a third of a 25 m/s
+    /// budget; it then coasted to release owing metres a second, which on this arc is kilometres —
+    /// docs/MIRV-NEXT.md item 0c.</para>
+    /// </summary>
+    [Fact]
+    public void TheBudgetIsWhatTheTankLost_NotWhatEachNullAddsToEveryNullAfterIt()
+    {
+        const double Budget = 25.0;
+        const double ShovePerPass = 3.0;
+
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
+        double3 nose = Vec.Unit(arc.RequiredVelocityCci);
+
+        TrimBus bus = new()
+        {
+            PositionCci = fromCci,
+            VelocityCci = arc.RequiredVelocityCci + nose * ShovePerPass,
+            NoseCci = nose,
+            RightCci = Vec.Unit(Vec.Cross(fromCci, nose)),
+            DownCci = -Vec.Unit(fromCci),
+        };
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        double step = 1.0 / 60.0;
+        double elapsed = 0.0;
+        double refusedAt = double.NaN;
+
+        for (int pass = 0; pass < 4; pass++)
+        {
+            if (pass > 0)
+            {
+                bus.VelocityCci += nose * ShovePerPass;
+                trim.Resume();
+            }
+
+            for (int frame = 0; frame < 60 * 300; frame++)
+            {
+                // Asked every frame, exactly as the computer asks it. An implementation that
+                // carries state between these calls is the defect this exists to catch.
+                if (!trim.WithinBudget(Budget) && double.IsNaN(refusedAt))
+                {
+                    refusedAt = trim.SpentMetresPerSecond;
+                }
+
+                TrimCommand last = trim.Update(step, new TrimSituation(
+                    Earth, bus.PositionCci, bus.VelocityCci,
+                    fromCci, arc.RequiredVelocityCci, elapsed,
+                    bus.NoseCci, bus.RightCci, bus.DownCci));
+
+                if (last.Done) break;
+
+                bus.Step(Earth, last.Fire, step);
+                elapsed += step;
+            }
+
+            // The gap between a null finishing and the next correction pass re-arming it. The
+            // computer goes on asking through it, which is where a banked total takes its step up.
+            for (int idle = 0; idle < 60; idle++)
+            {
+                if (!trim.WithinBudget(Budget) && double.IsNaN(refusedAt))
+                {
+                    refusedAt = trim.SpentMetresPerSecond;
+                }
+            }
+        }
+
+        double spent = trim.SpentMetresPerSecond;
+        Out.WriteLine($"four nulls of {ShovePerPass:F1} m/s: the tank lost {spent:F2} m/s "
+                      + $"of a {Budget:F0} m/s budget");
+
+        Assert.True(spent > ShovePerPass * 2.0,
+                    $"four {ShovePerPass:F1} m/s nulls spent only {spent:F2} m/s");
+
+        Assert.True(spent < Budget,
+                    $"the bus really did spend its budget ({spent:F2} m/s) — retune the test");
+
+        Assert.True(double.IsNaN(refusedAt),
+                    $"refused a {Budget:F0} m/s budget with {refusedAt:F2} m/s spent");
+
+        Assert.False(trim.WithinBudget(spent / 2.0), "accepted a budget it had already spent");
+        Assert.True(trim.WithinBudget(-1.0), "a negative budget is unlimited");
+    }
+
+    /// <summary>
+    /// A spent budget ends the trim; a clearance wait does not. The two stops look alike from
+    /// outside and are opposite in the one way that matters.
+    ///
+    /// <para>Nothing releases a warhead until the trim is done — <c>IcbmComputer</c> holds the
+    /// salvo on <c>!Done</c> — so a stop that never lifts is the salvo never leaving. A clearance
+    /// wait lifts when the stack is clear. A tank does not refill, and only firing empties it, so a
+    /// budget expressed as withholding fire holds the warheads for the rest of the flight.</para>
+    ///
+    /// <para>Flown: a bus that rode to 7 km altitude with all six aboard, 215 m/s off a solution it
+    /// was not allowed to null — docs/MIRV-NEXT.md item 0c.</para>
+    /// </summary>
+    [Fact]
+    public void ASpentBudgetEndsTheTrim_WhereAClearanceWaitOnlyPausesIt()
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out double3 aimAtEpoch);
+        double3 nose = Vec.Unit(arc.RequiredVelocityCci);
+
+        TrimBus Shoved() => new()
+        {
+            PositionCci = fromCci,
+            VelocityCci = arc.RequiredVelocityCci + nose * 1.1,
+            NoseCci = nose,
+            RightCci = Vec.Unit(Vec.Cross(fromCci, nose)),
+            DownCci = -Vec.Unit(fromCci),
+        };
+
+        // Run one until it stops, or give up after this long. Returns what it last said.
+        TrimCommand Fly(BusTrim trim, TrimBus bus, bool mayFire, double budget, double forSeconds)
+        {
+            double step = 1.0 / 60.0;
+            double elapsed = 0.0;
+            TrimCommand last = default;
+
+            while (elapsed < forSeconds)
+            {
+                last = trim.Update(step, new TrimSituation(
+                    Earth, bus.PositionCci, bus.VelocityCci,
+                    fromCci, arc.RequiredVelocityCci, elapsed,
+                    bus.NoseCci, bus.RightCci, bus.DownCci, mayFire, budget));
+
+                if (last.Done) break;
+
+                bus.Step(Earth, last.Fire, step);
+                elapsed += step;
+            }
+
+            return last;
+        }
+
+        // A budget too small to null a 1.1 m/s shove with. It has to end, and say so.
+        BusTrim spent = new();
+        spent.Begin();
+
+        TrimCommand onBudget = Fly(spent, Shoved(), mayFire: true, budget: 0.25,
+                                   forSeconds: BusTrim.MaxSeconds * 2.0);
+
+        Out.WriteLine($"spent budget: done {onBudget.Done}, \"{onBudget.Said}\", "
+                      + $"{spent.SpentMetresPerSecond:F2} m/s of tank");
+
+        Assert.True(onBudget.Done, "a spent budget left the trim running, so the warheads stay aboard");
+        Assert.True(spent.GaveUp, "it finished as though it had done the job");
+
+        // The other stop, on the same shove: still waiting to clear, so it must NOT be done.
+        BusTrim waiting = new();
+        waiting.Begin();
+
+        TrimCommand onClearance = Fly(waiting, Shoved(), mayFire: false, budget: -1.0,
+                                      forSeconds: 30.0);
+
+        Out.WriteLine($"clearance wait: done {onClearance.Done}, \"{onClearance.Said}\"");
+
+        Assert.False(onClearance.Done, "a clearance wait finished the trim, which releases untrimmed");
+        Assert.True(onClearance.ToGainMetresPerSecond > 0.0, "it stopped solving while it waited");
+    }
+
     /// <summary>A bus that has fired nothing has spent nothing, and a reset one starts again.</summary>
     [Fact]
     public void ABusThatHasNotFiredHasSpentNothing()

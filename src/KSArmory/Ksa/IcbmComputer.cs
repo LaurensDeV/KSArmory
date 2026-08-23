@@ -49,10 +49,8 @@ internal sealed class IcbmComputer
     private bool _awaitingSplit;
     private bool _didSplit;
     private bool _mayTrim = true;
+    private bool _saidBudget;
 
-    // Attitude-control propellant spent on trimming so far, across every run this flight.
-    private double _trimSpent;
-    private bool _trimBanked;
     private double _owedAtSplit = double.NaN;
     private Vehicle? _separatedFrom;
     private readonly List<Vehicle> _wasBeforeSplit = [];
@@ -266,8 +264,7 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
-        _trimSpent = 0.0;
-        _trimBanked = false;
+        _saidBudget = false;
         _owedAtSplit = double.NaN;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
@@ -320,8 +317,7 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
-        _trimSpent = 0.0;
-        _trimBanked = false;
+        _saidBudget = false;
         _owedAtSplit = double.NaN;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
@@ -846,26 +842,21 @@ internal sealed class IcbmComputer
         // Bounded across the flight, not just per run. Each release re-arms the trim, and with the
         // warheads held until the arrival is close there is a long coast for it to keep finding
         // small corrections in -- which spends the tanks before the corrections that matter.
-        // Banked when a run finishes, because Begin re-arms and the run's own counter starts over.
-        if (_trim.Done && !_trimBanked)
-        {
-            _trimSpent += _trim.SpentMetresPerSecond;
-            _trimBanked = true;
-        }
-        else if (!_trim.Done)
-        {
-            _trimBanked = false;
-        }
-
+        //
+        // Handed to the trim rather than enforced here, and for two reasons. The figure it keeps is
+        // cumulative across every null, so a second total kept out here counts each finished run
+        // again for every run that follows. And the stop has to *end* the trim: expressed as
+        // withholding fire it never lifts, because only firing spends the tank -- and the warheads
+        // do not leave until the trim is done.
         double budget = Config.TrimBudgetMetresPerSecond;
-        bool withinBudget = budget < 0.0 || _trimSpent + _trim.SpentMetresPerSecond < budget;
 
-        if (!withinBudget && _mayTrim)
+        if (!_saidBudget && !_trim.WithinBudget(budget))
         {
+            _saidBudget = true;
             Log.Info($"trim: budget of {budget:F0} m/s spent; the warheads go on the aim as it is");
         }
 
-        _mayTrim = clearance.IsClear && withinBudget;
+        _mayTrim = clearance.IsClear;
 
         _trim.Begin();
 
@@ -888,7 +879,7 @@ internal sealed class IcbmComputer
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci,
             Program.ReferencePositionCci, referenceVelocity, Program.SecondsSinceReference,
-            nose, right, down, _mayTrim));
+            nose, right, down, _mayTrim, budget));
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
@@ -1438,7 +1429,10 @@ internal sealed class IcbmComputer
                             : double.NaN;
 
         return _sequence.Update(simStep, new ReleaseSituation(
-            ReadyToDeploy: true, NextTube: next, TubesLeft: Math.Max(1, weapon.TubesReadyToFire),
+            // The honest count, not a floor of one. The share-of-the-window division guards zero
+            // itself, and the sequencer has to see the magazine reach empty -- that is what ends
+            // the deployment, and a launcher reloads a few seconds later.
+            ReadyToDeploy: true, NextTube: next, TubesLeft: weapon.TubesReadyToFire,
             NextTubeAxisCci: nextAxis, NoseAxisCci: noseAxis, SweepMetresPerSecond: _tubeSpinSpeed,
 
             // Off the munition rather than assumed: it is what turns a tube's cant into the lateral

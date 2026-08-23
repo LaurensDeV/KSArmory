@@ -9,7 +9,8 @@ its number wherever its state ends up. What is still open:
 
 | | |
 | --- | --- |
-| [0c](#0c-the-trim-cannot-read-its-clearance-and-gives-up-owing-metres-a-second) | **the trim gives up owing 3-4 m/s — the largest error left in the shot** |
+| [0c](#0c-the-budget-stopped-the-trim-dead-and-a-stopped-trim-never-lets-the-warheads-go--fixed-unflown) | **the budget held every warhead aboard — fixed, and it wants the flight** |
+| [0d](#0d-a-reloaded-launcher-gets-a-second-salvo-and-a-tenth--fixed-unflown) | **the bus fired ten salvos, so every group figure was over sixty warheads — fixed** |
 | [1](#1-null-the-separation-impulse---reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
 | [2](#2-every-round-lands-beyond-its-own-release-probe---decomposed-unflown) | the walk past the release probe: ~1.3 km, and the whole remaining story after 2e and 2f |
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
@@ -318,37 +319,97 @@ answer to one is never the answer to the other.
 The headless price was not wrong about the flight model; it simply did not model the clamp, because
 the rig integrates whatever step it is handed.
 
-## 0c. The trim cannot read its clearance and gives up, owing metres a second
+## 0c. The budget stopped the trim dead, and a stopped trim never lets the warheads go — fixed, unflown
 
-**This is the biggest single error left in a shot, and it is not the guidance.** The bus trim exists
-to null what the decoupler did to it — `docs/ICBM-GUIDANCE.md` prices that shove at about 1.1 m/s
-and measures 3.5 km between the warhead that left before the split and the five after. It cannot run
-until the spent stack is clear, and on the flights of 2026-08-23 it never got a reading:
+**Nothing left the bus.** Flown 2026-08-24 from `AUTO NUKE DECOUPLER` at 26.5S 64.0W: `away from
+tube` appears **zero** times in the whole log, and the vehicle rode to 7 km with all six aboard
+reporting `holding, 215.73 m/s off the solution`. Seen from the panel it reads as a normal coast —
+`IMPACT IF RELEASED NOW 2:39` beside a planned arc — which is why it survived a whole evening.
+
+Three things are tangled in it and only the first is the fault.
+
+**A stop expressed as withholding fire never lifts.** `IcbmComputer` enforced the flight-long trim
+budget by clearing `TrimSituation.MayFire`. `BusTrim.Update` returns early on that *without*
+finishing, and cannot finish afterwards: `_since` only advances while firing, and only firing spends
+the tank. `IcbmComputer` then holds the salvo on `!_trim.Done`. So the budget, once reported spent,
+held the warheads for the rest of the flight. `BusTrim`'s own contract already said what should
+happen — **it gives up rather than holding warheads** — and the budget was the one stop that did not
+obey it.
+
+**And it was reported spent at about 10 m/s of 25.** `BusTrim.SpentMetresPerSecond` is cumulative
+across every null: `Resume` re-arms onto a fresh reference and a tank does not refill with it, which
+`WhatTheThrustersSpendIsCountedAcrossPassesRatherThanPerNull` has pinned since it was written.
+`IcbmComputer` kept a second total beside it, banking that running figure whenever a null finished
+and then adding the running figure to the bank — so each finished null was counted once more for
+every null after it. The overcount grows with the square of the pass count rather than with the
+propellant, so it arrives suddenly and never clears. Flown: twelve nulls at about 2.5 m/s each, and
+`budget of 25 m/s spent` with roughly ten actually gone.
+
+**The clearance line is downstream of it, not the cause.** `waiting to clear the spent stack, which
+cannot be read` reads like the fault. `DriveTrim` nulls `_separatedFrom` the moment the trim reports
+done, so every cycle after the first null has no distance left to measure; the check falls back to
+the clock, which answers **clear**. It never withheld anything, and `going ahead with no clearance
+reading after 260 s` is that fallback working as written.
+
+**Fixed by giving the budget to the thing that owns the tank.** `TrimSituation.BudgetMetresPerSecond`
+goes in, and `BusTrim` finishes on it — `gaveUp`, so the salvo leaves on the aim it has rather than
+not at all. Nothing outside keeps a second total, which makes the double-count unreachable rather
+than merely corrected.
+
+Two tests, both of which fail against the old behaviour and were checked to:
+`ASpentBudgetEndsTheTrim_WhereAClearanceWaitOnlyPausesIt` separates the stop that lifts from the one
+that does not, and `TheBudgetIsWhatTheTankLost_NotWhatEachNullAddsToEveryNullAfterIt` asks the
+question **every frame** — asked once at the end it passes against the defect, because the bank only
+takes its step up on the frames a finished trim is sitting idle.
+
+**What is still open.** Whether a trim allowed to keep running actually improves the group is a
+flight question and not answered here: item 0 is the record of an actuator that worked and made the
+shot four times worse. What is answered is that the shot could not be scored at all.
+
+**And the log spam is worth a look while nearby.** `Say` de-duplicates on the sentence, and the
+clearance sentence carries a running second count — so it logs every frame instead of once per
+change: 21,000 lines from one coast. Frame time is what item 7e says sets the coast step, so this is
+not only untidiness.
+
+## 0d. A reloaded launcher gets a second salvo, and a tenth — fixed, unflown
+
+**A six-tube bus put sixty warheads down.** Flown 2026-08-24 — the first flight on which anything
+was released at all, item 0c being why. The salvo that matters is the first six: **2.88-2.90 km,
+ten metres apart**. Everything after it is the launcher doing what a launcher does:
 
 ```
-trim: waiting to clear the spent stack, which cannot be read; nothing left aboard moves the bus,
-      3.82 m/s left on the bus -- owed 0.97 m/s at the split, 3.99 m/s on release
-Bus trim: going ahead with no clearance reading after 112 s; holding, 3.25 m/s off the solution
+00:16:12.426  holding fire: reloading (3 s)
+00:16:15.376  launcher reloaded
 ```
 
-Both flights released with **3.25 and 3.82 m/s owed**, and both put the group 3.4-3.75 km out. At
-this range that residual is very nearly the whole miss: everything else in the shot — the arrival
-floor, the coast step, the release timing — moves hundreds of metres, and this moves kilometres.
+Three seconds after a salvo the magazine is full again. Nothing in the ballistic computer said a
+deployment happens once, so the next six went the moment the first six landed, and the six after
+that when *those* landed — at 44 s, then 37, 30, 23, 18, 12, 7, 3 and 1 seconds of flight, each
+salvo from lower down. The last nine groups all read **606.5 km**, which is simply where the bus
+itself came down.
 
-Two separate faults are tangled in those lines and they want separating before either is fixed:
+**The reload is right and the second salvo is not**, which is why the latch is in the sequencer and
+not in the magazine: a Pantsir reloading its pods is the same code, and a weapon pack's launcher may
+reload however it likes. `ReleaseSequence.Emptied` latches on the magazine reaching empty — watched
+rather than counted, because how many it started with is the launcher's business and a reload is
+indistinguishable from a fuller load — and only `Reset` clears it, which is a new flight.
 
-- **The clearance cannot be read.** `SeparationClearance` is given the spent stack to measure
-  against and reports "which cannot be read", then times out at `TimeoutSeconds` and proceeds
-  untrimmed. Whether the stack is gone from the roster, is the wrong vehicle, or is simply never
-  resolved is not established.
-- **"Nothing left aboard moves the bus."** `BusTrim` strikes a direction off after
-  `DirectionStallSeconds` of firing without moving its own component, and it struck off all of
-  them. The bus has radial jets again since `dbbbd30` and its mass is now 2,750 kg rather than
-  6,300, so it has more authority than when those thresholds were set, not less.
+`AReloadedLauncherDoesNotGetASecondSalvo` reads *6 away, 6 after the reload* against the old code
+and *6 away, 0* against this.
 
-**What it is worth**: the difference between a 3.5 km group and whatever the guidance alone gives,
-which on the same flights read 0.31 m/s of cutoff residual and a 4.6 km own-prediction error. Do
-this before anything else on this list.
+**And the latch did not work on its first flight, for a reason worth keeping.** `IcbmComputer` passed
+`TubesLeft: Math.Max(1, weapon.TubesReadyToFire)`, so the magazine reported one round left forever
+and the sequencer never saw it empty — sixty warheads again, from a build whose unit test said six.
+The floor was there to protect a division that already guards zero itself. **A quantity with a floor
+under it cannot express "none"**, so anything downstream that has to notice *none* is broken by the
+floor rather than by the arithmetic it was protecting. The test could not catch it: it hands the
+sequencer the count directly, and the distortion was in the caller, under `Ksa/`, where the test
+project cannot reach. Every other `Math.Max(1, …)` in the mod guards a divisor or a stride, where
+zero has no meaning and nothing downstream is watching for it.
+
+**What it cost before it was found**: every figure a scenario run reports is taken over the whole
+group, so with sixty warheads in it `worst`, `mean` and `spread` are meaningless and the verdict is
+always FAIL. `best` was the only honest number on the sheet, and it was the real salvo's.
 
 ## 0a. A quieter ejection kick — flown, and it takes the tail off
 

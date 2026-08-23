@@ -4,7 +4,11 @@ namespace KSArmory;
 
 /// <summary>What the launcher is doing this frame, as the sequencer needs to see it.</summary>
 /// <param name="NextTube">Which tube fires next, or -1 when nothing more will be handed out.</param>
-/// <param name="TubesLeft">How many rounds could still go, which sets each one's share of the window.</param>
+/// <param name="TubesLeft">
+/// How many rounds could still go, which sets each one's share of the window — and, when it reaches
+/// zero, ends the deployment. It has to be the true count for that: a floor of one reads as a
+/// magazine that never empties.
+/// </param>
 /// <param name="NextTubeAxisCci">Where that tube points now, measured this frame.</param>
 /// <param name="NoseAxisCci">
 /// Where the launcher's own axis points now — the mean of its live tube axes, which is what the
@@ -208,9 +212,20 @@ internal sealed class ReleaseSequence
     private double _sinceClosing;
     private double _bestSweep = double.PositiveInfinity;
     private double _sinceSweepFell;
+    private bool _hadRounds;
 
     /// <summary>Whether the tube axes have been latched and the sequence is running.</summary>
     public bool Begun { get; private set; }
+
+    /// <summary>
+    /// Whether the magazine it was given has been let go. It does not fill again.
+    ///
+    /// <para>A launcher reloads — that is what a launcher does, and a few seconds after a salvo it
+    /// is full again. A ballistic missile deploys <em>once</em>, so this latches on the magazine
+    /// reaching empty and nothing clears it but <see cref="Reset"/>. Without it the next salvo goes
+    /// the moment the last one lands, and the one after that, all the way to the ground.</para>
+    /// </summary>
+    public bool Emptied { get; private set; }
 
     /// <summary>The line every warhead is being sent along, latched with the axes.</summary>
     public double3 ReferenceCci { get; private set; }
@@ -259,6 +274,8 @@ internal sealed class ReleaseSequence
         _axes = [];
         ReferenceCci = Vec.Zero;
         Begun = false;
+        Emptied = false;
+        _hadRounds = false;
         _waiting = 0.0;
         _tube = -1;
         _gaveUp = false;
@@ -269,6 +286,17 @@ internal sealed class ReleaseSequence
     public ReleaseCommand Update(double stepSeconds, in ReleaseSituation now)
     {
         ReleaseCommand held = new(now.HeldDirectionCci, now.HeldRollCci, false, now.NextTube, 0.0, "");
+
+        // One magazine per sequence. Watched rather than counted, because how many it started with
+        // is the launcher's business and a reload is indistinguishable from a fuller one.
+        if (now.TubesLeft > 0) _hadRounds = true;
+        else if (_hadRounds) Emptied = true;
+
+        if (Emptied)
+        {
+            _waiting = 0.0;
+            return new ReleaseCommand(now.HeldDirectionCci, now.HeldRollCci, false, -1, 0.0, "");
+        }
 
         if (!now.ReadyToDeploy || now.NextTube < 0)
         {
