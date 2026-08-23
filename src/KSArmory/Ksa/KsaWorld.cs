@@ -2872,4 +2872,40 @@ internal static class KsaWorld
         if (!TryEclToEgo(endEcl, out double3 b)) return;
         Program.GizmosRenderer.DrawLine(a, b, colour);
     }
+
+    /// <summary>
+    /// Give a craft a control part if it has none and one of ours can serve.
+    ///
+    /// <para><b>A craft with no control part steers against the wrong axes.</b> KSA builds the
+    /// thruster control map in the control part's frame — <c>Ctrl2Body</c> is
+    /// <c>ControlConnector ?? ControlPart ?? Identity</c> — so with none it resolves every attitude
+    /// command against the raw assembly axes. A correction then comes out about a different axis
+    /// from the one that was wrong, which grows the error rather than cancelling it: measured on
+    /// the pad as an attitude error running 0.01 deg to 85 deg with the tracker firing throughout.</para>
+    ///
+    /// <para>Nothing elects one on its own. <c>CelestialSystem</c> restores whatever the save
+    /// recorded and there is no fallback, so a stack assembled without a command pod flies with
+    /// <c>Identity</c> for ever. This fills that hole and never takes a choice: it runs only when
+    /// <c>ControlPart</c> is already null, and KSA refuses any part not declaring
+    /// <c>&lt;Control /&gt;</c>, so a rail or a sight cannot become one through here.</para>
+    /// </summary>
+    public static void EnsureControlPart(Vehicle craft, Part candidate)
+    {
+        try
+        {
+            if (craft.ControlPart is not null) return;
+
+            craft.SetControlPart(candidate);
+
+            if (craft.ControlPart is not null)
+            {
+                Log.Info($"{DisplayName(craft)} had no control part; "
+                         + $"controlling from {candidate.Id}");
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error("could not elect a control part", e);
+        }
+    }
 }

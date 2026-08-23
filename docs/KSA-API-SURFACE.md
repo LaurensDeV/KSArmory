@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-152 types and 429 members across 7 assemblies.
+152 types and 432 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -807,6 +807,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.SituationEx
 
+- `bool HasAnyContact(KSA.Situation)`
 - `bool IsOnRails(KSA.Situation)`
 
 ### KSA.SoundBehavior
@@ -848,6 +849,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Vehicle
 
+- `Brutal.Numerics.double3 get_AngularAccelerationBody()`
 - `Brutal.Numerics.double3 get_BodyRates()`
 - `Brutal.Numerics.double3 get_CenterOfMassAsmb()`
 - `Brutal.Numerics.double4x4 GetMatrixAsmb2Ego(Brutal.Numerics.double3)`
@@ -873,6 +875,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float get_TotalMass()`
 - `void PrepareWorker(KSA.SimStep)`
 - `void ProcessInput(KSA.InputAction, Brutal.GlfwApi.GlfwKeyAction, Brutal.GlfwApi.GlfwModifier)`
+- `void SetControlPart(KSA.Part, Connector)`
 - `void TeleportToLocation(KSA.Celestial, double, double)`
 - `void UpdateAfterPartTreeModification()`
 

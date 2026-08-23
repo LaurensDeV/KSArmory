@@ -350,6 +350,12 @@ internal sealed class WeaponSystems(Config config)
                 _entries[(craft, ordinal)] = new Entry(battery, policy, craft, ordinal);
                 Log.Info($"crewed {KsaWorld.DisplayName(craft)} launcher {ordinal + 1} "
                          + $"of {_launcherScratch.Count}");
+
+                // A stack assembled without a command pod has no control part, and KSA elects none
+                // on its own -- which leaves every attitude correction resolved against the wrong
+                // axes. Refused for a part that is not a command source, so only the launchers
+                // declaring <Control /> can serve.
+                KsaWorld.EnsureControlPart(craft, _launcherScratch[ordinal].Part);
             }
         }
 
