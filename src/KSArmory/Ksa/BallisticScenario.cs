@@ -46,6 +46,11 @@ internal sealed class BallisticScenario
     /// </summary>
     public const double WarpFactor = 8.0;
 
+    // Far higher than the burn's, and it can be: a ballistic coast with nothing in the air is not
+    // being integrated by anything this mod owns, so the step it runs at costs no accuracy. Half an
+    // hour at eight times is still nearly four minutes of sitting watching it.
+    public const double CoastWarpFactor = 100.0;
+
     /// <summary>
     /// How long after the last release, in simulated seconds, before a salvo is called finished.
     ///
@@ -223,6 +228,25 @@ internal sealed class BallisticScenario
                 continue;
             }
 
+            // A ballistic shot needs a launcher that can make the distance. Every craft the mod
+            // recognises carries a computer, so an air-defence site with a full magazine is a
+            // candidate on the two tests above and will be flown as an ICBM if it happens to
+            // iterate first -- which is a SAM asked for twelve thousand kilometres.
+            if (KsaWorld.TryCraftSurfacePoint(computer.Craft, out _, out double fromLat,
+                                              out double fromLon, out _))
+            {
+                double reach = GroundMetresBetween(parent, fromLat, fromLon,
+                                                   _shot.LatitudeDeg, _shot.LongitudeDeg);
+
+                if (battery.Munition.MaxRange < reach)
+                {
+                    why.Add($"{name}'s {battery.Munition.DisplayName} reaches "
+                            + $"{battery.Munition.MaxRange / 1000.0:F0} km, "
+                            + $"and the aim point is {reach / 1000.0:F0} km away");
+                    continue;
+                }
+            }
+
             double airspeed = Vec.Len(KsaWorld.VelocityEcl(computer.Craft)
                                       - KsaWorld.GroundVelocityAt(parent, KsaWorld.PositionEcl(computer.Craft)));
 
@@ -328,6 +352,15 @@ internal sealed class BallisticScenario
 
         if (!computer.Config.Armed)
         {
+            // A stack flown wide open is destroyed by its own acceleration once the boosters are
+            // gone and a light upper stage is left on a full-sized motor. The harness flies craft
+            // it did not design, so it holds them to something an airframe survives rather than
+            // trusting whatever the stack happens to be capable of.
+            if (computer.Config.MaxAccelerationGee <= 0.0f)
+            {
+                computer.Config.MaxAccelerationGee = ScenarioAccelerationGee;
+            }
+
             computer.Config.Armed = true;
 
             // Two interlocks, and arming one is not arming the other. The computer's flies the
@@ -422,6 +455,42 @@ internal sealed class BallisticScenario
     // at 0.098 m/s against 0.017. Neither is a policy failure; both are the price of a long step,
     // and the only part of this flight that has no such price is the coast after the last warhead
     // has gone.
+    // How long before the release point the world is handed back, so nothing is still settling from
+    // a speed change when the first warhead goes.
+    private const double SteadyBeforeReleaseSeconds = 45.0;
+
+    private void CoastToTheReleasePoint(int ammo)
+    {
+        if (_computer is not { } computer || ammo < _loaded) return;
+        if (computer.Command.Phase != IcbmPhase.Coast) return;
+
+        double toArrival = computer.Program.CommittedArrivalFromNow;
+        double releaseAt = computer.Config.ReleaseBeforeArrivalSeconds;
+        if (!double.IsFinite(toArrival)) return;
+
+        bool roomToWarp = toArrival > releaseAt + SteadyBeforeReleaseSeconds;
+
+        if (roomToWarp == _coasting) return;
+        _coasting = roomToWarp;
+
+        if (KsaWorld.SetSimulationSpeed(roomToWarp ? CoastWarpFactor : 1.0))
+        {
+            _say(roomToWarp
+                     ? $"asked the world for {CoastWarpFactor:F0}x through the coast; "
+                       + $"{(toArrival - releaseAt) / 60.0:F0} min before the warheads go"
+                     : "back to 1x for the release, so every warhead leaves on the same frame");
+        }
+    }
+
+    private bool _coasting;
+
+    // Longer than the magazine's own reload, so a salvo still running is never mistaken for one
+    // that has finished.
+    private const double QuietAfterReleaseSeconds = 5.0;
+
+    private int _ammoLastSeen = -1;
+    private double _sinceLastRelease;
+
     private void WarpTheCoast()
     {
         if (_warped) return;
@@ -519,17 +588,60 @@ internal sealed class BallisticScenario
         // releasing, and the releases are the part that is over in a fraction of a second.
         if (ammo <= 0 && !_watchedTheTarget) WatchTheTarget();
 
-        // Warped as soon as anything has left, not once the tubes are empty. The coast's frame is
-        // what the round's own error accumulates against -- measured at 0.06 m/s of drift per
-        // millisecond of frame -- so tying the warp to a full salvo meant a shot that held one
-        // warhead back coasted at 1x and a shot that emptied coasted at 8x. The term under test
-        // then changes with the thing being tested, which is no way to measure anything.
-        if (ammo < _loaded) WarpTheCoast();
+        // Warped once the releases have stopped, not on the first one. The coast's frame is what a
+        // round's error accumulates against -- 0.06 m/s of drift per millisecond of frame -- so
+        // warping between releases gives the warheads that have already left a different frame from
+        // the ones still aboard. Flown: the first warhead out landed 140.86 km off while the five
+        // released after the change grouped at 3.67-3.75 km.
+        //
+        // Keyed on the releases going quiet rather than on the magazine emptying, so a shot that
+        // holds warheads back still warps -- which is what tying it to a full salvo got wrong, and
+        // what tying it to the first release was trying to avoid.
+        _sinceLastRelease += simStep;
+
+        // The long wait before the release point, which is most of the flight now the warheads are
+        // held until the arrival is close. Warped through, and given back well before the first one
+        // leaves: every warhead has to see the same frame in its opening seconds, which is what
+        // warping between releases got wrong.
+        CoastToTheReleasePoint(ammo);
+
+        if (ammo < _loaded)
+        {
+            if (ammo != _ammoLastSeen)
+            {
+                _ammoLastSeen = ammo;
+                _sinceLastRelease = 0.0;
+            }
+            else if (_sinceLastRelease >= QuietAfterReleaseSeconds)
+            {
+                WarpTheCoast();
+            }
+        }
     }
 
     // Whatever else in the scene can shoot back, which is what a ballistic shot is worth aiming at.
     // Anything crewed that is not the launching craft: the roster only holds craft the survey
     // recognised a weapon on, so there is nothing else it could be.
+    // Great-circle distance on the body's mean sphere. Good enough to tell a SAM's twenty
+    // kilometres from an intercontinental shot, which is all it is asked to do.
+    private static double GroundMetresBetween(Celestial body, double aLat, double aLon,
+                                              double bLat, double bLon)
+    {
+        const double Rad = Math.PI / 180.0;
+
+        double sinHalfLat = Math.Sin((bLat - aLat) * Rad * 0.5);
+        double sinHalfLon = Math.Sin((bLon - aLon) * Rad * 0.5);
+
+        double h = sinHalfLat * sinHalfLat
+                   + Math.Cos(aLat * Rad) * Math.Cos(bLat * Rad) * sinHalfLon * sinHalfLon;
+
+        return 2.0 * body.MeanRadius * Math.Asin(Math.Min(1.0, Math.Sqrt(h)));
+    }
+
+    // What an unattended shot holds itself to. Around what a real ICBM pulls at burnout, and well
+    // inside what an airframe is built for.
+    private const float ScenarioAccelerationGee = 8.0f;
+
     private static Vehicle? FindDefendedSite(WeaponSystems roster, Vehicle launching)
     {
         foreach (WeaponSystems.Entry entry in roster.All)
