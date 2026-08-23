@@ -1716,26 +1716,32 @@ says so.
 > Measured through the rig only — **this has not been flown**, and the mechanism below is what says
 > it should help rather than a shot that did. `CoastStepDeterminismTests` pins the engagement.
 
-**The night that settles it**, ready to start. Both arms are commits, so nothing in the working
-tree reaches a shot and the tree can be worked on while it flies:
+**The night that settles it**, flying since 2026-08-24 01:00. Both arms are commits, so nothing in
+the working tree reaches a shot and the tree can be worked on while it flies:
 
 ```bash
 KSARMORY_SCENARIO_SAVE="AUTO NUKE DECOUPLER" ./tools/shot-batch.sh \
-    --aim 26.5S,64.0W --arms base=4e8be19,coast=23422a3 --blocks 12
-./tools/shot-report.py ~/shots/<night>          # in the morning
+    --aim 26.5S,64.0W --arms base=arm/coast225,coast=dev --blocks 16 \
+    --out ~/shots/2026-08-24-coast
+./tools/shot-report.py ~/shots/2026-08-24-coast          # in the morning
 ```
 
-`base` is the commit before the change and `coast` is the change. **Both predate 2026-08-23's
-staging, release-timing, reach and coast-warp changes**, so the pair still isolates the coast step
-honestly against each other and neither is the shot that ships now. Re-point both arms at current
-commits before reading the result as anything about today's flight. 24 shots at about six minutes
-each — roughly two and a half hours, and it holds the game for all of it, so start it on the way to
-bed. Twelve an arm settles a factor of 0.50; a smaller effect comes back `UNRESOLVED` with an
-interval saying what was ruled out, and `--resume <dir>` carries the same batch on for more.
+**Not the arms this section first named.** `base=4e8be19,coast=23422a3` are the commit before the
+change and the change, and they cannot fly this save at all: both predate the staging fix, so a
+stack carrying a decoupler under its bus never lights its second stage. Two batches launched against
+them on 2026-08-23 recorded **zero shots**. `arm/coast225` is today's `dev` with
+`PreferredStepSeconds` put back to 0.225, which asks the same question of the build that ships.
 
-The setup is checked: one shot flown 2026-08-23 arrived 6 of 6, 2.75 km mean with 0.01 km of
-spread, and the log carries the hold engaging after the salvo — which is the mechanism, not the
-size. **A single shot settles nothing** against a scatter of ×1.74, which is what the batch is for.
+Sixteen an arm settles a factor of about 0.55; a smaller effect comes back `UNRESOLVED` with an
+interval saying what was ruled out, and `--resume <dir>` carries the same batch on for more. Thirty
+two shots at about nine and a half minutes each — the warheads are held until the arrival is close
+now, so a shot is most of a coast — is a bit over five hours, and it holds the game for all of it.
+
+**The setup is checked, and checking it was not a formality**: the first two attempts at this night
+flew a build whose warheads never left the bus (item 0c) and the third scored a group of sixty
+(item 0d). The shot it starts from now reads `PASS 6 of 6 arrived; worst 2.93 km, best 2.92 km,
+mean 2.92 km, spread 0.01 km`. **A single shot settles nothing** against a scatter of ×1.74, which
+is what the batch is for — but a single shot settles whether there is anything to measure.
 
 **The coast's integration step is bimodal, and which mode a shot gets is decided by the length of a
 single frame.** Conditioned on it, the run-to-run scatter in the walk falls from a standard
