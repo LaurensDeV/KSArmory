@@ -124,18 +124,20 @@ For the yields this mod can dial — the slider spans the B61's own range, 0.3 k
 | ...on the ground (×1.32) | 55 m | 104 m | 222 m | 423 m | 690 m | 910 m |
 | Flash over | 0.25 s | 0.50 s | 1.15 s | 2.33 s | 4.00 s | 5.42 s |
 | Goes dark | 1.9 s | 3.5 s | 7.5 s | 14.3 s | 23.4 s | 30.9 s |
-| **...as drawn** | **1.9 s** | **3.5 s** | **6.6 s** | **6.6 s** | **6.6 s** | **6.6 s** |
+| **...as drawn** | **1.9 s** | **3.4 s** | **3.4 s** | **3.4 s** | **3.4 s** | **3.4 s** |
 | **Cloud top** | **2.0 km** | **3.4 km** | **6.5 km** | **11.1 km** | **16.6 km** | **20.9 km** |
 | **Cap radius** | **0.38 km** | **0.70 km** | **1.41 km** | **2.55 km** | **4.01 km** | **5.19 km** |
 | Stem radius | 0.19 km | 0.35 km | 0.70 km | 1.28 km | 2.01 km | 2.59 km |
-| **Ground skirt, widest** | **0.20 km** | **0.36 km** | **0.73 km** | **1.32 km** | **2.08 km** | **2.69 km** |
-| ...settled, after the draw-in | 0.14 km | 0.25 km | 0.50 km | 0.90 km | 1.41 km | 1.83 km |
+| **Ground skirt, widest** (drawn) | **0.13 km** | **0.23 km** | **0.47 km** | **0.86 km** | **1.35 km** | **1.75 km** |
+| ...settled, after the draw-in | 0.09 km | 0.16 km | 0.32 km | 0.58 km | 0.91 km | 1.18 km |
 
-The drawn flash parts company with the law above about 10 kt, and has to: the cloud's clock is
-compressed and the flash's is not, so 340 kt would glow for 30.9 s against a 22 s rise — still
+The drawn flash parts company with the law above about 1.4 kt, and has to: the cloud's clock is
+compressed and the flash's is not, so 340 kt would glow for 30.9 s against a 38 s rise — still
 flaring after its own mushroom had finished forming. Compressing it by the same factor is not the
-alternative, since that works out at 0.2 s. It runs real until it would outlast the cloud, and is
-held there.
+alternative, since that works out at a blink nobody sees. The ceiling it is held at is `ClimbUntil`
+rather than a number of its own: no smoke is laid while the ball is luminous, so a flash outlasting
+the climb up the axis leaves the pens already out on the cap when they lay their first segment, and
+the column from the ground up is never drawn at all.
 
 **Two of the numbers everybody quotes do not survive checking, and one of them was in this list.**
 
@@ -208,11 +210,11 @@ equivalently as `1/z`.**
 
 **Three things worth knowing before building anything:**
 
-**The shipped fireball is about five times too large.** `Warhead.FireballRadius` is Hopkinson-Cranz,
-`2.6 · W^(1/3)` in kg, which is right for chemical explosives. A nuclear fireball goes as `W^0.4`
-with a different constant: 0.3 kt gives 34 m against the mod's 174 m. Whether to correct that is a
-gameplay decision, not a physics one — the damage radii are calibrated separately and are roughly
-right.
+**The shipped fireball is about four times too large for a nuclear burst.** `Warhead.FireballRadius`
+is Hopkinson-Cranz, `2.6 · W^(1/3)` in kg, which is right for chemical explosives. A nuclear
+fireball goes as `W^0.4` with a different constant: 0.3 kt gives 41 m against that law's 174 m. So
+the nuclear path reads `MushroomCloud.FireballRadius` and leaves `Warhead`'s to the chemical charges
+it is right for; the damage radii are calibrated separately and are roughly right for both.
 
 **Brightness does not scale with yield.** Glasstone §2.05: fireball surface temperature, and so
 luminance, is much the same at any yield; only size and duration change. One emissive ramp works
@@ -297,7 +299,7 @@ through the generic mesh renderer plus a real point light.
 
 The skirt is the fourth cue above, and it is the one that answers "the explosion looks
 underwhelming for such a cloud" — because at 0.3 kt that complaint is *correct arithmetic*. The
-fireball is 68 m across and the cap is 857 m, a ratio of 1:12.6 that matches the test photographs.
+fireball is 110 m across and the cap 770 m, a ratio of 1:7 that the test photographs agree with.
 Nothing about the fireball can fix it, and enlarging it past the law would be a lie about the
 weapon. The dust is what a surface burst actually shows:
 
@@ -309,9 +311,9 @@ skirt height = 0.10 · cloud top · (1 − e^(−t/τ)),   τ = 0.45 · rise
 
 Two exponentials against each other: the blast drives the outrush and nothing sustains it, while
 the inflow feeding the stem lasts as long as the column is rising. So the skirt is widest at
-**0.52 cap radii, 6.5 s in**, and settles at 0.35. It is drawn back in by a third, and the height
-keeps climbing through that, because the same inflow lifts what it pulls inward. At 0.3 kt: a 199 m
-radius at its widest, 179 m high, well inside a 384 m cap.
+**0.52 cap radii, 11 s in**, and settles at 0.35. It is drawn back in by a third, and the height
+keeps climbing through that, because the same inflow lifts what it pulls inward. At 0.3 kt: a 129 m
+radius at its widest, 116 m high by the end of the rise, well inside a 250 m drawn cap.
 
 **The first version ran outward to 1.4 cap radii and stayed**, which is the water-burst shape above
 and was read as one immediately. Correcting it took the skirt's drawn volume from ~150 Mm³ to
@@ -343,7 +345,7 @@ or absorption field** and `trailColor`'s alpha is unused:
   volume goes as its square, so adding pens *removes* smoke. Where the floor sets it,
   on a ring small enough that its pens already overlap, a pen is just more smoke. The skirt is now in the
   second regime at every radius it reaches, so its count is the smallest that still closes: 18,
-  giving a 69 m pitch against an 86 m limit at its widest.
+  giving a 45 m pitch against a 56 m limit at its widest.
 
 ### The grouping rule is real, and never runs on this mod's pens
 
@@ -354,10 +356,10 @@ after 1.83 s. It is real code. It cannot reach anything a mod submits. From `Pro
 
 | | |
 | --- | --- |
-| `Program.cs:2051` | `OnDrawUiViewports` → the `[StarMapAfterGui]` postfix → `PlumeSmoke.Lay` → `TrackEmitter` adds a grouping point |
-| `Program.cs:2161` | `PrepareTrailSegments()` → `ResetForFrame()` → **clears every point just added** |
-| `Program.cs:2163` | the engine's own vehicle emitters submit |
-| `Program.cs:2169` | `FinalizeTrailSegments()` → `BuildGroups()` — sees only those |
+| `Program.cs:2096` | `OnDrawUiViewports` → the `[StarMapAfterGui]` postfix → `PlumeSmoke.Lay` → `TrackEmitter` adds a grouping point |
+| `Program.cs:2209` | `PrepareTrailSegments()` → `ResetForFrame()` → **clears every point just added** |
+| `Program.cs:2214` | the engine's own vehicle emitters submit |
+| `Program.cs:2217` | `FinalizeTrailSegments()` → `BuildGroups()` — sees only those |
 
 No StarMap hook lands between the reset and the build, so this is unreachable without Harmony. Mod
 pens are never grouped, never get `cbrt(n)`, and their strokes live the full 1200 s rather than 1.83.
@@ -390,43 +392,49 @@ checked against the frame ordering before anything was built on it.
 The sizes were right and the ratio still read wrong, which is worth understanding because the cause
 was neither of the two numbers anybody was arguing about.
 
-Every pen starts on the burst point, so at the instant the smoke takes over the engine merges all
-36 cap pens into one ball of `cbrt(36) = 3.30` tube radii. At the cap's full tube that is **371 m,
-arriving in a single frame, where a 45 m fireball was the frame before**. Eight times over, with no
-transition. So what anybody watches is a small flash, and then a large cloud, and there is no moment
-at which the first becomes the second. The cloud is then judged against the flash and found far too
-big for it, which is exactly the report that came back from play.
+Every pen starts on the burst point, so at the instant the smoke takes over the whole cap bundle
+lays one coincident stroke — overlapping capsules render as the deeper of the two, so 36 pens at the
+cap's own tube are **one ball of that tube, arriving in a single frame where a fireball a fraction
+of its width was the frame before**. No transition. So what anybody watches is a small flash, and
+then a large cloud, and there is no moment at which the first becomes the second. The cloud is then
+judged against the flash and found far too big for it, which is exactly the report that came back
+from play.
 
 The fix is to lay the pens at the fireball's own width and swell them as the stroke climbs:
 
 ```
-tube at handover = fireball radius / cbrt(pens bunched on the burst)
+tube at handover = fireball radius
 tube at progress = that, grown to the full tube by p = 0.40
 ```
 
 Sized that way there is nothing to see at the handover at all, and it holds at every yield without a
-constant to tune, because both ends are read off the same fireball law. At 0.3 kt the tube runs
-14 m → 112 m over about nine seconds, so the cloud *inflates* out of the burst instead of replacing
-it, and the column comes out thin at its base and fat at its head, which is the right silhouette
-anyway.
+constant to tune, because each end is read off the law that owns it — the fireball's at the start,
+the cap's at the end. At 0.3 kt the pens are laid at the fireball's 55 m and swell to the cap's
+73 m over about fifteen seconds, so the cloud *inflates* out of the burst instead of replacing it,
+and the column comes out thin at its base and fat at its head, which is the right silhouette anyway.
 
 Three things had to move with it:
 
-- **The skirt's floor grows in from the same width.** At its full floor it is a 205 m ball of dust
-  arriving where a 45 m fireball just was, which is the same discontinuity in miniature.
-- **The stem's spread grows with its tube.** The bundle reads as one column only while the engine
-  merges it, and the merge radius scales with the tube, so nine pens at full spread over a
-  handover-width tube are nine poles.
+- **The skirt's floor grows in from the same width**, for the same reason the cap's does: a collar
+  laid at its full floor on the first frame is a ball of dust arriving where the fireball just was,
+  which is the same discontinuity in miniature.
+- **The stem's spread grows with its tube.** The bundle reads as one column only while the spread
+  stays inside the pens' own tube, so nine pens at full spread over a handover-width tube are nine
+  poles.
 - **The ball goes out rather than being deleted.** It is removed on the one frame the smoke is
   taking over from it, which is the single instant the eye is watching for continuity. It carries on
-  at its final size and colour for another 0.35 of the luminous phase, dimming to nothing. This is
-  an extinction and not a phase: the glow there is already an order of magnitude under the bloom
-  threshold, so what it draws is a dull red ember. Anything brighter would be a lie, since
+  for another 0.09 of the **rise** — against the rise rather than against the flash, because the
+  rise is the clock the smoke is on — shrinking to a seventh of its radius as the cloud closes over
+  it. This is an extinction and not a phase: the glow there is more than an order of magnitude under
+  the flash's own, so what it draws is a dull red ember. It is cut at a floor just above the bloom
+  threshold rather than dimmed to nothing, because under that threshold the same sphere is drawn as
+  ordinary shaded geometry — which is to say, as a ball. Anything brighter would be a lie, since
   `3.0 · W^0.4` is *defined* as when the fireball stops glowing.
 
-**Full width before the pens spread, not after.** The coverage rule keeping the rim closed is
+**Full width before a pen reaches the rim, not after.** The coverage rule keeping the rim closed is
 written against the full tube, so a pen still thin when it reaches the rim is a rope. `CapPoint`
-starts moving a pen off the axis at `p = 0.45` and the growth finishes at `0.40`.
+holds a pen on the axis until `p = 0.15` and carries it out over the rest of the stroke, crossing
+the equator around `0.68`; the growth finishes at `0.40`.
 
 ### The cap is a spheroid, and it follows from two numbers already in the table
 
@@ -441,7 +449,7 @@ per cent of a *sphere of the cap radius centred at three quarters of the top*:
 | 0.3 kt | base | crown | width |
 | --- | --- | --- | --- |
 | Glasstone | 1004 m | 2008 m | 769 m |
-| as drawn | 1077 m | 1984 m | 861 m |
+| as drawn, before `DrawnScale` | 1077 m | 1984 m | 861 m |
 
 So it is **taller than it is wide**, which is the opposite of the anvil everyone pictures — the anvil
 is megaton-scale and mostly later-time spreading. Anything flatter reads as a lampshade, because a
@@ -519,32 +527,34 @@ and settles, and that is a curve to design against a screen rather than in a doc
 
 ### What is still wrong with it
 
-Both of these came out of the same round of feedback as the skirt, and neither is built.
+One thing came out of the same round of feedback as the skirt and is still not built.
 
-**It was too symmetrical, and is now only partly so.** Every pen still sits at exactly `2πi/n` and
-reaches its radius at the same instant, but neither the cap nor the skirt is a surface of revolution
-any more: `Lobe` pulls each ring out of round on two harmonics, and the skirt's *height* varies with
-bearing as well as its radius, which is what stopped it reading as a machined disc under the cloud.
-A shape that is exactly the same from every bearing is the tell that separates something generated
-from something photographed, and the renderer's Worley erosion breaks up the *surface* without ever
-touching the *silhouette*.
+**It was too symmetrical, and is now only barely so.** Every pen still sits at exactly `2πi/n`, but
+neither the cap nor the skirt is a surface of revolution any more: `Lobe` pulls each ring out of
+round on two harmonics, `PhaseOffset` runs each pen slightly behind its neighbours so the rim does
+not reach every stage at one instant, and the skirt's *height* varies with bearing as well as its
+radius, which is what stopped it reading as a machined disc under the cloud. A shape that is exactly
+the same from every bearing is the tell that separates something generated from something
+photographed, and the renderer's Worley erosion breaks up the *surface* without ever touching the
+*silhouette*.
 
 **The coverage cost of that is far smaller than it looks, and the reason is worth keeping.** Pulling
 a pen inward also shortens the arc to its neighbour, so the radial separation a lobe adds is very
-nearly cancelled by the pitch it removes. Measured across the whole stroke at 0.3 kt, against a
-124 m limit:
+nearly cancelled by the pitch it removes. Measured across the whole stroke at 0.3 kt, against an
+80 m limit:
 
 | lobe depth | 0 | 0.10 | 0.20 | 0.25 | 0.35 |
 | --- | --- | --- | --- | --- | --- |
-| widest neighbour gap | 110 m | 109 m | 109 m | 109 m | 112 m |
+| widest neighbour gap | 73 m | 71 m | 71 m | 72 m | 75 m |
 
 So the constraint that looked binding is not, and the depth is chosen for how it reads rather than
 for what closes. `ALobedRingStillCloses` holds the real limit and walks the whole stroke rather than
 checking the equator, because the lobe moves the widest point around.
 
-What is still symmetrical: the axis is exactly vertical, and every pen runs on one clock. A rigid
-tilt is the remaining cheap one, and may be free, since the renderer advects finished vertices
-through an altitude-sheared wind field on its own. That wants looking at before anything is written.
+The axis is no longer vertical either: `LeanAt` shears every point downwind by height, super-linear
+so the foot stays over the crater while the cap rides out. How far it may lean is bounded by the cap
+having to stay over the column holding it up — `TheCapStaysOverTheColumn` holds that, and the margin
+is worst at small yields, where the cap is narrowest against its own height.
 
 **Baked paths instead of an analytic stroke.** The suggestion from play was VDBs, which is not
 reachable: nothing in KSA loads a volume a mod supplies, and the four renderers above are the whole
