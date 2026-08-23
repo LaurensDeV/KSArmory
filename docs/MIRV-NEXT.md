@@ -592,6 +592,19 @@ on paper and nothing has spent it.
 
 The largest remaining term, and the one attempt at it made things worse.
 
+> **The sign has changed, and so has the size.** One shot flown 2026-08-24 — the first with the
+> warheads released once and the group scored over six — walks **-2,900 m (-2,896 down, -156
+> cross)**, which is *short* of the probe rather than beyond it. Everything else in that trace has
+> nothing to say: the release probe read **0.0 km** from the target, the round's own probe 20 m, the
+> round's surface and the prediction's agreed to **+0.0 m**, and `lag` was zero, so no frame was
+> clamped. What is left is a flight time of **372.44 s against the 373.03 s its own predictor gave
+> it** — 0.59 s early, which against the ground track at a 7.1° arrival is most of the 2,900 m.
+>
+> Whether that survives thirty shots is what `~/shots/2026-08-24-coast` is for; `shot-report.py`
+> now carries it as the `early s` column beside `walk m`. The release moving from near the *start*
+> of the coast to seven minutes before arrival is the obvious candidate for the sign flip, and it is
+> not the only thing that moved on 2026-08-23.
+
 `Slug` holds the body centre `IGroundTest` gives it for the frame, and differences it against a
 position moving through that frame — so on the face of it the planet's ~29.8 km/s of ecliptic travel
 reads as a change of *altitude*, which on a shallow arrival is eleven times as much ground. Headless
