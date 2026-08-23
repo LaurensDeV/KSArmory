@@ -735,7 +735,17 @@ reproduces: the rig gives 4.2 and this flight ~15.
 
 ### Ranked, cheapest first
 
-1. **Cap the warhead's coast frame.** `MunitionProfile.MaxFaithfulStepSeconds` on the Mk 21,
+1. ~~**Cap the warhead's coast frame.**~~ **DO NOT FLY THIS.** It was flown, four times, at
+   **48-60 km** — item **-0b**, which is on this same page. `MaxFaithfulStepSeconds` bounds a clamp
+   that *discards* time, so tightening it does not shorten the frame, it makes the round fall behind
+   the world. `ReentryVehicleMk21.PreferredStepSeconds` is the field that asks the question this
+   entry meant to ask; `docs/SHOT-PROTOCOL.md` says so in its arms table. Everything below the rule
+   is the pricing as it stood before the flight, kept because the *shape* of the argument was right
+   and only the field was wrong.
+
+   ---
+
+   `MunitionProfile.MaxFaithfulStepSeconds` on the Mk 21,
    0.32 -> **0.10**, which is what `WarpPolicy` holds the world down to while the salvo flies. Priced
    through the real policy from the scenario's own 8x request:
 
