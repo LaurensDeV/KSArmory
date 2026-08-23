@@ -3,6 +3,20 @@
 Everything below is either measured in flight or explicitly marked as untested. `docs/ICBM-GUIDANCE.md` has the algorithm;
 `CHECKLIST.md` §12.7 has the in-flight list. This file is only the backlog.
 
+**Most of it is now a record rather than a plan**, and the item numbers are the addressing scheme —
+forty-three references from other docs and from source comments point at them, so a section keeps
+its number wherever its state ends up. What is still open:
+
+| | |
+| --- | --- |
+| [1](#1-null-the-separation-impulse---reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
+| [2](#2-every-round-lands-beyond-its-own-release-probe---decomposed-unflown) | the walk past the release probe: ~1.3 km, and the whole remaining story after 2e and 2f |
+| [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
+| [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-unfixed) | one latched warp decision worth 0.5 km — measured, unfixed |
+| [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
+
+Everything else is flown, closed, or retired, and says so in its own heading.
+
 ## Where it stands
 
 Flown 20 August, with the trim in and tube re-pointing off. Six warheads at one aim point:
@@ -1048,7 +1062,7 @@ itself and stops, and the game's only callers of `UpdateAfterPartTreeModificatio
 genuinely change a part tree. Pointing a camera at a craft changes no tree, so the call was never
 needed. It is gone, and the failure with it.
 
-## 5. Re-pointing — reopened. The dead zone that closed it was a latched transient
+## 5. Re-pointing — closed, and the reason changed under it
 
 **Measured in flight on the separated bus: a pointing band of 22.11 degrees**, against a cant of
 six. That is what closed the item: the vehicle's own controller would not make the turn, and no
@@ -1063,9 +1077,16 @@ re-establishes the real floor on the same frame. Flown 22 August, eight shots an
 band a median 9.62 -> 0.37 degrees, walk from the release probe 1169 -> 363 m, median miss
 0.94 -> 0.38 km, ratio 0.37 (97% interval 0.26-0.57, p 0.002). `CLAUDE.md` has the engine mechanism.
 
-So the six-degree turn is no longer inside the dead zone and the reason this item was closed has
-gone. Nothing else about it has been re-measured: what a working turn is worth is still the cant,
-and whether the bus *follows* the command is again a question only a flight answers.
+So the reason this item was closed has gone: a six-degree turn is no longer inside the dead zone.
+What closes it instead is that **there is no longer a cant to correct.** `ab6584d` straightened the
+bus's six tubes — every axis is now `(1, 0, 0)` — and `ReleasePointing.Repoint` is
+`RotationFromTo(tubeAxis, referenceAxis)`, so on the shipped bus it is the identity and re-pointing
+between releases turns the vehicle by nothing. The cheaper answer was to stop creating the spread,
+and it was taken.
+
+The machinery stays, behind `RepointBetweenReleases` and still off, because a weapon pack may
+register a launcher that *is* canted; `CantedRing` exists as the test specimen for exactly that,
+and five suites fly against it.
 
 ```
 Rocket_1 control: None/None/None, roll Decoupled, control part NONE
@@ -1084,18 +1105,19 @@ Three things in that line, and each closes a question:
 - **`control part NONE`.** Nothing re-elects a control part on the separated half, so which body
   axis is the nose is undefined on the vehicle the turn would be commanded against.
 
-**What this also explains** is the flown scatter. The release probe reports the salvo thrown 95,
+**What this also explains** is the flown scatter *before the tubes were straightened*. The release
+probe reports the salvo thrown 95,
 116 and 119 degrees from the platform's track on three otherwise identical runs — the bus drifting
 freely inside the 22 degree band it then had. The cant is a cone about the nose, so where the nose
 happens to sit decides whether the six kicks cancel or add, across a 141-1,684 m band. That is the
 unaccounted spread in the budget and much of the run-to-run variation, and it is not something an
 attitude command can reach.
 
-**Two of the three routes to the cant stay closed with numbers**: firing on each tube's own
-crossing (5b) and trimming between releases (5c). Reopening either means a different bus — finer
-RCS, more inertia, or thrusters placed for translation — which is a craft design change rather than
-a mod change. Re-pointing is this item, and what closed it has moved. On the guided arc the term is
-worth **233 m** of spread, not the 2.69 km an earlier pass priced it at on an arc nobody flies.
+**All three routes to the cant are now moot on the shipped bus**: firing on each tube's own
+crossing (5b), trimming between releases (5c) and re-pointing (this item) all correct a spread that
+straight tubes do not create. They are priced here against the cant that was — on the guided arc
+this term was worth **233 m** of spread, not the 2.69 km an earlier pass priced it at on an arc
+nobody flies — and that is what any canted launcher would be buying back.
 
 The mod-side defect 5a found is still worth having and stays in, behind `RepointBetweenReleases`
 and still off: the turn is now built from the live tube axis rather than the commanded one, so if a
