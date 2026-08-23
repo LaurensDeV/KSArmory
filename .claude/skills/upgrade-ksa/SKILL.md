@@ -38,7 +38,7 @@ cannot satisfy yet.
 If both say we are up to date, stop — there is nothing to upgrade, and the issue that sent you
 here can be closed.
 
-Write down the new build number. It is needed in three places later.
+Write down the new build number. It is needed in seven places later.
 
 ## 2. Refresh the binaries and the corpus
 
@@ -127,9 +127,9 @@ diff -ru "<old install>/Content/Core" "/mnt/c/Program Files/Kitten Space Agency/
 ```
 
 No old install to hand? The mirror's previous commit has the assemblies but not Core's content, so
-the fallback is to read the deserialised types directly — `PartGameData.cs`, `PartTemplate.cs`,
-`EditorTagDefinition.cs` — and compare their `[XmlElement]` and `[XmlAttribute]` names against what
-`src/KSArmory/KSArmory*.xml` actually writes.
+the fallback is to read the deserialised types directly — `PartGameDataReference.cs`,
+`PartTemplate.cs`, `EditorTagDefinition.cs` — and compare their `[XmlElement]` and `[XmlAttribute]`
+names against what `src/KSArmory/KSArmory*.xml` actually writes.
 
 What to look for, in order of how quietly it fails:
 
@@ -188,9 +188,15 @@ against the new build is asserting someone read it against the new build.
 **history and must not be updated** — "confirmed against 2026.8.5.5168" stays true. It is not in
 the enforced list for exactly that reason.
 
-`docs/KSA-CAMERAS.md` cites `file:line` throughout, and line numbers move on every update. Do not
-try to refresh them all — spot-check the handful a fix actually depended on, and leave the rest
-carrying the build number that says how old they are.
+`docs/KSA-CAMERAS.md`, `docs/KSA-FRAME-ORDER.md`, `docs/KSA-TERRAIN.md` and
+`docs/BLOCKED-ON-KSA.md` cite `file:line` throughout, and line numbers move on every update.
+
+**Leaving them stale does not work, because the build number cannot date them.** `check-docs.sh`
+requires all five prose files to name the build in the lock, so the moment the number is updated
+the file claims to be current and its citations are not — which is how `KSA-CAMERAS.md` came to
+carry 191 dead citations out of 375, against two builds it no longer named. Either re-derive the
+citations in the file you touched, or say in the file which build its citations are against and
+why it differs from the header.
 
 Then regenerate the surface, because fixing breakages usually changes what the mod binds to:
 
@@ -201,7 +207,7 @@ Then regenerate the surface, because fixing breakages usually changes what the m
 ## 7. Verify the whole chain
 
 ```bash
-./tools/check-all.sh                 # all 18, and the pre-push hook runs it anyway
+./tools/check-all.sh                 # all 21, and the pre-push hook runs it anyway
 ./tools/validate-parts.py            # against the install, NOT --offline, so Core is readable
 ./tools/model/checkswept.py          # nothing adrift or passing through anything
 ```

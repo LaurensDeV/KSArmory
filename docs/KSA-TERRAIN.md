@@ -51,9 +51,15 @@ For Earth (`Astronomicals.xml:522`):
 | --- | --- |
 | height map | `Earth_Height.ktx2`, **4096 × 4096 per face**, 6 faces, `R16_UNORM`, 13 mips, uncompressed (268 MB) |
 | range | `Minimum Km="-10.930"`, `Maximum Km="8.631"` — `DistanceReference` multiplies `Km` by 1000, so **metres** |
-| modifiers | six: **Erosion** (amplitude **1000 m**, 7 octaves), four **TilingDetail** (**1900**, **1500**, **1400**, **225 m**) and **Dunes** (**1500 m**) |
+| modifiers | eleven: **Erosion** (amplitude **1000 m**, 7 octaves), four **TilingDetail** (**1900**, **1500**, **1400**, **225 m**), **Dunes** (**1500 m**) and five zero-amplitude **Decal**, one per launch site |
 | biomes | seven, with a `<BiomeMaterials>` block — so the modifier loop **does** run on Earth |
 | ocean | `<Level Km="0"/>` |
+
+**A launch site is a levelled disc, not terrain.** A zero-amplitude `Decal` with `Additive="false"`
+reduces to `heightKm = lerp(heightKm, AltitudeOffset, mask)`, so within its `Radius` — 275 m at
+every shipped site — the field answers a fixed altitude smoothed to the rim rather than whatever
+the cubemap and the noise say. Something aimed at a pad is therefore aimed at flat ground, and the
+static object standing on it is a separate question; see `docs/BLOCKED-ON-KSA.md`.
 
 ### Resolution
 
@@ -87,8 +93,8 @@ a normal cubemap *and* biome materials — Earth has both — `GetTerrainHeightF
 direction down before the modifier loop:
 
 ```csharp
-float3 float6 = float3.Pack(in vector);        // Celestial.cs:1637
-float heightKm = (float)num2;                  // Celestial.cs:1650
+float3 float6 = float3.Pack(in vector);        // Celestial.cs:833
+float heightKm = (float)num2;                  // Celestial.cs:842
 modData = new ... { Position = float6, TextureNormal = float6, ... };
 ```
 
@@ -158,11 +164,13 @@ uniformly on the sphere, sampled well inside a face so the seam paths never diff
 
 Above sea level only, the numbers are much the same (mean 4.37 m, max 167 m). **And that is the
 interpolation alone.** `accurate: false` *also* skips every `Evaluate` call in the modifier loop, so
-on Earth it drops erosion, tiling detail and dunes entirely. Their declared amplitudes total several
-kilometres; what any one direction actually loses is that scaled by biome weight, by the noise value
-and by the slope factors inside `Evaluate`, so the real figure is unmeasured here and somewhere
-between hundreds of metres and kilometres of height where those biomes apply. Either way it dwarfs
-the interpolation term, and on a shallow arrival it is tens of kilometres of ground.
+on Earth it drops erosion, tiling detail, dunes and the launch-site decals entirely — the last of
+which means a coarse sample at a pad answers with the *unlevelled* terrain. Their declared
+amplitudes total several kilometres; what any one direction actually loses is that scaled by biome
+weight, by the noise value and by the slope factors inside `Evaluate`, so the real figure is
+unmeasured here and somewhere between hundreds of metres and kilometres of height where those
+biomes apply. Either way it dwarfs the interpolation term, and on a shallow arrival it is tens of
+kilometres of ground.
 
 ### `accurate: false` is not as cheap as it looks
 
@@ -236,7 +244,7 @@ the full 465 m/s × (time since epoch) error the question was worried about — 
 The rotations all come from one per-frame snapshot and cannot drift against each other:
 `UpdatePerFrameData` (`:594`) sets `_ccf2Cci = GetCcf2Cci(Orbit.StateVectors.StateTime)` and
 `_ccf2Cce = _ccf2Cci * _cci2Cce`, and `Universe` calls it once per frame after applying the step
-(`Universe.cs:1714`). `GetCci2Ccf()` and `GetCcf2Cce()` are both derived from that same `_ccf2Cci`,
+(`Universe.cs:1683`). `GetCci2Ccf()` and `GetCcf2Cce()` are both derived from that same `_ccf2Cci`,
 so the `Cce` path and the `Ccf` path are in phase by construction.
 
 ## The round trip is exact

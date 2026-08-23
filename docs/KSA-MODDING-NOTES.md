@@ -16,7 +16,7 @@ the dumper rather than trusting this file after an update.
 | UI | Dear ImGui via `Brutal.ImGui.dll`, namespace `Brutal.ImGuiApi` |
 | Maths | `Brutal.Core.Numerics` — `double3`, `float3`, `float4`, `doubleQuat`, System.Numerics-style statics |
 | Code mod loader | **StarMap** (community) — <https://github.com/StarMapLoader/StarMap> |
-| Patching | Harmony (`Lib.Harmony` 2.4.1) |
+| Patching | Harmony (`Lib.Harmony` 2.4.2) |
 
 There is **no official code-modding API**. Part/asset mods are the supported path (XML + GLB +
 DDS); everything else goes through StarMap.
@@ -80,7 +80,7 @@ and distributes the archive; it neither loads code nor changes any of the above.
 All static:
 
 ```csharp
-public static Vehicle ControlledVehicle;                  // field; the vessel the player flies
+public static Vehicle? ControlledVehicle { get; set; }     // the vessel the player flies
 public static ReadOnlySpan<Vehicle> VehiclesInFrame { get; }  // every loaded vehicle
 public static GizmosRenderer GizmosRenderer;              // field; debug line/sphere drawing
 public static Viewport MainViewport { get; }
@@ -96,19 +96,19 @@ double3 GetVelocityCce();  double3 GetVelocityCci();      // other frames
 IParentBody Parent { get; }                               // body it is bound to
 PartTree Parts { get; set; }
 float TotalMass { get; }  double MeanRadius { get; }
-bool IsDisposed { get; set; }                             // check before touching a stored ref
+bool IsDisposed { get; private set; }                     // check before touching a stored ref
 string Id { get; }                                        // via IObjectId
 doubleQuat Body2Cce { get; set; }
 Span<Vehicle> NearbyVehicles { get; }                     // same physics bubble only
 static Vehicle CreateVehicle(CelestialSystem, VehicleTemplate, IParentBody, string id);
-Vehicle Split(Part.Connector, double impulse, ref PoseChange, string id);
+Vehicle? Split(Part.Connector, double impulse, out PoseChange, string? id = null);
 void Teleport(Orbit, doubleQuat?, double3?);
 ```
 
 ### `KSA.Universe` — statics
 
 ```csharp
-static CelestialSystem CurrentSystem { get; set; }
+static CelestialSystem? CurrentSystem { get; private set; }
 static void DestroyVehicle(Vehicle);
 static void DestroyVehicleFromEvent(Vehicle, VehicleDestructionEvent);   // how you kill something
 static UniverseTime GetElapsedTime();
@@ -153,8 +153,11 @@ refilled by `RefreshVehiclesInFrame()` at a point in the tick that does not line
 postfix on `OnFrame`. Enumerate `Universe.CurrentSystem.All` and filter to `Vehicle` instead —
 that collection is authoritative and always valid.
 
-Gizmo submission from the same hook *does* work: `ResetInstances()` runs early in `OnFrame` and
-`GizmosRenderer.Render` later in the render pass, so a postfix lands between them.
+Gizmo submission from the same hook does not work either. KSA's whole frame runs inside `OnFrame`:
+`GizmosRenderer.ResetInstances()` near the top, then the UI, then the render. A postfix on
+`OnFrame` therefore lands *after* the render, and what it submits is cleared by the next frame's
+reset before it is ever drawn. `[StarMapAfterGui]` is a postfix on `OnDrawUiViewports`, which sits
+between the reset and the render, and is the hook to submit from.
 
 ### Reference frames
 
@@ -289,13 +292,13 @@ a position instead puts the craft's *origin* at the point and leaves the rest wh
 Because it is a buffered engine event that rebuilds the vehicle's orbit and velocity, it is a
 once-per-action call. Do not drive it per frame to make a craft follow the cursor.
 
-**It silently adds 8 m within 40 m of a launch-pad landmark** — `GetInitialKinematicStateForLocation`
-calls a private `GetLaunchPadHeightAtDirCcf`, so a craft placed at the pad stands *on* it. Anything
-drawing a preview marker has to add the same, or the marker sits inside the structure the craft
-will end up on. `KsaWorld.LaunchPadHeight` mirrors it, reading `Celestial.BodyTemplate.Locations`
-for a `LandmarkReference { IsLaunchPad: true }` — all public. **Those two numbers are the engine's
-and are copied**, so `ksa-api-diff.sh` will not notice if they move: the method holding them is
-private and is not in the API surface.
+**It silently stands the craft on a pad** — `GetInitialKinematicStateForLocation` calls a private
+`GetLaunchPadHeightAtDirCcf`, which walks `Celestial.BodyTemplate.Locations` for a
+`LandmarkReference { IsLaunchPad: true }` and adds that landmark's static object's
+`GroundOffset + SurfaceHeight` within its `FootprintRadius`. The numbers are declared data rather
+than constants — Core's `CoreLaunchPadA_Prefab_LaunchPadA` is 0.2 m + 1.5537 m over a 108.3 m
+circle — and `LocationReference.GetStaticObject()` is public, so anything drawing a preview marker
+can read the same figures instead of copying them.
 
 ### Aiming the player's camera — `OrbitView`, not `OrbitController`
 
@@ -523,8 +526,10 @@ silent failures.
 - **The node graph is never walked.** The loader takes mesh data and ignores the scene hierarchy,
   so a parent transform, an armature or a nested empty contributes nothing. Geometry has to be
   *baked* into the mesh — that is a requirement, not a style preference.
-- **Meshes whose name starts with `_` are skipped**, which is a free convention for helper
-  geometry you want in the source file but not in the game.
+- **Every mesh in the file is registered**, including helper geometry. The `_` prefix that skips a
+  mesh belongs to `KSA.GlbImport`'s bundlers — the authoring tool that writes asset XML from a
+  `.glb` — and `MeshAtlasFileReference` does not honour it, so a helper mesh in a shipped atlas
+  takes a global Id like any other.
 
 A consequence worth stating separately: because node transforms are not read, **an atlas is a
 library of bodies in their own local frames**, and placement lives entirely in the part XML's
@@ -617,7 +622,8 @@ come for free:
 
 Handy Core subparts: `CoreStructuralA_Subpart_TubeA` (0.854 × 0.101 tube),
 `..._MountingNodeHalfWA` / `_1WA` / `_2WA` (mounting discs), `..._Endcap*`, `..._TrussA`,
-`CoreFairingA_Subpart_FairingNoseCone{Half,1,2}WA` (0.5 / 1 / 2 m nosecones). Materials follow
+`CoreFairingA_Subpart_NoseconeBase{Half,1,2,3}MSkinA` (0.5 / 1 / 2 / 3 m nosecone bases, with
+`Nosecone{Ballistic,Blunt}{1,2}MSkinA` for the cones themselves). Materials follow
 `<Category>_Material`, e.g. `CoreStructuralA_Material`.
 
 **Not solved**: rendering a mesh at an arbitrary runtime position (for mod-simulated objects
@@ -645,8 +651,8 @@ discarded. A generator has to apply the scale to the object and then bake it int
 vertices.
 
 **An attachment's axes are composed in a different order from the body's.** The body gets
-`RotX(-90) * RotZ(-90)` applied *after* the scale (`KittenRenderable:184`); an attachment gets
-`RotZ(-90) * RotX(-90)` applied *before* the bone matrix (`:207`). So a mesh that is the right
+`RotX(-90) * RotZ(-90)` applied *after* the scale (`KittenRenderable:106`); an attachment gets
+`RotZ(-90) * RotX(-90)` applied *before* the bone matrix (`:354`). So a mesh that is the right
 size can still arrive rotated, and the `<Rotation>` in the attachment XML is where that is
 corrected.
 
