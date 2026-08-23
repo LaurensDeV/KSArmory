@@ -171,7 +171,7 @@ own file, which is what makes a constant an arm at all. The knobs `MIRV-NEXT.md`
 
 | the arm | file, and what to change |
 | --- | --- |
-| gravity re-read per sub-step | `src/KSArmory/Sim/Slug.cs` — gravity arrives as a frame-level argument and is held across every 5 ms sub-step; `Sim/BallisticBody.cs` already carries `Mu`, so this needs no call into the game. ~160 m of bias at 8× and the whole 1×/8× split. |
+| gravity re-read per sub-step | `src/KSArmory/Sim/Slug.cs` — gravity arrives as a frame-level argument and is held across every 5 ms sub-step; `Sim/BallisticBody.cs` already carries `Mu`, so this needs no call into the game. ~160 m of bias at 8× and the whole 1×/8× split — but flown alone three times and lost (item 2d), because the freeze is cancelling the round's own integration error, so fly it paired with the sub-step or not at all. |
 | the coast step the warhead is integrated across | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.PreferredStepSeconds`. **Not `MaxFaithfulStepSeconds`** — that bounds a clamp that *discards* time, and tightening it flew at 48–60 km (item −0b). Two questions with one shape; the answer to one is never the answer to the other. |
 | how far after cutoff the aim reopens | `src/KSArmory/Sim/PostBoostAim.cs` — `MaxSeconds`, `MaxCycles`, `PassesWithoutImprovement`. The largest single term at 740 m, and the one the rig cannot price. |
 | re-pointing between releases | `src/KSArmory/Sim/IcbmConfig.cs`, `RepointBetweenReleases` |
@@ -210,11 +210,11 @@ half of the night.
 | trim owed at the split and on release | `trim: ... owed X at the split, Y on release` | whether `BusTrim` converged before the warheads went. Item 0's failure mode is releasing with metres a second still owed, and it is invisible in the miss alone. |
 | per tube: degrees off the salvo's line | `warhead away from tube N, D deg off` | the cant, per round — the only per-warhead term that is meant to produce *spread* rather than bias. |
 | **per tube: the release probe's own miss** | `release probe: ... N km from the target` | **the aim's error at the instant of release** — everything upstream of the round. Subtract it from the impact and what is left is the round disagreeing with its own predictor, which is the exact quantity item −1a says is the miss. The single most attributive number available. |
-| **per tube: `thrown D deg from the platform's track`** | release probe | **the held nose in the velocity frame.** `MIRV-NEXT.md` item 9 ranks logging this third — "costs nothing, and turns the cant from a 141–1,684 m band into one number". It is already logged and has never been captured. |
+| **per tube: `thrown D deg from the platform's track`** | release probe | **the held nose in the velocity frame.** `MIRV-NEXT.md` item 9 asked for it — "costs nothing, and turns the cant from a 141–1,684 m band into one number" — and it is logged; `shot-report.py` medians it per arm. |
 | per warhead: `Cci r=(...) v=(...)` at release | `warhead trace: <round> away` | full precision, deliberately: the seed that re-flies that exact release in `tests/KSArmory.Tests` with no game. **This is what makes a losing night still productive** — a loss gets diagnosed offline instead of costing more flights. |
 | per warhead: arrival speed and degrees below the horizontal | trace probe | every surface-side term scales as `cot γ` and every velocity-side term with the trajectory's sensitivity. If γ varies shot to shot, that is a large share of the scatter, and it can be conditioned on rather than suffered. |
 | per warhead: **the final walk** from the release probe, split down/cross | trace finish | splits the miss into "the arc was already wrong at release" and "the round left the arc afterwards", and says which sensitivity it went out through. The probe miss and the walk are the two halves; they are not summaries of each other. |
-| per warhead: `lag N ms = M m`, and world clock against own clock | trace finish | **the clamp's discarded time, in metres.** Item 7d attributes the whole residual scatter to frame pacing; this is that quantity measured. If it correlates with the score it is a covariate, and conditioning on it is free power. |
+| per warhead: `lag N ms = M m`, and world clock against own clock | trace finish | **the clamp's discarded time, in metres.** Item 7e measures the run-to-run scatter as one latched warp decision rather than frame pacing, and puts a second, rarer event here: non-zero `lag` is a clamped frame, worth 11 km on the one shot in 38 that logged it, and such a shot is dropped rather than scored. |
 | the surface disagreement at the landing point | `warhead trace: surface at the landing point:` | the height field as the round reads it against as the prediction reads it — the one comparison the headless rig cannot make at all. |
 | coast `dt`, `step`, `sim` per sampled frame | trace samples | the frame pacing itself. Separates "this build is slower" from "this build aims worse": a change that costs frame time degrades the shot through the clamp without being wrong about anything, and would otherwise be recorded as a guidance regression. |
 
@@ -275,8 +275,9 @@ Two looks, both mechanical, both in `tools/shot-report.py`.
 
 ### The gate — mid-batch, removal only
 
-Runs after every block. It can only take an arm *out*; it never calls a win, because a win is a
-question the whole batch has to be in hand to answer and stopping early on one biases it upward.
+Runs after every fourth shot. It can only take an arm *out*; it never calls a win, because a win
+is a question the whole batch has to be in hand to answer and stopping early on one biases it
+upward.
 
 **Shots freed by a removal are appended to the arms that are left**, a block at a time, so the
 interleaving survives it and the night stays the length it was budgeted for. Dropping one cell of
@@ -288,7 +289,7 @@ An arm is dropped when any of these is true:
 
 | | |
 | --- | --- |
-| **Broken** | two or more of its shots produced no verdict, or released fewer warheads than arrived. That is a failure, not a miss distance, and a rank test on miss distance must not absorb it. |
+| **Broken** | two or more of its shots produced no verdict, or arrived with fewer warheads than they released. That is a failure, not a miss distance, and a rank test on miss distance must not absorb it. |
 | **Wild** | two or more shots at or beyond **4 km**. The widest baseline ever recorded here is 3.43 km in 26 shots; two from one arm is that arm, not the tail. |
 | **Catastrophic** | from 4 shots each: the arm's median is **3× the baseline's or worse**, *and* its best shot is worse than the baseline's median. The flown losses ran 4×, 11× and 29×; none of them needed twelve shots to see. |
 | **Settled loss** | from 6 shots each: rank test **p < 0.0294** with the arm's median above the baseline's. |
@@ -302,6 +303,9 @@ An arm is dropped when any of these is true:
 | **UNRESOLVED, ruled out** | not significant, and the interval's lower bound is above **0.75** | the night ruled out anything better than ~200 m. Do not re-fly it. Record the interval — that is the finding. |
 | **UNRESOLVED, open** | not significant, and the interval still admits a ratio below **0.6** | worth another night, and only if nothing better is queued. Expect it to need 25 an arm. |
 | **TOO FEW** | fewer than 3 usable shots | say nothing about it at all |
+
+The report prints `UNRESOLVED` for both of those rows; which one it is comes off the interval
+beside it.
 
 **Never report an unresolved arm as "no difference".** Report the interval. Half the wasted
 argument in the last session was about arms whose measurement admitted everything from a large win
@@ -323,7 +327,8 @@ Worth being blunt about, because the last session was blunt about it too late.
   baseline. Comparing two non-baseline arms directly costs the same shots again and spends α on a
   question nobody asked.
 - **It cannot tell a guidance regression from a frame-rate regression** — but the captured coast
-  `dt` can, which is why it is captured.
+  step can, which is why it is captured. Not the median `dt`: the 1x entry supplies ~90% of the
+  samples, so that number reports the entry and hides the coast entirely (item 7e).
 - **It cannot prove a headless result.** `MIRV-NEXT.md` item −1 is seven headless improvements and
   seven flights that refused them. The rig prices a term; the flight says whether that term was
   the one that mattered. A batch that comes back UNRESOLVED has not confirmed the rig.

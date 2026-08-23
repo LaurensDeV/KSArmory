@@ -24,6 +24,10 @@ costing.
 is item 5. The ~900 m *bias* — every round landed the same way off — is mostly the aim correction's
 frozen residue, which is item 9; item 2c retired the epoch fault that was on top of it.
 
+**Since then, all from one save at 26.5S 64.0W:** a median **0.38 km** over eight shots once the
+pointing deadband was re-derived (item 5), and **0.80 km** over twelve after the retarget to KSA
+`2026.8.22.5348` (item 2e, and item 2f for what was hiding inside that).
+
 ### What the trim cost to get there
 
 The decoupler is worth about 1.1 m/s against a ~6,300 kg bus, arriving after the last thing that
@@ -90,8 +94,13 @@ consequences fit the flown record better than anything else on the list:
   run-to-run scatter without needing the loop to explain it.
 
 The drag term scales the same way and is worse: `docs/ARRIVAL-ANGLE.md` prices a ten per cent
-drag-model error at **1.8 km** at 7.5 degrees against **77 m** at 15 — a factor of 62 — and a
-drag-model disagreement is precisely what `gap` is made of.
+drag-model error at **1.8 km** at 7.5 degrees against **77 m** at 15 and **29 m** at 20 — a factor
+of 62 — and a drag-model disagreement is precisely what `gap` is made of.
+
+**The gain itself is no longer unmeasured**: item 2's trace reading prices it at **4 m** on the
+flown shot, where the walk moves 1,939 -> 1,943 m over the last 394 m of altitude and the two
+surfaces agree at the landing point to 0.0 m. So it is small on the ground this shot lands on. The
+drag term is not.
 
 ### For the four loop-touching changes, the baseline is a selected survivor
 
@@ -108,10 +117,11 @@ and it produces ten from ten without any of the ten being wrong.
 
 ### Two harness confounds, both of which change the physics under test
 
-- **The coast speed depends on whether the magazine emptied.** `BallisticScenario.WarpTheCoast` is
-  called only from the `ammo <= 0` branch, so a shot that holds a warhead back coasts at **1x** and
-  one that empties coasts at **8x**. Item 2's table puts `gap` at **−73 m** and **+394 m**
-  respectively — *the term under test changes sign with an unrelated outcome.*
+- **The coast speed used to depend on whether the magazine emptied — closed.**
+  `BallisticScenario.WarpTheCoast` was called only from the `ammo <= 0` branch, so a shot that held
+  a warhead back coasted at **1x** and one that emptied coasted at **8x**. Item 2's table puts
+  `gap` at **−73 m** and **+394 m** respectively, so the term under test changed sign with an
+  unrelated outcome. It now warps as soon as anything has left.
 - **The 0.01x pick-up pin has no `else`.** It is asked for only when `KsaWorld.IsPaused`, so a world
   already running gets no pin at all, and the only thing separating the two cases in the log is the
   presence of `the world was paused; asked for 0.01x`. Item 7d prices a different pick-up at
@@ -122,33 +132,37 @@ so it is unsigned: short, long and cross-track are one number, and a gain invers
 it. The decomposition exists only in `Ksa/WarheadTrace.cs`, which reports the walk downrange and
 cross-track — and which `ScenarioRunner` already switches on for every `mirv` run.
 
-### What would settle it
+### What settled it — flown 22 August
 
-**The trace has never been read.** It is on by default in the scenario and verbose logging is forced
-on with it, so `gap` and the surfaces are already being written to
-`<KSA user dir>/Logs/KSArmory.log` on every run — `release probe:`, `warhead trace: probe from the
-round's own state`, the per-cycle `walk from the release probe M m (+D down, +C cross)`, and the
-impact line against both the aim and the probe. Reading one existing log separates `gap` from `G`
-before anything is flown.
+**The trace was read first**, off the log the scenario already writes: `release probe:`,
+`warhead trace: probe from the round's own state`, the per-cycle
+`walk from the release probe M m (+D down, +C cross)`, and the impact line against both the aim and
+the probe. Item 2's reading section is what it said, and it separated `gap` from `G` before
+anything flew.
 
-Then a 2x2, six shots a cell, at one aim point:
+Then the 2x2 at one aim point, twelve blocks budgeted. It did not need them: both ablated arms were
+dropped at the gate after two blocks and the finer step after six shots.
 
 | | shipped | + `Arsenal.ReentryVehicleMk21.PreferredStepSeconds = 0.05f` |
 | --- | --- | --- |
-| **shipped** | the baseline draw | the known failure, replicated |
-| **`AimCorrection.MaxMetres = 0.0`** | the noise floor with no loop in it | does raw accuracy track the physics? |
+| **shipped** | **1.65-2.03 km**, 22 shots | **3.30-3.72 km**, 6 shots |
+| **`AimCorrection.MaxMetres = 0.0`** | **76.4 / 76.8 km** | **81.5 / 82.1 km** |
 
 `MaxMetres = 0` is a clean total ablation — `Vec.ClampLength(v, 0)` returns zero, `Apply`
 degenerates to the identity, and the post-boost loop goes with it because the bias is its actuator.
-It costs 17 headless tests, all of them assertions about a loop that is no longer there.
-`PreferredStepSeconds` is a one-line restore of what `631f0ac` removed: round-only, and priced at
-about 675 m of `gap` off item 2's frame table.
+What it is not is a noise floor. **The loop is worth seventy-five kilometres**, so there is no scale
+on which this shot's physics can be read raw, and every number in this file is one taken through the
+correction.
 
-**The reading that matters is whether `Δmiss` is the same in both correction arms.** Equal says the
-loop is blind to the round and the residue is `G`; unequal says the loop is re-expressing the fix
-after all. Either way the scatter of the ablated arm is the first honest noise floor this shot has
-had, and a sea aim point — where `GroundSurface.Height` clamps both surfaces to sea level and `G` is
-one by construction — is the control that prices `G` directly.
+**`Δmiss` is not the same in the two correction arms** — 1.6 km with the loop against 5.2 km
+without it, the second on two shots a cell — so the loop is not simply subtracting what it can see.
+Both are dwarfed by what the loop itself is worth, which is why that is as far as the reading goes.
+
+The finer step is item 2's own candidate flown at the wrong value, and it doubled the miss. `f619daa`
+later measured why: the round's disagreement with its predictor is two terms of opposite sign, so it
+crosses zero near a 138 ms frame and overshoots the other way below it — shortening the coast frame
+without bound is a regression. `PreferredStepSeconds` now sits at **0.225**, the reachable frame
+nearest that crossing, flown five against five for a median 1.66 -> 1.06 km.
 
 ## -1a. The round and its predictor must agree — being right alone is worth nothing
 
@@ -292,7 +306,7 @@ ejection is for clearance, and the aiming is done by manoeuvring.
 may still register a loud one. Two were claims about the shipped round and were retuned, one of them
 because its ordering genuinely inverted.
 
-## 0. Radial translation jets — built, flown, reverted
+## 0. Radial translation jets — flown, reverted, and back in squared
 
 **They made the shot four times worse and were taken out again.** Seven shots with them against six
 without, same pick-up, everything else identical:
@@ -335,8 +349,12 @@ that stops early, now able to act on whatever it last believed.
    correction at all.
 3. **The mass declaration** — now understood, and acted on. See below.
 
-Both commits and both reverts are on `dev`, so the geometry is one `git revert` away when the
-correction is ready for it.
+**They are back, and not by a revert.** The ring is now four clusters of five — an axial pair, an
+exactly tangential roll pair and one radial jet on the cluster bisector — so a lateral command
+reaches the radial four and nothing else, where the canted pair it replaced cleared KSA's 0.5
+threshold on both axes and left a torque behind every shove. It shipped inside the arm that
+re-derived the pointing deadband, which won as a unit; the jets in this form have never been scored
+against a baseline on their own.
 
 **The engine rule they established stands regardless**, and is the durable part of the work:
 `ThrusterController.ComputeControlMap` flags a nozzle for a translation on any thrust component over
@@ -394,7 +412,9 @@ large and frequent — that is the whole path from a missing `<LocationAsmb>` to
 
 `tools/model/checkring.py` gates it. Nothing else here could: the mesh is clean, the pivots agree,
 `checkswept.py` finds no intersection, and the vehicle simply holds its nose less well than it
-could. **Unflown** — the arm carrying it is in the air as this is written.
+could. **Flown alone and UNRESOLVED** — ratio 1.18, p 0.505. It shipped inside the arm that
+re-derived the pointing deadband, which won as a unit, so it is a correctness change rather than a
+measured one.
 
 ## 1. Null the separation impulse — reformulated, unflown
 
@@ -464,7 +484,9 @@ Two things worth keeping:
 
 What settles it is the phase at which `IGroundTest` writes the centre relative to the round's own
 position — a fact about the engine's frame order, not about this maths. **It needs a flight that
-varies the phase, not more reasoning.** Until then the round keeps the behaviour that flew best.
+varies the phase, not more reasoning.** The KSA `2026.8.22.5348` retarget varied it for free and
+the walk grew rather than changing sign, which item 2e records and does not explain. Until it is
+explained the round keeps the behaviour that flew best.
 
 ### The gap taken apart — measured, unflown
 
@@ -682,9 +704,11 @@ round and that probe — what `ProbeGapTests` models — is **1,943 m**. The 1.7
 the probe gap minus the correction's own residue.
 
 **The rig's 394 m is at 133 ms, and the flight ran at 202 ms.** `DeorbitShot.ScenarioWarp x
-NominalFrame` is 8 x 1/60; the flight's unwarped frame during that stretch was ~25 ms, not 16.7, so
-8x delivered a **median 198.5 / mean 201.9 ms, peaking at 266.7**. The rig's own table is linear at
-4.15 m per ms above 67 ms, so the frame alone carries 394 -> **~680 m**.
+NominalFrame` was 8 x 1/60 when that number was taken; the flight's unwarped frame during that
+stretch was ~25 ms, not 16.7, so 8x delivered a **median 198.5 / mean 201.9 ms, peaking at 266.7**.
+The rig's own table is linear at 4.15 m per ms above 67 ms, so the frame alone carries 394 ->
+**~680 m**. `NominalFrame` is now **25 ms**, measured off that flight, so a re-run prices the frame
+the coast actually gets.
 
 | | |
 | --- | --- |
@@ -756,17 +780,19 @@ reproduces: the rig gives 4.2 and this flight ~15.
    | **100 ms** | 3.6x | 60 ms | **87 m** | 138 s |
    | 50 ms | 1.8x | 30 ms | -43 m | 276 s |
 
-   **Every frame in that table is 1.5x too small.** It is `warp x DeorbitShot.NominalFrame`, a
+   **Every frame in that table is 1.5x too small.** It was `warp x DeorbitShot.NominalFrame` at a
    hardcoded 60 fps; the flight ran the warped coast at a **median 198.5 ms**, because six warheads
    and their effects cost ~25 ms a frame rather than 16.7. So the shipped row is 202 ms and ~680 m
    rather than 133 ms and 394 m, and a cap bites *sooner* than the table says — 200 ms is a real
-   reduction in flight where the rig reads it as a no-op.
+   reduction in flight where the rig reads it as a no-op. `NominalFrame` is 25 ms now.
 
-   **307 m for 76 seconds of the player's evening**, and the next 44 m costs another 138. No sign
-   risk: both models converge on one answer as the step shrinks, and the round's error is monotone
-   in the frame across the whole table. **Not done** — it trades against a decision `WarpPolicy`
-   made deliberately. The trace now puts the frame-driven share at ~680 m of a 1,943 m gap, so this
-   is worth more than the table claims and still not most of it.
+   **307 m for 76 seconds of the player's evening**, and the next 44 m costs another 138. The
+   sign risk this claimed not to have is real: the round's error is *not* monotone in the frame —
+   it is two terms of opposite sign, crossing zero near 138 ms and overshooting the other way below
+   it, which is why `PreferredStepSeconds` sits at 0.225 rather than lower. **Not done** — it
+   trades against a decision `WarpPolicy` made deliberately. The trace now puts the frame-driven
+   share at ~680 m of a 1,943 m gap, so this is worth more than the table claims and still not most
+   of it.
 
 2. **Steepen the arrival** — `IcbmConfig.MinArrivalAngleDeg`, already built. **Demoted**: it is the
    only lever on the terrain gain, and the trace prices that gain at 4 m. It still buys what a
@@ -781,7 +807,8 @@ reproduces: the rig gives 4.2 and this flight ~15.
    did not. What is not settled is whether the two surfaces agree over *land*; the trace's impact
    line reads both off at the one point where it matters.
 
-4. **The ground centre's carrier.** Unchanged: it needs a flight that varies the phase.
+4. **The ground centre's carrier.** Unchanged: the one flight that varied the phase is item 2e,
+   and it made the walk larger without changing its sign.
 
 5. **Both flight-model terms together** — gravity per sub-step *and* `SubStepSeconds` on the Mk 21 at
    about 1 ms — which the table above says lands at -6 m. Two coupled behaviour changes at once,
@@ -916,11 +943,11 @@ enough to establish direction, and nothing short of the flight would have been.
 one rule is the property item -1a exists to protect. It cannot land while it costs 0.37 km of
 accidental cancellation, so it stays unmerged until the walk is answered.
 
-**The penetration is not a second small term — it is the whole regression.** Fitted across the
-night's twelve shots, `miss = 0.3135 - 0.02969 x depth_m` with **R^2 = 0.957**, and at zero
-penetration it predicts **0.313 km** against the 0.370 km the previous build actually flew with its
-depth at +0.1 m. The two agree inside the old night's own scatter, and nothing else in the shot
-correlates: frame time r = -0.15, cutoff residual r = +0.34, arrival angle identical at 7.1 deg.
+**The fit that made the penetration look causal.** Fitted across the night's twelve shots,
+`miss = 0.3135 - 0.02969 x depth_m` with **R^2 = 0.957**, and at zero penetration it predicts
+**0.313 km** against the 0.370 km the previous build actually flew with its depth at +0.1 m. The
+two agree inside the old night's own scatter, and nothing else in the shot correlates: frame time
+r = -0.15, cutoff residual r = +0.34, arrival angle identical at 7.1 deg.
 
 The slope is the part worth keeping. Geometry alone says a metre of depth is `cot 7.1 deg` = 8 m of
 ground; the measured slope is **29.7 m per metre**, near four times that, so the depth is not merely
@@ -935,14 +962,15 @@ in for -- `IGroundTest` promises the sphere is the surface "over the few metres 
 falling round covers in one frame", and a Mk 21 covers about 120 m of it. At a 7.1 deg arrival
 19.6 m of penetration is ~157 m of ground, and it lands the round **long**, which is the opposite
 sign to the regression: fixing it makes the walk slightly worse before it makes anything better.
-`arm/ground-crossing` was built and flown on that reasoning. **It lost** -- see item 2f, which is
-also where the regression above is taken apart. It turned out to be two faults rather than one: the
-sphere misplaces the crossing, which bisecting against the real field fixes, and — sampled at the
+`arm/ground-crossing` was built and flown on that reasoning. **It lost**, which is the result at
+the top of this item. It turned out to be two faults rather than one: the sphere misplaces the
+crossing, which bisecting against the real field fixes, and — sampled at the
 top of the frame, where it reads the ground *behind* the round — it also fails to offer the crossing
 at all when the ground rises, which no amount of refinement downstream can recover. A broad phase
-that can miss is the thing `Ksa/HullTest.cs` is careful never to be. Both ends of the frame's travel
-are now sampled and the higher surface kept. It was first priced at ~157 m from the arrival angle and nearly left unflown
-on that basis; the regression above is why it is being flown instead.
+that can miss is the thing `Ksa/HullTest.cs` is careful never to be. The arm samples both ends of
+the frame's travel and keeps the higher surface; nothing on `dev` does. It was first priced at
+~157 m from the arrival angle and nearly left unflown on that basis; the regression above is why it
+was flown instead.
 
 **Do not read the x2.43 as the mod getting worse.** Two of the three terms that make up a shot
 improved sharply and are permanent; one regressed and is item 2, which was already the thing to fix
@@ -1020,12 +1048,24 @@ itself and stops, and the game's only callers of `UpdateAfterPartTreeModificatio
 genuinely change a part tree. Pointing a camera at a craft changes no tree, so the call was never
 needed. It is gone, and the failure with it.
 
-## 5. Re-pointing — closed. The turn is inside the engine's own dead zone
+## 5. Re-pointing — reopened. The dead zone that closed it was a latched transient
 
-**Measured in flight on the separated bus: a pointing band of 22.11 degrees.** The cant it would
-have to correct is six. The vehicle's own controller will not make that turn, and no command the
-mod can issue changes that — there is no convergence test to satisfy and nothing refusing the
-request, the bang-bang tracker simply does not fire inside its dead zone.
+**Measured in flight on the separated bus: a pointing band of 22.11 degrees**, against a cant of
+six. That is what closed the item: the vehicle's own controller would not make the turn, and no
+command the mod can issue changes that — there is no convergence test to satisfy and nothing
+refusing the request, the bang-bang tracker simply does not fire inside its dead zone.
+
+**It now reads 0.31 degrees on the same vehicle.** `AngleDeadband` is a high-water mark KSA takes a
+`max` against and never lowers, and at the frame the bus separates its rate bit momentarily reads
+tens of degrees a second — so the guard was sized by one transient and held there for the whole
+coast. `VehicleCommand.TryAim` assigns the attitude profile every frame and KSA's own `max`
+re-establishes the real floor on the same frame. Flown 22 August, eight shots an arm interleaved:
+band a median 9.62 -> 0.37 degrees, walk from the release probe 1169 -> 363 m, median miss
+0.94 -> 0.38 km, ratio 0.37 (97% interval 0.26-0.57, p 0.002). `CLAUDE.md` has the engine mechanism.
+
+So the six-degree turn is no longer inside the dead zone and the reason this item was closed has
+gone. Nothing else about it has been re-measured: what a working turn is worth is still the cant,
+and whether the bus *follows* the command is again a question only a flight answers.
 
 ```
 Rocket_1 control: None/None/None, roll Decoupled, control part NONE
@@ -1037,8 +1077,8 @@ Three things in that line, and each closes a question:
 
 - **22.11 deg of band against a 6 deg turn.** Item 5a predicted this: the band is
   `0.5*AngleDeadband + AngleTurnaround`, and `AngleTurnaround` is about ten seconds of one minimum
-  thruster pulse divided by inertia — so dropping the spent stack is exactly what widens it. This
-  bus lands far on the wrong side.
+  thruster pulse divided by inertia — so dropping the spent stack is exactly what widens it. That
+  reading predates the deadband fix above; the rest of the line does not.
 - **`roll Decoupled`.** Roll *rate* is damped and roll *angle* is free, so even a turn that took
   would not hold: a latched tube axis walks a cone at about 1.8 deg/s.
 - **`control part NONE`.** Nothing re-elects a control part on the separated half, so which body
@@ -1046,16 +1086,16 @@ Three things in that line, and each closes a question:
 
 **What this also explains** is the flown scatter. The release probe reports the salvo thrown 95,
 116 and 119 degrees from the platform's track on three otherwise identical runs — the bus drifting
-freely inside that 22 degree band. The cant is a cone about the nose, so where the nose happens to
-sit decides whether the six kicks cancel or add, across a 141-1,684 m band. That is the
+freely inside the 22 degree band it then had. The cant is a cone about the nose, so where the nose
+happens to sit decides whether the six kicks cancel or add, across a 141-1,684 m band. That is the
 unaccounted spread in the budget and much of the run-to-run variation, and it is not something an
 attitude command can reach.
 
-**So the cant stays.** All three routes to it are now closed with numbers: firing on each tube's own
-crossing (5b), trimming between releases (5c), and re-pointing (here). Reopening any of them means
-a different bus — finer RCS, more inertia, or thrusters placed for translation — which is a craft
-design change rather than a mod change. On the guided arc the term is worth **233 m** of spread,
-not the 2.69 km an earlier pass priced it at on an arc nobody flies.
+**Two of the three routes to the cant stay closed with numbers**: firing on each tube's own
+crossing (5b) and trimming between releases (5c). Reopening either means a different bus — finer
+RCS, more inertia, or thrusters placed for translation — which is a craft design change rather than
+a mod change. Re-pointing is this item, and what closed it has moved. On the guided arc the term is
+worth **233 m** of spread, not the 2.69 km an earlier pass priced it at on an arc nobody flies.
 
 The mod-side defect 5a found is still worth having and stays in, behind `RepointBetweenReleases`
 and still off: the turn is now built from the live tube axis rather than the commanded one, so if a
@@ -1259,11 +1299,11 @@ a verbose log and quotes the engine's own numbers — `ActiveControlSystem`, `Ro
 control part is still held, `AngleDeadband`, `AngleTurnaround`, `RateBit`, and the band the three of
 them add up to, all in degrees.
 
-**One flight with the verbose log settles the rest.** If the pointing band on the separated bus reads
-well under six degrees, the corrected command is worth switching on and the ~0.9 km of spread is
-recoverable. If it reads at or above six degrees, item 5 closes the way 5b and 5c did — the
-correction needs a turn the vehicle's own controller will not make — and the way to reopen it is a
-bus with finer RCS or more inertia, which is a craft-design change rather than a mod change.
+**The flight with the verbose log settled it twice.** It first read **22.11 degrees** on the
+separated bus, which closed the item: the correction needed a turn the vehicle's own controller
+would not make. It now reads **0.31**, because the band was a deadband latched at the separation
+transient rather than a property of what is aboard — item 5. So the corrected command is worth
+switching on and the ~0.9 km of spread is back on the table.
 
 ## 5b. Firing each tube on its own crossing — tried on paper, does not win
 
@@ -1327,15 +1367,17 @@ ramp is about 77 m of spread per second of pace. Break-even is around **35 secon
 driving the real `BusTrim` against a bus that *has* lateral jets nulls one tube's 0.209 m/s in
 **1.5 s**, which is `BusTrim.SettleSeconds` and nothing else. On paper it wins 2.3 km of spread.
 
-**And it cannot be flown, because the correction is exactly the one thing the bus cannot do.** A
-cant is a *cone*, so every tube's kick carries the same axial share and the difference between any
-two of them is perpendicular to the bus's axis. Measured off `Arsenal.MirvBus.Tubes`: each tube is
-0.2093 m/s from the mean, of which **0.0110 is axial and 0.2091 lateral**, and every tube-to-tube
-step is **1.5e-6 m/s axial** — a pure lateral translation to six significant figures. The shipped
-bus is four clusters of four laid out for pitch, yaw, roll and axial thrust, with no lateral
-translation at all, so the axial pair has literally nothing to fire at. Run against that layout the
-real loop strikes off each lateral direction in turn and gives up after **4.0 s with the whole
-0.209 m/s still on the vehicle** — six times over, for 24 s of coast and no change to the group.
+**And it could not be flown, because the correction was exactly the one thing the bus could not
+do.** A cant is a *cone*, so every tube's kick carries the same axial share and the difference
+between any two of them is perpendicular to the bus's axis. Measured off `Arsenal.MirvBus.Tubes`:
+each tube is 0.2093 m/s from the mean, of which **0.0110 is axial and 0.2091 lateral**, and every
+tube-to-tube step is **1.5e-6 m/s axial** — a pure lateral translation to six significant figures.
+The bus was then four clusters of four laid out for pitch, yaw, roll and axial thrust, with no
+lateral translation at all, so the axial pair had literally nothing to fire at. Run against that
+layout the real loop strikes off each lateral direction in turn and gives up after **4.0 s with
+the whole 0.209 m/s still on the vehicle** — six times over, for 24 s of coast and no change to
+the group. Those metres a second are priced at the 2 m/s ejection kick that then shipped and scale
+with it: item 0a quartered it.
 
 **Nothing rescues it.** Turning the bus so the axial pair points along the needed lateral is two
 full settles per tube on a vehicle that item 5 measured *hunting* at a six-degree command — and a
@@ -1343,24 +1385,25 @@ vehicle that could do that could do the six-degree turn instead, which costs no 
 and removes the term completely. Letting the arrival time float per tube is one parameter against a
 two-dimensional lateral error. Firing opposite pairs cancels on the bus and not on the warheads.
 
-**What would reopen it:** lateral translation on the bus. That is a craft-design change — RCS
-blocks placed for translation rather than for attitude — not a mod change, and the arithmetic above
-says the moment one exists this is worth about 2.3 km of spread. `PerTubeTrimTests` is kept so it
-can be re-priced against a different cant, ejection speed or trajectory without redoing any of
-this.
+**What would reopen it was lateral translation on the bus, and the bus now has it** — one radial
+jet per cluster, item 0. The arithmetic above says that is worth about 2.3 km of spread; item 0 is
+the other half of the trade, where authority acting on a reading that is not yet trustworthy is what
+made the shot four times worse. `PerTubeTrimTests` is kept so it can be re-priced against a
+different cant, ejection speed or trajectory without redoing any of this.
 
-**So item 5 is still the answer to the cant.** Its open question — why a separated bus does not hold
-a six-degree command — is answered in 5a as far as reading can take it, and what is left is one
-number the probe there prints in flight.
+**So item 5 is still the answer to the cant.** Its open question — why a separated bus does not
+hold a six-degree command — turned out to be a latched deadband, and the probe now prints 0.31
+degrees where it printed 22.11. What is left is whether the bus follows the command, which is a
+flight.
 
 ## 6. Point the bus at the target on release — cosmetic, do it last
 
 Mechanically a couple of lines: the sequencer rotates whatever attitude it is handed, and the
 reference is measured from wherever the bus holds, so the geometry and the prediction follow.
 
-**But not yet.** The ejection is 2 m/s along the tubes, so the release attitude decides which axis
-that error lands on, and nothing compensates post-cutoff. After item 1 the error is small enough
-that the attitude stops mattering and this becomes free.
+**But not yet.** The ejection is 0.5 m/s along the tubes, so the release attitude decides which
+axis that error lands on, and nothing compensates post-cutoff. After item 1 the error is small
+enough that the attitude stops mattering and this becomes free.
 
 ## 7. The aim correction is marginally stable — retired by 7b and 7c
 
@@ -1653,10 +1696,11 @@ until then a shot logging non-zero `lag` should be dropped rather than scored.
 
 ### Ranked, cheapest first
 
-1. **Condition on the coast step in `shot-report.py`** — median `step` over `sim > 1` frames, per
-   shot, beside the walk. Costs a line, changes no behaviour, and turns the largest nuisance in the
-   protocol into a covariate. It also says immediately whether an arm is being scored on its
-   release altitude.
+1. ~~**Condition on the coast step in `shot-report.py`**~~ — **done.** The median `step` over
+   warped frames is the `coast ms` column, per arm rather than per shot, because it correlates with
+   the arm and is a covariate rather than noise. It says immediately whether an arm is being scored
+   on its release altitude: on the arrival-floor batch the floored arms coasted at 152 and 144 ms
+   against the baseline's 97.
 2. **Make the trip deterministic.** Any `PreferredStep` below `8 x` the median frame — under about
    **190 ms** — trips on the first full frame of every shot, which removes the branch without
    touching the policy. It does not remove the 20% calibration spread, because the target is still
@@ -1713,7 +1757,7 @@ measured against belongs to an idealised arc rather than to the one the guidance
 item 9 has what the cant is worth on each.
 
 
-## 8b. The correction was reading a moving instrument — apportioned, fixed, unflown
+## 8b. The correction was reading a moving instrument — apportioned, fixed, flown
 
 > **Flown, and it does all three things it was built for.** Three shots at 3,459 km against three
 > without it:
@@ -1734,8 +1778,8 @@ item 9 has what the cant is worth on each.
 swung smoothly from 3.2 km up to 14.0 km and back down to 2.2 km. The correction did nothing during
 that excursion. Two candidates, and a live log cannot separate them: the trim firing one direction
 at a time, which deliberately leaves the bus on a wrong trajectory mid-sequence; or the bus's nose
-drifting, because `Predict` adds `ReleaseImpulseCci()` — the modelled 2 m/s ejection kick — along
-that nose before flying the prediction.
+drifting, because `Predict` adds `ReleaseImpulseCci()` — the modelled ejection kick, then 2 m/s —
+along that nose before flying the prediction.
 
 **It is the nose, by a factor of 126.** `PostBoostObserverTests` sweeps both terms on the guided
 cutoff state at 3,459 km, with the aim converged to a 30.5 km bias and a baseline predicted miss of
@@ -1744,8 +1788,8 @@ cutoff state at 3,459 km, with the aim converged to a 30.5 km bias and a baselin
 | what moved | predicted miss |
 | --- | --- |
 | nothing — kick on the nose | 0.72 km |
-| nose turned 11.06° (half the measured band) | 0.88 / 1.08 km |
-| nose turned 22.11° (the whole band) | 1.33 / 1.72 km |
+| nose turned 11.06° (half the band as then measured) | 0.88 / 1.08 km |
+| nose turned 22.11° (the whole of it) | 1.33 / 1.72 km |
 | **nose turned 95°** (low end of the flown throw band) | **9.40 / 10.50 km** |
 | **nose turned 119°** (high end) | **12.57 / 13.54 km** |
 | nose turned 180° | 16.68 km |
@@ -1754,10 +1798,11 @@ cutoff state at 3,459 km, with the aim converged to a 30.5 km bias and a baselin
 | bus 1.10 m/s off (a whole decoupler shove, un-nulled) | 4.51 km |
 
 The 95-119° row is item 5's own evidence read back: the release probe reports the salvo thrown 95,
-116 and 119 degrees from the platform's track on three otherwise identical runs, because a separated
-bus has a 22.11° pointing band, `roll Decoupled` and no elected control part. On this arc that band
-of *directions* is 8.7-12.8 km of predicted miss with nothing about the shot having changed — which
-brackets the flown 14.0 km peak.
+116 and 119 degrees from the platform's track on three otherwise identical runs, because the
+separated bus then had a 22.11° pointing band, `roll Decoupled` and no elected control part — the
+band is now 0.31°, and the other two are not. On this arc that band of *directions* is 8.7-12.8 km
+of predicted miss with nothing about the shot having changed — which brackets the flown 14.0 km
+peak.
 
 **The trim cannot reach it, and never could.** At the readings the sequencer actually admits — it
 already waits for `_trim.Done` — the residual is 0.02 m/s, worth **70 m**. Even at its worst, a
@@ -1910,9 +1955,13 @@ kick to its prediction.
 
 ### Ranked, cheapest first
 
-1. **Re-read gravity per sub-step, or cap the coast step.** ~160 m of bias at 8x and the whole
-   1x/8x split with it. One argument becomes a lambda and `Mu` is already to hand. A step cap is the
-   same win for free but costs the player their warp.
+1. ~~**Re-read gravity per sub-step, or cap the coast step.**~~ **Both halves have flown.** The
+   gravity re-read lost three times out of three (item 2d), and item 2's decomposition says why: it
+   removes the term that was cancelling the round's own integration error, so the two halves have to
+   go together or neither. The coast step is capped — `PreferredStepSeconds` at **0.225**, flown for
+   a median 1.66 -> 1.06 km — and is not the same field as `MaxFaithfulStepSeconds`, which flew at
+   48-60 km. The pricing below stands; ~160 m of bias at 8x and the whole 1x/8x split with it, one
+   argument becoming a lambda with `Mu` already to hand.
 2. **Reopen the aim far enough after cutoff.** 740 m, the largest single term. `Sim/PostBoostAim.cs`
    is the lever and is not modelled headlessly — what the rig says is that a loop still observing
    ends at 18 m against 760. The flown passes went 2.9 -> 2.9 -> 2.1 -> 1.2 km, so the question is
@@ -1920,18 +1969,21 @@ kick to its prediction.
 
    Item 8b is between this and the answer: until the settle gate is flown, what those passes were
    reading is a nose direction as much as a shot.
-3. **Log the held nose in the velocity frame.** Costs nothing, and turns the cant from a
-   141-1,684 m band into one number. Until it is logged, item 5's payoff is unknown by a factor of
-   twelve.
+3. ~~**Log the held nose in the velocity frame.**~~ **Done.** The release probe prints
+   `thrown N deg from the platform's track` and `shot-report.py` medians it per arm, which is what
+   read the 95/116/119° of item 5 and 8b. It turned the cant from a 141-1,684 m band into one
+   number, as advertised.
 4. **Re-pointing (item 5).** Removes the cant outright — 233 m at the attitude this rig flew,
-   up to 1,684 m at the worst. Still blocked on why a separated bus will not hold a 6 degree command.
+   up to 1,684 m at the worst. No longer blocked: the dead zone that refused the six-degree command
+   was a latched deadband and now reads 0.31°, so whether the bus follows it is a flight away.
 5. Everything else is under 60 m and not worth a flight of its own.
 
 **And every one of them is priced on a seven-degree arrival.** The velocity-side terms scale with the
 trajectory's sensitivity and the surface-side terms with `cot γ`, so flying the shot in at fifteen to
 twenty degrees divides the first group by eight and the second by nearly three — before anything on
-this list is touched. `docs/ARRIVAL-ANGLE.md` has what that costs and whether the guidance can be
-told to do it, which today it cannot.
+this list is touched. `docs/ARRIVAL-ANGLE.md` has what that costs, and
+`IcbmConfig.MinArrivalAngleDeg` is how the guidance is told to do it — off at zero, and flown as
+the `arr15` and `arr20` arms.
 
 **And there is a floor under all of it.** `docs/KINETIC-FLOOR.md` prices what is left when every
 item above has landed: on this 7.1-degree arrival about **160 m**, dominated by the round's own 5 ms

@@ -7,7 +7,7 @@ This file is that budget. It is **not** a plan, and it is not the same question 
 would still be there after every item on that list had landed.
 
 Every number is either measured by `tests/KSArmory.Tests/KineticFloorTests.cs` or cited into the
-decompiled corpus at `../ksa-game-assemblies/current/src` against build **2026.8.19.5261**. Where a
+decompiled corpus at `../ksa-game-assemblies/current/src` against build **2026.8.22.5348**. Where a
 term could not be measured it says so rather than being estimated.
 
 **The headline.** The single biggest lever is not a constant — it is the **arrival angle**. Five of
@@ -29,7 +29,7 @@ orbital velocity taken out, which is what a rod actually is.
 | **the ground sampled once a frame** | 10–39 m | 0.2–0.8 m | `Slug.Update` calls `IGroundTest` before the sub-step loop | yes, at one height query per sub-step |
 | **the height field's own quantum** | 2.40 m | 0.01 m | `R16_UNORM` over 19,561 m = 0.2985 m | **no** — it is the shipped texture |
 | **the predictor's ground crossing** | 2.01 m | 0.01 m | `ImpactPredictor.CrossingToleranceMetres` = 0.25 m | yes, at more bisection steps |
-| **the float terrain staircase** | ≤ 0.9 m | ≤ 0.02 m | `Celestial.cs:1637` packs the direction to `float3` | **no** — inside the engine |
+| **the float terrain staircase** | ≤ 0.9 m | ≤ 0.02 m | `Celestial.cs:833` packs the direction to `float3` | **no** — inside the engine |
 | **the ecliptic's own arithmetic** | 1.8 mm | 1.8 mm | `double3` at 1.5e11 m; ulp 30.5 um | no, and it does not matter |
 | **the engine clock** | ≤ 104 mm | ≤ 104 mm | `UniverseTime` is Int128 ns; `SimStep.DeltaTime` is the unrounded double | no, and it does not matter |
 | **naming the target** | 0.2 m – 1.9 km | same | one pixel of the player's viewport, through `SiteDesignator` | yes — zoom, or a coordinate entry that does not exist |
@@ -102,8 +102,8 @@ air by `Medium.FaithfulStepInAir`:
 
 Three hundred vector updates a frame for a six-warhead group is not a lot. **A hundred and fifty
 CIWS shells at 1 ms is 7,500**, which is the case that would have to be measured before the constant
-moved — and `Sim/MunitionProfile.cs` already carries `MaxFaithfulStepSeconds`, so a per-round step
-is the shape the arsenal is already in.
+moved — and `Sim/MunitionProfile.cs` carries `SubStepSeconds`, so the per-round step exists and
+nothing in the arsenal asks for one.
 
 The 64-sub-step clamp never binds on entry: it caps one `Update` at 0.32 s, which is six times the
 step `WarpPolicy` already holds the world to once there is air.
@@ -173,9 +173,9 @@ bicubic in `double` — exactly, from 16-bit integer texel samples — and then,
 a normal cubemap and biome materials, packs the direction down:
 
 ```csharp
-float3 float6 = float3.Pack(in vector);        // Celestial.cs:1637
+float3 float6 = float3.Pack(in vector);        // Celestial.cs:833
 ...
-float heightKm = (float)num2;                  // Celestial.cs:1650
+float heightKm = (float)num2;                  // Celestial.cs:842
 modData = new ... { Position = float6, TextureNormal = float6, ... };
 ```
 
@@ -420,9 +420,10 @@ the floor, but reaching the floor at all from a shot that would otherwise be a k
 - **Whether the aim point and the round ever land in different height-field neighbourhoods.** The
   round trip is exact for *one* direction; the quantum in the table above is what a disagreement
   costs, not a measurement that one occurs.
-- **The ocean.** `docs/KSA-TERRAIN.md` records that `GroundTest` clamps to the waterline and the
-  prediction and aim point do not, worth 35 km of ground at the flown arrival. That is a defect with
-  a known fix, not a floor, and it is excluded here.
+- **The ocean.** `GroundTest`, `IcbmComputer.TerrainRadiusAt` and the aim point all clamp to the
+  waterline through `GroundSurface.Height` — `docs/KSA-TERRAIN.md` has the three call sites. While
+  they did not it was worth 35 km of ground at the flown arrival, which was a defect rather than a
+  floor, and it is excluded here.
 - **The designation numbers assume 1080 lines.** A different render or display scale moves them in
   proportion, and `Sim/CursorAim.cs` already exists because the viewport and the framebuffer need
   not be the same size.

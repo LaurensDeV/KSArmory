@@ -92,7 +92,7 @@ leaves the bus on is 1,789 / 3,442 / 390, which sits between the 10° and 15° r
 | term | 7.5° → 20° |
 | --- | --- |
 | **velocity sensitivity** — every metre a second at cutoff, the trim residual, the release kick, the tube cant | 5,614 → 686, a factor of **8** |
-| **surface** — the height quantum, the held terrain sample, the sea-clamp defect, any height-shaped epoch fault | `cot γ` 7.60 → 2.75, a factor of **2.8** |
+| **surface** — the height quantum, the held terrain sample, the sea the clamp now catches, any height-shaped epoch fault | `cot γ` 7.60 → 2.75, a factor of **2.8** |
 | **the drag model** — the part no correction loop can remove, because its only observer shares the model | 1,795 m → 29 m, a factor of **62** |
 
 The third one is the surprise and it is the biggest. A correction loop can only remove what its
@@ -103,7 +103,7 @@ the drag is worth 0.3 km and the same error is 77 m. At 20° it is 29 m and stop
 
 The surface terms, from `docs/KSA-TERRAIN.md` put through `cot γ`:
 
-| arrival | ground per m of height | the field's own 0.2985 m quantum | one held terrain sample, 5% slope | the mean sea depth the clamp is missing |
+| arrival | ground per m of height | the field's own 0.2985 m quantum | one held terrain sample, 5% slope | the mean sea depth, which the clamp takes out |
 | --- | --- | --- | --- | --- |
 | 7° | 8.14 m | 2.43 m | 8.68 m | 30.8 km |
 | 15° | 3.73 m | 1.11 m | 4.72 m | 14.1 km |
@@ -256,7 +256,7 @@ with an 18° floor and gets 639.6 s every time.
 
 ### The two coexist, and the floor wins
 
-`Loft` is kept. It is load-bearing for the arrival latch — `docs/MIRV-NEXT.md` item 7b — and it is
+`Loft` is kept. It is load-bearing for the arrival latch — `docs/MIRV-NEXT.md` item 7 — and it is
 still the way to ask for a taller arc at a range where the floor is already satisfied. What changed
 is the order of precedence: loft multiplies whatever the constrained search settled on, and if the
 lofted time no longer satisfies the floor the constrained time is flown instead. A nudge does not
@@ -358,7 +358,8 @@ arc arrives at 17 deg"*.
 - **It does not know about propellant.** A floor that turns a 150 m/s deorbit into a 3.5 km/s one is
   accepted by the search and then reported as `ShortOfPropellant` by `AssessReach`, which is the
   right division of labour and still two readouts to look at rather than one.
-- **None of it is flown.**
+- **The coast half of it does not work.** The search flies the constrained arc and the shot cuts off
+  on it; what follows is *Flown* at the bottom of this page.
 
 ---
 
@@ -412,22 +413,21 @@ velocity it throws away to get there.
 
 ## What is not settled
 
-- **None of it is flown.** The measurements are through the real solver, the real drag model and the
-  real `ImpactPredictor`, on a planet that sits at the origin.
+- **Only the floor has been flown, twice.** Everything else here is measured through the real
+  solver, the real drag model and the real `ImpactPredictor`, on a planet that sits at the origin —
+  which is exactly the case a frame carrier cannot show up in.
 - **The drag model itself is exponential and unvalidated.** The 10% column prices an error in it; it
   does not say the model has one. What it does say is that at seven degrees the question matters and
   at fifteen it does not, which is a reason to move rather than a reason to measure.
-- **The sea-clamp defect in `docs/KSA-TERRAIN.md` is not fixed and is worth 30.8 km at seven degrees**
-  against 10.4 at twenty. Steepening reduces it by a factor of three; it does not remove it.
+- **The sea clamp is what the last column of that table used to cost.** All three surfaces now go
+  through `GroundSurface.Height`, so it is taken out rather than steepened away. What is left is the
+  wave displacement KSA's own physics uses and the mod does not — metres, which is tens of metres of
+  ground at seven degrees.
 - **The floor is the Mk 21's.** A dedicated rod would want its own `MunitionProfile`, and a denser one
   moves the floor the wrong way — see the table at the top.
-- **`MinArrivalAngleDeg` has not been flown either.** It is measured headlessly through the same
-  solver and predictor as everything else here, and the one thing a flight would show that this
-  cannot is what a constrained arc does to the aim-correction loop, which is where the flown misses
-  actually come from — `docs/MIRV-NEXT.md` item 9.
-- **A constrained arrival is not re-checked once the arrival instant is latched.** The bound is on
-  the search; the latch pins a time. How far the arrival drifts across the rest of a burn is
-  bounded by how far the cutoff point moves and has not been measured.
+- **What a constrained arc does to the aim-correction loop is the thing a flight had to show**, and
+  it did: *Flown*, below. It is also where the remaining misses come from — `docs/MIRV-NEXT.md`
+  item 9.
 
 
 ## Flown: the floor works and the coast correction will not fly it
