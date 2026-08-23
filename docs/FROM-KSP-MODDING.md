@@ -16,7 +16,7 @@ KSP's own API that every part author has used.
 | `.cfg` in `ConfigNode` format | XML — `KSArmoryAssets.xml`, `KSArmoryGameData.xml` |
 | `PART { }` | `<Part>` and `<SubPart>` |
 | `MODULE { name = X }` binding a `PartModule` | **nothing. See below.** |
-| module fields tuned per part | `LauncherProfile` / `MunitionProfile` / `SensorProfile` in `Sim/Arsenal.cs` |
+| module fields tuned per part | `LauncherProfile` / `MunitionProfile` / `SensorProfile`, written in `Sim/Arsenal.cs` or declared in a `Weapons.xml` |
 | ModuleManager patching (`@`, `%`, `:NEEDS`) | nothing; there is no patch layer |
 | `model.mu` | `.glb`, in a shared mesh atlas |
 | `PartResource` / resource flow | nothing; ammunition is counted by the mod |
@@ -50,7 +50,9 @@ In KSP a missile is a vessel: it has parts, colliders, and the physics engine mo
 
 Here a round is a **number integrated by the mod**, drawn as a subpart body. That is deliberate —
 see the design notes in `CLAUDE.md` — and it buys sub-frame fuse accuracy and an inability to
-corrupt a save. It costs terrain collision, which the mod does not have.
+corrupt a save. Terrain collision is then something a round opts into rather than something it
+gets: `MunitionProfile.HitsTerrain` costs a height-map sample per round per frame, so a bomb is
+stopped by the ground and a cannon shell passes through a hill.
 
 So: do not look for a rigidbody, and do not expect `OnCollisionEnter`. Guidance lives in
 `Sim/Interceptor.cs`, is pure maths, and is tested headlessly with no game running at all.
@@ -76,12 +78,13 @@ four failure shapes apart.
 - **Art is separate from behaviour.** `tools/model/` generates the vehicle from a Blender script;
   nothing in the simulation names it.
 - **A weapon system is data plus art.** No fire-control, guidance or drive code names the Pantsir.
-  It is named in `Sim/Arsenal.cs`, which is the registry and is meant to.
+  It is named in `src/KSArmory/KSArmory/Weapons.xml`, which is the mod's own definitions file and
+  is meant to; the weapons still written in C# are in `Sim/Arsenal.cs`, which is the registry.
 
 ## Adding a weapon
 
-In KSP this is a `.cfg` and a model, with no compiler. Here it is five steps, and step three needs
-a rebuild:
+In KSP this is a `.cfg` and a model, with no compiler. Here it is five steps, and step three is the
+only one that can still want a rebuild:
 
 1. **Model it.** Copy `tools/model/pantsir.py`, keep the group and pivot conventions, export into
    the same atlas. `tools/model/checkmesh.py` fails the build on the two defects that are only
@@ -89,8 +92,9 @@ a rebuild:
 2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
    `KSArmoryAssets.xml`, and a `<PartGameData>` with colliders and mass.
 3. **Register it.** One `LauncherProfile` in `Sim/Arsenal.cs`, naming the munition and sensor it
-   uses, with the geometry `tools/model/build.sh` prints. Add a `MunitionProfile` if the round
-   differs.
+   uses, with the geometry `tools/model/build.sh` prints — or a `<Launcher>` in
+   `src/KSArmory/KSArmory/Weapons.xml`, which is the same profile as data and goes through the
+   reader a third-party pack uses. Add a `MunitionProfile` if the round differs.
 4. **Teach the validator.** `tools/validate-parts.py` compares the profile's geometry against
    `muzzles.json`, and it is scoped per launcher — a new one gets no check until you add it. The
    generator emitting those numbers and the profile holding them are the same numbers in two
@@ -103,18 +107,18 @@ a rebuild:
 null. The drives are then skipped and `IsLaid` stays true, so fire control cannot deadlock waiting
 for something that will never move.
 
-### The step that should not need a compiler
+### The step that no longer needs a compiler
 
-Step 3 is the one that will annoy you, and rightly. `LauncherProfile` and friends are **pure data
-with no logic in them** — C# object initialisers, with nothing about them that requires code.
-Loading them from XML alongside the part definitions would make a weapon a file rather than a
-rebuild, which is the workflow you are used to.
+`LauncherProfile` and friends are **pure data with no logic in them** — C# object initialisers,
+with nothing about them that requires code — so they are also expressible as a file.
+`Sim/PackReader.cs` reads them out of XML and `Ksa/InstalledPacks.cs` finds that XML in a
+`KSArmory/` folder inside every installed mod, this mod included. A whole weapon system is then art
+plus a file, with nothing to compile and no fork of this repository, which is the workflow you are
+used to. `docs/WEAPON-PACKS.md` is the author's reference; `docs/EXTENSIBILITY.md` is why it looks
+the way it does.
 
-That is a genuinely good first contribution and the shape is already pinned: `ArsenalTests`
-describes the invariants the registry must keep, and `tools/validate-parts.py` already parses the
-part XML, so it would check the profiles in the same pass. The constraint to respect is that
-`Sim/` must stay free of KSA types — the loader takes a stream or a string, and the file is found
-by `Ksa/`.
+The constraint that shaped it is the one under *What you do not need*: `Sim/` must stay free of KSA
+types, so the reader takes a string and the file is found by `Ksa/`.
 
 ## Where the rules are written down
 

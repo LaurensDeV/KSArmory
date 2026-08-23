@@ -1,12 +1,13 @@
 # Making a KSArmory weapon pack
 
 A pack is an ordinary KSA mod that ships parts and art like any other, plus a file of weapon
-definitions and about ten lines of C#. **KSArmory never looks for it.** It scans no folders, reads
-no manifest and holds no list of packs — a pack depends on KSArmory and calls it, which is why
+definitions and no code at all. **KSArmory holds no list of packs and never learns yours by
+name.** It looks in the same place inside every installed mod and reads what is there, which is why
 installing one is nothing but installing a mod.
 
-> **Status.** Everything described here is implemented and covered by tests. Nothing has been
-> flown yet, and three things named at the end are not built. `KSArmory.Armoury.Schema` is `1`.
+> **Status.** Everything described here is implemented and covered by tests, and a pack has been
+> registered in game — `CHECKLIST.md` 1.3 records what that flight did and did not reach. The two
+> things named at the end are not built. `KSArmory.Armoury.Schema` is `1`.
 
 **There is a complete worked example**: `KSArmory-example-mod` is this whole document as a folder
 you can copy — a bomb rack, its art and its definitions, with no code in it at all. Everything
@@ -104,8 +105,8 @@ Four rules that between them explain most refusals:
   file that nothing reads.
 - **Numbers are read in the invariant culture.** `2.4` is two and two fifths on every machine.
   Exponents (`3.0e-5`) are fine. Vectors are three numbers with commas: `"0, 0, 0.9"`.
-- **Angles are written in degrees.** Attributes ending `Deg` are degrees; KSArmory holds radians
-  and converts.
+- **Angles are written in degrees.** Every attribute ending `Deg` is degrees, and nothing here
+  takes radians.
 
 ### `<Munition>` — how a round flies and what it does on arrival
 
@@ -129,7 +130,7 @@ Four rules that between them explain most refusals:
 | `NeutralDensityRatio` | `0` | density it floats at. Near `840` and it swims — that is a torpedo |
 | `SeparationSeconds` | `0` | coast before the motor lights |
 | `FuseRadius` | `15` | proximity burst, m |
-| `TimedFuse` | `false` | burst at the aimpoint's range instead of on approach |
+| `TimedFuse` | `false` | flak: also burst at the flight time the lead solution asked for. The proximity fuse still runs |
 | `FuseArmSeconds` | `0.6` | dead time after release |
 | `ChargeKg` | `20` | **the warhead, as one number.** Lethal radius, blast radius and fireball are all derived from it by the cube-root law, so doubling it multiplies reach by 1.26 |
 | `HitsTerrain` | `false` | stops at the ground. Costs a terrain sample per round per frame |
@@ -158,7 +159,7 @@ each `<Stage>` follows it in order:
 | | Default | |
 | --- | --- | --- |
 | `Range` | `36000` | m |
-| `ConeDeg` | `90` | full width of the search volume |
+| `ConeDeg` | `90` | half-angle of the search cone about the boresight, so `90` is a hemisphere |
 | `BoresightSource` | `LocalUp` | `LocalUp`, `PartForward`, `TurretAxis`, `MountNormal`. A rail wants `PartForward`; a hemispheric search set wants `LocalUp` |
 | `ThreatRadius` | `8000` | closest approach inside which a contact is a threat |
 | `ThreatHorizonSeconds` | `40` | how far ahead closest approach is predicted |
@@ -172,7 +173,7 @@ each `<Stage>` follows it in order:
 | `HorizonMasking` | `true` | whether the planet's bulk blocks line of sight |
 | `TerrainMarginMetres` | `0` | inflates the masking sphere |
 | `TerrainSamples` | `0` (off) | height-map lookups one contact may cost. Real terrain masking, at a real per-frame price |
-| `TerrainClearanceMetres` | `30` | how far above the ground a contact must be |
+| `TerrainClearanceMetres` | `30` | how far terrain must stand above the line of sight before it blocks. Without it a site on any slope is blind along its own ground |
 
 ### `<Launcher>` — the part, and what it does with the round
 
@@ -190,9 +191,11 @@ holds fire on for ever, with no gate reporting why.
 | `SalvoSpacing` | `0.45` | s between launches |
 | `ReloadSeconds` | `12` | `0` means no reload — a rail is spent |
 | `LaunchAlongTube` | `true` | false throws the round off-axis toward a high off-boresight target |
-| `LaunchLoft` | `0.35` | how much the round is pitched up on release |
+| `LaunchLoft` | `0.35` | bias toward the launcher's boresight, and read only when `LaunchAlongTube` is false |
 | `EjectAwayFromMount` | `0` | m/s pushing the round clear. What a rail and a rack use |
 | `MuzzleOffset` | `8` | m ahead of the tube the round appears |
+| `MuzzleForwardOffset` | `0` | m from the part origin to the tube muzzles, along the boresight |
+| `TubeRingRadius` | `0` | m; the ring the launch positions fall back to when the subpart carrying the tubes will not resolve |
 | `TubeArmamentLabel` | `Missiles` | what the panel calls it. A rack says "Bombs" |
 
 **Trainable launchers** name the subparts that move. Leave them all out and the launcher is fixed:
@@ -225,6 +228,20 @@ tubes, a cannon, or both; the Phalanx has no tubes at all.
 | `GunBurstRounds`, `GunBurstGapSeconds` | `12`, `0.55` | |
 | `GunReloadSeconds` | `20` | |
 | `GunArmamentLabel` | `Cannon` | |
+
+**A launcher declares gear it carries inside itself**, with a `<Provides>` row per assembly that is
+a subpart rather than a part of its own. The survey walks *parts*, so a director on a turret roof is
+otherwise reported as not being there at all. The sensor row, the fire-control row and the gun row
+are minted from the launcher and must not be written.
+
+| | Default | |
+| --- | --- | --- |
+| `Role` | `Sensor` | `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun` |
+| `DisplayName` | **required** | what the panel calls that row |
+
+```xml
+<Provides Role="Camera" DisplayName="1TPP1 director" />
+```
 
 ### `<Optic>` — a sighting head
 
@@ -284,8 +301,9 @@ your pack, the definition and what was wrong. Check in this order:
 1. **Is the mod enabled?** KSA writes a newly discovered mod into `manifest.toml` with
    `enabled = false` and says nothing about it, so dropping the folder in is not enough. KSArmory
    warns about a pack it can see whose mod is switched off, so this one at least announces itself.
-2. **Is the file at `KSArmory/Weapons.xml` inside your mod folder?** That exact path is how it is
-   found. A pack KSArmory never mentions at all is one it never found.
+2. **Is the file in a `KSArmory/` folder inside your mod folder?** That folder is how it is found;
+   the file's own name is yours, and every `.xml` in there is read. A pack KSArmory never mentions
+   at all is one it never found.
 3. **Is your part in the editor?** If not, the problem is your `Assets.xml`, not KSArmory.
 
 Once the world has loaded, KSArmory checks each registered part against what actually exists and

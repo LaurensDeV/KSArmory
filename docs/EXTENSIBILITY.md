@@ -14,15 +14,16 @@ itself has with its mods folder.
 packs *push*: ship an assembly, depend on KSArmory through StarMap, call `Armoury.Register`. That
 works, is still supported, and is what anything building definitions at runtime should do. What it
 cost was a DLL for a mod that only wanted to declare data — a compiler, an SDK and a reference to
-this mod's assembly, to hand over a string. Scanning by convention costs four KSA bindings and
+this mod's assembly, to hand over a string. Scanning by convention costs seven KSA bindings and
 removes all of it, and it turns out to *improve* the thing push was meant to protect: KSArmory can
 now report a pack that is installed but disabled, which under push-only was invisible by
 construction.
 
 **Cite symbols here, never file and line**, per `docs/MODULARITY.md`.
 
-**Changes 0, 1 and 2 have landed; 3 to 6 are still a plan, and nothing has been flown.** `docs/WEAPON-PACKS.md` is the
-author-facing contract; this file is why it looks the way it does.
+**Changes 0, 1, 2 and 2b have landed and a pack has registered in game; 5 has landed for one
+weapon; 3, 4 and 6 are still a plan.** `docs/WEAPON-PACKS.md` is the author-facing contract; this
+file is why it looks the way it does.
 
 ---
 
@@ -31,10 +32,11 @@ author-facing contract; this file is why it looks the way it does.
 The design note is that a weapon system is *data plus art*. Read against the code that is true of
 the **content** and false only of the **delivery**:
 
-- No part Id appears anywhere outside `Arsenal.cs`. Every occurrence of "Pantsir", "Phalanx",
-  "Sidewinder", "HARM", "B61" or "Litening" in `Sim/` and `Ksa/` is inside a comment. Nothing in
-  fire control, guidance, the drives, the sight or the panel names a weapon.
-- Discovery is `Arsenal.LauncherForPart` against a part Id, and `Arsenal.OpticForPart` for
+- No part Id appears anywhere outside `Arsenal.cs` and the definitions file the mod reads at load.
+  Every occurrence of "Pantsir", "Phalanx", "Sidewinder", "HARM", "B61" or "Litening" in `Sim/` and
+  `Ksa/` is inside a comment. Nothing in fire control, guidance, the drives, the sight or the panel
+  names a weapon.
+- Discovery is `Catalogue.LauncherForPart` against a part Id, and `Catalogue.OpticForPart` for
   directors. Tube count, magazine depth, articulation markers, boresight, gimbal, guidance, fuse,
   warhead, medium and buoyancy are all profile members.
 - The lookups already take the registry as an argument — `LauncherForPart(from, …)`,
@@ -42,10 +44,11 @@ the **content** and false only of the **delivery**:
   `WeaponSystemSelectionTests` can run them against synthetic registries where "picked the right
   one" and "picked the only one" differ.
 
-What is missing is that `Arsenal.Launchers` and its four siblings are **C# collection literals
-compiled into the assembly**, with no path by which anything else can contribute. A weapon is data
-plus art plus a fork plus a .NET 10 SDK plus KSA's copyrighted assemblies, which is a different
-offer entirely.
+What was missing is that `Arsenal.Launchers` and its four siblings were **C# collection literals
+compiled into the assembly**, with no path by which anything else could contribute — so a weapon
+was data plus art plus a fork plus a .NET 10 SDK plus KSA's copyrighted assemblies, which is a
+different offer entirely. `Sim/Catalogue.cs` is now what the mod reads, and `Arsenal` is one
+contributor to it.
 
 ---
 
@@ -87,13 +90,13 @@ An ordinary mod folder under `mods/`, registered in `manifest.toml` like any oth
 
 | | |
 | --- | --- |
-| `mod.toml` | its own — `assets` for KSA, `[StarMap]` with the dependency above |
+| `mod.toml` | its own — `assets` for KSA, and `[StarMap]` with the dependency above only if it ships code |
 | `<Pack>Assets.xml`, `<Pack>GameData.xml` | parts, subparts, colliders, mass — listed in its own `assets`, loaded by KSA, nothing to do with us |
 | `Meshes/`, `Textures/` | its own atlas and maps |
-| `MyWeaponPack.dll` | the entry point: **about ten lines** |
-| `Weapons.xml` | its weapon definitions, which it hands to us |
+| `KSArmory/*.xml` | its weapon definitions, which we read out of that folder. **Not** listed in `assets`, or KSA hands them to its own asset loader |
+| `MyWeaponPack.dll` | optional: the entry point, **about ten lines**, for a pack that has to compute rather than declare |
 
-The whole entry point:
+The whole entry point, for the packs that want one:
 
 ```csharp
 [StarMapMod]
@@ -117,8 +120,9 @@ namespace KSArmory;
 /// KSArmory does.
 public static class Armoury
 {
-    public static PackResult Register(string definitions, string source);
+    public static int Schema { get; }
     public static bool IsOpen { get; }
+    public static PackResult Register(string definitions, string source);
 }
 ```
 
@@ -157,31 +161,32 @@ worth having:
 | **shape** | at `Register` | parses, required attributes present, enum names known, every munition and sensor key resolves |
 | **existence** | at the freeze | the part Id is a declared part, markers name subparts of it, the body count matches the tube count |
 
-`ModLibrary.Has<T>(string)` is public, so the existence half is the runtime equivalent of
-`validate-parts.py`'s registered-part-Id check — which is exactly the check whose absence is
-otherwise a part that loads, appears in the editor, and is not a weapon, with nothing in any log.
+The existence half is the runtime equivalent of `validate-parts.py`'s registered-part-Id check —
+which is exactly the check whose absence is otherwise a part that loads, appears in the editor, and
+is not a weapon, with nothing in any log. It has to ask through `ModLibrary.Get<T>`, which throws:
+`Has<T>` and `TryGet<T>` dispatch on the type argument through a branch chain with no
+`PartTemplate` case and fall through to `false`, so they answer "no such part" for every Id in the
+game including Core's. `Ksa/DeclaredParts.cs` is that seam, and `Sim/IPartCatalogue.cs` is what
+keeps the rest of the audit answerable with no game.
 
 Registering after the freeze is refused rather than accepted, and says so. A registry mutated while
 systems are crewed is a magazine resized under a launcher mid-salvo.
 
-### What this mod gives up by not looking
+### What the scan can and cannot report
 
-Honestly, and it is real: **KSArmory cannot report a pack that did not load.** A pack installed but
-disabled in `manifest.toml`, or whose DLL failed to resolve, or which never got as far as calling
-`Register`, is indistinguishable from a pack that was never installed. The Content window can only
-list what registered.
+**A pack whose mod is switched off is reported**, which under push-only was invisible by
+construction. `PackScan.Of` separates "nothing to read" from "a pack, and its mod is disabled", and
+the second is a warning naming the mod. That is the case worth catching, because **a newly
+dropped-in mod arrives switched off**: `ModEntry(id, count)` sets `Enabled = false`, so KSA writes a
+discovered folder into the manifest disabled and the player sees nothing. `tools/deploy.sh` writes
+the entry itself for exactly this reason, and without the warning it is the first support question
+anyone gets.
 
-That is the price of the arrow pointing one way, and it is worth paying, because the alternative is
-this mod holding an opinion about every folder under `mods/`. StarMap's own console output is where
-a mod that failed to load appears, and that is the right place for it — it is StarMap's business,
-not ours. What the Content window must do instead is be unambiguous that it lists **registrations,
-not installations**, so nobody reads an empty list as "no pack is installed".
-
-One more thing does not go away: **a newly dropped-in mod arrives switched off.**
-`ModEntry(id, count)` sets `Enabled = false`, so KSA writes a discovered folder into the manifest
-disabled and the player sees nothing. `tools/deploy.sh` writes the entry itself for exactly this
-reason. It is now entirely the pack's install-instructions problem, and it will still be the first
-support question anyone gets.
+What is still invisible is a mod the manifest does not list at all, and a pack that ships an
+assembly whose `Register` never ran. StarMap's own console output is where a mod that failed to load
+appears, and that is the right place for it — it is StarMap's business, not ours. What the Content
+window must be unambiguous about is that it lists **registrations, not installations**, so nobody
+reads an empty list as "no pack is installed".
 
 ---
 
@@ -189,15 +194,15 @@ support question anyone gets.
 
 ### 0. The registry becomes an object — nothing external involved
 
-`Arsenal` stays exactly as it is: the built-in catalogue, eight launchers and nine rounds of
-hand-written C# with the reasoning attached. A new `Sim/Catalogue.cs` is the *resolved* registry —
-built-ins, plus whatever registered — and every consumer moves from `Arsenal.Launchers` to
-`Catalogue.Launchers`. There are 21 such sites across `Sim/`, `Ksa/` and `Ksa/Ui/`, and most are one
-identifier.
+`Arsenal` stays what it is: the built-in catalogue of hand-written C# with the reasoning attached,
+six launchers and six rounds of it now that change 5 has taken the Pantsir out. A new
+`Sim/Catalogue.cs` is the *resolved* registry — built-ins, plus whatever registered — and every
+consumer moves from `Arsenal.Launchers` to `Catalogue.Launchers`. There are 21 such sites across
+`Sim/`, `Ksa/` and `Ksa/Ui/`, and most are one identifier.
 
 Two hazards, both found by reading rather than guessed:
 
-**`WeaponSystem` initialises three fields from `Arsenal.Launchers[0]`** — `Profile`, `Munition` and
+**`WeaponSystem` initialised three fields from `Arsenal.Launchers[0]`** — `Profile`, `Munition` and
 `Sensor`, before any part is recognised. Safe against a compiled literal, unsafe against a registry
 populated at runtime: an empty catalogue turns those into a type-initialiser crash rather than a
 degraded mode. The fix is not to sequence the load carefully; it is to **stop indexing element zero
@@ -211,9 +216,9 @@ strangers write the keys: a bomb rack naming a round that does not exist becomes
 command-linked SAM under a 36 km search radar, in flight, with nothing in any log.
 
 So **resolve every reference at registration and reject the definition that names something
-missing**. Nothing then reaches the fallback, because nothing unresolved was ever registered.
-Changing that test is a deliberate edit to a documented contract, not a break — and what it becomes
-is the stronger contract.
+missing**. Nothing a pack ships then reaches the fallback, because nothing unresolved was ever
+registered — which is why `UnknownNamesFallBackRatherThanThrow` could be kept rather than changed:
+it now guards only a typo in a profile this repository owns, which is what it was always for.
 
 Ships alone, changes no behaviour, covered by the existing suite. `refactor(sim)`.
 
@@ -263,16 +268,19 @@ already obey.
 missing from `Arsenal.Components` "loads, resolves its tubes, matches `LauncherForPart` and is then
 completely invisible", and `ArsenalTests` has two tests holding the registries in agreement. Handing
 that trap to strangers would be indefensible. A `<Launcher>` mints its own `ComponentProfile` with a
-`FireControl` row, a `Sensor` row, and a `Gun` row where it has a belt; `<Component>` stays
-available for a pack that wants to say more. **A failure that can be made unrepresentable should not
-be made testable instead** — the preference `TubeVisual` already records.
+`FireControl` row, a `Sensor` row, and a `Gun` row where it has a belt; a `<Provides>` child stays
+available for gear the launcher carries as a subpart, which no reader could infer. **A failure that
+can be made unrepresentable should not be made testable instead** — the preference `TubeVisual`
+already records.
 
 **Names are qualified across packs and bare within one.** `Munition="AIM-9X"` means *this pack's*
 round; `Munition="KSArmory:30MM"` means somebody else's. Two things fall out and both are worth
 having: a pack can never silently capture a built-in by naming a round the same thing, and a pack
 *can* deliberately reuse one — a new gun mount firing KSArmory's 20 mm shell is then a launcher and
-no munition at all. Built-ins are qualified `KSArmory:` on registration; `Arsenal.cs` keeps its bare
-names.
+no munition at all. The built-ins are the one namespace that keeps bare keys, because they are what
+every qualified reference is resolved against: `KSArmory:` is stripped on the way in rather than
+added on the way out, which is also what let this mod's own weapons move into a definitions file
+without renaming a key any saved setting already holds.
 
 Part Ids stay one flat space, because KSA's already is: `SerializedCollection.Register` is
 first-registrant-wins and silent, so two mods claiming an Id is already a problem with an existing
@@ -302,13 +310,18 @@ Worth building with change 2 rather than after the first breakage.
 
 The largest payoff, and invisible from the outside.
 
-`tools/validate-parts.py` opens `src/KSArmory/Sim/Arsenal.cs` **as text, in ten places**, and
+`tools/validate-parts.py` opens `src/KSArmory/Sim/Arsenal.cs` **as text, in twelve places**, and
 recovers the registry by regex: `Launchers = [...]` split on commas, profile bodies matched as
 `X = new() { … };`, scalars with the `f` suffix required in some fields and forbidden in others,
 vectors required to be positional `new(x, y, z)`. Any expression — a named constant, a
 `float.DegreesToRadians(…)` — silently fails to match and is reported as a missing field. Three
 hand-written tables plus `OPTIC_GEOMETRY` are keyed on **C# field names in this repository**, and an
 unlisted launcher is a hard failure rather than a skip.
+
+Half of it now runs against a bridge rather than against data: a `<Launcher>` in
+`KSArmory/Weapons.xml` is rendered back into the C# initialiser shape those regexes already expect,
+so a weapon moving out of `Arsenal.cs` costs no coverage and buys none either. The gates read the
+XML directly when the last one has moved, and the bridge goes.
 
 Move the definitions into data and the validator reads *the same file the game reads*. Give it
 `--mod-root <dir>` and it becomes a tool a pack author runs against their own folder, gating what is
@@ -390,12 +403,6 @@ wants it — the pattern `docs/AUDIT-2026-08.md` names, and why `docs/MODULARITY
 
 ## Risks and things this does not fix
 
-- **A pack ships a DLL, where a BDArmory weapon ships a `.cfg`.** That is a real step up in
-  difficulty and it is not avoidable: KSA has no `PartModule`, so there is no config a pack could
-  write that anything would read without somebody's code running. The mitigation is that the DLL is
-  ten lines, needs no KSA assemblies, and should be published as a template repository whose README
-  is "put your XML here". If that template is not part of change 4, the format is theoretically
-  open and practically closed.
 - **Recognition matches `Part.Id`, which is the *instance* Id and not the template's.**
   `Part.ResolveRuntimeId` answers the instance name when there is one and the template Id only when
   there is not, so every match in this mod works because nothing names its part instances. A pack
@@ -409,13 +416,14 @@ wants it — the pattern `docs/AUDIT-2026-08.md` names, and why `docs/MODULARITY
   First warning in `docs/WEAPON-PACKS.md`, and `tools/repair-saves.py` should learn `--mod-root`.
 - **Marker resolution is a case-insensitive substring, first hit wins.** `"Missile"` also matches
   `MissileRail`. In this repository that is a convention everyone knows; handed to strangers it is a
-  trap, and it is why the *part-level* registry uses exact equality. The existence check at the
-  freeze — exactly one subpart matches — is the mitigation, and it is worth having for the built-ins
-  too.
-- **Some marker misses are silent today.** `GunsMarker` unresolved makes `FireGun` return with no
-  warning; `FinMarker` unresolved is invisible; `BodyMarker` null falls back to the literal string
-  `"Missile"`. Survivable in a repository with a validator over every profile; not survivable in a
-  pack. Fixing them is small and belongs with change 3.
+  trap, and it is why the *part-level* registry uses exact equality. `PackAudit` at the freeze is
+  the mitigation — exactly one subpart matches, or it is named in the log — and it runs over the
+  built-ins too.
+- **A munition's markers are still silent.** `FinMarker` unresolved is invisible and `BodyMarker`
+  null falls back to the literal string `"Missile"`; the audit walks launchers and heads, which are
+  the profiles that name a part, and a round names none. Survivable in a repository with a
+  validator over every profile; not survivable in a pack. Fixing it is small and belongs with
+  change 3.
 - **`OpticalHead` ignores `SensorProfile.BoresightSource` and always uses the mount normal**, so
   that field is dead data on a director. A pack author will set it and it will do nothing. Either
   wire it or reject it at registration — either way, not silence.
@@ -428,20 +436,22 @@ wants it — the pattern `docs/AUDIT-2026-08.md` names, and why `docs/MODULARITY
   profile behaves identically, which is right, but a player's tuning of a third-party weapon is lost
   on reload exactly as it is for a built-in.
 - **`tools/check-tunables.py` cannot see a pack**, and should not: its `TUNABLE` list is literal, its
-  receiver identifiers are hard-coded, and a pack cannot add fields to any of the four types it
+  receiver identifiers are hard-coded, and a pack cannot add fields to any of the five types it
   guards. Worth stating so nobody wires it up.
-- **Nothing here is verified.** Per CLAUDE.md a behaviour change is unverified until flown, and
-  changes 1–4 are behaviour. Each wants a flight, and change 5 is what makes the first four worth
-  trusting.
+- **What has been flown is registration, not use.** `CHECKLIST.md` 1.3 records a pack found,
+  registered, audited and listed in the roster, with its part right way up in the editor. Releasing
+  one of its stores and driving it from the panel are still unticked.
 
 ---
 
 ## Prove it by eating it
 
-**Change 5: move one shipped weapon out of `Arsenal.cs` and register it through `Armoury` from
-KSArmory's own startup**, over the same reader a stranger's pack goes through. The LAU-7 rail is the
-candidate — the smallest complete system, one tube, no drives, its own round and sensor, already the
-worked example the docs point at.
+**Change 5: move one shipped weapon out of `Arsenal.cs` and register it over the same reader a
+stranger's pack goes through.** The Pantsir went, not the LAU-7 rail the plan named — the largest
+system rather than the smallest, so twelve tubes, a cannon, five articulation markers and a declared
+subpart role all had to survive the translation. It is not even registered specially: this mod's own
+`KSArmory/Weapons.xml` is found by `InstalledPacks` inside this mod's folder exactly as a stranger's
+is inside theirs.
 
 Until a shipped weapon goes through that path, it is exercised only by files written by whoever
 wrote the reader. This repository already knows what that is worth: *"a registry test written
@@ -451,9 +461,10 @@ larger scale, and the ways it is wrong are discovered by strangers.
 
 It also settles what the format cannot answer on paper — whether an entry loses anything in
 translation. `Arsenal.cs` carries a paragraph per number on which figures are the real weapon's and
-which are gameplay. If that does not survive the move, the move is wrong, and the honest conclusion
-is that **the built-ins stay in C# and packs are XML** — two spellings of one catalogue, which is
-defensible and should be reached by trying rather than assumed.
+which are gameplay, and that is what the move was judged on: `KSArmory/Weapons.xml` carries the same
+paragraphs as XML comments, which is most of why the format is XML rather than something terser. The
+remaining six launchers have not moved, so **the built-ins stay in C# and packs are XML** — two
+spellings of one catalogue — is still a live answer rather than a rejected one.
 
 ---
 
@@ -467,7 +478,7 @@ defensible and should be reached by trying rather than assumed.
 | 2b | ~~`PackScan` + `InstalledPacks`: read a `KSArmory/` folder inside every mod~~ | small | **landed** — what makes a pack assets-only |
 | 3 | `validate-parts.py --mod-root`, plus the silent-marker fixes | medium | yes — improves the built-ins too |
 | 4 | The **Content** window, and the pack template repository | small | yes |
-| 5 | Register the LAU-7 rail through `Armoury` instead of compiling it in | small | the one that says whether any of it is right |
+| 5 | ~~Register a shipped weapon through the reader instead of compiling it in~~ | small | **landed** — the Pantsir, not the LAU-7 the plan named |
 | 6 | Let a pack register a new *kind* | large | **not yet** — see above |
 
 **Both of 2's loose ends have since landed.** `tools/pack-api.py` records the vocabulary and the
@@ -483,8 +494,9 @@ the catalogue carrying somebody else's profile, so checking that the name resolv
 form, and the one written first — accepts a launcher that flies a weapon its author never shipped.
 
 **What this plan gained back, deliberately:** the manifest walk an earlier draft dropped. It costs
-four bindings in `docs/KSA-API-SURFACE.md` — `ModLibrary.Manifest`, `ModEntry.Id`/`.Enabled`,
-`ModLibrary.Find` and `Mod.DirectoryPath` — and buys a pack that is a folder of files rather than a
+seven members in `docs/KSA-API-SURFACE.md` — `ModLibrary.Manifest`, `ModManifest.Mods`,
+`ModEntry.Id`, `ModEntry.Enabled`, `ModLibrary.Find`, `Mod.DirectoryPath` and
+`ModLibrary.LocalModsFolderPath` — and buys a pack that is a folder of files rather than a
 folder of files plus a compiler. That is the right trade for a mod whose whole claim is that a
 weapon is data plus art.
 
