@@ -228,16 +228,18 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// A floor no arc satisfies is refused as its own failure, and named as one.
+    /// A floor no arc satisfies is flown at the arrival that is affordable, and said so.
     ///
     /// <para>Mid-ascent the search is over flight time alone, and from a state that has already
     /// committed to a direction the steep arcs to a distant target go through the planet — 90
-    /// degrees round from a 60 km pick-up reaches 46 degrees of arrival and no further. Reporting
-    /// that as "no trajectory reaches that target" sends the operator after a different target when
-    /// the answer is a lower floor.</para>
+    /// degrees round from a 60 km pick-up reaches 46 degrees of arrival and no further. Refusing
+    /// there throws away a shot that would have arrived: the floor is what to aim for, not a
+    /// reason to fly nowhere, and the same rule already governs a shot short of the propellant.
+    /// What the operator loses is precision, and <see cref="IcbmProgram.ArrivalFloorUnaffordable"/>
+    /// is how they are told.</para>
     /// </summary>
     [Fact]
-    public void AFloorNothingReachesIsNamedRatherThanReportedAsAnUnreachableTarget()
+    public void AFloorNothingReachesIsFlownAtWhatIsAffordableAndSaidSo()
     {
         IcbmConfig config = new() { Armed = true, MinArrivalAngleDeg = 55.0 };
         IcbmProgram program = new(config);
@@ -245,16 +247,23 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
         IcbmCommand command = program.Update(0.0, Ascending(Ahead(90.0)));
 
         Out.WriteLine($"phase {command.Phase}, reach {command.Reach}: {command.Hold}");
+        Out.WriteLine($"floor unaffordable: {program.ArrivalFloorUnaffordable}, "
+                      + $"arriving at {program.Arc?.ArrivalAngleDeg:F1} deg");
 
-        Assert.True(command.Reach == IcbmReach.TooShallow,
-                    $"a 55 deg floor nothing reaches was reported as {command.Reach} in "
+        Assert.True(program.Arc is not null,
+                    $"a 55 deg floor nothing reaches left the shot with no arc at all in "
                     + $"{command.Phase}: {command.Hold}");
 
-        Assert.Equal(IcbmPhase.NoSolution, command.Phase);
-        Assert.Contains("55 deg or steeper", command.Hold);
+        Assert.True(program.ArrivalFloorUnaffordable,
+                    "the shot settled for a shallower arrival without saying so");
 
-        // The same shot with the floor off is not this failure at all, which is the whole point of
-        // separating the two.
+        Assert.NotEqual(IcbmPhase.NoSolution, command.Phase);
+
+        // And it is the floor that was given up on, not the aim: what it settles for still arrives.
+        Assert.True(program.Arc!.Value.ArrivalAngleDeg > 0.0,
+                    "the arc it settled for does not arrive at all");
+
+        // The same shot with the floor off flies too, and neither reports having settled.
         IcbmProgram unbounded = new(new IcbmConfig { Armed = true });
 
         Assert.NotEqual(IcbmReach.TooShallow, unbounded.Update(0.0, Ascending(Ahead(90.0))).Reach);

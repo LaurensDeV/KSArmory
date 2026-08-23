@@ -15,6 +15,18 @@ internal sealed class IcbmConfig
     public bool Armed;
 
     /// <summary>
+    /// The most acceleration the stack may be flown at, in standard gravities. Zero is no limit.
+    ///
+    /// <para>A light upper stage on a full-sized motor climbs to many times its own weight in
+    /// thrust as it empties, and a vehicle with a structural limit is destroyed at it. Throttling
+    /// to hold the cap costs a little gravity loss and keeps the stack together.</para>
+    ///
+    /// <para>Against standard gravity rather than the local field: it is a limit on the airframe,
+    /// so it is the number written on the airframe.</para>
+    /// </summary>
+    public float MaxAccelerationGee;
+
+    /// <summary>
     /// Multiplies the flight time of the cheapest shot. One is minimum energy; above one is a
     /// lofted trajectory that arrives steeper and later, below one is a depressed one that arrives
     /// sooner and costs far more. Both ends run out: a shot flat enough to pass through the planet
@@ -161,4 +173,37 @@ internal sealed class IcbmConfig
     /// to be sensible.
     /// </summary>
     public double DeployAltitudeMetres = 100_000.0;
+
+    /// <summary>
+    /// How close to arrival the warheads are let go, in seconds. Zero releases as soon as the
+    /// altitude allows.
+    ///
+    /// <para><b>An altitude alone is the wrong shape.</b> A hundred kilometres is satisfied on the
+    /// way up as well as the way down, and the ascent crossing wins — so the warheads leave near
+    /// the start of a half-hour coast, and every metre per second the separation kick gives them
+    /// has the whole flight to grow into a miss. Holding them until the arrival is close shrinks
+    /// that in proportion to the time saved, and leaves the trim and the aim correction converging
+    /// for longer.</para>
+    ///
+    /// <para>Not arbitrarily late, though. Six have to clear each other and the bus, their fuses
+    /// have to arm, and the sequence itself takes a few seconds a round — and the bus is not a
+    /// reentry vehicle, so a release inside the air breaks it up among its own warheads. Minutes,
+    /// not seconds.</para>
+    /// </summary>
+    public double ReleaseBeforeArrivalSeconds = 420.0;
+
+    /// <summary>
+    /// How much the bus may spend on trimming across the whole flight, in metres per second of
+    /// attitude-control propellant. Zero is no budget at all; negative is unlimited.
+    ///
+    /// <para>One trim run is already bounded, but the bus is asked to trim again at every release
+    /// and the coast between them can be half an hour. Without a total, a vehicle that keeps
+    /// finding a small correction worth making spends the tanks on corrections worth metres and
+    /// arrives with nothing left for the one worth kilometres.</para>
+    ///
+    /// <para>Spent on the shot rather than per correction, so an early runaway is paid for by the
+    /// later ones going without — which is the right way round: the corrections that matter most
+    /// are the ones nearest arrival.</para>
+    /// </summary>
+    public double TrimBudgetMetresPerSecond = 25.0;
 }

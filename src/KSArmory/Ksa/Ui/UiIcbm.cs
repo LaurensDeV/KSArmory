@@ -293,6 +293,42 @@ internal sealed partial class Ui
             ? "  the arc it is on now, and a ring on the aim point"
             : "  nothing is drawn in the world for this vehicle");
 
+        float hold = (float)config.ReleaseBeforeArrivalSeconds;
+        if (ImGui.SliderFloat("Release at", ref hold, 0f, 900f, "%.0f s before arrival"))
+        {
+            config.ReleaseBeforeArrivalSeconds = hold;
+        }
+
+        ImGui.TextDisabled("  " + (config.ReleaseBeforeArrivalSeconds < 1.0
+            ? "as soon as the altitude allows, which is early on the way up"
+            : $"held until {config.ReleaseBeforeArrivalSeconds / 60.0:F0} min from arrival, so the "
+              + "ejection kick has less flight to grow in"));
+
+        float budget = (float)config.TrimBudgetMetresPerSecond;
+        if (ImGui.SliderFloat("Trim budget", ref budget, 0f, 60f, "%.0f m/s for the flight"))
+        {
+            config.TrimBudgetMetresPerSecond = budget;
+        }
+
+        ImGui.TextDisabled("  " + (config.TrimBudgetMetresPerSecond <= 0.0
+            ? "no trimming at all; the warheads go on the aim as the burn left it"
+            : $"{config.TrimBudgetMetresPerSecond:F0} m/s across every correction, then it stops"));
+
+        // A structural limit rather than a preference, so it sits with the other things that
+        // constrain the flight rather than with the ones that shape it.
+        float gee = config.MaxAccelerationGee;
+        if (ImGui.SliderFloat("Acceleration limit", ref gee, 0f, 15f, "%.1f g"))
+        {
+            config.MaxAccelerationGee = gee;
+        }
+
+        double now = computer.Program.LastBooster.AccelerationNow / 9.80665;
+        string pulling = double.IsFinite(now) && now > 0.0 ? $"; pulling {now:F1} g now" : "";
+
+        ImGui.TextDisabled("  " + (config.MaxAccelerationGee < 0.05
+            ? "off - full throttle throughout, whatever the stack ends up pulling" + pulling
+            : $"throttled to hold {config.MaxAccelerationGee:F1} g{pulling}"));
+
         // Above Loft, because it overrides it: the two both move the flight time, and a control
         // that wins an argument reads better before the one it wins it with than after.
         float floor = (float)config.MinArrivalAngleDeg;

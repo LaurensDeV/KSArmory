@@ -48,6 +48,7 @@ internal readonly record struct IcbmState(
     bool PropellantAvailable,
     double ThrottleAchieved = 1.0,
 
+
     /// <summary>
     /// Real seconds in this frame, as opposed to simulated ones.
     ///
@@ -64,7 +65,17 @@ internal readonly record struct IcbmState(
     /// <para>True for a caller that corrects nothing, which is every test and every vehicle whose
     /// aim is simply where it was pointed.</para>
     /// </summary>
-    bool AimIsSteady = true)
+    bool AimIsSteady = true,
+
+    /// <summary>
+    /// What the whole stack has left, across every stage it has not yet flown, or NaN if unknown.
+    ///
+    /// <para>The engine works this out for its own staging display and it is the only figure that
+    /// accounts for throwing dry mass away. Without it the reach has to be judged on the running
+    /// stage's exhaust velocity over the whole vehicle's propellant, which understates a staged
+    /// rocket badly enough to call an ordinary ICBM unreachable on the pad.</para>
+    /// </summary>
+    double StackDeltaV = double.NaN)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -262,6 +273,15 @@ internal sealed class IcbmProgram
     private double _toGain;
     private double3 _thrustDirCci;
     private double _stageCooldown;
+
+    // Whether the shot settled for a shallower arrival than was asked for, because nothing steeper
+    // was affordable. Reported rather than refused.
+    public bool ArrivalFloorUnaffordable => _arrivalFloorUnaffordable;
+
+    private bool _arrivalFloorUnaffordable;
+
+    // Whether the stage now lit has ever pushed. See the staging test in Fly.
+    private bool _thrustSeen;
     private double _drySeconds;
     private double _sinceLaunch;
     private double _sinceCutoff;
@@ -291,6 +311,9 @@ internal sealed class IcbmProgram
 
     /// <summary>The arc the last solve was flying to. Null until guidance has found one.</summary>
     public BallisticArc.Solution? Arc { get; private set; }
+
+    /// <summary>What the stack could do at the last sample, for a readout to show beside a limit.</summary>
+    public BoosterPerformance LastBooster { get; private set; }
 
     /// <summary>
     /// Where the last solve expects the engines to stop.
@@ -440,6 +463,7 @@ internal sealed class IcbmProgram
         _toGain = 0.0;
         _thrustDirCci = Vec.Zero;
         _stageCooldown = 0.0;
+        _thrustSeen = false;
         _drySeconds = 0.0;
         _sinceLaunch = 0.0;
         _sinceCutoff = 0.0;
@@ -650,10 +674,25 @@ internal sealed class IcbmProgram
                               ? _arrivalFromLaunch - _sinceLaunch
                               : double.NaN;
 
-        if (!BurnoutGuidance.TrySteer(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
-                                      state.Booster, out BurnoutGuidance.Command command,
-                                      Config.Loft, LongWay, _cutoffSeed, _flightSeed, arrivalFromNow,
-                                      Config.MinArrivalAngleDeg))
+        bool steered = BurnoutGuidance.TrySteer(
+            state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, state.Booster,
+            out BurnoutGuidance.Command command, Config.Loft, LongWay, _cutoffSeed, _flightSeed,
+            arrivalFromNow, Config.MinArrivalAngleDeg);
+
+        // A floor is what to aim for, not a reason to fly nowhere. A stack that cannot afford the
+        // arrival asked for still has a target, and the shallow arc it can afford is worth far more
+        // than a refusal: the same rule as a shot short of the propellant, which is flown and
+        // reported. What the operator loses is precision, and the readout says which angle it got.
+        if (!steered && Config.MinArrivalAngleDeg > 0.0)
+        {
+            steered = BurnoutGuidance.TrySteer(
+                state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, state.Booster,
+                out command, Config.Loft, LongWay, _cutoffSeed, _flightSeed, arrivalFromNow);
+
+            if (steered) _arrivalFloorUnaffordable = true;
+        }
+
+        if (!steered)
         {
             // A flight already under way keeps flying its schedule: the geometry a solve needs can
             // be momentarily out of reach on the way up, and abandoning a shot for it would throw
@@ -728,14 +767,18 @@ internal sealed class IcbmProgram
         }
     }
 
-    // Whether the tanks can pay for the shot the solver found. KSA reports the mass of the whole
-    // vehicle's propellant but the exhaust velocity of the engines actually running, so this is a
-    // single-stage figure over a multi-stage load - which understates a staged vehicle, because
-    // staging throws dry mass away. Understating is the right way round to be wrong: it calls a
-    // marginal shot unreachable rather than flying one that is not.
+    // Whether the tanks can pay for the shot the solver found.
+    //
+    // Prefers the engine's own per-stage total, which is the only figure that accounts for staging
+    // throwing dry mass away. Falling back to the running stage's exhaust velocity over the whole
+    // vehicle's propellant understates a staged rocket badly -- enough to call an ordinary ICBM
+    // unreachable while it sits on the pad with the range to spare. Understating is at least the
+    // right way round to be wrong, which is why it remains the fallback.
     private void AssessReach(in IcbmState state, double required)
     {
-        double available = state.Booster.DeltaVRemaining;
+        double available = state.StackDeltaV > 0.0 && double.IsFinite(state.StackDeltaV)
+                               ? state.StackDeltaV
+                               : state.Booster.DeltaVRemaining;
 
         if (!(available > 0.0))
         {
@@ -921,7 +964,21 @@ internal sealed class IcbmProgram
         _toGain = 0.0;
         if (_fellShort) Reach = IcbmReach.ShortOfPropellant;
 
-        bool ready = !_fellShort && state.Altitude >= Config.DeployAltitudeMetres;
+        // Late enough that the separation kick has little flight left to grow in, and the trim has
+        // had the whole coast to converge. The altitude stays as the floor under it: it is what
+        // stops a release inside the air, which the time alone would allow on a short shot.
+        double toArrival = CommittedArrivalFromNow;
+        bool closeEnough = Config.ReleaseBeforeArrivalSeconds <= 0.0
+                           || !double.IsFinite(toArrival)
+                           || toArrival <= Config.ReleaseBeforeArrivalSeconds;
+
+        // The altitude is a floor on the way *up* only. Applied on the descent it shuts the gate
+        // exactly when the release is meant to happen -- the vehicle drops back through it on the
+        // way to the target -- and the warheads ride the bus into the atmosphere still aboard.
+        bool climbing = Vec.Dot(state.VelocityCci, state.UpCci) > 0.0;
+        bool highEnough = !climbing || state.Altitude >= Config.DeployAltitudeMetres;
+
+        bool ready = !_fellShort && highEnough && closeEnough;
 
         // A burn that ended because the tanks did is not the same as one that ended because the
         // shot was complete, and the two are indistinguishable from every other number on the
@@ -929,7 +986,9 @@ internal sealed class IcbmProgram
         // trajectory known to fall short spreads them across whatever is under the short fall.
         string hold = _fellShort
             ? $"burn ended {shortBy:F0} m/s short of the solution"
-            : ready ? "coasting, warheads may be released" : "coasting to release altitude";
+            : ready ? "coasting, warheads may be released"
+            : closeEnough ? "coasting to release altitude"
+            : $"holding the warheads, {toArrival / 60.0:F0} min to arrival";
 
         // The line it was cut off on, not the airflow. The warheads leave along it, and a bus that
         // swings to prograde the moment the engines stop throws them off the solution it just spent
@@ -968,17 +1027,56 @@ internal sealed class IcbmProgram
         return horizontal.Equals(Vec.Zero) ? up : horizontal;
     }
 
+    // The throttle held down to whatever keeps the stack inside its acceleration limit. A light
+    // upper stage on a full-sized motor is the case: eighteen times its own weight in thrust is
+    // nothing unusual once the boosters are gone, and flying it wide open tears the vehicle apart.
+    // Reads the engine's own reported acceleration, so a stack that cannot throttle gets the
+    // number it would have had. Off at zero, which is the default.
+    private double ThrottleUnderAccelerationCap(double wanted, in IcbmState state)
+    {
+        double capGee = Config.MaxAccelerationGee;
+        if (capGee <= 0.0) return wanted;
+
+        double full = state.Booster.AccelerationNow;
+        if (full <= 0.0 || !double.IsFinite(full)) return wanted;
+
+        // Against standard gravity rather than the local field: it is a structural limit on the
+        // vehicle, and the number an operator types is the one written on the airframe.
+        double cap = capGee * 9.80665;
+        if (full <= cap) return wanted;
+
+        return Math.Clamp(Math.Min(wanted, cap / full), 0.0, 1.0);
+    }
+
     private IcbmCommand Fly(IcbmPhase phase, double3 direction, in IcbmState state, string hold)
     {
-        bool stage = Config.AutoStage && _stageCooldown <= 0.0
+        // A stage that has never produced thrust is not a spent one. On the pad the engines have
+        // not lit, so propellant reads unavailable and the booster cannot thrust -- which is the
+        // same reading a dry stage gives, and staging on it throws away a full stack before it has
+        // burned a gramme. So a stage has to have pushed before it can be given up on.
+        LastBooster = state.Booster;
+
+        if (state.PropellantAvailable && state.Booster.CanThrust) _thrustSeen = true;
+
+        bool stage = Config.AutoStage && _stageCooldown <= 0.0 && _thrustSeen
                   && (!state.PropellantAvailable || !state.Booster.CanThrust);
 
         // The dry timer deliberately keeps running across a stage request. Clearing it here means
         // a stack with nothing left to stage asks again every cooldown for ever, and a flight that
         // is over never ends.
-        if (stage) _stageCooldown = StageCooldownSeconds;
+        if (stage)
+        {
+            _stageCooldown = StageCooldownSeconds;
+
+            // Cleared with the request: the stack below is gone, and whatever is now lit has to
+            // prove itself before it can be staged away in turn. Without this a stack whose next
+            // stage takes a moment to come up is staged again on the very next cooldown.
+            _thrustSeen = false;
+        }
 
         if (phase != IcbmPhase.ClosedLoop) _throttle = 1.0;
+
+        _throttle = ThrottleUnderAccelerationCap(_throttle, state);
 
         return new IcbmCommand(phase, direction, _throttle, EngineOn: true, stage,
                                _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold,

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-152 types and 432 members across 7 assemblies.
+155 types and 438 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -602,6 +602,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `System.Collections.Generic.List`1<KSA.ModEntry> get_Mods()`
 
+### KSA.ModuleBase
+
+- `KSA.Part get_Parent()`
+
 ### KSA.ModuleList
 
 - `System.Span`1<!!0> Get<1>()`
@@ -680,6 +684,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Part get_Root()`
 - `KSA.PartTree DeepCopy()`
 - `KSA.SequenceList SequenceList`
+- `KSA.SequencePerformanceList PerformanceSequences`
 - `List<KSA.Control> Controls`
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `int get_Count()`
@@ -784,9 +789,19 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.DensityReference Density`
 - `KSA.DistanceReference Level`
 
+### KSA.Sequence
+
+- `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
+- `bool Activated`
+
 ### KSA.SequenceList
 
+- `System.ReadOnlySpan`1<KSA.Sequence> get_Sequences()`
 - `void ActivateNextSequence(KSA.Vehicle)`
+
+### KSA.SequencePerformanceList
+
+- `float get_TotalDeltaV()`
 
 ### KSA.SerializedId
 
