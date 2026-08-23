@@ -12,7 +12,7 @@ its number wherever its state ends up. What is still open:
 | [1](#1-null-the-separation-impulse---reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
 | [2](#2-every-round-lands-beyond-its-own-release-probe---decomposed-unflown) | the walk past the release probe: ~1.3 km, and the whole remaining story after 2e and 2f |
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
-| [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-unfixed) | one latched warp decision worth 0.5 km — measured, unfixed |
+| [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | one latched warp decision worth 0.5 km — fixed headlessly, **wants a flight** |
 | [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
 
 Everything else is flown, closed, or retired, and says so in its own heading.
@@ -1648,7 +1648,12 @@ flight. So a single run each way cannot resolve anything under about a kilometre
 numbers recorded above were taken before this was known. Where a claim is inside that band it now
 says so.
 
-## 7e. That 0.5 km is one latched warp decision, not frame pacing — measured, unfixed
+## 7e. That 0.5 km is one latched warp decision, not frame pacing — measured, fixed headlessly
+
+> **The Mk 21's preferred step is now 180 ms, under the ~188 ms the coast runs at, so the hold
+> engages on every frame and the 188 ms branch does not occur anywhere in the traced frame band.
+> Measured through the rig only — **this has not been flown**, and the mechanism below is what says
+> it should help rather than a shot that did. `CoastStepDeterminismTests` pins the engagement.
 
 **The coast's integration step is bimodal, and which mode a shot gets is decided by the length of a
 single frame.** Conditioned on it, the run-to-run scatter in the walk falls from a standard
