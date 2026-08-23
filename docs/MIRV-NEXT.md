@@ -876,20 +876,33 @@ while the frame it is differenced across got *shorter*. A pure `29.8 km/s x dt` 
 shrunk by a quarter. That it grew instead is the most informative number here and is not yet
 explained.
 
-**A second, smaller term appeared beside it.** The round now finishes **19.6 m below its own
+**The penetration is not a second small term — it is the whole regression.** Fitted across the
+night's twelve shots, `miss = 0.3135 - 0.02969 x depth_m` with **R^2 = 0.957**, and at zero
+penetration it predicts **0.313 km** against the 0.370 km the previous build actually flew with its
+depth at +0.1 m. The two agree inside the old night's own scatter, and nothing else in the shot
+correlates: frame time r = -0.15, cutoff residual r = +0.34, arrival angle identical at 7.1 deg.
+
+The slope is the part worth keeping. Geometry alone says a metre of depth is `cot 7.1 deg` = 8 m of
+ground; the measured slope is **29.7 m per metre**, near four times that, so the depth is not merely
+displacing the burst along its own arc -- a sphere that is wrong by more is also misplacing the
+crossing along the track. Pricing this term by the arrival angle alone underestimates it by 4x,
+which is the mistake that nearly left it unflown.
+
+**How it arises.** The round now finishes **19.6 m below its own
 surface** where it used to finish **0.1 m** off it, because KSA fixed the tiling-detail modifier's
 sampling and restored terrain detail that `Slug`'s once-per-frame ground sphere had been standing
 in for -- `IGroundTest` promises the sphere is the surface "over the few metres of ground track a
 falling round covers in one frame", and a Mk 21 covers about 120 m of it. At a 7.1 deg arrival
 19.6 m of penetration is ~157 m of ground, and it lands the round **long**, which is the opposite
 sign to the regression: fixing it makes the walk slightly worse before it makes anything better.
-`arm/ground-crossing` is built and **unflown**. It turned out to be two faults rather than one: the
+`arm/ground-crossing` is built and **flying**, and on that regression it should be worth x0.36 --
+0.86 km back to about 0.31 -- which 12 shots an arm resolves comfortably. It turned out to be two faults rather than one: the
 sphere misplaces the crossing, which bisecting against the real field fixes, and — sampled at the
 top of the frame, where it reads the ground *behind* the round — it also fails to offer the crossing
 at all when the ground rises, which no amount of refinement downstream can recover. A broad phase
 that can miss is the thing `Ksa/HullTest.cs` is careful never to be. Both ends of the frame's travel
-are now sampled and the higher surface kept. It is a correctness fix worth ~157 m rather than an
-answer to this item.
+are now sampled and the higher surface kept. It was first priced at ~157 m from the arrival angle and nearly left unflown
+on that basis; the regression above is why it is being flown instead.
 
 **Do not read the x2.43 as the mod getting worse.** Two of the three terms that make up a shot
 improved sharply and are permanent; one regressed and is item 2, which was already the thing to fix
