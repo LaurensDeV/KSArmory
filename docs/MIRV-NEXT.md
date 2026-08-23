@@ -17,6 +17,17 @@ its number wherever its state ends up. What is still open:
 
 Everything else is flown, closed, or retired, and says so in its own heading.
 
+> **The bus is 2,750 kg of structure, not 6,300.** Its mass was set from an Mk 21 at about 800 kg,
+> where Peacekeeper's throw weight puts one nearer 250 — so every flown number below was measured
+> on a vehicle 2.3 times heavier than the one that ships now. The mass ratio, the trim's authority
+> (thrust over mass) and the pointing band all move with it, and `BusTrim`'s thresholds and the RCS
+> nozzle sizing were both tuned against the old figure. **Re-baseline before comparing anything
+> here against a new shot.**
+>
+> It was corrected because it was wrong, and because 6,300 kg on the nose made a stack chatter
+> against the ground hard enough to be unflyable: measured at ±2,116 deg/s² of angular acceleration
+> while in contact, against nothing measurable at all afterwards.
+
 ## Where it stands
 
 Flown 20 August, with the trim in and tube re-pointing off. Six warheads at one aim point:

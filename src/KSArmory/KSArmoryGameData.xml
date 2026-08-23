@@ -507,7 +507,7 @@
     </Combustor>
     <DeLavalNozzle Id="Nozzle">
       <!--
-        An attitude thruster, sized as one: 0.4 m of exit is a main-engine bell on a 6,300 kg bus
+        An attitude thruster, sized as one: 0.4 m of exit is a main-engine bell on a 3-tonne bus
         and the drawn bell beside it is 0.11 m. 0.13 m is about 394 N.
 
         Flown, it is worth about 1.3 km and nothing else found this year comes close - five shots
@@ -586,9 +586,16 @@
     -->
     <Connector Id="_mirvConnectorBase" />
 
-    <!-- Six Mk 21-class RVs at about 800 kg each, on a bus of roughly 1.5 tonnes. -->
+    <!--
+      Six Mk 21-class RVs on a post-boost vehicle, structure only: the propellant is the tank
+      above rather than this.
+
+      Peacekeeper's throw weight is 3,950 kg for ten RVs and their bus, and its Stage IV runs
+      about 1,450 kg loaded. That puts an Mk 21 near 250 kg, so six on that bus is about 2,950 kg
+      all in: 2,750 here, and the tank carries the rest.
+    -->
     <SolidSphereMass>
-      <Mass Kg="6300" />
+      <Mass Kg="2750" />
       <Radius M="1.20" />
       <!--
         Seated in the plane of the thruster ring rather than the loaded centroid near X = 1.77.
