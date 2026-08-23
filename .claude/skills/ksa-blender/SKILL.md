@@ -385,10 +385,11 @@ Four parts — the Pantsir, the CIWS, the LAU-7 rail and the EO director — are
 built by `tools/model/pantsir.py` and its modules into one atlas sharing one palette material.
 **Keep it working; do not extend it.**
 
-The nuclear rack is no longer one of them — both its bodies are authored. It stopped sharing the
-generated beam once the B61-12's lugs were measured at 30 inches against that beam's 14. Worth
-knowing before reusing a generated body for a new store: the hook spacing is an interface, and
-nothing in the toolchain checks that a round's lugs line up with the rack it hangs from.
+The nuclear rack is no longer one of them — all three of its bodies are authored. It stopped
+sharing the generated beam once the B61-12's lugs were measured at 30 inches against that beam's
+14. Worth knowing before reusing a generated body for a new store: the hook spacing is an
+interface, and nothing in the toolchain checks that a round's lugs line up with the rack it hangs
+from.
 
 If you do have to touch it:
 
