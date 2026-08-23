@@ -592,18 +592,49 @@ on paper and nothing has spent it.
 
 The largest remaining term, and the one attempt at it made things worse.
 
-> **The sign has changed, and so has the size.** One shot flown 2026-08-24 — the first with the
-> warheads released once and the group scored over six — walks **-2,900 m (-2,896 down, -156
-> cross)**, which is *short* of the probe rather than beyond it. Everything else in that trace has
-> nothing to say: the release probe read **0.0 km** from the target, the round's own probe 20 m, the
-> round's surface and the prediction's agreed to **+0.0 m**, and `lag` was zero, so no frame was
-> clamped. What is left is a flight time of **372.44 s against the 373.03 s its own predictor gave
-> it** — 0.59 s early, which against the ground track at a 7.1° arrival is most of the 2,900 m.
+> **The sign has changed, and the term that explains it is the one no rig can see.** One shot flown
+> 2026-08-24 — the first with the warheads released once and the group scored over six — walks
+> **-2,900 m (-2,896 down, -156 cross)**, which is *short* of the probe rather than beyond it.
+> Everything else in that trace reads zero: the release probe **0.0 km** from the target, the round's
+> own probe 20 m, the round's surface and the prediction's agreeing to **+0.0 m**, and `lag` zero, so
+> no frame was clamped. What is left is a flight time of **372.44 s against the 373.03 s its own
+> predictor gave it** — 0.59 s early, which against the ground track at a 7.1° arrival is most of the
+> 2,900 m.
 >
-> Whether that survives thirty shots is what `~/shots/2026-08-24-coast` is for; `shot-report.py`
-> now carries it as the `early s` column beside `walk m`. The release moving from near the *start*
-> of the coast to seven minutes before arrival is the obvious candidate for the sign flip, and it is
-> not the only thing that moved on 2026-08-23.
+> **`ProbeGapTests` has the opposite sign at every frame it prices** — `+399 m (+0.054 s)` at 130 ms,
+> `+1,239 m (+0.170 s)` at 320 — so whatever this is, it is not the coast frame and not the two
+> flight models disagreeing. `ModelInputAgreementTests` prices the one term that is *identically zero
+> in every headless rig and never zero in the game*: the round is integrated in `Ecl` about a planet
+> KSA is pulling along its own orbit, and the prediction in `Cci` about a planet at rest. KSA's Earth
+> falls at **5.936 mm/s²**, and where that lands depends only on where the Sun is:
+>
+> | the Sun lying | the impact moves |
+> | --- | --- |
+> | radially outward | **-9,654 m downrange** |
+> | along the track | -239 m |
+> | across the track | +654 m |
+>
+> Those are for the 497 s coast. The drift is linear in the acceleration and so goes as `t²` — pinned
+> by `TheShiftIsLinearInTheBodysAccelerationSoItScalesAsTheSquareOfTheFlight` — so at this shot's
+> 373 s a fully radial Sun is **-5,435 m**. The flown -2,896 m is 53% of that, which is a Sun about
+> 60° off radial. **Nothing else has to be invoked**, and the sign, the size and the earliness all
+> come out of one term.
+>
+> It is a fault in the *round*, not in the prediction. A real warhead and a real planet fall toward
+> the Sun together and the effect cancels; this round feels its parent body's gravity and nothing
+> else, so relative to the ground it carries a spurious `-a_sun` for the whole coast. The prediction,
+> about a planet at rest, is the physically honest one.
+>
+> **Two things follow, in this order.** The measurement first — item 9's ranked entry 3 asked for
+> exactly this and it is still not built: log where the Sun is at release, resolved onto the
+> arrival's axes, which turns a 0-9.7 km unknown into a number on every shot. Then the fix, which is
+> to carry the parent body's own acceleration in the round's integration; `DeorbitShot.bodyAccelCci`
+> already exists to put that term back headlessly.
+>
+> **It is invisible to `~/shots/2026-08-24-coast`**, and that is a property worth knowing rather than
+> a problem: every shot in that batch resumes the same save at the same pick-up, so the Sun is in the
+> same place in all thirty and the term is a constant that cancels between the arms.
+
 
 `Slug` holds the body centre `IGroundTest` gives it for the frame, and differences it against a
 position moving through that frame — so on the face of it the planet's ~29.8 km/s of ecliptic travel
