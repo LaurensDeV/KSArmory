@@ -104,6 +104,7 @@ internal static class Diagnostics
             DumpRendering(battery);
             DumpVehicles(battery, policy);
             DumpRadar(battery);
+            DumpAttitudeControl(battery);
             Log.Debug("---- end dump ----");
         }
         catch (Exception e)
@@ -331,6 +332,121 @@ internal static class Diagnostics
             Log.Debug($"  {RoundLabel.For(round.Tube)}: age {round.Age:F1}s, speed {round.Speed:F0} m/s, lock={round.HasLock}");
         }
     }
+
+    // What KSA's attitude tracker has to work with on the craft being flown, and the arm that
+    // decides which nozzles it may work with at all.
+    //
+    // ThrusterController enrols a nozzle in a rotation axis on dot(thrust, normalize(axis x r))
+    // over 0.1, where r runs from the *vehicle's* centre of mass -- not the part's. So a ring
+    // sized to be a couple about its own part stops being one the moment that part is a stage on
+    // something bigger, and past a long enough arm the nozzles meant to steer fall under the
+    // threshold and are dropped in favour of whatever fires across it. tools/model/checkring.py
+    // cannot see this: it measures against the part's declared mass seat, which is the separated
+    // case. Nothing else reports the stacked one, which is why this is here.
+    private static void DumpAttitudeControl(IWeaponSystemView battery)
+    {
+        if (battery.Platform is not { } craft) return;
+        if (craft.FlightComputer is not { } computer) return;
+
+        double band = 0.5 * computer.AngleDeadband
+                      + Math.Max(computer.AngleTurnaround.Y, computer.AngleTurnaround.Z);
+
+        // Ground-relative speed, because that is what KSA builds the Up frame's second direction
+        // from -- and a frame built on a number this small is built on noise.
+        double3 hereEcl = KsaWorld.PositionEcl(craft);
+        double3 ground = KsaWorld.GroundVelocityAt(craft, hereEcl);
+        Log.Debug($"  ground-relative speed "
+                  + $"{Vec.Len(KsaWorld.VelocityEcl(craft) - ground):F3} m/s");
+
+        Log.Debug($"attitude: {computer.AttitudeMode}/{computer.AttitudeTrackTarget}, "
+                  + $"roll {computer.RollMode}, control part "
+                  + $"{(craft.ControlPart is null ? "NONE" : "held")}");
+        // The decisive pair: what the tracker thinks is wrong, and how fast it thinks the target is
+        // running away. A vehicle standing vertical with "up" selected should read nothing on both.
+        Log.Debug($"  error angles {Deg(computer.ErrorAngles.X):F2}/{Deg(computer.ErrorAngles.Y):F2}/"
+                  + $"{Deg(computer.ErrorAngles.Z):F2} deg, error rates "
+                  + $"{Deg(computer.ErrorRates.X):F3}/{Deg(computer.ErrorRates.Y):F3}/"
+                  + $"{Deg(computer.ErrorRates.Z):F3} deg/s");
+
+        Log.Debug($"  deadband {Deg(computer.AngleDeadband):F2} deg, turnaround "
+                  + $"{Deg(computer.AngleTurnaround.Y):F2}/{Deg(computer.AngleTurnaround.Z):F2} deg, "
+                  + $"rate bit {Deg(computer.RateBit.Y):F3}/{Deg(computer.RateBit.Z):F3} deg/s, "
+                  + $"pointing band {Deg(band):F2} deg");
+
+        double3 com = craft.CenterOfMassAsmb;
+
+        ReadOnlySpan<Part> parts = craft.Parts.Parts;
+
+        for (int p = 0; p < parts.Length; p++)
+        {
+            Part part = parts[p];
+            ReadOnlySpan<Part> subParts = part.SubParts;
+            double3 sum = Vec.Zero;
+            int nozzles = 0;
+
+            for (int i = 0; i < subParts.Length; i++)
+            {
+                if (!subParts[i].Id.Contains("Rcs", StringComparison.OrdinalIgnoreCase)) continue;
+                sum += subParts[i].PositionVehicleAsmb;
+                nozzles++;
+            }
+
+            if (nozzles == 0) continue;
+
+            double3 ring = sum / nozzles;
+            double3 arm = ring - com;
+            Log.Debug($"  ring on {part.Id}: {nozzles} nozzle(s), centre {Fmt(ring)}, "
+                      + $"vehicle CoM {Fmt(com)}, arm {Vec.Len(arm):F2} m");
+        }
+    }
+
+    // A wobble is a shape, not a magnitude, and the periodic dump is far too slow to see one. This
+    // samples the craft's own body rates every frame it is asked, so the trace says whether what is
+    // happening is one lurch, a decaying ring, or a sustained oscillation -- and at what rate,
+    // which is what separates a structural mode from a control loop chasing itself.
+    //
+    // Rate-limited by movement rather than by a clock: it prints only while something is actually
+    // turning, so a craft sitting still costs a comparison and writes nothing.
+    private static double _quietFor;
+
+    public static void SampleBodyRates(Vehicle craft, double dt)
+    {
+        if (Log.Threshold > Log.Level.Debug) return;
+
+        try
+        {
+            double3 rates = craft.BodyRates;
+            double spin = Vec.Len(rates) * 180.0 / Math.PI;
+
+            if (spin < 0.5)
+            {
+                _quietFor += dt;
+                return;
+            }
+
+            // One line saying it started, then the trace, so the onset is findable in the log.
+            if (_quietFor > 0.5)
+            {
+                Log.Debug($"---- {DisplayNameOf(craft)} started turning ----");
+            }
+
+            _quietFor = 0.0;
+
+            double3 accel = craft.AngularAccelerationBody;
+            Log.Debug($"rates {Deg(rates.X):+0.00;-0.00}/{Deg(rates.Y):+0.00;-0.00}/"
+                      + $"{Deg(rates.Z):+0.00;-0.00} deg/s  "
+                      + $"angular accel {Deg(accel.X):+0.0;-0.0}/{Deg(accel.Y):+0.0;-0.0}/"
+                      + $"{Deg(accel.Z):+0.0;-0.0} deg/s^2  contact={craft.Situation.HasAnyContact()}");
+        }
+        catch (Exception e)
+        {
+            Log.Error("body-rate probe failed", e);
+        }
+    }
+
+    private static string DisplayNameOf(Vehicle craft) => KsaWorld.DisplayName(craft);
+
+    private static double Deg(double radians) => radians * 180.0 / Math.PI;
 
     private static string Fmt(double3 v) => $"({v.X:E3}, {v.Y:E3}, {v.Z:E3})";
 }

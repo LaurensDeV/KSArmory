@@ -486,6 +486,9 @@ public sealed class KSArmoryMod
         // them. Cheap, and it only reads state.
         foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SyncRoundBodies();
 
+        // Per frame, because a wobble is a shape and the periodic dump cannot see one.
+        if (KsaWorld.ControlledVehicle is { } flown) Diagnostics.SampleBodyRates(flown, dtPlayer);
+
         // After the rounds have been stepped, so a motor is heard where its round now is
         // rather than where it was at the start of the frame.
         foreach (WeaponSystems.Entry e in _roster.All)
