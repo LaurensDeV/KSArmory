@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 7 elements, 111 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 113 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -102,8 +102,8 @@ to build; widening it to take a profile type would put that back.
 | `DisplayName` | text, required | **required** |
 | `Munition` | name, required | **required** |
 | `Sensor` | name, required | **required** |
-| `TubeArmamentLabel` | text | *none* |
-| `GunArmamentLabel` | text | *none* |
+| `TubeArmamentLabel` | text | `Missiles` |
+| `GunArmamentLabel` | text | `Cannon` |
 | `TurretMarker` | text | *none* |
 | `PodsMarker` | text | *none* |
 | `RadarMarker` | text | *none* |
@@ -181,3 +181,10 @@ to build; widening it to take a profile type would put that back.
 | --- | --- | --- |
 | `Seconds` | number | **required** |
 | `Accel` | number | `0` |
+
+### `<Provides>` - child of `<Launcher>`
+
+| Attribute | Reads | Default |
+| --- | --- | --- |
+| `Role` | one of `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun` | `Sensor` |
+| `DisplayName` | text, required | **required** |

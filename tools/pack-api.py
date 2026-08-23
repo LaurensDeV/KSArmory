@@ -41,9 +41,10 @@ ELEMENTS = [
 
 # Children, which are read by their own helper rather than by a ReadX.
 CHILDREN = [
-    ("Tube", "Tubes", "Launcher"),
-    ("Muzzle", "Muzzles", "Launcher"),
-    ("Stage", "Stages", "Munition"),
+    ("Tube", "public Tube[] Tubes()", "return [", "Launcher"),
+    ("Muzzle", "public double3[] Muzzles()", "return [", "Launcher"),
+    ("Stage", "public BoostStage[] Stages()", "return [", "Munition"),
+    ("Provides", "public List<BuiltInComponent> Provides()", "return rows;", "Launcher"),
 ]
 
 # What each reader call means to somebody writing a file.
@@ -63,6 +64,9 @@ KINDS = {
 CALL = re.compile(
     r'\b[a-z]\.(Required|Text|Number|Count|Flag|Angle|Vector|Choice|Reference|OptionalReference)'
     r'\("([A-Za-z0-9]+)"(?:,\s*([^,)]+))?')
+
+FALLBACK = re.compile(
+    r'\b[a-z]\.(?:Text|Number|Count|Flag|Angle|Vector)\("([A-Za-z0-9]+)"\)\s*\?\?\s*("[^"]*"|[\w.]+)')
 
 
 def fail(message):
@@ -90,6 +94,7 @@ def attributes(text):
     the fallback is not a default -- it is what the value is while the element is being refused.
     """
     demanded = set(re.findall(r'Attribute\("(\w+)"\) is null', text))
+    fallbacks = {name: value.strip('"') for name, value in FALLBACK.findall(text)}
     seen, rows = set(), []
 
     for kind, name, default in CALL.findall(text):
@@ -98,7 +103,7 @@ def attributes(text):
 
         seen.add(name)
         required = kind in ("Required", "Reference") or name in demanded
-        rows.append((name, kind, (default or "").strip(), required))
+        rows.append((name, kind, (default or "").strip() or fallbacks.get(name, ""), required))
 
     return rows
 
@@ -134,8 +139,13 @@ def readable(kind, default, required):
     if kind == "Choice":
         return f"`{default.split('.')[-1]}`"
 
-    if kind in ("Text", "OptionalReference") or default in ("", "own", "ownRounds", "ownSets", "known"):
+    # Sentinels first: these name a C# fallback meaning "whatever this pack registered", which is
+    # not a value an author can type and so is no default to them.
+    if default in ("", "own", "ownRounds", "ownSets", "known"):
         return "*none*"
+
+    if kind in ("Text", "OptionalReference"):
+        return f"`{default}`"
 
     if default == "default":
         return "`0, 0, 0`"
@@ -207,8 +217,8 @@ def render(seen=None):
     for element, method, _ in ELEMENTS:
         element_rows[element] = attributes(body(reader, f"private static void {method}", "if (!r.Sound())"))
 
-    for element, method, parent in CHILDREN:
-        element_rows[element] = attributes(body(reader, f"public {'Tube[]' if method == 'Tubes' else 'double3[]' if method == 'Muzzles' else 'BoostStage[]'} {method}()", "return ["))
+    for element, signature, closer, parent in CHILDREN:
+        element_rows[element] = attributes(body(reader, signature, closer))
 
     total = sum(len(rows) for rows in element_rows.values())
     entry = []
@@ -236,7 +246,7 @@ def render(seen=None):
             out.append(f"| `{name}` | {reads(kind, default)} | {readable(kind, default, required)} |")
         out.append("")
 
-    for element, _, parent in CHILDREN:
+    for element, _, _, parent in CHILDREN:
         out += [f"### `<{element}>` - child of `<{parent}>`", "",
                 "| Attribute | Reads | Default |", "| --- | --- | --- |"]
         for name, kind, default, required in element_rows[element]:
