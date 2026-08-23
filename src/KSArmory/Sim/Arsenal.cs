@@ -373,10 +373,21 @@ public static class Arsenal
         // roughly 138 ms rather than falling to nothing as the frame shrinks. Measured at three
         // frames: +1,806 m at 194 ms, -1,400 at 96, -3,493 at 24.
         //
-        // Warp is quantised to powers of two, so 138 ms is not reachable; this asks for it and gets
-        // the 96 ms below it, which is the nearer side. Flown five against five interleaved:
-        // median 1.66 -> 1.06 km, ratio 0.65 with a 97% interval of 0.55-0.90.
-        PreferredStepSeconds = 0.225f,
+        // Under the coast's own step, which is what makes it reachable. WarpPolicy acts only once
+        // the step *exceeds* this and then lands the world on Margin * this, so a value above the
+        // ~188 ms an 8x coast runs at holds nothing: at 225 ms the coast stayed at 188 ms on five
+        // of seven frame draws, and the 96 ms below arrived only when a stray frame tripped it.
+        // 188 ms is the configuration the 96 ms was flown against and beat. At 180 ms the 188 ms
+        // branch does not occur anywhere in the 21.0-33.3 ms frame band and the coast runs 76-110,
+        // a mean of 98. docs/MIRV-NEXT.md item 7e priced the lottery across 38 flown shots.
+        //
+        // Why not nearer the crossing below: the margin means the world lands at 0.6 of what is
+        // named, so no reachable value holds the coast at 138 ms -- asking for it is asking for a
+        // step the coast never exceeds, which holds nothing.
+        //
+        // The ~96 ms is flown, five against five interleaved: median 1.66 -> 1.06 km, ratio 0.65
+        // with a 97% interval of 0.55-0.90. What is new here is getting it every shot.
+        PreferredStepSeconds = 0.180f,
         HitsTerrain = true,
     };
     /// <summary>

@@ -23,7 +23,7 @@ namespace KSArmory.Tests;
 /// </summary>
 public class WarpLatchScatterTests(ITestOutputHelper Out)
 {
-    private static MunitionProfile Warhead => DeorbitShot.Warhead;
+    private static MunitionProfile Warhead => LatchProneWarhead.Profile;
 
     /// <summary>
     /// The wall-clock frame at which the world is slowed, at the speed the scenario asks for.
@@ -189,10 +189,10 @@ public class WarpLatchScatterTests(ITestOutputHelper Out)
         (double3 probe, double3 along) = ProbeAndTrack(from, v);
 
         DeorbitShot.WarpedFlight under = DeorbitShot.FlyTheRoundUnderTheWarpPolicy(
-            from, v, DeorbitShot.ScenarioWarp, OneLongFrame(0.0, 0.02794));
+            from, v, DeorbitShot.ScenarioWarp, OneLongFrame(0.0, 0.02794), warhead: Warhead);
 
         DeorbitShot.WarpedFlight over = DeorbitShot.FlyTheRoundUnderTheWarpPolicy(
-            from, v, DeorbitShot.ScenarioWarp, OneLongFrame(0.0, 0.02818));
+            from, v, DeorbitShot.ScenarioWarp, OneLongFrame(0.0, 0.02818), warhead: Warhead);
 
         Out.WriteLine($"one frame of 27.94 ms: never held, coast {under.MeanStep * 1000:F0} ms, "
                       + $"lands {Downrange(probe, under.GroundFixed, along):F0} m downrange of its probe");
@@ -231,7 +231,7 @@ public class WarpLatchScatterTests(ITestOutputHelper Out)
         foreach (double at in new[] { 0.0, 30.0, 100.0, 200.0, 300.0, 1e9 })
         {
             DeorbitShot.WarpedFlight f = DeorbitShot.FlyTheRoundUnderTheWarpPolicy(
-                from, v, DeorbitShot.ScenarioWarp, OneLongFrame(at, 0.0333));
+                from, v, DeorbitShot.ScenarioWarp, OneLongFrame(at, 0.0333), warhead: Warhead);
 
             double walk = Downrange(probe, f.GroundFixed, along);
             if (double.IsNaN(first)) first = walk;
@@ -269,7 +269,7 @@ public class WarpLatchScatterTests(ITestOutputHelper Out)
             .. new[] { 4.0, 5.0, 6.0, 7.0, 8.0 }.Select(warp =>
             {
                 DeorbitShot.WarpedFlight f = DeorbitShot.FlyTheRoundUnderTheWarpPolicy(
-                    from, v, warp, _ => SteadyFrame);
+                    from, v, warp, _ => SteadyFrame, warhead: Warhead);
 
                 return (f.MeanStep * 1000.0, Downrange(probe, f.GroundFixed, along));
             }),

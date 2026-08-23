@@ -396,13 +396,14 @@ internal static class DeorbitShot
     public static WarpedFlight FlyTheRoundUnderTheWarpPolicy(double3 fromCci, double3 velocityCci,
                                                              double requestedWarp,
                                                              Func<double, double> wallFrameSeconds,
-                                                             IGroundTest? ground = null)
+                                                             IGroundTest? ground = null,
+                                                             MunitionProfile? warhead = null)
     {
         BallisticBody body = Earth;
 
         Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
         {
-            Munition = Warhead,
+            Munition = warhead ?? Warhead,
             Ground = ground ?? new Ball(),
             AirDensityAt = (pos, _) => DensityAt(pos),
         };
