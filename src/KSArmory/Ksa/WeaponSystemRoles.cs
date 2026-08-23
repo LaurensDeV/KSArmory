@@ -238,6 +238,15 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     bool CanSeparate { get; }
 
     /// <summary>
+    /// Whether the next stage the player has queued is the one that lets this launcher off.
+    ///
+    /// <para>Distinct from <see cref="CanSeparate"/>, which says only that a joint exists. A
+    /// computer that will not stage past its own launcher has to ask this one: a stack whose
+    /// launcher can separate <em>eventually</em> still needs every stage before that.</para>
+    /// </summary>
+    bool NextStageSeparatesIt { get; }
+
+    /// <summary>
     /// Let the launcher off that stack. False when there is no joint to let go of.
     ///
     /// <para>The split lands on the following frame, and it cannot be undone.</para>

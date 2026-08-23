@@ -1625,6 +1625,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <inheritdoc cref="IManualFire.CanSeparate"/>
     public bool CanSeparate => LauncherSeparation.CanSeparate(Launcher);
 
+    /// <inheritdoc cref="IManualFire.NextStageSeparatesIt"/>
+    public bool NextStageSeparatesIt => LauncherSeparation.NextStageSeparates(Platform, Launcher);
+
     /// <inheritdoc cref="IManualFire.Separate"/>
     public bool Separate() => LauncherSeparation.Separate(Platform, Launcher);
 

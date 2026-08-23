@@ -18,6 +18,51 @@ namespace KSArmory;
 internal static class LauncherSeparation
 {
     /// <summary>
+    /// Whether the next stage the player has queued is the one that lets this launcher off.
+    ///
+    /// <para>KSA fires the first sequence that has not been activated and has parts in it, so that
+    /// is the one to ask about. Anything earlier is somebody else's staging — an interstage, a
+    /// spent booster — and refusing to take it strands a multi-stage stack with a dead first stage
+    /// and no way to light the second.</para>
+    ///
+    /// <para>False when the launcher has no decoupler, when the craft has nothing left to stage, or
+    /// when the list cannot be read: the caller's question is "would staging drop my rounds", and
+    /// the safe answer to not knowing is the one that lets the rocket fly.</para>
+    /// </summary>
+    public static bool NextStageSeparates(Vehicle? craft, Part? launcher)
+    {
+        if (craft is null || !TryFind(launcher, out Decoupler decoupler)) return false;
+
+        try
+        {
+            ReadOnlySpan<Sequence> sequences = craft.Parts.SequenceList.Sequences;
+
+            for (int i = 0; i < sequences.Length; i++)
+            {
+                Sequence sequence = sequences[i];
+                if (sequence.Activated || sequence.Parts.IsEmpty) continue;
+
+                // The first unactivated sequence with parts is the next to go, and the only one
+                // this question is about.
+                ReadOnlySpan<Part> parts = sequence.Parts;
+
+                for (int p = 0; p < parts.Length; p++)
+                {
+                    if (ReferenceEquals(parts[p], decoupler.Parent)) return true;
+                }
+
+                return false;
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error("could not read the staging list", e);
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The decoupler on the joint that holds this launcher on, if there is one.
     ///
     /// <para>Deliberately only that joint. Walking further up the tree finds the interstage, and

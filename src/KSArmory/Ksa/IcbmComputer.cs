@@ -49,6 +49,10 @@ internal sealed class IcbmComputer
     private bool _awaitingSplit;
     private bool _didSplit;
     private bool _mayTrim = true;
+
+    // Attitude-control propellant spent on trimming so far, across every run this flight.
+    private double _trimSpent;
+    private bool _trimBanked;
     private double _owedAtSplit = double.NaN;
     private Vehicle? _separatedFrom;
     private readonly List<Vehicle> _wasBeforeSplit = [];
@@ -67,6 +71,7 @@ internal sealed class IcbmComputer
     private bool _warpIsOurs;
     private IcbmPhase _reported = IcbmPhase.Idle;
     private double _sinceProbe;
+    private double _sinceThrottleProbe;
     private double3 _lastCommanded;
 
     private readonly WarheadTrace _trace = new();
@@ -261,6 +266,8 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
+        _trimSpent = 0.0;
+        _trimBanked = false;
         _owedAtSplit = double.NaN;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
@@ -313,6 +320,8 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
+        _trimSpent = 0.0;
+        _trimBanked = false;
         _owedAtSplit = double.NaN;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
@@ -485,6 +494,19 @@ internal sealed class IcbmComputer
         if (Command.EngineOn)
         {
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Throttle);
+
+            _sinceThrottleProbe += playerStep;
+            if (Log.Threshold <= Log.Level.Debug && _sinceThrottleProbe >= ProbeIntervalSeconds)
+            {
+                _sinceThrottleProbe = 0.0;
+                BoosterPerformance booster = Program.LastBooster;
+
+                Log.Debug($"throttle: asked {Command.Throttle:F3}, achieved {_throttleAchieved:F3}"
+                          + $" | cap {Config.MaxAccelerationGee:F1} g, full-throttle "
+                          + $"{booster.AccelerationNow / 9.80665:F2} g"
+                          + $" (thrust {booster.ThrustNewtons / 1000.0:F0} kN, "
+                          + $"mass {booster.TotalMassKg / 1000.0:F1} t)");
+            }
             VehicleCommand.SetEngine(Craft, running: true);
 
             // Never past the launcher. A stage runs dry with the engines still commanded on and
@@ -645,11 +667,12 @@ internal sealed class IcbmComputer
         }
     }
 
-    // Whether the next sequence would fire the joint the launcher hangs on. The staging list is
-    // the player's and the mod does not read it; asking whether the launcher could come off is
-    // enough, because a launcher that cannot separate cannot be staged away either.
+    // Whether the next sequence would fire the joint the launcher hangs on -- that one, not any
+    // later. A launcher that can separate at all is not a reason to refuse every stage: a
+    // multi-stage stack carrying a bus has a decoupler under it from the moment it is built, and
+    // treating that as "the next stage drops my rounds" strands it with a dead first stage.
     private static bool StagingWouldDropTheLauncher(IManualFire? weapon)
-        => weapon is { CanSeparate: true };
+        => weapon is { NextStageSeparatesIt: true };
 
     // Once, and only where the part tree offers a joint to let go of. Nothing shipped declares one,
     // so this does nothing until a craft is built with a decoupler under its launcher.
@@ -820,7 +843,29 @@ internal sealed class IcbmComputer
             return;
         }
 
-        _mayTrim = clearance.IsClear;
+        // Bounded across the flight, not just per run. Each release re-arms the trim, and with the
+        // warheads held until the arrival is close there is a long coast for it to keep finding
+        // small corrections in -- which spends the tanks before the corrections that matter.
+        // Banked when a run finishes, because Begin re-arms and the run's own counter starts over.
+        if (_trim.Done && !_trimBanked)
+        {
+            _trimSpent += _trim.SpentMetresPerSecond;
+            _trimBanked = true;
+        }
+        else if (!_trim.Done)
+        {
+            _trimBanked = false;
+        }
+
+        double budget = Config.TrimBudgetMetresPerSecond;
+        bool withinBudget = budget < 0.0 || _trimSpent + _trim.SpentMetresPerSecond < budget;
+
+        if (!withinBudget && _mayTrim)
+        {
+            Log.Info($"trim: budget of {budget:F0} m/s spent; the warheads go on the aim as it is");
+        }
+
+        _mayTrim = clearance.IsClear && withinBudget;
 
         _trim.Begin();
 
@@ -1228,7 +1273,27 @@ internal sealed class IcbmComputer
 
         return new IcbmState(Body, positionCci, velocityCci, aimCci, hasAim, booster, density,
                              Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep,
-                             _aim.IsSteady);
+                             _aim.IsSteady, StackDeltaV());
+    }
+
+    // What the engine says the whole stack has left, across the stages it has not yet flown.
+    //
+    // The only figure that accounts for staging: it is what KSA's own staging display reads, and it
+    // is why a multi-stage rocket no longer reports itself unreachable while sitting on the pad
+    // with the range to spare. NaN when it cannot be read, which puts the single-stage estimate
+    // back rather than claiming a stack has nothing.
+    private double StackDeltaV()
+    {
+        try
+        {
+            float total = Craft.Parts.PerformanceSequences.TotalDeltaV;
+            return total > 0.0f && float.IsFinite(total) ? total : double.NaN;
+        }
+        catch (Exception e)
+        {
+            Log.Error("could not read the stack's delta-v", e);
+            return double.NaN;
+        }
     }
 
     // Where the ground actually is under a point on the arc. Without this the prediction flies
