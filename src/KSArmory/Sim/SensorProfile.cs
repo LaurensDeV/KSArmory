@@ -1,5 +1,29 @@
 namespace KSArmory;
 
+/// <summary>
+/// What picture, if any, a set puts in front of the operator.
+///
+/// <para>Not every sensor is one somebody reads. A seeker head is aboard the round and cues the
+/// shooter with a growl and a reticle; a designation set has no array to sweep. Presenting either
+/// as a scope of tracks shows a search picture for something that never searched.</para>
+///
+/// <para>The exception is real and is why this is not a flag: an anti-radiation seeker's whole
+/// output <em>is</em> a list of who is radiating and roughly where, and displaying it to the crew
+/// is what a HARM does. That is a different picture from a search scope, not the same one under
+/// another name.</para>
+/// </summary>
+public enum ScopePresentation
+{
+    /// <summary>Nothing to show. A seeker head, a bombsight, a designation set.</summary>
+    None,
+
+    /// <summary>A search picture — what the set is sweeping and what it holds.</summary>
+    Search,
+
+    /// <summary>Who is radiating, and roughly where. A passive anti-radiation seeker's own list.</summary>
+    Emitters,
+}
+
 /// <summary>Where a sensor's search cone points.</summary>
 public enum BoresightMode
 {
@@ -83,6 +107,16 @@ public sealed class SensorProfile
     /// Where the cone points. Defaults to local "up", which is what a ground site wants.
     /// </summary>
     public BoresightMode BoresightSource = BoresightMode.LocalUp;
+
+    /// <summary>
+    /// What this set puts in front of the operator, if anything. <b>Off by default</b>: a profile
+    /// that says nothing about it gets no scope, which is right for every seeker head and every
+    /// sight in the arsenal and wrong only for a set that genuinely searches.
+    ///
+    /// <para>EXEMPT: what kind of instrument this is, not something an operator tunes. Editing it
+    /// on a live system would claim a set has an array it does not have.</para>
+    /// </summary>
+    public ScopePresentation Scope = ScopePresentation.None;
 
     /// <summary>
     /// A track counts as a threat if its closest point of approach to the battery falls inside

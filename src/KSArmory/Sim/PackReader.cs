@@ -197,6 +197,7 @@ public static class PackReader
             Range = r.Number("Range", 36000f),
             ConeDeg = r.Number("ConeDeg", 90f),
             BoresightSource = r.Choice("BoresightSource", BoresightMode.LocalUp),
+            Scope = r.Choice("Scope", ScopePresentation.None),
             ThreatRadius = r.Number("ThreatRadius", 8000f),
             ThreatHorizonSeconds = r.Number("ThreatHorizonSeconds", 40f),
             LockSeconds = r.Number("LockSeconds", 1.5f),

@@ -165,6 +165,7 @@ each `<Stage>` follows it in order:
 | `LockSeconds` | `1.5` | dwell before a track matures |
 | `MinTargetSpeed` | `15` | below which a contact is ignored |
 | `Emits` | `false` | whether it transmits — the only thing anti-radiation rounds home on |
+| `Scope` | `None` | what picture it puts in front of the operator: `None`, `Search`, or `Emitters`. `None` shows no scope tab at all, which is right for a seeker head or a designation set; `Emitters` is an anti-radiation seeker's list of who is radiating |
 | `ReferenceCrossSectionM2` | `0` (off) | contact size scaling. Range goes as the **fourth** root, so a target a hundredth the size is seen at a third the range |
 | `NotchSpeed` | `0` (off) | Doppler notch. Rejects clutter **and** loses a target crossing exactly abeam |
 | `ClutterFloorMetres` | `0` (off) | height below which contacts are lost in ground return |

@@ -482,7 +482,25 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 {
                     // "Radar" rather than "Tracks": the tab carries the lock and the scope state
                     // as well as the list, which is the whole of what the set is doing.
-                    if (ImGui.BeginTabItem("Radar")) { DrawScope(); DrawTrackList(); ImGui.EndTabItem(); }
+                    //
+                    // Only for a set that presents a picture. A seeker head cues the shooter with a
+                    // growl and a reticle and a designation set has no array at all, so a scope of
+                    // tracks for either shows a search that never happened. An anti-radiation
+                    // seeker is the exception and gets its own name, because a list of who is
+                    // radiating is not a search picture.
+                    string? scope = _sensor.Scope switch
+                    {
+                        ScopePresentation.Search => "Radar",
+                        ScopePresentation.Emitters => "Emitters",
+                        _ => null,
+                    };
+
+                    if (scope is not null && ImGui.BeginTabItem(scope))
+                    {
+                        DrawScope();
+                        DrawTrackList();
+                        ImGui.EndTabItem();
+                    }
                     if (ImGui.BeginTabItem("Tuning")) { DrawTuning(); ImGui.EndTabItem(); }
                     if (ImGui.BeginTabItem("Teams and IFF")) { DrawIff(); ImGui.EndTabItem(); }
                 }

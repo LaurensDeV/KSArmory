@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 7 elements, 110 attributes, 15 entry-point lines.
+**Definition schema 1.** 7 elements, 111 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -80,6 +80,7 @@ to build; widening it to take a profile type would put that back.
 | `Range` | number | `36000` |
 | `ConeDeg` | number | `90` |
 | `BoresightSource` | one of `LocalUp`, `PartForward`, `TurretAxis`, `MountNormal` | `LocalUp` |
+| `Scope` | one of `None`, `Search`, `Emitters` | `None` |
 | `ThreatRadius` | number | `8000` |
 | `ThreatHorizonSeconds` | number | `40` |
 | `LockSeconds` | number | `1.5` |

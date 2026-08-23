@@ -464,6 +464,7 @@ public static class Arsenal
         Range = 60000f,
         ConeDeg = 70f,
         BoresightSource = BoresightMode.PartForward,
+        Scope = ScopePresentation.Emitters,
 
         ThreatRadius = 50000f,
         ThreatHorizonSeconds = 90f,
@@ -488,6 +489,7 @@ public static class Arsenal
     {
         Name = "VPS2",
         DisplayName = "VPS-2 search and track",
+        Scope = ScopePresentation.Search,
 
         Range = 6000f,
         ConeDeg = 85f,
