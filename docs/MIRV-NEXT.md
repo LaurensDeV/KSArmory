@@ -876,6 +876,36 @@ while the frame it is differenced across got *shorter*. A pure `29.8 km/s x dt` 
 shrunk by a quarter. That it grew instead is the most informative number here and is not yet
 explained.
 
+## 2f. The penetration was masking the walk, not causing it — flown, and it loses
+
+`arm/ground-crossing` flown 23 August against a re-flown baseline, interleaved, same save and
+pick-up. **It does exactly what it was built to do and loses badly.**
+
+| arm | penetration | miss | |
+| --- | --- | --- | --- |
+| `base` | -12 to -27 m | **0.80 km** | n=12 |
+| `ground` | **+-0.2 m** | **1.17 km** | n=6, dropped at the gate |
+
+Ratio **x1.46**, interval 1.21-1.76, p 0.000, `LOSS`. The walk hardly moved (1267 -> 1322 m) while
+the miss grew by almost exactly the penetration's own worth in ground.
+
+**So the depth was cancelling the walk, not causing it.** A round burying ~16 m lands ~450 m long,
+against a walk that is ~1.3 km short; removing the burial removes the cancellation and the full
+walk shows. The true size of item 2e's regression is therefore **x3.2, not x2.3** — 0.37 km on the
+old build against 1.17 once the round is made to stop honestly.
+
+**The reasoning that got this wrong is worth more than the result.** Across 2e's twelve shots the
+miss regressed on penetration depth at **R^2 = 0.957**, extrapolating to 0.313 km at zero depth
+against the 0.370 km the old build flew — a fit good enough to look like a mechanism. It was
+common cause with the arrow reversed: a round landing further short arrives on different ground,
+where a frame-held sphere is more wrong, so it penetrates deeper. **Depth is a symptom of the miss.**
+An R^2 of 0.96 across twelve shots, agreeing with an independent build's median to 60 m, was not
+enough to establish direction, and nothing short of the flight would have been.
+
+**Keep the arm.** A round must stop where its predictor says the ground is, and the two stopping on
+one rule is the property item -1a exists to protect. It cannot land while it costs 0.37 km of
+accidental cancellation, so it stays unmerged until the walk is answered.
+
 **The penetration is not a second small term — it is the whole regression.** Fitted across the
 night's twelve shots, `miss = 0.3135 - 0.02969 x depth_m` with **R^2 = 0.957**, and at zero
 penetration it predicts **0.313 km** against the 0.370 km the previous build actually flew with its
@@ -895,8 +925,8 @@ in for -- `IGroundTest` promises the sphere is the surface "over the few metres 
 falling round covers in one frame", and a Mk 21 covers about 120 m of it. At a 7.1 deg arrival
 19.6 m of penetration is ~157 m of ground, and it lands the round **long**, which is the opposite
 sign to the regression: fixing it makes the walk slightly worse before it makes anything better.
-`arm/ground-crossing` is built and **flying**, and on that regression it should be worth x0.36 --
-0.86 km back to about 0.31 -- which 12 shots an arm resolves comfortably. It turned out to be two faults rather than one: the
+`arm/ground-crossing` was built and flown on that reasoning. **It lost** -- see item 2f, which is
+also where the regression above is taken apart. It turned out to be two faults rather than one: the
 sphere misplaces the crossing, which bisecting against the real field fixes, and — sampled at the
 top of the frame, where it reads the ground *behind* the round — it also fails to offer the crossing
 at all when the ground rises, which no amount of refinement downstream can recover. A broad phase
