@@ -639,9 +639,24 @@ The largest remaining term, and the one attempt at it made things worse.
 
 ```bash
 KSARMORY_SCENARIO_SAVE="AUTO NUKE DECOUPLER" ./tools/shot-batch.sh \
-    --aim 26.5S,64.0W --arms base=dev,fall=arm/bodyfall --blocks 6
-./tools/shot-report.py ~/shots/<night>
+    --aim 26.5S,64.0W --arms base=dev,fall=arm/bodyfall --blocks 10 \
+    --out ~/shots/2026-08-24-fall
+./tools/shot-report.py ~/shots/2026-08-24-fall
 ```
+
+**Flying since 2026-08-24 02:44.** Ten an arm rather than six because the night had the time.
+
+**And the term is measured now, not inferred.** The release log reads, on this save:
+
+```
+the body falls at 6.096 mm/s2 toward its primary, lying (+0.51 up, -0.76 downrange,
++0.40 across) of the arrival -- 431 m of drift over 376 s, of which 222 m is up
+```
+
+Resolving `ModelInputAgreementTests`' per-axis sensitivities on that direction, scaled to a 376 s
+coast, gives **-2,565 m**; the flown walk on the same save is **-2,896 to -2,936 m**. Two paths that
+share no code agreeing to about 15% is what turns this from an arithmetic argument into a
+measurement — and it is the diagnostic that produced it, not the fix.
 
 **Six an arm, not sixteen.** If this is what the walk is, it is not a shift but the near-total
 removal of the miss — a factor under 0.25, which `docs/SHOT-PROTOCOL.md` settles at 99% on six.

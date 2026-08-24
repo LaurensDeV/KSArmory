@@ -745,6 +745,33 @@ ilspycmd -t KSA.Camera Import/KSA.dll
 - SpaceDock (KSA mods) — <https://spacedock.info/ksa>
 - Forums — <https://forums.ahwoo.com/>
 
+## A body's primary is `IParentBody`, and testing for `Celestial` compiles and answers nothing
+
+`Celestial.Parent` is declared as **`KSA.IParentBody`**, not as `Celestial`. So this:
+
+```csharp
+if (body.Parent is not Celestial primary) return Vec.Zero;   // wrong, and silent
+```
+
+compiles, reads like a null check, and returns zero for every body in the game. The interface is
+where the useful members are anyway — `Mu`, `Mass`, `SphereOfInfluence`, `BodyTemplate`, and it
+implements `IPosition`, so the position comes off it too:
+
+```csharp
+if (body.Parent is not { } primary) return Vec.Zero;         // IParentBody
+double mu = primary.Mu;
+double3 toPrimary = primary.GetPositionEcl() - body.GetPositionEcl();
+```
+
+**The failure mode is silence, and no gate in this repository can catch it.** The test project
+references no KSA assembly by design, so nothing under `Ksa/` is reachable by a unit test; the build
+is clean, `check-boundary.sh` is happy, and the API surface does not move because `Celestial` is
+already bound. It cost a batch of shots comparing two identical builds, and the only tell was a
+diagnostic log line that did not appear.
+
+The general form is worth carrying: **a KSA property's declared type is usually the interface**, and
+a pattern-match against the concrete class is a runtime `false` wearing a compile-time tick.
+
 ## A BCL property can be missing at runtime, and the assembly is not the reason
 
 `HttpResponseMessage.StatusCode` throws `MissingMethodException` in game:
