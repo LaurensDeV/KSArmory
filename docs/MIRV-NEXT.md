@@ -635,6 +635,29 @@ The largest remaining term, and the one attempt at it made things worse.
 > a problem: every shot in that batch resumes the same save at the same pick-up, so the Sun is in the
 > same place in all thirty and the term is a constant that cancels between the arms.
 
+### The night that settles it — ready to start
+
+```bash
+KSARMORY_SCENARIO_SAVE="AUTO NUKE DECOUPLER" ./tools/shot-batch.sh \
+    --aim 26.5S,64.0W --arms base=dev,fall=arm/bodyfall --blocks 6
+./tools/shot-report.py ~/shots/<night>
+```
+
+**Six an arm, not sixteen.** If this is what the walk is, it is not a shift but the near-total
+removal of the miss — a factor under 0.25, which `docs/SHOT-PROTOCOL.md` settles at 99% on six.
+Twelve shots is about two hours. If it comes back UNRESOLVED at six, the term is not what the
+arithmetic says it is and the interval will say so.
+
+`arm/bodyfall` is one line: `WeaponSystem.GravityAtRound` adds `KsaWorld.BodyFallEcl`, so the round
+accelerates with the ground it is measured against. It carries **no new test**, and cannot: the
+headless rig's planet does not accelerate, so the change is a no-op there by construction — which is
+the same reason the fault was invisible for as long as it was.
+
+**What the night cannot say** is how large the term is in general. The Sun sits wherever that one
+save puts it, so the shot samples a single point of a `0` to `9.7 km` band. The release log added in
+`30b5f4d` prints where the primary lies on the arrival's own axes, so the *next* shot from any save
+can be placed in that band without re-deriving it.
+
 
 `Slug` holds the body centre `IGroundTest` gives it for the frame, and differences it against a
 position moving through that frame — so on the face of it the planet's ~29.8 km/s of ecliptic travel
