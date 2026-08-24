@@ -22,8 +22,13 @@ internal sealed partial class Ui
     private readonly IcbmComputers _icbms = icbms;
 
     private string _siteLabel = string.Empty;
-    private float _siteLat;
-    private float _siteLon;
+
+    // Double, and entered rather than dragged. AimSite carries doubles and the round flies to
+    // whatever is typed here, so this widget's own resolution is a hard floor under the whole shot
+    // -- docs/KINETIC-FLOOR.md section 7. A float holds latitude to 0.21 m and longitude to 1.70 m
+    // near the date line, and a slider spanning half a turn moves about 100 km per pixel.
+    private double _siteLat;
+    private double _siteLon;
     private static readonly float4 Good = new(0.55f, 0.95f, 0.55f, 1f);
     private static readonly float4 Working = new(0.95f, 0.85f, 0.45f, 1f);
     private static readonly float4 Bad = new(0.98f, 0.5f, 0.45f, 1f);
@@ -47,6 +52,14 @@ internal sealed partial class Ui
             : $"flying about {parent.Id}");
 
         ImGui.Text($"Target: {computer.Target.Describe()}");
+
+        // Describe() rounds to three decimals, which is 111 m and right for an overlay label and
+        // wrong for the one place an operator might copy a coordinate down. Printed in full here
+        // rather than made more precise there.
+        if (computer.Target.IsSet)
+        {
+            ImGui.TextDisabled($"  {computer.Target.LatitudeDeg:F7}, {computer.Target.LongitudeDeg:F7}");
+        }
 
         if (computer.Target.IsSet && parent is not null && computer.Target.BodyName != parent.Id)
         {
@@ -75,8 +88,21 @@ internal sealed partial class Ui
 
         ImGui.Separator();
 
-        ImGui.SliderFloat("Latitude", ref _siteLat, -89.9f, 89.9f, "%.4f");
-        ImGui.SliderFloat("Longitude", ref _siteLon, -180f, 180f, "%.4f");
+        ImGui.InputDouble("Latitude", ref _siteLat, 0.0, 0.0, "%.7f", ImGuiInputTextFlags.None);
+        ImGui.InputDouble("Longitude", ref _siteLon, 0.0, 0.0, "%.7f", ImGuiInputTextFlags.None);
+
+        _siteLat = Math.Clamp(_siteLat, -89.9, 89.9);
+        _siteLon = Math.Clamp(_siteLon, -180.0, 180.0);
+
+        if (parent is not null)
+        {
+            double lastDigit = 1e-7 * 2.0 * Math.PI * parent.MeanRadius / 360.0;
+
+            ImGui.TextDisabled($"  the last digit is {lastDigit:F2} m of latitude and "
+                               + $"{lastDigit * Math.Cos(_siteLat * Math.PI / 180.0):F2} m of "
+                               + $"longitude on {parent.Id}");
+        }
+
         TextField("Label", ref _siteLabel);
 
         if (ImGui.Button("Designate those coordinates") && parent is not null)
