@@ -79,20 +79,16 @@ as a split arm, **one shot, nine minutes**:
 
 Within 7% of the night, at a sixteenth of the cost.
 
-> **SUSPENDED 2026-08-24, and not yet diagnosed.** The two-condition split above validated. A
-> *three*-condition split did not: within-condition scatter went from 6 m to **193 m**, and two
-> warheads running **identical shipped code** landed **332 m apart** where six normally land within
-> six. Frame time was unchanged, 17.2 ms against 17.3, so it is not the extra work. The two-condition
-> split had already shown the same signature more mildly — within-side scatter 6 m to 35 m — which
-> was read as noise at the time and was the first sign of it.
+> **It was suspended for a day and the rig was never at fault.** A three-condition split read
+> within-condition scatter of **193 m**, with two warheads labelled `shipped` landing **332 m apart**.
+> The cause was `dev` itself: a `git add -A` on a screening branch had swept that arm's tube-parity
+> split into a tools commit, which was then cherry-picked onto `dev`. Tube 3 is odd and tube 6 is
+> even, so the two `shipped` warheads were **two different builds**.
 >
-> **A rig whose control does not hold still cannot judge anything**, so do not use a split arm until
-> that is understood. What it produced on the three-way screen looked like a spectacular result and
-> may simply have been right by luck: the same change flown on all six tubes agreed, but that is not
-> the same as the screen having measured it.
->
-> The full-salvo shot is the fallback and costs the same nine minutes — one condition, six warheads,
-> compared against a known baseline. It gives up the paired design and keeps the speed.
+> The lesson is not about splits. **A screen is only as good as the baseline underneath it**, and a
+> split arm's control is the one thing that can detect a contaminated baseline — it did, a whole
+> night before the arithmetic would have. Read a broken control as "something is wrong with the
+> tree" before reading it as "something is wrong with the rig".
 
 **Two limits, and the first is a silent false negative.** Only a **per-round** term can be split —
 the aim, the integrator, the sub-step, the drag. Anything upstream of the release is shared by all
