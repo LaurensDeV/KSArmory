@@ -82,9 +82,17 @@ internal static class DeorbitShot
     /// <summary>The mean sphere, as the thing a round asks where the ground is.</summary>
     public sealed class Ball : IGroundTest
     {
+        /// <summary>
+        /// Where this test believes the body's centre is. Zero is the truth here, because the rig's
+        /// planet sits at the origin — it is settable so a caller can ask what a body sample taken
+        /// at the wrong instant costs, which is a term the game has and this world otherwise cannot
+        /// express at all.
+        /// </summary>
+        public double3 CentreEcl;
+
         public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
         {
-            centreEcl = Vec.Zero;
+            centreEcl = CentreEcl;
             surfaceRadius = R;
             return true;
         }
@@ -219,11 +227,20 @@ internal static class DeorbitShot
     /// <param name="refresh">Which frame-level inputs to re-read per sub-step instead of holding.</param>
     /// <param name="ground">Where the ground is. Null is the mean sphere.</param>
     /// <param name="bodyAccelCci"><inheritdoc cref="FlyTheRoundAsWarped" path="/param[@name='bodyAccelCci']"/></param>
+    /// <param name="gravityCentreCci">
+    /// Where the round is pulled toward, if not the origin.
+    ///
+    /// <para>The game reads a round's gravity at its pre-step position against a celestial sample
+    /// from the frame's end, so the pull centre sits <c>bodyVelocity × dt</c> away — 516 m at
+    /// 29.8 km/s on a 17 ms frame. This world's planet does not move, so that displacement is
+    /// identically zero here and has to be asked for.</para>
+    /// </param>
     public static (double3 GroundFixed, double Seconds) FlyTheRound(double3 fromCci, double3 velocityCci,
                                                                    double dt,
                                                                    Refresh refresh = default,
                                                                    IGroundTest? ground = null,
-                                                                   double3 bodyAccelCci = default)
+                                                                   double3 bodyAccelCci = default,
+                                                                   double3 gravityCentreCci = default)
     {
         BallisticBody body = Earth;
 
@@ -238,7 +255,8 @@ internal static class DeorbitShot
 
         for (int i = 0; i < (int)(20_000.0 / dt) && round.State == RoundState.Flying; i++)
         {
-            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed, bodyAccelCci);
+            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed, bodyAccelCci,
+                               gravityCentreCci);
         }
 
         return Arrived(body, round, elapsed);
@@ -254,11 +272,15 @@ internal static class DeorbitShot
     /// </summary>
     private static double OneFrame(BallisticBody body, Slug round, double dt, double3 fromCci,
                                    Refresh refresh, IGroundTest? ground, double elapsed,
-                                   double3 bodyAccelCci = default)
+                                   double3 bodyAccelCci = default,
+                                   double3 gravityCentreCci = default)
     {
         int n = refresh.Any ? Math.Max(1, (int)Math.Ceiling(dt / refresh.Slice)) : 1;
 
-        double3 heldGravity = body.GravityCci(round.PositionEcl);
+        // About a stated centre rather than about the origin, so a caller can put the pull centre
+        // where a body sample from the wrong instant would put it. Zero is the honest answer and
+        // every existing caller takes it.
+        double3 heldGravity = body.GravityCci(round.PositionEcl - gravityCentreCci);
         double3 heldAir = body.GroundVelocityCci(round.PositionEcl);
 
         if (ground is Relief relief)
@@ -273,7 +295,9 @@ internal static class DeorbitShot
             // is itself falling and the prediction of it is not. Subtracting it here is exact
             // rather than approximate: the solar tide across a planet's radius is 0.009% of the
             // term, so the field really is uniform over everything a round can reach.
-            double3 gravity = (refresh.Gravity ? body.GravityCci(round.PositionEcl) : heldGravity)
+            double3 gravity = (refresh.Gravity
+                                   ? body.GravityCci(round.PositionEcl - gravityCentreCci)
+                                   : heldGravity)
                               - bodyAccelCci;
             double3 air = refresh.AirMotion ? body.GroundVelocityCci(round.PositionEcl) : heldAir;
 
