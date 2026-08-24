@@ -1132,33 +1132,34 @@ the same band section 7.1b needs — fly one engagement and check both.
 
 ---
 
-## 12. The ballistic computer — flown, and arriving
+## 12. The ballistic computer — flown, and landing inside a hundred metres
 
-Six warheads on the ground **433 m to 1.7 km** from the aim, on a 2,740 km deorbit onto a target
-4 km up in the Andes. It got there from 59 km in five flights, and every step was a difference
-between what the prediction modelled and what the round actually did:
+**Six warheads within 20–90 m of the aim**, on a 3,460 km deorbit from a 207 km pick-up. Measured
+2026-08-24 as a 6-against-6 interleaved batch, median **0.05 km**, group spread 0.02 km.
 
-| | miss |
-| --- | --- |
-| a prediction flown in vacuum | 59 km |
-| + the warhead's drag | 17-20 km |
-| + terrain sampled the way the round samples it | 14 km |
-| + the 2 m/s the warhead gets off its tube | ~7 km |
-| + the burn stopped along the line it is thrusting | **0.4-1.7 km** |
+It got there from 2.88 km in one day, and every step was a term the round carried and its own
+predictor did not:
 
-What is left is the **tube cant**: the six tubes sit at 6° in different clock positions, so each
-warhead leaves on a slightly different vector and the aim correction can only remove the common
-mode. That spread is physical, and closing it means aiming each round separately rather than
-correcting one arc.
+| | miss | what it was |
+| --- | --- | --- |
+| where the day started | 2.88 km | |
+| + the body's own fall | 0.72 km | a round felt its parent body and nothing else while KSA carried that body along its orbit |
+| + gravity aimed mid-frame | 0.45 km | the pull centre sat a whole frame of the body's travel away |
+| + gravity aimed per sub-step | **0.05 km** | the rest of the same term |
 
-`docs/ICBM-GUIDANCE.md` has the algorithm and the list of what a test cannot reach; this is the
-order to check it in, easiest failure first. Ticks below are what a flight actually showed, with
-the number it showed.
+Each was flown against an interleaved baseline: ratios 0.25, 0.58 and 0.11, all with p under 0.01
+and none overlapping. `docs/MIRV-NEXT.md` item 2 is the account.
 
-**Last flight, target in the Andes at ~4 km, from orbit:** coast at 199 km, 0 m/s left to gain,
-engines stopped 1.1 m/s short of the solution, own prediction 9.7 km off (it was 60.4 km before the
-predictor was given the real height field), six warheads released on their own, all six down
-52.4–53.1 km from the aim on the same bearing.
+**The tube cant is no longer what is left.** The tubes were straightened, and the salvo spread is
+now 0.02 km — the six warheads land closer to each other than any of them lands to the aim.
+
+**What is left, in order.** The release probe's own miss, about 50 m, which is what the aim
+correction leaves behind; the round's own integrator at 5 ms, which a screen priced at tens of
+metres and which is now below what one shot resolves; and everything in
+`docs/KINETIC-FLOOR.md`, whose irreducible floor at this 7.1° arrival is about 5 m.
+
+**And accuracy has stopped buying anything.** The Mk 21's lethal radius is 2,000 m, so at 50 m every
+warhead is 40× inside it. Further work here is craft rather than capability.
 
 Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — and open
 **Ballistic** on that craft's window.
