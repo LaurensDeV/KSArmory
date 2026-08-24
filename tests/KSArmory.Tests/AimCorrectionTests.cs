@@ -124,7 +124,7 @@ public class AimCorrectionTests
         // And it kept the best it found rather than the last thing it tried.
         double left = Math.Abs(50_000.0 - PlantGain * Vec.Dot(aim.BiasCci, along));
 
-        Assert.True(left <= bestSeen + AimCorrection.ImprovedByMetres,
+        Assert.True(left <= bestSeen + AimCorrection.ImprovedBy(bestSeen),
                     $"kept an aim worth {left:F0} m against a best of {bestSeen:F0} m");
 
         // The point of the rule: it is nowhere near the clamp it would have run to.

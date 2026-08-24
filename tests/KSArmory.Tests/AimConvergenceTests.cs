@@ -381,8 +381,10 @@ public class AimConvergenceTests(ITestOutputHelper Out)
             // AimCorrection.WorseBeforeStopping has to be larger than.
             double miss = trace[i].ScoredMissMetres;
 
-            if (miss < best - AimCorrection.ImprovedByMetres) { best = miss; run = 0; }
-            else if (miss > best + AimCorrection.ImprovedByMetres) worst = Math.Max(worst, ++run);
+            double bar = AimCorrection.ImprovedBy(best);
+
+            if (miss < best - bar) { best = miss; run = 0; }
+            else if (miss > best + bar) worst = Math.Max(worst, ++run);
         }
 
         double actual = ActualMissMetres(shot);

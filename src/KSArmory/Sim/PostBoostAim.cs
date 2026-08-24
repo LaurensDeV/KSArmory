@@ -59,11 +59,17 @@ internal sealed class PostBoostAim
     /// <summary>
     /// What a second of holding the warheads costs, in metres of miss.
     ///
-    /// <para>Measured on the flown shot: the ejection kick is worth 8.421 km applied at cutoff and
-    /// 5.672 km at +106 s, and the aim converges for the epoch it is released at. Holding is
-    /// therefore a real cost paid against a real gain, which is what lets the two be compared.</para>
+    /// <para>Measured on the flown shot: the ejection kick loses its leverage along the arc as the
+    /// bus coasts, and the aim converges for the epoch it is released at. Holding is therefore a
+    /// real cost paid against a real gain, which is what lets the two be compared.</para>
+    ///
+    /// <para><b>It scales with the ejection kick, because it <em>is</em> the kick's leverage.</b>
+    /// At the 2 m/s kick this was 26; <see cref="Arsenal.ReentryVehicleMk21"/> now leaves at 0.5,
+    /// and the cost quartered with it. Charging the old figure prices a pass at four times what it
+    /// costs and stops the correction with metres still on the table — the payback rule is the only
+    /// thing standing between a converged shot and one more pass.</para>
     /// </summary>
-    public const double HoldingCostsMetresPerSecond = 26.0;
+    public const double HoldingCostsMetresPerSecond = 6.5;
 
     /// <summary>
     /// The longest the bus may spend correcting before it releases regardless.
@@ -103,10 +109,10 @@ internal sealed class PostBoostAim
     ///
     /// <para>The prediction the correction reads flies the bus's state with the ejection kick
     /// already added, and that kick points along the nose — so the nose turning moves the predicted
-    /// impact on its own. Measured on the 3,459 km shot with a 2 m/s kick: 14–22 m of predicted
-    /// impact per degree near the nose, rising to 30–45 m per degree by 22°. Two degrees is at most
-    /// 44 m, which is well inside the 100–400 m that separates the passes of a correction that has
-    /// converged.</para>
+    /// impact on its own. Measured on the 3,459 km shot at the shipped 0.5 m/s kick: 3–7 m of
+    /// predicted impact per degree near the nose, so two degrees is at most 13 m. That is what
+    /// <see cref="AimCorrection.ImprovedByFloorMetres"/> is set from — the two are one gate, and
+    /// tightening the bar without tightening this leaves the loop resolving its own wobble.</para>
     ///
     /// <para><b>The whole swing available is 16.0 km</b>, at a kick turned right round — against
     /// 0.17 km the trim can leave behind at a reading this gate admits. The two causes are not
@@ -145,9 +151,11 @@ internal sealed class PostBoostAim
     ///
     /// <para>The same resolution the correction itself judges a cycle at, deliberately aliased
     /// rather than restated: they are the same quantity read off the same prediction, and two
-    /// numbers for it would drift.</para>
+    /// numbers for it would drift. It scales with the miss because this is where that matters most
+    /// — by the time the coast starts, a pass is separating hundreds of metres from tens.</para>
     /// </summary>
-    public const double ImprovedByMetres = AimCorrection.ImprovedByMetres;
+    public static double ImprovedBy(double bestMissMetres) =>
+        AimCorrection.ImprovedBy(bestMissMetres);
 
     /// <summary>
     /// How many passes may fail to improve on the best seen before it stops.
@@ -270,7 +278,7 @@ internal sealed class PostBoostAim
 
         // A pass that cannot beat the best any pass has managed is a pass that bought nothing, and
         // enough of those in a row is a correction that has finished whatever its readings say.
-        if (now.PredictedMissMetres < _bestMiss - ImprovedByMetres)
+        if (now.PredictedMissMetres < _bestMiss - ImprovedBy(_bestMiss))
         {
             _bestMiss = now.PredictedMissMetres;
             _noImprovement = 0;
