@@ -142,7 +142,26 @@ fi
 
 if (( DEPLOY )); then
     echo "== deploying"
-    "$REPO_ROOT/tools/deploy.sh" >/dev/null
+
+    # Retried, because the process check above is not sufficient on its own. A game killed at the
+    # end of the previous run leaves tasklist within a moment and holds the mod's DLL for a little
+    # longer, so the guard sees nothing to close and the copy lands on a file Windows has not let go
+    # of yet. That is a lock error instead of a verdict, and it has cost real runs.
+    for attempt in 1 2 3 4 5; do
+        if "$REPO_ROOT/tools/deploy.sh" >/dev/null 2>&1; then
+            break
+        fi
+
+        if (( attempt == 5 )); then
+            echo "   the mods folder stayed locked; deploying once more for the error" >&2
+            "$REPO_ROOT/tools/deploy.sh" >/dev/null
+            break
+        fi
+
+        echo "   mods folder still locked, waiting (attempt $attempt)"
+        taskkill.exe /IM StarMap.exe /F >/dev/null 2>&1 || true
+        sleep 2
+    done
 else
     echo "== flying what is already installed"
 fi
