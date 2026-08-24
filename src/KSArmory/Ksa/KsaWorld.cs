@@ -1040,9 +1040,12 @@ internal static class KsaWorld
     {
         try
         {
-            if (body.Parent is not Celestial primary) return Vec.Zero;
+            // IParentBody, not Celestial: Celestial.Parent is declared as the interface, and a
+            // planet's primary need not be one of the concrete type. Testing for Celestial compiles,
+            // reads as a null check, and silently answers zero for every body in the game.
+            if (body.Parent is not { } primary) return Vec.Zero;
 
-            double mu = ((IParentBody)primary).Mu;
+            double mu = primary.Mu;
             if (mu <= 0.0) return Vec.Zero;
 
             double3 toPrimary = primary.GetPositionEcl() - body.GetPositionEcl();
