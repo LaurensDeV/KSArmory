@@ -1214,6 +1214,25 @@ One term is **zero and worth recording as zero**: `Slug` takes gravity through `
 that does not know it floats. Nothing in `Arsenal` declares one, but `Sim/PackReader.cs` reads the
 field — so it is latent rather than absent.
 
+## 2h. Predicting the warhead with the warhead's own integrator — demoted, unflown here
+
+`be784ab`, an arm from 2026-08-22 that gave `ImpactPredictor` the round's integrator as an option so
+the instrument matches what it measures. Headless it took the round-vs-predictor gap **591 m to 47**;
+flown once it read 0.29 km against a 0.48 baseline, `UNRESOLVED` at n=8 with the interval admitting
+0.23.
+
+**Demoted rather than dropped.** It closes the same gap a finer sub-step closes, but from the other
+side: a finer step makes the *round* more physically right, where this makes the *instrument* agree
+with a round that is still coarse. Both land on the target, because the aim correction converges the
+predictor onto it — only one is better physics. And the per-frame cost that argued against the finer
+step turned out to be 0.3 ms, so the argument for this one is weaker than it looked.
+
+**It is also no longer aimed at the largest term.** Since `aea3e2a` the walk is -72 m and the release
+probe's own miss is about 50, so the aim correction is what is left rather than the round.
+
+The branch is pruned; the commit is `be784ab` and the built payload is in
+`~/shots/2026-08-22-2002/arms/faith/`.
+
 ## 2g. The body fall is summed over one link, so a lunar shot keeps most of it
 
 `KsaWorld.BodyFallEcl` reads `body.Parent` and stops. A body's true ecliptic acceleration is the sum
