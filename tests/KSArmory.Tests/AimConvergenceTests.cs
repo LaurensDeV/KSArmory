@@ -314,6 +314,9 @@ public class AimConvergenceTests(ITestOutputHelper Out)
     /// </summary>
     [Theory]
     [InlineData(2_000_000.0)]
+    // Flown 2026-08-24 and missed by 1.3 km: the correction gave up ("aim settled 1.2 km out")
+    // and the round then tracked its own release probe to 0.1 km, so the whole miss was the aim.
+    [InlineData(2_433_000.0)]
     [InlineData(3_459_000.0)]
     [InlineData(5_000_000.0)]
     [InlineData(7_645_000.0)]
