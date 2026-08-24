@@ -773,14 +773,49 @@ internal sealed class IcbmComputer
     }
 
     // One line per change of state, which is all any of this is worth while nothing is happening
-    // on screen. The detail rides along with it rather than driving it: a number that moves every
-    // frame would otherwise log every frame.
+    // on screen. The detail rides along with it rather than driving it.
+    //
+    // Compared with its numbers collapsed, because the sentence carries them and a reading is not a
+    // state: "trimming 3.71 m/s on the tail" against "trimming 3.70 m/s on the tail" is the same
+    // thing happening. Comparing whole sentences wrote a line every frame -- 21,000 from one coast,
+    // which is the log's own weight on the frame the coast step is measured in. What still separates
+    // is the words, so a direction change, a stall or a hand-back all still say so.
     private void Say(string what, string detail = "")
     {
-        if (what == _saidTrim) return;
+        string state = WithoutNumbers(what);
+        if (state == _saidTrim) return;
 
-        _saidTrim = what;
+        _saidTrim = state;
         Log.Info($"trimming the bus on {KsaWorld.DisplayName(Craft)}: {what}{detail}");
+    }
+
+    // Every run of digits down to one mark, so two readings of one state compare equal.
+    private static string WithoutNumbers(string said)
+    {
+        Span<char> shape = stackalloc char[said.Length + 1];
+        int n = 0;
+        bool number = false;
+
+        foreach (char c in said)
+        {
+            if (char.IsAsciiDigit(c) || c == '.')
+            {
+                number = true;
+                continue;
+            }
+
+            if (number)
+            {
+                shape[n++] = '#';
+                number = false;
+            }
+
+            shape[n++] = c;
+        }
+
+        if (number) shape[n++] = '#';
+
+        return new string(shape[..n]);
     }
 
     // Put the bus back on its solution with its own thrusters, before anything leaves it. All the

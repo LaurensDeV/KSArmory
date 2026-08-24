@@ -457,7 +457,17 @@ internal sealed class BallisticScenario
     // has gone.
     // How long before the release point the world is handed back, so nothing is still settling from
     // a speed change when the first warhead goes.
-    private const double SteadyBeforeReleaseSeconds = 45.0;
+    //
+    // Twenty rather than forty-five, because at forty-five the gate cannot open on the shot this
+    // harness actually flies. The warheads are held until the arrival is inside
+    // ReleaseBeforeArrivalSeconds, 420 s, and the coast is entered with about 464 s to run -- so a
+    // 45 s margin asks for 465 and the whole coast is flown at 1x. Measured: not one frame above 1x
+    // in 8,078 samples, and the warp this exists to grant never happened at all.
+    //
+    // What the margin has to cover is WarpPolicy settling, which is counted in frames rather than
+    // minutes, and the trim converging, which takes seconds at 1x. Twenty leaves both ample and
+    // leaves the gate reachable.
+    private const double SteadyBeforeReleaseSeconds = 20.0;
 
     private void CoastToTheReleasePoint(int ammo)
     {
