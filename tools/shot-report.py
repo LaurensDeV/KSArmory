@@ -40,8 +40,12 @@ CATASTROPHE_RATIO = 3.0
 CATASTROPHE_MIN_SHOTS = 4
 
 # A shot this far out is not a sample from the same distribution as the rest -- the widest
-# baseline ever recorded here is 3.43 km over 26 shots. Two of them from one arm is that arm.
+# baseline ever recorded on the 26.5S,64.0W shot is 3.43 km over 26 shots. Two of them from one
+# arm is that arm. The floor holds only until the baseline has flown: past that the same night's
+# baseline sets it, because a target where the control lands at 5 km is a target where 4 km is
+# an ordinary shot.
 WILD_KM = 4.0
+WILD_RATIO = 2.0
 
 
 # --- parsing ----------------------------------------------------------------
@@ -304,7 +308,13 @@ def gate(root, shots, arms):
         if broken >= 2:
             dead.append(arm)
             continue
-        if sum(1 for s in scores if s >= WILD_KM) >= 2:
+        # 4 km is a fact about one target, not about the mod. On a geometry where the baseline
+        # itself lands past it, an absolute floor drops arms that match the control -- and the
+        # baseline is never a candidate, so the asymmetry keeps the wrong one.
+        wild = WILD_KM
+        if len(base_scores) >= 2:
+            wild = max(wild, WILD_RATIO * statistics.median(base_scores))
+        if sum(1 for s in scores if s >= wild) >= 2:
             dead.append(arm)
             continue
         if (len(scores) >= CATASTROPHE_MIN_SHOTS and len(base_scores) >= CATASTROPHE_MIN_SHOTS

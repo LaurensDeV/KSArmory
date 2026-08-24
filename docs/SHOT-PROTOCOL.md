@@ -342,7 +342,7 @@ An arm is dropped when any of these is true:
 | | |
 | --- | --- |
 | **Broken** | two or more of its shots produced no verdict, or arrived with fewer warheads than they released. That is a failure, not a miss distance, and a rank test on miss distance must not absorb it. |
-| **Wild** | two or more shots at or beyond **4 km**. The widest baseline ever recorded here is 3.43 km in 26 shots; two from one arm is that arm, not the tail. |
+| **Wild** | two or more shots at or beyond **4 km**, or beyond **twice the same night's baseline median** once the baseline has flown twice, whichever is further out. 4 km is the widest baseline ever recorded on the 26.5S,64.0W shot, over 26 shots — but it is a fact about that target, and on a geometry where the control itself lands past it an absolute floor drops the arms that *match* the control. The baseline is never a candidate for dropping, so that asymmetry keeps the wrong one. |
 | **Catastrophic** | from 4 shots each: the arm's median is **3× the baseline's or worse**, *and* its best shot is worse than the baseline's median. The flown losses ran 4×, 11× and 29×; none of them needed twelve shots to see. |
 | **Settled loss** | from 6 shots each: rank test **p < 0.0294** with the arm's median above the baseline's. |
 
