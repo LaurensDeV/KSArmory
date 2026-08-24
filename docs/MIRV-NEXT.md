@@ -17,6 +17,7 @@ its number wherever its state ends up. What is still open:
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
 | [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | the warp latch — **flown and closed**, by the harness rather than by the constant |
 | [7f](#7f-three-stopping-rules-were-sized-for-a-kilometre-shot--built-as-an-arm-unflown) | **three stopping rules sized for a kilometre shot — built as `arm/aim`, wants the night** |
+| [7g](#7g-the-aim-is-frozen-at-the-instant-the-question-changes--flying-2026-08-25) | **THE LIVE ONE — the aim freezes as the arrival commits. Flying 2026-08-25; read this first** |
 | [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
 
 Everything else is flown, closed, or retired, and says so in its own heading.
@@ -2143,6 +2144,143 @@ range; it is also worth 1.00 -> 16.59 km at 7,645, which is why the freeze exist
 
 `MaxResponse` is inert: 6, 12, 24 and 60 are bit-identical at all four ranges, confirming item 7c's
 sweep from a different direction.
+
+## 7g. The aim is frozen at the instant the question changes — flying 2026-08-25
+
+**This is the live experiment.** A session picking the work up mid-flight or in the morning should
+read this section and `docs/SHOT-PROTOCOL.md`, and nothing else is needed to finish it.
+
+### Where accuracy actually is
+
+Two numbers, and the gap between them is the whole reason this item exists:
+
+| | miss |
+| --- | --- |
+| the scripted 3,459 km shot at 26.5S 64.0W, six shots, 2026-08-24 | **0.05 km** |
+| hand-flown at 2,433 km to 26.485S 68.148W, twice, same build | **1.3 km** and **3.9 km** |
+
+The 0.05 km is real — six shots, ratio 0.11, p 0.002 — and it is *one target at one range from one
+pinned pick-up*. It is not the mod's accuracy. Every table in this file that quotes a headline miss
+is quoting that one shot.
+
+**The round is not what misses.** On both hand-flown shots the warheads tracked their own release
+probe to 0.1 km: probe 1.2 km / landed 1.3, probe 3.8 km / landed 3.9. The flight model, after the
+2026-08-24 gravity work, is doing its job. The whole miss is the aim point.
+
+### The root cause: freezing the answer at the moment the question changes
+
+`IcbmProgram` commits an arrival time once the aim goes steady, and `IcbmComputer` freezes the aim
+on that same commitment — "one problem solved in two halves". But **committing the arrival is what
+changes the trajectory**, so the banked aim is answering a question that is being replaced in the
+same frame. Flown 2026-08-24 at 2,433 km, verbose:
+
+```
+bias  0.0 km  miss 37.1 km      converging
+bias  9.3 km  miss 25.9 km
+bias 30.8 km  miss  2.0 km      <- best banked here
+bias 30.8 km  miss  1.2 km      <- frozen, and never moves again
+bias 30.8 km  miss  2.9 / 3.3 / 3.6 / 3.8 km
+```
+
+Three cycles into a 35-second burn. **The trigger is perverse:** `AimCorrection.IsSteady` tests the
+size of the last *step*, and a loop closing on its answer takes smaller steps because it is nearly
+done — so converging well is what commits the arrival and invalidates the answer.
+
+That also explains item 7f's result, which made no sense on its own: latching *later* measured worse
+at every value swept (415 m of group bias at `SteadyMetres` 2,000 against 2,568 at 25). Waiting
+longer means converging harder against a trajectory about to be discarded. **The latch timing was
+never the problem; freezing the aim on it is.**
+
+### Why the obvious fix cannot ship alone
+
+`MirvBudgetTests.WhereTheNeverFrozenLoopGoes` traces both wirings at 7,645 km:
+
+| | last reading | group |
+| --- | --- | --- |
+| as shipped | 0.98 km | **1.00 km** |
+| never frozen | 0.00 km for 15 s, then 2.00 | **16.59 km** |
+
+The frozen loop's instrument agrees with its outcome. The never-frozen one drives its own predicted
+miss to zero and lands sixteen kilometres out — it converges *something*, and with the shipped
+predictor that something is not where warheads go.
+
+**So the freeze is load-bearing at long range, by accident**: it stops the loop before it can
+converge onto its instrument's error. This is item 9's "a correction loop can only remove what its
+observer can see" arriving a third time, and it is why `AimConvergenceTests` reads never-freezing as
+a win (1.15 -> 0.56 km) — that rig scores *through the predictor the loop converges*, so it cannot
+see the gap by construction. `MirvBudgetTests` scores the group independently and does.
+
+Corollary worth keeping: **the 0.01 km never-freezing reads at 2,433 km is taken through the same
+suspect instrument.** Discount it.
+
+### The night
+
+Four arms, because the interaction is the finding rather than a nuisance. Flown at **the operator's
+own target**, not the scripted one, because 2,433 km is the geometry with a known failure — the
+correction there makes the shot *worse* than not correcting at all (uncorrected 3.92 km, as shipped
+4.23, never frozen 0.01; `AimConvergenceTests.TheSameFaultAtEveryRange`).
+
+```bash
+KSARMORY_SCENARIO_SAVE="AUTO NUKE DECOUPLER" \
+./tools/shot-batch.sh --aim 26.485S,68.148W --blocks 12 --out ~/shots/2026-08-25 \
+    --arms base=dev,ownint=arm/ownint,neverfreeze=arm/neverfreeze,ownint+neverfreeze=arm/ownint+neverfreeze
+
+./tools/shot-batch.sh --resume ~/shots/2026-08-25        # if it was interrupted
+
+./tools/shot-report.py ~/shots/2026-08-25
+./tools/shot-report.py ~/shots/2026-08-25 --main ownint
+./tools/shot-report.py ~/shots/2026-08-25 --main neverfreeze
+./tools/shot-report.py ~/shots/2026-08-25 --shots
+```
+
+| arm | what it changes | predicted |
+| --- | --- | --- |
+| `base` | dev | the control |
+| `ownint` | `ImpactPredictor` flies the warhead's own integrator (item 2h) | modest — honest instrument, aim still freezes |
+| `neverfreeze` | the aim keeps solving past the arrival latch | **possibly much worse** — converges onto a lying instrument |
+| `ownint+neverfreeze` | both | the point of the night |
+
+An arm expected to lose is deliberate: if `neverfreeze` alone is bad and the pair is good, the
+mechanism is confirmed rather than inferred.
+
+### Reading it in the morning
+
+| outcome | what it means |
+| --- | --- |
+| pair wins, `neverfreeze` alone loses | **the mechanism is right.** Merge both to `dev` together, and never `neverfreeze` alone |
+| pair wins, `neverfreeze` alone also wins | the instrument matters less than the trace says; merge both, and re-check 7,645 km headlessly before trusting long shots |
+| pair does not win | the story in this section is wrong. Do **not** tune the freeze — go back to why the loop's prediction and its group disagree |
+| everything UNRESOLVED | read the interval as what the night ruled out, and check the attribution table: `probe km` against the flown miss says whether the aim or the round is left |
+
+### Do not
+
+- **Do not merge any arm into `dev` before the batch finishes.** `base=dev`, so that replaces the
+  control with the treatment and the night measures nothing.
+- **Do not give the bus more RCS, and do not raise `BusTrim.MaxMetresPerSecond`.** The 2026-08-24
+  flight spent ~3 m/s of a 40 m/s budget and then *refused* a 10.75 m/s request as "more than a
+  separation could have cost". The guard was right: the aim had walked 7.6 km off and flying to it
+  would have been worse. Raising it removes the only thing that noticed.
+- **Do not tighten `AimCorrection.SteadyMetres`.** Measured worse at every value.
+
+### Two defects found on the way and not fixed
+
+- **The clearance latch.** `IcbmComputer.cs` nulls `_separatedFrom` when the trim finishes, so every
+  *re-arm* measures against nothing, reads NaN, and falls back to a blind 20-second clock —
+  `waiting to clear the spent stack, which cannot be read`. Separation distance never decreases, so
+  clearance should latch: pass `clearedBefore` into `SeparationClearance.Check` and reset it on a new
+  split. Not the binding cause on 2026-08-24 (the good batch shots log it too), but a real defect
+  costing up to 20 s a pass.
+- **Nothing sizes a correction against the actuator.** `AimCorrection` steps as though moving the aim
+  moves the impact one-for-one; during the coast the only actuator is a trim with a 10 m/s ceiling
+  and a few m/s of budget. A full-error step after a bad burn asked for 10.75 m/s and was vetoed,
+  leaving the correction inert for ten seconds. Likely moot if this item lands — the 3.8 km never
+  reaches the coast — so keep it as a guard rather than building it first.
+
+### Parked arms, built and pushed
+
+`arm/aim` (item 7f, the stopping-rule constants), `arm/substep` (the Mk 21 at 1 ms — the rig argues
+against it), `arm/subground` (per-sub-step ground, ~20 m), `arm/arr15` (the arrival floor, and
+`SHOT-PROTOCOL.md` says it wants its own night).
 
 ## 7d. What a flight can actually resolve
 
