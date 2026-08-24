@@ -302,10 +302,14 @@ public class PostBoostAimTests
     // ------------------------------------------------- the best, and the tank
 
     /// <summary>
-    /// Passes stop when they stop beating the best seen. Flown, the correction converges by pass 5
-    /// — 3.3 km down to 0.4 — and then wanders between 0.1 and 0.5 km for seven more, improving on
-    /// nothing: at about two seconds a pass the payback bar is ~13 m, which a wander of hundreds
-    /// clears every time.
+    /// Passes stop when they stop beating the best seen — and the bar they have to beat it by
+    /// scales, so the loop follows a converging shot all the way down.
+    ///
+    /// <para><b>This is what a fixed 250 m bar cost.</b> On the flown readings a fixed bar banks
+    /// 400 m and stops three passes later, because nothing after it improves by a quarter of a
+    /// kilometre — while the same readings go on to 100 m. At the shipped ejection kick a pass
+    /// costs about 13 m of leverage at two seconds, so those passes were worth taking and the rule
+    /// could not see them.</para>
     /// </summary>
     [Fact]
     public void PassesThatStopBeatingTheBestEndIt()
@@ -313,7 +317,7 @@ public class PostBoostAimTests
         var aim = new PostBoostAim();
         Settle(aim);
 
-        double[] flown = [3300, 2000, 1200, 700, 400, 300, 500, 200, 400, 100, 500, 300];
+        double[] flown = [3300, 2000, 1200, 700, 400, 300, 500, 200, 400, 100, 500, 300, 200];
 
         int read = 0;
         bool released = false;
@@ -326,10 +330,14 @@ public class PostBoostAimTests
         }
 
         Assert.True(released, "the wander after convergence never stopped it");
-        Assert.True(read <= 8, $"it took {read} readings to stop, against 5 that improved plus "
-                               + $"{PostBoostAim.PassesWithoutImprovement} that did not");
         Assert.True(aim.Cycles < PostBoostAim.MaxCycles);
-        Assert.Equal(400.0, aim.BestMissMetres);
+
+        // The whole point: it banked the 100 m the readings reached, not the 400 m a quarter-
+        // kilometre bar stops at.
+        Assert.Equal(100.0, aim.BestMissMetres);
+
+        Assert.True(read <= 13, $"it took {read} readings to stop, against 10 that improved plus "
+                                + $"{PostBoostAim.PassesWithoutImprovement} that did not");
     }
 
     /// <summary>
@@ -344,9 +352,11 @@ public class PostBoostAimTests
         var aim = new PostBoostAim();
         Settle(aim);
 
-        // Never worse than the first by AimCorrection.ImprovedByMetres, and never better either.
-        double[] wander = [1_000, 1_100, 900, 1_050, 950, 1_000, 1_100, 900, 1_050, 950,
-                           1_000, 1_100, 900, 1_050, 950, 1_000, 1_100, 900, 1_050, 950];
+        // Inside AimCorrection.ImprovedBy(1000) either way, so never better and never worse by
+        // enough to count. The amplitude has to be read against the bar rather than written down:
+        // a wander of hundreds is a real convergence at this scale, which is the neighbouring test.
+        double[] wander = [1_000, 1_040, 960, 1_030, 970, 1_000, 1_040, 960, 1_030, 970,
+                           1_000, 1_040, 960, 1_030, 970, 1_000, 1_040, 960, 1_030, 970];
 
         int read = 0;
         bool released = false;

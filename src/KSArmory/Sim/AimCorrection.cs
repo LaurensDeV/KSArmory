@@ -68,9 +68,32 @@ internal sealed class AimCorrection
     public const double MaxMetres = 300_000.0;
 
     /// <summary>
-    /// How much closer the impact must come for a cycle to count as an improvement.
+    /// The share of the best miss a cycle has to beat it by to count as an improvement.
+    ///
+    /// <para>A fraction rather than a fixed number of metres, because the bar is a resolution and
+    /// the thing being resolved spans four orders of magnitude within one flight — the loop opens
+    /// on tens of kilometres and closes on tens of metres. Five per cent of five kilometres is the
+    /// 250 m this was a constant at, so nothing about a shot that size changes.</para>
     /// </summary>
-    public const double ImprovedByMetres = 250.0;
+    public const double ImprovedByFraction = 0.05;
+
+    /// <summary>
+    /// The smallest that bar may become, in metres.
+    ///
+    /// <para><b>It is the observer's own noise and not a preference.</b> The prediction a pass is
+    /// judged from adds the ejection kick along the bus's nose, so a nose that has turned inside
+    /// <see cref="PostBoostAim.SteadyWithinDegrees"/> moves the reading with nothing about the shot
+    /// having changed — measured at 3–7 m per degree, so at most 13 m across the gate. A bar under
+    /// that is the loop resolving its own wobble; this keeps the same margin over it the fixed
+    /// 250 m had over the 44 m the reading was worth at the 2 m/s ejection kick.</para>
+    /// </summary>
+    public const double ImprovedByFloorMetres = 50.0;
+
+    /// <summary>How much closer than <paramref name="bestMissMetres"/> a cycle has to come.</summary>
+    public static double ImprovedBy(double bestMissMetres) =>
+        double.IsFinite(bestMissMetres)
+            ? Math.Max(ImprovedByFloorMetres, ImprovedByFraction * Math.Abs(bestMissMetres))
+            : ImprovedByFloorMetres;
 
     /// <summary>
     /// How many cycles may fail to improve on the best before the loop calls it a direction rather
@@ -208,13 +231,15 @@ internal sealed class AimCorrection
 
         double miss = Vec.Len(error);
 
-        if (miss < _bestMiss - ImprovedByMetres)
+        double bar = ImprovedBy(_bestMiss);
+
+        if (miss < _bestMiss - bar)
         {
             _bestMiss = miss;
             _bestBias = BiasCci;
             _worseFor = 0;
         }
-        else if (miss > _bestMiss + ImprovedByMetres && ++_worseFor >= WorseBeforeStopping)
+        else if (miss > _bestMiss + bar && ++_worseFor >= WorseBeforeStopping)
         {
             BiasCci = _bestBias;
             Settled = true;

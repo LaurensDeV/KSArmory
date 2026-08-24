@@ -215,9 +215,10 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
         // the term still being large in absolute terms.
         Assert.True(noseSwing > 2_000.0,
                     $"the nose only moved the reading {noseSwing / 1000.0:F2} km across the flown band");
-        Assert.True(trimSwing < AimCorrection.ImprovedByMetres,
+        Assert.True(trimSwing < AimCorrection.ImprovedByFloorMetres,
                     $"the trim leaves {trimSwing:F0} m at a settled reading, which is more than the "
-                    + $"{AimCorrection.ImprovedByMetres:F0} m the correction judges a pass by");
+                    + $"{AimCorrection.ImprovedByFloorMetres:F0} m the correction judges a pass by at "
+                    + "its tightest — the bar would be resolving the trim's own leavings");
         Assert.True(noseSwing > 30.0 * trimSwing,
                     $"only {noseSwing / trimSwing:F0}x between them — gating on the nose would not "
                     + "be the change that matters");
@@ -291,8 +292,8 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
             worst = Math.Max(worst, moved);
         }
 
-        Assert.True(worst < AimCorrection.ImprovedByMetres,
+        Assert.True(worst < AimCorrection.ImprovedByFloorMetres,
                     $"a reading inside the settle band still moves {worst:F0} m, against the "
-                    + $"{AimCorrection.ImprovedByMetres:F0} m a pass is judged by");
+                    + $"{AimCorrection.ImprovedByFloorMetres:F0} m a pass is judged by at its tightest");
     }
 }

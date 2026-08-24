@@ -117,11 +117,18 @@ internal sealed class BusTrim
     /// <summary>
     /// Close enough to stop, in metres per second.
     ///
-    /// <para>Two centimetres a second is about 68 m of miss at this trajectory's radial
-    /// sensitivity, which is comfortably under the best a shot has flown without any of this. Below
-    /// it the residual stops being what the miss is made of and there is nothing to buy.</para>
+    /// <para><b>It is what the aim correction's instrument is worth.</b> Every pass reads a
+    /// prediction flown from the bus's state, so whatever this leaves on the vehicle moves that
+    /// reading for no reason — a centimetre a second is about 34 m of miss at this trajectory's
+    /// radial sensitivity, and two was 68, which is above the whole miss a shot now flies.
+    /// <see cref="AimCorrection.ImprovedByFloorMetres"/> has to stay above it, so the two move
+    /// together.</para>
+    ///
+    /// <para>Safe to ask for because the band is <c>max(this, one frame of firing)</c>: a threshold
+    /// below what a frame adds is one nothing can reach, and the quantum takes over rather than the
+    /// trim hunting. Flown at 0.010 m/s on the shipped bus.</para>
     /// </summary>
-    public const double SettledMetresPerSecond = 0.02;
+    public const double SettledMetresPerSecond = 0.01;
 
     /// <summary>
     /// How long after arming before it may call itself finished.
