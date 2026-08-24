@@ -693,6 +693,51 @@ and the `fall` arm's ground is **55.5 m lower**, a 1.53% downhill at `cot 7.1 de
 > the walk moving 1,939 -> 1,943 m across one arm's last 394 m of altitude. That interval cannot see
 > the slope *between two arms' landing points*, which is the only slope a swing is amplified by.
 
+### What the +678 m is — measured 2026-08-24, and it is the force sample's epoch
+
+**Confirmed on four independent signatures.** The round's gravity is read at its **pre-step**
+position against a celestial sample from the frame's **end**, so the pull centre sits
+`bodyVelocity × dt` away — 513 m at the flown 30,190 m/s and 17 ms.
+`docs/KSA-FRAME-ORDER.md` §5 has always stated the offset; what was never asked is where it lies
+against the arrival, which is the only thing that decides what it costs.
+
+The log line added in `0446df7` answers it:
+
+```
+the body travels at 30190 m/s, lying (-0.73 up, -0.64 downrange, -0.25 across) of the arrival
+-- one 17 ms frame of it is 513 m of pull-centre offset
+```
+
+| | predicted | flown |
+| --- | --- | --- |
+| radial share of the displacement | 513 x 0.73 = **374 m** | — |
+| downrange, scaled to the flown arc | **≈ +838 m** | **+678 m** (probe shot +698) |
+| arrival timing | **late** | **+0.14 s late** |
+| arrival speed against the probe's | unmoved | within **2 m/s** |
+
+`BodySampleInvarianceTests` prices it headlessly, in a rig whose planet does not move and where the
+term was therefore identically zero until it was asked for: **2,206 m of impact per 513 m of radial
+displacement, 74 m per 513 m along the track** — a factor of thirty — and linear in the
+displacement. Only the radial share costs anything, which is why the log resolves a direction rather
+than reporting a speed.
+
+**Long and late with the energy untouched is the signature no drag mechanism has.** Removing the
+density carry is worth +66.5 m/s of arrival speed and an outward ground-centre error +79.5; this
+shot's arrival matches its probe to 2 m/s.
+
+**The obvious correction is already recorded as flown and lost**, in the comment above the call site
+in `WeaponSystem`: putting the body back by `bodyVelocityEcl*dt` translates the whole field, so the
+round is pulled toward a centre the ground test does not use. That objection survives inspection.
+Gravity is computed once at the frame's start and held; the ground centre is sampled at the frame's
+end and is exact at the last sub-step, which is where the crossing fires. Correcting gravity alone
+pins the two to **different instants** rather than to one.
+
+**So the fix is one body centre per sub-step, shared by both** — `Slug` already holds
+`_groundCentre`, and would take the body's velocity and the frame length with it, using
+`centre(t) = _groundCentre − v_body·(dt − elapsed)` for the crossing and computing gravity about that
+same centre instead of being handed a vector. That is a change to what a projectile is given each
+frame rather than an added carry, and it is the fourth attempt at a term that has beaten three.
+
 ### The walk grew sevenfold in two days, on an identical shot — and that is the real question
 
 Same save, same aim point, same pick-up (`207 km, 7360 m/s -- identical` in all three reports), same
