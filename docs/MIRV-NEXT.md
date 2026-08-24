@@ -790,10 +790,35 @@ though the walk is still the larger source of *bias*.
 `BodyCentreEpochTests`, because `DeorbitShot`'s planet sits at the origin and a back-dated ground
 centre is identical to an un-back-dated one there. Three flights separated them.
 
-**The follow-up, if this wins**: re-aim per sub-step rather than once per frame. Better in the rig —
-41 m against 57, where the stale sample costs 102 — and held back because it bundles gravity re-read
-per sub-step, which flew alone and lost (item 2d, priced by `ProbeGapTests` at -740 m). Its own arm,
-not a fold-in.
+### Flown 2026-08-24 — WIN. Per sub-step rather than once a frame
+
+Six against six, interleaved, against a `dev` that already carried the mid-frame aim:
+
+| | base | pss | ratio | 97% interval | p | |
+| --- | --- | --- | --- | --- | --- | --- |
+| **mean** | 0.44 km | **0.05 km** | **0.11** | 0.06-0.19 | 0.002 | **WIN** |
+| spread | 0.02 km | 0.02 km | 1.00 | 0.50-1.00 | 0.485 | no change |
+
+Nothing overlapped, and the spread costs nothing. **The walk is the mechanism and it lands where the
+arithmetic put it:**
+
+| correction | walk | early |
+| --- | --- | --- |
+| none | **+694 m** | 0.59 s |
+| half the frame (`fe1df49`) | **+364 m** | 0.14 s |
+| per sub-step | **-72 m** | **0.00 s** |
+
+The round stops beating its own predictor at all.
+
+**Why it had to wait for the mid-frame aim to fly first.** It necessarily re-reads gravity per
+sub-step, which flew alone and lost — item 2d, priced by `ProbeGapTests` at -740 m. It loses alone
+because it corrects one half of a cancelling pair; with the centre corrected too there is no pair
+left to break. The delegate is `AirDensityAt`'s shape and convention, and the caller composes it, so
+`BodyFallEcl` travels with it and cannot be lost by a callee re-deriving the pull.
+
+**What is left is no longer the walk.** Across the twelve shots the walk held **-51 to -84 m** while
+the miss moved 0.02 to 0.09 km. The residual is what the aim correction leaves behind — item 9's
+open entry — and the round itself has stopped being the largest term for the first time.
 
 ### The walk grew sevenfold in two days, on an identical shot — and that is the real question
 
