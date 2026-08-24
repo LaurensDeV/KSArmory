@@ -738,6 +738,48 @@ pins the two to **different instants** rather than to one.
 same centre instead of being handed a vector. That is a change to what a projectile is given each
 frame rather than an added carry, and it is the fourth attempt at a term that has beaten three.
 
+### The arm: aim the frame's gravity at the body's mid-frame position — flying 2026-08-24
+
+One subtraction, and it goes where gravity is **composed** rather than where it is consumed:
+`KsaWorld.GravityAt` takes a body offset and `WeaponSystem.GravityAtRound` passes half a frame of
+the body's own travel. Aimed at the sample the vector is a whole frame out for the whole frame;
+aimed at the middle it is half a frame out at each end and right on average. The evaluation count,
+the sub-step count and the held-for-the-frame convention are untouched, and with a still body the
+result is bit-identical — `BodyCentreEpochTests` asserts that, and asserts `Slug` has no opinion
+about bodies at all.
+
+One shot each, same save and aim:
+
+| | miss | walk (down) |
+| --- | --- | --- |
+| `dev` | 729 m | +698 m |
+| **`arm/onecentre`** | **475 m** | **+370 m** |
+
+The walk **halved**, which is what a mid-frame aim should do to a full-frame offset — half of the
+~838 m the term was priced at is ~420 m against an observed 328. Sixteen shots interleaved are in
+the air; one shot is not a result.
+
+**Two forms of this arm flew and failed first, and both were the change rather than the idea.**
+
+- *3,512 m.* It also moved the ground crossing onto the back-dated centre. `elapsedInFrame` is the
+  time at the **start** of a sub-step and the crossing tests the position at the **end** of it, so
+  the last sub-step — the only one a crossing can fire on — was displaced by `v·h`, 129 m, where it
+  had been exact. The crossing needs no correction: its staleness vanishes there by construction.
+- *3,097 m.* Re-deriving gravity inside `Slug` **overwrote** the vector, and on `dev` that vector is
+  `GravityAt + BodyFallEcl`. It silently reverted `8519c5d`, which is why it read the base arm's
+  walk almost exactly. **A change that discards a term composed upstream looks like a large effect
+  and is a revert.** Nothing headless could see it: the rig's planet does not move and nothing there
+  composes that term.
+
+**And the rig could not tell the first two forms from this one** — all three read 102 → 57 m in
+`BodyCentreEpochTests`, because `DeorbitShot`'s planet sits at the origin and a back-dated ground
+centre is identical to an un-back-dated one there. Three flights separated them.
+
+**The follow-up, if this wins**: re-aim per sub-step rather than once per frame. Better in the rig —
+41 m against 57, where the stale sample costs 102 — and held back because it bundles gravity re-read
+per sub-step, which flew alone and lost (item 2d, priced by `ProbeGapTests` at -740 m). Its own arm,
+not a fold-in.
+
 ### The walk grew sevenfold in two days, on an identical shot — and that is the real question
 
 Same save, same aim point, same pick-up (`207 km, 7360 m/s -- identical` in all three reports), same
