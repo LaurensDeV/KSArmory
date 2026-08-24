@@ -2233,6 +2233,12 @@ KSARMORY_SCENARIO_SAVE="AUTO NUKE DECOUPLER" \
 ./tools/shot-report.py ~/shots/2026-08-25 --shots
 ```
 
+**The batch gate was re-sized for this target before the night flew.** Its wild-shot floor was a
+flat 4 km, which is the widest baseline ever recorded on the *scripted* 26.5S,64.0W shot; here the
+shipped build lands 4-6 km, and the baseline is never a candidate for dropping — so the floor would
+have removed every arm that merely *matched* the control. It is now twice the night's own baseline
+median once the baseline has two shots. `SHOT-PROTOCOL.md` has the rule.
+
 | arm | what it changes | predicted |
 | --- | --- | --- |
 | `base` | dev | the control |
