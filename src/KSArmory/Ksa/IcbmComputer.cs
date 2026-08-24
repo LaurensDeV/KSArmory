@@ -410,9 +410,13 @@ internal sealed class IcbmComputer
                      + $" :: {Command.Hold}");
         }
 
-        // The aim stops moving when the arrival stops being free. They are one problem solved in
-        // two halves, and the second half is only solvable once the first has finished.
-        if (Program.IsBurning && double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze();
+        // ARM: the aim does NOT stop moving when the arrival commits. Committing changes the
+        // trajectory, so the aim that was banked is answering a question that no longer exists --
+        // measured in flight as 1.2 km of predicted miss degrading to 3.8 with the aim held still.
+        // Letting it carry on re-solves against the trajectory actually being flown.
+        //
+        // Left in as a comment rather than deleted so the diff against dev is exactly this decision:
+        // if (Program.IsBurning && double.IsFinite(Program.CommittedArrivalFromNow)) _aim.Freeze();
 
         // And starts again the moment the engines do stop, because the thing that made the two
         // halves fight is the burn: with the trajectory fixed, the arc follows the aim and the trim

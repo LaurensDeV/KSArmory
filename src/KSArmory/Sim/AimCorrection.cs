@@ -254,8 +254,10 @@ internal sealed class AimCorrection
     /// </summary>
     public void Resume()
     {
-        if (!Settled) return;
-
+        // Not conditional on having stopped. What this re-seeds is everything the loop learned
+        // about a plant that no longer exists, and the plant changes at cutoff whether or not the
+        // aim happened to be frozen when it got there. Guarding on Settled made it a no-op for a
+        // loop that never froze, which is the one that most needs the reset.
         Settled = false;
         _bestMiss = double.PositiveInfinity;
         _bestBias = BiasCci;
