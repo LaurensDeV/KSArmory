@@ -2150,6 +2150,34 @@ sweep from a different direction.
 **This is the live experiment.** A session picking the work up mid-flight or in the morning should
 read this section and `docs/SHOT-PROTOCOL.md`, and nothing else is needed to finish it.
 
+### What it settled, from the first eight shots
+
+**Never-freezing loses, badly, and the pair loses with it** — the *pair does not win* row below. Both
+arms were dropped by the batch gate at shot 008, two shots each, at 26.485S 68.148W:
+
+| arm | n | median | vs control | its own prediction | residual at cutoff |
+| --- | --- | --- | --- | --- | --- |
+| `base` | 2 | **1.01 km** | — | 2.50 km | 0.075 m/s |
+| `ownint` | 2 | 1.63 km | 1.6x | 3.44 km | 0.070 m/s |
+| `neverfreeze` | 2 | **5.72 km** | **5.7x** | 0.03 km | **0.580 m/s** |
+| `ownint+neverfreeze` | 2 | **5.31 km** | **5.3x** | 0.03 km | **0.485 m/s** |
+
+So **do not tune the freeze**, and the question moves to why the loop's prediction and its group
+disagree. Two things the flight adds to what the rig already said:
+
+**The never-frozen loop is precise and wrong.** Its groups are the tightest of the night — spread
+0.01 km, six warheads inside ten metres — landing 5.7 km out while reporting 0.03 km. That is
+`MirvBudgetTests.WhereTheNeverFrozenLoopGoes` reproducing in flight, and it settles the two rigs
+against each other: `AimConvergenceTests` reads never-freezing as a win because it scores through
+the predictor the loop converges. Fixing the predictor first does not rescue it — `ownint` is in the
+pair, and the pair still lands 5.3 km out with its own reading at 0.03 km.
+
+**And the freeze is load-bearing a second way nothing predicted: it is what lets the burn stop.**
+The never-frozen arms cut off with **0.5 m/s** still to gain against 0.07 for the control, eight
+times the residual — an aim that never settles is a cutoff condition that never settles. The miss is
+`residual x dMiss/dV`, so at this geometry that term alone is worth kilometres, and it is separate
+from the aim point being wrong.
+
 ### Where accuracy actually is
 
 Two numbers, and the gap between them is the whole reason this item exists:
