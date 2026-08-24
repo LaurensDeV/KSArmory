@@ -2283,10 +2283,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                ? KsaWorld.GroundVelocityAt(body, positionEcl)
                : KsaWorld.GroundVelocityAt(Platform!, positionEcl);
 
+    // A round falls with the ground under it, and this is the term that makes it. It is integrated
+    // in Ecl against its parent body's pull alone while KSA carries that body along its own orbit,
+    // so without the body's own fall the round is left behind by half of it times the square of the
+    // coast -- 431 m over six minutes, measured -- and a shallow arrival multiplies the share along
+    // local up by cot(gamma) again. docs/MIRV-NEXT.md item 2 has the flown measurement.
     private double3 GravityAtRound(double3 positionEcl)
-        => _looseBody is { } body
-               ? KsaWorld.GravityAt(body, positionEcl)
-               : KsaWorld.GravityAt(Platform!, positionEcl);
+    {
+        Celestial? body = _looseBody ?? (Platform is null ? null : KsaWorld.ParentBody(Platform));
+
+        return body is null
+                   ? KsaWorld.GravityAt(Platform!, positionEcl)
+                   : KsaWorld.GravityAt(body, positionEcl) + KsaWorld.BodyFallEcl(body);
+    }
 
     private Func<double3, double, double>? _airDensityAt;
     private double3 _bodyVelocityEcl;
