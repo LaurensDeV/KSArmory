@@ -16,6 +16,7 @@ its number wherever its state ends up. What is still open:
 | [2g](#2g-the-body-fall-is-summed-over-one-link-so-a-lunar-shot-keeps-most-of-it) | the body fall is summed over one link, so a lunar shot keeps most of the fault — unflown |
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
 | [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | the warp latch — **flown and closed**, by the harness rather than by the constant |
+| [7f](#7f-three-stopping-rules-were-sized-for-a-kilometre-shot--built-as-an-arm-unflown) | **three stopping rules sized for a kilometre shot — built as `arm/aim`, wants the night** |
 | [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
 
 Everything else is flown, closed, or retired, and says so in its own heading.
@@ -2057,6 +2058,91 @@ cycle) is not visible in this rig at all. `WorseBeforeStopping` is the only one 
 three ranges bit-identical at every value swept.
 
 **Unflown.** Headless across four ranges, and no more than that.
+
+## 7f. Three stopping rules were sized for a kilometre shot — built as an arm, unflown
+
+The shot lands at **0.05 km** and every constant that decides when a correction stops was chosen
+against a miss twenty times that. The flown log of 2026-08-24 (`~/shots/2026-08-24-pss`,
+`001-pss.log`) shows all of them binding, which is what separates this from arithmetic.
+
+**The post-boost loop stopped on the improvement bar, not on the trade it exists to make.**
+
+```
+post-boost: correcting the aim, 1.7 km out (pass 1)
+   ... 1.7, 0.7, 0.6, 0.4, 0.2, 0.2 ...
+post-boost: correcting the aim, 0.1 km out (pass 8)
+post-boost: 3 passes without beating 0.2 km
+release probe: 0.1 km from the target
+```
+
+`AimCorrection.ImprovedByMetres` was a fixed 250 m, so below about 200 m no pass can register as
+an improvement and `PassesWithoutImprovement` fires within three. The payback rule — the one that
+is *meant* to stop it — was still open: passes ran 1.5 s apart, which at the real holding cost is
+about 10 m against 100 m on the table.
+
+**And the holding cost was four times what it costs.** `PostBoostAim.HoldingCostsMetresPerSecond`
+is 26, measured at the 2 m/s ejection kick. Item 0a quartered the kick and *recorded the
+consequence in its own section* — "holding a warhead costs 26 -> ~6.5 m of miss per second" — and
+the constant never moved.
+
+**The bar cannot simply shrink, because it is the observer's noise that sets it.** Every pass is
+judged from a prediction flown off the bus's state with the kick added along its nose, so both the
+trim's leavings and the nose's wander move the reading with nothing about the shot having changed.
+Measured by `PostBoostObserverTests`:
+
+| | moves the reading |
+| --- | --- |
+| a nose sitting on the 2 deg settle gate | 13 m (3-7 m per degree) |
+| the trim at `BusTrim.SettledMetresPerSecond` = 0.02 | **70 m** |
+| the trim at 0.01 | 30 m |
+
+So the trim is the binding instrument, not the nose — and `SettledMetresPerSecond`'s own doc
+comment claimed 68 m was "comfortably under the best a shot has flown", which was true when it was
+written and is now above the whole miss. The arm moves the three together: a bar of five per cent
+of the best (250 m at the five-kilometre miss it was chosen at, so nothing about a shot that size
+changes) floored at 50 m, the holding cost to 6.5, and the trim's settle to 0.01. Safe because
+`BusTrim` bands at `max(this, one frame of firing)`, so the quantum takes over rather than the trim
+hunting.
+
+**Headlessly it is invisible, and that is expected.** `MirvBudgetTests` does not model
+`PostBoostAim` at all, and the boost loop reads bit-identical at 2,000, 3,459, 5,000 and 7,645 km
+before and after — so the whole effect lands exactly where the log says it binds. The regression is
+`PostBoostAimTests.PassesThatStopBeatingTheBestEndIt`, which fails against the old bar: on the flown
+readings a fixed 250 m banks 400 m and stops, where the same readings go on to 100.
+
+### `SteadyMetres` looks like the same fault and is not — measured, refused
+
+The pre-cutoff correction froze at **1.7 km after 7 of about 77 cycles** and never moved again:
+
+```
+34.265  bias  0.0 km  miss 74.2 km
+35.493  bias 76.8 km  miss  3.9 km
+37.015  bias 86.8 km  miss  2.6 km
+37.524  bias 89.4 km  miss  1.7 km   <- last move, then 39 s of burn with neither changing
+```
+
+The step sizes track the miss exactly, so the next step would have been 1.7 km — under
+`AimCorrection.SteadyMetres` at 2,000. `IsSteady` is what latches the arrival and the latch is what
+calls `Freeze()`, so **the threshold is the miss it stops at**: a converging loop trips it precisely
+when its remaining miss falls under the number.
+
+Tightening it is worse at every value swept, through `MirvBudgetTests` at 3,459 km:
+
+| `SteadyMetres` | group bias |
+| --- | --- |
+| **2,000, as shipped** | **415 m** |
+| 500 | 415 m |
+| 100 | 2,329 m |
+| 25 | 2,568 m |
+
+**Latching early is right.** The loop wants to do its converging against the plant that actually
+flies, and an aim optimised against a *free* arrival is worth several times more once the arrival is
+pinned under it — which is item 7c's finding arriving by a second route, on the other branch of the
+same `IsSteady`. What the rig does say is that not freezing at all is worth 415 -> 72 m at this
+range; it is also worth 1.00 -> 16.59 km at 7,645, which is why the freeze exists.
+
+`MaxResponse` is inert: 6, 12, 24 and 60 are bit-identical at all four ranges, confirming item 7c's
+sweep from a different direction.
 
 ## 7d. What a flight can actually resolve
 

@@ -449,7 +449,18 @@ integration work per round by five, that wall-clock cost has never been timed, a
 rule about unmeasured per-frame costs applies. Paying an unmeasured cost for an unmeasurable gain is
 the wrong way round.
 
-**When to turn it on.** When the terms above it are gone — the ~800 m the aim correction currently
-leaves (`docs/MIRV-NEXT.md` items 0 and 8b) and the arrival geometry (`docs/ARRIVAL-ANGLE.md`).
-At that point 122 m is a large share of what is left rather than a sixth of the noise, and the
-measurement becomes possible. The mechanism is shipped and costs nothing until a profile asks.
+**When to turn it on.** That condition is now met on one half and refused on the other, so read
+both. The noise floor came down with the miss — a 6-against-6 batch on 2026-08-24 read a 0.05 km
+median with a 0.02-0.09 km range, and the rank test settles ratios rather than metres, so 122 m
+against a 50 m median is no longer under the instrument. The wall-clock cost is measured too, at
+0.3 ms a frame for a six-warhead group.
+
+**But the rig now argues against it.** `ProbeGapTests` says a converged sub-step *alone* widens the
+round-versus-probe gap, 591 m to 754, and only reaches -6 m paired with gravity re-read per
+sub-step — the cancelling-pair shape that cost item 2d three flights. `MirvBudgetTests` agrees from
+the other side, flying the group 379 -> 453 m at 1x. The counter-argument is that both rigs sit a
+planet at the origin, where a frame carrier is identically zero, and the walk is exactly that term.
+
+So it is built as `arm/substep` and is **not** in the first factorial: `docs/MIRV-NEXT.md` item 2h
+attacks the same gap from the instrument's side and the rig likes it four times better, so that one
+flies first. The mechanism is shipped and costs nothing until a profile asks.
