@@ -1026,15 +1026,24 @@ internal static class KsaWorld
     /// What the parent body itself is doing — its own fall toward whatever it orbits, in the
     /// ecliptic frame. Zero for a body with no primary, and zero when anything cannot be read.
     ///
-    /// <para><b>A round does not have this and the ground under it does.</b> A round is integrated
-    /// against its parent body's gravity and nothing else, so over a long coast it is left behind by
-    /// exactly this — where a real warhead and a real planet fall toward the Sun together and the
-    /// term cancels. KSA's Earth falls at 5.9 mm/s², which is 733 m over an eight-minute coast, and
-    /// a shallow arrival multiplies whatever share of that lies along local up by <c>cot γ</c>.
-    /// <c>docs/MIRV-NEXT.md</c> item 2 has the measurement.</para>
+    /// <para><b>A round would not have this and the ground under it does.</b> A round is integrated
+    /// against its parent body's gravity in <c>Ecl</c>, so without this it is left behind by exactly
+    /// this — where a real warhead and a real planet fall toward the Sun together and the term
+    /// cancels. KSA's Earth falls at 6.096 mm/s², measured: 428 m over a 375 s coast, and a shallow
+    /// arrival multiplies whatever share of that lies along local up by <c>cot γ</c> — eight at 7°.
+    /// <see cref="WeaponSystem"/> applies it; <c>docs/MIRV-NEXT.md</c> item 2 is the flown
+    /// measurement, 2.88 km of miss to 0.72.</para>
     ///
-    /// <para>Reported rather than applied: what it is worth depends on where the primary lies
-    /// against the arrival, which is a number no shot has ever written down.</para>
+    /// <para><b>Exact rather than approximate</b>, because KSA moves celestials on analytic Kepler
+    /// rails whose conic is generated with the primary's own <c>Mu</c> — so a body's acceleration
+    /// <em>is</em> <c>mu/r²</c> toward its primary rather than being modelled by it. Read
+    /// <c>Orbit.StateVectors.AccelerationCci</c> instead and you get a hardcoded zero.</para>
+    ///
+    /// <para><b>One link only, which is a limit on other bodies.</b> A body's true ecliptic
+    /// acceleration is the sum over every link up to the star, and this supplies the nearest. Earth's
+    /// parent is Sol, so Earth is exact. Luna's parent is Earth, so a lunar shot gets
+    /// <c>mu_earth/r²</c> and loses Earth's own 5.9 mm/s² toward Sol — more than twice the term it
+    /// keeps, and worth some 417 m of drift over the same coast.</para>
     /// </summary>
     public static double3 BodyFallEcl(Celestial body)
     {
