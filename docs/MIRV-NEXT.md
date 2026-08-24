@@ -12,7 +12,7 @@ its number wherever its state ends up. What is still open:
 | [0c](#0c-the-budget-stopped-the-trim-dead-and-a-stopped-trim-never-lets-the-warheads-go--fixed-unflown) | **the budget held every warhead aboard — fixed, and it wants the flight** |
 | [0d](#0d-a-reloaded-launcher-gets-a-second-salvo-and-a-tenth--fixed-unflown) | **the bus fired ten salvos, so every group figure was over sixty warheads — fixed** |
 | [1](#1-null-the-separation-impulse---reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
-| [2](#2-every-round-lands-beyond-its-own-release-probe---decomposed-unflown) | the walk past the release probe: ~1.3 km, and the whole remaining story after 2e and 2f |
+| [2](#2-the-walk-was-the-planets-own-fall-toward-the-sun--flown-fixed-and-a-quarter-of-what-it-was) | **flown and fixed — 2.88 to 0.72 km.** What is left is +643 m the other way, unexplained |
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
 | [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | the warp latch — **flown and closed**, by the harness rather than by the constant |
 | [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
@@ -588,7 +588,7 @@ rather than 90.
 Never yet exercised: **whether the tank lasts.** ~183 kg of MMH/NTO against a few m/s is comfortable
 on paper and nothing has spent it.
 
-## 2. Every round lands beyond its own release probe — decomposed, unflown
+## 2. The walk was the planet's own fall toward the Sun — flown, fixed, and a quarter of what it was
 
 The largest remaining term, and the one attempt at it made things worse.
 
@@ -635,49 +635,39 @@ The largest remaining term, and the one attempt at it made things worse.
 > a problem: every shot in that batch resumes the same save at the same pick-up, so the Sun is in the
 > same place in all thirty and the term is a constant that cancels between the arms.
 
-### The night that settles it — ready to start
+### Flown 2026-08-24 — WIN, and the largest single improvement this shot has had
 
-```bash
-KSARMORY_SCENARIO_SAVE="AUTO NUKE DECOUPLER" ./tools/shot-batch.sh \
-    --aim 26.5S,64.0W --arms base=dev,fall=arm/bodyfall --blocks 10 \
-    --out ~/shots/2026-08-24-fall
-./tools/shot-report.py ~/shots/2026-08-24-fall
+Ten against ten, interleaved, `base=dev` against `arm/bodyfall`, one line apart:
+
+| | base | fall | ratio | 97% interval | p | |
+| --- | --- | --- | --- | --- | --- | --- |
+| **mean** | 2.88 km | **0.72 km** | **0.25** | 0.24-0.26 | 0.000 | **WIN** |
+| spread | 0.01 km | 0.02 km | 2.00 | 2.00-5.00 | 0.001 | **LOSS** |
+
+**The attribution table moves in exactly one place**, which is what makes it a measurement rather
+than a coincidence:
+
+```
+arm      residual  own km  probe km  arr deg  band deg   walk m   early s   dt ms
+base        0.040    1.66      0.10      7.1      0.72     2815     +0.59    17.3
+fall        0.035    1.67      0.05      7.1      0.72      643     -0.14    17.2
 ```
 
-**Flying since 2026-08-24 02:44.** Ten an arm rather than six because the night had the time.
+Cutoff residual, own predicted miss, release probe, arrival angle, cant, lag and frame time are all
+unchanged. The walk goes **2,815 -> 643 m** and the round stops beating its own predictor —
+**0.59 s early becomes 0.14 s late**. The twenty shots never overlapped: every `fall` group came in
+under 0.81 km and every `base` group over 2.72.
 
-**And the term is measured now, not inferred.** The release log reads, on this save:
+**The spread loss is real, significant, and small.** Six warheads that landed within 10-20 m of each
+other now land within 20-60 m. It does not offset 2.16 km of mean and it is **not diagnosed**;
+`docs/SHOT-PROTOCOL.md` analyses `spread` beside the mean rather than inside it for exactly this
+case, and the mechanism — the tube cant against the attitude the burn left — is untouched by this
+change, so something else is expressing itself now that the common-mode bias is gone.
 
-```
-the body falls at 6.096 mm/s2 toward its primary, lying (+0.51 up, -0.76 downrange,
-+0.40 across) of the arrival -- 431 m of drift over 376 s, of which 222 m is up
-```
-
-Resolving `ModelInputAgreementTests`' per-axis sensitivities on that direction, scaled to a 376 s
-coast, gives **-2,565 m**; the flown walk on the same save is **-2,896 to -2,936 m**. Two paths that
-share no code agreeing to about 15% is what turns this from an arithmetic argument into a
-measurement — and it is the diagnostic that produced it, not the fix.
-
-**Six an arm, not sixteen.** If this is what the walk is, it is not a shift but the near-total
-removal of the miss — a factor under 0.25, which `docs/SHOT-PROTOCOL.md` settles at 99% on six.
-Twelve shots is about two hours. If it comes back UNRESOLVED at six, the term is not what the
-arithmetic says it is and the interval will say so.
-
-`arm/bodyfall` is one line: `WeaponSystem.GravityAtRound` adds `KsaWorld.BodyFallEcl`, so the round
-accelerates with the ground it is measured against. It carries **no new test**, and cannot: the
-headless rig's planet does not accelerate, so the change is a no-op there by construction — which is
-the same reason the fault was invisible for as long as it was.
-
-**Fly one shot by hand first**, which `docs/SHOT-PROTOCOL.md` asks for anyway and which this
-project has now paid for twice in one evening. `dev` carries the release log added in `30b5f4d`,
-which has never been in the air: it runs inside the frame loop, and although `WarheadTrace.Begin`
-catches, a diagnostic nobody has watched work is not one to start a night on.
-
-**What the night cannot say** is how large the term is in general. The Sun sits wherever that one
-save puts it, so the shot samples a single point of a `0` to `9.7 km` band. The release log added in
-`30b5f4d` prints where the primary lies on the arrival's own axes, so the *next* shot from any save
-can be placed in that band without re-deriving it.
-
+**What is left is +643 m of walk the other way, and nothing measured explains it.** `ProbeGapTests`
+puts the coast frame at **-65 m** at this 17 ms step, so it is not that. It is now the largest term
+in the shot, and it has the opposite sign from the term just removed — which means the old -2,896 m
+was the solar term *minus* this, and both were larger than the total ever suggested.
 
 `Slug` holds the body centre `IGroundTest` gives it for the frame, and differences it against a
 position moving through that frame — so on the face of it the planet's ~29.8 km/s of ecliptic travel
