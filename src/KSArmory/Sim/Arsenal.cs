@@ -388,6 +388,17 @@ public static class Arsenal
         // The ~96 ms is flown, five against five interleaved: median 1.66 -> 1.06 km, ratio 0.65
         // with a 97% interval of 0.55-0.90. What is new here is getting it every shot.
         PreferredStepSeconds = 0.180f,
+
+        // A fifth of the shared 5 ms, and the Mk 21 is the only round that asks. Symplectic Euler
+        // is first order, measured dead straight at 30.6 m per millisecond of step on this arc, so
+        // the shipped 5 ms puts the round 145 m from a converged flight of itself and 1 ms puts it
+        // 23. That is the whole of the walk the release probe reports and none of it is visible to
+        // the aim correction, whose instrument is the predictor rather than the round.
+        //
+        // Per round rather than shared because the cost is per round: five times the integration
+        // work, which is 300 sub-steps a frame for a six-warhead group and 7,500 for a CIWS burst.
+        // Six warheads measured at 0.3 ms a frame; the burst has never been timed and does not ask.
+        SubStepSeconds = 0.001f,
         HitsTerrain = true,
     };
     /// <summary>
