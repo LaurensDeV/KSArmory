@@ -14,7 +14,7 @@ its number wherever its state ends up. What is still open:
 | [1](#1-null-the-separation-impulse---reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
 | [2](#2-every-round-lands-beyond-its-own-release-probe---decomposed-unflown) | the walk past the release probe: ~1.3 km, and the whole remaining story after 2e and 2f |
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
-| [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | one latched warp decision worth 0.5 km — fixed headlessly, **wants a flight** |
+| [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | the warp latch — **flown and closed**, by the harness rather than by the constant |
 | [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
 
 Everything else is flown, closed, or retired, and says so in its own heading.
@@ -1848,6 +1848,33 @@ says so.
 > engages on every frame and the 188 ms branch does not occur anywhere in the traced frame band.
 > Measured through the rig only — **this has not been flown**, and the mechanism below is what says
 > it should help rather than a shot that did. `CoastStepDeterminismTests` pins the engagement.
+
+> **Flown 2026-08-24, and it is closed — by the harness rather than by the constant.** Five shots,
+> `arm/coast225` (0.225) against `dev` (0.180), stopped once the logs said what they said:
+>
+> ```
+> arm     walk m   early s   coast ms      ratio      interval
+> base      2806      0.58        nan          —             —
+> coast     2793      0.59        nan       1.00     0.97-1.03
+> ```
+>
+> `coast ms` is `nan` because **there are no warped frames to take a median over**. Every trace
+> sample in both arms reads `sim=1.00x` — 8,070 of them on one and 8,093 on the other — and neither
+> log carries a single warp line. `WarpPolicy` acts only once the step *exceeds* `PreferredStep`, and
+> a 17 ms frame is inside both 0.180 and 0.225, so the constant under test is never reached. **The
+> two arms ship different assemblies that cannot behave differently**, which is what a walk agreeing
+> to 13 m and an interval of 0.97-1.03 at n=5 are saying.
+>
+> The cause is this repository's own harness fix `5b15830`: the pre-release coast is warped at 100x
+> and the world is **handed back before the first warhead leaves**, so the warheads fly their whole
+> 372 s at 1x. Everything below was measured when they flew that coast under 8x. The lottery is not
+> fixed — it is *unreachable*, which is a different thing and a fragile one: anything that puts warp
+> back over a salvo brings all of it back.
+>
+> **So `ReentryVehicleMk21.PreferredStepSeconds` currently has no effect on a flown shot at either
+> value**, and `CoastStepDeterminismTests` pins a headless behaviour the flown configuration never
+> enters. That is worth knowing before the next person reads the 0.180 in `Arsenal.cs` as load-
+> bearing. The five shots are kept at `~/shots/2026-08-24-coast-void`.
 
 **The night that settles it**, flying since 2026-08-24 01:00. Both arms are commits, so nothing in
 the working tree reaches a shot and the tree can be worked on while it flies:
