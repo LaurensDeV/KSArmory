@@ -738,7 +738,7 @@ pins the two to **different instants** rather than to one.
 same centre instead of being handed a vector. That is a change to what a projectile is given each
 frame rather than an added carry, and it is the fourth attempt at a term that has beaten three.
 
-### The arm: aim the frame's gravity at the body's mid-frame position — flying 2026-08-24
+### Flown 2026-08-24 — WIN. Aim the frame's gravity at the body's mid-frame position
 
 One subtraction, and it goes where gravity is **composed** rather than where it is consumed:
 `KsaWorld.GravityAt` takes a body offset and `WeaponSystem.GravityAtRound` passes half a frame of
@@ -748,16 +748,31 @@ the sub-step count and the held-for-the-frame convention are untouched, and with
 result is bit-identical — `BodyCentreEpochTests` asserts that, and asserts `Slug` has no opinion
 about bodies at all.
 
-One shot each, same save and aim:
+Eight against eight, interleaved:
 
-| | miss | walk (down) |
-| --- | --- | --- |
-| `dev` | 729 m | +698 m |
-| **`arm/onecentre`** | **475 m** | **+370 m** |
+| | base | aim | ratio | 97% interval | p | |
+| --- | --- | --- | --- | --- | --- | --- |
+| **mean** | 0.77 km | **0.45 km** | **0.58** | 0.50-0.63 | 0.000 | **WIN** |
+| spread | 0.02 km | 0.02 km | 1.00 | 0.50-2.50 | 0.959 | no change |
 
-The walk **halved**, which is what a mid-frame aim should do to a full-frame offset — half of the
-~838 m the term was priced at is ~420 m against an observed 328. Sixteen shots interleaved are in
-the air; one shot is not a result.
+**No shot overlapped**: every base group above 0.72 km, every corrected one below 0.59. And unlike
+`8519c5d` the spread costs nothing — this one is a straight gain.
+
+The attribution moves in one place:
+
+```
+arm     residual  own km  probe km  arr deg  band deg   down m  cross m  early s
+aim        0.030    1.67      0.10      7.1      0.72     +364      +14    -0.09
+base       0.040    1.67      0.10      7.1      0.72     +694      +25    -0.14
+```
+
+The walk **halves, 694 -> 364 m**, which is exactly what aiming at the middle of a frame does to a
+whole-frame offset, and the round's earliness against its own predictor goes 0.14 -> 0.09 s.
+
+**The scatter is not in this term.** Across the sixteen shots the walk moved only +678 to +714 —
+±2% — while the miss swung 0.72 to 0.89 km, ±11%. Whatever varies shot to shot is upstream of the
+round, in what the aim correction leaves behind, and it is now the larger source of *variance* even
+though the walk is still the larger source of *bias*.
 
 **Two forms of this arm flew and failed first, and both were the change rather than the idea.**
 
