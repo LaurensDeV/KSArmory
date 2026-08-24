@@ -2508,6 +2508,21 @@ factorial, so their sum is what is being measured; `docs/SHOT-PROTOCOL.md` is th
 
 ## Smaller things
 
+- **A warhead flew and never arrived, once in about sixty shots (2026-08-24).** The screening arm's
+  `screen: tube 1 flies ...` line was written, so it was created and stepped, and no
+  `round 1 detonated on the ground` line followed. **Not the defending site** — the Pantsir at the
+  aim point was never armed, which removes the one benign explanation. So a round is being lost
+  rather than intercepted, and the candidates left are a state nothing reports: expired, frozen on a
+  NaN, or no longer being stepped.
+
+  Worse than the loss is that **nothing said so**. `ShotGroup` is documented to score the worst
+  warhead and to count one that never arrived, and the scenario reported `PASS` on five.
+  `tools/ab-shot.py` warns about a short group only because it was written after being caught by
+  this. **The diagnostic comes before the fix**: a round that does not arrive should name its own
+  terminal state, and until it does this is one observation with no mechanism.
+
+
+
 - **The load-frame warning** and **the `OpticalHeads` stranding bug** are both fixed and unflown;
   the first now goes to DEBUG with an empty sky, the second follows a director across a split
   through the same `PlatformHandover` decision the launcher roster uses.
