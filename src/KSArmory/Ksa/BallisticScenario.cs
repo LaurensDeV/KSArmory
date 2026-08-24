@@ -458,16 +458,20 @@ internal sealed class BallisticScenario
     // How long before the release point the world is handed back, so nothing is still settling from
     // a speed change when the first warhead goes.
     //
-    // Twenty rather than forty-five, because at forty-five the gate cannot open on the shot this
-    // harness actually flies. The warheads are held until the arrival is inside
-    // ReleaseBeforeArrivalSeconds, 420 s, and the coast is entered with about 464 s to run -- so a
-    // 45 s margin asks for 465 and the whole coast is flown at 1x. Measured: not one frame above 1x
-    // in 8,078 samples, and the warp this exists to grant never happened at all.
+    // FORTY-FIVE KEEPS THE GATE SHUT ON THIS SHOT, AND THAT IS WORTH 470 m. The warheads are held
+    // until the arrival is inside ReleaseBeforeArrivalSeconds, 420 s, and the coast is entered with
+    // about 464 s to run -- so this asks for 465 and the coast is flown at 1x throughout. That was
+    // discovered by accident and then measured on purpose: at 20 s the gate opens, the coast runs at
+    // 100x, and the release probe's own miss goes from 50 m to 520 while the walk does not move.
     //
-    // What the margin has to cover is WarpPolicy settling, which is counted in frames rather than
-    // minutes, and the trim converging, which takes seconds at 1x. Twenty leaves both ample and
-    // leaves the gate reachable.
-    private const double SteadyBeforeReleaseSeconds = 20.0;
+    // The reason is that the post-boost aim correction converges during that coast, and at a hundred
+    // times its steps are seconds long. The scenario's own note above prices the same effect at 8x
+    // -- a cutoff residual of 3.16 m/s a frame against 0.40 -- and a hundred is far past it.
+    //
+    // So the wall clock this could save, about forty seconds a shot, costs an order of magnitude of
+    // accuracy. It was the right trade when a shot missed by 2.9 km and it is not one at 50 m.
+    // Warping the pre-release coast wants the aim to have settled first, which nothing here asks.
+    private const double SteadyBeforeReleaseSeconds = 45.0;
 
     private void CoastToTheReleasePoint(int ammo)
     {
