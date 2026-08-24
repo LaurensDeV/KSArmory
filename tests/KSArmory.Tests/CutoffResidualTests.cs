@@ -68,7 +68,19 @@ public class CutoffResidualTests(ITestOutputHelper Out)
     private static double FrameAtCutoff(IcbmProgram program)
         => program.AccelerationAtCutoff * program.StepAtCutoff * program.ThrottleAtCutoff;
 
-    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true });
+
+    /// <summary>
+    /// The arrival floor these measurements were taken at, which is off.
+    ///
+    /// <para>Stated rather than inherited from <see cref="IcbmConfig.MinArrivalAngleDeg"/>'s
+    /// default. Every number asserted below belongs to the seven-degree arrival the shot flies with
+    /// no floor asked for — the velocity-side terms scale with the trajectory's sensitivity and the
+    /// surface-side ones with <c>cot γ</c> — so a test that inherits the default is measuring
+    /// whatever geometry the default happens to name.</para>
+    /// </summary>
+    private const double ShallowArrival = 0.0;
+
+    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, MinArrivalAngleDeg = ShallowArrival });
 
     [Fact]
     public void TheBurnStopsWithLittleLeftToGain()

@@ -119,7 +119,9 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
         Loop loop = new();
         rig.AimLoop = loop;
 
-        IcbmProgram program = new(new IcbmConfig { Armed = true });
+        // The apportionment below is metres of predicted impact on the seven-degree arrival, so
+        // the floor is named rather than inherited.
+        IcbmProgram program = new(new IcbmConfig { Armed = true, MinArrivalAngleDeg = 0.0 });
         IcbmFlightRig.Flight flight = rig.Fly(program, aimAtEpoch, DeorbitShot.NominalFrame, 6_000.0);
 
         Assert.True(flight.Reached, $"the burn never reached coast: {flight.Hold}");

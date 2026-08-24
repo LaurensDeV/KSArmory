@@ -105,7 +105,9 @@ public class DeorbitTests
         IcbmFlightRig rig = InOrbit(300_000.0, 0.0);
         double3 aim = At(0.0, -0.6);
 
-        IcbmProgram program = new(new IcbmConfig { Armed = true });
+        // No arrival floor: the point of the test is that waiting finds an affordable window, and
+        // a floor is a second constraint on the same search.
+        IcbmProgram program = new(new IcbmConfig { Armed = true, MinArrivalAngleDeg = 0.0 });
         IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 9000.0);
 
         Assert.True(flight.Reached, $"never reached cutoff - {flight.Hold}");
