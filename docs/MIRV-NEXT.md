@@ -12,7 +12,8 @@ its number wherever its state ends up. What is still open:
 | [0c](#0c-the-budget-stopped-the-trim-dead-and-a-stopped-trim-never-lets-the-warheads-go--fixed-unflown) | **the budget held every warhead aboard — fixed, and it wants the flight** |
 | [0d](#0d-a-reloaded-launcher-gets-a-second-salvo-and-a-tenth--fixed-unflown) | **the bus fired ten salvos, so every group figure was over sixty warheads — fixed** |
 | [1](#1-null-the-separation-impulse---reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
-| [2](#2-the-walk-was-the-planets-own-fall-toward-the-sun--flown-fixed-and-a-quarter-of-what-it-was) | **flown and fixed — 2.88 to 0.72 km.** What is left is +643 m the other way, unexplained |
+| [2](#2-the-walk-was-the-planets-own-fall-toward-the-sun--flown-fixed-and-a-quarter-of-what-it-was) | **flown and fixed — 2.88 to 0.72 km — and 0.48 km was flown on 2026-08-22.** The walk grew sevenfold in two days; bisect it |
+| [2g](#2g-the-body-fall-is-summed-over-one-link-so-a-lunar-shot-keeps-most-of-it) | the body fall is summed over one link, so a lunar shot keeps most of the fault — unflown |
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
 | [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | the warp latch — **flown and closed**, by the harness rather than by the constant |
 | [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
@@ -208,7 +209,7 @@ crosses zero near a 138 ms frame and overshoots the other way below it — short
 without bound is a regression. `PreferredStepSeconds` now sits at **0.225**, the reachable frame
 nearest that crossing, flown five against five for a median 1.66 -> 1.06 km.
 
-## -1a. The round and its predictor must agree — being right alone is worth nothing
+## -1a. Two errors were cancelling — and it was not the round against its predictor
 
 `KsaWorld.GravityAt` gives a round only its parent body's pull, and Ecl is heliocentric — so the
 engine carries the planet along its orbit and the round is not carried with it. That is a real
@@ -217,13 +218,31 @@ Adding the star's pull makes the round's flight **more correct**.
 
 Flown four times: **4.78 / 4.78 / 5.93 / 5.93 km** against a 1.67 km baseline. Reverted.
 
-**`ImpactPredictor` does not model the term either**, and does not need to: it works in the body's
-own frame, where the star's pull and the frame's acceleration cancel to first order. So before the
-change the two models were wrong *identically*, which is self-consistent — and the aim correction
-converges the **predictor** onto the target, so what reaches the ground is the round's disagreement
-with the predictor, not either one's disagreement with physics.
+> **The mechanism below is wrong, and the same change has since won.** `8519c5d` is physically this
+> term — they differ by the solar tide across a planet's radius, 0.0086%, or 3.6 cm over a 375 s coast
+> — and it flew **10 from 10 at ratio 0.25, p 0.000**, taking the group from 2.88 km to 0.72. What was
+> wrong here was not the flights but the reading of them, so the paragraph is kept and corrected
+> rather than deleted: it is cited elsewhere as a general rule.
 
-Correcting one side alone converts a shared error into a difference, and the difference is the miss.
+**`ImpactPredictor` does not model the term and does not need to**, because it works in the body's
+own frame — and a body-centred non-rotating frame is *freely falling*, so the whole ancestral chain
+cancels there at every depth, leaving only that 3.6 cm of tide.
+
+**But that makes the predictor right and the round wrong, which is a difference and not a shared
+error.** The round, integrated in `Ecl` against its parent body's pull alone, carried a spurious
+`-a_body` relative to the ground for the whole coast; the predictor carried none. The claim that the
+two models were "wrong identically" is the error in this section, and it inverts the conclusion:
+correcting the round converts a *difference into agreement*, which is exactly what the flight
+measured.
+
+**What actually made these four flights lose is a second error of the opposite sign.** On the
+2026-08-22 configuration the walk was only **-427 m**, not the ~-2,540 m this term is worth — because
+the coast was still being warped, and a coarse coast frame walks a round *long*. Removing the solar
+term alone therefore unmasked ~+2,100 m of coast-frame walk, which is the right sign and rough size
+for the 4.78-5.93 km measured. Item 2 has the three-night table.
+
+So the rule this section states is sound but was applied to the wrong pair. **The round and its
+predictor were not the cancelling pair here; two independent errors in the round were.**
 
 **The rule, which is more general than this one term:** the round and the instrument that aims it
 are a pair. A change to either is only safe if the other moves with it, and an *improvement* to one
@@ -635,7 +654,7 @@ The largest remaining term, and the one attempt at it made things worse.
 > a problem: every shot in that batch resumes the same save at the same pick-up, so the Sun is in the
 > same place in all thirty and the term is a constant that cancels between the arms.
 
-### Flown 2026-08-24 — WIN, and the largest single improvement this shot has had
+### Flown 2026-08-24 — WIN on the night, and not a record. Read the next section with it.
 
 Ten against ten, interleaved, `base=dev` against `arm/bodyfall`, one line apart:
 
@@ -664,10 +683,46 @@ other now land within 20-60 m. It does not offset 2.16 km of mean and it is **no
 case, and the mechanism — the tube cant against the attitude the burn left — is untouched by this
 change, so something else is expressing itself now that the common-mode bias is gone.
 
-**What is left is +643 m of walk the other way, and nothing measured explains it.** `ProbeGapTests`
-puts the coast frame at **-65 m** at this 17 ms step, so it is not that. It is now the largest term
-in the shot, and it has the opposite sign from the term just removed — which means the old -2,896 m
-was the solar term *minus* this, and both were larger than the total ever suggested.
+**What is left is +678 m of walk the other way**, and the swing was larger than the term:
+**-2,960 -> +678 m**, i.e. **+3,638 m** against a term measured at about 2,540 m. Two response gains
+the rig cannot supply account for most of that difference — an 18% early gain measured at t=12.5 s
+before terrain can matter, and a **terrain gain of 1.12-1.4**, because the two arms land 3.6 km apart
+and the `fall` arm's ground is **55.5 m lower**, a 1.53% downhill at `cot 7.1 deg` = 8.03.
+
+> **The terrain gain was retired on the wrong interval.** Item 9's ranked list prices it at 4 m, from
+> the walk moving 1,939 -> 1,943 m across one arm's last 394 m of altitude. That interval cannot see
+> the slope *between two arms' landing points*, which is the only slope a swing is amplified by.
+
+### The walk grew sevenfold in two days, on an identical shot — and that is the real question
+
+Same save, same aim point, same pick-up (`207 km, 7360 m/s -- identical` in all three reports), same
+release state, same coast length, same arrival speed to 7 m/s:
+
+| night | probe's own miss | walk (down) | group |
+| --- | --- | --- | --- |
+| 2026-08-22 | 912 m | **-427 m** | **0.48 km** (one arm 0.29) |
+| 2026-08-23 | 416 m | **-1,196 m** | 0.80 km |
+| 2026-08-24, `base` | 104 m | **-2,971 m** | 2.88 km |
+| 2026-08-24, `fall` | 104 m | **+678 m** | 0.72 km |
+
+**The aim correction improved steadily — 912 to 104 m — while the walk grew sevenfold.** Read
+together they say the obvious thing: **0.72 km is not a record.** 2026-08-22 scored 0.48 km on this
+shot, and its best arm 0.29 km. What has happened is that two large errors of opposite sign were
+partly cancelling, one of them has been removed, and the other is now exposed.
+
+**And the body-fall term was in the code the whole time**, unchanged until `8519c5d` — so it cannot
+be what grew. Something between 2026-08-22 and 2026-08-24 removed roughly **+2,100 m** that had been
+offsetting it. Candidates, in the order they landed: `23422a3` (the Mk 21's preferred step, which is
+what decides whether the coast is warped at all), `1be43cc` (release timing, reach, the trim budget),
+`5b15830` (the harness's coast warp and hand-back), `42fee35`, `e64f099`, `0002713`. The 08-22 coast
+carried **127 warped frames at a mean 102.9 ms step and a maximum of 266.7 ms**; the 08-24 coast has
+**none at all, maximum 33.3 ms** — and `ProbeGapTests` says a coarse coast frame walks a round
+*long*, +399 m at 130 ms and +1,239 m at 320. So the leading suspect is item 7e's own closure:
+putting the coast at 1x did not merely remove a lottery, it removed a **large positive walk that had
+been masking the solar term**.
+
+**This is the better-posed question**, and it is bisectable rather than speculative: six commits, and
+a night of logs on both sides of them.
 
 `Slug` holds the body centre `IGroundTest` gives it for the frame, and differences it against a
 position moving through that frame — so on the face of it the planet's ~29.8 km/s of ecliptic travel
@@ -1031,6 +1086,31 @@ One term is **zero and worth recording as zero**: `Slug` takes gravity through `
 `ImpactPredictor` takes it raw, so a round declaring a `NeutralDensityRatio` is predicted by a model
 that does not know it floats. Nothing in `Arsenal` declares one, but `Sim/PackReader.cs` reads the
 field — so it is latent rather than absent.
+
+## 2g. The body fall is summed over one link, so a lunar shot keeps most of it
+
+`KsaWorld.BodyFallEcl` reads `body.Parent` and stops. A body's true ecliptic acceleration is the sum
+over **every** link up to the star, because `Celestial.UpdatePerFrameData` builds its position
+recursively — `_positionEcl = _positionCce; if (Parent != null) _positionEcl += Parent.GetPositionEcl()`.
+
+For **Earth** that is one link and the term is exact: its parent is `Sol` directly, and
+`StellarBody.GetPositionEcl()` is zero.
+
+For **Luna** it supplies `mu_earth/r²` = 2.4-3.2 mm/s² and omits Earth's own **5.93 mm/s² toward
+Sol** — more than twice the term it keeps, worth about **417 m of drift** over a 375 s coast, on arcs
+*shallower* than Earth's and therefore with more `cot γ` to multiply it by. Phobos and Deimos have
+the same shape.
+
+**The walk terminates by construction**, which is what makes this a few lines rather than a design:
+`Celestial` implements both `IOrbiter` and `IParentBody` while `StellarBody` implements only the
+latter, so stepping up while the primary is still an `IOrbiter` reaches the star and stops.
+
+Headless test: `BodyFallEcl(Luna)` should read ~8.6 mm/s² rather than 2.70, and `BodyFallEcl(Earth)`
+must not move. The residual after the recursion is the solar tide over the Earth-Moon distance,
+0.03 mm/s², or 0.5%.
+
+**Unflown, and it cannot be flown on the shot this file is about** — it is provably a no-op on Earth.
+It wants a lunar shot, which is a scenario that does not exist yet.
 
 ## 2c. The air was sampled a frame ahead of the body — fixed, flown
 
