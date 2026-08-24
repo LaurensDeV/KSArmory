@@ -79,6 +79,21 @@ as a split arm, **one shot, nine minutes**:
 
 Within 7% of the night, at a sixteenth of the cost.
 
+> **SUSPENDED 2026-08-24, and not yet diagnosed.** The two-condition split above validated. A
+> *three*-condition split did not: within-condition scatter went from 6 m to **193 m**, and two
+> warheads running **identical shipped code** landed **332 m apart** where six normally land within
+> six. Frame time was unchanged, 17.2 ms against 17.3, so it is not the extra work. The two-condition
+> split had already shown the same signature more mildly — within-side scatter 6 m to 35 m — which
+> was read as noise at the time and was the first sign of it.
+>
+> **A rig whose control does not hold still cannot judge anything**, so do not use a split arm until
+> that is understood. What it produced on the three-way screen looked like a spectacular result and
+> may simply have been right by luck: the same change flown on all six tubes agreed, but that is not
+> the same as the screen having measured it.
+>
+> The full-salvo shot is the fallback and costs the same nine minutes — one condition, six warheads,
+> compared against a known baseline. It gives up the paired design and keeps the speed.
+
 **Two limits, and the first is a silent false negative.** Only a **per-round** term can be split —
 the aim, the integrator, the sub-step, the drag. Anything upstream of the release is shared by all
 six warheads: guidance, the bus, the arrival angle, the release timing. A split arm reads those as a
