@@ -201,6 +201,20 @@ internal sealed class WarheadTrace
                  + $" {parts.Z:+0.00;-0.00} across) of the arrival"
                  + $" -- {drift:F0} m of drift over {seconds:F0} s, of which"
                  + $" {Math.Abs(drift * parts.X):F0} m is up");
+
+        // The other vector, and the one a stale force sample rides on. Square to the fall on a
+        // near-circular orbit, so resolving one says nothing about the other.
+        double3 travelEcl = KsaWorld.BodyTravelEcl(setup.Parent);
+        double speed = Vec.Len(travelEcl);
+
+        if (speed <= 0.0) return;
+
+        double3 travel = arrival.Resolve(Vec.Unit(travelEcl));
+
+        Log.Info($"warhead trace: the body travels at {speed:F0} m/s,"
+                 + $" lying ({travel.X:+0.00;-0.00} up, {travel.Y:+0.00;-0.00} downrange,"
+                 + $" {travel.Z:+0.00;-0.00} across) of the arrival"
+                 + $" -- one 17 ms frame of it is {speed * 0.017:F0} m of pull-centre offset");
     }
 
     /// <summary>

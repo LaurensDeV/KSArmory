@@ -1070,6 +1070,31 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// The parent body's own travel through the ecliptic, which is a different question from
+    /// <see cref="BodyFallEcl"/> and roughly square to it on a near-circular orbit.
+    ///
+    /// <para><b>It is the lever on a force sample taken a frame out of step.</b> A round's gravity is
+    /// read at its pre-step position against a celestial sample from the frame's end, so the pull
+    /// centre is displaced by this times the step — 516 m at 29.8 km/s on a 17 ms frame, which is a
+    /// spurious transverse acceleration of <c>g·v·dt/r</c>, around 1 mm/s². That is larger than the
+    /// body's fall. <c>docs/KSA-FRAME-ORDER.md</c> §5 and <c>docs/MIRV-NEXT.md</c> item 2.</para>
+    ///
+    /// <para>Reported only. What it is worth depends on where it lies against the arrival, and no
+    /// shot has written that down.</para>
+    /// </summary>
+    public static double3 BodyTravelEcl(Celestial body)
+    {
+        try
+        {
+            return body.GetVelocityEcl();
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
+
+    /// <summary>
     /// Density of whatever the round is flying through, as a multiple of the parent body's
     /// sea-level air density.
     ///
