@@ -63,7 +63,7 @@ internal sealed class IcbmConfig
     /// a 400 km platform reaches 6,379 km at 7.5 degrees for a 473 m/s brake, and 2,015 km at 20
     /// degrees for 2,576 — 86% of the stack arriving against 44%.</para>
     /// </summary>
-    public double MinArrivalAngleDeg;
+    public double MinArrivalAngleDeg = 15.0;
 
     /// <summary>Altitude at which the pitch programme starts turning away from vertical.</summary>
     public double TurnStartMetres = 800.0;
