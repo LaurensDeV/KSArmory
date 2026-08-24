@@ -76,14 +76,22 @@ def main() -> int:
         print("no warhead impacts in that log -- did the salvo arrive?", file=sys.stderr)
         return 1
 
-    # The arm's own account of what each tube flew, when it gives one. A round reports its tube
-    # one-based at impact and the assignment is logged as the index, so they are lined up here
-    # rather than assumed to agree.
+    # The arm's own account of what each tube flew. Keyed on the tube directly and never on an
+    # offset between the two lists: a warhead that fails to arrive shifts one list and not the
+    # other, and an offset computed from their minima then mislabels EVERY round silently. That
+    # happened, and the table it produced looked entirely reasonable.
     if flew:
-        offset = min(impacts) - min(flew)
-        label = {t: flew.get(t - offset, "?") for t in impacts}
+        label = {t: flew.get(t, "?") for t in impacts}
+
+        missing = sorted(set(flew) - set(impacts))
+        if missing:
+            print(f"warning: tube(s) {', '.join(map(str, missing))} flew but never arrived -- "
+                  "the means below are over what landed, not over what was sent", file=sys.stderr)
     else:
         label = {t: ("under test" if under_test(t) else "shipped") for t in impacts}
+
+    if any(v == "?" for v in label.values()):
+        print("warning: a round impacted from a tube the arm never announced", file=sys.stderr)
 
     groups: dict[str, list[float]] = {}
     for t, m in impacts.items():
