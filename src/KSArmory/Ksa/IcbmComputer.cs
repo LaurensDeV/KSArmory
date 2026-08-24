@@ -56,6 +56,7 @@ internal sealed class IcbmComputer
     private readonly List<Vehicle> _wasBeforeSplit = [];
     private readonly List<Vehicle> _afterSplit = [];
     private double _sinceSplit;
+    private string _trimShape = "";
     private string _saidTrim = "";
 
     private Vehicle? _viewWanted;
@@ -190,7 +191,7 @@ internal sealed class IcbmComputer
     /// <para>Not <see cref="BusTrim.Said"/>: most of the wait happens before the trim is even armed,
     /// while the bus coasts clear of the stack it dropped, and a readout that stays blank through it
     /// is indistinguishable from one that has stopped working. This is the last thing said about
-    /// either, which is the same string the log carries.</para>
+    /// either, and it is the sentence rather than the shape the log de-duplicates on.</para>
     /// </summary>
     public string TrimSaid => _saidTrim;
 
@@ -259,6 +260,7 @@ internal sealed class IcbmComputer
         _freshMiss = double.NaN;
         _resumedForCoast = false;
         _trimAbandoned = false;
+        _trimShape = "";
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -312,6 +314,7 @@ internal sealed class IcbmComputer
         _freshMiss = double.NaN;
         _resumedForCoast = false;
         _trimAbandoned = false;
+        _trimShape = "";
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -782,10 +785,15 @@ internal sealed class IcbmComputer
     // is the words, so a direction change, a stall or a hand-back all still say so.
     private void Say(string what, string detail = "")
     {
-        string state = WithoutNumbers(what);
-        if (state == _saidTrim) return;
+        string shape = WithoutNumbers(what);
+        if (shape == _trimShape) return;
 
-        _saidTrim = state;
+        // Two fields, because they are two different things: the shape is what decides whether this
+        // is a new state, and the sentence is what anybody reads. Keeping only the shape puts
+        // "trimming # m/s on the back" on the panel, which is the comparison key with its numbers
+        // already thrown away.
+        _trimShape = shape;
+        _saidTrim = what;
         Log.Info($"trimming the bus on {KsaWorld.DisplayName(Craft)}: {what}{detail}");
     }
 
