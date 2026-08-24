@@ -2288,7 +2288,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // so without the body's own fall the round is left behind by half of it times the square of the
     // coast -- 431 m over six minutes, measured -- and a shallow arrival multiplies the share along
     // local up by cot(gamma) again. docs/MIRV-NEXT.md item 2 has the flown measurement.
-    private double3 GravityAtRound(double3 positionEcl, double simStep)
+    // A/B WITHIN ONE SALVO -- a screening arm, never merged.
+    //
+    // Odd tubes fly the shipped aim and even tubes the one under test, so a single flight is a
+    // paired comparison: same cutoff, same trim, same frame pacing, same weather. Six warheads land
+    // within about 20 m of each other, so a term worth hundreds separates at seventeen sigma from
+    // one shot where a night of sixteen was needed to see it between shots.
+    //
+    // Only sound for a PER-ROUND term. Anything upstream of the release -- guidance, the bus, the
+    // release timing -- is shared by all six and cannot be split this way.
+    private static bool UnderTest(int tube) => (tube % 2) == 1;
+
+    private double3 GravityAtRound(double3 positionEcl, double simStep, int tube)
     {
         Celestial? body = _looseBody ?? (Platform is null ? null : KsaWorld.ParentBody(Platform));
 
@@ -2302,7 +2313,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // frame out at each end and right on average, which costs one subtraction and leaves the
         // held-for-the-frame convention alone. Measured in game: the travel lies 0.73 radial of the
         // arrival, and only the radial share costs anything. docs/MIRV-NEXT.md item 2.
-        double3 midFrame = -_bodyVelocityEcl * (0.5 * simStep);
+        double3 midFrame = UnderTest(tube) ? -_bodyVelocityEcl * (0.5 * simStep) : Vec.Zero;
 
         return KsaWorld.GravityAt(body, positionEcl, midFrame) + KsaWorld.BodyFallEcl(body);
     }
@@ -2374,7 +2385,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // it lost: shifting where a *field* is read translates the whole field, so the round is
             // pulled toward a centre the ground test does not use. docs/KSA-FRAME-ORDER.md
             // section 5.
-            double3 gravity = GravityAtRound(round.PositionEcl, dt);
+            double3 gravity = GravityAtRound(round.PositionEcl, dt, round.Tube);
 
             // Read at the round's own position, not the platform's. A round climbing out of the
             // atmosphere leaves the air behind long before the launcher does, and that is the
