@@ -2288,13 +2288,23 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // so without the body's own fall the round is left behind by half of it times the square of the
     // coast -- 431 m over six minutes, measured -- and a shallow arrival multiplies the share along
     // local up by cot(gamma) again. docs/MIRV-NEXT.md item 2 has the flown measurement.
-    private double3 GravityAtRound(double3 positionEcl)
+    private double3 GravityAtRound(double3 positionEcl, double simStep)
     {
         Celestial? body = _looseBody ?? (Platform is null ? null : KsaWorld.ParentBody(Platform));
 
-        return body is null
-                   ? KsaWorld.GravityAt(Platform!, positionEcl)
-                   : KsaWorld.GravityAt(body, positionEcl) + KsaWorld.BodyFallEcl(body);
+        if (body is null) return KsaWorld.GravityAt(Platform!, positionEcl);
+
+        // Aimed at where the body was half-way through the frame, not at the sample.
+        //
+        // The celestial sample arrives at the frame's end while this is read at the round's
+        // pre-step position, so a vector aimed at it is a whole frame of the body's own travel out
+        // -- 513 m at 30 km/s and 17 ms -- for the whole frame. Aimed at the middle it is half a
+        // frame out at each end and right on average, which costs one subtraction and leaves the
+        // held-for-the-frame convention alone. Measured in game: the travel lies 0.73 radial of the
+        // arrival, and only the radial share costs anything. docs/MIRV-NEXT.md item 2.
+        double3 midFrame = -_bodyVelocityEcl * (0.5 * simStep);
+
+        return KsaWorld.GravityAt(body, positionEcl, midFrame) + KsaWorld.BodyFallEcl(body);
     }
 
     private Func<double3, double, double>? _airDensityAt;
@@ -2364,7 +2374,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // it lost: shifting where a *field* is read translates the whole field, so the round is
             // pulled toward a centre the ground test does not use. docs/KSA-FRAME-ORDER.md
             // section 5.
-            double3 gravity = GravityAtRound(round.PositionEcl);
+            double3 gravity = GravityAtRound(round.PositionEcl, dt);
 
             // Read at the round's own position, not the platform's. A round climbing out of the
             // atmosphere leaves the air behind long before the launcher does, and that is the
@@ -2383,6 +2393,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 slug.Contacts = ContactCandidates();
                 slug.Hull = HullTest.Shared;
+
+                // One centre for every sample this round is differenced against. The celestial
+                // sample arrives at the frame's end and the round flies across the frame, so
+                // without the body's own travel the pull centre sits a frame ahead of the round --
+                // 513 m at 30 km/s and 17 ms, and only its radial share costs anything, which on
+                // the flown shot is 0.73 of it. docs/MIRV-NEXT.md item 2.
+                //
+                // Both, or neither: correcting where the round falls toward without correcting
+                // where it measures its height from pins the two to different instants, which is
+                // what the three earlier attempts at this each did.
+
                 slug.Ground = GroundTest.Shared;
 
                 // Cached rather than a fresh method group per round per frame: a cannon burst is

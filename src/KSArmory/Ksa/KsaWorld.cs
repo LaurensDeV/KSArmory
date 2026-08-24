@@ -1003,14 +1003,15 @@ internal static class KsaWorld
     }
 
     /// <summary>The same pull, asked of the body directly — for a round with no craft left.</summary>
-    public static double3 GravityAt(Celestial body, double3 positionEcl)
+    public static double3 GravityAt(Celestial body, double3 positionEcl,
+                                   double3 bodyOffsetEcl = default)
     {
         try
         {
             double mu = ((IParentBody)body).Mu;
             if (mu <= 0.0) return Vec.Zero;
 
-            double3 toBody = body.GetPositionEcl() - positionEcl;
+            double3 toBody = (body.GetPositionEcl() + bodyOffsetEcl) - positionEcl;
             double dist2 = Vec.Len2(toBody);
             if (dist2 < 1.0) return Vec.Zero;
 
@@ -1091,6 +1092,23 @@ internal static class KsaWorld
         catch
         {
             return Vec.Zero;
+        }
+    }
+
+    /// <summary>
+    /// The body's gravitational parameter, or zero when it cannot be read. What a round needs to
+    /// re-aim its own gravity at a centre that moves rather than being handed a fixed vector.
+    /// </summary>
+    public static double BodyMu(Celestial body)
+    {
+        try
+        {
+            double mu = ((IParentBody)body).Mu;
+            return double.IsFinite(mu) && mu > 0.0 ? mu : 0.0;
+        }
+        catch
+        {
+            return 0.0;
         }
     }
 
