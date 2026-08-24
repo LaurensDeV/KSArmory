@@ -653,6 +653,11 @@ accelerates with the ground it is measured against. It carries **no new test**, 
 headless rig's planet does not accelerate, so the change is a no-op there by construction — which is
 the same reason the fault was invisible for as long as it was.
 
+**Fly one shot by hand first**, which `docs/SHOT-PROTOCOL.md` asks for anyway and which this
+project has now paid for twice in one evening. `dev` carries the release log added in `30b5f4d`,
+which has never been in the air: it runs inside the frame loop, and although `WarheadTrace.Begin`
+catches, a diagnostic nobody has watched work is not one to start a night on.
+
 **What the night cannot say** is how large the term is in general. The Sun sits wherever that one
 save puts it, so the shot samples a single point of a `0` to `9.7 km` band. The release log added in
 `30b5f4d` prints where the primary lies on the arrival's own axes, so the *next* shot from any save
