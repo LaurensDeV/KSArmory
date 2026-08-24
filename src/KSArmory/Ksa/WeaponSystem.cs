@@ -2319,6 +2319,23 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private double AirDensityIntoFrame(double3 positionEcl, double secondsIntoFrame)
         => MediumAtRound(positionEcl - (_bodyVelocityEcl * secondsIntoFrame));
 
+    // Gravity at a stated time into the frame, composed the way GravityAtRound composes it -- so the
+    // body's own fall travels with it and cannot be lost by a caller re-deriving the pull.
+    //
+    // Aimed per sub-step rather than once at the frame's middle: the celestial sample arrives at the
+    // frame's end and the round crosses the frame, so the honest centre moves within it.
+    private double3 GravityIntoFrame(double3 positionEcl, double secondsIntoFrame)
+    {
+        Celestial? body = _looseBody ?? (Platform is null ? null : KsaWorld.ParentBody(Platform));
+
+        if (body is null) return KsaWorld.GravityAt(Platform!, positionEcl);
+
+        return KsaWorld.GravityAt(body, positionEcl, _bodyVelocityEcl * secondsIntoFrame)
+               + KsaWorld.BodyFallEcl(body);
+    }
+
+    private Func<double3, double, double3>? _gravityAt;
+
     private double3 BodyVelocityEcl()
     {
         try
@@ -2409,6 +2426,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 // Cached rather than a fresh method group per round per frame: a cannon burst is
                 // 150 shells and this is assigned to every one of them.
                 slug.AirDensityAt = _airDensityAt ??= AirDensityIntoFrame;
+                slug.GravityAt = _gravityAt ??= GravityIntoFrame;
             }
 
             round.Update(dt, SampleTarget(round), gravity, airVelocity, PlatformEcl,

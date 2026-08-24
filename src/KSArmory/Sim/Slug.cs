@@ -57,6 +57,17 @@ internal sealed class Slug : IProjectile
     /// </param>
     public Func<double3, double, double>? AirDensityAt { get; set; }
 
+    /// <summary>
+    /// Gravity at a position and a time into the frame, or null to use the vector handed in.
+    ///
+    /// <para>Exactly <see cref="AirDensityAt"/>'s shape and convention, and for the same reason: the
+    /// celestial sample the pull is measured from arrives at the frame's end while the round is
+    /// part-way through it. A delegate lets the caller put the body back <em>per sub-step</em>
+    /// instead of once per frame — and, because the caller composes it, whatever else is folded into
+    /// gravity travels with it rather than being overwritten.</para>
+    /// </summary>
+    public Func<double3, double, double3>? GravityAt { get; set; }
+
     /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
     public double FaithfulStepSeconds
         => _lastDensity > Medium.NoticeableDensity
@@ -227,7 +238,11 @@ internal sealed class Slug : IProjectile
 
             // Incremented after the step, so the round's position and the back-dated target share
             // an instant. Splitting them across a sub-step costs ~142 m at 29.8 km/s.
-            Step(h, elapsed, dt, target, gravity, munition, density);
+            // Re-read per sub-step when the caller offers it, back-dated exactly as the air is.
+            double3 pull = GravityAt?.Invoke(PositionEcl, elapsed - dt) ?? gravity;
+            if (!Vec.IsFinite(pull)) pull = gravity;
+
+            Step(h, elapsed, dt, target, pull, munition, density);
             elapsed += h;
         }
 
