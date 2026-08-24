@@ -56,6 +56,44 @@ flyable.** It is not that it needs more shots than the night has; it needs more 
 has. Land those on the strength of the rig and the argument, batched together so their sum clears
 the bar, or leave them.
 
+## 0. First ask whether it needs a night at all
+
+**A night is for a change to the *shot*. A change inside the *round* can be flown against itself.**
+
+The bus drops six warheads on one trajectory, and on the flown shot they land within **6.2 m** of
+each other. So a split arm — odd tubes shipped, even tubes under test — makes a single flight a
+paired comparison with the cutoff, the trim, the frame pacing and the weather all held identical by
+construction. `tools/ab-shot.py` reads one log and scores it.
+
+Validated against a term whose answer was already known. The mid-frame gravity aim, flown 2026-08-24
+as eight against eight interleaved, measured **-336 m** of walk and took 2.45 hours. The same change
+as a split arm, **one shot, nine minutes**:
+
+```
+   tube  side          miss
+      1  under test      423 m
+      2  shipped         746 m
+      ...
+   difference      -311 m   against 14.7 m of within-side scatter  ->  21 sigma
+```
+
+Within 7% of the night, at a sixteenth of the cost.
+
+**Two limits, and the first is a silent false negative.** Only a **per-round** term can be split —
+the aim, the integrator, the sub-step, the drag. Anything upstream of the release is shared by all
+six warheads: guidance, the bus, the arrival angle, the release timing. A split arm reads those as a
+dead heat *however large the effect is*, and nothing in the output says so. Check the change is
+inside the round before trusting a null.
+
+And it is a **screen, not a verdict**. It scores the walk and the per-warhead miss on one flight;
+what ships is decided on the group miss over an interleaved batch, because that is the number a
+player gets. Screen many ideas cheaply, then spend a night confirming the one that won.
+
+**Why the night was ever needed for this.** The group *miss* carries the aim correction's
+shot-to-shot variance — 11% across the sixteen — while the term under test moved the *walk* by 48%
+against 2% of scatter. Sixteen shots measured a **27 sigma** effect. The endpoint was the expense,
+not the question.
+
 ## 1. The statistic
 
 **Endpoint: the group's `mean` miss, on a log scale.** Not `worst`, which is the pass/fail bar and
