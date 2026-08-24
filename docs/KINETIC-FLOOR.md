@@ -338,6 +338,34 @@ First order in the sub-step at 0.465 m per ms, and flat in the nav constant. **P
 navigation contributes nothing of its own** — a steered round is bounded by the integrator, by where
 it thinks the target is, and by the same ground model as an unguided one, and by nothing else.
 
+### And it removes the arrival angle, which is the whole of the unguided budget
+
+The headline of this file is that five of the eight terms are heights and `cot(gamma)` turns them
+into ground, so an unguided round cannot be precise at seven degrees at any price.
+**That does not survive terminal guidance** (`WhetherTerminalGuidanceRemovesTheNeedForASteepArrival`,
+a 500 m release error steered out at each arrival):
+
+| arrival | `cot γ` | unguided | 2 g at 5 ms | at 1 ms | at 0.25 ms |
+| --- | --- | --- | --- | --- | --- |
+| **7.1 deg** | 8.03 | 498.51 m | **2.32 m** | 0.45 m | 0.00 m |
+| 15 deg | 3.73 | 499.60 m | 2.32 m | 0.46 m | 0.09 m |
+| 30 deg | 1.73 | 499.89 m | 2.32 m | 0.47 m | 0.09 m |
+| 60 deg | 0.58 | 499.96 m | 2.33 m | 0.47 m | 0.13 m |
+
+**The arrival angle is worth a couple of centimetres to a steered round and a factor of eight to a
+ballistic one.** The reason is what `cot(gamma)` actually multiplies: errors the round *cannot see*.
+A ballistic round stops wherever its arc happens to cross the ground, so every height error upstream
+becomes range; a round steering at the target flies at the target from whatever direction it
+arrives, and what is left is the sub-step alone. Two g is enough for 500 m and 6 and 20 are
+identical to it.
+
+**One term is absent from that table and is the reason not to read it as "arrival angle no longer
+matters".** The ground in this rig is a smooth ball, so the terrain gain of section 5 —
+`slope / tan(gamma)`, which passes one and stops having a fixed point below about fifteen degrees —
+is not in these numbers. It *multiplies* whatever is left rather than adding to it, so it costs a
+0.46 m residue far less than a 153 m one; but it is the one reason left to prefer a steeper arrival
+for a round that steers.
+
 Nothing in `Sim/Arsenal.cs` is such a round today: the Mk 21 is `GuidanceMode.None`.
 
 ---
@@ -381,8 +409,14 @@ least 2 g of authority and is told within a few hundred metres where to go.
 It is bounded by exactly the same integrator and the same ground model as the unguided round, and it
 buys nothing at all against them. What it buys is immunity to everything *upstream*: the cant, the
 cutoff residual, the aim residue and a bad release all become someone else's problem the moment the
-round can pull 6 g in the last twenty seconds. That is the case for building one — not accuracy at
+round can pull 2 g in the last twenty seconds. That is the case for building one — not accuracy at
 the floor, but reaching the floor at all from a shot that would otherwise be a kilometre out.
+
+**And it is the cheap route to a metre, because it does not need the trajectory changed.** The
+unguided path to 1.2 m is a near-vertical arrival, which from orbit means taking out essentially the
+whole orbital velocity — about 7.8 km/s, with downrange collapsing from 3,094 km to 96. A steered
+round reaches 0.46 m on the seven-degree arrival the mod already flies, for a tail kit and a finer
+sub-step. The propellant a steep arrival costs buys accuracy only for a round that cannot steer.
 
 ### The honest caveats on both
 

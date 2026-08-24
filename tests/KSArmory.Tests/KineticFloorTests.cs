@@ -637,6 +637,82 @@ public class KineticFloorTests(ITestOutputHelper Out)
         }
     }
 
+    /// <summary>
+    /// Whether terminal guidance removes the need for a steep arrival, or only the need for a good
+    /// release.
+    ///
+    /// <para><b>This is the question the whole 50 m -> 1 m plan turns on.</b> Five of the eight
+    /// terms in this file are heights, and a height becomes ground in proportion to
+    /// <c>cot(gamma)</c> — so an unguided round cannot be a precision weapon at seven degrees at
+    /// any price. A steered round is bounded by different things, and if it reaches the same floor
+    /// on the arrival the mod already flies then the propellant a steep arrival costs buys
+    /// nothing.</para>
+    ///
+    /// <para><b>It does.</b> A steered round lands 2.32 m from the aim at the shipped 5 ms sub-step
+    /// and about 0.46 m at 1 ms, and those numbers are the same at 7.1 degrees as at 60 — the
+    /// arrival angle, which is the whole of the unguided budget, is worth a couple of centimetres
+    /// here. Two g is enough for a 500 m release error and more buys nothing.</para>
+    ///
+    /// <para>The reason is that <c>cot(gamma)</c> multiplies errors <em>the round cannot see</em>:
+    /// a ballistic round stops wherever its arc happens to cross the ground, so every height error
+    /// upstream becomes range. A round that is steering at the target flies at the target from
+    /// whatever direction it arrives, and what is left is the sub-step alone.</para>
+    ///
+    /// <para><b>One term is deliberately absent and does not survive to the shallow end.</b> The
+    /// ground here is a smooth ball, so the terrain gain of section 5 — <c>slope / tan(gamma)</c>,
+    /// which passes one and stops having a fixed point below about fifteen degrees — is not in
+    /// these numbers. It multiplies whatever is left rather than adding to it, so it costs a
+    /// guided round far less than an unguided one; but it is the one reason left to prefer a
+    /// steeper arrival for a round that steers.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(7.1)]
+    [InlineData(15.0)]
+    [InlineData(30.0)]
+    [InlineData(60.0)]
+    public void WhetherTerminalGuidanceRemovesTheNeedForASteepArrival(double arrivalDeg)
+    {
+        Arrival(arrivalDeg, out double3 r, out double3 v);
+
+        // The aim point is where a converged flight of the same round would land, so the guidance
+        // is being scored against a place that is genuinely reachable rather than against a
+        // trajectory it would have to fight.
+        (double3 target, _) = FlyFrom(r, v, 0.00025);
+
+        // A release error of the size the shot actually has today, steered out from scratch.
+        double3 across = Vec.Unit(Vec.Cross(r, v));
+        double3 offset = r + across * 500.0;
+
+        (double3 nothing, _) = FlyFrom(offset, v, Interceptor.SubStep);
+
+        Out.WriteLine($"{arrivalDeg,4:F1} deg arrival, released 500 m across the track "
+                      + $"(cot {1.0 / Math.Tan(arrivalDeg * Math.PI / 180.0):F2}):");
+        Out.WriteLine($"   unguided:              {GroundMetres(nothing, target),9:N2} m");
+
+        foreach (float g in new[] { 2f, 6f, 20f })
+        {
+            string row = $"   {g,4:F0} g of fin authority:";
+
+            foreach (double h in new[] { 0.005, 0.001, 0.00025 })
+            {
+                (double3 landed, _) = FlyGuided(offset, v, Steered(g), target, h);
+                row += $"  {h * 1000,5:F2} ms -> {GroundMetres(landed, target),8:F2} m";
+            }
+
+            Out.WriteLine(row);
+        }
+
+        // The finding, at whatever arrival this case is: guidance takes a release error that an
+        // unguided round keeps in full down to the integrator's own residue.
+        (double3 steered, _) = FlyGuided(offset, v, Steered(2f), target, Interceptor.SubStep);
+
+        Assert.True(GroundMetres(nothing, target) > 490.0,
+                    "the unguided round should keep essentially the whole displacement");
+        Assert.True(GroundMetres(steered, target) < 3.0,
+                    $"2 g left {GroundMetres(steered, target):F2} m at {arrivalDeg:F1} deg, so the "
+                    + "arrival angle is doing something to a steered round after all");
+    }
+
     // ---------------------------------------------------------------- helpers
 
     /// <summary>The spacing between representable doubles at a magnitude.</summary>
