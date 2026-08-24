@@ -167,6 +167,11 @@ public class MirvBudgetTests(ITestOutputHelper Out)
         /// <summary>How many cycles reached the correction, and how many found no arc to fly.</summary>
         public int Observations { get; private set; }
 
+        /// <summary>Per cycle: seconds, bias, the miss it was told, whether the arrival had committed.</summary>
+        public readonly List<(double Seconds, double BiasMetres, double MissMetres, bool Latched)> Trace = [];
+
+        private double _elapsed;
+
         /// <inheritdoc cref="Observations"/>
         public int Refusals { get; private set; }
 
@@ -182,6 +187,7 @@ public class MirvBudgetTests(ITestOutputHelper Out)
         {
             if (!NeverFreeze && double.IsFinite(program.CommittedArrivalFromNow)) _aim.Freeze();
 
+            _elapsed += step;
             _sincePredict += step;
             if (_sincePredict < PredictIntervalSeconds) return;
             _sincePredict = 0.0;
@@ -209,6 +215,9 @@ public class MirvBudgetTests(ITestOutputHelper Out)
 
             double3 scored = Earth.UncarryCci(hit.GroundFixedPointCci, departsIn);
             LastMissMetres = GroundMetres(scored, aimNowCci);
+
+            Trace.Add((_elapsed, BiasMetres, LastMissMetres,
+                       double.IsFinite(program.CommittedArrivalFromNow)));
 
             if (!Off) _aim.Observe(scored, aimNowCci);
         }
@@ -703,6 +712,52 @@ public class MirvBudgetTests(ITestOutputHelper Out)
                           + $"loop reported {predicted / 1000.0:F2} km "
                           + $"off {seen} cycles ({refused} with no arc), "
                           + $"{d.PropellantLeftKg:F0} kg left");
+        }
+    }
+
+    /// <summary>
+    /// Where the never-frozen loop actually goes at the one range the two rigs disagree about.
+    ///
+    /// <para><c>AimConvergenceTests</c> reads never-freezing as 1.15 -> 0.56 km at 7,645 km and this
+    /// file reads it as 1.00 -> 16.59. One of them is wrong about a one-line change to shipped
+    /// guidance, so the cycle trace is the arbiter: a loop that <em>diverges</em> shows a bias
+    /// running away, and a loop that converges to a different place does not.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(3_459_000.0)]
+    [InlineData(7_645_000.0)]
+    public void WhereTheNeverFrozenLoopGoes(double rangeMetres)
+    {
+        foreach ((string what, Action<ShippedAimLoop>? configure) in
+                 new (string, Action<ShippedAimLoop>?)[]
+                 {
+                     ("as shipped", null),
+                     ("never frozen", l => l.NeverFreeze = true),
+                 })
+        {
+            ShippedAimLoop? seen = null;
+            Departure d = AsGuided(out double _, out double _,
+                                   l => { seen = l; configure?.Invoke(l); }, null, rangeMetres);
+
+            double3[] landed = Group(d, TubeAxes(d.NoseCci),
+                                     FlownSalvoSeconds / (Arsenal.MirvBus.Tubes.Length - 1));
+
+            Out.WriteLine($"{rangeMetres / 1000.0:F0} km, {what}: "
+                          + $"group {DeorbitShot.CommonBias(landed, d.TargetCci) / 1000.0:F2} km");
+
+            List<(double Seconds, double BiasMetres, double MissMetres, bool Latched)> trace =
+                seen!.Trace;
+
+            int every = Math.Max(1, trace.Count / 14);
+
+            for (int i = 0; i < trace.Count; i++)
+            {
+                if (i % every != 0 && i != trace.Count - 1) continue;
+
+                Out.WriteLine($"    {trace[i].Seconds,6:F1} s  bias {trace[i].BiasMetres / 1000.0,8:F1} km"
+                              + $"  miss {trace[i].MissMetres / 1000.0,9:F2} km"
+                              + (trace[i].Latched ? "  committed" : ""));
+            }
         }
     }
 
