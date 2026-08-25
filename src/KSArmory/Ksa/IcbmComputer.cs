@@ -37,6 +37,7 @@ internal sealed class IcbmComputer
     private readonly ReleaseSequence _sequence = new();
     private readonly BusTrim _trim = new();
     private readonly ProximityWatch _proximity = new();
+    private double3 _keepOutTowardCci;
     private bool _saidProximity;
     private readonly PostBoostAim _postBoost = new();
     private bool _postBoostSaid;
@@ -268,6 +269,7 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _proximity.Reset();
         _saidProximity = false;
+        _keepOutTowardCci = double3.Zero;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -324,6 +326,7 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _proximity.Reset();
         _saidProximity = false;
+        _keepOutTowardCci = double3.Zero;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -784,6 +787,24 @@ internal sealed class IcbmComputer
         // report different distances about one frame.
         _proximity.Update(simStep, apart, radius);
 
+        // What the trim's interlock is asked, recorded here because this is the one place the
+        // separation is measured -- a second derivation could report a different distance about the
+        // same frame. In Cci, because that is the frame the trim's own axes are in.
+        _keepOutTowardCci = double3.Zero;
+
+        if (double.IsFinite(apart) && apart < ProximityWatch.KeepOutFor(radius)
+            && _separatedFrom is { } near && KsaWorld.IsAlive(near) && Parent is { } parent)
+        {
+            double3 towardEcl = KsaWorld.PositionEcl(near) - KsaWorld.PositionEcl(Craft);
+
+            if (Vec.IsFinite(towardEcl) && !towardEcl.Equals(double3.Zero))
+            {
+                // A difference of two Ecl positions is already Cce, so this is the same one-rotation
+                // conversion every other Cci quantity in this file takes.
+                _keepOutTowardCci = Vec.Unit(towardEcl).Transform(parent.GetCce2Cci());
+            }
+        }
+
         // An unreadable stack falls back to the clock rather than to "clear": a part tree
         // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
         // case this exists to prevent -- and it is asked fresh every pass, never remembered.
@@ -940,7 +961,7 @@ internal sealed class IcbmComputer
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci,
             Program.ReferencePositionCci, referenceVelocity, Program.SecondsSinceReference,
-            nose, right, down, _mayTrim, budget));
+            nose, right, down, _mayTrim, budget, _keepOutTowardCci));
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
