@@ -366,6 +366,18 @@ public static class Arsenal
         // An order of magnitude below the Mk 82's: a dense cone is what a heatshield is for.
         DragK = 1.5e-5f,
 
+        // A fifth of the default, and the whole of what is left of this weapon's error. Flown at
+        // Mahia the correction converged to 15 m and the warheads landed 756 m out; the round's own
+        // symplectic Euler is 143 m of the 149 m it lands from its own probe on flat ground, and the
+        // slope under a shallow arrival multiplies that by up to four. Measured at 30.6 m per
+        // millisecond -- 145.3 / 68.8 / 22.9 / 7.6 m at 5.00 / 2.50 / 1.00 / 0.50 -- so this is the
+        // step where the integrator stops being the largest term.
+        //
+        // Affordable here and nowhere else: six warheads at a millisecond is about 300 sub-steps a
+        // frame, where a 150-shell burst at the same step would be 7,500. MaxSubSteps scales with
+        // it, so this round's faithful step does not move and WarpPolicy is unaffected.
+        SubStepSeconds = 0.001f,
+
         FuseRadius = 0f,
 
         // Long enough to clear the bus and the five RVs alongside it, at a 0.5 m/s separation.

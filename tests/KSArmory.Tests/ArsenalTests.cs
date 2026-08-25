@@ -517,4 +517,50 @@ public class ArsenalTests
         // And long enough in the air to get there: half an hour of ballistic flight.
         Assert.True(rv.MaxFlightSeconds >= 1_500f);
     }
+
+    /// <summary>
+    /// The reentry vehicle integrates finer than everything else, and nothing else pays for it.
+    ///
+    /// <para>The round's own symplectic Euler is the largest remaining term in a ballistic shot —
+    /// 143 m of the 149 m it lands from its own probe on flat ground, and the slope under a shallow
+    /// arrival multiplies that. Flown at Mahia the correction converged to 15 m and the warheads
+    /// landed 756 m out. The mechanism for this was built and measured and no profile ever set the
+    /// field.</para>
+    ///
+    /// <para>A cannon shell must <em>not</em> inherit it: six warheads at a millisecond is about 300
+    /// sub-steps a frame, a 150-shell burst would be 7,500, and that cost has never been
+    /// measured.</para>
+    /// </summary>
+    [Fact]
+    public void TheReentryVehicleAsksForAFinerStepAndNothingElseDoes()
+    {
+        MunitionProfile rv = Arsenal.ReentryVehicleMk21;
+
+        Assert.True(rv.SubStep < Interceptor.SubStep,
+                    $"the Mk 21 integrates at {rv.SubStep * 1000.0:F2} ms, the shared default");
+
+        foreach (MunitionProfile m in Catalogue.Munitions)
+        {
+            if (ReferenceEquals(m, rv)) continue;
+
+            Assert.True(m.SubStep >= Interceptor.SubStep,
+                        $"{m.Name} asks for {m.SubStep * 1000.0:F2} ms, which nothing has priced");
+        }
+    }
+
+    /// <summary>
+    /// And a finer step must not shorten the round's faithful step, which is what
+    /// <see cref="WarpPolicy"/> holds the world down to. Halving the step with a fixed sub-step cap
+    /// would halve the span one frame may cover and quietly tighten the warp limit for everyone.
+    /// </summary>
+    [Fact]
+    public void AFinerStepDoesNotMoveTheRoundsFaithfulStep()
+    {
+        foreach (MunitionProfile m in Catalogue.Munitions)
+        {
+            Assert.True(m.SubStep * m.MaxSubSteps >= m.MaxFaithfulStepSeconds,
+                        $"{m.Name} spans {m.SubStep * m.MaxSubSteps:F3} s of frame against the "
+                        + $"{m.MaxFaithfulStepSeconds:F3} s it claims to integrate faithfully");
+        }
+    }
 }

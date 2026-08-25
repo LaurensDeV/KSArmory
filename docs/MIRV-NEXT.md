@@ -2914,10 +2914,35 @@ Same bearing twice, and the six warheads land inside **2 m** of each other — s
 systematic offset applied six times, not scatter. At the ~6 degree arrival these shots fly,
 `cot gamma` is about ten, so 756 m of ground is roughly **75 m of height** in the prediction.
 
-**Next: find the 75 m.** It is the entire remaining error, it is directional, and it is repeatable,
-which is the best shape a bug can be in. The arrival-angle floor divides whatever survives it by the
-ratio of the two `cot` values and is worth spending reach on only after — there is nothing else of
-comparable size left to hide behind it.
+### Found: it is the round's own integrator, and the field for it was already there
+
+`ProbeGapTests` had already decomposed it. The round lands **149 m** from its own probe on flat
+ground, and of that:
+
+| term | worth |
+| --- | --- |
+| the ground held for a whole frame | 0 m |
+| the air's motion held for a whole frame | −2 m |
+| **symplectic Euler at 5 ms** | **143 m** |
+| unaccounted for | −8 m |
+
+And `WhatTheGroundsOwnSlopeMultipliesTheGapBy` prices the rest: 149 m on the flat becomes 255 m at
+2% downhill, 376 at 8%, **571 at 10%** — 3.84×. A shallow arrival over sloping ground is what turns
+143 m of integrator into the 756 m that landed.
+
+**`MunitionProfile.SubStepSeconds` already existed**, with the measurement written beside it — 30.6 m
+per millisecond, 145.3 / 68.8 / 22.9 / 7.6 m at 5.00 / 2.50 / 1.00 / 0.50 — and the cost reasoning
+for why a warhead may have it and a cannon shell may not. **No profile in `Arsenal.cs` ever set it.**
+The Mk 21 now asks for 1 ms, which takes its integrator term from 145 m to 23.
+
+`MaxSubSteps` scales with it so the round's faithful step does not move, and `WarpPolicy` is
+untouched — `AFinerStepDoesNotMoveTheRoundsFaithfulStep` holds that for every munition, and
+`TheReentryVehicleAsksForAFinerStepAndNothingElseDoes` holds the cost boundary.
+
+**Unflown.** Expect the integrator to stop being the largest term rather than the miss to divide by
+six: 143 → 23 m of the flat-ground gap, times whatever the slope at the arrival is worth. The
+arrival-angle floor is the next lever and is worth spending reach on now that nothing of comparable
+size hides behind it.
 
 ## 9. The budget at the 0.65 km level
 
