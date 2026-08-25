@@ -2869,6 +2869,56 @@ The two want opposite fixes and the log cannot currently tell them apart. **Next
 solves against beside what the correction asked for, on the frame it refuses** — the same shape as
 8b, where the correction turned out to be reading a moving instrument rather than being wrong.
 
+## 8d. The correction ran end to end — flown 2026-08-25, 756 m
+
+**Four shots at Mahia (39.262S 177.865E), 2,942 km, one evening.** Nothing about the guidance
+changed between them except which limit was allowed to stop the post-boost correction.
+
+| flown | released at | landed | what stopped the correction |
+| --- | --- | --- | --- |
+| 17:20 | 5.9 km | 5.2 km | the trim's refusal, read as a settled aim — 1 pass |
+| 18:18 | 4.8 km | 3.6 km | same, 1 pass |
+| 19:11 | 1.9 km | 2.6 km | `TrimBudgetMetresPerSecond`, 0.45 m/s short — 2 passes |
+| **19:57** | **0.015 km** | **0.756 km** | **the payback rule, as designed — 4 passes** |
+
+The last run in full:
+
+```
+19:57:02  correcting the aim, 1.6 km out (pass 1)      cycle 10 s
+19:57:12  correcting the aim, 1.4 km out (pass 2)      cycle  6 s
+19:57:18  correcting the aim, 0.7 km out (pass 3)
+19:57:24  15 m out, under the 159 m another correction would cost
+```
+
+**Cycles shorten as the corrections do, and that is what beat the stride.** A 26-second pass at
+3.5 km became a 6-second pass at 0.7, and since the stopping threshold is
+`cycle x HoldingCostsMetresPerSecond` it fell from 676 m to 159 with them. The prediction that this
+would stall in the 1–2 km band was wrong for that reason.
+
+**The budget was the whole of it**, and it paid twice. Raised from a literal 25 to the derived 40,
+the separation null had enough to finish — so the correction *started* at 1.6 km rather than 3.5 —
+and then had enough to run four passes instead of two. Both halves came out of one number nobody
+had derived.
+
+### What is left is the predictor, and it is a bias rather than noise
+
+Released at 15 m, landed at 756. The guidance has converged below what the predictor can resolve, so
+every metre of the residue is now the predictor's. And it repeats:
+
+| flown | miss | bearing |
+| --- | --- | --- |
+| 19:11 | 2.6 km | north-east |
+| 19:57 | 0.756 km | **north-east** |
+
+Same bearing twice, and the six warheads land inside **2 m** of each other — so this is one
+systematic offset applied six times, not scatter. At the ~6 degree arrival these shots fly,
+`cot gamma` is about ten, so 756 m of ground is roughly **75 m of height** in the prediction.
+
+**Next: find the 75 m.** It is the entire remaining error, it is directional, and it is repeatable,
+which is the best shape a bug can be in. The arrival-angle floor divides whatever survives it by the
+ratio of the two `cot` values and is worth spending reach on only after — there is nothing else of
+comparable size left to hide behind it.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
