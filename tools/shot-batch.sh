@@ -3,6 +3,7 @@
 # Flies a batch of ballistic shots overnight, interleaved between arms, and keeps every log.
 #
 #     ./tools/shot-batch.sh --aim 26.5S,64.0W --arms base=HEAD,grav=arm/gravity --blocks 6
+#     ./tools/shot-batch.sh --aim none --arms base=HEAD --blocks 6   # shoot whatever the save defends
 #     ./tools/shot-batch.sh --resume ~/shots/2026-08-22          # carry on after an interruption
 #     ./tools/shot-batch.sh --plan-only --arms ... --blocks 6    # print the run order and stop
 #
@@ -210,8 +211,17 @@ mkdir -p "$MODS"
 # that ends badly otherwise leaves the player booted into a test craft with the start dialog off.
 cp -f "$USER_DIR/settings.toml" "$OUT/settings.toml.before" 2>/dev/null || true
 
-SCENARIO_ARG="mirv:$AIM"
-[[ -n "$BAR" ]] && SCENARIO_ARG="$SCENARIO_ARG,$BAR"
+# "--aim none" flies the scenario's own choice, which is whatever site in the scene is defended.
+# That is not the same shot as naming the site's coordinates: naming any point sets AimWasGiven,
+# and the scenario then MOVES the site to it so the impact lands somewhere with a camera on it. On
+# a save whose target is where the operator put it, that is the one thing a batch must not do.
+if [[ "$AIM" == "none" || -z "$AIM" ]]; then
+    SCENARIO_ARG="mirv"
+    [[ -n "$BAR" ]] && SCENARIO_ARG="mirv::$BAR"
+else
+    SCENARIO_ARG="mirv:$AIM"
+    [[ -n "$BAR" ]] && SCENARIO_ARG="$SCENARIO_ARG,$BAR"
+fi
 
 # Read once, into memory. A dropped arm cannot be taken out of the file the loop is reading:
 # `mv` replaces the inode while the loop's redirect still holds the old one, so the drop would
