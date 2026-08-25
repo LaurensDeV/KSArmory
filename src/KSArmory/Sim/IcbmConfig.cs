@@ -104,17 +104,21 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Warp the ballistic coast without being asked each time, up to the release point.
     ///
-    /// <para><b>Off, and the default is the rule rather than an opinion about the feature.</b>
-    /// Taking the world's clock away because a target happened to be designated is not a weapon's
-    /// decision — so warping is an action, and the button beside this one is how it is taken. What
-    /// this does is let an operator who wants it delegate the press: ticking it <em>is</em> the
-    /// permission, given once instead of every shot.</para>
+    /// <para><b>On.</b> It was off on the principle that taking the world's clock away because a
+    /// target happened to be designated is not a weapon's decision — and that principle survives in
+    /// where it stops, not in the default. Nothing about this config is persisted, so "off" was not
+    /// a setting an operator could make once: it was a tick box to find again on every launch, and
+    /// forgetting it costs a ballistic coast in real time. Measured on two shots the same evening:
+    /// 3.5 minutes of wall clock with it, seventeen without.</para>
+    ///
+    /// <para>The button beside it remains the way to take the action deliberately, and this still
+    /// hands the world back a settling margin short of the release rather than running to it.</para>
     ///
     /// <para>It stops where the button stops, a settling margin short of the release — see
     /// <see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>. It never overrides a warp the player
     /// started, and it asks for nothing while anything aboard is being integrated.</para>
     /// </summary>
-    public bool WarpTheCoast = false;
+    public bool WarpTheCoast = true;
 
     /// <summary>
     /// Let the warheads go by itself once the trajectory is good and the vehicle is high enough.
