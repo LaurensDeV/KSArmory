@@ -112,15 +112,38 @@ else
     printf 'arm\tref\tsha\tdll_sha256\n' >> "$ARMS_TSV"
 
     IFS=',' read -ra SPECS <<< "$ARMS_SPEC"
+
+    # Every ref pinned to a sha BEFORE the first checkout. The loop below detaches HEAD to build
+    # each arm, so a relative ref -- HEAD most of all, but @, HEAD~1 and a branch name being moved
+    # underneath all do it -- resolves against whichever arm was built last rather than against the
+    # tree the operator typed it in. `--arms base=<sha>,fixes=HEAD` silently made both arms the
+    # first sha; only the identical-source check downstream caught it, and it caught it by refusing
+    # the night rather than by explaining it.
+    declare -a ARM_NAME_LIST=() ARM_REF_LIST=() ARM_PIN_LIST=()
     for spec in "${SPECS[@]}"; do
         name="${spec%%=*}"
         ref="${spec#*=}"
         [[ "$name" == "$ref" ]] && ref="$name"
 
-        echo "   $name  <- $ref"
-        if ! git -C "$REPO_ROOT" checkout --quiet --detach "$ref" 2>/dev/null; then
-            restore_tree
+        if ! pin="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$ref^{commit}")"; then
             echo "error: no such ref '$ref' for arm '$name'" >&2
+            exit 1
+        fi
+
+        ARM_NAME_LIST+=("$name")
+        ARM_REF_LIST+=("$ref")
+        ARM_PIN_LIST+=("$pin")
+    done
+
+    for (( a = 0; a < ${#ARM_NAME_LIST[@]}; a++ )); do
+        name="${ARM_NAME_LIST[a]}"
+        ref="${ARM_REF_LIST[a]}"
+        pin="${ARM_PIN_LIST[a]}"
+
+        echo "   $name  <- $ref  ($(git -C "$REPO_ROOT" rev-parse --short "$pin"))"
+        if ! git -C "$REPO_ROOT" checkout --quiet --detach "$pin" 2>/dev/null; then
+            restore_tree
+            echo "error: could not check out '$ref' for arm '$name'" >&2
             exit 1
         fi
 
@@ -134,7 +157,7 @@ else
         cp -a "$REPO_ROOT/src/KSArmory/bin/Release/net10.0" "$OUT/arms/$name"
 
         printf '%s\t%s\t%s\t%s\n' \
-            "$name" "$ref" "$(git -C "$REPO_ROOT" rev-parse HEAD)" \
+            "$name" "$ref" "$pin" \
             "$(sha256sum "$OUT/arms/$name/KSArmory.dll" | cut -d' ' -f1)" >> "$ARMS_TSV"
     done
 
