@@ -89,7 +89,35 @@ mkdir -p "$OUT/arms" "$OUT/shots"
 
 if (( RESUME )); then
     [[ -f "$PLAN" && -f "$ARMS_TSV" ]] || { echo "error: $OUT holds no plan to resume" >&2; exit 1; }
-    echo "== resuming $OUT"
+    [[ -f "$OUT/batch.tsv" ]] || { echo "error: $OUT holds no batch.tsv to resume from" >&2; exit 1; }
+
+    # Restored from the record, never re-defaulted. --resume takes no --aim, so AIM kept its
+    # default here and the resumed night flew a DIFFERENT SHOT from the one it was planning:
+    # naming any point sets AimWasGiven and the scenario MOVES the defended site to it. Measured
+    # as 6,379 km downrange against the 12,902 km the same plan flew unresumed, every arm 301 km
+    # out, four shots deep before anything looked wrong. Nothing in the output said so, because
+    # both halves are behaving exactly as documented.
+    AIM="$(awk -F'\t' '$1 == "aim"  { print $2 }' "$OUT/batch.tsv")"
+    BAR="$(awk -F'\t' '$1 == "bar"  { print $2 }' "$OUT/batch.tsv")"
+    [[ "$BAR" == "default" ]] && BAR=""
+    [[ -n "$AIM" ]] || { echo "error: $OUT/batch.tsv records no aim" >&2; exit 1; }
+
+    # The save and the craft come from the environment rather than from a flag, so they are
+    # checked rather than restored: a resume run in a shell that has lost KSARMORY_SCENARIO_SAVE
+    # would fly a different scene under the same night's name. Refusing beats correcting, because
+    # the operator's shell is the thing that is wrong.
+    for var in SAVE CRAFT; do
+        eval "got=\"\${KSARMORY_SCENARIO_$var:-}\""
+        want="$(awk -F'\t' -v k="$(echo "$var" | tr 'A-Z' 'a-z')" '$1 == k { print $2 }' "$OUT/batch.tsv")"
+        [[ "$want" == "<none>" || "$want" == "<settings.toml>" ]] && want=""
+        if [[ "$got" != "$want" ]]; then
+            echo "error: KSARMORY_SCENARIO_$var is '${got:-<unset>}', but this night was planned" >&2
+            echo "       with '${want:-<unset>}'. Fix the environment rather than the record." >&2
+            exit 1
+        fi
+    done
+
+    echo "== resuming $OUT (aim ${AIM}, bar ${BAR:-default})"
 else
     [[ -n "$ARMS_SPEC" ]] || { echo "error: --arms is required" >&2; usage 2; }
     [[ -n "$SEED" ]] || SEED="$(date +%s)"
