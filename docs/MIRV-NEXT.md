@@ -2261,39 +2261,61 @@ the remaining propellant is not observable from a log — which is the same limi
 gate refusing a short shot up front. One shot flown by hand settles it: a stack that cannot pay
 reports `IcbmReach.ShortOfPropellant`, flies short, and says by how much.
 
-### The clearance latch, flown
+### The clearance latch put the bus into the booster — do not build it again
 
-7g's diagnosis was right and a first reading of the 08-25 logs talked me out of it. `DriveTrim` does
-null `_separatedFrom` on `trim.Done`, and that is the whole of it. The sequence, from `003-base.log`:
+7g records the trim nulling `_separatedFrom` on `trim.Done` as a defect worth up to 20 s a pass, and
+proposes latching the clearance. **It is not a defect. It is the gate re-shutting, and it is load
+bearing.** Flown 2026-08-25 with a latch in, and the bus hit its own spent stack.
+
+The argument for latching is that separation only ever opens, so a gap once measured cannot close.
+That is circular: it holds only while the gate is **shut**. Once the clearance answers clear the trim
+runs, and the trim's whole job is to null the velocity difference — which *is* the separation. The
+pair can close again, and only a fresh reading every pass can see it.
+
+What the latch removed, from `003-base.log`'s own sequence:
 
 ```
-22:13:44.156  split on Rocket: Rocket_1, alive True
-22:13:44.156  clearance on Rocket: stack Rocket_1, alive True, apart 12.3 m, radius 3.5 m
-22:13:44.160  trimming the bus on Rocket: waiting to clear the spent stack, 12 m of 14
-22:13:49.156  trimming the bus on Rocket_1: trimming 2.52 m/s on the tail      <- cleared, trim running
-22:13:54.002  trimming the bus on Rocket_1: trimmed to 0.023 m/s               <- trim.Done
-22:13:54.023  trimming the bus on Rocket_1: waiting to clear ... cannot be read
++5 s    trimming 2.46 m/s on the tail        <- cleared on a measured gap, trim runs
++9 s    trimmed to 0.022 m/s                 <- trim.Done nulls the reference
++10 s   post-boost: correcting the aim, 2.9 km out (pass 1)
++10 s   trimming 7.29 m/s on the tail        <- with a latch: fires at once, ~25 m out
+                                                without one: held to +20 s, ~24 m further away
 ```
 
-**The clearance is granted, on a measured gap, five seconds in.** The trim runs and converges. Then
-`trim.Done` nulls the reference, the next frame reads NaN, and the clearance goes *backwards* — from
-clear to unreadable — with `_mayTrim` false again. The cost is not on this pass, which has already
-trimmed. It is on the next one: post-boost runs several correction passes, and each one after the
-first starts from no clearance and waits out `SeparationClearance.TimeoutSeconds`.
+Then 28 s of thrashing — tail, port, belly, port — until `nothing left aboard moves the bus, 6.68 m/s
+left on the bus`. The warheads went anyway, off a bus that had run its thrusters dry and been driven
+back into what it dropped.
 
-The `+10 s` line is what makes this easy to misread. It looks like a clearance that was never granted,
-and the line proving otherwise is five seconds earlier and says nothing about clearance at all — it
-is simply the trim starting, which it could not have done unless the gate had opened.
+**Two things were changed at once and only one is settled.** The same latch flew the floor-0 baseline
+an hour earlier, which also trimmed 7.3 m/s right after `trim.Done` and did *not* hit — it converged
+in ten seconds. What separates them is that the 15-degree shot asked for a correction far beyond what
+the bus could make. So the latch is a necessary contributor rather than a proven sole cause, and the
+size of the post-boost correction under a steep floor is its own open question — see below.
 
-**Flown 2026-08-25 09:49, same save, with the latch in:** `cannot be read` **0 times against 4**, and
-`trim.Done` lands at +9.89 s against +9.85 s — the same instant of the same sequence. Both post-boost
-passes ran, converging 2.7 km → 0.9 km → 341 m and stopping under the 489 m another pass would cost.
+**The real defect behind 7g's note is still there**, and latching was the wrong fix for it. Keeping
+`_separatedFrom` alive past `trim.Done` would let every pass measure a real distance instead of
+falling back to a clock, which is what safety actually wants. Not built, and not to be built without
+flying it.
 
-**`Rehome` is not a bug, and it is doing something necessary.** `WhatWasDropped` finds the vehicle
-that did not exist before the split, which is the *bus* — `stack Rocket_1 … radius 3.5 m`. `Rehome`
-then replaces it with the half the computer came from, the spent booster at `radius 14.2 m`. That is
-the right sphere to clear, and it moves the bar from 13.5 m to 24.2 m. The capture and the correction
-are both load-bearing and they run in that order.
+### A 15-degree floor is reachable and the bus cannot fly it
+
+`reach Reachable`, confirmed in flight 2026-08-25 10:20 — the floor is not refused, which was the gate
+`arm/arr15` was parked behind. **2,345 m/s to gain** at the 207 km pick-up against the baseline's 655,
+and `impact in 9:18` against `7:09`.
+
+What it ran into is not the booster's propellant but the **bus's**. The post-boost correction came out
+at 7.3 m/s and rising where the baseline needs 2.45, and the bus exhausted its thrusters part way
+through: `nothing left aboard moves the bus, 6.68 m/s left on the bus`. Releasing 6.68 m/s off the
+solution is a scattered group whatever the arrival angle buys.
+
+So the next question for `arr15` is not reach and not booster propellant. It is whether the bus has
+the authority for the correction a steep arrival demands, and that is a `MirvBudget` question rather
+than a trajectory one.
+
+**The headless prices are a ranking, not absolutes.** `ScenarioArrivalFloorTests` put the 15-degree
+arc at 670 s and 2,176 m/s over the flown arc; it flew 558 s and 1,690 m/s. Right order and right
+direction, roughly 20-30% high, which is what fixing the burnout at 207 km and letting the solver pick
+everything else is worth.
 
 ### The old target is not a crest
 
@@ -2427,12 +2449,11 @@ mechanism is confirmed rather than inferred.
 
 ### Two defects found on the way and not fixed
 
-- **The clearance latch — built and flown.** `SeparationClearance.Check` takes `clearedBefore`:
-  separation only ever opens, so a measured gap cannot close and losing the reading afterwards is the
-  reading failing rather than the distance. Unit-tested against the old behaviour, and flown
-  2026-08-25 — `cannot be read` 0 times against 4 on the same save. See *The clearance latch, flown*
-  below; the mechanism is the one recorded here, and the cost falls on the second and later post-boost
-  passes rather than the first.
+- **The clearance latch — built, flown, and reverted.** It drove a bus into its own spent stack.
+  The premise is circular and the gate re-shutting is protective; see *The clearance latch put the bus
+  into the booster* below. The underlying defect — `trim.Done` nulling the reference, so later passes
+  measure nothing — is real and still open, and the fix is to keep the reference rather than to
+  remember the answer.
 - **Nothing sizes a correction against the actuator.** `AimCorrection` steps as though moving the aim
   moves the impact one-for-one; during the coast the only actuator is a trim with a 10 m/s ceiling
   and a few m/s of budget. A full-error step after a bad burn asked for 10.75 m/s and was vetoed,

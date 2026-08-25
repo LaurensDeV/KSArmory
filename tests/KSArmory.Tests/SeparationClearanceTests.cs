@@ -133,55 +133,29 @@ public class SeparationClearanceTests
     }
 
     /// <summary>
-    /// A gap that has been measured does not close, so losing the reading afterwards is the reading
-    /// failing rather than the distance.
+    /// Losing the reading re-shuts the gate, and that is protective rather than a defect.
     ///
-    /// <para>Without the latch this answers "cannot be read" and drops back to the clock, which
-    /// makes a bus that has demonstrably cleared wait out the whole timeout — up to
-    /// <see cref="SeparationClearance.TimeoutSeconds"/> of a coast during which the aim correction
-    /// it was tuned against is going stale.</para>
+    /// <para>It reads like one: the trim nulls its reference on <c>trim.Done</c>, so the frame after
+    /// a trim finishes reports no distance and the clearance goes backwards from clear to
+    /// unreadable. Latching it past that — "separation only ever opens, so a measured gap cannot
+    /// close" — is <b>wrong, and circularly so</b>. That premise holds only while the gate is shut.
+    /// Once it opens the trim runs, and nulling the velocity difference is nulling the separation,
+    /// so the pair can close again.</para>
+    ///
+    /// <para>Flown 2026-08-25 with the latch in: post-boost pass 1 fired a 7.3 m/s trim about 25 m
+    /// from the spent stack with no distance check left, thrashed for 28 s until the thrusters ran
+    /// dry, and put the bus into the booster. Every pass has to ask again.</para>
     /// </summary>
     [Fact]
-    public void AClearedGapStaysClearWhenTheStageStopsBeingReadable()
+    public void ClearanceIsNeverLatched()
     {
         Clearance measured = SeparationClearance.Check(Wanted, StageRadius, 1.0);
         Assert.True(measured.IsClear);
 
-        Clearance after = SeparationClearance.Check(double.NaN, StageRadius, 2.0,
-                                                    clearedBefore: true);
-
-        Assert.True(after.IsClear);
-        Assert.False(after.OnTheClock);      // clear on the distance it had, not on the clock
-        Assert.False(after.Abandoned);
-    }
-
-    /// <summary>
-    /// And the latch is the only thing that does it: the same reading without it waits.
-    ///
-    /// <para>Pinned against the default rather than assumed, because a latch that turned out to be
-    /// the pre-existing behaviour would make the test above pass and buy nothing.</para>
-    /// </summary>
-    [Fact]
-    public void WithoutTheLatchAnUnreadableStageStillWaits()
-    {
+        // The same split a moment later, with the reference gone. It must not inherit the answer.
         Clearance after = SeparationClearance.Check(double.NaN, StageRadius, 2.0);
 
         Assert.False(after.IsClear);
         Assert.True(after.OnTheClock);
-    }
-
-    /// <summary>
-    /// The latch never invents a distance. A stage that is readable and genuinely too close is
-    /// still too close, whatever an earlier frame said — the reading in hand beats the memory.
-    /// </summary>
-    [Fact]
-    public void TheLatchDoesNotOverrideALiveReadingOfBeingTooClose()
-    {
-        Clearance c = SeparationClearance.Check(1.0, StageRadius,
-                                                SeparationClearance.TimeoutSeconds,
-                                                clearedBefore: true);
-
-        Assert.False(c.IsClear);
-        Assert.True(c.Abandoned);
     }
 }

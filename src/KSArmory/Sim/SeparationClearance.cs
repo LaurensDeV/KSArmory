@@ -16,6 +16,12 @@ internal readonly record struct Clearance(bool IsClear, bool OnTheClock, string 
 /// <para>So the manoeuvre waits, and this is the whole of the decision. Measured rather than timed
 /// wherever the discarded stage can still be read: how fast two halves part depends on the
 /// decoupler's impulse and on what each half weighs, and nothing in this mod knows either.</para>
+///
+/// <para><b>Clearance is never latched.</b> "Separation only ever opens, so a gap once measured
+/// cannot close" is false, and circularly so: it holds only while the gate is <em>shut</em>. Once
+/// this answers clear the trim runs, and the trim's whole job is to null the velocity difference —
+/// which is the separation. So the pair can and do come back together, and every pass has to ask
+/// again. Flown 2026-08-25: a latch drove a bus into its own spent stack.</para>
 /// </summary>
 internal static class SeparationClearance
 {
@@ -61,20 +67,7 @@ internal static class SeparationClearance
     /// what the coarse contact test uses, so it is the distance that has to be beaten rather than
     /// any number somebody picked.
     /// </param>
-    /// <param name="clearedBefore">
-    /// Whether this split has already read as clear once.
-    ///
-    /// <para><b>Separation only ever opens.</b> The shove is the one thing acting on the pair and
-    /// the manoeuvre that would null it is gated behind this test, so a gap that has been measured
-    /// cannot close again. A later frame that cannot read the stage is therefore the reading
-    /// failing, not the distance — and without this the answer goes back to the clock, which is a
-    /// bus that has demonstrably cleared waiting out the timeout anyway.</para>
-    ///
-    /// <para>It latches the <em>clearance</em>, never the refusal: an abandoned trim is a live
-    /// reading of being too close, which the caller acts on once and does not need remembering.</para>
-    /// </param>
-    public static Clearance Check(double metresApart, double stageRadiusMetres,
-                                  double secondsSinceSplit, bool clearedBefore = false)
+    public static Clearance Check(double metresApart, double stageRadiusMetres, double secondsSinceSplit)
     {
         double wanted = double.IsFinite(stageRadiusMetres) && stageRadiusMetres > 0.0
                             ? stageRadiusMetres + ClearOfTheSphereMetres
@@ -82,13 +75,6 @@ internal static class SeparationClearance
 
         bool known = double.IsFinite(metresApart) && metresApart >= 0.0;
         bool late = secondsSinceSplit >= TimeoutSeconds;
-
-        if (clearedBefore && !known)
-        {
-            return new Clearance(true, OnTheClock: false,
-                                 $"clear of the spent stack, which can no longer be read "
-                                 + $"({secondsSinceSplit:F0} s since the split)");
-        }
 
         if (known && metresApart >= wanted)
         {

@@ -48,7 +48,6 @@ internal sealed class IcbmComputer
     private bool _separated;
     private bool _awaitingSplit;
     private bool _didSplit;
-    private bool _clearedOnce;
     private bool _mayTrim = true;
     private bool _saidBudget;
 
@@ -265,7 +264,6 @@ internal sealed class IcbmComputer
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
-        _clearedOnce = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -320,7 +318,6 @@ internal sealed class IcbmComputer
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
-        _clearedOnce = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -779,15 +776,8 @@ internal sealed class IcbmComputer
 
         // An unreadable stack falls back to the clock rather than to "clear": a part tree
         // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
-        // case this exists to prevent. Unless the gap has already been measured once, which
-        // separation cannot undo.
-        Clearance c = SeparationClearance.Check(apart, radius, _sinceSplit, _clearedOnce);
-
-        // Latched off a measured gap only. Going ahead on the clock is not a distance, and
-        // remembering it as one would make the timeout permanent for the rest of the coast.
-        if (c.IsClear && !c.OnTheClock) _clearedOnce = true;
-
-        return c;
+        // case this exists to prevent -- and it is asked fresh every pass, never remembered.
+        return SeparationClearance.Check(apart, radius, _sinceSplit);
     }
 
     // One line per change of state, which is all any of this is worth while nothing is happening
