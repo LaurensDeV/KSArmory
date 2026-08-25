@@ -2999,6 +2999,53 @@ increases and is the right input.
 The further the shot, the more often `MaxMetresPerSecond` is the thing that stops it — so whatever
 replaces that ceiling has to be a function of the trajectory rather than a constant.
 
+## 8f. The predicted miss does not track the flown one — batch, 2026-08-25 evening
+
+Six shots of the shipped build against the save's own defended site, 12,902 km from the pad,
+`~/shots/2026-08-25-2026`. The first three, with what the release predicted beside what landed:
+
+| shot | passes | predicted at release | landed | what stopped the correction |
+| --- | --- | --- | --- | --- |
+| hand-flown | 4 | 0.015 km | 0.756 km | payback rule |
+| harness | 0 | — | 2.68 km | separation clearance |
+| 001 | 4 | **4.5 km** | **0.46 km** | `MaxMetresPerSecond`, 13.39 m/s |
+| 002 | 1 | 6.3 km | 4.99 km | `MaxMetresPerSecond`, 12.83 m/s |
+| 003 | 0 | — | 1.34 km | separation clearance |
+
+**There is no relationship between the two middle columns.** One shot released expecting 15 m and
+landed 756; another expected 4.5 km and landed 460 m. Every pass, every stopping rule and every
+budget decision in the correction loop is driven by that number.
+
+And the loop **diverges** where it runs: shot 001 read 2.1 km at pass 2, 6.0 at pass 3, 4.5 at pass 4.
+`AimCorrection` keeps a best bias and reverts to it on `Freeze`, but the post-boost path stops on the
+trim's refusal rather than a freeze — so a diverging run may release on the *worst* bias it found.
+Worth checking directly; it is a few lines either way.
+
+### The warhead trace says where it goes wrong, and it is the last kilometre
+
+Shot 003, round 1, from `WarheadTrace`:
+
+```
+landed at -39.2714,177.8570 | 1304 m from the aim
+walk from the release probe 2464 m (-2357 down, +719 cross)
+flight 403.33s by the world clock, probe said 403.81s
+```
+
+At **0.86 s to go and 867 m up** the re-flown prediction still had it landing 2.4 km away, and the
+round then arrived **0.48 s early** — 2.1 km of travel at 4,428 m/s, which is the downrange walk to
+within noise. **It hit ground the prediction does not see.** That is not integrator drift over a
+400-second flight; it is a surface disagreement in the final kilometre.
+
+`docs/KSA-TERRAIN.md` is the file for it and already prices the sensitivity: at this six-to-seven
+degree arrival **one metre of disagreement about the surface is 9.3 m of ground**. The 2,464 m walk
+is about 265 m of height — larger than the 186 m worst case that file measures between the bicubic
+and bilinear paths, so it is not only interpolation, but it is the right order and the right
+mechanism.
+
+**That is the next thing to chase**, ahead of the sub-step and ahead of the trim's ceiling. The
+correction cannot converge on an instrument that disagrees with the round about where the ground is,
+and every other lever is downstream of it.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
