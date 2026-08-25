@@ -3046,6 +3046,69 @@ mechanism.
 correction cannot converge on an instrument that disagrees with the round about where the ground is,
 and every other lever is downstream of it.
 
+## 8g. Six shots say the walk from the probe is the whole error — 2026-08-25 evening
+
+`~/shots/2026-08-25-2026`, six shots, shipped build, the save's own defended site at 12,902 km.
+
+```
+0.46  1.34  2.00  3.26  3.67  4.99  km
+median 2.63   mean 2.62   max/min 10.8x
+```
+
+All six passed the 5 km bar; one by ten metres. **This is not comparable to the 0.79 km baseline in
+`SHOT-PROTOCOL.md`**, which was flown at 2,300–2,700 km — miss scales hard with range and this is
+five times further.
+
+### Three things this corrects
+
+**The arrival is 13.7 degrees, not the six or seven assumed all evening.** `cot gamma` is 4.1, not
+8–10, so every amplification argument made here tonight was about twice too pessimistic.
+
+**The terrain is well conditioned.** `-0.10%` downrange slope against that arrival — `1.0x flat
+ground`. The crest mechanism of item 7g is not in play at this target, and the north-east bias is not
+a slope.
+
+**And the integrator is not the story.** `ProbeGapTests` prices symplectic Euler at 149 m on flat
+ground at 5 ms and about 23 at 1 ms. The measured walk is **2,352 m**. The sub-step was worth
+fixing and explains a fifteenth of it.
+
+### What the six shots agree on
+
+Medians across all of them, from the attribution table:
+
+| | |
+| --- | --- |
+| cutoff residual | **0.175 m/s** |
+| walk from the release probe, downrange | **−2,352 m** |
+| walk, cross-track | **+722 m** |
+| arrives **early** by | **0.48 s** |
+
+The burn is finished as a problem. The walk is not noise — six shots, same sign, same size, and the
+0.48 s of early arrival is 2,227 m at 4,640 m/s, which is the downrange walk to within the scatter.
+
+**So the round consistently stops about 2.35 km short of where its own probe says, on flat ground,
+and it is not the integrator.** Every stopping rule and budget in the correction loop is driven by
+that probe, which is why the predicted miss and the flown miss are unrelated (item 8f).
+
+### And which limit stopped each shot
+
+| shot | landed | stopped by |
+| --- | --- | --- |
+| 001 | 0.46 km | `MaxMetresPerSecond`, 13.39 m/s, after 4 passes |
+| 002 | 4.99 km | `MaxMetresPerSecond`, 12.83 m/s, after 1 |
+| 003 | 1.34 km | the trim's budget |
+| 004 | 3.67 km | `MaxMetresPerSecond`, 12.11 m/s |
+| 005 | 3.26 km | `MaxMetresPerSecond`, 11.51 m/s |
+| 006 | 2.00 km | the trim's budget |
+
+**Four of six stopped on the 10 m/s ceiling, all of them wanting 11.5–13.4.** At this range the
+ceiling is the binding limit on every shot that gets that far, and it is a constant where the thing
+it bounds scales with the trajectory.
+
+**Next is the walk**, ahead of the ceiling and well ahead of anything else: a correction loop cannot
+converge on an instrument that disagrees with the round by 2.35 km, and the ceiling only decides how
+many wrong corrections get flown.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
