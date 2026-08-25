@@ -2944,6 +2944,61 @@ six: 143 → 23 m of the flat-ground gap, times whatever the slope at the arriva
 arrival-angle floor is the next lever and is worth spending reach on now that nothing of comparable
 size hides behind it.
 
+## 8e. Three ways the correction is discarded, and only one was known
+
+The post-boost correction is abandoned wholesale by `_trimAbandoned`, and the same flag is set from
+paths with nothing in common. All three fired within one evening on the same craft:
+
+| what stopped it | seen | what it cost |
+| --- | --- | --- |
+| `MaxMetresPerSecond` — the solve is larger than a separation kick | 17:20, 18:18 | 1 pass, released 5.9 / 4.8 km out |
+| `TrimBudgetMetresPerSecond` — the budget is spent | 19:11 | 2 passes, released 1.9 km out |
+| **the separation clearance** — the bus never got 15 m from its stack | the harness run | **0 passes applied, released on the uncorrected arc** |
+
+**The clearance costs the most when it fires**, because it discards a correction that was solved and
+affordable. Flown back to back on one craft, one target and one build:
+
+| | correction | landed |
+| --- | --- | --- |
+| hand-flown | 4 passes applied | **0.756 km** |
+| harness | discarded at the clearance | **2.68 km** |
+
+That is what the correction is worth on this shot, measured rather than argued.
+
+**And the clearance path is a designed trade, not a defect.** `Sim/SeparationClearance.cs` already
+has the whole of it: the decoupler's shove *is* the separation velocity, the trim's job is to null
+the velocity difference, so **the trim stops the separation**. Clearance is deliberately never
+latched for exactly that reason — "a latch drove a bus into its own spent stack", flown the same
+day — and `TimeoutSeconds` is deliberately short because waiting costs accuracy of its own: a
+ninety-second hold on a shot whose cutoff prediction was 0.1 km put the release probe 6.8 km out.
+
+The gap reading `2 m`, then `15 m of 15`, then `still 6 m after 20 s` is that mechanism working, not
+failing. Trimming closed the gap it had opened.
+
+**So the open question is narrower than it looked, and it is a frequency question.** The same bus,
+craft and build cleared when hand-flown and got four correction passes; the harness run did not
+clear and got none. One of each settles nothing. A six-shot batch of the current build is flying to
+find out how often it happens, because that is what decides whether this is a rare bad draw or the
+usual outcome — and nothing about the trade above should be touched until that is known.
+
+### The trim goes on firing after the salvo is away
+
+Same run, after `0 left`: it nulled 8.24 m/s, reached 0.020, then asked for 19.26 more. **Eight metres
+a second of a forty-metre budget spent on a bus with nothing left to deliver**, and spent
+manoeuvring six metres from the spent stack — which is the manoeuvre the clearance had just refused
+on safety grounds. The abandon flag stops the trim before the release and not after.
+
+The gate wants a **monotonic** "the salvo is finished", and the obvious one is a trap:
+`TubesReadyToFire` comes back a few seconds after the salvo because the magazine reloads, which is
+exactly what left the coast warp dead for weeks (`7d72f24`). `IcbmComputer.WarheadsAway` only ever
+increases and is the right input.
+
+### And corrections scale with range
+
+19.26 m/s wanted on the 12,902 km shot against 8–15 on the 2,942 km ones, against a ceiling of 10.
+The further the shot, the more often `MaxMetresPerSecond` is the thing that stops it — so whatever
+replaces that ceiling has to be a function of the trajectory rather than a constant.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
