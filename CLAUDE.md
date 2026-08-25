@@ -462,7 +462,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
 | `tools/shot-batch.sh` | a night of ballistic shots, **arms interleaved and every arm built before the first one flies** — so nothing done to the tree overnight can reach a shot in flight |
-| `tools/shot-report.py` | what that night settled — the rank test, the effect with its interval, and the arms to stop flying |
+| `tools/shot-report.py` | what that night settled — the rank test, the effect with its interval, the arms to stop flying, and **whether the ground under the target was shaping the misses** |
 | `tools/sounds.py` | synthesises the explosion samples, and the fallback cannon behind `--synth-cannon` |
 | `tools/cut-cannon.py` | cuts a gunfire recording into spin-up, loop and tail, on measured envelope boundaries |
 | `tools/audio/` | the CC0 Phalanx recording the cannon is cut from, and its provenance |

@@ -320,6 +320,42 @@ rather than the tree.
   to reboot. A night that sleeps at shot 12 is a night lost.
 - One shot flown by hand end to end, to confirm the aim point produces a verdict rather than a
   timeout. Fifty timeouts is the same information as one.
+- **Check the ground under the aim point**, on that one hand-flown shot:
+  `./tools/shot-report.py <dir> --terrain`. A target whose downrange slope approaches the arrival
+  gradient makes the night unreadable, and it does not announce itself — see below.
+
+### The target has to be flat, and it is not obvious when it is not
+
+A round arriving at `g` below the horizontal covers `cot(g)` of ground for every unit it descends,
+so ground falling away downrange at `tan(a)` moves the impact by `1/(tan g - tan a)` per unit of
+trajectory error. Flat ground gives `cot(g)` — 8.0 at the 7.1° this scenario arrives at. As `tan(a)`
+approaches `tan(g)` the trajectory and the ground become parallel and the impact point diverges.
+
+This is not a bias that averages out over a night. It is a **degenerate intersection**: a few tens of
+metres of trajectory height decides between stopping on the near side and running kilometres down the
+far side, so the miss distribution goes bimodal and the two modes are kilometres apart. It reads
+exactly like guidance scatter, and an arm's apparent win can be nothing more than which side of a
+hill its aim bias happens to fall on — which is what 26.485S 68.148W cost a whole night to learn
+(`docs/MIRV-NEXT.md` item 7g).
+
+`shot-report.py` measures it from the warhead traces the night already writes: every landing line
+carries the impact's coordinates and the ground height under it, so the relief is recoverable from a
+night flown for something else. It prints one line in the ordinary report, beside the pick-up, and
+flags past **2x** flat ground:
+
+```
+== terrain at -26.483,-68.142: downrange slope +6.17% against a 5.8 deg arrival,
+   2.6x flat ground -- ** ILL-CONDITIONED -- the ground is shaping this **
+```
+
+Two things it will not do. It says nothing when the group is tighter than 100 m, because a tight
+group is good news and no evidence about the ground. And it measures the footprint *this night*
+landed on, not the target: a night whose impacts fall inside a few hundred metres can flag on a local
+feature where the regional slope is flat.
+
+**The fix is the arrival angle, not the aim loop.** Nothing in a correction loop can condition a
+degenerate intersection — at 15° the arrival gradient is 0.268 and the same terrain is well behaved
+again. `docs/ARRIVAL-ANGLE.md` is the argument; `IcbmConfig.MinArrivalAngleDeg` is the control.
 
 ## 6. The stopping rule
 
