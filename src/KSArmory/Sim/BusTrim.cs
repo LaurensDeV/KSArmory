@@ -77,7 +77,19 @@ internal readonly record struct TrimSituation(
     double3 DownCci,
     bool MayFire = true,
     double BudgetMetresPerSecond = -1.0,
-    double3 KeepOutTowardCci = default);
+    double3 KeepOutTowardCci = default,
+
+    /// <summary>
+    /// The largest single answer worth flying, or NaN for <see cref="BusTrim.MaxMetresPerSecond"/>.
+    ///
+    /// <para><b>Because the ceiling is doing two jobs.</b> Nulling a decoupler's shove is a job in
+    /// ones of metres a second, and "an answer in the tens" really is the solve being asked the
+    /// wrong question. Flying a deliberate aim correction is a different job in a different
+    /// currency, and it grows with the trajectory: measured across six shots at 12,902 km, four of
+    /// them died on a fixed ceiling of ten while asking for 11.5 to 13.4. A constant cannot bound
+    /// both, and the caller is the only thing that knows which is happening.</para>
+    /// </summary>
+    double MaxMetresPerSecond = double.NaN);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -404,9 +416,13 @@ internal sealed class BusTrim
         double quantum = _accel > 0.0 ? 0.5 * _accel * step : 0.0;
         double band = Math.Max(SettledMetresPerSecond, quantum);
 
-        if (_toGain > MaxMetresPerSecond)
+        double ceiling = now.MaxMetresPerSecond > 0.0 && double.IsFinite(now.MaxMetresPerSecond)
+                             ? Math.Max(now.MaxMetresPerSecond, MaxMetresPerSecond)
+                             : MaxMetresPerSecond;
+
+        if (_toGain > ceiling)
         {
-            return Finish(gaveUp: true, Left("more than a separation could have cost"));
+            return Finish(gaveUp: true, Left($"more than the {ceiling:F0} m/s this pass may spend"));
         }
 
         TrimAxes pick = Choose(in now, toGainCci, band, out double component, out bool withheld);

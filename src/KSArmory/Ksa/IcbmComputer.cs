@@ -128,6 +128,16 @@ internal sealed class IcbmComputer
     public int WarheadsAway { get; private set; }
 
     /// <summary>
+    /// Whether every warhead the bus started with has gone, so nothing is left to correct for.
+    ///
+    /// <para>False before the first release, because a salvo that has not started is not one that
+    /// has finished.</para>
+    /// </summary>
+    public bool SalvoFinished => _salvoSize > 0 && WarheadsAway >= _salvoSize;
+
+    private int _salvoSize;
+
+    /// <summary>
     /// The warhead aboard, or null for a vehicle carrying nothing that lets go. What the overlay
     /// sizes its aim ring from, so the circle on the ground is what one of these actually reaches.
     /// </summary>
@@ -287,6 +297,7 @@ internal sealed class IcbmComputer
         _mayTrim = true;
         _saidBudget = false;
         WarheadsAway = 0;
+        _salvoSize = 0;
         _owedAtSplit = double.NaN;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
@@ -1003,7 +1014,12 @@ internal sealed class IcbmComputer
     // plus the one thing only this side can know, which is whether the split has actually landed.
     private void DriveTrim(double simStep, in IcbmState state, IManualFire? weapon)
     {
-        if (!Config.TrimBeforeRelease || !Command.ReadyToDeploy)
+        // Nothing left to put on a solution. ReadyToDeploy stays true after the last warhead goes,
+        // so without this the trim goes on solving and firing at an empty bus: measured at 12,902 km
+        // as 8.24 m/s nulled and 19.26 more asked for after `0 left`, a fifth of the whole budget
+        // spent on nobody -- and spent manoeuvring six metres from the spent stack, which is the
+        // manoeuvre the clearance had just refused on safety grounds.
+        if (!Config.TrimBeforeRelease || !Command.ReadyToDeploy || SalvoFinished)
         {
             if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
             return;
@@ -1093,10 +1109,22 @@ internal sealed class IcbmComputer
         // make, and how far along it the vehicle should be by now.
         double3 referenceVelocity = Program.Arc?.RequiredVelocityCci ?? Vec.Zero;
 
+        // Which job the trim is doing, which is the one thing BusTrim cannot see. Before any pass
+        // it is nulling a decoupler's shove -- ones of metres a second, where an answer in the tens
+        // really is a bad solve. From the first pass on it is flying a deliberate aim correction,
+        // and that grows with the trajectory: four of six shots at 12,902 km died on the fixed
+        // ceiling of ten while asking for 11.5 to 13.4.
+        //
+        // Bounded by what is left of the budget rather than by a larger constant. The budget is the
+        // real limit on what the bus can spend, Stalled already ends a loop that is not closing, and
+        // a ceiling above both would be a third bound with nothing left to bound.
+        double ceiling = _postBoost.Cycles > 0 ? Math.Max(0.0, budget - _trim.SpentMetresPerSecond)
+                                               : double.NaN;
+
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci,
             Program.ReferencePositionCci, referenceVelocity, Program.SecondsSinceReference,
-            nose, right, down, _mayTrim, budget, _keepOutTowardCci));
+            nose, right, down, _mayTrim, budget, _keepOutTowardCci, ceiling));
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
@@ -1222,6 +1250,12 @@ internal sealed class IcbmComputer
 
         if (away)
         {
+            // Captured on the first one away, because it is the only instant the magazine's loaded
+            // count is still readable: it reloads a few seconds after the salvo, which is exactly
+            // what left the coast warp dead for weeks. WarheadsAway only ever increases, so the two
+            // together are a monotonic "the salvo is finished".
+            if (WarheadsAway == 0) _salvoSize = 1 + weapon.TubesReadyToFire;
+
             WarheadsAway++;
             ProbeRelease();
             BeginTrace(weapon);

@@ -725,4 +725,37 @@ public class BusTrimTests(ITestOutputHelper Out)
         trim.Reset();
         Assert.Equal(0.0, trim.SpentMetresPerSecond);
     }
+
+    /// <summary>
+    /// The per-solve ceiling is sized by the caller, because it bounds two different jobs.
+    ///
+    /// <para>Nulling a decoupler's shove is ones of metres a second, and there an answer in the tens
+    /// really is the solve being asked the wrong question. Flying a deliberate aim correction is a
+    /// different currency and it grows with the trajectory — four of six shots at 12,902 km died on
+    /// the fixed ceiling of ten while asking for 11.5 to 13.4 m/s. A caller that says nothing gets
+    /// the old constant, and one that asks for less than it also gets the old constant: this may
+    /// only ever loosen, never tighten.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(double.NaN, true)]
+    [InlineData(5.0, true)]
+    [InlineData(30.0, false)]
+    public void TheCallerMaySizeThePerSolveCeilingButNeverBelowTheConstant(double asked, bool refused)
+    {
+        BallisticArc.Solution arc = Deorbit(out double3 fromCci, out _);
+        double3 nose = Vec.Unit(arc.RequiredVelocityCci);
+
+        BusTrim trim = new();
+        trim.Begin();
+
+        // Twelve metres a second off the solution: over the shipped ceiling, under a
+        // correction-sized one.
+        TrimCommand c = trim.Update(1.0 / 60.0, new TrimSituation(
+            Earth, fromCci, arc.RequiredVelocityCci + nose * 12.0,
+            fromCci, arc.RequiredVelocityCci, 0.0,
+            nose, Vec.Unit(Vec.Cross(fromCci, nose)), -Vec.Unit(fromCci),
+            MaxMetresPerSecond: asked));
+
+        Assert.Equal(refused, c.Said.Contains("more than the"));
+    }
 }

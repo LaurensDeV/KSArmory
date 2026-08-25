@@ -81,12 +81,24 @@ internal static class ImpactPredictor
     /// </param>
     /// <param name="pathCci">Optional, filled with the trajectory for drawing.</param>
     /// <param name="drag">The air. Null flies in vacuum, which is right only above the atmosphere.</param>
+    /// <param name="atmosphericStepSeconds">
+    /// The step to fall back to once there is air, or NaN for <see cref="AtmosphericStepSeconds"/>.
+    ///
+    /// <para>A parameter so it can be <em>measured</em>. It is the predictor's own integration
+    /// error, it is what the aim correction converges against, and until it could be varied from
+    /// outside nobody could say what it was worth.</para>
+    /// </param>
     public static bool TryPredict(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double stepSeconds, double maxSeconds, out Impact impact,
                                   Func<double3, double>? terrainRadiusAt = null,
                                   List<double3>? pathCci = null,
-                                  Drag? drag = null)
+                                  Drag? drag = null,
+                                  double atmosphericStepSeconds = double.NaN)
     {
+        double inAir = atmosphericStepSeconds > 0.0 && double.IsFinite(atmosphericStepSeconds)
+                           ? atmosphericStepSeconds
+                           : AtmosphericStepSeconds;
+
         impact = default;
         pathCci?.Clear();
 
@@ -118,7 +130,7 @@ internal static class ImpactPredictor
 
         while (t < maxSeconds)
         {
-            if (DensityAt(body, r, drag) > NoticeableDensity) h = Math.Min(h, AtmosphericStepSeconds);
+            if (DensityAt(body, r, drag) > NoticeableDensity) h = Math.Min(h, inAir);
 
             Step(body, r, v, h, drag, out double3 rNext, out double3 vNext);
             double tNext = t + h;
