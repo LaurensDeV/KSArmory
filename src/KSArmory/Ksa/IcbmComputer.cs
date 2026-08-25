@@ -1138,6 +1138,15 @@ internal sealed class IcbmComputer
         {
             _postBoostSaid = true;
             Log.Info($"post-boost: {pass.Said}");
+
+            // Keep the best aim the passes found, not the last one they tried. AimCorrection reverts
+            // to its own best when *it* decides to stop -- but the sequencer above stops it for
+            // reasons the loop knows nothing about, and on those the bias is left wherever the final
+            // pass put it. The miss is not monotonic in the aim, so that is routinely worse: flown at
+            // 12,902 km, a run read 2.1 km at pass 2, 6.0 at pass 3, 4.5 at pass 4 and released on
+            // the 4.5. Freeze is the existing "stop and keep the best" and costs nothing when the
+            // loop had already settled.
+            _aim.Freeze();
         }
 
         if (!double.IsFinite(_owedAtSplit) && double.IsFinite(trim.ToGainMetresPerSecond))
