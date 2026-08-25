@@ -44,7 +44,6 @@ internal sealed class IcbmComputer
     private bool _measureDue;
     private double _freshMiss = double.NaN;
     private bool _resumedForCoast;
-    private bool _trimAbandoned;
     private double _departsIn;
     private ReleaseCommand _deploy;
     private readonly double3[] _tubeAxes = new double3[64];
@@ -285,7 +284,6 @@ internal sealed class IcbmComputer
         _measureDue = false;
         _freshMiss = double.NaN;
         _resumedForCoast = false;
-        _trimAbandoned = false;
         _trimShape = "";
         _saidTrim = "";
         _separatedFrom = null;
@@ -344,7 +342,6 @@ internal sealed class IcbmComputer
         _measureDue = false;
         _freshMiss = double.NaN;
         _resumedForCoast = false;
-        _trimAbandoned = false;
         _trimShape = "";
         _saidTrim = "";
         _separatedFrom = null;
@@ -1104,7 +1101,6 @@ internal sealed class IcbmComputer
             Log.Info($"trim: budget of {budget:F0} m/s spent; the warheads go on the aim as it is");
         }
 
-
         _trim.Begin();
 
         double3 nose = Vec.Zero;
@@ -1692,7 +1688,7 @@ internal sealed class IcbmComputer
         // that is what keeps the sequencer's reference honest: it latches the tube axes on the
         // first frame the launcher is both ready and settled, and a reference latched before the
         // decoupler's shove has been taken back out describes a line no warhead will leave on.
-        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy && !_trimAbandoned
+        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy
                         && (!_trim.Done || _postBoost.Correcting);
 
         if (weapon is null || !Command.ReadyToDeploy || trimming)
