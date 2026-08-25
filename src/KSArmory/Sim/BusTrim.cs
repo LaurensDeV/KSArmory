@@ -50,6 +50,21 @@ internal enum TrimAxes
 /// not the same shape: a clearance wait lifts, and a spent tank does not. Withholding fire for one
 /// that never lifts holds the warheads for the rest of the flight.</para>
 /// </param>
+/// <param name="KeepOutTowardCci">
+/// Which way the discarded stage lies, and only while the bus is inside the keep-out. Zero — the
+/// default — is no constraint, which is what every caller that has no stack to avoid passes.
+///
+/// <para><b>An interlock, not a gate.</b> <see cref="SeparationClearance"/> is consulted before a
+/// pass starts, and a pass that begins clear can still close the gap — because closing it is what
+/// nulling the relative velocity <em>does</em>. So this is asked of each commanded direction
+/// instead: while it is set, any direction that would push the bus toward the stage is withheld
+/// for that frame and the trim spends the frame on the ones that are safe.</para>
+///
+/// <para>It never ends the trim, and the difference matters: with every direction withheld the
+/// loop <em>waits</em>, because reading "nothing to push" off an interlock would report
+/// <c>trimmed to N m/s</c> about a bus that had not been allowed to fire. <see cref="MaxSeconds"/>
+/// and the budget are what bound the wait.</para>
+/// </param>
 internal readonly record struct TrimSituation(
     BallisticBody Body,
     double3 PositionCci,
@@ -61,7 +76,8 @@ internal readonly record struct TrimSituation(
     double3 RightCci,
     double3 DownCci,
     bool MayFire = true,
-    double BudgetMetresPerSecond = -1.0);
+    double BudgetMetresPerSecond = -1.0,
+    double3 KeepOutTowardCci = default);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -393,14 +409,27 @@ internal sealed class BusTrim
             return Finish(gaveUp: true, Left("more than a separation could have cost"));
         }
 
+        TrimAxes pick = Choose(in now, toGainCci, band, out double component, out bool withheld);
+
+        // Held off by the interlock rather than out of work, and answered before the stall clock
+        // for the same reason `MayFire` is: a trim that has not been allowed to push has neither
+        // settled nor stalled. Finishing here would report `trimmed to N m/s` about a bus that
+        // never fired and release the warheads on it; falling through to the stall would report
+        // `the trim stopped closing` about a loop that never started, which is the more expensive
+        // mistake because it is the one somebody would go looking for in the wrong place.
+        // MaxSeconds and the budget bound the wait.
+        if (pick == TrimAxes.None && withheld)
+        {
+            return Command(TrimAxes.None,
+                           $"holding off the spent stack, {_toGain:F2} m/s off the solution");
+        }
+
         // A loop that has stopped helping is not the same as one that has stopped firing, and it is
         // the more expensive of the two: with a fixed arrival, a lateral error the bus cannot null
         // grows a fresh axial requirement every cycle, so the axial jets go on chasing it for as
         // long as they are allowed to. That burns the tank for nothing and leaves the shot no
         // better than when the last real progress was made.
         if (Stalled(step)) return Finish(gaveUp: true, Left("the trim stopped closing"));
-
-        TrimAxes pick = Choose(in now, toGainCci, band, out double component);
 
         // Finished when there is no direction left worth firing, which is the honest definition —
         // and it is per direction rather than on the total, because the total is spread over three
@@ -417,7 +446,8 @@ internal sealed class BusTrim
             // left worth a burn.
             return _dead == TrimAxes.None
                        ? Finish(gaveUp: false, $"trimmed to {_toGain:F3} m/s")
-                       : Finish(gaveUp: true, Left("nothing left aboard moves the bus"));
+                       : Finish(gaveUp: true,
+                                Left($"nothing left aboard moves the bus (struck off: {Struck(_dead)})"));
         }
 
         Watch(step, pick, component);
@@ -436,30 +466,67 @@ internal sealed class BusTrim
     /// being made worse, so it is not a candidate — which is also what makes "nothing to push"
     /// distinguishable from "nothing that pushes".
     /// </param>
-    private TrimAxes Choose(in TrimSituation now, double3 toGainCci, double band, out double component)
+    /// <param name="withheld">
+    /// True when a direction worth firing was refused by the keep-out interlock. It is what
+    /// separates "nothing left to push" from "not allowed to push it", and those two have opposite
+    /// answers: the first is the trim finishing, the second is the trim waiting.
+    /// </param>
+    private TrimAxes Choose(in TrimSituation now, double3 toGainCci, double band,
+                            out double component, out bool withheld)
     {
-        double along = Vec.Dot(toGainCci, Vec.Unit(now.NoseCci));
-        double across = Vec.Dot(toGainCci, Vec.Unit(now.RightCci));
-        double under = Vec.Dot(toGainCci, Vec.Unit(now.DownCci));
+        double3 nose = Vec.Unit(now.NoseCci);
+        double3 right = Vec.Unit(now.RightCci);
+        double3 down = Vec.Unit(now.DownCci);
+
+        // Copied out because `now` is an `in` parameter and the local function below closes over it.
+        double3 toward = KeepOutDirection(in now);
+
+        double along = Vec.Dot(toGainCci, nose);
+        double across = Vec.Dot(toGainCci, right);
+        double under = Vec.Dot(toGainCci, down);
 
         TrimAxes best = TrimAxes.None;
         double bestSize = band;
+        bool refused = false;
 
-        Consider(along >= 0.0 ? TrimAxes.Forward : TrimAxes.Backward, Math.Abs(along));
-        Consider(across >= 0.0 ? TrimAxes.Right : TrimAxes.Left, Math.Abs(across));
-        Consider(under >= 0.0 ? TrimAxes.Down : TrimAxes.Up, Math.Abs(under));
+        Consider(along >= 0.0 ? TrimAxes.Forward : TrimAxes.Backward, Math.Abs(along),
+                 along >= 0.0 ? nose : -nose);
+        Consider(across >= 0.0 ? TrimAxes.Right : TrimAxes.Left, Math.Abs(across),
+                 across >= 0.0 ? right : -right);
+        Consider(under >= 0.0 ? TrimAxes.Down : TrimAxes.Up, Math.Abs(under),
+                 under >= 0.0 ? down : -down);
 
         component = best == TrimAxes.None ? 0.0 : bestSize;
+        withheld = refused;
         return best;
 
-        void Consider(TrimAxes direction, double size)
+        void Consider(TrimAxes direction, double size, double3 pushes)
         {
             if ((_dead & direction) != TrimAxes.None) return;
             if (!(size > bestSize)) return;
 
+            // Withheld rather than struck off. The axis is healthy and the geometry is temporary,
+            // so nothing about it is remembered past this frame.
+            if (Vec.Dot(pushes, toward) > 0.0)
+            {
+                refused = true;
+                return;
+            }
+
             best = direction;
             bestSize = size;
         }
+    }
+
+    // Which way the stack lies, as a unit vector, or zero for "no constraint". Zero is what makes
+    // the interlock cost nothing when there is nothing to avoid: every dot product against it is
+    // zero, and the test is a strict inequality -- so a push exactly square to the stage is allowed
+    // too, and on a bus with all six directions the interlock costs a frame rather than a manoeuvre.
+    private static double3 KeepOutDirection(in TrimSituation now)
+    {
+        double3 toward = now.KeepOutTowardCci;
+
+        return Vec.IsFinite(toward) && !toward.Equals(Vec.Zero) ? Vec.Unit(toward) : Vec.Zero;
     }
 
     // Against the lowest ever reached rather than the last cycle's, because the number wanders: a
@@ -611,6 +678,22 @@ internal sealed class BusTrim
         _said = said;
 
         return new TrimCommand(fire, _done, _toGain, _accel, said);
+    }
+
+    // Which directions were struck off, and it is the whole difference between a bus that cannot
+    // push that way and a solution moving faster than the bus can chase it. A give-up naming
+    // neither is a report that something is broken without saying what, and the two want opposite
+    // fixes -- nozzles against the loop that keeps moving the target.
+    private static string Struck(TrimAxes dead)
+    {
+        List<string> named = [];
+        foreach (TrimAxes d in new[] { TrimAxes.Forward, TrimAxes.Backward, TrimAxes.Right,
+                                       TrimAxes.Left, TrimAxes.Down, TrimAxes.Up })
+        {
+            if ((dead & d) != TrimAxes.None) named.Add(Name(d));
+        }
+
+        return named.Count > 0 ? string.Join(", ", named) : "nothing";
     }
 
     private static string Name(TrimAxes direction) => direction switch

@@ -111,6 +111,45 @@ The surface terms, from `docs/KSA-TERRAIN.md` put through `cot γ`:
 | 30° | 1.73 m | 0.52 m | 2.39 m | 6.5 km |
 | 60° | 0.58 m | 0.17 m | 0.84 m | 2.2 km |
 
+### And there is a fourth thing, which is not a multiplier but a degeneracy — flown 2026-08-25
+
+Every term above scales an error by `cot γ`. Real ground does something worse: where the terrain
+**falls away at the arrival gradient itself**, the trajectory and the surface are parallel and the
+impact point stops being a well-defined function of the trajectory at all.
+
+Forty-eight shots at 26.485S 68.148W, in `~/shots/2026-08-25` and written up as
+`docs/MIRV-NEXT.md` item 7g. Every impact of the night landed at one of five places, all on one line
+of bearing 075°/255° — the ground track — with **the aim point on a crest**:
+
+| site | from the aim point | ground | shots landed |
+| --- | --- | --- | --- |
+| C | 1.51 km at 262° | 4.560 km | 1.40-1.50 km |
+| **A — the aim point** | — | **4.657 km** | 0.04-0.14 km |
+| B | 0.37 km at 053° | 4.646 km | 0.34-0.54 km |
+| D | 4.43 km at 075° | 4.190 km | 4.50-4.60 km |
+| E | 5.54 km at 076° | 4.128 km | 5.40-6.00 km |
+
+The ground rises to the crest from the WSW at a gradient of 0.064 and falls away to the ENE at
+**0.1055**. The warheads arrive at **5.7°**, a gradient of **0.0998** — the two agree to **5.6%**. So
+a few tens of metres of trajectory height at the crest decides between stopping on it and running
+four and a half kilometres down the back: 467 m of fall times `cot 5.7°` = 10.02 is 4.68 km, and the
+measured run-out is 4.43-4.60 km. Eight of twenty-three baseline shots went over.
+
+**No guidance work reaches this.** The aim loop, the predictor and the cutoff were all doing their
+job on those shots — the release probe read 0.6 km and the warheads went 4.6, on the same trajectory
+that landed 40 m out when it stopped on the crest. What separates the two outcomes is which side of a
+hill a sub-kilometre aim difference falls on.
+
+Steepening removes it outright rather than dividing it down: at 15° the arrival gradient is 0.268
+against the same 0.1055 of terrain, and the intersection is well conditioned with room to spare. This
+is the first *flown* evidence for anything on this page, and it arrived by accident — the target was
+chosen for a guidance experiment, not for its relief.
+
+**And it says something about how any target should be read.** A shot group is only a measurement of
+guidance if the ground it lands on is well conditioned for the angle it arrives at. Before quoting a
+miss distance at a new target, check the terrain gradient along the last few kilometres of the ground
+track against `tan γ`; where they are within a few tens of per cent, the number measures the hill.
+
 ---
 
 ## What steepening costs

@@ -296,9 +296,10 @@ public class BusTrimTests(ITestOutputHelper Out)
     /// A bus with only an axial pair still gets the axial error out, and says what it could not
     /// reach rather than holding its warheads over it.
     ///
-    /// <para>Which is the shipped layout: four clusters of four, arranged for pitch, yaw, roll and
-    /// axial thrust, with no lateral translation at all. A loop that assumed three-axis authority
-    /// would push at nothing for ever.</para>
+    /// <para><b>Not the shipped layout</b>, which has 4.243 units in every lateral direction — see
+    /// <see cref="BusAuthorityTests"/>. An axial-only bus is the case that exercises striking a
+    /// direction off, which is why it is tested: a loop that assumed three-axis authority would
+    /// push at nothing for ever.</para>
     /// </summary>
     [Fact]
     public void ADirectionThatMovesNothingIsStruckOffRatherThanWaitedOn()

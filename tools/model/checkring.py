@@ -13,6 +13,7 @@ finds no intersection, and the vehicle simply holds its nose less well than it c
 
     ./tools/model/checkring.py                # report every ring
     ./tools/model/checkring.py --check        # ...and fail if one is above its own floor
+    ./tools/model/checkring.py --translation  # which of the six directions the set can push
 
 The floor is the ring's axial nozzles alone: those have a lever arm in the radial plane whatever
 the mass seat is, so their contribution cannot be designed away. Anything above it is coupling
@@ -22,6 +23,11 @@ It also reports the *leak*: the net force a rotation command makes, per unit of 
 asked for. A correctly enrolled set is a pure couple and leaks nothing. A wrongly enrolled one
 translates the vehicle every time it corrects its attitude, which is how a pointing fault turns
 into a velocity error -- measured on the MIRV bus at 0.378, against 0.000 once the mass was seated.
+
+--translation answers the other question the same map decides: a set can be a fine attitude ring
+and still be unable to push one way, and nothing downstream distinguishes "cannot thrust that way"
+from "the target is moving faster than I can chase it" -- BusTrim strikes a direction off for
+either. The MIRV bus reads 4.000 fore and aft and 4.243 in each lateral direction, all six live.
 
 Assumes the control frame is the part frame. KSA rotates by ctrl2Body first; a part whose control
 axes are turned relative to its own would need that rotation applying here.
@@ -37,6 +43,7 @@ ASSETS = ROOT / "src/KSArmory/KSArmoryAssets.xml"
 GAMEDATA = ROOT / "src/KSArmory/KSArmoryGameData.xml"
 
 ENROL_THRESHOLD = 0.1          # ThrusterController.ComputeControlMap, torque efficiency
+ENROL_TRANSLATION = 0.5        # ...and the higher bar the same map uses for a translation
 TOLERANCE = 1.01               # how far above its own floor a ring may sit
 COUPLE_TOLERANCE = 0.01        # net force per unit torque a rotation command may leak
 
@@ -126,12 +133,56 @@ def analyse(nozzles, com):
     return impulse.max(axis=1), axial.max(axis=1), enrolled, leak.max(axis=1)
 
 
+TRANSLATIONS = (
+    (( 1, 0, 0), "Forward  (the nose)"),
+    ((-1, 0, 0), "Backward (the tail)"),
+    (( 0, 1, 0), "Right    (starboard)"),
+    (( 0,-1, 0), "Left     (port)"),
+    (( 0, 0,-1), "Down     (the belly)"),
+    (( 0, 0, 1), "Up       (the back)"),
+)
+
+
+def translation(nozzles, com):
+    """Per commanded direction: who enrols, the thrust along it, and what it leaks sideways."""
+    out = []
+    for axis, name in TRANSLATIONS:
+        want = np.array(axis, dtype=float)
+        enrolled, net, torque = [], np.zeros(3), np.zeros(3)
+        for label, pos, rot in nozzles:
+            thrust = rot @ np.array([1.0, 0.0, 0.0])
+            if float(np.dot(thrust, want)) < ENROL_TRANSLATION:
+                continue
+            enrolled.append(label)
+            net = net + thrust
+            torque = torque + np.cross(pos - com, thrust)
+        along = float(np.dot(net, want))
+        out.append((name, enrolled, along,
+                    float(np.linalg.norm(net - along * want)), float(np.linalg.norm(torque))))
+    return out
+
+
 def main():
     check = "--check" in sys.argv
     assets = ET.parse(ASSETS)
     gamedata = ET.parse(GAMEDATA)
     problems = 0
     found = 0
+
+    if "--translation" in sys.argv:
+        for part_id, nozzles, com in rings(assets, gamedata):
+            found += 1
+            print(f"{part_id}: {len(nozzles)} thrusters, mass seated at "
+                  f"X={com[0]:.3f} Y={com[1]:.3f} Z={com[2]:.3f}")
+            print(f"    {'command':<22}{'enrolled':>9}{'along':>8}{'off-axis':>10}{'torque':>9}")
+            for name, enrolled, along, off, torque in translation(nozzles, com):
+                mark = "  <-- DEAD" if along <= 1e-9 else ""
+                mark += "  <-- turns as it pushes" if torque > COUPLE_TOLERANCE else ""
+                print(f"    {name:<22}{len(enrolled):>9}{along:>8.3f}{off:>10.3f}"
+                      f"{torque:>9.3f}{mark}")
+        if not found:
+            print("no thruster rings declared")
+        return 0
 
     for part_id, nozzles, com in rings(assets, gamedata):
         found += 1

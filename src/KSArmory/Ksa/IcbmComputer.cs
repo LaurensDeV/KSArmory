@@ -36,6 +36,9 @@ internal sealed class IcbmComputer
     private readonly AimCorrection _aim = new();
     private readonly ReleaseSequence _sequence = new();
     private readonly BusTrim _trim = new();
+    private readonly ProximityWatch _proximity = new();
+    private double3 _keepOutTowardCci;
+    private bool _saidProximity;
     private readonly PostBoostAim _postBoost = new();
     private bool _postBoostSaid;
     private bool _measureDue;
@@ -264,6 +267,9 @@ internal sealed class IcbmComputer
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
+        _proximity.Reset();
+        _saidProximity = false;
+        _keepOutTowardCci = double3.Zero;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -318,6 +324,9 @@ internal sealed class IcbmComputer
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
+        _proximity.Reset();
+        _saidProximity = false;
+        _keepOutTowardCci = double3.Zero;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -646,10 +655,15 @@ internal sealed class IcbmComputer
         // is showing.
         if (KsaWorld.IsWatching(left)) _viewWanted = craft;
 
-        // Held only until the trim has run, and only to measure a distance from. The stack is alive
-        // rather than destroyed, so this is not the reference CLAUDE.md's rule about dead vehicles
-        // is about — but it is still dropped the moment it has nothing left to answer.
+        // Held for the whole coast, to measure a distance from. The stack is alive rather than
+        // destroyed, so this is not the reference CLAUDE.md's rule about dead vehicles is about,
+        // and the lifetime is one flight either way: Rehome and the stand-down both clear it.
         _separatedFrom = left;
+
+        // Said again on the other side of the handover. The clearance state is reported once, and
+        // before this it was always reported from the half the computer is about to leave -- so the
+        // reading the trim actually runs on has never appeared in a log.
+        _saidClearOnce = false;
     }
 
     // Deferred out of Rehome, which runs inside the engine's update pass.
@@ -764,14 +778,36 @@ internal sealed class IcbmComputer
         {
             _saidClearOnce = true;
             Log.Info($"clearance on {KsaWorld.DisplayName(Craft)}: "
-                     + $"stack {(_separatedFrom is null ? "null" : "held")}, "
+                     + $"stack {(_separatedFrom is null ? "null" : KsaWorld.DisplayName(_separatedFrom))}, "
                      + $"alive {KsaWorld.IsAlive(_separatedFrom)}, "
                      + $"apart {apart:F1} m, radius {radius:F1} m");
         }
 
+        // Measured off the same pair of samples the gate is about to decide on, so the two cannot
+        // report different distances about one frame.
+        _proximity.Update(simStep, apart, radius);
+
+        // What the trim's interlock is asked, recorded here because this is the one place the
+        // separation is measured -- a second derivation could report a different distance about the
+        // same frame. In Cci, because that is the frame the trim's own axes are in.
+        _keepOutTowardCci = double3.Zero;
+
+        if (double.IsFinite(apart) && apart < ProximityWatch.KeepOutFor(radius)
+            && _separatedFrom is { } near && KsaWorld.IsAlive(near) && Parent is { } parent)
+        {
+            double3 towardEcl = KsaWorld.PositionEcl(near) - KsaWorld.PositionEcl(Craft);
+
+            if (Vec.IsFinite(towardEcl) && !towardEcl.Equals(double3.Zero))
+            {
+                // A difference of two Ecl positions is already Cce, so this is the same one-rotation
+                // conversion every other Cci quantity in this file takes.
+                _keepOutTowardCci = Vec.Unit(towardEcl).Transform(parent.GetCce2Cci());
+            }
+        }
+
         // An unreadable stack falls back to the clock rather than to "clear": a part tree
         // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
-        // case this exists to prevent.
+        // case this exists to prevent -- and it is asked fresh every pass, never remembered.
         return SeparationClearance.Check(apart, radius, _sinceSplit);
     }
 
@@ -852,6 +888,9 @@ internal sealed class IcbmComputer
             // disposes the pre-split vehicle to make two new ones -- so that capture is a corpse,
             // IsAlive says so, and the clearance test reads no distance at all. Prefer whichever
             // half is actually alive.
+            // Read before WhatWasDropped, which clears the census it counts.
+            int before = _wasBeforeSplit.Count;
+
             if (!KsaWorld.IsAlive(_separatedFrom)) _separatedFrom = WhatWasDropped();
 
             // Said once, because two guesses at why the distance reads as unknown have both been
@@ -863,7 +902,7 @@ internal sealed class IcbmComputer
             Log.Info($"split on {KsaWorld.DisplayName(Craft)}: "
                      + $"{(_separatedFrom is null ? "no stack captured" : KsaWorld.DisplayName(_separatedFrom))}, "
                      + $"alive {KsaWorld.IsAlive(_separatedFrom)}, "
-                     + $"{_wasBeforeSplit.Count} vehicles before and {_afterSplit.Count} after");
+                     + $"{before} vehicles before and {_afterSplit.Count} after");
         }
 
         // Armed at the split rather than at clearance, and held rather than skipped. It keeps
@@ -922,7 +961,7 @@ internal sealed class IcbmComputer
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci,
             Program.ReferencePositionCci, referenceVelocity, Program.SecondsSinceReference,
-            nose, right, down, _mayTrim, budget));
+            nose, right, down, _mayTrim, budget, _keepOutTowardCci));
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
@@ -970,8 +1009,12 @@ internal sealed class IcbmComputer
             _owedAtSplit = trim.ToGainMetresPerSecond;
         }
 
-        // Nothing left to measure a distance from once the trim has run.
-        if (trim.Done) _separatedFrom = null;
+        // Deliberately NOT dropped when the trim reports done. A post-boost pass calls
+        // _trim.Resume(), so passes keep arriving afterwards -- and those are the large ones. With
+        // the reference gone they read "waiting to clear the spent stack, which cannot be read" and
+        // fall through to SeparationClearance's 20 s clock, so the dangerous passes were exactly
+        // the ones flying blind. This is not the reverted clearance latch: that cached a stale
+        // ANSWER, and this keeps the QUESTION askable.
 
         // Said once per change. A trim that stalls looks exactly like one that has finished, and
         // the difference between them is kilometres on the ground.
@@ -1423,6 +1466,17 @@ internal sealed class IcbmComputer
         }
 
         int next = weapon.NextTube;
+
+        // One line per flight, whether or not anything went wrong, said the frame the magazine
+        // empties -- which is the last moment the bus manoeuvres near what it dropped, and so the
+        // moment the minimum is final. It is a measurement rather than a gate: the 2026-08-25
+        // collision was inferred from a thrashing trim rather than observed, and a shot that grazes
+        // the stack and survives leaves no other trace.
+        if (!_saidProximity && _didSplit && next < 0 && weapon.TubesReadyToFire == 0)
+        {
+            _saidProximity = true;
+            Log.Info($"{KsaWorld.DisplayName(Craft)}: {_proximity.Closest.Said}");
+        }
 
         // Latched once the launcher is ready to deploy and the split's transient has died down —
         // not once it is steady enough to release, which is a far tighter number and one a light

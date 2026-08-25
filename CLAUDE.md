@@ -138,6 +138,28 @@ one.
 Split unrelated work into separate commits rather than one large one: the changelog is generated
 from these, so a commit that does three things describes none of them well.
 
+**But "unrelated" is about the change, not about the hour it was made in.** A weapon system's
+history runs to hundreds of commits, and measuring what dominates them says where the excess is:
+of the 239 touching the ballistic surface, **89 reach the changelog and 76 are `docs`**. The
+changelog is not the problem — it is about eleven lines a release. The research loop being recorded
+twice is, once in `docs/` and again as a commit per finding.
+
+Two rules follow, and neither touches the `feat`/`fix` split, which is real work a player can
+observe:
+
+**Batch a session's `docs` into one commit.** A night's measurements, the doc they land in, and
+the stale lines they falsify are one unit of work, not five. Nothing is lost: `docs` never reaches
+the changelog, and the file content is identical either way. Write the story in the body — that is
+what makes the archaeology possible later, and it is worth more there than spread across five
+subjects.
+
+**An arm is squashed, or it never lands at all.** `Merge, do not squash` below is about `dev`→
+`main`, where semantic-release reads individual commits to build the changelog; an `arm/*` or
+`agent/*` branch has no such constraint. An arm that **loses** does not merge — it becomes one line
+in the relevant `docs/` file and the branch is deleted, because a losing arm's internal steps are
+noise nobody will read. An arm that **wins** is squashed into one `feat`/`fix` carrying the flown
+numbers, which is what a reader wants anyway.
+
 **Commit to `dev`, not to `main`.** `main` is the release branch and a push to it cuts a release
 and publishes to SpaceDock — see [CI and releases](#ci-and-releases). Everything lands on `dev`
 first and rides to `main` in a merge when a release is wanted.
@@ -259,6 +281,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SystemConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
 | `Sim/SystemSettings.cs` | those settings flattened, so they can be written down and read back |
 | `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
+| `Sim/RoundDriver.cs` | **the one place a round is advanced by one frame** — the game and the rig both come through it, so neither can differ about which fields a round re-reads within a frame |
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
@@ -294,6 +317,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
 | `Sim/SeparationClearance.cs` | whether what let go has got far enough away to manoeuvre — **the shove is the separation**, so nulling it ends it |
+| `Sim/ProximityWatch.cs` | how near the bus ever came to the stage it dropped — **the minimum over the whole coast**, which no sample at the end recovers and no gate at the start sees |
 | `Sim/ReleasePointing.cs` | which way a launcher must hold for one tube to throw along the line the others did |
 | `Sim/ReleaseSequence.cs` | letting a magazine go one round at a time, each along that same line |
 | `Sim/ShotRequest.cs` | where a scripted shot is aimed and the bar it is judged against — **text in**, so the harness's one line is testable headlessly |
@@ -430,10 +454,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/ICBM-GUIDANCE.md` | **the ballistic computer** — the algorithm, the frames, the cutoff, and what has not been flown |
-| `docs/MIRV-NEXT.md` | **the backlog for the bus** — what separation costs, and what has to happen before re-pointing pays |
+| `docs/MIRV-NEXT.md` | **the backlog for the bus**, and item **7g** is the flown account of the aim freeze — and of the crest the night turned out to be measuring |
 | `docs/SHOT-PROTOCOL.md` | **how to spend a night of shots** — how many a difference costs, why the baseline is re-flown all night, and the rule that says when to stop |
 | `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why seven degrees is the air's answer rather than the guidance's, and the control that asks for another |
 | `docs/KINETIC-FLOOR.md` | **how accurate a round could possibly be** — the terms no amount of guidance work removes, and why the arrival angle is the whole lever |
+| `docs/METRE-LEVEL.md` | **the route from today's kilometre to a metre**, as a ladder of arrival angles with a gate on each rung — what blocks each one, the orbit and target matrix that tests it, and **why the ladder stops at rung C**: the wall clock cannot be bought with frame rate, because a flight is CPU-bound and the GPU is idle |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -457,12 +482,12 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/checkmesh.py` | finds unpaired node/mesh names, zero-UV-area triangles and coplanar faces in a `.glb`; takes several at once, and `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/dilate-atlas.py` | fills the empty space around a baked atlas's islands from their nearest neighbour — **what a bake margin cannot do**, because a margin wide enough to survive mipmapping is wide enough to write one body's dilation over another's |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
-| `tools/model/checkring.py` | what KSA's flight computer will make of a thruster ring — **which nozzles end up steering**, and how coarse that makes the attitude quantum |
+| `tools/model/checkring.py` | what KSA's flight computer will make of a thruster ring — **which nozzles end up steering**, how coarse that makes the attitude quantum, and `--translation` for which of the six directions the set can actually push |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
 | `tools/shot-batch.sh` | a night of ballistic shots, **arms interleaved and every arm built before the first one flies** — so nothing done to the tree overnight can reach a shot in flight |
-| `tools/shot-report.py` | what that night settled — the rank test, the effect with its interval, and the arms to stop flying |
+| `tools/shot-report.py` | what that night settled — the rank test, the effect with its interval, the arms to stop flying, and **whether the ground under the target was shaping the misses** |
 | `tools/sounds.py` | synthesises the explosion samples, and the fallback cannon behind `--synth-cannon` |
 | `tools/cut-cannon.py` | cuts a gunfire recording into spin-up, loop and tail, on measured envelope boundaries |
 | `tools/audio/` | the CC0 Phalanx recording the cannon is cut from, and its provenance |
@@ -1149,7 +1174,9 @@ Three things about it are the decisions, and each cost a wrong version first. It
 attitude *is* the release line and the dominant component is axial anyway — a decoupler pushes along
 the joint. It fires **one direction at a time**, because the stop threshold is half a frame of a
 thrust that is only measurable along the direction being fired, and a bus's lateral authority is
-whatever its nozzle layout happened to give it — the shipped one has none. And it is a **precondition
+whatever its nozzle layout happened to give it — **the shipped one has all six**, 4.000 units fore
+and aft and 4.243 in each lateral direction with the roll torques cancelling, which
+`tools/model/checkring.py --translation` reads off the XML. And it is a **precondition
 of being ready to deploy** rather than a step inside the release sequence, which is what stops one
 warhead leaving on the attached stack's solution and the rest on the shoved bus's.
 

@@ -40,8 +40,27 @@ CATASTROPHE_RATIO = 3.0
 CATASTROPHE_MIN_SHOTS = 4
 
 # A shot this far out is not a sample from the same distribution as the rest -- the widest
-# baseline ever recorded here is 3.43 km over 26 shots. Two of them from one arm is that arm.
+# baseline ever recorded on the 26.5S,64.0W shot is 3.43 km over 26 shots. Two of them from one
+# arm is that arm. The floor holds only until the baseline has flown: past that the same night's
+# baseline sets it, because a target where the control lands at 5 km is a target where 4 km is
+# an ordinary shot.
 WILD_KM = 4.0
+WILD_RATIO = 2.0
+
+# A round arriving at angle g covers cot(g) of ground for every unit it descends, so ground that
+# falls away downrange at tan(a) moves the impact by 1/(tan g - tan a) per unit of trajectory
+# error. Flat ground gives cot(g); as tan(a) approaches tan(g) the round grazes and the impact
+# point diverges. Past this much amplification a night is measuring the hillside as much as the
+# guidance, and the miss distribution goes bimodal in a way that reads as scatter.
+GRAZE_AMPLIFICATION = 2.0
+
+# Below this span along the impacts' own axis there is not enough ground under the night to fit a
+# slope to. A tight group is good news and no evidence about the terrain.
+MIN_TERRAIN_SPAN_M = 100.0
+
+# The bodies flown here are Earth-sized, and this only ever converts degrees to a local metre
+# scale for the fit -- a few parts in a thousand of radius does not move the slope.
+BODY_RADIUS_M = 6371000.0
 
 
 # --- parsing ----------------------------------------------------------------
@@ -85,6 +104,17 @@ BAND = re.compile(
     r"DEBUG\s+(\S+)\s+control:.*?pointing band\s+([\d.]+)\s*deg")
 BANNER = re.compile(r"KSArmory\s+(\S+)\s+built for KSA\s+(\S+),\s*running\s+(\S+)")
 
+# Where each warhead stopped, and how high the ground was there. Together they make the target's
+# own relief measurable out of a night flown for something else. The landing line carries the
+# signed downrange walk as well, which is what orients the axis without needing a frame or the
+# body's rotation rate.
+IMPACT = re.compile(
+    r"warhead trace: round \d+ landed at\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\|\s*"
+    r"[-\d.]+\s*m from the aim\s*\|\s*walk from the release probe\s+[-\d.]+\s*m\s*"
+    r"\(([-+\d.]+)\s*down,\s*([-+\d.]+)\s*cross\)")
+SURFACE = re.compile(
+    r"surface at the landing point: the round stopped on\s*([\d.]+)\s*m")
+
 
 def _floats(pattern, text, groups=1):
     out = []
@@ -101,7 +131,7 @@ def read_shot(out_path, log_path):
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [],
-            "band_deg": [],
+            "band_deg": [], "impacts": [],
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
             "version": None}
 
@@ -150,6 +180,19 @@ def read_shot(out_path, log_path):
     for down, cross in _floats(FINAL_WALK, log, 2):
         shot["final_down"].append(down)
         shot["final_cross"].append(cross)
+
+    # The surface line follows the landing it belongs to and carries no round number, so the two
+    # pair by order. A landing with no surface line after it is dropped rather than guessed at.
+    pending = None
+    for line in log.splitlines():
+        m = IMPACT.search(line)
+        if m:
+            pending = (float(m.group(1)), float(m.group(2)), float(m.group(3)))
+            continue
+        m = SURFACE.search(line)
+        if m and pending is not None:
+            shot["impacts"].append(pending + (float(m.group(1)),))
+            pending = None
 
     # Positive is early: the round beat the flight time its own predictor gave it.
     for _world, own, probe in _floats(FLIGHT, log, 3):
@@ -304,7 +347,13 @@ def gate(root, shots, arms):
         if broken >= 2:
             dead.append(arm)
             continue
-        if sum(1 for s in scores if s >= WILD_KM) >= 2:
+        # 4 km is a fact about one target, not about the mod. On a geometry where the baseline
+        # itself lands past it, an absolute floor drops arms that match the control -- and the
+        # baseline is never a candidate, so the asymmetry keeps the wrong one.
+        wild = WILD_KM
+        if len(base_scores) >= 2:
+            wild = max(wild, WILD_RATIO * statistics.median(base_scores))
+        if sum(1 for s in scores if s >= wild) >= 2:
             dead.append(arm)
             continue
         if (len(scores) >= CATASTROPHE_MIN_SHOTS and len(base_scores) >= CATASTROPHE_MIN_SHOTS
@@ -399,6 +448,110 @@ def main_effect(shots, factor):
                 f"{k} {statistics.median(v):.2f}({len(v)})" for k, v in sorted(cells.items())))
 
 
+# --- terrain ----------------------------------------------------------------
+
+
+def _slope_fit(xs, ys):
+    """Least-squares slope of ys on xs, with the standard error that says whether to believe it."""
+    n = len(xs)
+    mx, my = statistics.mean(xs), statistics.mean(ys)
+    sxx = sum((x - mx) ** 2 for x in xs)
+    if n < 3 or sxx <= 0:
+        return None
+    slope = sum((xs[i] - mx) * (ys[i] - my) for i in range(n)) / sxx
+    resid = [ys[i] - (my + slope * (xs[i] - mx)) for i in range(n)]
+    se = math.sqrt(sum(r * r for r in resid) / (n - 2) / sxx)
+    return slope, se, statistics.pstdev(resid)
+
+
+def terrain(shots):
+    """The ground under a night's impacts, and whether it is steep enough to have shaped them.
+
+    The axis is the impacts' own principal axis rather than a computed ground track: it needs
+    neither the body's rotation rate nor a release state, and it is the direction the impacts
+    actually move in, which is the one the conditioning is about. Its sign is the one thing the
+    scatter cannot give -- a principal axis is a line -- so the walk's signed downrange component
+    orients it.
+    """
+    pts = [q for s in shots for q in s["impacts"]]
+    degs = [d for s in shots for d in s["arrival_deg"]]
+    if len(pts) < 4 or not degs:
+        return None
+
+    lat0 = statistics.mean(q[0] for q in pts)
+    lon0 = statistics.mean(q[1] for q in pts)
+    east_m = math.radians(1.0) * BODY_RADIUS_M * math.cos(math.radians(lat0))
+    north_m = math.radians(1.0) * BODY_RADIUS_M
+    xy = [((lo - lon0) * east_m, (la - lat0) * north_m, down, r) for la, lo, down, r in pts]
+
+    me = statistics.mean(q[0] for q in xy)
+    mn = statistics.mean(q[1] for q in xy)
+    cee = sum((q[0] - me) ** 2 for q in xy)
+    cnn = sum((q[1] - mn) ** 2 for q in xy)
+    cen = sum((q[0] - me) * (q[1] - mn) for q in xy)
+    th = 0.5 * math.atan2(2 * cen, cee - cnn)
+    ux, uy = math.cos(th), math.sin(th)
+
+    along = [(q[0] - me) * ux + (q[1] - mn) * uy for q in xy]
+    walk = [q[2] for q in xy]
+    orient = _slope_fit(walk, along)
+    if orient and orient[0] < 0:
+        ux, uy, along = -ux, -uy, [-a for a in along]
+
+    span = max(along) - min(along)
+    gamma = statistics.mean(degs)
+    out = {"n": len(pts), "lat": lat0, "lon": lon0, "span": span, "gamma": gamma,
+           "bearing": math.degrees(math.atan2(ux, uy)) % 360,
+           "oriented": orient is not None,
+           "spread": max(q[3] for q in xy) - min(q[3] for q in xy)}
+
+    fit = _slope_fit(along, [q[3] for q in xy]) if span >= MIN_TERRAIN_SPAN_M else None
+    if not fit:
+        return out
+    slope, se, rms = fit
+    tan_a = -slope                       # positive: the ground falls away downrange
+    tan_g = math.tan(math.radians(gamma))
+    denom = tan_g - tan_a
+    out.update(tan_a=tan_a, se=se, rms=rms, tan_g=tan_g,
+               amplification=abs(tan_g / denom) if abs(denom) > 1e-9 else float("inf"),
+               sensitivity=(1.0 / denom) if abs(denom) > 1e-9 else float("inf"))
+    return out
+
+
+def terrain_report(shots, verbose):
+    """The one line the default report owes, and the detail behind --terrain."""
+    t = terrain(shots)
+    if t is None:
+        if verbose:
+            print("\n== terrain: no warhead traces in this night -- nothing to measure")
+        return
+
+    amp = t.get("amplification")
+    if amp is None:
+        print(f"\n== terrain at {t['lat']:.3f},{t['lon']:.3f}: "
+              f"{t['n']} impacts inside {t['span']:.0f} m -- too tight to measure the ground")
+        return
+
+    bad = amp > GRAZE_AMPLIFICATION
+    note = "** ILL-CONDITIONED -- the ground is shaping this **" if bad else "well conditioned"
+    print(f"\n== terrain at {t['lat']:.3f},{t['lon']:.3f}: "
+          f"downrange slope {t['tan_a'] * 100:+.2f}% against a {t['gamma']:.1f} deg arrival, "
+          f"{amp:.1f}x flat ground -- {note}")
+
+    if not verbose:
+        return
+    print(f"   {t['n']} impacts over {t['span']:.0f} m along bearing {t['bearing']:.0f} deg"
+          f"{'' if t['oriented'] else '  (UNORIENTED -- sign of the slope is a guess)'}")
+    print(f"   ground height spread     {t['spread']:.1f} m, fit residual {t['rms']:.1f} m rms")
+    print(f"   slope                    {t['tan_a'] * 100:+.2f} % +/- {t['se'] * 100:.2f}"
+          f"   (descent {t['tan_g'] * 100:.2f} %)")
+    print(f"   impact per unit of error {t['sensitivity']:+.1f}"
+          f"   (flat ground {1 / t['tan_g']:.1f})")
+    print("   A round descending at tan(g) onto ground falling away at tan(a) lands at")
+    print("   1/(tan g - tan a) per unit of trajectory error. The two converging is a target")
+    print("   whose miss distribution is the hillside's, not the guidance's.")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -407,6 +560,8 @@ def main():
     ap.add_argument("--gate", action="store_true", help="print arms to drop and exit")
     ap.add_argument("--main", metavar="FACTOR",
                     help="pool the arms into FACTOR on/off and report that main effect")
+    ap.add_argument("--terrain", action="store_true",
+                    help="the relief under the impacts, and whether it is shaping the misses")
     args = ap.parse_args()
 
     root, shots = load(args.directory)
@@ -418,6 +573,10 @@ def main():
 
     if args.gate:
         print(" ".join(gate(root, shots, arms)))
+        return
+
+    if args.terrain:
+        terrain_report(shots, verbose=True)
         return
 
     dlls = defaultdict(set)
@@ -451,6 +610,10 @@ def main():
         mss = {round(v / 10) * 10 for _, v in pick}
         note = "identical" if len(kms) == 1 and len(mss) == 1 else "** VARIES -- SHOTS ARE NOT COMPARABLE **"
         print(f"\n== pick-up: {sorted(kms)} km, {sorted(mss)} m/s -- {note}")
+
+    # Same shape of confound as the pick-up above: it invalidates comparisons silently, and the
+    # night runs to completion looking like an ordinary result either way.
+    terrain_report(shots, verbose=False)
 
     print("\n== per arm")
     for endpoint in ("mean", "spread", "worst"):

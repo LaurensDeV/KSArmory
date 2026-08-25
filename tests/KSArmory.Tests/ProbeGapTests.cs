@@ -162,10 +162,9 @@ public class ProbeGapTests(ITestOutputHelper Out)
 
             (string Term, double3 Landed)[] terms =
             [
-                ("the ground held for a whole frame", Fly(new DeorbitShot.Refresh(false, false) { Ground = true })),
-                ("gravity held for a whole frame", Fly(new DeorbitShot.Refresh(true, false))),
-                ("the air's motion held for a whole frame", Fly(new DeorbitShot.Refresh(false, true))),
-                ("symplectic Euler at 5 ms", Fly(new DeorbitShot.Refresh(false, false) { StepSeconds = ConvergedStep })),
+                ("the ground held for a whole frame", Fly(new DeorbitShot.Refresh { Ground = true })),
+                ("the air's motion held for a whole frame", Fly(new DeorbitShot.Refresh { AirMotion = true })),
+                ("symplectic Euler at 5 ms", Fly(new DeorbitShot.Refresh { StepSeconds = ConvergedStep })),
             ];
 
             Out.WriteLine($"{what}: the round lands {Downrange(probe, asFlown, along):F0} m "
@@ -181,8 +180,9 @@ public class ProbeGapTests(ITestOutputHelper Out)
 
             // All four at once, which is the round made as much like the predictor as this rig can
             // make it. What is left is the two schemes themselves plus the crossing rule.
-            double3 converged = Fly(new DeorbitShot.Refresh(true, true)
+            double3 converged = Fly(new DeorbitShot.Refresh
             {
+                AirMotion = true,
                 Ground = true,
                 StepSeconds = ConvergedStep,
             });
@@ -223,9 +223,9 @@ public class ProbeGapTests(ITestOutputHelper Out)
             double frame = Math.Min(warp * DeorbitShot.NominalFrame, Warhead.MaxFaithfulStepSeconds);
 
             Out.WriteLine($"{warp,4:F0}x{frame * 1000,8:F0} ms{Gap(warp, DeorbitShot.Refresh.AsFlown),12:F0} m"
-                          + $"{Gap(warp, new DeorbitShot.Refresh(true, false)),19:F0} m"
-                          + $"{Gap(warp, new DeorbitShot.Refresh(false, false) { StepSeconds = ConvergedStep }),19:F0} m"
-                          + $"{Gap(warp, new DeorbitShot.Refresh(true, false) { StepSeconds = ConvergedStep }),9:F0} m");
+                          + $"{Gap(warp, DeorbitShot.Refresh.BeforeGravityPerSubStep),19:F0} m"
+                          + $"{Gap(warp, new DeorbitShot.Refresh { HoldGravity = true, StepSeconds = ConvergedStep }),19:F0} m"
+                          + $"{Gap(warp, new DeorbitShot.Refresh { StepSeconds = ConvergedStep }),9:F0} m");
         }
     }
 
@@ -277,21 +277,25 @@ public class ProbeGapTests(ITestOutputHelper Out)
     private const double BallisticScenarioWarp = DeorbitShot.ScenarioWarp;
 
     /// <summary>
-    /// The two largest terms have <b>opposite signs</b>, so each is larger than the gap they
-    /// jointly produce and removing one alone makes the shot worse.
+    /// <b>The cancelling pair is gone, and the sub-step is what is left.</b>
     ///
-    /// <para>That is the mechanism <c>docs/MIRV-NEXT.md</c> item 2d could not explain: re-reading
-    /// gravity per sub-step was priced headlessly as a large improvement and flew worse three times
-    /// out of three. It is not an implementation error — it takes out the one term that was
-    /// cancelling the round's own integration error, and the shipped pair is nearer to right than
-    /// either half of it.</para>
+    /// <para><c>docs/MIRV-NEXT.md</c> item 2d records re-reading gravity per sub-step being priced
+    /// headlessly as a large win and flying worse three times out of three. The explanation was that
+    /// it took out one half of a cancelling pair — and the other half was the <em>pull centre</em>,
+    /// not the sub-step. Both shipped together on 2026-08-24 and the pair took the mean miss from
+    /// 0.44 km to 0.05 km.</para>
     ///
-    /// <para>Which makes the pairing luck rather than design: it holds at the step the coast is
-    /// warped to and nowhere else, so it is a reason not to fix one half rather than a reason to
-    /// keep either.</para>
+    /// <para>So the warning that came out of 2d does not reach the sub-step. Against the round the
+    /// game actually flies, gravity's own marginal contribution is <b>zero</b> — it is already the
+    /// baseline — and converging the sub-step is a lone term worth the whole of what is left.</para>
+    ///
+    /// <para>The first assertion is the one that matters: if it ever stops reading zero, either the
+    /// shipped tree has lost the per-sub-step gravity or <see cref="DeorbitShot.Refresh.AsFlown"/>
+    /// has gone stale against it again — and every other column of every budget taken with this rig
+    /// is then priced against a round nothing flies.</para>
     /// </summary>
     [Fact]
-    public void TheTwoLargestTermsPushTheImpactOppositeWays()
+    public void GravityIsAlreadyShippedAndTheSubStepIsTheWholeOfWhatIsLeft()
     {
         ReleaseState(out double3 from, out double3 v);
         double3 along = AlongTrack(from, v);
@@ -299,31 +303,35 @@ public class ProbeGapTests(ITestOutputHelper Out)
         double3 Fly(DeorbitShot.Refresh refresh)
             => DeorbitShot.FlyTheRoundAsWarped(from, v, DeorbitShot.ScenarioWarp, refresh).GroundFixed;
 
-        double3 asFlown = Fly(DeorbitShot.Refresh.AsFlown);
+        double3 probe = Probe(from, v, null);
 
-        double gravity = Downrange(asFlown, Fly(new DeorbitShot.Refresh(true, false)), along);
-        double step = Downrange(asFlown, Fly(new DeorbitShot.Refresh(false, false)
+        double gap = Downrange(probe, Fly(DeorbitShot.Refresh.AsFlown), along);
+        double before = Downrange(probe, Fly(DeorbitShot.Refresh.BeforeGravityPerSubStep), along);
+        double left = Downrange(probe, Fly(DeorbitShot.Refresh.AsFlown with
         {
             StepSeconds = ConvergedStep,
         }), along);
-        double both = Downrange(asFlown, Fly(new DeorbitShot.Refresh(true, false)
-        {
-            StepSeconds = ConvergedStep,
-        }), along);
 
-        Out.WriteLine($"gravity per sub-step alone   {gravity,8:F0} m");
-        Out.WriteLine($"a converged sub-step alone   {step,8:F0} m");
-        Out.WriteLine($"both                         {both,8:F0} m");
-        Out.WriteLine($"so fixing gravity alone moves the impact {Math.Abs(gravity):F0} m against a "
-                      + $"{Math.Abs(Downrange(Probe(from, v, null), asFlown, along)):F0} m gap");
+        Out.WriteLine($"before the per-sub-step gravity  {before,8:F0} m from the probe");
+        Out.WriteLine($"the shipped round               {gap,8:F0} m");
+        Out.WriteLine($"...and with the sub-step converged {left,6:F0} m");
 
-        Assert.True(gravity * step < 0.0,
-                    $"expected opposite signs; gravity {gravity:F0} m, step {step:F0} m");
+        // What says the rig still models the change that shipped in August, and the assertion that
+        // catches AsFlown going stale against the tree again: the two configurations have to be
+        // hundreds of metres apart, because that difference is the whole of what that flight won.
+        Assert.True(Math.Abs(before - gap) > 100.0,
+                    $"the rig no longer distinguishes the shipped round from the pre-2026-08-24 one; "
+                    + $"{before:F0} m against {gap:F0} m");
 
-        // And jointly they are smaller than either, which is what "cancelling" means here.
-        Assert.True(Math.Abs(both) < Math.Abs(gravity),
-                    $"expected the pair to be smaller than the gravity term alone; "
-                    + $"{Math.Abs(both):F0} m against {Math.Abs(gravity):F0} m");
+        // And the sub-step is not half of a cancelling pair: on its own it leaves the round on its
+        // own predictor, which is the opposite of what item 2d's warning would predict.
+        //
+        // An absolute bound rather than a fraction of the gap, so it states the claim -- a
+        // converged round agrees with its predictor -- rather than the size of what is being
+        // removed. A fraction also inverts on any arm that has already taken the sub-step, where
+        // there is no gap left to remove a share of.
+        Assert.True(Math.Abs(left) < 20.0,
+                    $"a converged sub-step should leave the round on its predictor; {left:F0} m");
     }
 
     /// <summary>
@@ -352,7 +360,7 @@ public class ProbeGapTests(ITestOutputHelper Out)
                 (double3 held, double _) = DeorbitShot.FlyTheRound(from, v, dt, default, counter);
                 (double3 fresh, double _) =
                     DeorbitShot.FlyTheRound(from, v, dt,
-                                            new DeorbitShot.Refresh(false, false) { Ground = true },
+                                            new DeorbitShot.Refresh { HoldGravity = true, Ground = true },
                                             GroundFor(terrain));
 
                 string cost = counter is DeorbitShot.Relief r ? $", {r.Sampled} lookups held" : "";

@@ -2421,16 +2421,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 // where it measures its height from pins the two to different instants, which is
                 // what the three earlier attempts at this each did.
 
-                slug.Ground = GroundTest.Shared;
-
-                // Cached rather than a fresh method group per round per frame: a cannon burst is
-                // 150 shells and this is assigned to every one of them.
-                slug.AirDensityAt = _airDensityAt ??= AirDensityIntoFrame;
-                slug.GravityAt = _gravityAt ??= GravityIntoFrame;
             }
 
-            round.Update(dt, SampleTarget(round), gravity, airVelocity, PlatformEcl,
-                         round.Munition, mediumDensity);
+            // Through the one driver both this and the headless rig go through, so the two cannot
+            // hold different opinions about which fields a round re-reads within a frame. The
+            // lookups are cached rather than fresh method groups per round per frame: a cannon
+            // burst is 150 shells and these are assigned to every one of them.
+            RoundDriver.Fly(round, dt, SampleTarget(round), gravity, airVelocity, PlatformEcl,
+                            round.Munition, mediumDensity,
+                            new RoundFields(_gravityAt ??= GravityIntoFrame,
+                                            _airDensityAt ??= AirDensityIntoFrame,
+                                            GroundTest.Shared));
 
 
             // Paired with the switch below rather than with "no longer flying": a round shot down

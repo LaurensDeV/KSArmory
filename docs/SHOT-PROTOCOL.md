@@ -220,7 +220,8 @@ own file, which is what makes a constant an arm at all. The knobs `MIRV-NEXT.md`
 
 | the arm | file, and what to change |
 | --- | --- |
-| gravity re-read per sub-step | `src/KSArmory/Sim/Slug.cs` — gravity arrives as a frame-level argument and is held across every 5 ms sub-step; `Sim/BallisticBody.cs` already carries `Mu`, so this needs no call into the game. ~160 m of bias at 8× and the whole 1×/8× split — but flown alone three times and lost (item 2d), because the freeze is cancelling the round's own integration error, so fly it paired with the sub-step or not at all. |
+| ~~gravity re-read per sub-step~~ | **Shipped 2026-08-24** (`aea3e2a`), for 0.44 → 0.05 km. Item 2d's warning against flying it alone stands, but its pair was the **pull centre**, not the sub-step — and both went together. Against the round the game now flies, gravity's own marginal contribution is zero. |
+| the warhead's own sub-step | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.SubStepSeconds` at ~1 ms. A **lone** term now, not half of a pair: it takes the round's gap with its own predictor from −149 m to −6 m, flat at every frame from 25 ms to 320 ms. `arm/substep` is built. |
 | the coast step the warhead is integrated across | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.PreferredStepSeconds`. **Not `MaxFaithfulStepSeconds`** — that bounds a clamp that *discards* time, and tightening it flew at 48–60 km (item −0b). Two questions with one shape; the answer to one is never the answer to the other. |
 | how far after cutoff the aim reopens | `src/KSArmory/Sim/PostBoostAim.cs` — `MaxSeconds`, `MaxCycles`, `PassesWithoutImprovement`. The largest single term at 740 m, and the one the rig cannot price. |
 | what a pass has to beat, and what one costs | `AimCorrection.ImprovedByFraction`/`ImprovedByFloorMetres`, `PostBoostAim.HoldingCostsMetresPerSecond`, `BusTrim.SettledMetresPerSecond` — **one arm, not three**: the bar cannot go below the trim's leavings, because those are what moves the reading it is judging. Item 7f. |
@@ -320,6 +321,42 @@ rather than the tree.
   to reboot. A night that sleeps at shot 12 is a night lost.
 - One shot flown by hand end to end, to confirm the aim point produces a verdict rather than a
   timeout. Fifty timeouts is the same information as one.
+- **Check the ground under the aim point**, on that one hand-flown shot:
+  `./tools/shot-report.py <dir> --terrain`. A target whose downrange slope approaches the arrival
+  gradient makes the night unreadable, and it does not announce itself — see below.
+
+### The target has to be flat, and it is not obvious when it is not
+
+A round arriving at `g` below the horizontal covers `cot(g)` of ground for every unit it descends,
+so ground falling away downrange at `tan(a)` moves the impact by `1/(tan g - tan a)` per unit of
+trajectory error. Flat ground gives `cot(g)` — 8.0 at the 7.1° this scenario arrives at. As `tan(a)`
+approaches `tan(g)` the trajectory and the ground become parallel and the impact point diverges.
+
+This is not a bias that averages out over a night. It is a **degenerate intersection**: a few tens of
+metres of trajectory height decides between stopping on the near side and running kilometres down the
+far side, so the miss distribution goes bimodal and the two modes are kilometres apart. It reads
+exactly like guidance scatter, and an arm's apparent win can be nothing more than which side of a
+hill its aim bias happens to fall on — which is what 26.485S 68.148W cost a whole night to learn
+(`docs/MIRV-NEXT.md` item 7g).
+
+`shot-report.py` measures it from the warhead traces the night already writes: every landing line
+carries the impact's coordinates and the ground height under it, so the relief is recoverable from a
+night flown for something else. It prints one line in the ordinary report, beside the pick-up, and
+flags past **2x** flat ground:
+
+```
+== terrain at -26.483,-68.142: downrange slope +6.17% against a 5.8 deg arrival,
+   2.6x flat ground -- ** ILL-CONDITIONED -- the ground is shaping this **
+```
+
+Two things it will not do. It says nothing when the group is tighter than 100 m, because a tight
+group is good news and no evidence about the ground. And it measures the footprint *this night*
+landed on, not the target: a night whose impacts fall inside a few hundred metres can flag on a local
+feature where the regional slope is flat.
+
+**The fix is the arrival angle, not the aim loop.** Nothing in a correction loop can condition a
+degenerate intersection — at 15° the arrival gradient is 0.268 and the same terrain is well behaved
+again. `docs/ARRIVAL-ANGLE.md` is the argument; `IcbmConfig.MinArrivalAngleDeg` is the control.
 
 ## 6. The stopping rule
 
@@ -342,7 +379,7 @@ An arm is dropped when any of these is true:
 | | |
 | --- | --- |
 | **Broken** | two or more of its shots produced no verdict, or arrived with fewer warheads than they released. That is a failure, not a miss distance, and a rank test on miss distance must not absorb it. |
-| **Wild** | two or more shots at or beyond **4 km**. The widest baseline ever recorded here is 3.43 km in 26 shots; two from one arm is that arm, not the tail. |
+| **Wild** | two or more shots at or beyond **4 km**, or beyond **twice the same night's baseline median** once the baseline has flown twice, whichever is further out. 4 km is the widest baseline ever recorded on the 26.5S,64.0W shot, over 26 shots — but it is a fact about that target, and on a geometry where the control itself lands past it an absolute floor drops the arms that *match* the control. The baseline is never a candidate for dropping, so that asymmetry keeps the wrong one. |
 | **Catastrophic** | from 4 shots each: the arm's median is **3× the baseline's or worse**, *and* its best shot is worse than the baseline's median. The flown losses ran 4×, 11× and 29×; none of them needed twelve shots to see. |
 | **Settled loss** | from 6 shots each: rank test **p < 0.0294** with the arm's median above the baseline's. |
 

@@ -17,6 +17,7 @@ its number wherever its state ends up. What is still open:
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
 | [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | the warp latch — **flown and closed**, by the harness rather than by the constant |
 | [7f](#7f-three-stopping-rules-were-sized-for-a-kilometre-shot--built-as-an-arm-unflown) | **three stopping rules sized for a kilometre shot — built as `arm/aim`, wants the night** |
+| [7g](#7g-never-freezing-loses-and-the-target-is-on-a-crest--flown-2026-08-25) | **flown and closed — never-freezing loses 5.7x, and the target sits on a crest the arrival is parallel to** |
 | [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
 
 Everything else is flown, closed, or retired, and says so in its own heading.
@@ -2143,6 +2144,373 @@ range; it is also worth 1.00 -> 16.59 km at 7,645, which is why the freeze exist
 
 `MaxResponse` is inert: 6, 12, 24 and 60 are bit-identical at all four ranges, confirming item 7c's
 sweep from a different direction.
+
+## 7g. Never-freezing loses, and the target is on a crest — flown 2026-08-25
+
+**Flown and closed.** The hypothesis this section sets out is wrong, and the night that tested it
+found something else. `docs/SHOT-PROTOCOL.md` is how it was spent; the shots are in
+`~/shots/2026-08-25`.
+
+### What the night settled — 48 shots, 2026-08-25
+
+| arm | n | median | vs control | its own prediction | residual at cutoff |
+| --- | --- | --- | --- | --- | --- |
+| `base` | 23 | **1.37 km** | — | 2.02 km | 0.070 m/s |
+| `ownint` | 21 | 1.57 km | 1.14x, **UNRESOLVED** (0.35-3.20, p 0.24) | 3.49 km | 0.070 m/s |
+| `neverfreeze` | 2 | **5.72 km** | **5.7x**, dropped at shot 008 | 0.03 km | **0.580 m/s** |
+| `ownint+neverfreeze` | 2 | **5.31 km** | **5.3x**, dropped at shot 008 | 0.03 km | **0.485 m/s** |
+
+**Never-freezing loses, and the pair loses with it** — the *pair does not win* row below. So **do not
+tune the freeze**. Two things the flight adds to what the rig already said:
+
+**The never-frozen loop is precise and wrong.** Its groups are the tightest of the night — spread
+0.01 km, six warheads inside ten metres — landing 5.7 km out while reporting 0.03 km. That is
+`MirvBudgetTests.WhereTheNeverFrozenLoopGoes` reproducing in flight, and it settles the two rigs
+against each other: `AimConvergenceTests` reads never-freezing as a win because it scores through the
+predictor the loop converges. Fixing the predictor first does not rescue it — `ownint` is in the
+pair, and the pair still lands 5.3 km out with its own reading at 0.03 km.
+
+**And the freeze is load-bearing a second way nothing predicted: it is what lets the burn stop.** The
+never-frozen arms cut off with **0.5 m/s** still to gain against 0.07 for the control, eight times the
+residual — an aim that never settles is a cutoff condition that never settles. The miss is
+`residual x dMiss/dV`, so that term alone is worth kilometres, and it is separate from the aim point
+being wrong.
+
+### The rest of the night measured the hill, not the guidance
+
+`ownint` came back UNRESOLVED, and the comparison should not be believed at this target — because
+**every impact of the night landed on one of five places on the ground**, and which one is decided by
+the terrain rather than by the trajectory. Landing site against the ground height under it, all 44
+live-arm shots:
+
+| site | bearing from the aim point | ground | where shots landed | shots |
+| --- | --- | --- | --- | --- |
+| C | 1.51 km at 262° | 4.560 km | 1.40-1.50 km | 4 `base`, **19 `ownint`** |
+| **A — the aim point** | — | **4.657 km** | 0.04-0.14 km | 4 `base` |
+| B | 0.37 km at 053° | 4.646 km | 0.34-0.54 km | 7 `base`, 2 `ownint` |
+| D | 4.43 km at 075° | 4.190 km | 4.50-4.60 km | 5 `base` |
+| E | 5.54 km at 076° | 4.128 km | 5.40-6.00 km | 3 `base` |
+
+Every site is on one line of bearing 075°/255° — the ground track — and **the aim point is on a
+crest**. The ground rises to it from the WSW at a gradient of 0.064 and falls away to the ENE at
+**0.1055**. The warheads arrive at **5.7°**, which is a gradient of **0.0998**.
+
+**The far-side slope and the arrival gradient agree to 5.6%.** That is a degenerate intersection: past
+the crest the trajectory and the ground are very nearly parallel, so a few tens of metres of
+trajectory height at the crest decides between stopping on the crest and running four and a half
+kilometres down the back of it. 467 m of fall times `cot 5.7°` = 10.02 is 4.68 km of ground, and the
+measured run-out is 4.43-4.60 km.
+
+So the night's two live arms differ mostly in **where their aim bias sits relative to that crest**:
+`ownint` lands 19 of 21 shots at C, on the well-conditioned upslope short of it, and never once ran
+past; `base` scatters across A, B, C and — on 8 of 23 shots — over the crest to D and E. Past 2 km:
+`base` 8/23, `ownint` 0/21, Fisher exact **p = 0.0039**. That is a real difference in outcome and it
+is **not** a claim that `ownint` guides better. It is a claim about which side of a hill each arm's
+bias happens to fall on.
+
+**Nothing in the aim loop can fix a degenerate intersection**, which is why this belongs to
+`docs/ARRIVAL-ANGLE.md` rather than here: at 15° the arrival gradient is 0.268 against the same 0.1055
+of terrain and the intersection is well conditioned again. `arm/arr15` is built and parked, and this
+is the first flown evidence for the case that document makes.
+
+### What to do next
+
+1. **Do not merge `neverfreeze` or the pair.** Settled, twice over.
+2. **Do not judge `ownint` at this target.** Its 21 shots measure a hillside. It is right on
+   principle — `CLAUDE.md` already says a prediction modelling drag its own way is a second flight
+   model — but this night neither confirms nor refutes it. Re-fly it somewhere the arrival is not
+   parallel to the ground, or at a steeper arrival.
+3. **`arm/arr15` is not refused, and it is expensive.** The headless check is done — see *A 15°
+   floor is reachable, and costs 2.7x the propellant* below. It will not report
+   `IcbmReach.TooShallow`; whether the stack can pay for it is the open half.
+4. **Keep 26.5S 64.0W as the standard target.** It has now been measured and it is a plain — see
+   *The old target is not a crest* below. This one flew 26.485S 68.148W and turned out to be sitting
+   on a crest; the two are not interchangeable, and a second target has to be checked before it is
+   adopted rather than after a night has been spent on it.
+
+### A 15° floor is reachable, and costs 2.7x the propellant
+
+`ScenarioArrivalFloorTests` sweeps `BallisticArc` at the geometry the scenario actually flies and
+costs each floor as a difference between two required velocities — which is why none of it needs the
+pick-up's flight path angle, a number no log records.
+
+**The range is 3,459 km, not the 2,433 km written elsewhere in this document.** Every night's log
+reports it from the craft's own position at pick-up: 247 shots across 21 nights at 3,441–3,461 km to
+the old target, and 3,037–3,056 km to 08-25's. No shot in any kept log was flown at 2,433 km, and the
+verbose trace quoted under *The root cause* below does not appear in one either. Both are unsourced
+rather than known wrong — flag rather than correction.
+
+The arc flown today is **3.58° in vacuum**, which is the 7.1° the warheads arrive at through the air;
+`BallisticArc.Solution.ArrivalAngleDeg` records that drag bends a graze and leaves 10–30° alone, so a
+floor of 15 constrains something the air will not then move.
+
+| floor | arrives | flight | extra over the flown arc | propellant | vs the flown 85.9 t | precision gain |
+| --- | --- | --- | --- | --- | --- | --- |
+| — | 3.58° | 486 s | — | 85.9 t | 1.0x | 1.0x |
+| 7° | 7.04° | 543 s | 814 m/s | 99.4 t | 1.2x | 2.0x |
+| 10° | 10.04° | 591 s | 1,389 m/s | 159.1 t | 1.9x | 2.8x |
+| **15°** | **15.03°** | **670 s** | **2,176 m/s** | **228.6 t** | **2.7x** | **4.3x** |
+| 20° | 20.04° | 751 s | 2,833 m/s | 277.6 t | 3.2x | 5.8x |
+
+Propellant is off the shipped stack's own throttle trace — 12,164 kN against 571.7 t burning 2.855
+t/s, so 4,261 m/s of exhaust velocity, which reproduces the 85.9 t the base shot burns for its 655
+m/s. The precision gain is the geometric `cot(g)` term, and every row buys more of it than it costs.
+
+**What is still unknown is whether the tanks hold 228.6 t.** KSA reports only the running stage, so
+the remaining propellant is not observable from a log — which is the same limit that stops the launch
+gate refusing a short shot up front. One shot flown by hand settles it: a stack that cannot pay
+reports `IcbmReach.ShortOfPropellant`, flies short, and says by how much.
+
+### The clearance latch put the bus into the booster — do not build it again
+
+7g records the trim nulling `_separatedFrom` on `trim.Done` as a defect worth up to 20 s a pass, and
+proposes latching the clearance. **It is not a defect. It is the gate re-shutting, and it is load
+bearing.** Flown 2026-08-25 with a latch in, and the bus hit its own spent stack.
+
+The argument for latching is that separation only ever opens, so a gap once measured cannot close.
+That is circular: it holds only while the gate is **shut**. Once the clearance answers clear the trim
+runs, and the trim's whole job is to null the velocity difference — which *is* the separation. The
+pair can close again, and only a fresh reading every pass can see it.
+
+What the latch removed, from `003-base.log`'s own sequence:
+
+```
++5 s    trimming 2.46 m/s on the tail        <- cleared on a measured gap, trim runs
++9 s    trimmed to 0.022 m/s                 <- trim.Done nulls the reference
++10 s   post-boost: correcting the aim, 2.9 km out (pass 1)
++10 s   trimming 7.29 m/s on the tail        <- with a latch: fires at once, ~25 m out
+                                                without one: held to +20 s, ~24 m further away
+```
+
+Then 28 s of thrashing — tail, port, belly, port — until `nothing left aboard moves the bus, 6.68 m/s
+left on the bus`. The warheads went anyway, off a bus that had run its thrusters dry and been driven
+back into what it dropped.
+
+**Two things were changed at once and only one is settled.** The same latch flew the floor-0 baseline
+an hour earlier, which also trimmed 7.3 m/s right after `trim.Done` and did *not* hit — it converged
+in ten seconds. What separates them is that the 15-degree shot asked for a correction far beyond what
+the bus could make. So the latch is a necessary contributor rather than a proven sole cause, and the
+size of the post-boost correction under a steep floor is its own open question — see below.
+
+**The real defect behind 7g's note is still there**, and latching was the wrong fix for it. Keeping
+`_separatedFrom` alive past `trim.Done` would let every pass measure a real distance instead of
+falling back to a clock, which is what safety actually wants. Not built, and not to be built without
+flying it.
+
+### The bus has all six directions, and the trim strikes off the ones that lose a race
+
+Two things were believed about the shipped bus and both are wrong. `CLAUDE.md` said its lateral
+authority was none; `TrimBus` said `LateralAcceleration = 0` "is the vehicle that actually flies".
+Read off the XML at KSA's 0.5 translation-enrolment threshold:
+
+| command | enrolled | thrust along | off-axis | net torque |
+| --- | --- | --- | --- | --- |
+| forward / aft | 4 | **4.000** | 0.000 | 0.000 |
+| port / starboard | 6 | **4.243** | 0.000 | 0.000 |
+| belly / back | 6 | **4.243** | 0.000 | 0.000 |
+
+Twenty nozzles: four clusters of an axial pair and two 45° diagonals, plus four more diagonals. The
+diagonals are each a pure roll couple on their own, and the enrolled *set* for any translation
+cancels to zero torque. All six directions are live, and the flight confirms it — the 2026-08-25
+baseline trimmed starboard 294 times and back 292 and converged, which no bus without lateral
+authority could do. `tools/model/checkring.py --translation` is the check.
+
+**So the give-up is a false positive.** `BusTrim` strikes a direction off after
+`DirectionStallSeconds` of firing without its own component falling by `ProgressMetresPerSecond`. On
+a dead axis that reads correctly. On a live one it fires whenever the *reference* moves faster than
+the bus can push, and `BusAuthorityTests` finds the threshold exactly there:
+
+| reference drift | ÷ lateral authority | outcome |
+| --- | --- | --- |
+| 0.50 m/s² | 0.86 | converged, 21 s |
+| 0.55 | 0.94 | converged, 51 s |
+| 0.58 | 0.99 | converged, 120 s, 0.549 m/s left |
+| **0.60** | **1.03** | **struck off starboard, 2.02 m/s abandoned** |
+| 0.80 | 1.37 | struck off starboard, 4.94 m/s abandoned |
+
+The axis is healthy and losing a race, and **the strike is permanent** — once struck it is excluded
+for the rest of the flight, so a transient in the aim correction disables a working thruster for
+good. That is the runaway `BusTrim.MaxMetresPerSecond` already names: the aim correction and the
+trim driving the same vehicle through the same prediction.
+
+It bites `arr15` and not the baseline because a steep floor asks for a much larger post-boost
+correction — 7.3 m/s against 2.45 — which is what puts the reference's motion above what the bus can
+chase.
+
+**Not fixed.** The stall test cannot tell "cannot push this way" from "cannot keep up", and it needs
+to: the first should be struck off for good and the second should not be struck off at all. The
+distinction is available — the bus knows its own measured acceleration, and a component that is
+falling *slower than commanded* is different from one that is not falling. Wants building and
+flying, in that order.
+
+### A 15-degree floor is reachable and the bus cannot fly it
+
+`reach Reachable`, confirmed in flight 2026-08-25 10:20 — the floor is not refused, which was the gate
+`arm/arr15` was parked behind. **2,345 m/s to gain** at the 207 km pick-up against the baseline's 655,
+and `impact in 9:18` against `7:09`.
+
+What it ran into is not the booster's propellant but the **bus's**. The post-boost correction came out
+at 7.3 m/s and rising where the baseline needs 2.45, and the bus exhausted its thrusters part way
+through: `nothing left aboard moves the bus, 6.68 m/s left on the bus`. Releasing 6.68 m/s off the
+solution is a scattered group whatever the arrival angle buys.
+
+So the next question for `arr15` is not reach and not booster propellant. It is whether the bus has
+the authority for the correction a steep arrival demands, and that is a `MirvBudget` question rather
+than a trajectory one.
+
+**The headless prices are a ranking, not absolutes.** `ScenarioArrivalFloorTests` put the 15-degree
+arc at 670 s and 2,176 m/s over the flown arc; it flew 558 s and 1,690 m/s. Right order and right
+direction, roughly 20-30% high, which is what fixing the burnout at 207 km and letting the solver pick
+everything else is worth.
+
+### The old target is not a crest
+
+The obvious worry after the above is that 26.5S 64.0W is ill-conditioned too, in which case a good
+deal of what this document records — the 0.05 km headline included — would be measuring a hillside.
+It is not. Pooling the warhead traces from all 21 nights flown there, 247 impacts, the ground is
+flat at every scale the shots sample:
+
+| impacts within | n | downrange span | ground downslope | amplification |
+| --- | --- | --- | --- | --- |
+| 200 m | 21 | 355 m | **-0.49 %** | 1.0x |
+| 500 m | 75 | 962 m | +1.21 % | 1.1x |
+| 2 km | 213 | 3.7 km | +1.75 % | 1.2x |
+| 20 km | 243 | 14.2 km | +1.13 % | 1.1x |
+| everything | 247 | 90.3 km | **+0.27 %** | 1.0x |
+
+Against an arrival gradient of **0.1246** at 7.1°. The fit residual is 0.7 m rms within 200 m of the
+aim point and 19.5 m over the whole 90 km, and the ground height varies by 15.9 m total across the 75
+impacts inside 500 m. Nothing there is parallel to anything. For contrast the 68.148W target measures
+**+6.36 % ± 0.50** with a **-25 %** crossrange and an 89.5 m residual.
+
+So the two targets differ by a factor of about 25 in downrange gradient, and **the history stands**:
+the pre-08-25 nights are measuring guidance. What made 08-25 special was the target, not the method.
+
+One caveat the pooled number hides: a single night whose impacts fall inside a few hundred metres can
+still land on a local feature. `2026-08-23-1304` fits **+6.99 %** over a 441 m span and flags as
+ill-conditioned, where the regional slope through the same point is under 1%. A night's own footprint
+is what conditions that night, which is why `shot-report.py --terrain` measures a night's own
+impacts rather than a target once and for all. `docs/SHOT-PROTOCOL.md` has how to read it.
+
+### The root cause: freezing the answer at the moment the question changes
+
+`IcbmProgram` commits an arrival time once the aim goes steady, and `IcbmComputer` freezes the aim
+on that same commitment — "one problem solved in two halves". But **committing the arrival is what
+changes the trajectory**, so the banked aim is answering a question that is being replaced in the
+same frame. Flown 2026-08-24 at 2,433 km, verbose:
+
+```
+bias  0.0 km  miss 37.1 km      converging
+bias  9.3 km  miss 25.9 km
+bias 30.8 km  miss  2.0 km      <- best banked here
+bias 30.8 km  miss  1.2 km      <- frozen, and never moves again
+bias 30.8 km  miss  2.9 / 3.3 / 3.6 / 3.8 km
+```
+
+Three cycles into a 35-second burn. **The trigger is perverse:** `AimCorrection.IsSteady` tests the
+size of the last *step*, and a loop closing on its answer takes smaller steps because it is nearly
+done — so converging well is what commits the arrival and invalidates the answer.
+
+That also explains item 7f's result, which made no sense on its own: latching *later* measured worse
+at every value swept (415 m of group bias at `SteadyMetres` 2,000 against 2,568 at 25). Waiting
+longer means converging harder against a trajectory about to be discarded. **The latch timing was
+never the problem; freezing the aim on it is.**
+
+### Why the obvious fix cannot ship alone
+
+`MirvBudgetTests.WhereTheNeverFrozenLoopGoes` traces both wirings at 7,645 km:
+
+| | last reading | group |
+| --- | --- | --- |
+| as shipped | 0.98 km | **1.00 km** |
+| never frozen | 0.00 km for 15 s, then 2.00 | **16.59 km** |
+
+The frozen loop's instrument agrees with its outcome. The never-frozen one drives its own predicted
+miss to zero and lands sixteen kilometres out — it converges *something*, and with the shipped
+predictor that something is not where warheads go.
+
+**So the freeze is load-bearing at long range, by accident**: it stops the loop before it can
+converge onto its instrument's error. This is item 9's "a correction loop can only remove what its
+observer can see" arriving a third time, and it is why `AimConvergenceTests` reads never-freezing as
+a win (1.15 -> 0.56 km) — that rig scores *through the predictor the loop converges*, so it cannot
+see the gap by construction. `MirvBudgetTests` scores the group independently and does.
+
+Corollary worth keeping: **the 0.01 km never-freezing reads at 2,433 km is taken through the same
+suspect instrument.** Discount it.
+
+### The night
+
+Four arms, because the interaction is the finding rather than a nuisance. Flown at **the operator's
+own target**, not the scripted one, because 2,433 km is the geometry with a known failure — the
+correction there makes the shot *worse* than not correcting at all (uncorrected 3.92 km, as shipped
+4.23, never frozen 0.01; `AimConvergenceTests.TheSameFaultAtEveryRange`).
+
+```bash
+KSARMORY_SCENARIO_SAVE="AUTO NUKE DECOUPLER" \
+./tools/shot-batch.sh --aim 26.485S,68.148W --blocks 12 --out ~/shots/2026-08-25 \
+    --arms base=dev,ownint=arm/ownint,neverfreeze=arm/neverfreeze,ownint+neverfreeze=arm/ownint+neverfreeze
+
+./tools/shot-batch.sh --resume ~/shots/2026-08-25        # if it was interrupted
+
+./tools/shot-report.py ~/shots/2026-08-25
+./tools/shot-report.py ~/shots/2026-08-25 --main ownint
+./tools/shot-report.py ~/shots/2026-08-25 --main neverfreeze
+./tools/shot-report.py ~/shots/2026-08-25 --shots
+```
+
+**The batch gate was re-sized for this target before the night flew.** Its wild-shot floor was a
+flat 4 km, which is the widest baseline ever recorded on the *scripted* 26.5S,64.0W shot; here the
+shipped build lands 4-6 km, and the baseline is never a candidate for dropping — so the floor would
+have removed every arm that merely *matched* the control. It is now twice the night's own baseline
+median once the baseline has two shots. `SHOT-PROTOCOL.md` has the rule.
+
+| arm | what it changes | predicted |
+| --- | --- | --- |
+| `base` | dev | the control |
+| `ownint` | `ImpactPredictor` flies the warhead's own integrator (item 2h) | modest — honest instrument, aim still freezes |
+| `neverfreeze` | the aim keeps solving past the arrival latch | **possibly much worse** — converges onto a lying instrument |
+| `ownint+neverfreeze` | both | the point of the night |
+
+An arm expected to lose is deliberate: if `neverfreeze` alone is bad and the pair is good, the
+mechanism is confirmed rather than inferred.
+
+### Reading it in the morning
+
+| outcome | what it means |
+| --- | --- |
+| pair wins, `neverfreeze` alone loses | **the mechanism is right.** Merge both to `dev` together, and never `neverfreeze` alone |
+| pair wins, `neverfreeze` alone also wins | the instrument matters less than the trace says; merge both, and re-check 7,645 km headlessly before trusting long shots |
+| pair does not win | the story in this section is wrong. Do **not** tune the freeze — go back to why the loop's prediction and its group disagree |
+| everything UNRESOLVED | read the interval as what the night ruled out, and check the attribution table: `probe km` against the flown miss says whether the aim or the round is left |
+
+### Do not
+
+- **Do not merge any arm into `dev` before the batch finishes.** `base=dev`, so that replaces the
+  control with the treatment and the night measures nothing.
+- **Do not give the bus more RCS, and do not raise `BusTrim.MaxMetresPerSecond`.** The 2026-08-24
+  flight spent ~3 m/s of a 40 m/s budget and then *refused* a 10.75 m/s request as "more than a
+  separation could have cost". The guard was right: the aim had walked 7.6 km off and flying to it
+  would have been worse. Raising it removes the only thing that noticed.
+- **Do not tighten `AimCorrection.SteadyMetres`.** Measured worse at every value.
+
+### Two defects found on the way and not fixed
+
+- **The clearance latch — built, flown, and reverted.** It drove a bus into its own spent stack.
+  The premise is circular and the gate re-shutting is protective; see *The clearance latch put the bus
+  into the booster* below. The underlying defect — `trim.Done` nulling the reference, so later passes
+  measure nothing — is real and still open, and the fix is to keep the reference rather than to
+  remember the answer.
+- **Nothing sizes a correction against the actuator.** `AimCorrection` steps as though moving the aim
+  moves the impact one-for-one; during the coast the only actuator is a trim with a 10 m/s ceiling
+  and a few m/s of budget. A full-error step after a bad burn asked for 10.75 m/s and was vetoed,
+  leaving the correction inert for ten seconds. Likely moot if this item lands — the 3.8 km never
+  reaches the coast — so keep it as a guard rather than building it first.
+
+### Parked arms, built and pushed
+
+`arm/aim` (item 7f, the stopping-rule constants), `arm/substep` (the Mk 21 at 1 ms — the rig argues
+against it), `arm/subground` (per-sub-step ground, ~20 m), `arm/arr15` (the arrival floor, and
+`SHOT-PROTOCOL.md` says it wants its own night).
 
 ## 7d. What a flight can actually resolve
 

@@ -7,9 +7,10 @@ namespace KSArmory.Tests;
 /// fixed, because the trim never turns it: the whole reason it resolves onto the vehicle's own axes
 /// rather than pointing at the answer is that the release line is already decided by then.
 ///
-/// <para><b>The two accelerations are separate on purpose.</b> The shipped bus is four clusters of
-/// four laid out for pitch, yaw, roll and axial thrust, so <see cref="LateralAcceleration"/> of
-/// zero is the vehicle that actually flies and anything else is a bus nobody has built.</para>
+/// <para><b>The two accelerations are separate on purpose</b>, and zero lateral is <em>not</em> the
+/// shipped bus. That layout sums to 4.000 units fore and aft and 4.243 in every lateral direction
+/// with the roll torques cancelling — see <see cref="BusAuthorityTests"/>. Zero is kept because it
+/// is the case that exercises striking a direction off, not because anything flies it.</para>
 /// </summary>
 internal sealed class TrimBus
 {

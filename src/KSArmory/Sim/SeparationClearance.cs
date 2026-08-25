@@ -16,6 +16,12 @@ internal readonly record struct Clearance(bool IsClear, bool OnTheClock, string 
 /// <para>So the manoeuvre waits, and this is the whole of the decision. Measured rather than timed
 /// wherever the discarded stage can still be read: how fast two halves part depends on the
 /// decoupler's impulse and on what each half weighs, and nothing in this mod knows either.</para>
+///
+/// <para><b>Clearance is never latched.</b> "Separation only ever opens, so a gap once measured
+/// cannot close" is false, and circularly so: it holds only while the gate is <em>shut</em>. Once
+/// this answers clear the trim runs, and the trim's whole job is to null the velocity difference —
+/// which is the separation. So the pair can and do come back together, and every pass has to ask
+/// again. Flown 2026-08-25: a latch drove a bus into its own spent stack.</para>
 /// </summary>
 internal static class SeparationClearance
 {

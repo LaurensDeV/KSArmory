@@ -153,12 +153,21 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
         }
     }
 
-    /// <summary>The round as the game flies it: sub-stepped, air re-read per sub-step, ground sphere.</summary>
+    /// <summary>
+    /// The round as the game flies it, which is now what asking for nothing gives.
+    ///
+    /// <param name="beforeGravityPerSubStep">
+    /// Fly the pre-2026-08-24 round instead, for a budget that wants to show what that change was
+    /// worth. It also held the air's own motion, which the shipped round still does.
+    /// </param>
+    /// </summary>
     private static (double3 GroundFixed, double Seconds) FlyTheRound(double3 fromCci, double3 velocityCci,
-                                                                    double dt,
-                                                                    bool gravityPerSubStep = false)
+                                                                     double dt,
+                                                                     bool beforeGravityPerSubStep = false)
         => DeorbitShot.FlyTheRound(fromCci, velocityCci, dt,
-                                   new DeorbitShot.Refresh(gravityPerSubStep, gravityPerSubStep));
+                                   beforeGravityPerSubStep
+                                       ? DeorbitShot.Refresh.BeforeGravityPerSubStep
+                                       : DeorbitShot.Refresh.AsFlown);
 
     /// <summary>
     /// Term 3, at the step the world is actually held to: coarse through the vacuum coast, fine
@@ -328,8 +337,10 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
 
         foreach (double dt in new[] { 1.0 / 60.0, 0.05, 0.1, 8.0 / 60.0, 0.2, 0.32 })
         {
-            (double3 held, double heldSeconds) = FlyTheRound(from, v, dt);
-            (double3 fresh, double freshSeconds) = FlyTheRound(from, v, dt, gravityPerSubStep: true);
+            // Swapped rather than renamed: re-reading is now what asking for nothing gives, so it
+            // is the *held* round that has to be asked for by name.
+            (double3 held, double heldSeconds) = FlyTheRound(from, v, dt, beforeGravityPerSubStep: true);
+            (double3 fresh, double freshSeconds) = FlyTheRound(from, v, dt);
 
             Out.WriteLine($"{dt * 1000,4:F0} ms frame: "
                           + $"gravity held {GroundMetres(predicted.GroundFixedPointCci, held),6:F0} m, "
