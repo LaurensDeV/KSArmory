@@ -1062,14 +1062,29 @@ internal sealed class IcbmComputer
         // separation caused from one that grew while the vehicle coasted clear of it.
         Clearance clearance = _didSplit ? Clear(simStep) : new Clearance(true, false, "");
 
-        // Given up on rather than waited out: the stack is readable and still too close, so there
-        // is no manoeuvre to make here that does not fly into it. Release proceeds untrimmed.
+        // Stopped WAITING rather than given up on. The timeout's job is that a bus which cannot
+        // open the gap does not hold the salvo for ever -- a ninety-second hold put a release probe
+        // 6.8 km out -- and it used to answer that by abandoning the trim outright, which threw the
+        // whole aim correction away with it: measured at 2.68 km against 0.756 for the same craft,
+        // target and build when the correction ran.
+        //
+        // It never had to. KeepOutTowardCci is computed in the same pass as the clearance, so at the
+        // moment this fires the interlock already knows which way the stack lies -- and the
+        // interlock is the precise form of the same safety question: it withholds the directions
+        // that would push toward the stage and spends the frame on the ones that would not. With
+        // every direction withheld the trim waits rather than firing, and MaxSeconds and the budget
+        // bound that, so this cannot close the gap it was protecting.
+        //
+        // So the timeout lifts the wait and the interlock keeps the bus off its own stack, which is
+        // what the blunt version was standing in for.
         if (clearance.Abandoned)
         {
-            _trimAbandoned = true;
-            if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+            _mayTrim = true;
             Say(clearance.Said, "");
-            return;
+        }
+        else
+        {
+            _mayTrim = clearance.IsClear;
         }
 
         // Bounded across the flight, not just per run. Each release re-arms the trim, and with the
@@ -1089,7 +1104,6 @@ internal sealed class IcbmComputer
             Log.Info($"trim: budget of {budget:F0} m/s spent; the warheads go on the aim as it is");
         }
 
-        _mayTrim = clearance.IsClear;
 
         _trim.Begin();
 
