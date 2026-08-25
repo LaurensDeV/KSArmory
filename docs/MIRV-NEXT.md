@@ -2220,13 +2220,46 @@ is the first flown evidence for the case that document makes.
    principle — `CLAUDE.md` already says a prediction modelling drag its own way is a second flight
    model — but this night neither confirms nor refutes it. Re-fly it somewhere the arrival is not
    parallel to the ground, or at a steeper arrival.
-3. **Fly `arm/arr15`**, after the headless check that a 15° floor is reachable at all from this
-   scenario's 207 km pick-up over 2,433 km — a shot that cannot satisfy the floor reports
-   `IcbmReach.TooShallow` and holds its warheads.
+3. **`arm/arr15` is not refused, and it is expensive.** The headless check is done — see *A 15°
+   floor is reachable, and costs 2.7x the propellant* below. It will not report
+   `IcbmReach.TooShallow`; whether the stack can pay for it is the open half.
 4. **Keep 26.5S 64.0W as the standard target.** It has now been measured and it is a plain — see
    *The old target is not a crest* below. This one flew 26.485S 68.148W and turned out to be sitting
    on a crest; the two are not interchangeable, and a second target has to be checked before it is
    adopted rather than after a night has been spent on it.
+
+### A 15° floor is reachable, and costs 2.7x the propellant
+
+`ScenarioArrivalFloorTests` sweeps `BallisticArc` at the geometry the scenario actually flies and
+costs each floor as a difference between two required velocities — which is why none of it needs the
+pick-up's flight path angle, a number no log records.
+
+**The range is 3,459 km, not the 2,433 km written elsewhere in this document.** Every night's log
+reports it from the craft's own position at pick-up: 247 shots across 21 nights at 3,441–3,461 km to
+the old target, and 3,037–3,056 km to 08-25's. No shot in any kept log was flown at 2,433 km, and the
+verbose trace quoted under *The root cause* below does not appear in one either. Both are unsourced
+rather than known wrong — flag rather than correction.
+
+The arc flown today is **3.58° in vacuum**, which is the 7.1° the warheads arrive at through the air;
+`BallisticArc.Solution.ArrivalAngleDeg` records that drag bends a graze and leaves 10–30° alone, so a
+floor of 15 constrains something the air will not then move.
+
+| floor | arrives | flight | extra over the flown arc | propellant | vs the flown 85.9 t | precision gain |
+| --- | --- | --- | --- | --- | --- | --- |
+| — | 3.58° | 486 s | — | 85.9 t | 1.0x | 1.0x |
+| 7° | 7.04° | 543 s | 814 m/s | 99.4 t | 1.2x | 2.0x |
+| 10° | 10.04° | 591 s | 1,389 m/s | 159.1 t | 1.9x | 2.8x |
+| **15°** | **15.03°** | **670 s** | **2,176 m/s** | **228.6 t** | **2.7x** | **4.3x** |
+| 20° | 20.04° | 751 s | 2,833 m/s | 277.6 t | 3.2x | 5.8x |
+
+Propellant is off the shipped stack's own throttle trace — 12,164 kN against 571.7 t burning 2.855
+t/s, so 4,261 m/s of exhaust velocity, which reproduces the 85.9 t the base shot burns for its 655
+m/s. The precision gain is the geometric `cot(g)` term, and every row buys more of it than it costs.
+
+**What is still unknown is whether the tanks hold 228.6 t.** KSA reports only the running stage, so
+the remaining propellant is not observable from a log — which is the same limit that stops the launch
+gate refusing a short shot up front. One shot flown by hand settles it: a stack that cannot pay
+reports `IcbmReach.ShortOfPropellant`, flies short, and says by how much.
 
 ### The old target is not a crest
 
