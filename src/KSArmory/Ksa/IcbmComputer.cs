@@ -36,6 +36,8 @@ internal sealed class IcbmComputer
     private readonly AimCorrection _aim = new();
     private readonly ReleaseSequence _sequence = new();
     private readonly BusTrim _trim = new();
+    private readonly ProximityWatch _proximity = new();
+    private bool _saidProximity;
     private readonly PostBoostAim _postBoost = new();
     private bool _postBoostSaid;
     private bool _measureDue;
@@ -264,6 +266,8 @@ internal sealed class IcbmComputer
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
+        _proximity.Reset();
+        _saidProximity = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -318,6 +322,8 @@ internal sealed class IcbmComputer
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
+        _proximity.Reset();
+        _saidProximity = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -773,6 +779,10 @@ internal sealed class IcbmComputer
                      + $"alive {KsaWorld.IsAlive(_separatedFrom)}, "
                      + $"apart {apart:F1} m, radius {radius:F1} m");
         }
+
+        // Measured off the same pair of samples the gate is about to decide on, so the two cannot
+        // report different distances about one frame.
+        _proximity.Update(simStep, apart, radius);
 
         // An unreadable stack falls back to the clock rather than to "clear": a part tree
         // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
@@ -1435,6 +1445,17 @@ internal sealed class IcbmComputer
         }
 
         int next = weapon.NextTube;
+
+        // One line per flight, whether or not anything went wrong, said the frame the magazine
+        // empties -- which is the last moment the bus manoeuvres near what it dropped, and so the
+        // moment the minimum is final. It is a measurement rather than a gate: the 2026-08-25
+        // collision was inferred from a thrashing trim rather than observed, and a shot that grazes
+        // the stack and survives leaves no other trace.
+        if (!_saidProximity && _didSplit && next < 0 && weapon.TubesReadyToFire == 0)
+        {
+            _saidProximity = true;
+            Log.Info($"{KsaWorld.DisplayName(Craft)}: {_proximity.Closest.Said}");
+        }
 
         // Latched once the launcher is ready to deploy and the split's transient has died down —
         // not once it is steady enough to release, which is a far tighter number and one a light
