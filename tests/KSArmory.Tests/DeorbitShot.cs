@@ -90,9 +90,17 @@ internal static class DeorbitShot
         /// </summary>
         public double3 CentreEcl;
 
+        /// <summary>
+        /// Where the carrier has taken the body by this frame, kept apart from
+        /// <see cref="CentreEcl"/> so the two compose: one is a deliberate mis-placement under
+        /// test, the other is the world moving, and either overwriting the other silently deletes
+        /// the case being measured.
+        /// </summary>
+        public double3 CarriedCentreEcl;
+
         public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
         {
-            centreEcl = CentreEcl;
+            centreEcl = CentreEcl + CarriedCentreEcl;
             surfaceRadius = R;
             return true;
         }
@@ -240,6 +248,32 @@ internal static class DeorbitShot
         internal bool NeedsSlicing => AirMotion || Ground;
     }
 
+    /// <summary>
+    /// The body's own motion through the ecliptic, which this world otherwise does not have.
+    ///
+    /// <para>KSA carries a planet at ~29.8 km/s and integrates rounds in <c>Ecl</c>, so every
+    /// quantity a round is differenced against carries that speed and only cancels when the two
+    /// terms belong to the <em>same instant</em>. A rig whose planet sits at the origin has that
+    /// term identically zero, which makes it blind to the whole class of fault by construction —
+    /// not bad at seeing them, incapable.</para>
+    ///
+    /// <para>A constant velocity is enough: the carrier is a pure translation, so it changes no
+    /// physics and a correctly paired flight must land in the same body-fixed place with it as
+    /// without. That invariance is the test, and it catches a mis-paired instant whether or not
+    /// anybody thought to model that particular one.</para>
+    /// </summary>
+    public readonly record struct Carrier(double3 MetresPerSecond)
+    {
+        /// <summary>Earth's own ecliptic speed, along a direction square to nothing in particular.</summary>
+        public static Carrier Earthlike => new(new double3(29_800.0, 0.0, 0.0));
+
+        /// <summary>A planet at the origin, which is what every budget here is taken against.</summary>
+        public static Carrier Still => default;
+
+        /// <summary>Where the body's centre is at a stated instant of the flight.</summary>
+        public double3 At(double seconds) => MetresPerSecond * seconds;
+    }
+
     /// <summary>The round's profile, with a finer sub-step if one was asked for.</summary>
     private static MunitionProfile MunitionFor(Refresh refresh)
         => refresh.StepSeconds > 0.0
@@ -264,7 +298,8 @@ internal static class DeorbitShot
                                                                    Refresh refresh = default,
                                                                    IGroundTest? ground = null,
                                                                    double3 bodyAccelCci = default,
-                                                                   double3 gravityCentreCci = default)
+                                                                   double3 gravityCentreCci = default,
+                                                                   Carrier carrier = default)
     {
         BallisticBody body = Earth;
 
@@ -272,7 +307,11 @@ internal static class DeorbitShot
         // alone", it is a round nothing stops, and it flies through the planet.
         IGroundTest surface = ground ?? new Ball();
 
-        Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
+        // Started where the carrier has the body at t=0, so the round's stored coordinates carry
+        // the ecliptic term the game's do. Its velocity carries it too: a body's own motion is
+        // shared by everything riding it.
+        Slug round = new(fromCci + carrier.At(0.0), velocityCci + carrier.MetresPerSecond, null, 1,
+                         fromCci + carrier.At(0.0), Vec.Zero)
         {
             Munition = MunitionFor(refresh),
             Ground = surface,
@@ -283,10 +322,10 @@ internal static class DeorbitShot
         for (int i = 0; i < (int)(20_000.0 / dt) && round.State == RoundState.Flying; i++)
         {
             elapsed = OneFrame(body, round, dt, fromCci, refresh, surface, elapsed, bodyAccelCci,
-                               gravityCentreCci);
+                               gravityCentreCci, carrier);
         }
 
-        return Arrived(body, round, elapsed);
+        return Arrived(body, round, elapsed, carrier);
     }
 
     /// <summary>
@@ -300,8 +339,20 @@ internal static class DeorbitShot
     private static double OneFrame(BallisticBody body, Slug round, double dt, double3 fromCci,
                                    Refresh refresh, IGroundTest? ground, double elapsed,
                                    double3 bodyAccelCci = default,
-                                   double3 gravityCentreCci = default)
+                                   double3 gravityCentreCci = default,
+                                   Carrier carrier = default)
     {
+        // Two instants, and keeping them apart is the whole of what this models. The frame's
+        // celestial sample is taken at its end - docs/KSA-FRAME-ORDER.md section 5 - and the
+        // lookups below back-date off it by the seconds-into-frame the round hands over, which
+        // lands each one on the round's own instant. Anything read once for the whole frame is
+        // read where the round is when the frame starts, which is a different place.
+        double3 sampledCentre = carrier.At(elapsed + dt);
+        double3 roundCentre = carrier.At(elapsed);
+
+        // The ground gets no time argument, so it can only be paired one way: where the round is.
+        if (ground is Ball ball) ball.CarriedCentreEcl = roundCentre;
+
         // Only the two the game has no lookup for. Everything else is expressed as configuration
         // the game could itself be given, so the rig and the tree cannot hold different opinions.
         int n = refresh.NeedsSlicing ? Math.Max(1, (int)Math.Ceiling(dt / Interceptor.SubStep)) : 1;
@@ -313,9 +364,15 @@ internal static class DeorbitShot
         // Less the body's own acceleration, because the round is integrated about a centre that is
         // itself falling and the prediction of it is not. Subtracting it is exact rather than
         // approximate: the solar tide across a planet's radius is 0.009% of the term.
-        double3 heldGravity = body.GravityCci(round.PositionEcl - gravityCentreCci) - bodyAccelCci;
-        double3 heldAir = body.GroundVelocityCci(round.PositionEcl);
-        double heldDensity = DensityAt(round.PositionEcl);
+        double3 heldGravity = body.GravityCci(round.PositionEcl - roundCentre - gravityCentreCci)
+                              - bodyAccelCci;
+        double heldDensity = DensityAt(round.PositionEcl - roundCentre);
+
+        // The air rides the body, so its motion carries the body's own. Leaving that off gives the
+        // round the whole carrier as a headwind, which is not a pairing error but a different
+        // planet: measured at 98 s of flight time and 550 km of impact.
+        double3 heldAir = body.GroundVelocityCci(round.PositionEcl - roundCentre)
+                          + carrier.MetresPerSecond;
 
         if (ground is Relief relief)
         {
@@ -328,17 +385,24 @@ internal static class DeorbitShot
         RoundFields fields = new(
             refresh.HoldGravity
                 ? null
-                : (pos, _) => body.GravityCci(pos - gravityCentreCci) - bodyAccelCci,
-            (pos, _) => DensityAt(pos),
+                : (pos, into) => body.GravityCci(pos - Centre(into) - gravityCentreCci) - bodyAccelCci,
+            (pos, into) => DensityAt(pos - Centre(into)),
             ground);
+
+        // The body where it was when the round was there, rather than where the frame's sample
+        // found it. `into` is negative: it is how far back from the sample the round has got to.
+        double3 Centre(double into) => sampledCentre + carrier.MetresPerSecond * into;
 
         for (int k = 0; k < n && round.State == RoundState.Flying; k++)
         {
-            double3 air = refresh.AirMotion ? body.GroundVelocityCci(round.PositionEcl) : heldAir;
+            double3 air = refresh.AirMotion
+                              ? body.GroundVelocityCci(round.PositionEcl - carrier.At(elapsed))
+                                + carrier.MetresPerSecond
+                              : heldAir;
 
             if (ground is Relief r) r.Seconds = elapsed;
 
-            RoundDriver.Fly(round, dt / n, null, heldGravity, air, fromCci,
+            RoundDriver.Fly(round, dt / n, null, heldGravity, air, fromCci + carrier.At(elapsed),
                             round.Munition, heldDensity, fields);
             elapsed += dt / n;
         }
@@ -355,12 +419,15 @@ internal static class DeorbitShot
     /// which on a 320 ms frame is enough to read as guidance error.</para>
     /// </summary>
     private static (double3 GroundFixed, double Seconds) Arrived(BallisticBody body, Slug round,
-                                                                 double framesIssued)
+                                                                 double framesIssued,
+                                                                 Carrier carrier = default)
     {
         Assert.NotEqual(RoundState.Flying, round.State);
 
         double seconds = framesIssued + Math.Min(0.0, round.DetonationElapsedInFrame);
-        return (body.UncarryCci(round.PositionEcl, seconds), seconds);
+
+        // Out of the ecliptic first, then out of the body's spin. Both at the impact's own instant.
+        return (body.UncarryCci(round.PositionEcl - carrier.At(seconds), seconds), seconds);
     }
 
     /// <summary>
