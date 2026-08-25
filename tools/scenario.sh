@@ -35,7 +35,7 @@
 #   KSARMORY_SCENARIO_CRAFT="Peacekeeper" ./tools/scenario.sh mirv
 #
 # Everything after that is done for you: it finds whichever craft in the scene has a ballistic
-# computer and its wheels on the ground, designates the aim point, arms, stages, asks the world
+# computer and its wheels on the ground, designates the aim point, arms, asks the world
 # for timewarp once, and follows the flight -- cutoff, separation, the trim, every release with
 # how far off the salvo's line its tube was, and every impact with its miss. The verdict is the
 # worst warhead of the group against a bar you can move from the request line.

@@ -2821,6 +2821,54 @@ on a separated bus at all: if it does not, every shot releases 10 s after the tr
 aim the burn earned, which is the honest outcome and is 260 m worse than a bus that holds still.
 
 
+## 8c. The trim's refusal was ending the correction and calling it convergence — flown 2026-08-25
+
+**A 5.2 km miss on a shot whose burn was perfect.** Cut off **0.42 m/s** short with a worst frame of
+33 ms — the boost has nothing left to give. The miss was in the aim, and it was on the readout the
+whole time: 4.2 km predicted at cutoff, 5.9 km at release, 5.2 km flown. The mod called it and let
+go anyway.
+
+The post-boost correction ran **one pass**, and this is the whole of it:
+
+```
+17:20:16.191  post-boost: correcting the aim, 5.9 km out (pass 1)
+17:20:16.210  more than a separation could have cost, 14.91 m/s left on the bus
+17:20:16.704  post-boost: aim settled 5.9 km out
+17:20:16.706  deploying: releasing tube 1
+```
+
+515 milliseconds from first pass to release, and **the aim never settled**. `PostBoostSituation`
+carried one flag for two facts — `AimHasSettled: _aim.Settled || _trim.GaveUp` — so the sequencer
+read the trim's refusal as the correction having converged, printed a sentence with no true half in
+it, and released.
+
+The refusal itself is the guard working as designed. `BusTrim.MaxMetresPerSecond` is 10 because the
+aim correction and the trim drove one vehicle through one prediction and wound each other up tenfold
+every ten cycles; 14.91 m/s for a 5.9 km aim step is the shape it exists to catch. **What was wrong
+is what happened next**, not the refusal.
+
+Split into `AimHasSettled` and `TrimGaveUp`, with their own messages, and
+`ATrimThatRefusesTheArcIsNotAnAimThatSettled` pins them apart. That is a diagnostic fix and it is
+all that has been made: the flight now says *the trim would not fly the correction, so none of it
+was applied*, which is a fact somebody can act on where "aim settled" is one nobody would look at
+twice.
+
+**What it does not do is correct the shot**, and the open question is which of these the 14.91 m/s
+is:
+
+- **a bad solve.** The trim solves to the committed arrival while the flown prediction disagrees by
+  ~2 s (`[solving to an arrival 406 s away; the flown prediction says 408 s]`). Demanding an arrival
+  two seconds early over a 406 s fall is worth metres a second on its own, and buys nothing about
+  the miss. The gap is expected — one is a vacuum arc reaching a point, the other a warhead with
+  drag reaching the ground — but whether the *trim* should be solving to the first is not settled.
+- **a real correction the ceiling is too tight for.** `PostBoostAim.MaxTrimMetresPerSecond` is 40
+  across all passes and the bus has the propellant, so 14.91 m/s in one go is affordable if it is
+  genuine.
+
+The two want opposite fixes and the log cannot currently tell them apart. **Next: log what the trim
+solves against beside what the correction asked for, on the frame it refuses** — the same shape as
+8b, where the correction turned out to be reading a moving instrument rather than being wrong.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by

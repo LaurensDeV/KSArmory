@@ -368,6 +368,25 @@ for a round that steers.
 
 Nothing in `Sim/Arsenal.cs` is such a round today: the Mk 21 is `GuidanceMode.None`.
 
+### And it stays that way, because that is what a Mk 21 is
+
+**Decided, not pending.** The real Mk 21 — W87, Peacekeeper and now Minuteman III — is purely
+ballistic: inertial only, no seeker, no control surfaces. So are the Mk 4A and Mk 5 on Trident. No
+deployed strategic MIRV has terminally guided reentry vehicles, and the reason is mass and mission:
+every RV would need its own seeker, power and actuators on a bus already trading throw-weight for
+warhead count, against targets where inertial accuracy plus yield was enough.
+
+Terminal guidance on a ballistic RV is real, and it has consistently been a **single**-warhead thing
+— Pershing II's MaRV with RADAG radar area correlation, ~30 m CEP against ~400 m for the ballistic
+Pershing 1a, and later the Chinese DF-21D and DF-26 anti-ship MaRVs. Trident's Mk 500 Evader
+manoeuvred to defeat defences rather than to be accurate, and was not deployed.
+
+Six independently steering RVs off one bus would therefore be a mod invention. Setting
+`Guidance = GuidanceMode.Inertial` on the Mk 21 would collapse this whole file's budget to the
+sub-step — 2.32 m from a 500 m release error, and the arrival angle worth centimetres instead of a
+factor of eight — and it would be a lie about the part. **If a steering reentry vehicle is wanted it
+is a second profile**, named as the MaRV it is, and the Mk 21 stays the hard case it exists to be.
+
 ---
 
 ## The two numbers

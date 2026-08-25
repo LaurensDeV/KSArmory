@@ -3,7 +3,8 @@
 **What it does.** Fly any rocket a player has built, from a standing start on the pad to a place
 they picked on a map, and let the warheads go over it. Nothing about the vehicle is declared to it:
 it reads how much thrust the stack has, how fast it is consuming itself and how much is left, every
-cycle, and stages when there is nothing to burn.
+cycle, and fires the next sequence when there is nothing to burn with — which on the pad is
+the ignition and afterwards is the spent stage.
 
 **Where it lives.** The whole of the decision-making is under `Sim/` and tested headlessly. `Ksa/`
 contains two conversions and nothing else — the world into an `IcbmState`, and the answer into
@@ -359,6 +360,91 @@ arrive within two kilometres. The one exception is the grazing entry, held to si
 stays in the atmosphere for thousands of kilometres, so a centimetre a second at cutoff is
 kilometres at the far end, and that belongs to the trajectory rather than to guidance.
 
+## Lighting the first engine is a stage request
+
+KSA reports **no thrust and no propellant** for an engine the sequence list has not activated.
+`EngineController.ComputeActivePerformance` returns zero unless the module `IsActive`, and
+`IsAnyEnginePropellantAvailable` reads a global that only counts active engines — so a rocket
+standing on its pad gives exactly the reading a spent stage gives. `MainEngineStartup` does not
+change it either: it sets a `_manualControlInputs.EngineOn` bit and nothing more. **Firing the next
+sequence is the only thing that lights an engine.**
+
+Ignition and discarding a stage are therefore the same call, and the program tells them apart by
+whether anything aboard has *ever* pushed:
+
+| The reading | Which it is | How often it may be asked for |
+| --- | --- | --- |
+| nothing has ever thrust | **ignition** | again on the cooldown — the sequence a player put first is not necessarily the one with an engine in it |
+| something has thrust and now does not | **discard** | once, then the new stage has to prove itself, or one that takes a moment to come up is thrown away on the next cooldown |
+
+`DrySecondsBeforeGivingUp` bounds both, so neither can walk down the sequence list for ever. Two
+things follow that are worth not re-deciding.
+
+**The gate used to be "something has thrust", full stop**, which is a launch that could never
+happen: nothing has thrust on a pad, so no sequence was ever fired. The vehicle held its vertical
+rise on the attitude thrusters, saw no propellant for four seconds, and reported `burn ended
+7843 m/s short of the solution` — a burn it had never begun. What hid it is that **the rig starts
+lit**: a first stage already pushing on frame zero flies every shot in `IcbmFlightTests` whether or
+not the computer has an ignition at all, and `IcbmFlightRig.StartsUnlit` is the fifth thing the rig
+has had to stop being better than the game at. So did the harness, which used to stage by hand —
+see [Flying one without watching it](#flying-one-without-watching-it).
+
+**A shot that never lit says so**, rather than reading as one that ran out of propellant. The whole
+velocity is still to gain either way, and the two want completely different things done about them.
+
+`Ksa/IcbmComputer.StagingWouldDropTheLauncher` still refuses any sequence that would separate the
+launcher, which on the pad is the launch not happening rather than a stage going unspent. It says so
+once, because the refusal is otherwise silent.
+
+## The acceleration limit is the airframe's, not the operator's
+
+KSA destroys a vehicle when its load factor reaches a limit it works out from the vehicle's **own
+size**: `max(5, 50 x 5/radius)` off the bounding sphere, so a long stack is held to a fraction of
+what a stubby one survives — 12.5 g at 20 m, 6 g at 42 m, and a floor of 5. That is not a number an
+operator can be expected to know about somebody else's rocket, and it was the whole reason
+`MaxAccelerationGee` shipped as a control that did nothing: it defaults to zero, zero meant *no
+limit*, and only `tools/scenario.sh` ever set one. A stack armed from the panel flew wide open and
+came apart once its boosters were gone and a light upper stage was left on a full-sized motor.
+
+So `IcbmProgram.AccelerationCapGee` takes the **tighter** of two numbers that say different things.
+The operator's is about this shot — a stack they know is fragile, or one they want flown gently.
+The airframe's is what the engine will actually destroy it at, and it applies whether or not anybody
+typed anything. Zero from the engine is the reading being *absent* — a vehicle outside a physics
+bubble — which is not the same as there being no limit, and the two are kept apart.
+
+`StructuralMarginFraction` is 0.9 because the test is on a **lag** of the load rather than the load
+itself, with a time constant of the bounding sphere over 200 — a fifth of a second at the size
+above. Flying at the number is flying on the boundary.
+
+### The cap is right and the actuator is too slow
+
+A stage that lights *hot* is still lost, and the measurement says exactly where the fault is. Both
+arms below fly the identical stack — a 1.4 MN booster dropped onto a 1.94 MN upper on 13 t, which is
+15 g the instant it lights — against the identical 6.00 g airframe, and only the throttle rate
+differs:
+
+| Throttle | Filtered load peak | |
+| --- | --- | --- |
+| instant | 5.79 g | survives |
+| KSA's own 0.7 /s | **7.44 g** | destroyed |
+
+So the cap computes the right setting on the frame the new stage appears, and the servo then takes
+about a second to get there. `AStageThatLightsHotIsLostToTheThrottleServoAndNotToTheCap` pins both
+arms.
+
+**What is not built, and why it is a flight question.** The remedy has to be an instrument faster
+than the throttle, and the game offers exactly one: `MainEngineStartup`/`Shutdown` sets
+`_manualControlInputs.EngineOn`, which zeroes `EngineBurnDuration` and so every engine's commanded
+throttle in the same frame. Holding it off while the servo catches up would be one cut of about a
+second rather than a chatter, because the condition to relight is the *throttle* having arrived
+rather than the load having dropped.
+
+What stops it being written headlessly is that `RocketCore.ComputePropellantAvailable` takes an
+`isBurning` flag and is abstract — a combustor and a solid motor answer it their own way. If a cut
+engine reads as **no propellant available**, the program sees a dry stage and stages away a live one
+on the next cooldown, which is far worse than the load it was avoiding. That has to be watched in
+game before anything is built on it.
+
 ## When to burn is a separate question from how
 
 `BallisticArc` answers "what would it cost to leave from here, **now**". That is the whole question
@@ -489,6 +575,39 @@ And `MaxFaithfulStep` is a round third of a second, which is a round's 0.32 to w
 18.0x against 19.2x at 60 fps. Asking the world to run materially slower than
 anything else in the mod needs buys a few hundred metres and costs the shot, because the policy
 answering that request is a control loop against an actuator shared with the player.
+
+## Waiting is warped through, and it is the same wait twice
+
+Two stretches of a shot are minutes or hours of nothing happening: a **departure window** in orbit,
+and the **ballistic coast** after cutoff. Both are a known instant with nothing to do until then, so
+both are handed to KSA's own warp-to-a-time rather than to `WarpPolicy`, which only ever holds the
+speed *down*.
+
+`IcbmComputer.SecondsToTheNextThingThatMatters` is the one thing that differs between them, and
+everything else — the hops, the margin, carrying a warp on after one lands, standing down when the
+shot stops wanting it — is shared. **One press covers the whole wait, in hops**, because KSA scales
+its warp rate to the *span* it is asked for: a single jump to the end of a ninety-minute hold arrives
+doing thousands of times normal speed, where the last minute passes in under two frames and there is
+nowhere to hand over.
+
+The coast stops a **settling margin** short of the release rather than at it, and that margin is
+`IcbmProgram.SteadyBeforeReleaseSeconds` — see [Arrival angle](#arrival-angle-is-asked-for-not-read-off)
+for why the aim is still moving out there. Measured: opening the gate from 45 seconds to 20 runs the
+coast at 100x and takes a release probe's own miss from **50 m to 520**, with the walk unmoved. The
+harness reads the same constant, because the number and its measurement drifting apart across two
+files is exactly what it is there to stop.
+
+**It never starts while `NeedsShortSteps` is true** — the burn and the trim — which matters more
+than it looks: `WarpPolicy` cannot slow the world at all while an auto-warp is running, so a warp
+begun over the top of one is a warp nothing can rein in.
+
+### Automatic only if somebody said so
+
+`IcbmConfig.WarpTheCoast` is off by default, and the default is the rule rather than an opinion about
+the feature: taking the world's clock away because a target happened to be designated is not a
+weapon's decision. The button is how the action is taken. What the tick box does is let an operator
+delegate the press — ticking it *is* the permission, given once instead of every shot — and it stops
+in the same place the button does.
 
 ## A stable orbit is known not to come down
 
@@ -1236,8 +1355,8 @@ seconds](#hold-the-direction-frames-before-cutoff-not-seconds).
 ## Flying one without watching it
 
 `./tools/scenario.sh mirv` drives the whole shot: it finds whichever craft in the scene has a
-ballistic computer and its wheels on the ground, designates, arms, stages, and follows the flight to
-the last impact. `mirv:26.485S,68.148W,2` moves the aim point and the bar it is judged against.
+ballistic computer and its wheels on the ground, designates, arms, and follows the flight to the
+last impact. `mirv:26.485S,68.148W,2` moves the aim point and the bar it is judged against.
 
 The operator still supplies the rocket — a mod cannot put one on the pad, see `CLAUDE.md` — so the
 craft has to be the one the game boots into, or named in `KSARMORY_SCENARIO_CRAFT`.
@@ -1247,7 +1366,9 @@ Two things about it are worth knowing before reading a result:
 - **It asks the world for timewarp once and never again.** `WarpPolicy` owns the speed after that,
   and it holds the world down for the burn, the trim and the rounds in the air. Competing with it is
   a loop neither side wins.
-- **It stages exactly once**, which lights the first engine. The computer will not stage past a
+- **It does not stage.** Ignition is the program's own first stage request, and a harness that
+  lights the rocket by hand is one that passes whether or not the computer can launch at all —
+  which is how a computer with no ignition flew every shot here. The computer will not stage past a
   launcher that could come off — `IcbmComputer.StagingWouldDropTheLauncher` — so a multi-stage stack
   needs its later stages by hand, and the run says so when the program asks for one it cannot have.
 
@@ -1272,8 +1393,9 @@ correction winding each other up, is fixed and has flown since.
   authority. The rig assumes a 12 deg/s slew. A separated bus commanded six degrees off its held
   line hunted rather than settling, which is why `RepointBetweenReleases` is off; the pointing
   band has since come down from 9.63° to 0.37° and nothing has asked it for a turn again.
-- **Staging.** `ActivateNextSequence` fires whatever the player put in the next stage, which is not
-  necessarily an engine.
+- **Staging.** `ActivateNextSequence` fires whatever the player put in the next sequence, which is
+  not necessarily an engine — including the ignition, where the program will try again on the
+  cooldown until the dry timer ends the flight.
 - **Staging under warp.** The world is now held down for a burn (see below), but whether KSA
   applies thrust and staging faithfully at the speeds it is held *to* has not been watched.
 
@@ -1289,6 +1411,10 @@ on the trajectory search rather than on the drag shortfall a steep arrival aboli
 `docs/ARRIVAL-ANGLE.md` has the per-cycle trace and why neither headless remedy is shipped. One
 known bound on the search half: the floor is applied to the *vacuum* arc, which agrees with the
 flown arrival to under half a degree over 10–30° and diverges only for a graze.
+
+**Whether cutting the engine makes a stack read dry.** The one thing standing between the
+acceleration cap and a stage that lights hot — see [The cap is right and the actuator is too
+slow](#the-cap-is-right-and-the-actuator-is-too-slow).
 
 **Nothing is persisted.** The target and the settings are lost on a reload; `SettingsStore` keys per
 craft and per launcher ordinal, and this roster keys per craft, so the two do not line up yet.

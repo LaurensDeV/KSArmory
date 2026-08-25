@@ -307,6 +307,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/AimFrame.cs` | which way is up for a vehicle told to point somewhere — **the roll a pointing command leaves undecided** |
 | `Sim/OrbitPlane.cs` | how far off the plane a target sits, and what that costs — **the explanation for an inexplicable burn** |
 | `Sim/BurnWindow.cs` | **when** to start burning, which is not the same question as how to fly it |
+| `Sim/ArrivalBudget.cs` | the steepest arrival the tanks can pay for — **what bounds the angle control**, so a ceiling is seen rather than discovered when the shot falls short |
 | `Sim/ImpactPredictor.cs` | where it would come down if the engines stopped now — flown, not solved |
 | `Sim/ArrivalFrame.cs` | the axes an arrival is measured in — **a drift up costs `cot γ` times the same drift across**, which is eight at the angle this mod flies |
 | `Sim/AimCorrection.cs` | where to aim so it lands on the target — **the solver arrives at a point, a round stops at the ground** |
@@ -350,6 +351,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/WeaponFit.cs` | **what a weapons system is fitted with** — the panel asks this rather than testing profile fields |
 | `Sim/WeaponSelection.cs` | stepping round a craft's weapons, wrapping — the half of the selector a test can reach |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
+| `Sim/FrameLatch.cs` | hands a **frame's** work out once, to whichever hook reaches it first — **the UI pass is skipped while the UI is hidden and the frame postfix is not** |
 | `Sim/SmoothedStep.cs` | the step evened out, for the one consumer that wants a smooth clock |
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
@@ -448,7 +450,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 440 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 444 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -944,7 +946,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 155 types this mod actually uses.
+defining the 156 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -2079,15 +2081,31 @@ should not be weakened without understanding what they buy:
 
 ## Not done
 
-- **A frame in which this mod's hook never runs is integrated on the next one.**
-  `ScreenshotCapture` sets `Program.DrawUI = false` and `Program` guards
-  `OnDrawUiViewports` with it, so the method this mod postfixes is not *called* during a capture
-  and a postfix on an uncalled method never runs. `Universe.GetLastSimStep` then reports only the
-  most recent step, leaving the skipped one unintegrated while the world advanced across it — the
-  whole deficit landing in the drawn offset at 29.8 km/s. Measured in flight as a bomb thrown
-  **656 m sideways in one frame** and lost off screen. `KsaWorld.ConsumeSimStep` now hands
-  `StepGate` the span between step boundaries rather than the last step alone, so the gap closes
-  on the next frame. `SkippedFrameTests` fails against the step-only form.
+- **The mod is stepped from two hooks, because KSA guards one of them.** `Program.OnFrame` wraps
+  the whole UI pass — `OnDrawUiViewports` included — in `if (DrawUI)`, and **`DrawUI` is a player
+  keybind**: `InputAction.ToggleUi`, F2 by default. `ScreenshotCapture` clears it too. A postfix on
+  an uncalled method never runs, so the mod's entire simulation used to stop while the world
+  carried on — rounds frozen, fire control halted, and a guided burn handed the whole skipped span
+  in one step when the UI came back, measured as **73 seconds at 1x with no timewarp**, worth
+  12,710 m/s in a single frame and a shot 3.1 km/s past its own cutoff.
+
+  `KSArmoryMod.StepOnce` runs from **whichever hook reaches it first**, latched by
+  `Sim/FrameLatch.cs`. The GUI pass is still the preferred one and that is not arbitrary: stepping
+  there is what makes a round's offset and the anchor it is drawn against share an epoch, where the
+  frame postfix lands *after* the render and would be drawn on the next frame against a platform
+  ~500 m further on. So a frame that drew is stepped exactly where it always was, and a frame that
+  did not is stepped one hook later instead of not at all. **The release must be unconditional** —
+  a latch left set stops the mod for the session rather than for a frame, which is what
+  `FrameLatchTests` pins.
+
+- **A frame in which this mod's hook never runs is integrated on the next one.** Still true for any
+  frame the mod genuinely misses, and the mitigation stands underneath the two-hook arrangement
+  above. `Universe.GetLastSimStep` reports only the most recent step, leaving a skipped one
+  unintegrated while the world advanced across it — the whole deficit landing in the drawn offset
+  at 29.8 km/s. Measured in flight as a bomb thrown **656 m sideways in one frame** and lost off
+  screen. `KsaWorld.ConsumeSimStep` hands `StepGate` the span between step boundaries rather than
+  the last step alone, so the gap closes on the next frame. `SkippedFrameTests` fails against the
+  step-only form.
 
 - Round bodies survive at long range: measured in flight to **79.5 km with 0.0 m drift**, never
   dropping the subpart link and never culled or clamped. The gizmo tracers stay on as a fallback

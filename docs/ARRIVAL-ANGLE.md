@@ -56,6 +56,37 @@ buys nothing at all on a vertical drop: 2,687 m/s against the Mk 21's 2,414, aga
 
 ---
 
+## The control is bounded by what the tanks can pay for
+
+Arrival angle is bought with propellant, and how much of it a given angle costs is a property of
+*this* stack against *this* target — nothing an operator can be expected to know in advance. A
+slider running to a round 45 degrees therefore lets them ask for an arc that cannot be flown, and
+the mod does not refuse such a shot: it flies the shallowest arc it can afford, arrives, and reports
+`ArrivalFloorUnaffordable` afterwards. Correct behaviour, and a poor way to find out.
+
+`Sim/ArrivalBudget.cs` bisects on **affordability** rather than on cost — cost is not monotonic in
+the floor, because the flight-time search jumps families, but affordable/not is the thing being
+chosen between and the boundary is the honest reading either way. `IcbmProgram` refreshes it on a
+slow *real*-time cadence, `ArrivalBudgetIntervalSeconds`, for the same reason the departure window
+has one: it is a handful of trajectory solves. Measured at **9 ms** for a full bisection, so ten
+seconds is conservative rather than tight.
+
+Three readings, and they are three different sentences on the panel:
+
+| answer | means |
+| --- | --- |
+| a number | the ceiling; the slider stops there |
+| **zero** | the stack cannot afford *any* arc to that target |
+| **NaN** | nothing costed yet — not the same as zero, and must not read as one |
+
+**The maximum never falls below where the slider already is.** The ceiling drops as the tanks empty,
+and a bound that walks down past a live setting rewrites the operator's choice mid-flight without
+saying so.
+
+Delta-v is taken from the **stack**, not the running stage, where the engine reports it. KSA reports
+the engines that are lit, which understates a staged rocket badly enough to cap this control at a
+few degrees on a vehicle that could comfortably fly thirty.
+
 ## The table
 
 The family is a circular platform braking retrograde, which is the only degree of freedom a deorbit

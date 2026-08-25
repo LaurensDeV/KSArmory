@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-155 types and 440 members across 7 assemblies.
+156 types and 444 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -835,6 +835,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `void .ctor(Brutal.Numerics.double3, Brutal.Numerics.double3, double)`
 
+### KSA.StructuralLoad
+
+- `double MaxGLoad`
+- `double PeakGLoad`
+- `double get_GLoadFraction()`
+
 ### KSA.TextureReference
 
 - `int get_BindlessHandle()`
@@ -890,6 +896,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float GetMinThrottle()`
 - `float get_PropellantMass()`
 - `float get_TotalMass()`
+- `ref KSA.StructuralLoad get_StructuralLoad()`
 - `void PrepareWorker(KSA.SimStep)`
 - `void ProcessInput(KSA.InputAction, Brutal.GlfwApi.GlfwKeyAction, Brutal.GlfwApi.GlfwModifier)`
 - `void SetControlPart(KSA.Part, Connector)`
