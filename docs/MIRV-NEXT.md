@@ -17,7 +17,7 @@ its number wherever its state ends up. What is still open:
 | [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
 | [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | the warp latch — **flown and closed**, by the harness rather than by the constant |
 | [7f](#7f-three-stopping-rules-were-sized-for-a-kilometre-shot--built-as-an-arm-unflown) | **three stopping rules sized for a kilometre shot — built as `arm/aim`, wants the night** |
-| [7g](#7g-the-aim-is-frozen-at-the-instant-the-question-changes--flying-2026-08-25) | **THE LIVE ONE — the aim freezes as the arrival commits. Flying 2026-08-25; read this first** |
+| [7g](#7g-never-freezing-loses-and-the-target-is-on-a-crest--flown-2026-08-25) | **flown and closed — never-freezing loses 5.7x, and the target sits on a crest the arrival is parallel to** |
 | [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
 
 Everything else is flown, closed, or retired, and says so in its own heading.
@@ -2145,55 +2145,87 @@ range; it is also worth 1.00 -> 16.59 km at 7,645, which is why the freeze exist
 `MaxResponse` is inert: 6, 12, 24 and 60 are bit-identical at all four ranges, confirming item 7c's
 sweep from a different direction.
 
-## 7g. The aim is frozen at the instant the question changes — flying 2026-08-25
+## 7g. Never-freezing loses, and the target is on a crest — flown 2026-08-25
 
-**This is the live experiment.** A session picking the work up mid-flight or in the morning should
-read this section and `docs/SHOT-PROTOCOL.md`, and nothing else is needed to finish it.
+**Flown and closed.** The hypothesis this section sets out is wrong, and the night that tested it
+found something else. `docs/SHOT-PROTOCOL.md` is how it was spent; the shots are in
+`~/shots/2026-08-25`.
 
-### What it settled, from the first eight shots
-
-**Never-freezing loses, badly, and the pair loses with it** — the *pair does not win* row below. Both
-arms were dropped by the batch gate at shot 008, two shots each, at 26.485S 68.148W:
+### What the night settled — 48 shots, 2026-08-25
 
 | arm | n | median | vs control | its own prediction | residual at cutoff |
 | --- | --- | --- | --- | --- | --- |
-| `base` | 2 | **1.01 km** | — | 2.50 km | 0.075 m/s |
-| `ownint` | 2 | 1.63 km | 1.6x | 3.44 km | 0.070 m/s |
-| `neverfreeze` | 2 | **5.72 km** | **5.7x** | 0.03 km | **0.580 m/s** |
-| `ownint+neverfreeze` | 2 | **5.31 km** | **5.3x** | 0.03 km | **0.485 m/s** |
+| `base` | 23 | **1.37 km** | — | 2.02 km | 0.070 m/s |
+| `ownint` | 21 | 1.57 km | 1.14x, **UNRESOLVED** (0.35-3.20, p 0.24) | 3.49 km | 0.070 m/s |
+| `neverfreeze` | 2 | **5.72 km** | **5.7x**, dropped at shot 008 | 0.03 km | **0.580 m/s** |
+| `ownint+neverfreeze` | 2 | **5.31 km** | **5.3x**, dropped at shot 008 | 0.03 km | **0.485 m/s** |
 
-So **do not tune the freeze**, and the question moves to why the loop's prediction and its group
-disagree. Two things the flight adds to what the rig already said:
+**Never-freezing loses, and the pair loses with it** — the *pair does not win* row below. So **do not
+tune the freeze**. Two things the flight adds to what the rig already said:
 
 **The never-frozen loop is precise and wrong.** Its groups are the tightest of the night — spread
 0.01 km, six warheads inside ten metres — landing 5.7 km out while reporting 0.03 km. That is
 `MirvBudgetTests.WhereTheNeverFrozenLoopGoes` reproducing in flight, and it settles the two rigs
-against each other: `AimConvergenceTests` reads never-freezing as a win because it scores through
-the predictor the loop converges. Fixing the predictor first does not rescue it — `ownint` is in the
+against each other: `AimConvergenceTests` reads never-freezing as a win because it scores through the
+predictor the loop converges. Fixing the predictor first does not rescue it — `ownint` is in the
 pair, and the pair still lands 5.3 km out with its own reading at 0.03 km.
 
-**And the freeze is load-bearing a second way nothing predicted: it is what lets the burn stop.**
-The never-frozen arms cut off with **0.5 m/s** still to gain against 0.07 for the control, eight
-times the residual — an aim that never settles is a cutoff condition that never settles. The miss is
-`residual x dMiss/dV`, so at this geometry that term alone is worth kilometres, and it is separate
-from the aim point being wrong.
+**And the freeze is load-bearing a second way nothing predicted: it is what lets the burn stop.** The
+never-frozen arms cut off with **0.5 m/s** still to gain against 0.07 for the control, eight times the
+residual — an aim that never settles is a cutoff condition that never settles. The miss is
+`residual x dMiss/dV`, so that term alone is worth kilometres, and it is separate from the aim point
+being wrong.
 
-### Where accuracy actually is
+### The rest of the night measured the hill, not the guidance
 
-Two numbers, and the gap between them is the whole reason this item exists:
+`ownint` came back UNRESOLVED, and the comparison should not be believed at this target — because
+**every impact of the night landed on one of five places on the ground**, and which one is decided by
+the terrain rather than by the trajectory. Landing site against the ground height under it, all 44
+live-arm shots:
 
-| | miss |
-| --- | --- |
-| the scripted 3,459 km shot at 26.5S 64.0W, six shots, 2026-08-24 | **0.05 km** |
-| hand-flown at 2,433 km to 26.485S 68.148W, twice, same build | **1.3 km** and **3.9 km** |
+| site | bearing from the aim point | ground | where shots landed | shots |
+| --- | --- | --- | --- | --- |
+| C | 1.51 km at 262° | 4.560 km | 1.40-1.50 km | 4 `base`, **19 `ownint`** |
+| **A — the aim point** | — | **4.657 km** | 0.04-0.14 km | 4 `base` |
+| B | 0.37 km at 053° | 4.646 km | 0.34-0.54 km | 7 `base`, 2 `ownint` |
+| D | 4.43 km at 075° | 4.190 km | 4.50-4.60 km | 5 `base` |
+| E | 5.54 km at 076° | 4.128 km | 5.40-6.00 km | 3 `base` |
 
-The 0.05 km is real — six shots, ratio 0.11, p 0.002 — and it is *one target at one range from one
-pinned pick-up*. It is not the mod's accuracy. Every table in this file that quotes a headline miss
-is quoting that one shot.
+Every site is on one line of bearing 075°/255° — the ground track — and **the aim point is on a
+crest**. The ground rises to it from the WSW at a gradient of 0.064 and falls away to the ENE at
+**0.1055**. The warheads arrive at **5.7°**, which is a gradient of **0.0998**.
 
-**The round is not what misses.** On both hand-flown shots the warheads tracked their own release
-probe to 0.1 km: probe 1.2 km / landed 1.3, probe 3.8 km / landed 3.9. The flight model, after the
-2026-08-24 gravity work, is doing its job. The whole miss is the aim point.
+**The far-side slope and the arrival gradient agree to 5.6%.** That is a degenerate intersection: past
+the crest the trajectory and the ground are very nearly parallel, so a few tens of metres of
+trajectory height at the crest decides between stopping on the crest and running four and a half
+kilometres down the back of it. 467 m of fall times `cot 5.7°` = 10.02 is 4.68 km of ground, and the
+measured run-out is 4.43-4.60 km.
+
+So the night's two live arms differ mostly in **where their aim bias sits relative to that crest**:
+`ownint` lands 19 of 21 shots at C, on the well-conditioned upslope short of it, and never once ran
+past; `base` scatters across A, B, C and — on 8 of 23 shots — over the crest to D and E. Past 2 km:
+`base` 8/23, `ownint` 0/21, Fisher exact **p = 0.0039**. That is a real difference in outcome and it
+is **not** a claim that `ownint` guides better. It is a claim about which side of a hill each arm's
+bias happens to fall on.
+
+**Nothing in the aim loop can fix a degenerate intersection**, which is why this belongs to
+`docs/ARRIVAL-ANGLE.md` rather than here: at 15° the arrival gradient is 0.268 against the same 0.1055
+of terrain and the intersection is well conditioned again. `arm/arr15` is built and parked, and this
+is the first flown evidence for the case that document makes.
+
+### What to do next
+
+1. **Do not merge `neverfreeze` or the pair.** Settled, twice over.
+2. **Do not judge `ownint` at this target.** Its 21 shots measure a hillside. It is right on
+   principle — `CLAUDE.md` already says a prediction modelling drag its own way is a second flight
+   model — but this night neither confirms nor refutes it. Re-fly it somewhere the arrival is not
+   parallel to the ground, or at a steeper arrival.
+3. **Fly `arm/arr15`**, after the headless check that a 15° floor is reachable at all from this
+   scenario's 207 km pick-up over 2,433 km — a shot that cannot satisfy the floor reports
+   `IcbmReach.TooShallow` and holds its warheads.
+4. **Pick a second target.** Every batch before this one flew 26.5S 64.0W; this one flew 26.485S
+   68.148W and turned out to be sitting on a crest. Neither is evidence about the mod's accuracy on
+   its own, and the 0.05 km headline came from exactly this kind of accident with the sign reversed.
 
 ### The root cause: freezing the answer at the moment the question changes
 
