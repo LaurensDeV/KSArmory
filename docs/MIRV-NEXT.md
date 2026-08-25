@@ -2953,7 +2953,7 @@ paths with nothing in common. All three fired within one evening on the same cra
 | --- | --- | --- |
 | `MaxMetresPerSecond` — the solve is larger than a separation kick | 17:20, 18:18 | 1 pass, released 5.9 / 4.8 km out |
 | `TrimBudgetMetresPerSecond` — the budget is spent | 19:11 | 2 passes, released 1.9 km out |
-| **the separation clearance** — the bus never got 15 m from its stack | the harness run | **0 passes applied, released on the uncorrected arc** |
+| **the separation clearance** — the bus never got 15 m from its stack | **6 of 6**, see below | **0 passes applied, released on the uncorrected arc** |
 
 **The clearance costs the most when it fires**, because it discards a correction that was solved and
 affordable. Flown back to back on one craft, one target and one build:
@@ -2975,11 +2975,23 @@ ninety-second hold on a shot whose cutoff prediction was 0.1 km put the release 
 The gap reading `2 m`, then `15 m of 15`, then `still 6 m after 20 s` is that mechanism working, not
 failing. Trimming closed the gap it had opened.
 
-**So the open question is narrower than it looked, and it is a frequency question.** The same bus,
-craft and build cleared when hand-flown and got four correction passes; the harness run did not
-clear and got none. One of each settles nothing. A six-shot batch of the current build is flying to
-find out how often it happens, because that is what decides whether this is a rare bad draw or the
-usual outcome — and nothing about the trade above should be touched until that is known.
+**The frequency question is now answered, and the answer is every shot.** Six shots of the shipped
+build against the save's own defended site, `~/shots/2026-08-25-2026`: the clearance timed out and
+released untrimmed in **all six**, with the gap standing at 4, 7, 7, 8, 8 and 10 m against the 15 m
+it wants. So it is the usual outcome rather than a rare bad draw, and the hand-flown run that
+cleared is the exception.
+
+What those six do **not** settle is what a denied pass costs. Five of them got one correction pass
+away before the timeout and one got none, and that one landed worst — 4.99 km against 0.46, 1.34,
+2.00, 3.26 and 3.67 — but a single zero-pass draw is an anecdote, not a measurement. The passes
+counted *after* the release are worth nothing at all; see the section below.
+
+So the trade was changed, in `d4623ae`. The timeout's job is that a stuck bus does not hold the
+salvo for ever, and that stands; the safety half of it did not have to be answered by refusing to
+trim, because `TrimSituation.KeepOutTowardCci` is computed in the same pass as the clearance and is
+the precise form of the same question. The timeout now lifts the wait and leaves the interlock
+withholding only the directions that point at the stack. At 4–10 m of a 15 m keep-out there are
+directions left to spend, which is why this is not the blunt version by another name. **Unflown.**
 
 ### The trim goes on firing after the salvo is away
 
