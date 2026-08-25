@@ -457,7 +457,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/checkmesh.py` | finds unpaired node/mesh names, zero-UV-area triangles and coplanar faces in a `.glb`; takes several at once, and `--compare` diffs two atlases by geometry *and* node transform |
 | `tools/model/dilate-atlas.py` | fills the empty space around a baked atlas's islands from their nearest neighbour — **what a bake margin cannot do**, because a margin wide enough to survive mipmapping is wide enough to write one body's dilation over another's |
 | `tools/model/checkswept.py` | sweeps the drives and reports any assembly passing through another |
-| `tools/model/checkring.py` | what KSA's flight computer will make of a thruster ring — **which nozzles end up steering**, and how coarse that makes the attitude quantum |
+| `tools/model/checkring.py` | what KSA's flight computer will make of a thruster ring — **which nozzles end up steering**, how coarse that makes the attitude quantum, and `--translation` for which of the six directions the set can actually push |
 | `tools/model/smokepuff.py` | the soft sprite the billboard smoke is drawn with |
 | `tools/screenshot.sh` | captures the Windows screen; readable from here |
 | `tools/scenario.sh` | drives one engagement or one ballistic shot end to end and exits pass/fail; screenshots on cue |
@@ -1149,7 +1149,9 @@ Three things about it are the decisions, and each cost a wrong version first. It
 attitude *is* the release line and the dominant component is axial anyway — a decoupler pushes along
 the joint. It fires **one direction at a time**, because the stop threshold is half a frame of a
 thrust that is only measurable along the direction being fired, and a bus's lateral authority is
-whatever its nozzle layout happened to give it — the shipped one has none. And it is a **precondition
+whatever its nozzle layout happened to give it — **the shipped one has all six**, 4.000 units fore
+and aft and 4.243 in each lateral direction with the roll torques cancelling, which
+`tools/model/checkring.py --translation` reads off the XML. And it is a **precondition
 of being ready to deploy** rather than a step inside the release sequence, which is what stops one
 warhead leaving on the attached stack's solution and the rest on the shoved bus's.
 

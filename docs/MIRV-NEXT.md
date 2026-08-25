@@ -2297,6 +2297,52 @@ size of the post-boost correction under a steep floor is its own open question �
 falling back to a clock, which is what safety actually wants. Not built, and not to be built without
 flying it.
 
+### The bus has all six directions, and the trim strikes off the ones that lose a race
+
+Two things were believed about the shipped bus and both are wrong. `CLAUDE.md` said its lateral
+authority was none; `TrimBus` said `LateralAcceleration = 0` "is the vehicle that actually flies".
+Read off the XML at KSA's 0.5 translation-enrolment threshold:
+
+| command | enrolled | thrust along | off-axis | net torque |
+| --- | --- | --- | --- | --- |
+| forward / aft | 4 | **4.000** | 0.000 | 0.000 |
+| port / starboard | 6 | **4.243** | 0.000 | 0.000 |
+| belly / back | 6 | **4.243** | 0.000 | 0.000 |
+
+Twenty nozzles: four clusters of an axial pair and two 45° diagonals, plus four more diagonals. The
+diagonals are each a pure roll couple on their own, and the enrolled *set* for any translation
+cancels to zero torque. All six directions are live, and the flight confirms it — the 2026-08-25
+baseline trimmed starboard 294 times and back 292 and converged, which no bus without lateral
+authority could do. `tools/model/checkring.py --translation` is the check.
+
+**So the give-up is a false positive.** `BusTrim` strikes a direction off after
+`DirectionStallSeconds` of firing without its own component falling by `ProgressMetresPerSecond`. On
+a dead axis that reads correctly. On a live one it fires whenever the *reference* moves faster than
+the bus can push, and `BusAuthorityTests` finds the threshold exactly there:
+
+| reference drift | ÷ lateral authority | outcome |
+| --- | --- | --- |
+| 0.50 m/s² | 0.86 | converged, 21 s |
+| 0.55 | 0.94 | converged, 51 s |
+| 0.58 | 0.99 | converged, 120 s, 0.549 m/s left |
+| **0.60** | **1.03** | **struck off starboard, 2.02 m/s abandoned** |
+| 0.80 | 1.37 | struck off starboard, 4.94 m/s abandoned |
+
+The axis is healthy and losing a race, and **the strike is permanent** — once struck it is excluded
+for the rest of the flight, so a transient in the aim correction disables a working thruster for
+good. That is the runaway `BusTrim.MaxMetresPerSecond` already names: the aim correction and the
+trim driving the same vehicle through the same prediction.
+
+It bites `arr15` and not the baseline because a steep floor asks for a much larger post-boost
+correction — 7.3 m/s against 2.45 — which is what puts the reference's motion above what the bus can
+chase.
+
+**Not fixed.** The stall test cannot tell "cannot push this way" from "cannot keep up", and it needs
+to: the first should be struck off for good and the second should not be struck off at all. The
+distinction is available — the bus knows its own measured acceleration, and a component that is
+falling *slower than commanded* is different from one that is not falling. Wants building and
+flying, in that order.
+
 ### A 15-degree floor is reachable and the bus cannot fly it
 
 `reach Reachable`, confirmed in flight 2026-08-25 10:20 — the floor is not refused, which was the gate

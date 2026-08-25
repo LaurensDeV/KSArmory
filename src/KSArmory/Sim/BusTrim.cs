@@ -417,7 +417,8 @@ internal sealed class BusTrim
             // left worth a burn.
             return _dead == TrimAxes.None
                        ? Finish(gaveUp: false, $"trimmed to {_toGain:F3} m/s")
-                       : Finish(gaveUp: true, Left("nothing left aboard moves the bus"));
+                       : Finish(gaveUp: true,
+                                Left($"nothing left aboard moves the bus (struck off: {Struck(_dead)})"));
         }
 
         Watch(step, pick, component);
@@ -611,6 +612,22 @@ internal sealed class BusTrim
         _said = said;
 
         return new TrimCommand(fire, _done, _toGain, _accel, said);
+    }
+
+    // Which directions were struck off, and it is the whole difference between a bus that cannot
+    // push that way and a solution moving faster than the bus can chase it. A give-up naming
+    // neither is a report that something is broken without saying what, and the two want opposite
+    // fixes -- nozzles against the loop that keeps moving the target.
+    private static string Struck(TrimAxes dead)
+    {
+        List<string> named = [];
+        foreach (TrimAxes d in new[] { TrimAxes.Forward, TrimAxes.Backward, TrimAxes.Right,
+                                       TrimAxes.Left, TrimAxes.Down, TrimAxes.Up })
+        {
+            if ((dead & d) != TrimAxes.None) named.Add(Name(d));
+        }
+
+        return named.Count > 0 ? string.Join(", ", named) : "nothing";
     }
 
     private static string Name(TrimAxes direction) => direction switch
