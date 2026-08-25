@@ -473,9 +473,12 @@ internal sealed class BallisticScenario
     // Warping the pre-release coast wants the aim to have settled first, which nothing here asks.
     private const double SteadyBeforeReleaseSeconds = 45.0;
 
-    private void CoastToTheReleasePoint(int ammo)
+    private void CoastToTheReleasePoint()
     {
-        if (_computer is not { } computer || ammo < _loaded) return;
+        // Off the release count for the same reason the post-release warp is: the magazine refills
+        // a few seconds after the salvo, so `ammo < _loaded` stops distinguishing "the warheads have
+        // gone" from "they never left".
+        if (_computer is not { } computer || _group.Released > 0) return;
         if (computer.Command.Phase != IcbmPhase.Coast) return;
 
         double toArrival = computer.Program.CommittedArrivalFromNow;
@@ -502,7 +505,7 @@ internal sealed class BallisticScenario
     // that has finished.
     private const double QuietAfterReleaseSeconds = 5.0;
 
-    private int _ammoLastSeen = -1;
+    private int _releasedLastSeen = -1;
     private double _sinceLastRelease;
 
     private void WarpTheCoast()
@@ -617,13 +620,19 @@ internal sealed class BallisticScenario
         // held until the arrival is close. Warped through, and given back well before the first one
         // leaves: every warhead has to see the same frame in its opening seconds, which is what
         // warping between releases got wrong.
-        CoastToTheReleasePoint(ammo);
+        CoastToTheReleasePoint();
 
-        if (ammo < _loaded)
+        // Counted off the releases rather than off the magazine, because the magazine refills.
+        // `ammo < _loaded` reads as "the salvo has gone" for about three seconds and then stops:
+        // the launcher reloads inside QuietAfterReleaseSeconds, ammo returns to its loaded count,
+        // and the branch is never entered again. Measured 2026-08-25 -- `holding fire: reloading
+        // (3 s)` lands 34 ms after the sixth warhead leaves, so this never fired at all and the
+        // whole 381 s coast ran at 1x. ShotGroup.Released only ever increases.
+        if (_group.Released > 0)
         {
-            if (ammo != _ammoLastSeen)
+            if (_group.Released != _releasedLastSeen)
             {
-                _ammoLastSeen = ammo;
+                _releasedLastSeen = _group.Released;
                 _sinceLastRelease = 0.0;
             }
             else if (_sinceLastRelease >= QuietAfterReleaseSeconds)
