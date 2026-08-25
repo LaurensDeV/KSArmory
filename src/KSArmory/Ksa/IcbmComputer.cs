@@ -646,9 +646,9 @@ internal sealed class IcbmComputer
         // is showing.
         if (KsaWorld.IsWatching(left)) _viewWanted = craft;
 
-        // Held only until the trim has run, and only to measure a distance from. The stack is alive
-        // rather than destroyed, so this is not the reference CLAUDE.md's rule about dead vehicles
-        // is about — but it is still dropped the moment it has nothing left to answer.
+        // Held for the whole coast, to measure a distance from. The stack is alive rather than
+        // destroyed, so this is not the reference CLAUDE.md's rule about dead vehicles is about,
+        // and the lifetime is one flight either way: Rehome and the stand-down both clear it.
         _separatedFrom = left;
 
         // Said again on the other side of the handover. The clearance state is reported once, and
@@ -978,8 +978,12 @@ internal sealed class IcbmComputer
             _owedAtSplit = trim.ToGainMetresPerSecond;
         }
 
-        // Nothing left to measure a distance from once the trim has run.
-        if (trim.Done) _separatedFrom = null;
+        // Deliberately NOT dropped when the trim reports done. A post-boost pass calls
+        // _trim.Resume(), so passes keep arriving afterwards -- and those are the large ones. With
+        // the reference gone they read "waiting to clear the spent stack, which cannot be read" and
+        // fall through to SeparationClearance's 20 s clock, so the dangerous passes were exactly
+        // the ones flying blind. This is not the reverted clearance latch: that cached a stale
+        // ANSWER, and this keeps the QUESTION askable.
 
         // Said once per change. A trim that stalls looks exactly like one that has finished, and
         // the difference between them is kilometres on the ground.
