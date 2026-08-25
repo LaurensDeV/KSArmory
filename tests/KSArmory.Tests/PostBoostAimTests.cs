@@ -423,8 +423,35 @@ public class PostBoostAimTests
         PostBoostAim.Decision refused = aim.Update(Step, Bus(true, 5_900.0, trimGaveUp: true));
 
         Assert.False(aim.Correcting);
-        Assert.Contains("the trim would not fly the correction", refused.Said);
+        Assert.Contains("the trim refused", refused.Said);
         Assert.DoesNotContain("settled", refused.Said);
+    }
+
+    /// <summary>
+    /// And it must not say "none of it was applied" once passes have been flown.
+    ///
+    /// <para>That wording was written for the first-pass refusal and read as a reason for three
+    /// flights, long after two passes had taken a release from 3.5 km to 1.9. Naming a cause this
+    /// sequencer cannot see is worse than naming none: five separate paths set the flag, and the
+    /// one that actually fired at Mahia -- a spent budget -- was not the one the sentence
+    /// suggested.</para>
+    /// </summary>
+    [Fact]
+    public void ARefusalAfterPassesHaveFlownDoesNotClaimNothingWasApplied()
+    {
+        PostBoostAim aim = new();
+        Settle(aim);
+
+        // One pass runs, then the trim stops before the next.
+        aim.Update(Step, Bus(true, 3_500.0));
+        Assert.True(aim.Cycles >= 1, "the first pass did not start, so there is nothing to refuse after");
+
+        Settle(aim);
+        PostBoostAim.Decision refused = aim.Update(Step, Bus(true, 1_900.0, trimGaveUp: true));
+
+        Assert.False(aim.Correcting);
+        Assert.DoesNotContain("none of it was applied", refused.Said);
+        Assert.Contains("pass", refused.Said);
     }
 
     /// <summary>

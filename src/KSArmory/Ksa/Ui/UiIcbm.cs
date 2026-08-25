@@ -406,7 +406,10 @@ internal sealed partial class Ui
 
         ImGui.TextDisabled("  " + (config.TrimBudgetMetresPerSecond <= 0.0
             ? "no trimming at all; the warheads go on the aim as the burn left it"
-            : $"{config.TrimBudgetMetresPerSecond:F0} m/s across every correction, then it stops"));
+            : $"{config.TrimBudgetMetresPerSecond:F0} m/s across every correction, then it stops"
+              + (config.TrimBudgetMetresPerSecond < PostBoostAim.MaxTrimMetresPerSecond
+                     ? $" - under the {PostBoostAim.MaxTrimMetresPerSecond:F0} the bus reserves anyway"
+                     : "")));
 
         // A structural limit rather than a preference, so it sits with the other things that
         // constrain the flight rather than with the ones that shape it.

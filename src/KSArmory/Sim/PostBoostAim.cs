@@ -277,10 +277,21 @@ internal sealed class PostBoostAim
         // Asked before the aim's own verdict, because it is the one that is not about the aim: a
         // refusal names the actuator, and saying the aim settled instead points every reader at the
         // half of the loop that was working.
+        //
+        // It says how many passes it got and claims nothing about *why* the trim stopped. Five
+        // paths set that flag -- a spent budget, a solve too large to be a separation, a stall, a
+        // timeout, no solution to trim against -- and this sequencer cannot tell them apart. The
+        // trim says which in its own line, and guessing here cost three flights chasing the wrong
+        // one: "none of it was applied" was written for the first-pass case and read as a reason
+        // long after two passes had taken the release from 3.5 km to 1.9.
         if (now.TrimGaveUp)
         {
-            return Finish($"released {now.PredictedMissMetres / 1000.0:F1} km out -- "
-                          + "the trim would not fly the correction, so none of it was applied");
+            return Finish(Cycles > 0
+                              ? $"released {now.PredictedMissMetres / 1000.0:F1} km out after "
+                                + $"{Cycles} pass(es); the trim stopped before the next one -- "
+                                + "its own line says which limit"
+                              : $"released {now.PredictedMissMetres / 1000.0:F1} km out -- the trim "
+                                + "refused the first correction, so none of it was applied");
         }
 
         if (now.AimHasSettled)
