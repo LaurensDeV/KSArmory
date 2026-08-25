@@ -24,8 +24,10 @@ public class PostBoostAimTests
     private static PostBoostSituation Bus(bool trimSettled, double missMetres,
                                           bool aimHasSettled = false,
                                           double3? directionCci = null,
-                                          double spentMetresPerSecond = 0.0)
-        => new(trimSettled, directionCci ?? Held, missMetres, aimHasSettled, spentMetresPerSecond);
+                                          double spentMetresPerSecond = 0.0,
+                                          bool trimGaveUp = false)
+        => new(trimSettled, directionCci ?? Held, missMetres, aimHasSettled, spentMetresPerSecond,
+               trimGaveUp);
 
     /// <summary>
     /// Hold the bus still long enough for the settle gate to open, taking no reading on the way.
@@ -401,5 +403,43 @@ public class PostBoostAimTests
             $"a correction spending {PostBoostAim.MaxTrimMetresPerSecond:F0} m/s of a "
             + $"{smallestTankMetresPerSecond:F0} m/s tank cannot afford a "
             + $"{BusTrim.MaxMetresPerSecond:F0} m/s null afterwards");
+    }
+
+    /// <summary>
+    /// A trim that refuses the arc ends the correction, and must not call that a settled aim.
+    ///
+    /// <para>The two were one flag. Flown at 2,942 km: the correction's first pass moved the aim,
+    /// re-solving the arc asked the trim for 14.91 m/s against a ceiling of ten, the trim refused —
+    /// and the sequencer reported <c>aim settled 5.9 km out</c> half a second later and released.
+    /// The warheads landed 5.2 km out. Every word of that message was wrong: the aim had run one
+    /// pass of an unknown number, and nothing it found was ever applied.</para>
+    /// </summary>
+    [Fact]
+    public void ATrimThatRefusesTheArcIsNotAnAimThatSettled()
+    {
+        PostBoostAim aim = new();
+        Settle(aim);
+
+        PostBoostAim.Decision refused = aim.Update(Step, Bus(true, 5_900.0, trimGaveUp: true));
+
+        Assert.False(aim.Correcting);
+        Assert.Contains("the trim would not fly the correction", refused.Said);
+        Assert.DoesNotContain("settled", refused.Said);
+    }
+
+    /// <summary>
+    /// And the other half still works: an aim that genuinely stopped improving says so, because
+    /// that is the case where the miss on the readout really is as good as this bus can do.
+    /// </summary>
+    [Fact]
+    public void AnAimThatStoppedImprovingStillReportsItselfSettled()
+    {
+        PostBoostAim aim = new();
+        Settle(aim);
+
+        PostBoostAim.Decision done = aim.Update(Step, Bus(true, 900.0, aimHasSettled: true));
+
+        Assert.False(aim.Correcting);
+        Assert.Contains("aim settled", done.Said);
     }
 }

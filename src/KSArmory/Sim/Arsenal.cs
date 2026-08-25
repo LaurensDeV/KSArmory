@@ -338,6 +338,12 @@ public static class Arsenal
         BodyMarker = "Mirv_Rv",
         BodyLength = 1.80f,
 
+        // Ballistic on purpose, and not an omission. A W87 has no seeker and no control surfaces,
+        // and no deployed strategic MIRV does -- terminal guidance on a reentry vehicle has always
+        // been a single-warhead weapon, Pershing II and the anti-ship MaRVs. Inertial here would
+        // take a 500 m release error to 2.32 m and make the arrival angle stop mattering, which is
+        // exactly why it would be a lie about the part. A steering one is a second profile.
+        // docs/KINETIC-FLOOR.md section 8 has the measurements and the decision.
         Guidance = GuidanceMode.None,
 
         // A separation spring, not a motor. It is the bus's own velocity that matters.

@@ -153,6 +153,174 @@ public class IcbmFlightTests
     }
 
     /// <summary>
+    /// A rocket on a pad has nothing lit, and firing the next sequence is the only thing that
+    /// changes that. The computer used to refuse to ask for one until something had already pushed
+    /// — which is a launch that can never happen: it held the vertical rise on the attitude
+    /// thrusters, saw no propellant for four seconds, and reported a burn that ended short of a
+    /// solution it had never begun.
+    /// </summary>
+    [Fact]
+    public void ItLightsTheFirstEngineItselfFromAColdPad()
+    {
+        double3 pad = Equator(0.0);
+        double3 aim = Equator(0.7848);
+
+        IcbmFlightRig rig = Rig(pad, Earth);
+        rig.StartsUnlit = true;
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true });
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 900.0);
+
+        Assert.True(flight.Reached, $"never reached cutoff: {flight.Hold} in {flight.FinalPhase}");
+        Assert.DoesNotContain("never lit", flight.Hold);
+
+        double miss = MissMetres(rig, flight, aim);
+        Assert.True(miss < 500.0, $"missed by {miss:F0} m after a {flight.CutoffSeconds:F0} s boost");
+    }
+
+    /// <summary>
+    /// And a stack that never lit says so. It is the same reading as a burn that ran out of
+    /// propellant — the whole velocity still to gain — and the two want completely different things
+    /// done about them.
+    /// </summary>
+    [Fact]
+    public void AColdPadWithAutomaticStagingOffSaysNothingEverLit()
+    {
+        double3 pad = Equator(0.0);
+        double3 aim = Equator(0.7848);
+
+        IcbmFlightRig rig = Rig(pad, Earth);
+        rig.StartsUnlit = true;
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true, AutoStage = false });
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 900.0);
+
+        Assert.Equal(IcbmPhase.Coast, flight.FinalPhase);
+        Assert.Contains("never lit", flight.Hold);
+        Assert.DoesNotContain("short of the solution", flight.Hold);
+    }
+
+    /// <summary>
+    /// The stack is held under the limit the <em>engine</em> will destroy it at, with nobody having
+    /// typed a number. KSA computes that limit from the vehicle's own bounding sphere, so it is not
+    /// something an operator can be expected to know about somebody else's rocket — and this stack
+    /// reaches 8.3 g at first-stage burnout without one, which is an ordinary thing for a stack to
+    /// do as it empties.
+    /// </summary>
+    [Fact]
+    public void ItHoldsTheStackUnderTheLimitTheAirframeActuallyHas()
+    {
+        double3 pad = Equator(0.0);
+        double3 aim = Equator(0.7848);
+
+        IcbmFlightRig rig = Rig(pad, Earth);
+        rig.BoundingSphereRadiusMetres = 41.67;   // KSA holds a stack this long to 6.0 g
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true });
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 1800.0);
+
+        Assert.True(flight.Reached, $"never reached cutoff: {flight.Hold} in {flight.FinalPhase}");
+        Assert.True(flight.PeakThrustGee <= 6.0,
+                    $"pulled {flight.PeakThrustGee:F1} g against a 6.0 g airframe");
+    }
+
+    /// <summary>
+    /// Uncapped, the same stack tears itself apart. Without this the test above passes against a
+    /// guidance that never throttles, because nothing else in the suite ever asks what the stack
+    /// was pulling.
+    /// </summary>
+    [Fact]
+    public void TheSameStackWithNoLimitAtAllPullsFarMoreThanAnAirframeSurvives()
+    {
+        double3 pad = Equator(0.0);
+        double3 aim = Equator(0.7848);
+
+        IcbmFlightRig rig = Rig(pad, Earth);
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true });
+        IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 900.0);
+
+        Assert.True(flight.Reached);
+        Assert.True(flight.PeakThrustGee > 8.0,
+                    $"only reached {flight.PeakThrustGee:F1} g, so the cap above proves nothing");
+    }
+
+    /// <summary>
+    /// <b>A known bound, pinned as a measurement rather than fixed.</b> The cap is right and the
+    /// actuator is too slow: KSA's throttle is a servo moving at 0.7 a second, so a stage that
+    /// lights <em>hot</em> — a big booster dropped and a punchy upper left on a much lighter stack —
+    /// spends about a second over the limit while the throttle walks down, and the engine's filtered
+    /// load has a time constant of a fifth of that.
+    ///
+    /// <para>Both arms fly the identical stack against the identical cap, and only the throttle rate
+    /// differs: 5.79 g of a 6.00 g limit with an instant throttle, 7.44 g and destroyed with KSA's
+    /// own. That is what says the remedy is an instrument faster than the throttle rather than a
+    /// tighter margin — the only one in the game is the engine switch, and whether cutting it makes
+    /// the stack read <em>dry</em> is a flight question. <c>docs/ICBM-GUIDANCE.md</c> has it.</para>
+    /// </summary>
+    [Fact]
+    public void AStageThatLightsHotIsLostToTheThrottleServoAndNotToTheCap()
+    {
+        Assert.False(HotStagedFlight(double.PositiveInfinity).BrokeUp);
+
+        IcbmFlightRig.Flight slewed = HotStagedFlight(KsaThrottleRatePerSecond);
+        Assert.True(slewed.BrokeUp,
+                    $"peaked at {slewed.PeakFilteredGee:F2} g, so the servo no longer costs the stack");
+    }
+
+    /// <summary>The rate KSA's own throttle control moves at, per second of player time.</summary>
+    private const double KsaThrottleRatePerSecond = 0.7;
+
+    // A light upper stage on a motor big enough to pull 15 g the instant it lights, which is what
+    // separates a stage transition from a burn that simply gets lighter as it goes.
+    private static IcbmFlightRig.Flight HotStagedFlight(double throttleRate)
+    {
+        double3 pad = Equator(0.0);
+
+        IcbmFlightRig rig = new()
+        {
+            Body = Earth,
+            PositionCci = pad,
+            VelocityCci = Earth.GroundVelocityCci(pad),
+            BoundingSphereRadiusMetres = 41.67,
+            ThrottleRatePerSecond = throttleRate,
+            Stages =
+            [
+                new() { DryMassKg = 4_000, PropellantKg = 46_000, ThrustNewtons = 1_400_000, ExhaustVelocity = 2_600 },
+                new() { DryMassKg = 1_200, PropellantKg = 12_000, ThrustNewtons = 1_940_000, ExhaustVelocity = 3_000 },
+            ],
+        };
+
+        return rig.Fly(new IcbmProgram(new IcbmConfig { Armed = true }), Equator(0.7848), 0.02, 1800.0);
+    }
+
+    /// <summary>
+    /// Two limits saying different things: the operator's is about this shot, the airframe's is what
+    /// the engine destroys it at. The tighter one wins, in both directions, and a missing airframe
+    /// reading is absent rather than unlimited.
+    /// </summary>
+    [Theory]
+    [InlineData(0.0, 0.0, 0.0)]
+    [InlineData(8.0, 0.0, 8.0)]
+    [InlineData(0.0, 10.0, 9.0)]
+    [InlineData(4.0, 10.0, 4.0)]
+    [InlineData(12.0, 10.0, 9.0)]
+    public void TheAccelerationCapIsTheTighterOfWhatWasAskedAndWhatTheAirframeHas(
+        double asked, double airframe, double expected)
+    {
+        double3 pad = Equator(0.0);
+        IcbmFlightRig rig = Rig(pad, Earth);
+
+        IcbmProgram program = new(new IcbmConfig { Armed = true, MaxAccelerationGee = (float)asked });
+
+        IcbmState state = new(Earth, rig.PositionCci, rig.VelocityCci, Equator(0.7848), HasAim: true,
+                              rig.Performance(), 1.0, PropellantAvailable: true,
+                              StructuralLimitGee: airframe);
+
+        Assert.Equal(expected, program.AccelerationCapGee(state), 6);
+    }
+
+    /// <summary>
     /// A stack short of the delta-v is <em>not</em> refused before launch, and that is deliberate.
     /// How much a vehicle has left is only knowable one stage at a time — KSA reports the running
     /// stage's engines, not the stack's — so a launch gate built on it would turn away every

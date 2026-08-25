@@ -53,6 +53,10 @@ internal sealed class IcbmComputer
     private bool _didSplit;
     private bool _mayTrim = true;
     private bool _saidBudget;
+    private bool _saidRefusedStage;
+    private bool _saidStructuralLimit;
+    private bool _saidLongStep;
+    private bool _saidOverLimit;
 
     private double _owedAtSplit = double.NaN;
     private Vehicle? _separatedFrom;
@@ -113,6 +117,15 @@ internal sealed class IcbmComputer
 
     /// <summary>How far the predicted impact is from the aim point, along the ground.</summary>
     public double PredictedMissMetres { get; private set; } = double.NaN;
+
+    /// <summary>
+    /// How many warheads have left, which is when the vehicle stops being the shot.
+    ///
+    /// <para>Everything this computer predicts is about the craft it is flying. Once a warhead is
+    /// away it is on its own arc and the bus's is no longer an answer to anything — so a readout
+    /// that goes on quoting it is describing a vehicle nobody is aiming any more.</para>
+    /// </summary>
+    public int WarheadsAway { get; private set; }
 
     /// <summary>
     /// The warhead aboard, or null for a vehicle carrying nothing that lets go. What the overlay
@@ -273,6 +286,7 @@ internal sealed class IcbmComputer
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
+        WarheadsAway = 0;
         _owedAtSplit = double.NaN;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
@@ -393,7 +407,9 @@ internal sealed class IcbmComputer
             return;
         }
 
+        bool wasBurning = Program.IsBurning;
         Command = Program.Update(simStep, state);
+        ReportLongStep(wasBurning, simStep, state);
 
         // One line per phase change. Every gate in the program returns quietly, so a flight that
         // goes wrong leaves nothing behind saying which of them it went wrong at - and the panel
@@ -503,6 +519,19 @@ internal sealed class IcbmComputer
         {
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Throttle);
 
+            StructuralLoad load = Craft.StructuralLoad;
+
+            // The only thing that explains a rocket which came apart. KSA destroys a vehicle the
+            // moment this fraction reaches one, and nothing else in the log says how near it got --
+            // a throttle that is on its way down but has not arrived reads exactly like one that
+            // never moved.
+            if (!_saidOverLimit && load.GLoadFraction >= OverLimitWarnFraction)
+            {
+                _saidOverLimit = true;
+                Log.Info($"{KsaWorld.DisplayName(Craft)} is pulling {load.PeakGLoad:F1} g of its "
+                         + $"{load.MaxGLoad:F1} g limit at {_throttleAchieved:F2} throttle");
+            }
+
             _sinceThrottleProbe += playerStep;
             if (Log.Threshold <= Log.Level.Debug && _sinceThrottleProbe >= ProbeIntervalSeconds)
             {
@@ -510,8 +539,8 @@ internal sealed class IcbmComputer
                 BoosterPerformance booster = Program.LastBooster;
 
                 Log.Debug($"throttle: asked {Command.Throttle:F3}, achieved {_throttleAchieved:F3}"
-                          + $" | cap {Config.MaxAccelerationGee:F1} g, full-throttle "
-                          + $"{booster.AccelerationNow / 9.80665:F2} g"
+                          + $" | full-throttle {booster.AccelerationNow / 9.80665:F2} g, "
+                          + $"load {load.PeakGLoad:F2} of {load.MaxGLoad:F1} g"
                           + $" (thrust {booster.ThrustNewtons / 1000.0:F0} kN, "
                           + $"mass {booster.TotalMassKg / 1000.0:F1} t)");
             }
@@ -521,10 +550,21 @@ internal sealed class IcbmComputer
             // the program asks for the next sequence every second and a half; if the joint holding
             // the launcher is the next thing in that list, a shot that fell short drops its rounds
             // instead of holding them.
-            if (Command.RequestStage && !StagingWouldDropTheLauncher(release))
+            if (Command.RequestStage)
             {
-                Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} staging: {Command.Hold}");
-                VehicleCommand.Stage(Craft);
+                if (!StagingWouldDropTheLauncher(release))
+                {
+                    Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} staging: {Command.Hold}");
+                    VehicleCommand.Stage(Craft);
+                }
+                else if (!_saidRefusedStage)
+                {
+                    // Said once, because the refusal is otherwise completely silent -- and on the
+                    // pad it is the launch not happening rather than a stage going unspent.
+                    _saidRefusedStage = true;
+                    Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} wants a stage and will "
+                             + "not fire one that separates its own launcher; stage it by hand");
+                }
             }
         }
         else if (_driving)
@@ -553,40 +593,116 @@ internal sealed class IcbmComputer
     /// over. Each hop leaves a margin, and the next one covers a shorter span and so runs gentler,
     /// until the approach is slow enough to be caught.</para>
     /// </summary>
-    public bool TryWarpToWindow()
-    {
-        if (!CanWarpToWindow) return false;
+    public bool TryWarpToWindow() => TryWarpAhead("the burn window");
 
-        double wait = Command.SecondsToBurn;
+    /// <summary>
+    /// The same, for the long fall after the engines stop.
+    ///
+    /// <para>Stops a settling margin short of the release rather than at it — see
+    /// <see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>, which is where the number and the
+    /// measurement behind it live.</para>
+    /// </summary>
+    public bool TryWarpTheCoast() => TryWarpAhead("the release point");
+
+    private bool TryWarpAhead(string what)
+    {
+        if (!CanWarpAhead) return false;
+
+        double wait = SecondsToTheNextThingThatMatters;
         double margin = Math.Clamp(wait * MarginFraction, IcbmProgram.WarpHoldLeadSeconds, MaxMarginSeconds);
 
         if (!KsaWorld.TryAutoWarpTo(wait, margin)) return false;
 
         _warpIsOurs = true;
-        Log.Info($"warping to within {IcbmProgram.Clock(margin)} of the burn window on "
+        Log.Info($"warping to within {IcbmProgram.Clock(margin)} of {what} on "
                  + $"{KsaWorld.DisplayName(Craft)}, {IcbmProgram.Clock(wait)} to go");
         return true;
     }
 
     /// <summary>Whether the window is far enough away for warping to it to be worth offering.</summary>
-    public bool CanWarpToWindow
-        => Program.Phase == IcbmPhase.Holding
-        && !KsaWorld.IsAutoWarpActive
-        && ReferenceEquals(Craft, KsaWorld.ControlledVehicle)
-        && double.IsFinite(Command.SecondsToBurn)
-        && Command.SecondsToBurn > IcbmProgram.WarpHoldLeadSeconds * 2.0;
+    public bool CanWarpToWindow => Program.Phase == IcbmPhase.Holding && CanWarpAhead;
 
-    // Carries a warp this computer started through to the window, and ends it if the shot stops
-    // wanting one. Only ever a warp it started: one the player started is theirs.
+    /// <summary>Whether the coast has enough left in it to be worth warping.</summary>
+    public bool CanWarpTheCoast => Program.Phase == IcbmPhase.Coast && CanWarpAhead;
+
+    // Only for the craft being flown, only out to a margin short of what is coming, and never while
+    // something aboard is being integrated -- NeedsShortSteps covers the burn and the trim, and
+    // WarpPolicy cannot slow the world at all while an auto-warp is running, so a warp started over
+    // the top of one is a warp nothing can rein in.
+    private bool CanWarpAhead
+        => !KsaWorld.IsAutoWarpActive
+        && !NeedsShortSteps
+        && ReferenceEquals(Craft, KsaWorld.ControlledVehicle)
+        && double.IsFinite(SecondsToTheNextThingThatMatters)
+        && SecondsToTheNextThingThatMatters > IcbmProgram.WarpHoldLeadSeconds * 2.0;
+
+    // How far off the next thing this computer has to be awake for is, or NaN when there is nothing
+    // to wait for. Two waits, and they are one problem: a departure window in orbit, and the release
+    // point at the end of a ballistic coast. Both are a known instant minutes or hours away with
+    // nothing to do until then, which is what KSA's warp-to-a-time is for.
+    private double SecondsToTheNextThingThatMatters
+        => Program.Phase switch
+        {
+            IcbmPhase.Holding => Command.SecondsToBurn,
+            IcbmPhase.Coast => SecondsToReleaseApproach,
+            _ => double.NaN,
+        };
+
+    /// <summary>
+    /// How long until the warheads are due to leave, or NaN when nothing is waiting for that.
+    ///
+    /// <para>What a coast is actually counting down to. The arrival is minutes later and is a
+    /// different question — and a shot that fell short holds its warheads for ever, which is why
+    /// this is absent rather than large there.</para>
+    ///
+    /// <para>The <em>time</em> gate only. A release also waits for the deploy altitude on the way
+    /// up, and where that is the binding one the hold line says so.</para>
+    /// </summary>
+    public double SecondsToRelease
+    {
+        get
+        {
+            if (Command.ShortfallMetresPerSecond > 0.0) return double.NaN;
+
+            double toArrival = Program.CommittedArrivalFromNow;
+            if (!double.IsFinite(toArrival)) return double.NaN;
+
+            return toArrival - Config.ReleaseBeforeArrivalSeconds;
+        }
+    }
+
+    /// <summary>
+    /// When the world has to be back at normal speed, which is earlier than the release itself.
+    ///
+    /// <para>The aim correction is still converging out here and at a hundred times its steps are
+    /// seconds long — see <see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>.</para>
+    /// </summary>
+    public double SecondsToReleaseApproach
+    {
+        get
+        {
+            double toRelease = SecondsToRelease;
+
+            return double.IsFinite(toRelease)
+                       ? toRelease - IcbmProgram.SteadyBeforeReleaseSeconds
+                       : double.NaN;
+        }
+    }
+
+    // Carries a warp this computer started through to whatever it was aimed at, and ends it if the
+    // shot stops wanting one. Only ever a warp it started: one the player started is theirs.
     private void CarryOurWarp()
     {
+        if (Config.WarpTheCoast && !_warpIsOurs && CanWarpTheCoast) TryWarpTheCoast();
+
         if (!_warpIsOurs) return;
 
-        if (Program.Phase != IcbmPhase.Holding)
+        if (!double.IsFinite(SecondsToTheNextThingThatMatters))
         {
             if (KsaWorld.IsAutoWarpActive)
             {
-                Log.Info($"stopping the warp on {KsaWorld.DisplayName(Craft)}, the hold is over");
+                Log.Info($"stopping the warp on {KsaWorld.DisplayName(Craft)}, "
+                         + "there is nothing left to wait for");
                 KsaWorld.StopAutoWarp();
             }
 
@@ -599,7 +715,7 @@ internal sealed class IcbmComputer
         if (KsaWorld.IsAutoWarpActive) return;
 
         // A hop finished. Close the remaining gap with another, shorter and therefore slower one.
-        if (CanWarpToWindow && TryWarpToWindow()) return;
+        if (CanWarpAhead && TryWarpAhead("what is next")) return;
 
         _warpIsOurs = false;
     }
@@ -684,6 +800,25 @@ internal sealed class IcbmComputer
     // later. A launcher that can separate at all is not a reason to refuse every stage: a
     // multi-stage stack carrying a bus has a decoupler under it from the moment it is built, and
     // treating that as "the next stage drops my rounds" strands it with a dead first stage.
+    // A guided burn cannot resolve its cutoff finer than one frame, so a long step is not a slow
+    // frame -- it is accel x step of velocity nobody asked for, and the shot is decided by it. The
+    // rounds' own overrun report drops to Debug when nothing is in the air, and a boost always is,
+    // so this is the only thing that says it happened.
+    private void ReportLongStep(bool burning, double simStep, in IcbmState state)
+    {
+        if (!burning || _saidLongStep) return;
+        if (!double.IsFinite(simStep) || simStep <= IcbmProgram.MaxFaithfulStep) return;
+
+        _saidLongStep = true;
+
+        Log.Warn($"{KsaWorld.DisplayName(Craft)} burn flown across a {simStep * 1000.0:F0} ms step, "
+                 + $"over the {IcbmProgram.MaxFaithfulStep * 1000.0:F0} ms a cutoff can resolve -- "
+                 + $"about {state.Booster.AccelerationNow * simStep:F0} m/s in that one frame");
+    }
+
+    // How near the airframe's limit is worth a line in the log.
+    private const double OverLimitWarnFraction = 0.85;
+
     private static bool StagingWouldDropTheLauncher(IManualFire? weapon)
         => weapon is { NextStageSeparatesIt: true };
 
@@ -979,7 +1114,8 @@ internal sealed class IcbmComputer
             TrimSettled: _trim.Done,
             ReleaseDirectionCci: ReleaseImpulseCci(),
             PredictedMissMetres: _freshMiss,
-            AimHasSettled: _aim.Settled || _trim.GaveUp,
+            AimHasSettled: _aim.Settled,
+            TrimGaveUp: _trim.GaveUp,
             TrimSpentMetresPerSecond: _trim.SpentMetresPerSecond));
 
         if (pass.MayMeasure) _measureDue = true;
@@ -1077,6 +1213,7 @@ internal sealed class IcbmComputer
 
         if (away)
         {
+            WarheadsAway++;
             ProbeRelease();
             BeginTrace(weapon);
         }
@@ -1350,7 +1487,41 @@ internal sealed class IcbmComputer
 
         return new IcbmState(Body, positionCci, velocityCci, aimCci, hasAim, booster, density,
                              Craft.IsAnyEnginePropellantAvailable(), _throttleAchieved, playerStep,
-                             _aim.IsSteady, StackDeltaV());
+                             _aim.IsSteady, StackDeltaV(), StructuralLimitGee());
+    }
+
+    /// <summary>What the engine will destroy this airframe at, in standard gravities, or zero if it
+    /// has not said. Read-only: the panel reports it, because there is nothing to set.</summary>
+    public double AirframeLimitGee
+    {
+        get
+        {
+            double limit = Craft.StructuralLoad.MaxGLoad;
+            return double.IsFinite(limit) && limit > 0.0 ? limit : 0.0;
+        }
+    }
+
+    // What the engine will destroy this airframe at, which it works out from the vehicle's own
+    // bounding sphere and reports beside the load it is actually seeing. Zero outside a physics
+    // bubble, where the struct has never been filled in -- absent rather than unlimited, which is
+    // why the program treats the two differently.
+    private double StructuralLimitGee()
+    {
+        double limit = AirframeLimitGee;
+        if (limit <= 0.0) return 0.0;
+
+        if (!_saidStructuralLimit)
+        {
+            _saidStructuralLimit = true;
+            string asked = Config.MaxAccelerationGee > 0.0f
+                ? $" or the {Config.MaxAccelerationGee:F1} g asked for, whichever is less"
+                : "";
+
+            Log.Info($"{KsaWorld.DisplayName(Craft)} airframe is destroyed at {limit:F1} g; "
+                     + $"holding it to {limit * IcbmProgram.StructuralMarginFraction:F1} g{asked}");
+        }
+
+        return limit;
     }
 
     // What the engine says the whole stack has left, across the stages it has not yet flown.
@@ -1428,12 +1599,19 @@ internal sealed class IcbmComputer
         // The frame quantum at the throttle the stack actually had, beside the same quantum at
         // full thrust. A commanded ramp that never arrives makes those two equal, and is otherwise
         // indistinguishable from never having asked for one.
+        //
+        // Both factors are printed, not only their product: a quantum of kilometres a second is a
+        // long frame or an absurd acceleration, those want opposite fixes, and one number cannot
+        // say which. The longest step of the whole burn comes with them because the cutoff frame
+        // is not where a stolen minute shows up.
         double full = Program.AccelerationAtCutoff * Program.StepAtCutoff;
         double achieved = Program.ThrottleAtCutoff;
 
         return $" ({track:F2} along, {radial:F2} radial, {cross:F2} cross"
                + $"; one frame is {full * (double.IsFinite(achieved) ? achieved : 1.0):F3} m/s at "
-               + $"{achieved:P0} throttle, {full:F2} at full)";
+               + $"{achieved:P0} throttle, {full:F2} at full"
+               + $" = {Program.AccelerationAtCutoff:F1} m/s2 x {Program.StepAtCutoff * 1000.0:F0} ms"
+               + $"; longest step of the burn {Program.LongestStepWhileBurning * 1000.0:F0} ms)";
     }
 
     // A warhead does not leave on the bus's velocity. Each is ejected along its own tube at the

@@ -19,6 +19,16 @@ namespace KSArmory;
 /// Whether the correction has stopped improving on its own best. It knows things this does not —
 /// that a cycle made the miss worse, that the response is not what it modelled.
 /// </param>
+/// <param name="TrimGaveUp">
+/// Whether the trim has refused the arc it was last given, which ends the correction for a
+/// different reason and wants a different thing said about it.
+///
+/// <para><b>Kept apart from <paramref name="AimHasSettled"/> deliberately.</b> The two were one
+/// flag, so a trim that refused the correction's very first step reported <c>aim settled 5.9 km
+/// out</c> — a sentence with no true half in it, on a shot that then landed 5.2 km out. A converged
+/// aim means the shot is as good as this bus can make it; a refused trim means nothing was
+/// corrected at all and the miss on the readout is the miss you get.</para>
+/// </param>
 /// <param name="TrimSpentMetresPerSecond">
 /// What the passes have taken out of the tank so far — <see cref="BusTrim.SpentMetresPerSecond"/>.
 /// </param>
@@ -27,7 +37,8 @@ internal readonly record struct PostBoostSituation(
     double3 ReleaseDirectionCci,
     double PredictedMissMetres,
     bool AimHasSettled,
-    double TrimSpentMetresPerSecond);
+    double TrimSpentMetresPerSecond,
+    bool TrimGaveUp = false);
 
 /// <summary>
 /// Correcting the aim after the engines have stopped, with the trim as the actuator.
@@ -262,6 +273,15 @@ internal sealed class PostBoostAim
         // The first settle is what the guidance's own cutoff solution earned. Measuring is free from
         // here on, so it always gets taken, and only what to do with it is a decision.
         if (!double.IsFinite(now.PredictedMissMetres)) return new Decision(true, false, _said);
+
+        // Asked before the aim's own verdict, because it is the one that is not about the aim: a
+        // refusal names the actuator, and saying the aim settled instead points every reader at the
+        // half of the loop that was working.
+        if (now.TrimGaveUp)
+        {
+            return Finish($"released {now.PredictedMissMetres / 1000.0:F1} km out -- "
+                          + "the trim would not fly the correction, so none of it was applied");
+        }
 
         if (now.AimHasSettled)
         {

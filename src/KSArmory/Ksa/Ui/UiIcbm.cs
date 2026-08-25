@@ -230,6 +230,49 @@ internal sealed partial class Ui
             }
         }
 
+        // Beside the impact clock rather than under a fold: a ballistic coast is half an hour of
+        // nothing happening, and a control that answers "must I sit through this" is no use behind
+        // a disclosure triangle.
+        if (computer.Program.Phase == IcbmPhase.Coast)
+        {
+            // The coast's own clock. The impact time above is a different question and minutes
+            // later: what a coast is counting down to is the warheads leaving, and without this
+            // the only number on the panel that moves is one nothing is waiting for.
+            double toRelease = computer.SecondsToRelease;
+
+            if (!double.IsFinite(toRelease))
+            {
+                ImGui.TextDisabled("RELEASE IN  --:--   (the warheads are being held)");
+            }
+            else if (toRelease > 0.0)
+            {
+                ImGui.TextColored(Working, $"RELEASE IN  {IcbmProgram.Clock(toRelease)}");
+            }
+            else
+            {
+                ImGui.TextColored(Good, "RELEASE  due now");
+            }
+
+            if (computer.CanWarpTheCoast && ImGui.Button("Warp the coast"))
+            {
+                computer.TryWarpTheCoast();
+            }
+
+            bool auto = config.WarpTheCoast;
+            if (ImGui.Checkbox("Warp the coast without asking", ref auto)) config.WarpTheCoast = auto;
+
+            // Says when the world comes back rather than only that it will. The hand-back is what
+            // ends the fast part of the coast, and it is a settling margin ahead of the release.
+            double toNormal = computer.SecondsToReleaseApproach;
+
+            ImGui.TextDisabled("  " + (config.WarpTheCoast
+                ? double.IsFinite(toNormal) && toNormal > 0.0
+                      ? $"back to normal speed in {IcbmProgram.Clock(toNormal)}, "
+                        + "a settling margin before the release"
+                      : "presses that for you every shot, and hands the world back before the release"
+                : "off - the coast runs at whatever speed you set"));
+        }
+
         if (computer.Program.Arc is { } arc)
         {
             ImGui.Text($"Planned arc: {(arc.ApogeeRadius - computer.Body.SurfaceRadius) / 1000.0:F0} km up,"
@@ -264,27 +307,52 @@ internal sealed partial class Ui
             ImGui.PopStyleColor();
         }
 
-        // Named for what it actually is. It is a free-fall prediction, so on the pad the honest
-        // answer is "on the pad" - true, useless, and worth saying rather than dressing up.
+        // Named for what it actually is, and that changes twice during a flight. It is a free-fall
+        // prediction of the craft this computer is flying: a what-if while the engines are running,
+        // the actual answer once they have stopped, and about a vehicle nobody is aiming any more
+        // the moment a warhead leaves. Only the first of those is a question about the engines.
+        string what = computer.WarheadsAway > 0 ? "The bus alone would land"
+                    : computer.Program.IsBurning ? "If the engines stopped now"
+                    : "Predicted impact";
+
+        if (computer.WarheadsAway > 0)
+        {
+            // The shot has left, so the bus's own arc answers nothing about it. Said rather than
+            // hidden, because the line was on screen a moment ago and a readout that silently
+            // vanishes reads as broken.
+            ImGui.TextDisabled($"{computer.WarheadsAway} warhead(s) away - they are on their own "
+                               + "arcs now, and this no longer describes the shot");
+        }
+
         if (double.IsFinite(computer.PredictedMissMetres))
         {
             double miss = computer.PredictedMissMetres;
-            ImGui.TextColored(miss < 2000.0 ? Good : Working,
-                              miss < 1000.0
-                                  ? $"If the engines stopped now: {miss:F0} m from the target"
-                                  : $"If the engines stopped now: {miss / 1000.0:F1} km from the target");
+
+            if (computer.WarheadsAway > 0)
+            {
+                ImGui.TextDisabled(miss < 1000.0
+                                       ? $"  {what}: {miss:F0} m from the target"
+                                       : $"  {what}: {miss / 1000.0:F1} km from the target");
+            }
+            else
+            {
+                ImGui.TextColored(miss < 2000.0 ? Good : Working,
+                                  miss < 1000.0
+                                      ? $"{what}: {miss:F0} m from the target"
+                                      : $"{what}: {miss / 1000.0:F1} km from the target");
+            }
         }
         else if (!computer.Target.IsSet)
         {
-            ImGui.TextDisabled("If the engines stopped now: nothing to measure against");
+            ImGui.TextDisabled($"{what}: nothing to measure against");
         }
         else if (computer.AltitudeMetres < 1000.0)
         {
-            ImGui.TextDisabled("If the engines stopped now: it is still on the ground");
+            ImGui.TextDisabled($"{what}: it is still on the ground");
         }
         else
         {
-            ImGui.TextColored(Bad, "If the engines stopped now: it never comes down");
+            ImGui.TextColored(Bad, $"{what}: it never comes down");
         }
 
         ImGui.Separator();
@@ -351,16 +419,57 @@ internal sealed partial class Ui
         double now = computer.Program.LastBooster.AccelerationNow / 9.80665;
         string pulling = double.IsFinite(now) && now > 0.0 ? $"; pulling {now:F1} g now" : "";
 
+        // Reports the airframe's own limit rather than being a second switch for it. There is
+        // nothing to set: the engine destroys the vehicle at that number whatever anybody types,
+        // so the guidance holds under it and this says what it settled on.
+        double airframe = computer.AirframeLimitGee;
+
         ImGui.TextDisabled("  " + (config.MaxAccelerationGee < 0.05
-            ? "off - full throttle throughout, whatever the stack ends up pulling" + pulling
+            ? airframe > 0.0
+                  ? $"the airframe's own {airframe:F1} g limit only{pulling}"
+                  : "off - full throttle throughout, whatever the stack ends up pulling" + pulling
             : $"throttled to hold {config.MaxAccelerationGee:F1} g{pulling}"));
+
+        if (airframe > 0.0)
+        {
+            ImGui.TextDisabled($"  KSA destroys this stack at {airframe:F1} g, off its own size; "
+                               + $"the guidance holds it to {airframe * IcbmProgram.StructuralMarginFraction:F1}");
+        }
 
         // Above Loft, because it overrides it: the two both move the flight time, and a control
         // that wins an argument reads better before the one it wins it with than after.
+        // Bounded by what the stack can pay for, not by a round number. Arrival angle is bought
+        // with propellant, and the ceiling is a property of this rocket against this target -- so a
+        // fixed 45 lets an operator ask for an angle no arc can be flown at and find out only when
+        // the shot falls short. The mod does not refuse such a shot, which makes the ceiling worth
+        // showing rather than discovering.
+        double afford = computer.Program.SteepestAffordableArrivalDeg;
+        bool bounded = double.IsFinite(afford) && afford >= ArrivalBudget.ResolutionDeg;
+
+        // Never below where the slider already is. The ceiling falls as the tanks empty, and a
+        // maximum that walks down past a live setting silently rewrites it mid-flight.
+        float top = bounded ? (float)Math.Max(afford, config.MinArrivalAngleDeg) : 45f;
+
         float floor = (float)config.MinArrivalAngleDeg;
-        if (ImGui.SliderFloat("Steepest arrival", ref floor, 0f, 45f, "%.0f deg minimum"))
+        if (ImGui.SliderFloat("Steepest arrival", ref floor, 0f, top, "%.0f deg minimum"))
         {
-            config.MinArrivalAngleDeg = floor;
+            config.MinArrivalAngleDeg = Math.Min(floor, top);
+        }
+
+        if (bounded)
+        {
+            bool atTheLimit = config.MinArrivalAngleDeg >= afford - ArrivalBudget.ResolutionDeg;
+
+            ImGui.TextColored(atTheLimit ? Working : Good,
+                              $"  the stack can afford {afford:F0} deg from here");
+        }
+        else if (double.IsFinite(afford))
+        {
+            ImGui.TextColored(Bad, "  the stack cannot afford any arc to that target");
+        }
+        else
+        {
+            ImGui.TextDisabled("  nothing costed yet, so the limit is unknown");
         }
 
         // Asked beside achieved, because those two differing is the whole reason this control
@@ -413,7 +522,7 @@ internal sealed partial class Ui
         bool autoStage = config.AutoStage;
         if (ImGui.Checkbox("Stage automatically", ref autoStage)) config.AutoStage = autoStage;
         ImGui.TextDisabled(config.AutoStage
-            ? "  fires the next stage when the running one has nothing left"
+            ? "  lights the first engine, then fires each stage as the running one runs dry"
             : "  staging is yours, including the one that lights the first engine");
 
         if (ImGui.TreeNode("Ascent"))

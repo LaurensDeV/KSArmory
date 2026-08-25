@@ -87,6 +87,45 @@ internal sealed class IcbmFlightRig
     /// </summary>
     public double StepJitter;
 
+    /// <summary>
+    /// Whether the stack starts with nothing lit, which is what a rocket on a pad is.
+    ///
+    /// <para>False is the rig's original behaviour and is a lie the game does not tell: KSA reports
+    /// no thrust and no propellant for an engine the sequence list has not activated, so a rig
+    /// whose first stage is already pushing on frame zero cannot see whether the program ever
+    /// <em>lights</em> one. It flew every shot in this suite while the computer had no ignition at
+    /// all.</para>
+    /// </summary>
+    public bool StartsUnlit;
+
+    /// <summary>
+    /// How big the stack is, which is the only thing KSA's structural failure depends on.
+    ///
+    /// <para>Zero is the rig's original behaviour — a stack nothing can tear apart, which no vehicle
+    /// in the game is. It is what let the guidance fly a stack at nine gravities and still pass.
+    /// </para>
+    ///
+    /// <para>Both numbers below come off it, which is why it is one field rather than two: the
+    /// engine's limit falls as the vehicle gets longer, and the lag it is tested through gets
+    /// slower, so a big rocket is held to less and given longer to come back under it.</para>
+    /// </summary>
+    public double BoundingSphereRadiusMetres;
+
+    /// <summary>
+    /// The acceleration this airframe is destroyed at, exactly as <c>VehicleStructuralLimits</c>
+    /// computes it. Zero for a rig that was given no size.
+    /// </summary>
+    public double StructuralLimitGee
+        => BoundingSphereRadiusMetres > 0.0
+               ? Math.Max(5.0, 50.0 * Math.Min(1.0, 5.0 / BoundingSphereRadiusMetres))
+               : 0.0;
+
+    // KSA tests destruction against a first-order lag of the load rather than the load itself, with
+    // a time constant of the bounding sphere over 200. That is a fraction of a second, so it is not
+    // the difference between surviving and not -- but it is the difference between an excursion
+    // measured in frames and one measured in seconds, and only the second kind kills.
+    private const double StructuralResponseSpeed = 200.0;
+
     /// <summary>What the throttle actually is, as opposed to what was asked for.</summary>
     public double ThrottleAchieved { get; private set; } = 1.0;
 
@@ -113,6 +152,15 @@ internal sealed class IcbmFlightRig
 
     public int StageIndex;
 
+    /// <summary>Whether an engine is running. A stage request lights the first one rather than
+    /// discarding it, exactly as KSA's sequence list does.</summary>
+    private bool _lit = true;
+
+    private double _peakThrustGee;
+    private double _filteredGee;
+    private double _peakFilteredGee;
+    private bool _brokeUp;
+
     private double3 _pointing;
 
     internal sealed class Stage
@@ -136,7 +184,16 @@ internal sealed class IcbmFlightRig
         double PeakDynamicPressure,
         double PeakAngleOfAttackDeg,
         double3 LastBurnDirectionCci,
-        double3 CoastDirectionCci);
+        double3 CoastDirectionCci,
+
+        /// <summary>The hardest the motors ever pushed the stack, in standard gravities.</summary>
+        double PeakThrustGee = 0.0,
+
+        /// <summary>The worst the engine's own filtered load factor ever got.</summary>
+        double PeakFilteredGee = 0.0,
+
+        /// <summary>Whether KSA would have destroyed it on that load.</summary>
+        bool BrokeUp = false);
 
     public double MassAbove(int from)
     {
@@ -155,7 +212,11 @@ internal sealed class IcbmFlightRig
     {
         if (StageIndex >= Stages.Count) return new BoosterPerformance(0, 0, MassAbove(StageIndex), 0);
         Stage s = Stages[StageIndex];
-        return new BoosterPerformance(s.ThrustNewtons, s.MassFlow, MassAbove(StageIndex), s.PropellantKg);
+
+        // The propellant is still aboard an unlit stack -- KSA's PropellantMass counts tanks, not
+        // engines -- and it is the thrust that reads zero.
+        return _lit ? new BoosterPerformance(s.ThrustNewtons, s.MassFlow, MassAbove(StageIndex), s.PropellantKg)
+                    : new BoosterPerformance(0, 0, MassAbove(StageIndex), s.PropellantKg);
     }
 
     /// <summary>
@@ -168,6 +229,11 @@ internal sealed class IcbmFlightRig
     public Flight Fly(IcbmProgram program, double3 aimAtEpoch, double step, double maxSeconds)
     {
         _pointing = Vec.Unit(PositionCci);
+        _lit = !StartsUnlit;
+        _peakThrustGee = 0.0;
+        _filteredGee = 0.0;
+        _peakFilteredGee = 0.0;
+        _brokeUp = false;
         double elapsed = 0.0;
         IcbmCommand command = default;
         double peakQ = 0.0;
@@ -195,16 +261,23 @@ internal sealed class IcbmFlightRig
                 IcbmState state = new(Body, PositionCci, VelocityCci,
                                       AimLoop?.Apply(aimNow) ?? aimNow, HasAim: true,
                                       Performance(), density,
-                                      PropellantAvailable: StageIndex < Stages.Count
+                                      PropellantAvailable: _lit && StageIndex < Stages.Count
                                                            && Stages[StageIndex].PropellantKg > 0.0,
                                       // What the stack has, never what was asked of it. A real one
                                       // ramps, and one with solid motors ignores the ask entirely.
                                       ThrottleAchieved: ThrottleAchieved,
-                                      AimIsSteady: AimLoop?.IsSteady ?? true);
+                                      AimIsSteady: AimLoop?.IsSteady ?? true,
+                                      StructuralLimitGee: StructuralLimitGee);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
 
-                if (command.RequestStage && StageIndex < Stages.Count) StageIndex++;
+                // The next sequence, whatever it happens to be: on an unlit stack it is the
+                // ignition, and only after that does it drop what is below.
+                if (command.RequestStage)
+                {
+                    if (!_lit) _lit = true;
+                    else if (StageIndex < Stages.Count) StageIndex++;
+                }
             }
 
             // After the step and before the vehicle acts on it, which is where the computer's own
@@ -217,14 +290,16 @@ internal sealed class IcbmFlightRig
                 return new Flight(true, PositionCci, VelocityCci, elapsed,
                                   StageIndex < Stages.Count ? Stages[StageIndex].PropellantKg : 0.0,
                                   program.Phase, command.Hold, peakQ, peakAoa,
-                                  lastBurnDirection, command.ThrustDirectionCci);
+                                  lastBurnDirection, command.ThrustDirectionCci, _peakThrustGee,
+                                  _peakFilteredGee, _brokeUp);
             }
 
             if (program.Phase == IcbmPhase.NoSolution || program.Phase == IcbmPhase.Idle)
             {
                 return new Flight(false, PositionCci, VelocityCci, elapsed, 0.0,
                                   program.Phase, command.Hold, peakQ, peakAoa,
-                                  lastBurnDirection, command.ThrustDirectionCci);
+                                  lastBurnDirection, command.ThrustDirectionCci, _peakThrustGee,
+                                  _peakFilteredGee, _brokeUp);
             }
 
             // The last direction commanded while the burn still had real work left in it.
@@ -256,7 +331,8 @@ internal sealed class IcbmFlightRig
 
         return new Flight(false, PositionCci, VelocityCci, elapsed, 0.0, program.Phase,
                           "ran out of time", peakQ, peakAoa, lastBurnDirection,
-                          command.ThrustDirectionCci);
+                          command.ThrustDirectionCci, _peakThrustGee, _peakFilteredGee,
+                          _brokeUp);
     }
 
     private void SlewThrottle(in IcbmCommand command, double step)
@@ -296,6 +372,21 @@ internal sealed class IcbmFlightRig
         _pointing = Vec.Unit(doubleQuat.CreateFromAxisAngle(Vec.Unit(axis), limit) * _pointing);
     }
 
+    // KSA's own structural failure test, so the suite asks whether the vehicle survived rather than
+    // whether one number stayed under another.
+    private void WearTheLoad(double loadGee, double step)
+    {
+        if (BoundingSphereRadiusMetres <= 0.0) return;
+
+        double tau = BoundingSphereRadiusMetres / StructuralResponseSpeed;
+        double blend = tau > 0.0 ? 1.0 - Math.Exp(-step / tau) : 1.0;
+
+        _filteredGee += (loadGee - _filteredGee) * blend;
+        _peakFilteredGee = Math.Max(_peakFilteredGee, _filteredGee);
+
+        if (_filteredGee >= StructuralLimitGee) _brokeUp = true;
+    }
+
     private void Integrate(in IcbmCommand command, double step, double density, double3 airflow)
     {
         double mass = MassAbove(StageIndex);
@@ -316,9 +407,15 @@ internal sealed class IcbmFlightRig
         {
             Stage s = Stages[StageIndex];
             double burnt = Math.Min(s.PropellantKg, s.MassFlow * throttle * step);
-            acceleration += _pointing * (s.ThrustNewtons * throttle / mass);
+            double thrustAccel = s.ThrustNewtons * throttle / mass;
+            _peakThrustGee = Math.Max(_peakThrustGee, thrustAccel / 9.80665);
+            acceleration += _pointing * thrustAccel;
             s.PropellantKg -= burnt;
         }
+
+        // Everything but gravity, which is what an accelerometer aboard would read and what KSA's
+        // load factor is computed from.
+        WearTheLoad(Vec.Len(acceleration - Body.GravityCci(PositionCci)) / 9.80665, step);
 
         // Velocity first, then position on the new velocity: symplectic, and stable at a step this
         // coarse in a way that plain Euler is not.

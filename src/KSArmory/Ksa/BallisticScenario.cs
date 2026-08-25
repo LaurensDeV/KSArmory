@@ -383,15 +383,15 @@ internal sealed class BallisticScenario
 
         ReportPhase();
 
-        // A vehicle already flying needs no engine lit: the phase machine picks it up holding or
-        // guiding, and staging into that would fire whatever the operator left in the next
-        // sequence. Only a launch needs a push.
+        // The harness does not light the rocket. Ignition is the program's own first stage request
+        // and firing a second sequence here would spend one of the player's on top of it -- and a
+        // harness that staged by hand is a harness that passes whether or not the computer can
+        // launch at all, which is how a computer with no ignition flew every shot in the suite.
         if (_onThePad)
         {
             if (computer.Program.Phase != IcbmPhase.Rising) return;
 
-            VehicleCommand.Stage(computer.Craft);
-            _say($"staged, reach {computer.Program.Reach}");
+            _say($"on the pad in {computer.Program.Phase}, reach {computer.Program.Reach}");
         }
         else
         {
@@ -455,23 +455,17 @@ internal sealed class BallisticScenario
     // at 0.098 m/s against 0.017. Neither is a policy failure; both are the price of a long step,
     // and the only part of this flight that has no such price is the coast after the last warhead
     // has gone.
-    // How long before the release point the world is handed back, so nothing is still settling from
-    // a speed change when the first warhead goes.
-    //
     // FORTY-FIVE KEEPS THE GATE SHUT ON THIS SHOT, AND THAT IS WORTH 470 m. The warheads are held
     // until the arrival is inside ReleaseBeforeArrivalSeconds, 420 s, and the coast is entered with
-    // about 464 s to run -- so this asks for 465 and the coast is flown at 1x throughout. That was
-    // discovered by accident and then measured on purpose: at 20 s the gate opens, the coast runs at
-    // 100x, and the release probe's own miss goes from 50 m to 520 while the walk does not move.
+    // about 464 s to run -- so the margin asks for 465 and the coast is flown at 1x throughout. That
+    // was discovered by accident and then measured on purpose; IcbmProgram.SteadyBeforeReleaseSeconds
+    // carries the number and the measurement, because the panel's own coast warp stops at the same
+    // place and two copies of it would drift.
     //
-    // The reason is that the post-boost aim correction converges during that coast, and at a hundred
-    // times its steps are seconds long. The scenario's own note above prices the same effect at 8x
-    // -- a cutoff residual of 3.16 m/s a frame against 0.40 -- and a hundred is far past it.
-    //
-    // So the wall clock this could save, about forty seconds a shot, costs an order of magnitude of
-    // accuracy. It was the right trade when a shot missed by 2.9 km and it is not one at 50 m.
-    // Warping the pre-release coast wants the aim to have settled first, which nothing here asks.
-    private const double SteadyBeforeReleaseSeconds = 45.0;
+    // The scenario's note above prices the same effect at 8x -- a cutoff residual of 3.16 m/s a
+    // frame against 0.40 -- and a hundred is far past it. So the wall clock this could save, about
+    // forty seconds a shot, costs an order of magnitude of accuracy. It was the right trade when a
+    // shot missed by 2.9 km and it is not one at 50 m.
 
     private void CoastToTheReleasePoint()
     {
@@ -485,7 +479,7 @@ internal sealed class BallisticScenario
         double releaseAt = computer.Config.ReleaseBeforeArrivalSeconds;
         if (!double.IsFinite(toArrival)) return;
 
-        bool roomToWarp = toArrival > releaseAt + SteadyBeforeReleaseSeconds;
+        bool roomToWarp = toArrival > releaseAt + IcbmProgram.SteadyBeforeReleaseSeconds;
 
         if (roomToWarp == _coasting) return;
         _coasting = roomToWarp;

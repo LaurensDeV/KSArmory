@@ -75,7 +75,18 @@ internal readonly record struct IcbmState(
     /// stage's exhaust velocity over the whole vehicle's propellant, which understates a staged
     /// rocket badly enough to call an ordinary ICBM unreachable on the pad.</para>
     /// </summary>
-    double StackDeltaV = double.NaN)
+    double StackDeltaV = double.NaN,
+
+    /// <summary>
+    /// The acceleration the airframe is destroyed at, in standard gravities, or zero if the engine
+    /// has not said.
+    ///
+    /// <para>KSA works it out from the vehicle's own bounding sphere — <c>max(5, 50 x 5/radius)</c>
+    /// — so a long stack is held to a fraction of what a stubby one survives, and it is not a
+    /// number an operator can be expected to know about somebody else's rocket. Zero is the reading
+    /// being <em>absent</em>, which is not the same as there being no limit.</para>
+    /// </summary>
+    double StructuralLimitGee = 0.0)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -154,6 +165,15 @@ internal sealed class IcbmProgram
     public const double SolveEveryStepWithin = 0.75;
 
     /// <summary>
+    /// How often the steepest affordable arrival is re-searched, in <em>real</em> seconds.
+    ///
+    /// <para>Slower than the departure window, and for the same reason twice over: it is a bisection
+    /// of trajectory solves, and it answers a question an operator reads rather than one the flight
+    /// depends on.</para>
+    /// </summary>
+    public const double ArrivalBudgetIntervalSeconds = 10.0;
+
+    /// <summary>
     /// How often the departure time is searched while holding, in <em>real</em> seconds.
     ///
     /// <para>Deliberately slow, and deliberately not on simulated time. One search is a few dozen
@@ -190,6 +210,17 @@ internal sealed class IcbmProgram
 
     /// <summary>Warp is held this long before the window opens, not only during the burn itself.</summary>
     public const double WarpHoldLeadSeconds = 60.0;
+
+    /// <summary>
+    /// How long before the release the world has to be back at normal speed.
+    ///
+    /// <para>Not tidiness, and not the release instant: the post-boost aim correction converges
+    /// across the coast, and at a hundred times normal speed its steps are seconds long. Measured
+    /// on a kept shot as a release probe's own miss going from <b>50 m to 520</b> when the gate was
+    /// opened from 45 seconds to 20 — the walk did not move, the correction did. So a coast is
+    /// worth warping right up to here and no further.</para>
+    /// </summary>
+    public const double SteadyBeforeReleaseSeconds = 45.0;
 
     /// <summary>
     /// The longest the arrival is left free while the aim is still moving.
@@ -237,6 +268,17 @@ internal sealed class IcbmProgram
     public const double MinCommandedThrottle = 0.03;
 
     /// <summary>
+    /// How much of the airframe's own limit the stack is flown at.
+    ///
+    /// <para>The engine destroys a vehicle when its load reaches that limit, and the load it tests
+    /// is a lag of the real one with a time constant of the bounding sphere over 200 — a fraction
+    /// of a second. So flying at the number itself is flying on the boundary, and the margin is the
+    /// room a transient has to live in. The throttle is a servo moving at 0.7 a second, which is
+    /// where transients come from.</para>
+    /// </summary>
+    public const double StructuralMarginFraction = 0.9;
+
+    /// <summary>
     /// Below this much velocity still to gain, the direction it points in stops meaning anything.
     ///
     /// <para>Velocity-to-be-gained is a <em>difference</em>, so as it closes on zero its direction
@@ -278,10 +320,27 @@ internal sealed class IcbmProgram
     // was affordable. Reported rather than refused.
     public bool ArrivalFloorUnaffordable => _arrivalFloorUnaffordable;
 
+    /// <summary>
+    /// The steepest arrival this stack could pay for from where it is, in degrees, or NaN before
+    /// anything has been able to look.
+    ///
+    /// <para>What bounds the arrival-angle control, so an operator sees the ceiling instead of
+    /// discovering it after the shot falls short. Re-searched on a slow <em>real</em>-time cadence
+    /// for the same reason the departure window is — it is a handful of trajectory solves, which is
+    /// far too dear per frame, and nothing about it changes quickly.</para>
+    /// </summary>
+    public double SteepestAffordableArrivalDeg { get; private set; } = double.NaN;
+
+    private double _sinceArrivalBudget = double.PositiveInfinity;
+
     private bool _arrivalFloorUnaffordable;
 
     // Whether the stage now lit has ever pushed. See the staging test in Fly.
     private bool _thrustSeen;
+
+    // Whether anything aboard has ever pushed, which -- unlike _thrustSeen -- survives a stage
+    // request. It is what separates lighting the first engine from throwing away a spent one.
+    private bool _everLit;
     private double _drySeconds;
     private double _sinceLaunch;
     private double _sinceCutoff;
@@ -379,6 +438,16 @@ internal sealed class IcbmProgram
     public double StepAtCutoff { get; private set; } = double.NaN;
 
     /// <summary>
+    /// The longest step the burn was ever flown across.
+    ///
+    /// <para>Latched because a cutoff is only as good as the frame it lands on, and one long frame
+    /// anywhere in the burn is worth <c>accel x step</c> of velocity nobody asked for. The step at
+    /// cutoff alone cannot show it: a burn that ate a minute in the middle and then ran dry ends on
+    /// an ordinary frame and reports an ordinary one.</para>
+    /// </summary>
+    public double LongestStepWhileBurning { get; private set; }
+
+    /// <summary>
     /// The throttle the stack actually had when the engines stopped.
     ///
     /// <para>The floor under the residual is <c>acceleration x step x throttle</c>, so this is the
@@ -464,6 +533,7 @@ internal sealed class IcbmProgram
         _thrustDirCci = Vec.Zero;
         _stageCooldown = 0.0;
         _thrustSeen = false;
+        _everLit = false;
         _drySeconds = 0.0;
         _sinceLaunch = 0.0;
         _sinceCutoff = 0.0;
@@ -477,10 +547,13 @@ internal sealed class IcbmProgram
         AccelerationAtCutoff = double.NaN;
         StepAtCutoff = double.NaN;
         ThrottleAtCutoff = double.NaN;
+        LongestStepWhileBurning = 0.0;
         _arrivalFromLaunch = double.NaN;
         _reachHold = "";
         _reachIfNoArc = IcbmReach.NoTrajectory;
         _sinceWindow = double.PositiveInfinity;
+        _sinceArrivalBudget = double.PositiveInfinity;
+        SteepestAffordableArrivalDeg = double.NaN;
         _windowWait = double.NaN;
         _windowCost = 0.0;
         _windowDirection = Vec.Zero;
@@ -492,10 +565,12 @@ internal sealed class IcbmProgram
     {
         double step = double.IsFinite(stepSeconds) && stepSeconds > 0.0 ? stepSeconds : 0.0;
         if (step > 0.0) _lastStep = step;
+        if (step > 0.0 && IsBurning) LongestStepWhileBurning = Math.Max(LongestStepWhileBurning, step);
 
         _stageCooldown = Math.Max(0.0, _stageCooldown - step);
         _sinceSolve += step;
         _sinceWindow += state.PlayerStepSeconds > 0.0 ? state.PlayerStepSeconds : step;
+        _sinceArrivalBudget += state.PlayerStepSeconds > 0.0 ? state.PlayerStepSeconds : step;
         if (double.IsFinite(_windowWait)) _windowWait -= step;
         if (Phase is not (IcbmPhase.Idle or IcbmPhase.NoSolution)) _sinceLaunch += step;
         if (Phase == IcbmPhase.Coast) _sinceCutoff += step;
@@ -505,6 +580,8 @@ internal sealed class IcbmProgram
         if (!Config.Armed) return Idle(state, "not armed");
         if (!state.HasAim) return Idle(state, "no target designated");
         if (!state.Body.IsUsable) return Idle(state, "no parent body");
+
+        RefreshArrivalBudget(state);
 
         if (Phase == IcbmPhase.Coast) return Coasting(state);
 
@@ -550,6 +627,24 @@ internal sealed class IcbmProgram
             IcbmPhase.ClosedLoop => ClosedLoop(state),
             _ => Coasting(state),
         };
+    }
+
+    // What the operator may ask for, refreshed rarely. The stack's whole delta-v where the engine
+    // reports it, because that is the figure that accounts for throwing dry mass away -- the running
+    // stage's alone understates a staged rocket badly enough to cap the control at a few degrees on
+    // a vehicle that could fly thirty.
+    private void RefreshArrivalBudget(in IcbmState state)
+    {
+        if (_sinceArrivalBudget < ArrivalBudgetIntervalSeconds) return;
+
+        _sinceArrivalBudget = 0.0;
+
+        double available = state.StackDeltaV > 0.0 && double.IsFinite(state.StackDeltaV)
+                               ? state.StackDeltaV
+                               : state.Booster.DeltaVRemaining;
+
+        SteepestAffordableArrivalDeg = ArrivalBudget.SteepestAffordableDeg(
+            state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, available, Config.Loft);
     }
 
     /// <summary>
@@ -985,10 +1080,15 @@ internal sealed class IcbmProgram
         // panel. The warheads are held back as well as the message changing: releasing them on a
         // trajectory known to fall short spreads them across whatever is under the short fall.
         string hold = _fellShort
-            ? $"burn ended {shortBy:F0} m/s short of the solution"
+            ? !_everLit ? NothingEverLit()
+            : $"burn ended {shortBy:F0} m/s short of the solution"
             : ready ? "coasting, warheads may be released"
             : closeEnough ? "coasting to release altitude"
-            : $"holding the warheads, {toArrival / 60.0:F0} min to arrival";
+
+            // Counted to the release rather than to the arrival. The arrival is already the
+            // headline above this line, and it is not the thing being waited for: a coast ends
+            // when the warheads go, minutes earlier.
+            : $"holding the warheads, release in {Clock(toArrival - Config.ReleaseBeforeArrivalSeconds)}";
 
         // The line it was cut off on, not the airflow. The warheads leave along it, and a bus that
         // swings to prograde the moment the engines stop throws them off the solution it just spent
@@ -1001,6 +1101,13 @@ internal sealed class IcbmProgram
                                SecondsToArrival: double.NaN, SecondsToBurn: double.NaN,
                                ShortfallMetresPerSecond: _fellShort ? shortBy : _shortfall);
     }
+
+    // A shot that never lit reads exactly like one that burned out early -- the whole velocity is
+    // still to gain either way -- and the two want completely different things done about them.
+    private string NothingEverLit()
+        => Config.AutoStage
+               ? "the engines never lit: nothing the next sequence activated produced thrust"
+               : "the engines never lit: automatic staging is off, so nothing fired one";
 
     private IcbmCommand Idle(in IcbmState state, string why)
         => new(Phase == IcbmPhase.NoSolution ? IcbmPhase.NoSolution : IcbmPhase.Idle,
@@ -1027,21 +1134,44 @@ internal sealed class IcbmProgram
         return horizontal.Equals(Vec.Zero) ? up : horizontal;
     }
 
-    // The throttle held down to whatever keeps the stack inside its acceleration limit. A light
-    // upper stage on a full-sized motor is the case: eighteen times its own weight in thrust is
-    // nothing unusual once the boosters are gone, and flying it wide open tears the vehicle apart.
-    // Reads the engine's own reported acceleration, so a stack that cannot throttle gets the
-    // number it would have had. Off at zero, which is the default.
+    /// <summary>
+    /// The acceleration the stack is flown at, in standard gravities, or zero for no limit at all.
+    ///
+    /// <para>The tighter of two numbers that say different things. The operator's is about this
+    /// shot — a stack they know is fragile, or one they want flown gently. The airframe's is what
+    /// the engine will actually destroy it at, and it applies whether or not anybody typed
+    /// anything: a computer that flies a rocket it was told nothing about cannot ask its operator
+    /// for a limit only the engine knows.</para>
+    /// </summary>
+    public double AccelerationCapGee(in IcbmState state)
+    {
+        double airframe = state.StructuralLimitGee > 0.0
+                              ? state.StructuralLimitGee * StructuralMarginFraction
+                              : 0.0;
+
+        double asked = Config.MaxAccelerationGee;
+
+        if (asked <= 0.0) return airframe;
+        if (airframe <= 0.0) return asked;
+
+        return Math.Min(asked, airframe);
+    }
+
+    // The throttle held down to whatever keeps the stack inside that limit. A light upper stage on
+    // a full-sized motor is the case: eighteen times its own weight in thrust is nothing unusual
+    // once the boosters are gone, and flying it wide open tears the vehicle apart. Reads the
+    // engine's own reported acceleration, so a stack that cannot throttle gets the number it would
+    // have had.
     private double ThrottleUnderAccelerationCap(double wanted, in IcbmState state)
     {
-        double capGee = Config.MaxAccelerationGee;
+        double capGee = AccelerationCapGee(state);
         if (capGee <= 0.0) return wanted;
 
         double full = state.Booster.AccelerationNow;
         if (full <= 0.0 || !double.IsFinite(full)) return wanted;
 
         // Against standard gravity rather than the local field: it is a structural limit on the
-        // vehicle, and the number an operator types is the one written on the airframe.
+        // vehicle, and the number written on an airframe is in standard gravities.
         double cap = capGee * 9.80665;
         if (full <= cap) return wanted;
 
@@ -1050,16 +1180,23 @@ internal sealed class IcbmProgram
 
     private IcbmCommand Fly(IcbmPhase phase, double3 direction, in IcbmState state, string hold)
     {
-        // A stage that has never produced thrust is not a spent one. On the pad the engines have
-        // not lit, so propellant reads unavailable and the booster cannot thrust -- which is the
-        // same reading a dry stage gives, and staging on it throws away a full stack before it has
-        // burned a gramme. So a stage has to have pushed before it can be given up on.
         LastBooster = state.Booster;
 
-        if (state.PropellantAvailable && state.Booster.CanThrust) _thrustSeen = true;
+        if (state.PropellantAvailable && state.Booster.CanThrust) _thrustSeen = _everLit = true;
 
-        bool stage = Config.AutoStage && _stageCooldown <= 0.0 && _thrustSeen
-                  && (!state.PropellantAvailable || !state.Booster.CanThrust);
+        // Nothing to burn with, which is two situations that read identically. KSA reports no
+        // thrust and no propellant for an engine the sequence list has not activated, so a rocket
+        // standing on its pad gives exactly a spent stage's reading -- and firing the next sequence
+        // is the only thing that moves either of them on. Before anything has ever pushed that
+        // sequence is the ignition; afterwards it is the stage below being thrown away.
+        bool unlit = !state.PropellantAvailable || !state.Booster.CanThrust;
+
+        // Ignition may be asked for again on the cooldown, because the sequence a player put first
+        // is not necessarily the one with an engine in it. Throwing a stage away may not: the stack
+        // below is gone and whatever is now lit has to prove itself first, or a stage that takes a
+        // moment to come up is discarded on the very next cooldown. The dry timer bounds both, so
+        // neither can walk down the sequence list for ever.
+        bool stage = Config.AutoStage && _stageCooldown <= 0.0 && unlit && (_thrustSeen || !_everLit);
 
         // The dry timer deliberately keeps running across a stage request. Clearing it here means
         // a stack with nothing left to stage asks again every cooldown for ever, and a flight that
@@ -1067,10 +1204,6 @@ internal sealed class IcbmProgram
         if (stage)
         {
             _stageCooldown = StageCooldownSeconds;
-
-            // Cleared with the request: the stack below is gone, and whatever is now lit has to
-            // prove itself before it can be staged away in turn. Without this a stack whose next
-            // stage takes a moment to come up is staged again on the very next cooldown.
             _thrustSeen = false;
         }
 

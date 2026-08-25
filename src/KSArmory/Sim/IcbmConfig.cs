@@ -95,8 +95,26 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool DesignateByClicking = false;
 
-    /// <summary>Fire the next stage when the running one has nothing left to burn.</summary>
+    /// <summary>
+    /// Fire the next sequence when there is nothing to burn with — which is the ignition on the
+    /// pad, and the stage below being thrown away every time after that.
+    /// </summary>
     public bool AutoStage = true;
+
+    /// <summary>
+    /// Warp the ballistic coast without being asked each time, up to the release point.
+    ///
+    /// <para><b>Off, and the default is the rule rather than an opinion about the feature.</b>
+    /// Taking the world's clock away because a target happened to be designated is not a weapon's
+    /// decision — so warping is an action, and the button beside this one is how it is taken. What
+    /// this does is let an operator who wants it delegate the press: ticking it <em>is</em> the
+    /// permission, given once instead of every shot.</para>
+    ///
+    /// <para>It stops where the button stops, a settling margin short of the release — see
+    /// <see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>. It never overrides a warp the player
+    /// started, and it asks for nothing while anything aboard is being integrated.</para>
+    /// </summary>
+    public bool WarpTheCoast = false;
 
     /// <summary>
     /// Let the warheads go by itself once the trajectory is good and the vehicle is high enough.
