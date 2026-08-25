@@ -172,20 +172,68 @@ public sealed class KSArmoryMod
     [StarMapAfterOnFrame]
     public void OnAfterFrame(double currentPlayerTime, double dtPlayer)
     {
-        if (_disabled || _roster is null) return;
-        if (!KsaWorld.InFlight) return;
-
-        // Sim speed and pause state change what everything else in the log means, so record them
-        // rather than inferring them later from frozen timestamps.
-        double speed = KsaWorld.SimulationSpeed;
-        if (Math.Abs(speed - _lastSimSpeed) > 1e-9)
+        try
         {
-            Log.Info($"simulation speed {_lastSimSpeed:F2}x -> {speed:F2}x"
-                     + (KsaWorld.IsPaused ? " (paused)" : ""));
-            _lastSimSpeed = speed;
-        }
+            if (_disabled || _roster is null) return;
 
-        // Nothing here: the simulation runs in OnAfterGui, alongside the drawing it feeds.
+            // Sim speed and pause state change what everything else in the log means, so record
+            // them rather than inferring them later from frozen timestamps.
+            if (KsaWorld.InFlight)
+            {
+                double speed = KsaWorld.SimulationSpeed;
+                if (Math.Abs(speed - _lastSimSpeed) > 1e-9)
+                {
+                    Log.Info($"simulation speed {_lastSimSpeed:F2}x -> {speed:F2}x"
+                             + (KsaWorld.IsPaused ? " (paused)" : ""));
+                    _lastSimSpeed = speed;
+                }
+            }
+
+            // The fallback, and a no-op on every frame the GUI pass ran. See StepOnce.
+            StepOnce(dtPlayer);
+        }
+        catch (Exception e)
+        {
+            Fault("frame", e);
+        }
+        finally
+        {
+            // Unconditionally, and ahead of nothing: this is the only hook KSA always calls, so a
+            // release skipped by an early return or an exception would stop the mod for the rest of
+            // the session rather than for a frame.
+            _frame.EndFrame();
+        }
+    }
+
+    // One simulation step, from whichever hook reaches it first this frame.
+    //
+    // Two hooks because hiding the UI stops one of them. KSA's ToggleUi action -- F2 -- flips
+    // Program.DrawUI, and Program.OnFrame wraps the whole UI pass in it, including
+    // OnDrawUiViewports, which is what OnAfterGui postfixes. So the simulation used to stop dead
+    // while the world carried on: rounds frozen, fire control halted, and a guided burn handed the
+    // entire skipped span in one step when the UI came back -- 73 seconds at 1x with no timewarp
+    // anywhere, worth 12,710 m/s in a single frame and a shot 3.1 km/s past its own cutoff.
+    //
+    // The GUI pass still runs it whenever it is called, and that ordering is not arbitrary:
+    // stepping there is what makes the round's offset and the anchor it is drawn against share an
+    // epoch. The frame postfix lands *after* the render, so a step taken there is drawn on the next
+    // frame against a platform that has moved on -- about 500 m at 1x, and docs/FRAMES-AND-EPOCHS.md
+    // is why. So the frame hook is the fallback rather than the home: a frame that drew is stepped
+    // exactly where it always was, and a frame that did not is stepped one hook later instead of
+    // not at all.
+    private void StepOnce(double dtPlayer)
+    {
+        if (_disabled || _roster is null) return;
+        if (!_frame.Claim()) return;
+
+        KsaWorld.BeginFrame();
+
+        // The *scene*, not the craft. Losing the vehicle being flown does not end the flight: KSA
+        // clears Program.ControlledVehicle and carries straight on, so gating the whole simulation
+        // on it freezes every round in the air the instant a launcher dies. They then neither land
+        // nor expire - a salvo suspended mid-flight, which reads as rounds that despawned. Nothing
+        // in here needs a controlled craft; it walks the roster.
+        if (KsaWorld.InFlightScene) StepSimulation(dtPlayer);
     }
 
     /// <summary>
@@ -217,21 +265,11 @@ public sealed class KSArmoryMod
 
         try
         {
-            // Simulate here, not in the frame hook. KSA's order is reset gizmos -> draw UI (this
-            // hook) -> render -> postfix on OnFrame, so a step in the frame hook lands after this
-            // pass and every draw would anchor a one-frame-old offset to the platform's position
-            // now - about 500 m of ecliptic motion at 1x.
-            //
-            // Compensating at draw time cannot work: the drag is one step of platform motion, so
-            // any correction carries a dt that changes and returns as jitter. Stepping here makes
-            // the offset and the anchor share an epoch by construction.
-            KsaWorld.BeginFrame();
-            // The *scene*, not the craft. Losing the vehicle being flown does not end the flight:
-            // KSA clears Program.ControlledVehicle and carries straight on, so gating the whole
-            // simulation on it freezes every round in the air the instant a launcher dies. They
-            // then neither land nor expire - a salvo suspended mid-flight, which reads as rounds
-            // that despawned. Nothing in here needs a controlled craft; it walks the roster.
-            if (KsaWorld.InFlightScene) StepSimulation(dt);
+            // First, so the drawing below reads the state this frame produced. Stepping here
+            // rather than in the frame hook is what makes the round's offset and the anchor it is
+            // drawn against share an epoch - see StepOnce, which is also why this is the preferred
+            // hook rather than the only one.
+            StepOnce(dt);
 
             _ui.Draw();
 
@@ -387,7 +425,10 @@ public sealed class KSArmoryMod
         }
     }
 
-    // One simulation step, run from the GUI hook so it shares an epoch with the draw.
+    // Claimed by whichever hook steps the frame, released by the one that cannot be skipped.
+    private readonly FrameLatch _frame = new();
+
+    // One simulation step. Run through StepOnce, never called directly.
     private void StepSimulation(double dtPlayer)
     {
         if (_roster is null) return;
