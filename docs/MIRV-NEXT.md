@@ -2261,6 +2261,40 @@ the remaining propellant is not observable from a log — which is the same limi
 gate refusing a short shot up front. One shot flown by hand settles it: a stack that cannot pay
 reports `IcbmReach.ShortOfPropellant`, flies short, and says by how much.
 
+### The clearance latch, flown
+
+7g's diagnosis was right and a first reading of the 08-25 logs talked me out of it. `DriveTrim` does
+null `_separatedFrom` on `trim.Done`, and that is the whole of it. The sequence, from `003-base.log`:
+
+```
+22:13:44.156  split on Rocket: Rocket_1, alive True
+22:13:44.156  clearance on Rocket: stack Rocket_1, alive True, apart 12.3 m, radius 3.5 m
+22:13:44.160  trimming the bus on Rocket: waiting to clear the spent stack, 12 m of 14
+22:13:49.156  trimming the bus on Rocket_1: trimming 2.52 m/s on the tail      <- cleared, trim running
+22:13:54.002  trimming the bus on Rocket_1: trimmed to 0.023 m/s               <- trim.Done
+22:13:54.023  trimming the bus on Rocket_1: waiting to clear ... cannot be read
+```
+
+**The clearance is granted, on a measured gap, five seconds in.** The trim runs and converges. Then
+`trim.Done` nulls the reference, the next frame reads NaN, and the clearance goes *backwards* — from
+clear to unreadable — with `_mayTrim` false again. The cost is not on this pass, which has already
+trimmed. It is on the next one: post-boost runs several correction passes, and each one after the
+first starts from no clearance and waits out `SeparationClearance.TimeoutSeconds`.
+
+The `+10 s` line is what makes this easy to misread. It looks like a clearance that was never granted,
+and the line proving otherwise is five seconds earlier and says nothing about clearance at all — it
+is simply the trim starting, which it could not have done unless the gate had opened.
+
+**Flown 2026-08-25 09:49, same save, with the latch in:** `cannot be read` **0 times against 4**, and
+`trim.Done` lands at +9.89 s against +9.85 s — the same instant of the same sequence. Both post-boost
+passes ran, converging 2.7 km → 0.9 km → 341 m and stopping under the 489 m another pass would cost.
+
+**`Rehome` is not a bug, and it is doing something necessary.** `WhatWasDropped` finds the vehicle
+that did not exist before the split, which is the *bus* — `stack Rocket_1 … radius 3.5 m`. `Rehome`
+then replaces it with the half the computer came from, the spent booster at `radius 14.2 m`. That is
+the right sphere to clear, and it moves the bar from 13.5 m to 24.2 m. The capture and the correction
+are both load-bearing and they run in that order.
+
 ### The old target is not a crest
 
 The obvious worry after the above is that 26.5S 64.0W is ill-conditioned too, in which case a good
@@ -2393,12 +2427,12 @@ mechanism is confirmed rather than inferred.
 
 ### Two defects found on the way and not fixed
 
-- **The clearance latch.** `IcbmComputer.cs` nulls `_separatedFrom` when the trim finishes, so every
-  *re-arm* measures against nothing, reads NaN, and falls back to a blind 20-second clock —
-  `waiting to clear the spent stack, which cannot be read`. Separation distance never decreases, so
-  clearance should latch: pass `clearedBefore` into `SeparationClearance.Check` and reset it on a new
-  split. Not the binding cause on 2026-08-24 (the good batch shots log it too), but a real defect
-  costing up to 20 s a pass.
+- **The clearance latch — built and flown.** `SeparationClearance.Check` takes `clearedBefore`:
+  separation only ever opens, so a measured gap cannot close and losing the reading afterwards is the
+  reading failing rather than the distance. Unit-tested against the old behaviour, and flown
+  2026-08-25 — `cannot be read` 0 times against 4 on the same save. See *The clearance latch, flown*
+  below; the mechanism is the one recorded here, and the cost falls on the second and later post-boost
+  passes rather than the first.
 - **Nothing sizes a correction against the actuator.** `AimCorrection` steps as though moving the aim
   moves the impact one-for-one; during the coast the only actuator is a trim with a 10 m/s ceiling
   and a few m/s of budget. A full-error step after a bad burn asked for 10.75 m/s and was vetoed,
