@@ -2223,9 +2223,39 @@ is the first flown evidence for the case that document makes.
 3. **Fly `arm/arr15`**, after the headless check that a 15° floor is reachable at all from this
    scenario's 207 km pick-up over 2,433 km — a shot that cannot satisfy the floor reports
    `IcbmReach.TooShallow` and holds its warheads.
-4. **Pick a second target.** Every batch before this one flew 26.5S 64.0W; this one flew 26.485S
-   68.148W and turned out to be sitting on a crest. Neither is evidence about the mod's accuracy on
-   its own, and the 0.05 km headline came from exactly this kind of accident with the sign reversed.
+4. **Keep 26.5S 64.0W as the standard target.** It has now been measured and it is a plain — see
+   *The old target is not a crest* below. This one flew 26.485S 68.148W and turned out to be sitting
+   on a crest; the two are not interchangeable, and a second target has to be checked before it is
+   adopted rather than after a night has been spent on it.
+
+### The old target is not a crest
+
+The obvious worry after the above is that 26.5S 64.0W is ill-conditioned too, in which case a good
+deal of what this document records — the 0.05 km headline included — would be measuring a hillside.
+It is not. Pooling the warhead traces from all 21 nights flown there, 247 impacts, the ground is
+flat at every scale the shots sample:
+
+| impacts within | n | downrange span | ground downslope | amplification |
+| --- | --- | --- | --- | --- |
+| 200 m | 21 | 355 m | **-0.49 %** | 1.0x |
+| 500 m | 75 | 962 m | +1.21 % | 1.1x |
+| 2 km | 213 | 3.7 km | +1.75 % | 1.2x |
+| 20 km | 243 | 14.2 km | +1.13 % | 1.1x |
+| everything | 247 | 90.3 km | **+0.27 %** | 1.0x |
+
+Against an arrival gradient of **0.1246** at 7.1°. The fit residual is 0.7 m rms within 200 m of the
+aim point and 19.5 m over the whole 90 km, and the ground height varies by 15.9 m total across the 75
+impacts inside 500 m. Nothing there is parallel to anything. For contrast the 68.148W target measures
+**+6.36 % ± 0.50** with a **-25 %** crossrange and an 89.5 m residual.
+
+So the two targets differ by a factor of about 25 in downrange gradient, and **the history stands**:
+the pre-08-25 nights are measuring guidance. What made 08-25 special was the target, not the method.
+
+One caveat the pooled number hides: a single night whose impacts fall inside a few hundred metres can
+still land on a local feature. `2026-08-23-1304` fits **+6.99 %** over a 441 m span and flags as
+ill-conditioned, where the regional slope through the same point is under 1%. A night's own footprint
+is what conditions that night, which is why `shot-report.py --terrain` measures a night's own
+impacts rather than a target once and for all. `docs/SHOT-PROTOCOL.md` has how to read it.
 
 ### The root cause: freezing the answer at the moment the question changes
 
