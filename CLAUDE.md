@@ -138,6 +138,28 @@ one.
 Split unrelated work into separate commits rather than one large one: the changelog is generated
 from these, so a commit that does three things describes none of them well.
 
+**But "unrelated" is about the change, not about the hour it was made in.** A weapon system's
+history runs to hundreds of commits, and measuring what dominates them says where the excess is:
+of the 239 touching the ballistic surface, **89 reach the changelog and 76 are `docs`**. The
+changelog is not the problem — it is about eleven lines a release. The research loop being recorded
+twice is, once in `docs/` and again as a commit per finding.
+
+Two rules follow, and neither touches the `feat`/`fix` split, which is real work a player can
+observe:
+
+**Batch a session's `docs` into one commit.** A night's measurements, the doc they land in, and
+the stale lines they falsify are one unit of work, not five. Nothing is lost: `docs` never reaches
+the changelog, and the file content is identical either way. Write the story in the body — that is
+what makes the archaeology possible later, and it is worth more there than spread across five
+subjects.
+
+**An arm is squashed, or it never lands at all.** `Merge, do not squash` below is about `dev`→
+`main`, where semantic-release reads individual commits to build the changelog; an `arm/*` or
+`agent/*` branch has no such constraint. An arm that **loses** does not merge — it becomes one line
+in the relevant `docs/` file and the branch is deleted, because a losing arm's internal steps are
+noise nobody will read. An arm that **wins** is squashed into one `feat`/`fix` carrying the flown
+numbers, which is what a reader wants anyway.
+
 **Commit to `dev`, not to `main`.** `main` is the release branch and a push to it cuts a release
 and publishes to SpaceDock — see [CI and releases](#ci-and-releases). Everything lands on `dev`
 first and rides to `main` in a merge when a release is wanted.
