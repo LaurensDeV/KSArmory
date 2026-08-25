@@ -188,39 +188,63 @@ internal static class DeorbitShot
     }
 
     /// <summary>
-    /// Which of the round's frame-level inputs are re-read per sub-step rather than held for the
-    /// whole frame, and how finely it integrates while that happens.
+    /// How this flight differs from the round the game flies — and <b>nothing</b> is the default.
     ///
-    /// <para>None of it is what the game does: <c>WeaponSystem</c> samples gravity and the air's
-    /// motion once, at the round's position at the top of the frame, and <see cref="Slug"/> holds
-    /// both — and the ground — across every 5 ms sub-step inside it.</para>
+    /// <para>Both this and the game go through <see cref="RoundDriver"/>, so the shipped
+    /// configuration is what asking for nothing gives. That is the point of the default: a budget
+    /// is differenced against its baseline, so a baseline that is wrong misprices every other term
+    /// rather than only its own.</para>
     ///
-    /// <para>Re-reading the ground is only a term over real relief. Against <see cref="Ball"/> the
-    /// answer cannot change, which is why every budget taken on the mean sphere reports it as
-    /// nothing.</para>
+    /// <para><b>Two of these price something the game cannot do at all</b> and are still emulated
+    /// by slicing, because there is no lookup to attach: <see cref="Slug"/> takes the air's own
+    /// motion as one value per frame and samples the ground once before its sub-step loop. They
+    /// are worth -2 m and 0-22 m respectively, which is why nothing has ever been built to let the
+    /// game do them.</para>
     /// </summary>
-    /// <param name="Gravity">Re-evaluate gravity at the round's own position each sub-step.</param>
-    /// <param name="AirMotion">Re-evaluate the air's own velocity each sub-step.</param>
-    public readonly record struct Refresh(bool Gravity, bool AirMotion)
+    public readonly record struct Refresh
     {
-        /// <summary>Nothing re-read: the round exactly as the game flies it.</summary>
-        public static Refresh AsFlown => new(false, false);
+        /// <summary>
+        /// Hold gravity at the frame's first sample rather than re-reading it at the round's own
+        /// position each sub-step. <b>Pricing only</b> — see
+        /// <see cref="BeforeGravityPerSubStep"/>.
+        /// </summary>
+        public bool HoldGravity { get; init; }
 
-        /// <summary>Re-sample the ground each sub-step. Needs a <see cref="Relief"/> to mean anything.</summary>
+        /// <summary>Re-evaluate the air's own velocity per slice. The game cannot; see above.</summary>
+        public bool AirMotion { get; init; }
+
+        /// <summary>Re-sample the ground per slice. The game cannot; see above.</summary>
         public bool Ground { get; init; }
 
         /// <summary>
-        /// Integrate at this step rather than the round's own 5 ms, by handing it <c>Update</c>s
-        /// that short — <c>steps = ceil(dt / SubStep)</c> bottoms out at one, so a shorter frame
-        /// <em>is</em> a shorter sub-step. Zero leaves it alone.
+        /// Integrate at this sub-step rather than the profile's own. Zero leaves it alone.
+        ///
+        /// <para>Applied as <see cref="MunitionProfile.SubStepSeconds"/> on a copy of the round's
+        /// profile — the shipped mechanism, and the one <c>arm/substep</c> uses — rather than by
+        /// handing the round shorter frames. Those are not the same thing: a shorter frame also
+        /// re-samples the ground and the air's motion, so the old form priced three changes and
+        /// called them one.</para>
         /// </summary>
         public double StepSeconds { get; init; }
 
-        public bool Any => Gravity || AirMotion || Ground || StepSeconds > 0.0;
+        /// <summary>The round exactly as the game flies it, which is the default.</summary>
+        public static Refresh AsFlown => default;
 
-        /// <summary>How long each <c>Update</c> the frame is divided into may be.</summary>
-        internal double Slice => StepSeconds > 0.0 ? StepSeconds : Interceptor.SubStep;
+        /// <summary>
+        /// The round before the per-sub-step gravity landed, kept only so a budget can show what
+        /// that change was worth. Nothing in the shipped tree flies this way.
+        /// </summary>
+        public static Refresh BeforeGravityPerSubStep => new() { HoldGravity = true };
+
+        /// <summary>Whether anything here needs the frame cut up, which only the two do.</summary>
+        internal bool NeedsSlicing => AirMotion || Ground;
     }
+
+    /// <summary>The round's profile, with a finer sub-step if one was asked for.</summary>
+    private static MunitionProfile MunitionFor(Refresh refresh)
+        => refresh.StepSeconds > 0.0
+               ? MunitionVariant.Of(Warhead, m => m.SubStepSeconds = (float)refresh.StepSeconds)
+               : Warhead;
 
     /// <summary>The round as the game flies it: sub-stepped, air re-read per sub-step, ground sphere.</summary>
     /// <param name="dt">The frame the round is handed, which is what the world is warped to.</param>
@@ -244,18 +268,21 @@ internal static class DeorbitShot
     {
         BallisticBody body = Earth;
 
+        // Once, because RoundDriver assigns it every frame: a null here is not "leave it
+        // alone", it is a round nothing stops, and it flies through the planet.
+        IGroundTest surface = ground ?? new Ball();
+
         Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
         {
-            Munition = Warhead,
-            Ground = ground ?? new Ball(),
-            AirDensityAt = (pos, _) => DensityAt(pos),
+            Munition = MunitionFor(refresh),
+            Ground = surface,
         };
 
         double elapsed = 0.0;
 
         for (int i = 0; i < (int)(20_000.0 / dt) && round.State == RoundState.Flying; i++)
         {
-            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed, bodyAccelCci,
+            elapsed = OneFrame(body, round, dt, fromCci, refresh, surface, elapsed, bodyAccelCci,
                                gravityCentreCci);
         }
 
@@ -275,13 +302,20 @@ internal static class DeorbitShot
                                    double3 bodyAccelCci = default,
                                    double3 gravityCentreCci = default)
     {
-        int n = refresh.Any ? Math.Max(1, (int)Math.Ceiling(dt / refresh.Slice)) : 1;
+        // Only the two the game has no lookup for. Everything else is expressed as configuration
+        // the game could itself be given, so the rig and the tree cannot hold different opinions.
+        int n = refresh.NeedsSlicing ? Math.Max(1, (int)Math.Ceiling(dt / Interceptor.SubStep)) : 1;
 
         // About a stated centre rather than about the origin, so a caller can put the pull centre
         // where a body sample from the wrong instant would put it. Zero is the honest answer and
         // every existing caller takes it.
-        double3 heldGravity = body.GravityCci(round.PositionEcl - gravityCentreCci);
+        //
+        // Less the body's own acceleration, because the round is integrated about a centre that is
+        // itself falling and the prediction of it is not. Subtracting it is exact rather than
+        // approximate: the solar tide across a planet's radius is 0.009% of the term.
+        double3 heldGravity = body.GravityCci(round.PositionEcl - gravityCentreCci) - bodyAccelCci;
         double3 heldAir = body.GroundVelocityCci(round.PositionEcl);
+        double heldDensity = DensityAt(round.PositionEcl);
 
         if (ground is Relief relief)
         {
@@ -289,21 +323,23 @@ internal static class DeorbitShot
             relief.BeginFrame();
         }
 
+        // What the game attaches, spelled the same way. A held field is a lookup that is absent,
+        // which is why HoldGravity passes null rather than a lookup that returns a constant.
+        RoundFields fields = new(
+            refresh.HoldGravity
+                ? null
+                : (pos, _) => body.GravityCci(pos - gravityCentreCci) - bodyAccelCci,
+            (pos, _) => DensityAt(pos),
+            ground);
+
         for (int k = 0; k < n && round.State == RoundState.Flying; k++)
         {
-            // Less the body's own acceleration, because the round is integrated about a centre that
-            // is itself falling and the prediction of it is not. Subtracting it here is exact
-            // rather than approximate: the solar tide across a planet's radius is 0.009% of the
-            // term, so the field really is uniform over everything a round can reach.
-            double3 gravity = (refresh.Gravity
-                                   ? body.GravityCci(round.PositionEcl - gravityCentreCci)
-                                   : heldGravity)
-                              - bodyAccelCci;
             double3 air = refresh.AirMotion ? body.GroundVelocityCci(round.PositionEcl) : heldAir;
 
             if (ground is Relief r) r.Seconds = elapsed;
 
-            round.Update(dt / n, null, gravity, air, fromCci, Warhead, DensityAt(round.PositionEcl));
+            RoundDriver.Fly(round, dt / n, null, heldGravity, air, fromCci,
+                            round.Munition, heldDensity, fields);
             elapsed += dt / n;
         }
 
@@ -364,11 +400,14 @@ internal static class DeorbitShot
     {
         BallisticBody body = Earth;
 
+        // Once, because RoundDriver assigns it every frame: a null here is not "leave it
+        // alone", it is a round nothing stops, and it flies through the planet.
+        IGroundTest surface = ground ?? new Ball();
+
         Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
         {
-            Munition = Warhead,
-            Ground = ground ?? new Ball(),
-            AirDensityAt = (pos, _) => DensityAt(pos),
+            Munition = MunitionFor(refresh),
+            Ground = surface,
         };
 
         double elapsed = 0.0;
@@ -376,7 +415,7 @@ internal static class DeorbitShot
 
         while (round.State == RoundState.Flying && elapsed < 20_000.0)
         {
-            elapsed = OneFrame(body, round, dt, fromCci, refresh, ground, elapsed, bodyAccelCci);
+            elapsed = OneFrame(body, round, dt, fromCci, refresh, surface, elapsed, bodyAccelCci);
 
             // What the mod asks the world for on the next frame, capped by the speed the scenario
             // runner asks for once the salvo is away.
@@ -425,11 +464,12 @@ internal static class DeorbitShot
     {
         BallisticBody body = Earth;
 
+        IGroundTest surface = ground ?? new Ball();
+
         Slug round = new(fromCci, velocityCci, null, 1, fromCci, Vec.Zero)
         {
             Munition = warhead ?? Warhead,
-            Ground = ground ?? new Ball(),
-            AirDensityAt = (pos, _) => DensityAt(pos),
+            Ground = surface,
         };
 
         WarpPolicy policy = new();
@@ -473,7 +513,7 @@ internal static class DeorbitShot
                 coastFrames++;
             }
 
-            elapsed = OneFrame(body, round, step, fromCci, Refresh.AsFlown, ground, elapsed);
+            elapsed = OneFrame(body, round, step, fromCci, Refresh.AsFlown, surface, elapsed);
         }
 
         (double3 landed, double seconds) = Arrived(body, round, elapsed);

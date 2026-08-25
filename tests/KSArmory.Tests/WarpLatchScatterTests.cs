@@ -5,8 +5,20 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Why two shots from the same release state land kilometres apart: the coast's integration step is
-/// decided by a single frame, and the decision latches for the rest of the flight.
+/// <b>Retired by the per-sub-step gravity, and kept as the guard that it stays retired.</b>
+///
+/// <para>This file was written to explain why two shots from the same release state landed
+/// kilometres apart: the coast's integration step is decided by a single frame, the decision latches
+/// for the rest of the flight, and the round's disagreement with its own predictor was nearly linear
+/// in that step. The latch still fires and still changes the coast step by a third — that half
+/// reproduces. What no longer follows is a different impact: <b>313 m when this was written, 1 m
+/// now.</b></para>
+///
+/// <para>The cause is <c>aim a round's gravity per sub-step, not once a frame</c>. It took the gap
+/// off the frame entirely — flat at -149 to -153 m from a 25 ms frame to a 320 ms one — so the step
+/// the latch decides no longer decides where the round lands. The assertions are inverted to match,
+/// and they are worth more inverted: a regression that put the frame dependence back would be
+/// invisible in a group's spread and would come back as unrepeatable nights.</para>
 ///
 /// <para><see cref="WarpPolicy"/> does nothing while the step is inside
 /// <see cref="MunitionProfile.PreferredStep"/> — 225 ms on the Mk 21 — so at the scenario's 8x the
@@ -204,17 +216,32 @@ public class WarpLatchScatterTests(ITestOutputHelper Out)
         Assert.True(double.IsNaN(under.HeldAt));
         Assert.False(double.IsNaN(over.HeldAt));
 
-        // The size is the finding; the assertion is only that it is not noise. 313 m when written.
-        Assert.True(DeorbitShot.GroundMetres(under.GroundFixed, over.GroundFixed) > 200.0);
+        // The latch still fires -- the two flights genuinely coast at different steps, which the
+        // MeanStep readings above show. What no longer follows from it is a different impact.
+        Assert.True(over.MeanStep < 0.75 * under.MeanStep,
+                    $"the latch did not change the coast step; {under.MeanStep * 1000:F0} ms "
+                    + $"against {over.MeanStep * 1000:F0} ms");
+
+        // Was 313 m. The per-sub-step gravity took the round's disagreement with its predictor off
+        // the frame -- flat at -149 to -153 m from 25 ms to 320 ms -- so the step the latch decides
+        // no longer decides the impact.
+        Assert.True(DeorbitShot.GroundMetres(under.GroundFixed, over.GroundFixed) < 20.0,
+                    "the warp latch has started scattering the impact again; the round's gap has "
+                    + "gone back to being frame-dependent");
     }
 
     /// <summary>
-    /// Where the impact goes against <em>when</em> the world was slowed, which is the continuous half.
+    /// Where the impact goes against <em>when</em> the world was slowed — the continuous half of the
+    /// same retirement, and now a flat line.
     ///
     /// <para>The trip time is what the flown logs vary over — 0.25 s in most shots and 7 s, 15 s,
-    /// 91 s, 210 s, 229 s, 234 s, 257 s, 268 s and 330 s in the rest — so this is the curve those
-    /// shots are samples of. It is monotone, which is what says the scatter is one mechanism rather
-    /// than a mixture.</para>
+    /// 91 s, 210 s, 229 s, 234 s, 257 s, 268 s and 330 s in the rest — so this was the curve those
+    /// shots were samples of, and it was monotone across hundreds of metres. It now spans under a
+    /// metre, because the impact no longer depends on the coast step at all.</para>
+    ///
+    /// <para>Kept because the sweep is the cheapest thing that would notice the dependence coming
+    /// back, and because <em>when</em> the world is slowed is the one thing a night of shots cannot
+    /// hold constant.</para>
     /// </summary>
     [Fact]
     public void WhereTheImpactGoesAgainstWhenTheWorldWasSlowed()
@@ -240,15 +267,20 @@ public class WarpLatchScatterTests(ITestOutputHelper Out)
                           + $"{f.MeanStep * 1000,12:F0} ms{walk,20:F0} m"
                           + $"{walk - first,22:F0} m");
 
-            // Monotone is the claim that matters: one mechanism, not a mixture of several.
-            Assert.True(walk > previous, "holding the world down later must land the round further on");
             previous = walk;
             last = walk;
         }
 
-        Assert.True(Math.Abs(last - first) > 250.0,
-                    "when the world was slowed must be worth hundreds of metres in this rig, "
-                    + "and kilometres in flight");
+        // Was hundreds of metres and monotone in when the hold fell. The whole span is now inside
+        // the rig's own repeatability, which is what "the coast step no longer decides the impact"
+        // means when it is stated as a number.
+        Assert.True(Math.Abs(last - first) < 20.0,
+                    $"when the world was slowed has started mattering again: {last - first:F0} m "
+                    + "across the sweep");
+
+        // Named so the compiler does not report it unused, and because a future re-measurement
+        // wants the first reading rather than only the span.
+        Assert.True(double.IsFinite(previous));
     }
 
     /// <summary>

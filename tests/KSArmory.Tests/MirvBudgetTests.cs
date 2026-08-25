@@ -616,11 +616,11 @@ public class MirvBudgetTests(ITestOutputHelper Out)
         {
             (double3 held, double _) = DeorbitShot.FlyTheRound(guided.PositionCci, v, dt);
             (double3 freshGravity, double _) =
-                DeorbitShot.FlyTheRound(guided.PositionCci, v, dt, new DeorbitShot.Refresh(true, false));
+                DeorbitShot.FlyTheRound(guided.PositionCci, v, dt, DeorbitShot.Refresh.AsFlown);
             (double3 freshAir, double _) =
-                DeorbitShot.FlyTheRound(guided.PositionCci, v, dt, new DeorbitShot.Refresh(false, true));
+                DeorbitShot.FlyTheRound(guided.PositionCci, v, dt, new DeorbitShot.Refresh { HoldGravity = true, AirMotion = true });
             (double3 freshBoth, double _) =
-                DeorbitShot.FlyTheRound(guided.PositionCci, v, dt, new DeorbitShot.Refresh(true, true));
+                DeorbitShot.FlyTheRound(guided.PositionCci, v, dt, new DeorbitShot.Refresh { AirMotion = true });
 
             Out.WriteLine($"  {dt * 1000,4:F0} ms frame: as flown {GroundMetres(reference, held),6:F0} m, "
                           + $"gravity per sub-step {GroundMetres(reference, freshGravity),6:F0} m, "
@@ -633,7 +633,7 @@ public class MirvBudgetTests(ITestOutputHelper Out)
             DeorbitShot.FlyTheRoundAsWarped(guided.PositionCci, v, DeorbitShot.ScenarioWarp);
         (double3 warpedFresh, double _) =
             DeorbitShot.FlyTheRoundAsWarped(guided.PositionCci, v, DeorbitShot.ScenarioWarp,
-                                            new DeorbitShot.Refresh(true, true));
+                                            new DeorbitShot.Refresh { AirMotion = true });
 
         Out.WriteLine($"  as flown ({DeorbitShot.ScenarioWarp:F0}x coast): "
                       + $"held {GroundMetres(reference, warpedHeld):F0} m, "

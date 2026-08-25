@@ -259,6 +259,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SystemConfig.cs` | one installation's own settings — arm, engage, turret mode, IFF |
 | `Sim/SystemSettings.cs` | those settings flattened, so they can be written down and read back |
 | `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
+| `Sim/RoundDriver.cs` | **the one place a round is advanced by one frame** — the game and the rig both come through it, so neither can differ about which fields a round re-reads within a frame |
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |

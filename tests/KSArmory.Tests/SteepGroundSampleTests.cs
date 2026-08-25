@@ -56,7 +56,7 @@ public class SteepGroundSampleTests(ITestOutputHelper output)
 
             (double3 fresh, double _) =
                 DeorbitShot.FlyTheRound(from, v, DeorbitShot.NominalFrame,
-                                        new DeorbitShot.Refresh(false, false) { Ground = true },
+                                        new DeorbitShot.Refresh { HoldGravity = true, Ground = true },
                                         new DeorbitShot.Relief());
 
             double metres = DeorbitShot.GroundMetres(held, fresh);
