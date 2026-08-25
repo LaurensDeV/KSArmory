@@ -48,6 +48,7 @@ internal sealed class IcbmComputer
     private bool _separated;
     private bool _awaitingSplit;
     private bool _didSplit;
+    private bool _clearedOnce;
     private bool _mayTrim = true;
     private bool _saidBudget;
 
@@ -264,6 +265,7 @@ internal sealed class IcbmComputer
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
+        _clearedOnce = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -318,6 +320,7 @@ internal sealed class IcbmComputer
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
+        _clearedOnce = false;
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
@@ -650,6 +653,11 @@ internal sealed class IcbmComputer
         // rather than destroyed, so this is not the reference CLAUDE.md's rule about dead vehicles
         // is about — but it is still dropped the moment it has nothing left to answer.
         _separatedFrom = left;
+
+        // Said again on the other side of the handover. The clearance state is reported once, and
+        // before this it was always reported from the half the computer is about to leave -- so the
+        // reading the trim actually runs on has never appeared in a log.
+        _saidClearOnce = false;
     }
 
     // Deferred out of Rehome, which runs inside the engine's update pass.
@@ -764,15 +772,22 @@ internal sealed class IcbmComputer
         {
             _saidClearOnce = true;
             Log.Info($"clearance on {KsaWorld.DisplayName(Craft)}: "
-                     + $"stack {(_separatedFrom is null ? "null" : "held")}, "
+                     + $"stack {(_separatedFrom is null ? "null" : KsaWorld.DisplayName(_separatedFrom))}, "
                      + $"alive {KsaWorld.IsAlive(_separatedFrom)}, "
                      + $"apart {apart:F1} m, radius {radius:F1} m");
         }
 
         // An unreadable stack falls back to the clock rather than to "clear": a part tree
         // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
-        // case this exists to prevent.
-        return SeparationClearance.Check(apart, radius, _sinceSplit);
+        // case this exists to prevent. Unless the gap has already been measured once, which
+        // separation cannot undo.
+        Clearance c = SeparationClearance.Check(apart, radius, _sinceSplit, _clearedOnce);
+
+        // Latched off a measured gap only. Going ahead on the clock is not a distance, and
+        // remembering it as one would make the timeout permanent for the rest of the coast.
+        if (c.IsClear && !c.OnTheClock) _clearedOnce = true;
+
+        return c;
     }
 
     // One line per change of state, which is all any of this is worth while nothing is happening
@@ -852,6 +867,9 @@ internal sealed class IcbmComputer
             // disposes the pre-split vehicle to make two new ones -- so that capture is a corpse,
             // IsAlive says so, and the clearance test reads no distance at all. Prefer whichever
             // half is actually alive.
+            // Read before WhatWasDropped, which clears the census it counts.
+            int before = _wasBeforeSplit.Count;
+
             if (!KsaWorld.IsAlive(_separatedFrom)) _separatedFrom = WhatWasDropped();
 
             // Said once, because two guesses at why the distance reads as unknown have both been
@@ -863,7 +881,7 @@ internal sealed class IcbmComputer
             Log.Info($"split on {KsaWorld.DisplayName(Craft)}: "
                      + $"{(_separatedFrom is null ? "no stack captured" : KsaWorld.DisplayName(_separatedFrom))}, "
                      + $"alive {KsaWorld.IsAlive(_separatedFrom)}, "
-                     + $"{_wasBeforeSplit.Count} vehicles before and {_afterSplit.Count} after");
+                     + $"{before} vehicles before and {_afterSplit.Count} after");
         }
 
         // Armed at the split rather than at clearance, and held rather than skipped. It keeps
