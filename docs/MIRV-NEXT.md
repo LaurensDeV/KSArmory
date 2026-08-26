@@ -3056,9 +3056,9 @@ is about 265 m of height — larger than the 186 m worst case that file measures
 and bilinear paths, so it is not only interpolation, but it is the right order and the right
 mechanism.
 
-**That is the next thing to chase**, ahead of the sub-step and ahead of the trim's ceiling. The
-correction cannot converge on an instrument that disagrees with the round about where the ground is,
-and every other lever is downstream of it.
+**That was thought to be the next thing to chase**, ahead of the sub-step and ahead of the trim's
+ceiling — **and it is not the surface: item 8i measures the two as +0.0 m apart on 24 shots.** The
+walk is real and still the largest term; the mechanism named here is not.
 
 ## 8g. Six shots say the walk from the probe is the whole error — 2026-08-25 evening
 
@@ -3176,6 +3176,52 @@ across the three arms — unchanged, still the largest single term, still the th
 
 **And `fixes` is a dead heat.** 0.88 with an interval spanning 1.0 both ways, over ten shots against
 ten. The ceiling and the best-aim keep cost nothing and bought nothing measurable at this range.
+
+## 8i. The surface disagreement is not there — the walk is in the last half-second
+
+Item 8g concluded the round "hit ground the prediction does not see" and named the surface as the
+next thing to chase. **`WarheadTrace.Surfaces` refutes it**, and it is the one instrument built to
+answer the question:
+
+```
+surface at the landing point: the round stopped on 6371000.0 m,
+the prediction flies to 6371000.0 m (+0.0 m apart)
+```
+
+**+0.0 m apart on all 24 shots of `~/shots/2026-08-25-2214`**, across all three arms. Not a
+degenerate fallback either — shots 004 and 005 read 6371005.5 and 6371000.4, so the sampler is
+answering with real values that happen to be sea. `TerrainRadiusAt` and `GroundTest` both ask
+`accurate: true`, both clamp through `GroundSurface.Height` against the same ocean reference, and
+both add `MeanRadius`. There is nothing between them to disagree about.
+
+**And the trajectory is not drifting either.** Re-flown from where the warhead has got to, the
+prediction tracks it to **7 m** — for 403 seconds and 550 km of descent, down to 888 m of altitude
+with 0.86 s left to fly. A cause that had been accumulating over the flight cannot then produce 2.4
+km; the two part in a **step**, which is what that discriminator exists to say.
+
+**Where it goes is the last half-second.** Shot 019, the fine samples at the end:
+
+```
+t=402.70s  alt 888 m  v 4461 m/s   prediction: impact at t=403.57, -39.2678,178.1786
+t=403.11s  alt 468 m  v 4338 m/s   <- last sample; the flight is recorded as ending here
+landed at -39.2665,178.2063 | flight 403.11s by the world clock, 403.11s by its own,
+                              probe said 403.57s | walk 2401 m (-2292 down, +716 cross)
+```
+
+The descent rate is honest throughout — 30 m per 28.7 ms frame is 1,045 m/s, which is 4,338 m/s at
+the 13.8° arrival. The round is simply **scored as landed 0.46 s early**, and 0.46 s of horizontal
+travel at 4,212 m/s is about 1,900 m, which is the bulk of the 2,292 m downrange walk.
+
+**What is not yet settled** is the contradiction between two readings of the same landing: the last
+trace sample puts the round 468 m *above* a surface at `MeanRadius`, while `Surfaces` reports it
+51.8 m *below* that surface. Both cannot describe one instant. Either the trace stops sampling
+before the last frames, or `BallisticBody.SurfaceRadius` — what `AltitudeOf` subtracts — is not the
+sea-clamped radius the landing was scored against. **That is the next measurement**, and it is a
+reading of two constants rather than a night of shots.
+
+**No fix here, and deliberately.** What this changes is the target: 8f and 8g both point downstream
+at the surface, and the surface is clean. Everything the correction loop reads is still driven by
+the probe, so the 2.4 km is still the largest term — it is just not where it was thought to be.
 
 ## 9. The budget at the 0.65 km level
 
