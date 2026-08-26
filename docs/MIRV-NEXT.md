@@ -3714,8 +3714,12 @@ it. What each was still owed when it ran out:
 | 005-floor | 2 | **1.49 m/s** | 0.0 km | 3,803 m |
 | 007-floor | 2 | **0.47 m/s** | 0.0 km | 3,401 m |
 | 001-floor | 3 | 5.70 m/s | 2.4 km | 1,924 m |
-| 004-floor | 3 | budget untouched | 0.3 km | **29 m** |
-| 009-floor | 3 | budget untouched | 0.1 km | **23 m** |
+| 004-floor | 3 | 0.04 m/s — finished | 0.3 km | **29 m** |
+| 009-floor | 3 | 0.03 m/s — finished | 0.1 km | **23 m** |
+
+*"Owed" here is what the trim still had to gain at the frame the post-boost phase ended. The two
+close shots had not left the budget untouched — they spent 22 and 31 m/s of it — they had finished
+the run inside it. Item 8s reads the same quantity across fifteen shots.*
 
 **Two of the three were nearly finished** — half a metre a second and one and a half — and the budget
 cut them off with the aim still uncorrected, which cost kilometres. The third was genuinely running
@@ -3728,6 +3732,110 @@ caller size it. The runaway is item 8f's, unchanged and still open.
 
 **And the failure is backwards**: the shots that most needed correcting — opening at 5.7 km out
 against 2.9 for the best one — are exactly the ones the budget stopped.
+
+## 8s. Fifteen floored shots say the budget cuts the trim off mid-correction — 2026-08-26
+
+`~/shots/2026-08-26-2101` was flown after 8r and never written up, because the arm it tested was a
+no-op: it raised `IcbmConfig.TrimBudgetMetresPerSecond` to 60, and that config can only move the
+budget *down* from `PostBoostAim.MaxTrimMetresPerSecond`, which is what the release rule reads. Ten
+shots, and **nine of ten released on the 40 m/s trim line** under both arms.
+
+The night is worth having anyway, twice over. Pooled with 8r's floor arm it makes **fifteen shots at
+a 15 degree floor**, which is enough to read the mechanism rather than guess at it. And its two arms
+are a **near-null calibration**: a lever that did not move the binding stop measured a ratio of
+**2.59** at n=5, p=0.222. That is what this geometry's noise looks like at five a side, and it is
+the number to hold 8r's 0.39 against.
+
+### How each of the fifteen ended
+
+| night | shot | first pass | last pass | ended | miss |
+| --- | --- | --- | --- | --- | --- |
+| 2101 | 010-floor | 3.3 km | 1.9 km (3) | **converged, 40 m out** | **0.01 km** |
+| 1918 | 009-floor | 2.9 km | 1.6 km (3) | **converged, 50 m out** | **0.02 km** |
+| 1918 | 004-floor | 3.8 km | 2.2 km (3) | **converged, 67 m out** | **0.03 km** |
+| 2101 | 005-floor | 3.7 km | 2.1 km (3) | **converged, 64 m out** | **0.04 km** |
+| 2101 | 008-budget | 4.6 km | 2.6 km (3) | budget | 0.07 km |
+| 2101 | 003-budget | 5.2 km | 3.0 km (3) | budget | 0.11 km |
+| 2101 | 004-floor | 4.4 km | 2.6 km (3) | budget | 1.24 km |
+| 1918 | 001-floor | 4.8 km | 2.7 km (3) | budget | 1.92 km |
+| 2101 | 007-floor | 5.1 km | 2.9 km (3) | budget | 3.06 km |
+| 2101 | 002-floor | 5.2 km | 2.9 km (3) | budget | 3.11 km |
+| 2101 | 009-budget | 5.7 km | 5.5 km (2) | budget | 3.21 km |
+| 1918 | 007-floor | 5.7 km | 5.5 km (2) | budget | 3.40 km |
+| 2101 | 006-budget | 6.2 km | 5.9 km (2) | budget | 3.51 km |
+| 1918 | 005-floor | 5.7 km | 5.6 km (2) | budget | 3.80 km |
+| 2101 | 001-budget | 5.6 km | 3.7 km (2) | budget | 9.27 km |
+
+**The four that were allowed to converge are the four closest shots this project has flown**, and
+they are ranks 1 to 4 of the fifteen — median **0.025 km** against **3.11**, a factor of 124. Four
+ranks out of fifteen falling that way by chance is 1 in 1,365.
+
+### It is not a verdict, because the split is an outcome and not an assignment
+
+Read the first column: **every shot opening under 4 km converged and every shot opening over 4.4 km
+did not.** So "converged" and "was an easy shot" are the same shots seen twice, and the 124 is an
+upper bound on what finishing the loop is worth rather than a measurement of it. Two shots keep it
+from being wholly explained away — `003-budget` and `008-budget` opened at 5.2 and 4.6 km, were cut
+off, and still landed at 110 and 70 m, while `002-floor` opened at the same 5.2 and landed at 3.11.
+The opening does not fix the outcome.
+
+### The mechanism, which is what the fifteen do settle
+
+The chain is visible end to end in the table and in the trim log:
+
+1. **Every pass costs trim, and a wider opening costs more of it.** The five shots that got only two
+   passes all opened at 5.6 km or wider.
+2. **The budget is a constant, so a wider opening buys fewer passes.** Not more, which is what a
+   guard sized on need would do — item 8r's "the failure is backwards", now on eleven shots.
+3. **The cut lands mid-correction, not between passes**, and the separation is total. What the
+   trim was still owed at the frame the post-boost phase ended:
+
+   | | to gain at the stop |
+   | --- | --- |
+   | the eleven the budget stopped | **0.47, 1.29, 1.50, 2.64, 2.87, 3.91, 4.40, 5.71, 7.25, 7.71, 7.98** m/s |
+   | the four that converged | **0.03, 0.03, 0.03, 0.04** m/s |
+
+   Converged means *the trim finished*, at `BusTrim.SettledMetresPerSecond`. Stopped means it was
+   cut off in the middle of a run, with a median of **3.9 m/s** still to fly and a worst of 8.0.
+4. **That unfinished correction is the one that would have arrived.** A converged shot's predicted
+   miss falls from its last pass's 1.6-2.2 km to 40-67 m *while the trim flies it*. The eleven were
+   stopped in the middle of exactly that fall, at 2.6-3.0 km for the three-pass ones.
+
+So the 40 is not stopping a runaway. It is stopping the last trim run of a converging loop, on the
+shots that opened widest.
+
+### What it costs to lift, measured off the same logs
+
+Integrating the thrusters over the firing frames — acceleration times frame time, gaps between
+passes not charged — gives what the bus actually spent and how fast:
+
+| | budget-stopped, n=11 | converged, n=4 |
+| --- | --- | --- |
+| post-boost elapsed at release | 75.6-77.3 s | 58.0-72.0 s |
+| firing share of that | 74-84% | 68-81% |
+| spend rate while firing | ~0.57 m/s per second | ~0.57 |
+
+`PostBoostAim.MaxSeconds` is **120**, so there are **43-44 s of clock** left at the moment the budget
+fires. Twenty more metres a second is 35 s of firing, which lands a *worst case* at 111-113 s — inside
+the clock, with the clock left as the backstop for the loop that genuinely will not stop. The
+realistic case is far cheaper: **8 m/s finishes the interrupted run on all eleven** and costs 14 s,
+and a third pass for the five that only got two is ~10 m/s and ~20 s more. Twenty is roughly twice
+what the observed shortfall needs, which is the right way round for a first flight of it.
+
+**Sixty is also the ceiling the reserve allows.** `PostBoostAimTests.TheBudgetLeavesEnoughToNullASeparation`
+asserts the smallest bus in the 70-90 m/s range keeps one `BusTrim.MaxMetresPerSecond` null in hand
+after the correction, which is `budget <= 60`. The number the flown data wants and the number the
+safety invariant permits are the same number, and the test is what stops the next person going past
+it.
+
+### What is not answered
+
+Whether more budget makes a *stopped* shot converge, or only buys a wider one more of a wrong answer.
+`001-budget` opened at 5.6 km, ran away to a 9.2 km bias and landed 9.27 km out; nothing here says a
+larger budget would have helped it, and item 8f's runaway is still open and still unbounded. That is
+the question the next night is for, and the release reason each shot prints is what answers it: a
+budget line means the lift was too small, a `MaxSeconds` line means the clock is the next wall, and a
+payback line means the loop finished.
 
 ## 9. The budget at the 0.65 km level
 
