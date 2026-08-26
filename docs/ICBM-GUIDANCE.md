@@ -603,7 +603,7 @@ begun over the top of one is a warp nothing can rein in.
 
 ### Automatic only if somebody said so
 
-`IcbmConfig.WarpTheCoast` is off by default, and the default is the rule rather than an opinion about
+`IcbmConfig.WarpTheCoast` is on by default, and the default is the rule rather than an opinion about
 the feature: taking the world's clock away because a target happened to be designated is not a
 weapon's decision. The button is how the action is taken. What the tick box does is let an operator
 delegate the press — ticking it *is* the permission, given once instead of every shot — and it stops

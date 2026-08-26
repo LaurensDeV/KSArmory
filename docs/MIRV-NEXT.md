@@ -3589,6 +3589,66 @@ none flown:
 Item 8o's "only large term left" stands, but it is not in `AimCorrection`. It is in what decides the
 warheads may go.
 
+## 8q. The correction is not the miss under a floor — the rig was wrong by 150x, and the floor is the result — 2026-08-26
+
+`~/shots/2026-08-26-1834`, four shots, two arms, both at `MinArrivalAngleDeg = 15`, differing only
+in `IcbmConfig.CorrectAim`. Flown to test a headless claim; the claim lost.
+
+### What was predicted, and what flew
+
+`ArrivalFloorFlightTests` said a floored shot needs no correction and that the loop spends kilometres
+removing a shortfall that is not there:
+
+| | rig | flown |
+| --- | --- | --- |
+| 15 deg, correction **off** | **0.018 km** | **2.58, 4.81 km** |
+| 15 deg, correction **on** | 8.52 km | 0.047, 3.06 km |
+
+**Wrong at both ends and reversed in direction.** The switch itself did exactly what it was built to
+do -- bias 0.0 km and zero post-boost passes on both `off` shots -- so this is not a wiring failure.
+The model is wrong.
+
+That is the **eighth** headless improvement argued from the code and refused by flight. It was flown
+*with* the relief control from `ArrivalFloorFlightTests.UnderAFloorTheCorrectionIsWhatMissesOverRealRelief`,
+which is the instrument that catches a noiseless-observer artefact, and which moved the answer by 15 m.
+So the relief control is not the thing that was missing. The remaining candidate is the one named in
+the commit that added the switch: **`IcbmFlightRig` has no ecliptic carrier on the burn leg**
+(`DeorbitShot.cs:255-258` is explicit that leg A is incapable rather than merely bad at it), so any
+epoch term in the burn is invisible to it. A 150x error is the right size for that class.
+
+### The floor is the finding
+
+Arrival came out at **17.1 deg** against the ~7 deg every other shot in this repository flies, so the
+constraint engaged and the search paid for it. With the correction left on:
+
+| | best | median | n |
+| --- | --- | --- | --- |
+| 15 deg floor (`on`) | **0.047 km** | 1.55 km | 2 |
+| no floor, 2026-08-26-1220 `shipped` | 0.55 km | 2.68 km | 8 |
+
+**47 m is the closest this project has put warheads on a target.** It is one shot and settles nothing
+-- `shot-report.py` called `TOO FEW` and no verdict -- but it is the first flown evidence that the
+arrival angle does here what `docs/ARRIVAL-ANGLE.md` prices it at.
+
+### And the two floored shots disagree by 65x, which is the old shape
+
+| shot | bias at release | mean miss |
+| --- | --- | --- |
+| 001-on | 0.3 km | **0.047 km** |
+| 004-on | 2.5 km | 3.06 km |
+
+The miss tracks how far the correction moved the aim. That is item 8f's runaway again, seen at a
+steeper arrival where it costs more -- and it says the correction wants **bounding**, not switching
+off. `IcbmConfig.CorrectAim` is worth keeping as the diagnostic that isolates the loop, which is what
+it just did.
+
+### What this does to rung A
+
+`docs/METRE-LEVEL.md` B1 says the steep arrival is blocked on the bus being unable to pay a 7-11 m/s
+post-boost demand. Neither floored `on` shot showed that failure, and neither `off` shot generated a
+demand at all. B1's premise should be re-read against these four shots before anything is built for
+it -- and two of its three items were already stale, see that file.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by

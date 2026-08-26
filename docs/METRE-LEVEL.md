@@ -80,6 +80,21 @@ otherwise.
 
 ### B1 — the bus cannot pay for a steep arrival, and that is flown
 
+> **Stale in two places, and the premise is now in doubt — 2026-08-26.**
+>
+> **Item 2 has landed.** `9b48bd1` made `BusTrim.MaxMetresPerSecond` a *floor* under a ceiling the
+> caller sizes per job (`BusTrim.cs:419-421`, wired at `IcbmComputer.cs:1127-1133`, pinned by
+> `BusTrimTests.TheCallerMaySizeThePerSolveCeilingButNeverBelowTheConstant`). The failure quoted
+> below — `MaxMetresPerSecond declined it whole` — cannot recur.
+>
+> **Item 3 was answered headlessly and the answer was refuted in flight.** The rig said a floored
+> shot needs no correction and the demand is the trajectory search still moving; four shots at a 15°
+> floor said otherwise, by 150×. `docs/MIRV-NEXT.md` item 8q.
+>
+> **And the blocker itself did not reproduce.** Neither floored shot in that batch failed to pay a
+> post-boost demand, and one of them landed at **47 m**. Re-read this section against those four
+> shots before building item 1.
+
 Two shots at `MinArrivalAngleDeg = 15` (`docs/ARRIVAL-ANGLE.md`, *Flown*) and one at 15 on
 2026-08-25 (`docs/MIRV-NEXT.md` item 7g) say the same thing from two directions.
 
