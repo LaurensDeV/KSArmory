@@ -24,6 +24,10 @@ public sealed class KSArmoryMod
 
     private readonly List<Vehicle> _vehicleScratch = [];
 
+    private readonly System.Diagnostics.Stopwatch _wallClock = System.Diagnostics.Stopwatch.StartNew();
+
+    private double _lastWall;
+
     // One battery per weapons system, each with its own policy; Config stays shared.
     private WeaponSystems? _roster;
 
@@ -539,7 +543,19 @@ public sealed class KSArmoryMod
         // switch reaches it and a release build never pays for it.
         if (Log.Threshold <= Log.Level.Debug)
         {
-            _solver.Sample(KsaWorld.AchievedSpeedFraction, KsaWorld.VehicleSolverTickMs, dtPlayer);
+            // Both terms from outside the engine's own accounting: the simulated step it actually
+            // delivered against a real clock. dtPlayer is clamped at a thirtieth, so anything built
+            // on it reports a world keeping up while it falls behind -- measured at eight rockets
+            // as "achieved 1.000" while advancing 10 s of world per 24 s of wall.
+            double wallNow = _wallClock.Elapsed.TotalSeconds;
+
+            if (_lastWall > 0.0)
+            {
+                _solver.Sample(KsaWorld.AchievedSpeedFraction, KsaWorld.VehicleSolverTickMs,
+                               _lastSimStep, wallNow - _lastWall);
+            }
+
+            _lastWall = wallNow;
 
             if (_solver.Due)
             {
