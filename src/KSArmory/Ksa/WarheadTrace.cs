@@ -340,7 +340,25 @@ internal sealed class WarheadTrace
 
         try
         {
-            ToCci(setup, round, out double3 positionCci, out double3 velocityCci);
+            // The same correction MissFromAim makes on the scoring path, which is the one that
+            // measures right: the LIVE parent, back-dated by the sub-frame burst offset. Finish is
+            // reached by a poll, so the round's PositionEcl is frozen from an earlier step while
+            // the parent is not -- and the round detonates on the first sub-step of its frame, so
+            // DetonationElapsedInFrame is very nearly a whole frame of the body's 29.78 km/s.
+            //
+            // One correction, not two. Pairing a parent captured on the last flying frame AND
+            // back-dating it overshoots by exactly a frame: flown as -493 m below the surface
+            // uncorrected against +517 m above it double-corrected. docs/MIRV-NEXT.md item 8j.
+            double3 parentAtBurst = setup.Parent.GetPositionEcl()
+                                    + setup.Parent.GetVelocityEcl() * round.DetonationElapsedInFrame;
+
+            doubleQuat cce2Cci = setup.Parent.GetCce2Cci();
+            double3 positionCci = (round.PositionEcl - parentAtBurst).Transform(cce2Cci);
+            double3 velocityCci = (round.VelocityEcl - setup.Parent.GetVelocityEcl()).Transform(cce2Cci);
+
+            // Carried into the frame every live lookup is made in, so GroundTest -- which takes an
+            // Ecl point and finds the body itself -- reads the same geometry rather than the leak.
+            double3 landingEcl = round.PositionEcl + (setup.Parent.GetPositionEcl() - parentAtBurst);
 
             // The burst is somewhere inside this frame while _worldSeconds is at its edge, and
             // DetonationElapsedInFrame is that offset - negative, between -dt and zero. At 7 km/s a
@@ -359,7 +377,7 @@ internal sealed class WarheadTrace
                      + $" | lag {lag * 1000.0:F1}ms = {lag * round.Speed:F0} m at {round.Speed:F0} m/s"
                      + $" over {_lines} sampled frames");
 
-            Log.Info($"warhead trace: {Surfaces(setup, round, positionCci)}");
+            Log.Info($"warhead trace: {Surfaces(setup, landingEcl, positionCci)}");
 
             // The probe for docs/MIRV-NEXT.md item 8i. Across 24 flown shots the last sampled
             // altitude is ~500 m and the landing is tens of metres BELOW the same surface, with the
@@ -388,19 +406,19 @@ internal sealed class WarheadTrace
     // the one point where it matters. docs/MIRV-NEXT.md item 2 lists a surface disagreement as a
     // candidate for the missing kilometre, and a metre of it is about eleven metres of ground on
     // this arrival.
-    private static string Surfaces(in Setup setup, IProjectile round, double3 positionCci)
+    private static string Surfaces(in Setup setup, double3 landingEcl, double3 positionCci)
     {
         double predicted = setup.TerrainRadiusAt(positionCci);
         double stoppedAt = Vec.Len(positionCci);
 
-        if (!GroundTest.Shared.TryGround(round.PositionEcl, out double3 centreEcl, out double flown))
+        if (!GroundTest.Shared.TryGround(landingEcl, out double3 centreEcl, out double flown))
         {
             return $"surface at the landing point: the prediction reads {predicted:F1} m,"
                    + $" the round's own ground test would not answer;"
                    + $" it stopped {stoppedAt - predicted:+0.0;-0.0} m relative to the prediction's";
         }
 
-        double stoppedOn = Vec.Len(round.PositionEcl - centreEcl);
+        double stoppedOn = Vec.Len(landingEcl - centreEcl);
 
         return $"surface at the landing point: the round stopped on {flown:F1} m,"
                + $" the prediction flies to {predicted:F1} m ({flown - predicted:+0.0;-0.0} m apart);"
