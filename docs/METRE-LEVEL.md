@@ -493,7 +493,7 @@ Of the original ladder, what is left is the part that was never about frame rate
 first stopping condition arriving: §7 says that if the governor cannot hold the step the ladder
 costs 3× more nights and phases 4–6 are not affordable. It cannot, because there is no step to
 hold — so **the ladder stops at rung C** until parallel instances are measured, and rungs D and E
-are gated on that measurement rather than on anything in `Sim/`.
+are gated on that measurement rather than on anything in `Sim/`. *(Measured 2026-08-26 — and there is a second lever that needs no second process: see 5b.)*
 
 **One rule that does survive unchanged.** Everything above is a change to the *conditions*, not to
 the shot, so whatever a batch ends up flying under goes into `batch.tsv` beside the seed and the
@@ -501,6 +501,71 @@ DLL hash, and `shot-report.py` shouts if two arms flew different ones. The new c
 is the **achieved step**, because that is the one a parallel run can quietly change.
 
 ---
+
+## 5b. Parallel instances are not the only lever — several rockets in one world, measured
+
+**Flown 2026-08-26.** Section 5 left parallel game instances as "the only untested wall-clock lever
+worth anything" and stopped the ladder at rung C on it. There is a second lever, it needs no second
+process, and it is now measured.
+
+### The instrument section 5 asked for
+
+`Sim/SolverLoad.cs`, logged per frame. **Do not read the engine's own
+`Universe.GetAchivedSpeedFraction()` as "the world is keeping up"** — it is
+`0.9 x min(frameTime, 1/30)` divided by what the vehicle solve took, so once a frame is longer than
+a thirtieth of a second the numerator stops growing and the fraction pins at 1.000 however far
+behind the world falls. Flown with eight rockets it read **1.000 median and 1.000 worst** while the
+log's own timestamps showed **10 s of world per 24 s of wall clock**. The instrument now takes both
+terms from outside the engine: the simulated step delivered, against a `Stopwatch`.
+
+### What N rockets in one world costs
+
+Four probes, `SOLVER SCALE 1/2/4/8`, every rocket staged and flying, measured over ascent and
+warhead deployment:
+
+| rockets | vehicles | sim per wall second | throughput | worst solver tick |
+| --- | --- | --- | --- | --- |
+| 1 | 6 | 1.00x | 1.0x | 3.3-4.1 ms |
+| 2 | 11 | 0.89x | **1.8x** | 5.3-6.6 ms |
+| 4 | 17 | 0.80x | **3.2x** | 10.8-11.4 ms |
+| 8 | 33 | 0.70x | **5.6x** | 24.9 ms |
+
+**Reason about vehicles, not rockets.** One rocket becomes six — the bus deploys six warheads —
+plus spent stages, which is why eight rockets is thirty-three vehicles and why the cost climbs
+during a flight rather than being fixed at launch.
+
+**There is no cliff.** The cost starts at two rockets and rises smoothly; the solver tick is roughly
+**0.75 ms per vehicle** against a ~30 ms deadline. Eight rockets buys **5.6x**, against ~1.9x for two
+game instances — and it needs no per-instance user directory, no PID-based process management and no
+scheduler.
+
+**And the frame rate is not the cost.** Suppressing the flight's verbose logging cut the log from
+7,567 lines to **138** — 54x — and the solver tick did not move. Logging and plume rendering cost
+frames on the main thread; vehicles cost solver time on its own thread; only the second bounds
+throughput.
+
+### What it does not yet say
+
+The probes cover the first ~2.5 minutes of each flight — ascent through deployment. A real shot is
+nine minutes and mostly coast, where warheads are cheap, so 5.6x is likely conservative. And nothing
+here measures instances and rockets together; they spend from one CPU budget and the product is
+bounded by it.
+
+### Four traps, each of which cost a probe
+
+The mod already crews one `IcbmComputer` per craft, so N guided rockets is the existing architecture.
+The harness is what fought back:
+
+1. **`BallisticScenario.Find` latches the first computer and returns**, leaving the rest on the pad —
+   where a landed vehicle takes the cheap analytic path and costs almost nothing. A sweep run that
+   way measures one flying rocket and some furniture, and reports the idea as free.
+2. **`FindDefendedSite` returns the first non-launching crewed craft**, which with the defence site
+   removed from the save is *another rocket*.
+3. **An explicit `--aim` then moves that craft to the aim point.** The nominated rocket was
+   teleported 6,269 km and dropped at 5 km altitude under power. It never launched; it was thrown.
+4. **Arming is not enough.** A computer with no `Designate` has no solution and never leaves the pad.
+
+The defence site in the save is not decoration: it is what the target finder points at. Keep it.
 
 ## 6. What a human still has to do
 
