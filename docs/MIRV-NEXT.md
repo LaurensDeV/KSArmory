@@ -3281,6 +3281,42 @@ in 8h changes.
 it was formed and none survived a measurement. The probe stays in — it is the only thing that has
 made any of them falsifiable.
 
+## 8k. The instrument is fixed, and it says the round stops 412 m above the sea
+
+`9e54307`. Three flights of the same craft, target and save, reading `Finish`'s altitude against the
+last sample's — taken 1 ms of the round's own age earlier, so the true difference is about a metre:
+
+| | apart |
+| --- | --- |
+| uncorrected | **−493 m** |
+| parent-while-flying **and** back-dated | **+517 m** |
+| live parent, back-dated once | **0.0 m** |
+
+The middle row is the useful failure. It overshot by exactly one frame, because the captured parent
+was already a frame back before the sub-frame term went on top — and the bracket being symmetric
+about zero to within 24 m is what said a single frame was the whole of it. The correct form is the
+one `MissFromAim` already uses on the scoring path, which is why that path measures right.
+
+**So the trace now agrees with itself, and what it reports is new.** Both its altitude and
+`Surfaces` put the landing at **+411.7 m above** the surface `GroundTest` reads at that point —
+which is `6371000.0 m`, sea level — while `Slug` reports `HitGround: true`.
+
+**That is a surface disagreement, but not the one 8g proposed.** It is not the predictor against the
+round: those still read `+0.0 m` apart. It is the round against *itself* — the `_groundRadius` it
+cached to test the crossing with, against where `GroundTest` says the surface is once it has
+stopped. `Slug.cs:212-214` samples the ground **once per frame**, at the round's position at the
+frame boundary, and the crossing is then tested against that one radius for every sub-step of the
+frame. 412 m is far more than the ~144 m of ground the round covers in a frame at this speed, so a
+stale sample alone does not obviously account for it.
+
+**The next probe is the cached radius itself** — log `_groundRadius` beside what `GroundTest`
+answers at the landing point. If they differ by the 412 m, the crossing is being tested against the
+wrong surface and the fix is where the sample is taken. If they agree, the round is stopping for
+some reason other than the ground it thinks it hit.
+
+**Nothing here moves a warhead**, and nothing in 8h moves either: the scored miss comes from
+`MissFromAim` via `OnRoundEnded`, on the detonation frame, and was never part of this.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
