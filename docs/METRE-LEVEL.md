@@ -570,6 +570,15 @@ so roughly 60 ms is elsewhere, and two suspects are eliminated:
   `ImpactPredictor` trajectory per computer, so eight rockets is eight re-flights a cycle. Turned
   off: **0.36-0.43x against 0.38-0.43x.** No change.
 
+- **drawing the predicted arcs** — `IcbmOverlay` calls `PathEcl`, which transforms the *whole*
+  predicted path each frame before striding it down to 96 segments, and the path runs to thousands
+  of points. Suppressed for every rocket: **0.38-0.48x, unchanged.** (The transform-then-stride is
+  still wasteful and worth fixing on its own; it is simply not what bounds this.)
+
+**And the decline during a run is the deployment ramp, not a leak.** A bus releases six warheads part
+way through, so the world goes 9 vehicles to 33 mid-flight and the solver tick goes **6.4 ms to
+21.9 ms** with it. It plateaus at 33.
+
 What is left is engine-side per-vehicle work — `PrepareVehicleWorkers` is serial per vehicle, and
 `VehicleUpdateTask` has three more per-vehicle loops on the main thread after the parallel apply —
 or rendering 33 part trees. **That wants a profiler rather than another guess**, and it is the one
