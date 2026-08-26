@@ -3697,6 +3697,38 @@ experiment budget with one change.
 **The two 23-29 m shots are the closest this project has put warheads on a target**, and with 8q's
 47 m they are the three best ever flown -- all within a few hours of the floor first existing.
 
+### And the mechanism is the trim budget, which corrects 8q
+
+Item 8q said B1's blocker did not reproduce. It does; four shots were not enough to see it. **Three
+of the five floored shots stopped on the same line:**
+
+```
+post-boost: released on 40 m/s of trim, which is the bus's budget for correcting
+```
+
+`PostBoostAim.MaxTrimMetresPerSecond` is 40 and `IcbmConfig.TrimBudgetMetresPerSecond` defaults to
+it. What each was still owed when it ran out:
+
+| shot | passes | owed at release | bias | miss |
+| --- | --- | --- | --- | --- |
+| 005-floor | 2 | **1.49 m/s** | 0.0 km | 3,803 m |
+| 007-floor | 2 | **0.47 m/s** | 0.0 km | 3,401 m |
+| 001-floor | 3 | 5.70 m/s | 2.4 km | 1,924 m |
+| 004-floor | 3 | budget untouched | 0.3 km | **29 m** |
+| 009-floor | 3 | budget untouched | 0.1 km | **23 m** |
+
+**Two of the three were nearly finished** — half a metre a second and one and a half — and the budget
+cut them off with the aim still uncorrected, which cost kilometres. The third was genuinely running
+away at 2.4 km of bias and a larger budget would only have bought it more of the wrong answer.
+
+So there are two faults here and they want different fixes. The budget is B1's shape a third time:
+*a guard sized for the shallow case that cannot tell a large legitimate correction from a runaway* —
+the same sentence B1 writes about `MaxMetresPerSecond`, which `9b48bd1` already fixed by letting the
+caller size it. The runaway is item 8f's, unchanged and still open.
+
+**And the failure is backwards**: the shots that most needed correcting — opening at 5.7 km out
+against 2.9 for the best one — are exactly the ones the budget stopped.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
