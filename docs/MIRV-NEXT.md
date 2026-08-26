@@ -3649,6 +3649,54 @@ post-boost demand. Neither floored `on` shot showed that failure, and neither `o
 demand at all. B1's premise should be re-read against these four shots before anything is built for
 it -- and two of its three items were already stale, see that file.
 
+## 8r. The floor is worth another night, and the scatter under it is a mechanism — 2026-08-26
+
+`~/shots/2026-08-26-1918`, ten shots, `dev` against `arm/floor15-on`, which differs by one line:
+`BallisticScenario.ScenarioArrivalFloorDeg` 0 to 15.
+
+| arm | shots (km) | median | ratio | 97% interval | p | verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| base | 0.473, 3.121, 4.950, 5.446, 5.508 | 4.95 km | — | — | — | baseline |
+| **floor** | **0.023, 0.029**, 1.924, 3.401, 3.803 | **1.92 km** | **0.39** | 0.00-4.07 | 0.151 | **UNRESOLVED** |
+
+`UNRESOLVED, open` by `docs/SHOT-PROTOCOL.md`'s table — the interval still admits a ratio under 0.6,
+so it is worth another night. At the measured sigma of this geometry, ~0.75, twenty-five an arm
+resolves x0.52 and the observed 0.39 sits inside that.
+
+**Correct a number this file has been repeating.** The baseline does *not* arrive at 7 degrees on this
+target. `shot-report.py`'s own attribution column reads **13.7 deg** for `base` and **15.9** for
+`floor`, so the floor bought **2.2 degrees**, not eight. `ARRIVAL-ANGLE.md`'s 7.1 belongs to the
+3,459 km deorbit pickup, which is a different shot. A large effect from a small cause is also what
+noise looks like at n=5, and p=0.151 cannot separate them.
+
+The floor arm's cutoff residual is three times **worse** — 0.220 against 0.070 m/s — so whatever it is
+doing, it is not winning by flying a cleaner burn.
+
+### The scatter is not noise, and that is the finding
+
+| shot | miss | bias at release | post-boost passes |
+| --- | --- | --- | --- |
+| 009-floor | **23 m** | 0.1 km | 3 |
+| 004-floor | **29 m** | 0.3 km | 3 |
+| 001-floor | 1,924 m | 2.4 km | 3 |
+| 007-floor | 3,401 m | **0.0** | **2** |
+| 005-floor | 3,803 m | **0.0** | **2** |
+
+Three regimes, and the miss is very nearly a function of which one the loop landed in:
+
+- **converged** — a small, correct bias, and the shot lands in **tens of metres**
+- **run away** — 2.4 km of bias, and it costs 1.9 km
+- **starved** — no bias at all, both shots with only two passes, and it costs 3.4-3.8 km
+
+That is item 8p's split seen at a steeper arrival, where getting it right is worth 23 m rather than
+500. **It also says the arm's sigma is a mechanism rather than a scatter**, which matters twice over:
+a loop that converged every time would land near 25 m every time, *and* the same question would then
+cost about six shots an arm instead of twenty-five. Fixing the loop buys the accuracy and the
+experiment budget with one change.
+
+**The two 23-29 m shots are the closest this project has put warheads on a target**, and with 8q's
+47 m they are the three best ever flown -- all within a few hours of the floor first existing.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
