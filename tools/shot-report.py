@@ -112,6 +112,54 @@ IMPACT = re.compile(
     r"warhead trace: round \d+ landed at\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\|\s*"
     r"[-\d.]+\s*m from the aim\s*\|\s*walk from the release probe\s+[-\d.]+\s*m\s*"
     r"\(([-+\d.]+)\s*down,\s*([-+\d.]+)\s*cross\)")
+# What ended the post-boost correction, which is the one thing that decides whether the aim loop
+# was allowed to finish. Every Finish() in Sim/PostBoostAim.cs, in the order it is tested, plus the
+# two numbers that say how near it got: the passes it ran and what the trim was still owed. A shot
+# whose loop the budget or the clock cut off is a different shot from one that converged, and
+# nothing else in this report separates them.
+POSTBOOST = re.compile(r"INFO  post-boost: (.+)$", re.M)
+PASS = re.compile(r"post-boost: correcting the aim, ([\d.]+) km out \(pass (\d+)\)")
+TOGAIN = re.compile(r"trimming ([\d.]+) m/s on")
+
+WHY = [
+    ("budget",   re.compile(r"^released on .* of trim")),
+    ("clock",    re.compile(r"^released after [\d.]+ s of correcting")),
+    ("unsteady", re.compile(r"^released after [\d.]+ s of the bus not holding still")),
+    ("trim",     re.compile(r"the trim (stopped|refused)")),
+    ("settled",  re.compile(r"^aim settled ")),
+    ("noimprov", re.compile(r"^\d+ passes without beating")),
+    ("cycles",   re.compile(r"^released after \d+ corrections")),
+    ("payback",  re.compile(r"^[\d.]+ m out, under the ")),
+]
+
+ABANDONED = re.compile(r"still [\d.]+ m from the spent stack after [\d.]+ s")
+
+
+def why_it_ended(log):
+    """Which stopping rule fired, its passes, and what the trim still owed when it did."""
+    end = None
+    for m in POSTBOOST.finditer(log):
+        if any(r.search(m.group(1)) for _, r in WHY):
+            end = m
+            break
+
+    # No Finish() at all is not a gap in this parser -- it is the separation clearance releasing
+    # the warheads over the top of a loop that never got to decide. MIRV-NEXT item 8p, where it
+    # was 22 of 24 shots, and it reads as `clearance` rather than as a missing measurement.
+    if end is None:
+        cut = ABANDONED.search(log)
+        if cut is None:
+            return None, None, None
+        name, at = "clearance", cut.start()
+    else:
+        name = next((n for n, r in WHY if r.search(end.group(1))), "other")
+        at = end.start()
+
+    passes = max((int(g) for _, g in PASS.findall(log[:at])), default=0)
+    owed = TOGAIN.findall(log[:at])
+    return name, passes, (float(owed[-1]) if owed else None)
+
+
 SURFACE = re.compile(
     r"surface at the landing point: the round stopped on\s*([\d.]+)\s*m")
 
@@ -132,6 +180,7 @@ def read_shot(out_path, log_path):
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [],
             "band_deg": [], "impacts": [],
+            "why": None, "passes": None, "owed": None,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
             "version": None}
 
@@ -159,6 +208,7 @@ def read_shot(out_path, log_path):
     m = BANNER.search(log)
     if m:
         shot["version"] = m.group(1)
+    shot["why"], shot["passes"], shot["owed"] = why_it_ended(log)
 
     shot["offline"] = [v for _, v in _floats(OFFLINE, both, 2)]
     shot["probe_km"] = [v for v, _ in _floats(PROBE, log, 2)]
@@ -661,9 +711,29 @@ def main():
             if not usable(s):
                 print(head + f"  {s['arrived']}/{s['released']} arrived -- not scored")
                 continue
+            owed = f"{s['owed']:.2f}" if s["owed"] is not None else "  -"
             print(head + f"  mean {s['mean']:.2f}  spread {s['spread']:.2f}  "
                   f"worst {s['worst']:.2f}  residual {s['residual'] if s['residual'] is not None else float('nan'):.3f}  "
-                  f"lag {statistics.median(s['lag_m']) if s['lag_m'] else float('nan'):.0f} m")
+                  f"lag {statistics.median(s['lag_m']) if s['lag_m'] else float('nan'):.0f} m  "
+                  f"{s['why'] or '-':<9} {s['passes'] if s['passes'] is not None else '-':>2}p "
+                  f"owed {owed:>5} m/s")
+
+    print("\n== what ended the post-boost correction")
+    print("   the aim loop finishing is not the same shot as the loop being cut off; which rule")
+    print("   fired is upstream of every number above it")
+    for arm in arms:
+        mine = [s for s in shots if s["arm"] == arm and usable(s)]
+        if not mine:
+            continue
+        by = {}
+        for s in mine:
+            by.setdefault(s["why"] or "unknown", []).append(s)
+        print(f"   {arm:<14}", end="")
+        for name in sorted(by, key=lambda k: -len(by[k])):
+            got = sorted(x["mean"] for x in by[name])
+            med = statistics.median(got)
+            print(f" {name} n={len(got)} median {med:.2f} km ", end="")
+        print()
 
     compare(root, shots, arms, "mean")
     compare(root, shots, arms, "spread")
