@@ -158,6 +158,18 @@ internal sealed class Slug : IProjectile
     /// </summary>
     public IGroundTest? Ground { get; set; }
 
+    /// <summary>
+    /// How far the sampled ground centre has moved by a stated time into the frame, back-dated the
+    /// same way <see cref="AirDensityAt"/> is. Null holds the sample for the frame, which is what
+    /// every rig that models no body motion wants and what <see cref="RoundFields.Held"/> means.
+    /// </summary>
+    public Func<double, double3>? GroundCentreDriftAt { get; set; }
+
+    private double3 GroundCentre(double secondsIntoFrame)
+        => GroundCentreDriftAt is { } drift
+               ? _groundCentre + drift(secondsIntoFrame)
+               : _groundCentre;
+
     /// <summary>True when it was the ground that stopped this round rather than a body or a fuse.</summary>
     public bool HitGround { get; private set; }
 
@@ -175,7 +187,8 @@ internal sealed class Slug : IProjectile
     /// the round. <c>docs/MIRV-NEXT.md</c> item 8k.
     /// </summary>
     public double StopAltitudeAgainstOwnGround =>
-        _haveGround ? Vec.Len(PositionEcl - _groundCentre) - _groundRadius : double.NaN;
+        _haveGround ? Vec.Len(PositionEcl - GroundCentre(DetonationElapsedInFrame)) - _groundRadius
+                    : double.NaN;
 
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
@@ -411,8 +424,18 @@ internal sealed class Slug : IProjectile
 
         if (_haveGround)
         {
-            double was = Vec.Len(before - _groundCentre) - _groundRadius;
-            double now = Vec.Len(PositionEcl - _groundCentre) - _groundRadius;
+            // The radius is a property of the ground and keeps for the frame; the centre is a
+            // POSITION, and the body it names moves at ~30 km/s while the round carries the same.
+            // Sampled once at the frame's end and held, it drifts against the round by
+            // bodyVelocity x (frame - elapsed) -- flown at 248-412 m of stop height, which at a
+            // 13.8 deg arrival is 1.0-1.7 km of ground. Back-dated exactly like the density lookup
+            // above, and by the caller for the same reason: the round is handed a vector and knows
+            // nothing about bodies. docs/MIRV-NEXT.md item 8l.
+            double3 centreWas = GroundCentre(elapsedInFrame - frameSeconds);
+            double3 centreNow = GroundCentre(elapsedInFrame + h - frameSeconds);
+
+            double was = Vec.Len(before - centreWas) - _groundRadius;
+            double now = Vec.Len(PositionEcl - centreNow) - _groundRadius;
 
             if (now <= 0.0)
             {

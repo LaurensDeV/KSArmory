@@ -2336,6 +2336,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private Func<double3, double, double3>? _gravityAt;
 
+    // Where the body was, relative to the sample the ground was read against. Same back-dating as
+    // the gravity and density callbacks and for the same reason: the celestial sample is at the
+    // frame's end and the round crosses the frame, so secondsIntoFrame arrives negative and this
+    // walks the centre BACK to the sub-step's own instant.
+    private double3 GroundCentreDriftIntoFrame(double secondsIntoFrame)
+        => _bodyVelocityEcl * secondsIntoFrame;
+
+    private Func<double, double3>? _groundDriftAt;
+
     private double3 BodyVelocityEcl()
     {
         try
@@ -2431,7 +2440,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                             round.Munition, mediumDensity,
                             new RoundFields(_gravityAt ??= GravityIntoFrame,
                                             _airDensityAt ??= AirDensityIntoFrame,
-                                            GroundTest.Shared));
+                                            GroundTest.Shared,
+                                            _groundDriftAt ??= GroundCentreDriftIntoFrame));
 
 
             // Paired with the switch below rather than with "no longer flying": a round shot down

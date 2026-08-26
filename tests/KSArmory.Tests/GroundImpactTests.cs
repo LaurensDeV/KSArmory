@@ -29,24 +29,22 @@ public class GroundImpactTests
     }
 
     /// <summary>
-    /// A planet that moves, which every planet does. <see cref="Ball"/> cannot see the fault in
-    /// item 8l of <c>docs/MIRV-NEXT.md</c> because its centre is a constant and its round carries no
-    /// motion — so the two terms that disagree in flight are equal there by construction.
+    /// A planet that moves, sampled where the engine samples one: at the frame's <em>end</em>
+    /// (<c>docs/KSA-FRAME-ORDER.md</c> §5), so it is one step ahead of a round part-way through the
+    /// frame. <see cref="Ball"/> cannot see the fault at all — constant centre, motionless round.
     /// </summary>
-    private sealed class MovingBall(double radius, double3 velocity) : IGroundTest
+    private sealed class MovingBall(double radius, double3 velocity, double frame) : IGroundTest
     {
-        public double3 CentreNow = Centre;
-        public double3 CentreWhenSampled;
+        public int FramesIssued;
+
+        public double3 SampleEcl => Centre + velocity * ((FramesIssued + 1) * frame);
 
         public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
         {
-            CentreWhenSampled = CentreNow;
-            centreEcl = CentreNow;
+            centreEcl = SampleEcl;
             surfaceRadius = radius;
             return true;
         }
-
-        public void Advance(double seconds) => CentreNow += velocity * seconds;
     }
 
     private static MunitionProfile Bomb(bool hitsTerrain = true) => new()
@@ -178,57 +176,56 @@ public class GroundImpactTests
     }
 
     /// <summary>
-    /// The centre is a position, and the body it names moves. A round's own <c>PositionEcl</c>
-    /// carries that motion, so a centre sampled at the frame boundary and held across the frame's
-    /// sub-steps drifts against the round at the body's own speed — and the round stops when *that*
-    /// distance reaches the radius rather than when it reaches the ground.
+    /// The centre is a position, and the body it names moves. The engine's celestial sample is at
+    /// the frame's end while the round crosses the frame, so a centre held for the frame drifts
+    /// against the round by <c>bodyVelocity × (frame − elapsed)</c> — and the round then stops when
+    /// *that* distance reaches the radius rather than when it reaches the ground.
     ///
-    /// <para>Flown, at 29.8 km/s of ecliptic carrier: stop heights of 248–412 m, which at the
-    /// 13.8° arrival of a reentry vehicle is 1.0–1.7 km of ground. <c>docs/MIRV-NEXT.md</c> 8l.</para>
+    /// <para>Flown at 29.8 km/s of carrier before the drift was carried: stop heights of 248–412 m,
+    /// which at the 13.8° arrival of a reentry vehicle is 1.0–1.7 km of ground.
+    /// <c>docs/MIRV-NEXT.md</c> items 8l and 8n.</para>
     ///
-    /// <para>The body's velocity is set across the radius rather than along it so that both a
-    /// radial and a tangential component exist, which is what any real geometry gives.</para>
+    /// <para>The body's velocity is set across the radius rather than along it, so both a radial
+    /// and a tangential component exist — which is what any real geometry gives.</para>
     /// </summary>
-    [Fact(Skip = "Reproduces an unfixed defect -- docs/MIRV-NEXT.md item 8m. Fails at "
-                 + "-88.3 m against a 0.5 m bar, which is the fault, not the test.")]
+    [Fact]
     public void TheGroundCentreIsCarriedWithTheBodyAcrossAFrame()
     {
         double3 bodyVelocity = Vec.Unit(new double3(1, 1, 0)) * 29_800.0;
 
-        MovingBall ground = new(PlanetRadius, bodyVelocity);
-        double3 start = new(PlanetRadius + 500.0, 0, 0);
+        MovingBall ground = new(PlanetRadius, bodyVelocity, Dt);
+        double3 start = Centre + new double3(PlanetRadius + 500.0, 0, 0);
 
         // Co-moving with the body, so relative to the ground it is simply dropped from 500 m.
         Slug bomb = new(start, bodyVelocity, null, 1, start, Vec.Zero)
         {
             Munition = Bomb(),
             Ground = ground,
-        };
 
-        double3 centreAtFrameStart = ground.CentreNow;
+            // Composed by the caller, exactly as WeaponSystem composes it. secondsIntoFrame arrives
+            // back-dated and negative, so this walks the centre back to the sub-step's own instant.
+            GroundCentreDriftAt = s => bodyVelocity * s,
+        };
 
         for (int i = 0; i < 4000 && bomb.State == RoundState.Flying; i++)
         {
-            centreAtFrameStart = ground.CentreNow;
-
-            double3 gravity = Vec.Unit(ground.CentreNow - bomb.PositionEcl) * 9.81;
+            double3 gravity = Vec.Unit(ground.SampleEcl - bomb.PositionEcl) * 9.81;
             bomb.Update(Dt, null, gravity, Vec.Zero, Vec.Zero, bomb.Munition);
-
-            ground.Advance(Dt);
+            ground.FramesIssued++;
         }
 
         Assert.Equal(RoundState.Detonated, bomb.State);
         Assert.True(bomb.HitGround);
 
-        // Where the body actually was when it burst: DetonationElapsedInFrame is measured back from
-        // the end of that frame, so this is how far into the frame the burst fell.
-        double intoFrame = Dt + bomb.DetonationElapsedInFrame;
-        double3 centreAtBurst = centreAtFrameStart + bodyVelocity * intoFrame;
+        // Where the body honestly was when it burst: the last issued sample is that frame's end,
+        // and DetonationElapsedInFrame is measured back from it.
+        double3 centreAtBurst = Centre + bodyVelocity * (ground.FramesIssued * Dt)
+                                + bodyVelocity * bomb.DetonationElapsedInFrame;
 
         double altitude = Vec.Len(bomb.PositionEcl - centreAtBurst) - PlanetRadius;
 
         // The same bar the stationary case is held to. Against a centre frozen for the frame this
-        // is hundreds of metres, and the sign follows the geometry rather than being fixed.
+        // is -88.3 m, and in flight it was 248-412 m.
         Assert.True(Math.Abs(altitude) < 0.5,
                     $"burst {altitude:F1} m from the surface of a body that was moving; "
                     + "the cached ground centre is not being carried with it");

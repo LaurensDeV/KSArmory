@@ -22,10 +22,16 @@ namespace KSArmory;
 /// </param>
 /// <param name="AirDensityAt">The density at a stated position, back-dated the same way.</param>
 /// <param name="Ground">Where the surface is under the round, or null for a round nothing stops.</param>
+/// <param name="GroundCentreDriftAt">
+/// How far the sampled ground centre has moved by a stated time into the frame, back-dated the same
+/// way. The radius keeps for the frame — it is a property of the ground — but the centre is a
+/// position on a body doing ~30 km/s, so holding it drifts against the round.
+/// </param>
 internal readonly record struct RoundFields(
     Func<double3, double, double3>? GravityAt,
     Func<double3, double, double>? AirDensityAt,
-    IGroundTest? Ground)
+    IGroundTest? Ground,
+    Func<double, double3>? GroundCentreDriftAt = null)
 {
     /// <summary>
     /// No lookups at all: every field held at the frame's first sample for the whole frame.
@@ -77,6 +83,7 @@ internal static class RoundDriver
             slug.GravityAt = fields.GravityAt;
             slug.AirDensityAt = fields.AirDensityAt;
             slug.Ground = fields.Ground;
+            slug.GroundCentreDriftAt = fields.GroundCentreDriftAt;
         }
 
         round.Update(dt, target, gravity, frameVelocityEcl, platformEcl, munition, mediumDensityRatio);
