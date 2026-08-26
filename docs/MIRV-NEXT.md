@@ -3214,10 +3214,20 @@ travel at 4,212 m/s is about 1,900 m, which is the bulk of the 2,292 m downrange
 
 **What is not yet settled** is the contradiction between two readings of the same landing: the last
 trace sample puts the round 468 m *above* a surface at `MeanRadius`, while `Surfaces` reports it
-51.8 m *below* that surface. Both cannot describe one instant. Either the trace stops sampling
-before the last frames, or `BallisticBody.SurfaceRadius` — what `AltitudeOf` subtracts — is not the
-sea-clamped radius the landing was scored against. **That is the next measurement**, and it is a
-reading of two constants rather than a night of shots.
+51.8 m *below* that surface. Both cannot describe one instant.
+
+**Half of that is now settled by reading.** `IcbmComputer` builds the body as
+`new BallisticBody(mu, Parent.MeanRadius, ...)`, so what `AltitudeOf` subtracts is exactly the
+6,371,000 m the landing was scored against — the two readings are on the same ruler. The gap between
+them is therefore **520 m of real descent**, which at the sampled 1,045 m/s is **0.50 s** — the same
+half-second as the "early" arrival, to within the sampling.
+
+**So the two anomalies are one anomaly, and it is in the instrument.** The periodic sampler stops
+about eleven frames before the terminal record, and the landed line pairs a position from one
+instant with a time from another. A round still 468 m up is 1,907 m short of its own impact at this
+arrival, which is most of the 2,292 m downrange "walk". **The next measurement is which instant
+each field of that line is read at** — a question about `WarheadTrace`, not about guidance, and one
+nothing has to be flown to answer.
 
 **No fix here, and deliberately.** What this changes is the target: 8f and 8g both point downstream
 at the surface, and the surface is clean. Everything the correction loop reads is still driven by
