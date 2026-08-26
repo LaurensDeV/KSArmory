@@ -70,7 +70,12 @@ internal sealed class ShotGroup
 
         return new ShotVerdict(
             Worst <= barMetres,
-            $"{flown}; worst {Worst / 1000.0:F2} km, best {Best / 1000.0:F2} km, "
-            + $"mean {Mean / 1000.0:F2} km, spread {Spread / 1000.0:F2} km ({bar})");
+            // Three places, not two. F2 in km is a 10 m quantum, which is a fifth of the group
+            // docs/METRE-LEVEL.md rung C is gated on and larger than the whole spread term -- it
+            // reported every group of 2026-08-26 as 0.00 or 0.01 km and scored two arms a LOSS on
+            // the rounding. Metres would read better and would change what the unit means in every
+            // log already written; the parser takes [\d.]+ either way.
+            $"{flown}; worst {Worst / 1000.0:F3} km, best {Best / 1000.0:F3} km, "
+            + $"mean {Mean / 1000.0:F3} km, spread {Spread / 1000.0:F3} km ({bar})");
     }
 }
