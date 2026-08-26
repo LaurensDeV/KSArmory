@@ -3448,6 +3448,57 @@ being driven by a different signal from the one it was tuned against.**
 fix with the interlock of 8h put back — because the interlock lost to a diverging loop reading a
 probe that was wrong by 2 km, and that is no longer the case.
 
+## 8o. The walk is gone and the miss did not move — 2026-08-26
+
+`~/shots/2026-08-26-1220`, 24 shots, three arms interleaved, the save's own defended site at
+12,902 km. `shipped` is `e0357a2`; `drift` adds `0eaf0c4`, the carried ground centre; `both` adds
+8h's interlock on top of it, restored unchanged.
+
+**The mechanism half is total.** From the attribution table, medians over eight shots each:
+
+| arm | walk downrange | walk cross | arrives early | misses |
+| --- | --- | --- | --- | --- |
+| shipped | **−2,372 m** | +741 m | 0.47 s | 0.55, 0.82, 1.28, 1.88, 3.48, 3.70, 4.29, 4.33 |
+| drift | **−8 m** | +0 m | **0.00 s** | 0.06, 0.62, 1.94, 3.15, 5.06, 5.22, 6.23, 6.83 |
+| both | **−7 m** | +0 m | **0.00 s** | 0.12, 1.11, 4.48, 4.62, 6.00, 6.26, 6.64, 7.22 |
+
+The walk and the early arrival are abolished on every fixed shot, repeatably. Item 8g's 2.35 km is
+closed and stays closed.
+
+**The accuracy half bought nothing, and may have cost.**
+
+| arm | median | ratio | 97% interval | p | verdict | passes |
+| --- | --- | --- | --- | --- | --- | --- |
+| shipped | 2.68 km | — | — | — | baseline | **8/8** |
+| drift | 4.10 km | 1.45 | 0.32–3.95 | 0.382 | unresolved | 4/8 |
+| both | 5.31 km | 1.69 | 0.59–5.46 | 0.065 | unresolved | 4/8 |
+
+**So the largest term in the error budget was removed and the warheads land no nearer.** That is
+item 8f's claim — the predicted miss and the flown miss are unrelated — demonstrated rather than
+argued, and it is the most useful thing this night produced.
+
+**What actually changed is the variance, not the centre.** `shipped` spans 0.55–4.33 and never fails;
+`drift` spans 0.06–6.83 with four failures, and holds both the best shot of the night and three of
+the four worst. A 2.37 km systematic shortfall being removed would translate the impacts; it would
+not widen them. Everything the correction loop stops on — the payback rule, the budget, the ceiling,
+`IsSteady` — reads the release probe, and the probe's relationship to the ground has just changed
+by two kilometres. **The loop is converging differently, and 8f already recorded that it diverges on
+some shots.** That is the next thing to look at, and it is now the only large term left.
+
+**The intra-salvo spread went from 0.00 to 0.01 km**, flagged a clean LOSS at p≤0.002. It is ten
+metres, and the likely reading is not a regression at all: six warheads that all stopped at the same
+spurious height land identically, so the old `0.00` was the defect flattering itself.
+
+**`both` loses a second time**, on an honest probe this time — which was the whole reason to re-ask.
+Two nights, ratios 2.05 and 1.69, never a win. `arm/interlock` should be deleted and 8h left as the
+record.
+
+**The fix is kept anyway, and the reason is not the miss.** A round stopping 250–412 m above the
+ground is wrong for every munition with `HitsTerrain`, the bomb sight included, and none of that is
+measured by this target. It is verified in flight, pinned by a test that fails at 262.9 m without it,
+and the miss result is *unresolved* rather than a proven loss. Reverting would restore a compensating
+error and make every future measurement one against a ground known to be in the wrong place.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
