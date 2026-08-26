@@ -70,6 +70,10 @@ internal sealed class WarheadTrace
 
     private IProjectile? _round;
     private int _lines;
+    private int _frames;
+    private int _lastSampleFrame = -1;
+    private double _lastSampleAlt = double.NaN;
+    private double _lastSampleAge = double.NaN;
     private double _worldSeconds;
     private double _lastAge;
     private double _sinceSample;
@@ -124,6 +128,10 @@ internal sealed class WarheadTrace
     {
         _round = round;
         _lines = 0;
+        _frames = 0;
+        _lastSampleFrame = -1;
+        _lastSampleAlt = double.NaN;
+        _lastSampleAge = double.NaN;
         _worldSeconds = 0.0;
         _lastAge = round.Age;
         _sinceSample = 0.0;
@@ -227,6 +235,8 @@ internal sealed class WarheadTrace
 
         try
         {
+            _frames++;
+
             if (double.IsFinite(simStep) && simStep > 0.0) _worldSeconds += simStep;
             if (double.IsFinite(_remaining)) _remaining -= simStep;
 
@@ -276,10 +286,17 @@ internal sealed class WarheadTrace
 
         double lag = _worldSeconds - round.Age;
 
-        Log.Debug($"warhead trace {++_lines}: t={_worldSeconds:F2}s age={round.Age:F2}s"
+        double altitude = setup.Body.AltitudeOf(positionCci);
+
+        _lastSampleFrame = _frames;
+        _lastSampleAlt = altitude;
+        _lastSampleAge = round.Age;
+
+        Log.Debug($"warhead trace {++_lines}: t={_worldSeconds:F2}s age={round.Age:F4}s"
                   + $" lag={lag * 1000.0:F1}ms dt={simStep * 1000.0:F1}ms step={advanced * 1000.0:F1}ms"
                   + $" sim={KsaWorld.SimulationSpeed:F2}x"
-                  + $" alt={setup.Body.AltitudeOf(positionCci) / 1000.0:F3}km"
+                  + $" frame={_frames}"
+                  + $" alt={altitude / 1000.0:F3}km r={Vec.Len(positionCci):F1}"
                   + $" v={Vec.Len(velocityCci):F1}m/s local={round.Speed:F1}m/s");
     }
 
@@ -343,6 +360,22 @@ internal sealed class WarheadTrace
                      + $" over {_lines} sampled frames");
 
             Log.Info($"warhead trace: {Surfaces(setup, round, positionCci)}");
+
+            // The probe for docs/MIRV-NEXT.md item 8i. Across 24 flown shots the last sampled
+            // altitude is ~500 m and the landing is tens of metres BELOW the same surface, with the
+            // round's own age unchanged between the two -- 500 m in under 10 ms, which nothing can
+            // fly. So either the round moves without its clock recording it, or the two altitudes
+            // are not measured against the same thing, and every other candidate is eliminated:
+            // both terrain reads agree to +0.0 m, the sub-step overshoot is bounded at ~5 m, and
+            // `lag` reconciles the clocks to 1 ms rather than the frame a late Finish would cost.
+            //
+            // `alt` here is the SAME expression the per-frame sample logs, so a value near the last
+            // sample's says the references differ and a value near the surface says the round moved.
+            Log.Info($"warhead trace probe: frame {_frames} (last sample was frame {_lastSampleFrame}),"
+                     + $" alt {setup.Body.AltitudeOf(positionCci):F1} m against the sample's"
+                     + $" {_lastSampleAlt:F1} m, r {Vec.Len(positionCci):F1},"
+                     + $" age {round.Age:F4}s against the sample's {_lastSampleAge:F4}s,"
+                     + $" surfaceRadius {setup.Body.SurfaceRadius:F1}");
         }
         catch
         {
