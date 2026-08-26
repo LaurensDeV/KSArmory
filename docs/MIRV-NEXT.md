@@ -3233,6 +3233,54 @@ nothing has to be flown to answer.
 at the surface, and the surface is clean. Everything the correction loop reads is still driven by
 the probe, so the 2.4 km is still the largest term — it is just not where it was thought to be.
 
+## 8j. The probe read out, and the frame-pairing hypothesis is wrong
+
+`3c90b07` added a probe to `WarheadTrace.Finish`: `AltitudeOf` computed with the **same expression**
+the per-frame sample uses, beside the last sample's own value, frame index and age. One shot:
+
+```
+frame 5951 (last sample was frame 5950), alt -63.7 m against the sample's 429.2 m,
+age 403.5579s against the sample's 403.5569s
+```
+
+**493 m of altitude across 1 ms of the round's own age**, and `Finish` running one frame after the
+last sample. The obvious reading was the one this codebase warns about most — `Finish` pairs a
+`PositionEcl` frozen at detonation with a `Parent.GetPositionEcl()` read live a frame later, leaking
+one frame of the body's 29.78 km/s.
+
+**Flown, and it is not that.** Pairing the landing against the parent at the burst instant — the
+same `DetonationElapsedInFrame` correction the clock already applies, plus carrying the point into
+the live frame for `GroundTest`:
+
+| | landing vs its own surface | sample → Finish gap |
+| --- | --- | --- |
+| as shipped | **−63.7 m** | 493 m |
+| paired at the burst instant | **+970.4 m** | 517 m |
+
+It moved the landing from tens of metres below the ground to **a kilometre above it**, and **the gap
+did not close**. A correction that shifts one endpoint without closing the gap is not acting on the
+cause. Reverted.
+
+**What that eliminates, and what it leaves.** The parent pairing is out. So is the surface (8i:
+`+0.0 m` on 24 shots), the sub-step overshoot (~5 m, bounded by `Slug`'s back-interpolation to the
+crossing), the trajectory (7 m over 403 s), and a late `Finish` on the clock side (`lag` reconciles
+to −1.0 ms, and the probe shows why: the round detonates on the first sub-step of its frame, so
+`DetonationElapsedInFrame` is nearly a whole frame).
+
+**And it moves the suspect.** `Finish`'s −63.7 m is roughly what a landing should read — a round
+back-interpolated to the crossing, slightly under. The outlier is **the last sample, reading ~500 m
+of altitude 1 ms before the round is on the ground**, and it reads 468–506 m on every one of the 24
+shots. That is where to look next, not at `Finish`.
+
+**The scored miss is unaffected and the batch data stands.** `MissFromAim` is called from
+`OnRoundEnded`, a callback that fires *on* the detonation frame, and back-dates the aim by
+`GroundVelocityAt(...) * DetonationElapsedInFrame`. Right frame, right sub-frame correction. Nothing
+in 8h changes.
+
+**Five hypotheses have now died on this one number.** Each was consistent with everything known when
+it was formed and none survived a measurement. The probe stays in — it is the only thing that has
+made any of them falsifiable.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
