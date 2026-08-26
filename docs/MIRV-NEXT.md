@@ -3589,6 +3589,41 @@ none flown:
 Item 8o's "only large term left" stands, but it is not in `AimCorrection`. It is in what decides the
 warheads may go.
 
+### Correction: the count was wrong, and one arm predates the fix — re-read 2026-08-27
+
+**The 22-of-24 above is a misread.** The clearance timeout's line is in nearly every log, but on
+most shots it appears *after* the release has begun — it belongs to the release sequence's own
+re-trim, not to what ended the correction. On `003-shipped` the post-boost `Finish()` is at line
+12,648, the first warhead leaves at 12,656, and the clearance line is at 13,208, five seconds
+later. Counting the line counted the wrong event.
+
+`shot-report.py` now reads the rule that actually fired — the eight `Finish()` reasons in
+`Sim/PostBoostAim.cs`, and `clearance` only where there is no `Finish()` at all. **And the arms
+have to be split by whether they carry `9b48bd1`**, which sized the trim's ceiling by the job
+instead of by a constant: `shipped` is `e0357a2` and predates it, so eight of the twenty-four are
+evidence about code that no longer exists.
+
+| | clearance | trim | budget | converged | n |
+| --- | --- | --- | --- | --- | --- |
+| no floor, **pre-`9b48bd1`** | 0 | 7 | 1 | 0 | 8 |
+| no floor, current | **11** | 5 | 3 | 2 | 21 |
+| **15° floor**, current | **0** | **0** | 11 | 4 | 15 |
+
+The seven pre-fix ones all died on the fixed 10 m/s cap while asking for **12.3 to 18.2 m/s** —
+which is precisely the failure `9b48bd1` was written for, seen one last time on the build before
+it. They say nothing about today.
+
+**So 8p's direction survives and its arithmetic does not.** On current code the clearance really is
+the largest single starver of an unfloored shot — but it is **11 of 21**, not 22 of 24, and the
+five `trim` shots beside it all died on the *per-pass* ceiling, `max(budget − spent, 10)`, which is
+the trim budget seen from the other side. The passes-versus-miss result is untouched either way: it
+was measured on the pass count and never on the release reason.
+
+**And the floor decides whether the loop gets to decide at all.** Across the 36 shots flown on
+current code, an unfloored one is starved before it can finish **16 times in 21**, and a floored one
+never — every one of the fifteen reached a budget or a payback decision of its own. That is a second
+mechanism behind 8r's ratio and it is not the arrival angle.
+
 ## 8q. The correction is not the miss under a floor — the rig was wrong by 150x, and the floor is the result — 2026-08-26
 
 `~/shots/2026-08-26-1834`, four shots, two arms, both at `MinArrivalAngleDeg = 15`, differing only
