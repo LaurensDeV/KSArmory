@@ -44,6 +44,7 @@ internal sealed class IcbmComputer
     private bool _measureDue;
     private double _freshMiss = double.NaN;
     private bool _resumedForCoast;
+    private bool _trimAbandoned;
     private double _departsIn;
     private ReleaseCommand _deploy;
     private readonly double3[] _tubeAxes = new double3[64];
@@ -284,6 +285,7 @@ internal sealed class IcbmComputer
         _measureDue = false;
         _freshMiss = double.NaN;
         _resumedForCoast = false;
+        _trimAbandoned = false;
         _trimShape = "";
         _saidTrim = "";
         _separatedFrom = null;
@@ -342,6 +344,7 @@ internal sealed class IcbmComputer
         _measureDue = false;
         _freshMiss = double.NaN;
         _resumedForCoast = false;
+        _trimAbandoned = false;
         _trimShape = "";
         _saidTrim = "";
         _separatedFrom = null;
@@ -1059,29 +1062,20 @@ internal sealed class IcbmComputer
         // separation caused from one that grew while the vehicle coasted clear of it.
         Clearance clearance = _didSplit ? Clear(simStep) : new Clearance(true, false, "");
 
-        // Stopped WAITING rather than given up on. The timeout's job is that a bus which cannot
-        // open the gap does not hold the salvo for ever -- a ninety-second hold put a release probe
-        // 6.8 km out -- and it used to answer that by abandoning the trim outright, which threw the
-        // whole aim correction away with it: measured at 2.68 km against 0.756 for the same craft,
-        // target and build when the correction ran.
+        // Given up on rather than waited out: the stack is readable and still too close, so there
+        // is no manoeuvre to make here that does not fly into it. Release proceeds untrimmed.
         //
-        // It never had to. KeepOutTowardCci is computed in the same pass as the clearance, so at the
-        // moment this fires the interlock already knows which way the stack lies -- and the
-        // interlock is the precise form of the same safety question: it withholds the directions
-        // that would push toward the stage and spends the frame on the ones that would not. With
-        // every direction withheld the trim waits rather than firing, and MaxSeconds and the budget
-        // bound that, so this cannot close the gap it was protecting.
-        //
-        // So the timeout lifts the wait and the interlock keeps the bus off its own stack, which is
-        // what the blunt version was standing in for.
+        // It also caps the correction loop, which is not what it is for and is load-bearing anyway:
+        // the requirement balloons between passes -- 0.02 m/s trimmed, 12.63 asked next -- and this
+        // is what stops the bus flying that number. Handing the safety question to the keep-out
+        // interlock lifts the cap and flies it: 5.39 km median against 3.04. `docs/MIRV-NEXT.md`
+        // item 8h.
         if (clearance.Abandoned)
         {
-            _mayTrim = true;
+            _trimAbandoned = true;
+            if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
             Say(clearance.Said, "");
-        }
-        else
-        {
-            _mayTrim = clearance.IsClear;
+            return;
         }
 
         // Bounded across the flight, not just per run. Each release re-arms the trim, and with the
@@ -1100,6 +1094,8 @@ internal sealed class IcbmComputer
             _saidBudget = true;
             Log.Info($"trim: budget of {budget:F0} m/s spent; the warheads go on the aim as it is");
         }
+
+        _mayTrim = clearance.IsClear;
 
         _trim.Begin();
 
@@ -1688,7 +1684,7 @@ internal sealed class IcbmComputer
         // that is what keeps the sequencer's reference honest: it latches the tube axes on the
         // first frame the launcher is both ready and settled, and a reference latched before the
         // decoupler's shove has been taken back out describes a line no warhead will leave on.
-        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy
+        bool trimming = Config.TrimBeforeRelease && Command.ReadyToDeploy && !_trimAbandoned
                         && (!_trim.Done || _postBoost.Correcting);
 
         if (weapon is null || !Command.ReadyToDeploy || trimming)
