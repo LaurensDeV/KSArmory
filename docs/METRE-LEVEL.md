@@ -545,10 +545,39 @@ during a flight rather than being fixed at launch.
 **3.2x**, against ~1.9x for two game instances — and it needs no per-instance user directory, no PID-based process management and no
 scheduler.
 
-**And the frame rate is not the cost.** Suppressing the flight's verbose logging cut the log from
-7,567 lines to **138** — 54x — and the solver tick did not move. Logging and plume rendering cost
-frames on the main thread; vehicles cost solver time on its own thread; only the second bounds
-throughput.
+### The world advances at most a thirtieth of a second per frame, and that is the whole model
+
+**Frame time is the cost, and nothing else is.** The simulated step is capped at 1/30 s however long
+a frame takes, so once frames are slower than that:
+
+> **sim rate = 33.3 ms / frame time**
+
+It fits both measured points exactly:
+
+| | frame time | predicted | measured |
+| --- | --- | --- | --- |
+| 1 rocket, 6 vehicles | 24.1 ms | 1.00x | **1.00x** |
+| 8 rockets, 33 vehicles | 78.7 ms | 0.42x | **0.41x** |
+
+So **throughput is bought by frame time and by nothing else**: get frames under 33 ms and eight
+rockets is a straight 8x rather than 3.2x. Frame time grows at about **2.0 ms per vehicle**.
+
+**What that 2 ms is has not been found.** The vehicle solver's tick is only 13-20 ms of the 78.7,
+so roughly 60 ms is elsewhere, and two suspects are eliminated:
+
+- **verbose logging** — cut 54x, from 7,567 lines to 138. No change to frame time or tick.
+- **the warhead trace** — `ScenarioRunner` turns it on for every scripted run and it re-flies a whole
+  `ImpactPredictor` trajectory per computer, so eight rockets is eight re-flights a cycle. Turned
+  off: **0.36-0.43x against 0.38-0.43x.** No change.
+
+What is left is engine-side per-vehicle work — `PrepareVehicleWorkers` is serial per vehicle, and
+`VehicleUpdateTask` has three more per-vehicle loops on the main thread after the parallel apply —
+or rendering 33 part trees. **That wants a profiler rather than another guess**, and it is the one
+thing standing between 3.2x and 8x.
+
+**And the engine's frame-rate counter is not the thing to watch either** — turning rendering
+features *down* took the observed rate from 20 fps to 14, exactly as section 5 measured. What
+matters is the frame time above, which is CPU.
 
 ### What it does not yet say
 
