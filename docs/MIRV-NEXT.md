@@ -2991,7 +2991,9 @@ salvo for ever, and that stands; the safety half of it did not have to be answer
 trim, because `TrimSituation.KeepOutTowardCci` is computed in the same pass as the clearance and is
 the precise form of the same question. The timeout now lifts the wait and leaves the interlock
 withholding only the directions that point at the stack. At 4–10 m of a 15 m keep-out there are
-directions left to spend, which is why this is not the blunt version by another name. **Unflown.**
+directions left to spend, which is why this is not the blunt version by another name.
+**Flown, and it lost — see item 8h.** The mechanism works; what it uncovered underneath is a
+correction loop that diverges, which the timeout had been cutting off after one pass.
 
 ### The trim goes on firing after the salvo is away
 
@@ -3120,6 +3122,60 @@ it bounds scales with the trajectory.
 **Next is the walk**, ahead of the ceiling and well ahead of anything else: a correction loop cannot
 converge on an instrument that disagrees with the round by 2.35 km, and the ceiling only decides how
 many wrong corrections get flown.
+
+## 8h. The interlock lost, and what it lost to was the loop it let run — batch, 2026-08-26
+
+`~/shots/2026-08-25-2214`, 24 shots, three arms interleaved against the save's own defended site at
+12,902 km. `shipped` is `e0357a2`, `fixes` adds the trim ceiling and the best-aim keep, `keepout`
+adds `d4623ae` — the clearance timeout handing its safety question to `KeepOutTowardCci`.
+
+| arm | n | median | ratio | 97% interval | verdict |
+| --- | --- | --- | --- | --- | --- |
+| shipped | 10 | 3.04 km | — | — | baseline |
+| fixes | 10 | 2.49 km | 0.88 | 0.54–2.45 | unresolved |
+| **keepout** | **4** | **5.39 km** | **2.05** | 0.59–8.10 | **dropped by the gate** |
+
+`keepout` never flew its last four: the batch's own gate struck it out after two failures and gave
+its shots to the others. Four shots resolve nothing on their own, and the interval says so — but the
+gate is the protocol, and the failure has a mechanism rather than a distribution.
+
+**The change did exactly what it claimed.** One shot flown by hand beforehand confirmed the
+mechanism: four completed correction passes before release against the one every shipped shot gets,
+`releasing without trimming` gone, and — unasked for — zero passes wasted after the salvo, the
+sub-section above's defect closed as a side effect. Every `keepout` shot in the batch shows the same.
+
+**What it lost to is the correction loop diverging, which item 8f had already seen and this exposed.**
+Two of the four shots, side by side:
+
+| | 002 — 2.53 km | 008 — 8.26 km |
+| --- | --- | --- |
+| owed at the split | 1.33 m/s | 1.93 m/s |
+| after pass 1 | 0.018 | 0.023 |
+| pass 2 asks for | *converged* | **12.63** |
+| after pass 2 | 0.027 | 0.026 |
+| pass 3 asks for | *converged* | **15.61** |
+| how it ended | budget spent, **0.58 m/s** left | over the 14 m/s ceiling, **15.61 m/s** left |
+
+Each pass nulls its residual to a couple of hundredths. The *next* solve then demands an order of
+magnitude more. Both 8 km shots end the same way — `more than the 14 m/s this pass may spend` — and
+release with the whole of it outstanding.
+
+**So the clearance timeout was load-bearing by accident.** Cutting the loop off after one pass is
+what kept a diverging run from being flown, and removing it did not create the divergence so much as
+stop hiding it. The two good `keepout` shots (2.14, 2.53 km) are the ones whose loop converged; both
+beat the `shipped` median.
+
+**The fix is the one 8f already named**, and it is still a few lines: `AimCorrection` keeps a best
+bias and reverts to it on `Freeze`, but the post-boost path stops on the trim's *refusal* — so a run
+that diverges releases on the worst state it found rather than the best one it banked. That is the
+same lesson as `WorseBeforeStopping`, one actuator further down.
+
+**Nothing else moved.** The terrain under the target is flat to `+0.00%` against a 13.8° arrival, so
+the ground is not shaping any of it, and the walk from the release probe is −2,308 / −2,409 / −2,346 m
+across the three arms — unchanged, still the largest single term, still the thing 8g points at.
+
+**And `fixes` is a dead heat.** 0.88 with an interval spanning 1.0 both ways, over ten shots against
+ten. The ceiling and the best-aim keep cost nothing and bought nothing measurable at this range.
 
 ## 9. The budget at the 0.65 km level
 
