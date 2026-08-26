@@ -3317,6 +3317,48 @@ some reason other than the ground it thinks it hit.
 **Nothing here moves a warhead**, and nothing in 8h moves either: the scored miss comes from
 `MissFromAim` via `OnRoundEnded`, on the detonation frame, and was never part of this.
 
+## 8l. The walk is Slug's ground centre, frozen for the frame
+
+The probe from item 8k, flown:
+
+```
+alt 248.3 m against the sample's 248.3 m, surfaceRadius 6371000.0,
+crossing tested against 6371000.0 (-248.3 m from where it stopped);
+the round's own view of its stop is -34.9 m
+```
+
+**The round's own view is −34.9 m** — just under the surface, which is what back-interpolating
+across one sub-step should leave, and `GroundImpactTests` already pins that shape. So the crossing
+logic is right. The radius is right too: `Slug` tested against `6371000.0` and `GroundTest` reads
+`6371000.0` at the landing point. **Every term agrees except which instant the body was at.**
+
+`Slug.cs:212-214` samples `_groundCentre` and `_groundRadius` together, once per frame, and every
+sub-step of that frame tests `Vec.Len(PositionEcl - _groundCentre) - _groundRadius` against it. The
+radius is a property of the ground and keeps for a frame. **The centre is a position, and the body
+moves 29.8 km/s.** The round's own `PositionEcl` carries that motion; the frozen centre does not, so
+the distance between them drifts within the frame and the round stops when *that* reaches the
+radius rather than when it reaches the ground.
+
+**And the arithmetic closes on the walk.** 248 m of altitude at this 13.8° arrival is 1,010 m of
+ground, against **1,097 m** of downrange walk measured on the same shot. Across the four probe
+flights the stop height ran 411.7, 355.4, 248.3 m and the walk 1,826, 1,580, 1,097 m — the ratio
+holding near `cot γ` throughout, which is the signature of a height error rather than a ranging one.
+
+**This is a flight defect, not an instrument one.** It moves where a round detonates, so it reaches
+the bomb sight and every munition with `HitsTerrain` — not only the reentry vehicle. Everything
+between 8i and 8k was measurement; this is the first thing here that a fix would change.
+
+**Why nothing caught it.** `GroundImpactTests` asserts the stop lands within 0.5 m of the surface,
+but its ground seam hands back a **static** centre and its round carries **no ecliptic motion** — so
+the two terms that disagree in flight are equal by construction. A regression test has to carry the
+body's motion and move the centre with it, or it passes against the broken code exactly as the
+suite does now.
+
+**The fix has to give the centre a velocity**, not resample it: the once-per-frame sample is a
+deliberate cost decision (`IGroundTest`, and a CIWS burst is 150 shells). Carrying the cached centre
+forward by the body's velocity across `elapsedInFrame` costs one multiply-add per sub-step and puts
+the round's own frame back in step with the world's. **Unbuilt and unflown.**
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
