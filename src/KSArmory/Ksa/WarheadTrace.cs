@@ -393,7 +393,11 @@ internal sealed class WarheadTrace
                      + $" alt {setup.Body.AltitudeOf(positionCci):F1} m against the sample's"
                      + $" {_lastSampleAlt:F1} m, r {Vec.Len(positionCci):F1},"
                      + $" age {round.Age:F4}s against the sample's {_lastSampleAge:F4}s,"
-                     + $" surfaceRadius {setup.Body.SurfaceRadius:F1}");
+                     + $" surfaceRadius {setup.Body.SurfaceRadius:F1}"
+                     + (round is Slug slug
+                            ? $", crossing tested against {slug.GroundRadiusUsed:F1}"
+                              + $" ({slug.GroundRadiusUsed - Vec.Len(positionCci):+0.0;-0.0} m from where it stopped)"
+                            : ", not a Slug"));
         }
         catch
         {

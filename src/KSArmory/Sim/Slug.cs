@@ -161,6 +161,13 @@ internal sealed class Slug : IProjectile
     /// <summary>True when it was the ground that stopped this round rather than a body or a fuse.</summary>
     public bool HitGround { get; private set; }
 
+    /// <summary>
+    /// The surface radius the crossing was last tested against, and whether there was one. Sampled
+    /// once per frame at the round's own position, so it is up to a frame of ground stale by the
+    /// time a sub-step crosses it — which is what <c>docs/MIRV-NEXT.md</c> item 8k is measuring.
+    /// </summary>
+    public double GroundRadiusUsed => _haveGround ? _groundRadius : double.NaN;
+
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
 
