@@ -28,6 +28,27 @@ public class GroundImpactTests
         }
     }
 
+    /// <summary>
+    /// A planet that moves, which every planet does. <see cref="Ball"/> cannot see the fault in
+    /// item 8l of <c>docs/MIRV-NEXT.md</c> because its centre is a constant and its round carries no
+    /// motion — so the two terms that disagree in flight are equal there by construction.
+    /// </summary>
+    private sealed class MovingBall(double radius, double3 velocity) : IGroundTest
+    {
+        public double3 CentreNow = Centre;
+        public double3 CentreWhenSampled;
+
+        public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
+        {
+            CentreWhenSampled = CentreNow;
+            centreEcl = CentreNow;
+            surfaceRadius = radius;
+            return true;
+        }
+
+        public void Advance(double seconds) => CentreNow += velocity * seconds;
+    }
+
     private static MunitionProfile Bomb(bool hitsTerrain = true) => new()
     {
         Name = "TESTBOMB",
@@ -154,5 +175,62 @@ public class GroundImpactTests
 
         Assert.Equal(RoundState.Expired, bomb.State);
         Assert.False(bomb.HitGround);
+    }
+
+    /// <summary>
+    /// The centre is a position, and the body it names moves. A round's own <c>PositionEcl</c>
+    /// carries that motion, so a centre sampled at the frame boundary and held across the frame's
+    /// sub-steps drifts against the round at the body's own speed — and the round stops when *that*
+    /// distance reaches the radius rather than when it reaches the ground.
+    ///
+    /// <para>Flown, at 29.8 km/s of ecliptic carrier: stop heights of 248–412 m, which at the
+    /// 13.8° arrival of a reentry vehicle is 1.0–1.7 km of ground. <c>docs/MIRV-NEXT.md</c> 8l.</para>
+    ///
+    /// <para>The body's velocity is set across the radius rather than along it so that both a
+    /// radial and a tangential component exist, which is what any real geometry gives.</para>
+    /// </summary>
+    [Fact(Skip = "Reproduces an unfixed defect -- docs/MIRV-NEXT.md item 8m. Fails at "
+                 + "-88.3 m against a 0.5 m bar, which is the fault, not the test.")]
+    public void TheGroundCentreIsCarriedWithTheBodyAcrossAFrame()
+    {
+        double3 bodyVelocity = Vec.Unit(new double3(1, 1, 0)) * 29_800.0;
+
+        MovingBall ground = new(PlanetRadius, bodyVelocity);
+        double3 start = new(PlanetRadius + 500.0, 0, 0);
+
+        // Co-moving with the body, so relative to the ground it is simply dropped from 500 m.
+        Slug bomb = new(start, bodyVelocity, null, 1, start, Vec.Zero)
+        {
+            Munition = Bomb(),
+            Ground = ground,
+        };
+
+        double3 centreAtFrameStart = ground.CentreNow;
+
+        for (int i = 0; i < 4000 && bomb.State == RoundState.Flying; i++)
+        {
+            centreAtFrameStart = ground.CentreNow;
+
+            double3 gravity = Vec.Unit(ground.CentreNow - bomb.PositionEcl) * 9.81;
+            bomb.Update(Dt, null, gravity, Vec.Zero, Vec.Zero, bomb.Munition);
+
+            ground.Advance(Dt);
+        }
+
+        Assert.Equal(RoundState.Detonated, bomb.State);
+        Assert.True(bomb.HitGround);
+
+        // Where the body actually was when it burst: DetonationElapsedInFrame is measured back from
+        // the end of that frame, so this is how far into the frame the burst fell.
+        double intoFrame = Dt + bomb.DetonationElapsedInFrame;
+        double3 centreAtBurst = centreAtFrameStart + bodyVelocity * intoFrame;
+
+        double altitude = Vec.Len(bomb.PositionEcl - centreAtBurst) - PlanetRadius;
+
+        // The same bar the stationary case is held to. Against a centre frozen for the frame this
+        // is hundreds of metres, and the sign follows the geometry rather than being fixed.
+        Assert.True(Math.Abs(altitude) < 0.5,
+                    $"burst {altitude:F1} m from the surface of a body that was moving; "
+                    + "the cached ground centre is not being carried with it");
     }
 }

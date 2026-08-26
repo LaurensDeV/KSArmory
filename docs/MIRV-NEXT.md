@@ -3359,6 +3359,56 @@ deliberate cost decision (`IGroundTest`, and a CIWS burst is 150 shells). Carryi
 forward by the body's velocity across `elapsedInFrame` costs one multiply-add per sub-step and puts
 the round's own frame back in step with the world's. **Unbuilt and unflown.**
 
+## 8m. The fix is blocked on a sign, and the seam is the wrong lever
+
+**The reproduction exists and is red.** `GroundImpactTests.TheGroundCentreIsCarriedWithTheBodyAcrossAFrame`
+flies a bomb co-moving with a body travelling at 29.8 km/s and bursts it **−88.3 m** from a surface
+it should meet within 0.5 m — headlessly, no game. It is `[Fact(Skip)]` rather than deleted: it
+reproduces an unfixed defect, and the number is the fault rather than the test.
+
+The existing `Ball` cannot see it — constant centre, motionless round — which is why the suite has
+passed against this for its whole life.
+
+**Widening `IGroundTest` is the wrong fix, and `BodyCentreEpochTests` says so.** That file already
+names this term — "the gap is `bodyVelocity × (frame − elapsed)` — **513 m** at the flown speed and
+frame" — and already fixed it *for gravity*. It also pins the rule the widening would break:
+
+```csharp
+public void TheRoundIsHandedAVectorAndKnowsNothingAboutBodies()
+{
+    Assert.Null(typeof(Slug).GetProperty("BodyMu"));
+    Assert.Null(typeof(Slug).GetProperty("BodyVelocityEcl"));
+}
+```
+
+The cost was priced too: 9 implementations, ~40 injection sites, `CoarseGroundTest`'s cache made
+semantically wrong, and 7 doc files stale.
+
+**The right lever is `RoundFields`**, which already carries `GravityAt` and `AirDensityAt` as
+functions of seconds-into-frame, composed by the caller and documented as back-dated because the
+body was sampled at the frame's end. A ground-centre drift belongs beside them, costs no extra
+terrain sample — only the centre moves, the radius keeps — and leaves the round knowing nothing
+about bodies.
+
+**And it is blocked on a sign.** The two corrections in `WeaponSystem` disagree about which end of
+the frame the celestial sample belongs to:
+
+| | offset applied to the body | implies the sample is at the frame's |
+| --- | --- | --- |
+| `GravityIntoFrame` — **the wired one** | `+_bodyVelocityEcl * secondsIntoFrame` | **start** |
+| `GravityAtRound` — the mid-frame form | `-_bodyVelocityEcl * (0.5 * simStep)` | **end** |
+
+`KsaWorld.GravityAt` **adds** `bodyOffsetEcl` to `body.GetPositionEcl()`, so these are opposite.
+They cannot both be right, and which one is decides whether a ground-centre drift removes ~500 m or
+doubles it.
+
+**That is the next thing to settle, and it is measurable rather than arguable.** `docs/KSA-FRAME-ORDER.md`
+has the engine's own ordering and what instant each sample belongs to; failing that, the same probe
+method used through 8i–8l — log the body's sampled position against its position one frame later,
+beside the round's own age — reads it out in one shot. **Nothing should be changed on the flight
+path until it is settled**, because a sign error here is indistinguishable from the fault it is
+meant to remove.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
