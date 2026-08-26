@@ -7,12 +7,13 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-156 types and 444 members across 7 assemblies.
+156 types and 446 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
 ### Brutal.Concurrency.Jobs.JobScheduler
 
+- `double GetMaxLastTickTime()`
 - `void Wait()`
 
 ## Brutal.Core.Common
@@ -858,6 +859,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.UniverseTime GetElapsedTime()`
 - `bool IsPaused()`
 - `bool get_IsAutoWarpActive()`
+- `double GetAchivedSpeedFraction()`
 - `double get_SimulationSpeed()`
 - `void AutoWarpStop(bool)`
 - `void AutoWarpTo(KSA.UniverseTime, double)`

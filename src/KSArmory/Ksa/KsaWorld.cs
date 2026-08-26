@@ -113,6 +113,23 @@ internal static class KsaWorld
     public static bool IsAutoWarpActive => Universe.IsAutoWarpActive;
 
     /// <summary>
+    /// How much of the simulation speed the engine is actually managing, 1.0 when it keeps up.
+    ///
+    /// <para>The world advances by <c>dtPlayer x this x simSpeed</c>, so it is the whole of what
+    /// more work in the world costs in wall clock — see <see cref="SolverLoad"/>. The engine's own
+    /// spelling of the name is kept.</para>
+    /// </summary>
+    public static double AchievedSpeedFraction => Universe.GetAchivedSpeedFraction();
+
+    /// <summary>
+    /// What the vehicle solver's slowest recent tick took, in milliseconds.
+    ///
+    /// <para>The numerator of the fraction above is a deadline of <c>0.9 x min(frame, 1/30)</c>
+    /// seconds, so about 30 ms is the budget this has to stay inside.</para>
+    /// </summary>
+    public static double VehicleSolverTickMs => JobSystems.VehicleSolver?.GetMaxLastTickTime() ?? double.NaN;
+
+    /// <summary>
     /// Ask KSA to warp forward to a moment, stopping a margin short of it.
     ///
     /// <para>The game's own mechanism rather than this mod's. <see cref="WarpPolicy"/> holds the

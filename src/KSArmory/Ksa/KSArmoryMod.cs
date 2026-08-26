@@ -20,6 +20,10 @@ public sealed class KSArmoryMod
     private double _lastSimSpeed = 1.0;
     private readonly Config _config = new();
 
+    private readonly SolverLoad _solver = new();
+
+    private readonly List<Vehicle> _vehicleScratch = [];
+
     // One battery per weapons system, each with its own policy; Config stays shared.
     private WeaponSystems? _roster;
 
@@ -529,6 +533,21 @@ public sealed class KSArmoryMod
 
         // Per frame, because a wobble is a shape and the periodic dump cannot see one.
         if (KsaWorld.ControlledVehicle is { } flown) Diagnostics.SampleBodyRates(flown, dtPlayer);
+
+        // Per frame and on player time, because it is the engine keeping up with the wall clock
+        // that is being measured rather than anything simulated. Debug, so the panel's verbose
+        // switch reaches it and a release build never pays for it.
+        if (Log.Threshold <= Log.Level.Debug)
+        {
+            _solver.Sample(KsaWorld.AchievedSpeedFraction, KsaWorld.VehicleSolverTickMs, dtPlayer);
+
+            if (_solver.Due)
+            {
+                _vehicleScratch.Clear();
+                KsaWorld.CollectVehicles(_vehicleScratch);
+                Log.Debug(_solver.Take(_vehicleScratch.Count));
+            }
+        }
 
         // After the rounds have been stepped, so a motor is heard where its round now is
         // rather than where it was at the start of the frame.

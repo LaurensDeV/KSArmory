@@ -356,6 +356,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
 | `Sim/OverrunLog.cs` | how much simulated time the clamp threw away, and whether that cost anything — **an empty sky loses nothing**, and a scene load is always one |
+| `Sim/SolverLoad.cs` | whether the engine is keeping up, and what more work in the world costs — **the instrument both throughput levers are priced with**, because neither several rockets nor several game instances has ever been measured |
 | `Sim/ChaseView.cs` | where to put a camera riding behind a round |
 | `Sim/ViewClaim.cs` | who may hold the player's main view, and what that means for the loser |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
@@ -450,7 +451,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 444 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 446 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -474,6 +475,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
+| `tools/make-scaling-save.py` | a save carrying N copies of one rocket, for pricing how the vehicle solver scales |
 | `tools/model/` | the headless Blender generators, and the checkers over what they export — which need neither Blender nor the game |
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
 | `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
