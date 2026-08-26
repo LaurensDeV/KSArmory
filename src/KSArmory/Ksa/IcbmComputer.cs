@@ -1971,7 +1971,8 @@ internal sealed class IcbmComputer
             // correction's only observer is this prediction, so one taken between the aim moving
             // and the trim having flown the new arc reads its own unspent correction as error and
             // steps again on top of it.
-            if (state.HasAim && !TrimIsFiring && (Program.IsBurning || _measureDue))
+            if (Config.CorrectAim && state.HasAim && !TrimIsFiring
+                && (Program.IsBurning || _measureDue))
             {
                 _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
 

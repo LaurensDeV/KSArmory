@@ -491,6 +491,20 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  the trade turns, and it overrides Loft where they disagree");
         }
 
+        // Beside the floor rather than with the other switches, because the floor is what turns it
+        // from the thing that closes the miss into the thing that causes it.
+        bool correct = config.CorrectAim;
+        if (ImGui.Checkbox("Correct the aim from the prediction", ref correct)) config.CorrectAim = correct;
+        ImGui.TextDisabled(config.CorrectAim
+            ? "  the aim carries what the flown arc loses to drag and to real ground"
+            : "  the aim is the target; the solver's own answer is flown unmodified");
+
+        if (config.CorrectAim && config.MinArrivalAngleDeg >= 0.5)
+        {
+            ImGui.TextDisabled("  under a floor the search is still moving when this opens, and it");
+            ImGui.TextDisabled("  reads that as drag: 8.52 km against 0.018 km off, headless at 15");
+        }
+
         // A multiplier on the cheapest flight time, shown as one. Printed bare it reads as an
         // absolute setting, and then 1.00 needs a sentence to explain that it is not.
         float loft = (float)config.Loft;

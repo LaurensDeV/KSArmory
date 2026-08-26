@@ -65,6 +65,21 @@ internal sealed class IcbmConfig
     /// </summary>
     public double MinArrivalAngleDeg;
 
+    /// <summary>
+    /// Whether the aim carries the bias the flown prediction asks for.
+    ///
+    /// <para>On, because a shallow arrival is tens of kilometres short of a solution that is
+    /// otherwise perfect and only the correction closes it — headless at 7 degrees, 19.56 km
+    /// uncorrected against 0.38.</para>
+    ///
+    /// <para><b>Under a floor it inverts, and the size of that is the reason this is reachable at
+    /// all.</b> A constrained search is still walking the cutoff instant by minutes when the
+    /// correction opens its first readings, and the loop reads that as a drag shortfall and spends
+    /// kilometres removing it. Headless at a 15 degree floor over real relief: 0.018 km with this
+    /// off against 8.52 km with it on. Not flown — see <c>docs/METRE-LEVEL.md</c> B1.</para>
+    /// </summary>
+    public bool CorrectAim = true;
+
     /// <summary>Altitude at which the pitch programme starts turning away from vertical.</summary>
     public double TurnStartMetres = 800.0;
 

@@ -361,6 +361,12 @@ internal sealed class BallisticScenario
                 computer.Config.MaxAccelerationGee = ScenarioAccelerationGee;
             }
 
+            // Forced rather than left to the config, because the harness has no channel for it:
+            // ShotRequest carries where to aim and the bar, and nothing else reaches the computer.
+            // Zero is the shipped default and means the cheapest arc wins.
+            computer.Config.MinArrivalAngleDeg = ScenarioArrivalFloorDeg;
+            computer.Config.CorrectAim = ScenarioCorrectsAim;
+
             computer.Config.Armed = true;
 
             // Two interlocks, and arming one is not arming the other. The computer's flies the
@@ -658,6 +664,12 @@ internal sealed class BallisticScenario
     // What an unattended shot holds itself to. Around what a real ICBM pulls at burnout, and well
     // inside what an airframe is built for.
     private const float ScenarioAccelerationGee = 8.0f;
+
+    // The arrival floor every scripted shot flies. Zero is the shipped behaviour.
+    private const double ScenarioArrivalFloorDeg = 0.0;
+
+    // Whether those shots carry the prediction's bias -- see IcbmConfig.CorrectAim.
+    private const bool ScenarioCorrectsAim = true;
 
     private static Vehicle? FindDefendedSite(WeaponSystems roster, Vehicle launching)
     {

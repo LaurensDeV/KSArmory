@@ -254,6 +254,31 @@ public class ArrivalFloorFlightTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// The same question with relief under the observer, which is the only form of it worth acting
+    /// on.
+    ///
+    /// <para><see cref="UnderAFloorTheCorrectionIsWhatMisses"/> flies the mean sphere, where the
+    /// predictor is a noiseless observer of itself — so a loop given more to work with is free
+    /// averaging and cannot lose. Five of the seven headless improvements refused by flight had
+    /// exactly that shape. A floored shot's correction is the term rung A is priced against, and it
+    /// has never been asked this way.</para>
+    /// </summary>
+    [Fact]
+    public void UnderAFloorTheCorrectionIsWhatMissesOverRealRelief()
+    {
+        double smoothOn = MissMetres(Fly(15.0));
+        double smoothOff = MissMetres(Fly(15.0, off: true));
+        double roughOn = MissMetres(Fly(15.0, ground: DeorbitShot.RoughGround));
+        double roughOff = MissMetres(Fly(15.0, off: true, ground: DeorbitShot.RoughGround));
+
+        Out.WriteLine($"floor 15, mean sphere : corrected {smoothOn / 1000.0:F2} km, "
+                      + $"uncorrected {smoothOff / 1000.0:F3} km");
+        Out.WriteLine($"floor 15, real relief : corrected {roughOn / 1000.0:F2} km, "
+                      + $"uncorrected {roughOff / 1000.0:F3} km");
+        Out.WriteLine($"the correction is worth {(roughOff - roughOn) / 1000.0:+0.00;-0.00} km over relief");
+    }
+
+    /// <summary>
     /// The trajectory search is still moving when the correction takes its first readings, and under
     /// a floor it moves by minutes.
     ///
