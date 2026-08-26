@@ -396,7 +396,9 @@ internal sealed class WarheadTrace
                      + $" surfaceRadius {setup.Body.SurfaceRadius:F1}"
                      + (round is Slug slug
                             ? $", crossing tested against {slug.GroundRadiusUsed:F1}"
-                              + $" ({slug.GroundRadiusUsed - Vec.Len(positionCci):+0.0;-0.0} m from where it stopped)"
+                              + $" ({slug.GroundRadiusUsed - Vec.Len(positionCci):+0.0;-0.0} m from where it stopped);"
+                              + $" the round's own view of its stop is"
+                              + $" {slug.StopAltitudeAgainstOwnGround:+0.0;-0.0} m"
                             : ", not a Slug"));
         }
         catch

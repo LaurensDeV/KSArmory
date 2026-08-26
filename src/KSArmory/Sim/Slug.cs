@@ -168,6 +168,15 @@ internal sealed class Slug : IProjectile
     /// </summary>
     public double GroundRadiusUsed => _haveGround ? _groundRadius : double.NaN;
 
+    /// <summary>
+    /// The round's own view of how high it ended: its final position against the centre AND radius
+    /// it tested the crossing with. Near zero means the crossing landed where it meant to, so any
+    /// disagreement with an altitude measured against a freshly sampled centre is the centre, not
+    /// the round. <c>docs/MIRV-NEXT.md</c> item 8k.
+    /// </summary>
+    public double StopAltitudeAgainstOwnGround =>
+        _haveGround ? Vec.Len(PositionEcl - _groundCentre) - _groundRadius : double.NaN;
+
     /// <inheritdoc cref="IProjectile.Aimpoint"/>
     public Aimpoint Aimpoint { get; set; }
 
