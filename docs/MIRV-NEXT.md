@@ -3484,6 +3484,8 @@ not widen them. Everything the correction loop stops on — the payback rule, th
 `IsSteady` — reads the release probe, and the probe's relationship to the ground has just changed
 by two kilometres. **The loop is converging differently, and 8f already recorded that it diverges on
 some shots.** That is the next thing to look at, and it is now the only large term left.
+*(Looked at in 8p: it is not diverging. It is stopped after one cycle by the separation-clearance
+timeout on 22 of these 24 shots, and the pass count is what separates the arms.)*
 
 **The intra-salvo spread went from 0.00 to 0.01 km**, flagged a clean LOSS at p≤0.002. It is ten
 metres, and the likely reading is not a regression at all: six warheads that all stopped at the same
@@ -3498,6 +3500,94 @@ ground is wrong for every munition with `HitsTerrain`, the bomb sight included, 
 measured by this target. It is verified in flight, pinned by a test that fails at 262.9 m without it,
 and the miss result is *unresolved* rather than a proven loss. Reverting would restore a compensating
 error and make every future measurement one against a ground known to be in the wrong place.
+
+## 8p. The loop is not diverging — it is starved, and the clearance clock is what starves it
+
+Same night, `~/shots/2026-08-26-1220`. Item 8o ended by naming the correction loop as the only
+large term left, on the reading that it "diverges on some shots". It does not. It converges when it
+is allowed to run, and on 22 of 24 shots it is stopped after one cycle by something that has nothing
+to do with aiming.
+
+### The post-boost aim loop runs on *passes*, and there are almost none
+
+`AimCorrection.Observe` is called once per post-boost pass, not per frame — the `aim: bias …
+predicted miss …` line is the predictor reporting continuously, and the bias only moves when a pass
+arrives. Counting the passes each shot got before its first warhead left the tube:
+
+| passes | n | median miss | the misses |
+| --- | --- | --- | --- |
+| 0 | 1 | 6.83 km | 6.83 |
+| 1 | 10 | 4.00 km | 0.62, 1.94, 3.15, 3.48, 3.70, 4.29, 4.33, 5.06, 5.22, 6.23 |
+| 2 | 4 | 6.13 km | 1.88, 6.00, 6.26, 6.64 |
+| 3 | 4 | 1.20 km | 0.06, 1.11, 1.28, 7.22 |
+| 4 | 5 | 0.82 km | 0.12, 0.55, 0.82, 4.48, 4.62 |
+
+Median **4.29 km at one pass or none** against **1.11 km at three or more**. Across all 24 shots
+`r = -0.40`; *within* each arm it is stronger, which is what says the effect is not the arm:
+
+| arm | r | passes:miss, sorted |
+| --- | --- | --- |
+| shipped | **-0.956** | 1p:3.48 1p:3.70 1p:4.29 1p:4.33 2p:1.88 3p:1.28 4p:0.55 4p:0.82 |
+| drift | -0.688 | 0p:6.83 1p:0.62 1p:1.94 1p:3.15 1p:5.06 1p:5.22 1p:6.23 3p:0.06 |
+| both | -0.570 | 2p:6.00 2p:6.26 2p:6.64 3p:1.11 3p:7.22 4p:0.12 4p:4.48 4p:4.62 |
+
+The `shipped` arm is very nearly a straight line: every one-pass shot lands 3.48-4.33 km, every
+four-pass shot 0.55-0.82 km.
+
+**This is what 8o's variance result was measuring.** `shipped` drew passes 1,1,1,1,2,3,4,4;
+`drift` drew 0,1,1,1,1,1,1,3. The arms differ in how many correction cycles they were given far more
+visibly than in where they aimed, and that is the whole of `drift`'s 0.06-6.83 km spread.
+
+### What stops them is `SeparationClearance.TimeoutSeconds`
+
+**22 of 24 shots release on the 20-second clearance timeout**, not on the loop finishing. The two
+that cleared cleanly are `005-drift` and `019-both`.
+
+Set the best shot of the night beside the worst, both in the same arm:
+
+| | `005-drift` | `024-drift` |
+| --- | --- | --- |
+| first pass → release | **49.9 s** | 4.0 s |
+| passes | 3 | 1 |
+| released because | `51 m out, under the 357 m another correction would cost` | `still 6 m from the spent stack after 20 s … releasing without trimming` |
+| trim state at release | `trimmed to 0.028 m/s` | `holding, 13.19 m/s off the solution` |
+| landed | **0.06 km** | 6.23 km |
+
+The gap is not a slow-opening one that wants a longer clock. It opens to `15 m of 15` and then the
+timeout reports the *minimum over the coast* at 6 m — `ProximityWatch` doing exactly its job. The bus
+drifts back toward the stack it dropped, never banks the clearance, and the clock fires with the
+trim still 13 m/s from its solution and the aim loop one cycle in.
+
+### So 8f's suspicion is not disproved — it is unreachable
+
+`_aim.Freeze()` on the post-boost path (`IcbmComputer.cs`) already banks the best aim and reverts to
+it, and released-on == best-in-phase on all eight `drift` shots. But seven of those had a single
+pass, where there is nothing to discard; the only shot that genuinely tested it is `005-drift`, whose
+passes read 3.1, 3.7, 2.2 km and which released on the 2.2. The freeze works where it can be
+observed working. A loop that never gets a third cycle cannot demonstrate a runaway either way.
+
+**And the burn-phase readings are not a discarded solution.** The `2.5 km` that appears late in every
+shot's burn is the predicted miss *at bias 0.0* — the aim does not move during the burn at all after
+its initial excursion — passing through 2.5 on its way out to 4.5 km by cutoff and 6.8 km once the
+live-state predictor takes over. `AimCorrection.Resume()` resetting the bank at cutoff costs nothing,
+because there was never an aim there worth keeping.
+
+### What this makes the next thing
+
+The lever is **cycles before release**, and it is upstream of the guidance entirely. Three shapes,
+none flown:
+
+1. **Do not release on the clearance timeout while the aim loop is still improving.** The timeout
+   exists so a bus does not manoeuvre into its own stack — it is a refusal to *trim*, and it has been
+   made to imply a release. Those are separable.
+2. **Give the clearance something to bank.** The bus never holds 15 m; a small deliberate push along
+   the separation line at the split would, and `SeparationClearance` already says the shove is the
+   separation.
+3. **Make one pass worth more.** The first post-boost step is taken at a seeded response of 1.0. On a
+   one-pass shot that seed is the entire correction.
+
+Item 8o's "only large term left" stands, but it is not in `AimCorrection`. It is in what decides the
+warheads may go.
 
 ## 9. The budget at the 0.65 km level
 
