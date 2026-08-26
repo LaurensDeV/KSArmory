@@ -3390,8 +3390,10 @@ body was sampled at the frame's end. A ground-centre drift belongs beside them, 
 terrain sample — only the centre moves, the radius keeps — and leaves the round knowing nothing
 about bodies.
 
-**And it is blocked on a sign.** The two corrections in `WeaponSystem` disagree about which end of
-the frame the celestial sample belongs to:
+**It looked blocked on a sign, and was not — the blocker was a misreading.** `secondsIntoFrame`
+arrives as `elapsed - dt`, so its domain is `[-dt, 0]` and **negative**, not `[0, dt]`. Under the
+real domain both corrections walk the body backward and they agree. What follows was written against
+the wrong domain and is kept only because the two forms still read as opposites at a glance:
 
 | | offset applied to the body | implies the sample is at the frame's |
 | --- | --- | --- |
@@ -3402,12 +3404,49 @@ the frame the celestial sample belongs to:
 They cannot both be right, and which one is decides whether a ground-centre drift removes ~500 m or
 doubles it.
 
-**That is the next thing to settle, and it is measurable rather than arguable.** `docs/KSA-FRAME-ORDER.md`
-has the engine's own ordering and what instant each sample belongs to; failing that, the same probe
-method used through 8i–8l — log the body's sampled position against its position one frame later,
-beside the round's own age — reads it out in one shot. **Nothing should be changed on the flight
-path until it is settled**, because a sign error here is indistinguishable from the fault it is
-meant to remove.
+`docs/KSA-FRAME-ORDER.md` §5 settles it outright, and it was already written down:
+
+| | epoch |
+| --- | --- |
+| the round **before** its step | `NextTime(k−1)` |
+| every celestial and vehicle sample | `NextTime(k)` |
+
+The sample is one step **ahead** of the pre-step round, so the correction walks the body back — which
+is what both forms do once the domain is read correctly. Fixed in 8n.
+
+## 8n. Carried, and the walk is 8 m
+
+`0eaf0c4`. `RoundFields` gained `GroundCentreDriftAt` beside `GravityAt` and `AirDensityAt` — a
+caller-composed function of seconds-into-frame, back-dated the same way — and `WeaponSystem` supplies
+`s => _bodyVelocityEcl * s`. No `IGroundTest` change and no extra terrain sample: the radius keeps
+for the frame, only the centre moves. The round is handed a vector and still knows nothing about
+bodies, so `TheRoundIsHandedAVectorAndKnowsNothingAboutBodies` stands.
+
+| | before | after |
+| --- | --- | --- |
+| stop height above the surface | 248–412 m | **−0.0 m** |
+| walk from the release probe | 1,097–1,826 m | **8 m** |
+| flown arrival against the probe's | ~0.4 s early | **exact** |
+
+**So item 8g's 2.35 km is closed.** The largest single term in the error budget was the round
+stopping short of the ground, and it is gone.
+
+**The regression test is real.** `GroundImpactTests.TheGroundCentreIsCarriedWithTheBodyAcrossAFrame`
+fails at **262.9 m** with the drift removed and passes with it — inside the flown 248–412 m band,
+because the fake now samples at the frame's **end** where the engine's sample belongs. The existing
+`Ball` never could: constant centre, motionless round, so the two terms that disagree in flight are
+equal there by construction.
+
+**The accuracy effect is unmeasured, and the one shot flown was worse.** 6.32 km, a FAIL, against a
+`shipped` range of 0.46–4.99 km across ten shots. One shot settles nothing on a target whose
+single-shot scatter is a factor of ten — but it is not encouraging either, and the reason to expect
+movement in *some* direction is real: every stopping rule, budget and bias in the correction loop
+reads the release probe, and the probe has just stopped lying by two kilometres. **The loop is now
+being driven by a different signal from the one it was tuned against.**
+
+**That is the next night**, and it is a three-arm question again: `shipped`, this fix alone, and this
+fix with the interlock of 8h put back — because the interlock lost to a diverging loop reading a
+probe that was wrong by 2 km, and that is no longer the case.
 
 ## 9. The budget at the 0.65 km level
 
