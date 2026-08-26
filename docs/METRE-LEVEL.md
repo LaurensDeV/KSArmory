@@ -525,18 +525,24 @@ warhead deployment:
 
 | rockets | vehicles | sim per wall second | throughput | worst solver tick |
 | --- | --- | --- | --- | --- |
-| 1 | 6 | 1.00x | 1.0x | 3.3-4.1 ms |
-| 2 | 11 | 0.89x | **1.8x** | 5.3-6.6 ms |
-| 4 | 17 | 0.80x | **3.2x** | 10.8-11.4 ms |
-| 8 | 33 | 0.70x | **5.6x** | 24.9 ms |
+| 1 | 6 | **1.00x** | 1.0x | 2.7-2.8 ms |
+| 2 | 11 | 0.89x* | 1.8x* | 5.3-6.6 ms |
+| 4 | 17 | 0.80x* | 3.2x* | 10.8-11.4 ms |
+| 8 | 33 | **0.40x** | **3.2x** | 12.9-20.1 ms |
+
+*The starred rows are averages over a probe, and a probe **ramps**: a bus deploys its warheads part
+way through, so most of it was flown at fewer vehicles than the row names. They overstate the rate.
+The 1 and 8 rows are measured at steady full load with the corrected instrument, and 8 rockets came
+out at **0.40x where the ramp-average said 0.70x**. A real nine-minute shot is mostly coast with
+every warhead out, so the steady figure is the one that applies -- read the starred rows as upper
+bounds and re-measure them before planning on either.
 
 **Reason about vehicles, not rockets.** One rocket becomes six — the bus deploys six warheads —
 plus spent stages, which is why eight rockets is thirty-three vehicles and why the cost climbs
 during a flight rather than being fixed at launch.
 
-**There is no cliff.** The cost starts at two rockets and rises smoothly; the solver tick is roughly
-**0.75 ms per vehicle** against a ~30 ms deadline. Eight rockets buys **5.6x**, against ~1.9x for two
-game instances — and it needs no per-instance user directory, no PID-based process management and no
+**There is no cliff.** The cost starts at two rockets and rises smoothly. Eight rockets buys
+**3.2x**, against ~1.9x for two game instances — and it needs no per-instance user directory, no PID-based process management and no
 scheduler.
 
 **And the frame rate is not the cost.** Suppressing the flight's verbose logging cut the log from
