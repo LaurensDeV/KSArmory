@@ -3950,6 +3950,72 @@ The remaining spread is entirely **inside** the converged cluster, 0.01–0.14 k
 now the only failure mode left that costs kilometres, at roughly 1 in 50 under a floor, and it is
 `SeparationClearance` rather than anything in the guidance.
 
+## 8u. The clearance never passes, and the instrument watching it never varied — 2026-08-27
+
+With the trim budget shipped, the clearance is the only mechanism left that costs kilometres: it
+released the warheads over the top of the correction loop on 11 of 21 unfloored shots and 1 of 25
+floored ones. Reading it across all 94 flights on disk found three things, and the first is about
+the instrument rather than the bus.
+
+### `ProximityWatch` printed the same line on all 94 flights
+
+```
+closest approach to the spent stack: 2.0 m at +0.0 s -- INSIDE THE KEEP-OUT
+```
+
+Every flight. Identically. It took its running minimum from the first frame after the decoupler
+fired, and **a split begins with the two halves adjacent** — so the minimum is the split, at +0.0 s,
+and no later approach can beat it. The class exists to catch the 2026-08-25 collision, which was a
+bus coming *back* onto the stack it had dropped; it could not have seen one.
+
+Fixed by arming it when the gap first opens past the keep-out. A pair that never parted now reports
+*that*, which is a different fault — and is what 55 of the 94 actually had.
+
+### The clearance gate's success branch has never fired
+
+Not once in 94 flights is there a `clear of the spent stack at N m after M s`. **Every clearance is
+resolved by the 20-second timeout**, either abandoning the trim or going ahead with no reading. The
+gate is not a gate; it is a delay with a log line.
+
+### And every timeout is against the same stage
+
+| what was dropped | its radius | needs | times out |
+| --- | --- | --- | --- |
+| the lower stack | 3.5 m | 13.5 m | never |
+| **the upper stack** | **5.3 m** | **15.3 m** | **every recorded timeout** |
+
+The gap opens at roughly **0.65 m/s** — not the 1.1 m/s a 7 kN decoupler against a six-tonne bus
+suggests — so from the 2.0 m the split starts at, 13.5 m takes **17.7 s** and 15.3 m takes
+**20.5 s**. `TimeoutSeconds` is 20. One stage clears with two seconds in hand and the other misses
+by half a second, and which one gets dropped is what decides.
+
+That is why it reads as a coin flip, and why nine of the timeouts print a distance equal to what
+they needed: they are the near-misses. Those printed at F0 as `still 15 m ... inside the 15 m it
+needs`, which reads as a contradiction; the distances now carry a decimal.
+
+### Correction to 8p, the third one
+
+8p read this as "the bus drifts back toward the stack it dropped, never banks the clearance", and
+cited a `ProximityWatch` minimum of 6 m as the evidence. **There is no drift-back.** The watch could
+only ever report the split, and the 6 m came from the *clearance* line — a third instance of the
+same misread, after the timeout line itself and the pre-fix arm.
+
+### What to fly, and why not tonight
+
+Three shapes, and the arithmetic above says which is smallest:
+
+1. **`TimeoutSeconds` 20 → 25.** One constant, and it covers the 20.5 s case with margin. Waiting is
+   not free — the doc prices a 90-second hold at 6.8 km of release-probe error, so five seconds is
+   of order 400 m — against a clearance release costing a median 5.06 km. That is the arm.
+2. **A deliberate push along the separation line at the split**, which is 8p's item 2. Larger, and
+   it spends propellant the trim then spends again nulling it.
+3. **Lower `ClearOfTheSphereMetres`.** Cheapest and least defensible: the 10 m is the coarse contact
+   sphere, so shrinking it lets a released store be scored against the stage.
+
+**None of them is flown**, and the honest reason to fix the instrument first is that the fixed watch
+is what tells a longer clock apart from a bus that comes back — which is the question separating
+option 1 from option 2, and which nothing on disk can currently answer.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
