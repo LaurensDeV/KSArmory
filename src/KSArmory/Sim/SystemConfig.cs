@@ -67,7 +67,7 @@ public sealed class SystemConfig : ISensorPolicy
     /// Draw the bomb sight: where a store released now would land, and the arc it would take.
     ///
     /// <para>Per system rather than session-wide, because two aircraft in one world can sensibly
-    /// disagree about wanting one — and it costs a few hundred integration steps to solve.</para>
+    /// disagree about wanting one — and it costs BombSight.MaxSteps integration steps, each sub-stepped by the round to solve.</para>
     /// </summary>
     public bool DrawBombSight = true;
 

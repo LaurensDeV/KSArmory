@@ -12,8 +12,8 @@ namespace KSArmory;
 /// anything about it that is wrong. A sight derived from a tidier model than the round flies is a
 /// sight that lies.</para>
 ///
-/// <para>The step is coarser than the round's own and the prediction is not run every frame: it
-/// is a few hundred integrations, and nothing about a bomb's fall changes fast enough to notice.
+/// <para>The step is coarser than the round's own and the prediction is rate-limited by its caller: it
+/// is MaxSteps integrations, each sub-stepped by the round, and nothing about a bomb's fall changes fast enough to notice.
 /// The caller decides how often.</para>
 /// </summary>
 internal static class BombSight
