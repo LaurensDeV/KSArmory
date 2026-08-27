@@ -66,12 +66,17 @@ internal sealed class ScenarioRunner
     // simulated flight, and the warp it asks for can be refused. Wide enough to cover the whole
     // shot at one times speed, because a run that gives up early reports a timeout for a shot that
     // was going perfectly well.
-    private const double BallisticBudgetSeconds = 1500.0;
+    private const double BallisticBudgetSeconds = 2400.0;
 
     // And its budget in simulated seconds, which is the one that catches a flight that is stuck
-    // rather than slow. A reentry vehicle expires at half an hour; a shot that has not resolved in
-    // an hour of world time is not going to.
-    private const double BallisticSimBudgetSeconds = 3600.0;
+    // rather than slow. A reentry vehicle expires at half an hour.
+    //
+    // Sized for a world holding several rockets, not one. Their releases are sequenced rather than
+    // simultaneous, so eight flights need well over the hour a single shot resolves in -- measured
+    // at 7 of 8 down on the hour, which reports a TIMEOUT carrying no per-flight line at all and
+    // costs the whole shot. A budget an arm can fail on for being slower than the baseline is a
+    // measurement of the budget.
+    private const double BallisticSimBudgetSeconds = 5400.0;
 
     // The world needs a few seconds after load before a craft is flyable and a battery is crewed.
     private const double SettleSeconds = 4.0;
