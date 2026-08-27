@@ -74,6 +74,59 @@ internal static class IcbmOverlay
     // matter: anything large enough to see from orbit is large enough to sit over the target and
     // hide it, and a shape with no radius says nothing about how far the warhead reaches - which is
     // the question a mark on a target is being asked. Same shape as the bomb sight's pipper.
+    // One draped ring per computer, kept as OFFSETS from the aim point rather than as ecliptic
+    // positions -- the ecliptic carries the planet's ~29.8 km/s, so cached absolute points are
+    // left behind within a frame. Same rule the round bodies and the draw anchor obey.
+    //
+    // Draping is what costs: a point on the ground is a terrain lookup, and the default ring is 65
+    // of them per computer per frame. Measured at sixteen rockets, IcbmOverlay.Draw was 5.45 ms of
+    // a 13.67 ms draw pass. The ground under a fixed lat/lon does not move, so the shape is rebuilt
+    // on a wall clock rather than per frame.
+    //
+    // A circle is rotationally symmetric, so the planet turning under a cached ring changes nothing
+    // about how it looks; what ages is which ground each point was draped onto, and a second of
+    // Earth's rotation is four thousandths of a degree.
+    private const double RingRebuildSeconds = 1.0;
+
+    private sealed class Ring
+    {
+        public double3 Target;
+        public double Radius;
+        public readonly List<double3> Offsets = [];
+        public readonly System.Diagnostics.Stopwatch Since = System.Diagnostics.Stopwatch.StartNew();
+    }
+
+    private static readonly Dictionary<IcbmComputer, Ring> Rings = [];
+
+    private static void DrawDrapedRing(IcbmComputer computer, double3 target, double3 up, double radius)
+    {
+        if (!Rings.TryGetValue(computer, out Ring? ring))
+        {
+            ring = new Ring();
+            Rings[computer] = ring;
+        }
+
+        bool stale = ring.Offsets.Count == 0
+                     || ring.Since.Elapsed.TotalSeconds >= RingRebuildSeconds
+                     || !ring.Radius.Equals(radius)
+                     || Vec.Len(target - ring.Target) > 10.0;
+
+        if (stale)
+        {
+            ring.Since.Restart();
+            ring.Target = target;
+            ring.Radius = radius;
+            ring.Offsets.Clear();
+
+            KsaWorld.CollectDrapedCircleEcl(target, up, radius, ring.Offsets);
+        }
+
+        for (int i = 1; i < ring.Offsets.Count; i++)
+        {
+            KsaWorld.DrawLineEcl(target + ring.Offsets[i - 1], target + ring.Offsets[i], Aim);
+        }
+    }
+
     private static void DrawAimRing(IcbmComputer computer, double3 target)
     {
         // Off gravity, because that is the one direction the mod already resolves everywhere.
@@ -87,7 +140,7 @@ internal static class IcbmOverlay
                             ? Warhead.LethalRadius(warhead.ChargeKg)
                             : UnarmedRingMetres;
 
-        KsaWorld.DrawCircleEcl(target, up, radius, Aim);
+        DrawDrapedRing(computer, target, up, radius);
         // The inner pip is metres across, so draping it costs 17 accurate terrain samples to move
         // it by less than its own width. The outer ring is what shows the ground.
         KsaWorld.DrawCircleEcl(target, up, radius * 0.15, Aim, segments: 16, drape: false);

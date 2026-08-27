@@ -2845,6 +2845,37 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// The points of a draped circle, as offsets from its centre, for a caller that wants to keep
+    /// the shape rather than rebuild it. Offsets rather than positions because the ecliptic carries
+    /// the planet's motion and a stored absolute point is left behind within a frame.
+    /// </summary>
+    public static void CollectDrapedCircleEcl(double3 centreEcl, double3 normalEcl, double radius,
+                                              List<double3> into, int segments = 64,
+                                              double clearance = 2.0)
+    {
+        into.Clear();
+
+        double3 n = Vec.Unit(normalEcl);
+        if (!Vec.IsFinite(n) || Vec.Len2(n) < 0.5 || !(radius > 0.0)) return;
+
+        // Any two axes square to the normal, built the same way DrawCircleEcl builds them so the
+        // cached ring and the drawn one cannot disagree about where a segment starts.
+        double3 seed = Math.Abs(n.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);
+        double3 a = Vec.Unit(Vec.Cross(n, seed)) * radius;
+        double3 b = Vec.Unit(Vec.Cross(n, a)) * radius;
+
+        int steps = Math.Clamp(segments, 8, 256);
+
+        for (int i = 0; i <= steps; i++)
+        {
+            double t = 2.0 * Math.PI * i / steps;
+            double3 at = centreEcl + a * Math.Cos(t) + b * Math.Sin(t);
+
+            into.Add(OnGround(at, drape: true, clearance) - centreEcl);
+        }
+    }
+
     // Lifted clear of the surface by a little: a line exactly on the terrain z-fights with it and
     // disappears in patches, which looks worse than being slightly above it.
     private static double3 OnGround(double3 atEcl, bool drape, double clearance)
