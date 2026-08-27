@@ -21,6 +21,17 @@ internal sealed partial class Ui
     {
         ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);
 
+        // Beside the warp hold because it is the other session setting that trades away something
+        // a player can see for something the simulation needs -- there, fidelity for speed; here,
+        // the world's own debris for frame time.
+        ImGui.Checkbox("Remove spent stages once they are clear", ref _config.DisposeSpentStages);
+        ImGui.TextDisabled(_config.DisposeSpentStages
+                               ? $"  destroyed past {StageDisposal.ClearOfTheCraftMetres / 1000.0:F0} km, "
+                                 + "so they stop costing frame time while they fall"
+                               : "  off: they fall and are simulated the whole way down");
+        ImGui.TextDisabled("  Frame time is what buys simulation rate -- about 2 ms a vehicle, and");
+        ImGui.TextDisabled("  a rocket sheds four. The half a MIRV bus drops is never taken.");
+
         ImGui.Checkbox("Dirty nuclear smoke", ref _config.DirtyNuclearSmoke);
         ImGui.TextDisabled(_config.DirtyNuclearSmoke
                                ? "  a cloud tints every plume in the world while it stands"

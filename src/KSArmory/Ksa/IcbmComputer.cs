@@ -63,6 +63,18 @@ internal sealed class IcbmComputer
     private Vehicle? _separatedFrom;
     private readonly List<Vehicle> _wasBeforeSplit = [];
     private readonly List<Vehicle> _afterSplit = [];
+
+    // Everything this vehicle has shed, and the census that finds it. Same difference-of-worlds
+    // trick as WhatWasDropped, run at every staging rather than only at the split, because the
+    // ascent stages are three of the four vehicles a rocket leaves behind.
+    private readonly List<Vehicle> _shed = [];
+    private readonly List<Vehicle> _wasBeforeStage = [];
+    private readonly List<Vehicle> _afterStage = [];
+    private bool _awaitingStage;
+
+    // The session's own settings, as opposed to this installation's. Only the disposal switch is
+    // read from it: what a stage costs the frame is a property of the world, not of one shot.
+    private readonly Config _session;
     private double _sinceSplit;
     private string _trimShape = "";
     private string _saidTrim = "";
@@ -266,10 +278,11 @@ internal sealed class IcbmComputer
 
     public Celestial? Parent { get; private set; }
 
-    public IcbmComputer(Vehicle craft, IcbmConfig config)
+    public IcbmComputer(Vehicle craft, IcbmConfig config, Config session)
     {
         Craft = craft;
         Config = config;
+        _session = session;
         Program = new IcbmProgram(config);
     }
 
@@ -424,6 +437,9 @@ internal sealed class IcbmComputer
         bool wasBurning = Program.IsBurning;
         Command = Program.Update(simStep, state);
         ReportLongStep(wasBurning, simStep, state);
+
+        CollectShedStages();
+        DisposeShedStages();
 
         // The operator asked for an arrival this stack cannot buy, and the shot is being flown
         // shallower anyway. Said rather than left to be inferred from two angles differing on the
@@ -584,6 +600,13 @@ internal sealed class IcbmComputer
                 if (!StagingWouldDropTheLauncher(release))
                 {
                     Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} staging: {Command.Hold}");
+
+                    // Before the call, because the stage lands a frame later through the engine's
+                    // input buffer and the difference is what identifies what came off.
+                    _wasBeforeStage.Clear();
+                    KsaWorld.CollectVehicles(_wasBeforeStage);
+                    _awaitingStage = true;
+
                     VehicleCommand.Stage(Craft);
                 }
                 else if (!_saidRefusedStage)
@@ -876,6 +899,78 @@ internal sealed class IcbmComputer
 
             Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} separating the launcher "
                      + "from the stack before deploying");
+        }
+    }
+
+    // What came off at the last staging, by the same difference WhatWasDropped uses. Run one frame
+    // late because the stage is deferred through the engine's input buffer -- a census taken on the
+    // frame the command was issued sees the world before it.
+    private void CollectShedStages()
+    {
+        if (!_awaitingStage) return;
+
+        _awaitingStage = false;
+
+        _afterStage.Clear();
+        KsaWorld.CollectVehicles(_afterStage);
+
+        for (int i = 0; i < _afterStage.Count; i++)
+        {
+            Vehicle other = _afterStage[i];
+
+            if (ReferenceEquals(other, Craft)
+                || _wasBeforeStage.Contains(other)
+                || _shed.Contains(other))
+            {
+                continue;
+            }
+
+            _shed.Add(other);
+        }
+
+        _wasBeforeStage.Clear();
+    }
+
+    // Spent stages cost frame time for the whole coast while they fall, and frame time is the only
+    // thing that buys simulation rate. Off unless asked for: it destroys things in the player's
+    // world. Sim/StageDisposal.cs holds the rules, including that the half the clearance is still
+    // reading is never taken.
+    private void DisposeShedStages()
+    {
+        for (int i = _shed.Count - 1; i >= 0; i--)
+        {
+            Vehicle stage = _shed[i];
+
+            if (!KsaWorld.IsAlive(stage))
+            {
+                _shed.RemoveAt(i);
+                continue;
+            }
+
+            // Never the craft being flown, whatever the census decided: destroying it clears
+            // ControlledVehicle and strands the player in a scene that carries on without them.
+            if (ReferenceEquals(stage, Craft)
+                || ReferenceEquals(stage, KsaWorld.ControlledVehicle))
+            {
+                continue;
+            }
+
+            double3 between = KsaWorld.PositionEcl(stage) - KsaWorld.PositionEcl(Craft);
+            double apart = Vec.IsFinite(between) ? Vec.Len(between) : double.NaN;
+
+            if (!StageDisposal.MayDispose(_session.DisposeSpentStages,
+                                          ReferenceEquals(stage, _separatedFrom), apart))
+            {
+                continue;
+            }
+
+            Log.Info($"{KsaWorld.DisplayName(Craft)}: taking the spent stage "
+                     + $"{KsaWorld.DisplayName(stage)} out of the world at {apart / 1000.0:F1} km, "
+                     + "so it stops costing frame time while it falls");
+
+            KsaWorld.WaitForVehicleSolvers();
+            KsaWorld.Destroy(stage, 0.0f);
+            _shed.RemoveAt(i);
         }
     }
 

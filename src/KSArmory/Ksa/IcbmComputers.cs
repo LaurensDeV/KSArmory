@@ -16,8 +16,10 @@ namespace KSArmory;
 /// rocket and the rocket knows how to deliver it, leave it off and the mod does not reach for
 /// somebody's launch vehicle.</para>
 /// </summary>
-internal sealed class IcbmComputers
+internal sealed class IcbmComputers(Config session)
 {
+    private readonly Config _session = session;
+
     private readonly Dictionary<Vehicle, IcbmComputer> _computers = [];
     private readonly List<Vehicle> _stale = [];
 
@@ -78,7 +80,7 @@ internal sealed class IcbmComputers
             if (!systems[i].Inventory.IsWeaponSystem) continue;
             if (_computers.ContainsKey(craft)) continue;
 
-            _computers[craft] = new IcbmComputer(craft, new IcbmConfig());
+            _computers[craft] = new IcbmComputer(craft, new IcbmConfig(), _session);
             Log.Debug($"ICBM computer crewed on {KsaWorld.DisplayName(craft)}");
         }
 
