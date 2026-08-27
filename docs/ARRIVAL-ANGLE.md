@@ -61,8 +61,30 @@ buys nothing at all on a vertical drop: 2,687 m/s against the Mk 21's 2,414, aga
 Arrival angle is bought with propellant, and how much of it a given angle costs is a property of
 *this* stack against *this* target — nothing an operator can be expected to know in advance. A
 slider running to a round 45 degrees therefore lets them ask for an arc that cannot be flown, and
-the mod does not refuse such a shot: it flies the shallowest arc it can afford, arrives, and reports
-`ArrivalFloorUnaffordable` afterwards. Correct behaviour, and a poor way to find out.
+the mod does not refuse such a shot: it flies the shallowest arc it can afford and arrives, less
+precisely. Correct behaviour — and it has to **say so at the time**, which is two separate things.
+
+**Before the shot**, the slider's ceiling *is* the statement: it stops at what the stack can buy, and
+the line under it reads `the stack can afford N deg from here`, amber once the setting is against it.
+
+**During the shot**, `IcbmProgram.ArrivalFloorUnaffordable` says the arc being held is shallower than
+what was asked for. It is on the panel with the unreachables rather than beside the slider — amber,
+because the shot still arrives — and once in the log, because an unattended shot has no panel and
+the log is the only place it can be read afterwards.
+
+Flown 2026-08-27 on a 12,902 km shot with the floor forced to 85 degrees, which this stack cannot
+buy: `cannot afford the 85 deg arrival asked for; flying 19.3 deg instead -- it will arrive, less
+precisely`, once, and it did — 6 of 6 warheads, 4.80 km. **The threshold is not guessable**: 60
+degrees turned out to be *affordable* on the same stack and shot, and the rocket lofted to a
+2h51m arc to fly it. So an unaffordable floor makes the flight **shorter**, not longer, because
+what it falls back to is the cheap arc.
+
+That flag **describes the arc currently held rather than latching**. A stack is heaviest at lift-off
+and the mid-ascent geometry is the worst it will be, so a cycle that cannot afford an arrival is
+routinely followed by one that can; a flag that only ever goes true calls the shot compromised for
+the rest of the flight. It clears on `Reset()` too, which it did not for its whole first life —
+`Reset` cleared twenty-five fields and missed it, so a vehicle that once could not afford its
+arrival carried the claim into every later flight.
 
 `Sim/ArrivalBudget.cs` bisects on **affordability** rather than on cost — cost is not monotonic in
 the floor, because the flight-time search jumps families, but affordable/not is the thing being
