@@ -324,6 +324,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ShotRequest.cs` | where a scripted shot is aimed and the bar it is judged against — **text in**, so the harness's one line is testable headlessly |
 | `Sim/ShotGroup.cs` | where a salvo landed, and whether that is a pass — **scored on the worst warhead**, and one that never arrived counts |
 | `Sim/PlatformHandover.cs` | which craft a part went to, when a decoupler took it off the one carrying it — **one decision, every roster that follows a part** |
+| `Sim/StageDisposal.cs` | whether a spent stage may be taken out of the world — **frame time is the only thing that buys simulation rate**, and a rocket sheds four vehicles to keep two |
 | `Sim/IcbmConfig.cs` | one installation's ballistic settings — armed, loft, arrival angle, ascent, staging, trim |
 | `Sim/FinMixer.cs` | one steering command resolved into four blade deflections — **drawn only** |
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |

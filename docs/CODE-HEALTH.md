@@ -11,6 +11,30 @@ not will be found again by the next reader.
 
 ---
 
+## `check-tunables.py` does not scan `Config`, and six settings are unreachable
+
+`TUNABLE` lists `SensorProfile`, `MunitionProfile`, `SystemConfig`, `OpticConfig` and `IcbmConfig`
+— **not `Config`**, which is the session's own settings and the most player-facing of them. That is
+the failure the tool's own docstring warns about ("the list has to grow with the mod"), one level
+up: every field on `Config` has been outside the check for its whole life.
+
+Adding it needs a `RECEIVERS` entry — the panel is split across files and holds the config as
+`_config`, `config` and `_cfg` — and then reports six. Triaged 2026-08-27:
+
+| setting | verdict |
+| --- | --- |
+| `CannonReferenceRpm` | `EXEMPT` — a sound calibration constant |
+| `BurstSoundId`, `MotorSoundId` | `EXEMPT` — asset identity strings |
+| `DiagnosticIntervalSeconds` | `EXEMPT`, or a control on the Debug pane |
+| **`FloatingPanelButton`** | **real** — read at `Ui.cs:254`, written by nothing |
+| **`TeamNames`** | **real** — the roster is listed in `UiOptic` and there is no way to add to one |
+
+`TeamNames` also shows a limit of the check: it is a `List<string>`, and a control would `Add`
+rather than assign, so the write test cannot see one even if it existed.
+
+Not done here because it is six separate judgements and the change that found it was about
+something else. The tool change is two lines.
+
 ## Modularity
 
 - [~] **`Interceptor` and `Slug` duplicate the frame and epoch bookkeeping.** The physics is done:

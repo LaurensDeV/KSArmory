@@ -588,6 +588,36 @@ thing standing between 3.2x and 8x.
 features *down* took the observed rate from 20 fps to 14, exactly as section 5 measured. What
 matters is the frame time above, which is CPU.
 
+### The spent stages were most of the cost, and they can be taken out — flown 2026-08-27
+
+**Three of the six vehicles a shot creates are ascent stages**, and nothing reads them once they are
+dropped. `Config.DisposeSpentStages` takes them out of the world past a kilometre. Flown, one
+rocket:
+
+| | vehicles just before the split | START to verdict |
+| --- | --- | --- |
+| disposal off | **5** | 588 s |
+| **disposal on** | **2** | **528 s** |
+
+A tenth of the wall clock on a *single* rocket, where the vehicle count was never the binding cost.
+The lever is at N: eight rockets shed twenty-four stages, and at the measured ~2.0 ms per vehicle
+that is roughly 48 ms off a 78.7 ms frame — which is the whole distance between the 3.2x above and
+the straight 8x that "get frames under 33 ms" promises. **Not yet measured at N**, which is the next
+thing to fly.
+
+**The half a MIRV bus drops is never taken**, whatever the setting says: `SeparationClearance` reads
+an unreadable distance as a blind clock rather than as clearance, so removing the stack would
+authorise the trim while the bus is still metres from it. That is why this is three of four rather
+than four of four. `Sim/StageDisposal.cs` holds the rules.
+
+### And several rockets have to be launched together
+
+`WarpPolicy` is session-wide — it holds timewarp down while *anything* is in the air. A shot spends
+245 s of wall at 1x on ascent and then compresses ~25 minutes of coast into 210 s at 100x, so two
+rockets flying out of phase means one's falling warheads pin the world at low warp while the other
+is trying to coast, and the flights serialise rather than overlap. Launching them in the same frame
+is a requirement of the design rather than a convenience, and it is not one of the four traps below.
+
 ### What it does not yet say
 
 The probes cover the first ~2.5 minutes of each flight — ascent through deployment. A real shot is

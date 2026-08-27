@@ -134,6 +134,26 @@ public sealed class Config
     public bool LimitWarpInFlight = true;
 
     /// <summary>
+    /// Take a rocket's spent ascent stages out of the world once they are clear of it, rather than
+    /// leaving them to fall.
+    ///
+    /// <para><b>It buys frame time, which is the only thing that buys simulation rate.</b> The
+    /// engine advances the world by at most a thirtieth of a second per frame, so
+    /// <c>sim rate = 33.3 ms / frame time</c>, and frame time grows at about 2.0 ms per vehicle —
+    /// <c>docs/METRE-LEVEL.md</c> §5b. One rocket sheds four vehicles and keeps two, so a world
+    /// flying several of them spends most of its frame on debris that is falling.</para>
+    ///
+    /// <para><b>Off by default, because it destroys things in the player's world.</b> A spent stage
+    /// arcing back down is part of watching a launch, and nothing else this mod does removes a
+    /// vehicle nobody shot at. It is on for a scripted batch, where the world exists for eight
+    /// minutes and nobody is watching it.</para>
+    ///
+    /// <para>The half a MIRV bus dropped is never taken, whatever this says — see
+    /// <see cref="StageDisposal"/>.</para>
+    /// </summary>
+    public bool DisposeSpentStages;
+
+    /// <summary>
     /// Substring that marks a craft as belonging to a team, matched against its name.
     ///
     /// <para>KSA has no team field, so a name convention is the only assignment that needs no

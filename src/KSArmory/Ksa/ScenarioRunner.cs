@@ -152,6 +152,16 @@ internal sealed class ScenarioRunner
         // which is the same reason BallisticScenario turns verbose logging on. Off everywhere else.
         _config.TraceWarhead = true;
 
+        // A scripted world lives for eight minutes with nobody looking at it, so a spent stage
+        // arcing back down is pure frame time -- and frame time is the only thing that buys
+        // simulation rate. It is what makes several rockets in one world affordable.
+        //
+        // It changes the step every shot is integrated at, which is a fidelity change rather than
+        // a guidance one: no part of the flight reads an ascent stage. The baseline is re-flown
+        // every night, so what it must not do is differ *between arms* -- and it cannot, being set
+        // here rather than by anything an arm can reach.
+        _config.DisposeSpentStages = true;
+
         _budget = BallisticBudgetSeconds;
         _phase = Phase.LoadingSave;
         Report($"{_name}: START {shot.Describe()} save='{_save}'");

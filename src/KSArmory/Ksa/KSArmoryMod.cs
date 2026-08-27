@@ -132,7 +132,7 @@ public sealed class KSArmoryMod
 
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
-        _icbms = new IcbmComputers();
+        _icbms = new IcbmComputers(_config);
         _motors = new MotorSound(_config);
         _smoke = new MotorSmoke(_config);
         _gunSound = new GunSound(_config);
