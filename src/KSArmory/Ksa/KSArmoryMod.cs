@@ -295,7 +295,7 @@ public sealed class KSArmoryMod
             // cannon puts almost nothing on screen.
             if (KsaWorld.InFlight)
             {
-                foreach (WeaponSystems.Entry e in _roster.All) Visuals.DrawShellStream(e.Battery);
+                using (_budget.Measure("shells")) foreach (WeaponSystems.Entry e in _roster.All) Visuals.DrawShellStream(e.Battery);
             }
 
             // Outside the debug overlay switch, and deliberately: this is a sight the operator
@@ -321,13 +321,16 @@ public sealed class KSArmoryMod
             // Not behind the world-overlay switch. That switch is for diagnostics — search cones
             // and drive facing — and this is the shot itself: where the warheads are going is the
             // thing the operator is flying the rocket to change.
-            if (KsaWorld.InFlight && _icbms is not null) IcbmOverlay.Draw(_icbms, _trajectory);
+            if (KsaWorld.InFlight && _icbms is not null)
+            {
+                using (_budget.Measure("icbmdraw")) IcbmOverlay.Draw(_icbms, _trajectory);
+            }
 
             // Over the world, under the panel: ImGui draws windows in submission order, and the
             // panel is submitted first, so a full-screen overlay added here sits above the scene
             // and below anything the operator is reading.
             if (KsaWorld.InFlight && _config.DrawSystemMarkers)
-                Markers.Draw(_ui.Systems, _ui.Focused, dt);
+                using (_budget.Measure("markers")) Markers.Draw(_ui.Systems, _ui.Focused, dt);
 
             // The weapon the trigger is pointed at, which is what the switcher and the sight
             // already follow -- so the brackets are always on what FIRE would actually shoot.

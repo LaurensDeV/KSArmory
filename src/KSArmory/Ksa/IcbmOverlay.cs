@@ -88,7 +88,9 @@ internal static class IcbmOverlay
                             : UnarmedRingMetres;
 
         KsaWorld.DrawCircleEcl(target, up, radius, Aim);
-        KsaWorld.DrawCircleEcl(target, up, radius * 0.15, Aim, segments: 16);
+        // The inner pip is metres across, so draping it costs 17 accurate terrain samples to move
+        // it by less than its own width. The outer ring is what shows the ground.
+        KsaWorld.DrawCircleEcl(target, up, radius * 0.15, Aim, segments: 16, drape: false);
     }
 
     // The screen-space half: a mark on the aim point wherever it is, with the countdown beside it.

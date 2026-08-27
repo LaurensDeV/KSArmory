@@ -2849,9 +2849,13 @@ internal static class KsaWorld
     // disappears in patches, which looks worse than being slightly above it.
     private static double3 OnGround(double3 atEcl, bool drape, double clearance)
     {
-        if (!drape || !TrySnapToGround(atEcl, out double3 ground)) return atEcl;
+        // The centre comes back from the snap rather than being looked up again. Finding it is a
+        // walk of every celestial in the system, and the snap has just done exactly that walk to
+        // pick the body it draped onto -- so asking a second time doubles the cost of every draped
+        // point, and a draped ring is 82 of them per overlay per frame.
+        if (!drape || !TrySnapToGround(atEcl, out double3 ground, out double3 centre)) return atEcl;
 
-        return ground + Vec.Unit(ground - NearestBodyCentre(ground)) * clearance;
+        return ground + Vec.Unit(ground - centre) * clearance;
     }
 
     private static double3 NearestBodyCentre(double3 nearEcl)
@@ -2890,8 +2894,17 @@ internal static class KsaWorld
     /// <para>What makes a ring drawn on a slope follow the slope. A ring at one radius is flat in
     /// space, so on anything but level ground half of it is buried and the other half floats.</para>
     /// </summary>
-    public static bool TrySnapToGround(double3 nearEcl, out double3 onGroundEcl)
+    public static bool TrySnapToGround(double3 nearEcl, out double3 onGroundEcl) =>
+        TrySnapToGround(nearEcl, out onGroundEcl, out _);
+
+    /// <summary>
+    /// As above, and hands back the centre of the body it draped onto -- which it had to find
+    /// anyway. A caller that needs the local up gets it for free instead of walking the system
+    /// again for a body this has already identified.
+    /// </summary>
+    public static bool TrySnapToGround(double3 nearEcl, out double3 onGroundEcl, out double3 centreEcl)
     {
+        centreEcl = Vec.Zero;
         onGroundEcl = nearEcl;
 
         try
@@ -2915,6 +2928,7 @@ internal static class KsaWorld
             if (nearest is null) return false;
 
             double3 centre = nearest.GetPositionEcl();
+            centreEcl = centre;
             double3 dirCce = Vec.Unit(nearEcl - centre);
             if (Vec.Len2(dirCce) < 0.5) return false;
 
