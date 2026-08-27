@@ -2385,6 +2385,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 Announce($"{RoundLabel.For(round.Tube)} was shot down after {round.Age:F1}s, " +
                          $"{round.DistanceFlown / 1000.0:F1} km out");
+
+                // Raised here rather than beside Detonated and Expired below, and it has to be:
+                // this is the one frame a shot-down round is reaped on, where the state test down
+                // there would fire every frame until it was. A consumer counting rounds that have
+                // finished must see this one -- BallisticScenario waits for every released warhead
+                // to end, so an interception it never hears about is a flight that never resolves
+                // and a whole shot that scores nothing. Measured 2026-08-28: 7 warheads intercepted
+                // by the site the shot was aimed at, and the run timed out with 42 of 48 down.
+                RoundEnded?.Invoke(round);
                 DropRound(i);
                 continue;
             }
