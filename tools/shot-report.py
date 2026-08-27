@@ -65,6 +65,11 @@ BODY_RADIUS_M = 6371000.0
 
 # --- parsing ----------------------------------------------------------------
 
+# One line per rocket when several fly in one world. A run used to be one shot, so read_shot
+# took the FIRST verdict in the file -- which with eight flights scores one and silently discards
+# seven. Silent undercounting reads exactly like a smaller night.
+PERFLIGHT = re.compile(r"FLIGHT (.+?) :: (PASS|FAIL) (.*)$", re.M)
+
 VERDICT = re.compile(
     r"worst\s+([\d.]+)\s*km,\s*best\s+([\d.]+)\s*km,\s*"
     r"mean\s+([\d.]+)\s*km,\s*spread\s+([\d.]+)\s*km")
@@ -168,6 +173,44 @@ def _floats(pattern, text, groups=1):
     out = []
     for m in pattern.finditer(text):
         out.append(tuple(float(g) for g in m.groups()[:groups]))
+    return out
+
+
+def split_flights(out_path, log_path):
+    """One record per rocket that flew, or one for the whole run when only one did.
+
+    Several rockets in one world are several shots, and they are NOT independent draws -- they
+    share the frame pacing, the warp decisions and the solver load. Treated as independent by a
+    rank test they inflate n without inflating information, so they are reported with the craft
+    that flew them and `--main` pools on the arm rather than on the flight.
+    """
+    text = out_path.read_text(errors="replace") if out_path.exists() else ""
+    log = log_path.read_text(errors="replace") if log_path.exists() else ""
+
+    flights = PERFLIGHT.findall(text + "\n" + log)
+
+    # One rocket: the run is the shot, and the id is unchanged so old batches read as before.
+    if len(flights) <= 1:
+        return [(read_shot(out_path, log_path), "", flights[0][0] if flights else "")]
+
+    out = []
+
+    for i, (craft, _passfail, said) in enumerate(flights):
+        rec = read_shot(out_path, log_path)
+
+        # The verdict is this flight's own; everything else in read_shot is read over the whole
+        # log and is shared by construction. Per-flight attribution wants the log partitioned by
+        # craft name, which is a separate job -- until then those columns describe the world.
+        m = VERDICT.search(said)
+        if m:
+            rec["worst"], rec["best"], rec["mean"], rec["spread"] = (float(g) for g in m.groups())
+
+        a = ARRIVED.search(said)
+        if a:
+            rec["arrived"], rec["released"] = int(a.group(1)), int(a.group(2))
+
+        out.append((rec, chr(ord("a") + i) if i < 26 else f".{i}", craft))
+
     return out
 
 
@@ -352,11 +395,14 @@ def load(root):
         if len(parts) < 5:
             continue
         n, block, arm, verdict, dll = parts[0], parts[1], parts[2], parts[3], parts[4]
-        rec = read_shot(root / "shots" / f"{n}-{arm}.out", root / "shots" / f"{n}-{arm}.log")
-        # Kept as text. shot-batch.sh writes 'x' for a shot re-allocated off a dropped arm, so
-        # anything numeric here refuses to read the one batch shape the gate actually produces.
-        rec.update(n=n, block=block, arm=arm, verdict=verdict, dll=dll)
-        shots.append(rec)
+        out_path = root / "shots" / f"{n}-{arm}.out"
+        log_path = root / "shots" / f"{n}-{arm}.log"
+
+        for rec, suffix, craft in split_flights(out_path, log_path):
+            # Kept as text. shot-batch.sh writes 'x' for a shot re-allocated off a dropped arm, so
+            # anything numeric here refuses to read the one batch shape the gate actually produces.
+            rec.update(n=n + suffix, block=block, arm=arm, verdict=verdict, dll=dll, craft=craft)
+            shots.append(rec)
     return root, shots
 
 
