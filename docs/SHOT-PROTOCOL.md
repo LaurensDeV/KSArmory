@@ -138,6 +138,32 @@ data.
 **Two looks, so α is 0.0294.** The gate looks once mid-batch and the report once at the end;
 Pocock's constant boundary for two looks spends 5% overall. Do not add a third look by eye.
 
+### The endpoint assumes one mode, and a floored shot has two
+
+**Check the shape before trusting the verdict.** The median-on-a-log-scale endpoint is chosen for
+the distribution measured at the top of this file — multiplicative, right-skewed, one mode. Under
+`IcbmConfig.MinArrivalAngleDeg` the miss stops being that. It becomes two tight clusters set by
+whether the post-boost correction finished: **0.01–0.14 km if it did, 0.83–3.92 if it did not**, and
+across the fifty shots of `2026-08-27-0040` **not one landed in between**.
+
+A median cannot see a change that moves shots *between* modes; it only reports which mode the middle
+shot fell in. That night the control's 12th, 13th and 14th shots were 0.04, 0.08 and 0.83 km, so its
+median sat exactly on the boundary and was decided by 13 converging against 12 not. The rank test
+fails the same way — thirteen control shots rank at or above the arm's typical shot. The verdict
+read **UNRESOLVED, p=0.464**, on a change that took shots missing by over 500 m from 12 of 25 to 1
+of 25 at `p = 3.8 × 10⁻⁴`.
+
+So when the outcome is bimodal, the thing to pre-register is **which mode a shot lands in** — a
+proportion, tested with Fisher's exact — and the median is a diagnostic rather than the endpoint.
+`shot-report.py`'s "what ended the post-boost correction" table is where the modes are visible; read
+it before the ratio, and if the two arms differ there, the ratio is answering a different question
+from the one you asked.
+
+**This is not licence to change endpoint after seeing the data.** The mechanism has to be named in
+advance, which for that night it was — `docs/MIRV-NEXT.md` item 8s set the open question as whether
+more budget makes a *stopped* shot converge. What the night showed is that the pre-registered
+*statistic* was wrong for the pre-registered *question*, and those are separable.
+
 ## 2. The baseline
 
 **The baseline is an arm of the same batch, flown on the same schedule as every other arm.** It is
