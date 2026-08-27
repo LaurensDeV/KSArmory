@@ -44,6 +44,11 @@ internal sealed class ScenarioRunner
     private string _name = string.Empty;
     private TestTarget.Profile _profile;
     private BallisticScenario? _ballistic;
+
+    // Held rather than passed, because the flights are crewed once the world has loaded rather
+    // than when the run is asked for.
+    private ShotRequest _shot;
+    private bool _isBallistic;
     private double _elapsed;
     private double _simElapsed;
     private double _budget = EngagementBudgetSeconds;
@@ -73,6 +78,81 @@ internal sealed class ScenarioRunner
 
     public ScenarioRunner(Config config) => _config = config;
 
+    // One flight per rocket, each with its own magazine, group and verdict, and one shared list of
+    // which craft are ours so none of them aims at another.
+    private readonly List<BallisticScenario> _flights = [];
+    private readonly List<Vehicle> _shooters = [];
+    private readonly List<string?> _outcomes = [];
+
+    // Crewed once, from whatever the roster holds the first time it holds anything. A rocket that
+    // appears later is not picked up: every rocket in a scripted world is on the pad at load, and a
+    // flight joined mid-ascent is a differently conditioned shot rather than a spare one.
+    private bool _crewed;
+
+    private void CrewTheFlights(IcbmComputers? icbms)
+    {
+        if (_crewed || icbms is null) return;
+
+        foreach (IcbmComputer computer in icbms.All)
+        {
+            if (!KsaWorld.IsAlive(computer.Craft)) continue;
+
+            _shooters.Add(computer.Craft);
+            _flights.Add(new BallisticScenario(
+                _shot, line => Report($"{_name}: {line}"), computer, _shooters));
+            _outcomes.Add(null);
+        }
+
+        if (_flights.Count == 0) return;
+
+        _crewed = true;
+        _ballistic = _flights[0];
+
+        // Said because trap 1's failure mode is silent: a run that flew one rocket and left the
+        // rest on the pad looks exactly like a run that flew them all, and reports the idea as
+        // free. The count here is what a batch checks against what it asked for.
+        Report($"{_name}: crewed {_flights.Count} flight(s): "
+               + string.Join(", ", _shooters.ConvertAll(KsaWorld.DisplayName)));
+    }
+
+    private void FlyThem(WeaponSystems roster, IcbmComputers? icbms, double dt, double playerStep)
+    {
+        if (_flights.Count == 0) return;
+
+        bool allDone = true;
+
+        for (int i = 0; i < _flights.Count; i++)
+        {
+            if (_outcomes[i] is not null) continue;
+
+            _outcomes[i] = _flights[i].Update(roster, icbms, dt, playerStep);
+
+            if (_outcomes[i] is null) allDone = false;
+        }
+
+        if (allDone) FinishAll();
+    }
+
+    // Every flight's verdict on its own line, because a batch scores them one by one. The run's own
+    // outcome is the worst of them: a night that quietly lost a rocket must not read as a pass.
+    private void FinishAll()
+    {
+        int flew = 0;
+
+        for (int i = 0; i < _flights.Count; i++)
+        {
+            if (_flights[i].Committed) flew++;
+
+            Report($"{_name}: FLIGHT {KsaWorld.DisplayName(_shooters[i])} :: {_outcomes[i]}");
+        }
+
+        string worst = _outcomes.Exists(o => o is not null && o.StartsWith("FAIL"))
+                           ? "FAIL"
+                           : "PASS";
+
+        Finish($"{worst} {flew} of {_flights.Count} flight(s) flew");
+    }
+
     // One world, one clock, and every flight in it has an opinion -- so the requests are collected
     // and the slowest wins rather than each flight writing the speed and the last one winning.
     // Sim/WorldSpeed.cs holds the rule. With one rocket this is exactly what the scenario used to
@@ -83,7 +163,7 @@ internal sealed class ScenarioRunner
     private void ApplyWorldSpeed()
     {
         _wantedSpeeds.Clear();
-        if (_ballistic is not null) _wantedSpeeds.Add(_ballistic.WantedSpeed);
+        for (int i = 0; i < _flights.Count; i++) _wantedSpeeds.Add(_flights[i].WantedSpeed);
 
         double speed = WorldSpeed.Slowest(_wantedSpeeds);
 
@@ -168,7 +248,10 @@ internal sealed class ScenarioRunner
             return;
         }
 
-        _ballistic = new BallisticScenario(shot, line => Report($"{_name}: {line}"));
+        // Crewed later, once the save has loaded and the roster holds something: with several
+        // rockets there is one flight each, and none of them exists yet.
+        _shot = shot;
+        _isBallistic = true;
 
         // Nobody is watching a scripted shot and there is no second chance to ask for the numbers,
         // which is the same reason BallisticScenario turns verbose logging on. Off everywhere else.
@@ -214,7 +297,7 @@ internal sealed class ScenarioRunner
             return;
         }
 
-        if (_ballistic is not null && _simElapsed > BallisticSimBudgetSeconds)
+        if (_isBallistic && _simElapsed > BallisticSimBudgetSeconds)
         {
             Finish($"TIMEOUT after {_simElapsed / 60.0:F0} minutes of world time -- {Stuck()}");
             return;
@@ -247,12 +330,12 @@ internal sealed class ScenarioRunner
                     }
                 }
 
-                _phase = _ballistic is null ? Phase.WaitingForWorld : Phase.Flying;
+                _phase = _isBallistic ? Phase.Flying : Phase.WaitingForWorld;
                 return;
 
             case Phase.Flying:
-                if (_ballistic!.Update(roster, icbms, dt, playerStep) is { } outcome) Finish(outcome);
-
+                CrewTheFlights(icbms);
+                FlyThem(roster, icbms, dt, playerStep);
                 ApplyWorldSpeed();
                 return;
 
@@ -359,7 +442,7 @@ internal sealed class ScenarioRunner
     private void Finish(string outcome)
     {
         _phase = Phase.Done;
-        _ballistic?.Release();
+        for (int i = 0; i < _flights.Count; i++) _flights[i].Release();
         Report($"{_name}: {outcome}");
         Report($"{_name}: END");
     }
