@@ -2,8 +2,8 @@
 
 **What this is.** Eight rockets in one world is now a usable measuring instrument — eight scored
 shots for the wall-clock cost of one. This is the state of it, what is known about what limits the
-accuracy, and what to do next, ranked. `docs/MIRV-NEXT.md` items **8s**, **8t**, **8u** and **8v**
-are the flown record; this is the plan.
+accuracy, and what to do next, ranked. `docs/MIRV-NEXT.md` items **8s**, **8t**, **8u**, **8v** and **8w**
+are the flown record; this is the plan. **8w refutes part of 8u and 8v — it is the current one.**
 
 ## Where it stands
 
@@ -37,48 +37,59 @@ is a drawing problem rather than a guidance one — see *What is not worth doing
 
 ## What limits the accuracy
 
-The chain, from the flown logs. **Item 8v states this and a refutation pass says 8v's version is
-not self-consistent against the code — re-read it before building on it.**
+The chain, from the flown logs, **as corrected by the refutation pass** — `docs/MIRV-NEXT.md` item
+**8w**. Two of the four links 8v named turned out to be reading the log rather than the bus.
 
-1. **The separation clearance never succeeds.** Across 94 single-rocket flights the
-   `clear of the spent stack` branch has never once fired; every clearance ends on the 20 s
-   timeout. `SeparationClearance.Check` wants `stageRadius + 10`, which is 15.3 m for the 5.3 m
-   stack, and the gap opens at roughly 0.65 m/s from 2.0 m — about 20.5 s of separating against a
-   20 s clock.
-2. **The gap is frame-rate sensitive.** Measured 2.1–4.8 m when frames were slow and 5.3–8.9 m once
-   they were faster, on eight of eight flights. This is why every performance fix has moved
-   accuracy.
-3. **The bus drifts while it waits** — 4.11 to 9.94 m/s off its solution by the timeout.
-4. **The trim then refuses**, because `BusTrim.MaxMetresPerSecond` is 10 and
-   `IcbmComputer` only sizes the ceiling from the budget once `_postBoost.Cycles > 0`.
+1. ~~**The separation clearance never succeeds.**~~ **It succeeds in 4.4 seconds, on 15 of 16.**
+   The `clear of the spent stack` sentence is discarded by the only thing that reads it — `Say`
+   prints the clearance line only while the gate is *shut* — so its absence from 94 flights measures
+   the logger. The armed `ProximityWatch` says the gap reaches the 15.3 m keep-out at +4.4 s, and
+   every one of the fourteen trim refusals is logged *without* a clearance prefix, which is proof
+   the gate was open. One flight of sixteen timed out, and it is a genuine re-approach.
+2. ~~**The gap is frame-rate sensitive.**~~ Not settled. The 2.1–4.8 m against 5.3–8.9 m readings
+   are samples taken *during* the four seconds the gap is opening, so they measure when the frame
+   landed as much as how fast the halves parted. The separation rate measured end to end is
+   **3.0 m/s**, not the 0.65 m/s inferred from the timeouts.
+3. **The bus is 7.77–17.13 m/s off its solution *at the split*** — before any waiting. Four seconds
+   of clearing adds about 3 m/s. **11 of 14 were already over the trim's ceiling with zero wait.**
+4. **The trim then refuses**, at 10.81–20.26 m/s against `BusTrim.MaxMetresPerSecond` of 10, because
+   `IcbmComputer` only sizes the ceiling from the budget once `_postBoost.Cycles > 0`. This link
+   stands, and it is the proximate cause.
 5. **No aim correction is applied at all**, and the shot lands where the raw burn put it.
+
+**And the debt in link 3 tracks the arrival, not the decoupler.** Across the fourteen, what the bus
+owed at the split runs monotone with the gap between the committed arrival and the flown prediction
+— 8 s to 14 s, at about **1.6 m/s per second**. A shove is ~1 m/s. That is the unexplained term now,
+and it is printed on every one of those lines already.
 
 ## What to do, ranked
 
-**1. Drop the `Cycles > 0` condition on the trim ceiling.** `Ksa/IcbmComputer.cs:1252`. One line.
-Named by the investigation as the proximate cause: the guard asks whether the *aim* has moved when
-the question is whether the *bus* has separated. `BusTrim.Stalled` and the budget still bound the
+**1. Drop the `Cycles > 0` condition on the trim ceiling.** `Ksa/IcbmComputer.cs`. One line, and now
+the *only* one of the original two that reaches the failure. The guard asks whether the *aim* has
+moved when the question is whether the *bus* has separated.
+`Config.TrimBudgetMetresPerSecond` defaults to 60, so the first-pass ceiling becomes
+`max(60 - 0, 10)` and admits all fourteen refusals. `BusTrim.Stalled` and the budget still bound the
 loop, which is the argument `9b48bd1` already made for later passes.
 
-**2. `SeparationClearance.TimeoutSeconds` 20 → 25.** One constant. Covers the 27 recorded timeouts
-and the flight refused at **`15.2 m of 15.3`** — ten centimetres. It does nothing for a bus still at
-2.1 m, so it is second rather than first.
+**Know what it buys before flying it.** It licenses a 10–20 m/s correction whose size tracks an
+arrival disagreement rather than a separation shove. That may be the trim earning its propellant or
+chasing a stale arrival, and the log already carries the number that tells them apart.
 
-**Fly them separately.** They address different halves and stacking them loses which worked.
+**2. ~~`SeparationClearance.TimeoutSeconds` 20 → 25.~~ Do not fly this.** The timeout resolved 1 of
+16 flights, not 27 of them. The `15.2 m of 15.3` line read as a refusal ten centimetres short is a
+`waiting` line one frame *before* the gate opened. Nothing here is bounded by the clock.
 
-**3. Re-read item 8v against the code.** A refutation pass found its causal chain not
-self-consistent. Everything above inherits from it.
-
-**4. The structural defects found and not fixed.** Each is independent of 1 and 2:
+**3. The structural defects found and not fixed.** Each is independent of 1:
    * the trim's refusal is a **single-frame verdict that is terminal for the whole flight**
-   * the keep-out interlock is **provably dead** under the current wiring, so the mechanism meant to
-     let the trim fire safely while close never engages
-   * the gate and the interlock share one threshold, so there is **no hysteresis** at the moment
-     clearance is achieved
+   * the keep-out interlock is **provably dead** — `ProximityWatch.KeepOutFor` and the clearance's
+     `wanted` are the same expression, so the interlock can only be armed while the gate is shut,
+     and a shut gate is what stops the trim firing
+   * the gate and the interlock share that one threshold, so there is **no hysteresis** at the
+     moment clearance is achieved — which is how the one re-approach happened
    * `BusTrim.MaxMetresPerSecond` **cannot be raised** — `PostBoostAimTests` pins it against the
      separation reserve. The only loosening path is the call site, which is item 1.
 
-**5. Then the arrival floor.** `IcbmConfig.MinArrivalAngleDeg` ships at 0 and is worth about **18x**
+**4. Then the arrival floor.** `IcbmConfig.MinArrivalAngleDeg` ships at 0 and is worth about **18x**
 on the mean (3.74 → 0.21 km, `docs/MIRV-NEXT.md` 8t). `arm/floor15` exists. At eight rockets that
 night costs about an hour rather than eight. **This is the largest single accuracy lever left and it
 is a config default, not a code change.**
@@ -105,5 +116,10 @@ is a config default, not a code change.**
 * `KSARMORY_SCENARIO_SYSTEM` picks the system for a scripted run. KSA defaults to the 25-body
   `Sol`; `SolLite` is Earth and Moon. **Patched conics**, so dropping the outer planets does not
   change an Earth trajectory and stays comparable with every night already flown.
+* **Before reading a log line's absence as an event's absence, check it can be printed.** Four
+  findings on this mechanism have now been artefacts of an instrument with one output: the pre-arm
+  `ProximityWatch` minimum, the `F0` rounding, 8p's inferred drift-back, and the clearance's success
+  sentence that `Say` discards on exactly the branch producing it. A gate whose only observable is
+  its failures reads as a gate that always fails.
 * **Do not edit `tools/*.sh` while a run is in flight.** Bash reads a script incrementally and a
   running scenario resumes into the middle of a different file.

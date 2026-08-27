@@ -3971,7 +3971,11 @@ bus coming *back* onto the stack it had dropped; it could not have seen one.
 Fixed by arming it when the gap first opens past the keep-out. A pair that never parted now reports
 *that*, which is a different fault — and is what 55 of the 94 actually had.
 
-### The clearance gate's success branch has never fired
+### The clearance gate's success branch has never fired — **wrong, see 8w**
+
+> **Superseded.** That sentence cannot reach the log on the branch that produces it, so its absence
+> measures `Say` rather than the gate. Flown evidence in **8w**: the gate opens in 4.4 s on 15 of
+> 16. The 0.65 m/s rate below and the `TimeoutSeconds` arm that follows from it both go with it.
 
 Not once in 94 flights is there a `clear of the spent stack at N m after M s`. **Every clearance is
 resolved by the 20-second timeout**, either abandoning the trim or going ahead with no reading. The
@@ -4036,6 +4040,10 @@ evidence, and the repeat cost ten minutes.
 
 ### What actually fails
 
+> **Steps 1-3 below are superseded by 8w.** The clearance opens; the trim's refusal is real but is
+> already over the ceiling *at the split*, before any waiting. Step 4 and the conclusion that the
+> first-pass ceiling is the proximate cause both stand.
+
 Five of run 2's eight ended on one line, and they are exactly the five worst:
 
 ```
@@ -4070,6 +4078,105 @@ The multi-rocket harness is **not usable for accuracy work** until the clearance
 clearance is now the second finding in a row to land on it. `SeparationClearance.TimeoutSeconds`
 20 → 25 is the arm 8u names; on this evidence it should be flown against eight rockets rather than
 one, because eight is where the failure is frequent enough to measure.
+
+## 8w. The clearance does open, and its success is unloggable — 2026-08-27
+
+A refutation pass over 8v, which 8v asked for. **8u's second finding is an artefact of the log, and
+the chain 8v built on it does not survive.** Read against the sixteen-rocket run (session
+`2026-08-27 22:22`, `SOLVER SCALE 16`, 16 flights, 0/16) and the 50 single-rocket logs in
+`~/shots/2026-08-27-0040`.
+
+### The success sentence is produced on exactly the frame it can no longer be logged on
+
+`SeparationClearance.Check` emits `clear of the spent stack at N m after M s` on the one branch that
+sets `IsClear`. Its only caller ends:
+
+```csharp
+_mayTrim = clearance.IsClear;
+...
+Say(_mayTrim ? trim.Said : clearance.Said + "; " + trim.Said, ...);
+```
+
+So the clearance's sentence reaches the log **only while the gate is shut**. Success discards it.
+Its absence from 94 flights is guaranteed by construction and carries no information about the gate
+— "not once in 94 flights is there a `clear of the spent stack at`" is a statement about `Say`.
+
+That makes it the **fourth** instance of the shape 8u catalogues twice: the pre-arm `ProximityWatch`
+minimum, the `F0` rounding that read `15 m ... inside the 15 m it needs`, 8p's inferred drift-back —
+and now this. Every one is an instrument that could only ever print one thing being read as a
+measurement. Fixed by saying it once where the gate opens.
+
+### The same ternary is a discriminator, and it settles the question without new flights
+
+`Say` prefixes the clearance sentence **iff `_mayTrim` is false**. So a `trimming the bus on X:` line
+*without* a `waiting to clear` prefix is proof the gate was open on that frame. In the sixteen-rocket
+run, all **14** ceiling refusals are unprefixed. The gate was open on every one.
+
+### It opens in 4.4 seconds, not 20
+
+| what the armed `ProximityWatch` reported | flights |
+| --- | --- |
+| `15.3 m at +4.4 s, keep-out 15.3 m` | **15 of 16** |
+| `2.3 m at +20.1 s ... CAME BACK INSIDE THE KEEP-OUT` | 1 |
+| `going ahead with no clearance reading` | 0 |
+| `still N m from the spent stack after 20 s` (abandoned) | 1, the same flight |
+
+The watch arms only at or above the keep-out, so that first row **is** the gate opening. Fifteen of
+sixteen cleared 15.3 m in 4.4 s; the timeout resolved one.
+
+So 8u's **0.65 m/s** separation rate is a selected sample — it was read off the flights that timed
+out, which are by construction the ones that failed to separate. Measured here:
+`(15.3 - 2.0) / 4.4` = **3.0 m/s**, and 13.5 m or 15.3 m is reached in seconds either way.
+
+The one that did not is a genuine re-approach: it opened past the keep-out and came back to 2.3 m.
+That is the event `ProximityWatch` was built for, and it is the first time it has fired.
+
+### The trim does refuse on the ceiling — and the wait is not what pushed it over
+
+Fourteen refusals, `_toGain` **10.81–20.26 m/s** against `BusTrim.MaxMetresPerSecond` of 10. But
+what each bus owed **at the split** was 7.77–17.13, and **11 of the 14 were already over the ceiling
+before any waiting at all**. Four seconds of clearing added about 3 m/s to a number that was already
+past it.
+
+8v's step 2 quoted 4.11–9.94 m/s and step 3 said the ceiling refused something "grown to nearly
+that". Every one of those is *below* 10 and cannot have tripped the check. They are
+`holding, N m/s off the solution` readings — the line printed **while the gate is shut**, which is
+the half of the flight where the ceiling is never reached.
+
+### What the debt actually tracks is the arrival, not the decoupler
+
+| owed at split (m/s) | 7.77 | 9.08 | 9.89 | 10.07 | 11.26 | 12.04 | 12.56 | 14.35 | 15.49 | 16.79 | 17.13 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **committed arrival vs flown prediction (s)** | **8** | **9** | **10** | **10** | **11** | **11** | **11** | **12** | **13** | **13** | **14** |
+
+Monotone, and about **1.6 m/s per second** of disagreement. A decoupler's shove is ~1 m/s and the
+clearing adds ~3; neither explains ten to seventeen. This is the shape `IcbmComputer.Arrivals`
+already warns about — what the trim nulls is `RequiredVelocity(arrival) - v`, so an arrival that is
+out moves the answer — and it is printed on every one of these lines, which is why the comment
+exists.
+
+### The keep-out interlock is dead, and provably
+
+`ProximityWatch.KeepOutFor` and `SeparationClearance`'s `wanted` are the same expression, down to
+the fallback. So `_keepOutTowardCci` is non-zero only when `apart < wanted`, which is exactly when
+the gate is shut — and a shut gate is what stops the trim firing. Every path that reaches
+`BusTrim.Update` with `MayFire` true hands it a zero interlock. The mechanism meant to let the trim
+fire safely while close cannot engage, and there is no hysteresis at the moment clearance is
+achieved because one threshold does both jobs.
+
+### What this changes about what to fly
+
+1. **`TimeoutSeconds` 20 → 25 is not supported by this evidence.** The timeout resolved 1 of 16.
+   The `15.2 m of 15.3` line read as a refusal ten centimetres short is a `waiting` line one frame
+   before the gate opened, not a failure.
+2. **Dropping the `Cycles > 0` condition on the trim ceiling is the only one of the two that reaches
+   the failure.** `Config.TrimBudgetMetresPerSecond` defaults to 60, so the first-pass ceiling
+   becomes `max(60 - 0, 10)` and admits all fourteen.
+3. **But it buys the right to fly a 10–20 m/s correction whose size tracks an arrival disagreement.**
+   Whether that is the trim earning its propellant or chasing a stale arrival is not settled here,
+   and it is the thing to know before or alongside flying item 2.
+
+**None of it is flown.** The logging fix is a diagnostic and changes no flight behaviour.
 
 ## 9. The budget at the 0.65 km level
 
