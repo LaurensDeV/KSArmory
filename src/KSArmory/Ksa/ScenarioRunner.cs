@@ -451,9 +451,20 @@ internal sealed class ScenarioRunner
     // things that state needed was missing, which is the whole of what a run that never finished
     // has to answer. For a shot that got some of its warheads away it carries the group too: those
     // are the numbers the run was for, and a bare "TIMEOUT" throws them away.
+    // The flight that is actually holding the run up, which on a multi-rocket save is rarely the
+    // first one. Reporting _flights[0] regardless describes a flight that has usually finished, so
+    // a timeout reads as a healthy shot and points the reader at the wrong rocket.
     private string Stuck()
     {
         if (_ballistic is null || _phase != Phase.Flying) return _phase.ToString();
+
+        for (int i = 0; i < _flights.Count; i++)
+        {
+            if (_outcomes[i] is not null) continue;
+
+            return $"{KsaWorld.DisplayName(_shooters[i])}: {_flights[i].Where}; "
+                   + $"{_flights[i].Judge().Said}";
+        }
 
         return $"{_ballistic.Where}; {_ballistic.Judge().Said}";
     }
