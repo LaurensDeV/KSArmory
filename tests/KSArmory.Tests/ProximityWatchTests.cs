@@ -108,10 +108,57 @@ public class ProximityWatchTests
     public void AStageWhoseSizeCannotBeReadStillHasAKeepOut()
     {
         var watch = new ProximityWatch();
+        watch.Update(1.0, SeparationClearance.FallbackMetres + 5.0, double.NaN);
         watch.Update(1.0, SeparationClearance.FallbackMetres - 1.0, double.NaN);
 
         Assert.True(watch.Closest.Breached);
         Assert.Equal(SeparationClearance.FallbackMetres, watch.Closest.KeepOutMetres, 6);
+    }
+
+    /// <summary>
+    /// A pair that never parted has not breached a keep-out — it has failed to separate, which is
+    /// a different fault and has to read as one.
+    ///
+    /// <para>This is the whole reason the watch arms. Every split begins with the halves adjacent,
+    /// so a minimum taken from the first frame is the split: across 94 recorded flights it read
+    /// <c>2.0 m at +0.0 s -- INSIDE THE KEEP-OUT</c>, identically, on every one. An instrument
+    /// with a single possible output cannot detect anything.</para>
+    /// </summary>
+    [Fact]
+    public void APairThatNeverPartedIsNotABreach()
+    {
+        var watch = new ProximityWatch();
+
+        // What every flight actually looks like from the split onward when it never gets clear.
+        foreach (double apart in new[] { 2.0, 3.5, 6.0, 9.0, 11.0, 13.0 })
+        {
+            watch.Update(1.0, apart, StageRadius);
+        }
+
+        ClosestApproach c = watch.Closest;
+
+        Assert.False(c.Opened);
+        Assert.False(c.Breached);
+        Assert.False(c.Known);
+        Assert.Contains("never opened past", c.Said);
+        Assert.DoesNotContain("CAME BACK", c.Said);
+    }
+
+    /// <summary>And once it has parted, coming back is caught — which is the event it exists for.</summary>
+    [Fact]
+    public void OnceTheyHavePartedComingBackIsCaught()
+    {
+        var watch = new ProximityWatch();
+
+        watch.Update(1.0, KeepOut + 20.0, StageRadius);
+        watch.Update(1.0, 3.0, StageRadius);
+
+        ClosestApproach c = watch.Closest;
+
+        Assert.True(c.Opened);
+        Assert.True(c.Breached);
+        Assert.Equal(3.0, c.MetresApart, 6);
+        Assert.Contains("CAME BACK INSIDE THE KEEP-OUT", c.Said);
     }
 
     /// <summary>A pair that never came near reports the number and does not shout.</summary>
@@ -131,6 +178,7 @@ public class ProximityWatchTests
     public void ResetForgetsTheLastSplit()
     {
         var watch = new ProximityWatch();
+        watch.Update(1.0, KeepOut + 5.0, StageRadius);
         watch.Update(1.0, 2.0, StageRadius);
         Assert.True(watch.Closest.Breached);
 

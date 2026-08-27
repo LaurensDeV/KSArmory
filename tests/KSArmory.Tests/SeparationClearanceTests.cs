@@ -99,9 +99,18 @@ public class SeparationClearanceTests
         Assert.True(c.Abandoned);
 
         // And it says the distance it refused at, because that is the number that explains a salvo
-        // released without a trim.
-        Assert.Contains("2 m", c.Said);
+        // released without a trim. To a decimal: at F0 a shot refused half a metre short printed
+        // "still 15 m ... inside the 15 m it needs", which reads as a contradiction.
+        Assert.Contains("2.0 m", c.Said);
         Assert.Contains("without trimming", c.Said);
+
+        // The flown near-miss: a 5.3 m stage wants 15.3, and the bus reached 15.1. At F0 both
+        // printed as 15. A decimal separates them -- it does not abolish the boundary, it puts it
+        // ten times finer than the case that actually occurs.
+        string near = SeparationClearance.Check(15.1, 5.3, 20.0).Said;
+
+        Assert.Contains("still 15.1 m", near);
+        Assert.Contains("inside the 15.3 m", near);
     }
 
     /// <summary>
