@@ -128,6 +128,18 @@ if [[ -f "$SETTINGS" ]]; then
 
     sed -i 's/^selectSystemOnStart = true/selectSystemOnStart = false/' "$SETTINGS"
 
+    # Skipping the dialog does not choose a system -- the game loads lastSystemId, which is
+    # whatever was picked last and defaults to the full 25-body "Sol". Every celestial is work the
+    # engine does per frame and work the mod does per ground lookup, and a ballistic shot at Earth
+    # needs Earth. KSARMORY_SCENARIO_SYSTEM overrides; empty leaves the player's choice alone.
+    #
+    # Restored on exit with everything else here: it is the player's setting, not the harness's.
+    SYSTEM_WAS="$(grep -oE '^lastSystemId = ".*"' "$SETTINGS" | head -1 || true)"
+
+    if [[ -n "${KSARMORY_SCENARIO_SYSTEM:-}" ]]; then
+        sed -i "s|^lastSystemId = \".*\"|lastSystemId = \"$KSARMORY_SCENARIO_SYSTEM\"|" "$SETTINGS"
+    fi
+
     [[ -n "$CRAFT" ]] && sed -i "s|^startVehicle = \".*\"|startVehicle = \"$CRAFT\"|" "$SETTINGS"
 fi
 
@@ -185,6 +197,8 @@ cleanup() {
             sed -i 's/^selectSystemOnStart = false/selectSystemOnStart = true/' "$SETTINGS"
         [[ -n "$CRAFT_WAS" ]] &&
             sed -i "s|^startVehicle = \".*\"|$CRAFT_WAS|" "$SETTINGS"
+        [[ -n "${SYSTEM_WAS:-}" ]] &&
+            sed -i "s|^lastSystemId = \".*\"|$SYSTEM_WAS|" "$SETTINGS"
     fi
 }
 trap cleanup EXIT

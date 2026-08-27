@@ -21,6 +21,11 @@ internal sealed class GroundTest : IGroundTest
     /// <summary>Stateless, so every round in the air shares one.</summary>
     public static readonly GroundTest Shared = new();
 
+    // Which body the last lookup landed on, and how far behind the second-best was. Not thread
+    // safe and does not need to be: every caller is on the frame thread.
+    private Celestial? _lastBody;
+    private double _lastRunnerUpDepth = double.MaxValue;
+
     public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
     {
         centreEcl = default;
@@ -35,17 +40,48 @@ internal sealed class GroundTest : IGroundTest
             Celestial? nearest = null;
             double nearestDepth = double.MaxValue;
 
-            // Nearest by depth below the mean sphere rather than by distance: a round low over a
-            // moon is far closer to the ground it is about to meet than to the planet it orbits.
-            for (int i = 0; i < system.Count; i++)
+            // The body last chosen, checked first. A full scan is one position read and a length
+            // per celestial, and this is asked once per round per step -- so on a world carrying
+            // several rockets it is the system walked thousands of times a frame to be told the
+            // same answer. Anything over Earth is over Earth for the whole flight.
+            //
+            // Kept honest by the runner-up: the scan records how far behind the second-best body
+            // was, and the cache is trusted only while the chosen body is still ahead of that. The
+            // margin between a planet underfoot and its moon is hundreds of thousands of
+            // kilometres, so it holds for a whole flight and re-scans by itself when it stops
+            // holding -- which is what a round arriving somewhere else does.
+            if (_lastBody is { } cached)
             {
-                if (system.GetIndex(i) is not Celestial body) continue;
+                double depth = Vec.Len(positionEcl - cached.GetPositionEcl()) - cached.MeanRadius;
 
-                double depth = Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius;
-                if (depth >= nearestDepth) continue;
+                if (depth < _lastRunnerUpDepth)
+                {
+                    nearest = cached;
+                    nearestDepth = depth;
+                }
+            }
 
-                nearest = body;
-                nearestDepth = depth;
+            if (nearest is null)
+            {
+                double runnerUp = double.MaxValue;
+
+                // Nearest by depth below the mean sphere rather than by distance: a round low over
+                // a moon is far closer to the ground it is about to meet than to the planet it
+                // orbits.
+                for (int i = 0; i < system.Count; i++)
+                {
+                    if (system.GetIndex(i) is not Celestial body) continue;
+
+                    double depth = Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius;
+                    if (depth >= nearestDepth) { if (depth < runnerUp) runnerUp = depth; continue; }
+
+                    runnerUp = nearestDepth;
+                    nearest = body;
+                    nearestDepth = depth;
+                }
+
+                _lastBody = nearest;
+                _lastRunnerUpDepth = runnerUp;
             }
 
             if (nearest is null) return false;
