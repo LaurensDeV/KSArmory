@@ -51,6 +51,7 @@ internal sealed class IcbmComputer
     private readonly ProximityWatch _proximity = new();
     private double3 _keepOutTowardCci;
     private bool _saidProximity;
+    private bool _saidCleared;
     private readonly PostBoostAim _postBoost = new();
     private bool _postBoostSaid;
     private bool _measureDue;
@@ -318,6 +319,7 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _proximity.Reset();
         _saidProximity = false;
+        _saidCleared = false;
         _keepOutTowardCci = double3.Zero;
         _sinceSplit = 0.0;
         _mayTrim = true;
@@ -378,6 +380,7 @@ internal sealed class IcbmComputer
         _didSplit = false;
         _proximity.Reset();
         _saidProximity = false;
+        _saidCleared = false;
         _keepOutTowardCci = double3.Zero;
         _sinceSplit = 0.0;
         _mayTrim = true;
@@ -1218,6 +1221,17 @@ internal sealed class IcbmComputer
         {
             _saidBudget = true;
             Log.Info($"trim: budget of {budget:F0} m/s spent; the warheads go on the aim as it is");
+        }
+
+        // Said here rather than left to the trim's own line, which is the only other thing that
+        // reads this sentence and drops it: Say prints `trim.Said` alone once _mayTrim is true, so
+        // the success branch's text is produced on exactly the frame it can no longer be logged on.
+        // Its absence from 94 flights was read as the gate never opening -- `docs/MIRV-NEXT.md`
+        // item 8w. A gate whose only observable is its failures is not an instrument.
+        if (!_saidCleared && clearance.IsClear && _didSplit && clearance.Said.Length > 0)
+        {
+            _saidCleared = true;
+            Log.Info($"clearance on {KsaWorld.DisplayName(Craft)}: {clearance.Said}");
         }
 
         _mayTrim = clearance.IsClear;
