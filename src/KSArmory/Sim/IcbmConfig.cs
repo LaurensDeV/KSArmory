@@ -244,8 +244,8 @@ internal sealed class IcbmConfig
     ///
     /// <para><b>Defaulted to the reserve above it rather than to a number of its own.</b> There are
     /// two budgets and only one of them is derived: <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>
-    /// is sized against what a bus actually carries — 40 leaves 30 m/s on the smallest in the 70–90
-    /// range — while this one had a literal 25 and no account of where it came from. The undocumented
+    /// is sized against what a bus actually carries — 60 leaves one separation null on the smallest
+    /// in the 70–90 range — while this one had a literal 25 and no account of where it came from. The undocumented
     /// one won, silently: flown at Mahia the trim spent all 25 and stopped <b>0.45 m/s</b> short of
     /// finishing a pass it had already committed to, on a bus with tens to spare. Tying the two
     /// together means the operator's lever moves the budget <em>down</em> from the real reserve, which

@@ -388,6 +388,30 @@ public class PostBoostAimTests
     }
 
     /// <summary>
+    /// And it is large enough to finish a run rather than cutting one in half. Forty shots flown at
+    /// a 15° arrival floor: the twenty-three the budget stopped were still owed 0.47–9.36 m/s when
+    /// it fired, against 0.03–0.05 on the thirty-seven allowed to finish — so a budget under 50
+    /// stops a converging correction partway through the run that arrives, and one at 40 stopped
+    /// eleven of twelve shots that landed inside 140 m once it did not.
+    ///
+    /// <para>The pair of bounds is the point. This one is what the flown shots need and
+    /// <see cref="TheBudgetLeavesEnoughToNullASeparation"/> is what the bus can spare, and there is
+    /// one number left between them.</para>
+    /// </summary>
+    [Fact]
+    public void TheBudgetCoversFinishingTheRunItWouldOtherwiseInterrupt()
+    {
+        const double worstOwedWhenItFiredMetresPerSecond = 9.4;
+        const double whereItFiredMetresPerSecond = 40.0;
+
+        Assert.True(
+            PostBoostAim.MaxTrimMetresPerSecond
+                >= whereItFiredMetresPerSecond + worstOwedWhenItFiredMetresPerSecond,
+            $"a budget of {PostBoostAim.MaxTrimMetresPerSecond:F0} m/s cuts off the widest "
+            + $"correction flown with {worstOwedWhenItFiredMetresPerSecond:F0} m/s still to fly");
+    }
+
+    /// <summary>
     /// And the budget leaves a reserve worth having: at least one null at the largest trim
     /// <see cref="BusTrim.MaxMetresPerSecond"/> will accept, on the smallest bus the shipped rack
     /// is flown on.
