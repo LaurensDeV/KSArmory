@@ -73,6 +73,28 @@ internal sealed class ScenarioRunner
 
     public ScenarioRunner(Config config) => _config = config;
 
+    // One world, one clock, and every flight in it has an opinion -- so the requests are collected
+    // and the slowest wins rather than each flight writing the speed and the last one winning.
+    // Sim/WorldSpeed.cs holds the rule. With one rocket this is exactly what the scenario used to
+    // do to itself; with several it is the difference between a shot flown at the speed it chose
+    // and one flown at whichever speed another rocket happened to want.
+    private readonly List<double> _wantedSpeeds = [];
+
+    private void ApplyWorldSpeed()
+    {
+        _wantedSpeeds.Clear();
+        if (_ballistic is not null) _wantedSpeeds.Add(_ballistic.WantedSpeed);
+
+        double speed = WorldSpeed.Slowest(_wantedSpeeds);
+
+        if (!double.IsNaN(speed) && !speed.Equals(_speedAsked))
+        {
+            _speedAsked = KsaWorld.SetSimulationSpeed(speed) ? speed : double.NaN;
+        }
+    }
+
+    private double _speedAsked = double.NaN;
+
     /// <summary>
     /// The scenario the harness asked for, or null. A one-line file beside the log, consumed as
     /// it is read so a second launch does not silently re-run the last request.
@@ -230,6 +252,8 @@ internal sealed class ScenarioRunner
 
             case Phase.Flying:
                 if (_ballistic!.Update(roster, icbms, dt, playerStep) is { } outcome) Finish(outcome);
+
+                ApplyWorldSpeed();
                 return;
 
             case Phase.WaitingForWorld:

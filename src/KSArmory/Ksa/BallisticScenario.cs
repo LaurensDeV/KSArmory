@@ -93,6 +93,21 @@ internal sealed class BallisticScenario
     private SystemConfig? _policy;
     private bool _warped;
 
+    // What this flight wants the world clock to run at, or NaN for no opinion. Asked for rather
+    // than written, because several rockets share one world and one speed -- Sim/WorldSpeed.cs
+    // arbitrates and ScenarioRunner is the only thing that writes it. A flight that wrote directly
+    // would fly the others at a speed they did not choose.
+    public double WantedSpeed { get; private set; } = double.NaN;
+
+    // True when the request moved, so the say that explains it still happens exactly once.
+    private bool AskForSpeed(double speed)
+    {
+        if (WantedSpeed.Equals(speed)) return false;
+
+        WantedSpeed = speed;
+        return true;
+    }
+
     private IcbmPhase _reported = IcbmPhase.Idle;
     private bool _saidCutoff;
     private bool _saidStaging;
@@ -191,7 +206,7 @@ internal sealed class BallisticScenario
         // - and two builds compared against each other are then two different shots. Measured: the
         // same save picked up at 415 s of flight on one build and 450 s on another, which is 164 km
         // of difference that belongs to the harness rather than to anything being tested.
-        if (KsaWorld.IsPaused && KsaWorld.SetSimulationSpeed(SetupSpeed))
+        if (KsaWorld.IsPaused && AskForSpeed(SetupSpeed))
         {
             _say($"the world was paused; asked for {SetupSpeed:0.##}x while the shot is set up");
         }
@@ -325,7 +340,7 @@ internal sealed class BallisticScenario
             }
 
             // Everything is aimed and armed, so the vehicle may have the clock back.
-            if (KsaWorld.SetSimulationSpeed(1.0)) _say("set up; running at 1x");
+            if (AskForSpeed(1.0)) _say("set up; running at 1x");
 
             return;
         }
@@ -490,7 +505,7 @@ internal sealed class BallisticScenario
         if (roomToWarp == _coasting) return;
         _coasting = roomToWarp;
 
-        if (KsaWorld.SetSimulationSpeed(roomToWarp ? CoastWarpFactor : 1.0))
+        if (AskForSpeed(roomToWarp ? CoastWarpFactor : 1.0))
         {
             _say(roomToWarp
                      ? $"asked the world for {CoastWarpFactor:F0}x through the coast; "
@@ -513,7 +528,7 @@ internal sealed class BallisticScenario
         if (_warped) return;
         _warped = true;
 
-        if (KsaWorld.SetSimulationSpeed(WarpFactor))
+        if (AskForSpeed(WarpFactor))
         {
             _say($"asked the world for {WarpFactor:F0}x now the salvo is away; "
                  + "the warp policy holds it down again for the rounds in the air");

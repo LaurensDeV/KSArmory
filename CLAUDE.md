@@ -356,6 +356,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SmoothedStep.cs` | the step evened out, for the one consumer that wants a smooth clock |
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
+| `Sim/WorldSpeed.cs` | what one world clock runs at when several flights each want something — **the slowest wins**, because a speed is a ceiling on what can be simulated faithfully |
 | `Sim/OverrunLog.cs` | how much simulated time the clamp threw away, and whether that cost anything — **an empty sky loses nothing**, and a scene load is always one |
 | `Sim/SolverLoad.cs` | whether the engine is keeping up, and what more work in the world costs — **the instrument both throughput levers are priced with**, because neither several rockets nor several game instances has ever been measured |
 | `Sim/ChaseView.cs` | where to put a camera riding behind a round |
