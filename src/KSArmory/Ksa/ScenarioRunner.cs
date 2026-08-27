@@ -89,13 +89,24 @@ internal sealed class ScenarioRunner
     // flight joined mid-ascent is a differently conditioned shot rather than a spare one.
     private bool _crewed;
 
-    private void CrewTheFlights(IcbmComputers? icbms)
+    private void CrewTheFlights(WeaponSystems roster, IcbmComputers? icbms)
     {
         if (_crewed || icbms is null) return;
 
         foreach (IcbmComputer computer in icbms.All)
         {
             if (!KsaWorld.IsAlive(computer.Craft)) continue;
+
+            // The mod crews a ballistic computer on every craft it recognises, so the air-defence
+            // site that is the *target* has one too. Flying it as an ICBM asks a SAM for twelve
+            // thousand kilometres and holds the run open until the budget; counting it among our
+            // shooters leaves the real rocket with nothing to aim at, and it falls back to bare
+            // ground -- flown, and it moved the shot from 12,902 km to 6,261.
+            if (!BallisticScenario.CouldReachTheAim(computer, roster.For(computer.Craft)?.Battery,
+                                                    _shot))
+            {
+                continue;
+            }
 
             _shooters.Add(computer.Craft);
             _flights.Add(new BallisticScenario(
@@ -334,7 +345,7 @@ internal sealed class ScenarioRunner
                 return;
 
             case Phase.Flying:
-                CrewTheFlights(icbms);
+                CrewTheFlights(roster, icbms);
                 FlyThem(roster, icbms, dt, playerStep);
                 ApplyWorldSpeed();
                 return;

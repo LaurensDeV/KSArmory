@@ -708,6 +708,36 @@ internal sealed class BallisticScenario
     // Whether those shots carry the prediction's bias -- see IcbmConfig.CorrectAim.
     private const bool ScenarioCorrectsAim = true;
 
+    /// <summary>
+    /// Whether this craft's weapon could reach the aim point at all.
+    ///
+    /// <para><b>The one test that separates a rocket from an air-defence site</b>, and the mod
+    /// crews a ballistic computer on both — so a harness that flies "every computer" flies the SAM
+    /// site as an ICBM, and a harness that calls every computer's craft one of its own shooters
+    /// leaves the shot with nothing to aim at. Same check <see cref="Find"/> makes, exposed so the
+    /// two cannot answer differently.</para>
+    ///
+    /// <para>Unknowable is not viable: a craft whose surface point or parent cannot be read yet is
+    /// not yet a rocket, and the caller asks again next frame.</para>
+    /// </summary>
+    public static bool CouldReachTheAim(IcbmComputer computer, WeaponSystem? battery,
+                                        in ShotRequest shot)
+    {
+        if (battery?.Launcher is null || battery.Ammo <= 0) return false;
+        if (computer.Parent is not { } parent) return false;
+
+        if (!KsaWorld.TryCraftSurfacePoint(computer.Craft, out _, out double fromLat,
+                                           out double fromLon, out _))
+        {
+            return false;
+        }
+
+        double reach = GroundMetresBetween(parent, fromLat, fromLon,
+                                           shot.LatitudeDeg, shot.LongitudeDeg);
+
+        return battery.Munition.MaxRange >= reach;
+    }
+
     // Anything armed that is not one of the rockets this run is flying. "Not the launching craft"
     // is the wrong test the moment there are several: the next crewed craft is then another rocket,
     // and the shot is aimed at it -- which with an explicit --aim also teleports it, so one probe
