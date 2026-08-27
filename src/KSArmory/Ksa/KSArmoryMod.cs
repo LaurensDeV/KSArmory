@@ -474,12 +474,15 @@ public sealed class KSArmoryMod
         // being a frame behind everything measured against it.
         if (_heads is not null)
         {
-            KsaWorld.CollectVehicles(_craft);
-            _heads.Sync(_craft);
+            using (_budget.Measure("headsync"))
+            {
+                KsaWorld.CollectVehicles(_craft);
+                _heads.Sync(_craft);
+            }
         }
 
-        foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SampleWorld();
-        _heads?.SampleWorld();
+        using (_budget.Measure("sample")) foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SampleWorld();
+        using (_budget.Measure("headsample")) _heads?.SampleWorld();
 
         // Reported off the *controlled* vehicle, not the battery's platform: whether a gun
         // renders has nothing to do with whether the battery mounted, so gating it on that
@@ -500,7 +503,8 @@ public sealed class KSArmoryMod
             //
             // Consumed, not peeked: the engine answers with the last step, so asking twice without
             // it having stepped returns the same one. See KsaWorld.ConsumeSimStep.
-            double dtSim = KsaWorld.ConsumeSimStep();
+            double dtSim;
+            using (_budget.Measure("consume")) dtSim = KsaWorld.ConsumeSimStep();
 
             // Kept for the cameras, which run later in this same hook. The step is consumed
             // exactly once per frame, so they cannot ask for it themselves.
@@ -510,30 +514,39 @@ public sealed class KSArmoryMod
             // nothing exactly when it advanced nothing, so an estimate would integrate the round
             // across an interval the world did not move over, and the whole of that lands in the
             // drawn offset. Skipping costs one frame of round motion and nothing accumulates.
-            if (SimClock.Classify(dtSim, KsaWorld.IsPaused, out _) == SimClock.State.Skipped)
+            bool skipped;
+            using (_budget.Measure("clock"))
+            {
+                skipped = SimClock.Classify(dtSim, KsaWorld.IsPaused, out _) == SimClock.State.Skipped;
+            }
+
+            if (skipped)
             {
                 ReportOverrun(dtSim);
             }
 
-            ApplyWarpPolicy(dtSim);
+            using (_budget.Measure("warp")) ApplyWarpPolicy(dtSim);
 
             // Clamped, and the clamp discards time: the frame that overran cannot be un-run,
             // and the policy above only takes effect from the next one. What it stops is the
             // *next* thousand frames doing the same thing silently.
             if (double.IsFinite(dtSim) && dtSim > 0.0)
             {
-                double step = Math.Min(dtSim, FaithfulStepInFlight());
+                double faithful;
+                using (_budget.Measure("faithful")) faithful = FaithfulStepInFlight();
+
+                double step = Math.Min(dtSim, faithful);
 
                 // Gathered once, not once per system: every crewed system scans the same sky, and
                 // building this per system would be quadratic in how many are in the world.
-                CollectAirborne(step);
+                using (_budget.Measure("airborne")) CollectAirborne(step);
 
-                foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step, _airborne);
+                using (_budget.Measure("fire")) foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step, _airborne);
 
                 // Systems whose craft has been destroyed, still flying what they had in the air.
                 // After the crewed ones and on the same step, so a round is stepped exactly once
                 // per frame whichever side of its launcher's death it is on.
-                _roster.UpdateLoose(step, _airborne);
+                using (_budget.Measure("loose")) _roster.UpdateLoose(step, _airborne);
 
                 // The heads take the step as it comes, not the clamped one. That clamp exists to
                 // stop a *round* stepping over its own fuse radius, and a director has no fuse --
@@ -544,7 +557,7 @@ public sealed class KSArmoryMod
                 // 0.32 s while an 8.33 ms frame (0.13 s) was not. The head then under-advanced on
                 // alternate frames, in step with the display's pacing -- which is a shake in the
                 // picture that appears above about 13x and nowhere below it.
-                _heads?.Update(dtSim, _airborne);
+                using (_budget.Measure("heads")) _heads?.Update(dtSim, _airborne);
 
                 // On the simulated step and unclamped, for the same reason the heads are: the
                 // clamp is there to stop a *round* stepping over its own fuse radius, and a
@@ -571,7 +584,7 @@ public sealed class KSArmoryMod
         }
 
         // Per frame, because a wobble is a shape and the periodic dump cannot see one.
-        if (KsaWorld.ControlledVehicle is { } flown) Diagnostics.SampleBodyRates(flown, dtPlayer);
+        using (_budget.Measure("rates")) if (KsaWorld.ControlledVehicle is { } flown) Diagnostics.SampleBodyRates(flown, dtPlayer);
 
         // Per frame and on player time, because it is the engine keeping up with the wall clock
         // that is being measured rather than anything simulated. Debug, so the panel's verbose
@@ -590,8 +603,11 @@ public sealed class KSArmoryMod
 
             if (sinceLast > 0.0)
             {
-                _solver.Sample(KsaWorld.AchievedSpeedFraction, KsaWorld.VehicleSolverTickMs,
-                               _lastSimStep, sinceLast);
+                using (_budget.Measure("gauge"))
+                {
+                    _solver.Sample(KsaWorld.AchievedSpeedFraction, KsaWorld.VehicleSolverTickMs,
+                                   _lastSimStep, sinceLast);
+                }
             }
 
             _lastWall = wallNow;
@@ -610,6 +626,13 @@ public sealed class KSArmoryMod
 
             if (_budget.Due) Log.Debug(_budget.Take());
         }
+
+        // Everything from here to the end of the method: sounds, plumes, tracers, the bomb sight,
+        // the sweeps and the save-stamp check. One span, because it is the tail nothing else
+        // covered -- and it sits after _budget.EndFrame, so it was outside the frame it belongs to
+        // as well as outside every child span.
+        using (_budget.Measure("tail"))
+        {
 
         // After the rounds have been stepped, so a motor is heard where its round now is
         // rather than where it was at the start of the frame.
@@ -668,7 +691,8 @@ public sealed class KSArmoryMod
         // they were never written for that save and again when a later check writes the
         // freshly-defaulted ones over the file. It is a file timestamp, not work.
         _roster.Remember();
-}
+        }
+    }
 
     [StarMapUnload]
     public void Unload()

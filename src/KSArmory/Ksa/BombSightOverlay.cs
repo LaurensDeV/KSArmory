@@ -64,9 +64,34 @@ internal sealed class BombSightOverlay
         _path.Clear();
     }
 
+    // How often the sight is re-solved, in REAL seconds.
+    //
+    // One solve flies a whole BombSight.MaxSteps trajectory with a ground lookup per step, and
+    // there is one sight per weapons system -- so an unrated solve is 2048 steps times however
+    // many craft are armed, every frame, for a readout.
+    //
+    // Wall clock, not simulated: a solve is a computation budget rather than physics, so under
+    // timewarp a simulated interval passes every frame and a rate limit built on one stops
+    // limiting. Same trap IcbmState.PlayerStepSeconds documents.
+    private const double SolveIntervalSeconds = 0.2;
+
+    // How long to wait before asking again once the store has been found unsightable. Long, but
+    // not never: an aircraft that climbs out of range comes back down.
+    private const double UnreachableIntervalSeconds = 2.0;
+
+    private readonly System.Diagnostics.Stopwatch _sinceSolve = System.Diagnostics.Stopwatch.StartNew();
+    private bool _unreachable;
+
     public void Update(WeaponSystem battery, double dtSim)
     {
         if (battery.Platform is not { } platform || battery.Launcher is null) return;
+
+        // Held between solves, so what was drawn last time keeps being drawn.
+        double wanted = _unreachable ? UnreachableIntervalSeconds : SolveIntervalSeconds;
+
+        if (_sinceSolve.Elapsed.TotalSeconds < wanted) return;
+
+        _sinceSolve.Restart();
 
         // Only a store that is released. A round that flies under its own power goes where it is
         // steered, so a ballistic pipper would answer the wrong question.
@@ -120,7 +145,22 @@ internal sealed class BombSightOverlay
             _next,
             out double3 impact);
 
-        if (!ok) return;
+        // A store that cannot reach the ground inside BombSight.MaxSteps has no pipper, and it will
+        // still have none a frame later -- so back off rather than re-flying 2048 steps at the
+        // solve rate for a shot that can never answer.
+        //
+        // The ballistic case is why this is needed. The gate above asks whether the round is
+        // *powered*, and a Mk 21 reentry vehicle is not, so it passes -- but the sight's horizon is
+        // MaxSteps x IntegrationStep, about 102 s, and a warhead released minutes above its target
+        // falls for far longer. Such a store can never have a pipper.
+        if (!ok)
+        {
+            _unreachable = true;
+            Clear();
+            return;
+        }
+
+        _unreachable = false;
 
         // Already in the ground's frame, so these are plain offsets from the craft.
         _path.Clear();
