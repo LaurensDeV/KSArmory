@@ -91,9 +91,13 @@ internal static class SeparationClearance
         // being absent still goes ahead below.
         if (late && known && metresApart < wanted)
         {
+            // One decimal, because the interesting failures are the near ones and F0 turned them
+            // into "still 15 m ... inside the 15 m it needs" -- which reads as a contradiction and
+            // hides that the shot missed the gate by centimetres. Nine of the recorded timeouts
+            // are that case.
             return new Clearance(false, OnTheClock: true,
-                                 $"still {metresApart:F0} m from the spent stack after "
-                                 + $"{secondsSinceSplit:F0} s, which is inside the {wanted:F0} m it "
+                                 $"still {metresApart:F1} m from the spent stack after "
+                                 + $"{secondsSinceSplit:F0} s, which is inside the {wanted:F1} m it "
                                  + "needs -- releasing without trimming rather than manoeuvring into it",
                                  Abandoned: true);
         }
@@ -106,7 +110,7 @@ internal static class SeparationClearance
 
         return new Clearance(false, OnTheClock: !known,
                              known
-                                 ? $"waiting to clear the spent stack, {metresApart:F0} m of {wanted:F0}"
+                                 ? $"waiting to clear the spent stack, {metresApart:F1} m of {wanted:F1}"
                                  : "waiting to clear the spent stack, which cannot be read");
     }
 }

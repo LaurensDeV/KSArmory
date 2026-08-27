@@ -8,22 +8,37 @@ namespace KSArmory;
 /// <param name="AtSeconds">How long after the split that happened.</param>
 /// <param name="KeepOutMetres">What it needed to stay outside, as of that closest reading.</param>
 /// <param name="Readings">How many frames contributed. Zero is the whole of "this says nothing".</param>
+/// <param name="Opened">
+/// Whether the pair ever got outside the keep-out at all, which is what arms the watch.
+///
+/// <para><b>Until they have parted there is nothing to watch.</b> A split begins with the two
+/// halves adjacent, so a running minimum taken from the first frame is the split itself and
+/// nothing else — measured across 94 flights as <c>2.0 m at +0.0 s</c>, identical every time, on
+/// every shot whether or not anything went wrong. An instrument with one output is not one.</para>
+/// </param>
 internal readonly record struct ClosestApproach(double MetresApart, double AtSeconds,
-                                                double KeepOutMetres, int Readings)
+                                                double KeepOutMetres, int Readings, bool Opened)
 {
     /// <summary>Whether anything was ever measured. A watch with no readings makes no claim.</summary>
-    public bool Known => Readings > 0 && double.IsFinite(MetresApart);
+    public bool Known => Readings > 0 && Opened && double.IsFinite(MetresApart);
 
-    /// <summary>Whether the bus came inside the distance a released store would be scored against.</summary>
+    /// <summary>
+    /// Whether the bus opened the gap and then came back inside the distance a released store
+    /// would be scored against. A pair that never opened has not breached anything — it has not
+    /// separated, which is a different fault and reads as one.
+    /// </summary>
     public bool Breached => Known && MetresApart < KeepOutMetres;
 
     /// <summary>One line for the log, and the same line whether or not anything went wrong.</summary>
     public string Said =>
-        !Known
+        Readings == 0
             ? "closest approach to the spent stack: never read"
-            : $"closest approach to the spent stack: {MetresApart:F1} m at +{AtSeconds:F1} s, "
-              + $"keep-out {KeepOutMetres:F1} m"
-              + (Breached ? " -- INSIDE THE KEEP-OUT" : "");
+            : !Opened
+                ? "closest approach to the spent stack: never opened past the "
+                  + $"{KeepOutMetres:F1} m keep-out, so nothing was watched"
+                : $"closest approach to the spent stack: {MetresApart:F1} m at +{AtSeconds:F1} s, "
+                  + $"keep-out {KeepOutMetres:F1} m"
+                  + (Breached ? " -- CAME BACK INSIDE THE KEEP-OUT" : "");
 }
 
 /// <summary>
@@ -38,9 +53,16 @@ internal readonly record struct ClosestApproach(double MetresApart, double AtSec
 /// trace at all.</para>
 ///
 /// <para>So it runs on every flight whether or not anything is wrong, and reports one line. What
-/// makes it worth the frame is that the interesting number is a <em>minimum over the whole
-/// coast</em>, which no sample taken at the end can recover and no gate consulted at the start
+/// makes it worth the frame is that the interesting number is a <em>minimum after they have
+/// parted</em>, which no sample taken at the end can recover and no gate consulted at the start
 /// ever sees.</para>
+///
+/// <para><b>It arms on the gap first opening past the keep-out, and that is the whole of it being
+/// an instrument.</b> Taking the minimum from the first frame measures the split — the two halves
+/// are adjacent by construction — so it read <c>2.0 m at +0.0 s -- INSIDE THE KEEP-OUT</c> on all
+/// 94 flights recorded, identically, and could not have said anything else. The collision it was
+/// built to catch is a <em>re</em>-approach, and there is nothing to re-approach from until the
+/// pair have got apart.</para>
 /// </summary>
 internal sealed class ProximityWatch
 {
@@ -49,9 +71,10 @@ internal sealed class ProximityWatch
     private double _keepOut = double.NaN;
     private double _elapsed;
     private int _readings;
+    private bool _opened;
 
     /// <summary>What the watch has seen so far, which is the whole of its output.</summary>
-    public ClosestApproach Closest => new(_closest, _at, _keepOut, _readings);
+    public ClosestApproach Closest => new(_closest, _at, _keepOut, _readings, _opened);
 
     /// <summary>Forget everything. A new split is a new pair of bodies.</summary>
     public void Reset()
@@ -61,6 +84,7 @@ internal sealed class ProximityWatch
         _keepOut = double.NaN;
         _elapsed = 0.0;
         _readings = 0;
+        _opened = false;
     }
 
     /// <param name="metresApart">
@@ -83,11 +107,26 @@ internal sealed class ProximityWatch
 
         _readings++;
 
+        double keepOut = KeepOutFor(stageRadiusMetres);
+
+        // Kept whether or not the pair ever part, because it is what the un-armed line reports and
+        // the reason that line is worth printing: a keep-out nothing ever cleared is the finding.
+        _keepOut = keepOut;
+
+        // Armed on the gap first opening, never disarmed. Once they have parted, coming back is
+        // exactly the event worth catching, and re-arming on each excursion would keep only the
+        // last one.
+        if (!_opened)
+        {
+            if (metresApart < keepOut) return;
+
+            _opened = true;
+        }
+
         if (metresApart >= _closest) return;
 
         _closest = metresApart;
         _at = _elapsed;
-        _keepOut = KeepOutFor(stageRadiusMetres);
     }
 
     /// <summary>
