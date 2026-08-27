@@ -187,7 +187,11 @@ def split_flights(out_path, log_path):
     text = out_path.read_text(errors="replace") if out_path.exists() else ""
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
 
-    flights = PERFLIGHT.findall(text + "\n" + log)
+    # The scenario reports through Log.Info and scenario.sh copies those same lines to its
+    # stdout, so BOTH files carry every FLIGHT line. Scanning the pair counted each flight twice,
+    # which doubles n without adding an observation. Invisible with one rocket, because that path
+    # returns the whole run as a single shot below.
+    flights = PERFLIGHT.findall(text) or PERFLIGHT.findall(log)
 
     # One rocket: the run is the shot, and the id is unchanged so old batches read as before.
     if len(flights) <= 1:
@@ -425,10 +429,45 @@ def baseline_name(root, arms):
     return sorted(arms)[0]
 
 
+def _shot_id(n):
+    """The run a flight record came from. split_flights suffixes a, b, c... per rocket."""
+    return re.sub(r"(?:[a-z]|\.\d+)$", "", n)
+
+
+def by_shot(records):
+    """One score per SHOT, and one broken count per shot -- never per flight.
+
+    Every constant in the gate is a count of shots, and eight rockets in one world are one shot:
+    they share the frame pacing, the warp decisions and the solver load, which is the same reason
+    `--main` pools on the arm. Left per-flight, one eight-rocket run presents as eight, so
+    `broken >= 2` fires on a single run that happened to meet two intercepted warheads and the arm
+    is dropped on n=1. Flown 2026-08-28: the gate dropped the best arm of the night -- 0.04 km
+    against a 4.26 km baseline -- after one shot.
+
+    A shot scores the median of the flights that arrived, and counts as broken only when NOT ONE
+    of its rockets produced a usable group. A warhead lost to the site being shot at is a fact
+    about the target, shared by every arm flown at it, and is not evidence against the arm.
+    """
+    groups = defaultdict(list)
+    for r in records:
+        groups[_shot_id(r["n"])].append(r)
+
+    scores, broken = [], 0
+
+    for _, recs in sorted(groups.items()):
+        arrived = [r["mean"] for r in recs if usable(r)]
+        if arrived:
+            scores.append(statistics.median(arrived))
+        else:
+            broken += 1
+
+    return scores, broken
+
+
 def gate(root, shots, arms):
     """Arms to stop flying. Removal only -- a win is never called mid-batch."""
     base = baseline_name(root, arms)
-    base_scores = [s["mean"] for s in shots if s["arm"] == base and usable(s)]
+    base_scores, _ = by_shot([s for s in shots if s["arm"] == base])
     dead = []
 
     for arm in sorted(arms):
@@ -437,9 +476,8 @@ def gate(root, shots, arms):
         mine = [s for s in shots if s["arm"] == arm]
         if not mine:
             continue
-        scores = [s["mean"] for s in mine if usable(s)]
+        scores, broken = by_shot(mine)
 
-        broken = sum(1 for s in mine if not usable(s))
         if broken >= 2:
             dead.append(arm)
             continue
