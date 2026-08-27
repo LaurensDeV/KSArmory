@@ -4016,6 +4016,61 @@ Three shapes, and the arithmetic above says which is smallest:
 is what tells a longer clock apart from a bus that comes back — which is the question separating
 option 1 from option 2, and which nothing on disk can currently answer.
 
+## 8v. Several rockets in one world fail through the clearance, not the guidance — 2026-08-27
+
+Two eight-rocket runs of `SOLVER SCALE 8`, once the frame cost was fixed and the world was keeping
+up at 1.00x. The harness works — eight crewed, eight scored — and the shots do not.
+
+| | run 1 | run 2 |
+| --- | --- | --- |
+| misses (km) | **0.043, 0.045, 0.053**, 9.2, 11.1, 21.1, 25.8, 26.5 | 3.8, 5.3, 12.4, 27.7, 30.9, 33.4, 39.0, 40.6 |
+
+**Three of run 1 landed at 43–53 m**, better than any single-rocket shot flown that day. Run 2's best
+was 3.8 km. Same build, same save, same aim.
+
+### The every-third pattern was a coincidence, and testing it was the point
+
+Run 1 put a 3.0–3.2 km group spread on flights 2, 5 and 8 — every third rocket, against 0.005 km on
+the rest. Run 2 put it on flight 5 alone. At n=1 a regular-looking pattern in eight numbers is not
+evidence, and the repeat cost ten minutes.
+
+### What actually fails
+
+Five of run 2's eight ended on one line, and they are exactly the five worst:
+
+```
+post-boost: released N km out -- the trim refused the first correction, so none of it was applied
+```
+
+The chain, all in the log:
+
+1. **The separation clearance never opens.** Every flight sits at `waiting to clear the spent stack,
+   2.0 m of 13.5`. Item 8u measured this over 94 flights: the gate's success branch has never fired,
+   and every clearance is resolved by the 20-second timeout.
+2. **The bus drifts off its solution while it waits** — 4.11, 7.23, 7.50, 7.75, 8.60, **9.94 m/s** by
+   the time the clock runs out.
+3. **The trim then refuses**, because `BusTrim.MaxMetresPerSecond` is **10.0** and what it is being
+   asked for has grown to nearly that.
+4. `PostBoostAim` reports the refusal, **no aim correction is applied at all**, and the shot lands
+   where the raw burn put it — 27 to 41 km.
+
+Nothing here is about flying several rockets. It is item 8u's clearance failure, and the reason it
+shows up at eight and not at one is that it is a race the bus loses more often when the world is
+busier — the single-rocket case reaches `15 m of 15` and misses the gate by centimetres, where these
+never leave 2.0 m at all.
+
+**So the trim's first-pass ceiling is doing exactly what 8s and 8t describe for the trim budget**: a
+constant sized for the separation null, refusing a correction that has grown legitimately large
+because something upstream made the bus wait. `9b48bd1` sizes that ceiling from the budget — but only
+`when _postBoost.Cycles > 0`, so the first correction still meets the fixed 10.
+
+### What this makes the next thing
+
+The multi-rocket harness is **not usable for accuracy work** until the clearance is fixed, and the
+clearance is now the second finding in a row to land on it. `SeparationClearance.TimeoutSeconds`
+20 → 25 is the arm 8u names; on this evidence it should be flown against eight rockets rather than
+one, because eight is where the failure is frequent enough to measure.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
