@@ -82,6 +82,9 @@ internal sealed class ScenarioRunner
     // which craft are ours so none of them aims at another.
     private readonly List<BallisticScenario> _flights = [];
     private readonly List<Vehicle> _shooters = [];
+
+    // One view, claimed by whichever flight gets its salvo away first.
+    private readonly bool[] _viewTaken = new bool[1];
     private readonly List<string?> _outcomes = [];
 
     // Crewed once, from whatever the roster holds the first time it holds anything. A rocket that
@@ -110,7 +113,7 @@ internal sealed class ScenarioRunner
 
             _shooters.Add(computer.Craft);
             _flights.Add(new BallisticScenario(
-                _shot, line => Report($"{_name}: {line}"), computer, _shooters));
+                _shot, line => Report($"{_name}: {line}"), computer, _shooters, _viewTaken));
             _outcomes.Add(null);
         }
 

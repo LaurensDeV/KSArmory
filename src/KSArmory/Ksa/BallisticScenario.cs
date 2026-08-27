@@ -119,6 +119,13 @@ internal sealed class BallisticScenario
     // single-rocket case, where it takes whichever craft in the scene turns out to be viable.
     private readonly IcbmComputer? _bound;
 
+    // Whose turn it is to point the player's camera. There is one view and every flight wants to
+    // send it to the target when its salvo is away, so without a claim eight rockets move it eight
+    // times -- the same shared-resource mistake the world clock had before Sim/WorldSpeed.cs.
+    //
+    // One-element array rather than a bool because it is shared by reference across the flights.
+    private readonly bool[] _viewTaken;
+
     // Every craft this run is flying, shared by reference with the runner and with the other
     // flights. Read only here; the runner fills it as it binds them.
     private readonly IReadOnlyList<Vehicle> _shooters;
@@ -130,9 +137,10 @@ internal sealed class BallisticScenario
     public Vehicle? Craft => _computer?.Craft;
 
     public BallisticScenario(ShotRequest shot, Action<string> say, IcbmComputer? bound = null,
-                             IReadOnlyList<Vehicle>? shooters = null)
+                             IReadOnlyList<Vehicle>? shooters = null, bool[]? viewTaken = null)
     {
         _bound = bound;
+        _viewTaken = viewTaken ?? new bool[1];
         _shooters = shooters ?? [];
         _shot = shot;
         _say = say;
@@ -640,7 +648,18 @@ internal sealed class BallisticScenario
         // Once the bus has nothing left, the interesting half of the flight is at the other end.
         // Only after the last one: moving the view mid-salvo takes the operator off the thing still
         // releasing, and the releases are the part that is over in a fraction of a second.
-        if (ammo <= 0 && !_watchedTheTarget) WatchTheTarget();
+        if (ammo <= 0 && !_watchedTheTarget)
+        {
+            _watchedTheTarget = true;
+
+            // First salvo away takes the view; the rest leave it alone. Moving it per flight walks
+            // the camera to the same place once per rocket, which is worse than not moving it.
+            if (!_viewTaken[0])
+            {
+                _viewTaken[0] = true;
+                WatchTheTarget();
+            }
+        }
 
         // Warped once the releases have stopped, not on the first one. The coast's frame is what a
         // round's error accumulates against -- 0.06 m/s of drift per millisecond of frame -- so
@@ -778,7 +797,6 @@ internal sealed class BallisticScenario
     // at the other end of the arc, minutes away and far too small to see from the launch site.
     private void WatchTheTarget()
     {
-        _watchedTheTarget = true;
 
         if (_defendedSite is not { } site || !KsaWorld.IsAlive(site))
         {
