@@ -399,7 +399,9 @@ internal sealed partial class Ui
               + "ejection kick has less flight to grow in"));
 
         float budget = (float)config.TrimBudgetMetresPerSecond;
-        if (ImGui.SliderFloat("Trim budget", ref budget, 0f, 60f, "%.0f m/s for the flight"))
+        if (ImGui.SliderFloat("Trim budget", ref budget, 0f,
+                              (float)PostBoostAim.MaxTrimMetresPerSecond,
+                              "%.0f m/s for the flight"))
         {
             config.TrimBudgetMetresPerSecond = budget;
         }

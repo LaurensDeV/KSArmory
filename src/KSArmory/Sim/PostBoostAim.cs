@@ -190,12 +190,26 @@ internal sealed class PostBoostAim
     /// <para><b>What the reserve protects is the separation null</b>, which is the one piece of
     /// trimming that cannot be skipped: a 1.1 m/s decoupler shove takes the predicted impact from
     /// 0.7 km to 4.5 km on this arc, and a bus that arrives at the release dry cannot take it back
-    /// out. Forty leaves 30 m/s on the smallest bus in that range — three nulls at the largest trim
-    /// <see cref="BusTrim.MaxMetresPerSecond"/> will accept, or twenty-seven separation shoves — and
-    /// sits above what a converged correction spends, so it is the backstop against a loop that will
-    /// not stop rather than the thing that stops one.</para>
+    /// out. Sixty leaves 10 m/s on the smallest bus in that range — one null at the largest trim
+    /// <see cref="BusTrim.MaxMetresPerSecond"/> will accept, which is the floor
+    /// <c>PostBoostAimTests.TheBudgetLeavesEnoughToNullASeparation</c> holds and the reason this
+    /// cannot go higher.</para>
+    ///
+    /// <para><b>Forty was below what a converged correction spends, not above it</b>, and it was the
+    /// whole of the kilometre-scale miss at a floor. Flown twenty-five a side against 40: the loop
+    /// converged on <b>24 of 25</b> shots against 13, and <b>1 of 25</b> missed by more than 500 m
+    /// against 12. The miss is a step function of that and not a distribution — a converged shot
+    /// lands at 0.01–0.14 km and a cut-off one at 0.83–3.92, with nothing in between across fifty
+    /// shots.</para>
+    ///
+    /// <para><b>The guard was never stopping a runaway.</b> The twelve it stopped were owed
+    /// 1.01–9.36 m/s when it fired, mid-run, and eleven of them landed inside 140 m once it did
+    /// not — so it was cutting off the correction that arrives, and hardest on the shots that
+    /// opened widest, because the spend scales with the correction and a constant does not.
+    /// <see cref="MaxSeconds"/> is the backstop against a loop that genuinely will not stop, and
+    /// no shot on either arm reached it.</para>
     /// </summary>
-    public const double MaxTrimMetresPerSecond = 40.0;
+    public const double MaxTrimMetresPerSecond = 60.0;
 
     /// <summary>What the state machine wants of the caller this step.</summary>
     public readonly record struct Decision(bool MayMeasure, bool MayRelease, string Said);
