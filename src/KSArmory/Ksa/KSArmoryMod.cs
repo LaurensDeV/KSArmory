@@ -245,7 +245,10 @@ public sealed class KSArmoryMod
         // on it freezes every round in the air the instant a launcher dies. They then neither land
         // nor expire - a salvo suspended mid-flight, which reads as rounds that despawned. Nothing
         // in here needs a controlled craft; it walks the roster.
-        if (KsaWorld.InFlightScene) StepSimulation(dtPlayer);
+        if (KsaWorld.InFlightScene)
+        {
+            using (_budget.Measure("sim", top: true)) StepSimulation(dtPlayer);
+        }
     }
 
     /// <summary>
@@ -282,6 +285,8 @@ public sealed class KSArmoryMod
             // drawn against share an epoch - see StepOnce, which is also why this is the preferred
             // hook rather than the only one.
             StepOnce(dt);
+
+            _drawFrom = System.Diagnostics.Stopwatch.GetTimestamp();
 
             using (_budget.Measure("ui")) _ui.Draw();
 
@@ -435,7 +440,24 @@ public sealed class KSArmoryMod
         {
             Fault("gui", e);
         }
+        finally
+        {
+            // Everything the GUI pass costs, in one number rather than a span per feature and a
+            // hole where the rest was. Booked in a finally so a fault still closes the span --
+            // an exception here would otherwise leave the frame's largest cost unmeasured, which
+            // is the case most worth seeing.
+            if (_drawFrom != 0L)
+            {
+                _budget.Book("draw",
+                             System.Diagnostics.Stopwatch.GetElapsedTime(_drawFrom).TotalMilliseconds,
+                             top: true);
+                _drawFrom = 0L;
+            }
+        }
     }
+
+    // When the GUI pass started, or zero when it is not running.
+    private long _drawFrom;
 
     // Claimed by whichever hook steps the frame, released by the one that cannot be skipped.
     private readonly FrameLatch _frame = new();

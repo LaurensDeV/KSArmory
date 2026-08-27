@@ -34,20 +34,34 @@ internal sealed class FrameBudget
     private double _wall;
     private int _frames;
     private double _worstFrameMs;
+    private double _thisFrameTopMs;
+    private double _totalTopMs;
 
     /// <summary>A span being timed. Disposing it books the time against its name.</summary>
-    public readonly struct Span(FrameBudget budget, string name, long from) : IDisposable
+    public readonly struct Span(FrameBudget budget, string name, long from, bool top) : IDisposable
     {
         public void Dispose() =>
-            budget.Book(name, Stopwatch.GetElapsedTime(from).TotalMilliseconds);
+            budget.Book(name, Stopwatch.GetElapsedTime(from).TotalMilliseconds, top);
     }
 
     /// <summary>Time a block of work: <c>using (budget.Measure("icbm")) { ... }</c>.</summary>
-    public Span Measure(string name) => new(this, name, Stopwatch.GetTimestamp());
+    /// <param name="top">
+    /// Whether this span is one of the outermost, and so counts toward the frame's total.
+    ///
+    /// <para><b>Spans nest</b> — the GUI pass contains the panel, the simulation contains the
+    /// ballistic computers — so summing all of them counts the inner ones twice and reports a mod
+    /// costing more of the frame than it does. Only the outermost are added up; the rest are
+    /// detail about where an outer one went.</para>
+    /// </param>
+    public Span Measure(string name, bool top = false) =>
+        new(this, name, Stopwatch.GetTimestamp(), top);
 
-    private void Book(string name, double ms)
+    /// <summary>Book time against a name directly, for a span a `using` cannot bracket.</summary>
+    public void Book(string name, double ms, bool top = false)
     {
         _thisFrame[name] = (_thisFrame.TryGetValue(name, out double had) ? had : 0.0) + ms;
+
+        if (top) _thisFrameTopMs += ms;
     }
 
     /// <summary>Close the frame off. <paramref name="wallSeconds"/> is real time, not simulated.</summary>
@@ -57,19 +71,17 @@ internal sealed class FrameBudget
 
         _frames++;
 
-        double frameMs = 0.0;
-
         foreach ((string name, double ms) in _thisFrame)
         {
-            frameMs += ms;
-
             _total[name] = (_total.TryGetValue(name, out double sum) ? sum : 0.0) + ms;
 
             if (!_worst.TryGetValue(name, out double worst) || ms > worst) _worst[name] = ms;
         }
 
-        if (frameMs > _worstFrameMs) _worstFrameMs = frameMs;
+        if (_thisFrameTopMs > _worstFrameMs) _worstFrameMs = _thisFrameTopMs;
 
+        _totalTopMs += _thisFrameTopMs;
+        _thisFrameTopMs = 0.0;
         _thisFrame.Clear();
     }
 
@@ -82,9 +94,7 @@ internal sealed class FrameBudget
     /// </summary>
     public string Take()
     {
-        double mean = 0.0;
-        foreach (double sum in _total.Values) mean += sum;
-        mean /= _frames;
+        double mean = _totalTopMs / _frames;
 
         List<string> names = [.. _total.Keys];
         names.Sort((a, b) => _total[b].CompareTo(_total[a]));
@@ -103,6 +113,7 @@ internal sealed class FrameBudget
         _wall = 0.0;
         _frames = 0;
         _worstFrameMs = 0.0;
+        _totalTopMs = 0.0;
 
         return said.ToString();
     }
