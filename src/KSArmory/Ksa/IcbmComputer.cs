@@ -23,14 +23,26 @@ internal sealed class IcbmComputer
     // KSA's own value, so an orbit solved here and one drawn by the game agree.
     private const double GravitationalConstant = 6.6743e-11;
 
-    // How often the impact prediction is re-flown. It is a readout, not a control loop.
+    // How often the impact prediction is re-flown while guidance is consuming it, in *simulated*
+    // seconds -- the engines are lit or a post-boost pass has asked for a reading, and WarpPolicy
+    // holds the world down through both, so a simulated interval is a real one here.
     private const double PredictIntervalSeconds = 0.5;
+
+    // How often it is re-flown when nothing but the readout wants it, in REAL seconds. Paced by
+    // simulated time it runs every frame at warp, and each pass re-flies a whole trajectory at
+    // PredictStepSeconds with a terrain lookup per step -- so on a warped coast, which is most of a
+    // flight, this was a full re-flight per rocket per frame for a line on an overlay.
+    //
+    // The same trap IcbmState.PlayerStepSeconds exists for and describes in as many words: a
+    // computation budget is paced by the wall clock. The planner was given that; this was not.
+    private const double ReadoutIntervalSeconds = 0.5;
 
     // Coarse enough to be cheap over half an hour, fine enough to land in the right place.
     private const double PredictStepSeconds = 2.0;
 
     private readonly List<double3> _path = [];
     private double _sincePredict = double.PositiveInfinity;
+    private double _sincePredictWall = double.PositiveInfinity;
     private bool _driving;
     private double3 _rollReference;
     private readonly AimCorrection _aim = new();
@@ -1998,9 +2010,24 @@ internal sealed class IcbmComputer
 
     private void Predict(double simStep, in IcbmState state)
     {
+        // Two clocks, because this reading has two consumers with different needs. Guidance reads
+        // it while the engines are lit and when a post-boost pass asks, and there it has to keep
+        // step with the world. Everything else is a readout, and a readout paced by simulated time
+        // costs a whole re-flown trajectory per frame once the coast is warped.
         _sincePredict += simStep;
-        if (_sincePredict < PredictIntervalSeconds) return;
+        _sincePredictWall += state.PlayerStepSeconds;
+
+        bool guidanceWants = Program.IsBurning || _measureDue;
+
+        if (guidanceWants
+                ? _sincePredict < PredictIntervalSeconds
+                : _sincePredictWall < ReadoutIntervalSeconds)
+        {
+            return;
+        }
+
         _sincePredict = 0.0;
+        _sincePredictWall = 0.0;
 
         // While the engines are running, predict from where the arc *departs* rather than from
         // where the vehicle is. The current state is mid-burn and describes a trajectory nobody
