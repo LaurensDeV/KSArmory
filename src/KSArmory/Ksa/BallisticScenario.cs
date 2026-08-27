@@ -115,8 +115,25 @@ internal sealed class BallisticScenario
     private bool _capturedDeployment;
     private bool _capturedImpact;
 
-    public BallisticScenario(ShotRequest shot, Action<string> say)
+    // The computer this instance flies, when it is one of several sharing a world. Null is the
+    // single-rocket case, where it takes whichever craft in the scene turns out to be viable.
+    private readonly IcbmComputer? _bound;
+
+    // Every craft this run is flying, shared by reference with the runner and with the other
+    // flights. Read only here; the runner fills it as it binds them.
+    private readonly IReadOnlyList<Vehicle> _shooters;
+
+    /// <summary>Whether this flight has a craft and has committed to flying it.</summary>
+    public bool Committed => _committed;
+
+    /// <summary>The craft it is flying, once it has one — so a caller can tell N flights apart.</summary>
+    public Vehicle? Craft => _computer?.Craft;
+
+    public BallisticScenario(ShotRequest shot, Action<string> say, IcbmComputer? bound = null,
+                             IReadOnlyList<Vehicle>? shooters = null)
     {
+        _bound = bound;
+        _shooters = shooters ?? [];
         _shot = shot;
         _say = say;
         _onRoundEnded = OnRoundEnded;
@@ -215,6 +232,11 @@ internal sealed class BallisticScenario
 
         foreach (IcbmComputer computer in icbms.All)
         {
+            // One instance per rocket when there are several, so each keeps its own magazine,
+            // group and verdict. Without this every instance latches whichever computer the
+            // roster happened to enumerate first and the rest of the world is furniture.
+            if (_bound is not null && !ReferenceEquals(computer, _bound)) continue;
+
             if (!KsaWorld.IsAlive(computer.Craft)) continue;
 
             string name = KsaWorld.DisplayName(computer.Craft);
@@ -686,7 +708,16 @@ internal sealed class BallisticScenario
     // Whether those shots carry the prediction's bias -- see IcbmConfig.CorrectAim.
     private const bool ScenarioCorrectsAim = true;
 
-    private static Vehicle? FindDefendedSite(WeaponSystems roster, Vehicle launching)
+    // Anything armed that is not one of the rockets this run is flying. "Not the launching craft"
+    // is the wrong test the moment there are several: the next crewed craft is then another rocket,
+    // and the shot is aimed at it -- which with an explicit --aim also teleports it, so one probe
+    // threw a rocket 6,269 km and dropped it at 5 km under power. METRE-LEVEL.md 5b, traps 2 and 3.
+    //
+    // The exclusion is the harness's own list rather than "has a ballistic computer": computers are
+    // crewed from Ui.Draw, so what is crewed depends on the panel having drawn, and an armed target
+    // is crewed as a weapons system exactly like a rocket is. What is knowable here is which craft
+    // this run put a flight on, and that is the question being asked.
+    private Vehicle? FindDefendedSite(WeaponSystems roster, Vehicle launching)
     {
         foreach (WeaponSystems.Entry entry in roster.All)
         {
@@ -694,11 +725,23 @@ internal sealed class BallisticScenario
 
             if (craft is null || ReferenceEquals(craft, launching)) continue;
             if (!KsaWorld.IsAlive(craft)) continue;
+            if (IsOneOfOurs(craft)) continue;
 
             return craft;
         }
 
         return null;
+    }
+
+    // Empty for a single-rocket run, which is what keeps this a no-op there.
+    private bool IsOneOfOurs(Vehicle craft)
+    {
+        for (int i = 0; i < _shooters.Count; i++)
+        {
+            if (ReferenceEquals(_shooters[i], craft)) return true;
+        }
+
+        return false;
     }
 
     // Put the operator where the warheads are going. The bus is finished — everything left happens
