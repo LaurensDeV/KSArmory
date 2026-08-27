@@ -22,6 +22,10 @@ public sealed class KSArmoryMod
 
     private readonly SolverLoad _solver = new();
 
+    // What this mod costs the frame, split by what costs it. SolverLoad says what the frame cost
+    // in total and what the engine's solver took; this is the other side of that subtraction.
+    private readonly FrameBudget _budget = new();
+
     private readonly List<Vehicle> _vehicleScratch = [];
 
     private readonly System.Diagnostics.Stopwatch _wallClock = System.Diagnostics.Stopwatch.StartNew();
@@ -279,7 +283,7 @@ public sealed class KSArmoryMod
             // hook rather than the only one.
             StepOnce(dt);
 
-            _ui.Draw();
+            using (_budget.Measure("ui")) _ui.Draw();
 
             // Outside the overlay switch on purpose: a shell has no subpart body, so this is the
             // round itself rather than an annotation of it, and behind a debug switch a firing
@@ -525,7 +529,13 @@ public sealed class KSArmoryMod
                 // guidance loop has no fuse. It has a cutoff instead, which is timed against
                 // whatever step it is handed - so a long one costs accuracy honestly rather than
                 // being hidden by a truncation the loop cannot see.
-                if (_icbms is not null) _icbms.Update(dtSim, dtPlayer, _roster, _config.TraceWarhead);
+                if (_icbms is not null)
+                {
+                    using (_budget.Measure("icbm"))
+                    {
+                        _icbms.Update(dtSim, dtPlayer, _roster, _config.TraceWarhead);
+                    }
+                }
             }
         }
 
@@ -533,7 +543,10 @@ public sealed class KSArmoryMod
         // simulating, and it has to happen on every rendered frame or the rounds sit still
         // through any frame that advanced no simulated time while the world moved past
         // them. Cheap, and it only reads state.
-        foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SyncRoundBodies();
+        using (_budget.Measure("bodies"))
+        {
+            foreach (WeaponSystems.Entry e in _roster.All) e.Battery.SyncRoundBodies();
+        }
 
         // Per frame, because a wobble is a shape and the periodic dump cannot see one.
         if (KsaWorld.ControlledVehicle is { } flown) Diagnostics.SampleBodyRates(flown, dtPlayer);
@@ -549,10 +562,14 @@ public sealed class KSArmoryMod
             // as "achieved 1.000" while advancing 10 s of world per 24 s of wall.
             double wallNow = _wallClock.Elapsed.TotalSeconds;
 
-            if (_lastWall > 0.0)
+            // Taken before _lastWall moves, and shared by both instruments: reading it after the
+            // reassignment is a delta of exactly zero, which is a window that never closes.
+            double sinceLast = _lastWall > 0.0 ? wallNow - _lastWall : 0.0;
+
+            if (sinceLast > 0.0)
             {
                 _solver.Sample(KsaWorld.AchievedSpeedFraction, KsaWorld.VehicleSolverTickMs,
-                               _lastSimStep, wallNow - _lastWall);
+                               _lastSimStep, sinceLast);
             }
 
             _lastWall = wallNow;
@@ -563,6 +580,13 @@ public sealed class KSArmoryMod
                 KsaWorld.CollectVehicles(_vehicleScratch);
                 Log.Debug(_solver.Take(_vehicleScratch.Count));
             }
+
+            // The other side of that subtraction: SolverLoad says what the frame and the engine's
+            // solver cost, this says what of the remainder is ours. Closed here so both windows
+            // are the same window.
+            _budget.EndFrame(sinceLast);
+
+            if (_budget.Due) Log.Debug(_budget.Take());
         }
 
         // After the rounds have been stepped, so a motor is heard where its round now is
