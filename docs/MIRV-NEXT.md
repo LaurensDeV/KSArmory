@@ -3872,6 +3872,84 @@ the question the next night is for, and the release reason each shot prints is w
 budget line means the lift was too small, a `MaxSeconds` line means the clock is the next wall, and a
 payback line means the loop finished.
 
+## 8t. The budget is the whole failure mode, and the endpoint could not see it — 2026-08-27
+
+`~/shots/2026-08-27-0040`, fifty shots, twenty-five an arm, interleaved. Both arms at a 15° floor
+off current `dev`; they differ by one constant, `PostBoostAim.MaxTrimMetresPerSecond` 40 to 60.
+Pick-up identical, arrival 18.2° in both, ground under the target flat to −0.05%.
+
+### The pre-registered endpoint says nothing, and it is not bad luck
+
+| | n | median | mean | ratio | 97% interval | p | verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `floor` (control) | 25 | 0.08 km | 1.382 | — | — | — | baseline |
+| `budget` | 25 | 0.07 km | **0.208** | 0.49 | 0.04–1.95 | 0.464 | **UNRESOLVED** |
+
+`docs/SHOT-PROTOCOL.md`'s endpoint is the median on a log scale, chosen because the miss was
+"multiplicative and right-skewed". **Under a floor it is neither.** It is two tight clusters with
+nothing in between — across all fifty shots not one lands between **0.14 and 0.83 km** — and which
+cluster a shot lands in is decided by whether the correction loop finished:
+
+| | n | range | median |
+| --- | --- | --- | --- |
+| the loop converged | 37 | **0.01–0.14 km** | 0.04 |
+| it did not | 13 | **0.83–3.92 km** | 3.40 |
+
+A median cannot see a change that moves mass *between* two modes; it only reports which mode the
+middle shot fell in. The control's 12th, 13th and 14th shots are **0.04, 0.08 and 0.83 km** — its
+median sits exactly on the boundary, decided by 13 converging against 12 not. One shot the other
+way and the same data reads 0.83 km. The rank test is defeated the same way: thirteen control shots
+rank at or above the arm's typical shot, so there is nothing for it to rank.
+
+### What the night actually settled
+
+Both of these were pre-registered — item 8s named the open question as "whether more budget makes a
+*stopped* shot converge, or only buys a wider one more of a wrong answer", and the batch was set up
+to read the release reason before the ratio.
+
+| | `floor` | `budget` | Fisher, one-sided |
+| --- | --- | --- | --- |
+| the loop converged | 13/25 | **24/25** | **p = 3.8 × 10⁻⁴** |
+| missed by more than 500 m | 12/25 | **1/25** | **p = 3.8 × 10⁻⁴** |
+| mean miss | 1.382 km | **0.208 km** | **6.6×** |
+
+**The 3.4 km failure mode is the trim budget, and raising it removes it.** Eleven of the twelve
+shots that would have been cut off converged instead, and every one of them landed inside 140 m.
+8s's confound — that converging and opening narrow might be the same shots — is answered: the arm
+is randomised within blocks, so this is the budget causing convergence rather than easy shots
+converging.
+
+### The arm's one failure is not the arm's
+
+`034-budget` released on the **clearance**, at 1 pass, 3.52 km. `ProximityWatch` reported exactly
+**15 m against the 15 m it needs** — a boundary miss — and it fired 20 s after the split with pass 1
+still in flight, which is before the budget is reachable at all. It is item 8p's mechanism, which
+ran 11 times in 21 unfloored shots and none in the fifteen floored ones before tonight. It would
+have hit whichever arm drew it.
+
+### And the shots the budget stops are not the shots it was guarding against
+
+What the trim was still owed when the budget fired, on the twelve: **1.01, 1.30, 1.37, 1.91, 3.38,
+6.34, 6.68, 7.15, 8.37, 8.68, 8.93, 9.36 m/s.** The worst is 9.36 against the 8.0 that 8s measured
+off fifteen shots, so **finishing the interrupted run needs 49.4** and the lower bound the test
+holds should move with it. Fifty would have covered all twelve runs — but not the two that had only
+reached pass 2, which need a further pass at about 10 m/s on top. **The budget was never stopping a
+runaway; there were none.**
+
+### The cutoff residual is worse and it does not matter
+
+0.140 m/s against the control's 0.180 — both are noise beside the fact that a converged shot lands
+at 0.04 km and a cut-off one at 3.40, whatever the burn did. Item 8r's worry that the floor arm
+"is not winning by flying a cleaner burn" is right and beside the point: nothing after cutoff is
+about the burn.
+
+### What this makes the next thing
+
+The remaining spread is entirely **inside** the converged cluster, 0.01–0.14 km, and 8s's
+`MaxSeconds` wall was never reached — no shot on either arm released on the clock. The clearance is
+now the only failure mode left that costs kilometres, at roughly 1 in 50 under a floor, and it is
+`SeparationClearance` rather than anything in the guidance.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
