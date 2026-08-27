@@ -645,7 +645,7 @@ public sealed class KSArmoryMod
             _tracers.Update(e.Battery);
             _gunSound.Update(e.Battery);
 
-            // Its own switch and its own solve, per system: it costs a few hundred integration
+            // Its own switch and its own solve, per system: it costs BombSight.MaxSteps integration
             // steps and two aircraft can sensibly disagree about wanting one.
             if (e.Policy.DrawBombSight) SightFor(e.Battery).Update(e.Battery, _lastSimStep);
             else SightFor(e.Battery).Clear();

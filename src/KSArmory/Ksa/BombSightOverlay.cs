@@ -9,7 +9,7 @@ namespace KSArmory;
 /// will actually go, drag and terrain and all. The alternative is a tidier prediction than the
 /// round obeys, which is a sight that lies at exactly the moment it matters.</para>
 ///
-/// <para>Solved every frame. It is a few hundred integration steps, but the terrain lookup that
+/// <para>Solved every frame. It is BombSight.MaxSteps integration steps, each sub-stepped by the round, but the terrain lookup that
 /// would make that expensive only happens near the ground — see <see cref="CoarseGroundTest"/> —
 /// and solving continuously is what makes the pipper move like a sight rather than step like a
 /// clock. Anything cached between frames has to be carried forward correctly, and every way of
