@@ -316,8 +316,11 @@ internal sealed class IcbmProgram
     private double3 _thrustDirCci;
     private double _stageCooldown;
 
-    // Whether the shot settled for a shallower arrival than was asked for, because nothing steeper
-    // was affordable. Reported rather than refused.
+    // Whether the arc it is holding settled for a shallower arrival than was asked for, because
+    // nothing steeper was affordable. Reported rather than refused -- and it describes the arc
+    // currently held rather than latching, because a stack too heavy to afford an arrival at
+    // lift-off can afford it once it is light, and a latch goes on calling the shot compromised
+    // after it has stopped being.
     public bool ArrivalFloorUnaffordable => _arrivalFloorUnaffordable;
 
     /// <summary>
@@ -542,6 +545,7 @@ internal sealed class IcbmProgram
         _throttle = 1.0;
         _lowestToGain = double.PositiveInfinity;
         _fellShort = false;
+        _arrivalFloorUnaffordable = false;
         ResidualAtCutoff = double.NaN;
         ResidualVectorCci = Vec.Zero;
         AccelerationAtCutoff = double.NaN;
@@ -778,7 +782,11 @@ internal sealed class IcbmProgram
         // arrival asked for still has a target, and the shallow arc it can afford is worth far more
         // than a refusal: the same rule as a shot short of the propellant, which is flown and
         // reported. What the operator loses is precision, and the readout says which angle it got.
-        if (!steered && Config.MinArrivalAngleDeg > 0.0)
+        if (steered)
+        {
+            _arrivalFloorUnaffordable = false;
+        }
+        else if (Config.MinArrivalAngleDeg > 0.0)
         {
             steered = BurnoutGuidance.TrySteer(
                 state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, state.Booster,

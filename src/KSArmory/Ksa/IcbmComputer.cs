@@ -53,6 +53,7 @@ internal sealed class IcbmComputer
     private bool _didSplit;
     private bool _mayTrim = true;
     private bool _saidBudget;
+    private bool _saidFloorUnaffordable;
     private bool _saidRefusedStage;
     private bool _saidStructuralLimit;
     private bool _saidLongStep;
@@ -296,6 +297,7 @@ internal sealed class IcbmComputer
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
+        _saidFloorUnaffordable = false;
         WarheadsAway = 0;
         _salvoSize = 0;
         _owedAtSplit = double.NaN;
@@ -355,6 +357,7 @@ internal sealed class IcbmComputer
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
+        _saidFloorUnaffordable = false;
         _owedAtSplit = double.NaN;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
@@ -421,6 +424,21 @@ internal sealed class IcbmComputer
         bool wasBurning = Program.IsBurning;
         Command = Program.Update(simStep, state);
         ReportLongStep(wasBurning, simStep, state);
+
+        // The operator asked for an arrival this stack cannot buy, and the shot is being flown
+        // shallower anyway. Said rather than left to be inferred from two angles differing on the
+        // panel -- and said here because an unattended shot has no panel at all, so the log is the
+        // only place it can be read afterwards. Once a flight: it clears with the flight.
+        if (Program.ArrivalFloorUnaffordable && !_saidFloorUnaffordable)
+        {
+            _saidFloorUnaffordable = true;
+            double got = Program.Arc?.ArrivalAngleDeg ?? double.NaN;
+
+            Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: cannot afford the "
+                     + $"{Config.MinArrivalAngleDeg:F0} deg arrival asked for; flying "
+                     + (double.IsFinite(got) ? $"{got:F1} deg instead" : "the shallowest it can")
+                     + " -- it will arrive, less precisely");
+        }
 
         // One line per phase change. Every gate in the program returns quietly, so a flight that
         // goes wrong leaves nothing behind saying which of them it went wrong at - and the panel

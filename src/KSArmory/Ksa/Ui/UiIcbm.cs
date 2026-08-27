@@ -167,6 +167,22 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  lower the steepest-arrival minimum below, or pick a nearer target");
         }
 
+        // Amber rather than red, and up here rather than beside the slider: the shot is still going
+        // to arrive, so it is not an unreachable -- but the rocket is not flying what it was told
+        // to and nothing else on this panel says so out loud. The two angles are printed beside the
+        // control below, and an operator who has to spot that they differ has not been told.
+        else if (computer.Program.ArrivalFloorUnaffordable)
+        {
+            double got = computer.Program.Arc?.ArrivalAngleDeg ?? double.NaN;
+
+            ImGui.TextColored(Working, $"FLYING A SHALLOWER ARRIVAL THAN THE "
+                                       + $"{config.MinArrivalAngleDeg:F0} DEG ASKED FOR");
+            ImGui.TextDisabled(double.IsFinite(got)
+                ? $"  the stack cannot afford it from here, so it is on {got:F0} deg -- it will"
+                  + " arrive, less precisely"
+                : "  the stack cannot afford it from here -- it will arrive, less precisely");
+        }
+
         // The explanation for an otherwise inexplicable number. A deorbit onto the ground track
         // costs a hundred metres a second; the same shot at a place well off the plane costs
         // thousands, and nothing else on this panel says which of those is being quoted — or that

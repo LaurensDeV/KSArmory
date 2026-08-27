@@ -270,6 +270,59 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// And it describes the arc it is holding rather than latching on the first cycle that could
+    /// not afford one.
+    ///
+    /// <para>A stack is heaviest at lift-off and the geometry mid-ascent is the worst it will be,
+    /// so the cycle that cannot afford an arrival is routinely followed by one that can. A flag
+    /// that only ever goes true reports the shot as compromised for the rest of the flight, and the
+    /// panel line and the log line both hang off it.</para>
+    /// </summary>
+    [Fact]
+    public void TheFloorStopsBeingUnaffordableWhenItBecomesAffordable()
+    {
+        IcbmConfig config = new() { Armed = true, MinArrivalAngleDeg = 55.0 };
+        IcbmProgram program = new(config);
+
+        program.Update(0.0, Ascending(Ahead(90.0)));
+
+        Assert.True(program.ArrivalFloorUnaffordable, "the 55 deg floor should not be affordable");
+
+        // The same vehicle told to arrive at something it can reach. Nothing else changes -- but
+        // the step has to carry it past SolveIntervalSeconds, because a config read between solves
+        // reaches nothing and the flag would still be describing the arc it is holding.
+        config.MinArrivalAngleDeg = 0.0;
+        program.Update(IcbmProgram.SolveIntervalSeconds * 2.0, Ascending(Ahead(90.0)));
+
+        Out.WriteLine($"after dropping the floor: unaffordable {program.ArrivalFloorUnaffordable}, "
+                      + $"arriving at {program.Arc?.ArrivalAngleDeg:F1} deg");
+
+        Assert.False(program.ArrivalFloorUnaffordable,
+                     "it went on calling the shot compromised after the floor was satisfiable");
+    }
+
+    /// <summary>
+    /// And going back to the pad un-flies it, like everything else <see cref="IcbmProgram.Reset"/>
+    /// clears. It cleared twenty-five fields and not this one, so a vehicle that once could not
+    /// afford its arrival carried the claim into every later flight.
+    /// </summary>
+    [Fact]
+    public void ResetClearsTheUnaffordableFloor()
+    {
+        IcbmConfig config = new() { Armed = true, MinArrivalAngleDeg = 55.0 };
+        IcbmProgram program = new(config);
+
+        program.Update(0.0, Ascending(Ahead(90.0)));
+
+        Assert.True(program.ArrivalFloorUnaffordable, "the 55 deg floor should not be affordable");
+
+        program.Reset();
+
+        Assert.False(program.ArrivalFloorUnaffordable,
+                     "back on the pad and still reporting the last flight's arrival as unaffordable");
+    }
+
+    /// <summary>
     /// The orbital half of the same refusal, which goes through the window search.
     ///
     /// <para><b>From orbit a floor is a price rather than a wall</b>, and that is worth knowing
