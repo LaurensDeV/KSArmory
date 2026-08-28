@@ -1263,8 +1263,14 @@ internal sealed class IcbmComputer
         // Bounded by what is left of the budget rather than by a larger constant. The budget is the
         // real limit on what the bus can spend, Stalled already ends a loop that is not closing, and
         // a ceiling above both would be a third bound with nothing left to bound.
-        double ceiling = _postBoost.Cycles > 0 ? Math.Max(0.0, budget - _trim.SpentMetresPerSecond)
-                                               : double.NaN;
+        //
+        // The first pass is the exception, and IcbmConfig.TrimCeilingFromBudget is whether it
+        // stays one: before any pass the trim is nulling a decoupler's shove, where an answer in
+        // the tens really is a bad solve -- but 11 of 14 flown trims were over ten at the split
+        // with no wait at all.
+        double ceiling = _postBoost.Cycles > 0 || Config.TrimCeilingFromBudget
+                             ? Math.Max(0.0, budget - _trim.SpentMetresPerSecond)
+                             : double.NaN;
 
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci,

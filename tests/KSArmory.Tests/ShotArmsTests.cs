@@ -158,6 +158,28 @@ public class ShotArmsTests
         Assert.NotEmpty(fault);
     }
 
+    /// <summary>
+    /// The arms waiting to be flown are settings, and every one of them is off by default.
+    ///
+    /// <para>That is what makes a paired night honest: the baseline arm names no settings at all,
+    /// so it is the shipped code rather than a second variant. A default flipped here would make
+    /// every "base" in every batch since silently mean something else.</para>
+    /// </summary>
+    [Fact]
+    public void TheBaselineArmIsTheShippedBehaviour()
+    {
+        IcbmConfig shipped = new();
+
+        Assert.False(shipped.TrimCeilingFromBudget);
+
+        ShotArms arms = Parse("base|ceiling:TrimCeilingFromBudget=true");
+        Assert.True(ShotArms.TryApply(arms.For(0), shipped, out _));
+        Assert.False(shipped.TrimCeilingFromBudget);
+
+        Assert.True(ShotArms.TryApply(arms.For(1), shipped, out _));
+        Assert.True(shipped.TrimCeilingFromBudget);
+    }
+
     [Fact]
     public void AnArmSaysWhatItVariesSoTheLogCanAttributeAShot()
     {

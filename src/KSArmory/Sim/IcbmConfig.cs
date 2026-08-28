@@ -252,4 +252,22 @@ internal sealed class IcbmConfig
     /// is the only direction it was ever useful in.</para>
     /// </summary>
     public double TrimBudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond;
+
+    /// <summary>
+    /// Size the trim's per-pass ceiling from what is left of the budget on the <em>first</em> pass
+    /// too, rather than only once the aim has moved.
+    ///
+    /// <para>The ceiling asks how much one pass may spend, and it is
+    /// <see cref="BusTrim.MaxMetresPerSecond"/> — ten — until <c>PostBoostAim.Cycles</c> is above
+    /// zero. That guard asks whether the <em>aim</em> has moved when the question is whether the
+    /// <em>bus</em> has separated: flown, 11 of 14 trims were already over ten with no wait at all,
+    /// so the pass that matters most is refused before the loop that would have raised the ceiling
+    /// has run once.</para>
+    ///
+    /// <para><b>Off, and off is what ships.</b> It licenses a 10–20 m/s correction whose size
+    /// tracks a disagreement about the arrival rather than a decoupler's shove, and whether that is
+    /// the trim earning its propellant or chasing a stale arrival has not been flown.
+    /// <c>docs/EIGHT-ROCKETS.md</c> item 1.</para>
+    /// </summary>
+    public bool TrimCeilingFromBudget;
 }

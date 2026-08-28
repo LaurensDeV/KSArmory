@@ -429,6 +429,17 @@ internal sealed partial class Ui
                      ? $" - under the {PostBoostAim.MaxTrimMetresPerSecond:F0} the bus reserves anyway"
                      : "")));
 
+        bool fromBudget = config.TrimCeilingFromBudget;
+        if (ImGui.Checkbox("First pass may spend the budget", ref fromBudget))
+        {
+            config.TrimCeilingFromBudget = fromBudget;
+        }
+
+        ImGui.TextDisabled("  " + (config.TrimCeilingFromBudget
+            ? "the pass that nulls the separation may spend what the budget has left"
+            : $"that pass is capped at {BusTrim.MaxMetresPerSecond:F0} m/s, and a bus that owes "
+              + "more releases untrimmed"));
+
         // A structural limit rather than a preference, so it sits with the other things that
         // constrain the flight rather than with the ones that shape it.
         float gee = config.MaxAccelerationGee;
