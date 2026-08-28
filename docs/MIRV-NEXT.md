@@ -4384,6 +4384,71 @@ Every arm comparison at eight rockets is pooled across a 175x roster gradient. `
 should block on craft as well as on arm; until it does, an arm difference smaller than the gradient
 is not measurable this way. 8x's `UNRESOLVED` verdicts are safe, and its two medians are not.
 
+## 8z. A trim that finishes lands at 140 m; nothing else matters — 2026-08-28
+
+Sixteen shots, `base` against `arm/interlock`, eight blocks interleaved, eight rockets a shot.
+`~/shots/2026-08-28-0827`. The arm is `d4623ae` re-flown on a tree that has the best-aim keep — the
+thing item 8h said it lost to.
+
+### The endpoint, and it is unresolved
+
+| arm | shots | median | the shots (km) |
+| --- | --- | --- | --- |
+| `base` | 8 | 14.49 km | 2.15, 3.06, 5.53, 8.77, 20.21, 21.54, 30.60, 48.11 |
+| `interlock` | 8 | **9.52 km** | 4.27, 5.34, 7.35, 7.84, 11.19, 12.32, 20.49, 32.57 |
+
+**0.66x, p=0.878.** A third better and nowhere near resolvable at eight shots against eight, on a
+distribution this wide. Note also that `base` flew 14.49 km here against **3.60 km** in 8x on
+effectively the same code — the between-session shift is 4x, larger than the effect being chased,
+which is the strongest argument yet for the protocol's insistence on a same-night baseline.
+
+### The change did exactly what it claimed, again
+
+| arm | trimmed | abandoned | ceiling | budget | out of time |
+| --- | --- | --- | --- | --- | --- |
+| `base` | 4 | **42** | 18 | 0 | 0 |
+| `interlock` | **9** | **0** | **34** | 11 | 10 |
+
+Abandonment is gone — all 42 of it — and completions more than double. But **55 of 64 corrections
+still do not finish**; they now die on the ceiling, the budget or the clock instead. This is item
+8h's sentence a second time: what the interlock loses to is the loop it lets run.
+
+### And this is the finding: the terminator *is* the miss
+
+| terminator | n | median miss |
+| --- | --- | --- |
+| **the trim finished** (both arms) | 13 | **0.14 km** |
+| `base` abandoned | 42 | 5.31 km |
+| `interlock` budget | 11 | 8.44 km |
+| `interlock` ceiling | 33 | 11.19 km |
+| `interlock` out of time | 10 | 20.14 km |
+| `base` ceiling | 17 | 44.83 km |
+
+**A correction that runs to completion lands at 140 m, and it is the same 140 m on both arms.**
+Every other ending is 5 to 45 km. That is 40x to 300x, it is not a distribution with a tail, and it
+reframes the whole problem: there is no accuracy work to do beyond *making the trim finish*. The
+guidance, the burn and the arrival angle are all downstream of a loop that mostly never completes.
+
+It also prices the interlock honestly. It is worth 4 -> 9 completions out of 64, which is the whole
+of its 0.66 — a real gain, and a twentieth of what is on the table.
+
+**A ceiling refusal is worse than an abandonment** — 44.83 km against 5.31 on `base`. That is 8h's
+divergence: the refusal comes *after* the aim has moved, so the shot releases carrying a correction
+it never flew. Within `interlock` the same terminator costs 11.19 km rather than 44.83, so the extra
+passes help even when the ceiling eventually bites.
+
+### What to fly next
+
+**`interlock` + `trimceil` together.** Neither works alone and the reason is now visible: `trimceil`
+alone did nothing in 8x because the clearance abandoned the trim before the ceiling was ever
+consulted, and `interlock` alone stalls on the ceiling in 34 of 64 flights. The ceiling is the
+dominant terminator the moment abandonment is removed, and `arm/trimceil` is exactly the change that
+sizes it from the budget.
+
+Budget (11) and out-of-time (10) are what should bite next. Both are constants, both are then
+measurable against a loop that is actually running, and `BusTrim.MaxSeconds` has never been examined
+against a bus that gets to use it.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
