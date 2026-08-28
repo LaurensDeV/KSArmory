@@ -37,6 +37,21 @@ is a drawing problem rather than a guidance one — see *What is not worth doing
 
 ## What limits the accuracy
 
+**The rocket's place in the roster, by 175x.** Over 18 shots the first rocket lands at a median
+**0.09 km** and the eighth at **15.81 km**, monotone, across every arm — `docs/MIRV-NEXT.md` **8y**.
+It is not the burn: the cutoff residual is flat at 0.2-0.4 m/s and every computer predicts the same
+4.60 km. It is `SeparationClearance` abandoning the trim on **87 of 144 flights**, which returns
+early and applies no aim correction at all. A correction that runs lands at 1.4-3.8 km; one
+abandoned lands at 20-25 km.
+
+**Fix the keep-out interlock first.** It is dead by construction (below), and making it work is what
+lets the trim fire while still close instead of being abandoned. That is the whole gap.
+
+**And every arm comparison at eight rockets is pooled across that gradient**, so an effect smaller
+than 175x is not measurable this way until it is fixed.
+
+## What limits the accuracy after that
+
 The chain, from the flown logs, **as corrected by the refutation pass** — `docs/MIRV-NEXT.md` item
 **8w**. Two of the four links 8v named turned out to be reading the log rather than the bus.
 

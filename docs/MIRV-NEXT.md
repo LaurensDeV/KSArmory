@@ -3973,9 +3973,11 @@ Fixed by arming it when the gap first opens past the keep-out. A pair that never
 
 ### The clearance gate's success branch has never fired — **wrong, see 8w**
 
-> **Superseded.** That sentence cannot reach the log on the branch that produces it, so its absence
-> measures `Say` rather than the gate. Flown evidence in **8w**: the gate opens in 4.4 s on 15 of
-> 16. The 0.65 m/s rate below and the `TimeoutSeconds` arm that follows from it both go with it.
+> **Partly restored — see 8y.** The unloggable success sentence is real and is fixed. But 8w's
+> conclusion that the gate therefore *opens* came from one run read through `ProximityWatch`, which
+> arms on the first parting and is not the gate's verdict. Over 18 shots the trim's own line says
+> the clearance abandons **87 of 144** flights. This section's diagnosis stands; only its instrument
+> was wrong.
 
 Not once in 94 flights is there a `clear of the spent stack at N m after M s`. **Every clearance is
 resolved by the 20-second timeout**, either abandoning the trim or going ahead with no reading. The
@@ -4259,6 +4261,99 @@ loop runs on and meets the next limit instead. It is reaching further and arrivi
 
 Neither branch is deleted. `arm/floor15` is bimodal rather than a clean loss, and `arm/trimceil`
 removes a refusal that is real — item 8w — even though the night says removing it buys nothing.
+
+## 8y. The clearance is the accuracy, and it fails for seven rockets in eight — 2026-08-28
+
+The same 18 shots as 8x, partitioned by rocket instead of by arm. **This is the finding of the
+night, and neither arm had anything to do with it.**
+
+### The miss is a function of the rocket's place in the roster
+
+| craft | median miss | mean rank in its shot | trim succeeded |
+| --- | --- | --- | --- |
+| **GeoSat FAT** | **0.09 km** | 1.88 | **11 of 18** |
+| GeoSat FAT 2 | 3.82 km | 3.44 | 2 |
+| GeoSat FAT 3 | 4.07 km | 3.92 | 3 |
+| GeoSat FAT 4 | 5.19 km | 3.76 | 2 |
+| GeoSat FAT 5 | 4.96 km | 4.65 | 2 |
+| GeoSat FAT 6 | 6.17 km | 5.12 | 1 |
+| GeoSat FAT 7 | 8.83 km | 5.17 | 1 |
+| **GeoSat FAT 8** | **15.81 km** | 5.44 | 1 |
+
+**175x between the first rocket and the eighth**, monotone, across all three arms. The within-shot
+spread is a median **234x**, so this dominates every between-arm number in 8x — the arms were being
+compared through it.
+
+### It is not the burn
+
+| | first rocket | eighth |
+| --- | --- | --- |
+| cutoff residual | 0.340 m/s | **0.215 m/s** |
+| own prediction at Coast | 4.60 km | 4.60 km |
+
+Flat, and the best flyer has the *worse* residual. Every computer predicts its own trajectory
+correctly — the `PitchProgram` predictions differ per pad, 12,099 km through 12,249 — and all eight
+converge on the same 4.60 km. Same burn, same prediction, 175x different outcome. **The whole
+difference is after cutoff.**
+
+### It is the separation clearance abandoning the trim
+
+The trim's own final line, which is the gate's actual verdict, per craft over 18 shots:
+
+```
+GeoSat FAT     11x trimmed to N m/s        6x abandoned on clearance
+GeoSat FAT 2    2x trimmed                11x abandoned
+GeoSat FAT 8    1x trimmed                11x abandoned
+```
+
+`SeparationClearance` abandons on **87 of 144 flights**, and abandoning returns early: no trim, no
+aim correction, the shot lands where the raw burn put it. The report's own termination table is the
+same split from the other side — a correction that runs to `payback` lands at **1.38-3.83 km**, one
+stopped by the trim lands at **20.10-25.35 km**.
+
+Gap at the 20 s timeout, against the 15.3 m required:
+
+| | median | min | max |
+| --- | --- | --- | --- |
+| every craft | **4.0-10.1 m** | 2.0 | 15.2 |
+
+### Correction to 8w, and it is the same mistake 8w was written to catch
+
+8w concluded the gate opens in 4.4 s on 15 of 16 flights and **withdrew the `TimeoutSeconds` arm on
+that basis**. The reading was real but it was one run — the sixteen-rocket world — and
+`ProximityWatch`'s arming is not the gate's verdict: the watch arms the first time the gap exceeds
+the keep-out and the gate is asked *every frame* and never latched, so a pair that parts and comes
+back reads as opened on one instrument and shut on the other. **The trim's own line is the gate's
+verdict and it says the clearance fails.** 8u was closer to right than 8w allowed.
+
+That is the fourth-instance mistake from 8w's own list, made again: an instrument answering a
+neighbouring question, read as answering this one. The lesson generalises past logging.
+
+### But the timeout is not the fix either
+
+At the observed rate — 8 m in 20 s, about **0.4 m/s**, not 8u's 0.65 — reaching 15.3 m takes about
+**38 s**. `TimeoutSeconds` 20 -> 25 buys ~10 m and still abandons. The three real candidates:
+
+1. **Make the keep-out interlock work**, which is the principled one and is already half built.
+   8w proved it is dead: `ProximityWatch.KeepOutFor` and the clearance's `wanted` are the same
+   expression, so the interlock only arms while the gate is shut, and a shut gate is what stops the
+   trim. Separating the two thresholds lets the trim fire **while close**, withholding only the
+   directions that point at the stack — which is exactly what the interlock was built for and has
+   never once done.
+2. **A deliberate push along the separation line at the split** (8p item 2, 8u option 2). Larger,
+   and spends propellant the trim then spends nulling.
+3. **Lower `ClearOfTheSphereMetres`.** Cheapest, least defensible — the 10 m is the coarse contact
+   sphere.
+
+**Ranked 1 first**, because it is the only one that does not trade safety for the fix, and because
+converting 87 abandoned trims into trims is worth the difference between 20-25 km and 1-4 km on
+seven rockets in eight.
+
+### And it makes the eight-rocket instrument suspect until it is fixed
+
+Every arm comparison at eight rockets is pooled across a 175x roster gradient. `shot-report.py`
+should block on craft as well as on arm; until it does, an arm difference smaller than the gradient
+is not measurable this way. 8x's `UNRESOLVED` verdicts are safe, and its two medians are not.
 
 ## 9. The budget at the 0.65 km level
 
