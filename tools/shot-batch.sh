@@ -349,7 +349,11 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     # attributing -- the release probes, the traces, the frame pacing -- is only in here.
     cp -f "$LOG" "$OUT/shots/$n-$arm.log" 2>/dev/null || true
 
-    verdict="$(grep -oE '^scenario .*: (PASS|FAIL|TIMEOUT)' "$OUT/shots/$n-$arm.out" \
+    # `|| true` because pipefail is on and a shot that printed nothing at all is exactly the case
+    # NOVERDICT is for. Without it grep's empty exit takes the whole night down on the first bad
+    # shot, with no row in shots.tsv and nothing on stdout saying which shot or why -- which is
+    # strictly worse than the failure it is reporting.
+    verdict="$( { grep -oE '^scenario .*: (PASS|FAIL|TIMEOUT)' "$OUT/shots/$n-$arm.out" || true; } \
                | tail -1 | sed 's/.*: //')"
     [[ -n "$verdict" ]] || verdict="NOVERDICT"
 

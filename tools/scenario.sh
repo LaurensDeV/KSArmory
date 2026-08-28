@@ -75,10 +75,12 @@ while (( i < ${#ARGS[@]} )); do
         --keep)      KEEP=1 ;;
         --shots)     SHOTS_ON=1 ;;
         --no-deploy) DEPLOY=0 ;;
-        --arms)      ARMS="${ARGS[$((i + 1))]:-}"; (( i++ )) ;;
-        --arm-phase) ARM_PHASE="${ARGS[$((i + 1))]:-0}"; (( i++ )) ;;
+        --arms)      ARMS="${ARGS[$((i + 1))]:-}"; i=$(( i + 1 )) ;;
+        --arm-phase) ARM_PHASE="${ARGS[$((i + 1))]:-0}"; i=$(( i + 1 )) ;;
     esac
-    (( i++ ))
+    # Assignment, never (( i++ )): that yields the value BEFORE the increment, so the first pass
+    # evaluates to 0, exits 1, and set -e kills the script with nothing on stdout to say why.
+    i=$(( i + 1 ))
 done
 
 # The craft to boot into. It must carry a launcher, or the runner waits forever for a battery to
