@@ -4449,6 +4449,82 @@ Budget (11) and out-of-time (10) are what should bite next. Both are constants, 
 measurable against a loop that is actually running, and `BusTrim.MaxSeconds` has never been examined
 against a bus that gets to use it.
 
+## 8aa. The instrument cannot resolve any of this, and the fix is a paired design — 2026-08-28
+
+Seventeen shots, `base` against `interlock` against `interlock+trimceil`, six blocks.
+`~/shots/2026-08-28-1147`. Flown three hours after 8z, same save, same target, same machine.
+
+| arm | shots | median | ratio | p |
+| --- | --- | --- | --- | --- |
+| `base` | 7 | **5.43 km** | — | — |
+| `both` | 6 | 11.05 km | 2.03 | 0.628 |
+| `interlock` | 4 | 19.10 km | 3.52 | 0.073 |
+
+Both arms were struck out by the gate. On this batch `base` wins outright.
+
+### The same arm reverses between batches
+
+| arm | 08:27 batch | 11:47 batch |
+| --- | --- | --- |
+| `base` | 14.49 km | **5.43 km** |
+| `interlock` | **9.52 km** | 19.10 km |
+
+`base` moved **2.7x** on identical code. `interlock` went from beating it by a third to losing by
+3.5x. Neither result is significant and they contradict each other, which is the only honest
+reading available: **the session-to-session variance of this instrument is larger than the effects
+being flown at it.** 8z's 0.66x and this batch's 3.52x are the same arm, and both are noise.
+
+That also retires 8x's medians and this file's habit of ranking arms on eight shots. The protocol's
+arithmetic was derived from a single-rocket distribution with a 0.79 km median and a x1.74
+geometric sd; the eight-rocket geometry runs a 5-15 km median with shots from 2 km to 69, and
+nothing in `docs/SHOT-PROTOCOL.md` was ever re-derived for it.
+
+### What survives, and why
+
+**Item 8z's terminator table**, because it is *paired within a run*:
+
+| terminator | median miss |
+| --- | --- |
+| the trim finished | **0.14 km** |
+| anything else | 5-45 km |
+
+Those flights shared a world, a frame trace, a warp history and a target. Comparing them to each
+other cancels everything the between-batch comparison cannot, which is why 0.14 km reproduced
+identically on both arms of 8z while the arm medians were swinging by a factor of three. **A
+within-run split is the only comparison this instrument currently supports.**
+
+The mechanism findings survive for the same reason: the clearance abandoning 87 of 144 flights (8y),
+the trim nulling its own precondition (8y), and the interlock removing all 42 abandonments while the
+ceiling then takes 34 of 64 (8z) are all counts within runs, not medians across them.
+
+### What to do about it, and it is not more shots
+
+**Make the arm a per-craft setting and fly both arms in one world.** The multi-rocket save is what
+makes this possible: four rockets on the change and four on the baseline, in the same run, sharing
+the frame pacing and the warp decisions exactly the way `tools/ab-shot.py` splits odd and even tubes
+within one flight. `docs/SHOT-PROTOCOL.md` section 0 already argues this for a change inside the
+round — *"a single flight becomes a paired comparison with the cutoff, the trim, the frame pacing
+and the weather all held identical by construction"* — and validated it at a sixteenth of the cost
+of a night. Nothing in that argument needed the change to be per-tube; it needed the comparison to
+be inside one run.
+
+That turns eight rockets from a source of correlated noise into the paired design the protocol
+already trusts, and it makes a night worth roughly what a night of single shots was.
+
+**Until then, no arm should be flown on this instrument**, because a 2.7x baseline swing means any
+result under about 3x is unreadable, and everything on the list is under 3x.
+
+### And the divergence is still the blocker underneath all of it
+
+Lifting the ceiling did not let the correction finish. With the budget-sized ceiling active the trim
+asks for **43.59 m/s against a 42 m/s ceiling, and 26.43 against 26** — slightly more than whatever
+is left, every time, until the 60 m/s budget is gone. That is item 8h's divergence unchanged: each
+pass nulls its residual to hundredths and the next solve demands an order of magnitude more. The
+best-aim keep decides *which* aim is released and does nothing about the loop burning its tank.
+
+So the ranked next thing is not another terminator constant. It is **why the solve after a converged
+pass demands ten times more**, which 8f and 8h both named and neither chased.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
