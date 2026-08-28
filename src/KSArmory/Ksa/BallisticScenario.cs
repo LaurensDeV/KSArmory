@@ -119,6 +119,14 @@ internal sealed class BallisticScenario
     // single-rocket case, where it takes whichever craft in the scene turns out to be viable.
     private readonly IcbmComputer? _bound;
 
+    // The variant this rocket flies, when a run is comparing two inside one world. Applied at
+    // arming rather than at construction, so it lands on top of the settings the harness forces.
+    private readonly ShotArms.Arm? _arm;
+
+    // Set when the arm would not apply, which ends this flight rather than flying it on settings
+    // belonging to neither arm.
+    private bool _armRefused;
+
     // Whose turn it is to point the player's camera. There is one view and every flight wants to
     // send it to the target when its salvo is away, so without a claim eight rockets move it eight
     // times -- the same shared-resource mistake the world clock had before Sim/WorldSpeed.cs.
@@ -137,8 +145,10 @@ internal sealed class BallisticScenario
     public Vehicle? Craft => _computer?.Craft;
 
     public BallisticScenario(ShotRequest shot, Action<string> say, IcbmComputer? bound = null,
-                             IReadOnlyList<Vehicle>? shooters = null, bool[]? viewTaken = null)
+                             IReadOnlyList<Vehicle>? shooters = null, bool[]? viewTaken = null,
+                             ShotArms.Arm? arm = null)
     {
+        _arm = arm;
         _bound = bound;
         _viewTaken = viewTaken ?? new bool[1];
         _shooters = shooters ?? [];
@@ -168,6 +178,15 @@ internal sealed class BallisticScenario
         _sinceComplaint += playerStep;
 
         if (icbms is null) return null;
+
+        // A rocket whose arm would not apply is not flown. Everything else about the run is still
+        // valid -- the other rockets carry their own arms -- so this ends one flight rather than
+        // the batch, and says which.
+        if (_armRefused)
+        {
+            return $"FAIL the arm could not be applied to "
+                   + $"{(_computer is null ? "the craft" : KsaWorld.DisplayName(_computer.Craft))}";
+        }
 
         // Only while the craft is still being looked for. Past the commit the computer is the only
         // thing that knows where the warheads were sent, and it answers that from the body and the
@@ -411,6 +430,16 @@ internal sealed class BallisticScenario
             // Zero is the shipped default and means the cheapest arc wins.
             computer.Config.MinArrivalAngleDeg = ScenarioArrivalFloorDeg;
             computer.Config.CorrectAim = ScenarioCorrectsAim;
+
+            // Last, so an arm has the final word. The two lines above are the harness forcing
+            // settings it has no other channel for, and an arm applied before them is an arm that
+            // silently flies the baseline -- which reports a dead heat rather than a failure.
+            if (_arm is { } arm && !ShotArms.TryApply(arm, computer.Config, out string bad))
+            {
+                _say($"FAIL {bad}");
+                _armRefused = true;
+                return;
+            }
 
             computer.Config.Armed = true;
 

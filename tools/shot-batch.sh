@@ -3,6 +3,7 @@
 # Flies a batch of ballistic shots overnight, interleaved between arms, and keeps every log.
 #
 #     ./tools/shot-batch.sh --aim 26.5S,64.0W --arms base=HEAD,grav=arm/gravity --blocks 6
+#     ./tools/shot-batch.sh --paired 'base|trim:TrimCeilingFromBudget=true' --blocks 6
 #     ./tools/shot-batch.sh --aim none --arms base=HEAD --blocks 6   # shoot whatever the save defends
 #     ./tools/shot-batch.sh --resume ~/shots/2026-08-22          # carry on after an interruption
 #     ./tools/shot-batch.sh --plan-only --arms ... --blocks 6    # print the run order and stop
@@ -11,6 +12,14 @@
 # run-to-run scatter on an identical pick-up is a factor of 1.7 either side of a 0.79 km median,
 # so a difference of 300 m needs about twenty-five shots an arm and a single shot each way settles
 # nothing at all. Everything here is in service of spending fifty shots so that they add up.
+#
+# --paired is the OTHER kind of night, and it is the one to prefer. Instead of a build per arm and
+# an arm per shot, it builds once and gives every rocket in the world its own variant -- so the two
+# arms share a frame trace, a warp history, a solver load and a target. The between-run instrument
+# stopped being able to see anything smaller than 3x when the same baseline read 14.49 km and
+# 5.43 km on identical code three hours apart; the within-run one has no such term. Sim/ShotArms.cs
+# has the whole argument. It needs a save carrying several rockets, and what it cannot compare is
+# anything the rockets share -- the build, the system, the ground under the target.
 #
 # Four things it does that a bare `for` loop around scenario.sh does not:
 #
@@ -40,6 +49,7 @@ usage() {
 AIM="26.5S,64.0W"
 BAR=""
 ARMS_SPEC=""
+PAIRED=""
 BLOCKS=6
 OUT=""
 SEED=""
@@ -51,6 +61,7 @@ while (( $# )); do
         --aim)       AIM="$2"; shift 2 ;;
         --bar)       BAR="$2"; shift 2 ;;
         --arms)      ARMS_SPEC="$2"; shift 2 ;;
+        --paired)    PAIRED="$2"; shift 2 ;;
         --blocks)    BLOCKS="$2"; shift 2 ;;
         --out)       OUT="$2"; shift 2 ;;
         --seed)      SEED="$2"; shift 2 ;;
@@ -99,6 +110,8 @@ if (( RESUME )); then
     # both halves are behaving exactly as documented.
     AIM="$(awk -F'\t' '$1 == "aim"  { print $2 }' "$OUT/batch.tsv")"
     BAR="$(awk -F'\t' '$1 == "bar"  { print $2 }' "$OUT/batch.tsv")"
+    PAIRED="$(awk -F'\t' '$1 == "paired" { print $2 }' "$OUT/batch.tsv")"
+    [[ "$PAIRED" == "<none>" ]] && PAIRED=""
     [[ "$BAR" == "default" ]] && BAR=""
     [[ -n "$AIM" ]] || { echo "error: $OUT/batch.tsv records no aim" >&2; exit 1; }
 
@@ -119,7 +132,19 @@ if (( RESUME )); then
 
     echo "== resuming $OUT (aim ${AIM}, bar ${BAR:-default})"
 else
-    [[ -n "$ARMS_SPEC" ]] || { echo "error: --arms is required" >&2; usage 2; }
+    # One build, because the arms differ by settings rather than by code. Named for the spec's
+    # own arms so the run directory still says what was being compared.
+    if [[ -n "$PAIRED" ]]; then
+        [[ -z "$ARMS_SPEC" ]] || {
+            echo "error: --paired and --arms are two different experiments; pick one." >&2
+            echo "       --paired varies settings between rockets in one world and builds once;" >&2
+            echo "       --arms builds a binary per arm and flies one of them a shot." >&2
+            usage 2
+        }
+        ARMS_SPEC="paired=HEAD"
+    fi
+
+    [[ -n "$ARMS_SPEC" ]] || { echo "error: --arms or --paired is required" >&2; usage 2; }
     [[ -n "$SEED" ]] || SEED="$(date +%s)"
 
     # The tree is read exactly once, here, and it has to be clean: an arm built from a dirty tree
@@ -237,6 +262,7 @@ PY
         printf 'bar\t%s\n'     "${BAR:-default}"
         printf 'seed\t%s\n'    "$SEED"
         printf 'blocks\t%s\n'  "$BLOCKS"
+        printf 'paired\t%s\n'  "${PAIRED:-<none>}"
         printf 'base\t%s\n'    "$STARTED_ON"
         printf 'ksa\t%s\n'     "$(grep -oE '^build[[:space:]]+\S+' "$REPO_ROOT/ksa-assemblies.lock" | head -1)"
         printf 'craft\t%s\n'   "${KSARMORY_SCENARIO_CRAFT:-<settings.toml>}"
@@ -307,7 +333,13 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     started="$(date -Is)"
     t0=$SECONDS
     set +e
-    "$REPO_ROOT/tools/scenario.sh" "$SCENARIO_ARG" --no-deploy \
+    # The phase is the shot's own number, so each variant draws each place in the roster across
+    # the night rather than one of them owning the odd positions -- which matters because a
+    # rocket's place in the roster is itself worth 175x in miss.
+    PAIRED_ARGS=()
+    [[ -n "$PAIRED" ]] && PAIRED_ARGS=(--arms "$PAIRED" --arm-phase "$(( 10#$n ))")
+
+    "$REPO_ROOT/tools/scenario.sh" "$SCENARIO_ARG" --no-deploy "${PAIRED_ARGS[@]+"${PAIRED_ARGS[@]}"}" \
         > "$OUT/shots/$n-$arm.out" 2>&1
     rc=$?
     set -e

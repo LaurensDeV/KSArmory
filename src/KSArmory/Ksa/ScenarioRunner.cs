@@ -48,6 +48,13 @@ internal sealed class ScenarioRunner
     // Held rather than passed, because the flights are crewed once the world has loaded rather
     // than when the run is asked for.
     private ShotRequest _shot;
+
+    // Which variant each rocket flies, when a batch is comparing two inside one world. Null is the
+    // ordinary case: every rocket flies whatever was built.
+    private ShotArms? _arms;
+    private string _armSpec = string.Empty;
+    private int _armPhase;
+
     private bool _isBallistic;
     private double _elapsed;
     private double _simElapsed;
@@ -92,6 +99,10 @@ internal sealed class ScenarioRunner
     private readonly bool[] _viewTaken = new bool[1];
     private readonly List<string?> _outcomes = [];
 
+    // Which arm each flight drew, in the order they were crewed. Kept so the run's own summary can
+    // say how the arms were spread rather than leaving a reader to count the per-craft lines.
+    private readonly List<string> _armFlown = [];
+
     // Crewed once, from whatever the roster holds the first time it holds anything. A rocket that
     // appears later is not picked up: every rocket in a scripted world is on the pad at load, and a
     // flight joined mid-ascent is a differently conditioned shot rather than a spare one.
@@ -116,9 +127,22 @@ internal sealed class ScenarioRunner
                 continue;
             }
 
+            // Drawn here and applied by the flight itself when it arms: the harness forces
+            // settings of its own at that moment, and an arm applied before them is an arm that
+            // silently flies the baseline.
+            ShotArms.Arm? arm = _arms?.For(_shooters.Count, _armPhase);
+
+            if (arm is { } drawn)
+            {
+                // Said per craft, because this is the only record of which rocket flew which
+                // variant and the whole comparison is read back out of it afterwards.
+                Report($"{_name}: {KsaWorld.DisplayName(computer.Craft)} flies arm {drawn.Describe()}");
+                _armFlown.Add(drawn.Name);
+            }
+
             _shooters.Add(computer.Craft);
             _flights.Add(new BallisticScenario(
-                _shot, line => Report($"{_name}: {line}"), computer, _shooters, _viewTaken));
+                _shot, line => Report($"{_name}: {line}"), computer, _shooters, _viewTaken, arm));
             _outcomes.Add(null);
         }
 
@@ -132,6 +156,16 @@ internal sealed class ScenarioRunner
         // free. The count here is what a batch checks against what it asked for.
         Report($"{_name}: crewed {_flights.Count} flight(s): "
                + string.Join(", ", _shooters.ConvertAll(KsaWorld.DisplayName)));
+
+        // The split as flown, which is not always the split that was asked for: an odd number of
+        // viable rockets gives one arm an extra, and a save whose rockets cannot all reach the aim
+        // can give it several. A batch that reads this can drop a shot that came out lopsided
+        // instead of pooling it.
+        if (_arms is not null)
+        {
+            Report($"{_name}: arms " + string.Join(", ",
+                _armFlown.GroupBy(n => n).Select(g => $"{g.Key} x{g.Count()}")));
+        }
     }
 
     private void FlyThem(WeaponSystems roster, IcbmComputers? icbms, double dt, double playerStep)
@@ -195,8 +229,13 @@ internal sealed class ScenarioRunner
     private double _speedAsked = double.NaN;
 
     /// <summary>
-    /// The scenario the harness asked for, or null. A one-line file beside the log, consumed as
-    /// it is read so a second launch does not silently re-run the last request.
+    /// The scenario the harness asked for, or null. A short file beside the log, consumed as it is
+    /// read so a second launch does not silently re-run the last request.
+    ///
+    /// <para>Line one is the request. Line two, if there is one, is the arm spec — its own line
+    /// because <see cref="ShotArms"/> separates arms with the same <c>|</c> that separates the
+    /// request from the save, and a channel that cannot express the thing it carries is a channel
+    /// that mangles it silently. Line three is the phase.</para>
     /// </summary>
     public static string? Requested()
     {
@@ -205,10 +244,10 @@ internal sealed class ScenarioRunner
             string path = Path.Combine(Log.Folder, "scenario.txt");
             if (!File.Exists(path)) return null;
 
-            string name = File.ReadAllText(path).Trim();
+            string text = File.ReadAllText(path).TrimEnd();
             File.Delete(path);
 
-            return string.IsNullOrWhiteSpace(name) ? null : name;
+            return string.IsNullOrWhiteSpace(text) ? null : text;
         }
         catch
         {
@@ -227,6 +266,16 @@ internal sealed class ScenarioRunner
     public void Begin(string? request)
     {
         if (_phase != Phase.Idle || string.IsNullOrWhiteSpace(request)) return;
+
+        // The request is the first line; the arm spec and its phase are the two after it, and a
+        // one-line file is still the whole of the single-arm case.
+        // Trimmed per line rather than over the whole text: the file is written from WSL and read
+        // by a Windows process, so a line ending can arrive as CRLF and a stray carriage return on
+        // the request would go into the save name.
+        string[] lines = request.Split('\n');
+        request = lines[0].Trim();
+        _armSpec = lines.Length > 1 ? lines[1].Trim() : string.Empty;
+        _armPhase = lines.Length > 2 && int.TryParse(lines[2].Trim(), out int phase) ? phase : 0;
 
         // "name" or "name|save". Skipping the configuration dialog gets the game past a dialog,
         // not into a scene: settings.toml's startVehicle is only ever read *by* that dialog, so
@@ -265,6 +314,21 @@ internal sealed class ScenarioRunner
         {
             Finish($"FAIL the request could not be read -- {trouble}");
             return;
+        }
+
+        // Refused rather than flown on one arm, and refused *here* rather than at crewing: a
+        // batch that spends seven minutes discovering its spec was mistyped has bought a shot
+        // belonging to neither arm, and a typo that silently flies the baseline twice is worse
+        // still -- it reports a dead heat.
+        if (_armSpec.Length > 0)
+        {
+            if (!ShotArms.TryParse(_armSpec, out ShotArms arms, out string bad))
+            {
+                Finish($"FAIL the arms could not be read -- {bad}");
+                return;
+            }
+
+            _arms = arms;
         }
 
         // Crewed later, once the save has loaded and the roster holds something: with several

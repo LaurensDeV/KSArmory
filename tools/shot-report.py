@@ -70,6 +70,10 @@ BODY_RADIUS_M = 6371000.0
 # seven. Silent undercounting reads exactly like a smaller night.
 PERFLIGHT = re.compile(r"FLIGHT (.+?) :: (PASS|FAIL) (.*)$", re.M)
 
+# "mirv: GeoSat FAT 2 flies arm trim (TrimCeilingFromBudget=true)". The craft is non-greedy and the
+# arm is one token, because craft names carry spaces and arm names do not.
+FLIESARM = re.compile(r"^.*?: (.+?) flies arm (\S+)", re.M)
+
 VERDICT = re.compile(
     r"worst\s+([\d.]+)\s*km,\s*best\s+([\d.]+)\s*km,\s*"
     r"mean\s+([\d.]+)\s*km,\s*spread\s+([\d.]+)\s*km")
@@ -193,9 +197,16 @@ def split_flights(out_path, log_path):
     # returns the whole run as a single shot below.
     flights = PERFLIGHT.findall(text) or PERFLIGHT.findall(log)
 
+    # Which variant each craft drew, when the run was flown paired. Read from the same pair of
+    # files for the same reason: the scenario reports through Log.Info and scenario.sh copies it.
+    drew = dict(FLIESARM.findall(text) or FLIESARM.findall(log))
+
     # One rocket: the run is the shot, and the id is unchanged so old batches read as before.
     if len(flights) <= 1:
-        return [(read_shot(out_path, log_path), "", flights[0][0] if flights else "")]
+        craft = flights[0][0] if flights else ""
+        rec = read_shot(out_path, log_path)
+        rec["within"] = drew.get(craft)
+        return [(rec, "", craft)]
 
     out = []
 
@@ -214,6 +225,9 @@ def split_flights(out_path, log_path):
             rec["arrived"], rec["released"] = int(a.group(1)), int(a.group(2))
 
         out.append((rec, chr(ord("a") + i) if i < 26 else f".{i}", craft))
+
+    for rec, _suffix, craft in out:
+        rec["within"] = drew.get(craft)
 
     return out
 
@@ -373,6 +387,133 @@ def hodges_lehmann(a, b):
         cum += c
     k = min(k, (len(diffs) - 1) // 2)
     return point, diffs[k], diffs[len(diffs) - 1 - k]
+
+
+def _sign_p(better, worse):
+    """Two-sided exact p for 'the variant is as likely to lose as to win', ties dropped."""
+    n = better + worse
+    if n == 0:
+        return 1.0
+
+    def choose(k):
+        return math.comb(n, k)
+
+    total = 2 ** n
+    k = min(better, worse)
+    tail = sum(choose(i) for i in range(0, k + 1))
+    return min(1.0, 2.0 * tail / total)
+
+
+def _median_interval(values):
+    """A distribution-free interval for the median, from the same binomial the sign test uses."""
+    v = sorted(values)
+    n = len(v)
+    if n == 0:
+        return 0.0, 0.0, 0.0
+
+    total = 2 ** n
+    k = 0
+    cum = 0
+    for i in range(n):
+        cum += math.comb(n, i)
+        if 2.0 * cum / total > ALPHA:
+            break
+        k = i + 1
+
+    k = min(k, (n - 1) // 2)
+    return statistics.median(v), v[k], v[n - 1 - k]
+
+
+def paired(root, shots):
+    """Compare the variants flown INSIDE each shot, which is the only comparison this
+    instrument currently supports.
+
+    The between-run test compares an arm's shots against a baseline's shots flown at other
+    moments, and the moment turned out to dominate: the same baseline read 14.49 km and 5.43 km
+    on identical code three hours apart, a 2.7x swing, while the arm under test moved by less and
+    reversed sign between the two batches. Nothing under about 3x is readable that way.
+
+    Rockets sharing a world share the frame pacing, the warp history, the solver load and the
+    target. So one shot yields one ratio with all of that cancelled, and the test is over SHOTS --
+    a sign test on which variant won each of them. Six shots can reach p=0.031, which the
+    between-run test could not reach at any n this project can afford.
+    """
+    spec = ""
+    for line in (root / "batch.tsv").read_text().splitlines():
+        if line.startswith("paired\t"):
+            spec = line.split("\t", 1)[1].strip()
+
+    if spec in ("", "<none>"):
+        sys.exit("this batch was not flown paired -- there is no within-run split to report")
+
+    order = [piece.split(":")[0].strip() for piece in spec.split("|") if piece.strip()]
+
+    groups = defaultdict(lambda: defaultdict(list))
+    for r in shots:
+        if r.get("within") and usable(r):
+            groups[_shot_id(r["n"])][r["within"]].append(r["mean"])
+
+    if not groups:
+        sys.exit("no flight in this batch says which variant it flew")
+
+    base = order[0]
+
+    print(f"== paired within {len(groups)} shot(s) in {root}")
+    print(f"   spec: {spec}")
+    print(f"   baseline: {base}")
+    print()
+
+    # Pooled, for scale only. It is NOT the comparison: pooling across shots puts the
+    # between-shot swing back into the number the ratio was constructed to remove.
+    pooled = defaultdict(list)
+    for per_arm in groups.values():
+        for name, values in per_arm.items():
+            pooled[name].extend(values)
+
+    print("   arm            flights   median km   (pooled, for scale only)")
+    for name in order:
+        if name in pooled:
+            print(f"   {name:<14} {len(pooled[name]):>7}   {statistics.median(pooled[name]):>9.2f}")
+    print()
+
+    for name in order[1:]:
+        ratios, wins, losses = [], 0, 0
+
+        for shot, per_arm in sorted(groups.items()):
+            # Both variants have to have flown in the SHOT for it to be a pair. A shot where one
+            # of them lost every rocket is not a tie, it is not an observation.
+            if base not in per_arm or name not in per_arm:
+                continue
+
+            a = statistics.median(per_arm[base])
+            b = statistics.median(per_arm[name])
+            if a <= 0 or b <= 0:
+                continue
+
+            ratios.append(math.log(b / a))
+            if b < a:
+                wins += 1
+            elif b > a:
+                losses += 1
+
+        if not ratios:
+            print(f"   {name}: no shot flew both it and {base}")
+            continue
+
+        point, lo, hi = _median_interval(ratios)
+        p = _sign_p(wins, losses)
+
+        print(f"   {name} vs {base}: {math.exp(point):.2f}x"
+              f"   [{math.exp(lo):.2f}, {math.exp(hi):.2f}] at {int((1 - ALPHA) * 100)}%")
+        print(f"      won {wins} of {len(ratios)} paired shots, p={p:.3f}"
+              + ("   RESOLVED" if p <= 0.05 else "   unresolved"))
+        print("      per shot: "
+              + ", ".join(f"{math.exp(r):.2f}" for r in ratios))
+        print()
+
+    if len(groups) < 6:
+        print(f"   NOTE: {len(groups)} shots cannot reach p<=0.05 on a sign test. Six is the floor,")
+        print("   and that is only if the variant wins every one of them.")
 
 
 def summarise(values):
@@ -694,6 +835,8 @@ def main():
     ap.add_argument("--gate", action="store_true", help="print arms to drop and exit")
     ap.add_argument("--main", metavar="FACTOR",
                     help="pool the arms into FACTOR on/off and report that main effect")
+    ap.add_argument("--paired", action="store_true",
+                    help="compare the variants flown inside each shot -- see Sim/ShotArms.cs")
     ap.add_argument("--terrain", action="store_true",
                     help="the relief under the impacts, and whether it is shaping the misses")
     args = ap.parse_args()
@@ -703,6 +846,10 @@ def main():
 
     if args.main:
         main_effect(shots, args.main)
+        return
+
+    if args.paired:
+        paired(root, shots)
         return
 
     if args.gate:

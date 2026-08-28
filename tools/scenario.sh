@@ -60,12 +60,25 @@ SHOTS_ON=0
 # than to a working tree, so nothing anyone does to the tree overnight can reach the shot in
 # flight. tools/shot-batch.sh is the caller that wants it.
 DEPLOY=1
-for arg in "${@:2}"; do
-    case "$arg" in
+
+# Which variant each rocket in the world flies, so two arms are compared inside one run rather than
+# across a night of them. See Sim/ShotArms.cs for why -- the short version is that the same baseline
+# read 14.49 km and 5.43 km on identical code three hours apart, so a between-run difference under
+# about 3x is not readable and everything worth flying is under 3x.
+ARMS=""
+ARM_PHASE=0
+
+ARGS=("${@:2}")
+i=0
+while (( i < ${#ARGS[@]} )); do
+    case "${ARGS[$i]}" in
         --keep)      KEEP=1 ;;
         --shots)     SHOTS_ON=1 ;;
         --no-deploy) DEPLOY=0 ;;
+        --arms)      ARMS="${ARGS[$((i + 1))]:-}"; (( i++ )) ;;
+        --arm-phase) ARM_PHASE="${ARGS[$((i + 1))]:-0}"; (( i++ )) ;;
     esac
+    (( i++ ))
 done
 
 # The craft to boot into. It must carry a launcher, or the runner waits forever for a battery to
@@ -113,7 +126,12 @@ SHOTS="$REPO_ROOT/screenshots"
 
 # Consumed by the mod as it reads it, so a later launch cannot silently re-run this.
 mkdir -p "$USER_DIR/Logs"
-printf '%s|%s\n' "$SCENARIO" "$SAVE" > "$USER_DIR/Logs/scenario.txt"
+# Three lines. The arm spec gets one of its own because it separates arms with the same "|" that
+# separates the request from the save.
+{
+    printf '%s|%s\n' "$SCENARIO" "$SAVE"
+    if [[ -n "$ARMS" ]]; then printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"; fi
+} > "$USER_DIR/Logs/scenario.txt"
 
 # KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is
 # exactly the human this exists to remove. The dialog is the "Always Show" checkbox, persisted as
