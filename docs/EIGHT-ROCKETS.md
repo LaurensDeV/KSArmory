@@ -89,10 +89,19 @@ chasing a stale arrival, and the log already carries the number that tells them 
    * `BusTrim.MaxMetresPerSecond` **cannot be raised** — `PostBoostAimTests` pins it against the
      separation reserve. The only loosening path is the call site, which is item 1.
 
-**4. Then the arrival floor.** `IcbmConfig.MinArrivalAngleDeg` ships at 0 and is worth about **18x**
-on the mean (3.74 → 0.21 km, `docs/MIRV-NEXT.md` 8t). `arm/floor15` exists. At eight rockets that
-night costs about an hour rather than eight. **This is the largest single accuracy lever left and it
-is a config default, not a code change.**
+**4. ~~Then the arrival floor.~~ Flown 2026-08-28, and it bought nothing here.** `arm/floor15`
+measured **15.28 km against a 3.60 km baseline** over five shots — 4.24x, p=1.000, so worse and
+unresolved. It is not that the floor failed: the shots did arrive steeper (13.6° → 17.8°) and the
+cutoff residual improved threefold. **The 18x of item 8t was priced against a baseline arriving at
+about seven degrees, and this geometry already arrives at 13.6 with the floor off**, so most of that
+effect had been collected before the arm was flown. `docs/MIRV-NEXT.md` **8x** is the record. Any
+future claim for the arrival floor has to name the baseline angle it is against.
+
+**5. The bimodality, which is now the largest thing on this list.** `floor` flew 0.04 and 1.38 km
+and then 15.28, 27.54 and 28.51 — two populations on one build and one save, not a distribution.
+`base` hints at the same shape. Ruled out on the night: the arrival floor's affordability, the
+propellant, and the terrain (−0.02% slope, 1.0x flat). **A 0.04 km shot exists**, and what separates
+it from a 28 km one is worth more than anything else here. The logs are on disk.
 
 ## What is not worth doing yet
 
@@ -108,6 +117,9 @@ is a config default, not a code change.**
 * `tools/shot-report.py` scores **every rocket in a run** (`split_flights`). Its other columns —
   residual, trim, passes — are still read over the whole log and describe the world rather than one
   flight; per-flight attribution wants the log partitioned by craft name.
+* **`shot-report.py`'s comparison still pools per flight, so its p-values are inflated.** The
+  gate aggregates per shot since `eb8a4eb`; `compare()` does not. A `LOSS` at p=0.003 over 45 flight
+  records was 1.48x at p=0.836 over 6 shots. Read the arm tables, re-run the test per shot.
 * **Eight rockets in one world are not eight independent draws.** They share frame pacing, warp
   decisions and solver load, so a rank test over them inflates n without inflating information.
 * `Sim/FrameBudget.cs` has two known defects: `EndFrame` is called from inside the `sim` span, so

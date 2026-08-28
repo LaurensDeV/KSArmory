@@ -4178,6 +4178,88 @@ achieved because one threshold does both jobs.
 
 **None of it is flown.** The logging fix is a diagnostic and changes no flight behaviour.
 
+## 8x. Both arms lost, and the arrival floor was priced against a baseline that has moved — 2026-08-28
+
+Eighteen shots at `SOLVER SCALE 8`, three arms interleaved over six blocks, all built before the
+first one flew. `~/shots/2026-08-28-0014`.
+
+| arm | shots | median | the shots (km) |
+| --- | --- | --- | --- |
+| `base` (dev) | 7 | **3.60 km** | 2.85, 3.47, 3.56, 3.60, 4.44, 10.79, 33.74 |
+| `trim` (ceiling from the budget on every pass) | 6 | 5.33 km | 2.54, 3.08, 5.09, 5.57, 20.10, 20.40 |
+| `floor` (15 deg arrival) | 5 | 15.28 km | 0.04, 1.38, 15.28, 27.54, 28.51 |
+
+**Neither arm improved anything and both trend worse, and neither is resolved.** At shot level
+`floor` is 4.24x the baseline at p=1.000 and `trim` is 1.48x at p=0.836. Nothing here is a finding
+about the changes; it is a night that ruled out a large improvement and nothing else.
+
+### Read the report's own p-values at shot level, not at flight level
+
+`shot-report.py` prints n=54, n=45, n=33 — those are **flights, not shots**, eight rockets to a
+shot, and its own docstring says they are not independent draws. The `trim` **LOSS** on spread at
+p=0.003 is that inflation: at shot level it is 1.48x at p=0.836, which is nothing. The `UNRESOLVED`
+verdicts survive, because inflating n can only make a test more confident and those still failed to
+reach it.
+
+The gate now aggregates per shot (`chore(tools) eb8a4eb`); `compare()` still does not, and that is
+the next thing to fix in the tool.
+
+### The floor's 18x was priced against a seven-degree arrival, and the baseline now flies 13.6
+
+The attribution table is the whole explanation:
+
+| arm | arrival | residual | probe |
+| --- | --- | --- | --- |
+| `base` | **13.6 deg** | 0.290 | 4.50 km |
+| `floor` | **17.8 deg** | 0.100 | 11.00 km |
+
+**The floor did what it was asked** — the shots arrive steeper, and the cutoff residual improves
+threefold. What it did not do is buy accuracy, and the reason is that it was never moving the angle
+it was priced on. Item 8t measured 3.74 -> 0.21 km for a floor against a baseline arriving at about
+seven degrees; this shot geometry already arrives at 13.6 without any floor at all, so `floor` is
+buying 13.6 -> 17.8 and not 7 -> 15. `docs/ARRIVAL-ANGLE.md` prices the gain steeply in the angle,
+so most of what 8t measured had already been collected before the arm was flown.
+
+**So the 18x figure in `docs/EIGHT-ROCKETS.md` was not wrong, it was spent.** Any future claim for
+the arrival floor has to state the baseline angle it is against, because that is the number the
+whole effect lives on.
+
+### And it is bimodal, which is the part worth chasing
+
+`floor` flew 0.04 and 1.38 km, then 15.28, 27.54 and 28.51. That is not a distribution around a
+median; it is two populations. `base` has a hint of the same shape (33.74 against six shots between
+2.85 and 10.79). Ruled out on the night: no `TooShallow`, no unaffordable-floor line, and
+`ShortOfPropellant` appears exactly seven times per shot on **every** arm, so it is an ascent
+transient rather than anything the floor caused. The terrain was well conditioned — a -0.02% slope
+at 1.0x flat ground, so this is not the crest of item 7g.
+
+**A 0.04 km shot exists.** Whatever separates it from a 28 km one on the same build and the same
+save is worth more than either arm on this list.
+
+### What ended the post-boost correction, which is upstream of every number above
+
+| arm | payback | trim stopped | budget | clearance |
+| --- | --- | --- | --- | --- |
+| `base` | n=38, 3.83 km | n=16, 25.00 km | — | — |
+| `floor` | n=20, 1.38 km | n=13, 25.35 km | — | — |
+| `trim` | n=23, 2.81 km | n=8, 20.40 km | **n=7, 5.09 km** | **n=7, 20.10 km** |
+
+`trim` is the only arm reaching the budget and the clearance terminations at all, which is the arm
+doing exactly what it was built to do: the ceiling no longer refuses the first correction, so the
+loop runs on and meets the next limit instead. It is reaching further and arriving no better.
+
+### What this makes the next thing
+
+1. **The bimodality**, on either arm. Two populations on one build is a bigger lever than anything
+   ranked below it and it is free to look for — the logs are on disk.
+2. **`compare()` has to pool per shot** the way the gate now does, or every night flown at eight
+   rockets reports a confidence it has not got.
+3. **Re-price the arrival floor against 13.6 degrees**, or fly it on a geometry that actually
+   arrives shallow. As flown it is answering a question that was already settled.
+
+Neither branch is deleted. `arm/floor15` is bimodal rather than a clean loss, and `arm/trimceil`
+removes a refusal that is real — item 8w — even though the night says removing it buys nothing.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
