@@ -4329,6 +4329,35 @@ verdict and it says the clearance fails.** 8u was closer to right than 8w allowe
 That is the fourth-instance mistake from 8w's own list, made again: an instrument answering a
 neighbouring question, read as answering this one. The lesson generalises past logging.
 
+### Why: the trim nulls the separation it depends on
+
+Pairing each flight's `ProximityWatch` minimum with how its trim ended, over the same 144 flights:
+
+| trim outcome | closest approach | at |
+| --- | --- | --- |
+| **succeeded** (n=23) | **15.3 m** — the keep-out exactly | +4.3 s |
+| other, incl. ceiling refusals (n=34) | 15.3 m | +4.4 s |
+| **abandoned** (n=87) | **7.8 m** | **+20.1 s** |
+
+The discriminator is exact and it is not the rocket. Every flight whose trim succeeded opened to the
+keep-out and **never came closer**; every abandoned flight opened past it and then closed
+monotonically, its minimum recorded at the timeout itself because it was still closing when the run
+gave up.
+
+**The decoupler's shove is the only thing carrying the halves apart, and nulling it is precisely what
+the trim is for.** So the gate opens, the trim fires, the separation velocity goes to zero, the pair
+drift back together, the gate shuts, and at 20 s the clearance abandons with no aim correction ever
+applied. It is a feedback loop that consumes its own precondition.
+
+`SeparationClearance`'s own doc comment says this can happen — *"the trim's whole job is to null the
+velocity difference — which is the separation. So the pair can and do come back together"* — and a
+latch that assumed otherwise drove a bus into its stack on 2026-08-25. What was never measured is
+the **rate**: 87 of 144 flights, and it costs the whole correction each time.
+
+It also explains the roster gradient without anything being special about the first rocket. This is a
+race between the trim converging and the trim cancelling the separation, and whichever finishes first
+decides the shot. The gradient is which flights win that race, not a property of being first.
+
 ### But the timeout is not the fix either
 
 At the observed rate — 8 m in 20 s, about **0.4 m/s**, not 8u's 0.65 — reaching 15.3 m takes about
