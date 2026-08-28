@@ -140,6 +140,26 @@ shot-to-shot variance — 11% across the sixteen — while the term under test m
 against 2% of scatter. Sixteen shots measured a **27 sigma** effect. The endpoint was the expense,
 not the question.
 
+### Screen the session before trusting the night
+
+**Read the frame time first.** `shot-report.py` prints it and warns above 24 ms:
+
+```
+   frame time: 29.8 ms, 0 correction pass(es) at the median shot
+   WARNING: at or above 24 ms this session is in the slow regime.
+```
+
+Every night flown at 21 ms landed a median 9.3 km and ran the post-boost correction 1.2–3.4 passes
+a flight. Both nights flown at 27–30 ms landed 20.5 km and ran it **0.24**. An arm that acts on the
+correction loop cannot be measured in a session where the loop does not run, and the result comes
+back as an ordinary unresolved rather than as an error — which is how a night gets spent and read as
+a null.
+
+It marks the *session*, not the shot: within a night the rank correlation between a shot's frame
+time and its miss is nil. Whether it causes the miss or is a symptom of whatever else the machine is
+doing is not known, and it does not need to be to be useful as a screen. `MIRV-NEXT` **8ac** is the
+record, including the control shot that ruled out the build.
+
 ## 1. The statistic
 
 **Endpoint: the group's `mean` miss, on a log scale.** Not `worst`, which is the pass/fail bar and

@@ -4592,6 +4592,71 @@ differ by +8.9 s at 3,459 km and by **−68 s** at 12,902 — the drag flight fa
 sooner. Item 8y's "1.6 m/s per second" debt is the same term as the arrival column above, one order
 of magnitude down.
 
+## 8ac. The session variance has a marker, and tonight's session could not test anything — flown 2026-08-29
+
+Six paired shots, `base` against `ceiling` against `both`, eight rockets a shot.
+`~/shots/2026-08-29-0026`. The first night flown on the within-run instrument.
+
+### The endpoint, and it is unresolved
+
+| arm | median | ratio | won | p |
+| --- | --- | --- | --- | --- |
+| `base` | 35.71 km | — | — | — |
+| `ceiling` | 21.58 km | 0.73x | 4 of 6 | 0.688 |
+| `both` | 28.00 km | 0.92x | 4 of 6 | 0.688 |
+
+Six shots is the floor for a sign test and only resolves on a clean sweep, so this was always the
+likely outcome. **But the night could not have tested these arms at any n**, and that is the finding.
+
+### The whole session was in a regime where the correction does not run
+
+| night | frame time | median miss | correction passes per flight |
+| --- | --- | --- | --- |
+| 2026-08-27 23:05 | 26.6 ms | 17.26 km | 0.62 |
+| 2026-08-27 23:37 | 21.8 ms | 7.69 km | 3.38 |
+| 2026-08-28 00:14 | 21.1 ms | 4.88 km | 1.17 |
+| 2026-08-28 08:27 | 21.5 ms | 11.36 km | 1.17 |
+| 2026-08-28 11:47 | 21.0 ms | 9.69 km | 1.41 |
+| **2026-08-29 00:26** | **29.8 ms** | **25.97 km** | **0.23** |
+| **control, pre-change build** | **29.8 ms** | **21.27 km** | **0.25** |
+
+Both arms under test act on the post-boost correction loop, and tonight that loop ran **0.23 passes
+a flight against 1.4** on the nights that produced the numbers in 8z and 8aa. Testing them here is
+testing a change to something that does not execute.
+
+The tell that is not the median: every previous night has flights landing at **0.01 km**, and the
+best of tonight's 48 was **2.50 km**. It is not a distribution shifted — it is the whole good
+population missing, which is 8z's "a trim that finishes lands at 140 m" seen from the input side.
+
+### It is not the code, and that was flown rather than argued
+
+One shot on `0bf239c`, the commit before this session's changes, under tonight's conditions:
+**21.27 km, 29.8 ms, 0.25 passes a flight** — tonight's population on all three, not the previous
+night's on any. The burn is identical across both regimes (`own km` 4.58–4.60, arrival 13.5–13.6°),
+so what differs is entirely after cutoff.
+
+### What the marker is and is not
+
+**It separates sessions and does not predict shots.** Across 57 shots, dt < 24 ms gives a median
+9.25 km and dt >= 24 gives 20.49. *Within* a night the rank correlation between a shot's frame time
+and its miss is +0.04, +0.06, +0.12 and −0.03 — nothing. So frame time marks which regime a session
+is in; whether it causes the miss or is a symptom of whatever else the machine is doing is **not
+established**, and nothing here should be read as the former.
+
+That is still the useful half. 8aa said the session-to-session variance is larger than the effects
+being flown and left it unexplained; this gives it a number that is already in every log, so a night
+can be **screened before it is trusted** rather than argued about afterwards. `shot-report.py` now
+prints the session's frame time and refuses to let a null pass quietly above 24 ms.
+
+**What is not known** is why the machine sits in one regime or the other. No stray game process, load
+average 0.61, same save, same target, same build path. It has now been observed twice within thirty
+hours, so it is not rare.
+
+### What to fly next
+
+The same six-arm night again, **once the session reads under 24 ms**, and longer than six shots. The
+arms are unchanged and still uninformed by any flight.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by

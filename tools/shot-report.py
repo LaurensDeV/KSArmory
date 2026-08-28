@@ -424,6 +424,51 @@ def _median_interval(values):
     return statistics.median(v), v[k], v[n - 1 - k]
 
 
+# Above this, every night flown so far has been in the bad regime and below it in the good one.
+# Not a threshold anything is tuned to -- the observed frame times cluster at 21-22 ms and 27-30 ms
+# with nothing in between, and 24 is the gap.
+SLOW_FRAME_MS = 24.0
+
+
+def regime(shots):
+    """The session's frame time, and whether it is one where the correction loop runs at all.
+
+    Frame time separates the good sessions from the bad ones -- 9.25 km against 20.49 km over 57
+    shots -- and does NOT predict the miss within a session, where the rank correlation is +0.04,
+    +0.06, +0.12 and -0.03 across the four nights that have enough shots to ask. So it marks the
+    regime rather than driving each shot, and whether it is the cause or a symptom of whatever the
+    machine is doing is not established.
+
+    What is established is what happens to the correction: 0.23-0.25 passes per flight in the slow
+    regime against 1.17-3.38 in the fast one. An arm that acts on the post-boost loop cannot be
+    measured in a session where the loop does not run, which is what this exists to say before
+    somebody reads a null as an answer.
+    """
+    dts = [statistics.median(s["dt_ms"]) for s in shots if s.get("dt_ms")]
+    if not dts:
+        return None
+    return statistics.median(dts)
+
+
+def _say_regime(shots):
+    dt = regime(shots)
+    if dt is None:
+        return
+
+    passes = [s["passes"] for s in shots if s.get("passes") is not None]
+    said = f"   frame time: {dt:.1f} ms"
+    if passes:
+        said += f", {statistics.median(passes):.0f} correction pass(es) at the median shot"
+    print(said)
+
+    if dt >= SLOW_FRAME_MS:
+        print(f"   WARNING: at or above {SLOW_FRAME_MS:.0f} ms this session is in the slow regime.")
+        print("   Every night flown there ran the post-boost correction 0.24 passes a flight against")
+        print("   1.4 in the fast one, and landed 20.5 km against 9.3. An arm that acts on that loop")
+        print("   cannot be measured here, and a null from this session is not a null result.")
+    print()
+
+
 def paired(root, shots):
     """Compare the variants flown INSIDE each shot, which is the only comparison this
     instrument currently supports.
@@ -461,7 +506,7 @@ def paired(root, shots):
     print(f"== paired within {len(groups)} shot(s) in {root}")
     print(f"   spec: {spec}")
     print(f"   baseline: {base}")
-    print()
+    _say_regime(shots)
 
     # Pooled, for scale only. It is NOT the comparison: pooling across shots puts the
     # between-shot swing back into the number the ratio was constructed to remove.
