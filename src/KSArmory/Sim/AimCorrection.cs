@@ -68,6 +68,22 @@ internal sealed class AimCorrection
     public const double MaxMetres = 300_000.0;
 
     /// <summary>
+    /// The furthest the aim may be moved and still be <em>flyable</em>, which is a different
+    /// question from how far it may be moved at all.
+    ///
+    /// <para><see cref="MaxMetres"/> asks whether the shot is sane. This asks whether the bus can
+    /// pay for it: <see cref="AimAuthority"/> prices an aim move at 2.48 m/s per kilometre on a
+    /// 3,459 km shot and 0.53 on a 12,902 km one, so one trim budget is worth 24 km of aim on the
+    /// first and 113 km on the second. Walking past that produces a correction the trim spends its
+    /// whole tank failing to fly, and the shot then releases with all of it outstanding — flown, a
+    /// correction that finished landed at 140 m and one that did not at 5 to 45 km.</para>
+    ///
+    /// <para>Infinite until something sets it, so a caller that cannot price the trajectory leaves
+    /// the loop exactly as it was.</para>
+    /// </summary>
+    public double AffordableMetres = double.PositiveInfinity;
+
+    /// <summary>
     /// How much closer the impact must come for a cycle to count as an improvement.
     /// </summary>
     public const double ImprovedByMetres = 250.0;
@@ -96,6 +112,16 @@ internal sealed class AimCorrection
 
     /// <summary>How little the aim may move for the correction to count as having stopped.</summary>
     public const double SteadyMetres = 2_000.0;
+
+    /// <summary>
+    /// How far the aim may actually go: the sanity limit, or what the bus can pay for if that is
+    /// nearer. An unset or unusable affordability leaves <see cref="MaxMetres"/> standing rather
+    /// than clamping the correction to nothing.
+    /// </summary>
+    public double Reach
+        => AffordableMetres > 0.0 && !double.IsNaN(AffordableMetres)
+               ? Math.Min(MaxMetres, AffordableMetres)
+               : MaxMetres;
 
     /// <summary>What is currently being added to the aim point, in the body's inertial frame.</summary>
     public double3 BiasCci { get; private set; }
@@ -221,7 +247,7 @@ internal sealed class AimCorrection
             return;
         }
 
-        BiasCci = Vec.ClampLength(BiasCci - error / _response, MaxMetres);
+        BiasCci = Vec.ClampLength(BiasCci - error / _response, Reach);
     }
 
     /// <summary>

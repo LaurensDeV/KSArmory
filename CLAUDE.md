@@ -311,6 +311,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ImpactPredictor.cs` | where it would come down if the engines stopped now — flown, not solved |
 | `Sim/ArrivalFrame.cs` | the axes an arrival is measured in — **a drift up costs `cot γ` times the same drift across**, which is eight at the angle this mod flies |
 | `Sim/AimCorrection.cs` | where to aim so it lands on the target — **the solver arrives at a point, a round stops at the ground** |
+| `Sim/AimAuthority.cs` | how far the aim may be moved for what the trim can pay — **an aim the bus cannot reach is worse than a nearer one it can**, because a correction that finishes lands at 140 m and one that does not at 5–45 km |
 | `Sim/BoosterPerformance.cs` | what the stack can still do, as the four numbers guidance needs |
 | `Sim/BurnoutGuidance.cs` | where to point and when to stop — velocity still to be gained |
 | `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |

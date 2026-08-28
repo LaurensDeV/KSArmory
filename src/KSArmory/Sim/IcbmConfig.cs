@@ -270,4 +270,24 @@ internal sealed class IcbmConfig
     /// <c>docs/EIGHT-ROCKETS.md</c> item 1.</para>
     /// </summary>
     public bool TrimCeilingFromBudget;
+
+    /// <summary>
+    /// Hold the aim correction to an aim the trim can actually fly it to.
+    ///
+    /// <para><see cref="AimCorrection.MaxMetres"/> is 300 km flat, and what the budget buys is
+    /// 24 km on a 3,459 km shot and 113 km on a 12,902 km one — so the loop is licensed to walk
+    /// somewhere the actuator can never follow. The flown symptom is a demand that exceeds whatever
+    /// is left of the ceiling on every pass until the budget is gone, read until now as the solve
+    /// diverging: it is not, it is an aim move being priced honestly.
+    /// <see cref="AimAuthority"/> has the exchange rate.</para>
+    ///
+    /// <para>Nearer and flyable beats further and not, because the endings are not on one scale: a
+    /// correction that ran to completion landed at 140 m and every other ending at 5 to 45 km.
+    /// What it cannot do is make the shot want a nearer aim — if the correction genuinely needs
+    /// 200 km, this clamps it and the shot still misses, with the propellant unspent rather than
+    /// wasted.</para>
+    ///
+    /// <para><b>Off, and off is what ships.</b> Unflown.</para>
+    /// </summary>
+    public bool AimWithinTrimBudget;
 }

@@ -440,6 +440,17 @@ internal sealed partial class Ui
             : $"that pass is capped at {BusTrim.MaxMetresPerSecond:F0} m/s, and a bus that owes "
               + "more releases untrimmed"));
 
+        bool affordable = config.AimWithinTrimBudget;
+        if (ImGui.Checkbox("Aim only where the trim can reach", ref affordable))
+        {
+            config.AimWithinTrimBudget = affordable;
+        }
+
+        ImGui.TextDisabled("  " + (config.AimWithinTrimBudget
+            ? "the correction stops at the aim the remaining budget can fly it to"
+            : $"the correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget "
+              + "cannot fly at any range"));
+
         // A structural limit rather than a preference, so it sits with the other things that
         // constrain the flight rather than with the ones that shape it.
         float gee = config.MaxAccelerationGee;

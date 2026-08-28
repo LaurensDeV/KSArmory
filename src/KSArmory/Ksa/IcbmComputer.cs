@@ -2134,6 +2134,7 @@ internal sealed class IcbmComputer
             if (Config.CorrectAim && state.HasAim && !TrimIsFiring
                 && (Program.IsBurning || _measureDue))
             {
+                PriceTheAim(state);
                 _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
 
                 if (!Program.IsBurning)
@@ -2143,10 +2144,38 @@ internal sealed class IcbmComputer
                 }
             }
         }
+
         else
         {
             PredictedImpact = null;
             PredictedMissMetres = double.NaN;
         }
+    }
+
+    // How far the correction may walk the aim before the trim can no longer fly it there.
+    //
+    // Only after cutoff. While the engines are lit the actuator is the burn, which re-solves to
+    // whatever the aim says and costs propellant rather than accuracy; the trim's budget is the
+    // limit only once the burn is the thing that has ended.
+    private void PriceTheAim(in IcbmState state)
+    {
+        if (!Config.AimWithinTrimBudget || Program.IsBurning)
+        {
+            _aim.AffordableMetres = double.PositiveInfinity;
+            return;
+        }
+
+        double left = Math.Max(0.0, Config.TrimBudgetMetresPerSecond - _trim.SpentMetresPerSecond);
+
+        // Left standing rather than clamped when the trajectory will not price: a bound of zero is
+        // the correction switched off, which is the one outcome nobody asked for.
+        if (!AimAuthority.TryMetresFor(state.Body, state.PositionCci, _trueAimCci,
+                                       Program.CommittedArrivalFromNow, left, out double reach))
+        {
+            _aim.AffordableMetres = double.PositiveInfinity;
+            return;
+        }
+
+        _aim.AffordableMetres = reach;
     }
 }
