@@ -4525,6 +4525,73 @@ best-aim keep decides *which* aim is released and does nothing about the loop bu
 So the ranked next thing is not another terminator constant. It is **why the solve after a converged
 pass demands ten times more**, which 8f and 8h both named and neither chased.
 
+## 8ab. The demand is an aim move, not a divergence — measured 2026-08-28
+
+Headless, from three cutoff states flown by `IcbmFlightRig` at 3,459 / 8,500 / 12,902 km.
+`ArrivalDebtTests` and `AimAuthorityTests` are the instrument; they arrive at the same numbers by
+different routes.
+
+### What an aim move costs
+
+| range | per km of aim | per second of arrival slip |
+| --- | --- | --- |
+| 3,459 km | **2.48 m/s** | 18.7 m/s |
+| 8,500 km | 1.03 m/s | 8.98 m/s |
+| **12,902 km** | **0.53 m/s** | 4.48 m/s |
+
+Linear to 0.07% over twenty kilometres, which is further than the correction walks in one pass — so
+one number converts a demand read off a log back into the aim that asked for it.
+
+### Which retires the divergence
+
+8h and 8aa both read the same trace: a pass nulls its residual to hundredths, the next solve demands
+an order of magnitude more. Priced, those demands are aim movements and nothing else.
+
+| the trace said | it was asking for |
+| --- | --- |
+| 8h, pass 2: **12.63 m/s** | 24 km of aim |
+| 8h, pass 3: 15.61 m/s | 29 km |
+| 8aa: **43.59 m/s** against a 42 m/s ceiling | 82 km |
+| 8aa: 26.43 against 26 | 50 km |
+
+The loop is not diverging and the solve is not bad. The trim is faithfully buying a correction an
+order of magnitude larger than the 4.6 km miss it is correcting, and 8aa's "slightly more than
+whatever is left, every time, until the budget is gone" is exactly what a demand looks like when it
+is the distance to an aim that was never affordable: 8aa's two readings sum to **61.6 and 60.4 m/s**
+against a 60 m/s budget.
+
+### And the bound that should have stopped it does not know what an aim costs
+
+`AimCorrection.MaxMetres` is 300 km. One budget buys:
+
+| range | the budget buys | permitted |
+| --- | --- | --- |
+| 3,459 km | 24 km | 300 km |
+| 8,500 km | 58 km | 300 km |
+| 12,902 km | 113 km | 300 km |
+
+Two and a half to twelve times more aim than the actuator can follow, at every range this mod
+shoots at. `Sim/AimAuthority.cs` prices it from the trajectory — two transfers, differenced, nothing
+to tune — and `IcbmConfig.AimWithinTrimBudget` holds the loop to it. Off by default and **unflown**.
+
+**What it cannot do** is make a shot want a nearer aim. If the correction genuinely needs 200 km it
+clamps and the shot still misses, with the propellant unspent rather than wasted. The argument for
+it is 8z's terminator table and not a prediction: nearer-and-flyable and further-and-not are not two
+points on one scale, they are 140 m and 5–45 km.
+
+### A correction to this file, twice over
+
+**Pinning the arrival is free at the range the eight-rocket instrument flies.**
+`AimCorrection.Freeze` and `IcbmProgram`'s latch both say a committed arrival makes the same aim
+change dearer, and it does — at 3,459 km, where a 20 km move costs 4.5x the free arc. At 8,500 and
+12,902 the pinned arrival is already the cheapest one, to three significant figures. So latching is
+real and is *not* what makes a long correction expensive.
+
+**And the drag disagreement runs the other way at long range.** The vacuum arc and the flown warhead
+differ by +8.9 s at 3,459 km and by **−68 s** at 12,902 — the drag flight falls short, so it lands
+sooner. Item 8y's "1.6 m/s per second" debt is the same term as the arrival column above, one order
+of magnitude down.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by

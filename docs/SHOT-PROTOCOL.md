@@ -90,7 +90,42 @@ Within 7% of the night, at a sixteenth of the cost.
 > night before the arithmetic would have. Read a broken control as "something is wrong with the
 > tree" before reading it as "something is wrong with the rig".
 
-**Two limits, and the first is a silent false negative.** Only a **per-round** term can be split —
+### The same argument one level up: split the ROCKETS
+
+**A change upstream of the release cannot be split by tube, and it can be split by craft.** Each
+rocket in a multi-rocket world carries its own computer, its own trim and its own correction loop —
+so `--paired` gives four rockets the change and four the baseline in one run, and the guidance, the
+bus, the arrival and the release timing are all back inside the comparison.
+
+```bash
+./tools/shot-batch.sh --paired 'base|ceiling:TrimCeilingFromBudget=true' --blocks 6
+./tools/shot-report.py ~/shots/<night> --paired
+```
+
+**It exists because the between-run instrument stopped working at eight rockets.** `MIRV-NEXT` 8aa
+flew two batches three hours apart on identical code and read the same baseline at **14.49 km and
+5.43 km** — a 2.7x session swing, larger than any effect on the backlog, with the arm between them
+reversing from 0.66x to 3.52x. Every number in section 1 below was derived from a *single-rocket*
+distribution with a 0.79 km median and a x1.74 geometric sd; the eight-rocket geometry runs a 5–15 km
+median with shots from 2 km to 69, and **none of that arithmetic was ever re-derived for it**.
+
+Three things make the paired version work, and the third is the one that is easy to get wrong:
+
+* **The statistic is a sign test over shots, not a rank test over flights.** One shot yields one
+  ratio with the world held identical, so six shots reach p=0.031 — which the between-run test
+  cannot reach at any n this project can afford. Eight rockets are not eight draws and are counted
+  as one.
+* **The change must be a *setting*, not a branch.** One build flies the whole night; the arms differ
+  by what `IcbmConfig` says. A branch cannot be two things in one world.
+* **The variants alternate down the roster, and the phase rotates between shots.** A rocket's place
+  in the roster is worth **175x** in miss, monotone (8y), so handing one arm the first four rockets
+  measures the gradient and calls it the change. `Sim/ShotArms.cs` does both.
+
+What it cannot compare is anything the rockets share: the build, the system, the terrain under the
+target. Those still need a night.
+
+**Two limits on the per-tube split, and the first is a silent false negative.** Only a **per-round**
+term can be split that way —
 the aim, the integrator, the sub-step, the drag. Anything upstream of the release is shared by all
 six warheads: guidance, the bus, the arrival angle, the release timing. A split arm reads those as a
 dead heat *however large the effect is*, and nothing in the output says so. Check the change is
@@ -449,6 +484,12 @@ Worth being blunt about, because the last session was blunt about it too late.
   the one that mattered. A batch that comes back UNRESOLVED has not confirmed the rig.
 
 ## 8. Running it
+
+**Prefer `--paired` where the change is a setting.** Section 0 has the argument; the commands are
+the same shape as below with `--paired '<spec>'` in place of `--arms`, and the report read with
+`--paired`.
+
+
 
 ```bash
 # once, before the night: build the arms, print the order, fly nothing

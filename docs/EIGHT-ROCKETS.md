@@ -2,8 +2,14 @@
 
 **What this is.** Eight rockets in one world is now a usable measuring instrument — eight scored
 shots for the wall-clock cost of one. This is the state of it, what is known about what limits the
-accuracy, and what to do next, ranked. `docs/MIRV-NEXT.md` items **8s**, **8t**, **8u**, **8v** and **8w**
-are the flown record; this is the plan. **8w refutes part of 8u and 8v — it is the current one.**
+accuracy, and what to do next, ranked. `docs/MIRV-NEXT.md` items **8s** through **8ab** are the
+flown record; this is the plan.
+
+**Read 8z, 8aa and 8ab first — between them they replace most of what follows.** A correction that
+runs to completion lands at **140 m** and every other ending at 5–45 km, so there is no accuracy
+work outside making the trim finish. The eight-rocket instrument could not measure any of it
+between runs and now compares arms *inside* one. And the demands that read as a diverging solve are
+aim movements priced honestly, which is a different problem with a different fix.
 
 ## Where it stands
 
@@ -44,11 +50,15 @@ It is not the burn: the cutoff residual is flat at 0.2-0.4 m/s and every compute
 early and applies no aim correction at all. A correction that runs lands at 1.4-3.8 km; one
 abandoned lands at 20-25 km.
 
-**Fix the keep-out interlock first.** It is dead by construction (below), and making it work is what
-lets the trim fire while still close instead of being abandoned. That is the whole gap.
+**The interlock was then flown and it is not the whole gap.** `arm/interlock` removed all 42
+abandonments and doubled completions — and **55 of 64 corrections still did not finish**, dying on
+the ceiling, the budget or the clock instead. `docs/MIRV-NEXT.md` **8z**: what the interlock loses
+to is the loop it lets run. The gradient is a race between the trim converging and the trim
+cancelling its own separation, and being first in the roster is only which flights win it.
 
-**And every arm comparison at eight rockets is pooled across that gradient**, so an effect smaller
-than 175x is not measurable this way until it is fixed.
+**And every arm comparison at eight rockets used to be pooled across that gradient.** `--paired`
+is what fixes that: alternating the variants down the roster puts each arm on both sides of the
+gradient in every shot, and the comparison is within the shot rather than across the night.
 
 ## What limits the accuracy after that
 
@@ -79,16 +89,31 @@ and it is printed on every one of those lines already.
 
 ## What to do, ranked
 
-**1. Drop the `Cycles > 0` condition on the trim ceiling.** `Ksa/IcbmComputer.cs`. One line, and now
-the *only* one of the original two that reaches the failure. The guard asks whether the *aim* has
-moved when the question is whether the *bus* has separated.
-`Config.TrimBudgetMetresPerSecond` defaults to 60, so the first-pass ceiling becomes
-`max(60 - 0, 10)` and admits all fourteen refusals. `BusTrim.Stalled` and the budget still bound the
-loop, which is the argument `9b48bd1` already made for later passes.
+**0. Fly it paired. Nothing below is measurable otherwise.** 8aa put the same baseline at 14.49 km
+and 5.43 km on identical code three hours apart — a 2.7x session swing against a backlog where
+everything is under 3x — and the arm between them reversed. `tools/shot-batch.sh --paired` gives
+each rocket in one world its own variant and `tools/shot-report.py --paired` scores the pair, which
+cancels the frame trace, the warp history, the solver load and the target by construction. Six shots
+reach p=0.031 there; the between-run test reaches nothing at any n this project can afford.
 
-**Know what it buys before flying it.** It licenses a 10–20 m/s correction whose size tracks an
-arrival disagreement rather than a separation shove. That may be the trim earning its propellant or
-chasing a stale arrival, and the log already carries the number that tells them apart.
+Both of the arms below are settings rather than branches, for exactly this reason —
+`arm/trimceil` and `arm/interlock` as branches cannot be flown against each other in one world.
+
+**1. `TrimCeilingFromBudget`, and `AimWithinTrimBudget`, together and separately.** Both are
+`IcbmConfig` fields, both off by default.
+
+`TrimCeilingFromBudget` drops the `Cycles > 0` guard on the per-pass ceiling: it asks whether the
+*aim* has moved when the question is whether the *bus* has separated, and 11 of 14 flown trims were
+already over the ten-metre ceiling with no wait at all. `BusTrim.Stalled` and the budget still bound
+the loop. It licenses a 10–20 m/s correction whose size tracks an arrival disagreement rather than a
+separation shove, and the log already carries the number that tells those apart.
+
+`AimWithinTrimBudget` holds the correction to an aim the remaining budget can actually fly it to —
+**8ab**, and it is the other half of the same failure. Without it the loop may walk 300 km where one
+budget buys 24 to 113, so the trim spends its whole tank on a correction it can never complete and
+the shot releases with all of it outstanding. With it the aim stops somewhere the trim can reach.
+
+They are independent and should be flown as three arms in one world: neither, each, both.
 
 **2. ~~`SeparationClearance.TimeoutSeconds` 20 → 25.~~ Do not fly this.** The timeout resolved 1 of
 16 flights, not 27 of them. The `15.2 m of 15.3` line read as a refusal ten centimetres short is a
@@ -132,11 +157,14 @@ it from a 28 km one is worth more than anything else here. The logs are on disk.
 * `tools/shot-report.py` scores **every rocket in a run** (`split_flights`). Its other columns —
   residual, trim, passes — are still read over the whole log and describe the world rather than one
   flight; per-flight attribution wants the log partitioned by craft name.
-* **`shot-report.py`'s comparison still pools per flight, so its p-values are inflated.** The
-  gate aggregates per shot since `eb8a4eb`; `compare()` does not. A `LOSS` at p=0.003 over 45 flight
-  records was 1.48x at p=0.836 over 6 shots. Read the arm tables, re-run the test per shot.
+* **`shot-report.py`'s between-run comparison still pools per flight, so its p-values are
+  inflated.** The gate aggregates per shot since `eb8a4eb`; `compare()` does not. A `LOSS` at
+  p=0.003 over 45 flight records was 1.48x at p=0.836 over 6 shots. `--paired` does not have this
+  problem — its statistic is a sign test over shots — and it is the one to use.
 * **Eight rockets in one world are not eight independent draws.** They share frame pacing, warp
   decisions and solver load, so a rank test over them inflates n without inflating information.
+  That sharing is exactly what makes them a good *paired* comparison, which is the whole of
+  `--paired`.
 * `Sim/FrameBudget.cs` has two known defects: `EndFrame` is called from inside the `sim` span, so
   per-name **worst** values are from different frames and must not be read against each other; and
   it sits inside the `Log.Threshold <= Debug` gate, so it cannot produce a reading with logging off.
