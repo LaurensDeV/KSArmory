@@ -66,6 +66,12 @@ internal sealed class IcbmComputer
     private bool _didSplit;
     private bool _mayTrim = true;
     private bool _saidBudget;
+
+    // What the current and previous post-boost passes asked the trim for, which is what separates a
+    // wind-up from a correction the geometry genuinely needs.
+    private double _demandThisPass = double.NaN;
+    private double _demandLastPass = double.NaN;
+    private bool _saidRunaway;
     private bool _saidFloorUnaffordable;
     private bool _saidRefusedStage;
     private bool _saidStructuralLimit;
@@ -324,6 +330,9 @@ internal sealed class IcbmComputer
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
+        _saidRunaway = false;
+        _demandThisPass = double.NaN;
+        _demandLastPass = double.NaN;
         _saidFloorUnaffordable = false;
         WarheadsAway = 0;
         _salvoSize = 0;
@@ -385,6 +394,9 @@ internal sealed class IcbmComputer
         _sinceSplit = 0.0;
         _mayTrim = true;
         _saidBudget = false;
+        _saidRunaway = false;
+        _demandThisPass = double.NaN;
+        _demandLastPass = double.NaN;
         _saidFloorUnaffordable = false;
         _owedAtSplit = double.NaN;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
@@ -1275,6 +1287,13 @@ internal sealed class IcbmComputer
         //
         // The same call ReleaseImpulseCci() feeds the prediction, so what the sequencer watches for
         // steadiness is the term that actually moves the reading rather than a proxy for it.
+        // What this pass is asking for, kept so the next one can be compared against it. Size alone
+        // cannot separate a large correction the geometry needs from a loop winding itself up.
+        if (double.IsFinite(trim.ToGainMetresPerSecond) && trim.ToGainMetresPerSecond > 0.0)
+        {
+            _demandThisPass = trim.ToGainMetresPerSecond;
+        }
+
         int passesBefore = _postBoost.Cycles;
 
         PostBoostAim.Decision pass = _postBoost.Update(simStep, new PostBoostSituation(
@@ -1287,8 +1306,23 @@ internal sealed class IcbmComputer
 
         if (pass.MayMeasure) _measureDue = true;
 
+        // A demand that has grown half again since the last pass is the correction and the trim
+        // driving each other rather than the shot needing more. Only checked where the ceiling has
+        // been widened to the budget: the constant is its own guard otherwise, and this is what
+        // makes widening it defensible rather than a licence to spend the tank on a wind-up.
+        if (Config.TrimCeilingFromBudget && !_saidRunaway
+            && PostCutoffSequence.IsRunaway(_demandThisPass, _demandLastPass))
+        {
+            _saidRunaway = true;
+            Log.Info($"post-boost on {KsaWorld.DisplayName(Craft)}: the demand grew from "
+                     + $"{_demandLastPass:F2} to {_demandThisPass:F2} m/s across passes, which is a "
+                     + "wind-up rather than a larger shot; keeping the best aim found");
+            _aim.Freeze();
+        }
+
         if (_postBoost.Cycles > passesBefore)
         {
+            _demandLastPass = _demandThisPass;
             // Consumed, so the next decision waits for a reading taken after this correction has
             // actually been flown rather than re-reading the one that prompted it.
             _freshMiss = double.NaN;

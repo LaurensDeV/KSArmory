@@ -264,10 +264,17 @@ internal sealed class IcbmConfig
     /// so the pass that matters most is refused before the loop that would have raised the ceiling
     /// has run once.</para>
     ///
+    /// <para><b>It carries its own guard.</b> Widening the ceiling to the budget without one is a
+    /// licence to spend the tank on a wind-up, so with this on the loop also refuses a demand that
+    /// has grown half again since the previous pass — <see cref="PostCutoffSequence.IsRunaway"/>.
+    /// Size was always the wrong question: a steep arrival asks 7–11 m/s where a shallow one asks
+    /// 2.45, and asks once, while a runaway grows by an order of magnitude a pass.</para>
+    ///
     /// <para><b>Off, and off is what ships.</b> It licenses a 10–20 m/s correction whose size
     /// tracks a disagreement about the arrival rather than a decoupler's shove, and whether that is
     /// the trim earning its propellant or chasing a stale arrival has not been flown.
-    /// <c>docs/EIGHT-ROCKETS.md</c> item 1.</para>
+    /// <c>docs/EIGHT-ROCKETS.md</c> item 1, and <c>docs/METRE-LEVEL.md</c> B1, where it is one of
+    /// three things blocking the arrival angle that gets the miss under fifty metres.</para>
     /// </summary>
     public bool TrimCeilingFromBudget;
 
