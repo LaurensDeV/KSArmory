@@ -74,6 +74,21 @@ PERFLIGHT = re.compile(r"FLIGHT (.+?) :: (PASS|FAIL) (.*)$", re.M)
 # arm is one token, because craft names carry spaces and arm names do not.
 FLIESARM = re.compile(r"^.*?: (.+?) flies arm (\S+)", re.M)
 
+# "GeoSat FAT 3_1" is the craft plus its launcher ordinal, and the FLIGHT line says "GeoSat FAT 3".
+# Matching one against the other without this fails silently and every per-craft reading falls back
+# to a whole-log one -- which reported 8 of 8 corrections ending on the clearance for a run whose
+# arm had 0 of 4.
+ORDINAL = re.compile(r"_\d+$")
+
+
+def _craft(name):
+    return ORDINAL.sub("", name.strip())
+
+
+# "trimming the bus on <craft>: still N m from the spent stack after N s" -- the clearance giving up,
+# which is the one ending that leaves no post-boost line to read.
+GAVEUP = re.compile(r"trimming the bus on (.+?): still [\d.]+ m from the spent stack", re.M)
+
 VERDICT = re.compile(
     r"worst\s+([\d.]+)\s*km,\s*best\s+([\d.]+)\s*km,\s*"
     r"mean\s+([\d.]+)\s*km,\s*spread\s+([\d.]+)\s*km")
@@ -158,9 +173,10 @@ def why_it_ended(log, craft=None):
     end = None
     anyNamed = any(m.group(1) for m in POSTBOOST.finditer(log))
     named = craft is not None and anyNamed
+    want = _craft(craft) if craft else None
 
     for m in POSTBOOST.finditer(log):
-        if named and m.group(1) != craft:
+        if named and _craft(m.group(1) or "") != want:
             continue
         if any(r.search(m.group(2)) for _, r in WHY):
             end = m
@@ -170,7 +186,18 @@ def why_it_ended(log, craft=None):
     # the warheads over the top of a loop that never got to decide. MIRV-NEXT item 8p, where it
     # was 22 of 24 shots, and it reads as `clearance` rather than as a missing measurement.
     if end is None:
-        cut = ABANDONED.search(log)
+        # This craft's own giving-up, when it says which craft. Falling back to any of them is what
+        # made every unattributed flight read as abandoned.
+        cut = next((m for m in GAVEUP.finditer(log) if want is None or _craft(m.group(1)) == want),
+                   None)
+
+        if cut is not None:
+            named = True
+        else:
+            if named:
+                return None, None, None, True
+            cut = ABANDONED.search(log)
+
         if cut is None:
             return None, None, None, named
         name, at = "clearance", cut.start()
