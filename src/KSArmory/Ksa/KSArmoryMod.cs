@@ -303,7 +303,10 @@ public sealed class KSArmoryMod
             // shell stream above.
             foreach (WeaponSystems.Entry e in _roster.All)
             {
-                if (e.Policy.DrawBombSight) SightFor(e.Battery).Draw(e.Battery);
+                if (e.Policy.DrawBombSight)
+                {
+                    using (_budget.Measure("sight")) SightFor(e.Battery).Draw(e.Battery);
+                }
             }
 
             if (KsaWorld.InFlight && _config.DrawOverlays)
