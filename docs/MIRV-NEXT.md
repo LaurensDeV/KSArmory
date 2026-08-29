@@ -4648,8 +4648,20 @@ being flown and left it unexplained; this gives it a number that is already in e
 can be **screened before it is trusted** rather than argued about afterwards. `shot-report.py` now
 prints the session's frame time and refuses to let a null pass quietly above 24 ms.
 
-**What is not known** is why the machine sits in one regime or the other. No stray game process, load
-average 0.61, same save, same target, same build path.
+**And the cause was the system, not the machine — 2026-08-29.** KSA loads `lastSystemId`, which was
+`Sol`: twenty-five bodies, every one of them work the engine does per frame and work this mod does
+per ground lookup, for a ballistic shot that needs Earth. `SolLite` is Earth and the Moon. The lever
+was documented in `EIGHT-ROCKETS.md` and left opt-in, so every night in this file was flown on
+whichever system the operator last picked, unrecorded.
+
+`scenario.sh` now defaults `mirv` to `SolLite` and `shot-batch.sh` writes the system into
+`batch.tsv`. Patched conics, so dropping the outer planets cannot change an Earth trajectory and a
+night flown now stays comparable with one flown before — **except in frame rate, which is the whole
+point**. Nothing above this line should be read as a machine regime until it has been re-flown with
+the system recorded.
+
+**What was not known** at the time was why the machine sat in one regime or the other. No stray game
+process, load average 0.61, same save, same target, same build path.
 
 **And it does not clear on its own.** Three separate game launches across ninety minutes read 29.8,
 29.8 and **35.5 ms** — the last one worse than the first, an hour after the night that found it. A

@@ -108,12 +108,23 @@ case "${SCENARIO%%:*}" in
         # A save game, because these need a launcher on the ground and a scene to spawn a drone
         # into, and the boot craft alone is neither.
         SAVE="${KSARMORY_SCENARIO_SAVE:-rocket missile}"
+        SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-}"
         ;;
     mirv)
         # No save by default: the rocket is the operator's, wherever they keep it, and a scenario
         # that insists on one particular save is one that only works on one machine.
         SAVE="${KSARMORY_SCENARIO_SAVE:-}"
         DEADLINE_SECONDS=3000
+
+        # Earth and Moon, because a ballistic shot at Earth needs Earth and nothing else. KSA loads
+        # lastSystemId, which defaults to the 25-body "Sol", and every celestial in it is work the
+        # engine does per frame and work this mod does per ground lookup. Patched conics, so
+        # dropping the outer planets cannot change an Earth trajectory.
+        #
+        # Defaulted rather than left to the operator because leaving it opt-in is what let a whole
+        # class of slow night happen without anyone naming the cause -- docs/MIRV-NEXT.md 8ac.
+        # Set KSARMORY_SCENARIO_SYSTEM to something else to override it.
+        SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-SolLite}"
         ;;
     *)
         echo "usage: $0 {head-on|overhead|passing|mirv[:<lat>,<lon>[,<km>]]}" \
@@ -151,13 +162,13 @@ if [[ -f "$SETTINGS" ]]; then
     # Skipping the dialog does not choose a system -- the game loads lastSystemId, which is
     # whatever was picked last and defaults to the full 25-body "Sol". Every celestial is work the
     # engine does per frame and work the mod does per ground lookup, and a ballistic shot at Earth
-    # needs Earth. KSARMORY_SCENARIO_SYSTEM overrides; empty leaves the player's choice alone.
+    # needs Earth. Defaulted to SolLite for mirv above; KSARMORY_SCENARIO_SYSTEM overrides.
     #
     # Restored on exit with everything else here: it is the player's setting, not the harness's.
     SYSTEM_WAS="$(grep -oE '^lastSystemId = ".*"' "$SETTINGS" | head -1 || true)"
 
-    if [[ -n "${KSARMORY_SCENARIO_SYSTEM:-}" ]]; then
-        sed -i "s|^lastSystemId = \".*\"|lastSystemId = \"$KSARMORY_SCENARIO_SYSTEM\"|" "$SETTINGS"
+    if [[ -n "${SYSTEM:-}" ]]; then
+        sed -i "s|^lastSystemId = \".*\"|lastSystemId = \"$SYSTEM\"|" "$SETTINGS"
     fi
 
     [[ -n "$CRAFT" ]] && sed -i "s|^startVehicle = \".*\"|startVehicle = \"$CRAFT\"|" "$SETTINGS"

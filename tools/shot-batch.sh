@@ -267,6 +267,11 @@ PY
         printf 'ksa\t%s\n'     "$(grep -oE '^build[[:space:]]+\S+' "$REPO_ROOT/ksa-assemblies.lock" | head -1)"
         printf 'craft\t%s\n'   "${KSARMORY_SCENARIO_CRAFT:-<settings.toml>}"
         printf 'save\t%s\n'    "${KSARMORY_SCENARIO_SAVE:-<none>}"
+
+        # Recorded because it is worth a factor in frame rate and was invisible: the 25-body Sol
+        # is every celestial's work per frame and per ground lookup, and a night flown on it is not
+        # comparable with one flown on SolLite. scenario.sh defaults mirv to SolLite.
+        printf 'system\t%s\n'  "${KSARMORY_SCENARIO_SYSTEM:-SolLite (scenario.sh default)}"
     } > "$OUT/batch.tsv"
 
     printf 'n\tblock\tarm\tverdict\tdll_sha256\tseconds\tstarted\n' > "$SHOTS_TSV"
