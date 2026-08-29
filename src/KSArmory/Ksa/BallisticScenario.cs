@@ -67,6 +67,18 @@ internal sealed class BallisticScenario
     // it arrives rather than after.
     private const double WatchZoomPower = 3.0;
 
+    // How far out the view sits during the flight, as a multiple of the body's mean radius.
+    //
+    // A frame-rate setting rather than a framing one. KSA places the orbit camera at
+    // DistancePower x MeanRadius, so following a rocket puts it a hundred metres off the ground
+    // with the terrain, ocean and atmosphere all at full detail; following the body it launched
+    // from puts the same number tens of thousands of kilometres out, where none of that is drawn.
+    // One on Earth is 6,371 km, past where the detail stops.
+    //
+    // Nobody is watching a scripted shot until the warheads arrive, and the view goes back to the
+    // target for that.
+    private const double FlightZoomPower = 1.0;
+
     private readonly Action<string> _say;
     private readonly ShotGroup _group = new();
 
@@ -481,6 +493,21 @@ internal sealed class BallisticScenario
         }
 
         _committed = true;
+
+        // Park the view thousands of kilometres out for the flight. Nobody is watching a scripted
+        // shot, and the camera's distance is what decides how much terrain, ocean and atmosphere
+        // the engine renders every frame -- following a rocket sits it about a hundred metres up
+        // with all of it at full detail. It comes back to the target for the impact, which is the
+        // only part anyone looks at.
+        //
+        // One flight does this, not eight: the view is shared, and eight rockets each parking it
+        // is the same shared-resource mistake the world clock had.
+        if (!_viewTaken[0] && _computer?.Parent is { } parent
+            && KsaWorld.WatchFrom(parent, FlightZoomPower))
+        {
+            _say($"the view is parked on {parent.Id} for the flight, which is cheaper to draw "
+                 + "than the pad");
+        }
     }
 
     // The computer never stages past a launcher that could come off, because the next sequence on

@@ -2226,6 +2226,44 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Park the camera out at a celestial, without taking control away from whatever is flying.
+    ///
+    /// <para><b>For a scenario nobody is watching, and it is a frame-rate lever rather than a
+    /// framing one.</b> KSA puts the orbit camera at <c>DistancePower x MeanRadius</c>
+    /// (<c>OrbitController.cs:593</c>), so following a rocket of some tens of metres sits the view
+    /// about a hundred metres off the ground with the terrain, the ocean and the atmosphere all
+    /// rendering at full detail. Following the body it is launching from puts the same power
+    /// thousands of kilometres out, where none of that costs anything.</para>
+    ///
+    /// <para><paramref name="power"/> is written onto the body's own <c>OrbitView</c> rather than
+    /// onto the controller, because the controller springs toward the followed object's view every
+    /// frame — a value set on the controller alone is interpolated away within a second.</para>
+    ///
+    /// <para><c>changeControl: false</c> is the load-bearing argument. The camera moves and
+    /// <see cref="Program.ControlledVehicle"/> does not, so the rocket keeps taking throttle and
+    /// staging while nothing looks at it.</para>
+    /// </summary>
+    public static bool WatchFrom(Celestial? body, double power)
+    {
+        if (body is null || !double.IsFinite(power) || power <= 0.0) return false;
+
+        try
+        {
+            Camera? camera = Program.GetMainCamera();
+            if (camera is null) return false;
+
+            body.OrbitView.DistancePower = power;
+            camera.SetFollow(body, tidalLocking: false, changeControl: false, alert: false);
+            Program.MainViewport.OrbitController.DistancePower = power;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Flattens a craft's part tree into what <see cref="WeaponSurvey"/> takes.
     ///
     /// <para>Position and orientation are read in the vehicle's assembly frame, which is the
