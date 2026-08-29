@@ -41,7 +41,6 @@ internal sealed class IcbmComputers(Config session)
     public double FaithfulStep(out bool anyBurning)
     {
         anyBurning = false;
-        bool anyTrimming = false;
 
         foreach (IcbmComputer computer in _computers.Values)
         {
@@ -55,15 +54,17 @@ internal sealed class IcbmComputers(Config session)
             if (computer.Program.Phase == IcbmPhase.Holding && KsaWorld.IsAutoWarpActive) continue;
 
             anyBurning = true;
-            if (computer.TrimIsFiring) anyTrimming = true;
         }
 
-        // The trim's step, not the burn's, whenever thrusters are actually firing. They are sized
-        // for different questions: MaxFaithfulStep keeps a cutoff inside one frame of the right
-        // instant, and a trim stepped that coarsely settles a metre a second out and calls itself
-        // done. Only while it is firing -- the coast either side is not being integrated by
-        // anything, so its step is free.
-        if (anyTrimming) return Math.Min(BusTrim.MaxFaithfulStep, IcbmProgram.MaxFaithfulStep);
+        // NOT the trim's finer step, however much its precision wants one. Asking WarpPolicy for
+        // 66 ms where the burn asks 300 is a demand the world could not meet: flown, it answered
+        // "the world will not run slow enough to simulate this" and ABANDONED four burns, and an
+        // abandoned burn falls short -- every warhead of that night landed 182 to 316 km short of a
+        // target the same save had been hitting within 5 to 15 km. BusTrim.MaxFaithfulStep records
+        // what the trim would like; nothing may turn it into a demand that can lose a burn.
+        //
+        // The precision is still worth having and the route to it is not this one: it has to come
+        // from a step the world can actually deliver, not from asking harder.
 
         return anyBurning ? IcbmProgram.MaxFaithfulStep : double.MaxValue;
     }

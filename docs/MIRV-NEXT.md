@@ -4736,6 +4736,25 @@ questions and it is worth saying which: `IcbmProgram.MaxFaithfulStep` at 0.3 s k
 inside one frame of the right instant, and a **trim** stepped that coarsely settles 1.1 m/s out and
 reports itself done.
 
+### And demanding that step abandoned the burns — flown 2026-08-29, reverted
+
+`BusTrim.MaxFaithfulStep` was wired into `IcbmComputers.FaithfulStep`, so `WarpPolicy` was asked for
+66 ms wherever the trim fired. The world could not deliver it. The policy answered *"the world will
+not run slow enough to simulate this"* and **abandoned four burns**, and an abandoned burn falls
+short: every warhead of that shot landed **182 to 316 km short**, on all three arms including the
+one that changes nothing, against a target the same save had been hitting within 5 to 15 km.
+
+Reverted. The constant stays as what the trim's precision *wants* — the measurement behind it is
+sound — with the wiring gone and a note saying nothing may turn it into a demand that can lose a
+burn. **The route to a finer step has to be a step the world can deliver, not asking harder for one
+it cannot.**
+
+Two things worth keeping from how it was found. The failure was uniform across arms, which is what
+said it was not the arrival floor being tested — a change that breaks the baseline as badly as the
+variant is upstream of both. And the impacts were **strung along the line from the pad to the
+target**, 182 through 316 km, which is what a burn ending early looks like and not what a guidance
+error looks like.
+
 ### What to fly next
 
 The same three-arm night again, **once the session reads under 24 ms**, and longer than six shots.

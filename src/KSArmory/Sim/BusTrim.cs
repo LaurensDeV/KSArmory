@@ -225,8 +225,16 @@ internal sealed class BusTrim
     /// stepped at 0.3 s cuts off within a frame of the right instant; a trim stepped at 0.3 s
     /// settles 1.1 m/s out and reports itself done.</para>
     ///
-    /// <para>It costs wall clock only while the thrusters are actually firing, which is seconds —
-    /// not across the coast, where nothing is being integrated and any step is free.</para>
+    /// <para><b>Recorded, not demanded.</b> Asking <see cref="WarpPolicy"/> for this where the burn
+    /// asks <see cref="IcbmProgram.MaxFaithfulStep"/> is a demand the world could not meet: flown,
+    /// it answered <em>"the world will not run slow enough to simulate this"</em> and abandoned four
+    /// burns, and an abandoned burn falls short — every warhead of that night landed 182 to 316 km
+    /// short of a target the same save had been hitting within 5 to 15. Nothing may turn this into
+    /// a demand that can lose a burn.</para>
+    ///
+    /// <para>So it is the number the trim's precision <em>wants</em>, kept because the measurement
+    /// behind it stands and the route to it has to be a step the world can deliver rather than
+    /// asking harder for one it cannot.</para>
     /// </summary>
     public const double MaxFaithfulStep = 0.066;
 
