@@ -4678,6 +4678,28 @@ That is why this night cost a night and settled nothing. The dominant term in th
 the one place a headless test cannot go, so every question about it needs a working game *and* a
 machine in the fast regime — and the second of those is now known to be unreliable.
 
+**Built, and the first number out of it:** `PostCutoffRig` runs the clearance, the sequencer, the
+trim and the correction against a bus that moves when it is pushed, so the coupling 8y found is
+reachable without a rocket. It reproduces the mechanism — a shove of 0.4 m/s or less is abandoned,
+0.8 and above finishes — and it prices the step:
+
+| coast step | residual left on the bus |
+| --- | --- |
+| 33 ms | 0.118 m/s |
+| **66 ms** — the fast regime | **0.245 m/s** |
+| **108 ms** — the slow regime | **0.420 m/s** |
+| 200 ms | 0.750 m/s |
+
+Linear in the step to within 9% across a 6x range, so **1.7x more velocity is left on the bus in the
+slow regime** — and the miss is several thousand metres per metre a second at these ranges. That is
+not the whole of the regime's 2.2x, and it is the first part of it that can be measured without
+flying.
+
+*(The rig's first version had its thrust axes inverted — `Forward` is `+Nose`, because `BusTrim`
+picks it when the velocity still to **gain** points along the nose. Every test passed while the trim
+drove the error outward. What caught it was the residual growing from a 1.1 m/s shove to 2.5, which
+is the one reading a working loop cannot produce.)*
+
 **Extracting that sequencer into `Sim/` is the ranked next piece of work**, ahead of both arms and
 ahead of the regime. It is what `CLAUDE.md` already asks for — *"when something KSA-facing turns out
 to have testable maths inside it, move the maths into `Sim/`"* — and the pieces it would orchestrate
