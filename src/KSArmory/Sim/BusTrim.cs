@@ -176,6 +176,16 @@ internal sealed class BusTrim
     /// </summary>
     public const double MaxMetresPerSecond = 10.0;
 
+    /// <summary>
+    /// What fraction of the bus's own best acceleration a direction must still be producing to count
+    /// as connected to something.
+    ///
+    /// <para>Low, because the two cases it separates are far apart: a live thruster reads its full
+    /// authority and a dead one reads sensor noise about zero. It is a floor under "nothing",
+    /// not a performance standard.</para>
+    /// </summary>
+    public const double AliveFraction = 0.25;
+
     /// <summary>How long one direction may fire without moving its own component before it is struck off.</summary>
     public const double DirectionStallSeconds = 4.0;
 
@@ -218,6 +228,13 @@ internal sealed class BusTrim
     private int _firingFor;
     private TrimAxes _fire;
     private TrimAxes _dead;
+
+    // Which way the chosen direction actually pushes, and what the vehicle was measured doing along
+    // it. Kept because it is the only thing that separates a dead thruster from a live one losing a
+    // race, and Watch cannot tell them apart from the component alone.
+    private double3 _pushDirCci = Vec.Zero;
+    private double _pushed;
+    private double _bestAccel;
     private TrimAxes _watching;
     private double _watchedFrom;
     private double _watchingFor;
@@ -313,6 +330,8 @@ internal sealed class BusTrim
         _firingFor = 0;
         _fire = TrimAxes.None;
         _dead = TrimAxes.None;
+        _pushDirCci = Vec.Zero;
+        _pushed = 0.0;
         _watching = TrimAxes.None;
         _watchedFrom = double.NaN;
         _watchingFor = 0.0;
@@ -334,6 +353,8 @@ internal sealed class BusTrim
         _firingFor = 0;
         _fire = TrimAxes.None;
         _dead = TrimAxes.None;
+        _pushDirCci = Vec.Zero;
+        _pushed = 0.0;
         _watching = TrimAxes.None;
         _watchedFrom = double.NaN;
         _watchingFor = 0.0;
@@ -503,6 +524,7 @@ internal sealed class BusTrim
 
         TrimAxes best = TrimAxes.None;
         double bestSize = band;
+        double3 bestPush = Vec.Zero;
         bool refused = false;
 
         Consider(along >= 0.0 ? TrimAxes.Forward : TrimAxes.Backward, Math.Abs(along),
@@ -513,6 +535,7 @@ internal sealed class BusTrim
                  under >= 0.0 ? down : -down);
 
         component = best == TrimAxes.None ? 0.0 : bestSize;
+        _pushDirCci = bestPush;
         withheld = refused;
         return best;
 
@@ -531,6 +554,7 @@ internal sealed class BusTrim
 
             best = direction;
             bestSize = size;
+            bestPush = pushes;
         }
     }
 
@@ -565,6 +589,15 @@ internal sealed class BusTrim
     // anything, and the loop has to find that out rather than assume a layout. Struck off rather
     // than given up on: an axial pair is the one every thruster set has, and a bus with only that
     // still has nearly all of the error to remove.
+    // Whether the direction being fired is doing anything at all.
+    //
+    // Against the best acceleration this bus has ever shown rather than against a constant, because
+    // what counts as "nothing" is a property of the vehicle and the vehicle is not known until it
+    // has fired. Before anything has been measured nothing is struck off, which is the safe way
+    // round: a strike lasts the pass, and a missed one costs a few seconds.
+    private bool Alive()
+        => _bestAccel > 0.0 && _pushed > AliveFraction * _bestAccel;
+
     private void Watch(double step, TrimAxes pick, double component)
     {
         if (pick != _watching)
@@ -585,6 +618,25 @@ internal sealed class BusTrim
         }
 
         if (_watchingFor < DirectionStallSeconds) return;
+
+        // A direction whose own component is not falling is either a dead thruster or a live one
+        // losing a race against a reference that is moving faster than it can null. Only the first
+        // is a fact about the vehicle, and striking off the second abandons an axis that works:
+        // measured on the shipped bus, a solution drifting at 1.03x its lateral authority struck
+        // starboard off and left 2.02 m/s on it. Every strike under a steep arrival is that case.
+        //
+        // The measurement that separates them is already taken. Proper acceleration along the
+        // direction being pushed carries none of the reference's motion, so a live thruster reads
+        // its full authority however fast the solution runs away.
+        if (Alive())
+        {
+            // Not struck off, and the watch restarts rather than the axis being retried instantly:
+            // it is losing a race, and whether the race is winnable is the overall stall rule's
+            // question rather than this one's.
+            _watchedFrom = component;
+            _watchingFor = 0.0;
+            return;
+        }
 
         // Narrowing the search is progress of its own kind, so the overall clock starts again: what
         // the loop does next is a different thing from what it has just found does not work.
@@ -664,6 +716,17 @@ internal sealed class BusTrim
             if (double.IsFinite(measured) && measured > 0.0)
             {
                 _accel = _accel > 0.0 ? _accel + (measured - _accel) * AccelerationGain : measured;
+                _bestAccel = Math.Max(_bestAccel, _accel);
+            }
+
+            // Along the direction being pushed, which is a different question from how fast the
+            // component of the error is falling. The error's component also carries the reference's
+            // own motion; this does not, so it answers "is this thruster doing anything" and
+            // nothing else.
+            if (!_pushDirCci.Equals(Vec.Zero))
+            {
+                double along = Vec.Dot(proper, Vec.Unit(_pushDirCci));
+                if (double.IsFinite(along)) _pushed = _pushed + (along - _pushed) * AccelerationGain;
             }
         }
 

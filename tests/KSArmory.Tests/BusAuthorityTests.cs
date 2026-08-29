@@ -42,7 +42,8 @@ public class BusAuthorityTests(ITestOutputHelper Out)
     /// <summary>
     /// Runs the trim while the reference velocity drifts, and reports what got struck off.
     /// </summary>
-    private (double Seconds, string Said, double ToGain) Run(double driftPerSecond, double errorMs)
+    private (double Seconds, string Said, double ToGain) Run(double driftPerSecond, double errorMs,
+                                                            double lateral = double.NaN)
     {
         BallisticArc.Solution arc = Shot(out double3 fromCci, out double3 aimAtEpoch);
         double3 nose = Vec.Unit(arc.RequiredVelocityCci);
@@ -57,7 +58,7 @@ public class BusAuthorityTests(ITestOutputHelper Out)
             RightCci = right,
             DownCci = down,
             AxialAcceleration = AxialAccel,
-            LateralAcceleration = LateralAccel,
+            LateralAcceleration = double.IsNaN(lateral) ? LateralAccel : lateral,
         };
 
         BusTrim trim = new();
@@ -101,6 +102,74 @@ public class BusAuthorityTests(ITestOutputHelper Out)
 
         Assert.DoesNotContain("struck off", said);
         Assert.True(toGain < 0.1, $"did not converge: {toGain:F3} m/s left");
+    }
+
+    /// <summary>
+    /// A genuinely dead pair is still struck off, which is what the rule is actually for.
+    ///
+    /// <para><b>The guard on the change that stopped striking off live axes.</b> Telling a dead
+    /// thruster from a live one losing a race is only worth having if the dead one is still caught
+    /// — otherwise the loop fires at nothing until its clock runs out. A bus with no lateral
+    /// authority at all is that case, and <see cref="BusTrim"/>'s own note names it: a vehicle with
+    /// only an axial pair still has nearly all of the error to remove.</para>
+    /// </summary>
+    [Fact]
+    public void ABusWithNoLateralAuthorityStillStrikesThoseAxesOff()
+    {
+        (double seconds, string said, double toGain) = Run(driftPerSecond: 0.0, errorMs: 7.3,
+                                                           lateral: 0.0);
+
+        Out.WriteLine($"no lateral authority: {said} after {seconds:F1} s, {toGain:F3} m/s left");
+
+        Assert.Contains("struck off", said);
+    }
+
+    /// <summary>
+    /// And the same bus with its lateral thrusters working strikes nothing off, on the same
+    /// solution. The pair is what makes the test above about the hardware rather than the clock.
+    /// </summary>
+    [Fact]
+    public void TheSameSolutionOnAWorkingBusStrikesNothingOff()
+    {
+        (_, string said, _) = Run(driftPerSecond: 0.0, errorMs: 7.3);
+
+        Assert.DoesNotContain("struck off", said);
+    }
+
+    /// <summary>
+    /// A live axis losing a race to a moving solution is no longer struck off.
+    ///
+    /// <para>Measured on the shipped bus at a drift of 1.03x its lateral authority: starboard was
+    /// struck off and 2.02 m/s abandoned, on an axis with 4.243 units of thrust. Every strike under
+    /// a steep arrival is that case — <c>docs/METRE-LEVEL.md</c> B1 — and it is what stops the bus
+    /// paying for the arrival angle that gets the miss under fifty metres.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(0.60)]
+    [InlineData(0.65)]
+    [InlineData(0.80)]
+    public void ALiveAxisLosingARaceIsNotStruckOff(double drift)
+    {
+        (_, string said, double toGain) = Run(drift, errorMs: 7.3);
+
+        Out.WriteLine($"drift {drift:F2} m/s2: {said}, {toGain:F3} m/s left");
+
+        Assert.DoesNotContain("struck off", said);
+    }
+
+    /// <summary>
+    /// And what that is worth: the residual left on the bus in the band where the false positive
+    /// used to fire.
+    /// </summary>
+    [Fact]
+    public void NotStrikingOffALiveAxisLeavesLessOnTheBus()
+    {
+        // Measured against the shipped rule, which abandoned 2.022 m/s here.
+        (_, _, double toGain) = Run(driftPerSecond: 0.60, errorMs: 7.3);
+
+        Out.WriteLine($"1.03x lateral authority leaves {toGain:F3} m/s (was 2.022 struck off)");
+
+        Assert.True(toGain < 2.0, $"{toGain:F3} m/s left on the bus");
     }
 
     /// <summary>
