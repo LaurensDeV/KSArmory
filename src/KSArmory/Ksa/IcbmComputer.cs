@@ -1198,7 +1198,12 @@ internal sealed class IcbmComputer
         // is what stops the bus flying that number. Handing the safety question to the keep-out
         // interlock lifts the cap and flies it: 5.39 km median against 3.04. `docs/MIRV-NEXT.md`
         // item 8h.
-        if (clearance.Abandoned)
+        PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
+            clearance.IsClear, clearance.Abandoned, _postBoost.Cycles,
+            Config.TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond,
+            Config.TrimCeilingFromBudget);
+
+        if (plan.Abandon)
         {
             _trimAbandoned = true;
             if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
@@ -1234,7 +1239,7 @@ internal sealed class IcbmComputer
             Log.Info($"clearance on {KsaWorld.DisplayName(Craft)}: {clearance.Said}");
         }
 
-        _mayTrim = clearance.IsClear;
+        _mayTrim = plan.MayTrim;
 
         _trim.Begin();
 
@@ -1254,28 +1259,11 @@ internal sealed class IcbmComputer
         // make, and how far along it the vehicle should be by now.
         double3 referenceVelocity = Program.Arc?.RequiredVelocityCci ?? Vec.Zero;
 
-        // Which job the trim is doing, which is the one thing BusTrim cannot see. Before any pass
-        // it is nulling a decoupler's shove -- ones of metres a second, where an answer in the tens
-        // really is a bad solve. From the first pass on it is flying a deliberate aim correction,
-        // and that grows with the trajectory: four of six shots at 12,902 km died on the fixed
-        // ceiling of ten while asking for 11.5 to 13.4.
-        //
-        // Bounded by what is left of the budget rather than by a larger constant. The budget is the
-        // real limit on what the bus can spend, Stalled already ends a loop that is not closing, and
-        // a ceiling above both would be a third bound with nothing left to bound.
-        //
-        // The first pass is the exception, and IcbmConfig.TrimCeilingFromBudget is whether it
-        // stays one: before any pass the trim is nulling a decoupler's shove, where an answer in
-        // the tens really is a bad solve -- but 11 of 14 flown trims were over ten at the split
-        // with no wait at all.
-        double ceiling = _postBoost.Cycles > 0 || Config.TrimCeilingFromBudget
-                             ? Math.Max(0.0, budget - _trim.SpentMetresPerSecond)
-                             : double.NaN;
-
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
             state.Body, state.PositionCci, state.VelocityCci,
             Program.ReferencePositionCci, referenceVelocity, Program.SecondsSinceReference,
-            nose, right, down, _mayTrim, budget, _keepOutTowardCci, ceiling));
+            nose, right, down, _mayTrim, budget, _keepOutTowardCci,
+            plan.CeilingMetresPerSecond));
 
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
