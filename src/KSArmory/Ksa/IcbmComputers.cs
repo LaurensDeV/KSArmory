@@ -41,6 +41,7 @@ internal sealed class IcbmComputers(Config session)
     public double FaithfulStep(out bool anyBurning)
     {
         anyBurning = false;
+        bool anyTrimming = false;
 
         foreach (IcbmComputer computer in _computers.Values)
         {
@@ -54,7 +55,15 @@ internal sealed class IcbmComputers(Config session)
             if (computer.Program.Phase == IcbmPhase.Holding && KsaWorld.IsAutoWarpActive) continue;
 
             anyBurning = true;
+            if (computer.TrimIsFiring) anyTrimming = true;
         }
+
+        // The trim's step, not the burn's, whenever thrusters are actually firing. They are sized
+        // for different questions: MaxFaithfulStep keeps a cutoff inside one frame of the right
+        // instant, and a trim stepped that coarsely settles a metre a second out and calls itself
+        // done. Only while it is firing -- the coast either side is not being integrated by
+        // anything, so its step is free.
+        if (anyTrimming) return Math.Min(BusTrim.MaxFaithfulStep, IcbmProgram.MaxFaithfulStep);
 
         return anyBurning ? IcbmProgram.MaxFaithfulStep : double.MaxValue;
     }

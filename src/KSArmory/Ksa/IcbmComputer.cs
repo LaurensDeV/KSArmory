@@ -293,7 +293,7 @@ internal sealed class IcbmComputer
     // that coupling is gone at the source - and a correction frozen across a long wait is its own
     // fault, since what it absorbs is what the fall loses to drag and terrain and that changes as
     // the release point descends.
-    private bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;
+    public bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;
 
     public Celestial? Parent { get; private set; }
 

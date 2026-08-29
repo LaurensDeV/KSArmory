@@ -52,22 +52,6 @@ internal sealed class BallisticScenario
     public const double CoastWarpFactor = 100.0;
 
     /// <summary>
-    /// The step the coast is asked to be flown at, whatever this machine's frame time.
-    ///
-    /// <para><b>So that two nights on two machines are the same experiment.</b> Asking for a fixed
-    /// speed hands the coast a step of <c>speed x frame time</c>, and two batches thirty hours
-    /// apart got 66 ms and 108 ms from that alone — with 1.7x more velocity left on the bus in the
-    /// slower one, because the trim's precision is linear in the step. <c>docs/MIRV-NEXT.md</c>
-    /// <b>8ac</b>.</para>
-    ///
-    /// <para>66 ms is the faster of the two regimes rather than a number chosen for its own sake:
-    /// it is what the nights that produced this project's flown results actually ran at, so a
-    /// batch flown now is comparable with them. A slower machine pays for it in wall clock, which
-    /// is the trade this is making on purpose.</para>
-    /// </summary>
-    public const double CoastStepSeconds = 0.066;
-
-    /// <summary>
     /// How long after the last release, in simulated seconds, before a salvo is called finished.
     ///
     /// <para>A bus that gives up with warheads still aboard is a real outcome rather than a hang,
@@ -123,9 +107,6 @@ internal sealed class BallisticScenario
         WantedSpeed = speed;
         return true;
     }
-
-    // The machine's frame time, which is what turns a wanted step into a speed to ask for.
-    private double _frameSeconds = double.NaN;
 
     private IcbmPhase _reported = IcbmPhase.Idle;
     private bool _saidCutoff;
@@ -195,7 +176,6 @@ internal sealed class BallisticScenario
     public string? Update(WeaponSystems roster, IcbmComputers? icbms, double simStep, double playerStep)
     {
         _sinceComplaint += playerStep;
-        if (playerStep > 0.0 && double.IsFinite(playerStep)) _frameSeconds = playerStep;
 
         if (icbms is null) return null;
 
@@ -584,15 +564,15 @@ internal sealed class BallisticScenario
         if (roomToWarp == _coasting) return;
         _coasting = roomToWarp;
 
-        // A step rather than a speed, so the coast is integrated the same way on any machine and
-        // two nights are the same experiment. CoastWarpFactor is the ceiling it may not exceed.
-        double coast = WorldSpeed.ForStep(CoastStepSeconds, _frameSeconds, CoastWarpFactor);
-
-        if (AskForSpeed(roomToWarp ? coast : 1.0))
+        // The whole speed, and WarpPolicy takes it back where something is being integrated. Asking
+        // for a step here instead pins the entire pre-release cruise -- forty minutes of flight in
+        // which nothing is integrated and any step is free -- and cost four times the wall clock a
+        // shot for no accuracy at all. The step that matters is the trim's, and BusTrim.MaxFaithfulStep
+        // is where it is now asked for, which is the span it is actually needed across.
+        if (AskForSpeed(roomToWarp ? CoastWarpFactor : 1.0))
         {
             _say(roomToWarp
-                     ? $"asked the world for {coast:F1}x through the coast, which is "
-                       + $"{CoastStepSeconds * 1000.0:F0} ms a step at this frame rate; "
+                     ? $"asked the world for {CoastWarpFactor:F0}x through the coast; "
                        + $"{(toArrival - releaseAt) / 60.0:F0} min before the warheads go"
                      : "back to 1x for the release, so every warhead leaves on the same frame");
         }

@@ -4706,6 +4706,24 @@ to have testable maths inside it, move the maths into `Sim/`"* — and the piece
 are all there. The wiring left behind in `Ksa/` is reading the control frame and writing the
 thrusters.
 
+### The step regulation was right and its span was wrong — flown 2026-08-29
+
+Asking the coast for a step rather than a speed works: the log reads *"asked the world for 2.8x
+through the coast, which is 66 ms a step at this frame rate"*, and the step is pinned whatever the
+machine does.
+
+**And it was applied across the whole coast, which is forty minutes of cruise in which nothing is
+being integrated.** 2.8x against 100x is four times the wall clock a shot, for no accuracy: the
+first shot of the night ran **46 minutes** against the usual eleven and the night was abandoned on
+it.
+
+The span that needs the step is the **trim**, which is seconds. So `BusTrim.MaxFaithfulStep` is 66 ms
+and `IcbmComputers.FaithfulStep` asks for it while thrusters are firing, through the same
+`WarpPolicy` that already holds the world down for a burn. The two limits are sized for different
+questions and it is worth saying which: `IcbmProgram.MaxFaithfulStep` at 0.3 s keeps a **cutoff**
+inside one frame of the right instant, and a **trim** stepped that coarsely settles 1.1 m/s out and
+reports itself done.
+
 ### What to fly next
 
 The same three-arm night again, **once the session reads under 24 ms**, and longer than six shots.

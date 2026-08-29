@@ -212,6 +212,25 @@ internal sealed class BusTrim
     public const double MaxSeconds = 120.0;
 
     /// <summary>
+    /// The longest step the trim can be integrated across without leaving velocity on the bus.
+    ///
+    /// <para><b>The trim's precision is linear in the step</b>, because its stop threshold is
+    /// <c>max(<see cref="SettledMetresPerSecond"/>, 0.5 x accel x step)</c> — a threshold below what
+    /// one frame of firing adds is one nothing can reach. Measured headlessly: 0.118 m/s left on the
+    /// bus at 33 ms, 0.245 at 66, 0.420 at 108, 0.750 at 200, and the miss is thousands of metres per
+    /// metre a second at the ranges this flies.</para>
+    ///
+    /// <para>Far shorter than <see cref="IcbmProgram.MaxFaithfulStep"/>, and it has to be: that one
+    /// is sized for a cutoff landing on a frame boundary, which is a different question. A burn
+    /// stepped at 0.3 s cuts off within a frame of the right instant; a trim stepped at 0.3 s
+    /// settles 1.1 m/s out and reports itself done.</para>
+    ///
+    /// <para>It costs wall clock only while the thrusters are actually firing, which is seconds —
+    /// not across the coast, where nothing is being integrated and any step is free.</para>
+    /// </summary>
+    public const double MaxFaithfulStep = 0.066;
+
+    /// <summary>
     /// How much of each measurement is taken. Low, because the quantity is a difference of two
     /// velocities one frame apart and the frame pacing beats.
     /// </summary>
