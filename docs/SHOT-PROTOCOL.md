@@ -155,6 +155,13 @@ correction loop cannot be measured in a session where the loop does not run, and
 back as an ordinary unresolved rather than as an error — which is how a night gets spent and read as
 a null.
 
+**The harness now asks for a step rather than a speed**, which removes the cause rather than only
+reporting it: `BallisticScenario.CoastStepSeconds` is 66 ms and the coast speed is derived from the
+machine's frame time, so a 21 ms machine runs 3.1x and a 30 ms machine 2.2x and both integrate the
+coast identically. A slow machine pays in wall clock instead of in accuracy. The screen stays,
+because the frame time still says what a night cost and because a batch can still be flown on a
+build that predates this.
+
 It marks the *session*, not the shot: within a night the rank correlation between a shot's frame
 time and its miss is nil. Whether it causes the miss or is a symptom of whatever else the machine is
 doing is not known, and it does not need to be to be useful as a screen. `MIRV-NEXT` **8ac** is the
