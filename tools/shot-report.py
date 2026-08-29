@@ -126,7 +126,10 @@ IMPACT = re.compile(
 # two numbers that say how near it got: the passes it ran and what the trim was still owed. A shot
 # whose loop the budget or the clock cut off is a different shot from one that converged, and
 # nothing else in this report separates them.
-POSTBOOST = re.compile(r"INFO  post-boost: (.+)$", re.M)
+# The craft is optional because logs written before it was added carry no name, and those batches
+# are still read. When it is there the terminator is attributable to one flight; when it is not,
+# every rocket in the shot gets the same answer -- which is what `why_it_ended` says it is doing.
+POSTBOOST = re.compile(r"INFO  post-boost(?: on (.+?))?: (.+)$", re.M)
 PASS = re.compile(r"post-boost: correcting the aim, ([\d.]+) km out \(pass (\d+)\)")
 TOGAIN = re.compile(r"trimming ([\d.]+) m/s on")
 
@@ -144,11 +147,22 @@ WHY = [
 ABANDONED = re.compile(r"still [\d.]+ m from the spent stack after [\d.]+ s")
 
 
-def why_it_ended(log):
-    """Which stopping rule fired, its passes, and what the trim still owed when it did."""
+def why_it_ended(log, craft=None):
+    """Which stopping rule fired, its passes, and what the trim still owed when it did.
+
+    `craft` picks out one flight's own ending. Without it the first ending in the log is returned
+    for every rocket in the world, which reports one craft's outcome eight times -- 8z's n=40 was
+    six shots wearing eight coats. Logs written before the line carried a name have no craft to
+    match, and fall back to that shared reading rather than to nothing.
+    """
     end = None
+    anyNamed = any(m.group(1) for m in POSTBOOST.finditer(log))
+    named = craft is not None and anyNamed
+
     for m in POSTBOOST.finditer(log):
-        if any(r.search(m.group(1)) for _, r in WHY):
+        if named and m.group(1) != craft:
+            continue
+        if any(r.search(m.group(2)) for _, r in WHY):
             end = m
             break
 
@@ -158,15 +172,15 @@ def why_it_ended(log):
     if end is None:
         cut = ABANDONED.search(log)
         if cut is None:
-            return None, None, None
+            return None, None, None, named
         name, at = "clearance", cut.start()
     else:
-        name = next((n for n, r in WHY if r.search(end.group(1))), "other")
+        name = next((n for n, r in WHY if r.search(end.group(2))), "other")
         at = end.start()
 
     passes = max((int(g) for _, g in PASS.findall(log[:at])), default=0)
     owed = TOGAIN.findall(log[:at])
-    return name, passes, (float(owed[-1]) if owed else None)
+    return name, passes, (float(owed[-1]) if owed else None), named
 
 
 SURFACE = re.compile(
@@ -204,18 +218,19 @@ def split_flights(out_path, log_path):
     # One rocket: the run is the shot, and the id is unchanged so old batches read as before.
     if len(flights) <= 1:
         craft = flights[0][0] if flights else ""
-        rec = read_shot(out_path, log_path)
+        rec = read_shot(out_path, log_path, craft or None)
         rec["within"] = drew.get(craft)
         return [(rec, "", craft)]
 
     out = []
 
     for i, (craft, _passfail, said) in enumerate(flights):
-        rec = read_shot(out_path, log_path)
+        rec = read_shot(out_path, log_path, craft)
 
-        # The verdict is this flight's own; everything else in read_shot is read over the whole
-        # log and is shared by construction. Per-flight attribution wants the log partitioned by
-        # craft name, which is a separate job -- until then those columns describe the world.
+        # The verdict and the terminator are this flight's own -- the terminator because the
+        # post-boost line now names its craft, which is what makes 8z's table a per-flight count
+        # rather than one shot's outcome worn by eight rockets. The remaining columns are still
+        # read over the whole log and describe the world.
         m = VERDICT.search(said)
         if m:
             rec["worst"], rec["best"], rec["mean"], rec["spread"] = (float(g) for g in m.groups())
@@ -232,7 +247,7 @@ def split_flights(out_path, log_path):
     return out
 
 
-def read_shot(out_path, log_path):
+def read_shot(out_path, log_path, craft=None):
     """Everything one shot is worth attributing, from its stdout and its copied-out log."""
     shot = {"mean": None, "spread": None, "worst": None, "best": None,
             "arrived": None, "released": None, "pickup_km": None, "pickup_ms": None,
@@ -241,7 +256,7 @@ def read_shot(out_path, log_path):
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [],
             "band_deg": [], "impacts": [],
-            "why": None, "passes": None, "owed": None,
+            "why": None, "passes": None, "owed": None, "why_named": False,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
             "version": None}
 
@@ -269,7 +284,7 @@ def read_shot(out_path, log_path):
     m = BANNER.search(log)
     if m:
         shot["version"] = m.group(1)
-    shot["why"], shot["passes"], shot["owed"] = why_it_ended(log)
+    shot["why"], shot["passes"], shot["owed"], shot["why_named"] = why_it_ended(log, craft)
 
     shot["offline"] = [v for _, v in _floats(OFFLINE, both, 2)]
     shot["probe_km"] = [v for v, _ in _floats(PROBE, log, 2)]
@@ -556,9 +571,57 @@ def paired(root, shots):
               + ", ".join(f"{math.exp(r):.2f}" for r in ratios))
         print()
 
+    _say_terminators(shots, order)
+
     if len(groups) < 6:
         print(f"   NOTE: {len(groups)} shots cannot reach p<=0.05 on a sign test. Six is the floor,")
         print("   and that is only if the variant wins every one of them.")
+
+
+def _say_terminators(shots, order):
+    """Which rule ended each arm's corrections, and what that ending was worth.
+
+    8z's table, and it is the sharpest thing this instrument produces: a correction that ran to
+    completion landed at 140 m and every other ending at 5 to 45 km. It is a COUNT rather than a
+    median, so it separates on far fewer shots than the miss does -- an arm that doubles the number
+    of loops that finish is visible long before its median moves.
+
+    Per flight rather than per shot, which needs the post-boost line to name its craft. Batches
+    flown before it did read one craft's ending for all eight and are not counted here.
+    """
+    rows = [s for s in shots if s.get("within") and s.get("why") and usable(s)]
+    if not rows:
+        return
+
+    # A batch flown before the post-boost line named its craft has one ending read for the whole
+    # shot and handed to every rocket in it. Splitting that by arm produces a table that looks like
+    # evidence and is one flight's outcome wearing eight coats -- which is the mistake 8w's list
+    # exists to stop being made a fifth time.
+    if not any(s.get("why_named") for s in rows):
+        print("   what ended each arm's corrections: NOT AVAILABLE for this batch -- its logs")
+        print("   predate the post-boost line naming its craft, so one ending is read per shot and")
+        print("   shared by every rocket in it. Re-fly to get this table.")
+        print()
+        return
+
+    endings = sorted({s["why"] for s in rows})
+
+    print("   what ended each arm's corrections (per flight)")
+    print(f"   {'arm':<14} " + "".join(f"{e:>10}" for e in endings))
+
+    for name in order:
+        mine = [s for s in rows if s["within"] == name]
+        if not mine:
+            continue
+        counts = "".join(f"{sum(1 for s in mine if s['why'] == e):>10}" for e in endings)
+        print(f"   {name:<14} {counts}")
+
+    print()
+    print(f"   {'ending':<14}{'n':>5}{'median km':>12}")
+    for e in endings:
+        got = [s["mean"] for s in rows if s["why"] == e]
+        print(f"   {e:<14}{len(got):>5}{statistics.median(got):>12.2f}")
+    print()
 
 
 def summarise(values):

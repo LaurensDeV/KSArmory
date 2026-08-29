@@ -1304,7 +1304,16 @@ internal sealed class IcbmComputer
         if (pass.MayRelease && !_postBoostSaid)
         {
             _postBoostSaid = true;
-            Log.Info($"post-boost: {pass.Said}");
+
+            // Named, because this is the line that says which rule ended the correction and that
+            // is the largest single term in where the warheads land -- a loop that finished landed
+            // at 140 m and every other ending at 5 to 45 km. Unattributed it can only be read once
+            // per shot and then spread across every rocket in the world, which reports eight
+            // flights of one craft's outcome: `docs/MIRV-NEXT.md` 8z's n=40 was six shots.
+            //
+            // Log.Info rather than Say: Say dedupes on the sentence's shape and drives the panel's
+            // trim line, and this is neither a trim state nor one that repeats.
+            Log.Info($"post-boost on {KsaWorld.DisplayName(Craft)}: {pass.Said}");
 
             // Keep the best aim the passes found, not the last one they tried. AimCorrection reverts
             // to its own best when *it* decides to stop -- but the sequencer above stops it for
