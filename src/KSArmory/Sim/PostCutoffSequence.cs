@@ -89,16 +89,42 @@ internal static class PostCutoffSequence
            && demandLastPass > 0.0 && growth > 0.0
            && demandNow > demandLastPass * growth;
 
-    /// <summary>One frame of the loop, from the clearance's verdict and what the trim has spent.</summary>
+    /// <summary>
+    /// One frame of the loop, from the clearance's verdict and what the trim has spent.
+    /// </summary>
+    /// <param name="keepOutCoversTheClearance">
+    /// <see cref="IcbmConfig.KeepOutCoversTheClearance"/>. With it set, a clearance that runs out of
+    /// time stops <em>waiting</em> rather than giving up: the trim fires on and the keep-out
+    /// interlock answers the safety question a direction at a time.
+    /// </param>
     public static Plan Decide(bool clearanceIsClear, bool clearanceAbandoned, int postBoostCycles,
                               double budgetMetresPerSecond, double spentMetresPerSecond,
-                              bool ceilingFromBudget)
+                              bool ceilingFromBudget, bool keepOutCoversTheClearance = false)
     {
-        if (clearanceAbandoned) return new Plan(Abandon: true, MayTrim: false, double.NaN);
+        double ceiling = CeilingFor(postBoostCycles, budgetMetresPerSecond, spentMetresPerSecond,
+                                    ceilingFromBudget);
+
+        // Abandoning is what the timeout does when nothing else can answer "is it safe to fire".
+        // The interlock can: it is computed in the same pass, it already knows which way the stack
+        // lies, and it withholds the directions that point at it while spending the frame on the
+        // ones that do not. With every direction withheld the trim waits, which is the outcome the
+        // timeout wanted, and MaxSeconds and the budget bound that wait.
+        //
+        // The cost of not having it is the whole correction: an abandoned trim returns before any
+        // aim correction is applied, and the shot lands where the raw burn put it. Flown, that is
+        // 87 of 144 flights (8y) and 8 of 8 on the night that measured it per craft, against 140 m
+        // for a correction that runs to completion.
+        if (clearanceAbandoned && !keepOutCoversTheClearance)
+        {
+            return new Plan(Abandon: true, MayTrim: false, double.NaN);
+        }
 
         return new Plan(
             Abandon: false,
-            MayTrim: clearanceIsClear,
-            CeilingFor(postBoostCycles, budgetMetresPerSecond, spentMetresPerSecond, ceilingFromBudget));
+
+            // Fire on. The clearance said the gap will not open on its own, and the interlock is
+            // now the thing keeping the bus off the stage rather than the clock.
+            MayTrim: clearanceIsClear || clearanceAbandoned,
+            ceiling);
     }
 }

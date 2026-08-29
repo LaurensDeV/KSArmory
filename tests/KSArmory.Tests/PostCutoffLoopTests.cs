@@ -83,6 +83,36 @@ public class PostCutoffLoopTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// The interlock, in the loop: a shove too small to open the gap is no longer thrown away.
+    ///
+    /// <para>The abandoned case is the one that costs the whole aim correction, and it is what
+    /// every flight of the 2026-08-29 night ended on — 8 of 8, on every arm.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(0.1)]
+    [InlineData(0.2)]
+    [InlineData(0.4)]
+    public void WithTheInterlockAShoveTooSmallToClearIsStillTrimmed(double shove)
+    {
+        PostCutoffRig off = new() { ShoveCci = new Brutal.Numerics.double3(shove, 0, 0) };
+        PostCutoffRig on = new()
+        {
+            ShoveCci = new Brutal.Numerics.double3(shove, 0, 0),
+            KeepOutCoversTheClearance = true,
+        };
+
+        PostCutoffRig.Outcome without = off.Run();
+        PostCutoffRig.Outcome with = on.Run();
+
+        Out.WriteLine($"  shove {shove:F1} m/s: abandoned={without.Abandoned} -> {with.Abandoned}, "
+                      + $"residual {without.ResidualMetresPerSecond:F3} -> {with.ResidualMetresPerSecond:F3} m/s");
+
+        Assert.True(without.Abandoned);
+        Assert.False(with.Abandoned);
+        Assert.True(with.ResidualMetresPerSecond < without.ResidualMetresPerSecond);
+    }
+
+    /// <summary>
     /// The regime, headlessly. A coarser step is what the slow machine produces, and the question
     /// 8ac could not answer without flying is whether the loop itself minds.
     /// </summary>

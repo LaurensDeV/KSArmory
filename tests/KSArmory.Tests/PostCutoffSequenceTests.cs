@@ -100,6 +100,69 @@ public class PostCutoffSequenceTests
         Assert.False(plan.MayTrim);
     }
 
+    /// <summary>
+    /// With the interlock covering it, an abandoned clearance stops WAITING rather than giving up:
+    /// the trim fires on and the keep-out withholds the directions that point at the stack.
+    ///
+    /// <para>This is the whole of it. An abandoned trim returns before any aim correction is
+    /// applied — 87 of 144 flights, and 8 of 8 on the night that attributed the ending per rocket,
+    /// against 140 m for a correction that runs to completion.</para>
+    /// </summary>
+    [Fact]
+    public void TheInterlockLetsAnAbandonedClearanceKeepTrimming()
+    {
+        PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
+            clearanceIsClear: false, clearanceAbandoned: true, postBoostCycles: 0,
+            Budget, spentMetresPerSecond: 0.0, ceilingFromBudget: false,
+            keepOutCoversTheClearance: true);
+
+        Assert.False(plan.Abandon);
+        Assert.True(plan.MayTrim);
+    }
+
+    /// <summary>
+    /// And it still gets a ceiling, because the pass it is now allowed to fly is a real one.
+    /// </summary>
+    [Fact]
+    public void AnAbandonedClearanceThatKeepsTrimmingIsStillBounded()
+    {
+        PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
+            clearanceIsClear: false, clearanceAbandoned: true, postBoostCycles: 2,
+            Budget, spentMetresPerSecond: 18.0, ceilingFromBudget: false,
+            keepOutCoversTheClearance: true);
+
+        Assert.Equal(42.0, plan.CeilingMetresPerSecond);
+    }
+
+    /// <summary>Off, it abandons exactly as it always did. This is what ships.</summary>
+    [Fact]
+    public void WithoutTheSettingAnAbandonedClearanceStillGivesUp()
+    {
+        PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
+            clearanceIsClear: false, clearanceAbandoned: true, postBoostCycles: 0,
+            Budget, 0.0, ceilingFromBudget: false, keepOutCoversTheClearance: false);
+
+        Assert.True(plan.Abandon);
+        Assert.False(plan.MayTrim);
+    }
+
+    /// <summary>
+    /// It changes nothing while the clearance is doing its job -- it is a rule about the timeout,
+    /// not about the gate.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ItChangesNothingWhileTheClearanceHasNotTimedOut(bool clear)
+    {
+        PostCutoffSequence.Plan on = PostCutoffSequence.Decide(
+            clear, clearanceAbandoned: false, 1, Budget, 5.0, false, keepOutCoversTheClearance: true);
+        PostCutoffSequence.Plan off = PostCutoffSequence.Decide(
+            clear, clearanceAbandoned: false, 1, Budget, 5.0, false, keepOutCoversTheClearance: false);
+
+        Assert.Equal(off, on);
+    }
+
     /// <summary>The trim fires only once the bus is clear of what it dropped.</summary>
     [Theory]
     [InlineData(true)]

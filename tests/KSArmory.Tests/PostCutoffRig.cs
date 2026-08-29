@@ -41,6 +41,9 @@ internal sealed class PostCutoffRig
     /// <summary>Whether the first pass may spend the budget — <see cref="IcbmConfig.TrimCeilingFromBudget"/>.</summary>
     public bool CeilingFromBudget;
 
+    /// <summary>Whether the keep-out covers the timeout — <see cref="IcbmConfig.KeepOutCoversTheClearance"/>.</summary>
+    public bool KeepOutCoversTheClearance;
+
     public double BudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond;
 
     /// <summary>What one run came to.</summary>
@@ -81,7 +84,8 @@ internal sealed class PostCutoffRig
 
             PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
                 clearance.IsClear, clearance.Abandoned, postBoostCycles: 0,
-                BudgetMetresPerSecond, trim.SpentMetresPerSecond, CeilingFromBudget);
+                BudgetMetresPerSecond, trim.SpentMetresPerSecond, CeilingFromBudget,
+                KeepOutCoversTheClearance);
 
             if (plan.Abandon)
             {

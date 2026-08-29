@@ -297,4 +297,29 @@ internal sealed class IcbmConfig
     /// <para><b>Off, and off is what ships.</b> Unflown.</para>
     /// </summary>
     public bool AimWithinTrimBudget;
+
+    /// <summary>
+    /// Let the keep-out interlock answer the safety question the clearance timeout answers by
+    /// giving up.
+    ///
+    /// <para><b>An abandoned clearance costs the whole aim correction</b>, because it returns
+    /// before any of it is applied and the shot lands where the raw burn put it. Flown, it abandons
+    /// <b>87 of 144</b> flights — and on the night that first attributed the ending to each rocket,
+    /// <b>8 of 8</b>, on every arm. Against that, a correction that runs to completion lands at
+    /// <b>140 m</b> and every other ending at 5 to 45 km.</para>
+    ///
+    /// <para>The timeout exists for a real reason: a bus that cannot open the gap must not hold its
+    /// salvo for ever, and a ninety-second hold put a release probe 6.8 km out. But giving up is a
+    /// crude answer to it. <see cref="BusTrim"/>'s keep-out interlock is the precise one — computed
+    /// in the same pass, so it already knows which way the stack lies, and it withholds the
+    /// directions that point at the stage while spending the frame on the ones that do not. With
+    /// every direction withheld the trim waits, which is what the timeout wanted, and
+    /// <see cref="BusTrim.MaxSeconds"/> and the budget bound the wait.</para>
+    ///
+    /// <para><b>Off, and off is what ships.</b> It has been flown as a branch and removed every
+    /// abandonment; what it lost to then was the correction loop diverging and releasing on the
+    /// worst aim it found, and <c>AimCorrection.Freeze</c> keeping the best bias has landed since.
+    /// It has never been flown against a baseline in the same world.</para>
+    /// </summary>
+    public bool KeepOutCoversTheClearance;
 }

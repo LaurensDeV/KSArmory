@@ -1213,7 +1213,7 @@ internal sealed class IcbmComputer
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearance.IsClear, clearance.Abandoned, _postBoost.Cycles,
             Config.TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond,
-            Config.TrimCeilingFromBudget);
+            Config.TrimCeilingFromBudget, Config.KeepOutCoversTheClearance);
 
         if (plan.Abandon)
         {

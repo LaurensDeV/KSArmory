@@ -451,6 +451,18 @@ internal sealed partial class Ui
             : $"the correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget "
               + "cannot fly at any range"));
 
+        bool keepOut = config.KeepOutCoversTheClearance;
+        if (ImGui.Checkbox("Keep trimming past the clearance", ref keepOut))
+        {
+            config.KeepOutCoversTheClearance = keepOut;
+        }
+
+        ImGui.TextDisabled("  " + (config.KeepOutCoversTheClearance
+            ? "a clearance that runs out of time stops waiting rather than giving up; the keep-out "
+              + "withholds the directions that point at the stack"
+            : "a clearance that runs out of time abandons the trim, and the warheads go on the aim "
+              + "as the burn left it"));
+
         // A structural limit rather than a preference, so it sits with the other things that
         // constrain the flight rather than with the ones that shape it.
         float gee = config.MaxAccelerationGee;
