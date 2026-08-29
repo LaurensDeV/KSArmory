@@ -4656,6 +4656,34 @@ average 0.61, same save, same target, same build path.
 twelve-shot run started to see whether the regime had lifted was abandoned on its first shot for
 that reason, which is what the screen is for: one shot spent rather than twelve.
 
+### The step is not the mechanism, and that is measured
+
+Coarsening the coast step from 66 ms to 108 ms — the two regimes exactly — moves the impact by
+**321 m at 12,902 km and 21 m at 3,459**, against a 16.3 km difference in flown miss. Two per cent.
+So the slow regime does not cost accuracy by integrating badly, and shortening the step is not the
+fix. It costs accuracy by **starving the post-boost correction**, which is the only term left that
+moved: 1.4 passes a flight against 0.23. `CoastStepTests` pins both halves, including that a coarse
+*enough* step does move the impact — 46.9 km at a 2 s step — so the 321 m is a fact about the
+regimes rather than about the integrator.
+
+### And the term that dominates is the one with no headless coverage
+
+Every piece of the post-cutoff chain is already in `Sim/` — `BusTrim`, `PostBoostAim`,
+`AimCorrection`, `SeparationClearance`, `IcbmProgram`. What is **not** is the sequencing that runs
+them, which lives in `Ksa/IcbmComputer.cs` and therefore cannot be tested at all: whether a pass is
+taken, what the ceiling is sized from, when the trim is resumed, what ends the loop. That is exactly
+the decision 8z measured at **140 m against 5–45 km**, and it is reachable only by flying.
+
+That is why this night cost a night and settled nothing. The dominant term in the mod's accuracy is
+the one place a headless test cannot go, so every question about it needs a working game *and* a
+machine in the fast regime — and the second of those is now known to be unreliable.
+
+**Extracting that sequencer into `Sim/` is the ranked next piece of work**, ahead of both arms and
+ahead of the regime. It is what `CLAUDE.md` already asks for — *"when something KSA-facing turns out
+to have testable maths inside it, move the maths into `Sim/`"* — and the pieces it would orchestrate
+are all there. The wiring left behind in `Ksa/` is reading the control frame and writing the
+thrusters.
+
 ### What to fly next
 
 The same three-arm night again, **once the session reads under 24 ms**, and longer than six shots.
