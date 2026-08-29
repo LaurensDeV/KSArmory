@@ -73,11 +73,15 @@ internal sealed class BallisticScenario
     // DistancePower x MeanRadius, so following a rocket puts it a hundred metres off the ground
     // with the terrain, ocean and atmosphere all at full detail; following the body it launched
     // from puts the same number tens of thousands of kilometres out, where none of that is drawn.
-    // One on Earth is 6,371 km, past where the detail stops.
+    //
+    // MEASURED FROM THE CENTRE, not from the surface. One is 6,371 km on Earth, which parks the
+    // camera exactly at ground level on the far side hugging the terrain at full detail -- flown,
+    // and worth nothing: 31.7 ms against 31.5. Five is about 25,000 km up, past anything the
+    // engine draws in detail.
     //
     // Nobody is watching a scripted shot until the warheads arrive, and the view goes back to the
     // target for that.
-    private const double FlightZoomPower = 1.0;
+    private const double FlightZoomPower = 5.0;
 
     private readonly Action<string> _say;
     private readonly ShotGroup _group = new();
