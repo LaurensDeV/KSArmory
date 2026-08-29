@@ -99,8 +99,18 @@ reach p=0.031 there; the between-run test reaches nothing at any n this project 
 Both of the arms below are settings rather than branches, for exactly this reason —
 `arm/trimceil` and `arm/interlock` as branches cannot be flown against each other in one world.
 
-**1. `TrimCeilingFromBudget`, and `AimWithinTrimBudget`, together and separately.** Both are
-`IcbmConfig` fields, both off by default.
+**1. `interlock` + `trimceil`, in that order, and the endings say why.** `docs/MIRV-NEXT.md`
+**8ad** flew `KeepOutCoversTheClearance` paired against a baseline: **22 abandonments to nought**
+over 64 flights, and the miss did not move — 1.12x, p=0.727. The abandonments become `trim`
+refusals, so **`trim` is now the dominant terminator at 16 of 32**, and `TrimCeilingFromBudget` is
+the setting that addresses exactly that.
+
+What the same night established is the prize, and it is not the arm comparison: **a correction that
+reaches a natural finish lands at 60 m** and one cut off lands at 10–12 km. Two orders of magnitude,
+on nine flights across both arms. Everything on this list is really about how many corrections
+finish.
+
+**2. `AimWithinTrimBudget`.** Still unflown against a baseline.
 
 `TrimCeilingFromBudget` drops the `Cycles > 0` guard on the per-pass ceiling: it asks whether the
 *aim* has moved when the question is whether the *bus* has separated, and 11 of 14 flown trims were

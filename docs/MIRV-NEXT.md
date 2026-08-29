@@ -4766,6 +4766,71 @@ and 6x in whether the correction runs at all, which is larger than anything on t
 not understood. What is known: it is after cutoff (the burn is identical), it is not the build (a
 pre-change control reproduced it), and it is not a stray process or machine load.
 
+## 8ad. The interlock removes every abandonment and the miss does not move — flown 2026-08-29
+
+Eight paired shots, `base` against `interlock` (`KeepOutCoversTheClearance`), eight rockets a shot,
+`~/shots/interlock-night`. The first time this change has ever been flown against a baseline in the
+same world: as `arm/interlock` it could only be one build against another across a night, where the
+session swing is 2.7x and the effect is smaller.
+
+### The mechanism, and it is not in doubt
+
+| arm | budget | clearance | clock | noimprov | payback | trim |
+| --- | --- | --- | --- | --- | --- | --- |
+| `base` | 1 | **22** | 0 | 1 | 3 | 5 |
+| `interlock` | 3 | **0** | 7 | 0 | 6 | 16 |
+
+**22 abandonments to nought, over 64 flights.** Every correction on the arm runs. 8y's failure — the
+clearance returning before any aim correction is applied — is gone.
+
+### And the endpoint did not move
+
+`base` 6.51 km, `interlock` 6.89 km. **1.12x, 3 of 8 shots won, p=0.727.** Unresolved, and the
+interval [0.53, 1.65] rules out anything better than about half.
+
+The reason is in the same table: the 22 abandonments become **16 `trim` and 7 `clock`**, not
+completions. The interlock removes the first thing that stops the loop and the second stops it
+instead — 8z's sentence for the third time, now with the successor named.
+
+### What the night is actually worth: the ending decides the miss, by 100x
+
+| ending | n | median miss |
+| --- | --- | --- |
+| **`payback`** — another pass would cost more than it gains | 9 | **0.06 km** |
+| `noimprov` — could not beat its best | 1 | 0.31 km |
+| `budget` — spent its allowance | 4 | 0.90 km |
+| `clearance` — abandoned | 22 | 6.60 km |
+| `trim` — the trim refused | 21 | 10.71 km |
+| `clock` — ran out of time | 7 | 11.59 km |
+
+**A correction that reaches a natural finish lands at 60 metres.** 8z measured 140 m on a different
+night with a different instrument; this is nine flights across both arms and it is better.
+
+So the split is not abandoned-versus-not. It is **finished versus cut off**, and cutting off costs
+two orders of magnitude. The interlock nearly doubles the flights that end well — 5 of 32 to 9 of
+32, counting `payback`, `noimprov` and `budget` — and 23 of 32 still do not, which is why the median
+sits still.
+
+### What to fly next, and this time the table says so
+
+**`trim` is the dominant terminator the moment abandonment is removed: 16 of 32.** That is `BusTrim`
+refusing a demand as too large, and `IcbmConfig.TrimCeilingFromBudget` is exactly the setting that
+sizes that refusal from what is left of the budget rather than from a constant. It is built and
+tested and has never flown against a baseline — the one night it was on, the 20 degree arrival floor
+beside it was 47x worse and drowned it.
+
+So: `base | interlock | interlock+trimceil`. Unlike every ranking in this file before it, that is
+indicated by a measured distribution of endings rather than by argument.
+
+**`clock` (7) is second and is a constant nobody has examined** — `BusTrim.MaxSeconds` at 120 s
+against a bus that now gets to use it.
+
+### The session was slow and it does not touch the mechanism
+
+26.8 ms, so the screen fired. The **counts** are unaffected: 22 against 0 is a count of events, not
+a distribution, and no frame rate turns an abandonment into a completion. The **medians** should be
+read with the warning attached.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
