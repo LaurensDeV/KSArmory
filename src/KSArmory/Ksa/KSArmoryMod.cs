@@ -68,6 +68,17 @@ public sealed class KSArmoryMod
     // anything that only exists to be looked at.
     private readonly Dictionary<WeaponSystem, BombSightOverlay> _sights = [];
 
+    // A pipper answers "where does a store dropped from here land", and a craft a ballistic
+    // computer is flying already has that answer drawn for it by IcbmOverlay -- against the whole
+    // trajectory rather than the next hundred seconds of fall.
+    //
+    // It is not only redundant, it is the most expensive thing this mod draws. Measured over eight
+    // rockets under ascent: `sight` 5.41 ms of a 7.17 ms `draw`, which is three quarters of the
+    // mod's whole drawing cost and about a fifth of the frame. A rocket climbing away from its pad
+    // solves a perfectly good 8-to-80-second bomb sight the entire way up, and nothing looks at it.
+    private bool FlyingABallisticShot(WeaponSystem battery)
+        => _icbms?.For(battery.Platform)?.Config.Armed == true;
+
     private BombSightOverlay SightFor(WeaponSystem battery)
     {
         if (_sights.TryGetValue(battery, out BombSightOverlay? sight)) return sight;
@@ -303,7 +314,7 @@ public sealed class KSArmoryMod
             // shell stream above.
             foreach (WeaponSystems.Entry e in _roster.All)
             {
-                if (e.Policy.DrawBombSight)
+                if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
                 {
                     using (_budget.Measure("sight")) SightFor(e.Battery).Draw(e.Battery);
                 }
@@ -653,8 +664,14 @@ public sealed class KSArmoryMod
 
             // Its own switch and its own solve, per system: it costs BombSight.MaxSteps integration
             // steps and two aircraft can sensibly disagree about wanting one.
-            if (e.Policy.DrawBombSight) SightFor(e.Battery).Update(e.Battery, _lastSimStep);
-            else SightFor(e.Battery).Clear();
+            if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Battery))
+            {
+                SightFor(e.Battery).Update(e.Battery, _lastSimStep);
+            }
+            else
+            {
+                SightFor(e.Battery).Clear();
+            }
         }
 
         // The two effects that ride the round rather than the weapon. A round outliving its
