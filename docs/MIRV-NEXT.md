@@ -4649,13 +4649,23 @@ can be **screened before it is trusted** rather than argued about afterwards. `s
 prints the session's frame time and refuses to let a null pass quietly above 24 ms.
 
 **What is not known** is why the machine sits in one regime or the other. No stray game process, load
-average 0.61, same save, same target, same build path. It has now been observed twice within thirty
-hours, so it is not rare.
+average 0.61, same save, same target, same build path.
+
+**And it does not clear on its own.** Three separate game launches across ninety minutes read 29.8,
+29.8 and **35.5 ms** — the last one worse than the first, an hour after the night that found it. A
+twelve-shot run started to see whether the regime had lifted was abandoned on its first shot for
+that reason, which is what the screen is for: one shot spent rather than twelve.
 
 ### What to fly next
 
-The same six-arm night again, **once the session reads under 24 ms**, and longer than six shots. The
-arms are unchanged and still uninformed by any flight.
+The same three-arm night again, **once the session reads under 24 ms**, and longer than six shots.
+The arms are unchanged and still uninformed by any flight. Check the regime on the first shot before
+committing the night to it — the screen costs eleven minutes and the night costs two hours.
+
+**And the regime itself is now the ranked question**, ahead of both arms. It is worth 2.2x in miss
+and 6x in whether the correction runs at all, which is larger than anything on this list, and it is
+not understood. What is known: it is after cutoff (the burn is identical), it is not the build (a
+pre-change control reproduced it), and it is not a stray process or machine load.
 
 ## 9. The budget at the 0.65 km level
 
