@@ -77,7 +77,13 @@ internal sealed class BallisticScenario
     // MEASURED FROM THE CENTRE, not from the surface. One is 6,371 km on Earth, which parks the
     // camera exactly at ground level on the far side hugging the terrain at full detail -- flown,
     // and worth nothing: 31.7 ms against 31.5. Five is about 25,000 km up, past anything the
-    // engine draws in detail.
+    // engine draws in detail, and is worth 31.7 -> 29.5 ms.
+    //
+    // Seven per cent rather than the large win moving the camera off the ground buys in ordinary
+    // play, and the reason is that a scripted shot is not rendering-bound. Seventeen vehicles in
+    // one world put the cost in the vehicle solver, which is docs/METRE-LEVEL.md section 5's flown
+    // finding that the game is CPU-bound and the GPU idle. Kept because it is free, not because it
+    // is a lever.
     //
     // Nobody is watching a scripted shot until the warheads arrive, and the view goes back to the
     // target for that.
