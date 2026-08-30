@@ -99,7 +99,23 @@ reach p=0.031 there; the between-run test reaches nothing at any n this project 
 Both of the arms below are settings rather than branches, for exactly this reason —
 `arm/trimceil` and `arm/interlock` as branches cannot be flown against each other in one world.
 
-**1. `interlock` + `trimceil`, in that order, and the endings say why.** `docs/MIRV-NEXT.md`
+**1. ~~`interlock` + `trimceil`.~~ Flown 2026-08-30, and `trimceil` is harmful — do not fly it.**
+`docs/MIRV-NEXT.md` **8ae**: over 96 flights it produced **zero `payback` endings** against twelve on
+the baseline, converting every one into `settled`, which lands at 6.91 km where `payback` lands at
+0.06. It also threw four shots of twelve at 54x to 105x the baseline. Off by default and it stays
+off.
+
+**What that leaves is one question**, and it is the whole of the accuracy problem: **how to make
+more corrections end on `payback`**. Three nights and two instruments now agree it lands at 60 m
+while every other ending lands at 6 to 14 km. Making the loop *run* is not enough (8ad) and letting
+it *spend more* is worse (8ae). The next thing to look at is which rule stops it —
+`AimCorrection.SteadyMetres` against `PostBoostAim`'s payback test.
+
+**2. `interlock` alone is the best arm ever flown here** and is still unresolved: 0.76x, 7 of 12
+shots, p=0.774, interval [0.41, 2.55]. It preserves `payback` and removes every abandonment. A 24%
+effect needs more shots than a sign test over twelve can give.
+
+**3. The old ranking, kept for its reasoning.** `docs/MIRV-NEXT.md`
 **8ad** flew `KeepOutCoversTheClearance` paired against a baseline: **22 abandonments to nought**
 over 64 flights, and the miss did not move — 1.12x, p=0.727. The abandonments become `trim`
 refusals, so **`trim` is now the dominant terminator at 16 of 32**, and `TrimCeilingFromBudget` is

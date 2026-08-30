@@ -4831,6 +4831,72 @@ against a bus that now gets to use it.
 a distribution, and no frame rate turns an abandonment into a completion. The **medians** should be
 read with the warning attached.
 
+## 8ae. The trim ceiling destroys the one ending worth having — flown 2026-08-30
+
+Twelve paired shots, `base` against `interlock` against `interlock+trimceil`, eight rockets a shot,
+`~/shots/trimceil-night`. Flown because **8ad**'s terminator table named `trim` as the dominant
+ending once abandonment is removed, and `TrimCeilingFromBudget` is the setting that addresses it.
+
+### The endings, over 96 flights
+
+| arm | budget | clearance | clock | payback | settled | trim |
+| --- | --- | --- | --- | --- | --- | --- |
+| `base` | 2 | 17 | 0 | **12** | 0 | 1 |
+| `interlock` | 7 | 0 | 2 | **11** | 0 | 12 |
+| `both` | 2 | 0 | 1 | **0** | 25 | 4 |
+
+| ending | n | median miss |
+| --- | --- | --- |
+| **`payback`** | 23 | **0.06 km** |
+| `trim` | 17 | 5.95 km |
+| `budget` | 11 | 6.64 km |
+| `settled` | 25 | 6.91 km |
+| `clock` | 3 | 11.52 km |
+| `clearance` | 17 | 13.95 km |
+
+### The finding: `trimceil` produces no `payback` at all
+
+**Zero of thirty-two**, against twelve on the baseline and eleven on the interlock. It converts every
+one of them into `settled` — and `settled` lands at 6.91 km where `payback` lands at **0.06**. The
+setting removes the only ending that is worth having.
+
+That is a **count**, not a median, so the slow session does not touch it. It is also the opposite of
+what the ranked list expected: 8ad said `trim` was the terminator to attack and this is the setting
+that attacks it, and attacking it turns out to cost the good ending rather than buy more of them.
+
+The endpoint agrees without resolving: `both` is 1.22x with four shots at **53.90, 57.04, 80.61 and
+104.78** times the baseline. A sign test cannot see that — it won 5 of 12, p=0.774 — but four
+catastrophes in twelve is not a distribution anyone should fly again.
+
+**So: do not fly `TrimCeilingFromBudget`.** It is off by default and stays off.
+
+### And `payback` is now measured three times
+
+0.14 km (8z), 0.06 km (8ad), **0.06 km on 23 flights** here. A correction that stops because another
+pass would cost more than it gains lands at sixty metres, and every other ending lands at 6 to 14 km.
+Two orders of magnitude, three independent nights, two different instruments.
+
+**The whole accuracy problem is now one question: how to make more corrections end on `payback`.**
+Not "make the loop run" — 8ad settled that, and running is not enough. Not "let it spend more" —
+this item settles that, and spending more replaces the good ending with a worse one.
+
+### `interlock` is the best arm yet and still unresolved
+
+0.76x, won 7 of 12, p=0.774, interval [0.41, 2.55]. It preserves `payback` (11 against 12) and
+removes every abandonment. It is the only change in this file that has ever had a point estimate
+below one on a paired run, and twelve shots cannot resolve a 24% effect — the sign test needs the
+arm to win nearly every shot, and a real 0.76x will not.
+
+### Why `settled` is worse than `payback`, which is the next question
+
+`payback` is `PostBoostAim` deciding another pass costs more than it gains. `settled` is
+`AimCorrection.Settled` — the bias no longer moving. They are two stopping rules for the same
+loop and one of them is a hundred times better. With a wider ceiling the loop flies larger
+corrections, the aim reaches its own steadiness criterion first, and the shot releases on it.
+
+That makes `AimCorrection.SteadyMetres` the constant to look at, and it makes the question
+"which rule stops the loop" more important than any of the settings flown so far.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
