@@ -133,6 +133,10 @@ internal sealed class BallisticScenario
     private IcbmPhase _reported = IcbmPhase.Idle;
     private bool _saidCutoff;
     private bool _saidStaging;
+
+    // Whether the target's own weapons are being held off, and whether that has been said.
+    private bool _disarmSite;
+    private bool _saidDisarm;
     private string _saidTrim = "";
     private bool _capturedDeployment;
     private bool _capturedImpact;
@@ -238,6 +242,22 @@ internal sealed class BallisticScenario
 
             Commit();
             return null;
+        }
+
+        // Held down rather than set once. The site's master arm is restored from the save's own
+        // settings and can come back after the aim is taken, and one frame of it armed is a salvo
+        // intercepted.
+        if (_disarmSite && _defendedSite is { } defended && roster.For(defended) is { } defence
+            && defence.Policy.Armed)
+        {
+            defence.Policy.Armed = false;
+
+            if (!_saidDisarm)
+            {
+                _saidDisarm = true;
+                _say($"disarmed {KsaWorld.DisplayName(defended)}: a target that shoots down the "
+                     + "accurate warheads measures the inaccurate ones");
+            }
         }
 
         ReportPhase();
@@ -380,12 +400,11 @@ internal sealed class BallisticScenario
                 //
                 // The engagement is worth flying and is not this scenario's job. What this one
                 // measures is where the warheads go.
-                if (roster.For(site) is { } defence && defence.Policy.Armed)
-                {
-                    defence.Policy.Armed = false;
-                    _say($"disarmed {KsaWorld.DisplayName(site)}: a target that shoots down the "
-                         + "accurate warheads measures the inaccurate ones");
-                }
+                // Unconditionally, and again every frame below. Guarding on "is it armed now"
+                // does nothing: at the moment the aim is taken the site has not armed yet, so the
+                // guard skips and it arms itself afterwards -- which is how a first attempt at this
+                // left 420 warheads intercepted across a night and printed nothing.
+                _disarmSite = true;
 
                 if (_shot.AimWasGiven)
                 {
