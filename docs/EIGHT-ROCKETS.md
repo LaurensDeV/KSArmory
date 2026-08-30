@@ -89,7 +89,15 @@ and it is printed on every one of those lines already.
 
 ## What to do, ranked
 
-**0. Fly it paired. Nothing below is measurable otherwise.** 8aa put the same baseline at 14.49 km
+**0a. Fly it spread. Two thirds of every short-range shot was never measured.** `docs/MIRV-NEXT.md`
+**8ah**: a Mk 21's 2.0 km lethal radius reaches other warheads, so eight groups on one aim point are
+eight groups inside each other's kill radius and the first one down destroys the rest — three of
+eight flights scored in eighteen of twenty shots. `Sim/AimSpread.cs` gives each rocket its own point
+six lethal radii away, and the same shot then scores **8 of 8, 48 of 48 warheads, zero intercepts**,
+at 52-121 m. It gets worse as the shots get better, which is why five nights at 12,902 km never saw
+it: at that range nothing lands close enough to anything else.
+
+**0b. Fly it paired. Nothing below is measurable otherwise.** 8aa put the same baseline at 14.49 km
 and 5.43 km on identical code three hours apart — a 2.7x session swing against a backlog where
 everything is under 3x — and the arm between them reversed. `tools/shot-batch.sh --paired` gives
 each rocket in one world its own variant and `tools/shot-report.py --paired` scores the pair, which

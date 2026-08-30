@@ -392,18 +392,17 @@ internal sealed class BallisticScenario
                 _defendedSite = site;
 
                 // Disarmed, because a scoring run cannot let the target shoot at what it is
-                // measuring. Flown at 2,000 km: the shots landed inside the site's own point
-                // defence envelope and it intercepted 30 of 48 warheads, which score as "never
-                // arrived" -- so the accurate ones were removed from the sample and only the ones
-                // that missed by enough to escape were measured. At 12,902 km it intercepts none,
-                // because nothing lands close enough, which is why this never showed before.
+                // measuring. Held on the reasoning rather than on evidence: the 30 of 48 warheads
+                // that go missing at 2,000 km are fratricide and not this site -- they die inside a
+                // sibling group's own 2 km lethal radius, and the site reads armed=False through
+                // the whole salvo. AimSpread is what answers that one. Nothing flown here has ever
+                // caught this site firing, so what the disarm stops is a possibility.
                 //
                 // The engagement is worth flying and is not this scenario's job. What this one
                 // measures is where the warheads go.
                 // Unconditionally, and again every frame below. Guarding on "is it armed now"
                 // does nothing: at the moment the aim is taken the site has not armed yet, so the
-                // guard skips and it arms itself afterwards -- which is how a first attempt at this
-                // left 420 warheads intercepted across a night and printed nothing.
+                // guard would skip and it arms itself afterwards.
                 _disarmSite = true;
 
                 if (_shot.AimWasGiven)
@@ -432,6 +431,11 @@ internal sealed class BallisticScenario
                          + $"rather than at bare ground");
                 }
             }
+
+            // Not all at one point. See SpreadAim: eight groups on one aim are eight groups
+            // inside each other's kill radius, and the first one down removes the rest from the
+            // measurement.
+            (aimLat, aimLon) = SpreadAim(parent, computer, battery.Munition, aimLat, aimLon);
 
             computer.Designate(new AimSite(parent.Id, aimLat, aimLon, "scenario aim point"));
 
@@ -811,16 +815,53 @@ internal sealed class BallisticScenario
     // kilometres from an intercontinental shot, which is all it is asked to do.
     private static double GroundMetresBetween(Celestial body, double aLat, double aLon,
                                               double bLat, double bLon)
+        => AimSpread.GroundMetresBetween(aLat, aLon, bLat, bLon, body.MeanRadius);
+
+    // Where this rocket aims, which is the operator's point only for the first of a group.
+    //
+    // The bearing is taken from the *group's* reference shot rather than from this rocket's own,
+    // so every displacement is along one line. Pads spread east against a single target fan
+    // inwards, and two rockets each displaced square to their own path move towards each other --
+    // which puts back the overlap this exists to open.
+    private (double LatitudeDeg, double LongitudeDeg) SpreadAim(
+        Celestial parent, IcbmComputer computer, MunitionProfile munition,
+        double baseLat, double baseLon)
     {
-        const double Rad = Math.PI / 180.0;
+        int index = -1;
 
-        double sinHalfLat = Math.Sin((bLat - aLat) * Rad * 0.5);
-        double sinHalfLon = Math.Sin((bLon - aLon) * Rad * 0.5);
+        for (int i = 0; i < _shooters.Count; i++)
+        {
+            if (ReferenceEquals(_shooters[i], computer.Craft)) { index = i; break; }
+        }
 
-        double h = sinHalfLat * sinHalfLat
-                   + Math.Cos(aLat * Rad) * Math.Cos(bLat * Rad) * sinHalfLon * sinHalfLon;
+        if (index <= 0) return (baseLat, baseLon);
 
-        return 2.0 * body.MeanRadius * Math.Asin(Math.Min(1.0, Math.Sqrt(h)));
+        double bearing = double.NaN;
+
+        if (KsaWorld.TryCraftSurfacePoint(_shooters[0], out _, out double padLat,
+                                          out double padLon, out string padBody)
+            && padBody == parent.Id)
+        {
+            bearing = AimSpread.CrossRangeBearingDeg(padLat, padLon, baseLat, baseLon);
+        }
+
+        var aim = AimSpread.For(baseLat, baseLon, index, _shooters.Count,
+                                AimSpread.SpacingMetres(munition.LethalRadius),
+                                bearing, parent.MeanRadius);
+
+        // Said per rocket, because a run scored against eight different points has to record what
+        // they were: a reader comparing two flights' misses is comparing two distances to two
+        // places, and nothing else in the log says so.
+        double off = GroundMetresBetween(parent, baseLat, baseLon,
+                                         aim.LatitudeDeg, aim.LongitudeDeg);
+
+        if (off > 0.0)
+        {
+            _say($"aim spread {off / 1000.0:F0} km off the group's point, so an arriving warhead "
+                 + "does not kill the ones behind it");
+        }
+
+        return aim;
     }
 
     // What an unattended shot holds itself to. Around what a real ICBM pulls at burnout, and well

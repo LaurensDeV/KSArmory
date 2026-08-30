@@ -5016,6 +5016,87 @@ the mechanism was understood before the statistics arrived — which is the oppo
 `trimceil` (8ae, harmful), `AimWithinTrimBudget` (0.65x, 5 of 8, unresolved here) and the 20 degree
 arrival floor (47x worse, 8-something), all of which were mechanism arguments that lost.
 
+## 8ah. The instrument destroys 62% of its own sample, and it is fratricide — 2026-08-30
+
+**Three of eight flights scored, in eighteen of twenty short-range shots.** Every other flight
+reported `0 of 6 arrived, 6 never did`. That is the state the whole of 8ag was measured in.
+
+### It is not the defended site, which is what the last two commits assumed
+
+The log line before every kill:
+
+```
+16:45:48.738 INFO  round 6 detonated on the ground, 229 m from the aim point
+16:45:48.738 INFO  intercepted GeoSat FAT 2_1 round 1 at 247 m
+   ... 30 of these, five whole rockets, one timestamp
+16:45:48.738 DEBUG cannon: want=False ammo=480 burst=0 armed=False auto=False laid=False
+```
+
+The site is disarmed and idle. `intercepted` on that path is `WeaponSystem`'s **splash sweep over
+rounds in the air** — the same code that lets one missile kill another, which a warhead is not
+exempt from. `~/shots/interlock-confirm` was flown after both disarm commits and lost exactly the
+same 30 of 48, which is what says the disarm never had anything to do with it.
+
+### The arithmetic was always going to do this
+
+A Mk 21 ships at 20 kt, which through `Warhead`'s cube root is **2.0 km lethal**. Eight rockets aimed
+at one point land within 0.2-0.4 km of it. Every warhead is therefore inside every other warhead's
+kill radius by an order of magnitude, and the first group down takes the rest.
+
+**It gets worse as the shots get better.** At 12,902 km the misses are 5-45 km, no group is inside
+another's two, and nothing is lost — which is why five nights of long-range work never saw it. The
+failure appeared at exactly the moment the geometry became accurate enough to resolve anything. An
+instrument that discards its sample in proportion to how well the thing being measured works is not
+one to leave standing.
+
+### Whether it corrupted 8ag: no, and that was checked rather than assumed
+
+| arm | survived | flown | rate |
+| --- | --- | --- | --- |
+| `interlock` | 22 | 64 | 34% |
+| `base` | 24 | 64 | 38% |
+
+Balanced, so the sign test is not biased by which flights survived. What it *is* is a sign taken from
+one or two flights per arm out of four. The result stands; the power it was measured at was a third
+of what was flown.
+
+### The fix
+
+`Sim/AimSpread.cs`: each rocket aims at its own point, spaced six lethal radii apart along one
+bearing square to the group's shot. 12 km a piece for the shipped 20 kt, anchored so rocket one
+still lands where the operator asked and the watching camera is. `MissFromAim` already scores each
+flight against **its own** designated target, so nothing about the measurement changes except how
+much of it survives.
+
+Three things about it are the decisions:
+
+* **The spacing is derived from the round's lethal radius, not typed in.** The yield is a knob and
+  `ReentryVehicleMk21` says in as many words that the real 300 kt is one number away — that is 4.9 km
+  of lethal radius against 2.0, and a constant chosen for the first is far too small for the second.
+* **One bearing for the whole group, taken from the first rocket's shot.** Each rocket computing its
+  own perpendicular points them in different directions: pads spread east against a single target
+  fan inwards, and two rockets displaced towards each other put the overlap straight back.
+* **Square to the range rather than along it**, so the outermost of eight flies under two kilometres
+  further on a 2,000 km shot instead of the whole 84. The group's downrange spread goes from 6 km to
+  13 across all eight, the rest of which is the pads' own 140 km of separation.
+
+### Flown 2026-08-30, and it is the best shot this project has recorded
+
+Same geometry, same save, same arms as `interlock-confirm`:
+
+| | before | after |
+| --- | --- | --- |
+| flights scored | 3 of 8 | **8 of 8** |
+| warheads arrived | 18 of 48 | **48 of 48** |
+| intercepts | 30 | **0** |
+| worst of each group | 211, 229, 354 m | **52, 61, 63, 72, 73, 87, 111, 121 m** |
+| verdict | FAIL | **PASS** |
+
+Two things beyond the sample. The misses are **half** what the survivors of the same geometry were
+reading, and **the roster gradient is not there** — rocket eight is the best of the eight at 52 m,
+against a monotone 175x from first to last at 12,902 km. Neither is claimed from one shot; both are
+now measurable, which they were not while five flights in eight produced no number at all.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
