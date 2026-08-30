@@ -371,6 +371,22 @@ internal sealed class BallisticScenario
             {
                 _defendedSite = site;
 
+                // Disarmed, because a scoring run cannot let the target shoot at what it is
+                // measuring. Flown at 2,000 km: the shots landed inside the site's own point
+                // defence envelope and it intercepted 30 of 48 warheads, which score as "never
+                // arrived" -- so the accurate ones were removed from the sample and only the ones
+                // that missed by enough to escape were measured. At 12,902 km it intercepts none,
+                // because nothing lands close enough, which is why this never showed before.
+                //
+                // The engagement is worth flying and is not this scenario's job. What this one
+                // measures is where the warheads go.
+                if (roster.For(site) is { } defence && defence.Policy.Armed)
+                {
+                    defence.Policy.Armed = false;
+                    _say($"disarmed {KsaWorld.DisplayName(site)}: a target that shoots down the "
+                         + "accurate warheads measures the inaccurate ones");
+                }
+
                 if (_shot.AimWasGiven)
                 {
                     // The operator named a point, so the site goes to it rather than the aim coming
