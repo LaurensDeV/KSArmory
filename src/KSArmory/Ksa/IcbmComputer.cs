@@ -72,6 +72,10 @@ internal sealed class IcbmComputer
     private double _demandThisPass = double.NaN;
     private double _demandLastPass = double.NaN;
     private bool _saidRunaway;
+
+    // Whether the aim's affordable reach has been reported. Once per flight: it is a fact about the
+    // trajectory rather than an event, and it moves slowly.
+    private bool _saidAimReach;
     private bool _saidFloorUnaffordable;
     private bool _saidRefusedStage;
     private bool _saidStructuralLimit;
@@ -331,6 +335,7 @@ internal sealed class IcbmComputer
         _mayTrim = true;
         _saidBudget = false;
         _saidRunaway = false;
+        _saidAimReach = false;
         _demandThisPass = double.NaN;
         _demandLastPass = double.NaN;
         _saidFloorUnaffordable = false;
@@ -395,6 +400,7 @@ internal sealed class IcbmComputer
         _mayTrim = true;
         _saidBudget = false;
         _saidRunaway = false;
+        _saidAimReach = false;
         _demandThisPass = double.NaN;
         _demandLastPass = double.NaN;
         _saidFloorUnaffordable = false;
@@ -2204,9 +2210,29 @@ internal sealed class IcbmComputer
                                        Program.CommittedArrivalFromNow, left, out double reach))
         {
             _aim.AffordableMetres = double.PositiveInfinity;
+
+            if (!_saidAimReach)
+            {
+                _saidAimReach = true;
+                Log.Info($"aim reach on {KsaWorld.DisplayName(Craft)}: the trajectory would not "
+                         + "price, so the aim keeps its full range");
+            }
+
             return;
         }
 
         _aim.AffordableMetres = reach;
+
+        // Said once, and only when it BINDS. A bound wider than AimCorrection.MaxMetres changes
+        // nothing, and a setting that cannot be seen to have done anything is one whose flown
+        // result means nothing either way -- which is the trap this file's own history keeps
+        // falling into. The number is what the budget buys at this trajectory's exchange rate.
+        if (!_saidAimReach && reach < AimCorrection.MaxMetres)
+        {
+            _saidAimReach = true;
+            Log.Info($"aim reach on {KsaWorld.DisplayName(Craft)}: {left:F0} m/s of trim buys "
+                     + $"{reach / 1000.0:F0} km of aim, against the {AimCorrection.MaxMetres / 1000.0:F0} km "
+                     + "the correction may otherwise walk");
+        }
     }
 }
