@@ -710,6 +710,21 @@ internal sealed class IcbmComputer
         return true;
     }
 
+    // Whether any OTHER flight is mid-burn or mid-trim. The list is empty when nobody handed one
+    // in, so a computer driven outside IcbmComputers asks about itself alone.
+    private bool AnythingElseNeedsShortSteps
+    {
+        get
+        {
+            for (int i = 0; i < _busyElsewhere.Count; i++)
+            {
+                if (!ReferenceEquals(_busyElsewhere[i], this)) return true;
+            }
+
+            return false;
+        }
+    }
+
     // What else in the world was still being integrated when this warp started. An auto-warp is
     // world-wide and WarpPolicy cannot rein one in, so every name here is a flight that is about to
     // be stepped at whatever rate KSA picked for somebody else's coast.
@@ -744,12 +759,18 @@ internal sealed class IcbmComputer
     public bool CanWarpTheCoast => Program.Phase == IcbmPhase.Coast && CanWarpAhead;
 
     // Only for the craft being flown, only out to a margin short of what is coming, and never while
-    // something aboard is being integrated -- NeedsShortSteps covers the burn and the trim, and
-    // WarpPolicy cannot slow the world at all while an auto-warp is running, so a warp started over
-    // the top of one is a warp nothing can rein in.
+    // ANY flight in the world is being integrated -- NeedsShortSteps covers the burn and the trim,
+    // and WarpPolicy cannot slow the world at all while an auto-warp is running, so a warp started
+    // over the top of one is a warp nothing can rein in.
+    //
+    // Every flight, not this one. There is one world and one clock: a computer that checks only
+    // itself hands the clock away while seven other rockets are still burning, and their longest
+    // burn step goes 33 ms to 205 ms with their one-frame velocity quantum 0.081 to 1.675 m/s.
+    // Same rule and same reason as WorldSpeed.Slowest, which the speed path already obeys.
     private bool CanWarpAhead
         => !KsaWorld.IsAutoWarpActive
         && !NeedsShortSteps
+        && !AnythingElseNeedsShortSteps
         && ReferenceEquals(Craft, KsaWorld.ControlledVehicle)
         && double.IsFinite(SecondsToTheNextThingThatMatters)
         && SecondsToTheNextThingThatMatters > IcbmProgram.WarpHoldLeadSeconds * 2.0;

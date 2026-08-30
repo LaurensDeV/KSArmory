@@ -67,11 +67,28 @@ unfixed on the auto-warp path.
 **And the documented 175x seat gradient was this.** Stratified by cutoff rank the effect is flat and
 large (7.1x, 5.5x, 7.9x); pooled rank-sum z = -13.6. Seniority was never the variable.
 
-**Do the diagnostic first.** Extend the existing warp line with how many other computers in the
-world report `NeedsShortSteps`, and their names. It has to read 7,7,7,6,5,4,3 in the 28 contaminated
-shots and 0 in the 14 clean ones. A shot logging 0 still-burning computers that still produces
->33 ms steps kills the hypothesis. Then fold `!NeedsShortSteps` over `IcbmComputers.All`, the way
-`WorldSpeed.Slowest` folds the speed requests.
+**Flown 2026-08-30: confirmed, and fixed.** The diagnostic went in first and read what the
+hypothesis required — `OVER THE TOP OF 6 still needing short steps: GeoSat FAT 3, 4, 5, 6, 7, 8` on
+the release-point warp, and `nothing else needs short steps` on the coast warp three seconds later.
+The count is not always non-zero; it tracks the mechanism.
+
+With `!NeedsShortSteps` folded over every computer, the same shot on the same save:
+
+| | before | after |
+| --- | --- | --- |
+| longest burn step | 3 x 33 ms, 4 x 84, 1 x 198 | **8 x 33 ms** |
+| misses, km | 4.70, 13.26, 13.67, 32.08, 32.61, 33.66, 34.12, 54.23 | 0.50, 3.24, 3.89, 7.24, 8.54, 9.05, 11.04, 13.46 |
+| median | 32.34 km | **8.80 km** |
+
+**What is proven and what is not.** The step distribution is deterministic and conclusive: the
+contamination is gone. The *miss* is one shot each way against a session variance of 2.7x, so its
+size is not resolved — and it cannot be, by `--paired`: the warp is world-wide, so both arms in one
+world would share it. This is the case `SHOT-PROTOCOL.md` says the within-run instrument cannot
+reach. What carries the miss claim is the 324-flight forensics that established the step-to-miss
+relation in the first place, not this pair.
+
+**The remaining 8.80 km is the second branch**, below, and it is now the largest thing at long
+range.
 
 **The second branch needs no warp and stays open.** Even on a clean burn, `owed at the split` is
 1.56 m/s at 12,902 km against 0.49 at 2,000, and about half the time that trips the same 20 s
@@ -186,8 +203,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 
 | # | Do | Cost | Worth |
 | --- | --- | --- | --- |
-| **1** | **Diagnostic**: log how many other computers need short steps when the warp fires | 1 shot | confirms or kills item 1 |
-| **2** | **Fix**: fold `!NeedsShortSteps` over every computer, as `WorldSpeed.Slowest` does | 12 paired shots | 12,902 km: **6,664 -> ~85 m** on the clean cell |
+| ~~1~~ | ~~Diagnostic: log what a warp was started over the top of~~ | done | confirmed: 6 others burning |
+| ~~2~~ | ~~Fix: fold `!NeedsShortSteps` over every computer~~ | done | 8 of 8 at 33 ms; median 32.34 -> 8.80 km on one pair |
+| **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
 | **3** | **Diagnostic**: log the release residual and `_response` per flight, unconditionally | 0 shots | the budget cannot be closed without it |
 | **4** | Measure `dMiss/dV` at both flown geometries in `ErrorBudgetTests` | 0 shots, minutes | settles what the residual is worth; every other item's interpretation depends on it |
 | **5** | Derive `HoldingCostsMetresPerSecond` from flight time and arrival angle | 12 paired shots | 2,000 km: **99 -> plausibly 10-30 m** |
