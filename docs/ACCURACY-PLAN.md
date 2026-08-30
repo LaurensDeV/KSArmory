@@ -169,6 +169,48 @@ above says that on a latched arrival "the impact moves several times further —
 is above the stability limit". The arithmetic favours `Observe`: 36 km of miss times the 0.53 m/s
 per km aim cost is 19.1 m/s of pass-one demand, against a recorded 19.26.
 
+## 3b. The aim correction never runs, and that is load-bearing — flown 2026-08-30
+
+Instrumenting the loop's own state settled what the terminator table could not.
+
+```
+#0   miss 10153.72 km   best 9112.73   resp 4.00   bias 0 -> 300.00 km   worse 0
+#1   miss 12281.31 km   best 9112.73   resp 4.00   bias 300 -> 300       worse 1
+      ... eleven more, all before launch ...
+#12  miss 12235.79 km   best 9112.73   resp 1.00   bias 300 -> 0.00      worse 12   <- Settled
+#470 miss     4.57 km   best 9112.73   resp 1.00   bias   0 -> 0         worse 12
+```
+
+The first observation lands **33 ms after arming, at `Rising at 0 km`**. A stationary rocket's
+ballistic impact is where it stands, so the miss reads as the whole distance to the target.
+`AimCorrection` clamps its step to the 300 km reach, twelve such readings trip
+`WorseBeforeStopping`, the bias reverts to zero and `Settled` holds for the remaining 460
+observations. All eight flights, every long-range shot: `worse for 12`, final bias 0. `Settled` is
+also what commits the arrival.
+
+**And the shot landed 8 of 8 at 70-397 m with the loop dead** — the best long-range result recorded
+here. So the correction contributes nothing, and every long-range gain today came from elsewhere.
+
+### The obvious fix loses by three orders of magnitude
+
+Gating the loop on the flight phase — no observation before the pitch programme — was flown and put
+**every flight at 303-309 km**. The bias ends pinned at its 300 km clamp instead of reverting to
+zero, and the shots land 300 km plus their usual miss away. Two things were wrong: the gate does not
+even fire, because the first reading is still 12,096 km once `PitchProgram` starts; and **the zero
+bias the dead loop reverts to is what was saving the shot**.
+
+Same shape as **7g**, where never freezing the aim was ranked an obvious fix and lost 5.7x. Reverted.
+
+### What the question actually is
+
+Not *when should the loop start observing* but **why is the predicted impact wrong for the whole
+ascent, and still 4.57 km out at the last observation of a shot that lands at 198 m**. The loop is
+faithful to an observer that is lying to it, and `AimCorrection` cannot be tuned out of that.
+
+`AimCorrection.Response` never leaves {1.00, 4.00} — the two seed values — across 3,837 observations.
+Either the plant estimate at `AimCorrection.cs:227` never fires, or it pegs at `MinResponse`. The
+instrument does not yet separate those, and it is the next thing to ask.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
