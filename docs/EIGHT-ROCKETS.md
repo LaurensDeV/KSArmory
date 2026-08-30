@@ -43,8 +43,12 @@ is a drawing problem rather than a guidance one — see *What is not worth doing
 
 ## What limits the accuracy
 
-**The rocket's place in the roster, by 175x.** Over 18 shots the first rocket lands at a median
-**0.09 km** and the eighth at **15.81 km**, monotone, across every arm — `docs/MIRV-NEXT.md` **8y**.
+**~~The rocket's place in the roster, by 175x.~~ Gone, and the interlock is why.** Over 18 shots at
+12,902 km the first rocket landed at a median **0.09 km** and the eighth at **15.81 km**, monotone,
+across every arm — `docs/MIRV-NEXT.md` **8y**. Re-measured 2026-08-30 over 96 flights with twelve in
+every seat: **rho=-0.09, p=0.357**, seat medians 72-117 m in no order at all. The mechanism below is
+what says it is the interlock rather than the shorter range — clearance abandonments went 87 of 144
+to **nought of 96**.
 It is not the burn: the cutoff residual is flat at 0.2-0.4 m/s and every computer predicts the same
 4.60 km. It is `SeparationClearance` abandoning the trim on **87 of 144 flights**, which returns
 early and applies no aim correction at all. A correction that runs lands at 1.4-3.8 km; one
@@ -139,7 +143,13 @@ reaches a natural finish lands at 60 m** and one cut off lands at 10–12 km. Tw
 on nine flights across both arms. Everything on this list is really about how many corrections
 finish.
 
-**2. `AimWithinTrimBudget`.** Still unflown against a baseline.
+**2. `AimWithinTrimBudget`.** Flown 2026-08-30 on the fixed instrument: **0.85x, 9 of 12,**
+sign p=0.146, interval [0.53, 1.14] — unresolved, and the only arm on this list that has
+never lost. `docs/MIRV-NEXT.md` **8ai**. Reaching p<=0.05 from a 0.75 win rate wants about
+twenty-four shots, which is why the next twelve have to be **declared in advance as one
+experiment of 24** rather than flown and pooled: at n=12 a sign test *can* reach 0.05, so
+unlike 8ag's five-shot look this one was capable of stopping and continuing after it is real
+optional stopping.
 
 `TrimCeilingFromBudget` drops the `Cycles > 0` guard on the per-pass ceiling: it asks whether the
 *aim* has moved when the question is whether the *bus* has separated, and 11 of 14 flown trims were

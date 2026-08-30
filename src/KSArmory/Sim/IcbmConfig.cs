@@ -294,7 +294,10 @@ internal sealed class IcbmConfig
     /// 200 km, this clamps it and the shot still misses, with the propellant unspent rather than
     /// wasted.</para>
     ///
-    /// <para><b>Off, and off is what ships.</b> Unflown.</para>
+    /// <para><b>Off, and off is what ships.</b> Twelve paired shots at 2,000 km put it at
+    /// <b>0.85x</b> over the shipped default, 9 wins of 12, sign p=0.146 — the interval is
+    /// [0.53, 1.14], so it rules out anything worse than 1.14x and does not rule out nothing at
+    /// all. It is the only setting here that has never lost.</para>
     /// </summary>
     public bool AimWithinTrimBudget;
 

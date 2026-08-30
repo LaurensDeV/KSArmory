@@ -5097,6 +5097,60 @@ reading, and **the roster gradient is not there** — rocket eight is the best o
 against a monotone 175x from first to last at 12,902 km. Neither is claimed from one shot; both are
 now measurable, which they were not while five flights in eight produced no number at all.
 
+## 8ai. The instrument at full power, and what it says — flown 2026-08-30
+
+Twelve paired shots at 2,000 km, `base` (the shipped default, interlock on) against
+`aimbudget:AimWithinTrimBudget=true`. `~/shots/2026-08-30-1818`.
+
+**96 flown, 96 usable.** Every rocket in every shot produced a number, which has never happened
+before: the same geometry a day earlier gave 36 of 96. Median miss **0.10 km**, range **0.01 to
+0.33**.
+
+### The arm: unresolved, and the only one that has never lost
+
+| | |
+| --- | --- |
+| ratio | **0.85x** [0.53, 1.14] at 97% |
+| paired shots won | 9 of 12 |
+| sign | p = 0.146 |
+| signed-rank | p = 0.129 |
+
+Per shot: 0.96, 0.46, 0.96, 0.84, 1.14, 1.77, 1.32, 0.47, 0.86, 0.53, 0.68, 0.81.
+
+It stays **off**. What the interval rules out is anything worse than 1.14x; what it does not rule
+out is nothing at all.
+
+**And the next twelve shots have to be declared in advance as one experiment of twenty-four.** At
+n=12 a sign test can reach 0.05 — ten wins gives 0.039 — so this look was capable of stopping, and
+continuing after seeing 9 of 12 is optional stopping with real inflation. That is the opposite of
+8ag, where a five-shot look could not reach 0.0625 and therefore could not have stopped. Either
+pre-declare 24 and test only there, or simulate the two-look rule the way 8ag's was simulated.
+
+### The roster gradient is gone
+
+**8y's 175x is not there any more.** Twelve flights in every one of the eight seats:
+
+| seat | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| median m | 98 | 85 | 112 | 117 | 114 | 75 | 95 | 72 |
+
+`rho = -0.09, p = 0.357`. No trend, and the eighth seat is the best of the eight.
+
+8y attributed the gradient to `SeparationClearance` abandoning the trim on 87 of 144 flights, and
+the terminator table is what says that attribution was right: **nought of 96 clearance endings**,
+against 9 of 11 for the same baseline before `KeepOutCoversTheClearance` shipped. 93 of 96
+corrections ended on `payback`, which is the loop converging.
+
+This is at 2,000 km and 8y was at 12,902, so the range is a confound for the gradient's *size*. The
+mechanism is not confounded: the ending that caused it no longer occurs.
+
+### The slow-regime threshold never measured what it was named for
+
+The report warned that a session at or above 24 ms a frame ran 0.24 correction passes and could not
+measure an arm acting on the loop. Across every run on disk **29.8 ms gave 0 passes on one night and
+2 on another** — so the frame time does not predict it. The passes are in the log and are now read
+directly. Tonight: 29.8 ms, 2 passes, 0.10 km.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
