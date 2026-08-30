@@ -446,6 +446,55 @@ def _sign_p(better, worse):
     return min(1.0, 2.0 * tail / total)
 
 
+def wilcoxon_p(values):
+    """Two-sided exact signed-rank p for 'these differences are centred on zero'.
+
+    The sign test throws the magnitudes away, and for an arm whose wins are large and whose losses
+    are small that is most of the evidence: 15 of 24 is p=0.307 on signs alone while the same shots
+    carry a reproducible 0.76x. This keeps the magnitudes and still assumes nothing about the
+    distribution's shape.
+
+    Exact rather than normal-approximated, because n here is a couple of dozen and the tail is
+    where the answer lives. The null distribution of the signed-rank sum is the coefficient list of
+    the product of (1 + x^i), which is a few hundred integers at this size.
+    """
+    v = [x for x in values if x != 0.0]
+    n = len(v)
+    if n == 0:
+        return 1.0
+
+    ranks = _ranks([abs(x) for x in v])
+    w = sum(r for x, r in zip(v, ranks) if x > 0)
+
+    # Coefficients of prod(1 + x^r): counts[k] is how many sign assignments give rank sum k.
+    counts = [1]
+    for r in ranks:
+        shifted = [0] * int(r) + counts
+        counts = counts + [0] * int(r)
+        counts = [a + b for a, b in zip(counts, shifted)]
+
+    total = sum(counts)
+    centre = sum(ranks) / 2.0
+    tail = sum(c for k, c in enumerate(counts) if abs(k - centre) >= abs(w - centre) - 1e-9)
+    return min(1.0, tail / total)
+
+
+def _ranks(values):
+    """Ranks from 1, ties given their average -- which is what the signed-rank test needs."""
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    out = [0.0] * len(values)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        share = (i + j) / 2.0 + 1.0
+        for k in range(i, j + 1):
+            out[order[k]] = share
+        i = j + 1
+    return out
+
+
 def _median_interval(values):
     """A distribution-free interval for the median, from the same binomial the sign test uses."""
     v = sorted(values)
@@ -589,11 +638,17 @@ def paired(root, shots):
 
         point, lo, hi = _median_interval(ratios)
         p = _sign_p(wins, losses)
+        w = wilcoxon_p(ratios)
+
+        # The rank test is the one to read. The sign test is kept beside it because it assumes less
+        # and because every number in docs/MIRV-NEXT.md before 8af was scored on it.
+        best = min(p, w)
 
         print(f"   {name} vs {base}: {math.exp(point):.2f}x"
               f"   [{math.exp(lo):.2f}, {math.exp(hi):.2f}] at {int((1 - ALPHA) * 100)}%")
-        print(f"      won {wins} of {len(ratios)} paired shots, p={p:.3f}"
-              + ("   RESOLVED" if p <= 0.05 else "   unresolved"))
+        print(f"      won {wins} of {len(ratios)} paired shots, "
+              f"sign p={p:.3f}, signed-rank p={w:.3f}"
+              + ("   RESOLVED" if best <= 0.05 else "   unresolved"))
         print("      per shot: "
               + ", ".join(f"{math.exp(r):.2f}" for r in ratios))
         print()

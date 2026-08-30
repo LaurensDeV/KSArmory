@@ -4919,6 +4919,60 @@ corrections, the aim reaches its own steadiness criterion first, and the shot re
 That makes `AimCorrection.SteadyMetres` the constant to look at, and it makes the question
 "which rule stops the loop" more important than any of the settings flown so far.
 
+## 8af. The interlock reproduces at 0.76x twice and will not resolve — flown 2026-08-30
+
+Twelve more paired shots, `base` against `interlock` alone, `~/shots/interlock-more`, pooled with
+8ae's twelve.
+
+| | median ratio | won | p |
+| --- | --- | --- | --- |
+| 8ae's twelve (three arms) | 0.76x | 7 of 12 | 0.774 |
+| this twelve (two arms) | **0.77x** | 8 of 12 | 0.388 |
+| **pooled, 24 paired shots** | **0.76x** | **15 of 24** | **0.307** |
+
+Geometric mean 0.85x. **Unresolved**, and a sign test at n=24 needs **18 wins** — so a change that
+truly wins about five shots in eight cannot be resolved by this test at this many shots, which is
+what 15 of 24 is.
+
+### It reproduces, which is the part worth having
+
+0.76 and 0.77 on separate runs, separate sessions, one flown as three arms and one as two. Two
+independent estimates of the same number is a stronger statement about the effect than either
+p-value is, and the sign test is simply the wrong instrument for a 24% shift: it throws away
+magnitude, and the arm's wins are large (0.03, 0.26, 0.33) while its losses are mostly small (1.04,
+1.10, 1.29) with two outliers doing all the damage.
+
+### And it converges more often, which is a count
+
+| arm | budget | clearance | clock | payback | trim |
+| --- | --- | --- | --- | --- | --- |
+| `base` | 4 | 25 | 0 | 12 | 7 |
+| `interlock` | 5 | **0** | 7 | **16** | 20 |
+
+Every abandonment gone for a third time, and **16 corrections converged against 12** — the first
+arm ever flown here to raise that count. `payback` lands at 0.06 km again, now over 28 flights.
+
+### What to do about the statistic, which is now the binding problem
+
+The endpoint is a group miss whose shot-to-shot spread is a factor of several, and a 0.76x effect is
+under it. Three ways out, in order of what they cost:
+
+1. ~~**Score on a rank test rather than a sign test.**~~ **Built, and it does not resolve it
+   either.** Exact Wilcoxon signed-rank over the 24 pooled shots gives **p=0.206** against the sign
+   test's 0.307 — better, because the arm's wins are large and its losses small, and still short.
+   `shot-report.py` now prints both and reads the smaller. Worth having and not the answer.
+2. **Score the count, not the miss.** `payback` against everything else is a 2x2 table over 96
+   flights and separates far faster than a median does — 16 of 48 against 12 of 48 here, and it is
+   the thing the change actually moves.
+3. **More shots**, which needs 18 of 24 and is the least likely to arrive.
+
+**Nothing about the arm needs flying again before the endpoint is changed.** It has 24 paired shots
+behind it and two agreeing estimates, and neither test can see a 0.76x against a group miss whose
+shot-to-shot spread is a factor of several. **The endpoint is the problem, not the test** — which
+leaves option 2, scoring the count of corrections that converge rather than the miss, as the one
+route not yet tried. It is what the change actually moves: 16 of 48 against 12 of 48 here, 11 of 32
+against 12 in 8ae, and every abandonment removed in all three runs.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
