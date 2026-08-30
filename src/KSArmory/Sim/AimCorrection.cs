@@ -114,6 +114,22 @@ internal sealed class AimCorrection
     public const double SteadyMetres = 2_000.0;
 
     /// <summary>
+    /// What a metre of aim was last measured to move the impact by — the loop's own plant estimate,
+    /// and the divisor every step is sized by.
+    ///
+    /// <para>Readable because it is the one number that separates a loop converging from one walking
+    /// outward, and nothing else reports it. A step is <c>error / this</c>, so a low estimate is a
+    /// large step: at <see cref="MinResponse"/> the loop takes the whole error at once.</para>
+    /// </summary>
+    public double Response => _response;
+
+    /// <summary>The best miss the loop has seen, which is the aim it will revert to.</summary>
+    public double BestMissMetres => _bestMiss;
+
+    /// <summary>How many readings worse than that best have accumulated.</summary>
+    public int WorseFor => _worseFor;
+
+    /// <summary>
     /// How far the aim may actually go: the sanity limit, or what the bus can pay for if that is
     /// nearer. An unset or unusable affordability leaves <see cref="MaxMetres"/> standing rather
     /// than clamping the correction to nothing.

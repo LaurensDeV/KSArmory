@@ -2226,7 +2226,19 @@ internal sealed class IcbmComputer
                 && (Program.IsBurning || _measureDue))
             {
                 PriceTheAim(state);
+
+                double biasWas = Vec.Len(_aim.BiasCci);
                 _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
+
+                // The loop's own state, which nothing else reports. A demand that grows pass over
+                // pass and a step sized by a response stuck at the clamp's floor are the same
+                // reading, and without this they are indistinguishable from a shot that simply
+                // wants a large correction.
+                Log.Debug($"aim loop on {KsaWorld.DisplayName(Craft)}: "
+                          + $"{PredictedMissMetres / 1000.0:F2} km out, best "
+                          + $"{_aim.BestMissMetres / 1000.0:F2}, response {_aim.Response:F2}, "
+                          + $"bias {biasWas / 1000.0:F1} -> {Vec.Len(_aim.BiasCci) / 1000.0:F1} km, "
+                          + $"worse for {_aim.WorseFor}");
 
                 if (!Program.IsBurning)
                 {
