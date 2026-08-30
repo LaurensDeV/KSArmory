@@ -171,6 +171,12 @@ public class ShotArmsTests
         IcbmConfig shipped = new();
 
         Assert.False(shipped.TrimCeilingFromBudget);
+        Assert.False(shipped.AimWithinTrimBudget);
+
+        // The one that is on, because it is the one that was resolved: 11 of 13 paired shots at
+        // p=0.022. A baseline arm naming nothing therefore ships WITH it, which is what makes it
+        // the baseline rather than a fourth variant.
+        Assert.True(shipped.KeepOutCoversTheClearance);
 
         ShotArms arms = Parse("base|ceiling:TrimCeilingFromBudget=true");
         Assert.True(ShotArms.TryApply(arms.For(0), shipped, out _));

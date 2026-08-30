@@ -316,10 +316,17 @@ internal sealed class IcbmConfig
     /// every direction withheld the trim waits, which is what the timeout wanted, and
     /// <see cref="BusTrim.MaxSeconds"/> and the budget bound the wait.</para>
     ///
-    /// <para><b>Off, and off is what ships.</b> It has been flown as a branch and removed every
-    /// abandonment; what it lost to then was the correction loop diverging and releasing on the
-    /// worst aim it found, and <c>AimCorrection.Freeze</c> keeping the best bias has landed since.
-    /// It has never been flown against a baseline in the same world.</para>
+    /// <para><b>On, and the only setting in this file resolved by flight.</b> Thirteen paired shots
+    /// at 2,000 km, arms alternating within each world: <b>11 wins, median 0.49x, sign p=0.022 and
+    /// signed-rank p=0.017</b>, with every one of 21 abandonments removed. The two runs were flown
+    /// separately and pooled, and the interim look could not have stopped early — at five shots the
+    /// smallest reachable p is 0.0625 — so the stopping rule's true false-positive rate is 2.3%
+    /// against a nominal 5%, measured rather than argued. <c>docs/MIRV-NEXT.md</c> <b>8ag</b>.</para>
+    ///
+    /// <para>It has never been observed to hurt. Across five nights it removes every abandonment
+    /// and converts them into corrections that run, and the mechanism was understood before the
+    /// statistics arrived — which is the opposite way round from the three settings beside it that
+    /// lost.</para>
     /// </summary>
-    public bool KeepOutCoversTheClearance;
+    public bool KeepOutCoversTheClearance = true;
 }

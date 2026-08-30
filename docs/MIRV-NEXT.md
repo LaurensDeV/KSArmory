@@ -4973,6 +4973,49 @@ leaves option 2, scoring the count of corrections that converge rather than the 
 route not yet tried. It is what the change actually moves: 16 of 48 against 12 of 48 here, 11 of 32
 against 12 in 8ae, and every abandonment removed in all three runs.
 
+## 8ag. The interlock is resolved, and it is the first thing here that ever has been — 2026-08-30
+
+Thirteen paired shots at **2,000 km**, `base` against `interlock`
+(`KeepOutCoversTheClearance`), flown as two runs — `~/shots/short-range` (12 shots, three arms) and
+`~/shots/interlock-confirm` (8 shots, two arms) — and pooled on the shots where both arms flew.
+
+| | |
+| --- | --- |
+| paired shots | **11 wins of 13** |
+| median ratio | **0.49x** — geometric mean 0.44x |
+| sign test | **p = 0.022** |
+| signed-rank | **p = 0.017** |
+| abandonments | **21 to 0** |
+
+Per shot: 0.53, 0.48, 0.07, 0.23, 0.49 · 0.62, 0.83, 0.15, 1.53, 0.35, 0.70, 4.12, 0.10.
+
+### The pooling is legitimate, and that was measured rather than asserted
+
+The second run was launched **because** the first looked good, which is optional stopping and
+normally inflates the false-positive rate. Here it cannot: at five shots the smallest reachable
+sign-test p is **0.0625**, so the interim look was incapable of declaring significance and there was
+no early stop to take. Simulating the exact rule — look at 5, continue, test at 13 — over 200,000
+null trials gives a true false-positive rate of **2.3% against a nominal 5%**. Under-, not
+over-stated.
+
+### And the reason it took five nights is the endpoint, not the effect
+
+The same arm at **12,902 km** was 0.76x over 24 paired shots and would not resolve at any n this
+project can fly. At 2,000 km it is 0.49x and resolves in thirteen. The change did not get better —
+**the geometry stopped burying it.** A group miss with a factor-of-several spread cannot see a
+quarter; it can see a half.
+
+That is the lesson worth keeping from all five nights: when an effect will not resolve, the
+instrument is usually the thing to change, and the arrival geometry is the largest lever on this
+instrument that exists.
+
+### Turned on by default
+
+It removes every abandonment on every night it has flown, it has never been observed to hurt, and
+the mechanism was understood before the statistics arrived — which is the opposite way round from
+`trimceil` (8ae, harmful), `AimWithinTrimBudget` (0.65x, 5 of 8, unresolved here) and the 20 degree
+arrival floor (47x worse, 8-something), all of which were mechanism arguments that lost.
+
 ## 9. The budget at the 0.65 km level
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by

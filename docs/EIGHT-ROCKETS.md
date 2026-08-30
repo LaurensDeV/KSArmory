@@ -115,9 +115,10 @@ the loop run is not enough (8ad), and letting it spend more is actively worse (8
 `trimceil` 25 of 32 ended with the aim settled 6.91 km out, which is the correction stopping while
 still wrong.
 
-**2. `interlock` alone is the best arm ever flown here** and is still unresolved: 0.76x, 7 of 12
-shots, p=0.774, interval [0.41, 2.55]. It preserves `payback` and removes every abandonment. A 24%
-effect needs more shots than a sign test over twelve can give.
+**2. ~~`interlock` alone is unresolved.~~ RESOLVED, and shipped on — `docs/MIRV-NEXT.md` 8ag.**
+Thirteen paired shots at 2,000 km: 11 wins, median **0.49x**, sign p=0.022, signed-rank p=0.017,
+every one of 21 abandonments removed. The same arm at 12,902 km was 0.76x over 24 shots and would
+not resolve — **the geometry was burying it**, which is the lesson of all five nights.
 
 **3. The old ranking, kept for its reasoning.** `docs/MIRV-NEXT.md`
 **8ad** flew `KeepOutCoversTheClearance` paired against a baseline: **22 abandonments to nought**
