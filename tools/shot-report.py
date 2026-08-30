@@ -266,6 +266,12 @@ def split_flights(out_path, log_path):
         if a:
             rec["arrived"], rec["released"] = int(a.group(1)), int(a.group(2))
 
+        # Where this rocket sat in the roster. 8y measured a 175x gradient down it -- first rocket
+        # 0.09 km, eighth 15.81 km, monotone across every arm -- and every arm comparison since has
+        # had to be laid out so both variants sit on both ends of it. Kept so a run can say whether
+        # the gradient is still there rather than assuming the finding of one night.
+        rec["seat"] = i
+
         out.append((rec, chr(ord("a") + i) if i < 26 else f".{i}", craft))
 
     for rec, _suffix, craft in out:
@@ -552,11 +558,25 @@ def _say_regime(shots):
         said += f", {statistics.median(passes):.0f} correction pass(es) at the median shot"
     print(said)
 
+    # The frame time is a proxy; what it was ever a proxy FOR is whether the post-boost loop got to
+    # run. That is directly observable, so it is asked rather than inferred -- a session that ran the
+    # correction is a session an arm acting on the correction can be measured in, however slow the
+    # frames were. Before KeepOutCoversTheClearance shipped the two were the same question: a slow
+    # night ran 0.24 passes a flight against 1.4 in a fast one and landed 20.5 km against 9.3.
     if dt >= SLOW_FRAME_MS:
-        print(f"   WARNING: at or above {SLOW_FRAME_MS:.0f} ms this session is in the slow regime.")
-        print("   Every night flown there ran the post-boost correction 0.24 passes a flight against")
-        print("   1.4 in the fast one, and landed 20.5 km against 9.3. An arm that acts on that loop")
-        print("   cannot be measured here, and a null from this session is not a null result.")
+        ran = statistics.median(passes) if passes else 0.0
+
+        if ran >= 1.0:
+            print(f"   NOTE: {dt:.0f} ms is the old slow regime, but the loop ran anyway "
+                  f"({ran:.0f} passes at the median shot).")
+            print("   That threshold was calibrated when a slow night meant the correction did not")
+            print("   run at all. It does now, so this session is readable.")
+        else:
+            print(f"   WARNING: at or above {SLOW_FRAME_MS:.0f} ms this session is in the slow "
+                  "regime, and")
+            print(f"   the median shot ran {ran:.1f} correction passes. An arm that acts on that")
+            print("   loop cannot be measured here, and a null from this session is not a null")
+            print("   result.")
     print()
 
 
@@ -653,11 +673,152 @@ def paired(root, shots):
               + ", ".join(f"{math.exp(r):.2f}" for r in ratios))
         print()
 
+    _say_seats(shots)
     _say_terminators(shots, order)
 
     if len(groups) < 6:
         print(f"   NOTE: {len(groups)} shots cannot reach p<=0.05 on a sign test. Six is the floor,")
         print("   and that is only if the variant wins every one of them.")
+
+
+def _say_seats(shots):
+    """What each seat in the roster was worth, and whether the gradient down it is still there.
+
+    8y found a 175x spread between the first rocket and the eighth, monotone, across every arm --
+    a term far larger than anything being tested, which is the whole reason arms alternate down the
+    roster rather than sitting in blocks. It is not a law: it was attributed to SeparationClearance
+    abandoning the trim, which KeepOutCoversTheClearance removes. So it is worth re-reading rather
+    than carrying forward, and it costs nothing to ask of a run already flown.
+
+    Reported as a rank correlation because the claim is monotone rather than linear, and the
+    interesting answer is "no trend" as much as a number.
+    """
+    rows = [s for s in shots if s.get("seat") is not None and usable(s)]
+    seats = sorted({s["seat"] for s in rows})
+    if len(seats) < 3:
+        return
+
+    print("   what each seat in the roster was worth")
+    print(f"   {'seat':>6}{'n':>5}{'median km':>12}")
+    for i in seats:
+        got = [s["mean"] for s in rows if s["seat"] == i]
+        if got:
+            print(f"   {i + 1:>6}{len(got):>5}{statistics.median(got):>12.3f}")
+
+    rho, p = _spearman([s["seat"] for s in rows], [s["mean"] for s in rows])
+
+    if math.isnan(rho):
+        print()
+        return
+
+    print(f"   rank correlation seat vs miss: rho={rho:+.2f}, p={p:.3f}"
+          + ("   the gradient is still there" if p <= 0.05 and rho > 0
+             else "   no gradient at this n"))
+    print()
+
+
+def _spearman(xs, ys):
+    """Spearman's rho and a normal-approximation two-sided p. NaN when it cannot be computed."""
+    n = len(xs)
+    if n < 4:
+        return float("nan"), float("nan")
+
+    rx, ry = _ranks(xs), _ranks(ys)
+    mx, my = statistics.fmean(rx), statistics.fmean(ry)
+
+    num = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    den = math.sqrt(sum((a - mx) ** 2 for a in rx) * sum((b - my) ** 2 for b in ry))
+
+    if den <= 0.0:
+        return float("nan"), float("nan")
+
+    rho = num / den
+
+    # The t approximation, which is what everything else here would use at this n.
+    if abs(rho) >= 1.0:
+        return rho, 0.0
+
+    t = rho * math.sqrt((n - 2) / (1.0 - rho * rho))
+    return rho, 2.0 * (1.0 - _student_cdf(abs(t), n - 2))
+
+
+def _ranks(values):
+    """Fractional ranks, so ties do not bias the correlation."""
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    out = [0.0] * len(values)
+
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        shared = (i + j) / 2.0 + 1.0
+        for k in range(i, j + 1):
+            out[order[k]] = shared
+        i = j + 1
+
+    return out
+
+
+def _student_cdf(t, df):
+    """Student's t CDF via the regularised incomplete beta, which math.lgamma gives cheaply."""
+    x = df / (df + t * t)
+    return 1.0 - 0.5 * _betainc(0.5 * df, 0.5, x)
+
+
+def _betainc(a, b, x):
+    """Regularised incomplete beta, by the continued fraction in Numerical Recipes."""
+    if x <= 0.0:
+        return 0.0
+    if x >= 1.0:
+        return 1.0
+
+    front = math.exp(math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+                     + a * math.log(x) + b * math.log(1.0 - x))
+
+    if x < (a + 1.0) / (a + b + 2.0):
+        return front * _betacf(a, b, x) / a
+
+    return 1.0 - math.exp(math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+                          + b * math.log(1.0 - x) + a * math.log(x)) * _betacf(b, a, 1.0 - x) / b
+
+
+def _betacf(a, b, x):
+    tiny = 1e-30
+    qab, qap, qam = a + b, a + 1.0, a - 1.0
+    c, d = 1.0, 1.0 - qab * x / qap
+    if abs(d) < tiny:
+        d = tiny
+    d = 1.0 / d
+    h = d
+
+    for m in range(1, 200):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        if abs(d) < tiny:
+            d = tiny
+        c = 1.0 + aa / c
+        if abs(c) < tiny:
+            c = tiny
+        d = 1.0 / d
+        h *= d * c
+
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        if abs(d) < tiny:
+            d = tiny
+        c = 1.0 + aa / c
+        if abs(c) < tiny:
+            c = tiny
+        d = 1.0 / d
+        delta = d * c
+        h *= delta
+
+        if abs(delta - 1.0) < 3e-7:
+            break
+
+    return h
 
 
 def _say_terminators(shots, order):
