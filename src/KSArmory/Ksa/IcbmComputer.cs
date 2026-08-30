@@ -28,6 +28,10 @@ internal sealed class IcbmComputer
     // holds the world down through both, so a simulated interval is a real one here.
     private const double PredictIntervalSeconds = 0.5;
 
+    // Every other computer being integrated this frame, refreshed by the roster before any of them
+    // steps. Empty when nobody handed one in, which is every path but the roster's.
+    private IReadOnlyList<IcbmComputer> _busyElsewhere = [];
+
     // How often it is re-flown when nothing but the readout wants it, in REAL seconds. Paced by
     // simulated time it runs every frame at warp, and each pass re-flies a whole trajectory at
     // PredictStepSeconds with a terrain lookup per step -- so on a warped coast, which is most of a
@@ -417,10 +421,12 @@ internal sealed class IcbmComputer
     /// <see cref="WarheadTrace"/> — measurement only, and off unless somebody asked for it.
     /// </param>
     public void Update(double simStep, double playerStep, IManualFire? release,
-                       bool traceWarhead = false)
+                       bool traceWarhead = false,
+                       IReadOnlyList<IcbmComputer>? busyElsewhere = null)
     {
         if (!KsaWorld.IsAlive(Craft)) return;
 
+        _busyElsewhere = busyElsewhere ?? [];
         _traceWanted = traceWarhead;
 
         // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
@@ -700,8 +706,35 @@ internal sealed class IcbmComputer
 
         _warpIsOurs = true;
         Log.Info($"warping to within {IcbmProgram.Clock(margin)} of {what} on "
-                 + $"{KsaWorld.DisplayName(Craft)}, {IcbmProgram.Clock(wait)} to go");
+                 + $"{KsaWorld.DisplayName(Craft)}, {IcbmProgram.Clock(wait)} to go{OverTheTopOf()}");
         return true;
+    }
+
+    // What else in the world was still being integrated when this warp started. An auto-warp is
+    // world-wide and WarpPolicy cannot rein one in, so every name here is a flight that is about to
+    // be stepped at whatever rate KSA picked for somebody else's coast.
+    private string OverTheTopOf()
+    {
+        int others = 0;
+
+        for (int i = 0; i < _busyElsewhere.Count; i++)
+        {
+            if (!ReferenceEquals(_busyElsewhere[i], this)) others++;
+        }
+
+        if (others == 0) return " -- nothing else needs short steps";
+
+        List<string> names = [];
+
+        for (int i = 0; i < _busyElsewhere.Count; i++)
+        {
+            if (!ReferenceEquals(_busyElsewhere[i], this))
+            {
+                names.Add(KsaWorld.DisplayName(_busyElsewhere[i].Craft));
+            }
+        }
+
+        return $" -- OVER THE TOP OF {others} still needing short steps: {string.Join(", ", names)}";
     }
 
     /// <summary>Whether the window is far enough away for warping to it to be worth offering.</summary>

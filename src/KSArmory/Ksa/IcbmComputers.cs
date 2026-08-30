@@ -23,6 +23,10 @@ internal sealed class IcbmComputers(Config session)
     private readonly Dictionary<Vehicle, IcbmComputer> _computers = [];
     private readonly List<Vehicle> _stale = [];
 
+    // Who is mid-burn or mid-trim this frame, worked out once and handed to every computer. Reused
+    // rather than rebuilt, because it is walked every frame of every flight.
+    private readonly List<IcbmComputer> _busy = [];
+
     public int Count => _computers.Count;
 
     public IEnumerable<IcbmComputer> All => _computers.Values;
@@ -130,9 +134,20 @@ internal sealed class IcbmComputers(Config session)
     public void Update(double simStep, double playerStep, WeaponSystems weapons,
                        bool traceWarhead = false)
     {
+        // Before any of them steps. There is one world and one clock, so whether it is safe to hand
+        // that clock to KSA's warp is a question about every flight in it -- the same shape as
+        // Sim/WorldSpeed.cs, and the same reason. Asked here because a computer knows only itself.
+        _busy.Clear();
+
         foreach (IcbmComputer computer in _computers.Values)
         {
-            computer.Update(simStep, playerStep, weapons.For(computer.Craft)?.Battery, traceWarhead);
+            if (computer.NeedsShortSteps) _busy.Add(computer);
+        }
+
+        foreach (IcbmComputer computer in _computers.Values)
+        {
+            computer.Update(simStep, playerStep, weapons.For(computer.Craft)?.Battery, traceWarhead,
+                            _busy);
         }
     }
 
