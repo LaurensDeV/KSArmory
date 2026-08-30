@@ -4876,9 +4876,31 @@ catastrophes in twelve is not a distribution anyone should fly again.
 pass would cost more than it gains lands at sixty metres, and every other ending lands at 6 to 14 km.
 Two orders of magnitude, three independent nights, two different instruments.
 
-**The whole accuracy problem is now one question: how to make more corrections end on `payback`.**
-Not "make the loop run" — 8ad settled that, and running is not enough. Not "let it spend more" —
-this item settles that, and spending more replaces the good ending with a worse one.
+### And `payback` is a symptom, not a cause — read the rule before ranking anything on it
+
+`PostBoostAim`'s payback test is
+
+```
+nextCycleCosts = lastCycleSeconds * HoldingCostsMetresPerSecond   // 26 m/s
+if (predictedMiss <= nextCycleCosts) -> payback
+```
+
+With `FirstCycleSeconds` at 6, that fires when the predicted miss is **already under about 156 m**.
+So `payback` does not make a shot land at sixty metres. It is *defined* as the loop noticing the
+shot is already there, and the 0.06 km median is the selection effect of a rule that only fires on
+shots that have converged.
+
+**Which means "make more corrections end on payback" is not a plan** — it would relabel shots, not
+move them. The terminator table says *whether a correction converged*, and only that. It is still
+the most useful thing this instrument produces, and it is a diagnosis rather than a lever.
+
+The question it leaves is the one it always was: **why do most corrections not converge?** What this
+night adds is that `trimceil` makes that worse in a specific way — 25 of 32 ended with the aim
+`settled` 6.91 km from the target, which is the correction stopping while still wrong rather than
+being cut off. That is a real regression and not a relabelling.
+
+*(Fifth instance of this file's own trap: a measurement answering a neighbouring question. The first
+draft of this item ranked the whole backlog on making payback fire more often.)*
 
 ### `interlock` is the best arm yet and still unresolved
 

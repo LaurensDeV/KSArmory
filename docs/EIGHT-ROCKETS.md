@@ -105,11 +105,15 @@ the baseline, converting every one into `settled`, which lands at 6.91 km where 
 0.06. It also threw four shots of twelve at 54x to 105x the baseline. Off by default and it stays
 off.
 
-**What that leaves is one question**, and it is the whole of the accuracy problem: **how to make
-more corrections end on `payback`**. Three nights and two instruments now agree it lands at 60 m
-while every other ending lands at 6 to 14 km. Making the loop *run* is not enough (8ad) and letting
-it *spend more* is worse (8ae). The next thing to look at is which rule stops it —
-`AimCorrection.SteadyMetres` against `PostBoostAim`'s payback test.
+**And `payback` is a symptom rather than a lever.** Its rule fires when the predicted miss is
+already under about 156 m — `lastCycleSeconds x HoldingCostsMetresPerSecond`, 6 x 26 — so its 0.06 km
+median is a selection effect and "make more shots end on payback" would relabel them rather than
+move them. The terminator table is a **diagnosis**: it says whether a correction converged.
+
+What is left is the question it has always been: **why do most corrections not converge?** Making
+the loop run is not enough (8ad), and letting it spend more is actively worse (8ae) — under
+`trimceil` 25 of 32 ended with the aim settled 6.91 km out, which is the correction stopping while
+still wrong.
 
 **2. `interlock` alone is the best arm ever flown here** and is still unresolved: 0.76x, 7 of 12
 shots, p=0.774, interval [0.41, 2.55]. It preserves `payback` and removes every abandonment. A 24%
