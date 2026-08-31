@@ -13,7 +13,7 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 | | 2,000 km | 12,902 km, before | 12,902 km, after |
 | --- | --- | --- | --- |
 | flights | 96 of 96 scoring | 324 across three nights | 8 per shot, all scoring |
-| median miss | **99 m** | **6,664 m** | **150-650 m**, by session |
+| median miss | **99 m** (30 m at a 6.5 m/s holding cost, 3l) | **6,664 m** | **150-650 m**, by session |
 | best shot | 52 m | — | **9 m**, group of 0.009-0.479 km |
 | p90 | 198 m | 28,652 m | — |
 | within a group of six | **5 m** | 6 m | 6 m |
@@ -625,6 +625,51 @@ precisely the shape that gets ignored until it destroys a bus.
 is clear — is what `KeepOutCoversTheClearance` already does, and it is a shipped setting flown at
 *87 of 144 flights abandoned*. Whether the keep-out should instead be enforced as a floor the trim
 may not cross is untested, and CLAUDE.md's rule applies: ship the diagnostic, not the guess.
+
+## 3l. The holding cost was four times too high, and it was the whole floor — flown 2026-08-31
+
+12 shots, 96 flights, `~/shots/2026-08-31-1634`, HEAD `cc6cc58`. Every arm flies the same 17.7 degree
+trajectory; only the payback threshold differs.
+
+| arm | m/s | first-cycle floor | pooled median | paired ratio | won | p | |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| base | 26.0 | 156 m | 0.12 km | — | — | — | |
+| h13 | 13.0 | 78 m | 0.09 km | 0.53x [0.36, 1.26] | 9 of 12 | 0.146 | unresolved |
+| **h6** | **6.5** | **39 m** | **0.03 km** | **0.26x** [0.16, 0.71] | **11 of 12** | **0.006** | **RESOLVED** |
+| h3 | 3.25 | 20 m | 0.03 km | 0.33x [0.13, 0.62] | 11 of 12 | 0.006 | RESOLVED |
+
+**120 m to 30 m at 2,000 km**, on a constant, with no change to the trajectory or the guidance. Two
+arms resolved independently at p=0.006.
+
+### The optimum is interior and both sides of it are visible
+
+| arm | `payback` | `trim` | `clock` | `noimprov` |
+| --- | --- | --- | --- | --- |
+| base | 24 | 0 | 0 | 0 |
+| h13 | 24 | 0 | 0 | 0 |
+| h6 | 22 | 0 | 1 | 1 |
+| **h3** | **20** | **3** | 0 | 1 |
+
+Above the optimum the loop stops early and every flight ends on `payback`. Below it the loop keeps
+correcting until something else stops it — `h3` loses three flights to the **trim running out**, and
+is worse than `h6` despite a floor half the size. That is the cost the constant exists to charge,
+appearing exactly where it should, which is what makes 6.5 an answer rather than "smaller is better".
+
+### What this says about the constant
+
+`HoldingCostsMetresPerSecond = 26.0` was derived from **one flight at one geometry** — an ejection
+kick worth 8.421 km at cutoff and 5.672 km at +106 s. At 2,000 km and 17.7 degrees it is about four
+times too high, and because the floor is linear in it the whole 120 m was that error.
+
+**Not made the default yet, and the reason is the finding itself.** 6.5 is now measured at one
+geometry, which is precisely how 26.0 got here. It needs a second range or arrival angle before it
+becomes a constant, and 3h's arms are the obvious ones to re-fly it against.
+
+**The principled fix is to stop hardcoding it.** The holding cost is the rate at which the ejection
+kick's leverage decays, and `ImpactPredictor` can measure that directly — predict the impact for a
+release now against one a second later and difference them. That is self-calibrating at every range
+and arrival angle, and it is the same move `Sim/Warhead.cs` makes for blast radii: derive the number
+rather than type it.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
