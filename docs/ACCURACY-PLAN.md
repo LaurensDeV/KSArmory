@@ -753,6 +753,51 @@ its contribution is not merely unmeasured but has no evidence of a route to act 
 The whole gain is attributable to the holding cost until an arm flies **1.4 with no cap**. That is
 one arm and it is the next thing to fly.
 
+## 3o. What is left is the trim's per-axis overhead — measured 2026-08-31
+
+Mined from 3n's 96 flights, no flying. Five things, each one closing off a lever.
+
+**1. The flown miss is the accepted miss, on every arm.** `payback` releases at
+`cycle x holding cost`, and what the loop agrees to is what lands:
+
+| arm | accepted | threshold | implied cycle | flown |
+| --- | --- | --- | --- | --- |
+| base | 108 m | 351 m | 13.5 s | 110 m |
+| h6 | 40 | 109 | 16.8 s | 40 |
+| h3b | 27 | 54 | 16.6 s | 30 |
+| h1b | **18** | **24** | **17.1 s** | **20** |
+
+**2. The miss is common mode, not dispersion.** Within-group spread is **0-5 m** against a 20 m group
+mean — the six warheads land on top of each other. Every per-warhead term is therefore irrelevant at
+this scale: release dispersion, tube cant, the round's sub-step. `docs/METRE-LEVEL.md`'s B5 and B3
+are not what is in the way.
+
+**3. The cycle is 16.8 s and 99.3% of it is the trim firing.** 0.0 s before the first burst, 0.0 s
+after the last. **There is no dead time to reclaim** — 3e's wait for a flown reading is not a wait,
+it is the trim working, so shortening it recovers nothing and reintroduces the double read.
+
+**4. Three axes a pass, one at a time.** Median 3 distinct directions per correction, which
+`Sim/BusTrim.cs` fires sequentially on purpose: the stop threshold is half a frame of a thrust only
+measurable along the direction being fired.
+
+**5. And the cycle does not shrink as the corrections do** — 17.9 s at pass 1, 16.9 at pass 2, 16.5
+at pass 3, while the demand falls by orders of magnitude. So the 16.8 s is **not the delta-v being
+delivered**: it is a fixed overhead of about 5.6 s an axis, paid three times, whatever is being
+flown.
+
+### So the remaining lever is concurrency, and it is worth about three times
+
+`3 x 5.6 s x 1.4 m/s = 24 m`, which is the floor and therefore the miss. Firing the axes together
+rather than in sequence removes two thirds of it — about **7 m** — and the bus has the authority:
+all six directions, 4.000 fore and aft and 4.243 in each lateral, off
+`tools/model/checkring.py --translation`.
+
+**What stands in the way is the reason the sequence exists**, and it is a real one: the stop
+threshold is measurable only along the axis being fired. Firing three at once means stopping each on
+its own component of a delta-v that is being changed by the other two. That is a design problem, not
+a constant to retune, and it is the first thing in this file for a while that cannot be settled by
+picking a better number.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
