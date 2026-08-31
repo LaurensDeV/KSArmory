@@ -10,14 +10,25 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 
 ## Where it stands, measured
 
-| | 2,000 km | 12,902 km |
-| --- | --- | --- |
-| flights | 96 of 96 scoring | 324 across three nights |
-| median miss | **99 m** | **6,664 m** |
-| p90 | 198 m | 28,652 m |
-| within a group of six | **5 m** | 6 m |
-| cutoff residual | 0.240 m/s | 0.135-0.290 m/s |
-| shape | unimodal, CV 0.58 | **bimodal**, CV 1.08 |
+| | 2,000 km | 12,902 km, before | 12,902 km, after |
+| --- | --- | --- | --- |
+| flights | 96 of 96 scoring | 324 across three nights | 8 per shot, all scoring |
+| median miss | **99 m** | **6,664 m** | **150-650 m**, by session |
+| best shot | 52 m | — | **9 m**, group of 0.009-0.479 km |
+| p90 | 198 m | 28,652 m | — |
+| within a group of six | **5 m** | 6 m | 6 m |
+| shape | unimodal, CV 0.58 | **bimodal**, CV 1.08 | corrections mostly finish |
+
+Three fixes on 2026-08-30, each verified in flight and each working the same way — by letting more
+corrections **finish**. `payback` lands at 88-131 m and every other ending at 3.7 to 10.7 km over 96
+flights, so nothing yet has made a *finished* correction more accurate; long range improved because
+the share reaching one went from 13 of 48 to 27 of 48 and then higher.
+
+**Two candidate levers were flown and refuted after that.** `MinResponse` costs 9%, not the sevenfold
+it looked like from one shot's first reading — with the trim converged the plant's median is **0.91**,
+range 0.53-3.17. And the trim is not the constraint: it delivers **99.7%** of what it is asked, 26 of
+29 readings converged. The remaining question is why the miss sometimes grows between passes when
+each pass is working, and that is not yet measured.
 
 **The burn is equally good at both ranges.** What differs is what the geometry does with it and, at
 long range, a bug.
