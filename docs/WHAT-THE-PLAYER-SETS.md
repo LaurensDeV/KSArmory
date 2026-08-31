@@ -80,15 +80,20 @@ exactly what they say.
 
 Answered per craft, before launch, against the designated point:
 
-| line | where it comes from |
+| line | state |
 | --- | --- |
-| **Reachable / short by N m/s / no trajectory / too shallow** | `IcbmReach`, which already returns exactly this and is not surfaced as an answer |
-| **delta-v: X available, Y needed** | `BoosterPerformance` against `BallisticArc` |
-| **expected miss: N m** | the floor's closed form at the searched geometry |
-| **flight time, arrival angle** | the held arc |
+| **no trajectory / short by N m/s / too shallow** | **already shown**, `UiIcbm.DrawIcbmStatus` — with the shortfall in m/s, the unaffordable-floor case, and the off-plane cost and closest approach |
+| **delta-v** | **already shown**, scattered: `Still to gain: N m/s` against `This stage: N km/s`. What is missing is one pre-launch need-against-have line, in one place and one unit |
+| **flight time, arrival angle** | **already shown**, off the held arc |
+| **expected miss: N m** | **absent**, and the only genuinely new one. Needs §5's guard |
 
-Three of the four are computed today and simply not presented. The fourth is new and is the one that
-needs the guard in §5.
+**Corrected 2026-09-01.** This section previously said the reach verdict *"already returns exactly
+this and is not surfaced as an answer"* and that three of the four lines were computed and not
+presented. Both were wrong: the pane surfaces the reach cases thoroughly, including two — the
+unaffordable arrival floor and the plane-change cost — that this table had not thought to ask for.
+
+So §6's step 3 is much smaller than it was written to be, and the weight of this plan sits on the
+expected-miss figure and the validation it needs.
 
 ## 5. The honest-number rule
 
@@ -111,7 +116,7 @@ same rig `docs/SHOT-PROTOCOL.md` already describes. Until a cell is flown, that 
 1. **Derive the holding cost.** Biggest measured lever, already proven headlessly, and removes the
    setting most obviously not a player's business.
 2. **Search the arrival angle** under the one control's bound.
-3. **Surface reach and delta-v**, which needs no new maths.
+3. **One delta-v line**, need against have, in one place. The reach cases are already shown — see §4.
 4. **Fly the validation matrix**, then show the miss where it is earned.
 5. **Retire the settings** from the panel, keeping them settable from a shot spec.
 
