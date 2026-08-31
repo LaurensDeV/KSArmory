@@ -393,6 +393,53 @@ So 2,000 km at a 17.5 degree arrival sits at **100 m against the ~82 m envelope 
 reached, without B1 ever being built. Further correction-loop work at this range is arguing over
 18 m, and the next lever is the arrival angle rather than the loop.
 
+## 3g. Shortening the range makes it worse, and the reason is passes — flown 2026-08-31
+
+One validation shot at **418 km** (`mirv:24.849,-80.604`, `SOLVER SCALE 8`, HEAD `6651786`), flown
+before committing a night to the range ladder. It flies, and it is far worse:
+
+| | 2,000 km, 96 flights | 418 km, one shot |
+| --- | --- | --- |
+| miss | **0.10 km** | **0.36 to 3.63 km** |
+| `payback` | 93 of 96 | **1 of 6** |
+| `trim` | 2 of 96 | **5 of 6** |
+| passes | many | **1 or 2** |
+
+Every non-`payback` ending reads *the trim stopped before the next one*, and the flights are 42 to
+58 seconds long. **The binding constraint at short range is the number of correction passes, not the
+geometry.** 3e's fix makes a pass wait for the trim to fly — measured at 19 s — so a 2,000 km flight
+fits many and a 418 km flight fits one. Within-group spread stays ~0.01 km throughout, so this is a
+bias and not scatter.
+
+That is the failure mode 3e was committed watching for, and it does not appear at the range 3e was
+flown at.
+
+### So the ladder cannot be climbed by shortening the shot
+
+`docs/METRE-LEVEL.md`'s rungs pair each arrival angle with a *shorter* reach, and the accuracy is
+credited to the angle. This shot separates them: the short shot has the steeper arrival and lands
+**an order of magnitude worse**, because shortening also removes the time the loop needs.
+
+**And steepening at a fixed range is worth much less than the rung table implies.** The lever is
+`cot γ`, so against today's 17.5° baseline:
+
+| arrival | `cot γ` | vs 17.5° | from 100 m |
+| --- | --- | --- | --- |
+| 20° | 2.75 | 0.87 | 87 m |
+| 25° | 2.14 | 0.68 | 68 m |
+| 32° | 1.60 | 0.50 | 50 m |
+| 40° | 1.19 | **0.38** | **38 m** |
+
+A **20 degree floor buys 13%** — inside the [0.53, 1.14] the paired instrument resolved at n=12, so
+it is unmeasurable as well as small. This is the same mispricing already in *Ranked highly on
+reasoning since refuted*: that entry priced 20° against a 7° baseline that was really 13.6°, and the
+baseline is now 17.5°.
+
+**The experiment that is left is the arrival angle at a fixed 2,000 km**, which holds the flight time
+that lets the loop finish and moves only `cot γ`. Arms `25|32|40` against base, predicted 68/50/38 m
+against 100. If the misses do not fall with `cot γ`, the ladder's premise is wrong at this range and
+that is worth knowing for one night.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -485,7 +532,10 @@ Never freezing the aim (lost 5.7x; the freeze is load-bearing).
 `payback` as a lever (it is a selection effect: the rule only fires under ~156 m).
 `trim` as the dominant terminator implying `TrimCeilingFromBudget` (attacking the named terminator
 cost the good ending).
-The 20 degree arrival floor (priced against a 7 degree baseline that was already 13.6).
+The 20 degree arrival floor (priced against a 7 degree baseline that was already 13.6; the
+baseline is now 17.5, so it buys 13% -- 3g).
+Shortening the range to steepen the arrival (418 km lands 0.36-3.63 km against 2,000 km's 0.10 --
+the short flight cannot fit the passes; 3g).
 "The clearance never succeeds" (the absence of a log line measured the logger).
 The 24 ms slow-regime screen (29.8 ms gave 0 passes one night and 2 another).
 
