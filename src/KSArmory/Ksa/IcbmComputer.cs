@@ -284,14 +284,26 @@ internal sealed class IcbmComputer
     public ReleaseCommand Deployment => _deploy;
 
     /// <summary>
-    /// Whether the world has to be kept slow, which is the burn plus the trim.
+    /// Whether the world has to be kept slow: the burn, the trim, and the aim measurement between
+    /// them.
     ///
     /// <para>The trim stops on a frame boundary exactly as the burn does, so the velocity it leaves
     /// behind is what one step of its thrusters adds. At a tenth of a second that is centimetres a
     /// second and the whole point of doing it; at the steps high timewarp hands out it is metres a
     /// second, which is worse than never having trimmed at all.</para>
+    ///
+    /// <para><b>And the measurement between trims costs as much as the trims do.</b> Flown at
+    /// 12,902 km, twelve shots alternating the coast warp on and off with every burn stepped at
+    /// 33 ms either way: the warped arm's shot median is <b>8.25 km</b> against <b>0.62</b>, it wins
+    /// none of the six adjacent pairs, and the share of flights inside a kilometre goes 33% to 62%.
+    /// The burn is not what the warp was hurting — the correction gets fewer passes because there
+    /// are fewer frames in the seconds it has.</para>
+    ///
+    /// <para>Bounded by <see cref="PostBoostAim.MaxSeconds"/>, so this protects about two minutes of
+    /// a twenty-five minute coast and the rest still warps. Turning the coast warp off outright buys
+    /// the same accuracy and costs the player the whole fall in real time.</para>
     /// </summary>
-    public bool NeedsShortSteps => Program.NeedsShortSteps || TrimIsFiring;
+    public bool NeedsShortSteps => Program.NeedsShortSteps || TrimIsFiring || _postBoost.Correcting;
 
     // The span the aim correction has to sit out, which is only while thrusters are actually
     // moving the vehicle its observer reads.

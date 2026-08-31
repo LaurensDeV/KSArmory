@@ -211,6 +211,47 @@ faithful to an observer that is lying to it, and `AimCorrection` cannot be tuned
 Either the plant estimate at `AimCorrection.cs:227` never fires, or it pegs at `MinResponse`. The
 instrument does not yet separate those, and it is the next thing to ask.
 
+## 3c. Warping the coast costs 13x, and the trim was not the part that needed protecting — flown 2026-08-30
+
+Twelve shots at 12,902 km alternating `IcbmConfig.WarpTheCoast`, `~/shots/warpcoast`. Alternating
+rather than paired: an auto-warp is world-wide, so an arm with it off is still warped by an arm with
+it on.
+
+| | warped | not warped |
+| --- | --- | --- |
+| pooled shot median | **8.25 km** | **0.62 km** |
+| flights inside 1 km | 16 of 48 (33%) | **30 of 48 (62%)** |
+| adjacent pairs won | 0 of 6 | **6 of 6** |
+| geometric mean | | **0.16x** |
+| sign test | | **p = 0.031** |
+
+Per pair: 0.43, 0.86, 0.03, 0.11, 0.29, 0.04. Resolved, but p=0.031 is the floor at six pairs — six
+of six is the only way to reach it. Two of the six unwarped shots were still bad, so this moves mass
+between the two modes rather than abolishing the bad one.
+
+**The manipulation is verified clean**: every warped shot fired exactly two warps and every unwarped
+shot none, and all 96 flights burned at **33 ms** either way. So this is not the step contamination
+of item 1 — the burn was already protected. What the warp starves is the *aim measurement between
+trims*: fewer frames in the seconds the correction has, so fewer passes.
+
+### The fix is not to turn the coast warp off
+
+`IcbmComputer.NeedsShortSteps` covered the burn and the trim. `PostBoostAim.Correcting` — settling
+or measuring — is the window that was missing, and adding it is the whole change.
+
+Flown: **0.050 to 1.909 km, median 0.63**, every flight ending on `payback` at 37-150 m predicted.
+That is the unwarped arm's accuracy. The window is **17 seconds**, and the shot took **10.7 minutes**
+against 10.9-11.4 for the runs either side of it, so nothing was paid for it.
+
+Turning `WarpTheCoast` off outright buys the same accuracy and costs a player the whole
+twenty-five-minute fall in real time. This protects seventeen seconds of it.
+
+**One caveat, unmeasured.** With eight rockets the correction windows are staggered across about
+forty-five seconds and collectively suppress every warp offer, so the harness now behaves as if the
+coast warp were off — which costs it nothing, because the scenario drives the world speed itself.
+A player flying one rocket blocks ~17 s of a ~1500 s coast and keeps the fast-forward. That case has
+not been flown.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
