@@ -2251,7 +2251,16 @@ internal sealed class IcbmComputer
                           + $"{_aim.BestMissMetres / 1000.0:F2}, response {_aim.Response:F2}, "
                           + $"bias {biasWas / 1000.0:F1} -> {Vec.Len(_aim.BiasCci) / 1000.0:F1} km, "
                           + $"worse for {_aim.WorseFor}, "
-                          + $"{_aim.PlantMeasurements} plant reading(s), raw {_aim.LastRawResponse:F2}");
+                          + $"{_aim.PlantMeasurements} plant reading(s), raw {_aim.LastRawResponse:F2}"
+                          // What the trim had actually delivered when the impact was read. A plant
+                          // of 0.14 means the impact followed a seventh of the aim move, and the two
+                          // causes want opposite fixes: a trim that converged and an impact that
+                          // still moved a seventh is the trajectory, and the step is too small; a
+                          // trim that flew a seventh of what it was asked is the actuator, and a
+                          // larger step makes it worse.
+                          + $" | trim owes {_trim.ToGainMetresPerSecond:F2} of "
+                          + $"{_trim.SpentMetresPerSecond:F2} spent"
+                          + (_trim.GaveUp ? ", GAVE UP" : _trim.Done ? ", done" : ", running"));
 
                 if (!Program.IsBurning)
                 {
