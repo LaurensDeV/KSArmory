@@ -359,6 +359,40 @@ Evenly spaced, which is what reading off a flown correction looks like. The shot
 what a paired night has to score, and the failure mode to watch is `payback` converting to `budget`
 or `clock` as the extra wait eats the tank.
 
+## 3f. The terminator lever is exhausted at 2,000 km — flown 2026-08-30
+
+96 flights in `~/shots/2026-08-30-1818`, `--paired 'base|aimbudget:AimWithinTrimBudget=true'` at
+`06fabec` — so this tree carries the auto-warp interlock and the aim spread, and **none** of 3c, 3d
+or 3e, which were verified at 12,902 km and have never been flown here.
+
+Four rockets an arm a shot, the assignment rotated by shot number, so each of the eight seats flew
+each arm exactly six of twelve. Read it with `shot-report.py --paired`.
+
+| | base | aimbudget |
+| --- | --- | --- |
+| flights | 48 | 48 |
+| median | 0.10 km | 0.10 km |
+| `payback` | 45 | **48** |
+| `trim` | 2 | 0 |
+| `noimprov` | 1 | 0 |
+
+`aimbudget` is **0.85x [0.53, 1.14] at 97%**, 9 of 12 shots, sign p=0.146, signed-rank p=0.129 —
+**unresolved**, and the night rules out harm beyond 14%.
+
+**The finding is the column, not the ratio.** `payback` ends **93 of 96** flights. Every gain of the
+preceding week worked by letting more corrections finish, and at this range there are **three
+flights** of headroom left in the whole night. `aimbudget` converted all three non-`payback` endings
+and could not have shown more than that here, which is why its interval is wide at n=48: a lever
+cannot be measured against a quantity that is already spent.
+
+**The seat gradient is gone.** 0.072 to 0.117 km across the eight seats, rank correlation
+**rho=-0.09, p=0.357**, against the 175x monotone gradient of 8y. It and the 40-of-96 `payback` rate
+were one cause — the auto-warp — and the interlock closed both.
+
+So 2,000 km at a 17.5 degree arrival sits at **100 m against the ~82 m envelope floor**: rung A,
+reached, without B1 ever being built. Further correction-loop work at this range is arguing over
+18 m, and the next lever is the arrival angle rather than the loop.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.

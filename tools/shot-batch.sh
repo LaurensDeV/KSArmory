@@ -410,3 +410,11 @@ done
 echo
 echo "== $flown shots flown into $OUT"
 "$REPO_ROOT/tools/shot-report.py" "$OUT"
+
+# A paired night builds ONE arm, so the between-arm tables above are empty by construction and the
+# comparison it was flown for lives behind --paired. Printing only the first reports nothing the
+# night was for.
+if [[ -n "$PAIRED" ]]; then
+    echo
+    "$REPO_ROOT/tools/shot-report.py" "$OUT" --paired
+fi
