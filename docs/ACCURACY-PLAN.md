@@ -504,6 +504,49 @@ paired design exists.
 **Not made the default.** A 25 degree floor costs propellant and reach, which is a trade a player
 owns rather than one this mod should make for them.
 
+## 3i. The miss is not the velocity precision, and that retires section 2 — measured 2026-08-31
+
+Mined out of 3h's 96 flights, no new flying. Every flight reports `trimmed to X m/s`, named for its
+craft, so the post-boost velocity error is joinable to that flight's own miss.
+
+| | |
+| --- | --- |
+| post-trim residual | **0.0200 m/s** median, range 0.0060-0.0300 |
+| miss | 0.105 km median |
+| **rank correlation, residual vs miss** | **rho = -0.109, t = -1.06, n = 96** |
+
+**None.** Across a fivefold spread of residual the miss does not move, and the sign is if anything
+backwards. The arithmetic agrees: at this geometry's ~690-1,000 m per m/s, 0.0200 m/s is **14-20 m**
+of miss against **110 m** flown — but the correlation is the stronger statement, because it assumes
+no sensitivity at all.
+
+**So how accurately the bus reaches its velocity target is not what sets the miss.** The guidance
+delivers an arc good to about 17 m and the warheads land 110 m away.
+
+### This retires section 2 before it is built
+
+Section 2 is the sub-frame engine cutoff — `ActiveNozzle.ComputeThrustMod`, the branch
+`VehicleCommand` cannot reach, ranked second in this plan and never attempted. It attacks the
+**cutoff** residual, which is *upstream of the trim*: the trim already takes it to 0.020 m/s, and
+0.020 m/s has no measured influence on where the warheads land. Building it would divide down a term
+that is already six times below the binding one and does not correlate with the outcome.
+
+It stays written down for the day the aim is fixed and the residual becomes the floor. It is not the
+next thing to build, and the reasoning that ranked it there priced it against `METRE-LEVEL.md`'s
+residual columns without ever checking that the residual predicts the miss.
+
+### What is left is the observer
+
+The miss is set by **where the shot is aimed**, not by how precisely it is flown there — so the term
+that matters is `ImpactPredictor`'s fidelity, which is the one thing `AimCorrection` cannot see past.
+That is this file's own standing rule: *a correction loop can only remove what its observer can see*,
+and it is exactly how the drag shortfall hid for so long while the loop reported zero.
+
+`Config.TraceWarhead` is the instrument and it already exists — one warhead followed down beside
+`ImpactPredictor` re-flown from where it has got to. **The discriminator is whether the two part
+smoothly or in a step**: smooth is a model error carried the whole way down, a step is an event at
+release. Different causes, different fixes, and one short batch tells them apart.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
