@@ -590,6 +590,42 @@ the loop is stopping three times too early and the whole 125 m is the constant b
 **That is the next shot**, and it is the first one aimed at a term proven to set the miss rather than
 inferred to.
 
+## 3k. The bus comes back and hits the stage it dropped — seen in play 2026-08-31
+
+Reported from watching a flight: `GeoSat FAT_1` running into its spent booster. `ProximityWatch` has
+been logging it the whole time, and the line even names the fault —
+`closest approach to the spent stack: 2.3 m at +22.2 s, keep-out 15.3 m -- CAME BACK INSIDE THE
+KEEP-OUT`. Nothing had ever read it.
+
+Closest approach by arrival angle, over 3h's 96 flights:
+
+| arm | arrival | closest approach | breached the keep-out |
+| --- | --- | --- | --- |
+| base | 17.7° | **7.5 m**, min **1.8 m** | **19 of 24** |
+| a25 | 25.9° | 15.3 m | 4 of 24 |
+| a32 | 33.0° | 15.3 m | 1 of 24 |
+| a40 | 41.1° | 15.3 m | **0 of 24** |
+
+15.3 m is the sentinel — those arms never came inside at all. 3j's night, where every arm flies the
+baseline trajectory, reproduces the base row on all four: ~9 m median, 16 of 20 breaching, and **no
+arm worse than another**, so the holding cost is not the cause and neither is anything else varied
+since.
+
+**The mechanism is already written down.** `Sim/SeparationClearance.cs` says *the shove is the
+separation, so nulling it ends it* — the decoupler's 1.1 m/s is what carries the bus clear, `BusTrim`
+sees that shove as error and nulls it, and the bus stops leaving. *Came back* is the instrument
+saying exactly that. The steep arms escape it because their trim demand differs, not because
+anything about the separation changed.
+
+**It is not currently costing warheads:** 80 of 80 shots report `6 of 6 arrived`, and the misses are
+unaffected. So this is a defect with a visible consequence and no measured cost yet — which is
+precisely the shape that gets ignored until it destroys a bus.
+
+**Not fixed here, and not diagnosed to a fix.** The obvious move — hold the trim off until the stack
+is clear — is what `KeepOutCoversTheClearance` already does, and it is a shipped setting flown at
+*87 of 144 flights abandoned*. Whether the keep-out should instead be enforced as a floor the trim
+may not cross is untested, and CLAUDE.md's rule applies: ship the diagnostic, not the guess.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
