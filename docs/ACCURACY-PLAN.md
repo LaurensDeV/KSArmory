@@ -798,6 +798,52 @@ its own component of a delta-v that is being changed by the other two. That is a
 a constant to retune, and it is the first thing in this file for a while that cannot be settled by
 picking a better number.
 
+## 3p. The derivation works, and does not beat the number it derives — flown 2026-08-31
+
+12 shots, 96 flights, `~/shots/2026-08-31-2215`, HEAD `0a374e3`. Three arms, each seat flying each
+arm exactly four times.
+
+| arm | pooled | paired ratio | won | p | |
+| --- | --- | --- | --- | --- | --- |
+| base (26.0) | 0.10 km | — | — | — | |
+| **derived** | 0.03 km | **0.28x** [0.24, 0.33] | **12 of 12** | 0.000 | RESOLVED |
+| h14 (1.4 by hand) | 0.02 km | 0.19x [0.15, 0.31] | 11 of 12 | 0.006 | RESOLVED |
+
+**The measurement reproduces itself in flight.** The vehicle's own probes report a median of
+**1.33 m/s** across the night, range 0.27-2.28, against the **1.40** measured headlessly at this
+geometry in 3m. Zero refusals in 96 flights.
+
+**And it does not beat the hand-set value.** Paired directly, `derived` against `h14` is **1.62x**
+with 4 wins to 7 and sign **p=0.549** — unresolved, and the point estimate favours the constant. The
+intervals overlap; what the night establishes is that both crush the shipped 26.0, not that either
+beats the other.
+
+### It over-drives the loop, and the terminators say so
+
+| arm | `payback` | `noimprov` | `clock` | `trim` |
+| --- | --- | --- | --- | --- |
+| base | 32 | 0 | 0 | 0 |
+| **derived** | 7 | **21** | **3** | 1 |
+| h14 | 18 | 13 | 0 | 1 |
+
+`derived` runs the loop to its own convergence on 21 of 32 flights against `h14`'s 13 — because the
+measured cost *falls* as the flight proceeds, to about 0.6 m/s late on, so the floor keeps tightening.
+It also picks up the night's only three `clock` endings.
+
+**A hypothesis, not a finding:** the instantaneous cost late in the coast licenses passes whose value
+has already been spent, and the cost that should gate "is another cycle worth it" may be the one at
+the *release*, not the one now. That is the shape of argument this file has been wrong about six
+times, so it is written down to be tested rather than acted on.
+
+### It should still be the default, and the reason is not this range
+
+`h14` wins here by an amount the night cannot resolve, and **1.4 is only right here** — 3m measured
+0.82 m/s at 500 km and 21.79 at 12,900. Shipping it would repeat 26.0's mistake with a fresher
+number. The derivation is within noise of the best hand-tuned value at the one geometry where a hand
+value exists, and it is the only option that is not wrong everywhere else.
+
+That is `docs/WHAT-THE-PLAYER-SETS.md` step 1, flown: **the setting can go.**
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
