@@ -844,6 +844,43 @@ value exists, and it is the only option that is not wrong everywhere else.
 
 That is `docs/WHAT-THE-PLAYER-SETS.md` step 1, flown: **the setting can go.**
 
+## 3q. The arrival-angle night was flown in a regime the holding cost has since removed
+
+Mined from 3h's night, no flying. It was flown at the shipped 26.0, so the first-cycle threshold was
+`6.0 s x 26.0 = 156 m` on every arm.
+
+| arm | arrival | passes | threshold | accepted | flown |
+| --- | --- | --- | --- | --- | --- |
+| base | 17.7° | **2** | 425 m | 119 m | 0.11 km |
+| **a25** | 25.9° | **1** | 156 m | **68 m** | **0.08 km** |
+| a32 | 33.0° | 1 | 156 m | 110 m | 0.11 km |
+| a40 | 41.1° | 1 | 156 m | 124 m | 0.13 km |
+
+**Every steep arm released after one pass.** Their first correction landed under the 156 m threshold,
+so `payback` fired immediately and no loop ever ran; `base` took two, and its threshold grew to 425 m
+because the second cycle's length replaces the seed. The three steep arms share a threshold exactly
+because none of them reached a second cycle.
+
+So a25's **0.44x is the quality of a single correction**, not convergence — the geometry genuinely
+helping, since one steep correction beat base's two. And a32 and a40 being worse is one correction
+landing further out, not a loop failing.
+
+**Which means the comparison cannot be carried across 3n.** With the derived cost the floor at 2,000
+km is about 24 m rather than 156, every arm would run several passes, and an angle whose first
+correction is poor may converge to the same place as one whose first correction is good. The
+arrival-angle ranking was measured in a regime that no longer exists.
+
+### So step 2 is not "build the search" yet
+
+`docs/WHAT-THE-PLAYER-SETS.md` step 2 is searching the arrival angle, and there is no objective to
+search against: `cot γ` and the floor's closed form both say steeper is monotonically better, and the
+flown ranking says the optimum is interior at 26 degrees. **Neither model reproduces the
+measurement**, and this section says why the measurement may not survive re-flying.
+
+The order that follows: **re-fly the angle ladder with `DeriveHoldingCost` on** — the same
+`a25|a32|a40` against base, in the regime the mod will actually ship. That answers the ranking and the
+compounding question in one night, and only then is there something to build a search against.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
