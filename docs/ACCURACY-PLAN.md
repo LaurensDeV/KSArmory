@@ -272,64 +272,71 @@ shot drives its own world speed. Answering it wants either a scenario that leave
 a hand-flown shot. Until then the honest statement is that the accuracy is measured and the cost to
 a player is not.
 
-## 3d. The aim loop's observer moves 45x faster than its own authority — measured 2026-08-31
+## 3d. RETRACTED — that measurement was a frozen readout — 2026-08-31
 
-Recorded every cycle rather than only when the aim has moved 500 m, over 3,788 observations of one
-shot at 12,902 km:
+**Everything section 3d claimed was an artefact and none of it is true.** It reported that the aim
+loop's observer moves 45x faster than its authority — 78 m of aim against 3,520 m of impact, a
+secant of -35.7 — over 3,788 observations. There were **88 observations**, and all of them happened
+before launch.
 
-| per cycle, median | |
-| --- | --- |
-| the aim moved | **78 m** |
-| the predicted impact moved | **3,520 m** |
-| ...of that, along the aim move | 2,803 m |
-| ...not along it | 717 m |
+`AimCorrection.Observe` returns at `if (Settled) return;` **before** it writes
+`LastAimMoveMetres` / `LastImpactMoveMetres` / `LastImpactAlongAimMetres`, and the log line printed
+them regardless. Verified: **3,833 lines, 121 distinct tuples** — twelve per rocket, the rest byte
+echoes of a settled loop's last reading. The medians of those echoes reproduce 3d exactly, which is
+what made them look like a distribution.
 
-**The impact moves forty-five times further than the aim commands it to.** So what the loop observes
-between one cycle and the next is overwhelmingly not its own doing, and the secant it computes from
-that — `impactAlong / movedBy`, median **-35.7** — is measuring the wander rather than the plant.
+The follow-up that "refuted the frame carry" is worse: `busMoved` updated every cycle while the
+impact was frozen, so `impact / bus = 5.43` was a fresh number over a stale one and means nothing.
 
-### Which invalidates the plant readings, including the ones from an hour earlier
+**Sixth instance of this trap in this repository**, and the first one self-inflicted inside a single
+day. A readout that stops updating reads as its last value, which is indistinguishable from a live
+one. `AimCorrection` now clears the three fields at the top of every `Observe`, so a cycle that takes
+no reading reports none; `AimReadoutTests` pins it and fails against the old code.
 
-`ResponseFromMetres` requires a 500 m aim move before a reading counts, and **3 of 3,788 cycles
-qualify**. The 0.91 median measured over 26 readings is therefore drawn from the 0.08% of cycles that
-are atypical — and `Observe` additionally rejects a negative secant, which the typical cycle now
-turns out to have. So the loop keeps only the rare positive readings and discards the common
-negative ones, which is a selection, not a filter.
+### What is actually true, measured properly
 
-### And it explains the three symptoms without any of the mechanisms proposed for them
+**The frame carry is refuted, on far better evidence.** Across 52,819 coast cycles the world rate
+swings the bus's own per-cycle travel by 275x — 3,570 m at 1x to 284,098 m above 20x — and the
+impact step does not follow: p90 over bus travel goes 0.140 to 0.0011. A carry reads 1.00 and
+constant. Through the burn the vehicle accelerates 0 to 7.0 km/s while the step falls the other way:
+Rising 5,290 m, PitchProgram 3,820, **ClosedLoop 0 m median, p90 10 m**.
 
-* The miss "growing" across passes — 4.8 km, 7.7, 11.5 — is wander, not divergence.
-* `WorseBeforeStopping` trips because readings bounce by kilometres, not because the loop is walking
-  outward.
-* The plant estimate is unusable, so `MinResponse` is doing nothing either way — consistent with the
-  9% it was measured to cost.
+**And it is a drift, not a wander.** Burn, kilometre regime: sign-change rate **0.000**, net move over
+path length **1.000** — every step the same direction. Coast: sign changes 0.079, lag-1
+autocorrelation **+0.52**. The only white-noise regime is the frozen one, which is the print quantum.
 
-**The fix is not obvious and nothing should be tuned on this yet.** The question it poses is why the
-predicted impact is unsettled by kilometres between cycles, and that is a property of
-`ImpactPredictor` and the state it is flown from rather than of the correction loop. A loop cannot be
-tuned against an observer this noisy; it can only be given a quieter one.
+**What the step is proportional to is the miss itself**: p90 |Δ| / miss is **0.026 to 0.081 across
+every band from 3 km to 1,000 km**, on both observer populations, n=74,000. Scale-free, once per
+solve, one direction. That is a re-solve converging, not an observer that has to be filtered — and at
+the operating point it is under 10 m a cycle.
 
-### It is not the vehicle's own motion — flown and refuted
+## 3e. The loop reads twice before it has flown once — 2026-08-31
 
-3,520 m over the nominal 0.5 s prediction interval is 7.0 km/s, the bus's orbital speed, which was
-close enough to be worth testing as a frame-and-epoch carry. It is not one. Logging how far the state
-the prediction *departs from* travelled between readings, over 3,792 observations:
+Over 94 coast corrections in `~/shots/warpcoast`, by reading index:
 
-| per cycle, median | |
-| --- | --- |
-| the departure state moved | **679 m** |
-| the predicted impact moved | **3,621 m** |
-| ratio | **5.43x**, quartiles 3.16 to 75.2 |
+| reading | n | median miss km | ratio to best | median `_response` | worse than best |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 94 | 4.20 | — | 1.00 | — |
+| 2 | 94 | 3.83 | 0.90 | 1.00 | 14% |
+| **3** | **90** | **6.94** | **2.24** | **3.13** | **71%** |
+| 4 | 75 | 4.94 | 1.78 | 1.01 | 68% |
+| 5 | 38 | 0.61 | 0.32 | 1.00 | 26% |
 
-A carry would read 1.00. So the predictor **amplifies** its departure state's motion about fivefold
-rather than reporting it, and the interval is ~0.1 s of travel rather than 0.5 s.
+Gap from reading 1 to 2: median **2.03 s**. From 2 to 3: **41.3 s**.
 
-That is the shape of a genuine sensitivity rather than a frame error, and it has a candidate: a
-coasting bus 679 m further along the same arc should land in the same place, so either the arc is not
-the same between readings — the trim, drag, or a state that carries noise — or the predictor's answer
-depends on where along the arc it is entered, which would be an integration or terrain-sampling
-artefact. `cot(13.8 deg)` is 4.1, and the shallow-arrival amplification of any height disagreement is
-the first thing to price.
+**Reading 2 arrives before anything has been flown.** Post-cutoff the prediction departs from the
+vehicle's own state and never reads the aim — the aim reaches the impact only when the trim changes
+the bus's velocity, a pass later. So reading 2 re-reads the same number, the loop deadbeats on it a
+second time, and the bias ends at about **twice** the error. Reading 3, forty seconds later, duly
+reads twice the miss; the secant estimator then reads **3.13** off that manufactured excursion and
+divides the next two steps by three.
+
+The guard misses it because `IcbmComputer` gates on `!TrimIsFiring`, and
+`TrimIsFiring = Armed && !Done && _mayTrim`. While the keep-out interlock holds the trim off,
+`_mayTrim` is false — so the window is open *and* nothing has been flown.
+
+**`AimCorrection.Settled` ends 0 of 96 flights.** The loop's own stopping rules end nothing; the
+actuator does.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 

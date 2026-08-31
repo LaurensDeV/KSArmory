@@ -151,8 +151,9 @@ internal sealed class AimCorrection
     /// cannot leave it larger, so something moves the impact between readings — and the difference
     /// between these two numbers is exactly how much.</para>
     ///
-    /// <para>Recorded every cycle, unlike <see cref="LastRawResponse"/>, which needs the aim to have
-    /// moved <see cref="ResponseFromMetres"/> before it means anything.</para>
+    /// <para>Recorded every cycle that takes a reading, and <b>NaN on every cycle that does not</b>,
+    /// unlike <see cref="LastRawResponse"/>, which needs the aim to have moved
+    /// <see cref="ResponseFromMetres"/> before it means anything.</para>
     /// </summary>
     public double LastImpactMoveMetres { get; private set; } = double.NaN;
 
@@ -228,6 +229,14 @@ internal sealed class AimCorrection
     public void Observe(double3 landedCci, double3 targetCci)
     {
         if (!Vec.IsFinite(landedCci) || !Vec.IsFinite(targetCci)) return;
+
+        // Cleared first, so a cycle that takes no reading reports none. Every early return below
+        // leaves them alone otherwise, and a readout that stops updating reads as its last value --
+        // which is indistinguishable from a live one. A settled loop reprinted its final tuple 463
+        // times a flight and the average of that was read as a distribution over 3,788 samples.
+        LastAimMoveMetres = double.NaN;
+        LastImpactMoveMetres = double.NaN;
+        LastImpactAlongAimMetres = double.NaN;
 
         // Against the target, never against the aim the correction itself produced. Scoring a
         // correction on its own output reports a perfect shot however far the rounds land.

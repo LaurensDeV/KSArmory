@@ -32,9 +32,15 @@ internal sealed class IcbmComputer
     // steps. Empty when nobody handed one in, which is every path but the roster's.
     private IReadOnlyList<IcbmComputer> _busyElsewhere = [];
 
-    // Where the bus was when the aim was last read, so the impact's wander can be compared against
-    // the vehicle's own travel over the same interval.
-    private double3 _lastObservedFromCci = new(double.NaN, double.NaN, double.NaN);
+    // The departure velocity the last prediction was flown from, and the one the aim was last read
+    // against, so the impact's wander can be priced against the only thing that can cause it.
+    private double3 _lastPredictedFromVelCci = new(double.NaN, double.NaN, double.NaN);
+    private double3 _lastObservedVelCci = new(double.NaN, double.NaN, double.NaN);
+
+    // Simulated seconds since the aim was last read. The reading cadence is gated by _measureDue
+    // rather than by PredictIntervalSeconds, so it is not the half-second the interval nominally is
+    // and every rate quoted per reading needs it.
+    private double _sinceObserve;
 
     // How often it is re-flown when nothing but the readout wants it, in REAL seconds. Paced by
     // simulated time it runs every frame at warp, and each pass re-flies a whole trajectory at
@@ -2142,6 +2148,7 @@ internal sealed class IcbmComputer
         // step with the world. Everything else is a readout, and a readout paced by simulated time
         // costs a whole re-flown trajectory per frame once the coast is warped.
         _sincePredict += simStep;
+        _sinceObserve += simStep;
         _sincePredictWall += state.PlayerStepSeconds;
 
         bool guidanceWants = Program.IsBurning || _measureDue;
@@ -2177,6 +2184,13 @@ internal sealed class IcbmComputer
 
         fromCci += ReleaseOffsetCci();
         alongCci += ReleaseImpulseCci();
+
+        // What the predictor is actually a function of. On a coast it is an exact function of this
+        // pair, so any wander in its answer is a wander in here -- and the arc is a 91.5 km per m/s
+        // amplifier along track, which turns the trim's own 0.02 m/s settle tolerance into 1.8 km of
+        // predicted impact. Differencing positions cannot see that: on a coast they move by v*dt
+        // whatever is wrong, which is why the earlier probe could only ever report the bus's speed.
+        _lastPredictedFromVelCci = alongCci;
 
         // Predicted with the warhead's drag rather than in vacuum. On a shallow deorbit arrival a
         // vacuum arc lands tens of kilometres beyond anything that actually flies it, and the aim
@@ -2250,10 +2264,13 @@ internal sealed class IcbmComputer
                 // is 7.0 km/s -- the bus's own speed. If the two match, the impact being differenced
                 // is carrying the vehicle's motion rather than reporting where it will land, which
                 // is the frame-and-epoch fault docs/FRAMES-AND-EPOCHS.md exists for.
-                double busMoved = Vec.IsFinite(_lastObservedFromCci)
-                                      ? Vec.Len(fromCci - _lastObservedFromCci)
-                                      : double.NaN;
-                _lastObservedFromCci = fromCci;
+                double departureVel = Vec.IsFinite(_lastObservedVelCci)
+                                          ? Vec.Len(_lastPredictedFromVelCci - _lastObservedVelCci)
+                                          : double.NaN;
+                _lastObservedVelCci = _lastPredictedFromVelCci;
+
+                double sinceLast = _sinceObserve;
+                _sinceObserve = 0.0;
 
                 _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
 
@@ -2273,7 +2290,7 @@ internal sealed class IcbmComputer
                           // still moved a seventh is the trajectory, and the step is too small; a
                           // trim that flew a seventh of what it was asked is the actuator, and a
                           // larger step makes it worse.
-                          + $" | bus moved {busMoved:F0} m"
+                          + $" | departure vel {departureVel:F4} m/s over {sinceLast:F2} s"
                           + $" | aim moved {_aim.LastAimMoveMetres:F0} m, impact moved "
                           + $"{_aim.LastImpactMoveMetres:F0} m of which "
                           + $"{_aim.LastImpactAlongAimMetres:F0} along it"
