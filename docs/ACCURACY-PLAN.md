@@ -830,10 +830,23 @@ beats the other.
 measured cost *falls* as the flight proceeds, to about 0.6 m/s late on, so the floor keeps tightening.
 It also picks up the night's only three `clock` endings.
 
-**A hypothesis, not a finding:** the instantaneous cost late in the coast licenses passes whose value
-has already been spent, and the cost that should gate "is another cycle worth it" may be the one at
-the *release*, not the one now. That is the shape of argument this file has been wrong about six
-times, so it is written down to be tested rather than acted on.
+**A hypothesis, tested the same night and retired.** The suspicion was that the payback rule
+over-values a cycle, because it credits one with removing the *whole* predicted miss. Measured from
+the logs, what a pass actually removes:
+
+| pass | before | after | removed |
+| --- | --- | --- | --- |
+| 1 | 1,200 m | 300 m | **~80%** |
+| 2 | 300 m | 100 m | **~52%** |
+| 3 | 100 m | under 50 m | — |
+
+`derived` and `h14` are indistinguishable here — 80/55 against 78/50 — so nothing about the loop's
+behaviour differs between them, and the outcome gap is which pass they happen to stop on.
+
+**And correcting the rule would make the miss worse, not better.** Valuing a cycle at 0.6 of the miss
+turns `miss <= cycle x cost` into `miss <= cycle x cost / 0.6`, which is a *higher* threshold and an
+earlier release. It would buy only the three `clock` endings, which landed at 0.04 km — at the
+median. There is nothing here to fix.
 
 ### It should still be the default, and the reason is not this range
 
