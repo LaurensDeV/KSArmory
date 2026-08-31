@@ -152,6 +152,16 @@ internal sealed class PostBoostAim
     public const double SettlesWithinSeconds = 10.0;
 
     /// <summary>
+    /// The longest a pass waits for its correction to be flown before reading anyway.
+    ///
+    /// <para>A backstop, not the rule. The rule is that a reading comes off a flown correction; this
+    /// is for the case where the trim never reports itself unsettled — a demand already inside its
+    /// settle band, or an interlock holding it off — where waiting for a flight that will not happen
+    /// stalls the correction at one pass and hands the release whatever the first reading said.</para>
+    /// </summary>
+    public const double FlownWithinSeconds = 15.0;
+
+    /// <summary>
     /// How much closer a pass has to bring the predicted miss to count as an improvement.
     ///
     /// <para>The same resolution the correction itself judges a cycle at, deliberately aliased
@@ -237,6 +247,11 @@ internal sealed class PostBoostAim
     private bool _nothingTurning;
     private double _steadyFor;
     private double _unsteadyFor;
+
+    // Whether the trim has been seen working since the last reading, and how long this pass has been
+    // waiting to see it.
+    private bool _flownSinceMeasured;
+    private double _waitingToFly;
     private double _bestMiss = double.PositiveInfinity;
     private int _noImprovement;
     private string _said = "";
@@ -263,9 +278,12 @@ internal sealed class PostBoostAim
                           + "which is the bus's budget for correcting");
         }
 
-        // Nothing may be read off a vehicle the thrusters are still moving.
+        // Nothing may be read off a vehicle the thrusters are still moving. Seeing it unsettled is
+        // also what says the last correction is being flown, which the reading below waits for.
         if (!now.TrimSettled)
         {
+            _flownSinceMeasured = true;
+            _waitingToFly = 0.0;
             _stage = Stage.Settling;
             return new Decision(false, false, _said);
         }
@@ -282,6 +300,32 @@ internal sealed class PostBoostAim
                        : new Decision(false, false, _said);
         }
 
+        // And not twice off one flight. The trim is what carries a correction to the impact: after
+        // cutoff the prediction departs from the vehicle's own state and never reads the aim, so a
+        // reading taken before the last correction has been flown re-reads the number that produced
+        // it. The loop deadbeats on the same error twice and the bias ends at about double it —
+        // measured across 94 corrections as a second reading 2.0 s after the first at 0.90x of the
+        // best, then a third 41 s later at 2.24x, off which the plant secant reads 3.13 and divides
+        // the next two steps by three.
+        //
+        // The first reading is exempt: it is what the guidance's own cutoff solution earned, and
+        // there is nothing before it to have flown.
+        // The actuator quitting is not a reading and must not wait for one. Waiting would hold the
+        // correction open for FlownWithinSeconds after the only thing that can carry it has stopped,
+        // and the refusal is what tells a reader which half of the loop failed.
+        if (Cycles > 0 && !_flownSinceMeasured && !now.TrimGaveUp)
+        {
+            _waitingToFly += step;
+
+            if (_waitingToFly < FlownWithinSeconds)
+            {
+                _stage = Stage.Settling;
+                return new Decision(false, false, _said);
+            }
+        }
+
+        _flownSinceMeasured = false;
+        _waitingToFly = 0.0;
         _stage = Stage.Measuring;
 
         // The first settle is what the guidance's own cutoff solution earned. Measuring is free from
@@ -419,6 +463,8 @@ internal sealed class PostBoostAim
         _nothingTurning = false;
         _steadyFor = 0.0;
         _unsteadyFor = 0.0;
+        _flownSinceMeasured = false;
+        _waitingToFly = 0.0;
         _bestMiss = double.PositiveInfinity;
         _noImprovement = 0;
         Cycles = 0;

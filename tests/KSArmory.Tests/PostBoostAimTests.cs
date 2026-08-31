@@ -44,6 +44,30 @@ public class PostBoostAimTests
         }
     }
 
+    /// <summary>
+    /// One pass as the vehicle actually flies it: the trim carries the last correction, settles, and
+    /// only then is a reading taken.
+    ///
+    /// <para>A reading taken <em>before</em> the last correction has been flown re-reads the number
+    /// that produced it — the prediction departs from the vehicle's own state and never reads the
+    /// aim. So a fixture that holds the trim settled throughout gets one reading and then waits, and
+    /// the stopping rules below never see the passes they are about.</para>
+    /// </summary>
+    private static PostBoostAim.Decision FlyThenRead(PostBoostAim aim, double missMetres)
+    {
+        for (int i = 0; i < 4; i++) aim.Update(Step, Bus(false, missMetres));
+
+        PostBoostAim.Decision last = default;
+
+        for (double t = 0.0; t <= PostBoostAim.FlownWithinSeconds + Step; t += Step)
+        {
+            last = aim.Update(Step, Bus(true, missMetres));
+            if (last.MayMeasure || last.MayRelease) return last;
+        }
+
+        return last;
+    }
+
     /// <summary>Nothing may be read off a vehicle its own thrusters are still moving.</summary>
     [Fact]
     public void NoMeasurementIsTakenWhileTheTrimIsFiring()
@@ -323,7 +347,7 @@ public class PostBoostAimTests
         foreach (double miss in flown)
         {
             read++;
-            released = aim.Update(Step, Bus(true, miss)).MayRelease;
+            released = FlyThenRead(aim, miss).MayRelease;
             if (released) break;
         }
 
@@ -356,7 +380,7 @@ public class PostBoostAimTests
         foreach (double miss in wander)
         {
             read++;
-            released = aim.Update(Step, Bus(true, miss)).MayRelease;
+            released = FlyThenRead(aim, miss).MayRelease;
             if (released) break;
         }
 
@@ -467,10 +491,11 @@ public class PostBoostAimTests
         Settle(aim);
 
         // One pass runs, then the trim stops before the next.
-        aim.Update(Step, Bus(true, 3_500.0));
+        FlyThenRead(aim, 3_500.0);
         Assert.True(aim.Cycles >= 1, "the first pass did not start, so there is nothing to refuse after");
 
-        Settle(aim);
+        // No flight before it: a trim that gave up is exactly the case where none happens, and the
+        // refusal has to be heard anyway rather than waiting out FlownWithinSeconds.
         PostBoostAim.Decision refused = aim.Update(Step, Bus(true, 1_900.0, trimGaveUp: true));
 
         Assert.False(aim.Correcting);
