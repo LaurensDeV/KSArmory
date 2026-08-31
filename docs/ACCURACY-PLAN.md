@@ -671,6 +671,47 @@ release now against one a second later and difference them. That is self-calibra
 and arrival angle, and it is the same move `Sim/Warhead.cs` makes for blast radii: derive the number
 rather than type it.
 
+## 3m. The holding cost is not a constant — measured headlessly 2026-08-31
+
+3l asked whether 26.0 was the wrong *value* or whether the payback rule had the wrong *form*.
+`ImpactPredictor` answers it without a game, the same way the original number was taken: difference
+the impact of a release now against one 106 s later, and read the decay.
+`HoldingCostTests` pins it.
+
+| range | arrival | kick worth | at +106 s | **decay** |
+| --- | --- | --- | --- | --- |
+| 500 km | 56.4° | 156 m | 69 m | **0.82 m/s** |
+| 1,000 km | 36.9° | 188 m | 91 m | 0.91 |
+| **2,000 km** | **20.5°** | **339 m** | **191 m** | **1.40** |
+| 4,000 km | 10.3° | 1,187 m | 835 m | 3.32 |
+| 8,000 km | 4.7° | 7,112 m | 6,006 m | 10.43 |
+| 12,900 km | 2.1° | 30,655 m | 28,345 m | **21.79** |
+
+**The answer is the value, and the deeper answer is that it should never have been a constant.** The
+decay spans **27x** across the ranges this mod flies, and 26.0 sits at the top of that span — it is
+an intercontinental number, and the flight it came from was an intercontinental shot. Applied at
+2,000 km it overcharges every cycle by about **19x**.
+
+That explains 3l exactly:
+
+* base, h13, h6 and h3 all overcharge at 2,000 km — 26.0, 13.0, 6.5 and 3.25 against a true 1.40 —
+  which is why every step down won.
+* `h3` was not better than `h6` because by 3.25 the **trim budget** binds first: 3 of its 24 flights
+  ended on `trim`. The holding cost stopped being the constraint before it stopped being wrong.
+* 26.0 was never a bad measurement. It was a good measurement of a different shot.
+
+### The fix is to derive it, and the derivation is two predictions
+
+The loop already predicts the impact several times a second. Two more — release now, release a
+second later — measure the decay at whatever geometry the vehicle is actually on, and the payback
+rule becomes self-calibrating from 500 km to intercontinental. It is the same move `Sim/Warhead.cs`
+makes for blast radii: derive the number rather than type it.
+
+**Not built, and deliberately.** `IcbmConfig.HoldingCostMetresPerSecond` is the plumbing and it is
+flown; wiring the derivation into it is a behaviour change nothing headless can score, and the rule
+is that a fix is unverified until it has been flown. What this section buys is that the flight can
+now be aimed at a number with a mechanism behind it rather than at a ladder of guesses.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
