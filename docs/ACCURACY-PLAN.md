@@ -444,6 +444,17 @@ that lets the loop finish and moves only `cot γ`. Arms `25|32|40` against base,
 against 100. If the misses do not fall with `cot γ`, the ladder's premise is wrong at this range and
 that is worth knowing for one night.
 
+```bash
+KSARMORY_SCENARIO_SAVE="SOLVER SCALE 8" ./tools/shot-batch.sh \
+  --aim 10.622,-80.604 \
+  --paired 'base|a25:MinArrivalAngleDeg=25|a32:MinArrivalAngleDeg=32|a40:MinArrivalAngleDeg=40' \
+  --blocks 12
+```
+
+Twelve blocks, four arms of two rockets, about 1.3 hours. **Read the attribution table's `arr deg`
+before the ratios**: an unaffordable floor falls back to the cheap arc rather than failing, so an arm
+that did not steepen is a null that means nothing about `cot γ`.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
