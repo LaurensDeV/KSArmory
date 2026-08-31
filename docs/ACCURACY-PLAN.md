@@ -405,6 +405,10 @@ before committing a night to the range ladder. It flies, and it is far worse:
 | `trim` | 2 of 96 | **5 of 6** |
 | passes | many | **1 or 2** |
 
+**Read from the log, not from a verdict.** The run was killed at 900 s by the operator's own
+timeout, with the world at 0.36-0.64x real time on 15 vehicles, so six of the eight flights recorded
+an impact and an ending and two did not. The six are complete flights; the group score is not.
+
 Every non-`payback` ending reads *the trim stopped before the next one*, and the flights are 42 to
 58 seconds long. **The binding constraint at short range is the number of correction passes, not the
 geometry.** 3e's fix makes a pass wait for the trim to fly — measured at 19 s — so a 2,000 km flight
