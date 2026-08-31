@@ -246,11 +246,20 @@ against 10.9-11.4 for the runs either side of it, so nothing was paid for it.
 Turning `WarpTheCoast` off outright buys the same accuracy and costs a player the whole
 twenty-five-minute fall in real time. This protects seventeen seconds of it.
 
-**One caveat, unmeasured.** With eight rockets the correction windows are staggered across about
-forty-five seconds and collectively suppress every warp offer, so the harness now behaves as if the
-coast warp were off — which costs it nothing, because the scenario drives the world speed itself.
-A player flying one rocket blocks ~17 s of a ~1500 s coast and keeps the fast-forward. That case has
-not been flown.
+**The single-rocket claim was wrong, and the flight that was meant to confirm it cannot.** Flown on
+`SOLVER SCALE 1`: **0.503 km, PASS, and nought warps** — so one rocket does not keep the fast-forward
+either, on this harness.
+
+But the harness is not the player's situation and this shot cannot separate them. Nothing needed
+short steps between entering the coast at 10:37:15 and the trim at 10:41:35 — four and a third
+minutes with the gate open and no warp offered — so **the fix is not what suppressed it here**. The
+scenario asks the world for 8x on its own, which is why the shot still took 10.0 minutes and why
+KSA's warp-to-a-time had nothing left to offer.
+
+So what a player at 1x sees is **still unverified**, and the harness cannot answer it: every scripted
+shot drives its own world speed. Answering it wants either a scenario that leaves the speed alone or
+a hand-flown shot. Until then the honest statement is that the accuracy is measured and the cost to
+a player is not.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
