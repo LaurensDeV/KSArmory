@@ -455,6 +455,55 @@ Twelve blocks, four arms of two rockets, about 1.3 hours. **Read the attribution
 before the ratios**: an unaffordable floor falls back to the cheap arc rather than failing, so an arm
 that did not steepen is a null that means nothing about `cot γ`.
 
+## 3h. The arrival angle has an optimum near 26 degrees, not a ladder — flown 2026-08-31
+
+12 shots, 96 flights, `~/shots/2026-08-31-1351`, HEAD `2d0412e` (3c, 3d and 3e all aboard).
+`--paired 'base|a25:MinArrivalAngleDeg=25|a32:MinArrivalAngleDeg=32|a40:MinArrivalAngleDeg=40'` at
+2,000 km, four arms of two rockets, rotated by shot.
+
+**Every floor was affordable and every flight held it** — base 17.2-18.0 deg, a25 25.9 on 24 of 24,
+a32 33.0, a40 41.1. The manipulation is clean, so a null here would have meant something.
+
+| arm | arrival | pooled median | paired ratio | won | sign p | |
+| --- | --- | --- | --- | --- | --- | --- |
+| base | 17.7° | 0.11 km | — | — | — | |
+| **a25** | **25.9°** | **0.08 km** | **0.44x** [0.30, 0.79] | **11 of 12** | **0.006** | **RESOLVED** |
+| a32 | 33.0° | 0.11 km | 0.80x [0.59, 1.12] | 7 of 12 | 0.774 | unresolved |
+| a40 | 41.1° | 0.13 km | 0.66x [0.39, 1.18] | 9 of 12 | 0.146 | unresolved |
+
+**`cot γ` predicted 0.66 / 0.49 / 0.37, monotone. The night gives 0.44 / 0.80 / 0.66.** a25 beats its
+prediction by half again; a32 and a40 miss theirs by two-thirds. There is an **optimum near 26
+degrees**, and `docs/METRE-LEVEL.md`'s ladder — which assumes steepening always pays — does not
+describe this vehicle at this range.
+
+Steeper is also *erratic* rather than merely flat. Shots worse than base: **a25 1 of 12, a32 5 of 12,
+a40 3 of 12.** a25 is the only arm that is consistently better, which is why it is the only one that
+resolved.
+
+**Steepening does make corrections finish**, and that is not the whole story either: `payback` ends
+24 of 24 on every steep arm against **21 of 24** on base. So the terminator improves monotonically
+with angle while the miss does not — another instance of the standing rule that the terminator table
+is a diagnosis and not a lever.
+
+### Two predictions this night refuted, one of them mine
+
+**3g's `cot γ` arithmetic was necessary but not sufficient.** It correctly killed the 20 degree floor
+as unmeasurable; it wrongly implied 40 degrees would be the best of the three.
+
+**And the payback-floor prediction was wrong.** The floor is `_lastCycleSeconds x 26 m/s`, and 3e took
+the cycle from ~2 s to ~19 s, which predicted base degrading from ~100 m to ~500 m. **Base came in at
+0.11 km.** Either the cycle is not 19 s at this range or the floor does not bind where the argument
+put it; the argument stands unsupported either way and should not be repeated without a measurement
+of `_lastCycleSeconds` per range.
+
+**Caveat on the baseline only.** Frame time was **100.8 ms** against last night's 29.8, so base
+against last night's 0.10 km is a between-night comparison in a different regime and is worth
+nothing. The arm comparisons are within-world and carry no such term, which is the whole reason the
+paired design exists.
+
+**Not made the default.** A 25 degree floor costs propellant and reach, which is a trade a player
+owns rather than one this mod should make for them.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -548,7 +597,10 @@ Never freezing the aim (lost 5.7x; the freeze is load-bearing).
 `trim` as the dominant terminator implying `TrimCeilingFromBudget` (attacking the named terminator
 cost the good ending).
 The 20 degree arrival floor (priced against a 7 degree baseline that was already 13.6; the
-baseline is now 17.5, so it buys 13% -- 3g).
+baseline is now 17.5, so it buys 13% -- 3g). A 25 degree floor is a different matter and is the
+one resolved win here -- 0.44x, 3h.
+Steepening past ~26 degrees (33 and 41 deg both flew, both unresolved, both erratic; the optimum
+is interior -- 3h).
 Shortening the range to steepen the arrival (418 km lands 0.36-3.63 km against 2,000 km's 0.10 --
 the short flight cannot fit the passes; 3g).
 "The clearance never succeeds" (the absence of a log line measured the logger).
