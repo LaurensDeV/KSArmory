@@ -13,7 +13,7 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 | | 2,000 km | 12,902 km, before | 12,902 km, after |
 | --- | --- | --- | --- |
 | flights | 96 of 96 scoring | 324 across three nights | 8 per shot, all scoring |
-| median miss | **99 m** (30 m at a 6.5 m/s holding cost, 3l) | **6,664 m** | **150-650 m**, by session |
+| median miss | **99 m** (20 m at a 1.4 m/s holding cost, 3n) | **6,664 m** | **150-650 m**, by session |
 | best shot | 52 m | — | **9 m**, group of 0.009-0.479 km |
 | p90 | 198 m | 28,652 m | — |
 | within a group of six | **5 m** | 6 m | 6 m |
@@ -711,6 +711,47 @@ makes for blast radii: derive the number rather than type it.
 flown; wiring the derivation into it is a behaviour change nothing headless can score, and the rule
 is that a fix is unverified until it has been flown. What this section buys is that the flight can
 now be aimed at a number with a mechanism behind it rather than at a ladder of guesses.
+
+## 3n. The measured holding cost is the best flown one — flown 2026-08-31
+
+12 shots, 96 flights, `~/shots/2026-08-31-2011`, HEAD `254ddea`.
+
+| arm | holding cost | budget cap | pooled | paired ratio | won | p | |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| base | 26.0 | — | 0.11 km | — | — | — | |
+| h6 | 6.5 | — | 0.04 km | 0.45x [0.23, 0.68] | 10 of 12 | 0.039 | RESOLVED |
+| h3b | 3.25 | yes | 0.03 km | 0.30x [0.13, 0.41] | 11 of 12 | 0.006 | RESOLVED |
+| **h1b** | **1.4** | **yes** | **0.02 km** | **0.23x** [0.11, 0.39] | **12 of 12** | **0.000** | **RESOLVED** |
+
+**110 m to 20 m, and 3m's headless number is the winner.** The decay measured off `ImpactPredictor`
+at this geometry was **1.40 m/s**; the arm set to exactly that swept all twelve shots. A prediction
+made without the game picked the best flown setting.
+
+**And the floor is finally out of the way.** Endings per flight:
+
+| arm | `payback` | `noimprov` | `trim` |
+| --- | --- | --- | --- |
+| base | 24 | 0 | 0 |
+| h6 | 23 | 0 | 1 |
+| h3b | 23 | 1 | 0 |
+| **h1b** | **16** | **8** | 0 |
+
+At 1.4 a third of the flights stop because the loop **runs out of improvement** rather than because
+the rule releases them, which is the first time the correction has been allowed to converge on its
+own terms. `noimprov` lands at 0.03 km against `payback`'s 0.04, so those are the good endings.
+
+### The night cannot say whether the budget cap did anything
+
+**A design fault, mine.** `AimWithinTrimBudget` is on in `h3b` and `h1b` and off in `base` and `h6`,
+so it is perfectly confounded with the holding cost and no comparison here separates them.
+
+Worse for the stated reason: the cap was added because 3l's two `trim` endings refused a pass over
+its 47 m/s ceiling with 946 m/s in the tank. **This night has zero ceiling refusals on any arm,
+including the uncapped ones.** So the mechanism the cap was brought in to prevent never occurred, and
+its contribution is not merely unmeasured but has no evidence of a route to act through.
+
+The whole gain is attributable to the holding cost until an arm flies **1.4 with no cap**. That is
+one arm and it is the next thing to fly.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
