@@ -687,10 +687,20 @@ the impact of a release now against one 106 s later, and read the decay.
 | 8,000 km | 4.7° | 7,112 m | 6,006 m | 10.43 |
 | 12,900 km | 2.1° | 30,655 m | 28,345 m | **21.79** |
 
-**The answer is the value, and the deeper answer is that it should never have been a constant.** The
-decay spans **27x** across the ranges this mod flies, and 26.0 sits at the top of that span — it is
-an intercontinental number, and the flight it came from was an intercontinental shot. Applied at
-2,000 km it overcharges every cycle by about **19x**.
+**The answer is the value, and the deeper answer is that it should never have been a constant.**
+Applied at 2,000 km, 26.0 overcharges every cycle by about **19x**.
+
+> **The two longest rows are not a geometry this mod flies — corrected 2026-09-01.** The sweep holds
+> the release at 400 km and solves for speed, which at 8,000 km and beyond forces a nearly-orbital
+> *grazing* arc: 4.7 and 2.1 degrees of arrival. A real intercontinental shot **lofts**, and the
+> flown one arrives at **13.5 degrees**, where the vehicle's own probes measure **2.90 m/s** rather
+> than the 21.79 this table predicts.
+>
+> So the "27x span" is partly an artefact of how the sweep was built, and the honest reading is
+> narrower and worse for the constant: across the geometries actually flown — 1.33 m/s at 2,000 km
+> and 2.90 at 12,900 — **26.0 is nine to twenty times too high everywhere**, not merely at short
+> range. The rows up to 4,000 km stand; the last two describe a trajectory family the mod does not
+> use.
 
 That explains 3l exactly:
 
