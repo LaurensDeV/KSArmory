@@ -471,6 +471,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/ARRIVAL-ANGLE.md` | **what a steeper arrival is worth** — precision, impact speed and propellant against the angle a round comes in at, why seven degrees is the air's answer rather than the guidance's, and the control that asks for another |
 | `docs/KINETIC-FLOOR.md` | **how accurate a round could possibly be** — the terms no amount of guidance work removes, and why the arrival angle is the whole lever |
 | `docs/METRE-LEVEL.md` | **the route from today's kilometre to a metre**, as a ladder of arrival angles with a gate on each rung — what blocks each one, the orbit and target matrix that tests it, and **why the ladder stops at rung C**: the wall clock cannot be bought with frame rate, because a flight is CPU-bound and the GPU is idle |
+| `docs/GUIDANCE-SECTION.md` | **a plan, not a record** — the ballistic computer as a part you bolt on: a 3 m interstage ring under the bus, a `Guidance` role distinct from `FireControl`, and why its mass is a split of the bus's rather than an addition to it |
 | `docs/NUCLEAR-EFFECT.md` | which of KSA's four volumetric renderers a mod can reach, and what a mushroom cloud actually looks like |
 | `docs/DAMAGE-DECALS.md` | **a plan, not a record** — how a decal is projected onto a hull, a hillside or a rock out of the depth buffer, read off gatOS's implementation and re-verified here, and what a burn mark on a craft would cost |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
