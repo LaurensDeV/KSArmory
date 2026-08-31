@@ -272,6 +272,43 @@ shot drives its own world speed. Answering it wants either a scenario that leave
 a hand-flown shot. Until then the honest statement is that the accuracy is measured and the cost to
 a player is not.
 
+## 3d. The aim loop's observer moves 45x faster than its own authority — measured 2026-08-31
+
+Recorded every cycle rather than only when the aim has moved 500 m, over 3,788 observations of one
+shot at 12,902 km:
+
+| per cycle, median | |
+| --- | --- |
+| the aim moved | **78 m** |
+| the predicted impact moved | **3,520 m** |
+| ...of that, along the aim move | 2,803 m |
+| ...not along it | 717 m |
+
+**The impact moves forty-five times further than the aim commands it to.** So what the loop observes
+between one cycle and the next is overwhelmingly not its own doing, and the secant it computes from
+that — `impactAlong / movedBy`, median **-35.7** — is measuring the wander rather than the plant.
+
+### Which invalidates the plant readings, including the ones from an hour earlier
+
+`ResponseFromMetres` requires a 500 m aim move before a reading counts, and **3 of 3,788 cycles
+qualify**. The 0.91 median measured over 26 readings is therefore drawn from the 0.08% of cycles that
+are atypical — and `Observe` additionally rejects a negative secant, which the typical cycle now
+turns out to have. So the loop keeps only the rare positive readings and discards the common
+negative ones, which is a selection, not a filter.
+
+### And it explains the three symptoms without any of the mechanisms proposed for them
+
+* The miss "growing" across passes — 4.8 km, 7.7, 11.5 — is wander, not divergence.
+* `WorseBeforeStopping` trips because readings bounce by kilometres, not because the loop is walking
+  outward.
+* The plant estimate is unusable, so `MinResponse` is doing nothing either way — consistent with the
+  9% it was measured to cost.
+
+**The fix is not obvious and nothing should be tuned on this yet.** The question it poses is why the
+predicted impact is unsettled by kilometres between cycles half a second apart, and that is a
+property of `ImpactPredictor` and the state it is flown from rather than of the correction loop. A
+loop cannot be tuned against an observer this noisy; it can only be given a quieter one.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
