@@ -338,6 +338,27 @@ The guard misses it because `IcbmComputer` gates on `!TrimIsFiring`, and
 **`AimCorrection.Settled` ends 0 of 96 flights.** The loop's own stopping rules end nothing; the
 actuator does.
 
+### Fixed and flown 2026-08-31
+
+`PostBoostAim` arms a reading only once it has seen the trim unsettled since the last one — three
+exemptions, each with a reason: the first reading, a trim that gave up, and a bounded fallback for a
+demand already inside the settle band.
+
+The mechanism check is deterministic and it passed:
+
+| gap between passes | before | after |
+| --- | --- | --- |
+| 1 to 2 | **2.03 s** | **19.0 s** |
+| 2 to 3 | 41.3 s | 20.8 s |
+
+Evenly spaced, which is what reading off a flown correction looks like. The shot: **0.040, 0.091,
+0.092, 0.120, 0.133, 0.450, 0.469, 0.715 km**, median 0.13 — the best long-range group recorded here
+— and six of eight ended on `payback` at 33 to 200 m.
+
+**Six of eight is one shot and settles nothing**, against 40 of 96 as the standing rate; the count is
+what a paired night has to score, and the failure mode to watch is `payback` converting to `budget`
+or `clock` as the extra wait eats the tank.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
