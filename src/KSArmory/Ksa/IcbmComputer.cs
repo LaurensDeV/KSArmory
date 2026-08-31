@@ -2250,7 +2250,8 @@ internal sealed class IcbmComputer
                           + $"{PredictedMissMetres / 1000.0:F2} km out, best "
                           + $"{_aim.BestMissMetres / 1000.0:F2}, response {_aim.Response:F2}, "
                           + $"bias {biasWas / 1000.0:F1} -> {Vec.Len(_aim.BiasCci) / 1000.0:F1} km, "
-                          + $"worse for {_aim.WorseFor}");
+                          + $"worse for {_aim.WorseFor}, "
+                          + $"{_aim.PlantMeasurements} plant reading(s), raw {_aim.LastRawResponse:F2}");
 
                 if (!Program.IsBurning)
                 {

@@ -126,6 +126,21 @@ internal sealed class AimCorrection
     /// <summary>The best miss the loop has seen, which is the aim it will revert to.</summary>
     public double BestMissMetres => _bestMiss;
 
+    /// <summary>
+    /// How many cycles have re-measured the plant, and what the last raw secant was before the
+    /// clamp.
+    ///
+    /// <para><b>Because a response of one has two causes that want opposite fixes.</b>
+    /// <see cref="Resume"/> seeds it there and <see cref="MinResponse"/> clamps there, so a loop
+    /// reading 1.00 is either running on a seed nothing has corrected or measuring a plant that
+    /// really does move the impact by what the aim moved. The first wants a different seed; the
+    /// second means the seed is right and the step size is not the fault.</para>
+    /// </summary>
+    public int PlantMeasurements { get; private set; }
+
+    /// <inheritdoc cref="PlantMeasurements"/>
+    public double LastRawResponse { get; private set; } = double.NaN;
+
     /// <summary>How many readings worse than that best have accumulated.</summary>
     public int WorseFor => _worseFor;
 
@@ -240,7 +255,9 @@ internal sealed class AimCorrection
             // is "do not trust the estimate" rather than "invert the loop".
             if (impactAlong > 0.0)
             {
-                _response = Math.Clamp(impactAlong / movedBy, MinResponse, MaxResponse);
+                LastRawResponse = impactAlong / movedBy;
+                PlantMeasurements++;
+                _response = Math.Clamp(LastRawResponse, MinResponse, MaxResponse);
             }
         }
 
