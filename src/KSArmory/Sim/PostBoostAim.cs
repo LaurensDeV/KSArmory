@@ -38,7 +38,8 @@ internal readonly record struct PostBoostSituation(
     double PredictedMissMetres,
     bool AimHasSettled,
     double TrimSpentMetresPerSecond,
-    bool TrimGaveUp = false);
+    bool TrimGaveUp = false,
+    double HoldingCostMetresPerSecond = 0.0);
 
 /// <summary>
 /// Correcting the aim after the engines have stopped, with the trim as the actuator.
@@ -374,7 +375,11 @@ internal sealed class PostBoostAim
         // The payback rule. Another cycle costs the seconds it takes, at the rate holding a warhead
         // spends leverage — so it is only worth running while the miss on the table is larger than
         // that. A shot already inside it is made worse by correcting it.
-        double nextCycleCosts = _lastCycleSeconds * HoldingCostsMetresPerSecond;
+        double holdingCost = now.HoldingCostMetresPerSecond > 0.0
+                                 ? now.HoldingCostMetresPerSecond
+                                 : HoldingCostsMetresPerSecond;
+
+        double nextCycleCosts = _lastCycleSeconds * holdingCost;
 
         if (now.PredictedMissMetres <= nextCycleCosts)
         {

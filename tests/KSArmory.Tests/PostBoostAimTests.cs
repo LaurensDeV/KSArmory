@@ -25,9 +25,10 @@ public class PostBoostAimTests
                                           bool aimHasSettled = false,
                                           double3? directionCci = null,
                                           double spentMetresPerSecond = 0.0,
-                                          bool trimGaveUp = false)
+                                          bool trimGaveUp = false,
+                                          double holdingCost = 0.0)
         => new(trimSettled, directionCci ?? Held, missMetres, aimHasSettled, spentMetresPerSecond,
-               trimGaveUp);
+               trimGaveUp, holdingCost);
 
     /// <summary>
     /// Hold the bus still long enough for the settle gate to open, taking no reading on the way.
@@ -517,5 +518,76 @@ public class PostBoostAimTests
 
         Assert.False(aim.Correcting);
         Assert.Contains("aim settled", done.Said);
+    }
+
+    /// <summary>
+    /// The floor the correction accepts is the holding cost times the cycle, so a cheaper hold has
+    /// to keep correcting through a miss the shipped constant would have released on.
+    /// </summary>
+    [Fact]
+    public void ACheaperHoldKeepsCorrectingThroughAMissTheConstantWouldRelease()
+    {
+        // Just inside the shipped floor of 6.0 s x 26.0 m/s = 156 m, and well outside a 5 m/s one.
+        const double miss = 120.0;
+
+        var shipped = new PostBoostAim();
+        Settle(shipped);
+        PostBoostAim.Decision released = FlyThenRead(shipped, miss);
+
+        Assert.True(released.MayRelease);
+
+        var cheaper = new PostBoostAim();
+
+        for (double t = 0.0; t <= PostBoostAim.SteadySeconds; t += Step)
+        {
+            cheaper.Update(Step, Bus(true, double.NaN, holdingCost: 5.0));
+        }
+
+        for (int i = 0; i < 4; i++) cheaper.Update(Step, Bus(false, miss, holdingCost: 5.0));
+
+        PostBoostAim.Decision still = default;
+
+        for (double t = 0.0; t <= PostBoostAim.FlownWithinSeconds + Step; t += Step)
+        {
+            still = cheaper.Update(Step, Bus(true, miss, holdingCost: 5.0));
+            if (still.MayMeasure || still.MayRelease) break;
+        }
+
+        Assert.False(still.MayRelease);
+        Assert.True(still.MayMeasure);
+    }
+
+    /// <summary>Zero is the shipped constant, so a profile saying nothing behaves as it always did.</summary>
+    [Fact]
+    public void AHoldingCostOfZeroIsTheShippedConstant()
+    {
+        var stated = new PostBoostAim();
+        Settle(stated);
+
+        PostBoostAim.Decision withConstant =
+            FlyThenRead(stated, PostBoostAim.HoldingCostsMetresPerSecond
+                                * PostBoostAim.FirstCycleSeconds * 0.5);
+
+        var zeroed = new PostBoostAim();
+        Settle(zeroed);
+
+        for (int i = 0; i < 4; i++)
+        {
+            zeroed.Update(Step, Bus(false, PostBoostAim.HoldingCostsMetresPerSecond
+                                           * PostBoostAim.FirstCycleSeconds * 0.5,
+                                    holdingCost: 0.0));
+        }
+
+        PostBoostAim.Decision withZero = default;
+
+        for (double t = 0.0; t <= PostBoostAim.FlownWithinSeconds + Step; t += Step)
+        {
+            withZero = zeroed.Update(Step, Bus(true, PostBoostAim.HoldingCostsMetresPerSecond
+                                                     * PostBoostAim.FirstCycleSeconds * 0.5,
+                                               holdingCost: 0.0));
+            if (withZero.MayMeasure || withZero.MayRelease) break;
+        }
+
+        Assert.Equal(withConstant.MayRelease, withZero.MayRelease);
     }
 }

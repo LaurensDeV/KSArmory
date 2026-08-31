@@ -451,6 +451,20 @@ internal sealed partial class Ui
             : $"the correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget "
               + "cannot fly at any range"));
 
+        float holding = (float)config.HoldingCostMetresPerSecond;
+        if (ImGui.SliderFloat("Holding cost, m/s", ref holding, 0.0f, 40.0f, "%.1f"))
+        {
+            config.HoldingCostMetresPerSecond = holding;
+        }
+
+        ImGui.TextDisabled("  " + (config.HoldingCostMetresPerSecond > 0.0
+            ? $"the correction stops under "
+              + $"{config.HoldingCostMetresPerSecond * PostBoostAim.FirstCycleSeconds:F0} m on its "
+              + "first cycle, and that is the floor under the miss"
+            : $"{PostBoostAim.HoldingCostsMetresPerSecond:F0} m/s, measured on one flight -- a "
+              + $"{PostBoostAim.HoldingCostsMetresPerSecond * PostBoostAim.FirstCycleSeconds:F0} m "
+              + "floor"));
+
         bool keepOut = config.KeepOutCoversTheClearance;
         if (ImGui.Checkbox("Keep trimming past the clearance", ref keepOut))
         {

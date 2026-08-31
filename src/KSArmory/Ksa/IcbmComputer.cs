@@ -1384,7 +1384,8 @@ internal sealed class IcbmComputer
             PredictedMissMetres: _freshMiss,
             AimHasSettled: _aim.Settled,
             TrimGaveUp: _trim.GaveUp,
-            TrimSpentMetresPerSecond: _trim.SpentMetresPerSecond));
+            TrimSpentMetresPerSecond: _trim.SpentMetresPerSecond,
+            HoldingCostMetresPerSecond: Config.HoldingCostMetresPerSecond));
 
         if (pass.MayMeasure) _measureDue = true;
 

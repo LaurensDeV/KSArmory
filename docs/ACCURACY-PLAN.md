@@ -547,6 +547,49 @@ and it is exactly how the drag shortfall hid for so long while the loop reported
 smoothly or in a step**: smooth is a model error carried the whole way down, a step is an event at
 release. Different causes, different fixes, and one short batch tells them apart.
 
+## 3j. The miss is the miss the loop agreed to accept — measured 2026-08-31
+
+`ScenarioRunner.BeginBallistic` already sets `_config.TraceWarhead = true`, so every scripted shot
+ever flown carries `WarheadTrace`'s decomposition. 3h's 96 flights, mined, no new flying.
+
+| | median | |
+| --- | --- | --- |
+| walk from the release probe | **4 m** | what the round did that the predictor did not |
+| accepted predicted miss at `payback` | **109 m** | what the loop settled for |
+| flown miss | **125 m** | |
+| payback threshold | **156 m** | `6.0 s x 26.0 m/s` |
+
+**The predictor is right to 4 m — 3.2% of the miss.** It is not the observer that is wrong, and
+`ImpactPredictor` is not the next thing to fix. The round goes where the prediction says, and the
+prediction is compared against an aim the loop **chose to stop moving**.
+
+`payback` fires when `PredictedMissMetres <= _lastCycleSeconds x HoldingCostsMetresPerSecond`, so what
+it accepts is a floor set entirely by those two numbers. The median threshold is **156 m**, which is
+`FirstCycleSeconds` exactly — most flights stop on the seed cycle — and the flown miss lands beside
+it. Independently, the 418 km shot's `payback` line read *371 m out* and that warhead landed at
+**360 m**.
+
+### 3h's retraction of the payback-floor argument was itself wrong
+
+3h recorded the argument as unsupported because base flew 0.11 km where a 19 s cycle predicted
+~500 m. **The mechanism was right and the number came from the wrong range.** The 19 s figure is
+3e's, measured at 12,902 km; at 2,000 km the cycle is the 6.0 s seed, the floor is 156 m, and base
+flew 110-125 m against it. The argument is confirmed, not refuted, and 3h's paragraph is superseded
+by this one.
+
+### So the lever is a constant measured once, on one shot
+
+`HoldingCostsMetresPerSecond = 26.0` is derived from a single flight — the ejection kick worth
+8.421 km at cutoff and 5.672 km at +106 s, which is 25.9 m/s. It is a real cost and it is **linear in
+the floor**: halve it and the loop is allowed to keep correcting to half the miss.
+
+Nothing has ever checked it at another range or another arrival angle, and 3h just moved the arrival
+angle by eight degrees for a 0.44x. If the true holding cost at a 26 degree arrival is a third of 26,
+the loop is stopping three times too early and the whole 125 m is the constant being wrong.
+
+**That is the next shot**, and it is the first one aimed at a term proven to set the miss rather than
+inferred to.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.

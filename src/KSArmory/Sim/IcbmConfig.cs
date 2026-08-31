@@ -302,6 +302,22 @@ internal sealed class IcbmConfig
     public bool AimWithinTrimBudget;
 
     /// <summary>
+    /// What a second of holding the warheads is charged at, overriding
+    /// <see cref="PostBoostAim.HoldingCostsMetresPerSecond"/>.
+    ///
+    /// <para><b>This is the floor under the miss, and it is linear in it.</b> The correction stops
+    /// when the predicted miss falls under <c>cycle seconds x this</c>, so what the loop accepts is
+    /// set here and nowhere else. Measured over 96 flights: a 156 m threshold, 109 m accepted, 125 m
+    /// flown, and a predictor good to 4 m — the miss is the floor, not the guidance.</para>
+    ///
+    /// <para><b>Zero uses the constant</b>, which is 26.0 and was derived from one flight at one
+    /// geometry: an ejection kick worth 8.421 km at cutoff and 5.672 km at +106 s. Nothing has
+    /// checked it at another range or arrival angle, and holding is a real cost — set it too low and
+    /// the loop spends leverage it cannot get back.</para>
+    /// </summary>
+    public double HoldingCostMetresPerSecond;
+
+    /// <summary>
     /// Let the keep-out interlock answer the safety question the clearance timeout answers by
     /// giving up.
     ///
