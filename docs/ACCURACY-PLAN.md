@@ -305,9 +305,31 @@ negative ones, which is a selection, not a filter.
   9% it was measured to cost.
 
 **The fix is not obvious and nothing should be tuned on this yet.** The question it poses is why the
-predicted impact is unsettled by kilometres between cycles half a second apart, and that is a
-property of `ImpactPredictor` and the state it is flown from rather than of the correction loop. A
-loop cannot be tuned against an observer this noisy; it can only be given a quieter one.
+predicted impact is unsettled by kilometres between cycles, and that is a property of
+`ImpactPredictor` and the state it is flown from rather than of the correction loop. A loop cannot be
+tuned against an observer this noisy; it can only be given a quieter one.
+
+### It is not the vehicle's own motion — flown and refuted
+
+3,520 m over the nominal 0.5 s prediction interval is 7.0 km/s, the bus's orbital speed, which was
+close enough to be worth testing as a frame-and-epoch carry. It is not one. Logging how far the state
+the prediction *departs from* travelled between readings, over 3,792 observations:
+
+| per cycle, median | |
+| --- | --- |
+| the departure state moved | **679 m** |
+| the predicted impact moved | **3,621 m** |
+| ratio | **5.43x**, quartiles 3.16 to 75.2 |
+
+A carry would read 1.00. So the predictor **amplifies** its departure state's motion about fivefold
+rather than reporting it, and the interval is ~0.1 s of travel rather than 0.5 s.
+
+That is the shape of a genuine sensitivity rather than a frame error, and it has a candidate: a
+coasting bus 679 m further along the same arc should land in the same place, so either the arc is not
+the same between readings — the trim, drag, or a state that carries noise — or the predictor's answer
+depends on where along the arc it is entered, which would be an integration or terrain-sampling
+artefact. `cot(13.8 deg)` is 4.1, and the shallow-arrival amplification of any height disagreement is
+the first thing to price.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
