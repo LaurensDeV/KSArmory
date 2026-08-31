@@ -2258,6 +2258,9 @@ internal sealed class IcbmComputer
                           // still moved a seventh is the trajectory, and the step is too small; a
                           // trim that flew a seventh of what it was asked is the actuator, and a
                           // larger step makes it worse.
+                          + $" | aim moved {_aim.LastAimMoveMetres:F0} m, impact moved "
+                          + $"{_aim.LastImpactMoveMetres:F0} m of which "
+                          + $"{_aim.LastImpactAlongAimMetres:F0} along it"
                           + $" | trim owes {_trim.ToGainMetresPerSecond:F2} of "
                           + $"{_trim.SpentMetresPerSecond:F2} spent"
                           + (_trim.GaveUp ? ", GAVE UP" : _trim.Done ? ", done" : ", running"));

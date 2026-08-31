@@ -141,6 +141,27 @@ internal sealed class AimCorrection
     /// <inheritdoc cref="PlantMeasurements"/>
     public double LastRawResponse { get; private set; } = double.NaN;
 
+    /// <summary>
+    /// How far the impact moved since the previous cycle, and how much of that the aim move
+    /// accounts for.
+    ///
+    /// <para><b>Because the miss grows across passes while each pass works.</b> Flown at 12,902 km:
+    /// 4.8 km at pass one, 7.7 at pass two, 11.5 at pass three, with the plant measuring 0.91 and
+    /// the trim delivering 99.7% of what it is asked. A pass that removes nine tenths of the miss
+    /// cannot leave it larger, so something moves the impact between readings — and the difference
+    /// between these two numbers is exactly how much.</para>
+    ///
+    /// <para>Recorded every cycle, unlike <see cref="LastRawResponse"/>, which needs the aim to have
+    /// moved <see cref="ResponseFromMetres"/> before it means anything.</para>
+    /// </summary>
+    public double LastImpactMoveMetres { get; private set; } = double.NaN;
+
+    /// <inheritdoc cref="LastImpactMoveMetres"/>
+    public double LastImpactAlongAimMetres { get; private set; } = double.NaN;
+
+    /// <inheritdoc cref="LastImpactMoveMetres"/>
+    public double LastAimMoveMetres { get; private set; } = double.NaN;
+
     /// <summary>How many readings worse than that best have accumulated.</summary>
     public int WorseFor => _worseFor;
 
@@ -245,6 +266,15 @@ internal sealed class AimCorrection
         // did, which is the same secant a Newton step is built from.
         double3 movedAim = BiasCci - _lastBias;
         double movedBy = Vec.Len(movedAim);
+
+        if (_haveLast)
+        {
+            LastAimMoveMetres = movedBy;
+            LastImpactMoveMetres = Vec.Len(error - _lastError);
+            LastImpactAlongAimMetres = movedBy > 0.0
+                                           ? Vec.Dot(error - _lastError, Vec.Unit(movedAim))
+                                           : 0.0;
+        }
 
         if (movedBy >= ResponseFromMetres && _haveLast)
         {
