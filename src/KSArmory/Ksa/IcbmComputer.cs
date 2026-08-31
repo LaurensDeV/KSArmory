@@ -32,6 +32,10 @@ internal sealed class IcbmComputer
     // steps. Empty when nobody handed one in, which is every path but the roster's.
     private IReadOnlyList<IcbmComputer> _busyElsewhere = [];
 
+    // Where the bus was when the aim was last read, so the impact's wander can be compared against
+    // the vehicle's own travel over the same interval.
+    private double3 _lastObservedFromCci = new(double.NaN, double.NaN, double.NaN);
+
     // How often it is re-flown when nothing but the readout wants it, in REAL seconds. Paced by
     // simulated time it runs every frame at warp, and each pass re-flies a whole trajectory at
     // PredictStepSeconds with a terrain lookup per step -- so on a warped coast, which is most of a
@@ -2240,6 +2244,17 @@ internal sealed class IcbmComputer
                 PriceTheAim(state);
 
                 double biasWas = Vec.Len(_aim.BiasCci);
+
+                // How far the state the prediction DEPARTS FROM travelled since the last reading. The impact moves 3,520 m
+                // a cycle against an aim move of 78, and 3,520 m over the 0.5 s prediction interval
+                // is 7.0 km/s -- the bus's own speed. If the two match, the impact being differenced
+                // is carrying the vehicle's motion rather than reporting where it will land, which
+                // is the frame-and-epoch fault docs/FRAMES-AND-EPOCHS.md exists for.
+                double busMoved = Vec.IsFinite(_lastObservedFromCci)
+                                      ? Vec.Len(fromCci - _lastObservedFromCci)
+                                      : double.NaN;
+                _lastObservedFromCci = fromCci;
+
                 _aim.Observe(hit.GroundFixedPointCci, _trueAimCci);
 
                 // The loop's own state, which nothing else reports. A demand that grows pass over
@@ -2258,6 +2273,7 @@ internal sealed class IcbmComputer
                           // still moved a seventh is the trajectory, and the step is too small; a
                           // trim that flew a seventh of what it was asked is the actuator, and a
                           // larger step makes it worse.
+                          + $" | bus moved {busMoved:F0} m"
                           + $" | aim moved {_aim.LastAimMoveMetres:F0} m, impact moved "
                           + $"{_aim.LastImpactMoveMetres:F0} m of which "
                           + $"{_aim.LastImpactAlongAimMetres:F0} along it"
