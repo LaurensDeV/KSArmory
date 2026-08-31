@@ -318,6 +318,21 @@ internal sealed class IcbmConfig
     public double HoldingCostMetresPerSecond;
 
     /// <summary>
+    /// Measure the holding cost off the trajectory instead of taking a number for it.
+    ///
+    /// <para><b>No single number is right.</b> The decay of the release impulse's leverage runs from
+    /// 0.82 m/s on a 500 km shot to 21.79 on a 12,900 km one, so the shipped constant is an
+    /// intercontinental value applied at every range — about 19x too high at 2,000 km, where it was
+    /// the whole floor under the miss. <see cref="HoldingCost"/> measures it in two predictions and a
+    /// coast.</para>
+    ///
+    /// <para>Wins over <see cref="HoldingCostMetresPerSecond"/> when both are set, because a measured
+    /// number beats a typed one. A probe that cannot be flown falls back to whichever of those two
+    /// applies, so a refusal costs the old behaviour rather than a free correction.</para>
+    /// </summary>
+    public bool DeriveHoldingCost;
+
+    /// <summary>
     /// Let the keep-out interlock answer the safety question the clearance timeout answers by
     /// giving up.
     ///

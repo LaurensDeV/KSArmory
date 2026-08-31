@@ -115,4 +115,59 @@ public sealed class HoldingCostTests
         Assert.True(mid < far, $"{mid:F2} should be under {far:F2}");
         Assert.True(far > 8.0 * near, $"{far:F2} should be many times {near:F2}");
     }
+
+    /// <summary>
+    /// The derivation agrees with the same measurement taken by hand, so what the vehicle computes
+    /// in flight is the number this file's tables are built from.
+    /// </summary>
+    [Theory]
+    [InlineData(1_000_000.0)]
+    [InlineData(2_000_000.0)]
+    [InlineData(8_000_000.0)]
+    public void TheDerivationReproducesTheMeasuredDecay(double rangeMetres)
+    {
+        var (p, v, _) = ReleaseFor(rangeMetres);
+
+        Assert.True(HoldingCost.TryMeasure(Body, p, v, Vec.Unit(v) * KickMetresPerSecond, Step,
+                                           out double derived));
+
+        double byHand = DecayAt(rangeMetres);
+
+        // A second's difference against a hundred and six: the same quantity, and the gap between
+        // them is the curvature over that span rather than disagreement.
+        Assert.InRange(derived, byHand * 0.5, byHand * 2.0);
+    }
+
+    /// <summary>
+    /// It answers a different number at a different geometry, which is the whole reason for
+    /// measuring rather than typing one.
+    /// </summary>
+    [Fact]
+    public void TheDerivationIsNotAConstant()
+    {
+        var (pn, vn, _) = ReleaseFor(1_000_000.0);
+        var (pf, vf, _) = ReleaseFor(8_000_000.0);
+
+        Assert.True(HoldingCost.TryMeasure(Body, pn, vn, Vec.Unit(vn) * KickMetresPerSecond, Step,
+                                           out double near));
+        Assert.True(HoldingCost.TryMeasure(Body, pf, vf, Vec.Unit(vf) * KickMetresPerSecond, Step,
+                                           out double far));
+
+        Assert.True(far > 5.0 * near, $"{far:F2} m/s at 8,000 km should dwarf {near:F2} at 1,000");
+    }
+
+    /// <summary>A probe it cannot fly is refused, never reported as a free correction.</summary>
+    [Fact]
+    public void AKickItCannotMeasureIsRefusedRatherThanZero()
+    {
+        var (p, v, _) = ReleaseFor(2_000_000.0);
+
+        Assert.False(HoldingCost.TryMeasure(Body, p, v, Vec.Zero, Step, out double none));
+        Assert.True(double.IsNaN(none));
+
+        // An escape trajectory never comes down, so neither probe has an impact to difference.
+        Assert.False(HoldingCost.TryMeasure(Body, p, v * 3.0, Vec.Unit(v) * KickMetresPerSecond,
+                                            Step, out double escaped));
+        Assert.True(double.IsNaN(escaped));
+    }
 }

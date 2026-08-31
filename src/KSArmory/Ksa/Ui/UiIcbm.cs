@@ -451,6 +451,16 @@ internal sealed partial class Ui
             : $"the correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget "
               + "cannot fly at any range"));
 
+        bool derive = config.DeriveHoldingCost;
+        if (ImGui.Checkbox("Measure the holding cost", ref derive))
+        {
+            config.DeriveHoldingCost = derive;
+        }
+
+        ImGui.TextDisabled("  " + (config.DeriveHoldingCost
+            ? "measured off the trajectory each pass, so the floor suits the shot"
+            : "taken from the number below, which is right at one range only"));
+
         float holding = (float)config.HoldingCostMetresPerSecond;
         if (ImGui.SliderFloat("Holding cost, m/s", ref holding, 0.0f, 40.0f, "%.1f"))
         {

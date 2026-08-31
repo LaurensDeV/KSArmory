@@ -70,6 +70,8 @@ internal sealed class IcbmComputer
     private bool _postBoostSaid;
     private bool _measureDue;
     private double _freshMiss = double.NaN;
+    private double _holdingCost = double.NaN;
+    private int _holdingCostForPass = -1;
     private bool _resumedForCoast;
     private bool _trimAbandoned;
     private double _departsIn;
@@ -347,6 +349,8 @@ internal sealed class IcbmComputer
         _postBoostSaid = false;
         _measureDue = false;
         _freshMiss = double.NaN;
+        _holdingCost = double.NaN;
+        _holdingCostForPass = -1;
         _resumedForCoast = false;
         _trimAbandoned = false;
         _trimShape = "";
@@ -412,6 +416,8 @@ internal sealed class IcbmComputer
         _postBoostSaid = false;
         _measureDue = false;
         _freshMiss = double.NaN;
+        _holdingCost = double.NaN;
+        _holdingCostForPass = -1;
         _resumedForCoast = false;
         _trimAbandoned = false;
         _trimShape = "";
@@ -1378,6 +1384,8 @@ internal sealed class IcbmComputer
 
         int passesBefore = _postBoost.Cycles;
 
+        MeasureHoldingCost();
+
         PostBoostAim.Decision pass = _postBoost.Update(simStep, new PostBoostSituation(
             TrimSettled: _trim.Done,
             ReleaseDirectionCci: ReleaseImpulseCci(),
@@ -1385,7 +1393,9 @@ internal sealed class IcbmComputer
             AimHasSettled: _aim.Settled,
             TrimGaveUp: _trim.GaveUp,
             TrimSpentMetresPerSecond: _trim.SpentMetresPerSecond,
-            HoldingCostMetresPerSecond: Config.HoldingCostMetresPerSecond));
+            HoldingCostMetresPerSecond: double.IsFinite(_holdingCost)
+                                            ? _holdingCost
+                                            : Config.HoldingCostMetresPerSecond));
 
         if (pass.MayMeasure) _measureDue = true;
 
@@ -2071,6 +2081,44 @@ internal sealed class IcbmComputer
     // The fallback when the tubes cannot be resolved: the munition's ejection speed along the
     // direction the vehicle was told to hold. Wrong by however far the vehicle settled off that
     // command, which is why it is second choice rather than the rule.
+    // Once a pass rather than once a solve: it is four impact predictions, the solve runs several
+    // times a second, and the answer is a property of the trajectory, which moves over minutes.
+    // A refusal leaves the previous measurement standing.
+    private void MeasureHoldingCost()
+    {
+        if (!Config.DeriveHoldingCost) { _holdingCost = double.NaN; return; }
+        if (Parent is not { } parent || _warhead is not { } warhead) return;
+        if (_postBoost.Cycles == _holdingCostForPass) return;
+
+        _holdingCostForPass = _postBoost.Cycles;
+
+        try
+        {
+            doubleQuat cce2Cci = parent.GetCce2Cci();
+            double3 positionCci = (KsaWorld.PositionEcl(Craft) - parent.GetPositionEcl()).Transform(cce2Cci);
+            double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci);
+
+            if (HoldingCost.TryMeasure(Body, positionCci, velocityCci, ReleaseImpulseCci(),
+                                       PredictStepSeconds, out double measured,
+                                       _terrainRadius ??= TerrainRadiusAt,
+                                       new ImpactPredictor.Drag(_densityRatio ??= DensityRatioAt, warhead)))
+            {
+                if (!double.IsFinite(_holdingCost) || Math.Abs(measured - _holdingCost) > 0.05)
+                {
+                    Log.Debug($"holding cost on {KsaWorld.DisplayName(Craft)}: {measured:F2} m/s "
+                              + $"measured, against the {PostBoostAim.HoldingCostsMetresPerSecond:F0} "
+                              + "the constant assumes");
+                }
+
+                _holdingCost = measured;
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Debug($"holding cost could not be measured: {e.Message}");
+        }
+    }
+
     private double3 ReleaseImpulseCci()
     {
         // Once the sequence is turning the vehicle, the line every round leaves on is the latched
