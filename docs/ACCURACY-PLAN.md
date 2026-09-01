@@ -1337,6 +1337,47 @@ lines among hundreds of per-cycle ones; the release residual only appeared when 
 it was doing; the arrival angle only when a floor was refused. `tools/shot-report.py` reads the line
 per craft and prints it as **what the correction loop left**, so the next night scores on it.
 
+## 3y. The affordable arrival is 67 degrees, and asking for all of it breaks the trim — probed 2026-09-01
+
+One block at 2,000 km, `base|p100:ArrivalPreference=1.0`, `~/shots/2026-09-01-2130`. Flown to pick
+the ladder rather than to settle anything: `ArrivalPreference` multiplies the steepest affordable
+arrival, and nothing had ever recorded what that number is.
+
+**It is 66-78 degrees**, not the 25-45 the flown `MinArrivalAngleDeg` ladder had made it look. So the
+fractions map far steeper than a25/a32/a40 ever went, and a ladder picked on the old assumption would
+have put three of its four arms on the baseline.
+
+| rocket | affordable | floor | flew | miss |
+| --- | --- | --- | --- | --- |
+| FAT 3 | 66.2 deg | 66.2 | 67.3 | 14 m |
+| FAT 5 | 66.6 | 66.6 | 67.6 | 18 m |
+| FAT 7 | 66.9 | 66.9 | 67.9 | 15 m |
+| **FAT** | **77.8** | **77.8** | **78.5** | **5,291 m** |
+
+Base's four flew 16.8-17.1 degrees for 10-63 m.
+
+### The one that could afford the most is the one that failed
+
+`trim owed 2.26 m/s at the split and 3.11 m/s on release (0.83 m/s spent, GAVE UP)` — the trim ran
+out and the shot ended on the `trim` terminator, which no other flight that night reached.
+
+The mechanism is in the split of labour and not in the angle. `ArrivalBudget.SteepestAffordableDeg`
+prices what the **ascent** can pay for; what a steep arrival then costs the **post-boost trim** is a
+different account it says nothing about. So the rocket with the most margin asked for the steepest
+arrival, spent the margin getting there, and had nothing left to correct with — 3.11 m/s owed against
+0.83 spent. `IcbmConfig.ArrivalPreference`'s own doc comment says a fraction near one leaves no
+margin; this is what that looks like.
+
+**Scored the way the harness scores, on the worst warhead of a group, p100 loses outright**: mean
+1.33 km against base's 0.039. Three flights of four at 3x better than base is not worth one at 135x
+worse, and a mean is the wrong statistic for a distribution with that shape.
+
+### So the ladder is 0.5, 0.65, 0.8
+
+Floors of about 33, 43 and 53 degrees against the affordable 67 — bracketing where the trim starts
+running out, and reaching past the 40 degrees that is the steepest anything has flown. Flying
+2026-09-01-2148, 12 blocks.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1377,7 +1418,8 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
 | ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
-| **5b** | Fly `IcbmConfig.ArrivalPreference`, built and off | 12 paired shots | 2,000 km: **30 -> plausibly 10 m**; the last measured lever |
+| **5b** | Fly `IcbmConfig.ArrivalPreference` at 0.5/0.65/0.8 | flying 2026-09-01-2148 | 2,000 km: **30 -> plausibly 10 m**; the last measured lever. 1.0 is out — it breaks the trim (3y) |
+| **5c** | Price a steep arrival against the **trim's** budget, not the ascent's | 0 shots then 12 | 3y: the rocket that could afford the most is the one that failed |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
 | **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
