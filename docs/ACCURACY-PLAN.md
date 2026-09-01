@@ -1154,6 +1154,55 @@ The second would be a bug and would explain 3r entirely.
 after it is self-explaining. **The default does not move until it does**: flipping while holding an
 unexplained measurement of the thing being flipped is how 26.0 got here.
 
+## 3v. The derivation was reading the hillside, not the arc — found and fixed 2026-09-01
+
+3u shipped a diagnostic printing the payback threshold's two factors instead of their product. One
+12,902 km shot read it off, and the answer was neither of the two readings 3u offered:
+
+```
+27 m out, under the  517 m another correction would cost (19.9 s x  26.00 m/s)
+28 m out, under the   95 m another correction would cost ( 6.0 s x  15.78 m/s)
+309 m out, under the  674 m another correction would cost ( 6.0 s x 112.40 m/s)
+813 m out, under the  900 m another correction would cost ( 6.0 s x 150.05 m/s)
+1102 m out, under the 1169 m another correction would cost ( 6.0 s x 194.82 m/s)
+```
+
+**The measurement was returning up to 194.82 m/s** — against a true value near 3 — which sets a
+1,169 m threshold and releases the correction 1,102 m out. So 3r's derived arm was not neutral at
+long range; it was being fed nonsense on most passes, and the one line reading `26.00` is the
+constant standing in where a probe was refused.
+
+### The cause is the terrain, and it is the same confound as 3s
+
+`TryMeasure` differenced two impact predictions **flown against the real height field**. The two
+probes land on different relief, so their difference carries the ground's roughness rather than the
+decay. Measured across baselines on a target as rough as 12,902 km's:
+
+| baseline | on the reference sphere | on rough ground |
+| --- | --- | --- |
+| 1 s | 3.62 m/s of spread | 41.56 |
+| 10 s | 1.08 | 36.68 |
+| 106 s | 1.02 | 28.59 |
+| 300 s | 0.69 | 11.70 |
+
+**A longer baseline does not fix it** — the noise is in each probe, not in the interval. On the
+reference sphere the same probes hold to about **1 m/s at every baseline**.
+
+### The fix is to stop asking about the ground
+
+The holding cost is a property of the **arc** — how fast the release impulse's leverage decays — and
+not of the hillside under the aim. The hillside decides where a round stops; it has no business in
+the decay. `HoldingCost.TryMeasure` no longer takes a terrain callback at all, and the baseline is
+106 s, which is both steadier and what the shipped constant was originally taken over.
+
+Measured down one coast at 8,000 km, the probe now wanders by **0.65 m/s**, against the 12 to 42 it
+showed sampling terrain. `HoldingCostTests.TheMeasurementDoesNotDependOnTheGroundUnderTheAim` holds
+it.
+
+**Unflown.** 3n's 2,000 km result stands — that target is flat, so the terrain was doing nothing
+there and the numbers it produced were already the arc's. What has to be re-flown is **3r**, whose
+verdict was measured against an arm reading a hillside.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.

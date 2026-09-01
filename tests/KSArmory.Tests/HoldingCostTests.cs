@@ -170,4 +170,37 @@ public sealed class HoldingCostTests
                                             Step, out double escaped));
         Assert.True(double.IsNaN(escaped));
     }
+
+    /// <summary>
+    /// <b>The measurement must not depend on the ground under the aim.</b> The holding cost is how
+    /// fast the release impulse's leverage decays along the arc; the hillside decides where a round
+    /// stops, not that. Sampling it makes the two probes land on different relief and their
+    /// difference carries the roughness — flown at 12,902 km as 15.78, 112.40, 150.05 and
+    /// 194.82 m/s against a true value near 3, which released a correction over a kilometre out.
+    /// </summary>
+    [Fact]
+    public void TheMeasurementDoesNotDependOnTheGroundUnderTheAim()
+    {
+        var (p, v, _) = ReleaseFor(8_000_000.0);
+        double3 kick = Vec.Unit(v) * KickMetresPerSecond;
+
+        List<double> along = [];
+
+        // Sampled down the coast, which is where the loop asks. On rough ground a terrain-sampling
+        // probe swings by tens of metres a second between these; this one must not.
+        for (double t = 0.0; t < 120.0; t += 12.0)
+        {
+            var (q, w) = Coast(p, v, t);
+
+            if (HoldingCost.TryMeasure(Body, q, w, kick, Step, out double got)) along.Add(got);
+        }
+
+        Assert.True(along.Count >= 5, $"only {along.Count} probes answered");
+
+        double spread = along.Max() - along.Min();
+
+        Assert.True(spread < 5.0,
+                    $"the measurement wandered by {spread:F2} m/s down one coast, so it is reading "
+                    + "something other than the arc");
+    }
 }

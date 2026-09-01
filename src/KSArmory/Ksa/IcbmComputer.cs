@@ -2100,7 +2100,6 @@ internal sealed class IcbmComputer
 
             if (HoldingCost.TryMeasure(Body, positionCci, velocityCci, ReleaseImpulseCci(),
                                        PredictStepSeconds, out double measured,
-                                       _terrainRadius ??= TerrainRadiusAt,
                                        new ImpactPredictor.Drag(_densityRatio ??= DensityRatioAt, warhead)))
             {
                 if (!double.IsFinite(_holdingCost) || Math.Abs(measured - _holdingCost) > 0.05)

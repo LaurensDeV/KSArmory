@@ -25,12 +25,18 @@ internal static class HoldingCost
     /// <summary>
     /// How far ahead the second probe is flown.
     ///
-    /// <para>A second, because the answer is wanted in metres per second and the decay is smooth
-    /// over that span — the original measurement differenced 106 s and got a number within a
-    /// rounding of a one-second difference at the same geometry. Longer would average over the
-    /// curvature; shorter differences two large numbers for a small answer.</para>
+    /// <para><b>The baseline divides the predictor's own noise, so it cannot be short.</b> A second
+    /// looked right — the decay is smooth over it and the answer is wanted per second — and it is
+    /// wrong on real ground: the impact prediction wanders by the terrain's own roughness, and one
+    /// second of baseline turns a hundred metres of that into a hundred metres a second of decay.
+    /// Flown at 12,902 km it reported 15.78, 112.40, 150.05 and 194.82 m/s against a true value
+    /// near 3, and released the correction over a kilometre out.</para>
+    ///
+    /// <para>106 s because that is what the shipped constant was taken over, and because it divides
+    /// the same wander by a hundred. The decay is near enough linear across it — measured across
+    /// range in <c>HoldingCostTests</c>.</para>
     /// </summary>
-    public const double ProbeSeconds = 1.0;
+    public const double ProbeSeconds = 106.0;
 
     /// <summary>
     /// The most this may report, as a guard rather than a preference.
@@ -46,11 +52,19 @@ internal static class HoldingCost
     ///
     /// <para>A refusal is not a zero: zero would let the correction run for ever at no charge, so a
     /// caller that cannot measure keeps whatever it was using.</para>
+    ///
+    /// <para><b>Deliberately no terrain.</b> This is a property of the arc — how fast the kick's
+    /// leverage decays — and not of the hillside under the aim. Flown against the real height field
+    /// the two probes land on different relief, so their difference carries the ground's roughness
+    /// rather than the decay: measured across baselines from 1 s to 300 s, a target like 12,902 km's
+    /// gives 12 to 42 m/s of spread and a median wrong by an order of magnitude, where the same
+    /// probes on the reference sphere hold to about 1 m/s. It is what put 194.82 m/s into a flown
+    /// threshold.</para>
     /// </summary>
     public static bool TryMeasure(BallisticBody body, double3 positionCci, double3 velocityCci,
                                   double3 kickCci, double stepSeconds, out double metresPerSecond,
-                                  System.Func<double3, double>? terrainRadiusAt = null,
-                                  ImpactPredictor.Drag? drag = null)
+                                  ImpactPredictor.Drag? drag = null,
+                                  double probeSeconds = ProbeSeconds)
     {
         metresPerSecond = double.NaN;
 
@@ -58,25 +72,25 @@ internal static class HoldingCost
         if (!Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci) || !Vec.IsFinite(kickCci)) return false;
         if (kickCci.Equals(Vec.Zero)) return false;
 
-        if (!TryWorth(body, positionCci, velocityCci, kickCci, stepSeconds, terrainRadiusAt, drag,
-                      out double now))
+        if (!TryWorth(body, positionCci, velocityCci, kickCci, stepSeconds, drag, out double now))
         {
             return false;
         }
 
-        if (!Kepler.TryCoast(body.Mu, positionCci, velocityCci, ProbeSeconds,
+        if (!(probeSeconds > 0.0) || !double.IsFinite(probeSeconds)) return false;
+
+        if (!Kepler.TryCoast(body.Mu, positionCci, velocityCci, probeSeconds,
                              out double3 laterPos, out double3 laterVel))
         {
             return false;
         }
 
-        if (!TryWorth(body, laterPos, laterVel, kickCci, stepSeconds, terrainRadiusAt, drag,
-                      out double later))
+        if (!TryWorth(body, laterPos, laterVel, kickCci, stepSeconds, drag, out double later))
         {
             return false;
         }
 
-        double decay = (now - later) / ProbeSeconds;
+        double decay = (now - later) / probeSeconds;
 
         // A kick worth more later than now is the predictor's own noise on two nearly identical
         // arcs, not a shot that improves by waiting. Refused rather than clamped to zero, for the
@@ -90,21 +104,20 @@ internal static class HoldingCost
     // How far the release impulse moves the impact, from one state.
     private static bool TryWorth(BallisticBody body, double3 positionCci, double3 velocityCci,
                                  double3 kickCci, double stepSeconds,
-                                 System.Func<double3, double>? terrainRadiusAt,
                                  ImpactPredictor.Drag? drag, out double metres)
     {
         metres = double.NaN;
 
         if (!ImpactPredictor.TryPredict(body, positionCci, velocityCci, stepSeconds,
                                         ImpactPredictor.DefaultMaxSeconds,
-                                        out ImpactPredictor.Impact plain, terrainRadiusAt, null, drag))
+                                        out ImpactPredictor.Impact plain, null, null, drag))
         {
             return false;
         }
 
         if (!ImpactPredictor.TryPredict(body, positionCci, velocityCci + kickCci, stepSeconds,
                                         ImpactPredictor.DefaultMaxSeconds,
-                                        out ImpactPredictor.Impact kicked, terrainRadiusAt, null, drag))
+                                        out ImpactPredictor.Impact kicked, null, null, drag))
         {
             return false;
         }
