@@ -210,6 +210,37 @@ def why_it_ended(log, craft=None):
     return name, passes, (float(owed[-1]) if owed else None), named
 
 
+# "release summary on <craft>: ..." -- everything the correction loop left behind, written once per
+# flight at the first release. Split in two on purpose: the head names the craft so a world of eight
+# can be told apart, and the tail is picked over field by field, so re-wording one number does not
+# stop the other five being read.
+RELEASE = re.compile(r"release summary on (.+?): (.*)$", re.M)
+RELEASE_FIELDS = {
+    "arc_deg":      re.compile(r"arriving at ([-\d.]+) deg"),
+    "release_owed": re.compile(r"and ([\d.]+) m/s on release"),
+    "response":     re.compile(r"aim response ([\d.]+)"),
+    "raw_response": re.compile(r"\(raw ([\d.]+)\)"),
+    "plant":        re.compile(r"off (\d+) plant reading"),
+    "worse_for":    re.compile(r"worse for (\d+)"),
+}
+
+
+def release_summary(log, craft=None):
+    """What the loop left, per flight. Empty lists for a log written before the line existed."""
+    got = {k: [] for k in RELEASE_FIELDS}
+    named = any(RELEASE.finditer(log))
+    want = _craft(craft) if craft and named else None
+
+    for m in RELEASE.finditer(log):
+        if want is not None and _craft(m.group(1)) != want:
+            continue
+        for key, pattern in RELEASE_FIELDS.items():
+            hit = pattern.search(m.group(2))
+            if hit:
+                got[key].append(float(hit.group(1)))
+    return got
+
+
 SURFACE = re.compile(
     r"surface at the landing point: the round stopped on\s*([\d.]+)\s*m")
 
@@ -285,6 +316,8 @@ def read_shot(out_path, log_path, craft=None):
     shot = {"mean": None, "spread": None, "worst": None, "best": None,
             "arrived": None, "released": None, "pickup_km": None, "pickup_ms": None,
             "residual": None, "own_km": None, "trim_split": None, "trim_release": None,
+            "arc_deg": [], "release_owed": [], "response": [], "raw_response": [],
+            "plant": [], "worse_for": [],
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [],
@@ -318,6 +351,7 @@ def read_shot(out_path, log_path, craft=None):
     if m:
         shot["version"] = m.group(1)
     shot["why"], shot["passes"], shot["owed"], shot["why_named"] = why_it_ended(log, craft)
+    shot.update(release_summary(log, craft))
 
     shot["offline"] = [v for _, v in _floats(OFFLINE, both, 2)]
     shot["probe_km"] = [v for v, _ in _floats(PROBE, log, 2)]
@@ -1299,6 +1333,26 @@ def main():
                   f"lag {statistics.median(s['lag_m']) if s['lag_m'] else float('nan'):.0f} m  "
                   f"{s['why'] or '-':<9} {s['passes'] if s['passes'] is not None else '-':>2}p "
                   f"owed {owed:>5} m/s")
+
+    print("\n== what the correction loop left (medians over usable shots)")
+    print("   the arc it actually flew, what the trim still owed when the warheads left, and how")
+    print("   big a step the aim loop was taking. cot(gamma) says the first of these dominates the")
+    print("   precision, and until the release summary shipped a baseline flight never recorded it")
+    print(f"   {'arm':<14}{'arc deg':>9}{'owed m/s':>10}{'response':>10}{'raw':>8}"
+          f"{'plant':>7}{'worse':>7}{'flights':>9}")
+    for arm in arms:
+        mine = [s for s in shots if s["arm"] == arm and usable(s)]
+        if not mine:
+            continue
+
+        def per(key):
+            vals = [v for s in mine for v in s[key]]
+            return statistics.median(vals) if vals else float("nan")
+
+        seen = sum(len(s["arc_deg"]) for s in mine)
+        print(f"   {arm:<14}{per('arc_deg'):>9.1f}{per('release_owed'):>10.3f}"
+              f"{per('response'):>10.2f}{per('raw_response'):>8.2f}"
+              f"{per('plant'):>7.0f}{per('worse_for'):>7.0f}{seen:>9d}")
 
     print("\n== what ended the post-boost correction")
     print("   the aim loop finishing is not the same shot as the loop being cut off; which rule")

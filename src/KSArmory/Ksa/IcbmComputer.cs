@@ -1529,7 +1529,11 @@ internal sealed class IcbmComputer
             // count is still readable: it reloads a few seconds after the salvo, which is exactly
             // what left the coast warp dead for weeks. WarheadsAway only ever increases, so the two
             // together are a monotonic "the salvo is finished".
-            if (WarheadsAway == 0) _salvoSize = 1 + weapon.TubesReadyToFire;
+            if (WarheadsAway == 0)
+            {
+                _salvoSize = 1 + weapon.TubesReadyToFire;
+                SayWhatTheLoopLeft();
+            }
 
             WarheadsAway++;
             ProbeRelease();
@@ -1538,6 +1542,34 @@ internal sealed class IcbmComputer
 
         return away;
     }
+
+    // Everything the correction loop will ever do is over by the first release, and until now none
+    // of it survived the flight at INFO: the response and the plant readings were DEBUG lines
+    // buried in hundreds of per-cycle ones, the release residual only appeared when the trim
+    // changed what it was doing, and the arrival angle was printed only when a floor was asked for
+    // and could not be met -- so a baseline shot never recorded the one number cot(gamma) says
+    // dominates its precision.
+    private void SayWhatTheLoopLeft()
+    {
+        double arrival = Program.Arc?.ArrivalAngleDeg ?? double.NaN;
+
+        Log.Info($"release summary on {KsaWorld.DisplayName(Craft)}: "
+                 + $"cut off {Program.ResidualAtCutoff:F3} m/s short, "
+                 + $"trim owed {Rate(_owedAtSplit)} at the split and "
+                 + $"{Rate(_trim.AtReleaseMetresPerSecond)} on release "
+                 + $"({Rate(_trim.SpentMetresPerSecond)} spent"
+                 + (_trim.GaveUp ? ", GAVE UP" : _trim.Done ? ", done" : ", still running") + "), "
+                 + (double.IsFinite(arrival) ? $"arriving at {arrival:F1} deg, " : "")
+                 + $"aim response {_aim.Response:F2} (raw {_aim.LastRawResponse:F2}) off "
+                 + $"{_aim.PlantMeasurements} plant reading(s), "
+                 + $"bias {Vec.Len(_aim.BiasCci) / 1000.0:F1} km, "
+                 + $"best {_aim.BestMissMetres / 1000.0:F2} km, worse for {_aim.WorseFor}");
+    }
+
+    // Most of a flight is spent before either trim number exists, and "NaN m/s" in a summary reads
+    // as a fault rather than as a measurement nothing has taken yet.
+    private static string Rate(double metresPerSecond)
+        => double.IsFinite(metresPerSecond) ? $"{metresPerSecond:F2} m/s" : "nothing";
 
     // One warhead per designation, and it is the first away. A salvo leaves inside a tenth of a
     // second and lands in a group tens of metres wide, so any of the six answers the question and
