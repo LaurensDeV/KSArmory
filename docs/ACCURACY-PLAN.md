@@ -1262,6 +1262,81 @@ avoid a change that is unresolved at one range and resolved at the other.
 still falls back to the constant — so a geometry where the measurement fails behaves exactly as it
 does today.
 
+## 3x. The cutoff residual is not what the miss is made of — measured 2026-09-01
+
+Item 4 of the plan, run headlessly against the two flown geometries and then against the two nights
+themselves. `MissSensitivityTests` reconstructs each arc from three numbers its own flight logs —
+cutoff altitude, downrange distance and flight time — and perturbs the cutoff velocity along three
+axes.
+
+| | the arc's own sensitivity | the night realises | |
+| --- | --- | --- | --- |
+| 2,000 km | 772-1,095 m per m/s, median **884** | **36** [97%: 18, 87] | resolved, 8 of 8 crafts positive |
+| 12,902 km | **11,636** m per m/s | -115 [97%: -939, 519] | unresolved, 4 of 8 positive |
+
+The flown figure is a **within-craft** least squares of cutoff residual against the flight's mean
+miss, bootstrapped over crafts and flights. Within-craft because the eight rockets of a world fly
+different arcs at different aim points, and a pooled fit reads that apart as a relationship: pooled
+gives rho +0.53 at 2,000 km, and the within-craft pooling gives +0.51, so here the two agree and the
+correlation is real. At 12,902 km pooled gives -0.15 and within-craft **-0.02** — nothing.
+
+**So the trim and the aim loop absorb 96% of what the engines leave.** The median 0.26 m/s residual
+explains **9 m of a 17 m median miss** at 2,000 km, and at 12,902 km the median 0.14 m/s explains
+none of a 301 m one. That is the loop working, not a null result: `dMiss/dV` at cutoff is what the
+miss would be if nothing corrected it.
+
+### Item 9 was ranked on the wrong number
+
+"Hand the terminal fraction of the burn to `FlightComputer.Burn`" removes the frame quantum outright,
+which is the whole of the cutoff residual. Priced against the arc it is worth 884 m per m/s; priced
+against what the nights realise it is worth **36**, so abolishing the residual entirely buys about
+**9 m at 2,000 km and nothing measurable at 12,902**. It was ranked ninth on days of work for a term
+the loop has already removed. It drops.
+
+The same arithmetic protects the throttle ramp and `HoldDirectionFrames`, which are already shipped
+and cost nothing to keep — but nothing further should be spent on the residual.
+
+### The eight rockets of a 2,000 km world do not fly one arc
+
+| cutoff | flight time | reconstructs to |
+| --- | --- | --- |
+| 117 km | 358 s | 11.1 deg |
+| 142 km | 425 s | 17.6 deg |
+| 160 km | 486 s | 23.6 deg |
+| 181 km | 563 s | 30.8 deg |
+
+Two rockets on each. At 12,902 km all eight agree — 157 km and 1,881 to 1,899 s. So a 2,000 km night
+carries a **within-world spread of arrival angle** that nothing has ever accounted for, and by
+`cot(gamma)` the shallowest of those four is half again as sensitive as the steepest. A paired
+night's variance includes it; a paired night's *comparison* does not, because both arms fly the same
+four.
+
+The reconstruction is soft: 200 km of assumed boost travel moves the arrival by about three degrees,
+and where the boost ended is not logged. So the four angles are ordered reliably and pinned to about
+that.
+
+### And the long arc reconstructs to 7.1 degrees, which nothing can check
+
+Every doc that prices the seven-degree arrival was written before the flown geometry was measured,
+and the stale-lines list below says the flown one is 13.6-17.5. **Both may be right**: 17.7 is the
+2,000 km baseline, measured off 3h's floored arms; the 12,902 km baseline's arrival has never been
+recorded at all, because `IcbmComputer` only printed an arrival angle when a floor was asked for and
+could not be met.
+
+That is now fixed, and it is item 3 of the plan.
+
+### The diagnostic: one line per flight, unconditionally
+
+`release summary on <craft>` at INFO, written once at the first release — the instant everything the
+correction loop will ever do is over. It carries the cutoff residual, what the trim owed at the split
+and still owed **on release**, the arc's own arrival angle, and the aim loop's response, raw
+response, plant readings and `worse for` count.
+
+None of those survived a baseline flight before. The response and the plant readings were `DEBUG`
+lines among hundreds of per-cycle ones; the release residual only appeared when the trim changed what
+it was doing; the arrival angle only when a floor was refused. `tools/shot-report.py` reads the line
+per craft and prints it as **what the correction loop left**, so the next night scores on it.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1299,17 +1374,17 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~1~~ | ~~Diagnostic: log what a warp was started over the top of~~ | done | confirmed: 6 others burning |
 | ~~2~~ | ~~Fix: fold `!NeedsShortSteps` over every computer~~ | done | 8 of 8 at 33 ms; median 32.34 -> 8.80 km on one pair |
 | **2b** | The 20 s clearance knife-edge — the second branch, now the largest at long range | 12 paired shots | 12,902 km: 8.80 km -> ? |
-| **3** | **Diagnostic**: log the release residual and `_response` per flight, unconditionally | 0 shots | the budget cannot be closed without it |
-| **4** | Measure `dMiss/dV` at both flown geometries in `ErrorBudgetTests` | 0 shots, minutes | settles what the residual is worth; every other item's interpretation depends on it |
-| **5** | Derive `HoldingCostsMetresPerSecond` from flight time and arrival angle | 12 paired shots | 2,000 km: **99 -> plausibly 10-30 m** |
+| ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
+| ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
+| ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
+| **5b** | Fly `IcbmConfig.ArrivalPreference`, built and off | 12 paired shots | 2,000 km: **30 -> plausibly 10 m**; the last measured lever |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
 | **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
-| **9** | Hand the terminal fraction of the burn to `FlightComputer.Burn` | days | removes the frame quantum outright; gates rungs C and D |
+| ~~9~~ | ~~Hand the terminal fraction of the burn to `FlightComputer.Burn`~~ | days | **dropped** — abolishing the residual entirely buys ~9 m at 2,000 km and nothing at 12,902 (3x) |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared** | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 
-**1-4 need no flying.** 8 makes everything after it cheaper and should come before 5-7 if a night is
-short.
+**8 makes everything after it cheaper** and should come before 5b-7 if a night is short.
 
 **Score every arm on the terminator table, never the median.** A median cannot see mass moving
 between two modes, and the baseline swings 2.7x between sessions.
@@ -1325,8 +1400,11 @@ between two modes, and the baseline swings 2.7x between sessions.
 3. **`IcbmProgram.cs` and `CLAUDE.md`: "an engine can only be shut down on a frame boundary."** True of
    the mod's command path, false of the engine — and stating it as an engine constraint closes off item 9.
 4. **The seven-degree arrival**, asserted in `ARRIVAL-ANGLE.md`, `KINETIC-FLOOR.md`, `METRE-LEVEL.md`
-   and `IcbmConfig.cs`. The flown geometry arrives at 13.6-17.5 degrees. `METRE-LEVEL`'s ladder and
-   `KINETIC-FLOOR`'s two columns are priced off the seven.
+   and `IcbmConfig.cs`. The *2,000 km* geometry arrives at 13.6-17.5 degrees, and `METRE-LEVEL`'s
+   ladder and `KINETIC-FLOOR`'s two columns are priced off the seven. But 3x reconstructs the
+   **12,902 km** arc at 7.1 degrees, so the seven may be right for the long shot and wrong only for
+   the medium one — the long geometry's arrival has never been logged. The release summary now
+   carries it, so one night settles which.
 5. **`KSA-TERRAIN.md`: "there is no raycast, no collider query."** `BoundingVolumeHierarchy.LookupBvhDirection`
    is a public ray query, and there is a Bepu triangle collider on a 2 m grid within 8 m of clearance.
 6. **`accurate: true` degrades silently to the coarse answer** when `TerrainModifiersRenderData` is
