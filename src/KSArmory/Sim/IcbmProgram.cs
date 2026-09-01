@@ -334,6 +334,18 @@ internal sealed class IcbmProgram
     /// </summary>
     public double SteepestAffordableArrivalDeg { get; private set; } = double.NaN;
 
+    /// <summary>
+    /// The arrival floor this flight is actually holding to, whether asked for or worked out.
+    ///
+    /// <para><b>Latched, and that is the whole of why it is a field.</b> The steepest affordable
+    /// arrival moves through a flight — the stack lightens, the geometry turns — and a floor that
+    /// followed it would re-open the search every cycle against a different bound. That is the shape
+    /// <c>docs/ARRIVAL-ANGLE.md</c> refuses for <see cref="IcbmConfig.Loft"/>: a predicate is
+    /// idempotent where a multiplier is not, and a bound that walks unlatches the shot it is meant to
+    /// pin.</para>
+    /// </summary>
+    public double ArrivalFloorDeg { get; private set; } = double.NaN;
+
     private double _sinceArrivalBudget = double.PositiveInfinity;
 
     private bool _arrivalFloorUnaffordable;
@@ -558,6 +570,7 @@ internal sealed class IcbmProgram
         _sinceWindow = double.PositiveInfinity;
         _sinceArrivalBudget = double.PositiveInfinity;
         SteepestAffordableArrivalDeg = double.NaN;
+        ArrivalFloorDeg = double.NaN;
         _windowWait = double.NaN;
         _windowCost = 0.0;
         _windowDirection = Vec.Zero;
@@ -649,7 +662,31 @@ internal sealed class IcbmProgram
 
         SteepestAffordableArrivalDeg = ArrivalBudget.SteepestAffordableDeg(
             state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, available, Config.Loft);
+
+        LatchArrivalFloor();
     }
+
+    // Once, the first time the budget answers. Preference zero leaves the operator's own number
+    // alone, which is what ships; above zero the floor is that fraction of what the tanks can pay
+    // for, and never below what was asked for outright.
+    private void LatchArrivalFloor()
+    {
+        if (double.IsFinite(ArrivalFloorDeg)) return;
+
+        if (!(Config.ArrivalPreference > 0.0) || !double.IsFinite(SteepestAffordableArrivalDeg))
+        {
+            return;
+        }
+
+        double wanted = Config.ArrivalPreference * SteepestAffordableArrivalDeg;
+
+        ArrivalFloorDeg = Math.Max(Config.MinArrivalAngleDeg, wanted);
+    }
+
+    // What the search is bounded by: the latched floor, or the operator's own number.
+    private double FloorDeg => double.IsFinite(ArrivalFloorDeg)
+                                   ? ArrivalFloorDeg
+                                   : Config.MinArrivalAngleDeg;
 
     /// <summary>
     /// Whether a vehicle is still sitting on the ground rather than already flying.
@@ -689,7 +726,7 @@ internal sealed class IcbmProgram
             _sinceWindow = 0.0;
 
             if (BurnWindow.TryFind(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
-                                   out BurnWindow.Window window, Config.Loft, Config.MinArrivalAngleDeg))
+                                   out BurnWindow.Window window, Config.Loft, FloorDeg))
             {
                 // Waiting is a fallback, not an optimisation. A weapon whose whole point is
                 // arriving is not worth holding in orbit for ninety metres a second — but leaving
@@ -776,7 +813,7 @@ internal sealed class IcbmProgram
         bool steered = BurnoutGuidance.TrySteer(
             state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, state.Booster,
             out BurnoutGuidance.Command command, Config.Loft, LongWay, _cutoffSeed, _flightSeed,
-            arrivalFromNow, Config.MinArrivalAngleDeg);
+            arrivalFromNow, FloorDeg);
 
         // A floor is what to aim for, not a reason to fly nowhere. A stack that cannot afford the
         // arrival asked for still has a target, and the shallow arc it can afford is worth far more
@@ -786,7 +823,7 @@ internal sealed class IcbmProgram
         {
             _arrivalFloorUnaffordable = false;
         }
-        else if (Config.MinArrivalAngleDeg > 0.0)
+        else if (FloorDeg > 0.0)
         {
             steered = BurnoutGuidance.TrySteer(
                 state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci, state.Booster,
@@ -901,18 +938,18 @@ internal sealed class IcbmProgram
     {
         if (!BallisticArc.TryCheapest(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
                                       out BallisticArc.Solution reachable, Config.Loft, LongWay,
-                                      double.NaN, Config.MinArrivalAngleDeg))
+                                      double.NaN, FloorDeg))
         {
             // Asked again with the floor off, because "there is no trajectory" and "there is no
             // trajectory that arrives that steeply" are the same silence from outside and only one
             // of them is about a setting the operator can move.
-            if (Config.MinArrivalAngleDeg > 0.0
+            if (FloorDeg > 0.0
                 && BallisticArc.TryCheapest(state.Body, state.PositionCci, state.VelocityCci,
                                             state.AimNowCci, out BallisticArc.Solution shallow,
                                             Config.Loft, LongWay))
             {
                 return (IcbmReach.TooShallow,
-                        $"nothing arrives at {Config.MinArrivalAngleDeg:F0} deg or steeper from here; "
+                        $"nothing arrives at {FloorDeg:F0} deg or steeper from here; "
                         + $"the cheapest arc arrives at {shallow.ArrivalAngleDeg:F0} deg");
             }
 
@@ -935,12 +972,12 @@ internal sealed class IcbmProgram
     // reach, and the unconstrained search already measures the steepest arrival it saw.
     private (IcbmReach Reach, string Why) NoWindow(in IcbmState state)
     {
-        if (Config.MinArrivalAngleDeg > 0.0
+        if (FloorDeg > 0.0
             && BurnWindow.TryFind(state.Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
                                   out BurnWindow.Window any, Config.Loft))
         {
             return (IcbmReach.TooShallow,
-                    $"no window arrives at {Config.MinArrivalAngleDeg:F0} deg or steeper; "
+                    $"no window arrives at {FloorDeg:F0} deg or steeper; "
                     + $"the steepest one found arrives at {any.SteepestArrivalDeg:F0} deg");
         }
 

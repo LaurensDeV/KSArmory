@@ -451,6 +451,17 @@ internal sealed partial class Ui
             : $"the correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget "
               + "cannot fly at any range"));
 
+        float preference = (float)config.ArrivalPreference;
+        if (ImGui.SliderFloat("Precision against range", ref preference, 0.0f, 1.0f, "%.2f"))
+        {
+            config.ArrivalPreference = preference;
+        }
+
+        ImGui.TextDisabled("  " + (config.ArrivalPreference > 0.0
+            ? $"asks for {config.ArrivalPreference:P0} of the steepest arrival the tanks can pay "
+              + "for, latched at the first solve"
+            : "off: the arrival is whatever the cheapest arc gives, or the minimum below"));
+
         bool derive = config.DeriveHoldingCost;
         if (ImGui.Checkbox("Measure the holding cost", ref derive))
         {

@@ -38,7 +38,7 @@ somebody typed.
 | today | becomes |
 | --- | --- |
 | `HoldingCostMetresPerSecond` | **measured**, from two `ImpactPredictor` calls — a release now against one a second later. It spans 0.82 m/s at 500 km to 21.79 at 12,900, so no constant is right; the derived value won 12 of 12 in flight |
-| `MinArrivalAngleDeg` | **searched**, the way `BurnWindow` already searches departure time. The optimum is interior — near 26 degrees at 2,000 km — so it is found, not guessed |
+| `MinArrivalAngleDeg` | **built, off by default.** `IcbmConfig.ArrivalPreference` is the share of the steepest affordable arrival to ask for, latched once per flight. `ArrivalBudget` already worked that bound out every cycle and nothing used it. There is no interior optimum to search for — `ACCURACY-PLAN` 3t showed the flown miss tracks `cot γ`, so steeper is simply better and the propellant is the only bound |
 | `Loft` | **retired from the aim of it.** `docs/ARRIVAL-ANGLE.md` already shows it inverts the arrival from orbit; with the angle searched it has no remaining job |
 | `MaxAccelerationGee` | **already nearly derived** — the mod reads the airframe's own limit and takes the smaller. Drop the asking half |
 | `TurnStartMetres`, `TurnEndMetres`, `MaxAngleOfAttackDeg`, `HandoverPressurePa` | **internal.** The ascent profile is engineering; a player has no view on the dynamic pressure at which guidance takes over |
@@ -113,9 +113,10 @@ same rig `docs/SHOT-PROTOCOL.md` already describes. Until a cell is flown, that 
 
 ## 6. Order
 
-1. **Derive the holding cost.** Biggest measured lever, already proven headlessly, and removes the
-   setting most obviously not a player's business.
-2. **Search the arrival angle** under the one control's bound.
+1. ~~**Derive the holding cost.**~~ Done and shipping on — `ACCURACY-PLAN` 3w, 110 m to 30 m.
+2. **Fly `ArrivalPreference`.** Built and off. What is unflown is what fraction is safe: near one
+   leaves the shot no propellant margin, and 3h's B1 notes a steep floor asks 7-11 m/s of post-boost
+   correction against a baseline's 2.45.
 3. **One delta-v line**, need against have, in one place. The reach cases are already shown — see §4.
 4. **Fly the validation matrix**, then show the miss where it is earned.
 5. **Retire the settings** from the panel, keeping them settable from a shot spec.

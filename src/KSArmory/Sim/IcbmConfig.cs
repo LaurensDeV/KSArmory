@@ -66,6 +66,28 @@ internal sealed class IcbmConfig
     public double MinArrivalAngleDeg;
 
     /// <summary>
+    /// How much of the steepest arrival the tanks can pay for to actually ask for — precision
+    /// against range, as one number.
+    ///
+    /// <para><b>The arrival angle is the dominant precision lever and it is not a taste.</b> Flown
+    /// with the correction floor out of the way, the miss tracks <c>cot γ</c> exactly: 0.56x at
+    /// 25.9 degrees, 0.44x at 33.0 and 0.43x at 41.1, against theory's 0.65 / 0.49 / 0.36. So the
+    /// steeper the better, and what bounds it is what the stack can afford —
+    /// <see cref="ArrivalBudget"/> already works that out every cycle and nothing used it.</para>
+    ///
+    /// <para>What a player owns is the trade, not the angle: steeper is more precise and costs reach
+    /// and propellant. One at the steepest affordable, zero to leave
+    /// <see cref="MinArrivalAngleDeg"/> alone — <b>and zero is what ships</b>, because a fraction
+    /// near one leaves the shot no margin and nothing has flown how much it needs.</para>
+    ///
+    /// <para>Latched once per flight rather than followed. The affordable angle moves as the stack
+    /// lightens, and a bound that walks re-opens the search against a different limit every
+    /// cycle — <c>docs/ARRIVAL-ANGLE.md</c>'s reason for refusing <see cref="Loft"/> as an arrival
+    /// control.</para>
+    /// </summary>
+    public double ArrivalPreference;
+
+    /// <summary>
     /// Whether the aim carries the bias the flown prediction asks for.
     ///
     /// <para>On, because a shallow arrival is tens of kilometres short of a solution that is
