@@ -1013,11 +1013,32 @@ on a 1,233 s fall arriving at 7,884 m/s. Three things settle it:
 **So the long-range miss is the round arriving on a different clock from the thing that aimed it.**
 At 2,000 km the fall is short and the accumulated phase is metres; over a half-hour it is hundreds.
 
-**Not fixed.** The round is stepped at frame rate and `Slug` only sub-steps under
-`Interceptor.MaxFaithfulStep`, which a 30 ms frame never reaches — so nothing currently makes a long
-fall integrate more finely than the display refreshes. Whether the answer is a sub-step floor for
-long-lived rounds, a better integrator, or accepting it and correcting the *predictor* to match the
-round is a design question, and any of them is a behaviour change that has to be flown.
+**Not fixed, and the obvious one-line fix is worse.** The round is stepped at frame rate and `Slug`
+only sub-steps under `Interceptor.MaxFaithfulStep`, which a 30 ms frame never reaches — so nothing
+makes a long fall integrate more finely than the display refreshes.
+
+`Slug` steps `v += a*h` then `x += v_new*h`, which is symplectic Euler and carries a whole `a*h^2`
+where a second-order scheme carries half. Averaging the velocity across the step — Verlet's position
+update, one line, no extra force evaluation — **made it worse**:
+
+| step | as shipped | with the averaged step |
+| --- | --- | --- |
+| 33.3 ms | 1,201 m | **1,679 m** |
+| 16.7 ms | 420 m | **838 m** |
+| 4.2 ms | 211 m | 207 m |
+
+Both converge to the same answer, so the surplus `a*h^2` was partly **cancelling** the real error
+rather than causing it. **The dominant term is first-order and it is not the position update**: the
+acceleration is evaluated once, at the *start* of the step. A genuine second-order scheme has to
+re-evaluate the force at the new position, which drag and the boost phase make an invasive change
+rather than a line.
+
+So the choice is between that, a sub-step floor for long-lived rounds, and living with it. All three
+are behaviour changes that have to be flown, and the one that looked free is not.
+
+**And the miss moves with the player's frame rate** — 1,201 m at 30 fps against 420 at 60 — which is
+a defect on its own and the reason correcting the *predictor* to match the round cannot work: there
+is no fixed error to correct for.
 
 The two tests pin the fault rather than assert it away, so a fix is measured against them.
 
