@@ -82,14 +82,19 @@ public class PredictorStepTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The negative this file exists to record.</b> The shipped air step is already converged: it
-    /// costs a fraction of a metre across an order of magnitude of refinement, non-monotonically,
-    /// which is the <see cref="ImpactPredictor.CrossingToleranceMetres"/> bisection floor rather
-    /// than integration error.
+    /// <b>The negative this file records, and the exact ground it was established on.</b> The
+    /// shipped air step is converged <em>against a sphere</em>: it costs a fraction of a metre
+    /// across an order of magnitude of refinement, non-monotonically, which is the
+    /// <see cref="ImpactPredictor.CrossingToleranceMetres"/> bisection floor rather than integration
+    /// error.
     ///
-    /// <para>So the predictor's own step is <em>not</em> the 2,352 m the six flown shots walked from
-    /// their probes, and refining it buys nothing. Asserted rather than left as a printout, because
-    /// the tempting fix — tighten the step — is now ruled out and should stay ruled out.</para>
+    /// <para><b>That is a statement about drag and nothing else.</b> <c>ImpactAt</c> passes
+    /// <c>drag:</c> by name, which skips <c>terrainRadiusAt</c>, and a null one makes
+    /// <c>SurfaceUnder</c> answer with the mean sphere — so what converged here is the entry
+    /// integration, over the one surface that has no features to miss. What the step costs over
+    /// <em>terrain</em> is a different question and this file does not ask it:
+    /// <c>docs/ACCURACY-PLAN.md</c> 3z reads 826 m of ground between samples at the flown arrival,
+    /// against erosion running to a 166 m wavelength.</para>
     /// </summary>
     [Fact]
     public void TheShippedAirStepIsAlreadyConverged()

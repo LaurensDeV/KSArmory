@@ -71,10 +71,10 @@ internal static class DeorbitShot
     /// <summary>
     /// The same relief with the sea filled in, which is the surface a round actually stops on.
     ///
-    /// <para><c>Ksa/GroundTest.cs</c> passes the height field through <see cref="GroundSurface"/>
-    /// and <c>Ksa/IcbmComputer.cs</c>'s <c>TerrainRadiusAt</c> does not, so the round and the
-    /// prediction of it read two different surfaces wherever the terrain is under water.
-    /// <c>docs/KSA-TERRAIN.md</c> has the measurement.</para>
+    /// <para>Both the round and the prediction of it clamp here — <c>Ksa/GroundTest.cs</c> directly
+    /// and <c>Ksa/IcbmComputer.cs</c>'s <c>TerrainRadiusAt</c> through its <c>SurfaceHeight</c> — so
+    /// this is the surface each of them stops on rather than a difference between them.
+    /// <c>docs/KSA-TERRAIN.md</c> has what the height field reports under an ocean.</para>
     /// </summary>
     public static double RoughGroundAtSea(double3 bodyFixedCci)
         => R + GroundSurface.Height(RoughGround(bodyFixedCci) - R, seaLevel: 0.0, hasSea: true);

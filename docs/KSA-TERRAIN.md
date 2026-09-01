@@ -360,4 +360,7 @@ ground track behind: with slope `s` and arrival angle `γ`, the error is about `
 where `Δ` is the ground track covered in a frame. At an impact speed near 1.8 km/s and 60 fps that is
 30 m of track — about 9 m of stopping error on a 5% slope — and it grows in proportion to the step,
 so it is one more thing that gets worse under timewarp. `Sim/ImpactPredictor.cs` re-samples every
-integration step, so the prediction sees the terrain more finely than the round does.
+integration step, which is **not** the same as sampling finely: its terminal step is sized for drag
+rather than for clearance, so at a 7 degree arrival it asks every **826 m** of ground track against
+the round's ~55 m. The prediction is fifteen times coarser than the thing it predicts, and
+`docs/ACCURACY-PLAN.md` 3z is what that costs.

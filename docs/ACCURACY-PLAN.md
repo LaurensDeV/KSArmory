@@ -1378,6 +1378,115 @@ Floors of about 33, 43 and 53 degrees against the affordable 67 — bracketing w
 running out, and reaching past the 40 degrees that is the steepest anything has flown. Flying
 2026-09-01-2148, 12 blocks.
 
+## 3z. The long-range miss is the predictor undersampling the terrain — read out 2026-09-01
+
+3v established that the walk is the ground and not the range: 157 m of walk and 254 m of miss over
+rough relief against **8 m and 22-75 m** on flat ocean at the same range, same code. What it did not
+say is *why the correction loop cannot remove it*, since the loop's prediction already flies against
+the real height field. Three candidates were read out of the source. **One is the cause; both
+refutations found live faults anyway.**
+
+| candidate | verdict |
+| --- | --- |
+| the prediction and the round sample in different frames (`Ccf` vs `Cce`) | **refuted** — both reduce to `dirCci.Transform(cci2Ccf)`; disagreement 0 m |
+| `accurate: true` silently degrading to a modifier-free field | **refuted as a cause here** — never null for a stock body once loading finishes |
+| **the predictor samples terrain 826 m apart** | **confirmed** |
+
+### The terminal step is sized for drag, not for ground
+
+`ImpactPredictor` refines its step on **air density** and on nothing else —
+`h = Math.Min(h, inAir)` at `ImpactPredictor.cs:133`, one-way and altitude-blind. So the terminal
+step is a flat `AtmosphericStepSeconds` of 0.25 s whatever the clearance is.
+
+| arrival | impact speed | ground between terrain samples |
+| --- | --- | --- |
+| 7.1 deg | 3,330 m/s | **826 m** |
+| 16.4 deg | 4,410 m/s | 1,054 m |
+
+About **117 lookups cover the whole final 96 km** of ground track at the shallow arrival.
+
+Against that, `docs/KSA-TERRAIN.md`'s own account of the height field: erosion runs to a **166 m**
+wavelength and the tiling detail to 7.4-20.5 m per texel. The predictor's Nyquist is 1,652 m, so
+**four of the seven erosion octaves are entirely below it**, carrying about 117 m of aliased
+amplitude. Each octave's slope reaches 0.30 against the arc's `tan 7.1 deg` of 0.125 — **terrain can
+climb 2.4 times faster than the arc descends**, so the clearance function is genuinely non-monotone
+and the below-ground test only finds crossings a sample happens to bracket.
+
+At `cot 7.1 deg` = 8.03 m of ground per metre of height, a 20 m unresolved hump is 160 m of ground
+and a 37 m one is 300 m. The flown walk is 157 m and the median miss 301 m. **The magnitudes match
+with nothing fitted.**
+
+### It also explains the `noimprov` ending, which nothing else did
+
+`AimCorrection.ResponseFromMetres` is 500 m — the plant response is estimated from aim moves of at
+least that, against an 826 m sample grid. Every move lands the sample points on an uncorrelated part
+of an aliased field, so the finite difference measures sampling noise rather than plant. **An aliased
+observer makes the predicted impact a discontinuous, non-monotone function of the aim**, which is
+exactly the condition under which a gradient loop cannot find a better one and gives up.
+
+Same shape as the drag blind spot, for the third time: *a correction loop can only remove what its
+observer can see.*
+
+### And the test that ruled this out was itself blind
+
+`PredictorStepTests.TheShippedAirStepIsAlreadyConverged` records the negative — *"the tempting fix is
+now ruled out and should stay ruled out"*. Its helper calls
+`TryPredict(..., out hit, drag: new ...)`, and the **named `drag:` argument skips
+`terrainRadiusAt`**, which defaults to null; `ImpactPredictor.SurfaceUnder` then returns
+`body.SurfaceRadius`. So the convergence was established **against a perfect sphere** — the
+flat-ocean case that already flies clean at 8 m.
+
+The headless rough ground cannot see it either. `DeorbitShot.RoughGround`'s three terms have
+wavelengths of 3,336 km, 308 km and 19.1 km for a total slope near 0.018, seven times shallower than
+the arc and monotone-crossing by construction. It reproduces the 800 m of height spread and none of
+the roughness that matters.
+
+**This is the first time the blind observer was a test rather than the code**, and it is the reason
+the item sat on the refuted list.
+
+### What to do, cheapest first
+
+1. **Confirm it headlessly, before changing anything.** Re-run the convergence test with
+   `terrainRadiusAt` actually passed, and add a `RoughGround` variant carrying a 300 m wavelength at
+   40 m of amplitude — slope 0.84, which is what erosion actually does. If the shipped 0.25 s step
+   then moves the impact by hundreds of metres against a fine reference while the sphere case stays
+   sub-metre, it is settled without flying.
+2. **Gate the step on clearance rather than on density.** Once inside about 2 km of the ground, size
+   `h` so the horizontal advance is 100-150 m: never step further than you can fall. About +120
+   lookups per prediction, and the crossing branch already evaluates `SurfaceUnder` **twice at the
+   same point** (`ImpactPredictor.cs:140` and `:149`) — caching that gives much of it back. The coast
+   is untouched.
+3. **Then re-fly the rough-ground long shot.** It is the one geometry where this should be worth
+   hundreds of metres.
+
+### Three stale lines this closed, all now corrected
+
+* `CLAUDE.md`: *"The same trap reaches `TerrainRadiusAt`, which samples the height field in the wrong
+  orientation"* — true when written in `2119f16`, fixed by `5643caa` two commits later. It pointed
+  the whole frame investigation at a closed bug.
+* `docs/KSA-TERRAIN.md`: *"`ImpactPredictor` re-samples every integration step, so the prediction sees
+  the terrain more finely than the round does."* **Backwards.** The round samples once a frame, about
+  55 m of ground track; the predictor every 826 m. It is 15 times coarser.
+* `tests/KSArmory.Tests/DeorbitShot.cs`: *"`IcbmComputer`'s `TerrainRadiusAt` does not [clamp to the
+  sea]"*. It does, through `SurfaceHeight`.
+
+### The refutation that found something else: the terrain mask has no bound
+
+`Celestial.UpdateApproxTerrainAltitudes()` runs from the **constructor**, and
+`Universe.SetupRenderData()` — which populates `TerrainModifiersRenderData` — runs 79 lines later in
+`Program`. The modifier loop is bounded by `?.NumModifiers`, so a null runs it zero times with no log
+line. **`MaxTerrainHeightApprox` is therefore a modifier-free maximum**, missing Earth's declared
+1000 m of erosion, 1500 m of dunes and detail out to 1900 m.
+
+`KsaWorld.cs:374` hands that number to `TerrainMask.Blocked` as the sphere containing all terrain,
+and CLAUDE.md justifies the whole cheap-before-exact ordering on *"a sphere containing the terrain
+cannot produce a false negative"*. **It is not a sphere containing the terrain.** Nothing about the
+ballistic shot, and a real false-negative source in the radar horizon mask.
+
+Calling `SetupModifierRenderData()` does not fix it — `UpdateApproxTerrainAltitudes` is private, has
+no public re-run, and the render data is already populated by the time any mod code runs. The fix is
+mod-side: pad the bound by the modifier amplitude budget, or stop using that number.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1420,6 +1529,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
 | **5b** | Fly `IcbmConfig.ArrivalPreference` at 0.5/0.65/0.8 | flying 2026-09-01-2148 | 2,000 km: **30 -> plausibly 10 m**; the last measured lever. 1.0 is out — it breaks the trim (3y) |
 | **5c** | Price a steep arrival against the **trim's** budget, not the ascent's | 0 shots then 12 | 3y: the rocket that could afford the most is the one that failed |
+| **1a** | **Confirm 3z headlessly**: re-run `PredictorStepTests` with `terrainRadiusAt` passed, over rough ground carrying a 300 m wavelength | 0 shots, minutes | settles the whole long-range miss without flying |
+| **1b** | Then gate `ImpactPredictor`'s step on **clearance**, not density | 0 shots then 12 | 12,902 km: **301 m -> ?**; the largest single term left |
+| **1c** | Pad or replace `MaxTerrainHeightApprox` at `KsaWorld.cs:374` | 0 shots | the radar mask's containing sphere is not one (3z) |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
 | **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
@@ -1449,10 +1561,14 @@ between two modes, and the baseline swings 2.7x between sessions.
    carries it, so one night settles which.
 5. **`KSA-TERRAIN.md`: "there is no raycast, no collider query."** `BoundingVolumeHierarchy.LookupBvhDirection`
    is a public ray query, and there is a Bepu triangle collider on a 2 m grid within 8 m of clearance.
-6. **`accurate: true` degrades silently to the coarse answer** when `TerrainModifiersRenderData` is
-   null — the loop is bounded by `?.NumModifiers`, so a null runs the body zero times and skips
-   erosion, detail and the launch-site levelling decals with no log line. Call
-   `SetupModifierRenderData()` when a body is first resolved and assert it in the world dump.
+6. ~~**`accurate: true` degrades silently**~~ — **read out, and both halves were wrong.** The
+   mechanism is real: the modifier loop is bounded by `?.NumModifiers` and a null runs it zero times
+   with no log line. But it does not degrade to the *coarse* answer — the base term stays bicubic
+   under `accurate: true` — and it is **unreachable in stock content**, because every body with a
+   `<Height>` also has a `<MeshCollection>` and is populated once at startup. `SetupModifierRenderData()`
+   would be a no-op. Its one live consequence is `MaxTerrainHeightApprox`, computed in the `Celestial`
+   constructor before that population, which is why the terrain mask's containing sphere is not a
+   bound — 3z.
 7. **`EIGHT-ROCKETS.md`: "the keep-out interlock is provably dead."** It shipped on, resolved at
    0.49x, p=0.017.
 8. **`VehicleCommand.cs`: "KSA exposes no way to set a throttle outright."** True of the manual
@@ -1486,3 +1602,10 @@ The 24 ms slow-regime screen (29.8 ms gave 0 passes one night and 2 another).
 
 **Five of these five were counts or absences read as mechanisms.** The terminator table is a
 diagnosis, not a lever, and an instrument with one output cannot tell a cause from a consequence.
+
+**And one entry sat on this list because the test that put it here was blind.** "Refining the
+predictor's integration step" was ruled out by `PredictorStepTests`, which measured convergence with
+no terrain passed in — over a mean sphere, which is the one surface a step cannot undersample. 3z is
+the reading. The lesson is narrower than the five above and worth stating on its own: **a recorded
+negative is only as good as what its instrument was pointed at, and this file should name that for
+every entry it carries.**

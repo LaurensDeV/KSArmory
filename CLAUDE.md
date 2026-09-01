@@ -1259,8 +1259,9 @@ its impact into the body-fixed frame of that instant — while the target is kno
 not a bias that can be tuned out: it shrinks to nothing as cutoff arrives, so the correction chases a
 ruler moving at ~400 m/s against ground moving at 465. Headless at 2,000 km it put a shot needing
 **no correction at all** 191.6 km wrong; flown, closing it took the warheads from 11.25 km to
-**5.35 km**. The same trap reaches `TerrainRadiusAt`, which samples the height field in the wrong
-orientation for the same reason.
+**5.35 km**. `TerrainRadiusAt` carries the same un-carry for the same reason, and once the engines
+are off there is nothing left for it to correct — the two ways this mod asks where the ground is then
+reduce to one expression and agree exactly.
 
 That is also the shape of how it hid for so long: **a correction loop can only remove what its
 observer can see.** The aim correction reads the prediction, so a drag-free prediction converged,
@@ -2164,7 +2165,10 @@ should not be weakened without understanding what they buy:
   survives all three is sampled. `TerrainMask.TryBandBelow` then narrows it again in closed form
   to the part of the line that passes under the body's highest terrain, so a contact well above
   the ground costs nothing whatever the count says. A sphere containing the terrain cannot produce
-  a false negative, which is why the cheap test can stand in front of the exact one.
+  a false negative, which is why the cheap test can stand in front of the exact one — **and
+  `MaxTerrainHeightApprox` is not such a sphere.** It is computed in the `Celestial` constructor,
+  before `Universe.SetupRenderData` populates the modifiers, so it omits erosion, dunes and detail
+  entirely. `docs/ACCURACY-PLAN.md` 3z has the reading and the fix.
 
   An unreadable height field makes **no claim** rather than reading as flat ground: flat would put
   every sensor's horizon back at the mean sphere, planet-wide, with nothing to announce it.
