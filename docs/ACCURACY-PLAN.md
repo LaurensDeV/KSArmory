@@ -13,7 +13,7 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 | | 2,000 km | 12,902 km, before | 12,902 km, after |
 | --- | --- | --- | --- |
 | flights | 96 of 96 scoring | 324 across three nights | 8 per shot, all scoring |
-| median miss | **99 m** (**10 m** at a derived cost and a 33 deg floor, 3t) | **6,664 m** | **150-650 m**, by session |
+| median miss | **30 m** shipped since 3w (**10 m** with a 33 deg floor, 3t) | **6,664 m** | **150-650 m**, by session |
 | best shot | 52 m | — | **9 m**, group of 0.009-0.479 km |
 | p90 | 198 m | 28,652 m | — |
 | within a group of six | **5 m** | 6 m | 6 m |
@@ -1202,6 +1202,41 @@ it.
 **Unflown.** 3n's 2,000 km result stands — that target is flat, so the terrain was doing nothing
 there and the numbers it produced were already the arc's. What has to be re-flown is **3r**, whose
 verdict was measured against an arm reading a hillside.
+
+## 3w. The derivation is the default — flown 2026-09-01
+
+3v's fix re-flown at 12,902 km, 12 shots, 96 flights, `~/shots/2026-09-01-1445`.
+
+| arm | pooled | paired ratio | won | p | |
+| --- | --- | --- | --- | --- | --- |
+| base (26.0) | 0.38 km | — | — | — | |
+| derived | **0.28 km** | **0.86x** [0.39, 1.15] | 7 of 12 | 0.774 | unresolved |
+
+**Unresolved, and pointing the right way** — against 3r's 1.59x pointing the wrong way. 3r was the
+bug: its two arms both sat at a ~540 m threshold, so it compared an arm against itself. Here the
+derived floor is **46 m** against base's ~500, and the terminators follow: derived runs to
+`noimprov` on 18 flights against base's 7.
+
+Running further does not help much at this range, which 3s already explained — the walk, not the
+loop, is what limits an intercontinental shot. So the honest reading is that the derivation is a
+**large resolved win where the loop binds and neutral where it does not**.
+
+### So `DeriveHoldingCost` ships on
+
+| | 2,000 km | 12,902 km |
+| --- | --- | --- |
+| flights | 96 | 96 |
+| ratio | **0.28x** [0.24, 0.33] | 0.86x [0.39, 1.15] |
+| verdict | **RESOLVED**, 12 of 12, p&lt;0.001 | unresolved |
+
+**110 m to 30 m at 2,000 km for anyone who installs it**, and the argument that closes it is not the
+ratio: **no constant is right at either geometry.** 26.0 is nine to twenty times the measured decay
+at both, so keeping it means shipping a number known to be wrong everywhere it has been checked, to
+avoid a change that is unresolved at one range and resolved at the other.
+
+`HoldingCostMetresPerSecond` stays at zero and stays the override, and a probe that cannot be flown
+still falls back to the constant — so a geometry where the measurement fails behaves exactly as it
+does today.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 

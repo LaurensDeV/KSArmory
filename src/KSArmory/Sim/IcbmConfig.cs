@@ -329,8 +329,14 @@ internal sealed class IcbmConfig
     /// <para>Wins over <see cref="HoldingCostMetresPerSecond"/> when both are set, because a measured
     /// number beats a typed one. A probe that cannot be flown falls back to whichever of those two
     /// applies, so a refusal costs the old behaviour rather than a free correction.</para>
+    ///
+    /// <para><b>On, and flown both ways.</b> At 2,000 km it is <b>0.28x</b> over the constant across
+    /// 96 flights, 12 of 12 shots, p&lt;0.001 — 110 m to 30 m. At 12,902 km it is 0.86x [0.39, 1.15],
+    /// unresolved over another 96, so the range where it cannot be shown to help is also the range
+    /// where it cannot be shown to hurt. What settles it is that no constant is right at either:
+    /// 26.0 is nine to twenty times the measured decay at both geometries flown.</para>
     /// </summary>
-    public bool DeriveHoldingCost;
+    public bool DeriveHoldingCost = true;
 
     /// <summary>
     /// Let the keep-out interlock answer the safety question the clearance timeout answers by
