@@ -13,7 +13,7 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 | | 2,000 km | 12,902 km, before | 12,902 km, after |
 | --- | --- | --- | --- |
 | flights | 96 of 96 scoring | 324 across three nights | 8 per shot, all scoring |
-| median miss | **30 m** shipped since 3w (**10 m** with a 33 deg floor, 3t) | **6,664 m** | **150-650 m**, by session |
+| median miss | **30 m** shipped since 3w (**10 m** with a 33 deg floor, 3t) | **6,664 m** | **250 m** on rough ground, **~60 m** at a flat aim (3s) |
 | best shot | 52 m | — | **9 m**, group of 0.009-0.479 km |
 | p90 | 198 m | 28,652 m | — |
 | within a group of six | **5 m** | 6 m | 6 m |
@@ -1064,8 +1064,32 @@ flat place. What 3s established stands — the walk is real and correlates with 
 **And the tool said "well conditioned"**, because it scores the *slope* (0.94%, 1.0x flat ground) and
 this failure mode is *roughness*. Worth a second line in `shot-report` rather than a footnote here.
 
-**The falsifiable test:** fly the intercontinental shot at a flat target. If the walk collapses toward
-the ~50 m the integrators owe, the terrain is the cause and the range is not.
+### Flown, and it collapses — 2026-09-01
+
+One shot at **-42.0,-179.0**, open Pacific, 12,739 km. Ocean is flat by construction: both paths clamp
+to sea level through the same `GroundSurface.Height`.
+
+| | rough target, 12,902 km | **flat ocean, 12,739 km** |
+| --- | --- | --- |
+| walk from the release probe | **157 m**, quartiles 10 / 326 | **8 m** — 8, 8, 8, 8, 8, 9, 8, 8 |
+| miss | 254 m | **22 to 75 m**, one outlier at 584 |
+
+**Twenty times less walk, and dead steady across all eight rockets** where the rough target's swung
+by a factor of thirty. The terrain is the cause; the range is not.
+
+**So the long-range accuracy figure was mostly the hillside.** At a flat aim this vehicle lands
+around **60 m** at 12,739 km, not the 254 m every night here has reported — and the difference is
+where those nights were aimed, because `--aim none` always picks the save's own defended site and
+that site is on rough ground.
+
+Two consequences worth carrying:
+
+* **3s's headline is retracted.** "At long range the miss is the predictor" was the confound speaking.
+  The walk is real, correlates with the miss at rho=+0.707, and is *terrain* — which the loop cannot
+  reach either, so 3s's conclusion about the loop not binding at long range survives; only its cause
+  was wrong.
+* **Every long-range number in this file is a rough-ground number.** They compare fairly against each
+  other, because the aim never moved. They do not describe what this guidance can do.
 
 ## 3t. With the floor out of the way the arrival angle is just cot gamma — flown 2026-09-01
 
