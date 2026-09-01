@@ -989,58 +989,46 @@ share `Medium.Drag` by design, so the divergence is somewhere else: the terrain 
 sub-stepping, or the warp the coast runs under. **Which of the two is wrong is not established**, and
 that is the question, not a conclusion.
 
-### The discriminator, run: it is the round's integration
+### The discriminator, run — and my first two attempts measured a round nobody flies
 
-`PredictorAgreementTests` flies one state through both — `ImpactPredictor` against a real `Slug`, on
-the same inverse-square field, the same sphere and no drag, so only the integrators differ. The
-fault reproduces headlessly:
+> **Corrected 2026-09-01.** This section first reported that the round's integration walks over a
+> kilometre and that **the impact moves with the player's frame rate**. Both were artefacts of the
+> fixture, not the mod. Retracted in full below; the tests now set what the game sets.
 
-| the round's step | apart | timing |
+`PredictorAgreementTests` flies one state through both — `ImpactPredictor` against a real `Slug` on
+the same field, the same sphere and no drag. Getting that comparison honest took three attempts, and
+each wrong one invented a different fault:
+
+| the fixture | 30 fps | 60 fps |
 | --- | --- | --- |
-| 33.3 ms | **1,201 m** | +0.147 s |
-| 16.7 ms | 420 m | +0.051 s |
-| 4.2 ms | 211 m | -0.028 s |
+| profile default sub-step, one gravity sample a frame | 1,201 m | 420 m |
+| the Mk 21's 1 ms sub-step, still one sample a frame | 1,580 m | 740 m |
+| **1 ms sub-step and per-sub-step gravity — as the game runs it** | **51.6 m** | **51.6 m** |
 
-on a 1,233 s fall arriving at 7,884 m/s. Three things settle it:
+**The reentry vehicle already sub-steps at a millisecond** (`SubStepSeconds = 0.001f`), and
+`RoundFields.GravityAt` already re-samples gravity per sub-step. A fixture that omits either hands
+the round one gravity sample a frame and holds it across every sub-step — which is a first-order
+error that scales with the *frame*, and is where the kilometre and the frame-rate dependence came
+from.
 
-* **It is along the track.** 418.8 m downrange against 29.3 m square — the same signature as the
-  flown 309 against 3, which is why it reads as guidance error.
-* **It is a timing error, and the arithmetic closes.** `0.051 s x 7,884 m/s = 405 m` against 418.8 m
-  measured. The round arrives *late*.
-* **It scales with the round's step**, so it is the round's integration and not the predictor's —
-  which 3s had already shown to be converged at 2 s.
+**Flown as the game flies it: 51.6 m on a 1,233 s fall, identical at both frame rates.** So:
 
-**So the long-range miss is the round arriving on a different clock from the thing that aimed it.**
-At 2,000 km the fall is short and the accumulated phase is metres; over a half-hour it is hundreds.
+* **The frame-rate claim is withdrawn.** The impact does not move with the display, and the argument
+  built on it — that correcting the predictor to match the round cannot work because there is no
+  fixed error — is withdrawn with it.
+* **The integrator is a third of the walk, not all of it.** 51.6 m headless against the **157 m**
+  measured in flight, so roughly a hundred metres is still unaccounted for and is somewhere the two
+  models genuinely differ: drag, the terrain each stops on, or the warp the coast runs under.
+* **The one-line Verlet change stays reverted**, and for a better reason than before: at the
+  configuration the game actually uses there is no kilometre to remove.
 
-**Not fixed, and the obvious one-line fix is worse.** The round is stepped at frame rate and `Slug`
-only sub-steps under `Interceptor.MaxFaithfulStep`, which a 30 ms frame never reaches — so nothing
-makes a long fall integrate more finely than the display refreshes.
+The second test pins the invented fault deliberately — one gravity sample a frame is worth a
+kilometre and does move with the display — because that is what `RoundFields.GravityAt` exists to
+prevent, and nothing else in the suite said so.
 
-`Slug` steps `v += a*h` then `x += v_new*h`, which is symplectic Euler and carries a whole `a*h^2`
-where a second-order scheme carries half. Averaging the velocity across the step — Verlet's position
-update, one line, no extra force evaluation — **made it worse**:
-
-| step | as shipped | with the averaged step |
-| --- | --- | --- |
-| 33.3 ms | 1,201 m | **1,679 m** |
-| 16.7 ms | 420 m | **838 m** |
-| 4.2 ms | 211 m | 207 m |
-
-Both converge to the same answer, so the surplus `a*h^2` was partly **cancelling** the real error
-rather than causing it. **The dominant term is first-order and it is not the position update**: the
-acceleration is evaluated once, at the *start* of the step. A genuine second-order scheme has to
-re-evaluate the force at the new position, which drag and the boost phase make an invasive change
-rather than a line.
-
-So the choice is between that, a sub-step floor for long-lived rounds, and living with it. All three
-are behaviour changes that have to be flown, and the one that looked free is not.
-
-**And the miss moves with the player's frame rate** — 1,201 m at 30 fps against 420 at 60 — which is
-a defect on its own and the reason correcting the *predictor* to match the round cannot work: there
-is no fixed error to correct for.
-
-The two tests pin the fault rather than assert it away, so a fix is measured against them.
+**What is still open** is the ~100 m between 51.6 and 157. The next cut is drag: the flown warhead
+has `DragK = 1.5e-5` and this comparison has none, and `ImpactPredictor.Drag` goes through the same
+`Medium.Drag` by design — so if they disagree it is in how each applies it, not in the model.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
