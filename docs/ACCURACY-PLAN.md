@@ -1026,9 +1026,26 @@ The second test pins the invented fault deliberately — one gravity sample a fr
 kilometre and does move with the display — because that is what `RoundFields.GravityAt` exists to
 prevent, and nothing else in the suite said so.
 
-**What is still open** is the ~100 m between 51.6 and 157. The next cut is drag: the flown warhead
-has `DragK = 1.5e-5` and this comparison has none, and `ImpactPredictor.Drag` goes through the same
-`Medium.Drag` by design — so if they disagree it is in how each applies it, not in the model.
+**What is still open** is the ~100 m between 51.6 and 157, and two candidates are now excluded.
+
+**Drag is not it.** Handed one exponential atmosphere and the reentry vehicle's own
+`DragK = 1.5e-5`, the two paths land **50.5 m** apart against **51.6 m** with no drag at all. They
+share `Medium.Drag` and they apply it the same way.
+
+**Nor is the coarse-versus-accurate height field.** Both sample `accurate: true`, deliberately —
+`IcbmComputer.TerrainRadiusAt` says so in as many words, because the round stops where `GroundTest`
+says and a coarse sample is a different surface.
+
+**What is left, unmeasured:** the two sample the same field through *different frames*. The
+predictor takes `Vec.Unit(nowCci).Transform(parent.GetCci2Ccf())` and un-carries the point by
+`_departsIn` first; the round asks `GetTerrainHeightFromDirCce`. A frame or epoch mismatch between
+them is this project's most-repeated fault, `docs/FRAMES-AND-EPOCHS.md` exists for it, and at a 13.5
+degree arrival one metre of height is 4.16 m of ground — so the documented spread between surfaces
+(mean 4.21 m of height, 44 m at the 99th) is **17 m and 183 m of ground**, which brackets the ~100 m
+outstanding and has the same heavy-tailed shape as the flown walk's 10 / 326 quartiles.
+
+That is a suspicion with the right magnitude and the right distribution, and it is **not** a
+measurement. The cut is to ask both for the surface radius under one point and difference them.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
