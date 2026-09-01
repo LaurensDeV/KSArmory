@@ -1094,6 +1094,46 @@ not merely lower, it is gone.
 
 The roster gradient is dead here too — rho = +0.03, p=0.774, every seat at 0.017-0.018 km.
 
+## 3u. At long range the derivation changed nothing the loop controls, and why is unknown
+
+Mined from 3r's 96 flights at 12,902 km, no flying. Asked because 3r's **1.59x** is the only thing
+blocking `DeriveHoldingCost` from becoming the default, and 3s showed the loop was never the binding
+term at that range.
+
+| arm | threshold | accepted | flown | the gap |
+| --- | --- | --- | --- | --- |
+| base (26.0) | 546 m | 74 m | 250 m | 176 m |
+| derived | **533 m** | **78 m** | 325 m | 247 m |
+
+**Everything the loop controls is the same.** The thresholds agree to 2%, the accepted misses to 5%,
+and both arms take three passes at the same point in the coast — 262.6 s after cutoff against 260.8.
+The arms differ only in what landed, and that difference lives in the walk, which 3s showed the loop
+cannot reach.
+
+**So 3r's 1.59x is not the derivation harming the loop.** It is noise in a term the loop does not
+control, and the block on the default is weaker than it looked.
+
+### But the thresholds should not agree, and that is unexplained
+
+`payback` fires at `cycle x cost`. base uses 26.0, so its 546 m implies a **21 s** cycle. The
+derivation measured **2.90 m/s** at this geometry, so derived's 533 m implies **184 s** — nine times
+longer. Yet both arms show a **20 s wall-clock** gap between passes and correct at the same moment in
+the flight, so there is no warp asymmetry to spend the difference on.
+
+Two readings, and the logs cannot separate them:
+
+* the cycle really is nine times longer in **simulated** seconds, and something about the coast
+  spends it, or
+* **the derived cost is not reaching the rule at long range at all**, and derived was flying the
+  constant — which would make 3r a comparison of an arm against itself.
+
+The second would be a bug and would explain 3r entirely.
+
+**Shipped a diagnostic rather than a guess.** The `payback` line now prints its two factors —
+`(cycle s x cost m/s)` — not just their product. One short flight then says which, and every log
+after it is self-explaining. **The default does not move until it does**: flipping while holding an
+unexplained measurement of the thing being flipped is how 26.0 got here.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.

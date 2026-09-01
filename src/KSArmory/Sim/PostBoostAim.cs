@@ -383,8 +383,13 @@ internal sealed class PostBoostAim
 
         if (now.PredictedMissMetres <= nextCycleCosts)
         {
+            // The two factors, not just their product: a threshold can be unchanged because the
+            // cost was not applied or because the cycle moved to cancel it, and those are a bug
+            // and a fact about the flight. Flown at 12,902 km the product matched the constant's
+            // to 2% while the measurement said 2.90 m/s, and nothing written down could say why.
             return Finish($"{now.PredictedMissMetres:F0} m out, under the "
-                          + $"{nextCycleCosts:F0} m another correction would cost");
+                          + $"{nextCycleCosts:F0} m another correction would cost "
+                          + $"({_lastCycleSeconds:F1} s x {holdingCost:F2} m/s)");
         }
 
         Cycles++;
