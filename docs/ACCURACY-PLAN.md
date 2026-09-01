@@ -13,7 +13,7 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 | | 2,000 km | 12,902 km, before | 12,902 km, after |
 | --- | --- | --- | --- |
 | flights | 96 of 96 scoring | 324 across three nights | 8 per shot, all scoring |
-| median miss | **99 m** (20 m at a 1.4 m/s holding cost, 3n) | **6,664 m** | **150-650 m**, by session |
+| median miss | **99 m** (**10 m** at a derived cost and a 33 deg floor, 3t) | **6,664 m** | **150-650 m**, by session |
 | best shot | 52 m | — | **9 m**, group of 0.009-0.479 km |
 | p90 | 198 m | 28,652 m | — |
 | within a group of six | **5 m** | 6 m | 6 m |
@@ -1046,6 +1046,53 @@ outstanding and has the same heavy-tailed shape as the flown walk's 10 / 326 qua
 
 That is a suspicion with the right magnitude and the right distribution, and it is **not** a
 measurement. The cut is to ask both for the surface radius under one point and difference them.
+
+## 3t. With the floor out of the way the arrival angle is just cot gamma — flown 2026-09-01
+
+12 shots, 96 flights, `~/shots/2026-09-01-1042`, HEAD `6466f9b`. 3h's ladder re-flown with
+`DeriveHoldingCost=true` on **every** arm, so the only thing varying is the angle. **This supersedes
+3h**, which 3q showed was measured at a 156 m floor no steep arm ever reached a second cycle under.
+
+| arm | arrival | pooled | paired ratio | won | p | |
+| --- | --- | --- | --- | --- | --- | --- |
+| base | 17.6° | 0.03 km | — | — | — | |
+| a25 | 25.9° | 0.02 km | 0.56x [0.32, 0.75] | 10 of 12 | 0.012 | RESOLVED |
+| **a32** | **33.0°** | **0.01 km** | **0.44x** [0.19, 0.79] | **12 of 12** | 0.000 | RESOLVED |
+| a40 | 41.1° | 0.02 km | 0.43x [0.16, 0.73] | 11 of 12 | 0.006 | RESOLVED |
+
+**All three resolve, and the interior optimum is gone.** 3h had a25 winning and a32 and a40
+unresolved and worse; with the floor lowered the ranking is monotone to 33 degrees and flat beyond.
+
+**And it is the textbook number.** Against base's 17.6 degrees:
+
+| arrival | `cot γ` predicts | flew |
+| --- | --- | --- |
+| 25.9° | 0.65x | 0.56x |
+| 33.0° | 0.49x | 0.44x |
+| 41.1° | 0.36x | 0.43x |
+
+So once the loop is allowed to converge, the arrival angle does exactly what the geometry says it
+should — and 3h's "interior optimum near 26 degrees" was the payback floor, not the trajectory.
+
+### The two levers are not independent, and they compound anyway
+
+The measured holding cost **falls with the arrival angle**: 1.37 m/s at 17.6 degrees against 0.08 to
+0.34 at the three steep arms. So a steeper arrival lowers the floor as well as the sensitivity — the
+angle acts *partly through* the holding cost, which is why 3h could not separate them.
+
+The effects still stack, because the derivation takes the cost half and `cot γ` delivers the rest:
+
+| | 2,000 km |
+| --- | --- |
+| shipped: constant 26.0, 17.6 degrees | **110 m** |
+| derived cost, 17.6 degrees | **30 m** |
+| derived cost, 33 degrees | **10 m** |
+
+**Eleven times better than what ships**, and the terminators say why: a32 ends **24 of 24 on
+`noimprov`** and none on `payback`. Every flight runs until the loop stops improving. The floor is
+not merely lower, it is gone.
+
+The roster gradient is dead here too — rho = +0.03, p=0.774, every seat at 0.017-0.018 km.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
