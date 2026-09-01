@@ -1036,16 +1036,36 @@ share `Medium.Drag` and they apply it the same way.
 `IcbmComputer.TerrainRadiusAt` says so in as many words, because the round stops where `GroundTest`
 says and a coarse sample is a different surface.
 
-**What is left, unmeasured:** the two sample the same field through *different frames*. The
-predictor takes `Vec.Unit(nowCci).Transform(parent.GetCci2Ccf())` and un-carries the point by
-`_departsIn` first; the round asks `GetTerrainHeightFromDirCce`. A frame or epoch mismatch between
-them is this project's most-repeated fault, `docs/FRAMES-AND-EPOCHS.md` exists for it, and at a 13.5
-degree arrival one metre of height is 4.16 m of ground — so the documented spread between surfaces
-(mean 4.21 m of height, 44 m at the 99th) is **17 m and 183 m of ground**, which brackets the ~100 m
-outstanding and has the same heavy-tailed shape as the flown walk's 10 / 326 quartiles.
+**Nor is the frame, on reading.** The predictor transforms `Cci -> Ccf` and asks
+`GetTerrainHeightFromDirCcf`; the round builds `Cce` and asks `GetTerrainHeightFromDirCce`. Each uses
+the engine variant matching its own frame, both clamp to sea level through the same
+`GroundSurface.Height`, and the `_departsIn` un-carry that distinguishes them is **zero once the
+engines are off** — which is the whole of the coast this happens in.
 
-That is a suspicion with the right magnitude and the right distribution, and it is **not** a
-measurement. The cut is to ask both for the surface radius under one point and difference them.
+**What it looks like instead is the ground under the target.** `shot-report --terrain`:
+
+| | 2,000 km target | 12,902 km target |
+| --- | --- | --- |
+| ground height spread | **0.0 m** | **836.9 m** |
+| residual from a plane fit | 0.0 m rms | **121.4 m rms** |
+| walk from the release probe | **4 m** | **157 m** |
+
+The short-range aim sits on ground that is flat to the metre; the intercontinental one is on a
+hillside that departs from a plane by about the size of the gap. Two models that stop at slightly
+different places on rough terrain stop at different *heights*, and at a 13.5 degree arrival one metre
+of height is 4.16 m of ground. It also explains the walk's heavy tail — 10 m at the lower quartile
+against 326 at the upper — which a systematic frame error would not produce.
+
+**So "at long range the miss is the predictor" is the wrong reading of 3s.** The confound is the
+*target*, not the range: every long shot flown here aims at one rough place and every short one at a
+flat place. What 3s established stands — the walk is real and correlates with the miss at rho=+0.707
+— but its cause is more likely where it was aimed than how far.
+
+**And the tool said "well conditioned"**, because it scores the *slope* (0.94%, 1.0x flat ground) and
+this failure mode is *roughness*. Worth a second line in `shot-report` rather than a footnote here.
+
+**The falsifiable test:** fly the intercontinental shot at a flat target. If the walk collapses toward
+the ~50 m the integrators owe, the terrain is the cause and the range is not.
 
 ## 3t. With the floor out of the way the arrival angle is just cot gamma — flown 2026-09-01
 
