@@ -904,6 +904,48 @@ The order that follows: **re-fly the angle ladder with `DeriveHoldingCost` on** 
 `a25|a32|a40` against base, in the regime the mod will actually ship. That answers the ranking and the
 compounding question in one night, and only then is there something to build a search against.
 
+## 3r. The derivation does not hold at long range — flown 2026-09-01
+
+12 shots, 96 flights at **12,902 km**, `~/shots/2026-08-31-2358`, HEAD `254ddea`. Flown to answer one
+question before making the derivation the default: does it regress where the constant was thought to
+be about right?
+
+| arm | pooled | paired ratio | won | p | |
+| --- | --- | --- | --- | --- | --- |
+| base (26.0) | **0.25 km** | — | — | — | |
+| derived | 0.33 km | **1.59x** [0.73, 2.23] | **3 of 12** | 0.146 | unresolved |
+
+**Unresolved, and pointing the wrong way.** The interval spans 1.0 so harm is not established — but
+neither is benefit, and both the point estimate and the win count favour the constant. Against 3n's
+**0.28x, 12 of 12** at 2,000 km, the sign has reversed.
+
+**It is not a difference in how the loop ends.** base 8 `noimprov` / 40 `payback`; derived 10 / 37 /
+1 `trim`. The distributions are the same shape, so the derivation is not driving the loop somewhere
+different — the shots simply land further out.
+
+**And the endings mean the opposite thing at this range.** `noimprov` lands at **0.69 km** against
+`payback`'s **0.20**, where at 2,000 km `noimprov` was the *better* ending (0.03 against 0.04). A loop
+that runs out of improvement has converged at short range and failed at long.
+
+### So the default does not move
+
+`DeriveHoldingCost` stays off. It is resolved better at 2,000 km, unresolved and possibly worse at
+12,900, and shipping it on the strength of the first would be the one-geometry generalisation this
+file has spent two days correcting — the same error that put 26.0 in the code, made with a better
+method.
+
+**What it is still right about:** no constant is correct at both ranges either. 26.0 is nine to twenty
+times the measured cost at both geometries flown. The answer is neither the constant nor this
+derivation as it stands, and 3m's corrected table says why the measurement is harder than it looked:
+the geometry a long shot actually flies is not the one a naive sweep produces.
+
+### And the roster gradient is back at long range
+
+**rho = +0.50, p = 0.000** — seats 1-3 at 0.056-0.093 km, seats 4-8 at 0.22-0.51. At 2,000 km it is
+dead (rho +0.04 to -0.09 over four nights). Whatever the auto-warp interlock closed at short range is
+open again here, and it is worth more than the arm being tested: a 9x spread across the roster
+against a 1.59x between arms. Nothing has looked at it since 8y.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
