@@ -989,10 +989,37 @@ share `Medium.Drag` by design, so the divergence is somewhere else: the terrain 
 sub-stepping, or the warp the coast runs under. **Which of the two is wrong is not established**, and
 that is the question, not a conclusion.
 
-**The discriminator is cheap and headless**: fly one cutoff state through `ImpactPredictor` and
-through the round's own integration path at matched steps, and difference them. If they agree, the
-divergence is something the game does to the round in flight; if they do not, one of the two models
-is wrong and the trace says which end to look at.
+### The discriminator, run: it is the round's integration
+
+`PredictorAgreementTests` flies one state through both — `ImpactPredictor` against a real `Slug`, on
+the same inverse-square field, the same sphere and no drag, so only the integrators differ. The
+fault reproduces headlessly:
+
+| the round's step | apart | timing |
+| --- | --- | --- |
+| 33.3 ms | **1,201 m** | +0.147 s |
+| 16.7 ms | 420 m | +0.051 s |
+| 4.2 ms | 211 m | -0.028 s |
+
+on a 1,233 s fall arriving at 7,884 m/s. Three things settle it:
+
+* **It is along the track.** 418.8 m downrange against 29.3 m square — the same signature as the
+  flown 309 against 3, which is why it reads as guidance error.
+* **It is a timing error, and the arithmetic closes.** `0.051 s x 7,884 m/s = 405 m` against 418.8 m
+  measured. The round arrives *late*.
+* **It scales with the round's step**, so it is the round's integration and not the predictor's —
+  which 3s had already shown to be converged at 2 s.
+
+**So the long-range miss is the round arriving on a different clock from the thing that aimed it.**
+At 2,000 km the fall is short and the accumulated phase is metres; over a half-hour it is hundreds.
+
+**Not fixed.** The round is stepped at frame rate and `Slug` only sub-steps under
+`Interceptor.MaxFaithfulStep`, which a 30 ms frame never reaches — so nothing currently makes a long
+fall integrate more finely than the display refreshes. Whether the answer is a sub-step floor for
+long-lived rounds, a better integrator, or accepting it and correcting the *predictor* to match the
+round is a design question, and any of them is a behaviour change that has to be flown.
+
+The two tests pin the fault rather than assert it away, so a fix is measured against them.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
