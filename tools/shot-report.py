@@ -222,6 +222,8 @@ RELEASE_FIELDS = {
     "raw_response": re.compile(r"\(raw ([\d.]+)\)"),
     "plant":        re.compile(r"off (\d+) plant reading"),
     "worse_for":    re.compile(r"worse for (\d+)"),
+    "floor_deg":    re.compile(r"against a ([-\d.]+) deg floor"),
+    "afford_deg":   re.compile(r"of the ([-\d.]+) deg the tanks could afford"),
 }
 
 
@@ -317,7 +319,7 @@ def read_shot(out_path, log_path, craft=None):
             "arrived": None, "released": None, "pickup_km": None, "pickup_ms": None,
             "residual": None, "own_km": None, "trim_split": None, "trim_release": None,
             "arc_deg": [], "release_owed": [], "response": [], "raw_response": [],
-            "plant": [], "worse_for": [],
+            "plant": [], "worse_for": [], "floor_deg": [], "afford_deg": [],
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [],
@@ -1338,8 +1340,8 @@ def main():
     print("   the arc it actually flew, what the trim still owed when the warheads left, and how")
     print("   big a step the aim loop was taking. cot(gamma) says the first of these dominates the")
     print("   precision, and until the release summary shipped a baseline flight never recorded it")
-    print(f"   {'arm':<14}{'arc deg':>9}{'owed m/s':>10}{'response':>10}{'raw':>8}"
-          f"{'plant':>7}{'worse':>7}{'flights':>9}")
+    print(f"   {'arm':<14}{'arc deg':>9}{'floor':>8}{'afford':>8}{'owed m/s':>10}"
+          f"{'response':>10}{'raw':>8}{'plant':>7}{'worse':>7}{'flights':>9}")
     for arm in arms:
         mine = [s for s in shots if s["arm"] == arm and usable(s)]
         if not mine:
@@ -1350,7 +1352,8 @@ def main():
             return statistics.median(vals) if vals else float("nan")
 
         seen = sum(len(s["arc_deg"]) for s in mine)
-        print(f"   {arm:<14}{per('arc_deg'):>9.1f}{per('release_owed'):>10.3f}"
+        print(f"   {arm:<14}{per('arc_deg'):>9.1f}{per('floor_deg'):>8.1f}"
+              f"{per('afford_deg'):>8.1f}{per('release_owed'):>10.3f}"
               f"{per('response'):>10.2f}{per('raw_response'):>8.2f}"
               f"{per('plant'):>7.0f}{per('worse_for'):>7.0f}{seen:>9d}")
 

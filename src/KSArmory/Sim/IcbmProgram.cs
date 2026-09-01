@@ -346,6 +346,17 @@ internal sealed class IcbmProgram
     /// </summary>
     public double ArrivalFloorDeg { get; private set; } = double.NaN;
 
+    /// <summary>
+    /// The affordable arrival the latched floor was a fraction of, kept as it read at the instant of
+    /// latching.
+    ///
+    /// <para><see cref="SteepestAffordableArrivalDeg"/> goes on moving after that, so reading it
+    /// afterwards says what the stack could afford by then rather than what the fraction was applied
+    /// to — and a night flown at several fractions cannot be read at all without the multiplicand
+    /// each arm actually got.</para>
+    /// </summary>
+    public double ArrivalFloorFromDeg { get; private set; } = double.NaN;
+
     private double _sinceArrivalBudget = double.PositiveInfinity;
 
     private bool _arrivalFloorUnaffordable;
@@ -571,6 +582,7 @@ internal sealed class IcbmProgram
         _sinceArrivalBudget = double.PositiveInfinity;
         SteepestAffordableArrivalDeg = double.NaN;
         ArrivalFloorDeg = double.NaN;
+        ArrivalFloorFromDeg = double.NaN;
         _windowWait = double.NaN;
         _windowCost = 0.0;
         _windowDirection = Vec.Zero;
@@ -680,6 +692,7 @@ internal sealed class IcbmProgram
 
         double wanted = Config.ArrivalPreference * SteepestAffordableArrivalDeg;
 
+        ArrivalFloorFromDeg = SteepestAffordableArrivalDeg;
         ArrivalFloorDeg = Math.Max(Config.MinArrivalAngleDeg, wanted);
     }
 

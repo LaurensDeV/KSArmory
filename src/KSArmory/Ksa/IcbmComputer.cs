@@ -1559,11 +1559,29 @@ internal sealed class IcbmComputer
                  + $"{Rate(_trim.AtReleaseMetresPerSecond)} on release "
                  + $"({Rate(_trim.SpentMetresPerSecond)} spent"
                  + (_trim.GaveUp ? ", GAVE UP" : _trim.Done ? ", done" : ", still running") + "), "
-                 + (double.IsFinite(arrival) ? $"arriving at {arrival:F1} deg, " : "")
+                 + (double.IsFinite(arrival) ? $"arriving at {arrival:F1} deg" : "")
+                 + FloorSaid()
+                 + (double.IsFinite(arrival) ? ", " : "")
                  + $"aim response {_aim.Response:F2} (raw {_aim.LastRawResponse:F2}) off "
                  + $"{_aim.PlantMeasurements} plant reading(s), "
                  + $"bias {Vec.Len(_aim.BiasCci) / 1000.0:F1} km, "
                  + $"best {_aim.BestMissMetres / 1000.0:F2} km, worse for {_aim.WorseFor}");
+    }
+
+    // What bounded the search, and what the fraction was applied to. Silent for a shot that asked
+    // for nothing, which is what ships -- and both numbers or neither, because a floor without its
+    // multiplicand cannot be read back into the preference that produced it.
+    private string FloorSaid()
+    {
+        double floor = Program.ArrivalFloorDeg;
+        double from = Program.ArrivalFloorFromDeg;
+
+        if (!double.IsFinite(floor)) return "";
+
+        return double.IsFinite(from)
+            ? $" against a {floor:F1} deg floor, {Config.ArrivalPreference:P0} of the {from:F1} "
+              + "deg the tanks could afford"
+            : $" against a {floor:F1} deg floor";
     }
 
     // Most of a flight is spent before either trim number exists, and "NaN m/s" in a summary reads
