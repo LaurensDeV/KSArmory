@@ -946,6 +946,54 @@ dead (rho +0.04 to -0.09 over four nights). Whatever the auto-warp interlock clo
 open again here, and it is worth more than the arm being tested: a 9x spread across the roster
 against a 1.59x between arms. Nothing has looked at it since 8y.
 
+## 3s. At long range the miss is the predictor, and at short range it is not
+
+Mined from 3r's 96 flights, no flying. This began as an investigation of 3r's roster gradient and
+found something larger.
+
+**The gradient is the pads.** The eight rockets stand 0.205 degrees of longitude apart — about 20 km
+— so seat 8 launches **143 km** further from the target than seat 1, which is exactly the 12,902 to
+13,044 km spread the scenario reports. Arrival angles are identical at 13.5-13.6 degrees and **every
+one of the 96 flights had a 33 ms longest step**, so 8y's auto-warp cause is not recurring and the
+interlock holds. The gradient is a range gradient wearing a seat's clothes.
+
+**And the accepted miss stops predicting the flown one.** At 2,000 km the loop's accepted miss and
+what landed agreed to a tenth on all four arms (3o). Here they do not: seat 5 accepts 51 m and lands
+at 376.
+
+`WarheadTrace` says why, and it is the reverse of 3j:
+
+| | 2,000 km | **12,902 km** |
+| --- | --- | --- |
+| walk from the release probe | **4 m** | **157 m** |
+| landing miss | 125 m | 254 m |
+| the predictor's share of the miss | **3.2%** | **62%** |
+
+Over 63 traced warheads the walk and the miss correlate at **rho = +0.707, t = +7.81**, and the walk
+is **309 m downrange against 3 m cross** — a hundred to one, purely along-track.
+
+**So 3j's conclusion is a short-range one.** There the predictor was right to 4 m and rightly
+retired; at intercontinental range it is most of the error, and no amount of work on the correction
+loop reaches it — the loop can converge perfectly and the warhead still walks 300 m. That is also
+why 3r's derivation could not help here.
+
+### The obvious cause is not the cause
+
+`ImpactPredictor`'s own step is **converged**: integrating the same state at 2.0 s against 0.05 s
+moves the impact by 0 to 4 m over flights up to 1,661 s. The fixed 2-second step is not accumulating
+along-track phase error.
+
+**What is left is a disagreement between two models of the same fall** — the round, stepped by
+`RoundDriver` at frame rate under `Interceptor.MaxFaithfulStep`, against `ImpactPredictor`. They
+share `Medium.Drag` by design, so the divergence is somewhere else: the terrain each stops on, the
+sub-stepping, or the warp the coast runs under. **Which of the two is wrong is not established**, and
+that is the question, not a conclusion.
+
+**The discriminator is cheap and headless**: fly one cutoff state through `ImpactPredictor` and
+through the round's own integration path at matched steps, and difference them. If they agree, the
+divergence is something the game does to the round in flight; if they do not, one of the two models
+is wrong and the trace says which end to look at.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
