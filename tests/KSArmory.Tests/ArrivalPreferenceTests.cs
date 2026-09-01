@@ -118,8 +118,47 @@ public class ArrivalPreferenceTests(ITestOutputHelper Out)
         Assert.Equal(0.0, floorSpread, 6);
     }
 
-    /// <summary>Reads the two angles each pass and corrects nothing, so only the floor is on trial.</summary>
-    private sealed class Watch(List<double> floors, List<double> affordable) : IcbmFlightRig.IAimLoop
+    /// <summary>
+    /// The floor divided by what it was a fraction of gives the preference back, at every reading.
+    ///
+    /// <para>Which is the only thing that makes a night flown at several fractions readable: the
+    /// affordable angle keeps moving, so the multiplicand has to be the one caught at the latch and
+    /// not whatever it reads by the time anything asks.</para>
+    /// </summary>
+    [Fact]
+    public void TheMultiplicandIsTheOneTheFractionWasAppliedTo()
+    {
+        const double preference = 0.6;
+
+        IcbmConfig config = new() { Armed = true, ArrivalPreference = preference };
+        IcbmProgram program = new(config);
+
+        List<double> floors = [];
+        List<double> affordable = [];
+        List<double> from = [];
+
+        IcbmFlightRig rig = InOrbit();
+        rig.AimLoop = new Watch(floors, affordable, from);
+        rig.Fly(program, Downrange(DeorbitShot.RangeMetres), 0.02, 12_000.0);
+
+        List<(double floor, double got, double live)> seen =
+            [.. floors.Select((f, i) => (f, from[i], affordable[i]))
+                      .Where(t => double.IsFinite(t.Item1) && double.IsFinite(t.Item2))];
+
+        Assert.True(seen.Count > 10, $"only {seen.Count} readings");
+
+        double drift = seen.Max(t => t.live) - seen.Min(t => t.live);
+        Out.WriteLine($"the multiplicand held at {seen[0].got:F2} deg while the live affordable "
+                      + $"angle moved {drift:F1}");
+
+        Assert.True(drift > 1.0, "the affordable angle did not move, so this proves nothing");
+
+        foreach ((double floor, double got, _) in seen) Assert.Equal(preference, floor / got, 6);
+    }
+
+    /// <summary>Reads the angles each pass and corrects nothing, so only the floor is on trial.</summary>
+    private sealed class Watch(List<double> floors, List<double> affordable, List<double>? from = null)
+        : IcbmFlightRig.IAimLoop
     {
         public double3 Apply(double3 aimNowCci) => aimNowCci;
 
@@ -130,6 +169,7 @@ public class ArrivalPreferenceTests(ITestOutputHelper Out)
         {
             floors.Add(program.ArrivalFloorDeg);
             affordable.Add(program.SteepestAffordableArrivalDeg);
+            from?.Add(program.ArrivalFloorFromDeg);
         }
     }
 }
