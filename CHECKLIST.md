@@ -56,11 +56,46 @@ Unchanged from the note above: the sight at magnification, the chase camera, the
 **Weapons** category stay unwatched, and this retarget flew the rail rather than the Pantsir, so the
 turret traverse and pod elevation are unwatched on this build too.
 
-**Retargeted to KSA `2026.9.4.5400`, and NOT yet flown.** Everything below this paragraph predates
-it. That build rewrote the viewport subsystem — `Viewport` became `IViewport` / `ViewportBase` /
+**Retargeted to KSA `2026.9.4.5400`, and flown.** Everything below this paragraph predates it. That build rewrote the viewport subsystem — `Viewport` became `IViewport` / `ViewportBase` /
 `GameViewport`, the list became `ViewportRegistry`, and `Viewport.Index` and `IsOffscreen` went — so
 every camera path in the mod was retargeted onto it. The suite passes and the mod builds, which
 proves neither: the tests link no KSA assembly.
+
+**What was flown on 2026.9.4.5400**, all unattended:
+
+| Scenario | Result |
+| --- | --- |
+| `head-on` | **PASS** — detonation at 15 m, drone destroyed |
+| `overhead` | **PASS** — detonation at 17 m, drone destroyed |
+| `mirv` (save `ICBM E2E`, 12,902 km downrange) | **PASS** — 6 of 6 arrived, worst 0.624 km, mean 0.622 km, spread 0.004 km against a 5.0 km bar |
+| `passing` | **TIMEOUT, and correctly so** — see below |
+
+The ballistic shot exercised the whole chain and every stage behaved: cutoff at **0 m/s to gain**
+with a 0.21 m/s residual, `WarpPolicy` clamping a requested 100x to 10.5x and then 6.3x off the
+step it was handed, separation, and `BusTrim` converging once per warhead (0.030, 0.023,
+0.017 m/s). The attitude hook held throughout — `before Auto/Custom -> after Auto/Custom`, never
+the `Manual/None` that means the write was overwritten — and the pointing deadband sat at
+**0.20 deg**, not the 11.40 deg mass-properties pathology. The mod cost **0.62 ms of frame mean**,
+3.26 ms worst. **No warning or error in the log for the whole session.**
+
+`passing` times out because the LAU-7 is a **fixed** rail and the profile puts the drone 50 deg off
+the tube, past the seeker's 40 deg — `WeaponSystem` refuses and says so. That geometry needs a
+launcher that trains. It is the scenario pairing that is wrong, not the mod.
+
+Three things the scenarios could **not** reach, so they stay unverified:
+
+- **The reflected `FixedController` install.** No scenario takes a chase camera — `mirv` parks the
+  view on Earth — so `LevelTheHorizon` was never called and neither its success line nor its
+  warning appears. This is the one path the retarget changed by reflection. Trigger a chase and
+  look for `camera: levelling the horizon on the main view` in the log.
+- **The sight at magnification, the turret traverse and pod elevation.** These runs flew the rail
+  and the ballistic stack; nothing drove the Pantsir.
+- **Debris after a kill.** `DestroyVehicleFromEvent` now sheds debris, and nothing checked what the
+  radar then holds.
+
+A screenshot wart, not a mod fault: `--shots` reported writing captures that never appeared.
+`tools/screenshot.sh` refuses when the game is not the foreground window, which it is not when a
+scenario runs unattended.
 
 Four things changed shape and need watching, worst first:
 
