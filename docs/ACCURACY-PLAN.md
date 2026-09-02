@@ -1520,10 +1520,14 @@ a worst shot 309 times the baseline.
 p80 is the only arm producing the `trim` terminator — **3 of 24 flights, median 14.06 km** — where
 base, p50 and p65 produce none at all.
 
-That is 3y's single failed rocket reproduced at n=24, and it confirms **5c**:
-`ArrivalBudget.SteepestAffordableDeg` prices what the **ascent** can pay for and says nothing about
-what the arrival then costs the **post-boost trim**. The affordable angle is ~66.6 degrees on every
-arm; what actually binds is somewhere between 44 and 54.
+That is 3y's single failed rocket reproduced at n=24, and it says
+`ArrivalBudget.SteepestAffordableDeg` is answering the wrong question: it prices what the **ascent**
+can pay for, and the affordable angle is ~66.6 degrees on every arm while what actually binds is
+somewhere between 44 and 54.
+
+**What binds is not the trim's budget, which is what this section assumed** — 3ag prices that
+headlessly and the authority *grows* with the angle. It is the last floor for which a long transfer
+still exists from where the burn leaves the vehicle.
 
 **It is only visible because the release summary shipped the day before.** Without it p80 is a
 mysterious 5.55x with no mechanism attached, and the natural next move would have been another night
@@ -1904,6 +1908,89 @@ well as at 2,000 km. The seven-degree arrival now has no flown geometry behind i
 That also halves 3ae's amplification independently of the damping, and the two compound: the
 mechanism needed a gain of 8 and 100 m of relief, and has 4.4 and 3.6 m.
 
+## 3ag. A steep arrival is cheap for the trim, and what it runs into is a wall — headless 2026-09-02
+
+Item 5c asked what a steep arrival costs the **post-boost trim**, on the standing reading from 3y
+and 3aa: `ArrivalBudget.SteepestAffordableDeg` prices what the **ascent** can pay and answers 67
+degrees, p80 flew 54, the trim gave up, and the arm lost 5.55x. The natural mechanism is that a
+steep arrival is dear for the bus to correct on. `TrimAffordableArrivalTests` prices it, and it is
+the other way round.
+
+### The exchange rate is the transfer time, and the angle only reaches it through that
+
+`AimAuthority.TryRate` takes the transfer time as a free parameter, so one departure and one aim
+priced at a range of times is the controlled experiment. 12,902 km from 600 km:
+
+| flight s | arrival | m/s per km | 1/t | ratio |
+| --- | --- | --- | --- | --- |
+| 900 | −32.7 deg | 0.917 | 1.111 | 0.83 |
+| 1,800 | −0.4 | 0.532 | 0.556 | 0.96 |
+| 3,000 | 20.8 | 0.434 | 0.333 | 1.30 |
+| 4,500 | 30.8 | 0.398 | 0.222 | 1.79 |
+
+**The arrival steepens and the rate falls, monotonically, at both ranges** — so the angle cannot be
+what makes an aim dear. It is about `1/t` at short transfers and falls slower than `1/t` at long
+ones, which is the whole of the relation: moving the aim a kilometre downrange in a fixed time costs
+about a kilometre per flight time of velocity.
+
+### So a floor never spends the trim's authority. It buys it
+
+The same call `ArrivalBudget` makes, swept finely from a 900 km post-boost departure — the state the
+trim actually pays from, rather than the pad the budget is priced at:
+
+| floor | arrival | flight s | cost m/s | m/s per km | km of aim per 60 m/s |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 3.2 deg | 1,986 | 304 | 0.493 | 121.7 |
+| 15 | 15.0 | 2,621 | 1,719 | 0.438 | 136.9 |
+| 25 | 25.0 | 3,602 | 3,173 | 0.400 | 149.8 |
+| **35** | **35.0** | **6,835** | 4,955 | **0.362** | **165.9** |
+| 40 | — | **no arc** | — | — | — |
+
+A binding floor is satisfied with a **longer** transfer every time, so the trim's authority grows
+with the angle — 122 km at a graze to 166 km at 35 degrees. `AFloorIsBoughtWithALongerTransferUntilNoArcSatisfiesIt`
+asserts that it never shortens, and fails against the opposite.
+
+### What ends the table is the arc ceasing to exist, and that is the mechanism
+
+Past 35 degrees `BallisticArc.TryCheapest` returns false from that departure: not dear, **absent**.
+3,459 km walls at 65 rather than 35, so it is a property of the geometry and not a constant.
+
+`ArrivalBudget` sees a wall too — `Cost` is infinity where the arc will not solve, so the bisection
+stops at it — but it sees the one at the state it is **called** from, which is early in the burn
+with the whole stack still aboard. The floor is latched there, once, by design. What the vehicle
+then has to satisfy is the wall at the state the burn **leaves** it in, and the two are not the same
+number.
+
+That is 3y and 3aa's mechanism restated, and it predicts what they measured rather than
+accommodating it. At 12,902 km a preference of 0.5 latches 0.5 x 67 = **33.5 degrees**, just inside
+a wall this reading puts at 35-40; 0.8 latches **53.6**, well past it. A floor past the wall is not
+flown shallower — the search falls back to whichever short steep arc still solves, and the flown
+sweep shows exactly that: flight time rising to 4,463 s at a 40 degree floor and then **collapsing
+to 1,256 s** at 67, with the rate doubling from 0.443 to 1.001 m/s per km and the aim authority
+halving from 136 km to 60.
+
+**So `owed on release` jumping 2.63/2.56/2.60 to 4.19 is not a steep arrival being expensive. It is
+a short one**, taken because the long one was unreachable.
+
+### What this changes, and what it does not
+
+* **5c is answered and its premise was wrong.** There is nothing to add to `ArrivalBudget` about
+  what the trim pays; the trim is better off the steeper it gets. Do not build a trim-budget cap.
+* **The lever it leaves is the latch instant, not the fraction.** The floor is priced from a state
+  the vehicle has left by the time it has to fly it. Whether re-checking the latched floor against
+  the post-boost state is worth anything is unflown, and it is now the cheapest thing 5c can become.
+* **It supports 5d rather than warning against it.** At long range, 0.5 moves the shot *down* the
+  rate curve — 0.527 to 0.451 m/s per km on the flown sweep, aim authority 114 km to 133.
+* **Nothing here is a miss.** No shot is flown, no aim correction runs, and the rig's departures are
+  circular states chosen to bracket the flown ones. What it establishes is a price and a wall, both
+  properties of the geometry.
+
+### One stale reading this closed
+
+3aa's "what actually binds is somewhere between 44 and 54 degrees" is right about where the loss
+appears and wrong about what is binding. It is not the trim's budget: it is the last floor for which
+a long transfer still exists from the post-boost state.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1945,8 +2032,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
 | ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
 | ~~5b~~ | ~~Fly `ArrivalPreference` at 0.5/0.65/0.8~~ | done | **0.5 wins, 0.48x, 29.5 -> 13.5 m; 0.8 is a settled loss** — 3aa |
-| **5d** | Fly `ArrivalPreference = 0.5` at **12,902 km**, where the arrival is **12.9 deg** (3af, not the 7 this row used to say). `--paired` on `SOLVER SCALE 8`, 12 blocks, ~2.5 h. **Open: which aim.** 26.485S,68.148W is the range but is the ill-conditioned target 7g spent a night on; a flat long-range aim measures the lever cleanly and does not test the case that motivates it | 12 paired shots | `cot` is 4.37 not 8.03, so worth about **half** what this row claimed — still the largest flight-shaped item |
-| **5c** | Price a steep arrival against the **trim's** budget, not the ascent's | 0 shots then 12 | 3y: the rocket that could afford the most is the one that failed |
+| **5d** | Fly `ArrivalPreference = 0.5` at **12,902 km**, where the arrival is **12.9 deg** (3af, not the 7 this row used to say). `--paired` on `SOLVER SCALE 8`, 12 blocks, ~2.5 h. **Open: which aim.** 26.485S,68.148W is the range but is the ill-conditioned target 7g spent a night on; a flat long-range aim measures the lever cleanly and does not test the case that motivates it | 12 paired shots | `cot` is 4.37 not 8.03, so worth about **half** what this row claimed — still the largest flight-shaped item, and 3ag says 0.5 moves the aim rate *down* at this range |
+| ~~5c~~ | ~~Price a steep arrival against the **trim's** budget, not the ascent's~~ | done | **refuted: the trim's authority *grows* with the angle, 122 km to 166 km — what ends it is the arc ceasing to exist** — 3ag |
+| **5e** | Re-check the latched arrival floor against the state the burn **leaves** the vehicle in, not the one it is priced from | 0 shots then 12 | 3ag: 0.5 latches 33.5 deg against a wall at 35-40, and 0.8 latches 53.6 — what 5c became |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
@@ -2023,6 +2111,11 @@ Shortening the range to steepen the arrival (418 km lands 0.36-3.63 km against 2
 the short flight cannot fit the passes; 3g).
 "The clearance never succeeds" (the absence of a log line measured the logger).
 The 24 ms slow-regime screen (29.8 ms gave 0 passes one night and 2 another).
+
+"A steep arrival is dear for the trim to correct on" (3aa's own mechanism, and the premise of 5c
+for a day. The rate is set by the transfer time, so steepening makes the aim *cheaper* to move --
+122 km of authority at a graze against 166 at 33 degrees. The reading that looked like a price was a
+wall: past some floor the long arc does not exist and a short steep one is flown instead -- 3ag).
 
 **Five of these five were counts or absences read as mechanisms.** The terminator table is a
 diagnosis, not a lever, and an instrument with one output cannot tell a cause from a consequence.
