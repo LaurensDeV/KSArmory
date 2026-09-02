@@ -2399,6 +2399,106 @@ for the sign is unknown and is the first thing to check.
 the body moves up to **8 km** within one. That is warp during the terminal descent, and it is not
 what `WarpPolicy` is supposed to allow while rounds are in the air.
 
+## 3al. Four investigations, and most of 3ak was the instrument — 2026-09-02
+
+Four parallel lanes were put on 3ak's open items. They converged, and between them they withdrew
+three of 3ak's conclusions and one of 3aj's. **Every fault found this round was in something that
+measures, not in the guidance.**
+
+### The range was never 12,902 km
+
+`--aim 26.485S,68.148W` is a **6,269 km** shot — `aimed at scenario aim point (6241 km downrange)`,
+the mod's own line, computed as the great circle from the craft to the aim. The 12,902 km nights used
+`aim none`. Item 5d told an operator to fly "12,902 km" with an aim that is half that, so the night
+compared one geometry against another's history — and **3ag's prediction was priced at 12,902 km for
+a shot that flew 6,269**, which is why it failed. Nothing about the physics is implicated.
+
+### The trim's arrival readout only fires once the trim is already lost
+
+`IcbmComputer.Arrivals` was gated on `trim.ToGainMetresPerSecond > BusTrim.MaxMetresPerSecond`, so it
+could report the disagreement's tail and never its distribution. 3ak's "1 s on eleven shots, 26 s on
+one" is the logger describing its own trigger: healthy shots emit it on **2 of 3,030** trim lines,
+shot 006 on **16 of 16**. The rate is the discriminator; the count is an artefact. Now printed
+unconditionally.
+
+**What survives about shot 006**, and it is a complete chain: the committed arrival is a velocity
+command at **2.35 m/s per second of error**, so `BusTrim`'s 10 m/s ceiling is crossed at **4.3 s**.
+Per craft the flown `owed ~= 4.9 x delta` and the miss follows. The burn was healthy to cutoff and for
+65 s of coast; the divergence starts silently mid-coast as a **linear ramp of 252-342 m/s of simulated
+time**, staggered across the eight craft, visible only in a DEBUG stream nobody reads. Whether the
+ramp is the bus's state or the predictor's answer is **not established** — the 168 s between cutoff
+and split is a logging blind spot, and a per-craft coast probe is the next diagnostic.
+
+### The mod was fighting its own timewarp, and it corrupted the instrument
+
+`BallisticScenario` asks for 8x once a salvo is away; `WarpPolicy` read that as a competing writer and
+yielded. `_yielded` clears only on an empty sky, which eight staggered rockets never give, so **one
+spurious yield stood the policy down for the whole flight** — 9 shots of 12.
+
+* frame at the stop: **18-33 ms** in the 3 shots that held, **117-267 ms** in the 9 that did not
+* frame length vs stopping-height error: **rho = +0.661**, surviving controls for terrain (+0.660),
+  arrival angle (+0.562) and arrival speed (+0.556)
+* **0 of 44** base traces stopped in a frame over 60 ms; **32 of 43** p50 traces did
+
+**This is what item 5d actually measured.** Base's four rockets land first at short frames; p50's land
+88-174 s later, by which time the harness has asked for 8x. A long frame multiplies a seat's own bias
+by **5.8x**. At matched frame length p50 reads **0.25x** rather than 1.91x, and where p50 did land in
+a short frame its bias matches base's at the same seat. 3ak's verdict is withdrawn.
+
+### The seat gradient is a fixed per-aimpoint terrain bias
+
+`AimSpread` puts each rocket on its own 12 km of hillside, so the eight are **not eight draws from one
+distribution**. Each seat's stopping-height error is a property of its ground, repeatable **to 1-2 m
+across 12 shots over three hours**, 44 of 44 traces sharing their seat's sign (p = 5.7e-14):
+−16.7, −7.6, −42.4, +29.3, −110.0, +62.0, +61.3, +50.0 m.
+
+Fully mediated: seat → stop-height **+0.680**, stop-height → miss **+0.892**, seat → miss controlling
+for stop-height **+0.084, p = 0.586**. It is *not* the logged roughness (rho = −0.030), which is why
+3ak's terrain hypothesis as posed was refuted while the underlying idea was right. At a flat aim the
+stop-height error is **0.0 m in all 56 traces** and the seat effect vanishes — Friedman p = 0.38
+against 1.4e-4.
+
+**Consequence for every future night: `--paired` survives this only because the arm rotates across
+seats. Any statistic pooling seats within one arm is reading terrain.**
+
+### The epoch diagnostic had the sign backwards, and the fix was justified all along
+
+3aj applied `sampledAt − V*dt` where `AirDensityIntoFrame` and `GroundCentreDriftIntoFrame` both carry
+`+V*dt`, so it modelled the fault **doubled**. 3ak's −0.60 is half a reciprocal pair whose centre is
+−1; on unwarped warheads the relationship is **47 of 47 inverted, Spearman −0.877, Theil-Sen −1.121**.
+The pooled +0.519 magnitude correlation was a two-cluster artefact of the frame regime.
+
+So `Slug` now asks the ground at the round's own epoch through the existing drift seam. Headless, on
+the eroded spectrum through the real `RoundDriver`: median stopping-height error **21.3 → 8.7 m** at
+20 ms and **30.9 → 11.9 m** at 29 ms.
+
+### Flown, and both fixes hold
+
+One shot, same save and aim, with the warp funnel and the ground back-date in:
+
+| | before | after |
+| --- | --- | --- |
+| group | 8 of 8 at 23-330 m | **8 of 8 at 13-108 m** |
+| frame at the stop | 18-33 ms base, **117-267 ms** p50 | **21.7-41.4 ms, all eight** |
+| stopping-height error | −16.7, −7.6, −42.4, +29.3, **−110.0**, +62.0, +61.3, +50.0 m | **−0.3, −12.3, +0.0, +4.5, +26.5, +11.7, −7.5, +40.9** |
+| median absolute | ~46 m | **~10 m** |
+
+No rocket landed on a long frame, which is the warp funnel; and the per-seat biases that had been
+stable to the metre across twelve shots collapsed, which is the back-date. **One shot settles a
+direction, not a median** — `SHOT-PROTOCOL.md`'s scatter still applies and the paired night is what
+sizes it.
+
+**And over-correcting is worse than either.** The trace's counterfactual column, applied a second time
+on top of the fix, reads −208.5 m where the round held −12.3. It now points backwards instead, at what
+the old lookup would have held, which is the comparison worth having.
+
+### One real ordering instability, not the cause of anything here
+
+`IcbmComputers.Update` iterates a dictionary whose order `Follow`'s remove-and-insert scrambles at
+staging — measured as three distinct orderings within one shot. Nothing correlates with it, and every
+cross-rocket quantity is already collected before the loop that uses it. Recorded so the next person
+does not have to find it twice.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -2457,7 +2557,8 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
 | ~~9~~ | ~~Hand the terminal fraction of the burn to `FlightComputer.Burn`~~ | days | **dropped** — abolishing the residual entirely buys ~9 m at 2,000 km and nothing at 12,902 (3x) |
 | **13** | **Why the committed arrival drifts 26 s** — one shot in twelve, all eight rockets, 75-99 km, `trim` median 92.41 km | 0 shots then 12 | 3ak: the largest single item at this geometry, and unexplained |
-| **12** | Why the epoch term's *magnitude* predicts the stop-height error at rho=+0.52 while its *sign* runs at −0.6 rather than +1. **Do not apply the back-date until that is answered** | 0 shots | 3ak: measured over 95 warheads; the naive fix has the wrong sign |
+| ~~12~~ | ~~Why the epoch sign runs at −0.6~~ | done | **the diagnostic had the sign backwards; the fix was justified and is applied** — 3al |
+| **14** | A per-craft **coast probe** — position, velocity, predicted flight time and impact, every few seconds between cutoff and split | 0 shots | 3al: the 168 s where shot 006's 90 km fault happens is a logging blind spot, and the ramp's cause is unestablished |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 

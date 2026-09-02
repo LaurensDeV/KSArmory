@@ -454,16 +454,14 @@ internal sealed class WarheadTrace
             return "ground sample: the round recorded none";
         }
 
-        // FORWARD by a frame of the body's motion, not back. GroundTest differences the round's
-        // pre-step position against a frame-end centre, so putting the body back is putting the
-        // point on. The two neighbours that already do this -- WeaponSystem's AirDensityIntoFrame
-        // and GroundCentreDriftIntoFrame -- carry the same sign, and getting it wrong here modelled
-        // the fault doubled rather than removed: 47 of 47 unwarped warheads read the mirror image
-        // of their own stopping-height error, Theil-Sen -1.12.
-        double3 atRoundEpoch = sampledAt + setup.Parent.GetVelocityEcl() * step;
+        // Backwards, because Slug now samples at the round's own epoch and this is the
+        // counterfactual: where the lookup used to land, one frame of the body's motion ahead.
+        // Going FORWARD from here would apply the correction a second time, which is worse than
+        // either -- flown, -12.3 m held against -208.5 m doubled.
+        double3 asItUsedTo = sampledAt - setup.Parent.GetVelocityEcl() * step;
 
         bool read = GroundTest.Shared.TryGround(sampledAt, out double3 _, out double asRead);
-        bool paired = GroundTest.Shared.TryGround(atRoundEpoch, out double3 _, out double asPaired);
+        bool paired = GroundTest.Shared.TryGround(asItUsedTo, out double3 _, out double asUnpaired);
         bool truth = GroundTest.Shared.TryGround(landingEcl, out double3 _, out double flown);
 
         if (!read || !paired || !truth) return "ground sample: the height field would not answer";
@@ -473,7 +471,7 @@ internal sealed class WarheadTrace
         return $"ground sample: over a {step * 1000.0:F1} ms frame the body moved"
                + $" {Vec.Len(setup.Parent.GetVelocityEcl()) * step:F0} m;"
                + $" the round held {asRead - flown:+0.0;-0.0} m off the true surface,"
-               + $" paired at its own epoch it would hold {asPaired - flown:+0.0;-0.0} m";
+               + $" unpaired it would have held {asUnpaired - flown:+0.0;-0.0} m";
     }
 
     // Vector, not magnitude: a bare distance mixes an overshoot with a cross-track error, and which
