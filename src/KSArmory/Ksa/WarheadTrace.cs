@@ -379,6 +379,8 @@ internal sealed class WarheadTrace
 
             Log.Info($"warhead trace: {Surfaces(setup, landingEcl, positionCci)}");
 
+            if (round is Slug sampled) Log.Info($"warhead trace: {GroundSample(setup, sampled)}");
+
             // The probe for docs/MIRV-NEXT.md item 8i. Across 24 flown shots the last sampled
             // altitude is ~500 m and the landing is tens of metres BELOW the same surface, with the
             // round's own age unchanged between the two -- 500 m in under 10 ms, which nothing can
@@ -430,6 +432,41 @@ internal sealed class WarheadTrace
                + $" the prediction flies to {predicted:F1} m ({flown - predicted:+0.0;-0.0} m apart);"
                + $" the round is {stoppedOn - flown:+0.0;-0.0} m off its own surface"
                + $" and {stoppedAt - predicted:+0.0;-0.0} m off the prediction's";
+    }
+
+    // Where the round read the ground against where it stopped, which is the whole of its stopping
+    // height error and therefore -- times cot(gamma) -- the whole of its walk from the release probe.
+    //
+    // Two displacements are folded together in that error and the flown log cannot separate them:
+    // the round's own travel over the ground within the frame, and the frame-newer body sample
+    // Ksa/GroundTest.cs differences the lookup against, worth bodyVelocityEcl*dt. This prints the
+    // height field at the sampled point and at that point back-dated by the second term, so the two
+    // are read apart on KSA's own terrain rather than argued about. docs/KSA-FRAME-ORDER.md section 5
+    // is the epoch table; WeaponSystem.AirDensityIntoFrame is the same correction already applied to
+    // a neighbouring lookup.
+    private static string GroundSample(in Setup setup, Slug round)
+    {
+        double3 sampledAt = round.GroundSampledAtEcl;
+        double step = round.GroundSampledOverSeconds;
+
+        if (!Vec.IsFinite(sampledAt) || sampledAt.Equals(Vec.Zero) || !double.IsFinite(step))
+        {
+            return "ground sample: the round recorded none";
+        }
+
+        double3 backDated = sampledAt - setup.Parent.GetVelocityEcl() * step;
+
+        bool at = GroundTest.Shared.TryGround(sampledAt, out double3 _, out double radiusAt);
+        bool back = GroundTest.Shared.TryGround(backDated, out double3 _, out double radiusBack);
+
+        string epoch = at && back
+                           ? $"{radiusAt - radiusBack:+0.0;-0.0} m of height"
+                           : "unanswered";
+
+        return $"ground sample: read {Vec.Len(round.PositionEcl - sampledAt):F0} m back along the"
+               + $" track over a {step * 1000.0:F1} ms frame; the body moved"
+               + $" {Vec.Len(setup.Parent.GetVelocityEcl()) * step:F0} m in it, which is {epoch}"
+               + $" against the same point back-dated";
     }
 
     // Vector, not magnitude: a bare distance mixes an overshoot with a cross-track error, and which

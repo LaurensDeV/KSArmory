@@ -2147,13 +2147,19 @@ they cross:
 it is an outlier rather than a trend. So the flown +0.90 is a coincidence of eight rockets, and the
 arrival angle keeps the whole of what `ARRIVAL-ANGLE.md` claims for it.
 
-### What this does say, and it is about the instrument
+### The "opposite sign" reading was wrong, and it was an artefact of this section's own arithmetic
 
-**`ProbeGapTests` does not model the flown gap, and the sign is the tell.** Its `as flown` column is
-**−29 m** at every warp on both realistic surfaces; flight is **+150 m** median. Opposite sign, five
-times the size. Whatever produces the flown gap is not in the fixture, so none of 3ac-3af's headless
-negatives are bounds on it — the plan's own lesson about a recorded negative being only as good as
-what its instrument was pointed at, applied to the instrument that lesson was written about.
+**Withdrawn 2026-09-02, found independently by three of the four investigations in 3aj.** The gap
+column above is `|round − aim| − |probe − aim|` — a difference of two **magnitudes**. The probe lands
+within 2-49 m of the aim on all eight, so that quantity is very nearly the *magnitude* of the
+round-to-probe walk whatever its direction: it is non-negative by construction and **its sign carries
+no information**. `ProbeGapTests` reports a **signed downrange displacement**. Comparing the two and
+reading "opposite sign, five times the size" compared a magnitude with a vector.
+
+The comparable flown quantity is the log's own signed walk, which is **mixed**: −220, −145, −62, −32,
++31, +41, +191, +284 m — median **−0.5 m**, mean +11, and the fixture's −29 m sits inside that
+scatter. **There was never a sign flip to explain.** What is real is a magnitude gap of about 30x,
+and 3aj has its cause.
 
 ### And 3af's ground measurement does not generalise
 
@@ -2176,6 +2182,101 @@ uniformly too smooth to matter, which was one place's ground read as every place
   the round being stepped through `RoundDriver` inside the game loop rather than a tight test loop.
 * **It bounds what guidance work is worth.** Half the remaining miss is downstream of the aim, so a
   perfect correction loop buys at most half of 23-330 m at this geometry.
+
+## 3aj. The whole probe gap is one wrong number in the last frame — four investigations, 2026-09-02
+
+3ai left the probe-to-round gap unexplained and blamed the instrument. Four parallel investigations
+settled it, and they agree on the mechanism from four different directions.
+
+### It is not accumulated error. It appears at the stop
+
+**The round's walk from its release probe is 1-2 m for the entire 300 s flight, down to 5-6 km
+altitude, and then jumps to 31-284 m at the stop.** Everything upstream — the integrators, the frame
+jitter, the coast — is worth single metres.
+
+### The two sides read the same surface. They read it at different places
+
+`WarheadTrace.Surfaces` hands the same direction to the round's `GroundTest.Shared` and to the
+computer's `TerrainRadiusAt` at every landing point. All eight flown rockets:
+
+```
+the round stopped on 6375272.7 m, the prediction flies to 6375272.7 m (+0.0 m apart)   x8
+```
+
+So the surface function is identical — the terrain-disagreement hypothesis 3ac-3af spent four
+sections on is dead at this geometry. What differs is **where each asks**.
+
+The round stops 13.4 to 173.5 m off that surface, and **that height times `cot γ` is the whole walk**:
+right sign 8 of 8, ratios 1.42-3.06 against `cot γ` of 1.60 and 3.13 with the residual being local
+slope, and one lane fits it at **r = 0.991, slope 1.025**. The walk is near-pure downrange — cross
+2-18 m against down 31-284 — which is what a height error does and a lateral error does not.
+
+### The suspect: the lookup is differenced against a frame-newer body
+
+`Sim/Slug.cs` samples the ground once per frame at its **pre-step** position; `Ksa/GroundTest.cs`
+builds the direction as `Unit(positionEcl − nearest.GetPositionEcl())`, and that centre is a celestial
+sample **one applied step ahead**. The lookup therefore lands `bodyVelocityEcl · dt` away — at the
+flown 18-33 ms and 30,190 m/s that is **536-1,005 m of chord**, of which the tangential part displaces
+the sample. The round's own within-frame ground track is only 115-157 m, so the epoch term would be
+4-6x larger.
+
+**`WeaponSystem.cs` already carries the comment naming it**, beside two neighbouring lookups that do
+apply the correction and one that does not:
+
+> *"The sample is still one applied step ahead of the pre-step round, and the correction for that is
+> to put the body back by bodyVelocityEcl*dt … which is what AirDensityIntoFrame does below and this
+> does not."*
+
+`AirDensityIntoFrame` and `GroundCentreDriftIntoFrame` back-date; the terrain **radius** never did.
+
+### Why no fixture could have caught it
+
+`tests/KSArmory.Tests/DeorbitShot.cs`'s `OneFrame` hands the ground test the centre **at the round's
+own instant** — deliberately, with a comment saying it can only be paired one way — and `Relief` sets
+its centre to zero and is carrier-blind. `ProbeGapTests` never constructs a `Carrier` at all. The rig
+does not model the shipped pairing; it models the correct one. Its own header already said a rig whose
+planet sits at the origin is *"not bad at seeing them, incapable"*.
+
+That also explains a standing puzzle: `CarriedFrameTests.TheImpactDoesNotMoveWhenThePlanetDoes`
+records an unexplained 207.87 m / 590.83 m carrier residual its doc says "has not been run to ground".
+It is `OneFrame` not passing `GroundCentreDriftAt`. Measured on a corrected rig: 0.0 m as the game
+pairs it, 213.4 m as `OneFrame` does, 4,081.3 m with neither.
+
+And a second reason the fixture reads small: `DeorbitShot.RoughGround` — which 3ai called realistic —
+carries **0.3 m** peak-to-peak below a kilometre where the eight flown aimpoints carry **15.1-76.3 m**.
+The rig's round accordingly stops within 0.3 m of it.
+
+### What is measured and what is still inferred
+
+**Measured**: the walk's flat-then-jump shape; the +0.0 m surface agreement; the 13.4-173.5 m stopping
+heights and their `cot γ` fit; the signed walk being mixed; zero skipped steps, zero overruns, lag
+−0.4 to −0.9 ms over a whole flight; and headlessly, that correct pairing is exactly carrier-invariant
+where the shipped pairing moves the impact 22-712 m across slope and frame length.
+
+**Inferred, and this is the open question**: that the epoch displacement dominates the round's own
+within-frame ground track. The flown log carries only their **sum**. The arithmetic favours it — 173.5 m
+of height over 50 m of ground track needs a slope of 3.5, where adding ~700 m of displacement puts the
+implied slopes at 0.03-0.23, inside the 0.018-0.107 the `ground under the aim` sampler measures — and
+the 33.3 ms frames carry the larger errors while the 32-degree group has *less* within-frame track and
+*more* error, which is the wrong ordering for the ground-track term and the right one for the epoch
+term. None of that is a measurement.
+
+### The diagnostic, shipped rather than the fix
+
+`Slug.GroundSampledAtEcl` and `GroundSampledOverSeconds` record where and over what frame the round
+read the ground; `WarheadTrace.GroundSample` prints the height field at that point and at the same
+point back-dated by `bodyVelocityEcl · dt`. The difference is the epoch term **on its own, on KSA's
+real terrain**. It costs two lookups on the landing frame, is off with the rest of the trace, and rides
+the next flight at no extra cost.
+
+**The fix is one expression and it is deliberately not applied yet**: pass the back-dated position to
+`Ground.TryGround`, the same correction three neighbouring lookups already make. Two previous phase
+corrections of this exact shape were flown and **lost** — `docs/KSA-FRAME-ORDER.md` section 5 — so the
+diagnostic reads first. Those two were a field integrated over 400 s and a wind; this is a value read
+once, at the instant it decides where the round stops, which is a different case but not an argument.
+
+**If it holds it is worth about half the remaining miss at this geometry**, which after 3ah is
+23-330 m.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -2234,6 +2335,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
 | **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
 | ~~9~~ | ~~Hand the terminal fraction of the burn to `FlightComputer.Burn`~~ | days | **dropped** — abolishing the residual entirely buys ~9 m at 2,000 km and nothing at 12,902 (3x) |
+| **12** | Read the ground-sample diagnostic off the next flight, then decide the one-expression back-date in `Slug`/`GroundTest` | 0 shots | 3aj: the epoch term is inferred to dominate and the log carries only the sum; worth about half the remaining miss if it holds |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 

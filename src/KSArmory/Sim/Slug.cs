@@ -25,6 +25,8 @@ internal sealed class Slug : IProjectile
     // metres of ground track one frame covers.
     private double3 _groundCentre;
     private double _groundRadius;
+    private double3 _groundSampledAtEcl;
+    private double _groundSampledOverSeconds;
     private bool _haveGround;
 
     public Slug(double3 positionEcl, double3 velocityEcl, object? target, int tube,
@@ -181,6 +183,25 @@ internal sealed class Slug : IProjectile
     public double GroundRadiusUsed => _haveGround ? _groundRadius : double.NaN;
 
     /// <summary>
+    /// Where the round was standing when it last sampled the ground, which is not where it stops.
+    ///
+    /// <para><b>Measurement only.</b> The radius is held for a whole frame, so the round stops
+    /// against a surface read some distance back along its own track — and the height field's
+    /// difference across that distance is what the round's stopping height is wrong by. Flown at
+    /// 12,902 km the rounds stopped 13 to 174 m off the true surface, and that error times
+    /// <c>cot(gamma)</c> is the whole of their walk from the release probe at r = 0.99.</para>
+    ///
+    /// <para>Two things displace it and the log cannot separate them without this: the round's own
+    /// travel over the ground within the frame, and the frame-newer body sample
+    /// <c>Ksa/GroundTest.cs</c> differences against — see <c>docs/KSA-FRAME-ORDER.md</c> section 5.
+    /// </para>
+    /// </summary>
+    public double3 GroundSampledAtEcl => _groundSampledAtEcl;
+
+    /// <inheritdoc cref="GroundSampledAtEcl"/>
+    public double GroundSampledOverSeconds => _groundSampledOverSeconds;
+
+    /// <summary>
     /// The round's own view of how high it ended: its final position against the centre AND radius
     /// it tested the crossing with. Near zero means the crossing landed where it meant to, so any
     /// disagreement with an altitude measured against a freshly sampled centre is the centre, not
@@ -237,6 +258,9 @@ internal sealed class Slug : IProjectile
         // Losing the target leaves it flying with nothing to fuse against, and — for a tail-kit
         // round — nothing to steer at either, so it finishes the fall ballistically.
         if (target is null) TargetRef = null;
+
+        _groundSampledAtEcl = PositionEcl;
+        _groundSampledOverSeconds = dt;
 
         _haveGround = munition.HitsTerrain && Ground is not null
                       && Ground.TryGround(PositionEcl, out _groundCentre, out _groundRadius)
