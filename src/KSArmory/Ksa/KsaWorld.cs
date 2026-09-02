@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
@@ -1416,12 +1417,24 @@ internal static class KsaWorld
         Program.GizmosRenderer.DrawSphere(ego, radiusMetres, colour);
     }
 
+    // The views this mod may drive, in the order its viewport numbers index. GameViews rather than
+    // Views because only a game viewport has a camera and controllers -- which also keeps the
+    // part-thumbnail renderer out, since it is not one.
+    private static ReadOnlySpan<IGameViewport> GameViewports
+    {
+        get
+        {
+            try { return ViewportRegistry.GameViews; }
+            catch { return default; }
+        }
+    }
+
     /// <summary>How many camera views the game currently has open.</summary>
     public static int ViewportCount
     {
         get
         {
-            try { return Program.Viewports?.Count ?? 0; }
+            try { return GameViewports.Length; }
             catch { return 0; }
         }
     }
@@ -1438,7 +1451,7 @@ internal static class KsaWorld
         into.Clear();
         try
         {
-            if (Program.Viewports is not { } viewports) return;
+            ReadOnlySpan<IGameViewport> viewports = GameViewports;
 
             // The view the player flies from is listed separately by the panel, because taking it
             // is a different mechanism: it is followed and driven through FixedController, where
@@ -1446,10 +1459,14 @@ internal static class KsaWorld
             // rather than assumed to be index 0 — if the two ever disagree it would appear twice.
             int main = MainViewportIndex;
 
-            for (int i = 0; i < viewports.Count; i++)
+            for (int i = 0; i < viewports.Length; i++)
             {
                 if (i == main) continue;
-                if (viewports[i] is { Visible: true, IsOffscreen: false }) into.Add(i);
+
+                // Secondary is the only kind that is somewhere to put a sight. The registry also
+                // lists the crew portraits, which are visible windows and not views of the world,
+                // and the old IsOffscreen test could not tell them apart.
+                if (viewports[i] is { Visible: true, Type: ViewportType.Secondary }) into.Add(i);
             }
         }
         catch
@@ -1475,10 +1492,10 @@ internal static class KsaWorld
         width = height = 0;
         try
         {
-            if (Program.Viewports is not { } viewports) return false;
-            if (index < 0 || index >= viewports.Count) return false;
+            ReadOnlySpan<IGameViewport> viewports = GameViewports;
+            if (index < 0 || index >= viewports.Length) return false;
 
-            Viewport viewport = viewports[index];
+            IGameViewport viewport = viewports[index];
             Camera camera = viewport.Mode == CameraMode.Fixed ? viewport.BaseCamera
                                                               : viewport.GetCamera();
             if (camera is null) return false;
@@ -1511,7 +1528,7 @@ internal static class KsaWorld
     {
         try
         {
-            Camera camera = Program.Viewports[index].GetCamera();
+            Camera camera = GameViewports[index].GetCamera();
             return camera is null ? 1.0 : camera.GetFieldOfView();
         }
         catch
@@ -1619,10 +1636,11 @@ internal static class KsaWorld
             ImGuiViewportPtr main = ImGui.GetMainViewport();
 
             string chosen = "none";
-            for (int i = 0; i < Program.Viewports.Count; i++)
+            ReadOnlySpan<IGameViewport> viewports = GameViewports;
+            for (int i = 0; i < viewports.Length; i++)
             {
-                Viewport v = Program.Viewports[i];
-                if (!v.Visible || v.IsOffscreen) continue;
+                IGameViewport v = viewports[i];
+                if (!v.Visible) continue;
                 if (!CursorAim.TryToViewport(cursor, v.Position, v.Width, v.Height, out float2 local))
                 {
                     continue;
@@ -1658,10 +1676,11 @@ internal static class KsaWorld
         {
             float2 cursor = ImGui.GetMousePos();
 
-            for (int i = 0; i < Program.Viewports.Count; i++)
+            ReadOnlySpan<IGameViewport> viewports = GameViewports;
+            for (int i = 0; i < viewports.Length; i++)
             {
-                Viewport v = Program.Viewports[i];
-                if (!v.Visible || v.IsOffscreen) continue;
+                IGameViewport v = viewports[i];
+                if (!v.Visible) continue;
 
                 if (v.GetCamera() is not { } camera) continue;
 
@@ -2298,7 +2317,7 @@ internal static class KsaWorld
     {
         try
         {
-            Viewport v = Program.Viewports[index];
+            IGameViewport v = GameViewports[index];
             return $"Camera {index} ({v.Width}x{v.Height})";
         }
         catch
@@ -2407,7 +2426,17 @@ internal static class KsaWorld
         {
             try
             {
-                return Program.MainViewport?.Index ?? 0;
+                // A viewport carries a ViewportId now rather than its position in a list, and the
+                // registry's order is not promised to put the main one first. Asked by identity.
+                ReadOnlySpan<IGameViewport> viewports = GameViewports;
+                IGameViewport? main = Program.MainViewport;
+
+                for (int i = 0; i < viewports.Length; i++)
+                {
+                    if (ReferenceEquals(viewports[i], main)) return i;
+                }
+
+                return 0;
             }
             catch
             {
@@ -2541,24 +2570,63 @@ internal static class KsaWorld
     // viewport and the swap outlives any single borrower of it.
     private static FixedController? _stockFixedController;
 
+    // The one name rather than a signature that the camera stands on, and the one thing
+    // api-surface.sh cannot check for it. GameViewport.FixedController is an auto-property whose
+    // setter is protected, behind IGameViewport's get-only one, so the backing field is the only
+    // way in -- same shape, and the same warn-and-degrade, as PlumeSmoke's reflected renderer.
+    //
+    // Null here is not a fault: the engine's own controller stays, which costs the levelled
+    // horizon and puts the sight's aim a frame behind again. Both are worse pictures, not crashes.
+    private static FieldInfo? _fixedControllerField;
+    private static bool _lookedForFixedControllerField;
+
+    private static FieldInfo? FixedControllerField(IGameViewport viewport)
+    {
+        if (_lookedForFixedControllerField) return _fixedControllerField;
+        _lookedForFixedControllerField = true;
+
+        _fixedControllerField = viewport.GetType().GetField(
+            "<FixedController>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        if (_fixedControllerField is null)
+        {
+            Log.Warn("camera: no FixedController backing field on "
+                     + $"{viewport.GetType().Name} - keeping KSA's own controller, so the horizon "
+                     + "is not levelled and the sight's aim lags a frame. If the property has a "
+                     + "public setter again, use it and delete this.");
+        }
+
+        return _fixedControllerField;
+    }
+
     // Puts LevelHorizonController on the main viewport, once, and answers with whichever
     // controller is now in place. Null only if the viewport has no controller at all.
     //
     // If the swap itself fails the engine's own is returned and everything carries on with the
     // roll it always had -- this is an extension point nobody promised, so it has to be allowed
     // to stop working.
-    private static FixedController? LevelTheHorizon(Viewport viewport)
+    private static FixedController? LevelTheHorizon(IGameViewport viewport)
     {
         if (viewport.FixedController is LevelHorizonController already) return already;
 
         try
         {
             if (viewport.BaseCamera is not { } camera) return viewport.FixedController;
+            if (FixedControllerField(viewport) is not { } field) return viewport.FixedController;
 
             var level = new LevelHorizonController(camera);
 
             _stockFixedController ??= viewport.FixedController;
-            viewport.FixedController = level;
+            field.SetValue(viewport, level);
+
+            // The write is the whole point, and a silent no-op would read exactly like a working
+            // swap: everything downstream still finds *a* controller.
+            if (!ReferenceEquals(viewport.FixedController, level))
+            {
+                Log.Warn("camera: the FixedController write did not take - keeping KSA's own");
+                _stockFixedController = null;
+                return viewport.FixedController;
+            }
 
             Log.Info("camera: levelling the horizon on the main view");
 
@@ -2578,7 +2646,11 @@ internal static class KsaWorld
 
         try
         {
-            if (Program.MainViewport is { } viewport) viewport.FixedController = stock;
+            if (Program.MainViewport is { } viewport
+                && FixedControllerField(viewport) is { } field)
+            {
+                field.SetValue(viewport, stock);
+            }
             Log.Info("camera: gave the fixed controller back");
         }
         catch (Exception e)
@@ -2771,10 +2843,10 @@ internal static class KsaWorld
 
         try
         {
-            if (Program.Viewports is not { } viewports) return false;
-            if (index < 0 || index >= viewports.Count) return false;
+            ReadOnlySpan<IGameViewport> viewports = GameViewports;
+            if (index < 0 || index >= viewports.Length) return false;
 
-            Viewport viewport = viewports[index];
+            IGameViewport viewport = viewports[index];
 
             // A view in Map mode renders the map scene — starfield, orbits, planets as discs —
             // and GetCamera() hands back the *map* camera, so moving it puts the map somewhere

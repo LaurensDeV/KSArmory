@@ -1,6 +1,6 @@
 # KSA modding notes
 
-Everything here comes out of the shipped assemblies of **KSA build 2026.8.22.5348**, read with
+Everything here comes out of the shipped assemblies of **KSA build 2026.9.4.5400**, read with
 `tools/apidump`, or out of the StarMap sources. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
@@ -83,7 +83,7 @@ All static:
 public static Vehicle? ControlledVehicle { get; set; }     // the vessel the player flies
 public static ReadOnlySpan<Vehicle> VehiclesInFrame { get; }  // every loaded vehicle
 public static GizmosRenderer GizmosRenderer;              // field; debug line/sphere drawing
-public static Viewport MainViewport { get; }
+public static IGameViewport MainViewport { get; }
 public static Camera GetMainCamera();
 public static Program Instance { get; }
 ```
@@ -105,11 +105,44 @@ Vehicle? Split(Part.Connector, double impulse, out PoseChange, string? id = null
 void Teleport(Orbit, doubleQuat?, double3?);
 ```
 
+### Viewports — an interface and a registry, not a list
+
+**`KSA.Viewport` no longer exists.** As of 2026.9.4.5400 it is split three ways, and a mod binds to
+the interfaces rather than to a class:
+
+```csharp
+interface IViewport      // Id, ShaderSlot, Type, State, Visible, Mode, Size, Position, GetCamera()
+interface IGameViewport : IViewport   // BaseCamera, MapCamera, the five controllers,
+                                      //   GetActiveController(), SetCameraMode(), NextCameraMode()
+abstract class ViewportBase : IViewport
+class GameViewport : ViewportBase, IGameViewport
+class PartThumbnailViewport : ViewportBase          // not an IGameViewport
+```
+
+`Program.MainViewport` is an `IGameViewport`. What replaced the rest:
+
+| Was | Now |
+| --- | --- |
+| `Program.Viewports` (a `List<Viewport>`) | `ViewportRegistry.Views` / `.GameViews`, both `ReadOnlySpan` |
+| `Viewport.Index` | `IViewport.Id` (a `ViewportId`), and `ShaderSlot` for the render path |
+| `Viewport.IsOffscreen` | gone — the thumbnail viewport is simply not an `IGameViewport` |
+| `EViewportLightMode` | `ViewportLightMode` |
+| `Viewport.FixedController` (public **field**) | `IGameViewport.FixedController`, **get-only** |
+
+That last one is the one that bites: installing a custom `FixedController` was ordinary field
+assignment and is now impossible through the public surface. `GameViewport.FixedController` is an
+auto-property with a `protected` setter, so the backing field is the only way in — which is what
+`KsaWorld.LevelTheHorizon` does, and why it warns and falls back rather than assuming it worked.
+
+Secondary viewports are also **leased** now rather than simply existing:
+`ViewportRegistry.TryOpenSecondaryViewport` / `TryClaimSecondaryViewport(IViewportOwner)` hand one
+out, `ReleaseSecondaryViewport` gives it back, and `AvailableSecondaryCount` says how many are free.
+
 ### `KSA.Universe` — statics
 
 ```csharp
 static CelestialSystem? CurrentSystem { get; private set; }
-static void DestroyVehicle(Vehicle);
+static void DestroyVehicle(Vehicle, CrewDisposition = EndMission);
 static void DestroyVehicleFromEvent(Vehicle, VehicleDestructionEvent);   // how you kill something
 static UniverseTime GetElapsedTime();
 ```
@@ -303,7 +336,7 @@ can read the same figures instead of copying them.
 ### Aiming the player's camera — `OrbitView`, not `OrbitController`
 
 Writing `Camera.LocalRotation` does nothing lasting: every viewport runs a controller that rebuilds
-its camera each frame. `ViewportBase.SetCameraMode(CameraMode.Fixed)` does hold, and is how a
+its camera each frame. `IGameViewport.SetCameraMode(CameraMode.Fixed)` does hold, and is how a
 *secondary* viewport is driven — but on the main one it takes the view off the player and hides the
 interface, and `FixedController.OnFrame` divides by zero if the camera is following anything, so
 `Unfollow(changeControl: false)` has to come first.

@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.8.22.5348**. Paths are relative to
+Findings are against KSA **2026.9.4.5400**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -20,7 +20,8 @@ happen rather than a member that moved.
 - [x] Secondary viewport gets the planet, atmosphere and lighting passes
 - [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport
 - [x] Wheel, suspension or steering module exists
-- [x] Partial or component damage exists alongside `DestroyVehicleFromEvent`
+- [ ] ~~Partial or component damage exists alongside `DestroyVehicleFromEvent`~~ — **arrived in
+  2026.9.4.5400**, see below; the mod has not taken it up
 - [x] Per-mod vehicle library path, or a way to register saved craft
 - [x] `UncompressedVehicleSave.Load` honours `Character`, making a kitten launchable
 - [x] A character attachment's pose survives the frame, so a mod can aim one
@@ -31,11 +32,17 @@ happen rather than a member that moved.
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 - [x] **`DistanceReference.IsValid()` stops requiring 100 km** — go back to `IsValid()` on the atmosphere and the ocean the day it does
 
-All thirteen rechecked against 2026.8.22.5348 and still blocked. The line numbers below are against
-that build's render path, in which `Program._offscreenTarget` is a `RenderTarget`. Lighting did
-become a per-viewport choice — `Viewport.LightMode` is an `EViewportLightMode`, set to `Clustered`
-for the main viewport and `None` for the thumbnail one — but that is the pass a secondary viewport
-was already getting some of. `OnFrameCelestials` still resolves one camera through `GetCamera()`
+**Twelve of the thirteen rechecked against 2026.9.4.5400 and still blocked; partial damage is the
+one that moved** — KSA grew a real part-failure system, and the entry below says what it is and what
+taking it up would mean.
+
+The line numbers below are against **2026.8.22.5348** and have not been re-derived: 2026.9.4.5400
+replaced the `Viewport` class with `IViewport` / `ViewportBase` / `GameViewport` and moved the list
+into `ViewportRegistry`, which moved most of the render path. The *claims* were rechecked against
+the new corpus; only the citations are stale. Lighting is still a per-viewport choice —
+`IViewport.LightMode` is a `ViewportLightMode` (renamed from `EViewportLightMode`), set to
+`Clustered` for the main viewport and `None` for the thumbnail one — but that is the pass a
+secondary viewport was already getting some of. `OnFrameCelestials` still resolves one camera through `GetCamera()`
 and still calls `_planetRenderer.OnFrame(FrameViewport, ...)`, so the planet, atmosphere and ocean
 passes remain the frame viewport's alone and the first two entries stand. `UncompressedVehicleSave.cs`
 does not mention `Character` at all; `KittenRenderable` writes an attachment's transform and
@@ -146,8 +153,9 @@ means rebuilding Vulkan resources, which is not something a mod can do sensibly 
 1. Assign `Camera.NearbyCelestial` per camera rather than only for the frame viewport. On its own
    this removes the wrong grey sphere. Cheap.
 2. Array the atmosphere and cloud LUTs by viewport as well as by planet. There is already a
-   pattern for this in the codebase — `SunbloomRenderer`'s buffers are sized by
-   `Program.ViewportCount`.
+   pattern for this in the codebase — `SunbloomRenderer`'s buffers are sized by the viewport
+   count, which is `ViewportRegistry.MAX_VIEWPORTS` and a viewport's own `ShaderSlot` since
+   2026.9.4.5400.
 3. Let the transparency, ocean and bloom renderers take their render target per call, or hold one
    set per viewport.
 4. Run the planet, atmosphere and lighting passes inside the per-viewport loop.
@@ -183,13 +191,33 @@ then the wheels are geometry and the vehicle is placed rather than driven.
 **Wanted.** A round that lands close enough to hurt but not destroy should degrade the target —
 knock out a sensor, break a part.
 
-**Why it is blocked.** KSA exposes only `Universe.DestroyVehicleFromEvent`. There is no component
-or partial damage model to drive.
+**No longer blocked, as of 2026.9.4.5400.** KSA grew a structural failure model:
+`PartStructuralLimits` derives a crash tolerance in pascals from a part's mass and volume
+(`PartTemplate.CrashTolerance` overrides it), `PartFailure.Detect` accumulates contact pressure and
+fails individual parts, and `PartFailureEvent` — **public, with public `FailedParts`,
+`DestroyWholeVehicle` and `Apply(Vehicle)`** — isolates a failed part, sheds debris and splits the
+remainder into fragments, promoting the largest controllable one if the player was flying it.
 
-**Consequence in the mod.** Kills are binary. `LethalRadius` destroys, and between lethal and
-`BlastRadius` the mod logs a near miss and the target survives. The fuse radii are gameplay numbers
-rather than physical ones for exactly this reason — a realistic lethal envelope for a 20 kg
-continuous-rod warhead would read as the round doing nothing at all.
+So a mod can destroy **one part** rather than a whole craft: build a `PartFailureEvent` naming the
+parts and `Apply` it. `PartFailure.IsolateAndDestroy` itself is `internal`, so `Apply` is the door.
+
+**Not taken up, and it is a design decision rather than a port.** *Kills are binary* in `CLAUDE.md`
+is justified by this entry, so changing it means deciding what a near miss should do — which part a
+blast picks, whether a launcher that loses its radar should keep firing, and what
+`WeaponSystems` does when a craft it has pinned splits into fragments it did not choose. The
+roster already follows a part across a decoupler split (`Sim/PlatformHandover.cs`), which is the
+half of it that exists.
+
+**Consequence in the mod today, unchanged.** Kills are binary. `LethalRadius` destroys, and between
+lethal and `BlastRadius` the mod logs a near miss and the target survives. The fuse radii are
+gameplay numbers rather than physical ones for exactly this reason — a realistic lethal envelope
+for a 20 kg continuous-rod warhead would read as the round doing nothing at all.
+
+**And it already reaches the mod without anything being taken up:**
+`Universe.DestroyVehicleFromEvent` now calls `PartFailure.ShedDebris(vehicle, 12)` before
+destroying, so a craft this mod kills leaves debris vehicles behind. Those are craft, so they enter
+`ContactCandidates` and can be seen, tracked and shot at. Flown behaviour unverified — see
+`CHECKLIST.md`.
 
 ---
 

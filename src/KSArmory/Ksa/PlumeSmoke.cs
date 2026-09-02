@@ -22,9 +22,10 @@ namespace KSArmory;
 /// mod-declared plume is the <c>isActive</c> argument, computed where the engine calls this for a
 /// nozzle. A caller passing its own never meets it: no nozzle, no propellant, no thrust.</para>
 ///
-/// <para>Two things it cannot do. Colour is a single global uniform, so tinting this would tint
-/// every booster in the world and it is left alone; and it draws only for the camera's nearby
-/// atmospheric body, with clouds and atmosphere both enabled.</para>
+/// <para><b>Colour, density and lifetime are per-emitter</b>, passed at submit time — so tinting
+/// this mod's smoke no longer reaches KSA's own boosters, which read their own plume template. The
+/// one thing it still cannot do is draw anywhere but the camera's nearby atmospheric body, with
+/// clouds and atmosphere both enabled.</para>
 /// </summary>
 internal static class PlumeSmoke
 {
@@ -38,11 +39,9 @@ internal static class PlumeSmoke
     /// <summary>
     /// Dirties the smoke, or puts it back.
     ///
-    /// <para><b>This is global and there is no per-emitter alternative.</b> The renderer carries one
-    /// trail colour for the whole world, and the shader says so in a note about making it a
-    /// per-vertex property one day. So a booster burning while a cloud stands gets a grey plume
-    /// too. Held only while there is a cloud, and put back after, which makes the overlap rare
-    /// rather than permanent.</para>
+    /// <para>One colour for everything this mod lays, which is what the clouds want: they are all
+    /// the same smoke. It reaches nothing else — a segment carries its own colour now, so a booster
+    /// burning while a cloud stands keeps its own.</para>
     ///
     /// <para>A nuclear cloud is genuinely not white for most of its life: reddish-brown early from
     /// nitrogen oxides made at the fireball's surface, then muddy grey-brown wherever it lifted
@@ -50,22 +49,17 @@ internal static class PlumeSmoke
     /// </summary>
     public static void Tint(bool dirty)
     {
-        if (Resolve() is not { } renderer) return;
-
-        try
-        {
-            renderer.DebugTrailColor = dirty ? Dirty : Clean;
-        }
-        catch (Exception e)
-        {
-            Warn($"tinting threw: {e.Message}");
-        }
+        _colour = dirty ? Dirty : Clean;
     }
+
+    // What Lay stamps on each segment. Not read by anything until the next segment is laid, so a
+    // colour set while nothing is burning simply applies to whatever is laid next.
+    private static float3 _colour = Clean;
 
     // Warm grey, and darker than white on every channel: the colour multiplies the sunlight and the
     // sky ambient together, so pulling it down is what takes the glare off as well as the hue.
-    private static readonly float4 Dirty = new(0.55f, 0.50f, 0.44f, 1f);
-    private static readonly float4 Clean = new(1f, 1f, 1f, 1f);
+    private static readonly float3 Dirty = new(0.55f, 0.50f, 0.44f);
+    private static readonly float3 Clean = new(1f, 1f, 1f);
 
     /// <summary>
     /// A cursor laying smoke. One per strand of the shape: move it and it draws a capsule from
@@ -75,6 +69,11 @@ internal static class PlumeSmoke
     {
         internal readonly PlumeTrailEmitterState State = new();
     }
+
+    // Core's DefaultPlumeTrail, which is what a booster lays and what this smoke was getting when
+    // the renderer carried these globally. Twenty minutes is the whole reason a cloud can stand.
+    private const float StockDensity = 1f;
+    private const float StockLifetimeSeconds = 1200f;
 
     /// <summary>
     /// Lays this strand's next segment, at a body-fixed position.
@@ -86,13 +85,15 @@ internal static class PlumeSmoke
     public static void Lay(Strand strand, Celestial body, double3 positionCcf,
                            float initialRadius, float expandedRadius)
     {
+
         if (Resolve() is not { } renderer) return;
         if (!Vec.IsFinite(positionCcf)) return;
 
         try
         {
             renderer.SubmitEmitter(strand.State, body, positionCcf,
-                                   initialRadius, expandedRadius, isActive: true);
+                                   initialRadius, expandedRadius, _colour,
+                                   StockDensity, StockLifetimeSeconds, isActive: true);
         }
         catch (Exception e)
         {

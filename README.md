@@ -87,7 +87,7 @@ dependency on KSArmory and hands it a file of definitions; KSArmory never looks 
 no list of them. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
 used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
-> Built against KSA build `2026.8.22.5348`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.9.4.5400`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game does. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
@@ -96,7 +96,7 @@ used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
 ### What you need first
 
-- **Kitten Space Agency.** Built against build `2026.8.22.5348`; a different build may need a
+- **Kitten Space Agency.** Built against build `2026.9.4.5400`; a different build may need a
   rebuild of the mod. **Windows and Linux both work** — the mod is a portable .NET assembly with
   no native code, so the single release archive is the same on either.
 - **[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader.

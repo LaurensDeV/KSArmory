@@ -56,6 +56,36 @@ Unchanged from the note above: the sight at magnification, the chase camera, the
 **Weapons** category stay unwatched, and this retarget flew the rail rather than the Pantsir, so the
 turret traverse and pod elevation are unwatched on this build too.
 
+**Retargeted to KSA `2026.9.4.5400`, and NOT yet flown.** Everything below this paragraph predates
+it. That build rewrote the viewport subsystem — `Viewport` became `IViewport` / `ViewportBase` /
+`GameViewport`, the list became `ViewportRegistry`, and `Viewport.Index` and `IsOffscreen` went — so
+every camera path in the mod was retargeted onto it. The suite passes and the mod builds, which
+proves neither: the tests link no KSA assembly.
+
+Four things changed shape and need watching, worst first:
+
+1. **The camera and the sight.** `MainViewportIndex`, `CollectUsableViewports`,
+   `TryProjectIntoViewport`, `ViewportFovRad`, `TryLookFromViewport` and both cursor-ray paths now
+   index `ViewportRegistry.GameViews` instead of `Program.Viewports`. Viewport *numbers* therefore
+   mean a position in a different list, and a persisted `OpticConfig.Viewport` could select a
+   different window than it did. Watch: the sight centres its target at 16x, the chase camera, and
+   the secondary-viewport picker naming the windows that actually exist.
+2. **The levelled horizon is installed by reflection now.** `IGameViewport.FixedController` is
+   get-only, so `KsaWorld.LevelTheHorizon` writes `GameViewport`'s backing field. It verifies the
+   write took and warns if it did not. Watch for `camera: levelling the horizon on the main view`
+   in the log on the first chase, and for either warning beside it. If it failed, the chase
+   horizon comes in rolled *and* the sight's aim lags a frame under warp.
+3. **A kill now leaves debris.** `Universe.DestroyVehicleFromEvent` calls
+   `PartFailure.ShedDebris(vehicle, 12)` before destroying. Debris are craft, so they enter
+   `ContactCandidates` and can be detected, tracked and shot at. Nothing in the mod knows about
+   them. Watch what the radar holds after a kill, and whether a salvo re-engages wreckage.
+4. **Plume colour is per-emitter.** `SubmitEmitter` gained `color`, `densityMultiplier` and
+   `lifetimeSeconds`, and the global `DebugTrailColor` is gone. The mod passes Core's
+   `DefaultPlumeTrail` values (white, 1, 1200 s), so smoke should look as it did — and a nuclear
+   cloud's tint should no longer discolour a booster burning at the same time, which it used to.
+
+Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
+
 The failure modes worth recognising before starting, and how to tell them apart, are in
 `docs/KSA-MODDING-NOTES.md` and `docs/FRAMES-AND-EPOCHS.md`.
 
@@ -131,6 +161,9 @@ Ranked by how likely a failure is. Worth reading before you start.
 | **Medium** | `Program.VehiclesInFrame` may not contain the loaded vehicles, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
 | **Medium** | Boresight is local "up" derived from the parent body; if `Vehicle.Parent` misbehaves the cone points somewhere daft. | [3.2](#32-the-search-cone-is-drawn) |
 | **Medium** | Shooting down a round. Three seams changed at once and none of them is reachable from the test project. | [7.1g](#71g-shooting-down-a-round---never-once-worked-so-nothing-here-has-ever-been-seen) |
+| **High** | The viewport rework on `2026.9.4.5400`. Every camera path was retargeted and none has been flown. | [3.1b](#31b-the-turret-slews), status note above |
+| **Medium** | The levelled horizon is now installed by writing a private backing field. It says in the log whether it took. | status note above |
+| **Medium** | A kill sheds debris, which are craft the radar can see and shoot at. | [4.4](#44-the-warhead-kills) |
 | **Medium** | The ballistic computer writes attitude, throttle and staging on a vehicle nobody designed for it. Flown and arriving; what is unwatched is each change since. | [12](#12-the-ballistic-computer--flown-and-arriving) |
 | **Low** | Guidance and fuse maths — covered by the headless suite, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
 | **Low** | `DestroyVehicleFromEvent` may behave oddly with `Cause = Collision`. | [4.4](#44-the-warhead-kills) |

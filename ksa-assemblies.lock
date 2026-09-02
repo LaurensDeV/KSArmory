@@ -1,15 +1,15 @@
 # KSA assemblies this repository is known to build against.
 # Regenerate with ./tools/check-assemblies.sh <dir> --update after a KSA update,
 # and refresh the private ksa-game-assemblies repo to match - see CLAUDE.md.
-build 2026.8.22.5348
+build 2026.9.4.5400
 fd77b88724f4104440df0cf979a851d35eec75ea3a7e86297d04abe47c71aff6  0Harmony.dll
 e0a1528ded4ef8efcb8002b99704cb8614b7db840d2cb39b5e45eda52d63bc68  BepuUtilities.dll
-d5c75ba302a020e4e9e1ba0e3f5e7b8bd830971a26c96b8acc46d1fdee9d4e16  Brutal.Concurrency.dll
-7f004ba2dab4118f57cf09049875e4fa5402ffc72b8b64e2421bf3317d0a3d7b  Brutal.Core.Common.dll
-dd34f22f3e04ac697462f300b29723db18d42b903014a8bd0caf9b5930b565e4  Brutal.Core.Numerics.dll
-7ce70cb83a34dedfa0ad2675993329b98fffef358124f2883f583a06982f4613  Brutal.Core.Strings.dll
-2e2eb5cbc17831596d8e9044424130c55ba7b2e3d6e706db5f9a7c5b583258f2  Brutal.Glfw.dll
-bdf75f2778ce9415837e18275341ed518576995e3d198ddc0f3e5f5d24474cb9  Brutal.ImGui.dll
-1c55493a5ee823fbc88215e9865fc8b612cb14280ea7f8c1e9928df4c6bb803a  Brutal.ImGui.Abstractions.dll
-7091e90a2f47285fc0330f58ac73d5229fe785ed29236a0a78aa15671c21e823  KSA.dll
+d849e309d8aed3e4d87f874e448a26ecd47e6756a3dadd307087b95bee5d0251  Brutal.Concurrency.dll
+c55f794a610008e0694c15fa14e671f8c31bc603a7d68b9060351990513ecfc4  Brutal.Core.Common.dll
+377bb043a3ce7196fdf3adb1a77ea926a1515c0b4e6b364f081e523f77f9147c  Brutal.Core.Numerics.dll
+f0940479994b142eedbddcdf197d9667349664bac2e7f0cc0e5463ec8bfaa151  Brutal.Core.Strings.dll
+ab6944073413c2e869fb2f68db1eec7a9990b5cfdb7cca602e64aa67dac23fa2  Brutal.Glfw.dll
+a5dfba8a0e88013a6b020fd39c8fbb52357de03cb74869d5c3e08b15e3c3247d  Brutal.ImGui.dll
+93b474737b106436d61ceff4098e0208e171f3b3a7bc1814c49ea7be7d882f21  Brutal.ImGui.Abstractions.dll
+8dba2f30e3a10f130584dedd3f97b21d2f90e821824e8862e740df71d1ffae5f  KSA.dll
 e8e321f5ef60d1f1ce53598616148a779f863879f7b9b303be4512895f27c956  StarMap.API.dll

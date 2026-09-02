@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-156 types and 446 members across 7 assemblies.
+159 types and 444 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -429,7 +429,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 CameraOffset`
 - `Brutal.Numerics.double3 CameraRotation`
 - `void .ctor(KSA.Camera, string)`
-- `void OnFrame(KSA.Viewport, double)`
+- `void OnFrame(KSA.IViewport, double)`
 
 ### KSA.FlightComputer
 
@@ -494,7 +494,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.GenericMeshRenderer
 
-- `void AddInstance(KSA.MeshReference, ref InstanceData, ref PerDrawData, KSA.Viewport, int)`
+- `void AddInstance(KSA.MeshReference, ref InstanceData, ref PerDrawData, KSA.IViewport, int)`
 
 ### KSA.GenericMeshRenderer+InstanceData
 
@@ -524,6 +524,13 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.IFollowable
 
 - `KSA.OrbitView get_OrbitView()`
+
+### KSA.IGameViewport
+
+- `KSA.Camera get_BaseCamera()`
+- `KSA.FixedController get_FixedController()`
+- `KSA.OrbitController get_OrbitController()`
+- `void SetCameraMode(KSA.CameraMode)`
 
 ### KSA.IObjectId
 
@@ -555,6 +562,16 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.IVelocity
 
 - `Brutal.Numerics.double3 GetVelocityEcl()`
+
+### KSA.IViewport
+
+- `Brutal.Numerics.float2 get_Position()`
+- `KSA.Camera GetCamera()`
+- `KSA.CameraMode get_Mode()`
+- `KSA.ViewportType get_Type()`
+- `bool get_Visible()`
+- `int get_Height()`
+- `int get_Width()`
 
 ### KSA.InputAction
 
@@ -717,16 +734,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Camera GetMainCamera()`
 - `KSA.Camera GetRenderCamera()`
 - `KSA.GizmosRenderer GizmosRenderer`
+- `KSA.IGameViewport get_MainViewport()`
 - `KSA.Program get_Instance()`
 - `KSA.Rendering.Particles.ParticleSystem`2<KSA.Rendering.Particles.ParticleUpdateData, KSA.Rendering.Particles.ParticleRenderData> ParticleSystem`
 - `KSA.Vehicle get_ControlledVehicle()`
 - `KSA.VehicleEditor Editor`
-- `KSA.Viewport get_MainViewport()`
-- `System.Collections.Generic.List`1<KSA.Viewport> Viewports`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
 - `int ResourceFrameIndex`
-- `void SetCameraUbo(KSA.Viewport)`
-- `void UpdateShaderData(double, KSA.Viewport)`
+- `void SetCameraUbo(KSA.IViewport)`
+- `void UpdateShaderData(double, KSA.IViewport)`
 - `void set_ControlledVehicle(KSA.Vehicle)`
 
 ### KSA.QuaternionEx
@@ -931,36 +947,28 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.VehicleSave
 
-- `KSA.PartTree Load(KSA.Viewport)`
+- `KSA.PartTree Load(KSA.IViewport)`
 - `KSA.VehicleSaveData VehicleSaveData`
 
 ### KSA.VehicleSaveData
 
 - `string Character`
 
-### KSA.Viewport
+### KSA.ViewportRegistry
 
-- `Brutal.Numerics.float2 Position`
-- `KSA.Camera BaseCamera`
-- `KSA.Camera GetCamera()`
-- `KSA.CameraMode Mode`
-- `KSA.FixedController FixedController`
-- `KSA.OrbitController OrbitController`
-- `bool IsOffscreen`
-- `bool Visible`
-- `int Index`
-- `int get_Height()`
-- `int get_Width()`
-- `void SetCameraMode(KSA.CameraMode)`
+- `System.ReadOnlySpan`1<KSA.IGameViewport> get_GameViews()`
+
+### KSA.ViewportType
+
+*referenced as a type only*
 
 ### KSA.VolumetricTrailRenderer
 
-- `Brutal.Numerics.float4 DebugTrailColor`
 - `float ErosionEdgeSharpness`
 - `float ErosionMaxDepth`
 - `float SkyAmbientBrightness`
 - `int SelfShadowStepCount`
-- `void SubmitEmitter(KSA.PlumeTrailEmitterState, KSA.Celestial, Brutal.Numerics.double3, float, float, bool)`
+- `void SubmitEmitter(KSA.PlumeTrailEmitterState, KSA.Celestial, Brutal.Numerics.double3, float, float, Brutal.Numerics.float3, float, float, bool)`
 
 ## StarMap.API
 

@@ -186,7 +186,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.8.22.5348`
+- **KSA build these notes were taken against**: `2026.9.4.5400`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -459,7 +459,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 446 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 444 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -961,7 +961,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 156 types this mod actually uses.
+defining the 159 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -1525,9 +1525,12 @@ is left behind by ~30 km per second of flight. Same rule as the draw anchor and 
 `AntiRadiationTests.TheRememberedEmissionCarriesTheFramesEclipticMotion` fails against the bare
 point — and fails by never detonating at all, not by a near miss.
 
-**Kills are binary.** KSA exposes no partial-damage model, only
-`Universe.DestroyVehicleFromEvent`. `LethalRadius` destroys; between lethal and `BlastRadius`
-the mod logs a near miss and the target survives.
+**Kills are binary.** `LethalRadius` destroys; between lethal and `BlastRadius` the mod logs a near
+miss and the target survives. That was forced until 2026.9.4.5400, which gave KSA a part-failure
+model this mod has **not** taken up — `PartFailureEvent` is public and can destroy one part rather
+than a craft. Doing so is a design decision rather than a port, and `docs/BLOCKED-ON-KSA.md` has
+what it would have to settle. What already reaches the mod is that `DestroyVehicleFromEvent` now
+sheds debris, so a kill leaves craft behind that can be seen and shot at.
 
 **A shell has to touch what it kills; a warhead does not.** That difference is the weapon's
 implementation, not a profile field — `Slug` asks `Sim/IHullTest.cs` and `Interceptor` never
@@ -1950,8 +1953,11 @@ and `GetFrame2Ecl` dispatches on the followed object's *type* — a followable t
 never read. `RoundFollowable` is one, so the axis is ecliptic +Z and the horizon arrives rolled by
 the site's angle from that pole, snapping to it the instant the view is taken.
 `Ksa/LevelHorizonController.cs` subclasses the controller and supplies the up vector instead —
-`Viewport.FixedController` is a public writable field and `OnFrame` is virtual, so this is
-subclassing rather than patching. **Following the launching craft instead does not work**: its
+`FixedController` is public and unsealed and `OnFrame` is virtual, so this is subclassing rather
+than patching. **Installing it is the part that is not promised**: `IGameViewport.FixedController`
+is get-only and `GameViewport`'s setter is protected, so `KsaWorld` writes the backing field by
+reflection, the same shape as `PlumeSmoke`'s reflected renderer — it checks the write took, and
+warns and leaves KSA's own controller in place if the field ever moves. **Following the launching craft instead does not work**: its
 frame would give local vertical, but `PrepareFrame` advances vehicle positions before the viewport
 pass while a round's is integrated after it, so the engine would add a frame-newer platform
 position to an offset built against the older one — ~500 m per frame, which is what
