@@ -41,8 +41,11 @@ are that table re-priced at four residuals, one metre of surface disagreement in
 
 Three things fall straight out of it, and each one decides part of the plan.
 
-**Below twenty degrees the residual is irrelevant.** At 7.5° the four columns are 1,838 / 1,798 /
-1,795 / 1,795 — a forty-fold improvement in the burn buys 2 %. The floor is the drag-model term, and
+**At a graze the residual is irrelevant, and the flown rung is not quite there.** At 7.5° the four
+columns are 1,838 / 1,798 / 1,795 / 1,795 — a forty-fold improvement in the burn buys 2 %. At the
+**15°** row the mod actually sits nearest they are 108 / 79 / 77 / 77, so the same improvement buys
+**29 %**: still not the lever, but not nothing, and the blanket "below twenty" this line used to
+carry was priced off a seven-degree arrival nothing flies. The floor is the drag-model term, and
 `docs/ARRIVAL-ANGLE.md` explains why no correction loop removes it: the loop's only observer is
 `ImpactPredictor`, which runs the round's own `Medium.Drag`, so whatever that model has wrong
 survives the loop intact. **Every hour spent on guidance at a shallow arrival is spent under this

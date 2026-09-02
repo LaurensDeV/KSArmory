@@ -51,9 +51,8 @@ internal sealed class IcbmConfig
     /// A shot with no arc steep enough is reported as such rather than flown flat.</para>
     ///
     /// <para><b>Off by default, and the default is what has been flown.</b> Every ballistic shot
-    /// this mod has made arrived between 12.9 and 17.5 degrees -- the seven this paragraph used to
-    /// claim was reconstructed and never flown, see docs/ACCURACY-PLAN.md 3af. A shallow arrival is
-    /// still the worst there is for
+    /// this mod has made arrived between 12.9 and 17.5 degrees. A shallow arrival is still the worst
+    /// there is for
     /// precision: from 7.5 to 20 degrees the rms velocity sensitivity falls from 5,614 to 686
     /// metres per metre a second, and the impact's sensitivity to a ten per cent error in the drag
     /// model falls from 1,795 m to 29 — a factor of 62, and the one term no correction loop can

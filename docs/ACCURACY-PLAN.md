@@ -2065,12 +2065,15 @@ between two modes, and the baseline swings 2.7x between sessions.
    conclusion that the ladder stops at rung C should be re-derived.
 3. **`IcbmProgram.cs` and `CLAUDE.md`: "an engine can only be shut down on a frame boundary."** True of
    the mod's command path, false of the engine — and stating it as an engine constraint closes off item 9.
-4. ~~**The seven-degree arrival**~~ — **settled 2026-09-02, and it is wrong everywhere.** The
+4. ~~**The seven-degree arrival**~~ — **settled 2026-09-02, and corrected the same day.** The
    2,000 km geometry arrives at 13.6-17.5 degrees and the **12,902 km** one at **12.9**, logged from
    the release summary rather than reconstructed. 3x's 7.1 was a reconstruction and nothing flies it.
-   `cot` is 4.37 rather than 8.03, so `METRE-LEVEL`'s ladder, `KINETIC-FLOOR`'s two columns and every
-   sensitivity priced off the seven are about **half** what those files state. Correcting them is
-   outstanding — 3af.
+   `cot` is 4.37 rather than 8.03 — 3af. The four files that asserted the seven now say what is
+   flown: `ARRIVAL-ANGLE`'s floor is labelled a floor rather than a flown figure, `KINETIC-FLOOR`'s
+   two columns carry the 0.54x correction on their height-driven terms, `METRE-LEVEL`'s "below twenty
+   degrees the residual is irrelevant" is re-priced at the 15-degree rung the mod is actually on
+   (29%, not 2%), and `IcbmConfig` states the flown range outright. **The parametric tables were left
+   alone**: they are arithmetic at the angle each states and were never the wrong part.
 5. **`KSA-TERRAIN.md`: "there is no raycast, no collider query."** `BoundingVolumeHierarchy.LookupBvhDirection`
    is a public ray query, and there is a Bepu triangle collider on a 2 m grid within 8 m of clearance.
 6. ~~**`accurate: true` degrades silently**~~ — **read out, and both halves were wrong.** The

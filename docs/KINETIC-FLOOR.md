@@ -22,9 +22,16 @@ about twice what it should be.
 
 ## The budget
 
-Two columns of numbers, because the terms behave differently: what one costs on the **7.1-degree**
-arrival the mod flies today, and on an **88-degree** one — the same 200 km pickup with the whole
-orbital velocity taken out, which is what a rod actually is.
+Two columns of numbers, because the terms behave differently: what one costs on a **7.1-degree**
+arrival, and on an **88-degree** one — the same 200 km pickup with the whole orbital velocity taken
+out, which is what a rod actually is.
+
+**7.1 degrees is the rig's cheapest unfloored deorbit, not what anything flies.** `ErrorBudgetTests`
+measures that arrival and the column is arithmetic at it; the flown shots arrive at **12.9 to 17.5**,
+where `cot` is 4.37 rather than 8.03. Every height-driven term below therefore costs about
+**0.54x** what its 7.1-degree entry says. The two-column shape is what carries the argument — a
+height becomes ground in proportion to `cot(gamma)`, and that is the lever — and it survives the
+correction with the span narrowed rather than removed.
 
 | limit | at 7.1 deg | at 88 deg | what sets it | reducible? |
 | --- | --- | --- | --- | --- |
@@ -155,7 +162,7 @@ Both are heights, so both are `cot(gamma)` of ground
 **The predictor's crossing tolerance** is `ImpactPredictor.CrossingToleranceMetres` = 0.25 m, a
 deliberate bias rather than a symmetric error — the bisection stops on how deep the answer is, and
 the answer is always below the surface, so always downrange. `ErrorBudgetTests` measures it at 18 cm
-actual on the flown arrival.
+actual at that 7.1-degree arrival, and about half of it at the angle the mod flies.
 
 | arrival | m of ground per m of height | quantum | crossing | both |
 | --- | --- | --- | --- | --- |
@@ -418,10 +425,12 @@ Take `Interceptor.SubStep` to 1 ms and it becomes **≈ 0.4 m**; to 0.25 ms, **�
 point the frame-held ground sample and the float staircase are the whole of it and further
 integration accuracy buys nothing.
 
-**On the 7.1-degree arrival the mod actually flies, the same budget is ≈ 160 m** — 153 m of
-integrator, 4.4 m of quanta, 10–39 m of frame-held ground, the whole lot multiplied by a terrain
-gain of 1.2x to unbounded. That is not a precision weapon and no amount of guidance work makes it
-one; the geometry has to change.
+**On a 7.1-degree arrival the same budget is ≈ 160 m** — 153 m of integrator, 4.4 m of quanta,
+10–39 m of frame-held ground, the whole lot multiplied by a terrain gain of 1.2x to unbounded. At
+the **12.9 degrees** the mod actually arrives at, the height-driven terms come down by 0.54x and the
+total with them; the figure has not been re-measured there and is not worth guessing at, because the
+conclusion does not turn on it. It is not a precision weapon at either angle, and no amount of
+guidance work makes it one; the geometry has to change.
 
 ### A terminally guided kinetic round
 
@@ -437,8 +446,8 @@ the floor, but reaching the floor at all from a shot that would otherwise be a k
 **And it is the cheap route to a metre, because it does not need the trajectory changed.** The
 unguided path to 1.2 m is a near-vertical arrival, which from orbit means taking out essentially the
 whole orbital velocity — about 7.8 km/s, with downrange collapsing from 3,094 km to 96. A steered
-round reaches 0.46 m on the seven-degree arrival the mod already flies, for a tail kit and a finer
-sub-step. The propellant a steep arrival costs buys accuracy only for a round that cannot steer.
+round reaches 0.46 m on a seven-degree arrival, for a tail kit and a finer sub-step, and does better
+than that at the shallowest angle anything here flies. The propellant a steep arrival costs buys accuracy only for a round that cannot steer.
 
 ### The honest caveats on both
 
@@ -478,8 +487,8 @@ sub-step. The propellant a steep arrival costs buys accuracy only for a round th
   costs, not a measurement that one occurs.
 - **The ocean.** `GroundTest`, `IcbmComputer.TerrainRadiusAt` and the aim point all clamp to the
   waterline through `GroundSurface.Height` — `docs/KSA-TERRAIN.md` has the three call sites. While
-  they did not it was worth 35 km of ground at the flown arrival, which was a defect rather than a
-  floor, and it is excluded here.
+  they did not it was worth 35 km of ground at a seven-degree arrival, which was a defect rather
+  than a floor, and it is excluded here.
 - **The designation numbers assume 1080 lines.** A different render or display scale moves them in
   proportion, and `Sim/CursorAim.cs` already exists because the viewport and the framebuffer need
   not be the same size.

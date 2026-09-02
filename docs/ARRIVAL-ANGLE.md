@@ -21,7 +21,7 @@ guidance itself; `docs/KSA-TERRAIN.md` is where the surface numbers come from.
 where a frame carrier is identically zero — so nothing here can measure an epoch fault, including the
 open one in `docs/ICBM-GUIDANCE.md` about the ground a round meets. What it *can* say is that such a
 fault, if it is a height error, is multiplied by the same `cot γ` as everything else on this page,
-and that is 8.1 at seven degrees and 1.7 at thirty.
+and that is 8.1 at seven degrees, 4.4 at the 12.9 the mod flies, and 1.7 at thirty.
 
 ---
 
@@ -40,8 +40,10 @@ shallower at all — measured across every retrograde brake from 120 m/s to a fu
 | circular 400 km | **7.00°** |
 | circular 500 km | **6.96°** |
 
-So **five degrees is not reachable with a Mk 21**, and the seven the flights arrive at is not a choice
-the guidance made. It is the shallowest thing that round can do.
+So **five degrees is not reachable with a Mk 21**, and seven is not a choice the guidance made: it is
+the shallowest thing that round can do. It is a **floor**, not a flown figure — every shot this mod
+has flown arrives at 12.9 to 17.5 degrees, comfortably above it, because the arc it is put on is
+steeper than the cheapest deorbit rather than because entry bent it.
 
 The floor belongs to the *round*, and moves a long way with its sectional density:
 
@@ -513,11 +515,12 @@ velocity it throws away to get there.
   which is exactly the case a frame carrier cannot show up in.
 - **The drag model itself is exponential and unvalidated.** The 10% column prices an error in it; it
   does not say the model has one. What it does say is that at seven degrees the question matters and
-  at fifteen it does not, which is a reason to move rather than a reason to measure.
+  at fifteen it does not — and the mod already flies 12.9 to 17.5, so it is nearer the end where the
+  question does not matter than this file was written assuming.
 - **The sea clamp is what the last column of that table used to cost.** All three surfaces now go
   through `GroundSurface.Height`, so it is taken out rather than steepened away. What is left is the
   wave displacement KSA's own physics uses and the mod does not — metres, which is tens of metres of
-  ground at seven degrees.
+  ground at seven degrees and about half that at the angle the mod flies.
 - **The floor is the Mk 21's.** A dedicated rod would want its own `MunitionProfile`, and a denser one
   moves the floor the wrong way — see the table at the top.
 - **What a constrained arc does to the aim-correction loop is the thing a flight had to show**, and
