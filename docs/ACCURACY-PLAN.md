@@ -1991,6 +1991,85 @@ a short one**, taken because the long one was unreachable.
 appears and wrong about what is binding. It is not the trim's budget: it is the last floor for which
 a long transfer still exists from the post-boost state.
 
+## 3ah. The aim correction pins itself to the 300 km clamp on the pad — flown 2026-09-02
+
+Half the flights at 12,902 km land **300 to 310 km** out and the other half under **2.2 km**. It is
+not a heavy tail and it is not the arrival angle: it is a clean bimodality with a mechanism, and the
+whole of it is visible in one shot's logs.
+
+| rocket | arm | trim | spent | plant readings | response raw | bias | landed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| FAT 6 | base | **GAVE UP** | 3.60 | 14 | **0.00** | **300.0 km** | 310.42 km |
+| FAT 4 | base | **GAVE UP** | 3.28 | 15 | **0.00** | **300.0** | 306.90 |
+| FAT 3 | p50 | **GAVE UP** | 2.63 | 13 | **0.07** | **300.0** | 303.74 |
+| FAT 5 | p50 | **GAVE UP** | 2.62 | 15 | **0.00** | **300.0** | 302.77 |
+| FAT 2 | base | done | 27.78 | 56 | 0.98 | 7.0 | **0.01** |
+| FAT 8 | base | done | 26.70 | 54 | 1.31 | 1.3 | **0.17** |
+| FAT 7 | p50 | done | 39.35 | 52 | 1.08 | 18.8 | **0.09** |
+| FAT | p50 | done | 54.67 | 12 | 0.65 | 78.8 | 2.15 |
+
+**It cuts across both arms**, four and four, so nothing about the arrival preference causes it.
+
+### The bias is set on the launch pad, off a miss that is the unburnt velocity
+
+```
+13:03:24.655  aim loop on GeoSat FAT 6: 3126.59 km out, best 3096.64, response 4.00,
+              bias 0.0 -> 300.0 km, worse for 0, 0 plant reading(s), raw NaN
+```
+
+At 13:03:24 every rocket reads `Rising at 0 km, 6284 m/s to gain`. Cutoff is at **13:07:04-13:07:22**,
+nearly four minutes later. So the first cycle sees a 3,126 km miss — which is not an aim error, it is
+the entire burn not having happened — and `BiasCci - error / _response` with `_response` at its seed
+of `1/Gain` = 4.0 asks for 781 km, which `ClampLength` takes to `AimCorrection.MaxMetres` = **300 km
+exactly**. Zero plant readings, `raw NaN`: the loop is acting on no measurement at all.
+
+**Every rocket does this**, good and bad alike, so the slam is not the discriminator. What separates
+them is whether the loop can climb back out.
+
+### What decides it is whether the trim will fly that aim
+
+The four that failed are exactly the four whose trim ended:
+
+```
+trimming the bus on GeoSat FAT 3_1: more than the 57 m/s this pass may spend
+                    ... 4_1: more than the 57 m/s ...
+                    ... 5_1: more than the 57 m/s ...
+                    ... 6_1: more than the 56 m/s ...
+```
+
+A 300 km aim move costs `300 x 0.5` = about 150 m/s at this range's exchange rate (3ag), against a
+ceiling of 56-57. The trim refuses, the impact therefore does not move, the measured plant response
+comes back **0.00**, and a loop dividing by nothing has no way to walk the bias back — `bias 300.0 ->
+300.0` for the whole descent, 13-15 readings, while the real miss decays 3,126 -> 208 km on its own as
+the burn finishes. The four that succeeded had a trim that flew it, 26-55 m/s spent, 52-56 readings,
+a plant measuring ~1.0, and a bias back down to 1.3-18.8 km.
+
+**So the 300 km clamp is the symptom and the trim refusal is the gate.** Both are downstream of a
+bias that should never have been set.
+
+### This is the same shape as the arrival-floor latch, in the same flight
+
+Both take their first reading **from the pad**, where the honest answer is "the burn has not
+happened", and both keep it. The arrival floor latched a budget of zero because zero is finite; the
+aim correction latched a 300 km bias because a 3,126 km shortfall looks like a miss. Neither loop is
+wrong about its arithmetic and both are asking before there is anything to ask about.
+
+### What follows, ranked
+
+* **Item 10 is not a marginal 0.85x, it is the fix for this** — or half of it.
+  `IcbmConfig.AimWithinTrimBudget` clamps `Reach` to what the trim can pay for, and its own doc
+  comment describes this symptom exactly. **The caveat is real**: at cutoff the budget is untouched,
+  so the bound is `60 / 0.5` = about 120 km, and flying 120 km still costs the entire 60 m/s. It
+  should convert a pinned 300 km into a spent-but-moving 120, not into a small number.
+* **The cheaper fix is upstream: do not set a bias from a state that has not burnt yet.**
+  `PriceTheAim` already reasons that "while the engines are lit the actuator is the burn" and leaves
+  the reach unbounded — which is right about the actuator and wrong about the *observation*, because
+  the miss it is reading is dominated by velocity still to gain rather than by where the aim points.
+  Unflown, and it is a behaviour change rather than a setting.
+* **Nothing about the arrival angle can be measured at this geometry until one of them lands.** Half
+  the flights carrying a ~300 km per-flight error, unshared between arms, swamps a lever worth
+  kilometres — which is why the 5d night was called off after one shot rather than flown for 2.5 hours.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -2048,7 +2127,8 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
 | **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
 | ~~9~~ | ~~Hand the terminal fraction of the burn to `FlightComputer.Burn`~~ | days | **dropped** — abolishing the residual entirely buys ~9 m at 2,000 km and nothing at 12,902 (3x) |
-| **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared** | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
+| **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. **Re-ranked to the top by 3ah**: it is the shipped answer to a 300 km bimodality on half of all flights, not a tuning tweak | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost — and 3ah says what it is actually for |
+| **11** | Do not set an aim bias from a state that has not burnt yet — the loop pins itself to the 300 km clamp **on the pad**, off a miss that is the unburnt velocity | 0 shots then 12 | 3ah: the cheaper half of the same fault, and upstream of item 10 |
 
 **5d is ready to fly, and this is the command.** `--plan-only` clean on 2026-09-02 against
 `SOLVER SCALE 8` and HEAD; the arm is a setting rather than a branch, so there is nothing to build
