@@ -167,6 +167,31 @@ internal sealed class AimCorrection
     public int WorseFor => _worseFor;
 
     /// <summary>
+    /// Whether an impact predicted from a state in air of this density says anything about the
+    /// <em>aim</em>.
+    ///
+    /// <para><b>A prediction that departs from inside the air is not a miss, it is the air.</b>
+    /// While the engines are lit the prediction leaves from the guidance's projected cutoff, and
+    /// before the vehicle has flown, that projection is the pad — <c>BurnoutGuidance</c> extrapolates
+    /// from a standing start and lifts anything underground back to the surface. So the arc is flown
+    /// with drag from sea level, ploughs through the whole atmosphere, and lands thousands of
+    /// kilometres short of a target nothing is wrong with.</para>
+    ///
+    /// <para>Flown at 12,902 km: the first cycle fires with the vehicle reading
+    /// <c>Rising at 0 km, 6284 m/s to gain</c>, four minutes before cutoff, sees 3,126 km of "miss"
+    /// and takes the bias straight to <see cref="MaxMetres"/> off zero plant readings. Half the
+    /// flights never recovered and landed 300 to 310 km out — <c>docs/ACCURACY-PLAN.md</c> 3ah.</para>
+    ///
+    /// <para>The threshold is <see cref="Medium.NoticeableDensity"/>, which is the same question
+    /// asked of the same model: below it the air cannot move a round's answer at all. A body with no
+    /// atmosphere answers true everywhere, which is right — there is nothing there to corrupt the
+    /// arc.</para>
+    /// </summary>
+    public static bool DepartureIsWorthObserving(double departureDensityRatio)
+        => !double.IsNaN(departureDensityRatio)
+        && departureDensityRatio < Medium.NoticeableDensity;
+
+    /// <summary>
     /// How far the aim may actually go: the sanity limit, or what the bus can pay for if that is
     /// nearer. An unset or unusable affordability leaves <see cref="MaxMetres"/> standing rather
     /// than clamping the correction to nothing.

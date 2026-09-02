@@ -2425,7 +2425,12 @@ internal sealed class IcbmComputer
             // correction's only observer is this prediction, so one taken between the aim moving
             // and the trim having flown the new arc reads its own unspent correction as error and
             // steps again on top of it.
+            // And not from inside the air. Mid-burn the prediction departs from the projected
+            // cutoff, which before the vehicle has flown is the pad -- so the arc is flown with drag
+            // from sea level and lands thousands of kilometres short of a target nothing is wrong
+            // with. AimCorrection.DepartureIsWorthObserving has the flown numbers.
             if (Config.CorrectAim && state.HasAim && !TrimIsFiring
+                && AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci))
                 && (Program.IsBurning || _measureDue))
             {
                 PriceTheAim(state);

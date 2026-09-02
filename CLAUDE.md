@@ -1268,6 +1268,15 @@ observer can see.** The aim correction reads the prediction, so a drag-free pred
 reported zero, and the warheads went on falling 59 km short in flight. The loop was right and the
 instrument was blind, which reads from outside exactly like a working feature.
 
+**And the same observer can report something that is not there, which is the other half.** Mid-burn
+the prediction departs from the *projected* cutoff, and before the vehicle has flown, that projection
+is the pad — so the arc is flown with drag from sea level, ploughs through the whole atmosphere, and
+reads **1,522 km** of miss for an aim that is exactly right. The loop took that for an error on its
+first cycle and pinned the bias at `AimCorrection.MaxMetres`; half the flights could never pay the
+trim to walk it back and landed 300 km out. `AimCorrection.DepartureIsWorthObserving` refuses a
+prediction that departs from inside the air, at `Medium.NoticeableDensity` because that is the same
+question asked of the same model. Flown: 8 of 8 within 0.33 km against a worst of 310.42.
+
 **And the miss is not a monotonic function of the aim, so a loop that stops the first time it stops
 improving stops in the wrong place.** Measured at 7,645 km: a best of 3.34 km banked, then a
 **five**-cycle patch out to 5.89 km, and beyond it 1.73 km at a bias 38 km further on — 1.15 km of

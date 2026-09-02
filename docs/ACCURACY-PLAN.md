@@ -2061,11 +2061,30 @@ wrong about its arithmetic and both are asking before there is anything to ask a
   comment describes this symptom exactly. **The caveat is real**: at cutoff the budget is untouched,
   so the bound is `60 / 0.5` = about 120 km, and flying 120 km still costs the entire 60 m/s. It
   should convert a pinned 300 km into a spent-but-moving 120, not into a small number.
-* **The cheaper fix is upstream: do not set a bias from a state that has not burnt yet.**
-  `PriceTheAim` already reasons that "while the engines are lit the actuator is the burn" and leaves
-  the reach unbounded — which is right about the actuator and wrong about the *observation*, because
-  the miss it is reading is dominated by velocity still to gain rather than by where the aim points.
-  Unflown, and it is a behaviour change rather than a setting.
+* ~~**The cheaper fix is upstream: do not set a bias from a state that has not burnt yet.**~~
+  **Built and flown 2026-09-02, and it is the whole fault.** The miss is not "velocity still to gain"
+  as this bullet first guessed — the prediction already departs from the *solved cutoff*, and the
+  logs say so. It is that before the vehicle has flown, `BurnoutGuidance` projects that cutoff from a
+  standing start and lifts anything underground back to the surface, so the arc is flown **with drag
+  from sea level**. Headless, one transfer solved once and flown from five altitudes: **1,522 km** of
+  reported miss at sea level, 13.4 km at 40 km, **0.2 km at 74 km**, 0.0 above — same aim, same vacuum
+  solution. `AimCorrection.DepartureIsWorthObserving` refuses a departure in air denser than
+  `Medium.NoticeableDensity`, which lands the gate at ~74 km without being tuned to.
+
+  | flown, same save and aim | before | after |
+  | --- | --- | --- |
+  | pad slams to the 300 km clamp | 8 | **0** |
+  | biases pinned at 300 km | 4 | **0** |
+  | trim refusals | 4 | **0** |
+  | trims reading `done` | 4 of 8 | **8 of 8** |
+  | worst flight | **310.42 km** | **0.330 km** |
+  | group | 4 at 302-310 km, 4 at 0.01-2.15 | **all 8 at 0.023-0.330** |
+
+  **The honest cost**: three of the four flights that were already good drifted 13 to 160 m worse
+  (0.01 -> 0.023, 0.17 -> 0.199, 0.09 -> 0.250) and the fourth improved from 2.15 km to 0.036. That is
+  the risk this change carried — it removes about four minutes of correction cycles from every flight
+  — and at one shot it is far inside the session scatter `SHOT-PROTOCOL.md` documents, so it is a
+  thing to watch on the next night rather than a measured loss.
 * **Nothing about the arrival angle can be measured at this geometry until one of them lands.** Half
   the flights carrying a ~300 km per-flight error, unshared between arms, swamps a lever worth
   kilometres — which is why the 5d night was called off after one shot rather than flown for 2.5 hours.
@@ -2127,8 +2146,8 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
 | **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
 | ~~9~~ | ~~Hand the terminal fraction of the burn to `FlightComputer.Burn`~~ | days | **dropped** — abolishing the residual entirely buys ~9 m at 2,000 km and nothing at 12,902 (3x) |
-| **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. **Re-ranked to the top by 3ah**: it is the shipped answer to a 300 km bimodality on half of all flights, not a tuning tweak | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost — and 3ah says what it is actually for |
-| **11** | Do not set an aim bias from a state that has not burnt yet — the loop pins itself to the 300 km clamp **on the pad**, off a miss that is the unburnt velocity | 0 shots then 12 | 3ah: the cheaper half of the same fault, and upstream of item 10 |
+| **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
+| ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 
 **5d is ready to fly, and this is the command.** `--plan-only` clean on 2026-09-02 against
 `SOLVER SCALE 8` and HEAD; the arm is a setting rather than a branch, so there is nothing to build
