@@ -379,7 +379,7 @@ internal sealed class WarheadTrace
 
             Log.Info($"warhead trace: {Surfaces(setup, landingEcl, positionCci)}");
 
-            if (round is Slug sampled) Log.Info($"warhead trace: {GroundSample(setup, sampled)}");
+            if (round is Slug sampled) Log.Info($"warhead trace: {GroundSample(setup, sampled, landingEcl)}");
 
             // The probe for docs/MIRV-NEXT.md item 8i. Across 24 flown shots the last sampled
             // altitude is ~500 m and the landing is tens of metres BELOW the same surface, with the
@@ -444,7 +444,7 @@ internal sealed class WarheadTrace
     // are read apart on KSA's own terrain rather than argued about. docs/KSA-FRAME-ORDER.md section 5
     // is the epoch table; WeaponSystem.AirDensityIntoFrame is the same correction already applied to
     // a neighbouring lookup.
-    private static string GroundSample(in Setup setup, Slug round)
+    private static string GroundSample(in Setup setup, Slug round, double3 landingEcl)
     {
         double3 sampledAt = round.GroundSampledAtEcl;
         double step = round.GroundSampledOverSeconds;
@@ -454,19 +454,26 @@ internal sealed class WarheadTrace
             return "ground sample: the round recorded none";
         }
 
-        double3 backDated = sampledAt - setup.Parent.GetVelocityEcl() * step;
+        // FORWARD by a frame of the body's motion, not back. GroundTest differences the round's
+        // pre-step position against a frame-end centre, so putting the body back is putting the
+        // point on. The two neighbours that already do this -- WeaponSystem's AirDensityIntoFrame
+        // and GroundCentreDriftIntoFrame -- carry the same sign, and getting it wrong here modelled
+        // the fault doubled rather than removed: 47 of 47 unwarped warheads read the mirror image
+        // of their own stopping-height error, Theil-Sen -1.12.
+        double3 atRoundEpoch = sampledAt + setup.Parent.GetVelocityEcl() * step;
 
-        bool at = GroundTest.Shared.TryGround(sampledAt, out double3 _, out double radiusAt);
-        bool back = GroundTest.Shared.TryGround(backDated, out double3 _, out double radiusBack);
+        bool read = GroundTest.Shared.TryGround(sampledAt, out double3 _, out double asRead);
+        bool paired = GroundTest.Shared.TryGround(atRoundEpoch, out double3 _, out double asPaired);
+        bool truth = GroundTest.Shared.TryGround(landingEcl, out double3 _, out double flown);
 
-        string epoch = at && back
-                           ? $"{radiusAt - radiusBack:+0.0;-0.0} m of height"
-                           : "unanswered";
+        if (!read || !paired || !truth) return "ground sample: the height field would not answer";
 
-        return $"ground sample: read {Vec.Len(round.PositionEcl - sampledAt):F0} m back along the"
-               + $" track over a {step * 1000.0:F1} ms frame; the body moved"
-               + $" {Vec.Len(setup.Parent.GetVelocityEcl()) * step:F0} m in it, which is {epoch}"
-               + $" against the same point back-dated";
+        // Both candidate radii against the truth under the landing point, so the log says what the
+        // correction would have been worth on this warhead rather than leaving it to be inferred.
+        return $"ground sample: over a {step * 1000.0:F1} ms frame the body moved"
+               + $" {Vec.Len(setup.Parent.GetVelocityEcl()) * step:F0} m;"
+               + $" the round held {asRead - flown:+0.0;-0.0} m off the true surface,"
+               + $" paired at its own epoch it would hold {asPaired - flown:+0.0;-0.0} m";
     }
 
     // Vector, not magnitude: a bare distance mixes an overshoot with a cross-track error, and which
