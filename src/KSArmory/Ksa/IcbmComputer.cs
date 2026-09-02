@@ -1533,6 +1533,7 @@ internal sealed class IcbmComputer
             {
                 _salvoSize = 1 + weapon.TubesReadyToFire;
                 SayWhatTheLoopLeft();
+                SayWhatTheGroundUnderTheAimIsLike();
             }
 
             WarheadsAway++;
@@ -1566,6 +1567,80 @@ internal sealed class IcbmComputer
                  + $"{_aim.PlantMeasurements} plant reading(s), "
                  + $"bias {Vec.Len(_aim.BiasCci) / 1000.0:F1} km, "
                  + $"best {_aim.BestMissMetres / 1000.0:F2} km, worse for {_aim.WorseFor}");
+    }
+
+    // What the ground the warheads are about to cross actually does, once per flight, beside the
+    // release summary.
+    //
+    // The headless fixture is faithful to KSA's declared erosion spectrum and *undamped*; the game
+    // scales every octave by the biome weight, a gradient-falloff power and `1 - |dot|`, and
+    // docs/KSA-TERRAIN.md says of that product only that it is unmeasured. This is the measurement.
+    // What matters is the amplitude surviving *below a kilometre of wavelength*, because that is
+    // the band a round crossing a kilometre of ground per frame cannot resolve --
+    // docs/ACCURACY-PLAN.md 3ae.
+    private void SayWhatTheGroundUnderTheAimIsLike()
+    {
+        if (Parent is not { } parent) return;
+
+        try
+        {
+            double3 up = Vec.Unit(_trueAimCci);
+            double3 back = Program.CutoffPositionCci - _trueAimCci;
+            double3 along = Vec.Unit(back - up * Vec.Dot(back, up));
+
+            if (!Vec.IsFinite(along) || Vec.Len2(along) < 0.5) return;
+
+            const int Half = 100;
+            const double Spacing = 25.0;
+            const int Window = 40;
+
+            double[] height = new double[2 * Half + 1];
+
+            for (int i = 0; i < height.Length; i++)
+            {
+                height[i] = TerrainRadiusAt(_trueAimCci + along * ((i - Half) * Spacing))
+                            - parent.MeanRadius;
+            }
+
+            double lo = double.MaxValue, hi = double.MinValue;
+            double fineLo = double.MaxValue, fineHi = double.MinValue, sumSquares = 0.0;
+            int counted = 0;
+
+            for (int i = 0; i < height.Length; i++)
+            {
+                lo = Math.Min(lo, height[i]);
+                hi = Math.Max(hi, height[i]);
+
+                // High-pass by subtracting a one-kilometre boxcar, which leaves exactly what a
+                // sample grid coarser than that steps over.
+                int from = i - Window / 2, to = i + Window / 2;
+                if (from < 0 || to >= height.Length) continue;
+
+                double mean = 0.0;
+                for (int k = from; k <= to; k++) mean += height[k];
+                mean /= to - from + 1;
+
+                double residual = height[i] - mean;
+
+                fineLo = Math.Min(fineLo, residual);
+                fineHi = Math.Max(fineHi, residual);
+                sumSquares += residual * residual;
+                counted++;
+            }
+
+            if (counted == 0) return;
+
+            Log.Info($"ground under the aim on {KsaWorld.DisplayName(Craft)}: "
+                     + $"{height.Length} samples over "
+                     + $"{(height.Length - 1) * Spacing / 1000.0:F1} km of the approach, "
+                     + $"swing {hi - lo:F1} m, below a 1 km wavelength "
+                     + $"{fineHi - fineLo:F1} m peak-to-peak and "
+                     + $"{Math.Sqrt(sumSquares / counted):F1} m rms");
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not profile the ground under the aim: {e.Message}");
+        }
     }
 
     // What bounded the search, and what the fraction was applied to. Silent for a shot that asked

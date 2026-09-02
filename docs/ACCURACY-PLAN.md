@@ -1847,6 +1847,55 @@ speeds and more under warp" — which is why the air is re-read per sub-step and
 Both cannot be true. Corrected, because it closes off exactly this investigation for the next
 reader.
 
+## 3af. The terrain mechanism is real and KSA's ground never triggers it — flown 2026-09-02
+
+3ab through 3ae built a mechanism headlessly and left one number unmeasured, which
+`KSA-TERRAIN.md` had flagged as unmeasured too: what fraction of the declared erosion spectrum
+survives the biome weight and the two angle terms. `IcbmComputer` now samples the **real height
+field** once per flight, beside the release summary — 201 taps at 25 m along 5 km of the approach
+through the aim, high-passed with a one-kilometre boxcar.
+
+```
+ground under the aim on GeoSat FAT_1: 201 samples over 5.0 km of the approach,
+  swing 18.8 m, below a 1 km wavelength 3.6 m peak-to-peak and 0.6 m rms
+```
+
+| | the undamped fixture | flown ground |
+| --- | --- | --- |
+| swing across a few km | 94.6 m | **18.8 m** |
+| amplitude below a 1 km wavelength | 62.5 m in the largest octave alone | **3.6 m peak-to-peak, 0.6 m rms** |
+
+3ae's sweep put the threshold for a feature flip at an amplitude **above the arc's drop across one
+sample interval, about 100 m**. Flown ground carries 3.6 m in that band — **a factor of 28 below the
+level at which the mechanism does anything at all**, and the fixture overstates it by roughly a
+hundred rather than the thirty 3ae guessed from 3v.
+
+**So the whole line 3ab-3ae describes is real, correct, and never fires.** The round and its probe
+do strike different hills over ground rough enough, and KSA's is not. Nothing in 3ad or 3ae should
+be built: not the 0.5 ms sub-step, not the per-slice ground sample, not a clearance-gated predictor
+step. `ProbeGapTests`' erosion column stays as the bound it establishes, not as a target.
+
+**And the flight agrees.** The same shot landed 6 of 6 within **17 m**, worst to best 0.017 to
+0.016 km, on the geometry 3v flagged as rough.
+
+### The arrival is 12.9 degrees, and that closes stale line 4
+
+The same release summary carries the number the plan has wanted since 3x:
+
+```
+release summary: cut off 0.343 m/s short, ... arriving at 12.9 deg,
+  aim response 1.00 (raw 0.97) off 5 plant reading(s), bias 0.7 km, best 0.03 km, worse for 0
+```
+
+**12.9 degrees, not the 7.1 that 3x reconstructed** and not the seven asserted in
+`ARRIVAL-ANGLE.md`, `KINETIC-FLOOR.md`, `METRE-LEVEL.md` and `IcbmConfig.cs`. `cot` of it is
+**4.37 rather than 8.03**, so every term priced off the seven — the terrain gain, `KINETIC-FLOOR`'s
+two columns, `METRE-LEVEL`'s ladder — is about **half** what those files claim, at this range as
+well as at 2,000 km. The seven-degree arrival now has no flown geometry behind it at all.
+
+That also halves 3ae's amplification independently of the damping, and the two compound: the
+mechanism needed a gain of 8 and 100 m of relief, and has 4.4 and 3.6 m.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1896,7 +1945,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~1e~~ | ~~Name the unaccounted term in 3ac~~ | done | **neither side misreads: they strike different features, and 30 m of trajectory difference becomes 5 km** — 3ac |
 | ~~1g~~ | ~~Close the round-probe trajectory gap by converging the round~~ | done | **refuted: worth 19 m of 5,282 over erosion, same hill struck** — 3ad |
 | ~~1h~~ | ~~Price the stopping rules' difference in kind~~ | done | **the predictor is exact to 0.46 m; the round stops early, and 2.5 km survives every refinement** — 3ae |
-| **1f** | **Measure the damping product against the game.** Sample the real height field along a flown reentry track; read the amplitude surviving below a kilometre of wavelength | needs the game, 1 flight | **gates every row above it** — the fixture is ~30x rougher than flown ground and nothing should be built until this is a number |
+| ~~1f~~ | ~~Measure the damping product against the game~~ | done | **3.6 m below a 1 km wavelength against a ~100 m threshold — the mechanism never fires** — 3af |
 | **1i** | Give `ImpactPredictor.pathCci` a companion list of **times**, then re-ask whether the probe's path passes under the ground | 0 shots | 3ad withdrew that measurement; the un-carry needs real per-point times |
 | **1c** | Pad or replace `MaxTerrainHeightApprox` at `KsaWorld.cs:374` | 0 shots | the radar mask's containing sphere is not one (3z) |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |
@@ -1920,12 +1969,12 @@ between two modes, and the baseline swings 2.7x between sessions.
    conclusion that the ladder stops at rung C should be re-derived.
 3. **`IcbmProgram.cs` and `CLAUDE.md`: "an engine can only be shut down on a frame boundary."** True of
    the mod's command path, false of the engine — and stating it as an engine constraint closes off item 9.
-4. **The seven-degree arrival**, asserted in `ARRIVAL-ANGLE.md`, `KINETIC-FLOOR.md`, `METRE-LEVEL.md`
-   and `IcbmConfig.cs`. The *2,000 km* geometry arrives at 13.6-17.5 degrees, and `METRE-LEVEL`'s
-   ladder and `KINETIC-FLOOR`'s two columns are priced off the seven. But 3x reconstructs the
-   **12,902 km** arc at 7.1 degrees, so the seven may be right for the long shot and wrong only for
-   the medium one — the long geometry's arrival has never been logged. The release summary now
-   carries it, so one night settles which.
+4. ~~**The seven-degree arrival**~~ — **settled 2026-09-02, and it is wrong everywhere.** The
+   2,000 km geometry arrives at 13.6-17.5 degrees and the **12,902 km** one at **12.9**, logged from
+   the release summary rather than reconstructed. 3x's 7.1 was a reconstruction and nothing flies it.
+   `cot` is 4.37 rather than 8.03, so `METRE-LEVEL`'s ladder, `KINETIC-FLOOR`'s two columns and every
+   sensitivity priced off the seven are about **half** what those files state. Correcting them is
+   outstanding — 3af.
 5. **`KSA-TERRAIN.md`: "there is no raycast, no collider query."** `BoundingVolumeHierarchy.LookupBvhDirection`
    is a public ray query, and there is a Bepu triangle collider on a 2 m grid within 8 m of clearance.
 6. ~~**`accurate: true` degrades silently**~~ — **read out, and both halves were wrong.** The
