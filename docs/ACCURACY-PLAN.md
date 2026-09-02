@@ -19,6 +19,14 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 | within a group of six | **5 m** | 6 m | 6 m |
 | shape | unimodal, CV 0.58 | **bimodal**, CV 1.08 | corrections mostly finish |
 
+**Overtaken by 2026-09-02.** Two faults found and fixed that day — an arrival floor latching a
+budget of zero off the pad (3ah's sibling) and the aim correction pinning itself to its 300 km clamp
+off a prediction flown from sea level (3ah) — took the same save, aim and geometry from **4 flights
+at 302-310 km and 4 at 0.01-2.15** to **8 of 8 between 0.023 and 0.330 km**. Every number in the
+table above is from before them, and the 12,902 km columns should be read as history rather than as
+where the shot stands. What is left is decomposed in **3ai**: about half of it is the round
+disagreeing with its own predictor, which no correction loop can reach.
+
 Three fixes on 2026-08-30, each verified in flight and each working the same way — by letting more
 corrections **finish**. `payback` lands at 88-131 m and every other ending at 3.7 to 10.7 km over 96
 flights, so nothing yet has made a *finished* correction more accurate; long range improved because
@@ -2089,6 +2097,86 @@ wrong about its arithmetic and both are asking before there is anything to ask a
   the flights carrying a ~300 km per-flight error, unshared between arms, swamps a lever worth
   kilometres — which is why the 5d night was called off after one shot rather than flown for 2.5 hours.
 
+## 3ai. With the guidance faults gone, half the miss is the round disagreeing with its own probe — flown 2026-09-02
+
+The shot that verified 3ah's fix is the first at this geometry with nothing large wrong with it, so
+it is the first that can say what is left. Eight rockets, all releasing cleanly, `done` on every
+trim, biases of 0.1-2.0 km:
+
+| rocket | arrival | probe says | flown | gap | ground under the aim, below 1 km |
+| --- | --- | --- | --- | --- | --- |
+| FAT | 31.8 deg | 2 m | 36 m | **34** | 15.7 m p-p |
+| FAT 2 | 17.6 | 24 | 23 | **−1** | 21.9 |
+| FAT 3 | 32.0 | 7 | 226 | **219** | 76.3 |
+| FAT 4 | 17.7 | 4 | 33 | **29** | 55.8 |
+| FAT 5 | 32.0 | 12 | 330 | **318** | 26.0 |
+| FAT 6 | 17.7 | 156 | 221 | **65** | 69.0 |
+| FAT 7 | 32.1 | 22 | 250 | **228** | 39.6 |
+| FAT 8 | 17.7 | 49 | 199 | **150** | 15.1 |
+
+The probe is `ImpactPredictor` re-flown from the state the round actually left on, so **this gap is a
+miss `AimCorrection` structurally cannot remove** — its only observer is that same predictor. Median
+**150 m** against flown misses of 23-330, so it is roughly half of what is left.
+
+Both columns are measured against each rocket's **own** aimpoint. `AimSpread` puts the eight 12 to
+72 km apart, so a comparison against the group's point would read tens of kilometres; these read
+metres, which is the check that they are the same reference.
+
+### The arrival angle does not cause it, and that was the obvious reading
+
+Rank correlation of the gap with the arrival angle is **+0.90** across those eight, and with the
+local ground's roughness only **+0.17**. Steep median 228 m against shallow 65. That is a strong
+enough signal at n=8 to act on, and it is wrong.
+
+`WhetherTheProbeGapGrowsWithTheArrivalAngle` holds the release position and speed still and rotates
+only the flight-path angle, so no two rows differ in energy, in where they start, or in the ground
+they cross:
+
+| arrived | mean sphere | with relief | with KSA erosion |
+| --- | --- | --- | --- |
+| 7.3 deg | −12 m | −14 m | 44 m |
+| 10.5 | −4 | −4 | 29 |
+| 17.6 | −1 | 1 | 17 |
+| 24.8 | −1 | −4 | 28 |
+| 31.7 | −1 | −1 | **−798** |
+| 39.7 | −0 | −0 | 14 |
+| 49.7 | −0 | −1 | 13 |
+
+**Flat at zero, and if anything shrinking as the approach steepens.** The one −798 m is the
+"different features" coin toss 3ac describes, on a surface 3af showed is far rougher than KSA's, and
+it is an outlier rather than a trend. So the flown +0.90 is a coincidence of eight rockets, and the
+arrival angle keeps the whole of what `ARRIVAL-ANGLE.md` claims for it.
+
+### What this does say, and it is about the instrument
+
+**`ProbeGapTests` does not model the flown gap, and the sign is the tell.** Its `as flown` column is
+**−29 m** at every warp on both realistic surfaces; flight is **+150 m** median. Opposite sign, five
+times the size. Whatever produces the flown gap is not in the fixture, so none of 3ac-3af's headless
+negatives are bounds on it — the plan's own lesson about a recorded negative being only as good as
+what its instrument was pointed at, applied to the instrument that lesson was written about.
+
+### And 3af's ground measurement does not generalise
+
+3af sampled the ground under **one** aimpoint, read `3.6 m peak-to-peak below a 1 km wavelength`, and
+concluded KSA's ground is a factor of 28 below anything that could matter. Eight aimpoints 12-72 km
+apart read **15.1 to 76.3 m** — four to twenty-one times more, and the largest is within striking
+distance of 3ae's ~100 m threshold rather than far below it.
+
+That does **not** rescue the terrain hypothesis: roughness does not predict the gap here (+0.17), and
+the controlled sweep above is flat. What it retires is the specific claim that KSA's ground is
+uniformly too smooth to matter, which was one place's ground read as every place's.
+
+### What to do next, and what not to
+
+* **Do not build anything on the arrival angle causing this.** It does not, and the sweep is the
+  reason.
+* **The open question is what flight has that the fixture does not**, with the sign as the handle.
+  Candidates, none measured: the real height field's interpolation and quantisation against
+  `TerrainRadiusAt`'s sampling of it, the coast's variable frame against the fixture's fixed one, and
+  the round being stepped through `RoundDriver` inside the game loop rather than a tight test loop.
+* **It bounds what guidance work is worth.** Half the remaining miss is downstream of the aim, so a
+  perfect correction loop buys at most half of 23-330 m at this geometry.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -2227,6 +2315,11 @@ Shortening the range to steepen the arrival (418 km lands 0.36-3.63 km against 2
 the short flight cannot fit the passes; 3g).
 "The clearance never succeeds" (the absence of a log line measured the logger).
 The 24 ms slow-regime screen (29.8 ms gave 0 passes one night and 2 another).
+
+The arrival angle driving the probe-to-round gap (rank correlation **+0.90** across eight flights,
+steep median 228 m against shallow 65 -- and a controlled sweep holding the release still and
+rotating only the flight-path angle is **flat at zero** from 7 to 50 degrees. Eight is enough to
+produce a convincing rank correlation from nothing; 3ai).
 
 "A steep arrival is dear for the trim to correct on" (3aa's own mechanism, and the premise of 5c
 for a day. The rate is set by the transfer time, so steepening makes the aim *cheaper* to move --

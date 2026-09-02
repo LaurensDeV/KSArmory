@@ -737,4 +737,63 @@ public class ProbeGapTests(ITestOutputHelper Out)
         Assert.True(Math.Abs(stoppedAt - terrainThere) < 5.0,
                     $"the round stopped {Math.Abs(stoppedAt - terrainThere):F1} m off the relief");
     }
+
+    /// <summary>
+    /// Whether the gap between the round and its own probe grows with the <b>arrival angle</b> —
+    /// which would put a floor under exactly the lever <c>docs/ARRIVAL-ANGLE.md</c> is built on.
+    ///
+    /// <para><b>Flown 2026-09-02 and this is the follow-up.</b> Eight rockets, four arriving at
+    /// 17.7 degrees and four at 32.0, gave probe-to-round gaps of −1/29/65/150 m and 34/219/228/318:
+    /// rank correlation with the arrival angle <b>+0.90</b>, and with the local ground's roughness
+    /// only +0.17. One shot cannot separate those, so this holds everything still but the angle.</para>
+    ///
+    /// <para>The release position and speed are fixed and only the flight-path angle is rotated, so
+    /// no two rows differ in energy, in where they start, or in the ground they cross. If the gap
+    /// tracks the angle here it is the two stopping rules diverging as the approach steepens — the
+    /// round steps and overshoots, the predictor bisects on depth — and not the terrain.</para>
+    /// </summary>
+    [Fact]
+    public void WhetherTheProbeGapGrowsWithTheArrivalAngle()
+    {
+        ReleaseState(out double3 from, out double3 v);
+
+        double speed = Vec.Len(v);
+        double3 up = Vec.Unit(from);
+        double3 horizontal = Vec.Unit(v - up * Vec.Dot(v, up));
+
+        foreach ((string what, Func<double3, double>? terrain) in Surfaces)
+        {
+            Out.WriteLine($"{what}:");
+            Out.WriteLine($"    {"asked",6}{"arrived",9}{"gap m",9}{"impact m/s",12}");
+
+            foreach (double askedDeg in new[] { 5.0, 10.0, 17.7, 25.0, 32.0, 40.0, 50.0 })
+            {
+                double rad = askedDeg * Math.PI / 180.0;
+
+                // Same place, same speed: only the flight-path angle moves.
+                double3 released = (horizontal * Math.Cos(rad) - up * Math.Sin(rad)) * speed;
+
+                if (!ImpactPredictor.TryPredict(Earth, from, released, 1.0, 20_000.0,
+                                                out ImpactPredictor.Impact hit, terrain, null,
+                                                new ImpactPredictor.Drag(DeorbitShot.DensityAt, Warhead)))
+                {
+                    Out.WriteLine($"    {askedDeg,6:F1}{"unpredicted",9}");
+                    continue;
+                }
+
+                double3 probe = hit.GroundFixedPointCci;
+                double3 along = AlongTrack(from, released);
+
+                (double3 landed, double _) = DeorbitShot.FlyTheRound(
+                    from, released, DeorbitShot.NominalFrame, default, GroundFor(terrain));
+
+                double3 hitUp = Vec.Unit(hit.PointCci);
+                double arrivedDeg = Math.Asin(Math.Clamp(
+                    -Vec.Dot(Vec.Unit(hit.VelocityCci), hitUp), -1.0, 1.0)) * 180.0 / Math.PI;
+
+                Out.WriteLine($"    {askedDeg,6:F1}{arrivedDeg,9:F1}"
+                              + $"{Downrange(probe, landed, along),9:F0}{Vec.Len(hit.VelocityCci),12:F0}");
+            }
+        }
+    }
 }
