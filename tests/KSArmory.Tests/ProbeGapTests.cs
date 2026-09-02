@@ -182,6 +182,42 @@ public class ProbeGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// <b>Whether converging the round closes the gap over terrain, which is 3ac's lever.</b>
+    ///
+    /// <para>On the mean sphere a converged sub-step leaves the round on its predictor to under
+    /// 20 m — <see cref="GravityIsAlreadyShippedAndTheSubStepIsTheWholeOfWhatIsLeft"/> pins it. The
+    /// question 3ac raises is whether that still holds once the terrain can turn a small trajectory
+    /// difference into a different hill: if it does, closing the sub-step is worth kilometres over
+    /// rough ground; if it does not, the flip is decided by something the sub-step does not
+    /// control.</para>
+    /// </summary>
+    [Fact]
+    public void WhetherConvergingTheRoundClosesTheGapOverTerrain()
+    {
+        ReleaseState(out double3 from, out double3 v);
+        double3 along = AlongTrack(from, v);
+
+        foreach ((string what, Func<double3, double>? terrain) in Surfaces)
+        {
+            double3 probe = Probe(from, v, terrain);
+            Out.WriteLine($"{what}:");
+
+            foreach (double sub in new[] { 0.0, 0.005, 0.001, 0.0005, ConvergedStep })
+            {
+                DeorbitShot.Refresh refresh = DeorbitShot.Refresh.AsFlown with { StepSeconds = sub };
+
+                (double3 landed, double _) = DeorbitShot.FlyTheRound(
+                    from, v, Medium.FaithfulStepInAir, refresh, GroundFor(terrain));
+
+                string label = sub == 0.0 ? "as shipped" : $"{sub * 1000.0:F2} ms sub-step";
+
+                Out.WriteLine($"  {label,-18} {Downrange(probe, landed, along),9:F0} m from the probe"
+                              + $"   (struck terrain at {(terrain?.Invoke(landed) ?? DeorbitShot.R) - DeorbitShot.R,8:F1} m)");
+            }
+        }
+    }
+
+    /// <summary>
     /// Which of the two is reading the ground wrongly, asked directly.
     ///
     /// <para>Both stop on the same surface, so a disagreement means one of them stopped somewhere

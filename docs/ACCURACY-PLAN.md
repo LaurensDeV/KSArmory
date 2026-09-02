@@ -1734,6 +1734,49 @@ this fixture and flown ground is unmeasured, which is item 1f.
 **And this is one geometry.** Whether a flip happens at all depends on there being a hill at the
 crossing; the 170 is this shot's gain, not a constant.
 
+## 3ad. Converging the round does not close the terrain gap — headless 2026-09-02
+
+3ac's conclusion was that the lever is *agreement* between the round and its probe rather than
+either one's accuracy, and that closing their 30 m trajectory difference should close the flip with
+it. Flown headlessly against the sub-step, it does not.
+
+| the round's sub-step | mean sphere | `RoughGround` | **KSA erosion** |
+| --- | --- | --- | --- |
+| as shipped | -29 m | -30 m | **-5,282 m** |
+| 1.00 ms | -29 m | -30 m | -5,282 m |
+| 0.50 ms | -14 m | -14 m | -5,271 m |
+| **0.25 ms (converged)** | **-6 m** | **-7 m** | **-5,263 m** |
+
+On smooth ground the sub-step is the whole story and converging it removes four fifths of the gap,
+which is what `GravityIsAlreadyShippedAndTheSubStepIsTheWholeOfWhatIsLeft` has always pinned. Over
+erosion the same change is worth **19 m of 5,282**, and the round strikes the same hill throughout —
+764.8 m as shipped, 759.4 m converged.
+
+**So the flip is not decided by the round's integration**, and 1g is refuted before it was built.
+This matters beyond the item: it means the round's own integration error, which is what
+`KINETIC-FLOOR.md` and most of `ProbeGapTests` price, is not the term that survives contact with
+terrain.
+
+### What is still open, stated precisely
+
+The four differences `ProbeGapTests` already prices — ground held for a frame, air held for a frame,
+symplectic Euler, per-sub-step gravity — remove **2,648 m** of the 5,143 when taken together and
+leave **2,495 m**. Converging the sub-step further does not touch it. So there is a difference
+between the round's stopping rule and the predictor's that none of them names.
+
+The candidate the code suggests, unverified: the round's ground test answers with a **sphere** —
+one centre and one radius — which `ContactSweep` then tests the whole step against, where
+`ImpactPredictor` tests only its step's endpoint radius and bisects. A swept test against a sphere
+sized on a hilltop stops on that hilltop for the rest of the step, wherever the round has since
+moved. That is a difference in *kind* rather than resolution, which fits a residual that does not
+shrink with the step.
+
+**Not established, and worth stating**: 3ac's clearance instrument was withdrawn. It reconstructed
+each path point's time by interpolating linearly over the point index, and `ImpactPredictor`'s steps
+are anything but uniform — seconds while coasting, 2 ms in air, halving again through the crossing —
+so the body-fixed un-carry it did was wrong for every point but the last. Whether the probe's own
+path ever passes under the ground before it lands is therefore **unmeasured**, not answered.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1781,7 +1824,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
 | ~~1e~~ | ~~Name the unaccounted term in 3ac~~ | done | **neither side misreads: they strike different features, and 30 m of trajectory difference becomes 5 km** — 3ac |
-| **1g** | Close the round-probe **trajectory** gap, not either one's own error. 23 m of the 30 is symplectic Euler; price a converged round against the probe on smooth ground first | 0 shots, hours | flip probability falls with the gap, and this is what `MIRV-NEXT` -1's seven losses were blind to |
+| ~~1g~~ | ~~Close the round-probe trajectory gap by converging the round~~ | done | **refuted: worth 19 m of 5,282 over erosion, same hill struck** — 3ad |
+| **1h** | **The stopping rules differ in kind.** The round sweeps a step against a *sphere* sized at the frame's start; the predictor tests an endpoint and bisects. Price that difference on one state | 0 shots, hours | the 2,495 m the four priced terms leave, and it does not shrink with the step |
+| **1i** | Give `ImpactPredictor.pathCci` a companion list of **times**, then re-ask whether the probe's path passes under the ground | 0 shots | 3ad withdrew that measurement; the un-carry needs real per-point times |
 | **1f** | Then measure the damping: what fraction of the undamped spectrum flown ground actually carries | 0 shots | 3ac's 5 km is a worst case; this is the multiplier onto it |
 | **1c** | Pad or replace `MaxTerrainHeightApprox` at `KsaWorld.cs:374` | 0 shots | the radar mask's containing sphere is not one (3z) |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |
