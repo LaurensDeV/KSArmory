@@ -1,6 +1,6 @@
 # KSA modding notes
 
-Everything here comes out of the shipped assemblies of **KSA build 2026.9.4.5400**, read with
+Everything here comes out of the shipped assemblies of **KSA build 2026.9.7.5402**, read with
 `tools/apidump`, or out of the StarMap sources. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.

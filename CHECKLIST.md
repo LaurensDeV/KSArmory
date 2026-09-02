@@ -121,6 +121,36 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.9.7.5402`, and flown — and this one changed nothing.** 5402 is a
+*rebuild* of 5400: the decompiled corpus is byte-identical across the two but for three
+`AssemblyInfo.cs` version stamps, and `tools/ksa-api-diff.sh` reports no missing members and no
+file defining a type this mod uses touched. Nothing in the mod was retargeted, because there was
+nothing to retarget — the diff is the lock, the five prose build lines and this paragraph. Core's
+XML is unchanged where the mod binds to it: all 416 asset references resolve against the install,
+`Radial` still carries `FaceSnapTargetBlacklist` and `NoFaceSnapping` still carries
+`FaceSnapBlacklist`, and every Core character Id the mod names still resolves to the element type
+it expects.
+
+| Scenario | Result |
+| --- | --- |
+| `head-on` | **PASS** — detonation at 18 m, drone destroyed |
+| `overhead` | **PASS** — detonation at 16 m, drone destroyed |
+
+**No warning or error in either session.** Both runs confirm the bindings that a rebuild could
+still have broken even with identical sources, because they rest on layout rather than on
+signatures: the Harmony prefix installed (`attitude control hooked into Vehicle.PrepareWorker`),
+the reflected trail renderer bound (`volumetric smoke: the trail renderer is reachable`), the
+per-frame subpart transform writes accepted (`1 bodies, 1 tubes, tubesResolved=True`), both weapon
+packs registered, and both warhead effects placed. The build stamp also reads
+`built for KSA 2026.9.7.5402, running 2026.9.7.5402 - reporting on`, so in-game reporting is live
+rather than silently off.
+
+Both runs flew the **rail**, so everything the 5400 retarget left unwatched is still unwatched:
+the turret traverse and pod elevation, the sight at magnification, the chase camera and its
+reflected `FixedController` install, the editor's **Weapons** category, and what the radar holds
+after a kill. The four items above are 5400's and are unaffected — 5402 touched none of the code
+they describe — so they carry over verbatim rather than being re-opened.
+
 The failure modes worth recognising before starting, and how to tell them apart, are in
 `docs/KSA-MODDING-NOTES.md` and `docs/FRAMES-AND-EPOCHS.md`.
 

@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.9.4.5400**. Paths are relative to
+Findings are against KSA **2026.9.7.5402**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -35,6 +35,12 @@ happen rather than a member that moved.
 **Twelve of the thirteen rechecked against 2026.9.4.5400 and still blocked; partial damage is the
 one that moved** — KSA grew a real part-failure system, and the entry below says what it is and what
 taking it up would mean.
+
+**2026.9.7.5402 changes none of it, and that is mechanical rather than a re-reading.** It is a
+rebuild of 2026.9.4.5400: the decompiled corpus is byte-identical across the two but for three
+`AssemblyInfo.cs` version stamps, and `ksa-api-diff.sh` reports no file defining a type this mod
+uses was touched. Every claim below therefore stands on the same source text it was written
+against, citations included.
 
 The line numbers below are against **2026.8.22.5348** and have not been re-derived: 2026.9.4.5400
 replaced the `Viewport` class with `IViewport` / `ViewportBase` / `GameViewport` and moved the list
