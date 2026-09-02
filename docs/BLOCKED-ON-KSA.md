@@ -37,10 +37,12 @@ one that moved** — KSA grew a real part-failure system, and the entry below sa
 taking it up would mean.
 
 **2026.9.7.5402 changes none of it, and that is mechanical rather than a re-reading.** It is a
-rebuild of 2026.9.4.5400: the decompiled corpus is byte-identical across the two but for three
-`AssemblyInfo.cs` version stamps, and `ksa-api-diff.sh` reports no file defining a type this mod
-uses was touched. Every claim below therefore stands on the same source text it was written
-against, citations included.
+managed-identical rebuild of 2026.9.4.5400: the decompiled corpus is byte-identical across the two
+but for three `AssemblyInfo.cs` version stamps, and `ksa-api-diff.sh` reports no file defining a
+type this mod uses was touched. Every claim below therefore stands on the same source text it was
+written against, citations included. Its one real change — a crash from an incorrect data stride
+in thumbnail rendering — is in native `VulkanEx.dll`, which nothing decompiles; everything on this
+list is a question about the managed API, so the corpus answers all of them.
 
 The line numbers below are against **2026.8.22.5348** and have not been re-derived: 2026.9.4.5400
 replaced the `Viewport` class with `IViewport` / `ViewportBase` / `GameViewport` and moved the list

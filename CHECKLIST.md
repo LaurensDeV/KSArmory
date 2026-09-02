@@ -121,11 +121,24 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
-**Retargeted to KSA `2026.9.7.5402`, and flown — and this one changed nothing.** 5402 is a
-*rebuild* of 5400: the decompiled corpus is byte-identical across the two but for three
-`AssemblyInfo.cs` version stamps, and `tools/ksa-api-diff.sh` reports no missing members and no
-file defining a type this mod uses touched. Nothing in the mod was retargeted, because there was
-nothing to retarget — the diff is the lock, the five prose build lines and this paragraph. Core's
+**Retargeted to KSA `2026.9.7.5402`, and flown — nothing in the *managed* surface moved.**
+RocketWerkz's note for 5402 is one line: *fixed crash for incorrect data stride for thumbnail
+rendering*. That fix is in code this corpus cannot see, and the distinction is worth keeping.
+Every first-party managed assembly was rebuilt, but the decompiled output is byte-identical to
+5400 but for three `AssemblyInfo.cs` version stamps — `KSA.Rendering.Thumbnails` included, which
+is where the thumbnail renderer actually lives — and `tools/ksa-api-diff.sh` reports no missing
+members and no file defining a type this mod uses touched. The hashes moved because a rebuild
+restamps version and MVID, not because the code differs.
+
+The one **native** library rebuilt alongside them is `VulkanEx.dll`, which `Brutal.Vulkan` loads
+through `NativeLibrary.Load` and which nothing decompiles; every other native lib in the install
+kept its old date. A Vulkan buffer stride is exactly what lives there. So a clean corpus is
+*consistent* with the changelog rather than in tension with it: it says the fix landed somewhere
+this mod cannot bind to. **The corpus proves the managed API did not move and says nothing about
+native code** — worth remembering the next time a changelog and a clean diff disagree.
+
+Nothing in the mod was retargeted, because there was nothing to retarget — the diff is the lock,
+the five prose build lines and this paragraph. Core's
 XML is unchanged where the mod binds to it: all 416 asset references resolve against the install,
 `Radial` still carries `FaceSnapTargetBlacklist` and `NoFaceSnapping` still carries
 `FaceSnapBlacklist`, and every Core character Id the mod names still resolves to the element type
