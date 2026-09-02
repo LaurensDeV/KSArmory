@@ -1878,6 +1878,14 @@ step. `ProbeGapTests`' erosion column stays as the bound it establishes, not as 
 **And the flight agrees.** The same shot landed 6 of 6 within **17 m**, worst to best 0.017 to
 0.016 km, on the geometry 3v flagged as rough.
 
+**One flight settles nothing about a median, and this pair says so.** The identical save, aim and
+code landed **0.624 km** two hours earlier and **0.017 km** here — a factor of **37** with nothing
+changed but the diagnostic, which only reads. `SHOT-PROTOCOL.md` documents run-to-run scatter at 1.7x
+either side of a median; this is twenty times that, and it is the bimodality section 1 describes
+rather than noise. Neither number is the shot's accuracy. **Nothing above should be read as a
+measurement of where this geometry lands** — 3af measures the *ground*, which is a property of the
+place and needs one flight, not the miss, which needs a night.
+
 ### The arrival is 12.9 degrees, and that closes stale line 4
 
 The same release summary carries the number the plan has wanted since 3x:
@@ -1937,7 +1945,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
 | ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
 | ~~5b~~ | ~~Fly `ArrivalPreference` at 0.5/0.65/0.8~~ | done | **0.5 wins, 0.48x, 29.5 -> 13.5 m; 0.8 is a settled loss** — 3aa |
-| **5d** | Fly `ArrivalPreference = 0.5` at **12,902 km**, where the arrival is 7 deg | 12 paired shots | `cot(gamma)` says the lever is worth far more there than at 2,000 km |
+| **5d** | Fly `ArrivalPreference = 0.5` at **12,902 km**, where the arrival is **12.9 deg** (3af, not the 7 this row used to say). `--paired` on `SOLVER SCALE 8`, 12 blocks, ~2.5 h. **Open: which aim.** 26.485S,68.148W is the range but is the ill-conditioned target 7g spent a night on; a flat long-range aim measures the lever cleanly and does not test the case that motivates it | 12 paired shots | `cot` is 4.37 not 8.03, so worth about **half** what this row claimed — still the largest flight-shaped item |
 | **5c** | Price a steep arrival against the **trim's** budget, not the ascent's | 0 shots then 12 | 3y: the rocket that could afford the most is the one that failed |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |

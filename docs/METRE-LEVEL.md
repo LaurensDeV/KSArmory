@@ -11,8 +11,9 @@ run unattended.
 **The headline, and it is not a guidance result.** Metre-level accuracy is a *trajectory* choice.
 Every large term in the miss is a velocity error multiplied by the trajectory's own sensitivity, or
 a height error multiplied by `cot γ` — and both of those belong to the arrival angle, not to the
-loop. At the seven degrees every shot in this repository has arrived at, **no amount of guidance
-work reaches a metre**: the drag-model term alone is 1.8 km and its only observer shares the model.
+loop. At the **12.9 to 17.5 degrees** every shot in this repository has actually arrived at —
+logged 2026-09-02, where the seven was reconstructed and never flown (`docs/ACCURACY-PLAN.md`
+3af) — **no amount of guidance work reaches a metre**: the drag-model term alone is 1.8 km and its only observer shares the model.
 At forty-five degrees the same shot is inside six metres with the residual it already achieves.
 
 So this plan is not "make the loop better". It is: **fly the geometry that makes a metre possible,

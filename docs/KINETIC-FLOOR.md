@@ -13,7 +13,10 @@ term could not be measured it says so rather than being estimated.
 **The headline.** The single biggest lever is not a constant — it is the **arrival angle**. Five of
 the eight real terms are heights, and a height becomes ground in proportion to `cot(gamma)`. A
 7-degree deorbit multiplies every one of them by eight; a vertical drop multiplies them by nothing.
-The mod's flown shot arrives at 7.1 degrees, which is the worst geometry available.
+The mod's flown shot arrives at **12.9 degrees**, logged 2026-09-02 — the 7.1 here was a
+reconstruction and nothing flies it (`docs/ACCURACY-PLAN.md` 3af). `cot` is 4.37 rather than 8.03,
+so the eight this file multiplies by is nearer **four**, and every column priced off the seven is
+about twice what it should be.
 
 ---
 

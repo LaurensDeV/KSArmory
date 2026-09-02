@@ -1,7 +1,10 @@
 # What arrival angle buys
 
 **The question.** A kinetic round has no lethal radius to hide inside, so precision *is* the weapon.
-Every ballistic shot this mod has flown arrives at about **seven degrees**, and every large term in
+Every ballistic shot this mod has flown arrives between **12.9 and 17.5 degrees** — not the seven
+this file was written around, which was reconstructed and never flown; `docs/ACCURACY-PLAN.md` 3af
+has the logged numbers. The parametric tables below stand as arithmetic at the angle each states;
+what does not is any claim about where the mod actually arrives. Every large term in
 the miss budget is that angle multiplied by something. This is what a steeper arrival is worth, what
 it costs, and how the guidance is told to fly one.
 
