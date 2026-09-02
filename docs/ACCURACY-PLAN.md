@@ -1650,7 +1650,7 @@ exists because the test before it was established against a surface with nothing
 here would be worth nothing unless the same rig demonstrably still sees a real effect. It does:
 576.3 m.
 
-## 3ac. The round and its own probe disagree by kilometres over erosion, stably — headless 2026-09-02
+## 3ac. The round and its probe strike different hills, and terrain multiplies 30 m into 5 km — headless 2026-09-02
 
 3ab exonerated the predictor and left 3v's finding — 157 m of walk over rough ground against 8 m on
 flat ocean — without a mechanism. This is the other integrator, measured the same way.
@@ -1692,16 +1692,47 @@ the target and the round lands the bias away from it.
 Third time in this file, after the drag blind spot and the back-dated observer: *a correction loop
 can only remove what its observer can see.*
 
-### What is not established
+### The cause: neither side is wrong, and the terrain multiplies the difference by 170
+
+Asked directly which of them stops where the ground is not, the answer is **neither**:
+
+| | stopped over terrain of | its own error against the surface there |
+| --- | --- | --- |
+| the round | **+764.8 m** | 1.8 m |
+| the probe | **-1.5 m** | 0.3 m |
+
+Both stop correctly. They stop on **different features** — the round clips a hill, the probe clears
+it and runs on into a valley 5.1 km further downrange. A 766 m difference in the height struck, at
+`cot 7 deg` of 8.14, is 6.2 km of ground against the 5.1 km measured.
+
+So there is no misreading to fix. The round and its probe fly trajectories that differ by about
+**30 m** — that is the whole gap on smooth ground, and 23 m of it is symplectic Euler. Over
+non-monotone terrain that 30 m decides *which feature is struck first*, and the answer changes by
+kilometres. **A gain of roughly 170.**
+
+This reconciles the two facts that looked contradictory. It is stable under a 6 cm/s nudge because
+a hill is either clipped or not and centimetres do not change that; and it is wildly non-additive
+under the decomposition because removing any one term can flip the choice. Both are threshold
+behaviour, not error accumulation.
+
+**It also explains `MIRV-NEXT` item -1** — seven headless improvements that scored well on smooth
+ground and lost in flight. Smooth ground shows the 30 m honestly and hides the multiplier entirely.
+
+### What follows, and what is not established
+
+The lever is not accuracy in either integrator separately: it is **agreement** between them, since
+the loop steers the round using the probe's answer. Closing the 30 m closes the flip probability
+with it. That is the opposite of the usual framing, where the round's own integration error is
+priced against a converged reference.
 
 **The magnitude is a worst case.** These octaves are undamped, and in the game each is scaled by the
-biome weight, a gradient-falloff power and `1 - |dot|` — so real ground is some fraction of this.
-The flown median at 12,902 km is 301 m, not 5 km, and 3v's rough-vs-flat contrast is 157 m against
-8. The mechanism matches the direction and the ordering; the scale factor between this fixture and
-flown ground is unmeasured.
+biome weight, a gradient-falloff power and `1 - |dot|` — so real ground is some fraction of this,
+and the flip is correspondingly rarer. The flown median at 12,902 km is 301 m, not 5 km, and 3v's
+rough-vs-flat contrast is 157 m against 8. Direction and ordering match; the scale factor between
+this fixture and flown ground is unmeasured, which is item 1f.
 
-**And the cause is unidentified.** What is established is where it is not: not the predictor, not
-the step size, not the four differences already priced, and not luck.
+**And this is one geometry.** Whether a flip happens at all depends on there being a hill at the
+crossing; the 170 is this shot's gain, not a constant.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -1749,7 +1780,8 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
-| **1e** | **Name the unaccounted term in 3ac.** Bisect the round's stopping rule against the predictor's on one surface, one instant, one state — the four priced differences leave −2,496 m | 0 shots, hours | the loop cannot see this, so it is the whole of what terrain costs |
+| ~~1e~~ | ~~Name the unaccounted term in 3ac~~ | done | **neither side misreads: they strike different features, and 30 m of trajectory difference becomes 5 km** — 3ac |
+| **1g** | Close the round-probe **trajectory** gap, not either one's own error. 23 m of the 30 is symplectic Euler; price a converged round against the probe on smooth ground first | 0 shots, hours | flip probability falls with the gap, and this is what `MIRV-NEXT` -1's seven losses were blind to |
 | **1f** | Then measure the damping: what fraction of the undamped spectrum flown ground actually carries | 0 shots | 3ac's 5 km is a worst case; this is the multiplier onto it |
 | **1c** | Pad or replace `MaxTerrainHeightApprox` at `KsaWorld.cs:374` | 0 shots | the radar mask's containing sphere is not one (3z) |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |

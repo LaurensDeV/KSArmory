@@ -182,6 +182,39 @@ public class ProbeGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
+    /// Which of the two is reading the ground wrongly, asked directly.
+    ///
+    /// <para>Both stop on the same surface, so a disagreement means one of them stopped somewhere
+    /// the terrain is not. This evaluates the surface <em>at each side's own landing point</em> and
+    /// reports how far each stopped from it: the one whose stop radius does not match the ground
+    /// beneath it is the one at fault.</para>
+    /// </summary>
+    [Fact]
+    public void WhichSideStopsWhereTheGroundIsNot()
+    {
+        ReleaseState(out double3 from, out double3 v);
+
+        foreach ((string what, Func<double3, double>? terrain) in Surfaces)
+        {
+            if (terrain is null) continue;
+
+            (double3 landed, double _) = DeorbitShot.FlyTheRound(
+                from, v, Medium.FaithfulStepInAir, default, GroundFor(terrain));
+
+            double3 probe = Probe(from, v, terrain);
+
+            double roundError = landed.Length() - terrain(landed);
+            double probeError = probe.Length() - terrain(probe);
+
+            Out.WriteLine($"{what}:");
+            Out.WriteLine($"  round stopped {roundError,9:F1} m from the surface under it "
+                          + $"(terrain there {terrain(landed) - DeorbitShot.R,8:F1} m)");
+            Out.WriteLine($"  probe stopped {probeError,9:F1} m from the surface under it "
+                          + $"(terrain there {terrain(probe) - DeorbitShot.R,8:F1} m)");
+        }
+    }
+
+    /// <summary>
     /// The decomposition: one difference removed at a time from the round as flown, each measured
     /// as how far the impact moves.
     ///
