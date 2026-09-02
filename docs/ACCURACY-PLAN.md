@@ -2499,6 +2499,102 @@ staging — measured as three distinct orderings within one shot. Nothing correl
 cross-rocket quantity is already collected before the loop that uses it. Recorded so the next person
 does not have to find it twice.
 
+## 3am. The clean night: 0.5 wins, resolved — flown 2026-09-02, read 2026-09-03
+
+12 paired shots, 96 flights at **6,269 km** on `SOLVER SCALE 8`, `~/shots/2026-09-02-2131`, frame
+23.9 ms. The first night on a harness that is not corrupting itself: 3al's warp funnel, the ground
+back-date, the arrival-floor fix and the pad-aim fix all in.
+
+### Item 5d, answered
+
+| arm | flights | median | arrives at |
+| --- | --- | --- | --- |
+| base | 48 | 0.04 km | 17.7 deg |
+| p50 | 48 | **0.02 km** | 32.0 |
+
+```
+p50 vs base: 0.69x [0.17, 0.88] at 97%
+   won 11 of 12 paired shots, sign p=0.006, signed-rank p=0.009   RESOLVED
+   per shot: 0.59 0.47 1.82 0.12 0.88 0.17 0.83 0.20 0.80 0.98 0.80 0.09
+```
+
+**Clears the bar on both tests with the interval entirely below one**, which no arrival-angle arm has
+managed before. Against 3ak's **1.91x the wrong way** on the same command, same save, same aim — that
+was the 8x warp landing p50's rockets on 240 ms frames, and fixing the harness turned a spurious loss
+into a real win. `ArrivalPreference = 0.5` is now resolved at **two** geometries: 0.48x at 2,000 km
+(3aa) and 0.69x here.
+
+### The seat gradient is gone
+
+```
+rank correlation seat vs miss: rho=-0.04, p=0.683   no gradient at this n
+```
+
+Against **+0.23, p=0.023** the night before, with seat medians collapsing from 19-932 m to 21-146.
+That is the ground back-date confirmed from a direction it was not fitted to: the per-aimpoint
+terrain biases 3al measured as repeatable to 1-2 m are **removed**, not averaged over.
+
+### Where the shot stands
+
+| | 2026-09-02 morning | this night |
+| --- | --- | --- |
+| median | 6,664 m | **30 m** |
+| p90 | 28,652 m | **112 m** |
+| best | — | **5 m** |
+| shape | bimodal, 75% at 8.81 km | unimodal, plus one rare event |
+
+88 clean flights across 11 worlds. The 12th is below.
+
+### And one thing is now the whole remaining problem
+
+| ending | n | median |
+| --- | --- | --- |
+| clock | 21 | 0.03 km |
+| noimprov | 34 | 0.02 |
+| payback | 33 | 0.04 |
+| **trim** | **8** | **94.27 km** |
+
+One world in twelve, all eight rockets, and it is three thousand times every other ending. **It is now
+the entire difference between a 30 m weapon and an unreliable one.**
+
+### The drift, instrumented at last — and the guard is not the answer
+
+The coast probe caught it. The onset is **sharp**, at ~505 km on the way *up* with the bus still
+climbing at +632 m/s, and the miss had been *improving* right up to it:
+
+```
+502.8 km  r_dot +669.3  miss  0.40 km  rate   -0.7   <- converging
+509.4 km  r_dot +632.5  miss  2.15 km  rate +172.3   <- break
+515.6 km  r_dot +595.6  miss  5.82 km  rate +366.2
+521.4 km  r_dot +558.6  miss 11.51 km  rate +565.2
+```
+
+It **accelerates** rather than ramping linearly, which 3ak's reconstruction could not see. Attitude
+and control are healthy throughout — all eight holding to 0.001 deg with normal rates.
+
+**The signature says which side is moving.** The committed arrival counts down at exactly 10 s per
+10 s, as a fixed instant must; the flown prediction counts down at about **11 s per 10 s**. So the
+predictor increasingly believes the round will arrive **sooner and shorter** — the shape of a
+trajectory losing energy, which the bus is not.
+
+**And the arrival guard fired on all eight and did not save the shot** — 85-102 km anyway. That is a
+result, not a wasted change: it eliminates the latch as the cause, which was the leading candidate,
+and it costs nothing on a healthy flight (0 firings in 88).
+
+**Next, and it is a diagnostic rather than a fix.** The leading suspect is the density the predictor
+is handed at altitude — `IcbmComputer.DensityRatioAt` feeding `ImpactPredictor.Drag`. A spuriously
+non-zero density at 500 km produces exactly this: sooner, shorter, and worsening as the predicted path
+bends further. **Unverified**, and the way to settle it is to log what that lookup returns through the
+coast rather than to change anything.
+
+### The default is justified and does not ship yet
+
+`ArrivalPreference = 0.5` has now won at two geometries and lost at none. Setting it as the default
+was tried and backed out: it changes the arrival angle every headless fixture flies, and eight tests
+encode measured constants at the geometry they currently get — `ArrivalDebtTests`'s 2.48 m/s per
+kilometre among them. Re-recording those under the same names would file different facts. **Each
+fixture should state the geometry it means rather than inherit it**, and the default waits on that.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -2540,7 +2636,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
 | ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
 | ~~5b~~ | ~~Fly `ArrivalPreference` at 0.5/0.65/0.8~~ | done | **0.5 wins, 0.48x, 29.5 -> 13.5 m; 0.8 is a settled loss** — 3aa |
-| **5d** | Re-fly `ArrivalPreference = 0.5` **with the descent unwarped**, and label the range correctly: `--aim 26.485S,68.148W` is **6,269 km**, not 12,902 | 12 paired shots | first attempt was confounded by the harness's own 8x: 1.91x pooled, **0.25x at matched frame length** — 3ak, 3al |
+| ~~5d~~ | ~~Re-fly `ArrivalPreference = 0.5` on a clean harness~~ | done | **0.69x [0.17, 0.88], 11 wins of 12, rank p=0.009 — RESOLVED, and 3ak's 1.91x was the harness** — 3am |
 | ~~5c~~ | ~~Price a steep arrival against the **trim's** budget, not the ascent's~~ | done | **refuted: the trim's authority *grows* with the angle, 122 km to 166 km — what ends it is the arc ceasing to exist** — 3ag |
 | **5e** | Re-check the latched arrival floor against the state the burn **leaves** the vehicle in, not the one it is priced from | 0 shots then 12 | 3ag: 0.5 latches 33.5 deg against a wall at 35-40, and 0.8 latches 53.6 — what 5c became |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
@@ -2559,7 +2655,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **13** | **Why the committed arrival drifts 26 s** — one shot in twelve, all eight rockets, 75-99 km, `trim` median 92.41 km | 0 shots then 12 | 3ak: the largest single item at this geometry, and unexplained |
 | ~~12~~ | ~~Why the epoch sign runs at −0.6~~ | done | **the diagnostic had the sign backwards; the fix was justified and is applied** — 3al |
 | ~~2b'~~ | ~~Re-sample the ground per sub-step in the terminal phase~~ | done | **refuted headlessly: 0-2 m on smooth ground, and chaotic rather than convergent on rough (−2,781 m at 22 ms, −7 at 33, −2 at 50). Re-sampling changes which feature the round stops on; it does not converge** |
-| **14** | A per-craft **coast probe** — position, velocity, predicted flight time and impact, every few seconds between cutoff and split | 0 shots | 3al: the 168 s where shot 006's 90 km fault happens is a logging blind spot, and the ramp's cause is unestablished |
+| **15** | **Log what `DensityRatioAt` returns through the coast.** The drift's onset is sharp at ~505 km climbing and the prediction says sooner-and-shorter, which is what a spurious density at altitude would do | 0 shots | 3am: the last large item, 94 km, one world in twelve |
+| **16** | Make each headless fixture state its own arrival geometry, so `ArrivalPreference = 0.5` can ship as the default it has earned | 0 shots | 3am: eight tests encode constants at the geometry they inherit |
+| ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 

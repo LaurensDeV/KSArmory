@@ -78,8 +78,23 @@ internal sealed class IcbmConfig
     ///
     /// <para>What a player owns is the trade, not the angle: steeper is more precise and costs reach
     /// and propellant. One at the steepest affordable, zero to leave
-    /// <see cref="MinArrivalAngleDeg"/> alone — <b>and zero is what ships</b>, because a fraction
-    /// near one leaves the shot no margin and nothing has flown how much it needs.</para>
+    /// <see cref="MinArrivalAngleDeg"/> alone — <b>and zero is still what ships, though a half has
+    /// now won twice</b>.
+    /// At 2,000 km it is <b>0.48x</b>, 29.5 m against 13.5, rank p=0.021; at 6,269 km <b>0.69x</b>,
+    /// 40 m against 20, 11 wins of 12, sign p=0.006 and rank p=0.009 with the interval entirely
+    /// below one. Above it the margin runs out: 0.65 is unresolved and bimodal, and 0.8 is a settled
+    /// loss at 5.55x with a worst shot 309 times the baseline.</para>
+    ///
+    /// <para><b>It cannot price a shot out of reach</b>, which is the usual objection to a non-zero
+    /// default and is not the blocker: it is a fraction of what <see cref="ArrivalBudget"/> has
+    /// already established the stack can pay for, so the floor moves with the propellant rather than
+    /// against it.</para>
+    ///
+    /// <para><b>What blocks the default is the fixtures.</b> Setting it here changes the arrival
+    /// angle every headless test flies, and eight of them encode measured constants at the geometry
+    /// they currently get — <c>ArrivalDebtTests</c>'s 2.48 m/s per kilometre among them. Re-recording
+    /// those under the same names would be filing different facts. Each fixture should state the
+    /// geometry it means rather than inherit it, and that is the work this default waits on.</para>
     ///
     /// <para>Latched once per flight rather than followed. The affordable angle moves as the stack
     /// lightens, and a bound that walks re-opens the search against a different limit every
