@@ -259,11 +259,23 @@ internal sealed class Slug : IProjectile
         // round — nothing to steer at either, so it finishes the fall ballistically.
         if (target is null) TargetRef = null;
 
-        _groundSampledAtEcl = PositionEcl;
+        // Asked at the round's OWN epoch, not at the frame's end. A ground test differences the
+        // position it is handed against a body sample one applied step newer, so handing it the raw
+        // pre-step position reads the height field bodyVelocity*dt away -- 548 to 8,051 m in flight,
+        // against a within-frame ground track of 6 to 183 m. The round then stops on a radius
+        // belonging to somewhere else, and that height error times cot(gamma) is its whole miss from
+        // its own prediction. Same correction AirDensityAt and GroundCentreDriftAt already make;
+        // the drift seam is reused so Sim/ still names no body.
+        //
+        // Only the position moves. The centre out-param is back-dated separately through
+        // GroundCentre, and shifting both would apply the correction twice.
+        double3 atOwnEpoch = PositionEcl - (GroundCentreDriftAt?.Invoke(-dt) ?? Vec.Zero);
+
+        _groundSampledAtEcl = atOwnEpoch;
         _groundSampledOverSeconds = dt;
 
         _haveGround = munition.HitsTerrain && Ground is not null
-                      && Ground.TryGround(PositionEcl, out _groundCentre, out _groundRadius)
+                      && Ground.TryGround(atOwnEpoch, out _groundCentre, out _groundRadius)
                       && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
 
         int steps = Math.Min(munition.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / munition.SubStep)));

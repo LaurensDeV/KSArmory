@@ -1473,23 +1473,26 @@ internal sealed class IcbmComputer
         Say(_mayTrim ? trim.Said : clearance.Said + "; " + trim.Said,
             (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : "")
             + Grew()
-            + Arrivals(trim));
+            + Arrivals());
     }
 
     // Which arrival the trim is solving to, beside when the flown prediction says the warheads
-    // actually get there. Printed only when the answer is too large to be a separation, because
-    // that is the one case where it is the first thing to check: what the trim nulls is
-    // RequiredVelocity(arrival) - v, and on a deorbit that required velocity moves about 20 m/s
-    // for every second the arrival is out. A trim asking for hundreds is a handful of seconds of
-    // disagreement long before it is anything wrong with the vehicle.
+    // actually get there. What the trim nulls is RequiredVelocity(arrival) - v, and that required
+    // velocity moves about 2.35 m/s for every second the arrival is out at 12,902 km -- so
+    // BusTrim.MaxMetresPerSecond is crossed at 4.3 s of disagreement, and a trim asking for tens is
+    // a handful of seconds long before it is anything wrong with the vehicle.
+    //
+    // Printed unconditionally, and that is the point. It used to fire only once the demand was
+    // already over the ceiling, so it could report the disagreement's tail and never its
+    // distribution -- a 96-flight night read as 1 s on eleven shots and 26 s on one, which was the
+    // logger describing its own trigger rather than the fault. Anything under the ceiling was
+    // invisible.
     //
     // The two are not the same quantity and need not match: the arrival is when a vacuum transfer
     // reaches the aim point, the prediction is when a warhead with drag reaches the ground. Their
     // gap is the measurement, not an error on its face.
-    private string Arrivals(in TrimCommand trim)
+    private string Arrivals()
     {
-        if (!(trim.ToGainMetresPerSecond > BusTrim.MaxMetresPerSecond)) return "";
-
         double committed = Program.CommittedArrivalFromNow;
         double flown = PredictedImpact?.Seconds ?? double.NaN;
 

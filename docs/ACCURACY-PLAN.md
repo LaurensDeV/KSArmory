@@ -2278,7 +2278,30 @@ once, at the instant it decides where the round stops, which is a different case
 **If it holds it is worth about half the remaining miss at this geometry**, which after 3ah is
 23-330 m.
 
-## 3ak. The night: 0.5 does not travel to long range, and the epoch fix is not justified — flown 2026-09-02
+## 3ak. The night, and three things it got wrong — flown 2026-09-02, corrected the same evening
+
+**Read the correction first.** Three of this section's conclusions were withdrawn within hours by the
+investigations in 3al. In order of how badly they mislead:
+
+1. **The range is 6,269 km, not 12,902.** `--aim 26.485S,68.148W` is a **6,269 km** shot — the mod's
+   own log says `aimed at scenario aim point (6241 km downrange)`. The historic 12,902 km nights used
+   `aim none`, the save's own target, which is a **different geometry**. The 5d row said to fly
+   "12,902 km" with that aim and it was wrong; this night therefore compared a 6,269 km result against
+   12,902 km history. **Every range figure below is mislabelled**, and so is 3ag's prediction, which
+   priced the exchange rate at 12,902 km for a shot that flew 6,269.
+2. **`ArrivalPreference = 0.5` may not lose at all.** The verdict below is confounded with timewarp:
+   p50's rockets land later, by which time the harness has asked for 8x, so the arm and the frame
+   length are entangled. At matched frame length p50 reads **0.25x**, not 1.91x — 3al.
+3. **The "1 s vs 26 s" arrival table is the logger describing its own trigger.** The clause is emitted
+   only once the trim demand is already over its ceiling, and only when the two disagree by a whole
+   second. Healthy shots run it on 2 of 3,030 trim lines; shot 006 on 16 of 16. **The rate is the
+   discriminator, not the count**, and everything under the ceiling was invisible.
+
+What survives unqualified: the shot-006 chain (2.35 m/s of trim demand per second of arrival error,
+ceiling crossed at 4.3 s), the seat gradient, and the epoch measurement — whose sign was also wrong,
+see 3al.
+
+## 3ak (as written). The night: 0.5 does not travel, and the epoch fix is not justified
 
 12 paired shots, 96 flights, `base|p50:ArrivalPreference=0.5` at 12,902 km on `SOLVER SCALE 8`,
 `~/shots/2026-09-02-1508`, frame 23.4 ms, 5 correction passes at the median shot. The first night at
@@ -2417,7 +2440,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
 | ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
 | ~~5b~~ | ~~Fly `ArrivalPreference` at 0.5/0.65/0.8~~ | done | **0.5 wins, 0.48x, 29.5 -> 13.5 m; 0.8 is a settled loss** — 3aa |
-| ~~5d~~ | ~~Fly `ArrivalPreference = 0.5` at 12,902 km~~ | done | **1.91x [0.49, 3.79], won 3 of 12, unresolved and pointing the wrong way — 2,000 km's 0.48x does not travel** — 3ak |
+| **5d** | Re-fly `ArrivalPreference = 0.5` **with the descent unwarped**, and label the range correctly: `--aim 26.485S,68.148W` is **6,269 km**, not 12,902 | 12 paired shots | first attempt was confounded by the harness's own 8x: 1.91x pooled, **0.25x at matched frame length** — 3ak, 3al |
 | ~~5c~~ | ~~Price a steep arrival against the **trim's** budget, not the ascent's~~ | done | **refuted: the trim's authority *grows* with the angle, 122 km to 166 km — what ends it is the arc ceasing to exist** — 3ag |
 | **5e** | Re-check the latched arrival floor against the state the burn **leaves** the vehicle in, not the one it is priced from | 0 shots then 12 | 3ag: 0.5 latches 33.5 deg against a wall at 35-40, and 0.8 latches 53.6 — what 5c became |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
