@@ -172,4 +172,46 @@ public class ArrivalPreferenceTests(ITestOutputHelper Out)
             from?.Add(program.ArrivalFloorFromDeg);
         }
     }
+
+    /// <summary>
+    /// <b>A budget of zero is not an angle, and latching a fraction of it kills the preference for
+    /// the flight.</b> <see cref="ArrivalBudget.SteepestAffordableDeg"/> answers 0.0 — finite — when
+    /// no arc at all is affordable from where it is asked, which is the ordinary state of a vehicle
+    /// on the pad with the whole burn still to fly.
+    ///
+    /// <para>Flown 2026-09-02 on <c>SOLVER SCALE 8</c>: three of the four rockets carrying
+    /// <c>ArrivalPreference = 0.5</c> latched <c>a 0.0 deg floor, 50% of the 0.0 deg the tanks could
+    /// afford</c> straight off the pad and arrived at 17.7, 22.2 and 22.3 degrees — whatever the
+    /// unfloored arc gave them. The one that escaped was the only rocket whose pad reach read
+    /// Reachable rather than Unknown.</para>
+    ///
+    /// <para>This fails against a latch guarded on <c>double.IsFinite</c>, which is what it was.</para>
+    /// </summary>
+    [Fact]
+    public void ABudgetOfNothingIsNotLatchedAsAFloorOfNothing()
+    {
+        IcbmProgram program = new(new IcbmConfig { Armed = true, ArrivalPreference = 0.5 });
+
+        // A stack with nothing in the tanks, so the budget's honest answer is "no arc is affordable"
+        // -- the same shape as a vehicle still on the pad with the whole burn ahead of it.
+        IcbmFlightRig rig = new()
+        {
+            Body = Earth,
+            PositionCci = new double3(DeorbitShot.R + 300_000.0, 0, 0),
+            VelocityCci = new double3(0, Math.Sqrt(DeorbitShot.Mu / (DeorbitShot.R + 300_000.0)), 0),
+            Stages = [new() { DryMassKg = 3_000, PropellantKg = 40, ThrustNewtons = 300_000, ExhaustVelocity = 3_100 }],
+        };
+
+        rig.Fly(program, Downrange(DeorbitShot.RangeMetres), 0.02, 600.0);
+
+        Out.WriteLine($"steepest affordable {program.SteepestAffordableArrivalDeg:F1} deg, "
+                      + $"floor {program.ArrivalFloorDeg:F1}");
+
+        Assert.False(program.SteepestAffordableArrivalDeg > 0.0,
+                     "the fixture did not produce an unaffordable shot, so it tests nothing");
+
+        Assert.False(double.IsFinite(program.ArrivalFloorDeg),
+                     $"a budget of {program.SteepestAffordableArrivalDeg:F1} deg latched a floor of "
+                     + $"{program.ArrivalFloorDeg:F1}");
+    }
 }

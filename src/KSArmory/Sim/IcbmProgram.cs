@@ -678,14 +678,20 @@ internal sealed class IcbmProgram
         LatchArrivalFloor();
     }
 
-    // Once, the first time the budget answers. Preference zero leaves the operator's own number
-    // alone, which is what ships; above zero the floor is that fraction of what the tanks can pay
-    // for, and never below what was asked for outright.
+    // Once, the first time the budget answers with an angle. Preference zero leaves the operator's
+    // own number alone, which is what ships; above zero the floor is that fraction of what the tanks
+    // can pay for, and never below what was asked for outright.
+    //
+    // A budget of zero is not an angle. It is ArrivalBudget saying no arc at all is affordable from
+    // here, which is the ordinary state of a vehicle on the pad with the whole burn still to fly --
+    // so latching a fraction of it pins the floor at zero for the flight and the preference never
+    // applies. Flown: three of four rockets latched 0.0 off the pad and arrived wherever the
+    // unfloored arc took them.
     private void LatchArrivalFloor()
     {
         if (double.IsFinite(ArrivalFloorDeg)) return;
 
-        if (!(Config.ArrivalPreference > 0.0) || !double.IsFinite(SteepestAffordableArrivalDeg))
+        if (!(Config.ArrivalPreference > 0.0) || !(SteepestAffordableArrivalDeg > 0.0))
         {
             return;
         }
