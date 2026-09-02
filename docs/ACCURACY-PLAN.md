@@ -1487,6 +1487,80 @@ Calling `SetupModifierRenderData()` does not fix it — `UpdateApproxTerrainAlti
 no public re-run, and the render data is already populated by the time any mod code runs. The fix is
 mod-side: pad the bound by the modifier amplitude budget, or stop using that number.
 
+## 3aa. Half the affordable arrival is the setting; four fifths of it is a resolved loss — flown 2026-09-01
+
+12 shots, 96 flights, `base|p50|p65|p80` at 2,000 km, `~/shots/2026-09-01-2148`. Frame time 22.4 ms,
+5 correction passes at the median shot.
+
+| arm | floor | flew | owed on release | miss median | worst |
+| --- | --- | --- | --- | --- | --- |
+| base | — | 16.9 deg | 2.63 m/s | 29.5 m | 269 m |
+| **p50** | 33.3 | 34.2 | 2.56 | **13.5 m** | 183 m |
+| p65 | 43.3 | 44.4 | 2.60 | 17.0 m | 234 m |
+| p80 | 53.2 | 54.4 | **4.19** | 132 m | **16,883 m** |
+
+| arm | ratio | interval | sign p | rank p | verdict |
+| --- | --- | --- | --- | --- | --- |
+| p50 | **0.48x** | [0.26, 1.12] | 0.146 | **0.021** | **WIN** |
+| p65 | 0.59x | [0.32, 5.60] | 0.388 | 0.850 | unresolved, open |
+| p80 | **5.55x** | [3.51, 70.02] | 0.006 | 0.001 | **LOSS** |
+
+**p50 clears the protocol's bar** — rank p=0.021 against ALPHA 0.0294, ratio below one — and it is
+worth stating that the distribution-free interval still reaches 1.12. At n=12 that interval's
+coverage is discrete and conservative, so it is wider than the exact test; the two are not in
+conflict, but the honest summary is *a win by the stated rule with an interval that admits no
+effect*. A second night at 25 an arm would settle it.
+
+**p80 is a settled loss** and needs no hedging: 1 of 12, both tests, interval entirely above one, and
+a worst shot 309 times the baseline.
+
+### The mechanism is visible, and it is the trim rather than the arc
+
+`owed on release` runs **2.63 / 2.56 / 2.60 / 4.19** m/s. Flat to 44 degrees, then a jump at 54. And
+p80 is the only arm producing the `trim` terminator — **3 of 24 flights, median 14.06 km** — where
+base, p50 and p65 produce none at all.
+
+That is 3y's single failed rocket reproduced at n=24, and it confirms **5c**:
+`ArrivalBudget.SteepestAffordableDeg` prices what the **ascent** can pay for and says nothing about
+what the arrival then costs the **post-boost trim**. The affordable angle is ~66.6 degrees on every
+arm; what actually binds is somewhere between 44 and 54.
+
+**It is only visible because the release summary shipped the day before.** Without it p80 is a
+mysterious 5.55x with no mechanism attached, and the natural next move would have been another night
+at another fraction rather than a look at the trim.
+
+### The terminator table, which says the same thing from the other side
+
+| arm | noimprov | payback | clock | trim |
+| --- | --- | --- | --- | --- |
+| base | 13 | 9 | 2 | 0 |
+| p50 | **24** | 0 | 0 | 0 |
+| p65 | **24** | 0 | 0 | 0 |
+| p80 | 18 | 0 | 3 | **3** |
+
+A steeper arrival moves every flight onto `noimprov` — the loop runs to exhaustion instead of being
+cut off by the payback rule, which is what a smaller miss looks like from inside. p80 breaks that and
+is the only arm that does.
+
+### So the shipped default should be `ArrivalPreference = 0.5`
+
+Not flown as a default yet, and that is the gate: this night compared it against zero **as an arm**,
+which is the same build and the same world. What has not been flown is 0.5 at the long geometry,
+where the arrival is 7 degrees and `cot(gamma)` says the lever is worth far more.
+
+**Do not go past 0.65.** The night rules out 0.8 outright and 0.65 is already bimodal — per-shot
+ratios of 9.61 and 6.82 beside 0.13.
+
+### Two tool faults this night exposed, both fixed
+
+* **The verdict label took `min(sign, rank)` against 0.05**, where the interval beside it is built at
+  `ALPHA = 0.0294`. Two chances at a looser threshold. It now reads the rank test at `ALPHA`, which
+  is what the code's own comment already said to do. No past verdict in `MIRV-NEXT.md` changes sign
+  under it, but an arm at sign 0.04 and rank 0.20 would have read `RESOLVED`.
+* **`what the correction loop left` printed one merged row in paired mode**, keyed on the batch's arm
+  column — which in a paired night is one value for the whole world. It is now keyed on `within`,
+  which is per flight, and split by arm. The table above is that fix's first output.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1527,7 +1601,8 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~3~~ | ~~**Diagnostic**: log the release residual and `_response` per flight~~ | done | `release summary`, read by `shot-report.py`; 3x |
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
 | ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
-| **5b** | Fly `IcbmConfig.ArrivalPreference` at 0.5/0.65/0.8 | flying 2026-09-01-2148 | 2,000 km: **30 -> plausibly 10 m**; the last measured lever. 1.0 is out — it breaks the trim (3y) |
+| ~~5b~~ | ~~Fly `ArrivalPreference` at 0.5/0.65/0.8~~ | done | **0.5 wins, 0.48x, 29.5 -> 13.5 m; 0.8 is a settled loss** — 3aa |
+| **5d** | Fly `ArrivalPreference = 0.5` at **12,902 km**, where the arrival is 7 deg | 12 paired shots | `cot(gamma)` says the lever is worth far more there than at 2,000 km |
 | **5c** | Price a steep arrival against the **trim's** budget, not the ascent's | 0 shots then 12 | 3y: the rocket that could afford the most is the one that failed |
 | **1a** | **Confirm 3z headlessly**: re-run `PredictorStepTests` with `terrainRadiusAt` passed, over rough ground carrying a 300 m wavelength | 0 shots, minutes | settles the whole long-range miss without flying |
 | **1b** | Then gate `ImpactPredictor`'s step on **clearance**, not density | 0 shots then 12 | 12,902 km: **301 m -> ?**; the largest single term left |

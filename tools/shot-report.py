@@ -616,6 +616,40 @@ def _say_regime(shots):
     print()
 
 
+def _say_loop_left(shots, order):
+    """What each arm's correction loop left behind, split by arm.
+
+    The merged table in the main report is keyed on the batch's arm column, which in a paired night
+    is one value for the whole world -- so it prints one row and hides the very split the night was
+    flown for. Here the arm is `within`, which is per flight.
+    """
+    per = defaultdict(lambda: defaultdict(list))
+    for r in shots:
+        if not (r.get("within") and usable(r)):
+            continue
+        for key in ("arc_deg", "floor_deg", "afford_deg", "release_owed", "response"):
+            per[r["within"]][key].extend(r[key])
+
+    if not any(per[name]["arc_deg"] for name in order if name in per):
+        return
+
+    print("   what each arm's correction loop left (medians)")
+    print(f"   {'arm':<14}{'arc deg':>9}{'floor':>8}{'afford':>8}{'owed m/s':>10}"
+          f"{'response':>10}{'flights':>9}")
+    for name in order:
+        if name not in per:
+            continue
+
+        def med(key):
+            got = per[name][key]
+            return statistics.median(got) if got else float("nan")
+
+        print(f"   {name:<14}{med('arc_deg'):>9.1f}{med('floor_deg'):>8.1f}"
+              f"{med('afford_deg'):>8.1f}{med('release_owed'):>10.2f}"
+              f"{med('response'):>10.2f}{len(per[name]['arc_deg']):>9d}")
+    print()
+
+
 def paired(root, shots):
     """Compare the variants flown INSIDE each shot, which is the only comparison this
     instrument currently supports.
@@ -668,6 +702,8 @@ def paired(root, shots):
             print(f"   {name:<14} {len(pooled[name]):>7}   {statistics.median(pooled[name]):>9.2f}")
     print()
 
+    _say_loop_left(shots, order)
+
     for name in order[1:]:
         ratios, wins, losses = [], 0, 0
 
@@ -696,15 +732,17 @@ def paired(root, shots):
         p = _sign_p(wins, losses)
         w = wilcoxon_p(ratios)
 
-        # The rank test is the one to read. The sign test is kept beside it because it assumes less
-        # and because every number in docs/MIRV-NEXT.md before 8af was scored on it.
-        best = min(p, w)
+        # The rank test is the one to read, so read it. The sign test is kept beside it because it
+        # assumes less and because every number in docs/MIRV-NEXT.md before 8af was scored on it --
+        # but taking min(p, w) was two chances at the same threshold, and against 0.05 where the
+        # interval beside it is built at ALPHA. An arm at sign 0.04 and rank 0.20 read as RESOLVED.
+        best = w
 
         print(f"   {name} vs {base}: {math.exp(point):.2f}x"
               f"   [{math.exp(lo):.2f}, {math.exp(hi):.2f}] at {int((1 - ALPHA) * 100)}%")
         print(f"      won {wins} of {len(ratios)} paired shots, "
               f"sign p={p:.3f}, signed-rank p={w:.3f}"
-              + ("   RESOLVED" if best <= 0.05 else "   unresolved"))
+              + ("   RESOLVED" if best <= ALPHA else "   unresolved"))
         print("      per shot: "
               + ", ".join(f"{math.exp(r):.2f}" for r in ratios))
         print()
