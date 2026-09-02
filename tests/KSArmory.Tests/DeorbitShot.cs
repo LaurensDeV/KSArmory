@@ -55,14 +55,58 @@ internal static class DeorbitShot
     /// they are rounded onto.</para>
     /// </summary>
     public static double RoughGround(double3 bodyFixedCci)
+        => R + Quantised(ReliefHeight(Vec.Unit(bodyFixedCci)));
+
+    // The three terms RoughGround has always carried, split out so the eroded variant can add an
+    // octave to them without either surface drifting from the other.
+    private static double ReliefHeight(double3 u)
+        => 800.0 * Math.Sin(u.X * 12.0) * Math.Cos(u.Y * 9.0)
+         + 150.0 * Math.Sin(u.Y * 130.0 + 1.7) * Math.Cos(u.Z * 110.0)
+         +  40.0 * Math.Sin(u.X * 2100.0 + 0.4) * Math.Sin(u.Y * 1900.0 + 2.1);
+
+    private static double Quantised(double height)
+        => Math.Round(height / HeightQuantumMetres) * HeightQuantumMetres;
+
+    /// <summary>
+    /// The shortest wavelength <c>docs/KSA-TERRAIN.md</c> measures erosion running to, near enough.
+    /// </summary>
+    public const double ErosionWavelengthMetres = 300.0;
+
+    /// <summary>Its amplitude, which with the wavelength sets the slope this surface exists to have.</summary>
+    public const double ErosionAmplitudeMetres = 40.0;
+
+    /// <summary>
+    /// <see cref="RoughGround"/> with one erosion octave on it, which is the surface a predictor
+    /// stepping 826 m at a time cannot see.
+    ///
+    /// <para><b>Slope is the point, not height.</b> <c>RoughGround</c>'s three terms are 3,336 km,
+    /// 308 km and 19.1 km across, so together they climb at about 0.018 — seven times shallower
+    /// than a 7 degree arc descends, which makes every crossing monotone and every sample grid fine
+    /// enough. This octave is 40 m over 300 m, a slope of <b>0.84</b> against the arc's 0.125, so
+    /// the clearance is genuinely non-monotone between samples and a coarse step can step over a
+    /// hill. <c>docs/ACCURACY-PLAN.md</c> 3z is the reading.</para>
+    ///
+    /// <para>It varies in <c>u.Y</c> alone because that is the direction a reentry in this file
+    /// travels: a term built on <c>u.X</c> would be crossed at a grazing angle and alias far less.</para>
+    /// </summary>
+    public static double ErodedGround(double3 bodyFixedCci)
+        => ErodedGroundOf(ErosionAmplitudeMetres, ErosionWavelengthMetres)(bodyFixedCci);
+
+    /// <summary>
+    /// <see cref="RoughGround"/> with one octave of stated amplitude and wavelength on it, so a
+    /// sweep can find where a coarse predictor step starts to cost anything.
+    /// </summary>
+    public static Func<double3, double> ErodedGroundOf(double amplitudeMetres,
+                                                       double wavelengthMetres)
     {
-        double3 u = Vec.Unit(bodyFixedCci);
+        double k = 2.0 * Math.PI * R / wavelengthMetres;
 
-        double height = 800.0 * Math.Sin(u.X * 12.0) * Math.Cos(u.Y * 9.0)
-                      + 150.0 * Math.Sin(u.Y * 130.0 + 1.7) * Math.Cos(u.Z * 110.0)
-                      +  40.0 * Math.Sin(u.X * 2100.0 + 0.4) * Math.Sin(u.Y * 1900.0 + 2.1);
+        return bodyFixedCci =>
+        {
+            double3 u = Vec.Unit(bodyFixedCci);
 
-        return R + Math.Round(height / HeightQuantumMetres) * HeightQuantumMetres;
+            return R + Quantised(ReliefHeight(u) + amplitudeMetres * Math.Sin(u.Y * k + 0.9));
+        };
     }
 
     /// <summary>`R16_UNORM` over the 19,561 m range the height field declares.</summary>
@@ -78,6 +122,36 @@ internal static class DeorbitShot
     /// </summary>
     public static double RoughGroundAtSea(double3 bodyFixedCci)
         => R + GroundSurface.Height(RoughGround(bodyFixedCci) - R, seaLevel: 0.0, hasSea: true);
+
+    /// <summary>
+    /// <see cref="RoughGround"/> with <b>KSA's own erosion spectrum</b> on it rather than a single
+    /// invented octave: seven octaves, lacunarity 2, gain 0.5, running 10.6 km down to 166 m of
+    /// wavelength at 500 m down to 7.8 m of amplitude. <c>docs/KSA-TERRAIN.md</c> line 122 is the
+    /// reading, off <c>EarthErosion</c>.
+    ///
+    /// <para>Undamped, so this is the <b>worst case</b>: in the game each octave is further scaled
+    /// by the biome weight, which only ever reduces it.</para>
+    /// </summary>
+    public static double ErodedGroundKsaSpectrum(double3 bodyFixedCci)
+    {
+        double3 u = Vec.Unit(bodyFixedCci);
+
+        double height = ReliefHeight(u);
+
+        // Sampled at direction x 600 x 2^i, so one noise unit is R/(600 x 2^i) of ground -- 10.6 km
+        // at the first octave and 166 m at the seventh. A sine of that wavelength needs 2*pi times
+        // the frequency. Laid along the track alone, at full amplitude, because a product of two
+        // waves would halve it and this is meant to be the worst case.
+        for (int i = 0; i < 7; i++)
+        {
+            double amplitude = 500.0 / Math.Pow(2.0, i);
+            double k = 2.0 * Math.PI * 600.0 * Math.Pow(2.0, i);
+
+            height += amplitude * Math.Sin(u.Y * k + 0.9 * (i + 1));
+        }
+
+        return R + Quantised(height);
+    }
 
     /// <summary>The mean sphere, as the thing a round asks where the ground is.</summary>
     public sealed class Ball : IGroundTest

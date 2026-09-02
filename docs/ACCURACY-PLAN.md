@@ -1378,7 +1378,7 @@ Floors of about 33, 43 and 53 degrees against the affordable 67 — bracketing w
 running out, and reaching past the 40 degrees that is the steepest anything has flown. Flying
 2026-09-01-2148, 12 blocks.
 
-## 3z. The long-range miss is the predictor undersampling the terrain — read out 2026-09-01
+## 3z. The long-range miss is the predictor undersampling the terrain — read out 2026-09-01, **REFUTED headlessly 2026-09-02, see 3ab**
 
 3v established that the walk is the ground and not the range: 157 m of walk and 254 m of miss over
 rough relief against **8 m and 22-75 m** on flat ocean at the same range, same code. What it did not
@@ -1561,6 +1561,95 @@ ratios of 9.61 and 6.82 beside 0.13.
   column — which in a paired night is one value for the whole world. It is now keyed on `within`,
   which is per flight, and split by arm. The table above is that fix's first output.
 
+## 3ab. The predictor does not alias KSA's terrain, and the criterion 3z used was the wrong one — headless 2026-09-02
+
+3z asked for exactly this before anything was changed: *"Confirm it headlessly, before changing
+anything."* Confirmed is not what happened.
+
+`PredictorStepTests` now passes `terrainRadiusAt` — the omission that made the original negative
+blind — and scores the shipped 250 ms step against a 2 ms one **on the same surface**, so what it
+measures is the step rather than the ground.
+
+| surface | shipped step vs a 2 ms one |
+| --- | --- |
+| mean sphere (the old, blind negative) | **0.00 m** |
+| `RoughGround`, the existing fixture | 0.4 m |
+| one octave, 40 m over 300 m — 3z's own suggestion, slope 0.84 | **0.0 m** |
+| **KSA's erosion spectrum, all seven octaves, undamped** | **0.13 m** |
+
+The sampling is exactly what 3z read: **781.9 m** between terrain lookups at the 7 degree arrival
+against a predicted 826, and 9.1 m at the reference step. The fixture is genuinely rough — 94.6 m of
+swing across 3 km of track. Both land on the same point.
+
+### Slope is not the criterion; amplitude against the arc's drop per sample is
+
+3z's argument was that each erosion octave carries a slope up to 0.30 against the arc's `tan 7.1` of
+0.125, so *"terrain can climb 2.4 times faster than the arc descends"*. Swept, slope turns out to
+carry no signal at all:
+
+| octave | slope | cost |
+| --- | --- | --- |
+| 100 m over 800 m | 0.79 | **576.3 m** |
+| 40 m over 300 m | 0.84 | **0.0 m** |
+| 250 m over 1,600 m | 0.98 | 0.3 m |
+| 600 m over 3,200 m | 1.18 | 0.0 m |
+
+Four slopes within 50% of each other spanning nothing to 576 m. **What decides it is whether a
+feature can hide between two samples and still be tall enough to matter**, which needs both:
+
+* **amplitude above the arc's drop across one sample interval** — about 101 m at this arrival, since
+  the arc descends `tan 7 deg` over 782 m; and
+* **wavelength below twice the sample spacing**, about 1.56 km, or the feature is resolved anyway.
+
+A short octave is steep locally and returns to its own mean two or three times within one step, so
+it is never stepped over. That is why 40 m over 300 m — steeper than the case that costs 576 m —
+costs nothing.
+
+### KSA has no octave in that corner, and it is not close
+
+`EarthErosion` is seven octaves, lacunarity 2, gain 0.5, from 10.6 km at 500 m of amplitude down to
+166 m at 7.8 m (`docs/KSA-TERRAIN.md`). Sorting them against the two conditions:
+
+| octave | wavelength | amplitude | under 1.56 km? | over 101 m? |
+| --- | --- | --- | --- | --- |
+| 2 | 2,655 m | 125 m | no | yes |
+| 3 | **1,327 m** | **62.5 m** | yes | **no** |
+| 4 | 664 m | 31.2 m | yes | no |
+| 5 | 332 m | 15.6 m | yes | no |
+
+Every octave short enough to alias is far too small, and the only one tall enough is resolved. 3z
+summed the sub-Nyquist amplitudes to 117 m and compared *that* to the threshold, but they sit at
+four different wavelengths and phases and do not stack into one feature — which is why the spectrum
+tested whole costs 0.13 m rather than the hundreds of metres the sum would suggest.
+
+**The bisection is the reason the mechanism is so hard to trigger**, and 3z did not account for it.
+`ImpactPredictor` does not accept the first sample below ground: it halves the step and retries from
+the *previous* state until the answer is within `CrossingToleranceMetres`, so a coarse step that
+overshoots into a hillside still resolves the first crossing to a quarter of a metre. The only
+unrecoverable case is an arc that clears a peak entirely and comes down beyond it, which is what the
+two conditions above describe.
+
+### So item 1b is dropped, and the long-range miss is unexplained again
+
+Gating the step on clearance would buy **0.13 m** at best and cost about 120 lookups per prediction.
+Not worth building.
+
+What this does not do is explain the 301 m median at 12,902 km, or 3v's finding that rough ground
+costs 157 m of walk against 8 m on flat ocean. **That correlation stands and its mechanism is now
+open** — it is the ground, and it is not the predictor's step through it. The `noimprov` ending 3z
+attributed to an aliased observer needs another explanation too.
+
+The next candidate is the one 3z displaced rather than closed: the *round's* own arrival, not the
+prediction of it. `ProbeGapTests` prices the round's integrator on flat ground; nothing has priced
+it over relief, and unlike the predictor the round has no bisection — `ContactSweep` and the ground
+test run once a frame at about 55 m of ground track, with whatever the frame happened to be.
+
+**Three legs, and all three are load-bearing.** The sphere leg says the rig is sound; KSA's spectrum
+is the finding; and the 100 m over 800 m leg is what stops this being a second blind negative. 3z
+exists because the test before it was established against a surface with nothing to miss, so a null
+here would be worth nothing unless the same rig demonstrably still sees a real effect. It does:
+576.3 m.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1604,8 +1693,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~5b~~ | ~~Fly `ArrivalPreference` at 0.5/0.65/0.8~~ | done | **0.5 wins, 0.48x, 29.5 -> 13.5 m; 0.8 is a settled loss** — 3aa |
 | **5d** | Fly `ArrivalPreference = 0.5` at **12,902 km**, where the arrival is 7 deg | 12 paired shots | `cot(gamma)` says the lever is worth far more there than at 2,000 km |
 | **5c** | Price a steep arrival against the **trim's** budget, not the ascent's | 0 shots then 12 | 3y: the rocket that could afford the most is the one that failed |
-| **1a** | **Confirm 3z headlessly**: re-run `PredictorStepTests` with `terrainRadiusAt` passed, over rough ground carrying a 300 m wavelength | 0 shots, minutes | settles the whole long-range miss without flying |
-| **1b** | Then gate `ImpactPredictor`'s step on **clearance**, not density | 0 shots then 12 | 12,902 km: **301 m -> ?**; the largest single term left |
+| ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
+| ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
+| **1d** | Price the **round's** arrival over relief, as 3ab prices the predictor's. It samples once a frame at ~55 m and has no bisection | 0 shots, hours | 3v's 157 m of walk on rough ground is still unexplained |
 | **1c** | Pad or replace `MaxTerrainHeightApprox` at `KsaWorld.cs:374` | 0 shots | the radar mask's containing sphere is not one (3z) |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
