@@ -1527,14 +1527,40 @@ internal sealed class IcbmComputer
         double3 positionCci = (KsaWorld.PositionEcl(Craft) - parent.GetPositionEcl()).Transform(cce2Cci);
         double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci);
 
+        // The density the PREDICTOR is handed at the bus's own altitude, which is the one number
+        // that separates the two ways this can go wrong. At 500 km it must be nothing: a spuriously
+        // non-zero value here bends the predicted arc down and is exactly what the flown signature
+        // looks like -- arriving sooner and landing shorter, worsening as the path bends further.
+        // If it reads zero through a divergence the fault is not the air and the drag model is
+        // exonerated. docs/ACCURACY-PLAN.md item 15.
+        double density = DensityRatioAt(positionCci);
+
+        // And where the impact is walking to, not just how far. A miss that grows is one number; a
+        // miss that grows because the impact is marching along the track is a different fault from
+        // one that grows because it is sliding across it.
+        string lands = "";
+
+        try
+        {
+            double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
+            lands = $", lands {parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}";
+        }
+        catch
+        {
+            // A frame the engine will not convert says nothing about the flight; the rest of the
+            // line is still worth having.
+        }
+
         Log.Info($"coast probe on {KsaWorld.DisplayName(Craft)}: "
                  + $"{AltitudeMetres / 1000.0:F1} km, {Vec.Len(velocityCci):F1} m/s, "
                  + $"r_dot {Vec.Dot(velocityCci, Vec.Unit(positionCci)):+0.0;-0.0} m/s, "
+                 + $"density {density:E2}, "
                  + $"predicted miss {miss / 1000.0:F2} km"
                  + (double.IsFinite(rate) ? $" moving {rate:+0.0;-0.0} m/s" : "")
                  + $", arrives in {hit.Seconds:F0} s, "
-                 + $"committed {Program.CommittedArrivalFromNow:F0} s, "
-                 + $"release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
+                 + $"committed {Program.CommittedArrivalFromNow:F0} s"
+                 + lands
+                 + $", release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
     }
 
     // The one state the latch cannot get itself out of. The arrival is pinned during the burn and
