@@ -38,16 +38,26 @@ public class ProbeGapTests(ITestOutputHelper Out)
     /// </summary>
     private const double ConvergedStep = 0.00025;
 
-    /// <summary>The two surfaces every number here is quoted on.</summary>
+    /// <summary>
+    /// The surfaces every number here is quoted on.
+    ///
+    /// <para><b>The third one is the realistic one.</b> <see cref="DeorbitShot.RoughGround"/>'s
+    /// shortest term is 19 km across, so it carries height without carrying <em>features</em>;
+    /// `ErodedGroundKsaSpectrum` puts KSA's own seven erosion octaves on it, down to 166 m. The
+    /// predictor is indifferent to the difference — 0.13 m, `PredictorStepTests` — so any column
+    /// that moves between relief and erosion is the round's, which is what
+    /// <c>docs/ACCURACY-PLAN.md</c> 3ab left open.</para>
+    /// </summary>
     private static IEnumerable<(string What, Func<double3, double>? Terrain)> Surfaces =>
     [
         ("mean sphere", null),
         ("with relief", DeorbitShot.RoughGround),
+        ("with KSA erosion", DeorbitShot.ErodedGroundKsaSpectrum),
     ];
 
     /// <summary>The round's own ground test over whichever of those surfaces.</summary>
     private static IGroundTest GroundFor(Func<double3, double>? terrain)
-        => terrain is null ? new DeorbitShot.Ball() : new DeorbitShot.Relief();
+        => terrain is null ? new DeorbitShot.Ball() : new DeorbitShot.Relief { Surface = terrain };
 
     /// <summary>Where the probe says the release state comes down.</summary>
     private static double3 Probe(double3 fromCci, double3 velocityCci, Func<double3, double>? terrain)
@@ -132,6 +142,42 @@ public class ProbeGapTests(ITestOutputHelper Out)
             Out.WriteLine($"  as flown ({DeorbitShot.ScenarioWarp:F0}x coast, "
                           + $"{Medium.FaithfulStepInAir * 1000:F0} ms in air): "
                           + $"{Downrange(probe, warped, along),7:F0} m downrange of the probe");
+        }
+    }
+
+    /// <summary>
+    /// Whether the gap over erosion is a bias or a coin toss, which decides whether it is worth
+    /// correcting at all.
+    ///
+    /// <para>The release is nudged by a few centimetres per second — far below anything guidance
+    /// controls — and the gap re-measured. A term that stays put under that is a bias something
+    /// could remove. One that swings by kilometres is the round and the probe stopping on
+    /// <em>different features</em>, which is chaotic rather than wrong, and the only lever on it is
+    /// making the two read the same surface at the same instant.</para>
+    /// </summary>
+    [Fact]
+    public void WhetherTheGapOverErosionIsABiasOrACoinToss()
+    {
+        ReleaseState(out double3 from, out double3 v);
+        double3 along = AlongTrack(from, v);
+
+        foreach ((string what, Func<double3, double>? terrain) in Surfaces)
+        {
+            List<double> gaps = [];
+
+            for (int i = -3; i <= 3; i++)
+            {
+                double3 nudged = v + along * (i * 0.02);
+
+                (double3 landed, double _) = DeorbitShot.FlyTheRound(
+                    from, nudged, Medium.FaithfulStepInAir, default, GroundFor(terrain));
+
+                gaps.Add(Downrange(Probe(from, nudged, terrain), landed, along));
+            }
+
+            Out.WriteLine($"{what}: gap over +/-6 cm/s of release: "
+                          + $"{gaps.Min():F0} to {gaps.Max():F0} m, "
+                          + $"spread {gaps.Max() - gaps.Min():F0} m");
         }
     }
 

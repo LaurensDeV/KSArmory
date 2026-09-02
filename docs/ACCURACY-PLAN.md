@@ -1650,6 +1650,59 @@ exists because the test before it was established against a surface with nothing
 here would be worth nothing unless the same rig demonstrably still sees a real effect. It does:
 576.3 m.
 
+## 3ac. The round and its own probe disagree by kilometres over erosion, stably — headless 2026-09-02
+
+3ab exonerated the predictor and left 3v's finding — 157 m of walk over rough ground against 8 m on
+flat ocean — without a mechanism. This is the other integrator, measured the same way.
+
+`ProbeGapTests` already flew "with relief"; what it lacked was relief with **features**.
+`RoughGround`'s shortest term is 19 km across, so it carries height and nothing a round can be
+caught out by. `DeorbitShot.ErodedGroundKsaSpectrum` puts KSA's own seven erosion octaves on it and
+is faithful to what the game declares: per-octave slope **0.296** against `KSA-TERRAIN.md`'s "up to
+0.30", amplitudes 500 m down to 7.8 m, wavelengths 10.6 km down to 166 m, 992 m in total against a
+declared 1000.
+
+| surface | the round, against its own probe |
+| --- | --- |
+| mean sphere | −29 m |
+| `RoughGround` | −30 m |
+| **KSA's erosion spectrum** | **−5,143 m** |
+
+### It is not integration, and it is not chaos
+
+**Not integration**: −5,281 m at a 25 ms frame, −5,282 at 50 ms, −5,233 at 130 ms. Flat across a
+fivefold change in step, where an integration error is first order in it.
+
+**Not chaos**: nudging the release by ±6 cm/s — far below anything guidance controls — moves the gap
+by **11 m** on 5,280. So the round and the probe are not stopping on different features at random;
+they disagree the same way every time, which is a bias and therefore in principle removable.
+
+**And not the four terms the file already prices.** Removed one at a time they sum to −215 m; removed
+together they are worth **+2,648 m**, leaving **−2,496 m unaccounted**. On the two smooth surfaces
+the same decomposition closes to within 8 m. Strong non-additivity with a large residual is the
+signature of a term nobody has named, not of the named ones interacting.
+
+### Why this is the shape that matters
+
+`AimCorrection`'s only observer is `ImpactPredictor`. 3ab says the predictor reads terrain correctly
+to a tenth of a metre. So a stable disagreement between where the round stops and where the
+predictor says it stops is **exactly what the loop cannot remove**: it converges the prediction onto
+the target and the round lands the bias away from it.
+
+Third time in this file, after the drag blind spot and the back-dated observer: *a correction loop
+can only remove what its observer can see.*
+
+### What is not established
+
+**The magnitude is a worst case.** These octaves are undamped, and in the game each is scaled by the
+biome weight, a gradient-falloff power and `1 - |dot|` — so real ground is some fraction of this.
+The flown median at 12,902 km is 301 m, not 5 km, and 3v's rough-vs-flat contrast is 157 m against
+8. The mechanism matches the direction and the ordering; the scale factor between this fixture and
+flown ground is unmeasured.
+
+**And the cause is unidentified.** What is established is where it is not: not the predictor, not
+the step size, not the four differences already priced, and not luck.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1695,7 +1748,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **5c** | Price a steep arrival against the **trim's** budget, not the ascent's | 0 shots then 12 | 3y: the rocket that could afford the most is the one that failed |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
-| **1d** | Price the **round's** arrival over relief, as 3ab prices the predictor's. It samples once a frame at ~55 m and has no bisection | 0 shots, hours | 3v's 157 m of walk on rough ground is still unexplained |
+| ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
+| **1e** | **Name the unaccounted term in 3ac.** Bisect the round's stopping rule against the predictor's on one surface, one instant, one state — the four priced differences leave −2,496 m | 0 shots, hours | the loop cannot see this, so it is the whole of what terrain costs |
+| **1f** | Then measure the damping: what fraction of the undamped spectrum flown ground actually carries | 0 shots | 3ac's 5 km is a worst case; this is the multiplier onto it |
 | **1c** | Pad or replace `MaxTerrainHeightApprox` at `KsaWorld.cs:374` | 0 shots | the radar mask's containing sphere is not one (3z) |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
