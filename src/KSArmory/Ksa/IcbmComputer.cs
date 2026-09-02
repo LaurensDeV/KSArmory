@@ -341,6 +341,7 @@ internal sealed class IcbmComputer
     {
         Target = site;
         Program.Reset();
+        _releasedTheArrival = false;
         _reported = IcbmPhase.Idle;
         _aim.Reset();
         _sequence.Reset();
@@ -411,6 +412,7 @@ internal sealed class IcbmComputer
         VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
 
         Program.Reset();
+        _releasedTheArrival = false;
         _trim.Reset();
         _postBoost.Reset();
         _postBoostSaid = false;
@@ -1377,6 +1379,8 @@ internal sealed class IcbmComputer
         //
         // The same call ReleaseImpulseCci() feeds the prediction, so what the sequencer watches for
         // steadiness is the term that actually moves the reading rather than a proxy for it.
+        ReleaseAnArrivalTheTrimCannotFly(trim);
+
         // What this pass is asking for, kept so the next one can be compared against it. Size alone
         // cannot separate a large correction the geometry needs from a loop winding itself up.
         if (double.IsFinite(trim.ToGainMetresPerSecond) && trim.ToGainMetresPerSecond > 0.0)
@@ -1532,6 +1536,46 @@ internal sealed class IcbmComputer
                  + $"committed {Program.CommittedArrivalFromNow:F0} s, "
                  + $"release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
     }
+
+    // The one state the latch cannot get itself out of. The arrival is pinned during the burn and
+    // both branches that unpin it live there, so after cutoff it stands whatever the trajectory
+    // does -- and what the trim is asked for is RequiredVelocity(arrival) - v, worth about 2.35 m/s
+    // per second the arrival is out. BusTrim's ceiling is crossed at 4.3 s, and past it the trim
+    // refuses before its first pulse and the warheads go out untrimmed: flown once in twelve shots,
+    // all eight rockets 75-99 km out on burns nothing was wrong with.
+    //
+    // Asked only of a state that is ALREADY LOST -- the trim over its ceiling, having spent nothing
+    // -- rather than on a threshold of its own. A guard that fires on a number has to be right about
+    // the number; this one fires where the alternative is a certain 90 km, so being wrong about it
+    // costs a re-solve.
+    //
+    // Once. A second release would be the cycle the latch exists to prevent, and IcbmProgram
+    // re-latches nothing after cutoff, so this cannot become a loop.
+    private void ReleaseAnArrivalTheTrimCannotFly(in TrimCommand trim)
+    {
+        if (_releasedTheArrival || !_trim.GaveUp) return;
+        if (_trim.SpentMetresPerSecond > 0.0) return;
+        if (!(trim.ToGainMetresPerSecond > BusTrim.MaxMetresPerSecond)) return;
+
+        double committed = Program.CommittedArrivalFromNow;
+        double flown = PredictedImpact?.Seconds ?? double.NaN;
+
+        if (!double.IsFinite(committed) || !double.IsFinite(flown)) return;
+
+        _releasedTheArrival = true;
+
+        if (!Program.ReleaseArrival()) return;
+
+        _trim.Begin();
+
+        Log.Info($"arrival released on {KsaWorld.DisplayName(Craft)}: the trim was asked for "
+                 + $"{trim.ToGainMetresPerSecond:F1} m/s against a {BusTrim.MaxMetresPerSecond:F0} "
+                 + $"ceiling and had spent nothing, solving to an arrival {committed:F0} s away "
+                 + $"where the flown prediction says {flown:F0}. Giving the arrival up and taking "
+                 + "the cheapest arc again.");
+    }
+
+    private bool _releasedTheArrival;
 
     // Which arrival the trim is solving to, beside when the flown prediction says the warheads
     // actually get there. What the trim nulls is RequiredVelocity(arrival) - v, and that required

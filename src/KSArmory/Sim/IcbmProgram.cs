@@ -539,6 +539,36 @@ internal sealed class IcbmProgram
     public double CommittedArrivalFromNow
         => double.IsFinite(_arrivalFromLaunch) ? _arrivalFromLaunch - _sinceLaunch : double.NaN;
 
+    /// <summary>
+    /// Give up the committed arrival, so the next solve takes the cheapest arc again.
+    ///
+    /// <para><b>For the one state the latch cannot get itself out of.</b> The arrival is pinned
+    /// during the burn and the two branches that can unpin it both live there, so after cutoff it
+    /// stands whatever the trajectory does. What the trim is then asked for is
+    /// <c>RequiredVelocity(arrival) − v</c>, which moves about <b>2.35 m/s for every second the
+    /// arrival is out</b> — so <see cref="BusTrim.MaxMetresPerSecond"/> is crossed at 4.3 s and the
+    /// trim gives up on a bus it could otherwise have flown. Flown once in twelve shots: all eight
+    /// rockets 75-99 km out on clean burns, every trim refusing before its first pulse.</para>
+    ///
+    /// <para><b>Why this does not reintroduce the runaway it was latched against.</b> That failure
+    /// is a loft re-applied to the cheapest arc from the vehicle's current state, which converges on
+    /// the arc it is already flying and walks the answer outward every cycle — measured at 162 km.
+    /// It needs thrust. After cutoff the trajectory is fixed but for the trim's own metre a second,
+    /// so re-solving is idempotent: the answer does not move. The latch's purpose expires exactly
+    /// where the burn does.</para>
+    ///
+    /// <para>The caller decides when, and it should be a state that is already lost rather than a
+    /// threshold — <c>Ksa/IcbmComputer.cs</c> asks only once the trim has refused over its ceiling.
+    /// </para>
+    /// </summary>
+    public bool ReleaseArrival()
+    {
+        if (!double.IsFinite(_arrivalFromLaunch)) return false;
+
+        _arrivalFromLaunch = double.NaN;
+        return true;
+    }
+
     public IcbmProgram(IcbmConfig config) => Config = config;
 
     /// <summary>Back to the pad. The one way a flight can be un-flown.</summary>

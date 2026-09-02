@@ -214,4 +214,41 @@ public class ArrivalPreferenceTests(ITestOutputHelper Out)
                      $"a budget of {program.SteepestAffordableArrivalDeg:F1} deg latched a floor of "
                      + $"{program.ArrivalFloorDeg:F1}");
     }
+
+    /// <summary>
+    /// The committed arrival can be given up after cutoff, which is the one state the latch cannot
+    /// get itself out of.
+    ///
+    /// <para>Both branches that unpin the arrival live in the burn, so past cutoff it stands whatever
+    /// the trajectory does — and what the trim is then asked for is
+    /// <c>RequiredVelocity(arrival) − v</c>, about <b>2.35 m/s per second the arrival is out</b>.
+    /// <see cref="BusTrim.MaxMetresPerSecond"/> is crossed at 4.3 s, and past it the trim refuses
+    /// before its first pulse: flown once in twelve shots, all eight rockets 75-99 km out on burns
+    /// nothing was wrong with — <c>docs/ACCURACY-PLAN.md</c> 3ak.</para>
+    /// </summary>
+    [Fact]
+    public void ACommittedArrivalCanBeGivenUpAfterCutoff()
+    {
+        IcbmProgram program = Fly(new IcbmConfig { Armed = true });
+
+        Assert.True(double.IsFinite(program.CommittedArrivalFromNow),
+                    "the flight committed no arrival, so this tests nothing");
+
+        Assert.True(program.ReleaseArrival(), "the arrival would not release");
+        Assert.False(double.IsFinite(program.CommittedArrivalFromNow),
+                     $"released and still committed to {program.CommittedArrivalFromNow:F0} s");
+    }
+
+    /// <summary>
+    /// And releasing twice is a no-op, so nothing downstream can turn it into the cycle the latch
+    /// exists to prevent.
+    /// </summary>
+    [Fact]
+    public void ReleasingAnArrivalTwiceChangesNothing()
+    {
+        IcbmProgram program = Fly(new IcbmConfig { Armed = true });
+
+        Assert.True(program.ReleaseArrival());
+        Assert.False(program.ReleaseArrival());
+    }
 }
