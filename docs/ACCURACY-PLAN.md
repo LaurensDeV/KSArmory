@@ -1777,6 +1777,76 @@ are anything but uniform — seconds while coasting, 2 ms in air, halving again 
 so the body-fixed un-carry it did was wrong for every point but the last. Whether the probe's own
 path ever passes under the ground before it lands is therefore **unmeasured**, not answered.
 
+## 3ae. The terrain gap has a floor refinement cannot reach, and the fixture is undamped — headless 2026-09-02
+
+3ad left 2,495 m that the four priced differences do not remove. Two more things are now measured
+about it, and together they say to stop spending here until the game is asked a question.
+
+### The predictor is exact, so the round is the one stopping early
+
+Refined to **0.46 m of ground track** — 0.1 ms, against a shortest erosion octave of 166 m — the
+predictor's impact does not move at all:
+
+| its step | ground track per sample | from the shipped 250 ms answer |
+| --- | --- | --- |
+| 50 ms | 232 m | 0.0 m |
+| 2 ms | 9.3 m | 0.1 m |
+| **0.1 ms** | **0.46 m** | **0.0 m** |
+
+It is not missing features at any resolution. So the round is stopping on something the predictor
+correctly clears, and the disagreement is the round's.
+
+### The cheapest round that closes it is 10x the shipped cost, and closes half
+
+| the round's sub-step | ground held for the frame | ground re-sampled per slice |
+| --- | --- | --- |
+| shipped | -5,282 m | -5,280 m |
+| 2.50 ms | -5,267 m | -5,303 m |
+| 1.00 ms | -5,282 m | -5,280 m |
+| **0.50 ms** | -5,271 m | **-2,500 m** |
+| 0.25 ms | -5,263 m | -2,495 m |
+
+Neither lever does anything alone at any setting; together they need a **0.5 ms sub-step**, ten times
+the shipped 5 ms, and they halve the gap rather than closing it. **2.5 km survives every refinement
+tried.**
+
+### Why a floor is the expected shape
+
+The round and its probe land 30 m apart on smooth ground, 14 m apart with a 0.5 ms sub-step. Over
+this terrain a graze is decided by **metres of clearance**, so a divergence of 14 m still flips which
+feature is struck, and the flip is worth kilometres whatever produced the 14 m. Accuracy in either
+integrator does not converge the *pair* fast enough to stop flipping — which is the same conclusion
+3ad reached from the other side, now with the curve behind it.
+
+**So over sufficiently rough ground the miss is bounded below by grazing sensitivity rather than by
+guidance**, and that is a term `KINETIC-FLOOR.md` does not carry.
+
+### And "sufficiently rough" is exactly what is unmeasured
+
+`ErodedGroundKsaSpectrum` is faithful to KSA's declared spectrum and **undamped**. The game scales
+every octave by the biome weight, a gradient-falloff power of the angle between texture and surface
+normals, and `1 - |dot|` of the same pair — and `KSA-TERRAIN.md` says of that product, in as many
+words, **"The product is unmeasured here; only the geometry is"**, adding that it is near zero over
+flat ground.
+
+Against flown evidence the fixture is far too rough: 3v measured 157 m of walk over rough ground and
+8 m on flat ocean, where this fixture gives 5,143 m. Roughly **thirty times** overstated, and the
+relationship is threshold-driven rather than proportional, so it cannot simply be scaled.
+
+**Nothing here justifies a code change yet.** Ten times the sub-step cost for half a gap, on a
+fixture thirty times too rough, is not a trade anything has earned. The gating measurement is the
+damping product, and it needs the game rather than the rig: sample the real height field along a
+flown reentry track and read the amplitude that actually survives below a kilometre of wavelength.
+
+### One stale line this closed
+
+`Sim/IGroundTest.cs` justified holding the ground sphere for a whole frame on the round covering
+"the few metres of ground track a falling round covers in one frame". `Sim/Slug.cs` says, forty
+lines from the call that does it, that "a re-entering round covers a kilometre a frame at ordinary
+speeds and more under warp" — which is why the air is re-read per sub-step and the ground is not.
+Both cannot be true. Corrected, because it closes off exactly this investigation for the next
+reader.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -1825,9 +1895,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
 | ~~1e~~ | ~~Name the unaccounted term in 3ac~~ | done | **neither side misreads: they strike different features, and 30 m of trajectory difference becomes 5 km** — 3ac |
 | ~~1g~~ | ~~Close the round-probe trajectory gap by converging the round~~ | done | **refuted: worth 19 m of 5,282 over erosion, same hill struck** — 3ad |
-| **1h** | **The stopping rules differ in kind.** The round sweeps a step against a *sphere* sized at the frame's start; the predictor tests an endpoint and bisects. Price that difference on one state | 0 shots, hours | the 2,495 m the four priced terms leave, and it does not shrink with the step |
+| ~~1h~~ | ~~Price the stopping rules' difference in kind~~ | done | **the predictor is exact to 0.46 m; the round stops early, and 2.5 km survives every refinement** — 3ae |
+| **1f** | **Measure the damping product against the game.** Sample the real height field along a flown reentry track; read the amplitude surviving below a kilometre of wavelength | needs the game, 1 flight | **gates every row above it** — the fixture is ~30x rougher than flown ground and nothing should be built until this is a number |
 | **1i** | Give `ImpactPredictor.pathCci` a companion list of **times**, then re-ask whether the probe's path passes under the ground | 0 shots | 3ad withdrew that measurement; the un-carry needs real per-point times |
-| **1f** | Then measure the damping: what fraction of the undamped spectrum flown ground actually carries | 0 shots | 3ac's 5 km is a worst case; this is the multiplier onto it |
 | **1c** | Pad or replace `MaxTerrainHeightApprox` at `KsaWorld.cs:374` | 0 shots | the radar mask's containing sphere is not one (3z) |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |

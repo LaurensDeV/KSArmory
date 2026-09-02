@@ -202,18 +202,60 @@ public class ProbeGapTests(ITestOutputHelper Out)
             double3 probe = Probe(from, v, terrain);
             Out.WriteLine($"{what}:");
 
-            foreach (double sub in new[] { 0.0, 0.005, 0.001, 0.0005, ConvergedStep })
-            {
-                DeorbitShot.Refresh refresh = DeorbitShot.Refresh.AsFlown with { StepSeconds = sub };
+            (string Label, DeorbitShot.Refresh Refresh)[] arms =
+            [
+                ("as shipped", DeorbitShot.Refresh.AsFlown),
+                ("converged step", DeorbitShot.Refresh.AsFlown with { StepSeconds = ConvergedStep }),
+                ("ground per slice", DeorbitShot.Refresh.AsFlown with { Ground = true }),
+                ("both", DeorbitShot.Refresh.AsFlown with { Ground = true, StepSeconds = ConvergedStep }),
+            ];
 
+            foreach ((string label, DeorbitShot.Refresh refresh) in arms)
+            {
                 (double3 landed, double _) = DeorbitShot.FlyTheRound(
                     from, v, Medium.FaithfulStepInAir, refresh, GroundFor(terrain));
-
-                string label = sub == 0.0 ? "as shipped" : $"{sub * 1000.0:F2} ms sub-step";
 
                 Out.WriteLine($"  {label,-18} {Downrange(probe, landed, along),9:F0} m from the probe"
                               + $"   (struck terrain at {(terrain?.Invoke(landed) ?? DeorbitShot.R) - DeorbitShot.R,8:F1} m)");
             }
+        }
+    }
+
+    /// <summary>
+    /// The cheapest configuration that closes the terrain gap, as a grid.
+    ///
+    /// <para>3ad found the sub-step and the per-slice ground sample worth nothing on their own and
+    /// 2.8 km together. This is the curve between them: what the round would have to be given to
+    /// stop agreeing with its probe only on smooth ground, and what that costs in sub-steps per
+    /// frame.</para>
+    /// </summary>
+    [Fact]
+    public void TheCheapestRoundThatAgreesWithItsProbeOverTerrain()
+    {
+        ReleaseState(out double3 from, out double3 v);
+        double3 along = AlongTrack(from, v);
+
+        Func<double3, double> terrain = DeorbitShot.ErodedGroundKsaSpectrum;
+        double3 probe = Probe(from, v, terrain);
+
+        Out.WriteLine("sub-step   ground held for the frame   ground re-sampled per slice");
+
+        foreach (double sub in new[] { 0.0, 0.0025, 0.001, 0.0005, ConvergedStep })
+        {
+            double Gap(bool perSlice)
+            {
+                DeorbitShot.Refresh refresh =
+                    DeorbitShot.Refresh.AsFlown with { StepSeconds = sub, Ground = perSlice };
+
+                (double3 landed, double _) = DeorbitShot.FlyTheRound(
+                    from, v, Medium.FaithfulStepInAir, refresh, GroundFor(terrain));
+
+                return Downrange(probe, landed, along);
+            }
+
+            string label = sub == 0.0 ? "shipped" : $"{sub * 1000.0:F2} ms";
+
+            Out.WriteLine($"{label,-10} {Gap(false),20:F0} m {Gap(true),24:F0} m");
         }
     }
 

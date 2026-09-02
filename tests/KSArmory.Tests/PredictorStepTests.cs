@@ -188,6 +188,29 @@ public class PredictorStepTests(ITestOutputHelper Out)
                     + "leg above proves nothing. Fix the rig before trusting either.");
     }
 
+    /// <summary>
+    /// Whether the predictor's answer over erosion survives sampling far finer than any hill.
+    ///
+    /// <para>3ac has the round stopping on a hill the probe runs past. The probe samples finer than
+    /// the round already, so if it is missing terrain it should stop doing so once the step is well
+    /// below the shortest feature. At 0.1 ms this is under half a metre of ground track against a
+    /// 166 m shortest octave.</para>
+    /// </summary>
+    [Fact]
+    public void WhetherTheProbesAnswerOverErosionSurvivesAnyRefinement()
+    {
+        double3 coarse = ImpactAt(0.25, 4_640.0, 7.0, DeorbitShot.ErodedGroundKsaSpectrum);
+
+        foreach (double step in new[] { 0.05, 0.01, 0.002, 0.0005, 0.0001 })
+        {
+            double3 fine = ImpactAt(step, 4_640.0, 7.0, DeorbitShot.ErodedGroundKsaSpectrum);
+
+            Out.WriteLine($"  {step * 1000.0,6:F2} ms ({4_640.0 * step,7:F2} m of ground track): "
+                          + $"{DeorbitShot.GroundMetres(fine, coarse),9:F1} m from the shipped step, "
+                          + $"landing over terrain at {DeorbitShot.ErodedGroundKsaSpectrum(fine) - DeorbitShot.R:F1} m");
+        }
+    }
+
     /// <summary>What the fixture and the sampling actually are, so a null result can be trusted.</summary>
     [Fact]
     public void WhatThePredictorActuallySamples()

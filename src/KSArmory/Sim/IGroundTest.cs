@@ -11,9 +11,15 @@ namespace KSArmory;
 /// per sub-step to mean anything, and a terrain sample is the expensive call here.</para>
 ///
 /// <para>The approximation it buys is that the surface under the round is treated as a sphere of
-/// that radius for the frame. Over the few metres of ground track a falling round covers in one
-/// frame that is exact except across a cliff edge, and a cliff is where the engine's own height
-/// query is discontinuous anyway.</para>
+/// that radius for the frame. For a bomb falling a few metres of ground track in one frame that is
+/// exact except across a cliff edge, and a cliff is where the engine's own height query is
+/// discontinuous anyway.</para>
+///
+/// <para><b>A reentry vehicle is not that round.</b> It covers about a kilometre of ground track per
+/// frame — <see cref="Slug"/> says so where it explains why the air is re-read per sub-step and the
+/// ground is not — so the sphere is sized on terrain a kilometre behind where the round meets it.
+/// Headlessly that is worth nothing on its own and thousands of metres paired with a finer
+/// sub-step; <c>docs/ACCURACY-PLAN.md</c> 3ad and 3ae have the numbers and why neither is shipped.</para>
 ///
 /// <para>Unlike <see cref="IHullTest"/> this takes an absolute position, and it is entitled to:
 /// terrain is a property of the world rather than of a separation between two things, so there is
