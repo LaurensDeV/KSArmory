@@ -12,6 +12,32 @@ reading the table in the morning.
 `docs/MIRV-NEXT.md` is what the shots are *for*; item **-1** there is the record of the session
 this exists because of.
 
+
+## A seat is a hillside, not a draw
+
+**Eight rockets in one world are not eight samples of one distribution.** `AimSpread` puts each
+rocket's aimpoint 12 to 72 km from the group's point in seat order, so each one lands on its own
+piece of ground — and the height its round stops at against that ground is a **fixed bias**, not
+noise. Measured over 12 shots and three hours on 2026-09-02: 44 of 44 traces share their seat's sign
+(p = 5.7e-14), repeatable to **1-2 m**, running −16.7, −7.6, −42.4, +29.3, −110.0, +62.0, +61.3,
++50.0 m across the eight. Worst seat to best is **49x** in median miss.
+
+It is fully mediated — seat to stop-height +0.680, stop-height to miss +0.892, seat to miss
+controlling for stop-height **+0.084, p = 0.586** — and it vanishes at a flat aim, where the
+stopping-height error is 0.0 m in all 56 traces and Friedman's p goes from 1.4e-4 to 0.38.
+
+Two rules follow, and the second is the one that has already cost a night:
+
+* **Never pool seats within one arm.** A median over one arm's flights is a median over whichever
+  hillsides that arm happened to draw. `--paired` survives only because the arm rotates across seats
+  from shot to shot; take that rotation away and the comparison is terrain.
+* **Anything that lands the two arms at different times is a confound**, because the world does not
+  hold still between them. Flown: the harness asks for 8x once the first salvo is away, so one arm's
+  rockets stopped on 18-33 ms frames and the other's on 117-267 ms, which multiplies a seat's own
+  bias by **5.8x**. That is what `docs/ACCURACY-PLAN.md` item 5d measured instead of the setting it
+  was flying.
+
+
 ## The measurement, before anything else
 
 Run-to-run scatter on an identical pick-up, from the only two batches recorded shot by shot

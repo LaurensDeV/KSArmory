@@ -523,6 +523,8 @@ internal sealed class IcbmComputer
                      + " -- it will arrive, less precisely");
         }
 
+        ProbeTheCoast(simStep);
+
         // One line per phase change. Every gate in the program returns quietly, so a flight that
         // goes wrong leaves nothing behind saying which of them it went wrong at - and the panel
         // only shows the state it is in now, not the order it got there.
@@ -1474,6 +1476,61 @@ internal sealed class IcbmComputer
             (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : "")
             + Grew()
             + Arrivals());
+    }
+
+    // How often the coast is written down, in simulated seconds.
+    private const double CoastProbeSeconds = 10.0;
+
+    private double _sinceCoastProbe;
+    private double _coastProbeMiss = double.NaN;
+
+    // The 168 seconds between cutoff and the first release, which is the one window in a flight that
+    // nothing instruments. Shot 006 of 2026-09-02-1508 put all eight rockets 75-99 km out, and the
+    // whole divergence happened in here: healthy through cutoff, healthy for 65 s of coast, then the
+    // predicted impact walks off at 252-342 m/s of simulated time in a straight line. The phase line
+    // fires on change and the warhead trace starts at release, so the ramp was only ever visible as
+    // a DEBUG stream nobody reads.
+    //
+    // Rate as well as position, because the discriminator is what KIND of ramp it is: a constant
+    // drift is the bus's own state moving, a growing one is the prediction diverging from a state
+    // that is not.
+    private void ProbeTheCoast(double simStep)
+    {
+        if (Program.Phase != IcbmPhase.Coast || _salvoAway)
+        {
+            _sinceCoastProbe = 0.0;
+            _coastProbeMiss = double.NaN;
+            return;
+        }
+
+        _sinceCoastProbe += simStep;
+        if (_sinceCoastProbe < CoastProbeSeconds) return;
+
+        double interval = _sinceCoastProbe;
+        _sinceCoastProbe = 0.0;
+
+        if (PredictedImpact is not { } hit) return;
+
+        double miss = PredictedMissMetres;
+        double rate = double.IsFinite(_coastProbeMiss) && interval > 0.0
+                          ? (miss - _coastProbeMiss) / interval
+                          : double.NaN;
+        _coastProbeMiss = miss;
+
+        if (Parent is not { } parent) return;
+
+        doubleQuat cce2Cci = parent.GetCce2Cci();
+        double3 positionCci = (KsaWorld.PositionEcl(Craft) - parent.GetPositionEcl()).Transform(cce2Cci);
+        double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci);
+
+        Log.Info($"coast probe on {KsaWorld.DisplayName(Craft)}: "
+                 + $"{AltitudeMetres / 1000.0:F1} km, {Vec.Len(velocityCci):F1} m/s, "
+                 + $"r_dot {Vec.Dot(velocityCci, Vec.Unit(positionCci)):+0.0;-0.0} m/s, "
+                 + $"predicted miss {miss / 1000.0:F2} km"
+                 + (double.IsFinite(rate) ? $" moving {rate:+0.0;-0.0} m/s" : "")
+                 + $", arrives in {hit.Seconds:F0} s, "
+                 + $"committed {Program.CommittedArrivalFromNow:F0} s, "
+                 + $"release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
     }
 
     // Which arrival the trim is solving to, beside when the flown prediction says the warheads

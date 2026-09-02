@@ -796,4 +796,48 @@ public class ProbeGapTests(ITestOutputHelper Out)
             }
         }
     }
+
+    /// <summary>
+    /// What re-sampling the ground per sub-step is worth, now that the epoch displacement is
+    /// corrected and the round's own within-frame travel is what is left.
+    ///
+    /// <para><c>docs/ACCURACY-PLAN.md</c> item 2 after 3al. The lookup is now paired to the round's
+    /// own epoch, so the sample is no longer a kilometre of the body's motion away — but it is still
+    /// held for a whole frame while the round crosses 6 to 183 m of ground, and the flown residual
+    /// stopping-height error is 0.3 to 40.9 m. This prices closing that.</para>
+    ///
+    /// <para><b>The surfaces bracket rather than model.</b> <c>RoughGround</c> carries 0.3 m
+    /// peak-to-peak below a kilometre and the erosion spectrum 94-111 m, where the flown aimpoints
+    /// carry 15-76 m — so the true answer is between the two columns and nearer the second.</para>
+    /// </summary>
+    [Fact]
+    public void WhatResamplingTheGroundPerSubStepIsWorth()
+    {
+        ReleaseState(out double3 from, out double3 v);
+        double3 along = AlongTrack(from, v);
+
+        foreach ((string what, Func<double3, double>? terrain) in Surfaces)
+        {
+            if (terrain is null) continue;
+
+            double3 probe = Probe(from, v, terrain);
+            Out.WriteLine($"{what}:");
+
+            foreach (double dt in new[] { 0.0222, 0.0333, 0.050 })
+            {
+                (double3 held, double _) =
+                    DeorbitShot.FlyTheRound(from, v, dt, DeorbitShot.Refresh.AsFlown, GroundFor(terrain));
+
+                (double3 perSlice, double _) = DeorbitShot.FlyTheRound(
+                    from, v, dt, new DeorbitShot.Refresh { Ground = true }, GroundFor(terrain));
+
+                double heldM = Downrange(probe, held, along);
+                double sliceM = Downrange(probe, perSlice, along);
+
+                Out.WriteLine($"  {dt * 1000,4:F0} ms frame: held {heldM,8:F0} m,"
+                              + $" per sub-step {sliceM,8:F0} m,"
+                              + $" worth {heldM - sliceM,8:F0} m");
+            }
+        }
+    }
 }
