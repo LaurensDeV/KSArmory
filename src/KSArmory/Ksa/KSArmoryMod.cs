@@ -151,7 +151,7 @@ public sealed class KSArmoryMod
         _motors = new MotorSound(_config);
         _smoke = new MotorSmoke(_config);
         _gunSound = new GunSound(_config);
-        _scenario = new ScenarioRunner(_config);
+        _scenario = new ScenarioRunner(_config, _warp);
         _scenario.Begin(ScenarioRunner.Requested());
         _ui = new Ui(_config, _roster, _heads, _icbms, _warp, _watch, _mover, _bursts);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "

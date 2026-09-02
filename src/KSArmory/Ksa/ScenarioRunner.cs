@@ -88,7 +88,15 @@ internal sealed class ScenarioRunner
     // The world needs a few seconds after load before a craft is flyable and a battery is crewed.
     private const double SettleSeconds = 4.0;
 
-    public ScenarioRunner(Config config) => _config = config;
+    public ScenarioRunner(Config config, WarpPolicy warp)
+    {
+        _config = config;
+        _warp = warp;
+    }
+
+    // The policy has to be told when the harness moves the world, or it reads the mod's own
+    // deliberate request as a competing writer and stands down for the rest of the salvo.
+    private readonly WarpPolicy _warp;
 
     // One flight per rocket, each with its own magazine, group and verdict, and one shared list of
     // which craft are ours so none of them aims at another.
@@ -222,7 +230,15 @@ internal sealed class ScenarioRunner
 
         if (!double.IsNaN(speed) && !speed.Equals(_speedAsked))
         {
-            _speedAsked = KsaWorld.SetSimulationSpeed(speed) ? speed : double.NaN;
+            if (KsaWorld.SetSimulationSpeed(speed))
+            {
+                _speedAsked = speed;
+                _warp.NoteOurOwnRequest(speed);
+            }
+            else
+            {
+                _speedAsked = double.NaN;
+            }
         }
     }
 

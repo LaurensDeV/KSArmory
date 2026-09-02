@@ -199,6 +199,31 @@ internal sealed class WarpPolicy
                                     : $"{currentSpeed:F1}x still overruns; asking for {target:F1}x");
     }
 
+    /// <summary>
+    /// Tell the policy that <em>this mod</em> just set the world speed, so the next cycle reads it
+    /// as where it is starting from rather than as somebody to fight.
+    ///
+    /// <para><b>The yield is for other writers, and the mod became one.</b> It stands the policy
+    /// down after <see cref="OverridesBeforeYielding"/> raises it did not ask for — written for the
+    /// player's control and KSA's auto-warp, which are not arguments the guest should win. A
+    /// deliberate request from inside the mod looks identical from here and is not the same thing.
+    /// </para>
+    ///
+    /// <para>The cost of confusing them is not one frame. <c>_yielded</c> is cleared only by
+    /// <see cref="Release"/>, which needs an empty sky, and a salvo of eight staggered rockets never
+    /// gives it one — so a single spurious yield stands the policy down for the whole flight.
+    /// Measured over 12 shots: 9 yielded, and in every one of them warheads landed on frames of 117
+    /// to 267 ms against 18 to 33 for the 3 that held.</para>
+    /// </summary>
+    public void NoteOurOwnRequest(double speed)
+    {
+        if (!double.IsFinite(speed) || speed <= 0.0) return;
+
+        _requested = speed;
+        _overrides = 0;
+        _settle = SettleSteps;
+    }
+
     // Gives the speed back, if it is still the mod's to give. A player who moved the speed while it
     // was held has overridden the policy, and restoring would undo a deliberate choice.
     private WarpDecision Release(double currentSpeed, string why)
