@@ -2278,6 +2278,104 @@ once, at the instant it decides where the round stops, which is a different case
 **If it holds it is worth about half the remaining miss at this geometry**, which after 3ah is
 23-330 m.
 
+## 3ak. The night: 0.5 does not travel to long range, and the epoch fix is not justified — flown 2026-09-02
+
+12 paired shots, 96 flights, `base|p50:ArrivalPreference=0.5` at 12,902 km on `SOLVER SCALE 8`,
+`~/shots/2026-09-02-1508`, frame 23.4 ms, 5 correction passes at the median shot. The first night at
+this geometry with 3ah's two fixes in, and it carried the 3aj diagnostic for free.
+
+### Item 5d: p50 does not win here, and the point estimate is against it
+
+| arm | flights | median | arc | floor | afforded | owed m/s |
+| --- | --- | --- | --- | --- | --- | --- |
+| base | 48 | **0.19 km** | 17.7 deg | — | — | 2.60 |
+| p50 | 48 | **0.35 km** | 32.0 | 31.9 | 63.8 | 2.63 |
+
+**p50 vs base: 1.91x [0.49, 3.79] at 97%, won 3 of 12, sign p=0.146, signed-rank p=0.151 —
+`unresolved` by the protocol's rule, and pointing the wrong way.** Per shot: 5.62, 0.49, 5.99, 1.40,
+3.79, 1.06, 2.24, 0.35, 3.75, 1.63, 3.60, 0.26.
+
+**So 3aa's 0.48x win at 2,000 km does not travel.** The same setting that halved the miss at the short
+geometry roughly doubles it at the long one, and the interval does not exclude either. That is a
+result about *range*, not about the setting, and it retires the assumption in 5d that the lever should
+be worth more where `cot γ` is larger.
+
+**And it refutes 3ag's prediction outright.** 3ag priced the aim's exchange rate at this range and
+predicted 0.5 would move it *down* — 0.527 to 0.451 m/s per km, authority 114 to 133 km — and
+concluded the night should therefore help. It did not. The exchange-rate reading stands as arithmetic;
+what was wrong was assuming it was the term that decides the miss.
+
+**The terminator table says the same thing from the other side**, and inverts 3aa's reading:
+
+| arm | clock | noimprov | payback | trim |
+| --- | --- | --- | --- | --- |
+| base | 9 | 9 | **26** | 4 |
+| p50 | 5 | **28** | 11 | 4 |
+
+At 2,000 km a steeper arrival moved every flight onto `noimprov` and that was *the shape of a smaller
+miss*. Here p50 does the same thing and lands twice as far out, while base's `payback` — the ending
+3f called a selection effect — is the one attached to the good shots. **`noimprov` is not a proxy for
+accuracy**, and any future arm scored on that table alone would have read this night backwards.
+
+### The seat gradient is still there
+
+rho = +0.23, p = 0.023 across 96 flights, medians by seat 0.393 / 0.019 / 0.190 / 0.066 / 0.932 /
+0.193 / 0.349 / 0.191 km. Smaller than the 175x of section 1 — which was the warp contamination — but
+not zero, and unexplained.
+
+### The arrival latch can drift, and it is worth 90 km
+
+One shot of twelve (006) failed with **all eight** rockets at 75-99 km. The burns were clean — 8 of 8
+at 33 ms, cutoff residuals 0.096-0.530 m/s, arrival angles normal, 6 of 6 warheads released by every
+bus. What separates it is one line:
+
+```
+solving to an arrival 420 s away; the flown prediction says 402 s
+```
+
+| shots | worst arrival disagreement | occurrences |
+| --- | --- | --- |
+| 001-005, 007-012 | **1 s** | 1-2 each |
+| **006** | **26 s** | **16** |
+
+The committed arrival drifted 26 s from the trajectory being flown; the trim was then asked for
+**55-128 m/s** against a per-pass ceiling in the tens, gave up on all eight buses, and the warheads
+went out uncorrected. The `trim` terminator's median is **92.41 km** against 0.15-0.41 for every other
+ending. Perfectly bimodal, world-level, and it hit both arms equally — four flights each — which is
+why the paired instrument still reads. **This is now the largest single item at this geometry** and it
+has no explanation: nothing in that shot's setup differs from the eleven that were fine.
+
+### Item 12: the epoch term is implicated and the fix is NOT justified
+
+The 3aj diagnostic across **95 warheads**:
+
+| | median | range |
+| --- | --- | --- |
+| stop-height error | \|61.3\| m | −1227.3 to +479.1 |
+| epoch term | \|81.0\| m | −607.3 to +640.9 |
+| frame at the stop | — | 18.2 to **266.7** ms |
+| body moved in it | — | 548 to **8,051** m |
+
+* **Magnitudes track**: `rho = +0.519` on `|epoch|` vs `|stop|`, n=95. The epoch displacement predicts
+  how large the stopping-height error is, strongly and with no ambiguity about significance.
+* **The signs do not**: `rho = −0.408` signed, and the median `stop/epoch` ratio is **−0.60**. A
+  straight pass-through — the round holds a radius sampled where the ground is H metres different, so
+  it stops H metres off — predicts **+1**. The data says −0.6.
+
+**So the one-expression back-date is not justified, and this is exactly what the diagnostic was for.**
+Something implicates the epoch displacement in the *size* of the error while the naive correction has
+the wrong sign, so applying it could as easily double the error as remove it — which is what happened
+to the two phase corrections `docs/KSA-FRAME-ORDER.md` section 5 records as flown and lost. Item 12
+stays open, and the next step is to find why the ratio is −0.6 rather than to ship the fix.
+
+**One caveat on the instrument itself**: `radiusAt` is evaluated at the *landing* frame against the
+round's *previous* position, so it is not identically the radius the round held. Whether that accounts
+for the sign is unknown and is the first thing to check.
+
+**And a second reading the diagnostic gave away for free**: frames at the stop run to **266.7 ms** and
+the body moves up to **8 km** within one. That is warp during the terminal descent, and it is not
+what `WarpPolicy` is supposed to allow while rounds are in the air.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -2319,7 +2417,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~4~~ | ~~Measure `dMiss/dV` at both flown geometries~~ | done | **the residual is worth 36 m per m/s, not 884** — 3x |
 | ~~5~~ | ~~Derive `HoldingCostsMetresPerSecond`~~ | done | 2,000 km: **110 -> 30 m**, 0.28x; 3l-3w |
 | ~~5b~~ | ~~Fly `ArrivalPreference` at 0.5/0.65/0.8~~ | done | **0.5 wins, 0.48x, 29.5 -> 13.5 m; 0.8 is a settled loss** — 3aa |
-| **5d** | Fly `ArrivalPreference = 0.5` at **12,902 km**, where the arrival is **12.9 deg** (3af, not the 7 this row used to say). **Ready to run** — the command is below, dry-run clean on 2026-09-02. **Open: which aim.** 26.485S,68.148W is the range but is the ill-conditioned target 7g spent a night on; a flat long-range aim measures the lever cleanly and does not test the case that motivates it | 12 paired shots, ~2.5 h | `cot` is 4.37 not 8.03, so worth about **half** what this row claimed — still the largest flight-shaped item, and 3ag says 0.5 moves the aim rate *down* at this range |
+| ~~5d~~ | ~~Fly `ArrivalPreference = 0.5` at 12,902 km~~ | done | **1.91x [0.49, 3.79], won 3 of 12, unresolved and pointing the wrong way — 2,000 km's 0.48x does not travel** — 3ak |
 | ~~5c~~ | ~~Price a steep arrival against the **trim's** budget, not the ascent's~~ | done | **refuted: the trim's authority *grows* with the angle, 122 km to 166 km — what ends it is the arc ceasing to exist** — 3ag |
 | **5e** | Re-check the latched arrival floor against the state the burn **leaves** the vehicle in, not the one it is priced from | 0 shots then 12 | 3ag: 0.5 latches 33.5 deg against a wall at 35-40, and 0.8 latches 53.6 — what 5c became |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
@@ -2335,7 +2433,8 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
 | **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
 | ~~9~~ | ~~Hand the terminal fraction of the burn to `FlightComputer.Burn`~~ | days | **dropped** — abolishing the residual entirely buys ~9 m at 2,000 km and nothing at 12,902 (3x) |
-| **12** | Read the ground-sample diagnostic off the next flight, then decide the one-expression back-date in `Slug`/`GroundTest` | 0 shots | 3aj: the epoch term is inferred to dominate and the log carries only the sum; worth about half the remaining miss if it holds |
+| **13** | **Why the committed arrival drifts 26 s** — one shot in twelve, all eight rockets, 75-99 km, `trim` median 92.41 km | 0 shots then 12 | 3ak: the largest single item at this geometry, and unexplained |
+| **12** | Why the epoch term's *magnitude* predicts the stop-height error at rho=+0.52 while its *sign* runs at −0.6 rather than +1. **Do not apply the back-date until that is answered** | 0 shots | 3ak: measured over 95 warheads; the naive fix has the wrong sign |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 
