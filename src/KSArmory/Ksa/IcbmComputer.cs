@@ -1544,12 +1544,30 @@ internal sealed class IcbmComputer
         {
             double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
             lands = $", lands {parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}";
+
+            // The miss is an angle between two points and either of them can be what moves. The
+            // aim is built from a latitude and longitude the operator set and never changes, so
+            // reading it back through the same frames has one right answer -- and a readback that
+            // drifts is the conversion rather than the trajectory. Every computer in the world
+            // shares those frames, which is the only thing so far that would explain eight
+            // predictions moving in one frame. docs/ACCURACY-PLAN.md item 17.
+            double3 aimCce = _trueAimCci.Transform(parent.GetCci2Cce());
+            double aimLat = parent.GetLatitudeFromCce(aimCce);
+            double aimLon = parent.GetLongitudeFromCce(aimCce);
+
+            lands += $", aim reads {aimLat:F3},{aimLon:F3}"
+                     + $" (set {Target.LatitudeDeg:F3},{Target.LongitudeDeg:F3})";
         }
         catch
         {
             // A frame the engine will not convert says nothing about the flight; the rest of the
             // line is still worth having.
         }
+
+        // Whether the state being read belongs to this frame. A clock that parts from the engine's
+        // is world-level by construction, and no other reading in this mod would see it.
+        double stateEpoch = KsaWorld.StateEpochSeconds(Craft);
+        double clockGap = double.IsFinite(stateEpoch) ? KsaWorld.SimClockSeconds - stateEpoch : double.NaN;
 
         // Whether anything is perturbing the bus while it waits, and how long the correction has
         // gone without a reading. A coast is an exact function of one state, so a predicted impact
@@ -1578,6 +1596,7 @@ internal sealed class IcbmComputer
                  + $", arrives in {hit.Seconds:F0} s, "
                  + $"committed {Program.CommittedArrivalFromNow:F0} s"
                  + lands
+                 + $", state {clockGap:+0.000;-0.000} s behind"
                  + loop
                  + $", release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
     }

@@ -460,7 +460,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 445 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 448 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -962,7 +962,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 160 types this mod actually uses.
+defining the 161 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -1481,8 +1481,9 @@ one — read `DrawAnchor.cs` before touching it.
 wall-clock, which is wrong twice over: it keeps running while the game is **paused**, so the
 radar accumulates dwell, matures a firing solution and launches into a frozen world; and it
 ignores **timewarp**, so at 10× the world moves ten times further per frame than the rounds do
-and tracking falls apart. Fire control reads `KsaWorld.SimTimeSeconds` differenced by
-`Sim/SimClock.cs` instead, which is `Universe.GetElapsedTime()` plus `Universe.IsPaused()`.
+and tracking falls apart. Fire control reads `KsaWorld.ConsumeSimStep()` instead — the span between step
+boundaries, classified by `Sim/SimClock.cs`, which is `Universe.GetLastSimStep()` plus
+`Universe.IsPaused()`.
 
 `SimClock` classifies steps it cannot integrate. `Interceptor` subdivides internally but clamps
 at 64 sub-steps, so beyond `Interceptor.MaxFaithfulStep` (0.32 s) a round at 700 m/s starts

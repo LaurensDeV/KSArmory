@@ -65,6 +65,23 @@ internal static class KsaWorld
     /// </summary>
     public static double SimStepSeconds => Universe.GetLastSimStep().DeltaTime;
 
+    /// <summary>
+    /// The simulated clock, as an absolute number of seconds.
+    ///
+    /// <para>Nothing integrates against this — <see cref="ConsumeSimStep"/> is the clock the mod
+    /// runs on, because a span is what can be integrated and an absolute universe time is far too
+    /// large to subtract as a double. This is for comparing epochs, where the question is which
+    /// instant a reading belongs to rather than how far anything moved.</para>
+    /// </summary>
+    public static double SimClockSeconds
+    {
+        get
+        {
+            try { return Universe.GetElapsedTime().Seconds(); }
+            catch { return double.NaN; }
+        }
+    }
+
     // Pure, and in Sim/ so it can be tested. See StepGate.
     private static readonly StepGate<UniverseTime> _stepGate = new();
 
@@ -181,7 +198,7 @@ internal static class KsaWorld
     /// value set here holds until something else changes it.</para>
     ///
     /// <para>Everything this mod does is already keyed to simulated time, so a slow world needs
-    /// no special handling: <see cref="SimTimeSeconds"/> simply advances slowly and the battery,
+    /// no special handling: the step simply comes back smaller and the battery,
     /// the drives and the rounds all scale with it.</para>
     /// </summary>
     /// <returns>False if the value was not finite or not positive; the speed is left alone.</returns>
@@ -230,6 +247,21 @@ internal static class KsaWorld
             try { return PhysicsBubble._forceOffRails; }
             catch { return false; }
         }
+    }
+
+    /// <summary>
+    /// The instant the engine's own state for this vehicle belongs to, in seconds.
+    ///
+    /// <para>Compared against <see cref="SimClockSeconds"/> it says whether the state being read is
+    /// the frame's or an older one. A world-level disturbance that moved every prediction at once
+    /// would show here as the two clocks parting, and nothing else this mod reads would notice.</para>
+    /// </summary>
+    public static double StateEpochSeconds(Vehicle? v)
+    {
+        if (!IsAlive(v)) return double.NaN;
+
+        try { return v!.Orbit.StateVectors.StateTime.Seconds(); }
+        catch { return double.NaN; }
     }
 
     /// <summary>

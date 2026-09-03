@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-160 types and 445 members across 7 assemblies.
+161 types and 448 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -645,6 +645,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double get_Apoapsis()`
 - `double get_Eccentricity()`
 - `double get_Periapsis()`
+- `ref KSA.StateVectors get_StateVectors()`
 
 ### KSA.OrbitController
 
@@ -856,6 +857,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `void .ctor(Brutal.Numerics.double3, Brutal.Numerics.double3, double)`
 
+### KSA.StateVectors
+
+- `KSA.UniverseTime StateTime`
+
 ### KSA.StructuralLoad
 
 - `double MaxGLoad`
@@ -905,6 +910,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
 - `KSA.FlightComputer get_FlightComputer()`
 - `KSA.IParentBody get_Parent()`
+- `KSA.Orbit get_Orbit()`
 - `KSA.Part get_ControlPart()`
 - `KSA.PartTree get_Parts()`
 - `KSA.Situation get_Situation()`
