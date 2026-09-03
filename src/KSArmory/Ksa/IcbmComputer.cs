@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Brutal.Numerics;
 using KSA;
 
@@ -101,6 +102,7 @@ internal sealed class IcbmComputer
     private double _owedAtSplit = double.NaN;
     private Vehicle? _separatedFrom;
     private readonly List<Vehicle> _wasBeforeSplit = [];
+    private readonly List<ShedCandidate> _shedCandidates = [];
     private readonly List<Vehicle> _afterSplit = [];
 
     // Everything this vehicle has shed, and the census that finds it. Same difference-of-worlds
@@ -1106,28 +1108,28 @@ internal sealed class IcbmComputer
         _afterSplit.Clear();
         KsaWorld.CollectVehicles(_afterSplit);
 
-        Vehicle? found = null;
-        double nearest = double.PositiveInfinity;
+        _shedCandidates.Clear();
 
         for (int i = 0; i < _afterSplit.Count; i++)
         {
             Vehicle other = _afterSplit[i];
             if (ReferenceEquals(other, Craft) || _wasBeforeSplit.Contains(other)) continue;
 
-            // Nearest of them, because a decoupler firing elsewhere in the world the same frame
-            // would otherwise be adopted as this vehicle's own spent stack.
             double3 between = KsaWorld.PositionEcl(other) - KsaWorld.PositionEcl(Craft);
             if (!Vec.IsFinite(between)) continue;
 
-            double apart = Vec.Len(between);
-            if (apart >= nearest) continue;
+            _shedCandidates.Add(new ShedCandidate(i, Vec.Len(between)));
+        }
 
-            nearest = apart;
-            found = other;
+        ShedChoice choice = ShedStage.Choose(CollectionsMarshal.AsSpan(_shedCandidates));
+
+        if (choice.Verdict != ShedVerdict.Take)
+        {
+            Log.Info($"split on {KsaWorld.DisplayName(Craft)}: no stack adopted -- {choice.Why}");
         }
 
         _wasBeforeSplit.Clear();
-        return found;
+        return choice.Verdict == ShedVerdict.Take ? _afterSplit[choice.Index] : null;
     }
 
     // The world half of SeparationClearance: how far apart the two actually are. Both positions
@@ -1549,6 +1551,16 @@ internal sealed class IcbmComputer
             // line is still worth having.
         }
 
+        // Whether anything is perturbing the bus while it waits, and how long the correction has
+        // gone without a reading. A coast is an exact function of one state, so a predicted impact
+        // that walks means that state is moving -- and the arc amplifies along track by ~91.5 km
+        // per m/s, so a perturbation far too small to see as a speed is tens of kilometres of
+        // impact. The rationing is the other half: one reading taken 975 s after the last is a
+        // full-size correction nothing has verified. docs/ACCURACY-PLAN.md item 17.
+        string loop = $", trim {(TrimIsFiring ? "firing" : _trim.Done ? "done" : "idle")}"
+                      + $", {_sinceObserve:F0} s since the aim last read"
+                      + (_measureDue ? ", reading due" : "");
+
         Log.Info($"coast probe on {KsaWorld.DisplayName(Craft)}: "
                  + $"{AltitudeMetres / 1000.0:F1} km, {Vec.Len(velocityCci):F1} m/s, "
                  + $"r_dot {Vec.Dot(velocityCci, Vec.Unit(positionCci)):+0.0;-0.0} m/s, "
@@ -1558,6 +1570,7 @@ internal sealed class IcbmComputer
                  + $", arrives in {hit.Seconds:F0} s, "
                  + $"committed {Program.CommittedArrivalFromNow:F0} s"
                  + lands
+                 + loop
                  + $", release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
     }
 

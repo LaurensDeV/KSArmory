@@ -320,6 +320,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/HoldingCost.cs` | what a second of holding the warheads costs, measured off the arc rather than typed — **the floor under the miss**, and it runs from 0.82 m/s at 500 km to 21.79 at 12,900, so no constant is right |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
 | `Sim/PostCutoffSequence.cs` | what the loop after cutoff does next — **the decision that dominates where the warheads land**, since a correction that finishes lands at 140 m and every other ending at 5–45 km |
+| `Sim/ShedStage.cs` | which of the vehicles that just appeared is the half this stack let go of — **bounded and refusable**, because a world of several rockets stages together and adopting a foreign stage makes the clearance read kilometres and pass at once |
 | `Sim/SeparationClearance.cs` | whether what let go has got far enough away to manoeuvre — **the shove is the separation**, so nulling it ends it |
 | `Sim/ProximityWatch.cs` | how near the bus ever came to the stage it dropped — **the minimum over the whole coast**, which no sample at the end recovers and no gate at the start sees |
 | `Sim/ReleasePointing.cs` | which way a launcher must hold for one tube to throw along the line the others did |
