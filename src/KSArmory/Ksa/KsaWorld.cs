@@ -197,6 +197,42 @@ internal static class KsaWorld
     public static bool IsAlive(Vehicle? v) => v is { IsDisposed: false };
 
     /// <summary>
+    /// Whether the engine is propagating this vehicle analytically rather than integrating it.
+    ///
+    /// <para>The distinction is the whole accuracy question for a coast. On rails the state is an
+    /// exact Kepler conic evaluated at the frame's time and the step size cannot matter; off rails
+    /// it is velocity-Verlet, whose truncation grows with the step — and the step is scaled by an
+    /// engine speed governor the nominal warp figure does not show.</para>
+    ///
+    /// <para>Unknown rather than false when it cannot be read: a vehicle the engine will not answer
+    /// for says nothing about which way it is being flown, and reading that as "integrated" would
+    /// invent the very transition this is here to detect.</para>
+    /// </summary>
+    public static bool? OnRails(Vehicle? v)
+    {
+        if (!IsAlive(v)) return null;
+
+        try { return v!.Situation.IsOnRails(); }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Whether the engine has been told to integrate <em>every</em> vehicle in the world.
+    ///
+    /// <para>A public static the game writes from one debug checkbox and reads every sub-step. It
+    /// is the only switch in the engine that changes how all vehicles are propagated at one
+    /// instant, so it is worth knowing rather than assuming.</para>
+    /// </summary>
+    public static bool ForcedOffRails
+    {
+        get
+        {
+            try { return PhysicsBubble._forceOffRails; }
+            catch { return false; }
+        }
+    }
+
+    /// <summary>
     /// Appends every vehicle the game currently has loaded into <paramref name="into"/>.
     ///
     /// Reads <c>Universe.CurrentSystem.All</c> rather than <c>Program.VehiclesInFrame</c>.

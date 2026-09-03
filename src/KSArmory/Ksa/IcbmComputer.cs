@@ -1557,7 +1557,15 @@ internal sealed class IcbmComputer
         // per m/s, so a perturbation far too small to see as a speed is tens of kilometres of
         // impact. The rationing is the other half: one reading taken 975 s after the last is a
         // full-size correction nothing has verified. docs/ACCURACY-PLAN.md item 17.
-        string loop = $", trim {(TrimIsFiring ? "firing" : _trim.Done ? "done" : "idle")}"
+        // On rails the engine propagates this vehicle as an exact conic and the step cannot matter;
+        // off rails it integrates, and the truncation scales with a step the nominal warp figure
+        // does not show. A prediction that starts walking on a coast is either that transition or
+        // the governor behind it, and neither is visible anywhere else. docs/ACCURACY-PLAN.md 17.
+        bool? rails = KsaWorld.OnRails(Craft);
+
+        string loop = $", {(rails is null ? "rails unknown" : rails.Value ? "on rails" : "off rails")}"
+                      + (KsaWorld.ForcedOffRails ? " (forced)" : "")
+                      + $", trim {(TrimIsFiring ? "firing" : _trim.Done ? "done" : "idle")}"
                       + $", {_sinceObserve:F0} s since the aim last read"
                       + (_measureDue ? ", reading due" : "");
 

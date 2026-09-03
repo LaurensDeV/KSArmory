@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-159 types and 444 members across 7 assemblies.
+160 types and 445 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -724,6 +724,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool IsValid()`
 - `double GetAtmosphericDensityAtAltitude(double)`
 - `double GetAtmosphericPressure(KSA.Camera)`
+
+### KSA.PhysicsBubble
+
+- `bool _forceOffRails`
 
 ### KSA.PlumeTrailEmitterState
 
