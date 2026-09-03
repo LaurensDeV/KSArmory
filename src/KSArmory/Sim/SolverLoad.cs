@@ -75,6 +75,7 @@ internal sealed class SolverLoad
         string said = $"solver load: {vehicles} vehicle(s), {rate:F2}x real time "
                       + $"({_sim:F1} s of world in {_wall:F1} s); tick {Median(t):F3} ms median, "
                       + $"{Percentile(t, 1.0):F3} ms worst; engine says {Median(f):F3} "
+                      + $"median {Percentile(f, 0.0):F3} lowest, {Slowed(f)} frame(s) held "
                       + $"over {_frames} frames";
 
         _fractions.Clear();
@@ -84,6 +85,17 @@ internal sealed class SolverLoad
         _frames = 0;
 
         return said;
+    }
+
+    // How many frames the engine ran the world slower than asked. The median cannot see this: KSA
+    // drops its speed fraction in one frame when the vehicle solver overruns and recovers it by a
+    // tenth per frame, so a real hold is tens of frames in a window of hundreds. That is why the
+    // fraction is summarised by its lowest value and a count where the tick times beside it are not.
+    private static int Slowed(double[] sorted)
+    {
+        int n = 0;
+        for (int i = 0; i < sorted.Length && sorted[i] < 0.999; i++) n++;
+        return n;
     }
 
     private static double Median(double[] sorted) => Percentile(sorted, 0.5);
