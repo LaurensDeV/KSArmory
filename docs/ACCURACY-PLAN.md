@@ -2693,6 +2693,77 @@ effect at less power. The seat gradient stayed dead: **rho=-0.07, p=0.517**, sea
 Endings: `clock` 12 at 0.02 km, `noimprov` 23 at 0.03, `payback` 21 at 0.04, **`trim` 24 at 90.95**.
 The terminator is still the entire difference between this weapon and a reliable one.
 
+## 3ao. The split census was adopting other rockets' stages — found 2026-09-03, unflown
+
+Item 18 was ranked as an instrument fault: a per-craft trace could not be trusted across a
+separation, which blocked reading item 17. It is not an instrument fault. It is a live one.
+
+### What it was
+
+`WhatWasDropped` finds the shed stage **by difference** — the world is counted when this computer
+asks for separation, counted again when the engine reports it done, and anything new in between is a
+candidate. The window is not one frame; it is however long the decouple takes through the engine's
+input buffer. A world flying eight rockets on one profile stages them within moments of each other,
+so that window catches *their* stages too.
+
+The tie-break was nearest-of-them at **any distance**, and the night's logs show what that adopts:
+
+```
+GeoSat FAT 2: taking the spent stage GeoSat FAT 3_1_1 out of the world at 20 km
+GeoSat FAT 2: taking the spent stage GeoSat FAT 4_1_1 out of the world at 40 km
+```
+
+KSA names a split product by appending `_N` to its parent's Id, so those are demonstrably rocket 3's
+and rocket 4's stages, adopted and destroyed by rocket 2's computer.
+
+**What it costs is the separation gate.** `_separatedFrom` is what `Clear()` measures, so a computer
+holding a foreign stage reads tens of kilometres of separation, `SeparationClearance` passes at once,
+and the trim is authorised while this vehicle's own stack is still alongside — the exact failure
+`docs/MIRV-NEXT.md` 8y and 8z rank as the accuracy.
+
+### The fix, and why it is shaped like `PlatformHandover`
+
+A decoupler parts two halves at about a metre a second, so a stack dropped a few frames ago is metres
+away and nothing else in the world is. `Sim/ShedStage.cs` bounds the candidate at 10 km and
+**refuses when more than one is inside it**, rather than taking the nearer — which is the rule
+`PlatformHandover` already draws for a part, for the same reason and in almost the same words.
+Refusing costs a clearance that reads unknown and falls back to its clock; choosing wrong reports a
+stack that is already clear.
+
+`ShedStageTests` fails on 3 of 6 against the old census — the two adoption distances and the
+ambiguous pair — and passes on the three that are invariants either way.
+
+**Unflown.** Nothing here has been in the air, and the connection to the `trim` terminator is a
+hypothesis rather than a finding.
+
+### What 17 already narrows to
+
+The single aim-loop line the diverging bus emitted carries its own interval:
+
+```
+bias 3.1 -> 94.1 km, 95.71 km out, best 95.79, 4 plant reading(s)
+departure vel 7322.8427 m/s over 974.83 s
+```
+
+**974.83 seconds since the previous reading.** The correction is rationed after the burn — one
+observation between the aim moving and the trim having flown the new arc would read its own unspent
+correction as error — and on this coast the ration came due once, at the end. So a full-size 91 km
+bias was applied off a single unverified reading, which is also why `best` equals the current miss.
+
+The other half is why the prediction walked 50 km during a coast at all. On a coast it is an exact
+function of one state, and the arc amplifies **91.5 km per m/s along track** — so the whole walk is
+about 0.55 m/s of along-track velocity over ~170 s. The coast probe now reports whether the trim is
+firing and how long since the correction last read, which is what separates a bus being perturbed
+from a predictor drifting on its own.
+
+### And the frame question from 3an is closed as no fault
+
+3an flagged that a predicted impact sat ~31 km from the nominal aim while reporting a 3.9 km miss.
+`AimSpread` is the whole of it: `SpacingInLethalRadii = 6.0` puts the eight aim points ~12 km apart
+along a line spanning ~84 km, and the traced rocket was aimed at `-26.556,-68.496` rather than at the
+nominal `-26.485,-68.148`. Its prediction landed `-26.561,-68.462` — 3.4 km away, against the 3.90 km
+reported. The `lands` column is in the frame it claims.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -2755,8 +2826,8 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~2b'~~ | ~~Re-sample the ground per sub-step in the terminal phase~~ | done | **refuted headlessly: 0-2 m on smooth ground, and chaotic rather than convergent on rough (−2,781 m at 22 ms, −7 at 33, −2 at 50). Re-sampling changes which feature the round stops on; it does not converge** |
 | ~~15~~ | ~~Log what `DensityRatioAt` returns through the coast~~ | done | **refuted: 0 of 2,009 samples non-zero through 52 divergences — the air and the drag model are cleared** — 3an |
 | **17** | **Why the aim bias walks to 94 km.** The `trim` terminator is the aim being driven, not the latch and not the air: bias 3.1 -> 94.1 km, trim owed ~124 m/s, 0.00 spent, and `best` tracking the runaway so the revert-to-best cannot fire | 0 shots then 12 | 3an: 24 of 80 flights, 90.95 km median, against 0.02-0.04 for every other ending — the whole difference between a 30 m weapon and an unreliable one |
-| **18** | **Make a craft's identity survive a split in the logs.** `GeoSat FAT` disposes `GeoSat FAT 4_1`, which by the suffix rule is rocket 4's — so one of the two readings is wrong and a per-craft trace across a separation follows an unknown rocket | 0 shots | 3an: blocks 17, because the single-cycle jump and the 100 s walk are logged on differently-named craft and may be one fault or two |
-| **16** | Make each headless fixture state its own arrival geometry, so `ArrivalPreference = 0.5` can ship as the default it has earned | 0 shots | 3am: eight tests encode constants at the geometry they inherit |
+| ~~18~~ | ~~Make a craft's identity survive a split in the logs~~ | done | **not an instrument fault: computers were adopting each other's spent stages at 20-40 km, which makes the separation gate read kilometres and pass at once. Bounded and refusable now — unflown** — 3ao |
+| ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
