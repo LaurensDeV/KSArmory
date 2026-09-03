@@ -2837,6 +2837,60 @@ mod currently records.
 prediction at once, and the next step is to find what is common to eight computers at one instant —
 the parent body's sample, the epoch, or something in the engine the mod does not log.
 
+## 3aq. Three hypotheses flown and none survives, but the coast premise is wrong — 2026-09-03
+
+Three subagents read the decompiled corpus for anything that could move every vehicle's prediction
+at one instant. They produced three candidates and excluded a great deal; a solver-load ladder then
+flew 2 blocks each at 8, 16 and 32 rockets to test them.
+
+### What the ladder settled
+
+**H3, `PhysicsBubble._forceOffRails`, is refuted.** A `public static bool` read every sub-step whose
+only writer in the whole game is a debug checkbox. The coast probe now reads it: `(forced)` appears
+**zero** times in 9,466 probes. It has never been set.
+
+**H1, the engine's speed governor, is real and is not the cause.** `Universe._achievedSpeedFraction`
+scales the world's step and snaps down in one frame when the vehicle solver overruns. Measured for
+the first time, and it is strongly dose-dependent:
+
+| vehicles | frames the world ran slower than asked |
+| --- | --- |
+| 10-19 | 1.22% |
+| 30-39 | 3.57% |
+| 50-59 | **55.88%** |
+| 60-69 | **65.16%** |
+
+Lowest fraction seen 0.260. **But the failure does not track it.** At 8 rockets, with the governor
+holding 1.22% of frames, both worlds threw the ~90 km event; at 32 rockets, with it holding 65% of
+frames, the trim endings missed by **4.96 km**. More governing does not produce the failure.
+
+**H2, an off-rails integration error scaling with the step, is not supported either.** Off rails is
+necessary but nowhere near sufficient — **65 of 65** divergent flights went off rails, and so did
+**124 of 126** healthy ones. And its central prediction fails on the sign: over 24 worlds, the ones
+that threw the event averaged **1.64x** achieved warp against **1.97x** for those that did not, and
+the two worst ran slowest of all. A step-scaling error should be worse at high warp. It is not.
+
+### What the ladder did establish, and it is a design fault regardless
+
+**A coast IS being integrated, and this file said it was not.** `PhysicsBubble.cs:1085` puts a
+vehicle off rails whenever `AnyActuatorCommanded` or `AnyActuatorActive`. The mod drives attitude
+through the whole coast to hold the line the warheads leave along — so it commands actuators, so the
+bus leaves exact Kepler propagation and is integrated with velocity Verlet at whatever step the warp
+gives it. Measured: **17-20% of all coast probes report off rails.**
+
+`CLAUDE.md` justifies not holding timewarp during the coast on the premise that "a coast is not
+being integrated by anything". That premise is false, and it is false *because of something the mod
+itself does*. Whether it is the cause of the terminator is unproven — the warp correlation above
+argues against it — but the premise cannot stand as written.
+
+### Method note
+
+Two markers were tried and both contaminated a correlation before the third worked: "worst coast
+miss > 40 km" flags every world, because a warhead entering atmosphere legitimately predicts a large
+miss; and a bare `GAVE UP` count conflates the ~90 km event at 8 rockets with a benign trim ending at
+32, where the same terminator fires on a 4.96 km miss. **The terminator's name is not the failure.**
+Any future scoring has to require the ending *and* the magnitude.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
