@@ -2595,6 +2595,104 @@ encode measured constants at the geometry they currently get — `ArrivalDebtTes
 kilometre among them. Re-recording those under the same names would file different facts. **Each
 fixture should state the geometry it means rather than inherit it**, and the default waits on that.
 
+## 3an. The air is exonerated, and the terminator is the aim being driven — flown 2026-09-03
+
+Ten paired blocks at 26.485S,68.148W on the instrumented build, to point item 15's density probe at
+the `trim` terminator. 80 flights, 150 of them carrying a coast trace.
+
+### The answer to item 15 is no, and it is worth as much as a yes
+
+| | samples above 300 km | non-zero | max density |
+| --- | --- | --- | --- |
+| healthy flights | 4,172 | **0** | 0.00E+00 |
+| divergent flights | 2,009 | **0** | 0.00E+00 |
+
+**`DensityRatioAt` returns exactly zero through every one of the 52 divergences.** The hypothesis was
+that `KsaWorld.MediumDensityRatioAt` was taking one of its five `return 1.0` failure paths and handing
+the predictor sea-level air at half a megametre, which bends the predicted arc down and reads as
+arriving sooner and landing shorter — the flown signature exactly. It is not happening. The drag model
+and the atmosphere lookup are both cleared, and **item 15 is closed by refutation.**
+
+The control is as tight as it could be: on healthy flights the reading is 3.0E-9 at 157 km and a hard
+zero from 209 km up, *including at 501.5 and 504.5 km* — the precise band the onset sits in. There is
+no altitude at which healthy and divergent flights read differently, because neither reads anything.
+
+### What the terminator actually is
+
+The onset is sharp and the flights are **accurate before it**: median miss over the 52 divergent
+flights, at the last sample before the break, is **0.06 km**. These are sixty-metre shots that become
+ninety-kilometre ones.
+
+| onset altitude | flights |
+| --- | --- |
+| 25-50 km | 5 |
+| 475-550 km | 35 |
+| 800-900 km | 12 |
+
+One flight's coast, which is the shape of all of them:
+
+| altitude | predicted miss | rate | impact latitude | arrives - committed |
+| --- | --- | --- | --- | --- |
+| 509.8 km | 3.90 km | -0.1 m/s | -26.556 | 3 s |
+| 516.1 km | 5.54 km | **+163.7 m/s** | -26.533 | 2 s |
+| 532.5 km | 15.51 km | +340.3 m/s | -26.430 | 0 s |
+| 564.9 km | 50.07 km | +305.4 m/s | -26.111 | 8 s |
+
+Three things follow, and the third is the item.
+
+**The arrival latch is not it either.** `arrives - committed` runs 0-8 s across the whole divergence,
+against the 26 s that 3ak measured and ranked as item 13. Whatever that shot was, it is not what these
+52 are.
+
+**The impact walks rather than scattering.** Monotonic in latitude, 0.45 degrees over the divergence,
+at a near-constant ~300 m/s of miss per second. A quantity moving at a constant rate is being *driven*,
+not diverging. That column exists because a scalar miss cannot tell a march from a scatter, and this is
+the measurement it was added for.
+
+**The aim is what is being driven, and the trim then refuses to pay.** At release:
+
+```
+aim loop:        95.71 km out, best 95.79, response 1.00, bias 3.1 -> 94.1 km, worse for 0
+release summary: trim owed 123.88 m/s at the split and 122.03 m/s on release
+                 (0.00 m/s spent, GAVE UP), arriving at 31.8 deg
+```
+
+The bias is at **94.1 km** against the 3.1 it held all coast, the resulting trim demand is **~124 m/s**
+— an order of magnitude past a bus's authority — and the trim spends **nothing** and gives up, so the
+warheads leave on the walked aim. That is the `trim` terminator, and its 90.95 km median is the walked
+bias arriving.
+
+`best 95.79` against `95.71 out` is the part that says this is a fault rather than a large correction:
+the loop believes 95 km is the best reading it has ever taken, on a flight that was at 0.06 km minutes
+earlier. **`AimCorrection`'s keep-the-best-and-revert safety cannot fire, because what it is holding is
+already the runaway.** Either the best was reset under it, or the observation moved so far that the
+earlier reading is no longer comparable.
+
+### Two things this night could not settle, both named rather than guessed
+
+**The single cycle.** The bus emitted exactly **one** aim-loop line in the whole night, already showing
+`3.1 -> 94.1`. So the bias arrives at 94 km in one cycle, where the coast probe shows the predicted
+impact walking over ~100 s. Those are different shapes and they are logged on differently-named craft,
+so whether they are one fault or two is **not established**.
+
+**The names collide across a split, and that is load-bearing for every per-craft diagnostic.** The
+rockets are `GeoSat FAT`, `GeoSat FAT 2` ... `GeoSat FAT 8`; split products appear as `GeoSat FAT_1`,
+`GeoSat FAT 2_1` and so on. But the disposal line reads `GeoSat FAT: taking the spent stage
+GeoSat FAT 4_1 out of the world at 59.8 km` — rocket 1's computer naming a stage that by the suffix
+rule belongs to rocket 4. One of the two readings is wrong, and until it is known which, **a per-craft
+trace across a separation cannot be trusted to follow one rocket.** Nothing in the mod keys on the
+display name, so this is an instrument fault rather than a flight one — which is exactly why it has to
+be fixed before the next night rather than after.
+
+### The night's other numbers
+
+`ArrivalPreference = 0.5` read **0.66x [0.38, 1.05], 7 of 10, signed-rank p=0.084** — unresolved at ten
+blocks, and consistent with 3am's resolved 0.69x at twelve. Nothing here revises 3am; it is the same
+effect at less power. The seat gradient stayed dead: **rho=-0.07, p=0.517**, seat medians 0.021-0.215 km.
+
+Endings: `clock` 12 at 0.02 km, `noimprov` 23 at 0.03, `payback` 21 at 0.04, **`trim` 24 at 90.95**.
+The terminator is still the entire difference between this weapon and a reliable one.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -2652,10 +2750,12 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
 | **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
 | ~~9~~ | ~~Hand the terminal fraction of the burn to `FlightComputer.Burn`~~ | days | **dropped** — abolishing the residual entirely buys ~9 m at 2,000 km and nothing at 12,902 (3x) |
-| **13** | **Why the committed arrival drifts 26 s** — one shot in twelve, all eight rockets, 75-99 km, `trim` median 92.41 km | 0 shots then 12 | 3ak: the largest single item at this geometry, and unexplained |
+| **13** | **Why the committed arrival drifts 26 s** — one shot in twelve, all eight rockets, 75-99 km, `trim` median 92.41 km | 0 shots then 12 | 3ak: the largest single item at this geometry, and unexplained — **but 3an bounds the drift to 0-8 s across all 52 divergences, so it is not what the `trim` terminator is; see 17** |
 | ~~12~~ | ~~Why the epoch sign runs at −0.6~~ | done | **the diagnostic had the sign backwards; the fix was justified and is applied** — 3al |
 | ~~2b'~~ | ~~Re-sample the ground per sub-step in the terminal phase~~ | done | **refuted headlessly: 0-2 m on smooth ground, and chaotic rather than convergent on rough (−2,781 m at 22 ms, −7 at 33, −2 at 50). Re-sampling changes which feature the round stops on; it does not converge** |
-| **15** | **Log what `DensityRatioAt` returns through the coast.** The drift's onset is sharp at ~505 km climbing and the prediction says sooner-and-shorter, which is what a spurious density at altitude would do | 0 shots | 3am: the last large item, 94 km, one world in twelve |
+| ~~15~~ | ~~Log what `DensityRatioAt` returns through the coast~~ | done | **refuted: 0 of 2,009 samples non-zero through 52 divergences — the air and the drag model are cleared** — 3an |
+| **17** | **Why the aim bias walks to 94 km.** The `trim` terminator is the aim being driven, not the latch and not the air: bias 3.1 -> 94.1 km, trim owed ~124 m/s, 0.00 spent, and `best` tracking the runaway so the revert-to-best cannot fire | 0 shots then 12 | 3an: 24 of 80 flights, 90.95 km median, against 0.02-0.04 for every other ending — the whole difference between a 30 m weapon and an unreliable one |
+| **18** | **Make a craft's identity survive a split in the logs.** `GeoSat FAT` disposes `GeoSat FAT 4_1`, which by the suffix rule is rocket 4's — so one of the two readings is wrong and a per-craft trace across a separation follows an unknown rocket | 0 shots | 3an: blocks 17, because the single-cycle jump and the 100 s walk are logged on differently-named craft and may be one fault or two |
 | **16** | Make each headless fixture state its own arrival geometry, so `ArrivalPreference = 0.5` can ship as the default it has earned | 0 shots | 3am: eight tests encode constants at the geometry they inherit |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |

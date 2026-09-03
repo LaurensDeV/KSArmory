@@ -1527,12 +1527,10 @@ internal sealed class IcbmComputer
         double3 positionCci = (KsaWorld.PositionEcl(Craft) - parent.GetPositionEcl()).Transform(cce2Cci);
         double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci);
 
-        // The density the PREDICTOR is handed at the bus's own altitude, which is the one number
-        // that separates the two ways this can go wrong. At 500 km it must be nothing: a spuriously
-        // non-zero value here bends the predicted arc down and is exactly what the flown signature
-        // looks like -- arriving sooner and landing shorter, worsening as the path bends further.
-        // If it reads zero through a divergence the fault is not the air and the drag model is
-        // exonerated. docs/ACCURACY-PLAN.md item 15.
+        // Zero above ~209 km, measured over 6,181 samples with no exception -- so this column is a
+        // guard rather than a reading. Every failure path in KsaWorld.MediumDensityRatioAt returns
+        // sea-level air, which here would bend the predicted arc down and land it short; nothing
+        // else in the flight would say so. docs/ACCURACY-PLAN.md 3an.
         double density = DensityRatioAt(positionCci);
 
         // And where the impact is walking to, not just how far. A miss that grows is one number; a
