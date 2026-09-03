@@ -122,7 +122,7 @@ public class ArrivalFloorFlightTests(ITestOutputHelper Out)
         Loop loop = new(rig, off, ground);
         rig.AimLoop = loop;
 
-        IcbmProgram program = new(new IcbmConfig { Armed = true, MinArrivalAngleDeg = floorDeg });
+        IcbmProgram program = new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = floorDeg });
         double3 aim = Downrange(metres);
 
         return new Shot(rig.Fly(program, aim, 0.02, 12_000.0), program, loop, aim, ground);

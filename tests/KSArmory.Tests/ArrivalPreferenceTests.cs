@@ -38,11 +38,11 @@ public class ArrivalPreferenceTests(ITestOutputHelper Out)
         return program;
     }
 
-    /// <summary>Zero leaves the operator's own number alone, which is what ships.</summary>
+    /// <summary>Zero leaves the operator's own number alone.</summary>
     [Fact]
     public void APreferenceOfZeroLeavesTheAskedForFloorAlone()
     {
-        IcbmProgram program = Fly(new IcbmConfig { Armed = true, MinArrivalAngleDeg = 12.0 });
+        IcbmProgram program = Fly(new IcbmConfig { Armed = true, ArrivalPreference = 0.0, MinArrivalAngleDeg = 12.0 });
 
         Assert.False(double.IsFinite(program.ArrivalFloorDeg));
     }

@@ -80,7 +80,7 @@ public class CutoffResidualTests(ITestOutputHelper Out)
     /// </summary>
     private const double ShallowArrival = 0.0;
 
-    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, MinArrivalAngleDeg = ShallowArrival });
+    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = ShallowArrival });
 
     [Fact]
     public void TheBurnStopsWithLittleLeftToGain()

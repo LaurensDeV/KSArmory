@@ -90,18 +90,16 @@ internal sealed class IcbmConfig
     /// already established the stack can pay for, so the floor moves with the propellant rather than
     /// against it.</para>
     ///
-    /// <para><b>What blocks the default is the fixtures.</b> Setting it here changes the arrival
-    /// angle every headless test flies, and eight of them encode measured constants at the geometry
-    /// they currently get — <c>ArrivalDebtTests</c>'s 2.48 m/s per kilometre among them. Re-recording
-    /// those under the same names would be filing different facts. Each fixture should state the
-    /// geometry it means rather than inherit it, and that is the work this default waits on.</para>
+    /// <para>Shipped at 0.5. The fixtures that encode measured constants state their own geometry
+    /// through <c>FixtureGeometry.ArrivalPreference</c> rather than inheriting this, so what ships
+    /// can move without re-filing their numbers under the same names.</para>
     ///
     /// <para>Latched once per flight rather than followed. The affordable angle moves as the stack
     /// lightens, and a bound that walks re-opens the search against a different limit every
     /// cycle — <c>docs/ARRIVAL-ANGLE.md</c>'s reason for refusing <see cref="Loft"/> as an arrival
     /// control.</para>
     /// </summary>
-    public double ArrivalPreference;
+    public double ArrivalPreference = 0.5;
 
     /// <summary>
     /// Whether the aim carries the bias the flown prediction asks for.

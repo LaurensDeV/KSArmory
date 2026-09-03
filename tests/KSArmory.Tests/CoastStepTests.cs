@@ -47,7 +47,7 @@ public class CoastStepTests(ITestOutputHelper Out)
             CoastStepSeconds = coastStep,
         };
 
-        IcbmProgram program = new(new IcbmConfig { Armed = true });
+        IcbmProgram program = new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference });
         double3 aim = Downrange(shotMetres);
         IcbmFlightRig.Flight flight = rig.Fly(program, aim, 0.02, 6_000.0);
 

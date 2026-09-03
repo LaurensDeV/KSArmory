@@ -66,7 +66,7 @@ public class AimConvergenceTests(ITestOutputHelper Out)
     /// </summary>
     private const double ShallowArrival = 0.0;
 
-    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, MinArrivalAngleDeg = ShallowArrival });
+    private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = ShallowArrival });
 
     /// <summary>What one correction cycle was told and what it had done about it.</summary>
     private readonly record struct Cycle(
