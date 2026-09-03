@@ -2764,6 +2764,79 @@ along a line spanning ~84 km, and the traced rocket was aimed at `-26.556,-68.49
 nominal `-26.485,-68.148`. Its prediction landed `-26.561,-68.462` — 3.4 km away, against the 3.90 km
 reported. The `lands` column is in the frame it claims.
 
+## 3ap. The terminator is a world-level event, and three of 3ao's claims were wrong — flown 2026-09-03
+
+Ten paired blocks, `base|p0:ArrivalPreference=0.0`, on the census change and the new probe columns.
+The pairing is inverted because 0.5 is now the default; the arm *composition* is identical to 3an's
+night — 40 rockets at 0.0 and 40 at 0.5, both times — so the two nights are a controlled before and
+after on everything except the code.
+
+### The default is confirmed, decisively, from the other side
+
+**0 wins of 10, sign p=0.002, signed-rank p=0.002 — RESOLVED.** Per-shot ratios 1.02 to 7.61, every
+one above 1. Asking for a shallower arrival than the tanks can afford is worse at every block, which
+is 3am's result approached from the opposite direction and is the strongest arrival-angle reading
+this project has.
+
+### What 3ao got wrong
+
+**One. The fix was inert.** `WhatWasDropped` was bounded; the clearance measured **2 m** on both
+nights, median and max, 160 splits each. `_separatedFrom` was already correct, because the census is
+only consulted when the earlier capture is dead. Zero refusals fired.
+
+**Two. The disposal lines are a different census.** The 20 and 40 km adoptions quoted in 3ao come
+from `CollectShedStages`, which adds **every** new vehicle to `_shed` with no distance test at all —
+not from `WhatWasDropped`. Far adoptions were 1,632 before and 1,662 after: unchanged, as they must
+be. That census is still unbounded, and it is worse than 3ao described: rocket 1's computer was
+observed trying to dispose **rockets 3's and 5's buses** at 39.9 and 79.9 km, twice each, six minutes
+before those buses released their warheads. The destroy did not take — all 80 flights produced
+endings — but nothing in the design prevented it.
+
+`StageDisposal.ClearOfTheCraftMetres` states the safety argument for its one-kilometre margin as
+"the census identifies a stage as new in the world **and nearest to the craft**". That is true of
+`WhatWasDropped` and false of `CollectShedStages`, which is the census that actually feeds disposal.
+
+**Three. The unit is the world, not the flight.** 3an reported "24 of 80 flights, 30%". The
+terminator is all-or-nothing per world — 16 `GAVE UP` lines or zero, never between:
+
+| night | worlds affected |
+| --- | --- |
+| 3an's | **3 of 10** (001, 004, 007) |
+| this one | **1 of 10** (005) |
+
+So the apparent 24 -> 8 improvement is **3 worlds against 1, p about 0.58** — noise, and consistent
+with the original "one shot in twelve". Treating rockets in one world as independent overstated both
+the rate and the significance. Nothing here is evidence that the census change helped, and the
+inertness above says it could not have.
+
+### What the night did establish, and it reframes 17 completely
+
+Every rocket in an affected world diverges **at the same instant**, at unrelated altitudes:
+
+| time | craft | altitude | miss rate |
+| --- | --- | --- | --- |
+| 10:34:20.321 | GeoSat FAT 4 | 802.6 km | +147.0 m/s |
+| 10:34:20.342 | GeoSat FAT 2 | 803.7 km | +145.9 m/s |
+| 10:34:20.867 | GeoSat FAT | 480.9 km | +29.4 m/s |
+| 10:34:20.867 | GeoSat FAT 7 | 481.7 km | +281.1 m/s |
+
+All eight inside 0.55 s, four sharing one frame, across two altitude groups 320 km apart. **The
+onset-altitude clustering in 3an was an artefact of pooling across worlds** — there is no altitude
+threshold, and the ~505 km figure that motivated item 15's density hypothesis was never a real
+feature.
+
+The aim biases are stable at 3.7/3.7/1.7/3.8/3.8/4.0/1.6/3.8 km across the break and stay stable; the
+**predicted misses** are what start moving, together, at 10:34:19.75. So the prediction moves first
+and the aim loop follows it — the loop is still doing its job on a bad observation.
+
+No warp change, no overrun and no frame spike is logged at that instant: the world had been held at
+5.4x since 10:33:40 and the next change is at 10:36:20. Whatever is shared is **not** anything the
+mod currently records.
+
+**So 17 is not a per-rocket guidance fault.** It is one world-level disturbance that moves every
+prediction at once, and the next step is to find what is common to eight computers at one instant —
+the parent body's sample, the epoch, or something in the engine the mod does not log.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -2826,7 +2899,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~2b'~~ | ~~Re-sample the ground per sub-step in the terminal phase~~ | done | **refuted headlessly: 0-2 m on smooth ground, and chaotic rather than convergent on rough (−2,781 m at 22 ms, −7 at 33, −2 at 50). Re-sampling changes which feature the round stops on; it does not converge** |
 | ~~15~~ | ~~Log what `DensityRatioAt` returns through the coast~~ | done | **refuted: 0 of 2,009 samples non-zero through 52 divergences — the air and the drag model are cleared** — 3an |
 | **17** | **Why the aim bias walks to 94 km.** The `trim` terminator is the aim being driven, not the latch and not the air: bias 3.1 -> 94.1 km, trim owed ~124 m/s, 0.00 spent, and `best` tracking the runaway so the revert-to-best cannot fire | 0 shots then 12 | 3an: 24 of 80 flights, 90.95 km median, against 0.02-0.04 for every other ending — the whole difference between a 30 m weapon and an unreliable one |
-| ~~18~~ | ~~Make a craft's identity survive a split in the logs~~ | done | **not an instrument fault: computers were adopting each other's spent stages at 20-40 km, which makes the separation gate read kilometres and pass at once. Bounded and refusable now — unflown** — 3ao |
+| **18** | **Bound `CollectShedStages`.** It adds every new vehicle to `_shed` with no distance test, so a computer tries to dispose other rockets' **buses** — observed at 39.9 and 79.9 km, six minutes before those buses released. `WhatWasDropped` is bounded now and was inert; this is the census that matters | 0 shots | 3ap |
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
