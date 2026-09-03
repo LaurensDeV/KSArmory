@@ -103,6 +103,9 @@ internal sealed class IcbmComputer
     private Vehicle? _separatedFrom;
     private readonly List<Vehicle> _wasBeforeSplit = [];
     private readonly List<ShedCandidate> _shedCandidates = [];
+    private double3 _coastProbePosCci = double3.Zero;
+    private double3 _coastProbeVelCci = double3.Zero;
+    private bool _coastProbeHasState;
     private readonly List<Vehicle> _afterSplit = [];
 
     // Everything this vehicle has shed, and the census that finds it. Same difference-of-worlds
@@ -1506,6 +1509,7 @@ internal sealed class IcbmComputer
         {
             _sinceCoastProbe = 0.0;
             _coastProbeMiss = double.NaN;
+            _coastProbeHasState = false;
             return;
         }
 
@@ -1564,6 +1568,25 @@ internal sealed class IcbmComputer
             // line is still worth having.
         }
 
+        // What the coast is doing that gravity does not account for. A ballistic coast is an exact
+        // function of one state, so propagating the previous probe's state forward under gravity
+        // alone and differencing gives the non-gravitational part directly -- and that is the only
+        // way to see it, because the arc amplifies along track by ~91.5 km per m/s, so the whole
+        // 50 km walk is about half a metre a second and is invisible in a printed speed.
+        double pushMps = double.NaN;
+
+        if (_coastProbeHasState
+            && Kepler.TryCoast(KsaWorld.BodyMu(parent), _coastProbePosCci, _coastProbeVelCci, interval,
+                               out _, out double3 coastedVelCci))
+        {
+            double3 slip = velocityCci - coastedVelCci;
+            if (Vec.IsFinite(slip)) pushMps = Vec.Len(slip);
+        }
+
+        _coastProbePosCci = positionCci;
+        _coastProbeVelCci = velocityCci;
+        _coastProbeHasState = true;
+
         // Whether the state being read belongs to this frame. A clock that parts from the engine's
         // is world-level by construction, and no other reading in this mod would see it.
         double stateEpoch = KsaWorld.StateEpochSeconds(Craft);
@@ -1597,6 +1620,7 @@ internal sealed class IcbmComputer
                  + $"committed {Program.CommittedArrivalFromNow:F0} s"
                  + lands
                  + $", state {clockGap:+0.000;-0.000} s behind"
+                 + (double.IsFinite(pushMps) ? $", off-gravity {pushMps:F4} m/s" : "")
                  + loop
                  + $", release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
     }
