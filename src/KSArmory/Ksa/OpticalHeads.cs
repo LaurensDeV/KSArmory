@@ -105,6 +105,12 @@ internal sealed class OpticalHeads(Config config)
             Vehicle v = craft[i];
             if (!KsaWorld.IsAlive(v)) continue;
 
+            // A pod that is the whole craft has nothing to look out from. A breakup can leave one
+            // lying on the ground as a vehicle in its own right, which the editor would never have
+            // allowed anyone to build -- see KsaWorld.PartRides. A hull with a director on it is
+            // still an observation post, because a hull is not a store.
+            if (!KsaWorld.HasPlatform(v)) continue;
+
             OpticParts.FindAll(v, _scratch);
 
             for (int ordinal = 0; ordinal < _scratch.Count; ordinal++)

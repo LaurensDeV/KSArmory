@@ -25,6 +25,10 @@ public class WeaponSurveyTests
     private static SurveyedPart At(string id, double x, double y, double z)
         => new(id, new double3(x, y, z), doubleQuat.Identity);
 
+    // A part that attaches to the side of something and so cannot be a craft on its own.
+    private static SurveyedPart Store(string id)
+        => new(id, double3.Zero, doubleQuat.Identity, Rides: true);
+
     [Fact]
     public void ACraftWithNothingRecognisedIsNotAWeaponSystem()
     {
@@ -203,5 +207,99 @@ public class WeaponSurveyTests
             Assert.Equal(role is WeaponRole.Launcher or WeaponRole.Gun or WeaponRole.FireControl,
                          inv.IsWeaponSystem);
         }
+    }
+
+    // ---- A store is not a craft ------------------------------------------
+
+    /// <summary>
+    /// The case a breakup produces and the editor forbids: a targeting pod or a missile rail as a
+    /// vehicle in its own right, lying on the ground with nothing under it. It carries a part this
+    /// mod recognises and it is not an installation, because there is nothing for it to ride on.
+    /// </summary>
+    [Fact]
+    public void AStoreThatIsTheWholeCraftIsNotAnInstallation()
+    {
+        WeaponInventory inv = WeaponSurvey.Survey([Store("KSArmory_Radar")], Registry);
+
+        Assert.False(inv.HasPlatform);
+        Assert.False(inv.IsInstallation);
+        Assert.False(inv.IsWeaponSystem);
+
+        // Still found. The survey reports what is there; whether it amounts to a craft is a
+        // separate question, and a caller that wants the parts still gets them.
+        Assert.Single(inv.Components);
+    }
+
+    [Fact]
+    public void ALauncherThatIsTheWholeCraftIsNotAWeaponSystem()
+    {
+        WeaponInventory inv = WeaponSurvey.Survey([Store("KSArmory_Tube")], Registry);
+
+        Assert.False(inv.IsWeaponSystem);
+    }
+
+    /// <summary>
+    /// The case that must keep working, and the reason this is not simply a part count: a hull with
+    /// one director on it is an observation post. The hull is not a store, so there is a platform.
+    /// </summary>
+    [Fact]
+    public void AHullCarryingOneStoreIsStillAnInstallation()
+    {
+        WeaponInventory inv = WeaponSurvey.Survey(
+            [At("SomebodyElses_Hull", 0, 0, 0), Store("KSArmory_Radar")], Registry);
+
+        Assert.True(inv.HasPlatform);
+        Assert.True(inv.IsInstallation);
+    }
+
+    [Fact]
+    public void AHullCarryingARailIsAWeaponSystem()
+    {
+        WeaponInventory inv = WeaponSurvey.Survey(
+            [At("SomebodyElses_Booster", 0, 0, 0), Store("KSArmory_Tube")], Registry);
+
+        Assert.True(inv.IsWeaponSystem);
+    }
+
+    /// <summary>
+    /// A part nobody asked about is a platform. Most of a craft is parts this mod does not
+    /// recognise, and reading an unknown one as a store would make every craft disappear.
+    /// </summary>
+    [Fact]
+    public void AnUnrecognisedPartIsAPlatform()
+    {
+        WeaponInventory inv = WeaponSurvey.Survey([At("SomebodyElses_Tank", 0, 0, 0)], Registry);
+
+        Assert.True(inv.HasPlatform);
+
+        // Nothing of this mod's on it, so it is not an installation -- for the other reason.
+        Assert.False(inv.IsInstallation);
+    }
+
+    /// <summary>
+    /// A prefab that stacks is the craft. The Pantsir and the CIWS sit on a node rather than on a
+    /// hull's flank, so one of them alone is a working weapons system and always was.
+    /// </summary>
+    [Fact]
+    public void APrefabThatStacksIsACraftOnItsOwn()
+    {
+        WeaponInventory inv = WeaponSurvey.Survey([At("KSArmory_Tube", 0, 0, 0)], Registry);
+
+        Assert.True(inv.HasPlatform);
+        Assert.True(inv.IsWeaponSystem);
+    }
+
+    /// <summary>
+    /// Two stores and nothing else is still wreckage. A rail and a pod that broke off together
+    /// have each other and no hull.
+    /// </summary>
+    [Fact]
+    public void SeveralStoresWithNoHullAreStillNotACraft()
+    {
+        WeaponInventory inv = WeaponSurvey.Survey(
+            [Store("KSArmory_Tube"), Store("KSArmory_Radar")], Registry);
+
+        Assert.False(inv.HasPlatform);
+        Assert.False(inv.IsInstallation);
     }
 }

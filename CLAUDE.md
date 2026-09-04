@@ -463,7 +463,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 456 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 459 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -749,6 +749,18 @@ else does.
 connector; `ToSurface` is the opt-in for radial. So the CIWS sits on top of any 3 m tank, decoupler
 or adapter, and has one connector because nothing stacks on a gun.
 
+**And the mod applies that same rule to a craft a breakup produced.** Isolating a failed part
+splits the vehicle at every severable connection, so a targeting pod or a missile rail ends up as a
+vehicle in its own right, lying on the ground, rooted on a part whose connectors say it can only
+ride — the exact craft the editor refuses to let anybody build. `KsaWorld.PartRides` asks the game
+rather than recording the answer here, reading the same `ToSurface`/`FromSurface` flags
+`IsAllowedAsRootPart` rejects, and `WeaponInventory.HasPlatform` is false when *every* part rides.
+Such a craft is not an installation, is not a weapons system, gets no optical head, and is not a
+craft a launcher may be followed onto. **A hull with one director on it is still an observation
+post**, because a hull is not a store — which is why this is a question about what the parts are and
+not a part count. An unreadable or unrecognised part is a platform, because the cost of guessing
+wrong that way is a craft the mod stops recognising.
+
 **A part that surface-attaches cannot start a craft.** `IsAllowedAsRootPart` rejects a part if
 *any* of its connectors is `ToSurface` or `FromSurface`, whatever tags it carries — so the choice
 is one or the other, and it is why the Pantsir and the CIWS stack while the rail, the rack and the
@@ -994,7 +1006,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 164 types this mod actually uses.
+defining the 166 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —

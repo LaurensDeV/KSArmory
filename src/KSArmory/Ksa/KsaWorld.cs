@@ -2578,6 +2578,77 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Whether a craft has anything for a store to ride on.
+    ///
+    /// <para>The cheap form of <see cref="WeaponInventory.HasPlatform"/>, for the callers that walk
+    /// every craft every frame and would otherwise survey each one to ask a question the first part
+    /// usually answers. Same rule and same reason — see <see cref="PartRides"/>.</para>
+    /// </summary>
+    public static bool HasPlatform(Vehicle? vehicle)
+    {
+        if (!IsAlive(vehicle)) return false;
+
+        try
+        {
+            ReadOnlySpan<Part> parts = vehicle!.Parts.Parts;
+
+            // An unreadable or empty tree is a platform: a craft the mod stops recognising is a
+            // worse answer than one it recognises for a frame while the tree is rebuilt.
+            if (parts.Length == 0) return true;
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (!PartRides(parts[i])) return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Whether a part attaches to the side of something rather than stacking on it, and so cannot
+    /// be a craft on its own.
+    ///
+    /// <para>Asked of the game rather than recorded here. <c>VehicleEditor.IsAllowedAsRootPart</c>
+    /// rejects a part if any of its connectors carries <c>ToSurface</c> or <c>FromSurface</c>, and
+    /// that is the same question: a rail, a rack and a targeting pod are stores, and a craft rooted
+    /// on one is a craft the editor would never have let anybody build. It happens anyway, because
+    /// isolating a failed part splits the vehicle wherever it can.</para>
+    ///
+    /// <para>A part with no connectors at all rides nothing and is treated as a platform, which is
+    /// the reading that cannot make a working craft disappear.</para>
+    /// </summary>
+    public static bool PartRides(Part part)
+    {
+        try
+        {
+            List<Part.Connector.TemplateBase> connectors = part.Template.Connectors;
+
+            for (int i = 0; i < connectors.Count; i++)
+            {
+                Part.Connector.Flag flags = connectors[i].Flags;
+
+                if ((flags & (Part.Connector.Flag.ToSurface | Part.Connector.Flag.FromSurface)) != 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch
+        {
+            // Unreadable is a platform, for the same reason as no connectors: the cost of guessing
+            // wrong the other way is a craft the mod stops recognising.
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Flattens a craft's part tree into what <see cref="WeaponSurvey"/> takes.
     ///
     /// <para>Position and orientation are read in the vehicle's assembly frame, which is the
@@ -2596,7 +2667,8 @@ internal static class KsaWorld
             for (int i = 0; i < parts.Length; i++)
             {
                 Part part = parts[i];
-                into.Add(new SurveyedPart(part.Id, part.PositionVehicleAsmb, part.Asmb2VehicleAsmb));
+                into.Add(new SurveyedPart(part.Id, part.PositionVehicleAsmb,
+                                          part.Asmb2VehicleAsmb, PartRides(part)));
             }
         }
         catch

@@ -527,6 +527,11 @@ internal sealed class WeaponSystems(Config config)
             Vehicle craft = _handoverScratch[i];
             if (!KsaWorld.IsAlive(craft) || ReferenceEquals(craft, key.Craft)) continue;
 
+            // Never onto a launcher that is the whole craft. A rail lying on the ground after a
+            // breakup carries the right part and is not a weapon, so following onto it would move
+            // the operator's settings and a live magazine onto a piece of wreckage.
+            if (!KsaWorld.HasPlatform(craft)) continue;
+
             LauncherPart.FindAll(craft, _launcherScratch);
 
             for (int ordinal = 0; ordinal < _launcherScratch.Count; ordinal++)

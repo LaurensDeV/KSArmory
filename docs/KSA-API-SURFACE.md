@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-164 types and 456 members across 7 assemblies.
+166 types and 459 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -672,6 +672,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.ModuleList Modules`
 - `KSA.Part TreeParent`
 - `KSA.Part get_FullPart()`
+- `KSA.PartTemplate Template`
 - `System.ReadOnlySpan`1<KSA.Part> get_SubParts()`
 - `System.ValueTuple`2<Brutal.Numerics.double3, Brutal.Numerics.double3> get_BoundingBoxVehicleAsmb()`
 - `bool RayCastEgo(ref Brutal.Numerics.double4x4, KSA.Ray, ref double, ref double, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref Brutal.Numerics.double3, ref KSA.Part, ref KSA.Part)`
@@ -694,6 +695,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Connection Connection`
 - `KSA.Part get_ConnectionPart()`
 
+### KSA.Part+Connector+Flag
+
+*referenced as a type only*
+
+### KSA.Part+Connector+TemplateBase
+
+- `Flag Flags`
+
 ### KSA.PartFailure
 
 - `bool TrippedTheFragmentGuard(int, int)`
@@ -711,6 +720,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.PartTemplate
 
 - `System.Collections.Generic.List`1<KSA.PartInstance> SubPartInstances`
+- `System.Collections.Generic.List`1<TemplateBase> Connectors`
 
 ### KSA.PartTree
 
