@@ -70,8 +70,16 @@ rung each phase is aiming at:
 | **D** | **~1 m** | 60–88° | 0–418 km | a 1 ms round sub-step; ground per sub-step; residual to 0.003 m/s |
 | *(E)* | *~20 m at 2,000 km* | *20° lofted* | *intercontinental* | *everything in C and D, on a lever four times longer* |
 
-Rung A is where the last flown attempt stopped, and it stopped for a reason that is neither the
-guidance nor the trajectory. That is the first blocker.
+**Rungs A and B are passed, on the healthy population — flown 2026-09-04.** Eighty flights at a
+**32.0 degree** arrival landed at a median of **20 m** with **0.00 km** of group spread, which is past
+rung B's thirty. The weapon is not past rung B, and the distinction is the whole of where this plan
+now stands: 16 of those 80 landed at **84 km**, all of them from the two worlds in ten that threw the
+`trim` terminator. `docs/ACCURACY-PLAN.md` 3ar has the mechanism — the coast is integrated rather
+than propagated for 70% of its length in an affected world — and item 19 is the one thing left
+between here and a reliable rung B.
+
+So the first blocker is no longer B1. It is that a fifth of worlds do not get to fly the ladder at
+all.
 
 **One thing worth saying plainly:** the Mk 21 has a 2 km lethal radius, so none of this decides
 whether the target survives. It is worth having for a conventional payload, for a kinetic rod — which

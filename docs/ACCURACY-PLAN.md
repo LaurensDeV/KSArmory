@@ -2891,6 +2891,92 @@ miss; and a bare `GAVE UP` count conflates the ~90 km event at 8 rockets with a 
 32, where the same terminator fires on a 4.96 km miss. **The terminator's name is not the failure.**
 Any future scoring has to require the ending *and* the magnitude.
 
+## 3ar. The terminator is the coast being integrated instead of propagated — flown 2026-09-04
+
+Ten worlds on the shipped build, 80 flights, with `22fec05`'s off-gravity probe read for the first
+time. Two worlds threw the terminator and both carry the same signature. It is not subtle.
+
+### Three regimes had to come out of the instrument first
+
+Each of them alone reads at or above the ~0.03 m/s the walk needs, on every flight, diverging or
+not — so any one left in makes the column report itself:
+
+| excluded | reads | what it is |
+| --- | --- | --- |
+| each craft's **first** probe | 0.019-0.040 m/s, to 2.42 on a bus | the engine re-fitting the conic when thrust stops |
+| any sample with **density** | **230-242 m/s** | a reentering body. Drag, measured correctly |
+| **trim** anything but idle | 0.5-4.0 m/s | the bus's own commanded push, leaking in after it stops |
+
+What is left is the pre-split coast, which is where the walk happens.
+
+### Two populations, and nothing between them
+
+| shot | on rails n / max | off rails n / mean / max | % off |
+| --- | --- | --- | --- |
+| 001-006, 008, 009 | ~750 / **0.0004-0.0010** | **1-11** / 0.0001-0.0003 / 0.0004 | **0-1%** |
+| **007** | 229 / 0.0002 | **523** / **2.3810** / 4.1245 | **70%** |
+| **010** | 228 / 0.0002 | **524** / **2.3810** / 4.1096 | **70%** |
+
+A divergent world's *on-rails* samples are indistinguishable from a healthy world's. What differs is
+that the bus spends **70% of its coast off rails against 1%**, and accumulates ~2.4 m/s per probe of
+non-gravitational velocity while it does. The two worlds agree to six figures on the mean
+(2.381004, 2.381031) and to four on the median (2.2720, 2.2726), across independent runs — this is
+deterministic, not scatter.
+
+At the arc's ~91.5 km per m/s along track, 2.4 m/s per probe is the +256 to +386 m/s walk measured
+on the same samples, which is 3an's +163 to +340 signature.
+
+### The onset is one sample, not a ramp
+
+One craft, one line each, 007:
+
+```
+00:59:32   840.0 km   miss 3.86 km   rate  +0.4   off-gravity 0.0000   on rails
+00:59:34   857.1 km   miss 4.24 km   rate +38.5   off-gravity 1.3195   off rails
+00:59:35   873.7 km   miss 8.15 km   rate +386.9  off-gravity 4.1245   off rails
+```
+
+Forty-six seconds of flat coast at 0.0000, then **the rails transition and the divergence onset are
+the same probe.**
+
+### What this settles
+
+**3aq's H2 was refuted on a test that could not see it.** Off rails was dismissed because 65 of 65
+divergent *and* 124 of 126 healthy flights went off rails — a binary per-flight test. The
+discriminator is the **fraction of the coast**: 70% against 1%. This is the sixth entry for the
+list at the end of this file, and the same shape as the other five — a count read as a mechanism.
+
+**And the premise was already known to be wrong.** 3aq found that the mod drives attitude through
+the coast, which commands actuators, which takes the bus off rails; it recorded that as a design
+fault and could not connect it to the terminator. This connects it.
+
+### What it does not settle, and two candidates already refuted
+
+**What puts them off rails at that instant is open**, and it is now the whole question — much
+narrower than 3ap's "what is common to eight computers at one instant".
+
+- **Not the warp.** No speed change is logged at the onset and frame time is flat across it:
+  10.81 / 10.89 / 11.31 ms mean over the three 10 s windows spanning it.
+- **Not the attitude error crossing the pointing band.** First crossing of 0.15 deg is
+  `00:59:40.8`, **six seconds after** the vehicle is already off rails, and the earlier on-rails
+  window reached 0.1349 deg max against the onset window's 0.0979 mean. Comparable either side.
+
+The next probe should log `AnyActuatorCommanded` and `AnyActuatorActive` off `PhysicsBubble`
+directly rather than inferring the command from the error.
+
+### The night's other numbers
+
+80 flights, median miss **0.02 km**, spread **0.00 km**, arrival **32.0 deg**, ground well
+conditioned (-0.30% downrange slope). Endings: `noimprov` 28 at 0.02 km, `payback` 21 at 0.01,
+`clock` 15 at 0.02, **`trim` 16 at 84.04** — all sixteen from the two divergent worlds, at 8 per
+world, which is 3ap's all-or-nothing rule holding for a third night.
+
+So 64 of 80 warheads land inside 20 m and 16 land at 84 km. The weapon is a 20 m weapon with a
+mode, and the mode now has a mechanism.
+
+**Item 18 was also observed live**: `GeoSat FAT`'s computer disposing rockets 2, 3, 4 and 5's stages
+at 00:56:28 of shot 007. `CollectShedStages` is still unbounded.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -2952,10 +3038,11 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~12~~ | ~~Why the epoch sign runs at −0.6~~ | done | **the diagnostic had the sign backwards; the fix was justified and is applied** — 3al |
 | ~~2b'~~ | ~~Re-sample the ground per sub-step in the terminal phase~~ | done | **refuted headlessly: 0-2 m on smooth ground, and chaotic rather than convergent on rough (−2,781 m at 22 ms, −7 at 33, −2 at 50). Re-sampling changes which feature the round stops on; it does not converge** |
 | ~~15~~ | ~~Log what `DensityRatioAt` returns through the coast~~ | done | **refuted: 0 of 2,009 samples non-zero through 52 divergences — the air and the drag model are cleared** — 3an |
-| **17** | **Why the aim bias walks to 94 km.** The `trim` terminator is the aim being driven, not the latch and not the air: bias 3.1 -> 94.1 km, trim owed ~124 m/s, 0.00 spent, and `best` tracking the runaway so the revert-to-best cannot fire | 0 shots then 12 | 3an: 24 of 80 flights, 90.95 km median, against 0.02-0.04 for every other ending — the whole difference between a 30 m weapon and an unreliable one |
-| **18** | **Bound `CollectShedStages`.** It adds every new vehicle to `_shed` with no distance test, so a computer tries to dispose other rockets' **buses** — observed at 39.9 and 79.9 km, six minutes before those buses released. `WhatWasDropped` is bounded now and was inert; this is the census that matters | 0 shots | 3ap |
+| ~~17~~ | ~~**Why the aim bias walks to 94 km**~~ | done | **the coast is being integrated instead of propagated: the bus spends 70% of the coast off rails against 1% healthy, and accumulates ~2.4 m/s per probe of non-gravitational velocity, which at 91.5 km per m/s is the walk. Replicated in two independent worlds to six figures** — 3ar |
+| **18** | **Bound `CollectShedStages`.** It adds every new vehicle to `_shed` with no distance test, so a computer tries to dispose other rockets' **buses** — observed at 39.9 and 79.9 km, six minutes before those buses released. Seen again live on 2026-09-04, rocket 1 disposing rockets 2-5's stages | 0 shots | 3ap, 3ar |
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
+| **19** | **What puts the bus off rails mid-coast.** The whole of what is left of 17: the onset is one probe, and neither the warp nor the attitude error explains it. Log `AnyActuatorCommanded` and `AnyActuatorActive` off `PhysicsBubble` rather than inferring the command from the error | 0 shots then 10 | 3ar: 16 of 80 flights at 84 km against 0.02 for the other 64 |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 
@@ -3048,7 +3135,11 @@ for a day. The rate is set by the transfer time, so steepening makes the aim *ch
 122 km of authority at a graze against 166 at 33 degrees. The reading that looked like a price was a
 wall: past some floor the long arc does not exist and a short steep one is flown instead -- 3ag).
 
-**Five of these five were counts or absences read as mechanisms.** The terminator table is a
+"Off rails is not the cause" (65 of 65 divergent flights went off rails and so did 124 of 126
+healthy ones -- a binary per-flight test, where the discriminator is the **fraction of the
+coast**: 70% against 1%, and the whole mechanism. 3aq refuted it, 3ar found it).
+
+**Six of these six were counts or absences read as mechanisms.** The terminator table is a
 diagnosis, not a lever, and an instrument with one output cannot tell a cause from a consequence.
 
 **And one entry sat on this list because the test that put it here was blind.** "Refining the
