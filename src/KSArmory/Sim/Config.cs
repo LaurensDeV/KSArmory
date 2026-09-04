@@ -171,6 +171,21 @@ public sealed class Config
     public bool DamageIndividualParts = true;
 
     /// <summary>
+    /// Count rounds per <em>craft</em> rather than per weapon when deciding whether a target has
+    /// had enough.
+    ///
+    /// <para>Two rails on one aircraft each keep their own tally, so each finds capacity under
+    /// its own <c>RoundsPerTarget</c> and each fires a full salvo at the same target. The limit is
+    /// obeyed twice over and twice the missiles are spent. <see cref="TargetAllocation"/> is the
+    /// shared tally.</para>
+    ///
+    /// <para>Off restores the per-weapon count, which is what shipped before. Worth keeping,
+    /// because it is a real choice rather than a bug: a player who fitted two launchers to put
+    /// four rounds on a target is asking for exactly the behaviour this stops.</para>
+    /// </summary>
+    public bool ShareTargetsAcrossWeapons = true;
+
+    /// <summary>
     /// Substring that marks a craft as belonging to a team, matched against its name.
     ///
     /// <para>KSA has no team field, so a name convention is the only assignment that needs no

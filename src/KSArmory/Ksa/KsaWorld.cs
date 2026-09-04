@@ -265,6 +265,42 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Every live vehicle in the world, built at most once a frame and shared by everything that
+    /// walks it.
+    ///
+    /// <para><b>This is the mod's most repeated piece of work.</b> Each weapons system's radar
+    /// scan walked the whole system, and so did its contact candidates, so a world with four
+    /// armed craft walked it eight times a frame to reach the same answer. Nothing about that
+    /// answer is per system: it is what exists.</para>
+    ///
+    /// <para><b>Freshness is a generation, not a frame count.</b> The list may not outlive a
+    /// change to the world, because a destroyed vehicle stays in it as a disposed reference where
+    /// a fresh walk would simply omit it. So anything that removes a vehicle invalidates it, and
+    /// each hook that can start a pass invalidates it once on the way in. Holding it across a
+    /// frame is what <see cref="CollectVehicles"/>'s own warning is about, and this does not.</para>
+    /// </summary>
+    public static IReadOnlyList<Vehicle> Vehicles
+    {
+        get
+        {
+            if (_censusFresh) return _census;
+
+            CollectVehicles(_census);
+            _censusFresh = true;
+            return _census;
+        }
+    }
+
+    /// <summary>
+    /// Throws the shared census away. Called at the top of each pass, and by anything that takes a
+    /// vehicle out of the world.
+    /// </summary>
+    public static void InvalidateCensus() => _censusFresh = false;
+
+    private static readonly List<Vehicle> _census = [];
+    private static bool _censusFresh;
+
+    /// <summary>
     /// Appends every vehicle the game currently has loaded into <paramref name="into"/>.
     ///
     /// Reads <c>Universe.CurrentSystem.All</c> rather than <c>Program.VehiclesInFrame</c>.
@@ -1346,6 +1382,10 @@ internal static class KsaWorld
                 PeakDynamicPressure = blastSeverity,
             };
             Universe.DestroyVehicleFromEvent(v, evt);
+
+            // The census holds a reference, and a disposed vehicle is not what a fresh walk would
+            // have returned.
+            InvalidateCensus();
         }
         catch (Exception e)
         {
@@ -1519,6 +1559,8 @@ internal static class KsaWorld
 
                 return true;
             }
+
+            InvalidateCensus();
 
             state.PartFailureEvent = new PartFailureEvent
             {

@@ -36,7 +36,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // with ten systems and fifteen hundred rounds up. Kept in step with _rounds by AddRound and
     // DropRound, which are the only two ways in or out.
     private readonly HashSet<IProjectile> _roundSet = new(ReferenceEqualityComparer.Instance);
-    private readonly List<Vehicle> _blastScratch = [];
 
     // Craft an unguided round could run into, rebuilt at most once a frame.
     private readonly List<TargetState> _contactScratch = [];
@@ -763,9 +762,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (KsaWorld.IsAlive(Platform) && LauncherPart.IsMounted(Platform)) return;
 
         // The current platform is gone or lost its launcher; adopt any craft that has one.
-        KsaWorld.CollectVehicles(_blastScratch);
-        foreach (Vehicle v in _blastScratch)
+        IReadOnlyList<Vehicle> world = KsaWorld.Vehicles;
+        for (int i = 0; i < world.Count; i++)
         {
+            Vehicle v = world[i];
+
             if (LauncherPart.IsMounted(v))
             {
                 SetPlatform(v);
@@ -810,10 +811,23 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return KsaWorld.LocalUp(platform);
     }
 
+    // What this craft's weapons have in the air, shared between all of them. Assigned by
+    // Armaments.Refresh before any system is stepped, and null for a system that is not crewed on
+    // a craft -- a loose one flying the last of its rounds after its launcher died.
+    public TargetAllocation? CraftRounds { get; set; }
+
     // Tells each track how many rounds are already committed to it.
     private void AttributeRoundsToTracks()
     {
         foreach (Track t in Radar.Tracks) t.RoundsAssigned = 0;
+
+        // The craft's whole commitment, not this weapon's share of it. Two rails each counting
+        // their own each find capacity under the same limit and each fire a full salvo.
+        if (_config.ShareTargetsAcrossWeapons && CraftRounds is { } craft)
+        {
+            foreach (Track t in Radar.Tracks) t.RoundsAssigned = craft.CommittedTo(t.Contact.Handle);
+            return;
+        }
 
         foreach (IProjectile round in _rounds)
         {
@@ -1571,9 +1585,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return false;
         }
 
-        return Commit(Aimpoint.OnVehicle(track.Contact.Handle, track.PositionEcl, track.VelocityEcl,
-                                         track.Contact.MeanRadius),
-                      $"{track.Contact.DisplayName} ({track.Range / 1000.0:F1} km)");
+        bool away = Commit(Aimpoint.OnVehicle(track.Contact.Handle, track.PositionEcl,
+                                              track.VelocityEcl, track.Contact.MeanRadius),
+                           $"{track.Contact.DisplayName} ({track.Range / 1000.0:F1} km)");
+
+        // Counted the moment it leaves, not on the next rebuild. The systems on a craft are
+        // stepped one after another within a frame, so a tally that only caught up next frame
+        // would let every one of them fire before any of them saw the first round go.
+        if (away)
+        {
+            CraftRounds?.Commit(track.Contact.Handle);
+            track.RoundsAssigned++;
+        }
+
+        return away;
     }
 
     /// <summary>
@@ -2658,9 +2683,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _contactsFresh = true;
         _contactScratch.Clear();
 
-        KsaWorld.CollectVehicles(_blastScratch);
-        foreach (Vehicle v in _blastScratch)
+        IReadOnlyList<Vehicle> world = KsaWorld.Vehicles;
+        for (int i = 0; i < world.Count; i++)
         {
+            Vehicle v = world[i];
             if (ReferenceEquals(v, Platform)) continue;
 
             _contactScratch.Add(new TargetState(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
@@ -2833,10 +2859,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Announce($"intercepted {contact.DisplayName} at {gap:F0} m");
         }
 
-        KsaWorld.CollectVehicles(_blastScratch);
+        IReadOnlyList<Vehicle> caught = KsaWorld.Vehicles;
 
-        foreach (Vehicle v in _blastScratch)
+        for (int i = 0; i < caught.Count; i++)
         {
+            Vehicle v = caught[i];
+
             if (ReferenceEquals(v, Platform)) continue;
             if (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle)) continue;
             if (_pendingKills.Contains(v)) continue;

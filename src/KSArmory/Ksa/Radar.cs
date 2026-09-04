@@ -28,7 +28,6 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     public SensorProfile Sensor { get; set; } = SensorProfile.None;
 
     private SensorProfile _sensor => Sensor;
-    private readonly List<Vehicle> _scratch = [];
 
     /// <summary>Live tracks, highest priority first. Rebuilt every scan.</summary>
     public List<Track> Tracks { get; } = [];
@@ -117,10 +116,12 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         // them -- a set does not see a target against a different planet's ground.
         KsaWorld.MeanSphereUnder(originEcl, out double3 groundCentre, out double groundRadius);
 
-        KsaWorld.CollectVehicles(_scratch);
+        IReadOnlyList<Vehicle> world = KsaWorld.Vehicles;
 
-        foreach (Vehicle candidate in _scratch)
+        for (int i = 0; i < world.Count; i++)
         {
+            Vehicle candidate = world[i];
+
             if (ReferenceEquals(candidate, platform)) continue;
             if (_policy.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
 

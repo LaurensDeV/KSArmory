@@ -42,7 +42,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly List<SurveyedPart> _surveyed = [];
     private readonly List<OpticalHeads.Entry> _headScratch = [];
     private readonly List<WeaponSystems.Entry> _weaponScratch = [];
-    private readonly List<KSA.Vehicle> _craftScratch = [];
     private KSA.Vehicle? _managed;
     private string _ownTeamEntry = string.Empty;
     private string _newTeamEntry = string.Empty;
@@ -194,6 +193,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         // may scan for the attribute before anything has drawn.
         Current = this;
 
+        // This pass walks the world too, and it is a different hook from the simulation step --
+        // one can run without the other, so neither may inherit the other's census.
+        KsaWorld.InvalidateCensus();
+
         RefreshSystems();
         _batteries.Sync(_systems);
         _icbms.Sync(_systems, _batteries.Handovers);
@@ -304,10 +307,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _systemsAge = 0;
 
         _systems.Clear();
-        KsaWorld.CollectVehicles(_craftScratch);
-        for (int i = 0; i < _craftScratch.Count; i++)
+        IReadOnlyList<KSA.Vehicle> world = KsaWorld.Vehicles;
+        for (int i = 0; i < world.Count; i++)
         {
-            KSA.Vehicle craft = _craftScratch[i];
+            KSA.Vehicle craft = world[i];
             KsaWorld.SurveyParts(craft, _surveyed);
             WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Catalogue.Components);
             if (inv.IsInstallation) _systems.Add((craft, inv));

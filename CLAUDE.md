@@ -286,6 +286,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
+| `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/Medium.cs` | what the air or water a round flies through does to it — buoyancy and drag, shared by every round |
 | `Sim/ContactSweep.cs` | the contact rule: whether a round runs into a body over one step |
 | `Sim/IHullTest.cs` | **the seam a kinetic round asks whether it truly touched something** |
@@ -378,6 +379,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed with the craft and followed across a split |
 | `Ksa/WeaponSystem.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |
+| `Ksa/Armaments.cs` | one coordinator per craft — **derived every frame, never pinned**, because it carries nothing a split could lose |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
 | `Ksa/LauncherSeparation.cs` | the decoupler on the joint holding a launcher on — **a property of the part, not the craft** |
@@ -874,6 +876,35 @@ recognises the part; `Config` deliberately holds none of the three. A session-wi
 what makes two different systems in one world impossible — every reader outside a system's own
 update gets whichever system resolved last, silently. The profiles are the shared `Arsenal`
 instances, so panel tuning still reaches every system running that loadout, which is the intent.
+
+**The unit that over-commits is the craft, not the weapon.** Each system counts only the rounds it
+fired itself, so two rails on one aircraft each find capacity under the same `RoundsPerTarget` and
+each fire a full salvo at one target: the limit obeyed twice over, and twice the missiles spent.
+`Sim/TargetAllocation.cs` is one tally per craft, keyed on the target *handle* rather than on a
+track — two sensors hold their own track for the same aircraft, so a tally keyed on anything a
+weapon derives has nothing in common with its neighbour's. It is refreshed before the fire loop for
+the same reason the airborne sample is, and a round is counted the moment it leaves rather than on
+the next rebuild, or every system on a craft fires before any of them sees the first round go.
+`Config.ShareTargetsAcrossWeapons` is the way back, because putting four rounds on a target is a
+thing somebody might have fitted two launchers to do.
+
+**`Ksa/Armaments.cs` is derived every frame and never pinned, and that is the whole design.** The
+rosters that follow a *part* have to be pinned: they carry an operator's settings and a magazine
+that must survive a craft splitting in two. A coordinator carrying only a tally rebuilt from the
+rounds actually in the air has nothing a split could lose, so re-deriving it costs what carrying it
+would and cannot be wrong. That answers every split case without any handover logic — the half
+keeping the launcher keeps the coordination, the half keeping only the cockpit gets none, and a
+craft breaking into two armed halves gets one each — and it is *better* than sharing the handover:
+a third roster searching for itself could land the coordinator on one fragment and its weapons on
+the other. **Control has nothing to do with it**, because a Pantsir on a hillside with nobody
+aboard defends itself.
+
+**The world is walked once a frame, not once per system.** `KsaWorld.Vehicles` is a census shared by
+every radar scan, contact sweep and blast sweep; a world with four armed craft used to walk the
+system eight times a frame for an answer that is the same every time. Freshness is a generation
+rather than a frame count: a destroyed vehicle stays in a held list as a disposed reference where a
+fresh walk would omit it, so anything removing a vehicle invalidates it and each hook that can start
+a pass invalidates it on the way in.
 
 **A craft carries one weapon system per launcher part, and the player picks between them.**
 `WeaponSystems` keys on the craft *and* the launcher's ordinal, so two rails on one aircraft are

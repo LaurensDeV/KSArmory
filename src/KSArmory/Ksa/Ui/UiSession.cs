@@ -42,6 +42,11 @@ internal sealed partial class Ui
         ImGui.TextDisabled("  A weak part breaks further out than a dense one, and losing enough");
         ImGui.TextDisabled("  of them at once still destroys the craft outright.");
 
+        ImGui.Checkbox("Weapons on one craft share a target count", ref _config.ShareTargetsAcrossWeapons);
+        ImGui.TextDisabled(_config.ShareTargetsAcrossWeapons
+                               ? "  two rails will not each fire a full salvo at the same target"
+                               : "  off: each weapon counts only its own rounds, as it used to");
+
         ImGui.Checkbox("Dirty nuclear smoke", ref _config.DirtyNuclearSmoke);
         ImGui.TextDisabled(_config.DirtyNuclearSmoke
                                ? "  a cloud tints every plume in the world while it stands"

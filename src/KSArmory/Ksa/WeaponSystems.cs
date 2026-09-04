@@ -479,7 +479,8 @@ internal sealed class WeaponSystems(Config config)
 
         if (!anyLost) return;
 
-        KsaWorld.CollectVehicles(_handoverScratch);
+        _handoverScratch.Clear();
+        _handoverScratch.AddRange(KsaWorld.Vehicles);
         if (_handoverScratch.Count == 0) return;
 
         _gone.Clear();

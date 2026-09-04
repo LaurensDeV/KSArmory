@@ -91,9 +91,11 @@ public sealed class KSArmoryMod
     // Every round in the world, as things a sensor can hold. Rebuilt each simulated step.
     private readonly List<IContact> _airborne = [];
 
+    // What each craft's weapons are doing between them, as against what each is doing alone.
+    private readonly Armaments _armaments = new();
+
     // Every craft, for crewing directors. Separate from the weapons survey because a director is
     // a part rather than a system: there is nothing to recognise beyond the part itself.
-    private readonly List<Vehicle> _craft = [];
 
     // Development tool: pick a craft up and set it down somewhere else.
     private readonly CraftMover _mover = new();
@@ -484,6 +486,11 @@ public sealed class KSArmoryMod
     {
         if (_roster is null) return;
 
+        // The world's vehicles are read many times over this pass and are the same answer every
+        // time. Thrown away here rather than at the end, so a pass always builds its own and never
+        // inherits one from a frame that has since had a craft destroyed out of it.
+        KsaWorld.InvalidateCensus();
+
         // Every frame, before the clock gate. This reads where the world is and the whole
         // overlay is drawn against it, so inside the gated step the drawing's frame of
         // reference freezes on every frame that advances no simulated time.
@@ -493,8 +500,7 @@ public sealed class KSArmoryMod
         {
             using (_budget.Measure("headsync"))
             {
-                KsaWorld.CollectVehicles(_craft);
-                _heads.Sync(_craft);
+                _heads.Sync(KsaWorld.Vehicles);
             }
         }
 
@@ -557,6 +563,12 @@ public sealed class KSArmoryMod
                 // Gathered once, not once per system: every crewed system scans the same sky, and
                 // building this per system would be quadratic in how many are in the world.
                 using (_budget.Measure("airborne")) CollectAirborne(step);
+
+                // What each craft's weapons have in the air between them. Before the fire loop for
+                // the same reason the airborne sample is: a tally built while systems are being
+                // stepped reports capacity the craft has already spent, and which of them it
+                // under-counts would be decided by the roster's iteration order.
+                using (_budget.Measure("allocate")) _armaments.Refresh(_roster.All);
 
                 using (_budget.Measure("fire")) foreach (WeaponSystems.Entry e in _roster.All) e.Battery.Update(step, _airborne);
 
@@ -748,6 +760,7 @@ public sealed class KSArmoryMod
         Markers.Forget();
 
         _roster?.Clear();
+        _armaments.Clear();
         _heads?.Clear();
         _heads = null;
         _icbms?.Clear();
@@ -978,6 +991,7 @@ public sealed class KSArmoryMod
 
         _disabled = true;
         _roster?.Clear();
+        _armaments.Clear();
         _heads?.Clear();
         _heads = null;
         _icbms?.Clear();
