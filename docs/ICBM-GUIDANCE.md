@@ -334,8 +334,16 @@ rather than fighting the player for the speed control, and if a slowdown it aske
 observed it **abandons the burn** and says so — a shot the player is told about beats one flown into
 the wrong ocean silently.
 
-The coast afterwards is not held, because a coast is not being integrated by anything. Once the
-warheads are away they are rounds, and the existing round machinery holds the world for them.
+The coast afterwards is not held. Once the warheads are away they are rounds, and the existing
+round machinery holds the world for them.
+
+**A coast here is not un-integrated, though, and the cause is this mod.** `PhysicsBubble.cs:1085`
+puts a vehicle off rails whenever an actuator is commanded or active, and attitude is driven for
+the whole coast to hold the line the warheads leave along — so the bus leaves exact Kepler
+propagation and is integrated with velocity Verlet at whatever step the warp hands out. Measured at
+**17–20% of all coast probes**. That does not by itself justify holding the coast: the divergence it
+was suspected of causing runs the wrong way against warp, with the worlds that threw it averaging
+1.64x achieved against 1.97x for those that did not. `docs/ACCURACY-PLAN.md` 3aq is the reading.
 
 `IcbmFlightTests.AtAStepTooLongToCutOffOnItMissesBadly` is the test that fails if the limit is ever
 loosened on the grounds that guidance "seems fine".

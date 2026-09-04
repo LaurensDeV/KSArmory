@@ -1276,8 +1276,13 @@ stops on a frame boundary, so the velocity left ungained is `accel x step x thro
 miss at a one-second step, and *kilometres per second* at the 170-second steps high warp hands out.
 So `IcbmProgram.MaxFaithfulStep` registers a burning computer with `WarpPolicy` alongside the
 rounds, and a burn the world outran is **abandoned and reported** rather than flown into the wrong
-ocean. The coast afterwards is not held: a coast is not being integrated by anything, and once the
-warheads are away they are rounds, which the existing machinery already covers.
+ocean. The coast afterwards is not held, and once the warheads are away they are rounds, which the
+existing machinery already covers. **But a coast here is not un-integrated, and that is this mod's
+own doing:** holding the line the warheads leave along means commanding attitude, and
+`PhysicsBubble` takes a vehicle off rails for as long as an actuator is commanded — so the bus
+leaves exact Kepler propagation and is integrated at whatever step the warp gives it, on 17–20% of
+coast probes. Whether it costs anything is open; `docs/ACCURACY-PLAN.md` 3aq has the measurement,
+and what it does and does not implicate.
 
 **The transfer solver is exact, and exact for the wrong thing.** It puts the arc through a *point*;
 a round stops where the **ground** is. On a shallow arrival the arc covers about twelve
