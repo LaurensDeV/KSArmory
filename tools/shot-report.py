@@ -124,6 +124,22 @@ FLIGHT = re.compile(
 LAG = re.compile(r"lag\s+([-\d.]+)ms\s*=\s*([-\d.]+)\s*m at")
 CLOCKS = re.compile(r"flight\s+([\d.]+)s by the world clock,\s*([\d.]+)s by its own")
 SAMPLE = re.compile(r"dt=([\d.]+)ms step=([\d.]+)ms sim=([\d.]+)x")
+# What the coast is doing that gravity does not account for -- item 17's walk, which needs about
+# 0.03 m/s sustained. Reported as a MAX rather than a median: the divergence is a burst over ~170 s
+# of a flight that is otherwise quiet, and a median over every probe reports the quiet.
+#
+# THREE REGIMES ARE EXCLUDED, and each one alone would swamp the column on every flight:
+#   * each craft's FIRST reading -- it spans the off-rails/on-rails transition the engine makes
+#     when thrust stops, and re-fitting the conic reads 0.019-0.040 m/s at coast entry;
+#   * anything with DENSITY -- a reentering body decelerates 230-242 m/s per probe, which is drag
+#     being measured correctly and is not a perturbation;
+#   * anything but a trim that has never run -- the bus's own trim is a commanded push worth
+#     0.5-4.0 m/s, and it leaks into the sample after it stops.
+# What is left is the pre-split coast, where item 17's walk happens, and it settles to 0.0007 m/s
+# over 752 samples of a healthy flight -- a floor some fortyfold below the signal.
+OFFGRAV = re.compile(
+    r"coast probe on ([^:]+):.*?density\s+([\dE.+-]+),.*?off-gravity\s+([\d.]+)\s*m/s,"
+    r"\s*(?:on|off) rails[^,]*,\s*trim\s+(\w+)")
 BAND = re.compile(
     r"DEBUG\s+(\S+)\s+control:.*?pointing band\s+([\d.]+)\s*deg")
 BANNER = re.compile(r"KSArmory\s+(\S+)\s+built for KSA\s+(\S+),\s*running\s+(\S+)")
@@ -326,6 +342,7 @@ def read_shot(out_path, log_path, craft=None):
             "band_deg": [], "impacts": [],
             "why": None, "passes": None, "owed": None, "why_named": False,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
+            "off_grav": [],
             "version": None}
 
     text = out_path.read_text(errors="replace") if out_path.exists() else ""
@@ -397,6 +414,15 @@ def read_shot(out_path, log_path, craft=None):
         shot["lag_m"].append(metres)
     for world, own in _floats(CLOCKS, log, 2):
         shot["clock_gap"].append(world - own)
+    seen = set()
+    for m in OFFGRAV.finditer(log):
+        who, density, push, trim = m.group(1), float(m.group(2)), float(m.group(3)), m.group(4)
+        if who not in seen:          # the coast-entry transition, not a push
+            seen.add(who)
+            continue
+        if density > 0.0 or trim != "idle":
+            continue
+        shot["off_grav"].append(push)
     for dt, step, sim in _floats(SAMPLE, log, 3):
         shot["dt_ms"].append(dt)
 
@@ -1335,7 +1361,7 @@ def main():
     print("\n== attribution (medians over usable shots)")
     print(f"   {'arm':<14}{'residual':>9}{'own km':>8}{'trim rel':>9}{'probe km':>9}"
           f"{'thrown':>8}{'arr deg':>8}{'band deg':>9}{'down m':>9}{'cross m':>9}{'early s':>9}{'lag m':>8}"
-          f"{'dt ms':>7}{'coast ms':>9}")
+          f"{'dt ms':>7}{'coast ms':>9}{'off-g max':>10}")
     for arm in arms:
         mine = [s for s in shots if s["arm"] == arm and usable(s)]
         if not mine:
@@ -1351,6 +1377,10 @@ def main():
                     vals.append(v)
             return statistics.median(vals) if vals else float("nan")
 
+        def mx(key):
+            vals = [v for s in mine for v in s[key]]
+            return max(vals) if vals else float("nan")
+
         print(f"   {arm:<14}{med('residual'):>9.3f}{med('own_km'):>8.2f}"
               f"{med('trim_release'):>9.3f}{med('probe_km', True):>9.2f}"
               f"{med('thrown', True):>8.0f}{med('arrival_deg', True):>8.1f}"
@@ -1358,7 +1388,8 @@ def main():
               f"{med('final_down', True):>+9.0f}{med('final_cross', True):>+9.0f}"
               f"{med('early_s', True):>9.2f}"
               f"{med('lag_m', True):>8.0f}"
-              f"{med('dt_ms', True):>7.1f}{med('coast_ms', True):>9.1f}")
+              f"{med('dt_ms', True):>7.1f}{med('coast_ms', True):>9.1f}"
+              f"{mx('off_grav'):>10.4f}")
 
     if args.shots:
         print("\n== every shot")
