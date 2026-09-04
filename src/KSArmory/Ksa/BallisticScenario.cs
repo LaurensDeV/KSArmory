@@ -917,7 +917,7 @@ internal sealed class BallisticScenario
     {
         foreach (WeaponSystems.Entry entry in roster.All)
         {
-            Vehicle craft = entry.Battery.Platform;
+            Vehicle? craft = entry.Battery.Platform;
 
             if (craft is null || ReferenceEquals(craft, launching)) continue;
             if (!KsaWorld.IsAlive(craft)) continue;

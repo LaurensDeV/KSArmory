@@ -415,7 +415,7 @@ internal sealed class WeaponSystems(Config config)
     // them, and it is the team identity as well as the label.
     private void Retire((Vehicle Craft, int Ordinal) key, string why)
     {
-        if (!_entries.TryGetValue(key, out Entry entry)) return;
+        if (!_entries.TryGetValue(key, out Entry? entry)) return;
 
         WeaponSystem battery = entry.Battery;
 
@@ -492,7 +492,7 @@ internal sealed class WeaponSystems(Config config)
 
         for (int i = 0; i < _gone.Count; i++)
         {
-            if (!_entries.TryGetValue(_gone[i], out Entry entry)) continue;
+            if (!_entries.TryGetValue(_gone[i], out Entry? entry)) continue;
 
             if (TryFollow(_gone[i], entry))
             {
