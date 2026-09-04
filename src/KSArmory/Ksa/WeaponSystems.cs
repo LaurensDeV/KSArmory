@@ -367,31 +367,7 @@ internal sealed class WeaponSystems(Config config)
 
         foreach ((Vehicle Craft, int Ordinal) key in _gone)
         {
-            WeaponSystem battery = _entries[key].Battery;
-
-            // A fired round does not belong to the launcher any more, so losing the launcher is
-            // not a reason to un-fire it: a seeker homes on its own and an anti-radiation round
-            // already carries the emission it remembers. The system stays alive to fly them, with
-            // the body they are over as their anchor, and is dropped when the last one lands.
-            //
-            // Read the name before detaching -- it is the only thing that still knows what fired
-            // them, and it is the team identity as well as the label.
-            if (battery.GoLoose(KsaWorld.ParentBody(key.Craft), KsaWorld.DisplayName(key.Craft)))
-            {
-                _loose.Add(battery);
-            }
-            else
-            {
-                battery.Reset();
-
-                // Anything keyed on the system rather than on the craft has to be told, or its
-                // entry outlives the craft and keeps a destroyed vehicle reachable for the session.
-                Diagnostics.Forget(battery);
-            }
-
-            _entries.Remove(key);
-            _selected.Remove(key.Craft);
-            Log.Info("a crewed system was destroyed");
+            Retire(key, "a crewed system was destroyed");
         }
 
         ReapLoose();
@@ -427,6 +403,64 @@ internal sealed class WeaponSystems(Config config)
     // several still restores. Anything beyond it is suffixed, because two racks on one craft
     // sharing one entry would share an arm switch -- and arming one to drop a bomb would arm the
     // other.
+
+    // Takes one system off the roster, flying whatever it has in the air first.
+    //
+    // A fired round does not belong to the launcher any more, so losing the launcher is not a
+    // reason to un-fire it: a seeker homes on its own and an anti-radiation round already
+    // carries the emission it remembers. The system stays alive to fly them, with the body they
+    // are over as their anchor, and is dropped when the last one lands.
+    //
+    // The name is read before detaching — it is the only thing that still knows what fired
+    // them, and it is the team identity as well as the label.
+    private void Retire((Vehicle Craft, int Ordinal) key, string why)
+    {
+        if (!_entries.TryGetValue(key, out Entry entry)) return;
+
+        WeaponSystem battery = entry.Battery;
+
+        if (battery.GoLoose(KsaWorld.ParentBody(key.Craft), KsaWorld.DisplayName(key.Craft)))
+        {
+            _loose.Add(battery);
+        }
+        else
+        {
+            battery.Reset();
+
+            // Anything keyed on the system rather than on the craft has to be told, or its entry
+            // outlives the craft and keeps a destroyed vehicle reachable for the session.
+            Diagnostics.Forget(battery);
+        }
+
+        _entries.Remove(key);
+        _selected.Remove(key.Craft);
+        _fruitless.Remove(battery);
+        Log.Info(why);
+    }
+
+    // How many consecutive searches may come back empty before a system's launcher is taken to
+    // be gone rather than merely unreadable.
+    //
+    // A part tree read mid-rebuild returns nothing, which is indistinguishable from a part that
+    // has genuinely been destroyed -- PlatformHandover's rule, and the reason absence alone never
+    // moves anything. Staging and docking rebuild the tree for a frame or two, so a count this
+    // size is far past any of them.
+    //
+    // Counted in searches rather than in seconds because that is what it is: this sync runs
+    // from the UI pass, which the player can switch off. Nothing hangs while it is off — the
+    // count simply stops advancing, which is the honest behaviour when nobody is looking.
+    //
+    // Without the bound a launcher part destroyed outright leaves its entry searching every
+    // frame for ever, paying a whole-world scan each time and never firing again. That state
+    // was unreachable while only a decoupler could take a launcher away, because a decoupler
+    // leaves it somewhere; a warhead does not.
+    private const int FruitlessSearchesBeforeRetiring = 120;
+
+    // Consecutive searches that found no craft carrying a system's launcher. Keyed on the system
+    // rather than on its craft, so it is dropped exactly when the system is.
+    private readonly Dictionary<WeaponSystem, int> _fruitless =
+        new(ReferenceEqualityComparer.Instance);
+
     // A launcher that is no longer on the craft it was crewed on, because a decoupler carried it
     // onto another. Retirement is the wrong answer - that throws the magazine away and stops fire
     // control for good, and this launcher is alive with rounds still in its tubes.
@@ -458,13 +492,29 @@ internal sealed class WeaponSystems(Config config)
         for (int i = 0; i < _gone.Count; i++)
         {
             if (!_entries.TryGetValue(_gone[i], out Entry entry)) continue;
-            TryFollow(_gone[i], entry);
+
+            if (TryFollow(_gone[i], entry))
+            {
+                _fruitless.Remove(entry.Battery);
+                continue;
+            }
+
+            _fruitless.TryGetValue(entry.Battery, out int misses);
+            _fruitless[entry.Battery] = ++misses;
+
+            if (misses < FruitlessSearchesBeforeRetiring) continue;
+
+            Retire(_gone[i], $"{KsaWorld.DisplayName(_gone[i].Craft)} launcher "
+                             + $"{_gone[i].Ordinal + 1} lost its launcher part and nothing else "
+                             + "carries one - retiring the system");
         }
 
         _gone.Clear();
     }
 
-    private void TryFollow((Vehicle Craft, int Ordinal) key, Entry entry)
+    // Whether the entry is settled: either its launcher was found somewhere and it moved, or
+    // the search was refused for a reason that is not "nothing carries it".
+    private bool TryFollow((Vehicle Craft, int Ordinal) key, Entry entry)
     {
         WeaponSystem battery = entry.Battery;
         string wanted = battery.Profile.PartId;
@@ -497,15 +547,20 @@ internal sealed class WeaponSystems(Config config)
         {
             Log.Warn($"{KsaWorld.DisplayName(key.Craft)} launcher {key.Ordinal + 1} lost its "
                      + $"launcher and {choice.Why} - leaving it where it is");
-            return;
+
+            // Settled, though not moved: two craft carry it and neither was chosen. Retiring the
+            // system over a refusal would throw a live magazine away for an excess of candidates.
+            return true;
         }
 
-        if (choice.Verdict != HandoverVerdict.Move) return;
+        if (choice.Verdict != HandoverVerdict.Move) return false;
 
         Vehicle to = _handoverScratch[choice.CraftIndex];
         (Vehicle, int) newKey = (to, choice.Ordinal);
 
-        if (_entries.ContainsKey(newKey)) return;
+        // The craft carrying it already has a system on that ordinal, so the launcher is not
+        // missing from the world - it is simply already crewed.
+        if (_entries.ContainsKey(newKey)) return true;
 
         _entries.Remove(key);
         _entries[newKey] = entry with { Craft = to, Ordinal = choice.Ordinal };
@@ -524,6 +579,8 @@ internal sealed class WeaponSystems(Config config)
         Log.Info($"{KsaWorld.DisplayName(key.Craft)} launcher {key.Ordinal + 1} followed its "
                  + $"launcher onto {KsaWorld.DisplayName(to)} launcher {choice.Ordinal + 1} "
                  + $"({choice.Why}); settings now filed under \"{SettingsKey(to, choice.Ordinal)}\"");
+
+        return true;
     }
 
     private static string SettingsKey(Vehicle craft, int ordinal)

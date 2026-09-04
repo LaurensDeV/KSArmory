@@ -154,6 +154,23 @@ public sealed class Config
     public bool DisposeSpentStages;
 
     /// <summary>
+    /// Break individual parts off a craft a warhead went off near, rather than destroying the
+    /// whole craft or nothing at all.
+    ///
+    /// <para>Each part is judged on its own distance and its own strength, so a burst against a
+    /// booster's tail takes the engines and leaves the payload. The reach comes from the same
+    /// cube-root law the charge obeys — see <see cref="BlastDamage"/> — and the engine's own
+    /// fragment guard decides when losing that many parts destroys the craft anyway, so a warhead
+    /// that engulfs a drone still kills it outright.</para>
+    ///
+    /// <para>Off returns the mod to binary kills: inside the lethal radius the craft is destroyed,
+    /// outside it nothing happens. That is what shipped before KSA had a part-failure model, and
+    /// it is the way back if fragments turn out to cost more frame time than they are worth — one
+    /// craft can become several, and every one of them is simulated.</para>
+    /// </summary>
+    public bool DamageIndividualParts = true;
+
+    /// <summary>
     /// Substring that marks a craft as belonging to a team, matched against its name.
     ///
     /// <para>KSA has no team field, so a name convention is the only assignment that needs no

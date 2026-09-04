@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Brutal.Numerics;
 using KSA;
 
@@ -50,6 +51,21 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly Dictionary<object, IContact> _incomingByHandle = new(ReferenceEqualityComparer.Instance);
 
     private readonly List<Vehicle> _pendingKills = [];
+
+    // Parts to break off craft that survive, drained beside the whole-craft kills so the engine's
+    // vehicle collection is mutated once, behind one solver barrier. Keyed on the craft because
+    // two rounds of one salvo can reach the same craft in one frame and a part must not be handed
+    // to PartFailureEvent twice.
+    private readonly Dictionary<Vehicle, List<Part>> _pendingPartKills =
+        new(ReferenceEqualityComparer.Instance);
+
+    // Scratch for one craft's part sweep, reused across every craft and every burst in a frame.
+    private readonly List<DamageablePart> _partScratch = [];
+    private readonly List<Part> _partHandles = [];
+    private readonly List<int> _failedParts = [];
+
+    // Craft one burst has already damaged. See where it is cleared for why this is not _pendingKills.
+    private readonly List<Vehicle> _burstDamaged = [];
     private readonly List<SystemEvent> _events = [];
 
     private Vehicle? _lastPlatform;
@@ -2697,6 +2713,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // Which effect is decided after the blast sweep, once it is known whether anything died.
         _burstKilled = false;
 
+        // Craft this burst has already reached, so the splash sweep does not judge the one the
+        // round struck a second time. Per burst rather than per frame: two rounds of a salvo
+        // bursting at opposite ends of one booster must each break their own parts, where a craft
+        // already queued dead is dead whoever else reaches it.
+        _burstDamaged.Clear();
+
         // Three measurements of the same event, because "the burst went off beside the target"
         // needs a number to be actionable.
         //
@@ -2764,9 +2786,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 {
                     Announce($"hit on {KsaWorld.DisplayName(intended)} ignored - you are flying it (untick 'Never target the vehicle I'm flying')");
                 }
-                else if (!_pendingKills.Contains(intended))
+                else
                 {
-                    _pendingKills.Add(intended);
+                    // The fuse has already ruled this a lethal hit, so the part sweep may only
+                    // decide *what* breaks -- never whether anything does. An empty sweep here
+                    // falls back to destroying the craft, the same rule the hull test obeys: a
+                    // test that cannot answer never answers "no hit".
+                    Damage(intended, burst, elapsed, round.Munition, confirmed: true);
                 }
             }
         }
@@ -2814,6 +2840,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (ReferenceEquals(v, Platform)) continue;
             if (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle)) continue;
             if (_pendingKills.Contains(v)) continue;
+            if (_burstDamaged.Contains(v)) continue;
 
             double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
                                                elapsed, burst, KsaWorld.MeanRadius(v));
@@ -2821,12 +2848,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             switch (BlastSweep.Effect(gap, round.Munition))
             {
                 case BlastEffect.Lethal:
-                    _pendingKills.Add(v);
-                    _burstKilled = true;
+                    Damage(v, burst, elapsed, round.Munition, confirmed: false);
                     break;
 
                 case BlastEffect.NearMiss:
-                    Announce($"near miss on {KsaWorld.DisplayName(v)} at {gap:F0} m");
+                    // Outside the lethal radius of the craft's own bounding sphere, and still
+                    // possibly against the skin of something on it: the sphere is a half-diagonal,
+                    // so a burst beside a long booster reads as a hundred metres from a craft it
+                    // is touching. The part sweep is the exact test and it runs here too.
+                    if (!Damage(v, burst, elapsed, round.Munition, confirmed: false))
+                    {
+                        Announce($"near miss on {KsaWorld.DisplayName(v)} at {gap:F0} m");
+                    }
+
                     break;
 
                 default:
@@ -2883,11 +2917,123 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return drawn;
     }
 
+    // Applies one burst to one craft: breaks the parts near enough to break, or destroys the
+    // whole craft where that is what the burst amounts to.
+    //
+    // Nothing is applied here. Both outcomes are queued and drained by ApplyPendingKills, because
+    // splitting a vehicle mutates the same collection destroying one does and this runs while the
+    // engine's solvers are live.
+    //
+    // `confirmed` says a lethal verdict has already been reached -- the fuse's, on a round that
+    // struck. An empty part sweep then falls back to destroying the craft, because a test that
+    // cannot name what broke must not turn a confirmed hit into nothing. On the splash path there
+    // is no prior verdict and the sweep is the verdict, so finding nothing near enough means
+    // nothing happened.
+    //
+    // Answers whether the burst queued anything against this craft.
+    private bool Damage(Vehicle v, double3 burst, double elapsed, MunitionProfile munition,
+                        bool confirmed)
+    {
+        if (!KsaWorld.IsAlive(v)) return false;
+        if (_pendingKills.Contains(v)) return true;
+
+        _burstDamaged.Add(v);
+
+        // The engine's own event slot is the only safe way to split a vehicle from a mod hook --
+        // see KsaWorld.TryQueuePartFailure. Without it the feature is off, whatever the setting
+        // says, and a warhead destroys whole craft as it did before KSA had a failure model.
+        if (!_config.DamageIndividualParts || !KsaWorld.CanQueuePartFailures)
+        {
+            if (!confirmed && BlastSweep.Effect(
+                    BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                          elapsed, burst, KsaWorld.MeanRadius(v)),
+                    munition) != BlastEffect.Lethal)
+            {
+                return false;
+            }
+
+            return QueueWholeCraft(v);
+        }
+
+        // An unreadable part tree is not a bulletproof craft. A craft mid-rebuild, or one the
+        // engine will not answer for, falls back to the rule that shipped before parts could
+        // break -- the same way the hull test falls back to the bounding sphere.
+        if (!KsaWorld.TryCollectDamageableParts(v, KsaWorld.PositionEcl(v), _partScratch, _partHandles))
+        {
+            return confirmed
+                ? QueueWholeCraft(v)
+                : QueueWholeCraftIfLethal(v, burst, elapsed, munition);
+        }
+
+        _failedParts.Clear();
+        BlastDamage.Sweep(burst, elapsed, KsaWorld.VelocityEcl(v),
+                          CollectionsMarshal.AsSpan(_partScratch), munition, _failedParts);
+
+        if (_failedParts.Count == 0)
+        {
+            // The sweep answered, and the answer was that nothing was near enough. Only a verdict
+            // reached elsewhere overrides that.
+            return confirmed ? QueueWholeCraft(v) : false;
+        }
+
+        // KSA's own judgement about what its fragment machinery can survive, asked rather than
+        // reproduced: losing this share of a craft's parts at once destroys it outright. That is
+        // what keeps a warhead that engulfs a drone a kill rather than a shower of fragments.
+        if (KsaWorld.LosingThatManyPartsIsFatal(_failedParts.Count, _partHandles.Count))
+        {
+            return QueueWholeCraft(v);
+        }
+
+        if (!_pendingPartKills.TryGetValue(v, out List<Part>? queued))
+        {
+            queued = [];
+            _pendingPartKills[v] = queued;
+        }
+
+        int added = 0;
+        for (int i = 0; i < _failedParts.Count; i++)
+        {
+            Part part = _partHandles[_failedParts[i]];
+
+            // A second burst on the same craft in the same frame can reach a part the first one
+            // already took. Handing one part to PartFailureEvent twice isolates a part that is no
+            // longer on the vehicle, which the engine logs as a split it could not make.
+            if (queued.Contains(part)) continue;
+
+            queued.Add(part);
+            added++;
+        }
+
+        if (added == 0) return true;
+
+        _burstKilled = true;
+        Announce($"{added} part(s) broken off {KsaWorld.DisplayName(v)}");
+        return true;
+    }
+
+    private bool QueueWholeCraft(Vehicle v)
+    {
+        if (_pendingKills.Contains(v)) return true;
+
+        _pendingKills.Add(v);
+        _burstKilled = true;
+        return true;
+    }
+
+    private bool QueueWholeCraftIfLethal(Vehicle v, double3 burst, double elapsed,
+                                         MunitionProfile munition)
+    {
+        double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v),
+                                           elapsed, burst, KsaWorld.MeanRadius(v));
+
+        return BlastSweep.Effect(gap, munition) == BlastEffect.Lethal && QueueWholeCraft(v);
+    }
+
     // Destroys queued targets after the blast sweep, so the engine's vehicle collection is never
     // mutated while it is being walked.
     private void ApplyPendingKills()
     {
-        if (_pendingKills.Count == 0) return;
+        if (_pendingKills.Count == 0 && _pendingPartKills.Count == 0) return;
 
         // Join the engine's vehicle solvers before disposing anything. Destroying a vehicle removes
         // it from the list those worker jobs are enumerating, and this hook runs while they are
@@ -2905,8 +3051,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             KsaWorld.Destroy(v, blastSeverity: 50f);
         }
 
+        // Whole-craft kills first: a craft queued dead may also have parts queued from an earlier
+        // burst in the same frame, and isolating a part out of a corpse is a split with nothing
+        // to split. IsAlive filters those out here rather than the two lists having to agree.
+        //
+        // These are handed to the engine rather than applied, and land on the next frame.
+        foreach ((Vehicle v, List<Part> parts) in _pendingPartKills)
+        {
+            if (KsaWorld.IsAlive(v)) KsaWorld.TryQueuePartFailure(v, parts);
+        }
+
         // Any round still chasing a corpse loses its lock rather than flying at a dangling ref.
         _pendingKills.Clear();
+        _pendingPartKills.Clear();
     }
 
     private void Announce(string message)
@@ -2937,6 +3094,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         ClearRounds();
         _pendingKills.Clear();
+        _pendingPartKills.Clear();
         Radar.Reset();
         _salvoTimer = 0.0;
         _warnedDuplicateTube = false;
@@ -2953,6 +3111,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         ClearRounds();
         _pendingKills.Clear();
+        _pendingPartKills.Clear();
         _events.Clear();
         Radar.Reset();
         _magazine.Resize(Profile.TubeCount, Profile.MagazineDepth);

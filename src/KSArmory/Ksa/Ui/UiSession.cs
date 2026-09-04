@@ -32,6 +32,16 @@ internal sealed partial class Ui
         ImGui.TextDisabled("  Frame time is what buys simulation rate -- about 2 ms a vehicle, and");
         ImGui.TextDisabled("  a rocket sheds four. The half a MIRV bus drops is never taken.");
 
+        // The third of the same shape: what a warhead does to a craft is one world-level rule, so
+        // two sites could not sensibly disagree about it. It also trades frame time -- one craft
+        // becomes several, and every fragment is simulated.
+        ImGui.Checkbox("Break individual parts, not whole craft", ref _config.DamageIndividualParts);
+        ImGui.TextDisabled(_config.DamageIndividualParts
+                               ? "  each part judged on its own distance and its own strength"
+                               : "  off: inside the lethal radius the whole craft is destroyed");
+        ImGui.TextDisabled("  A weak part breaks further out than a dense one, and losing enough");
+        ImGui.TextDisabled("  of them at once still destroys the craft outright.");
+
         ImGui.Checkbox("Dirty nuclear smoke", ref _config.DirtyNuclearSmoke);
         ImGui.TextDisabled(_config.DirtyNuclearSmoke
                                ? "  a cloud tints every plume in the world while it stands"

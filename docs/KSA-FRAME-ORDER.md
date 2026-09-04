@@ -103,6 +103,51 @@ from `ExecuteNextVehicleSolvers` at `Program.cs:2047`, i.e. *inside* `PrepareFra
 mod hook of any kind runs. That is why an attitude command written from a StarMap hook is
 overwritten and one written from the prefix is not.
 
+### A mod may destroy a vehicle from its hooks. It may not split one.
+
+The same ordering decides this, and the two look identical until you try the second.
+
+Every mod hook runs **after** `ExecuteNextVehicleSolvers` has queued the next worker run and
+**before** the `ApplyVehicleSolvers` that will apply its results — which is the *next* frame's. So
+a hook sits between a run being staged and its results being applied:
+
+```
+frame N   PrepareFrame:  wait -> ApplyVehicleSolvers -> ... -> ExecuteNextVehicleSolvers
+frame N   mod hooks                                              <-- results staged, unapplied
+frame N+1 PrepareFrame:  wait -> ApplyVehicleSolvers             <-- they land here
+```
+
+`KsaWorld.WaitForVehicleSolvers` joins that run, which is what stops the collection being mutated
+underneath it. It does **not** apply the results. Destroying a vehicle from there is safe because a
+destroyed vehicle's staged results have nowhere to land. **Splitting one is not**: the fragments
+survive, and results computed against the whole craft are applied to them on the next frame.
+
+Measured, from a warhead breaking seven parts off a 21-part drone: the drone fragmented into 11
+vehicles and every subsequent frame threw
+
+```
+System.ArgumentOutOfRangeException: Index was out of range.
+   at KSA.FlightComputer.UpdateTvcParams(FlightComputerOutput&)
+   at KSA.PhysicsBubble.FullPhysicsPreStep(Double&)
+```
+
+for ever — `VehicleConfig.Gimbals` indexed against a state list belonging to a craft that no longer
+exists. Nothing recovers, and the errors are on screen.
+
+Re-running `Universe.ApplyVehicleSolvers()` from the hook is not the fix, though it is public: it
+also advances `_lastSimStep` and calls `UpdatePerFrameData`, so calling it out of band moves the
+clock every timing rule in this file rests on.
+
+**The fix is to queue rather than apply.** `PartFailure.Detect` does not call
+`PartFailureEvent.Apply` either — it writes `VehicleUpdateState.PartFailureEvent`, and
+`ApplyRenderEventsToVehicles` applies it *immediately after* the staged results, inside the same
+`ApplyResultsToMainThread`. `KsaWorld.TryQueuePartFailure` writes that same field, so the mod's
+part failures run on the engine's own path at the engine's own instant. The field is public
+because that is the protocol; only the `VehicleUpdateState` holding it is private, and it is read
+by a verified reflection with a fallback to destroying whole craft.
+
+Same run, same seven parts, after the change: zero exceptions.
+
 ---
 
 ## 2. `GetLastSimStep()` and `GetElapsedTime()`

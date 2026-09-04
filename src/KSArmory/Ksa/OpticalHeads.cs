@@ -156,11 +156,43 @@ internal sealed class OpticalHeads(Config config)
 
         for (int i = 0; i < _lost.Count; i++)
         {
-            if (_entries.TryGetValue(_lost[i], out Entry? entry)) TryFollow(craft, _lost[i], entry);
+            if (!_entries.TryGetValue(_lost[i], out Entry? entry)) continue;
+
+            if (TryFollow(craft, _lost[i], entry))
+            {
+                _fruitless.Remove(entry.Head);
+                continue;
+            }
+
+            _fruitless.TryGetValue(entry.Head, out int misses);
+            _fruitless[entry.Head] = ++misses;
+
+            if (misses < FruitlessSearchesBeforeRetiring) continue;
+
+            _entries.Remove(_lost[i]);
+            _fruitless.Remove(entry.Head);
+            Log.Info($"the director {_lost[i].Ordinal + 1} on "
+                     + $"{KsaWorld.DisplayName(_lost[i].Craft)} has been destroyed and nothing "
+                     + "else carries one - dropping its head");
         }
 
         _lost.Clear();
     }
+
+    // How many consecutive searches may come back empty before a director is taken to be gone
+    // rather than merely unreadable.
+    //
+    // Same bound and same reason as the weapons roster: a part tree read mid-rebuild returns
+    // nothing, which is indistinguishable from a part a warhead has destroyed, so only a long
+    // run of empty searches separates the two. Without it a destroyed director leaves its head
+    // searching the whole world every simulated frame for ever.
+    //
+    // A head has nothing in the air, so it is simply dropped rather than loosed.
+    private const int FruitlessSearchesBeforeRetiring = 120;
+
+    // Consecutive searches that found no craft carrying a head's director.
+    private readonly Dictionary<OpticalHead, int> _fruitless =
+        new(ReferenceEqualityComparer.Instance);
 
     // Only while the craft it was crewed on is still alive. A destroyed one's head is dropped by
     // the stale sweep in Sync, and searching from it would hand the entry to whichever neighbour
@@ -168,7 +200,9 @@ internal sealed class OpticalHeads(Config config)
     private static bool HasLostItsDirector(Vehicle craft, Entry entry)
         => entry.Head is { Platform: not null, Director: null } && KsaWorld.IsAlive(craft);
 
-    private void TryFollow(IReadOnlyList<Vehicle> craft, (Vehicle Craft, int Ordinal) key, Entry entry)
+    // Whether the entry is settled: either its director was found somewhere and the head moved,
+    // or the search was refused for a reason that is not "nothing carries it".
+    private bool TryFollow(IReadOnlyList<Vehicle> craft, (Vehicle Craft, int Ordinal) key, Entry entry)
     {
         string wanted = entry.Head.Profile.PartId;
 
@@ -200,15 +234,21 @@ internal sealed class OpticalHeads(Config config)
         {
             Log.Warn($"the director {key.Ordinal + 1} on {KsaWorld.DisplayName(key.Craft)} has gone "
                      + $"and {choice.Why} - leaving its head where it is");
-            return;
+
+            // Settled, though not moved: two craft carry it and neither was chosen. Dropping the
+            // head over a refusal would throw the operator's settings away for an excess of
+            // candidates.
+            return true;
         }
 
-        if (choice.Verdict != HandoverVerdict.Move) return;
+        if (choice.Verdict != HandoverVerdict.Move) return false;
 
         Vehicle to = craft[choice.CraftIndex];
         (Vehicle, int) newKey = (to, choice.Ordinal);
 
-        if (_entries.ContainsKey(newKey)) return;
+        // The craft carrying it already has a head on that ordinal, so the director is not missing
+        // from the world - it is simply already crewed.
+        if (_entries.ContainsKey(newKey)) return true;
 
         _entries.Remove(key);
         _entries[newKey] = entry;
@@ -218,6 +258,8 @@ internal sealed class OpticalHeads(Config config)
         Log.Info($"director {key.Ordinal + 1} on {KsaWorld.DisplayName(key.Craft)} followed its "
                  + $"part onto {KsaWorld.DisplayName(to)} as director {choice.Ordinal + 1} "
                  + $"({choice.Why})");
+
+        return true;
     }
 
     /// <summary>Reads the world once for every head, before anything is drawn against it.</summary>

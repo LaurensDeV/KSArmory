@@ -92,6 +92,8 @@ Three things the scenarios could **not** reach, so they stay unverified:
   and the ballistic stack; nothing drove the Pantsir.
 - **Debris after a kill.** `DestroyVehicleFromEvent` now sheds debris, and nothing checked what the
   radar then holds.
+- **Part damage.** Added after those runs and flown by nothing. See 4.4a — it is the largest
+  unverified thing in the mod.
 
 A screenshot wart, not a mod fault: `--shots` reported writing captures that never appeared.
 `tools/screenshot.sh` refuses when the game is not the foreground window, which it is not when a
@@ -242,6 +244,9 @@ Ranked by how likely a failure is. Worth reading before you start.
 | **High** | The viewport rework on `2026.9.4.5400`. Every camera path was retargeted and none has been flown. | [3.1b](#31b-the-turret-slews), status note above |
 | **Medium** | The levelled horizon is now installed by writing a private backing field. It says in the log whether it took. | status note above |
 | **Medium** | A kill sheds debris, which are craft the radar can see and shoot at. | [4.4](#44-the-warhead-kills) |
+| **Medium** | Individual parts break instead of whole craft. Flown once against a drone; the ordering fault it exposed is fixed, and a long craft losing one end is still unwatched. | [4.4a](#44a-individual-parts-break--never-flown-the-whole-feature-is-unverified) |
+| **Medium** | A fragmenting craft costs frame time nobody has measured: one craft becomes several, each simulated. | [4.4a](#44a-individual-parts-break--never-flown-the-whole-feature-is-unverified) |
+| **Medium** | A launcher or director part destroyed outright now retires its roster entry after 120 fruitless searches. The bound has never been reached in flight. | [4.4a](#44a-individual-parts-break--never-flown-the-whole-feature-is-unverified) |
 | **Medium** | The ballistic computer writes attitude, throttle and staging on a vehicle nobody designed for it. Flown and arriving; what is unwatched is each change since. | [12](#12-the-ballistic-computer--flown-and-arriving) |
 | **Low** | Guidance and fuse maths — covered by the headless suite, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
 | **Low** | `DestroyVehicleFromEvent` may behave oddly with `Cause = Collision`. | [4.4](#44-the-warhead-kills) |
@@ -571,8 +576,43 @@ so a real-world failure points at frame timing or the target-state sampling, not
 
 - [ ] Target vessel is destroyed on a close detonation.
 - [ ] Console logs `destroyed <name>`.
-- [ ] A detonation between *Lethal radius* and *Blast radius* logs `near miss on <name>` and
-      the target **survives** (damage is binary — this is expected, not a bug).
+- [ ] A detonation between *Lethal radius* and *Blast radius* leaves the target flying, and either
+      logs `near miss on <name>` or `N part(s) broken off <name>`.
+
+#### 4.4a Individual parts break — **flown once against a drone; most of it still unverified**
+
+Flown on `2026.9.7.5402` with `scenario.sh head-on`: a Sidewinder burst 16 m from a 21-part drone
+broke **7 parts**, KSA logged each one against its own crash tolerance, and the craft fragmented
+into 11 vehicles. Zero exceptions and zero engine errors.
+
+That run is also where the ordering fault was found and fixed: applying `PartFailureEvent` from a
+mod hook threw `ArgumentOutOfRangeException` out of `FlightComputer.UpdateTvcParams` every frame
+afterwards, for every fragment. The event is queued for the engine now — `docs/KSA-FRAME-ORDER.md`.
+**Watch for that exception returning**; it is the failure shape this whole design avoids.
+
+What that run did *not* touch is everything below.
+
+`Settings -> Break individual parts, not whole craft`, on by default. Every part is judged on its
+own distance and the strength KSA derives for it, and losing half a craft's parts at once still
+destroys it. Untick it to get the old binary kill back and compare.
+
+- [x] Parts break rather than the craft dying, and KSA logs each against its crash tolerance.
+- [ ] A burst against one end of a **long multi-part craft** breaks parts near the burst and leaves
+      the far end flying. The drone was small enough that the burst reached most of it.
+- [ ] The remainder is a real craft: it still has a name, still appears in the panel's craft list,
+      and the radar still holds it.
+- [ ] A burst that engulfs a **small** craft destroys it outright rather than shedding fragments —
+      that is `TrippedTheFragmentGuard`, and it is what keeps a drone kill a kill.
+- [ ] KSA logs `Part '<id>' destroyed - exceeded its crash tolerance of ...` per part. If the mod
+      says parts broke and KSA says nothing, `PartFailureEvent.Apply` refused them.
+- [x] No engine exception on the frames after a craft fragments. This is the one that failed first.
+- [ ] Frame time after a craft fragments. One craft becomes several and every fragment is
+      simulated — about 2 ms each, `docs/METRE-LEVEL.md` §5b. This is what the toggle is for.
+- [ ] Shoot the **launcher part** off a live craft. The system should go loose, fly its rounds and
+      retire — log `lost its launcher part and nothing else carries one`. It must not sit there
+      searching, and the panel must not keep offering a system that cannot fire.
+- [ ] Same for a **director**: log `has been destroyed and nothing else carries one`.
+- [ ] With the setting **off**, a lethal burst destroys the whole craft exactly as it used to.
 
 ### 4.5 Salvo and auto-engage
 

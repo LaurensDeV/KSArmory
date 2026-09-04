@@ -285,6 +285,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse |
 | `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
+| `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
 | `Sim/Medium.cs` | what the air or water a round flies through does to it — buoyancy and drag, shared by every round |
 | `Sim/ContactSweep.cs` | the contact rule: whether a round runs into a body over one step |
 | `Sim/IHullTest.cs` | **the seam a kinetic round asks whether it truly touched something** |
@@ -460,7 +461,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 448 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 456 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -962,7 +963,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 161 types this mod actually uses.
+defining the 164 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -1536,12 +1537,59 @@ is left behind by ~30 km per second of flight. Same rule as the draw anchor and 
 `AntiRadiationTests.TheRememberedEmissionCarriesTheFramesEclipticMotion` fails against the bare
 point — and fails by never detonating at all, not by a near miss.
 
-**Kills are binary.** `LethalRadius` destroys; between lethal and `BlastRadius` the mod logs a near
-miss and the target survives. That was forced until 2026.9.4.5400, which gave KSA a part-failure
-model this mod has **not** taken up — `PartFailureEvent` is public and can destroy one part rather
-than a craft. Doing so is a design decision rather than a port, and `docs/BLOCKED-ON-KSA.md` has
-what it would have to settle. What already reaches the mod is that `DestroyVehicleFromEvent` now
-sheds debris, so a kill leaves craft behind that can be seen and shot at.
+**A blast breaks parts, and nothing picks which.** Every part of a craft is judged on its own
+distance from the burst and its own `CrashTolerancePascals` — a number the engine derives from the
+part's mass and volume — so a warhead against a booster's tail takes the engines and leaves the
+payload, and no profile says anything about damage. `Sim/BlastDamage.cs` is the whole rule.
+
+**Its reach is the mod's own law re-anchored, not a second damage model.** Cube-root scaling says a
+given overpressure is felt at a fixed *scaled* distance and pressure near the burst falls as the
+cube of it, so the radius at which a part's tolerance is reached goes as `(W/P)^(1/3)` — which is
+`Warhead.LethalRadius` with a second cube root on the strength ratio. `BlastDamage.ReferencePascals` is
+KSA's own reference strength, so a part of that strength fails at *exactly* the lethal radius and
+the 57E6's flown calibration does not move: it now says which part it was calibrated on. The engine
+clamps a tolerance to 0.1–20 MPa, which is 3.11x to 0.53x of that radius, and the weak end is capped
+at `BlastRadius` — the radius the panel, the overlay and the near-miss line all describe the weapon
+by, and a damage rule reaching past it would make all three lie.
+
+**Whether losing that many parts kills the craft is KSA's judgement, asked rather than
+reproduced.** `PartFailure.TrippedTheFragmentGuard` is the engine's own rule about what its
+fragment machinery can survive, so a warhead that engulfs a drone is still a kill and only a craft
+big enough to lose a piece loses one. A copy of the threshold here would be a number free to drift
+from the code that has to cope with the answer.
+
+**A verdict already reached elsewhere is never overturned by an empty sweep.** A round that
+*struck* has the fuse's lethal verdict, so the part sweep may only decide what breaks; finding
+nothing near enough falls back to destroying the craft, the same rule the hull test obeys. On the
+splash path there is no prior verdict and the sweep *is* the verdict, so nothing near enough
+genuinely means nothing happened. The difference that matters is between a part tree that could not
+be read — fall back — and one that was read and said no.
+
+**And a part that a warhead destroys is one a decoupler could never have taken away.** A decoupler
+leaves a launcher somewhere, so `PlatformHandover`'s "absence never moves anything" was the whole
+answer; a warhead leaves it nowhere, and an entry then searched the world every frame for ever and
+never fired again. Both rosters bound the fruitless search — 120 consecutive empty ones, far past
+any staging rebuild — and retire the entry, a weapons system going loose so its rounds still fly.
+
+**And a part failure is queued for the engine, never applied by the mod.** Every mod hook runs
+between a worker run being staged and its results being applied, so splitting a vehicle there hands
+results computed against the whole craft to its fragments — measured as an
+`ArgumentOutOfRangeException` out of `FlightComputer.UpdateTvcParams`, once per frame per fragment,
+for ever, with the errors on screen. Destroying is safe from the same place for the reason
+splitting is not: a corpse's staged results have nowhere to land. So
+`KsaWorld.TryQueuePartFailure` writes `VehicleUpdateState.PartFailureEvent`, which is exactly what
+`PartFailure.Detect` does with the engine's own crash damage, and `ApplyRenderEventsToVehicles`
+applies it at the right instant. `docs/KSA-FRAME-ORDER.md` has the ordering and the measurement.
+Reaching that state needs one verified reflection, and losing it turns the feature off rather than
+breaking it.
+
+`Config.DamageIndividualParts` is the way back to binary kills, which is what shipped before KSA
+had a failure model: `LethalRadius` destroys, and between lethal and `BlastRadius` the mod logs a
+near miss and the target survives. It is worth keeping because fragments cost frame time — one
+craft becomes several, and every one of them is simulated.
+
+`docs/BLOCKED-ON-KSA.md` has what is still not expressible: a launcher's sensors are **subparts**,
+and `PartFailureEvent` fails parts, so a Pantsir loses its whole launcher or nothing.
 
 **A shell has to touch what it kills; a warhead does not.** That difference is the weapon's
 implementation, not a profile field — `Slug` asks `Sim/IHullTest.cs` and `Interceptor` never

@@ -1353,6 +1353,191 @@ internal static class KsaWorld
         }
     }
 
+    // ---- Part damage ----------------------------------------------------
+
+    /// <summary>
+    /// Every part of a craft a blast could break, with the three things
+    /// <see cref="BlastDamage"/> needs about each.
+    ///
+    /// <para>Positions are Ecl, taken against <paramref name="vehicleEcl"/> so the whole craft is
+    /// read at one instant — the same rule the blast sweep and the draw anchor obey. The centre of
+    /// mass correction is the one the tube geometry uses and for the same reason:
+    /// <c>GetPositionEcl</c> answers from the centre of mass while
+    /// <c>PositionVehicleAsmb</c> is measured from the assembly origin.</para>
+    ///
+    /// <para><b>Internally attached parts are skipped, because the engine cannot isolate one.</b>
+    /// <c>PartFailure.Detect</c> excludes them for that reason, and a
+    /// <see cref="PartFailureEvent"/> naming one has it abandoned mid-split — leaving the craft in
+    /// fragments with the part still on it.</para>
+    ///
+    /// <para>Answers false if the tree could not be read at all, which is a different thing from a
+    /// craft with no breakable parts: the caller falls back to destroying it whole rather than
+    /// treating an unreadable craft as bulletproof.</para>
+    /// </summary>
+    public static bool TryCollectDamageableParts(Vehicle v, double3 vehicleEcl,
+                                                 List<DamageablePart> into, List<Part> handles)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+        ArgumentNullException.ThrowIfNull(handles);
+
+        into.Clear();
+        handles.Clear();
+
+        try
+        {
+            if (v.IsDisposed) return false;
+
+            double3 centreOfMass = v.CenterOfMassAsmb;
+            doubleQuat asmb2Ego = v.Asmb2Ego;
+
+            ReadOnlySpan<Part> parts = v.Parts.Parts;
+            if (parts.Length == 0) return false;
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                Part part = parts[i];
+                if (part.IsAttachedInternal) continue;
+
+                double3 ecl = vehicleEcl + asmb2Ego * (part.PositionVehicleAsmb - centreOfMass);
+                if (!Vec.IsFinite(ecl)) continue;
+
+                (double3 min, double3 max) = part.BoundingBoxVehicleAsmb;
+                double radius = Vec.Len(max - min) * 0.5;
+                if (!double.IsFinite(radius) || radius < 0.0) radius = 0.0;
+
+                into.Add(new DamageablePart(handles.Count, ecl, radius, part.CrashTolerancePascals));
+                handles.Add(part);
+            }
+
+            return handles.Count > 0;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not read the parts of {DisplayName(v)}: {e.Message}");
+            into.Clear();
+            handles.Clear();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether losing this many of a craft's parts at once destroys it outright.
+    ///
+    /// <para>KSA's own rule, asked rather than reproduced. It is the engine's judgement about what
+    /// its own fragment machinery can survive — <c>IsolateAndDestroy</c> splits the vehicle once
+    /// per severable connection — so a copy of the threshold here would be a number free to drift
+    /// away from the code that has to cope with the answer.</para>
+    /// </summary>
+    public static bool LosingThatManyPartsIsFatal(int failedCount, int partCount)
+    {
+        try
+        {
+            return PartFailure.TrippedTheFragmentGuard(failedCount, partCount);
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"fragment guard unavailable ({e.GetType().Name}); treating {failedCount} lost parts as fatal");
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Whether part failures can be handed to the engine at all.
+    ///
+    /// <para>Probed once. If the field ever moves the mod falls back to destroying whole craft,
+    /// which is what shipped before KSA had a failure model — a worse weapon, not a broken
+    /// one.</para>
+    /// </summary>
+    public static bool CanQueuePartFailures
+    {
+        get
+        {
+            if (_partFailureQueueProbed) return _updateStateField is not null;
+
+            _partFailureQueueProbed = true;
+            _updateStateField = typeof(Vehicle).GetField(
+                "_threadWorkerUpdateState", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            if (_updateStateField is null || _updateStateField.FieldType != typeof(VehicleUpdateState))
+            {
+                Log.Warn("Vehicle._threadWorkerUpdateState has moved - part damage is off for this "
+                         + "session and warheads will destroy whole craft");
+                _updateStateField = null;
+            }
+
+            return _updateStateField is not null;
+        }
+    }
+
+    private static FieldInfo? _updateStateField;
+    private static bool _partFailureQueueProbed;
+
+    /// <summary>
+    /// Hands the engine a set of parts to break off a craft, to be applied at the engine's own
+    /// point in the frame.
+    ///
+    /// <para><b>Queued, never applied here, and that is the whole of why this is not a one-line
+    /// call to <see cref="PartFailureEvent.Apply"/>.</b> A vehicle's solver results are staged by
+    /// the worker run dispatched in <c>PrepareFrame</c> and applied at the *next* frame's
+    /// <c>ApplyVehicleSolvers</c>. Splitting a vehicle from a mod hook lands between those two, so
+    /// results computed against the whole craft are applied to its fragments — measured as
+    /// <c>ArgumentOutOfRangeException</c> out of <c>FlightComputer.UpdateTvcParams</c>, once per
+    /// frame per fragment, for ever. Destroying is safe from here for the reason splitting is not:
+    /// a destroyed vehicle's staged results have nowhere to land.</para>
+    ///
+    /// <para>So the event goes where <c>PartFailure.Detect</c> puts its own — the update state's
+    /// <c>PartFailureEvent</c> — and <c>ApplyRenderEventsToVehicles</c> applies it immediately
+    /// after the staged results, which is the ordering the engine's own crash damage runs in. The
+    /// field being public is that protocol; reaching the state holding it is the private part, and
+    /// it is verified rather than assumed.</para>
+    ///
+    /// <para>An event already pending is merged into rather than replaced: the engine has found
+    /// its own failure on this craft this frame, and dropping either set loses damage that was
+    /// really done.</para>
+    /// </summary>
+    public static bool TryQueuePartFailure(Vehicle v, List<Part> parts)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+
+        if (!IsAlive(v) || parts.Count == 0 || !CanQueuePartFailures) return false;
+
+        try
+        {
+            if (_updateStateField!.GetValue(v) is not VehicleUpdateState state)
+            {
+                // No update state means no physics bubble, so nothing is simulating it to break.
+                Log.Debug(() => $"no update state on {DisplayName(v)}; its parts were not broken");
+                return false;
+            }
+
+            if (state.PartFailureEvent is { } pending)
+            {
+                for (int i = 0; i < parts.Count; i++)
+                {
+                    if (!pending.FailedParts.Contains(parts[i])) pending.FailedParts.Add(parts[i]);
+                }
+
+                return true;
+            }
+
+            state.PartFailureEvent = new PartFailureEvent
+            {
+                FailedParts = parts,
+
+                // Never set. The fragment guard was asked when the parts were queued, and a craft
+                // it condemned was destroyed outright instead of reaching here.
+                DestroyWholeVehicle = false,
+            };
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"failed to queue {parts.Count} part failure(s) on {DisplayName(v)}: {e.Message}");
+            return false;
+        }
+    }
+
     // ---- Rendering ------------------------------------------------------
 
     // The overlay is drawn relative to an anchor vehicle rather than by converting absolute

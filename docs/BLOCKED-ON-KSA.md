@@ -199,31 +199,52 @@ then the wheels are geometry and the vehicle is placed rather than driven.
 **Wanted.** A round that lands close enough to hurt but not destroy should degrade the target —
 knock out a sensor, break a part.
 
-**No longer blocked, as of 2026.9.4.5400.** KSA grew a structural failure model:
+**No longer blocked, as of 2026.9.4.5400, and taken up.** KSA grew a structural failure model:
 `PartStructuralLimits` derives a crash tolerance in pascals from a part's mass and volume
 (`PartTemplate.CrashTolerance` overrides it), `PartFailure.Detect` accumulates contact pressure and
 fails individual parts, and `PartFailureEvent` — **public, with public `FailedParts`,
 `DestroyWholeVehicle` and `Apply(Vehicle)`** — isolates a failed part, sheds debris and splits the
 remainder into fragments, promoting the largest controllable one if the player was flying it.
+`PartFailure.IsolateAndDestroy` itself is `internal`, so `Apply` is the door.
 
-So a mod can destroy **one part** rather than a whole craft: build a `PartFailureEvent` naming the
-parts and `Apply` it. `PartFailure.IsolateAndDestroy` itself is `internal`, so `Apply` is the door.
+**What the mod does with it.** `Sim/BlastDamage.cs` judges every part of a craft on its own
+distance from the burst and its own `CrashTolerancePascals`, so nothing picks a part and no
+gameplay number is added: the strength is the engine's. The reach is the mod's existing
+Hopkinson–Cranz law with a second cube root on the strength ratio, anchored so a part of KSA's
+reference strength fails at exactly the lethal radius the 57E6 was already calibrated to — which
+is why the flown numbers did not move. `Config.DamageIndividualParts` is the way back to binary
+kills.
 
-**Not taken up, and it is a design decision rather than a port.** *Kills are binary* in `CLAUDE.md`
-is justified by this entry, so changing it means deciding what a near miss should do — which part a
-blast picks, whether a launcher that loses its radar should keep firing, and what
-`WeaponSystems` does when a craft it has pinned splits into fragments it did not choose. The
-roster already follows a part across a decoupler split (`Sim/PlatformHandover.cs`), which is the
-half of it that exists.
+**The three design questions this entry used to leave open, and what they were answered with:**
 
-**Consequence in the mod today, unchanged.** Kills are binary. `LethalRadius` destroys, and between
-lethal and `BlastRadius` the mod logs a near miss and the target survives. The fuse radii are
-gameplay numbers rather than physical ones for exactly this reason — a realistic lethal envelope
-for a 20 kg continuous-rod warhead would read as the round doing nothing at all.
+- *Which part a blast picks* — none. Every part is tested, and a weak radome goes at three times
+  the range that would scratch a dense tank. The engine clamps a derived tolerance to 0.1–20 MPa,
+  which is 3.11x to 0.53x of the lethal radius, and the weak end is capped at the blast radius so
+  the outer radius stays the honest limit of the weapon.
+- *Whether a craft that loses parts dies* — `PartFailure.TrippedTheFragmentGuard` decides, asked
+  rather than reproduced. Losing half a craft's parts at once destroys it, so a warhead that
+  engulfs a drone is still a kill and only a craft big enough to lose a piece loses one.
+- *What the rosters do when a craft splits into fragments they did not choose* —
+  `PlatformHandover` already answered it, and a part-failure split reaches it by the same signal a
+  decoupler split does. What was **not** answered, and had to be: a launcher or director part
+  destroyed *outright* while its craft lives. That state was unreachable while only a decoupler
+  could take a part away, because a decoupler leaves it somewhere. Both rosters now bound the
+  fruitless search and retire the entry, a weapons system going loose so its rounds still fly.
 
-**And it already reaches the mod without anything being taken up:**
-`Universe.DestroyVehicleFromEvent` now calls `PartFailure.ShedDebris(vehicle, 12)` before
-destroying, so a craft this mod kills leaves debris vehicles behind. Those are craft, so they enter
+**Still open.** A launcher's own sensors are **subparts**, and `PartFailureEvent` fails parts. So
+a Pantsir loses its whole launcher or nothing, and "the site keeps firing with its radar shot off"
+is not expressible on the shipped weapons. It would need either the sensors as separate parts or a
+subpart failure path the engine does not offer.
+
+**And a resolution hazard worth knowing about.** Both rosters resolve a part by **ordinal**, so
+destroying the first of two launchers on one craft makes the survivor ordinal 0 — the entry that
+was flying the destroyed one adopts the survivor's part, and the other entry is the one that
+retires. The settings follow the wrong half of the pair. Pre-existing, orthogonal to this, and
+fixed only by giving a part an identity that outlives a tree rebuild.
+
+**And it already reached the mod without anything being taken up:**
+`Universe.DestroyVehicleFromEvent` calls `PartFailure.ShedDebris(vehicle, 12)` before destroying,
+so a craft this mod kills leaves debris vehicles behind. Those are craft, so they enter
 `ContactCandidates` and can be seen, tracked and shot at. Flown behaviour unverified — see
 `CHECKLIST.md`.
 
