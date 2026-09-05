@@ -3331,6 +3331,30 @@ bubble. It costs a full `ComputeCompleteTrajectory`, so it wants a gate rather t
 `GetDesiredBubFrame` is *not* a lever — it reads the bubble origin, so every member computes the same
 answer.
 
+### Keeping the spent stages does NOT force it — flown 2026-09-05
+
+The obvious stressor was to stop disposing spent stages, on the argument that a stack separating at
+about a metre a second stays inside the 4.194 km split radius for the whole coast. One shot with
+`DisposeSpentStages` off, and disposal genuinely suppressed (0 lines against ~160):
+
+| | |
+| --- | --- |
+| bubble | **1**, all 288 probes |
+| rails | on 287, off 1 |
+| nearest vehicle | **10.93 km** |
+| cross-track push | 0.0002 m/s |
+
+**No sharing, no push, nothing.** `DisposeSpentStages` governs the *ascent* stages, which are dropped
+at 19-140 km and left far behind as the bus climbs to orbit; they were never candidates for a
+4.194 km neighbour. The setting moves the wrong vehicles.
+
+Worth stating because it also cuts the other way: an undisposed stage is not what merges a bubble,
+which is the third piece of evidence against the stage census being implicated at all.
+
+**A first attempt at this measured nothing at all** — the flag was passed as an environment variable
+to a Windows process launched from WSL, which does not survive, as `ScenarioRunner.Requested`'s own
+doc comment says three lines above where it was read. It travels on the scenario file now.
+
 ### The diagnostic, if the trigger is still wanted
 
 `Vehicle.BubbleLeader` and `Vehicle.NearbyVehicles` are both public, and `NearbyVehicles` is the
