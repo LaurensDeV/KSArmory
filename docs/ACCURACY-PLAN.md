@@ -3410,6 +3410,59 @@ degrees before the hold takes it back — a far larger slew, and a far larger im
 continuous small corrections it replaces. If the corrected fix reduces off-rails probes without
 reducing the push, that is the reason to look at first.
 
+## 3az. QuietCoast works, is worth 0.73x, and is not the whole fault — flown 2026-09-06
+
+The corrected fix (`AttitudeHook.Quiet` cancelling the attitude rather than merely not writing it)
+flew paired, and its first divergent world separates the arms perfectly.
+
+### Shot 003, four rockets an arm
+
+| craft | arm | miss |
+| --- | --- | --- |
+| FAT 5 | **quiet** | **45.41 km** |
+| FAT 7 | **quiet** | 62.29 |
+| FAT 3 | **quiet** | 70.25 |
+| FAT | **quiet** | 70.27 |
+| FAT 8 | base | 76.72 |
+| FAT 6 | base | 90.32 |
+| FAT 2 | base | 92.32 |
+| FAT 4 | base | 92.87 |
+
+**Every quiet rocket beat every base rocket.** A perfect rank separation at 4 v 4 is p = 1/70 =
+**0.014** one-sided, from one world — which is the whole point of the paired design. Median 66.3
+against 91.3 km, **ratio 0.73**.
+
+| | probes | off rails | max \|c\| |
+| --- | --- | --- | --- |
+| base | 376 | 270 | 3.8738 |
+| quiet | 376 | **144** | **3.0066** |
+
+And the mechanism is confirmed engaged: `aimed=False` now reads **`Manual/None`** where the first
+version read `Auto/Custom`, 2,584 probes of shot 001 against 7,100 pointed.
+
+### But all eight still failed, and the numbers say why
+
+Off rails nearly halved, the push fell 22%, the miss fell 30%. **The attitude hold is one
+contributor and about half the off-rails is something else.** The trim is already excluded by the
+filter, so it is not that.
+
+`PhysicsBubble.cs:1239` has five conditions, not one:
+
+```csharp
+anyActuatorCommanded || AnyActuatorActive() || <ocean> || KeyframeAnimationModule.AnyAnimating(..)
+    || KittenWantsWake(..)
+```
+
+Ocean is impossible at 900 km. The two candidates are `AnyActuatorActive()` — a nozzle still firing
+after the command stops — and the re-acquisition this fix builds in: `ReacquireCoastDeg = 2.0` lets
+the bus drift two degrees and then slews it back, and that slew is off rails for as long as it
+lasts.
+
+**The next arm to fly is a much wider reacquire band**, which is the direct test of the
+frequency-against-magnitude trade flagged in 3ay. If the release line does not in fact need holding
+through the coast — `PostBoostAim` and `ReleasePointing` re-point before the warheads leave — then
+the band can be very wide and the coast can be genuinely silent.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
