@@ -628,7 +628,9 @@ internal sealed class IcbmComputer
             // ~4 m/s per probe of cross-track push in a shared bubble. IcbmConfig.QuietCoast.
             if (QuietDuringCoast())
             {
-                AttitudeHook.Release(Craft);
+                // Quiet, not Release: dropping the aim leaves the computer holding its last target
+                // and still firing for it, which is the whole cost back.
+                AttitudeHook.Quiet(Craft);
             }
             else
             {

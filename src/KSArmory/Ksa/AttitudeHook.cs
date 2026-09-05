@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using Brutal.Numerics;
 using HarmonyLib;
@@ -40,6 +41,9 @@ internal static class AttitudeHook
     private const string HarmonyId = "com.kesslersystems.ksarmory.attitude";
 
     private static readonly Dictionary<Vehicle, Aim> Wanted = [];
+
+    // Craft whose attitude is actively cancelled each frame rather than pointed.
+    private static readonly HashSet<Vehicle> Quieted = [];
 
     private static Harmony? _harmony;
     private static bool _complained;
@@ -107,8 +111,30 @@ internal static class AttitudeHook
         Wanted[craft] = new Aim(directionCci, rollReferenceCci);
     }
 
-    /// <summary>Stop pointing it. The vehicle is the player's again.</summary>
-    public static void Release(Vehicle craft) => Wanted.Remove(craft);
+    /// <summary>
+    /// Actively stop the flight computer tracking, every frame, until <see cref="Release"/>.
+    ///
+    /// <para>Not the same as <see cref="Release"/>. Dropping the standing aim only stops this mod
+    /// <em>writing</em> a target; the computer keeps the one it has and goes on firing thrusters to
+    /// hold it, which keeps <c>anyActuatorCommanded</c> set and the vehicle off rails. Measured:
+    /// a craft with <c>aimed=False</c> still read <c>Auto/Custom</c> and still spent 276 of 376
+    /// coast probes off rails, against the pointed arm's 282. Cancelling has to be a write, and it
+    /// has to happen in this window like every other one.</para>
+    /// </summary>
+    public static void Quiet(Vehicle craft)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        Wanted.Remove(craft);
+        Quieted.Add(craft);
+    }
+
+    /// <summary>Stop pointing it, and stop quieting it. The vehicle is the player's again.</summary>
+    public static void Release(Vehicle craft)
+    {
+        Wanted.Remove(craft);
+        Quieted.Remove(craft);
+    }
 
     // Runs inside KSA's frame loop, immediately before the flight computer is snapshotted for the
     // worker. Everything here is wrapped, because an exception at this point is not a log line.
@@ -116,6 +142,12 @@ internal static class AttitudeHook
     {
         try
         {
+            if (Quieted.Contains(__instance))
+            {
+                VehicleCommand.ReleaseAttitude(__instance);
+                return;
+            }
+
             if (Wanted.Count == 0) return;
             if (!Wanted.TryGetValue(__instance, out Aim aim)) return;
 
@@ -125,6 +157,7 @@ internal static class AttitudeHook
         {
             // Stand down rather than throwing again next frame. One report, then silence.
             Wanted.Remove(__instance);
+            Quieted.Remove(__instance);
 
             if (_complained) return;
             _complained = true;
