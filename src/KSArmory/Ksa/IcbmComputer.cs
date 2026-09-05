@@ -1049,24 +1049,6 @@ internal sealed class IcbmComputer
                 continue;
             }
 
-            // Bounded the same way WhatWasDropped is, and for the same reason. The window between
-            // asking for a stage and the engine reporting it done is not one frame, so a world
-            // flying eight rockets on one profile stages them inside it and this census sees THEIR
-            // stages as new. Unbounded it adopted other rockets' buses at 39.9 and 79.9 km, six
-            // minutes before those buses released. A decoupler parts two halves at about a metre a
-            // second, so anything this computer actually let go of is metres away and nothing else
-            // in the world is. docs/ACCURACY-PLAN.md 3ap, 3as.
-            double3 between = KsaWorld.PositionEcl(other) - KsaWorld.PositionEcl(Craft);
-            double apart = Vec.IsFinite(between) ? Vec.Len(between) : double.NaN;
-
-            if (!(apart <= ShedStage.MaxMetres))
-            {
-                Log.Debug($"{KsaWorld.DisplayName(Craft)} ICBM: not adopting "
-                          + $"{KsaWorld.DisplayName(other)} as a shed stage, "
-                          + (double.IsFinite(apart) ? $"{apart / 1000.0:F1} km away" : "unreadable"));
-                continue;
-            }
-
             _shed.Add(other);
         }
 
