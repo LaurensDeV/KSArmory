@@ -1575,13 +1575,29 @@ internal sealed class IcbmComputer
         // speed. Log it as a VECTOR in a radial/along/cross basis -- a magnitude alone read as
         // along-track once and the mechanism is cross-track. docs/ACCURACY-PLAN.md 3as.
         double pushMps = double.NaN;
+        double pushRadial = 0.0, pushAlong = 0.0, pushCross = 0.0;
 
         if (_coastProbeHasState
             && Kepler.TryCoast(KsaWorld.BodyMu(parent), _coastProbePosCci, _coastProbeVelCci, interval,
                                out _, out double3 coastedVelCci))
         {
             double3 slip = velocityCci - coastedVelCci;
-            if (Vec.IsFinite(slip)) pushMps = Vec.Len(slip);
+            if (Vec.IsFinite(slip))
+            {
+                pushMps = Vec.Len(slip);
+
+                // The basis the walk is actually levered through. Cross-track is the one that
+                // moves an impact without moving the conic -- a normal impulse does no work and
+                // leaves |h| alone -- so a push that shows up here and not in the energy is the
+                // signature to look for.
+                double3 radial = Vec.Unit(positionCci);
+                double3 cross = Vec.Unit(Vec.Cross(positionCci, velocityCci));
+                double3 along = Vec.Cross(cross, radial);
+
+                pushRadial = Vec.Dot(slip, radial);
+                pushAlong = Vec.Dot(slip, along);
+                pushCross = Vec.Dot(slip, cross);
+            }
         }
 
         _coastProbePosCci = positionCci;
@@ -1621,7 +1637,13 @@ internal sealed class IcbmComputer
                  + $"committed {Program.CommittedArrivalFromNow:F0} s"
                  + lands
                  + $", state {clockGap:+0.000;-0.000} s behind"
-                 + (double.IsFinite(pushMps) ? $", off-gravity {pushMps:F4} m/s" : "")
+                 + (double.IsFinite(pushMps)
+                        ? $", off-gravity {pushMps:F4} m/s"
+                          + $" (r {pushRadial:+0.0000;-0.0000}, a {pushAlong:+0.0000;-0.0000}"
+                          + $", c {pushCross:+0.0000;-0.0000})"
+                        : "")
+                 + $", plan {KsaWorld.FlightPlanMarginSeconds(Craft):F1} s"
+                 + $", bubble {KsaWorld.BubbleVehicleCount(Craft)}"
                  + loop
                  + $", release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
     }

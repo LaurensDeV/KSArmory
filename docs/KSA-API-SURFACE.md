@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-166 types and 459 members across 7 assemblies.
+167 types and 463 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -468,6 +468,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.FlightPlan
+
+- `KSA.UniverseTime get_ExpiryGameTime()`
+
 ### KSA.GameAudio
 
 - `KSA.Camera GetAudioCamera()`
@@ -916,6 +920,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.UniverseTime
 
+- `KSA.UniverseTime op_Subtraction(KSA.UniverseTime, KSA.UniverseTime)`
 - `System.Int128 get_Nanoseconds()`
 - `double Seconds()`
 - `void .ctor(double)`
@@ -932,6 +937,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat get_Ctrl2Body()`
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
 - `KSA.FlightComputer get_FlightComputer()`
+- `KSA.FlightPlan get_FlightPlan()`
 - `KSA.IParentBody get_Parent()`
 - `KSA.Orbit get_Orbit()`
 - `KSA.Part get_ControlPart()`
@@ -947,6 +953,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float GetMinThrottle()`
 - `float get_PropellantMass()`
 - `float get_TotalMass()`
+- `int get_BubbleVehicleCount()`
 - `ref KSA.StructuralLoad get_StructuralLoad()`
 - `void PrepareWorker(KSA.SimStep)`
 - `void ProcessInput(KSA.InputAction, Brutal.GlfwApi.GlfwKeyAction, Brutal.GlfwApi.GlfwModifier)`

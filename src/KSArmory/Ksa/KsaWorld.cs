@@ -234,6 +234,37 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// How long the engine's own flight plan for this vehicle is still verified for.
+    ///
+    /// <para>The plan's expiry losing its race with sim time is one of the seven things that puts a
+    /// vehicle off rails, and the only one this mod can read without reflection — the actuator
+    /// flags hang off <c>Vehicle._threadWorkerUpdateState</c>, which is private. A margin that
+    /// collapses to nothing at the same probe the rails flag flips is the discriminator.</para>
+    /// </summary>
+    public static double FlightPlanMarginSeconds(Vehicle? v)
+    {
+        if (!IsAlive(v)) return double.NaN;
+
+        try { return (v!.FlightPlan.ExpiryGameTime - Universe.GetElapsedTime()).Seconds(); }
+        catch { return double.NaN; }
+    }
+
+    /// <summary>
+    /// How many vehicles share this one's physics bubble.
+    ///
+    /// <para>World load is what separated the two divergent worlds from the eight healthy ones —
+    /// see <c>docs/ACCURACY-PLAN.md</c> 3ar. Read per craft rather than counted here because the
+    /// bubble is what the engine actually budgets against.</para>
+    /// </summary>
+    public static int BubbleVehicleCount(Vehicle? v)
+    {
+        if (!IsAlive(v)) return -1;
+
+        try { return v!.BubbleVehicleCount; }
+        catch { return -1; }
+    }
+
+    /// <summary>
     /// Whether the engine has been told to integrate <em>every</em> vehicle in the world.
     ///
     /// <para>A public static the game writes from one debug checkbox and reads every sub-step. It
