@@ -3097,6 +3097,75 @@ Both halves, and either alone is wrong:
 The bound alone removed the accidental mechanism. Waiting alone would adopt more of the
 neighbourhood, not less.
 
+## 3au. The terminator is a shared physics bubble, and the engine has no way out — flown 2026-09-05
+
+Twelve worlds on the vector probe. **Three diverged, nine did not, and the discriminator is exact.**
+
+| | GAVE UP | probes sharing a bubble | off rails | max push | cross-track share |
+| --- | --- | --- | --- | --- | --- |
+| nine healthy | 0 | **0-1** | 0-1 | 0.0003-0.572 | -- |
+| **006** | 16 | **538** | 537 | 4.206 | **0.90** |
+| **009** | 16 | **531** | 531 | 4.205 | **0.90** |
+| **011** | 16 | 519 | 519 | 4.084 | **0.90** |
+
+The three push vectors agree across independent worlds with different bubble sizes (16, 23, 16):
+
+```
+006   r -1.661   a +0.801   c +3.780
+009   r -1.662   a +0.801   c +3.779
+011   r -1.618   a +0.766   c +3.671
+```
+
+So the push is a function of the trajectory, not of how many neighbours there are. Endings:
+`noimprov` 37 at 0.03 km, `payback` 19 at 0.02, `clock` 16 at 0.01, **`trim` 24 at 88.64** -- 24 of
+96 flights, which is 3 worlds of 12 at 8 rockets each.
+
+### Sharing a bubble IS being off rails
+
+`PhysicsBubble.cs:1340` gates the rails path on `NumVehicles < 2`. Two vehicles in one bubble and the
+engine integrates instead of propagating a conic, which is the whole of 3as's "off rails and
+thrusting are the same event" seen from the other side.
+
+### It is direction, not magnitude, and shot 007 is why that is a finding
+
+Shot 007 **passed** while sharing a bubble:
+
+```
+006  FAIL  bubble 16  push 4.206  c +3.780   cross-track 90%
+007  PASS  bubble  2  push 0.572  c -0.026   radial 93%
+```
+
+A cross-track impulse moves the impact with an enormous lever and barely touches the conic; a radial
+one does not. So `bubble > 1` is necessary and **not sufficient**, and shot 006 alone would have said
+otherwise.
+
+### And it is persistence, which the engine cannot undo
+
+007 shared for **one probe** and recovered. The divergent worlds shared for the whole coast, and that
+is structural:
+
+```csharp
+// PhysicsBubble.RemoveEligibleVehicles
+bool flag  = vehicleUpdateState.CurrentOrbit.Parent != Parent;
+bool flag2 = readOnlyStates.GetDesiredBubFrame() != Origin.BubFrame;
+if (flag || flag2) vehicleUpdateState.ReadOnlyVehicle.RemoveFromBubble(this);
+```
+
+**There is no distance test.** `MergeBubbles` merges on proximity clearance and the only exits are a
+change of parent body or of frame. Bubbles merge by distance and never split by it — a ratchet. 007
+got out because something changed its frame, which is the only door there is.
+
+### What that means for the fix
+
+Nothing on the mod's side can un-merge a bubble, so the only lever is to **stop the merge happening**
+— which means spent stages actually going away. **Item 18 is the fix for item 19**, not a correlate
+of it, and `3at` is why disposal does not currently work.
+
+### The flight-plan hypothesis is dead
+
+3ar's leading candidate, and the column was added to test it. The margin never approaches zero: 394 s
+in a divergent world against 495-948 healthy, three orders clear. Refuted.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3164,7 +3233,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | **20** | **Stop driving attitude through the coast.** The hold is what commands the actuators, and the thrust is a real 0.238 m/s² against the bus's 0.539 of authority. Release the hold once the line is held; the engine puts it back on rails | 0 shots then 10 | 3as: ~88% of it is lateral |
 | **21** | **Gate a rotation command's nozzle set to zero net force.** `checkring.py --translation` reads six-axis translation authority; nothing checks that a *rotation* set does not translate | 0 shots | 3as |
-| **19** | **What puts the bus off rails mid-coast.** Answered in outline: the mod's own continuous attitude hold commands actuators, and off-rails and thrusting are the same event. **`AnyActuatorCommanded`/`AnyActuatorActive` are NOT reachable** — they hang off `Vehicle._threadWorkerUpdateState`, which is private. Log `FlightPlan.ExpiryGameTime` and `BubbleVehicleCount`, both public, and the push as a **vector** | 0 shots then 10 | 3ar, 3as |
+| ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 

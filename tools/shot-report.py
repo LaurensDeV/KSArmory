@@ -138,8 +138,9 @@ SAMPLE = re.compile(r"dt=([\d.]+)ms step=([\d.]+)ms sim=([\d.]+)x")
 # What is left is the pre-split coast, where item 17's walk happens, and it settles to 0.0007 m/s
 # over 752 samples of a healthy flight -- a floor some fortyfold below the signal.
 OFFGRAV = re.compile(
-    r"coast probe on ([^:]+):.*?density\s+([\dE.+-]+),.*?off-gravity\s+([\d.]+)\s*m/s,"
-    r"\s*(?:on|off) rails[^,]*,\s*trim\s+(\w+)")
+    r"coast probe on ([^:]+):.*?density\s+([\dE.+-]+),.*?off-gravity\s+([\d.]+)\s*m/s"
+    r" \(r [-+][\d.]+, a [-+][\d.]+, c ([-+][\d.]+)\)"
+    r".*?bubble (-?\d+), (?:on|off) rails[^,]*,\s*trim\s+(\w+)")
 BAND = re.compile(
     r"DEBUG\s+(\S+)\s+control:.*?pointing band\s+([\d.]+)\s*deg")
 BANNER = re.compile(r"KSArmory\s+(\S+)\s+built for KSA\s+(\S+),\s*running\s+(\S+)")
@@ -342,7 +343,7 @@ def read_shot(out_path, log_path, craft=None):
             "band_deg": [], "impacts": [],
             "why": None, "passes": None, "owed": None, "why_named": False,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
-            "off_grav": [],
+            "off_grav": [], "off_cross": [], "shared_bubble": 0,
             "version": None}
 
     text = out_path.read_text(errors="replace") if out_path.exists() else ""
@@ -416,13 +417,21 @@ def read_shot(out_path, log_path, craft=None):
         shot["clock_gap"].append(world - own)
     seen = set()
     for m in OFFGRAV.finditer(log):
-        who, density, push, trim = m.group(1), float(m.group(2)), float(m.group(3)), m.group(4)
+        who, density, push = m.group(1), float(m.group(2)), float(m.group(3))
+        cross, bubble, trim = float(m.group(4)), int(m.group(5)), m.group(6)
         if who not in seen:          # the coast-entry transition, not a push
             seen.add(who)
             continue
         if density > 0.0 or trim != "idle":
             continue
         shot["off_grav"].append(push)
+        shot["off_cross"].append(abs(cross))
+
+        # Sharing a bubble is what stops the engine propagating a conic and starts it integrating
+        # -- PhysicsBubble needs NumVehicles < 2 for the rails path. Bubbles merge on proximity and
+        # only ever leave on a parent or frame change, so the sharing does not end once it starts.
+        if bubble > 1:
+            shot["shared_bubble"] += 1
     for dt, step, sim in _floats(SAMPLE, log, 3):
         shot["dt_ms"].append(dt)
 
@@ -1361,7 +1370,7 @@ def main():
     print("\n== attribution (medians over usable shots)")
     print(f"   {'arm':<14}{'residual':>9}{'own km':>8}{'trim rel':>9}{'probe km':>9}"
           f"{'thrown':>8}{'arr deg':>8}{'band deg':>9}{'down m':>9}{'cross m':>9}{'early s':>9}{'lag m':>8}"
-          f"{'dt ms':>7}{'coast ms':>9}{'off-g max':>10}")
+          f"{'dt ms':>7}{'coast ms':>9}{'off-g max':>10}{'cross':>8}{'shared':>8}")
     for arm in arms:
         mine = [s for s in shots if s["arm"] == arm and usable(s)]
         if not mine:
@@ -1389,7 +1398,8 @@ def main():
               f"{med('early_s', True):>9.2f}"
               f"{med('lag_m', True):>8.0f}"
               f"{med('dt_ms', True):>7.1f}{med('coast_ms', True):>9.1f}"
-              f"{mx('off_grav'):>10.4f}")
+              f"{mx('off_grav'):>10.4f}{mx('off_cross'):>8.3f}"
+              f"{sum(s['shared_bubble'] for s in mine):>8}")
 
     if args.shots:
         print("\n== every shot")
