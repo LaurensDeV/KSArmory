@@ -139,8 +139,8 @@ SAMPLE = re.compile(r"dt=([\d.]+)ms step=([\d.]+)ms sim=([\d.]+)x")
 # over 752 samples of a healthy flight -- a floor some fortyfold below the signal.
 OFFGRAV = re.compile(
     r"coast probe on ([^:]+):.*?density\s+([\dE.+-]+),.*?off-gravity\s+([\d.]+)\s*m/s"
-    r" \(r [-+][\d.]+, a [-+][\d.]+, c ([-+][\d.]+)\)"
-    r".*?bubble (-?\d+), (?:on|off) rails[^,]*,\s*trim\s+(\w+)")
+    r" \(r [-+]?[\d.]+, a [-+]?[\d.]+, c ([-+]?[\d.]+)\)"
+    r".*?bubble (-?\d+),.*?\btrim\s+(\w+)")
 BAND = re.compile(
     r"DEBUG\s+(\S+)\s+control:.*?pointing band\s+([\d.]+)\s*deg")
 BANNER = re.compile(r"KSArmory\s+(\S+)\s+built for KSA\s+(\S+),\s*running\s+(\S+)")

@@ -338,13 +338,10 @@ public sealed class KSArmoryMod
             // and drive facing — and this is the shot itself: where the warheads are going is the
             // thing the operator is flying the rocket to change.
             //
-            // Skipped while a scripted scenario runs, because nobody is watching one and this is
-            // 11.1 of a 15.1 ms mod frame — eight computers each transforming a whole predicted
-            // path before striding it down to 96 segments. Frame time is not just wall clock here:
-            // WarpPolicy holds the STEP, so its ceiling is (MaxFaithfulStep * Margin) / dtPlayer
-            // and halving the frame doubles the warp a coast may run at. A batch's verdict comes
-            // from the log, and its screenshots are opt-in and about appearance.
-            if (KsaWorld.InFlight && _icbms is not null && !_scenario.Active)
+            // Drawn during a scripted run too. It is 11.1 of a 15.1 ms mod frame and skipping it was
+            // tried: the frame fell to 0.78 ms and the wall clock did not move, because most of a
+            // run is at 1x where frame time buys nothing. Somebody watches these.
+            if (KsaWorld.InFlight && _icbms is not null)
             {
                 using (_budget.Measure("icbmdraw")) IcbmOverlay.Draw(_icbms, _trajectory);
             }
