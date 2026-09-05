@@ -3082,10 +3082,20 @@ than one frame the vehicle does not exist yet, this craft's own stage is missed 
 whatever the neighbours dropped inside that window is adopted in its place. Eight rockets staging
 within moments of each other is what makes the world look tidy at all.
 
-**In a world with one rocket there is nothing to adopt**, so this predicts a single-rocket flight
-disposes almost nothing. `METRE-LEVEL.md` 5b reports one flown at 5 vehicles before the split
-against 2 with disposal on, which is the opposite — so either the timing differs at one rocket or
-something has changed since. **Unflown either way, and worth one shot before building the fix.**
+**Flown 2026-09-05, and this section's mechanism is REFUTED.** One rocket on `ICBM E2E`: three
+stagings, **four disposals, all of its own stages** (`GeoSat FAT_1/_2/_3`), at **1.0 km**. The census
+finds its own stage perfectly well, and the one-frame window is the same in both worlds, so the
+window is not what fails.
+
+**What actually happens with eight rockets is a race, and the owner loses it.**
+`StageDisposal.MayDispose` measures clearance from the *disposing* craft. A neighbour that adopted
+the stage is already 20 km from it, so its gate is open immediately; the owner has to wait for its
+own 1 km of separation. The neighbour disposes it first, which is why 98% of disposals read as
+foreign and why nothing is disposed nearer than the 19.2 km pad spacing.
+
+So **disposal is not failing** — it is being done early, by the wrong computer, and logged against
+it. That is a real attribution fault and it is not a stage-retention fault, which is what the rest of
+this section assumed.
 
 ### What the fix has to do
 
@@ -3158,8 +3168,10 @@ got out because something changed its frame, which is the only door there is.
 ### What that means for the fix
 
 Nothing on the mod's side can un-merge a bubble, so the only lever is to **stop the merge happening**
-— which means spent stages actually going away. **Item 18 is the fix for item 19**, not a correlate
-of it, and `3at` is why disposal does not currently work.
+— which means whatever is bringing vehicles close enough to merge. **That was attributed to item 18
+and the attribution is withdrawn:** the one-rocket shot shows disposal works, and the three divergent
+worlds disposed 153-160 against 158-167 healthy, which is the same range. Something else is putting
+vehicles in one bubble, and finding it is the open question.
 
 ### The flight-plan hypothesis is dead
 
@@ -3228,11 +3240,12 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~2b'~~ | ~~Re-sample the ground per sub-step in the terminal phase~~ | done | **refuted headlessly: 0-2 m on smooth ground, and chaotic rather than convergent on rough (−2,781 m at 22 ms, −7 at 33, −2 at 50). Re-sampling changes which feature the round stops on; it does not converge** |
 | ~~15~~ | ~~Log what `DensityRatioAt` returns through the coast~~ | done | **refuted: 0 of 2,009 samples non-zero through 52 divergences — the air and the drag model are cleared** — 3an |
 | ~~17~~ | ~~**Why the aim bias walks to 94 km**~~ | done | **the coast is being integrated instead of propagated: the bus spends 70% of the coast off rails against 1% healthy, and accumulates ~2.4 m/s per probe of non-gravitational velocity, which at 91.5 km per m/s is the walk. Replicated in two independent worlds to six figures** — 3ar |
-| **18** | **Make the stage census find its OWN stage.** It fires once, one frame after staging is commanded, and clears itself whether or not anything was found — so ~98% of what gets disposed belongs to another rocket (own 15, foreign 635) and nothing disposed is nearer than the 19.2 km pad spacing. Needs BOTH a frame-bounded wait and a distance bound; the bound alone regressed peak vehicles 24 -> 57 and was reverted | 1 shot then 10 | 3at |
+| **18** | **The stage census adopts the neighbours, and a distant adopter disposes the stage before its owner can.** `MayDispose` measures clearance from the disposing craft, so a neighbour 20 km away has its gate open at once while the owner waits for 1 km — 98% of disposals read foreign, none nearer than the 19.2 km pad spacing. An attribution fault, NOT a retention fault: one rocket disposes its own three stages at 1.0 km, and the divergent worlds dispose as much as the healthy ones | 0 shots | 3at |
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | **20** | **Stop driving attitude through the coast.** The hold is what commands the actuators, and the thrust is a real 0.238 m/s² against the bus's 0.539 of authority. Release the hold once the line is held; the engine puts it back on rails | 0 shots then 10 | 3as: ~88% of it is lateral |
 | **21** | **Gate a rotation command's nozzle set to zero net force.** `checkring.py --translation` reads six-axis translation authority; nothing checks that a *rotation* set does not translate | 0 shots | 3as |
+| **22** | **What actually merges the bubbles.** 3au has the mechanism and the engine's own ratchet, but not the trigger: disposal works, and the three divergent worlds disposed 153-160 against 158-167 healthy. Log each craft's bubble id and the separation to the nearest vehicle through the coast, and find what closes | 0 shots then 12 | 3au, 3at |
 | ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
