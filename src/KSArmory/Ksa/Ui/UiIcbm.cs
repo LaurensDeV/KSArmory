@@ -451,6 +451,33 @@ internal sealed partial class Ui
             : $"the correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget "
               + "cannot fly at any range"));
 
+        bool quiet = config.QuietCoast;
+        if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
+        {
+            config.QuietCoast = quiet;
+        }
+
+        ImGui.TextDisabled("  " + (config.QuietCoast
+            ? $"stops pointing inside {config.QuietCoastDeg:F1} deg, points again past "
+              + $"{config.ReacquireCoastDeg:F1} deg -- a commanded thruster is what takes the bus "
+              + "off rails, and off rails it is integrated rather than coasted"
+            : "the bus is pointed every frame of the coast, which keeps it off rails throughout"));
+
+        if (config.QuietCoast)
+        {
+            float go = (float)config.QuietCoastDeg;
+            if (ImGui.SliderFloat("  Let go inside (deg)", ref go, 0.05f, 5.0f, "%.2f"))
+            {
+                config.QuietCoastDeg = go;
+            }
+
+            float back = (float)config.ReacquireCoastDeg;
+            if (ImGui.SliderFloat("  Take it back past (deg)", ref back, 0.1f, 20.0f, "%.1f"))
+            {
+                config.ReacquireCoastDeg = back;
+            }
+        }
+
         float preference = (float)config.ArrivalPreference;
         if (ImGui.SliderFloat("Precision against range", ref preference, 0.0f, 1.0f, "%.2f"))
         {

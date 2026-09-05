@@ -276,6 +276,27 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// How far the flight computer says this craft is from the attitude it was asked for, in
+    /// degrees, or NaN when it cannot be read.
+    ///
+    /// <para>The engine's own error rather than one derived here: it is what the tracker acts on,
+    /// so it is the number that decides whether an actuator gets commanded — and a command is what
+    /// takes a vehicle off rails.</para>
+    /// </summary>
+    public static double PointingErrorDeg(Vehicle? v)
+    {
+        if (!IsAlive(v)) return double.NaN;
+
+        try
+        {
+            float3 e = v!.FlightComputer.ErrorAngles;
+            double3 rad = new double3(e.X, e.Y, e.Z);
+            return Vec.IsFinite(rad) ? Vec.Len(rad) * 180.0 / Math.PI : double.NaN;
+        }
+        catch { return double.NaN; }
+    }
+
+    /// <summary>
     /// The nearest other vehicle to <paramref name="v"/>, and how far away it is.
     ///
     /// <para>A bubble merges on proximity and only ever releases a vehicle whose parent body or

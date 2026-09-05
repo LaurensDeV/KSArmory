@@ -622,9 +622,20 @@ internal sealed class IcbmComputer
 
             // Handed to the hook rather than written here. A write from this pass is discarded
             // before anything reads it - see AttitudeHook.
-            AttitudeHook.Hold(Craft, _deploy.DirectionCci, _deploy.RollCci);
-            aimed = AttitudeHook.Installed;
-            if (aimed) _driving = true;
+            //
+            // Unless the coast has been told to go quiet. Commanding an actuator is what takes the
+            // vehicle off rails, and off rails it is integrated rather than propagated -- worth
+            // ~4 m/s per probe of cross-track push in a shared bubble. IcbmConfig.QuietCoast.
+            if (QuietDuringCoast())
+            {
+                AttitudeHook.Release(Craft);
+            }
+            else
+            {
+                AttitudeHook.Hold(Craft, _deploy.DirectionCci, _deploy.RollCci);
+                aimed = AttitudeHook.Installed;
+                if (aimed) _driving = true;
+            }
         }
         else
         {
@@ -1497,6 +1508,36 @@ internal sealed class IcbmComputer
         return near is null || !double.IsFinite(metres)
                    ? ", nearest none"
                    : $", nearest {KsaWorld.DisplayName(near)} at {metres / 1000.0:F2} km";
+    }
+
+    // Whether to stop pointing for now. Latched with a band rather than a threshold: a bus settled
+    // to a hundredth of a degree would otherwise re-command every time the error crossed it, which
+    // is the actuator being commanded again and the whole cost back.
+    //
+    // Only the coast, and only once the line is actually held: the burn, the trim and the release
+    // sequence all need the attitude, and none of them is where the damage is done.
+    private bool _coastIsQuiet;
+
+    private bool QuietDuringCoast()
+    {
+        if (!Config.QuietCoast || Program.Phase != IcbmPhase.Coast || Program.IsBurning
+            || TrimIsFiring || _salvoAway)
+        {
+            _coastIsQuiet = false;
+            return false;
+        }
+
+        double errorDeg = KsaWorld.PointingErrorDeg(Craft);
+        if (!double.IsFinite(errorDeg))
+        {
+            _coastIsQuiet = false;
+            return false;
+        }
+
+        if (_coastIsQuiet) _coastIsQuiet = errorDeg <= Config.ReacquireCoastDeg;
+        else _coastIsQuiet = errorDeg <= Config.QuietCoastDeg;
+
+        return _coastIsQuiet;
     }
 
     // A flight-plan margin as a reader wants it: a number, or "inf" for a horizon nothing reaches.

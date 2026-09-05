@@ -338,6 +338,33 @@ internal sealed class IcbmConfig
     public bool AimWithinTrimBudget;
 
     /// <summary>
+    /// Let go of the attitude once the bus is pointing where it will release, and take it back only
+    /// if it drifts.
+    ///
+    /// <para>KSA puts a vehicle off rails for as long as an actuator is <em>commanded</em>
+    /// (<c>PhysicsBubble</c>'s per-vehicle rails choice), and off rails it is integrated rather than
+    /// propagated as a conic. A bus sharing a physics bubble is harmless while it is on rails —
+    /// measured at 224 to 241 coast probes of a divergent world costing nothing — and the free ride
+    /// ends the moment this mod's own hold commands a thruster. What follows is ~4 m/s per probe of
+    /// non-gravitational push, 90% of it across the plane, which walks the predicted impact and
+    /// takes the shot to 88 km. <c>docs/ACCURACY-PLAN.md</c> 3ax.</para>
+    ///
+    /// <para>Holding is still what keeps the release line, so this is a band rather than a release:
+    /// quiet inside <see cref="QuietCoastDeg"/>, and pointing again past
+    /// <see cref="ReacquireCoastDeg"/>. Only during the coast, and never while burning, trimming or
+    /// deploying — those need the attitude and are not where the coast's damage is done.</para>
+    ///
+    /// <para><b>Off, and off is what ships</b>, until it has been flown against a forced control.</para>
+    /// </summary>
+    public bool QuietCoast;
+
+    /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
+    public double QuietCoastDeg = 0.5;
+
+    /// <summary>Pointing error at which it takes the attitude back, in degrees.</summary>
+    public double ReacquireCoastDeg = 2.0;
+
+    /// <summary>
     /// What a second of holding the warheads is charged at, overriding
     /// <see cref="PostBoostAim.HoldingCostsMetresPerSecond"/>.
     ///

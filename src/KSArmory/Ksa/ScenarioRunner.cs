@@ -364,7 +364,12 @@ internal sealed class ScenarioRunner
         // a guidance one: no part of the flight reads an ascent stage. The baseline is re-flown
         // every night, so what it must not do is differ *between arms* -- and it cannot, being set
         // here rather than by anything an arm can reach.
-        _config.DisposeSpentStages = true;
+        // Off only when a run is deliberately stressing the bubble. A spent stack separates at about
+        // a metre a second, so keeping it holds every rocket inside the 4.194 km at which
+        // SplitBubbles would release it -- which makes the shared bubble certain instead of a
+        // one-in-four wait. docs/ACCURACY-PLAN.md 3ax.
+        _config.DisposeSpentStages =
+            Environment.GetEnvironmentVariable("KSARMORY_SCENARIO_KEEPSTAGES") != "1";
 
         _budget = BallisticBudgetSeconds;
         _phase = Phase.LoadingSave;
