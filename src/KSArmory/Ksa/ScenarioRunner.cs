@@ -53,6 +53,7 @@ internal sealed class ScenarioRunner
     // ordinary case: every rocket flies whatever was built.
     private ShotArms? _arms;
     private string _armSpec = string.Empty;
+    private bool _keepStages;
     private int _armPhase;
 
     private bool _isBallistic;
@@ -293,6 +294,11 @@ internal sealed class ScenarioRunner
         _armSpec = lines.Length > 1 ? lines[1].Trim() : string.Empty;
         _armPhase = lines.Length > 2 && int.TryParse(lines[2].Trim(), out int phase) ? phase : 0;
 
+        // Line four is options. A file rather than an environment variable, because the game is a
+        // Windows process launched from WSL and the environment does not survive that -- the same
+        // reason the request itself travels this way.
+        _keepStages = lines.Length > 3 && lines[3].Trim() == "keepstages";
+
         // "name" or "name|save". Skipping the configuration dialog gets the game past a dialog,
         // not into a scene: settings.toml's startVehicle is only ever read *by* that dialog, so
         // without one the game sits at a menu and nothing is ever in flight. Loading a save is
@@ -368,8 +374,13 @@ internal sealed class ScenarioRunner
         // a metre a second, so keeping it holds every rocket inside the 4.194 km at which
         // SplitBubbles would release it -- which makes the shared bubble certain instead of a
         // one-in-four wait. docs/ACCURACY-PLAN.md 3ax.
-        _config.DisposeSpentStages =
-            Environment.GetEnvironmentVariable("KSARMORY_SCENARIO_KEEPSTAGES") != "1";
+        _config.DisposeSpentStages = !_keepStages;
+
+        if (_keepStages)
+        {
+            Log.Info("SCENARIO keeping every spent stage, so each rocket stays inside the 4.194 km "
+                     + "at which the engine would split it out of its physics bubble");
+        }
 
         _budget = BallisticBudgetSeconds;
         _phase = Phase.LoadingSave;

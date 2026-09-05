@@ -139,11 +139,17 @@ SHOTS="$REPO_ROOT/screenshots"
 
 # Consumed by the mod as it reads it, so a later launch cannot silently re-run this.
 mkdir -p "$USER_DIR/Logs"
-# Three lines. The arm spec gets one of its own because it separates arms with the same "|" that
-# separates the request from the save.
+# Four lines, always, even when empty. The arm spec gets one of its own because it separates arms
+# with the same "|" that separates the request from the save, and the options line is last because a
+# line that is only sometimes written cannot be addressed by position.
+#
+# A file rather than the environment: the game is a Windows process launched from WSL and the
+# environment does not survive that. KSARMORY_SCENARIO_KEEPSTAGES was tried as one and the mod never
+# saw it -- 100 disposals in a run that was meant to keep every stage.
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
-    if [[ -n "$ARMS" ]]; then printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"; fi
+    printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
+    printf '%s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+keepstages}"
 } > "$USER_DIR/Logs/scenario.txt"
 
 # KSA shows a configuration dialog at startup and waits for START KSA to be clicked, which is
