@@ -1487,6 +1487,12 @@ internal sealed class IcbmComputer
             + Arrivals());
     }
 
+    // A flight-plan margin as a reader wants it: a number, or "inf" for a horizon nothing reaches.
+    private static string Fmt(double seconds) =>
+        double.IsPositiveInfinity(seconds) ? "inf"
+        : double.IsNaN(seconds) ? "?"
+        : seconds.ToString("F1");
+
     // How often the coast is written down, in simulated seconds.
     private const double CoastProbeSeconds = 10.0;
 
@@ -1646,7 +1652,7 @@ internal sealed class IcbmComputer
                           + $", a {pushAlong:+0.0000;-0.0000;0.0000}"
                           + $", c {pushCross:+0.0000;-0.0000;0.0000})"
                         : "")
-                 + $", plan {KsaWorld.FlightPlanMarginSeconds(Craft):F1} s"
+                 + $", plan {Fmt(KsaWorld.FlightPlanMarginSeconds(Craft))} s"
                  + $", bubble {KsaWorld.BubbleVehicleCount(Craft)}"
                  + loop
                  + $", release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");

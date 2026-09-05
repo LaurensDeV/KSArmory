@@ -241,11 +241,22 @@ internal static class KsaWorld
     /// flags hang off <c>Vehicle._threadWorkerUpdateState</c>, which is private. A margin that
     /// collapses to nothing at the same probe the rails flag flips is the discriminator.</para>
     /// </summary>
+    // Past a day the plan carries EndOfTime rather than a horizon, and that is not a margin.
+    private const double FlightPlanHorizonSeconds = 86_400.0;
+
     public static double FlightPlanMarginSeconds(Vehicle? v)
     {
         if (!IsAlive(v)) return double.NaN;
 
-        try { return (v!.FlightPlan.ExpiryGameTime - Universe.GetElapsedTime()).Seconds(); }
+        try
+        {
+            double margin = (v!.FlightPlan.ExpiryGameTime - Universe.GetElapsedTime()).Seconds();
+
+            // RecalculateFlightPlan resets the horizon to EndOfTime, which comes back as ~1.7e29
+            // seconds and is not a margin. Reported as infinity so a reader sees "verified for as
+            // long as anyone cares" rather than a number that looks like data.
+            return margin > FlightPlanHorizonSeconds ? double.PositiveInfinity : margin;
+        }
         catch { return double.NaN; }
     }
 
