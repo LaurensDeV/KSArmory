@@ -3178,6 +3178,59 @@ vehicles in one bubble, and finding it is the open question.
 3ar's leading candidate, and the column was added to test it. The margin never approaches zero: 394 s
 in a divergent world against 495-948 healthy, three orders clear. Refuted.
 
+## 3av. Twelve clean worlds, and the rate itself is the instrument problem — flown 2026-09-05
+
+The same save, the same aim, the same baseline, a build differing only by a log column and a
+formatting fix. **0 of 12 diverged, against 3 of 12 six hours earlier.**
+
+### What the weapon is when the terminator does not fire
+
+96 flights, 32.0 deg arrival, 6,269 km:
+
+| | |
+| --- | --- |
+| median | **0.02 km** |
+| mean | **0.03 km** |
+| worst of 96 | **0.11 km** |
+| endings | `noimprov` 42, `payback` 39, `clock` 15 — **no `trim`** |
+
+Every warhead inside 110 m. Against a mean of 16.95 and 22.04 km on the two nights that had
+divergences, this is what the terminator costs and what sits underneath it.
+
+### The healthy baseline for the bubble probe
+
+Twelve worlds, ~753 filtered coast probes each: **zero bubble sharing**, and the nearest other
+vehicle a steady median of **9.55 to 10.86 km**. Any divergent world now has something to differ
+from.
+
+### And the rate moves between sessions on identical code
+
+The healthy populations of the two nights are the same to the digit — disposals median **167** both,
+peak vehicles **24 against 23**. So nothing about the baseline shifted; only whether the event fired.
+
+**A fix for the terminator therefore cannot be validated by comparing divergence counts between
+nights.** The noise is the size of the effect. It has to be flown paired, with the fix and the
+control on different rockets in the *same* world, which `Sim/ShotArms.cs` already supports and which
+`SHOT-PROTOCOL.md` argues for on the miss distance for exactly this reason.
+
+### Coast step is not the trigger either
+
+`shot-report.py` reported a pooled coast step of 30.3 ms against 107.1 the night before, which
+looked like the world running at a third of the warp — and `BubbleMergePredicate` merges on closest
+approach predicted over `AnalyticHorizonFrames = 4.0`, so a longer step is a longer look-ahead and
+more merges. It is an artifact: the column pools *samples*, and a shot at a 30 ms step contributes
+about 3.5x as many per second of simulated time, so four such shots outweigh eight at 105 ms.
+
+Per shot there is no separation at all:
+
+```
+divergent   90.8  102.0  110.8  105.2  107.6
+healthy     21.6 ... 113.0
+```
+
+**A pooled median over samples is not a median over shots**, and this is the second time today a
+count has been read as a mechanism.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3245,7 +3298,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | **20** | **Stop driving attitude through the coast.** The hold is what commands the actuators, and the thrust is a real 0.238 m/s² against the bus's 0.539 of authority. Release the hold once the line is held; the engine puts it back on rails | 0 shots then 10 | 3as: ~88% of it is lateral |
 | **21** | **Gate a rotation command's nozzle set to zero net force.** `checkring.py --translation` reads six-axis translation authority; nothing checks that a *rotation* set does not translate | 0 shots | 3as |
-| **22** | **What actually merges the bubbles.** 3au has the mechanism and the engine's own ratchet, but not the trigger: disposal works, and the three divergent worlds disposed 153-160 against 158-167 healthy. Log each craft's bubble id and the separation to the nearest vehicle through the coast, and find what closes | 0 shots then 12 | 3au, 3at |
+| **22** | **What actually merges the bubbles.** 3au has the mechanism and the engine's ratchet; the trigger is still open, and disposal, world load, flight-plan expiry and coast step are all excluded. **Must be flown PAIRED** — 3 of 12 then 0 of 12 on an identical baseline, so a between-night count cannot see a fix | 0 shots then 12 paired | 3au, 3av |
 | ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
