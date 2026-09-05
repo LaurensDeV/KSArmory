@@ -3440,7 +3440,36 @@ against 91.3 km, **ratio 0.73**.
 And the mechanism is confirmed engaged: `aimed=False` now reads **`Manual/None`** where the first
 version read `Auto/Custom`, 2,584 probes of shot 001 against 7,100 pointed.
 
-### But all eight still failed, and the numbers say why
+### Three divergent worlds, and it is a dose-response
+
+| shot | base off rails | quiet off rails | base miss | quiet miss | ratio |
+| --- | --- | --- | --- | --- | --- |
+| 003 | 270 | 144 | ~91 km | ~66 km | 0.73 |
+| 005 | 273 | 140 | ~89 km | ~64 km | 0.72 |
+| **006** | 265 | **0** | ~87 km | **~13 km** | **0.15** |
+
+Shot 006's quiet arm went **completely silent** — zero off-rails probes, zero push — and landed
+8.56 / 12.86 / 13.66 / 16.21 km against the base arm's 79.88 / 85.12 / 88.68 / 93.53.
+
+**Every quiet rocket beat every base rocket in all three worlds.** Three independent perfect
+separations at four a side is p = (1/70)^3, and the mechanism numbers replicate to two significant
+figures across 003 and 005.
+
+The dose-response is the strong part: partial quieting buys 1.4x, complete quieting buys 6.7x, and
+what varies between them is exactly the off-rails count. **Driving off rails to zero is the target,
+and 006 proves it is attainable.**
+
+### What is still open
+
+Why the quiet arm never re-acquired in 006 and re-acquired ~140 times in 003 and 005. The likeliest
+answer is the bus's residual drift rate against `ReacquireCoastDeg = 2.0`, which is what a wider
+band tests — and 006 says what it is worth.
+
+Even fully silent the shot lands at 13 km rather than the 0.02 km a healthy world gives, so the
+shared bubble costs something beyond the push this fix removes. That is a separate question and a
+much smaller one.
+
+### The numbers on the partial worlds
 
 Off rails nearly halved, the push fell 22%, the miss fell 30%. **The attitude hold is one
 contributor and about half the off-rails is something else.** The trim is already excluded by the
