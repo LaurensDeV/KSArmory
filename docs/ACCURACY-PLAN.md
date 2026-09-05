@@ -2751,8 +2751,9 @@ correction as error — and on this coast the ration came due once, at the end. 
 bias was applied off a single unverified reading, which is also why `best` equals the current miss.
 
 The other half is why the prediction walked 50 km during a coast at all. On a coast it is an exact
-function of one state, and the arc amplifies **91.5 km per m/s along track** — so the whole walk is
-about 0.55 m/s of along-track velocity over ~170 s. The coast probe now reports whether the trim is
+function of one state. **The 91.5 km per m/s quoted here was wrong by two orders and is corrected
+in 3as** — this arc's along-track amplification is 0.38 to 2.93 km per m/s, which is what
+`METRE-LEVEL.md`'s own `dMiss/dV` table says (415 m per m/s at 30 deg). The walk is not along track. The coast probe now reports whether the trim is
 firing and how long since the correction last read, which is what separates a bus being perturbed
 from a predictor drifting on its own.
 
@@ -2923,8 +2924,9 @@ non-gravitational velocity while it does. The two worlds agree to six figures on
 (2.381004, 2.381031) and to four on the median (2.2720, 2.2726), across independent runs — this is
 deterministic, not scatter.
 
-At the arc's ~91.5 km per m/s along track, 2.4 m/s per probe is the +256 to +386 m/s walk measured
-on the same samples, which is 3an's +163 to +340 signature.
+The walk on the same samples is +256 to +386 m/s, which is 3an's +163 to +340 signature.
+**The mechanism stated here first was along-track and is wrong — see 3as.** It is cross-track, and
+the arithmetic that appeared to support it used an amplification 180x too large.
 
 ### The onset is one sample, not a ramp
 
@@ -2976,6 +2978,72 @@ mode, and the mode now has a mechanism.
 
 **Item 18 was also observed live**: `GeoSat FAT`'s computer disposing rockets 2, 3, 4 and 5's stages
 at 00:56:28 of shot 007. `CollectShedStages` is still unbounded.
+
+## 3as. The push is real, it is cross-track, and 3ar's arithmetic was wrong — read 2026-09-05
+
+Three readings against 3ar, each of which changes something.
+
+### The push is a real force, and the probe is sound
+
+| ruled out | by |
+| --- | --- |
+| **integrator truncation** | `PhysicsStates.ComputeTimestep` caps the off-rails sub-step at **2.0 s**; nothing else binds in vacuum. Integrated on this orbit the 10 s error at h=2.0 s is **3.0e-5 m/s**, and 1e-8 at the step actually flown. Measured is 2.38 — five to eight orders out. Empirically too: the world dropped 5.3x to 1.0x mid-coast and the push carried on the same curve, changing 6% |
+| **a different force model off rails** | `ComputeDerivatives` applies the closest parent's `mu*(-rhat)/r^2` minus the same at the bubble origin. No J2, no third body, no SRP. Drag, buoyancy and Coriolis sit behind `InPhysicsRadius` ~ R+210 km, and the bus is at 950-1160 km |
+| **a probe artefact** | same craft, same frames, same code: on-rails samples read <= 0.0006 m/s |
+
+What is left in `ComputeDerivatives` is `ActiveNozzle` thrust. 2.38 m/s per 10 s is **0.238 m/s²**
+against this bus's own logged **0.539 m/s²** of RCS translational authority — 31-76% of it. **Off
+rails and thrusting are the same event**, which is why the rails flag reads as the discriminator.
+
+### The six-figure agreement is a smooth function of state, not a coincidence
+
+007 and 010 are the same scenario twice — same craft names, same 95 probes, trajectories matching to
+0.3 km. The push runs 3.54 m/s at 973 km, 1.65 at apogee, 3.51 at 946 km: U-shaped, no scatter. A
+mean over a near-identical sweep of a smooth curve is second-order insensitive to the small state
+offset. It is evidence the push is a **function of orbital state**, not noise.
+
+### It is cross-track, and 3ar's along-track arithmetic was out by 180x
+
+**`91.5 km per m/s` is wrong for this arc**, and it had propagated into three places in this file
+and three comments in `IcbmComputer.cs`. Fitting the conic to the log's own on-rails samples gives
+a = 4682 km, e = 0.611, and an along-track amplification of **2.93 km per m/s at 227 km, 2.04 at the
+onset, 1.15 at apogee, 0.38 at the end**. That is what `METRE-LEVEL.md`'s own `dMiss/dV` table has
+said all along — 415 m per m/s at 30 deg — and 91.5 is 16 to 220 times outside the whole table.
+
+At 91.5, 2.4 m/s per probe would be 220 km per probe. Observed is 1.2.
+
+And the conic barely changes: the in-plane impact anomaly wanders **±3.9 km and returns to
++0.17 km**, `a` moves 4681.92 to 4683.43 km, `e` 0.61058 to 0.60837. Taking the push normal to the
+plane instead, `sum push*(R*r/h)*sin(theta)` is **95.2 km** against the observed **83.7 km** of
+latitude walk — ratio 0.88, per-probe shape matching, and r = 0.94 across both worlds. A normal
+impulse does no work and does not change `|h|`, which is exactly why the energy and angular momentum
+stayed put.
+
+**Logging the push as a magnitude is what sent 3ar to the wrong mechanism.** It has to be a vector
+in a radial / along / cross basis.
+
+### What the fix is
+
+- **Not "keep it on rails" and not holding timewarp.** Rails is the symptom: KSA goes off rails
+  *because* the flight computer is commanding actuators, which is the mod's own continuous attitude
+  hold through the coast — the design fault 3aq found and filed. Stop driving attitude once the
+  release line is held, the actuators go quiet, and the engine puts the bus back on rails. That is
+  what the eight healthy worlds are doing.
+- **A second, independent fault:** the imbalance is ~88% lateral, so **a rotation command's nozzle
+  set is not summing to zero force**. `tools/model/checkring.py --translation` reads six-axis
+  translation authority off the XML; the missing gate is whether a *rotation* command's enrolled set
+  has zero net force. Without it, any attitude hold in coast is a thruster.
+- **The engine already computes the answer**: `KinematicMeasurements.DeltaVelocityCci` in
+  `IntegrateVelocityVerlet` is the non-gravitational delta-v, and `Disturbances.ForceBody` is the
+  thrust.
+
+### And the world-load discriminator stands, independent of any of this
+
+3ar's chain is measured from vehicle counts and disposal lines rather than from the probe, so it
+survives every correction above: **160 disposals against 167, and 12-20 vehicles at warp against 9,
+splitting 10 of 10 worlds with no overlap.** Seven spent stages are not being disposed of in exactly
+the two worlds that diverge. That is item 18, and it is now the root-cause candidate rather than a
+latent tidiness fault.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -3039,10 +3107,12 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~2b'~~ | ~~Re-sample the ground per sub-step in the terminal phase~~ | done | **refuted headlessly: 0-2 m on smooth ground, and chaotic rather than convergent on rough (−2,781 m at 22 ms, −7 at 33, −2 at 50). Re-sampling changes which feature the round stops on; it does not converge** |
 | ~~15~~ | ~~Log what `DensityRatioAt` returns through the coast~~ | done | **refuted: 0 of 2,009 samples non-zero through 52 divergences — the air and the drag model are cleared** — 3an |
 | ~~17~~ | ~~**Why the aim bias walks to 94 km**~~ | done | **the coast is being integrated instead of propagated: the bus spends 70% of the coast off rails against 1% healthy, and accumulates ~2.4 m/s per probe of non-gravitational velocity, which at 91.5 km per m/s is the walk. Replicated in two independent worlds to six figures** — 3ar |
-| **18** | **Bound `CollectShedStages`.** It adds every new vehicle to `_shed` with no distance test, so a computer tries to dispose other rockets' **buses** — observed at 39.9 and 79.9 km, six minutes before those buses released. Seen again live on 2026-09-04, rocket 1 disposing rockets 2-5's stages | 0 shots | 3ap, 3ar |
+| **18** | **Bound `CollectShedStages` — now the root-cause candidate, not a tidiness fault.** Seven spent stages go undisposed in exactly the two worlds that diverge: **160 disposals against 167, 12-20 vehicles at warp against 9, splitting 10 of 10 with no overlap**. That load is what keeps the buses off rails once they trip | 0 shots | 3ar, 3as |
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
-| **19** | **What puts the bus off rails mid-coast.** The whole of what is left of 17: the onset is one probe, and neither the warp nor the attitude error explains it. Log `AnyActuatorCommanded` and `AnyActuatorActive` off `PhysicsBubble` rather than inferring the command from the error | 0 shots then 10 | 3ar: 16 of 80 flights at 84 km against 0.02 for the other 64 |
+| **20** | **Stop driving attitude through the coast.** The hold is what commands the actuators, and the thrust is a real 0.238 m/s² against the bus's 0.539 of authority. Release the hold once the line is held; the engine puts it back on rails | 0 shots then 10 | 3as: ~88% of it is lateral |
+| **21** | **Gate a rotation command's nozzle set to zero net force.** `checkring.py --translation` reads six-axis translation authority; nothing checks that a *rotation* set does not translate | 0 shots | 3as |
+| **19** | **What puts the bus off rails mid-coast.** Answered in outline: the mod's own continuous attitude hold commands actuators, and off-rails and thrusting are the same event. **`AnyActuatorCommanded`/`AnyActuatorActive` are NOT reachable** — they hang off `Vehicle._threadWorkerUpdateState`, which is private. Log `FlightPlan.ExpiryGameTime` and `BubbleVehicleCount`, both public, and the push as a **vector** | 0 shots then 10 | 3ar, 3as |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 

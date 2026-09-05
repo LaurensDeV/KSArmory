@@ -1571,8 +1571,9 @@ internal sealed class IcbmComputer
         // What the coast is doing that gravity does not account for. A ballistic coast is an exact
         // function of one state, so propagating the previous probe's state forward under gravity
         // alone and differencing gives the non-gravitational part directly -- and that is the only
-        // way to see it, because the arc amplifies along track by ~91.5 km per m/s, so the whole
-        // 50 km walk is about half a metre a second and is invisible in a printed speed.
+        // way to see it: the walk is about half a metre a second and is invisible in a printed
+        // speed. Log it as a VECTOR in a radial/along/cross basis -- a magnitude alone read as
+        // along-track once and the mechanism is cross-track. docs/ACCURACY-PLAN.md 3as.
         double pushMps = double.NaN;
 
         if (_coastProbeHasState
@@ -1594,9 +1595,9 @@ internal sealed class IcbmComputer
 
         // Whether anything is perturbing the bus while it waits, and how long the correction has
         // gone without a reading. A coast is an exact function of one state, so a predicted impact
-        // that walks means that state is moving -- and the arc amplifies along track by ~91.5 km
-        // per m/s, so a perturbation far too small to see as a speed is tens of kilometres of
-        // impact. The rationing is the other half: one reading taken 975 s after the last is a
+        // that walks means that state is moving, and a perturbation far too small to see as a
+        // speed is tens of kilometres of impact -- cross-track, where the lever is the orbit
+        // radius over the angular momentum rather than this arc's 0.4-2.9 km per m/s along it. The rationing is the other half: one reading taken 975 s after the last is a
         // full-size correction nothing has verified. docs/ACCURACY-PLAN.md item 17.
         // On rails the engine propagates this vehicle as an exact conic and the step cannot matter;
         // off rails it integrates, and the truncation scales with a step the nominal warp figure
@@ -2551,10 +2552,10 @@ internal sealed class IcbmComputer
         alongCci += ReleaseImpulseCci();
 
         // What the predictor is actually a function of. On a coast it is an exact function of this
-        // pair, so any wander in its answer is a wander in here -- and the arc is a 91.5 km per m/s
-        // amplifier along track, which turns the trim's own 0.02 m/s settle tolerance into 1.8 km of
-        // predicted impact. Differencing positions cannot see that: on a coast they move by v*dt
-        // whatever is wrong, which is why the earlier probe could only ever report the bus's speed.
+        // pair, so any wander in its answer is a wander in here -- 0.4 to 2.9 km per m/s along track
+        // on this arc, and far more across it. Differencing positions cannot see that: on a coast
+        // they move by v*dt whatever is wrong, which is why the earlier probe could only ever report
+        // the bus's speed. docs/ACCURACY-PLAN.md 3as.
         _lastPredictedFromVelCci = alongCci;
 
         // Predicted with the warhead's drag rather than in vacuum. On a shallow deorbit arrival a
