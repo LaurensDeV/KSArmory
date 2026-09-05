@@ -3130,11 +3130,14 @@ So the push is a function of the trajectory, not of how many neighbours there ar
 `noimprov` 37 at 0.03 km, `payback` 19 at 0.02, `clock` 16 at 0.01, **`trim` 24 at 88.64** -- 24 of
 96 flights, which is 3 worlds of 12 at 8 rockets each.
 
-### Sharing a bubble IS being off rails
+### Sharing a bubble is NOT being off rails
 
-`PhysicsBubble.cs:1340` gates the rails path on `NumVehicles < 2`. Two vehicles in one bubble and the
-engine integrates instead of propagating a conic, which is the whole of 3as's "off rails and
-thrusting are the same event" seen from the other side.
+> **Corrected in 3ax — 2026-09-05.** `PhysicsBubble.cs:1340`'s `NumVehicles < 2` gates the
+> **`ConstraintSim`**, not rails. The rails decision is per vehicle at `:1239` and reads
+> `anyActuatorCommanded || ...`. Measured: the three divergent worlds are shared **and on rails** for
+> their first 224-241 probes, from 227 km. Sharing is harmless until an actuator is commanded, and
+> what commands one is this mod's own attitude hold. The 538-of-538 below was measured on the
+> filtered set, which drops exactly those early probes.
 
 ### It is direction, not magnitude, and shot 007 is why that is a finding
 
@@ -3270,6 +3273,70 @@ Median nearest 9.55-11.73 km, p10 4.42 km — sitting just outside the split rad
 mostly *other rockets*, which is why a lone rocket also shares briefly and recovers: it has only its
 own stack to shed.
 
+## 3ax. The bubble is not the fault — the attitude hold inside it is — 2026-09-05
+
+Three corrections converge on one fix, and it is already item 20.
+
+### Rails is gated on actuators, not on bubble membership
+
+`PhysicsBubble.cs:1340`'s `NumVehicles < 2` guards the `ConstraintSim`. The rails choice is per
+vehicle at `:1239`:
+
+```csharp
+else if (anyActuatorCommanded || flag || flag2 || flag3 || flag4)
+    newStates.Props.SetOnRails(isOnRails: false);
+```
+
+Flown, in all three divergent worlds of 2026-09-05-1348:
+
+| shot | shared **and on rails** | shared and off rails | first shared-on-rails |
+| --- | --- | --- | --- |
+| 006 | **224** | 550 | 227 km |
+| 009 | **233** | 587 | 227 km |
+| 011 | **241** | 548 | 227 km |
+
+The blob exists from 227 km and costs nothing for the first two hundred probes. **What ends the free
+ride is a commanded actuator**, and the mod drives attitude through the whole coast to hold the line
+the warheads leave along — the design fault 3aq found, filed, and could not attribute.
+
+### The merge itself is unavoidable and is a 197 m race
+
+`EvaluateLinear` merges two solo craft only within `5R + 2` with `R = 2 x EnvelopeRadius ~ 10.6 m`,
+so **55 m** — there is no kinematic route to a 20 km merge. The route is that
+`ComputeMergeStateCore` gives a multi-member bubble an envelope equal to *the spread of its own
+members*, so a rocket holding its shed stage `s` away reaches `5s`. The pads here are **20.04 km**
+apart, so the reach touches the neighbour at `s = 4.00 km` — against a split radius of **4.194 km**.
+
+A **197 m band**, and `MergeBubbles` runs before the step while `SplitBubbles` runs after it, so
+inside the band the merge always gets first refusal. Once joined it seals: the remainder envelope is
+20 km, which demands over 100 km of clearance, and it cascades 20 → 40 → 140 km down the pad line.
+That is the 15-16.
+
+**So preventing the merge is not the lever.** It is a geometric coincidence of the launch site, it
+would return with any pad spacing, and the engine gives no way to refuse it.
+
+### What that makes the fix
+
+**Stop commanding attitude during the coast** — item 20, and now the whole of it. The bus keeps its
+release line by *pointing*, and pointing is what commands the thrusters. If the hold is released once
+the line is held, the actuators go quiet, the engine keeps propagating the conic it was already
+propagating for 224 probes, and the push never happens.
+
+### And there is a third bubble exit if that is not enough
+
+`Vehicle.Teleport(Orbit, null, null)` is public and calls `RemoveFromCurrentBubble()`
+(`Vehicle.cs:2208, :2233`). Passing the vehicle's own `Orbit` is geometrically a no-op that
+re-orphans it, and `IntakeOrphans` then re-tests with a **solo 10.6 m envelope** and gives it its own
+bubble. It costs a full `ComputeCompleteTrajectory`, so it wants a gate rather than a per-frame call.
+`GetDesiredBubFrame` is *not* a lever — it reads the bubble origin, so every member computes the same
+answer.
+
+### The diagnostic, if the trigger is still wanted
+
+`Vehicle.BubbleLeader` and `Vehicle.NearbyVehicles` are both public, and `NearbyVehicles` is the
+membership by name. It has to be logged **from launch**: the blob is already present at the first
+coast probe in all three divergent worlds, so nothing after cutoff can watch it form.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3335,9 +3402,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **18** | **The stage census adopts the neighbours, and a distant adopter disposes the stage before its owner can.** `MayDispose` measures clearance from the disposing craft, so a neighbour 20 km away has its gate open at once while the owner waits for 1 km — 98% of disposals read foreign, none nearer than the 19.2 km pad spacing. An attribution fault, NOT a retention fault: one rocket disposes its own three stages at 1.0 km, and the divergent worlds dispose as much as the healthy ones | 0 shots | 3at |
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
-| **20** | **Stop driving attitude through the coast.** The hold is what commands the actuators, and the thrust is a real 0.238 m/s² against the bus's 0.539 of authority. Release the hold once the line is held; the engine puts it back on rails | 0 shots then 10 | 3as: ~88% of it is lateral |
+| **20** | **Stop driving attitude through the coast — now THE fix.** Rails is gated on `anyActuatorCommanded`, not on bubble membership: the divergent worlds are shared and **on rails** for their first 224-241 probes and cost nothing, until the mod's own hold commands a thruster. Release the hold once the release line is held | 0 shots then 10 paired, forced | 3ax |
 | **21** | **Gate a rotation command's nozzle set to zero net force.** `checkring.py --translation` reads six-axis translation authority; nothing checks that a *rotation* set does not translate | 0 shots | 3as |
-| **22** | **What actually merges the bubbles.** 3au has the mechanism and the engine's ratchet; the trigger is still open, and disposal, world load, flight-plan expiry and coast step are all excluded. **Must be flown PAIRED** — 3 of 12 then 0 of 12 on an identical baseline, so a between-night count cannot see a fix | 0 shots then 12 paired | 3au, 3av |
+| ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
 | ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
