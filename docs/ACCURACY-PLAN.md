@@ -3052,6 +3052,51 @@ worlds** — straddling the 160 that was supposed to mark a divergent one. It is
 with frame timing. **The vehicle count is the signal; the disposal count was a coincidence of one
 night.**
 
+## 3at. The stage census fires once, a frame too early, and adopts the neighbours — 2026-09-05
+
+Bounding `CollectShedStages` at 10 km was flown and **regressed the world**: peak vehicles 24 -> 57,
+disposal lines 167 -> 32. Reverted in `4e9b207`. Chasing why gave the real diagnosis.
+
+### Almost nothing a computer disposes of is its own
+
+Counted by name, since KSA suffixes a split product `_N` onto its parent's Id:
+
+| | own stage | another rocket's |
+| --- | --- | --- |
+| 2026-09-04, four worlds | **0** | 668 |
+| 2026-09-05, twelve worlds | **15** | 635 |
+
+**About 2%**, and the minimum distance to any disposed stage is 19.2 km — the pad spacing in this
+save. So the bound removed 98% of the disposal work, which is exactly what the flight showed.
+
+### Why: one chance, on a one-frame assumption
+
+`CollectShedStages()` runs at `IcbmComputer.cs:515`, near the top of `Update`. `_awaitingStage` is
+set at `:684`, near the bottom, immediately before `VehicleCommand.Stage`. So the snapshot is taken
+in frame N and the census runs in frame N+1 — and clears `_awaitingStage` on that single pass,
+whether or not anything of this craft's was found.
+
+The comment states the assumption outright: *"the stage lands a frame later through the engine's
+input buffer and the difference is what identifies what came off."* When the decouple takes longer
+than one frame the vehicle does not exist yet, this craft's own stage is missed **permanently**, and
+whatever the neighbours dropped inside that window is adopted in its place. Eight rockets staging
+within moments of each other is what makes the world look tidy at all.
+
+**In a world with one rocket there is nothing to adopt**, so this predicts a single-rocket flight
+disposes almost nothing. `METRE-LEVEL.md` 5b reports one flown at 5 vehicles before the split
+against 2 with disposal on, which is the opposite — so either the timing differs at one rocket or
+something has changed since. **Unflown either way, and worth one shot before building the fix.**
+
+### What the fix has to do
+
+Both halves, and either alone is wrong:
+
+- **Keep looking**, bounded by frames rather than fixed at one, until something new appears; and
+- **take only what is near**, which is what the reverted bound did.
+
+The bound alone removed the accidental mechanism. Waiting alone would adopt more of the
+neighbourhood, not less.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3114,7 +3159,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~2b'~~ | ~~Re-sample the ground per sub-step in the terminal phase~~ | done | **refuted headlessly: 0-2 m on smooth ground, and chaotic rather than convergent on rough (−2,781 m at 22 ms, −7 at 33, −2 at 50). Re-sampling changes which feature the round stops on; it does not converge** |
 | ~~15~~ | ~~Log what `DensityRatioAt` returns through the coast~~ | done | **refuted: 0 of 2,009 samples non-zero through 52 divergences — the air and the drag model are cleared** — 3an |
 | ~~17~~ | ~~**Why the aim bias walks to 94 km**~~ | done | **the coast is being integrated instead of propagated: the bus spends 70% of the coast off rails against 1% healthy, and accumulates ~2.4 m/s per probe of non-gravitational velocity, which at 91.5 km per m/s is the walk. Replicated in two independent worlds to six figures** — 3ar |
-| **18** | **Bound `CollectShedStages` — now the root-cause candidate, not a tidiness fault.** **12-20 vehicles at warp against 9, splitting 10 of 10 with no overlap.** (The disposal count that looked like part of this is not — three healthy worlds read 158/167/158 on 2026-09-05.) That load is what keeps the buses off rails once they trip | 0 shots | 3ar, 3as |
+| **18** | **Make the stage census find its OWN stage.** It fires once, one frame after staging is commanded, and clears itself whether or not anything was found — so ~98% of what gets disposed belongs to another rocket (own 15, foreign 635) and nothing disposed is nearer than the 19.2 km pad spacing. Needs BOTH a frame-bounded wait and a distance bound; the bound alone regressed peak vehicles 24 -> 57 and was reverted | 1 shot then 10 | 3at |
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | **20** | **Stop driving attitude through the coast.** The hold is what commands the actuators, and the thrust is a real 0.238 m/s² against the bus's 0.539 of authority. Release the hold once the line is held; the engine puts it back on rails | 0 shots then 10 | 3as: ~88% of it is lateral |
