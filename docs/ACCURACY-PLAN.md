@@ -3459,11 +3459,39 @@ The dose-response is the strong part: partial quieting buys 1.4x, complete quiet
 what varies between them is exactly the off-rails count. **Driving off rails to zero is the target,
 and 006 proves it is attainable.**
 
-### What is still open
+### It is not the band, and it is not re-acquisition
 
-Why the quiet arm never re-acquired in 006 and re-acquired ~140 times in 003 and 005. The likeliest
-answer is the bus's residual drift rate against `ReacquireCoastDeg = 2.0`, which is what a wider
-band tests — and 006 says what it is worth.
+The obvious reading was that 003 and 005 kept drifting past `ReacquireCoastDeg = 2.0` and slewing
+back. **They did not.** The gate behaves identically in all three worlds:
+
+| shot | quiet arm: aimed | quiet | re-acquisitions |
+| --- | --- | --- | --- |
+| 003 | 1860 | 1691 | **0** |
+| 005 | 1858 | 1700 | **0** |
+| 006 | 1860 | 1692 | **0** |
+
+One clean transition into quiet at the coast and never back, in every case. **There are no
+re-acquisitions to widen a band against**, so the wide-band arm is not worth flying.
+
+### What separates them is the trim, and the sign is backwards
+
+| shot | `trim: trimming` lines | quiet arm off rails, trim idle |
+| --- | --- | --- |
+| 003 | **0** | 144 |
+| 005 | **0** | 140 |
+| 006 | **1467** | **2** |
+
+**The world whose quiet arm went silent is the one where the trim ran.** The two that stayed at
+~140 are the ones where the trim never ran at all.
+
+So something commands actuators while the attitude is cancelled and the trim is idle, and it happens
+in exactly the worlds where the trim never ran. `PhysicsBubble.cs:1239`'s remaining live condition is
+`AnyActuatorActive()` — a nozzle physically firing rather than commanded — and the next question is
+what is holding one open on a bus that is neither pointing nor trimming.
+
+Even fully silent the shot lands at 13 km rather than the 0.02 km a healthy world gives, so the
+shared bubble costs something beyond the push this fix removes. A separate question, and a much
+smaller one.
 
 Even fully silent the shot lands at 13 km rather than the 0.02 km a healthy world gives, so the
 shared bubble costs something beyond the push this fix removes. That is a separate question and a
