@@ -1487,6 +1487,18 @@ internal sealed class IcbmComputer
             + Arrivals());
     }
 
+    // What is close enough to hold a bubble open. A bubble merges on proximity and releases only on
+    // a parent or frame change, so the thing to name is whatever stays near -- and a lone rocket
+    // shares one with its own spent stage, so it is not simply another rocket.
+    private string NearestSaid()
+    {
+        Vehicle? near = KsaWorld.NearestVehicle(Craft, out double metres);
+
+        return near is null || !double.IsFinite(metres)
+                   ? ", nearest none"
+                   : $", nearest {KsaWorld.DisplayName(near)} at {metres / 1000.0:F2} km";
+    }
+
     // A flight-plan margin as a reader wants it: a number, or "inf" for a horizon nothing reaches.
     private static string Fmt(double seconds) =>
         double.IsPositiveInfinity(seconds) ? "inf"
@@ -1654,6 +1666,7 @@ internal sealed class IcbmComputer
                         : "")
                  + $", plan {Fmt(KsaWorld.FlightPlanMarginSeconds(Craft))} s"
                  + $", bubble {KsaWorld.BubbleVehicleCount(Craft)}"
+                 + NearestSaid()
                  + loop
                  + $", release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
     }

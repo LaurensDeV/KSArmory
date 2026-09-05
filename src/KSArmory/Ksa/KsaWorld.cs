@@ -276,6 +276,44 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// The nearest other vehicle to <paramref name="v"/>, and how far away it is.
+    ///
+    /// <para>A bubble merges on proximity and only ever releases a vehicle whose parent body or
+    /// frame changes, so what keeps one alive is whatever stays close — see
+    /// <c>docs/ACCURACY-PLAN.md</c> 3au. The count alone cannot say what that is, and a lone rocket
+    /// shares a bubble with its own spent stage, so it is not simply other rockets.</para>
+    ///
+    /// <para>Walks the shared census rather than taking its own, and is called once per coast probe
+    /// rather than per frame.</para>
+    /// </summary>
+    public static Vehicle? NearestVehicle(Vehicle? v, out double metres)
+    {
+        metres = double.NaN;
+        if (!IsAlive(v)) return null;
+
+        Vehicle? nearest = null;
+        double best = double.MaxValue;
+        double3 here = PositionEcl(v!);
+
+        foreach (Vehicle other in Vehicles)
+        {
+            if (ReferenceEquals(other, v) || !IsAlive(other)) continue;
+
+            double3 between = PositionEcl(other) - here;
+            if (!Vec.IsFinite(between)) continue;
+
+            double apart = Vec.Len(between);
+            if (apart >= best) continue;
+
+            best = apart;
+            nearest = other;
+        }
+
+        if (nearest is not null) metres = best;
+        return nearest;
+    }
+
+    /// <summary>
     /// Whether the engine has been told to integrate <em>every</em> vehicle in the world.
     ///
     /// <para>A public static the game writes from one debug checkbox and reads every sub-step. It
