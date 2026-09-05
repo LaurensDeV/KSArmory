@@ -3154,16 +3154,10 @@ otherwise.
 007 shared for **one probe** and recovered. The divergent worlds shared for the whole coast, and that
 is structural:
 
-```csharp
-// PhysicsBubble.RemoveEligibleVehicles
-bool flag  = vehicleUpdateState.CurrentOrbit.Parent != Parent;
-bool flag2 = readOnlyStates.GetDesiredBubFrame() != Origin.BubFrame;
-if (flag || flag2) vehicleUpdateState.ReadOnlyVehicle.RemoveFromBubble(this);
-```
-
-**There is no distance test.** `MergeBubbles` merges on proximity clearance and the only exits are a
-change of parent body or of frame. Bubbles merge by distance and never split by it — a ratchet. 007
-got out because something changed its frame, which is the only door there is.
+> **Wrong, and corrected in 3aw — 2026-09-05.** `RemoveEligibleVehicles` is not the only exit.
+> `VehicleUpdateTask.SplitBubbles()` splits a bubble on distance through
+> `PhysicsBubble.CollectSplitClusters(scratch, 2.0)`, at `2.0 x Origin.GetRecommendedRadius()` =
+> **4.194 km** here. There is no ratchet. What follows was read off `RemoveEligibleVehicles` alone.
 
 ### What that means for the fix
 
@@ -3230,6 +3224,51 @@ healthy     21.6 ... 113.0
 
 **A pooled median over samples is not a median over shots**, and this is the second time today a
 count has been read as a mechanism.
+
+## 3aw. The bubble exit is a distance after all, and it is 4.194 km — 2026-09-05
+
+3au said bubbles merge by distance and never split by it, reading
+`PhysicsBubble.RemoveEligibleVehicles` — which does only release on a parent or frame change. It is
+not the only exit.
+
+`VehicleUpdateTask.SplitBubbles()` runs every step and calls
+`PhysicsBubble.CollectSplitClusters(scratch, 2.0)`, which clusters on
+
+```
+2.0 x Origin.GetRecommendedRadius()
+GetRecommendedRadius() = max(2097.152, 9.313e-10 x |PositionBub|)
+```
+
+At this altitude the floor binds, so the split radius is **4.194 km**. A vehicle beyond it leaves.
+
+### The rule is exact
+
+Across three healthy worlds, 2,653 coast probes: **242 had a neighbour within 4.194 km, and 242 of
+those 242 were sharing a bubble.** No exceptions either way.
+
+That also resolves why the filtered reader showed `shared 0/753` on the same worlds: those 242 probes
+are dropped by the trim-idle filter. Healthy worlds **do** share a bubble, briefly, immediately after
+separation — nearest **0.010 km**, which is the just-dropped stack — and split out once it has drifted
+past 4.194 km.
+
+### So the trigger is whether the dropped stack gets clear
+
+The bus's own discarded half is the one vehicle guaranteed to start 10 m away, and
+`StageDisposal.MayDispose` refuses to remove it — `watchedByTheClearance` is a hard `false`, on the
+safety argument that the trim must be able to measure a real distance to it. So it is the natural
+candidate for what stays inside 4.194 km, and whether it drifts clear before the coast is under way
+is set by the decoupler impulse and by what the trim does afterwards.
+
+**Not yet confirmed on a divergent world**, because the `nearest` column was added after the last
+one. The prediction is sharp and cheap: in a divergent world the nearest vehicle stays inside
+4.194 km for the whole coast and is the dropped stack, and in a healthy one it passes outside within
+a minute or two of separation.
+
+### And it explains the healthy worlds' numbers
+
+Median nearest 9.55-11.73 km, p10 4.42 km — sitting just outside the split radius. The population is
+mostly *other rockets*, which is why a lone rocket also shares briefly and recovers: it has only its
+own stack to shed.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
