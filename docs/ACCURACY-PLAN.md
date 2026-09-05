@@ -3361,6 +3361,55 @@ doc comment says three lines above where it was read. It travels on the scenario
 membership by name. It has to be logged **from launch**: the blob is already present at the first
 coast probe in all three divergent worlds, so nothing after cutoff can watch it form.
 
+## 3ay. Paired works, and the first QuietCoast was half a fix — flown 2026-09-05
+
+Twelve worlds, `base|quiet:QuietCoast=true`, four rockets an arm in every world. **One diverged**
+(shot 008), median 0.02 km, mean 7.77 km, range 0.00-98.44.
+
+### The instrument problem is solved
+
+The eleven healthy worlds put the two arms on top of each other — 375-384 filtered coast probes an
+arm, 1-6 off rails, `max|c|` 0.0001-0.0002 — which is the right null: in a world where nothing
+merges there is nothing to quiet. The one divergent world is a **complete experiment on its own**,
+because both arms sat in the same bubble, the same warp and the same world.
+
+That is what the 3av problem needed. A between-night count could not see a fix through a rate that
+ran 2/10, 3/12, 0/12, 1/12 on identical code; a within-world split does not care about the rate at
+all.
+
+### And the fix did nothing
+
+| shot 008 | probes | off rails | shared | max \|c\| |
+| --- | --- | --- | --- | --- |
+| base | 380 | 282 | 380 | 3.8637 |
+| quiet | 376 | **276** | 376 | **3.8649** |
+
+Indistinguishable.
+
+### Why, and it is not the mechanism
+
+The gate fired. The quiet craft reads **`aimed=False`**, so `AttitudeHook.Hold` really was skipped.
+Its flight computer still reads **`Auto/Custom`**.
+
+Dropping the standing aim only stops this mod *writing* a target. KSA's computer keeps the one it
+has and goes on firing thrusters to hold it, so `anyActuatorCommanded` stays set and the vehicle
+stays off rails. **The hypothesis was untested, not refuted**, and a between-night comparison would
+have recorded a failed fix and moved on.
+
+`AttitudeHook.Quiet` now calls `VehicleCommand.ReleaseAttitude` every frame — Manual, None, target
+cleared — inside the `PrepareWorker` window, because a write from anywhere else is discarded before
+anything reads it. That window is the reason the hook exists, and it had been used for pointing but
+not for stopping.
+
+### One thing to watch when it re-flies
+
+Shot 005, a healthy world, had the quiet arm alone take a 0.4318 m/s push on two probes where base
+took none. Two probes of 381 is nothing on its own, but there is a mechanism that would make it
+real: quieting trades frequency for magnitude, and `ReacquireCoastDeg = 2.0` lets the bus drift two
+degrees before the hold takes it back — a far larger slew, and a far larger impulse, than the
+continuous small corrections it replaces. If the corrected fix reduces off-rails probes without
+reducing the push, that is the reason to look at first.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
