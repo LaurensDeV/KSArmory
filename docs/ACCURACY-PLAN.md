@@ -3040,10 +3040,17 @@ in a radial / along / cross basis.
 ### And the world-load discriminator stands, independent of any of this
 
 3ar's chain is measured from vehicle counts and disposal lines rather than from the probe, so it
-survives every correction above: **160 disposals against 167, and 12-20 vehicles at warp against 9,
-splitting 10 of 10 worlds with no overlap.** Seven spent stages are not being disposed of in exactly
-the two worlds that diverge. That is item 18, and it is now the root-cause candidate rather than a
-latent tidiness fault.
+survives every correction above: **12-20 vehicles at warp against 9, splitting 10 of 10 worlds with
+no overlap.** That is item 18, and it is the root-cause candidate rather than a latent tidiness
+fault.
+
+**The disposal count is NOT part of that discriminator, and 3ar said it was.** On the night it read
+160 in the two divergent worlds against exactly 167 in the eight healthy ones, which looked like
+seven stages going undisposed. Re-flown 2026-09-05 it reads **158, 167, 158 on three healthy
+worlds** — straddling the 160 that was supposed to mark a divergent one. It is a count of disposal
+*lines*, most of which are duplicate attempts by computers that adopted the same stage, so it moves
+with frame timing. **The vehicle count is the signal; the disposal count was a coincidence of one
+night.**
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -3107,7 +3114,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~2b'~~ | ~~Re-sample the ground per sub-step in the terminal phase~~ | done | **refuted headlessly: 0-2 m on smooth ground, and chaotic rather than convergent on rough (−2,781 m at 22 ms, −7 at 33, −2 at 50). Re-sampling changes which feature the round stops on; it does not converge** |
 | ~~15~~ | ~~Log what `DensityRatioAt` returns through the coast~~ | done | **refuted: 0 of 2,009 samples non-zero through 52 divergences — the air and the drag model are cleared** — 3an |
 | ~~17~~ | ~~**Why the aim bias walks to 94 km**~~ | done | **the coast is being integrated instead of propagated: the bus spends 70% of the coast off rails against 1% healthy, and accumulates ~2.4 m/s per probe of non-gravitational velocity, which at 91.5 km per m/s is the walk. Replicated in two independent worlds to six figures** — 3ar |
-| **18** | **Bound `CollectShedStages` — now the root-cause candidate, not a tidiness fault.** Seven spent stages go undisposed in exactly the two worlds that diverge: **160 disposals against 167, 12-20 vehicles at warp against 9, splitting 10 of 10 with no overlap**. That load is what keeps the buses off rails once they trip | 0 shots | 3ar, 3as |
+| **18** | **Bound `CollectShedStages` — now the root-cause candidate, not a tidiness fault.** **12-20 vehicles at warp against 9, splitting 10 of 10 with no overlap.** (The disposal count that looked like part of this is not — three healthy worlds read 158/167/158 on 2026-09-05.) That load is what keeps the buses off rails once they trip | 0 shots | 3ar, 3as |
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | **20** | **Stop driving attitude through the coast.** The hold is what commands the actuators, and the thrust is a real 0.238 m/s² against the bus's 0.539 of authority. Release the hold once the line is held; the engine puts it back on rails | 0 shots then 10 | 3as: ~88% of it is lateral |
