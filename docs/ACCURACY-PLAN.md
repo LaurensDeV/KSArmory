@@ -3780,6 +3780,31 @@ Ordering: this collides with **5f** (why the trim owes 4.19 m/s at a 54 degree f
 about the same actuator's precision, and 5f should be measured on today's step before anything
 coarsens it.
 
+## 4c. Item 21 was already built, and the bus passes it
+
+Item 21 asked for a gate that a *rotation* command's enrolled nozzle set has zero net force —
+`checkring.py --translation` reads six-axis translation authority, and nothing was thought to check
+the other direction.
+
+**It does, and has since `333f7b0`.** `analyse` computes `leak` as net force per unit torque per
+axis per side, marks it `<-- not a couple`, counts it as a problem, and `--check` exits non-zero
+with the reason: *a rotation command that is not a pure couple shoves the vehicle every time it
+corrects its attitude*. `check-all.sh` runs it on every push, so it has been green all along.
+
+The shipped bus:
+
+```
+KSArmory_Prefab_MirvBus: 20 thrusters, mass seated at X=0.300 Y=0.000 Z=0.000
+    roll  quantum  6.240   floor  0.000    8 enrolled   leak 0.000
+    pitch quantum  4.412   floor  4.412    8 enrolled   leak 0.000
+    yaw   quantum  4.412   floor  4.412    8 enrolled   leak 0.000
+```
+
+**Zero on all three axes**, so commanding attitude does not translate the bus. That is worth having
+as a positive result rather than only as a closed item: it independently rules the mod's own
+thrusters out of the coast push, leaving 3ax's shared-bubble integration as the account, which is
+what 20b is flying against.
+
 ## The ranked plan
 
 | # | Do | Cost | Worth |
@@ -3819,7 +3844,7 @@ coarsens it.
 | ~~20~~ | ~~**Stop driving attitude through the coast.** Rails is gated on `anyActuatorCommanded`, not on bubble membership~~ | done, twice | **works and was unbounded: 0.15x on divergent worlds, 89x on healthy ones** — 3ba |
 | **20b** | **Fly the quiet window** (`Sim/CoastQuiet.cs`, built, off; verified engaging at 80% of the coast, 3bd). Quiet through the coast, back under command 60 s before the release approach | 14 paired shots | 3bb/3bd: keep 3ba's 0.15x on the lost mode, be a null on the healthy one. **The night to fly first** |
 | **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
-| **21** | **Gate a rotation command's nozzle set to zero net force.** `checkring.py --translation` reads six-axis translation authority; nothing checks that a *rotation* set does not translate | 0 shots | 3as |
+| ~~21~~ | ~~**Gate a rotation command's nozzle set to zero net force**~~ | done, and already green | **`checkring.py` has measured it since `333f7b0` and `check-all.sh` gates it: the shipped bus leaks 0.000 on all three axes, so the coast push is not the mod's own thrusters** — 4c |
 | ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
 | ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
