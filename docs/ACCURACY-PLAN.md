@@ -3410,6 +3410,21 @@ degrees before the hold takes it back — a far larger slew, and a far larger im
 continuous small corrections it replaces. If the corrected fix reduces off-rails probes without
 reducing the push, that is the reason to look at first.
 
+## 3az. QuietCoast fixes the divergence and wrecks everything else — flown 2026-09-06
+
+> **Read this first: the fix as built must not ship.** It helps the fifth of worlds that diverge and
+> is **89x worse** on the four fifths that do not. Healthy worlds, 44 rockets an arm: base median
+> **0.018 km**, quiet median **1.599 km**, quiet max 4.16 km against base's 0.11.
+>
+> The cause is a misreading of `ReleaseSequence`, which waits for the vehicle to be **steady** — and
+> steady is not *pointed*. A bus drifting slowly is perfectly steady while aimed somewhere wrong,
+> and the warheads leave along that line. `CLAUDE.md` states it directly: after cutoff the bus keeps
+> the line the warheads leave along. Letting go of the attitude for the whole coast throws that away.
+>
+> **What it needs is to stop being quiet well before the release approach**, with time to re-point
+> and re-settle on the committed line. `QuietDuringCoast` excludes `_salvoAway`, which is *after* the
+> warheads are gone and far too late.
+
 ## 3az. QuietCoast works, is worth 0.73x, and is not the whole fault — flown 2026-09-06
 
 The corrected fix (`AttitudeHook.Quiet` cancelling the attitude rather than merely not writing it)
