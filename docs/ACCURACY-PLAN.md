@@ -8,6 +8,44 @@ Read this first; those two keep their reasoning and their measurements.
 the KSA corpus and the backlog itself — and between them they moved the top of the list from "tune a
 constant" to "there is a bug, and the engine has a lever nobody used".
 
+## Where it stands after 2026-09-06 — read this before the table below
+
+**The one-line version: the shot is 17 m on a healthy world, and about a fifth of worlds are not
+healthy — but that fifth is plausibly this harness rather than the weapon.**
+
+**1. The instrument was deaf and now is not.** A seat is a fixed point on the ground, and seat 3
+lands on a hillside: 76-108 m against seat 1's 6-12, reproducibly, across seven nights and many
+builds. Arms alternate down the roster, so within one shot the two of them sat on *different
+ground* — a deterministic alternation the interval read as scatter, which is why it never shrank
+with n. Dividing each seat's level out takes a 14-block night from 9% power at x0.60 to **90%**, and
+it re-reads `2026-09-03-1544` — a night filed as answering nothing — as a clear x2.36 loss. `--paired`
+also now splits the two modes and tests the count with Fisher, which is what SHOT-PROTOCOL.md has
+prescribed since 8s and nothing computed.
+
+**2. Four of the plan's own top rows died on measurement.** The `clock` terminator is the *best*
+ending at 15 m, not a cut-off loop at 1.92 km — the pooled figure was another arm's broken flights
+wearing the label (3bc). 5e is refuted: the exit reaches steeper than the latch can afford, and the
+arrival ceiling is the trim's debt instead (3be). Item 8's "2.4x for a config line" is bought
+directly out of that same trim precision (4b). Item 21 was already built and already green (4c).
+
+**3. QuietCoast is settled enough to stop flying.** Harmless on healthy worlds, twice measured. On a
+divergent one it does not change *whether* a world is lost, only how badly — 85.84 km to 50.35 —
+which is 4 of 5 divergent worlds in favour (3bf, 3bh, 3bi). Item 20's stated mechanism is wrong,
+though: a bus that verifiably stopped commanding attitude stayed off rails at an unchanged rate, and
+the two actuator flags now read `neither` on every off-rails probe of both arms (3bg).
+
+**4. And the divergence tracks the target, not the code.** 0 of 24 shots at 2,000 km, 8-20% at
+6,269 km, with the change falling on the day the target moved rather than on any commit. The bubble
+envelope grows with the coast, so the long shot has time to reach a neighbouring pad and the short
+one does not. **A player firing one ICBM has no neighbour**, so the catastrophic mode is plausibly a
+property of the eight-rocket throughput harness. One cheap test settles it — `SOLVER SCALE 1`, same
+target — and a wider `--spacing` then takes it out of every future night. **3bj**, and it is the next
+thing to do.
+
+**What is actually in the way of metre-level**, once that is cleared: the healthy mode is ~17 m at a
+32 degree arrival, rung C wants ~5 m at 45-60, and what stops the angle is the trim's debt — 2.6 m/s
+owed at 44 degrees against 4.19 at 54. That is **5f**, and it is the first thing after the harness.
+
 ## Where it stands, measured
 
 | | 2,000 km | 12,902 km, before | 12,902 km, after |
