@@ -3762,6 +3762,56 @@ three nights have now been spent on a term that turns out not to be the one.
 is nothing to ship and nothing to revert. If the real cause is later removed, it costs nothing to
 re-ask whether the hold matters on top of that.
 
+## 3bg. The off-rails diagnostic, and a third of it is not the actuators — flown 2026-09-06
+
+19b, built and verified. `KsaWorld.OffRailsActuator` reads the two flags `PhysicsBubble` tests
+first, off the `_threadWorkerUpdateState` the mod already reflects for part failures, and the coast
+probe names which one holds it.
+
+One shot, healthy world, 860 coast probes across 8 rockets:
+
+| rails state | probes |
+| --- | --- |
+| on rails | 826 |
+| off rails **(commanded+active)** | 21 |
+| off rails **(neither actuator flag)** | **11** |
+| off rails (active) | 2 |
+
+The 21 are the trim firing, which genuinely commands actuators and is not a fault. **The 11 are the
+finding**: neither flag is set and the vehicle is off rails anyway, so on a healthy world a third of
+the off-rails time is already something else.
+
+### The remaining terms, and which one it must be
+
+`PhysicsBubble` tests, in order: `_forceOffRails`, then
+`anyActuatorCommanded || AnyActuatorActive() || ocean || animating || KittenWantsWake`, then
+`Freefall && FreefallNeedsFullPhysics`, then `Origin.HasAnalyticPrecisionDanger()`.
+
+Ruled out by inspection for a coasting bus: it is not in an ocean; `KittenWantsWake` requires
+`IsKitten`, an EVA character; and `HasAnalyticPrecisionDanger` is
+`PositionBub.Length() / 2^52 > 0.0005`, i.e. a bubble origin past **2.2e12 m** — billions of
+kilometres, not an Earth orbit.
+
+That leaves `FreefallNeedsFullPhysics`, and it fits the healthy number arithmetically.
+It is true when the patch **ends in Impact** and its end time falls within
+`2 x SimStep.DeltaTime + 50/closing + boundingSphere/speed` of the step's end — and a ballistic
+missile's patch *always* ends in impact. While the bus is still ascending the closing rate clamps to
+1 m/s, making the lead ~50 s, plus 2 sim steps which at 100x warp is ~6 s. **So the last ~56 s of an
+~980 s coast is off rails by construction: 6%, which is the healthy off-rails fraction measured all
+week.**
+
+### What that predicts, and how it gets tested for free
+
+If the divergent world's 72% is also `neither actuator flag`, the cause is
+`FreefallNeedsFullPhysics` and the lever is the warp — `2 x SimStep.DeltaTime` is the only term in
+that lead the mod controls, and at 100x it is worth ~6 s against ~50. If instead it reads
+`commanded` while the mod is quiet, the standing suspect is `FlightComputer.ZeroizeTvcs`, which sets
+`AnyActuatorCommanded` when it finds a gimbal command that is not exactly zero — so zeroing a stale
+gimbal counts as commanding one.
+
+**No night needs to be spent on this.** The diagnostic is in the coast probe, so the next night
+flown for any reason answers it the first time a world diverges — which is about one world in seven.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3897,7 +3947,8 @@ what 20b is flying against.
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | ~~20~~ | ~~**Stop driving attitude through the coast.** Rails is gated on `anyActuatorCommanded`, not on bubble membership~~ | done, twice | **works and was unbounded: 0.15x on divergent worlds, 89x on healthy ones** — 3ba |
 | ~~20b~~ | ~~**Fly the quiet window**~~ | done, 14 paired | **safe and useless: 0.97x [0.79, 1.16] so 3ba's 89x is gone, and 4/56 against 4/56 on the lost mode. In the divergent world the quiet rockets were 88% quiet and 72% off rails, exactly like the base ones** — 3bf |
-| **19b** | **Log WHICH of `PhysicsBubble`'s conditions holds a bus off rails**, per coast probe. `anyActuatorCommanded` is now eliminated in flight; `AnyActuatorActive()` and the rest are untested | 0 shots | 3bf: three nights have gone on the one term that turns out not to be it. **Do this before any further arm** |
+| ~~19b~~ | ~~**Log which of `PhysicsBubble`'s conditions holds a bus off rails**~~ | done | **built and verified: on a healthy world 11 of 34 off-rails probes are `neither actuator flag`, and `FreefallNeedsFullPhysics` fits the 6% arithmetically** — 3bg |
+| **19c** | **Read the flag on a divergent world** — free, the next night that draws one | 0 shots | 3bg: `neither` means the warp's `2 x DeltaTime` is the lever; `commanded` while quiet means `ZeroizeTvcs` |
 | **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
 | ~~21~~ | ~~**Gate a rotation command's nozzle set to zero net force**~~ | done, and already green | **`checkring.py` has measured it since `333f7b0` and `check-all.sh` gates it: the shipped bus leaks 0.000 on all three axes, so the coast push is not the mod's own thrusters** — 4c |
 | ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
