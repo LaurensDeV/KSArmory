@@ -1,16 +1,25 @@
 # What arrival angle buys
 
 **The question.** A kinetic round has no lethal radius to hide inside, so precision *is* the weapon.
-Every ballistic shot this mod has flown arrives between **12.9 and 17.5 degrees** — not the seven
-this file was written around, which was reconstructed and never flown; `docs/ACCURACY-PLAN.md` 3af
-has the logged numbers. The parametric tables below stand as arithmetic at the angle each states;
-what does not is any claim about where the mod actually arrives. Every large term in
-the miss budget is that angle multiplied by something. This is what a steeper arrival is worth, what
-it costs, and how the guidance is told to fly one.
+Every large term in the miss budget is the arrival angle multiplied by something. This is what a
+steeper arrival is worth, what it costs, and how the guidance is told to fly one.
 
-**The control is `IcbmConfig.MinArrivalAngleDeg`**, and it is **off by default**, so everything about
-the shots described here is still what the mod does out of the box. *The floor, which is what
-expresses it* is the section on how it works and what it costs.
+**Where the mod actually arrives: 32.0 degrees**, on every night flown since 2026-09-03. Not the
+seven this file was written around, which was reconstructed and never flown, and no longer the
+12.9–17.5 it was corrected to — `ArrivalPreference` shipped at 0.5 and took the flown arrival with
+it. The parametric tables below stand as arithmetic at the angle each states; **read the `cot γ`
+columns at 30 rather than at 7**, which is a factor of five between them.
+
+**The control that ships is `IcbmConfig.ArrivalPreference`, at 0.5** — half the steepest arrival
+`ArrivalBudget` says the stack can pay for. It won twice: 0.48x at 2,000 km and 0.69x at 6,269 km
+with the interval entirely below one. `MinArrivalAngleDeg` is the older, absolute form of the same
+control and *is* still off by default; the two disagree only in how the floor is named, and where
+they disagree the floor wins.
+
+**Steeper is not open-ended.** `ArrivalPreference = 0.8` latches 53.6 degrees and is a settled loss
+at 5.55x, and `BallisticArc.TryCheapest` returns *false* past roughly 35 degrees from the state the
+burn actually leaves — the arc ceases to exist rather than becoming dear. `ACCURACY-PLAN.md` 3ag and
+item 5e are that wall and the one thing that might move it.
 
 **Everything below is measured** by `tests/KSArmory.Tests/ArrivalAngleTests.cs`,
 `ArrivalFloorTests.cs` — the search — and `ArrivalFloorFlightTests.cs`, which flies the whole program
@@ -21,7 +30,7 @@ guidance itself; `docs/KSA-TERRAIN.md` is where the surface numbers come from.
 where a frame carrier is identically zero — so nothing here can measure an epoch fault, including the
 open one in `docs/ICBM-GUIDANCE.md` about the ground a round meets. What it *can* say is that such a
 fault, if it is a height error, is multiplied by the same `cot γ` as everything else on this page,
-and that is 8.1 at seven degrees, 4.4 at the 12.9 the mod flies, and 1.7 at thirty.
+and that is 8.1 at seven degrees, 4.4 at 12.9, and **1.6 at the 32.0 the mod now flies**.
 
 ---
 

@@ -78,8 +78,7 @@ internal sealed class IcbmConfig
     ///
     /// <para>What a player owns is the trade, not the angle: steeper is more precise and costs reach
     /// and propellant. One at the steepest affordable, zero to leave
-    /// <see cref="MinArrivalAngleDeg"/> alone — <b>and zero is still what ships, though a half has
-    /// now won twice</b>.
+    /// <see cref="MinArrivalAngleDeg"/> alone — <b>and a half is what ships</b>, having won twice.
     /// At 2,000 km it is <b>0.48x</b>, 29.5 m against 13.5, rank p=0.021; at 6,269 km <b>0.69x</b>,
     /// 40 m against 20, 11 wins of 12, sign p=0.006 and rank p=0.009 with the interval entirely
     /// below one. Above it the margin runs out: 0.65 is unresolved and bimodal, and 0.8 is a settled

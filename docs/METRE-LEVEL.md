@@ -195,12 +195,11 @@ are third rather than first.
 At rung C both are under a metre already. At rung D they are the two largest remaining terms, and
 both have a lever that costs nothing anyone will notice:
 
-- `MunitionProfile.SubStepSeconds` on `ReentryVehicleMk21` — **the per-round field already exists and
-  nothing in the arsenal set it.** 5 ms → 1 ms is first-order, 30.6 m per millisecond, and costs 300
-  vector updates a frame for a six-warhead group. The measured objection is a 150-shell CIWS burst,
-  which is a different profile and unaffected. `MaxSubSteps` scales with it, so
-  `MaxFaithfulStepSeconds` does not move and the world's timewarp is untouched — the confusion that
-  cost 164 km.
+- `MunitionProfile.SubStepSeconds` on `ReentryVehicleMk21` — **done, in `065907a`; it ships at 1 ms.**
+  5 ms → 1 ms is first-order, 30.6 m per millisecond, and costs 300 vector updates a frame for a
+  six-warhead group. The measured objection is a 150-shell CIWS burst, which is a different profile
+  and unaffected. `MaxSubSteps` scales with it, so `MaxFaithfulStepSeconds` does not move and the
+  world's timewarp is untouched — the confusion that cost 164 km.
 - Re-sampling `IGroundTest` per sub-step rather than once a frame. Flown headlessly through
   `ProbeGapTests` it moves the impact 2 m at a 50 ms frame; the cost is the terrain query ten times a
   frame instead of once, per round.
@@ -257,12 +256,18 @@ What is open, and is the actual work:
   A correction-loop result taken on a smooth planet is measured against an instrument the real one
   does not have.
 
-### B5 — the tube cant, which becomes the spread term at rung C
+### B5 — the tube cant, which became the spread term at rung C and no longer exists
 
-Six kicks 6° off the mean at 0.5 m/s. On the guided trajectory that is 233 m of spread today; at the
-steep sensitivities it is about 13 m, and at rung D it is the difference between a group and a point.
+> **Closed. The bus was straightened: all six axes read `(1,0,0)`, and the flown within-group spread
+> is 5 m against the 233 m a cant would give.** `ACCURACY-PLAN.md`'s Dead list rules out *every*
+> tube-cant item, so none of the three candidates below is worth spending on. The section stays
+> because the arithmetic is the reason a future bus must not re-introduce one, and because the
+> deadband finding inside it is load-bearing elsewhere.
 
-Two candidate fixes are already priced and one is already refused:
+Six kicks 6° off the mean at 0.5 m/s. On the guided trajectory that would be 233 m of spread; at the
+steep sensitivities about 13 m, and at rung D the difference between a group and a point.
+
+Two candidate fixes were priced and one refused:
 
 - **Item 5, re-pointing between releases** — turn the bus so each tube lies on the salvo's line.
   Removes the cant outright, costs no propellant, and its only open question was why a separated bus
@@ -405,6 +410,20 @@ with the interlock removed, it is not testing the interlock.
 ---
 
 ## 5. Wall clock — flown, and the frame rate is not for sale
+
+> **The measurement stands; the conclusion drawn from it does not.** "CPU-bound during a flight, GPU
+> asleep" is well evidenced and is not in question. What does not survive is the inference that wall
+> clock therefore cannot be bought — which is what stopped the ladder at rung C.
+>
+> `ACCURACY-PLAN.md` item 8: **the world advances at most `MinTargetFrameRate` per frame, and that
+> is a public mutable field with a UI slider and a TOML key.** On 5b's own eight-rocket
+> measurement, `minTargetFrameRate = 10` gives **1.00x where the default gives 0.41x — 2.4x for a
+> config line**, with no change to frame time at all. `orbitSolvers`, the three offscreen viewports
+> that are never cleared, and the off-rails coast are further levers on the same row.
+>
+> So "throughput is bought by frame time and by nothing else" is false, and **the stop at rung C
+> should be re-derived** once item 8 has been measured. Section 5b's own conclusion — that several
+> rockets in one world buy 3.2x with no second process — already pointed the same way.
 
 **Measured 2026-08-25, and it refutes this section's own proposal.** What follows is the flown
 result first, because the rest of the section was written against an assumption the flight

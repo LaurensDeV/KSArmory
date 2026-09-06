@@ -13,10 +13,16 @@ term could not be measured it says so rather than being estimated.
 **The headline.** The single biggest lever is not a constant — it is the **arrival angle**. Five of
 the eight real terms are heights, and a height becomes ground in proportion to `cot(gamma)`. A
 7-degree deorbit multiplies every one of them by eight; a vertical drop multiplies them by nothing.
-The mod's flown shot arrives at **12.9 degrees**, logged 2026-09-02 — the 7.1 here was a
-reconstruction and nothing flies it (`docs/ACCURACY-PLAN.md` 3af). `cot` is 4.37 rather than 8.03,
-so the eight this file multiplies by is nearer **four**, and every column priced off the seven is
-about twice what it should be.
+
+**The mod's flown shot arrives at 32.0 degrees**, on every night since 2026-09-03, since
+`ArrivalPreference` shipped at 0.5. The 7.1 here was a reconstruction that nothing ever flew, and
+the 12.9 it was corrected to is a generation behind as well. `cot` is **1.60** rather than 8.03, so
+**every column priced off the seven is five times what it should be** — which is the single most
+important thing to know before reading any number below.
+
+**And the largest term in the budget is gone**: the Mk 21 ships a 1 ms sub-step (`065907a`), where
+this file prices it at five. Between the two, the arithmetic here is a ceiling on a shot the mod no
+longer flies.
 
 ---
 
@@ -509,16 +515,20 @@ the shared 5 ms, same pick-up:
 pick-up. The term is real, first-order and cleanly measured; it is simply five times under the
 noise floor of the only instrument that can confirm it.
 
-**So it is not enabled**, and the reason is the trade rather than the term: it multiplies the
-integration work per round by five, that wall-clock cost has never been timed, and `CLAUDE.md`'s
-rule about unmeasured per-frame costs applies. Paying an unmeasured cost for an unmeasurable gain is
-the wrong way round.
+**It is now enabled**, and the paragraphs below are the argument that was open at the time. The
+Mk 21 ships `SubStepSeconds = 0.001f` (`Sim/Arsenal.cs`, commit `065907a`), so **the largest single
+term in the budget above has been removed** and this file's headline number is stale by that much.
+It is affordable on this round and nowhere else: six warheads at a millisecond is ~300 sub-steps a
+frame, where a 150-shell CIWS burst at the same step would be 7,500.
 
-**When to turn it on.** That condition is now met on one half and refused on the other, so read
-both. The noise floor came down with the miss — a 6-against-6 batch on 2026-08-24 read a 0.05 km
-median with a 0.02-0.09 km range, and the rank test settles ratios rather than metres, so 122 m
-against a 50 m median is no longer under the instrument. The wall-clock cost is measured too, at
-0.3 ms a frame for a six-warhead group.
+The reasoning that held it back was the trade rather than the term — five times the integration work
+per round for a gain five times under the noise floor, which is `CLAUDE.md`'s rule about unmeasured
+per-frame costs. Both halves of that then moved.
+
+**What let it in.** The noise floor came down with the miss — a 6-against-6 batch on 2026-08-24 read
+a 0.05 km median with a 0.02-0.09 km range, and the rank test settles ratios rather than metres, so
+122 m against a 50 m median is no longer under the instrument. The wall-clock cost is measured too,
+at 0.3 ms a frame for a six-warhead group.
 
 **But the rig now argues against it.** `ProbeGapTests` says a converged sub-step *alone* widens the
 round-versus-probe gap, 591 m to 754, and only reaches -6 m paired with gravity re-read per
@@ -526,6 +536,7 @@ sub-step — the cancelling-pair shape that cost item 2d three flights. `MirvBud
 the other side, flying the group 379 -> 453 m at 1x. The counter-argument is that both rigs sit a
 planet at the origin, where a frame carrier is identically zero, and the walk is exactly that term.
 
-So it is built as `arm/substep` and is **not** in the first factorial: `docs/MIRV-NEXT.md` item 2h
-attacks the same gap from the instrument's side and the rig likes it four times better, so that one
-flies first. The mechanism is shipped and costs nothing until a profile asks.
+That objection was flown past rather than answered: the round-versus-probe gap has since been
+attacked from the instrument's side, and the sub-step landed in `065907a`. What the rigs said
+remains the reason to distrust a *headless* reading of this term — both sit a planet at the origin,
+where a frame carrier is identically zero, and the walk is exactly that term.
