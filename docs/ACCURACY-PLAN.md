@@ -3708,6 +3708,60 @@ and the noise in the level outweighs the terrain it removes. **Levelling is for 
 which is what `--paired` is for and what the protocol already recommends; on a four-arm night read
 the un-levelled line.
 
+## 3bf. The bounded quiet window is safe and does nothing — flown 2026-09-06
+
+14 paired blocks, 112 flights, `2026-09-06-1413`. Both pre-registered endpoints, and a third
+reading that matters more than either.
+
+**Endpoint 2 passes: the regression is gone.** `quiet vs base 0.97x [0.79, 1.16]`, 7 of 14 shots,
+signed-rank p=0.542 — a tight null, healthy medians 0.015 against 0.018 km. 3ba's 89x on healthy
+worlds was the missing release bound and nothing else, and 3bb's bound removes it completely.
+
+**Endpoint 1 fails: it does not touch the divergence.** `4/56 lost against 4/56, Fisher p=1.0000`.
+The night drew **one** divergent world of 14, which 3bb predicted would be unresolvable on the count
+alone — but the world it drew answers the question outright, because the fix had no effect *inside*
+it.
+
+### Shot 005, the divergent world: quiet does not mean on rails
+
+All eight rockets landed 88.3-103.2 km out, four of each arm. Per craft:
+
+| craft | arm | probes | off rails | quiet |
+| --- | --- | --- | --- | --- |
+| GeoSat FAT | quiet | 96 | 70 (**72%**) | 85 (88%) |
+| GeoSat FAT 2 | base | 96 | 70 (**72%**) | 0 |
+| GeoSat FAT 3 | quiet | 96 | 70 (**72%**) | 85 (88%) |
+| GeoSat FAT 4 | base | 96 | 69 (**71%**) | 0 |
+
+**The quiet rockets were quiet for 88% of the coast and spent exactly as much of it off rails as the
+ones that were never quiet at all.** Cross-tabulated on one craft: **59 probes off rails *while
+quiet***, 26 on rails while quiet, 11 off rails while holding.
+
+### What that refutes
+
+Item 20's mechanism, as stated: *rails is gated on `anyActuatorCommanded`, and it is the mod's own
+coast hold that commands it.* The mod stopped commanding — verified, 88% of the coast — and the
+vehicle stayed off rails at an unchanged rate. **So this mod's attitude hold is not what holds a
+bus off rails in a shared bubble**, or is not the only thing that does.
+
+`PhysicsBubble.cs:1239` takes a vehicle off rails on `anyActuatorCommanded || AnyActuatorActive()
+|| ...`. The first term is now eliminated in flight. The remainder is where the cause is, and
+nothing here has looked at it.
+
+That also re-frames 3ba, which read as a dose-response between off-rails fraction and miss. The
+correlation stands; the causal direction does not follow from it, and the one world that reached
+near-zero off-rails there did so for a reason other than being quiet.
+
+### What to do
+
+**The next thing is a diagnostic, not an arm.** Log *which* of `PhysicsBubble`'s conditions holds a
+vehicle off rails, per coast probe. Every candidate after `anyActuatorCommanded` is untested, and
+three nights have now been spent on a term that turns out not to be the one.
+
+`QuietCoast` stays built and stays **off**: it is verified harmless and verified useless, so there
+is nothing to ship and nothing to revert. If the real cause is later removed, it costs nothing to
+re-ask whether the hold matters on top of that.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3842,7 +3896,8 @@ what 20b is flying against.
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | ~~20~~ | ~~**Stop driving attitude through the coast.** Rails is gated on `anyActuatorCommanded`, not on bubble membership~~ | done, twice | **works and was unbounded: 0.15x on divergent worlds, 89x on healthy ones** — 3ba |
-| **20b** | **Fly the quiet window** (`Sim/CoastQuiet.cs`, built, off; verified engaging at 80% of the coast, 3bd). Quiet through the coast, back under command 60 s before the release approach | 14 paired shots | 3bb/3bd: keep 3ba's 0.15x on the lost mode, be a null on the healthy one. **The night to fly first** |
+| ~~20b~~ | ~~**Fly the quiet window**~~ | done, 14 paired | **safe and useless: 0.97x [0.79, 1.16] so 3ba's 89x is gone, and 4/56 against 4/56 on the lost mode. In the divergent world the quiet rockets were 88% quiet and 72% off rails, exactly like the base ones** — 3bf |
+| **19b** | **Log WHICH of `PhysicsBubble`'s conditions holds a bus off rails**, per coast probe. `anyActuatorCommanded` is now eliminated in flight; `AnyActuatorActive()` and the rest are untested | 0 shots | 3bf: three nights have gone on the one term that turns out not to be it. **Do this before any further arm** |
 | **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
 | ~~21~~ | ~~**Gate a rotation command's nozzle set to zero net force**~~ | done, and already green | **`checkring.py` has measured it since `333f7b0` and `check-all.sh` gates it: the shipped bus leaks 0.000 on all three axes, so the coast push is not the mod's own thrusters** — 4c |
 | ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
