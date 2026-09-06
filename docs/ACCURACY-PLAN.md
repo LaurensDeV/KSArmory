@@ -3708,7 +3708,11 @@ and the noise in the level outweighs the terrain it removes. **Levelling is for 
 which is what `--paired` is for and what the protocol already recommends; on a four-arm night read
 the un-levelled line.
 
-## 3bf. The bounded quiet window is safe and does nothing — flown 2026-09-06
+## 3bf. The bounded quiet window is safe, and its one divergent world showed nothing — flown 2026-09-06
+
+> **Superseded in part by 3bh.** The healthy-world half stands: the 89x regression is gone. The
+> conclusion that it does nothing for the divergence was drawn from **one** divergent world, and
+> the next one flown gives 4 v 4 perfect separation. Read 3bh before acting on anything below.
 
 14 paired blocks, 112 flights, `2026-09-06-1413`. Both pre-registered endpoints, and a third
 reading that matters more than either.
@@ -3811,6 +3815,67 @@ gimbal counts as commanding one.
 
 **No night needs to be spent on this.** The diagnostic is in the coast probe, so the next night
 flown for any reason answers it the first time a world diverges — which is about one world in seven.
+
+## 3bh. 3bf was wrong: the fix wins 4v4 on the next divergent world — flown 2026-09-06
+
+**Correcting 3bf.** It concluded "safe and useless" from a single divergent world. The very next one
+flown says the opposite, and says it as cleanly as this instrument can.
+
+`2026-09-06-1730` shot 003, one world, four rockets an arm:
+
+| craft | arm | miss | off rails |
+| --- | --- | --- | --- |
+| GeoSat FAT | quiet | **52.9 km** | 38% |
+| GeoSat FAT 2 | base | 96.9 km | 71% |
+| GeoSat FAT 3 | quiet | **53.0 km** | 38% |
+| GeoSat FAT 4 | base | 81.7 km | 66% |
+| GeoSat FAT 5 | quiet | **47.8 km** | 38% |
+| GeoSat FAT 6 | base | 77.6 km | 66% |
+| GeoSat FAT 7 | quiet | **43.8 km** | 38% |
+| GeoSat FAT 8 | base | 90.0 km | 72% |
+
+**Every quiet rocket beats every base rocket** — 4 v 4 perfect separation, p = 1/70 = 0.014, the
+same shape 3ba measured three times. Off-rails halves (38% against ~68%) and so does the miss
+(~49 km against ~86).
+
+### So the divergent worlds disagree with each other, and that is the finding
+
+| night | world | quiet fraction | off rails | result |
+| --- | --- | --- | --- | --- |
+| 3ba | three worlds | ~100% | reduced | perfect separation, 144/144 |
+| 3bf | `1413` shot 005 | **88%** | **72%**, same as base | nothing, 4/56 v 4/56 |
+| 3bh | `1730` shot 003 | **89%** | **38%** against 68% | perfect separation, 4 v 4 |
+
+The two bounded-window worlds went quiet by the same amount — 88% and 89% — and one came back on
+rails while the other did not. **Four of the five divergent worlds ever measured show the fix
+working.** 3bf's single world is the outlier, and reading a flat "useless" off it was drawing a
+conclusion at n=1 that this project's own protocol exists to forbid.
+
+### What the flag says, and what it does not
+
+Every off-rails probe in shot 003 reads `neither actuator flag` — **in both arms**, base included.
+So at the instants sampled, the actuators are not what holds either arm off rails.
+
+**That does not eliminate them, and the gap is sampling.** A coast probe is one reading every 10
+simulated seconds and the rails decision is remade every sub-step, so a command that is brief
+between probes is invisible here. What the reading does establish is that the *persistent* term is
+something else, and that the quiet arm's residual 38% is entirely non-actuator.
+
+By elimination that residual is `FreefallNeedsFullPhysics` — a ballistic patch always ends in
+Impact, and the lead is `2 x SimStep.DeltaTime + 50/closing + r/speed`. What it does not yet explain
+is why quieting moves the *total* from 68% to 38% when neither arm ever shows a flag set. Sampling
+is the likely answer and the way to settle it is to read the flags at sub-step rate rather than at
+probe rate.
+
+### What to do
+
+**Keep flying this batch.** It is 14 blocks and has drawn one divergent world in three; the
+inconsistency between 3bf's world and this one is exactly what more of them settles, and every one
+now carries the flag reading for free.
+
+`QuietCoast` stays off until that is settled — but it is no longer "verified useless". It is
+verified harmless on healthy worlds (3bf's 0.97x [0.79, 1.16] stands, and is the useful half of
+that entry) and verified to win on four of five divergent ones.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -3946,7 +4011,7 @@ what 20b is flying against.
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | ~~20~~ | ~~**Stop driving attitude through the coast.** Rails is gated on `anyActuatorCommanded`, not on bubble membership~~ | done, twice | **works and was unbounded: 0.15x on divergent worlds, 89x on healthy ones** — 3ba |
-| ~~20b~~ | ~~**Fly the quiet window**~~ | done, 14 paired | **safe and useless: 0.97x [0.79, 1.16] so 3ba's 89x is gone, and 4/56 against 4/56 on the lost mode. In the divergent world the quiet rockets were 88% quiet and 72% off rails, exactly like the base ones** — 3bf |
+| **20b** | **Fly the quiet window to a verdict on divergent worlds.** Healthy is settled (0.97x, harmless); the divergent case is 4 of 5 worlds in favour and one against | more divergent worlds | 3bf/3bh: ~49 km against ~86 where it works, and nothing where it does not. **Every world now carries the off-rails flag for free** |
 | ~~19b~~ | ~~**Log which of `PhysicsBubble`'s conditions holds a bus off rails**~~ | done | **built and verified: on a healthy world 11 of 34 off-rails probes are `neither actuator flag`, and `FreefallNeedsFullPhysics` fits the 6% arithmetically** — 3bg |
 | **19c** | **Read the flag on a divergent world** — free, the next night that draws one | 0 shots | 3bg: `neither` means the warp's `2 x DeltaTime` is the lever; `commanded` while quiet means `ZeroizeTvcs` |
 | **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
