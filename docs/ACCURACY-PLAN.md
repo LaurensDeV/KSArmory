@@ -3569,6 +3569,38 @@ median cannot express this arm and never could. Two pre-registered endpoints:
 the lost-mode rate (Fisher, base ran 12 of 56) and the healthy-mode median (base 0.017 km). The
 claim is that it keeps 3ba's effect on the first and is a null on the second.
 
+## 3bc. The `clock` terminator is not a failure — measured 2026-09-06
+
+**It reads as one only because a broken arm wore the label.** 2026-09-05-2339's pooled terminator
+table says `clock` n=63 median **1.92 km** against `noimprov`'s 0.02, which invites exactly one
+conclusion: the loop is being cut off mid-convergence by `PostBoostAim.MaxSeconds = 120`, against a
+`ReleaseBeforeArrivalSeconds` window of 420 it already owns. Raise the budget and more flights
+converge.
+
+**That is wrong.** 55 of those 63 are the `quiet` arm, whose correction loop was broken by the
+unbounded quiet window (3bb) — not flights that ran out of time. Split the same terminator table by
+arm and take **baseline behaviour only**, over 560 flights with a named ending across every night
+2026-09-03 to 09-05:
+
+| ending | n | median km | p90 km | share |
+| --- | --- | --- | --- | --- |
+| `noimprov` | 215 | 0.022 | 0.08 | 38% |
+| `payback` | 133 | 0.016 | 0.06 | 24% |
+| **`trim`** | **120** | **84.684** | **97.67** | **21%** |
+| `clock` | 92 | **0.015** | 0.05 | 16% |
+
+`clock` is the **best** of the four. A flight that corrects for its whole budget and is stopped by
+the clock lands at 15 m; the three ending rules differ by 7 m between them and none of that is worth
+a night.
+
+**So there is one term and it is `trim`** — 21% of flights at 84.7 km, three thousand times
+everything else, and 3ax/3ba have its mechanism. Nothing else in the terminator table is a lead.
+
+**And this is the seventh entry for the pattern list.** A count was read as a mechanism: the label
+was real, the median under it belonged to something else, and the fix it implied would have cost a
+night to learn nothing. The rule that catches it is to split every pooled table by arm before
+reading a mechanism out of it — which is also why `--paired` now prints the mode split per arm.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3720,6 +3752,9 @@ is interior -- 3h).
 Shortening the range to steepen the arrival (418 km lands 0.36-3.63 km against 2,000 km's 0.10 --
 the short flight cannot fit the passes; 3g).
 "The clearance never succeeds" (the absence of a log line measured the logger).
+The `clock` terminator as a cut-off loop worth more budget (a pooled median of 1.92 km that was 55
+broken flights of another arm wearing the label; baseline `clock` is the *best* ending at 15 m --
+3bc).
 The 24 ms slow-regime screen (29.8 ms gave 0 passes one night and 2 another).
 
 The arrival angle driving the probe-to-round gap (rank correlation **+0.90** across eight flights,
