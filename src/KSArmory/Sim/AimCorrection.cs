@@ -107,6 +107,15 @@ internal sealed class AimCorrection
     /// past that window the arrival commits whatever the aim is doing and a runaway is frozen in.
     /// Twelve is six seconds at the half-second prediction interval, so a loop that really is
     /// running away is back on its best well inside it.</para>
+    ///
+    /// <para><b>That six seconds is the burn, and after cutoff this counts something else.</b> An
+    /// observation there is one per post-boost <em>pass</em> rather than one per interval, and a
+    /// pass costs ten to thirty seconds, so twelve of them is minutes and the rule effectively
+    /// never fires — <c>settled</c> appears in none of 560 baseline flights. That is deliberate
+    /// only in hindsight and is fine either way: the coast's convergence is detected by
+    /// <c>PostBoostAim.PassesWithoutImprovement</c> instead, and the endings that do fire there
+    /// land at 15 to 22 m. Widening or narrowing this for the coast's sake would be tuning a rule
+    /// that is not the one deciding anything — <c>docs/ACCURACY-PLAN.md</c> 3bc.</para>
     /// </summary>
     public const int WorseBeforeStopping = 12;
 

@@ -370,6 +370,24 @@ internal sealed class IcbmConfig
     public double ReacquireCoastDeg = 2.0;
 
     /// <summary>
+    /// Whether the quiet window also waits for the post-boost correction to finish.
+    ///
+    /// <para><b>Off, because measured in flight it makes the whole feature a no-op.</b> The
+    /// reasoning for it was sound and the timing is not: the trim resolves onto the vehicle's own
+    /// control axes, so a bus drifting between passes was thought to thrust along stale ones. But
+    /// the correction does not occupy the start of the coast — it occupies <em>all</em> of it. Flown
+    /// 2026-09-06, one paired shot: <c>holding (correcting)</c> on <b>417 of 429</b> coast probes,
+    /// with the loop finishing only inside the release approach. Waiting for it leaves no window at
+    /// all, and the flight measured exactly 0% of the coast quiet.</para>
+    ///
+    /// <para>Kept as a switch rather than deleted because the concern is real and untested — the
+    /// trim is already excluded by <c>TrimIsFiring</c> while it fires, and what is unproven is
+    /// whether it needs the line held <em>between</em> passes as well. That is one arm of a night,
+    /// not a guess to bake in.</para>
+    /// </summary>
+    public bool QuietCoastAfterCorrection;
+
+    /// <summary>
     /// How long before the release approach the coast hold takes the attitude back, in seconds.
     ///
     /// <para><b>Steady is not pointed.</b> <c>ReleaseSequence</c> waits for the bus to be steady

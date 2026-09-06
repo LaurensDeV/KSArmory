@@ -465,9 +465,20 @@ internal sealed partial class Ui
 
         if (config.QuietCoast)
         {
-            ImGui.TextDisabled("  only after the correction has finished, and back under command "
+            ImGui.TextDisabled("  back under command "
                                + $"{config.QuietCoastEndsBeforeReleaseSeconds:F0} s before the "
                                + "release approach -- steady is not pointed");
+
+            bool afterCorrection = config.QuietCoastAfterCorrection;
+            if (ImGui.Checkbox("  Wait for the correction to finish", ref afterCorrection))
+            {
+                config.QuietCoastAfterCorrection = afterCorrection;
+            }
+
+            ImGui.TextDisabled("  " + (config.QuietCoastAfterCorrection
+                ? "the correction runs the whole coast, so this leaves almost no window -- flown at "
+                  + "417 of 429 probes still holding"
+                : "quiet between trim passes; the trim itself always takes the attitude back"));
 
             float go = (float)config.QuietCoastDeg;
             if (ImGui.SliderFloat("  Let go inside (deg)", ref go, 0.05f, 5.0f, "%.2f"))

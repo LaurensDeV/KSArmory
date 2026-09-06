@@ -3601,6 +3601,41 @@ was real, the median under it belonged to something else, and the fix it implied
 night to learn nothing. The rule that catches it is to split every pooled table by arm before
 reading a mechanism out of it — which is also why `--paired` now prints the mode split per arm.
 
+## 3bd. The correction occupies the whole coast, not the start of it — flown 2026-09-06
+
+3bb bounded the quiet window at both ends. One paired verification shot says the **first** bound
+makes the feature a no-op, and the diagnostic that says so is the reason it was shipped with it.
+
+| hold state | probes |
+| --- | --- |
+| `holding (correcting)` | **417** |
+| `holding (release approach)` | 12 |
+| `holding (off the line)` | 0 |
+| **`quiet`** | **0** |
+
+The assumption was that the post-boost correction occupies the *first* ~120 s of an ~980 s coast,
+leaving ~80% of it quiet. `PostBoostAim.MaxSeconds = 120` says so and the endings agree — one craft
+logged "released after 120 s of correcting". **But those 120 seconds are not spent at the start.**
+The coast runs at 100x and the loop cannot take passes there; it takes them once the warp ends for
+the release approach, at 1x. So the correction finishes *inside* the approach — after the point the
+second bound has already taken the line back — and `_postBoostSaid` is false for the entire warped
+coast.
+
+Both arms landed at 0.02 km, so the shot also confirms the second bound alone does no harm on a
+healthy world, which is what 3ba destroyed (3.607 km there).
+
+**So `QuietCoastAfterCorrection` becomes a setting, default off.** What ships is 3az's own
+prescription and nothing more: quiet through the coast, gated by `TrimIsFiring` as before, and back
+under command 60 s before the release approach. The correction bound is kept as a switch because
+the concern behind it is real and untested — the trim is already excluded while it *fires*, and
+whether it also needs the line held *between* passes is one arm of a night rather than something to
+bake in.
+
+**The lesson is about where a budget is spent, not how large it is.** `MaxSeconds = 120` was read as
+"the first 120 seconds". A simulated-time budget inside a warped phase is spent wherever the warp
+lets the loop run, which here is the far end. Nothing in the code says otherwise and nothing would
+have caught it but the flight.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.

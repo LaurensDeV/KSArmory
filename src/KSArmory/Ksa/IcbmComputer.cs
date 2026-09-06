@@ -1523,7 +1523,8 @@ internal sealed class IcbmComputer
                                   Burning: Program.IsBurning,
                                   Trimming: TrimIsFiring,
                                   SalvoAway: _salvoAway,
-                                  CorrectionFinished: _postBoostSaid,
+                                  CorrectionFinished:
+                                      _postBoostSaid || !Config.QuietCoastAfterCorrection,
                                   InReleaseApproach: CoastQuiet.InReleaseApproach(
                                       SecondsToReleaseApproach,
                                       Config.QuietCoastEndsBeforeReleaseSeconds),
@@ -1676,7 +1677,8 @@ internal sealed class IcbmComputer
         // much of a coast it actually covers is a per-flight outcome rather than a constant.
         string hold = !Config.QuietCoast ? ""
                       : _coastQuiet.IsQuiet ? ", quiet"
-                      : !_postBoostSaid ? ", holding (correcting)"
+                      : Config.QuietCoastAfterCorrection && !_postBoostSaid
+                          ? ", holding (correcting)"
                       : CoastQuiet.InReleaseApproach(SecondsToReleaseApproach,
                                                      Config.QuietCoastEndsBeforeReleaseSeconds)
                           ? ", holding (release approach)"
