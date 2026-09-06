@@ -3877,6 +3877,56 @@ now carries the flag reading for free.
 verified harmless on healthy worlds (3bf's 0.97x [0.79, 1.16] stands, and is the useful half of
 that entry) and verified to win on four of five divergent ones.
 
+## 3bi. It halves the damage without preventing it — `2026-09-06-1730`, 13 usable shots
+
+The night 3bh's world came from, complete. One divergent world in thirteen, and the pre-registered
+endpoint turns out to have been the wrong one.
+
+| | base | quiet |
+| --- | --- | --- |
+| overall ratio | — | 0.95x [0.73, 1.67], unresolved |
+| healthy median | 0.017 km | **0.016 km** |
+| **lost rate** | 4/52 | **4/52**, Fisher p=1.0000 |
+| **lost median** | **85.84 km** | **50.35 km** |
+| off rails | 5% | 5% (quiet 79% of the coast) |
+
+**The rate does not move and the magnitude does.** QuietCoast does not stop a world diverging; it
+roughly halves the miss once one has — which is exactly 3bh's 4 v 4 seen through the mode table
+rather than craft by craft.
+
+**So the pre-registered endpoint was wrong, and it was wrong for a defensible reason.** 3bb declared
+the lost-mode *count* because that is what 3ba's unbounded version moved: 12 of 56 to 1 of 56. The
+bounded version does not move the count at all. That is a real behavioural difference between the
+two versions and not a measurement artefact — being quiet for ~100% of the coast changed whether a
+world was lost, being quiet for ~80% only changes how badly.
+
+Across every divergent world ever flown: **four of five favour the fix** — 3ba's three, 3bh's one —
+with `1413` shot 005 the lone exception.
+
+### The session was in the slow regime, and it was the operator's other game
+
+Median frame time **33.3 ms** for the night, against 23.3-29.2 for the first six shots. The machine
+was running Counter-Strike: Source alongside from about shot 007, and the shot durations say so
+too: 750, 760, 911, 777, 819, 900, 753, 903 s against 660-693 before.
+
+**The paired comparison is not threatened by that** — both arms fly one world, sharing the frame
+trace, the warp history and the solver load, which is the whole reason this instrument is paired.
+What it costs is sensitivity, and it makes shots 7-14 poor company for 1-6 in any absolute reading.
+
+**And it is now the leading candidate for why the two divergent worlds disagreed**, because they
+fall on opposite sides of this project's own regime boundary of 24 ms:
+
+| world | frame time | regime | result |
+| --- | --- | --- | --- |
+| `1730` shot 003 | **23.3 ms** | fast | quiet wins 4 v 4 |
+| `1413` shot 005 | **26.5 ms** | slow | quiet does nothing |
+
+`SLOW_FRAME_MS`'s own note records 0.23-0.25 correction passes per flight in the slow regime against
+1.17-3.38 in the fast one, and an arm acting on the post-boost loop cannot be measured where the
+loop does not run. **Not written up as a finding** — it is n=1 either side, and reading a mechanism
+out of a count is the mistake this file already lists seven times. It is the first thing to check on
+the next divergent world, and it costs nothing to check.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4011,7 +4061,8 @@ what 20b is flying against.
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | ~~20~~ | ~~**Stop driving attitude through the coast.** Rails is gated on `anyActuatorCommanded`, not on bubble membership~~ | done, twice | **works and was unbounded: 0.15x on divergent worlds, 89x on healthy ones** — 3ba |
-| **20b** | **Fly the quiet window to a verdict on divergent worlds.** Healthy is settled (0.97x, harmless); the divergent case is 4 of 5 worlds in favour and one against | more divergent worlds | 3bf/3bh: ~49 km against ~86 where it works, and nothing where it does not. **Every world now carries the off-rails flag for free** |
+| **20b** | **Fly the quiet window to a verdict on divergent worlds.** Healthy is settled (harmless, twice). The divergent case is 4 of 5 worlds in favour, and the endpoint is the lost-mode MEDIAN, not the rate | ~3 nights, or 1 per divergent world | 3bi: 85.84 km to 50.35 within the lost mode; the rate does not move |
+| **20c** | **Check the frame-time regime on the next divergent world** — free, already logged | 0 shots | 3bi: the two disagreeing worlds sit either side of the 24 ms boundary, 23.3 against 26.5 |
 | ~~19b~~ | ~~**Log which of `PhysicsBubble`'s conditions holds a bus off rails**~~ | done | **built and verified: on a healthy world 11 of 34 off-rails probes are `neither actuator flag`, and `FreefallNeedsFullPhysics` fits the 6% arithmetically** — 3bg |
 | **19c** | **Read the flag on a divergent world** — free, the next night that draws one | 0 shots | 3bg: `neither` means the warp's `2 x DeltaTime` is the lever; `commanded` while quiet means `ZeroizeTvcs` |
 | **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
