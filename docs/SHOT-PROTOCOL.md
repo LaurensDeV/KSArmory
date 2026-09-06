@@ -31,6 +31,48 @@ Two rules follow, and the second is the one that has already cost a night:
 * **Never pool seats within one arm.** A median over one arm's flights is a median over whichever
   hillsides that arm happened to draw. `--paired` survives only because the arm rotates across seats
   from shot to shot; take that rotation away and the comparison is terrain.
+
+### The rotation saves the estimate and not the interval
+
+**Rotating is what makes the comparison unbiased. It is also what makes it deaf.** Within one shot
+the two arms sit on *different* ground, so identical code does not produce a ratio near 1.0 — it
+produces one that alternates. Flown on 2026-09-05-2112: 0.56, 2.58, 0.47, 2.06, 0.35, 2.24, 0.51,
+1.05, 0.35, 2.49, 0.49, 2.00. The median of that is 0.96 and correct; the *spread* of it is the
+roster's terrain, and the distribution-free interval reads it as scatter.
+
+It therefore does not shrink with n — 6 blocks report [0.28, 3.47] and 20 blocks [0.37, 2.73] on the
+same identical code — because a deterministic alternation is not sampling noise and no number of
+shots averages it away.
+
+**So the seat's level is divided out before the ratio is formed.** Each seat's level is the
+*geometric mean of the per-arm medians* at that seat, which is what makes it arm-neutral: an arm
+worse by k everywhere raises every level by sqrt(k), and that divides out of the ratio exactly.
+Pooling the seat's flights instead would let whichever arm flew it more often set the level, putting
+the effect under test into the thing it is measured against.
+
+Measured over 3,000 random 14-block nights drawn from the three single-arm nights — genuine
+identical code, 34 worlds:
+
+| | false RESOLVED | interval width | power at ×0.80 | at ×0.70 | at ×0.60 |
+| --- | --- | --- | --- | --- | --- |
+| un-levelled | 0.0% | 5.69× | 0% | 2% | 9% |
+| **seat-levelled** | **3.0%** | **1.58×** | **33%** | **62%** | **90%** |
+
+Nominal α is 2.9%, so the levelled test is correctly calibrated and the raw one is merely
+conservative — its interval is so wide it can seldom resolve anything above ×0.4, which is most of
+what gets flown. **A ×0.60 change goes from 9% power to 90% for the same night.**
+
+It is calibrated from the night under test rather than from a stored table, so it needs no control
+data and works on the first night at a new target — which matters, because moving the target from
+2,000 km to 6,269 km on 2026-09-02 took the worst-to-best seat spread from 1.4× to 12× and nothing
+announced it.
+
+The un-levelled ratio is printed beside the levelled one. A large gap between them is the roster's
+ground, and worth looking at rather than absorbing silently.
+
+**What this already cost.** 2026-09-03-1544 flew `ArrivalPreference=0.0` and reported ×2.24
+[0.90, 4.57], p=0.105 — unresolved, a night that answered nothing. Levelled it is ×2.36
+[1.88, 2.94]: a clear loss, from the shots already flown.
 * **Anything that lands the two arms at different times is a confound**, because the world does not
   hold still between them. Flown: the harness asks for 8x once the first salvo is away, so one arm's
   rockets stopped on 18-33 ms frames and the other's on 117-267 ms, which multiplies a seat's own
@@ -56,7 +98,10 @@ That distribution is the whole constraint. Everything below follows from it.
 
 ### What a batch of n can resolve
 
-Two-sided rank test at 5%, 80% power, simulated on the fitted distribution:
+Two-sided rank test at 5%, 80% power, simulated on the fitted distribution. **This table assumes
+the seat level is divided out** — it is a simulation of the miss alone, so it describes the
+levelled estimator and always did. Un-levelled, the real numbers are about one column worse than
+the worst row here, and flatten rather than improving with n.
 
 | shots per arm | smallest difference it settles |
 | --- | --- |
@@ -243,9 +288,17 @@ of 25 at `p = 3.8 × 10⁻⁴`.
 
 So when the outcome is bimodal, the thing to pre-register is **which mode a shot lands in** — a
 proportion, tested with Fisher's exact — and the median is a diagnostic rather than the endpoint.
-`shot-report.py`'s "what ended the post-boost correction" table is where the modes are visible; read
-it before the ratio, and if the two arms differ there, the ratio is answering a different question
-from the one you asked.
+
+`--paired` now runs that test itself, in "which mode the flights landed in", and splits on the
+**terminator** rather than on a cut through the miss: `trim` is the bus giving up before its first
+pulse, and it separates the two populations almost perfectly — 60 of 61 such flights past 60 km
+against 0 of 185 that converged. A threshold on the outcome would be fitted to the sample it is
+then read from; the ending is a mechanism, and it is already recorded per flight.
+
+Read that table before the ratio. If the two arms differ there, the ratio is answering a different
+question from the one you asked — 2026-09-05-2339 is the case: QuietCoast takes the lost mode from
+12 of 56 to 1 of 56 (**Fisher p=0.0020**) and takes the healthy median from 0.017 km to 3.607, and
+the pooled ratio of ×70 describes neither half.
 
 **This is not licence to change endpoint after seeing the data.** The mechanism has to be named in
 advance, which for that night it was — `docs/MIRV-NEXT.md` item 8s set the open question as whether

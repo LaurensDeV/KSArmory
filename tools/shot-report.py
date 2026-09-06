@@ -712,7 +712,7 @@ def paired(root, shots):
     groups = defaultdict(lambda: defaultdict(list))
     for r in shots:
         if r.get("within") and usable(r):
-            groups[_shot_id(r["n"])][r["within"]].append(r["mean"])
+            groups[_shot_id(r["n"])][r["within"]].append(r)
 
     if not groups:
         sys.exit("no flight in this batch says which variant it flew")
@@ -728,8 +728,8 @@ def paired(root, shots):
     # between-shot swing back into the number the ratio was constructed to remove.
     pooled = defaultdict(list)
     for per_arm in groups.values():
-        for name, values in per_arm.items():
-            pooled[name].extend(values)
+        for name, records in per_arm.items():
+            pooled[name].extend(r["mean"] for r in records)
 
     print("   arm            flights   median km   (pooled, for scale only)")
     for name in order:
@@ -739,8 +739,17 @@ def paired(root, shots):
 
     _say_loop_left(shots, order)
 
+    levels, lopsided = _seat_levels(shots)
+    if levels:
+        print("   seat levels divided out (arm-neutral, from this night): "
+              + ", ".join(f"s{s + 1}={levels[s] * 1000:.0f}m" for s in sorted(levels)))
+        if lopsided:
+            print(f"   seats excluded for flying only one arm: "
+                  + ", ".join(f"s{s + 1}" for s in lopsided))
+        print()
+
     for name in order[1:]:
-        ratios, wins, losses = [], 0, 0
+        ratios, raws, wins, losses = [], [], 0, 0
 
         for shot, per_arm in sorted(groups.items()):
             # Both variants have to have flown in the SHOT for it to be a pair. A shot where one
@@ -748,8 +757,21 @@ def paired(root, shots):
             if base not in per_arm or name not in per_arm:
                 continue
 
-            a = statistics.median(per_arm[base])
-            b = statistics.median(per_arm[name])
+            raw_a = statistics.median([r["mean"] for r in per_arm[base]])
+            raw_b = statistics.median([r["mean"] for r in per_arm[name]])
+            if raw_a > 0 and raw_b > 0:
+                raws.append(math.log(raw_b / raw_a))
+
+            # The comparison is made on seat-levelled flights, so the two arms are not being
+            # scored against different ground. Where no seat could be levelled this falls back to
+            # the raw values, which is the pre-levelling instrument and is reported as such.
+            levelled_a = _levelled(per_arm[base], levels)
+            levelled_b = _levelled(per_arm[name], levels)
+            if not levelled_a or not levelled_b:
+                continue
+
+            a = statistics.median(levelled_a)
+            b = statistics.median(levelled_b)
             if a <= 0 or b <= 0:
                 continue
 
@@ -780,14 +802,154 @@ def paired(root, shots):
               + ("   RESOLVED" if best <= ALPHA else "   unresolved"))
         print("      per shot: "
               + ", ".join(f"{math.exp(r):.2f}" for r in ratios))
+
+        # The un-levelled reading, for continuity with every night flown before levelling and so
+        # that a large gap between the two is visible rather than silently absorbed. The levelled
+        # line above is the one to read: this one has the roster's ground in it.
+        if raws and levels:
+            rp, rlo, rhi = _median_interval(raws)
+            print(f"      un-levelled: {math.exp(rp):.2f}x"
+                  f"   [{math.exp(rlo):.2f}, {math.exp(rhi):.2f}],"
+                  f" signed-rank p={wilcoxon_p(raws):.3f}")
         print()
 
+    _say_modes(shots, order)
     _say_seats(shots)
     _say_terminators(shots, order)
 
     if len(groups) < 6:
         print(f"   NOTE: {len(groups)} shots cannot reach p<=0.05 on a sign test. Six is the floor,")
         print("   and that is only if the variant wins every one of them.")
+
+
+def _seat_levels(shots):
+    """What each seat is worth before any arm is compared, so it can be divided out.
+
+    A seat is a fixed point on the ground. `AimSpread.AimFor` anchors seat 0 on the operator's aim
+    and displaces every other by a fixed multiple of the lethal radius along a fixed bearing, so
+    seat 3 lands on the same hillside on every night flown at the same target. Measured over the
+    eight nights at 26.485S,68.148W: seat 3 reads 76-108 m against seat 1's 6-12 m across seven
+    consecutive nights and many different builds, which makes it a property of the world rather
+    than of anything under test.
+
+    That is not merely scatter. Arms alternate down the roster and flip each shot, so within one
+    shot the two arms sit on DIFFERENT ground: the ratio a null night produces alternates about
+    2.3 and 0.44 rather than sitting at 1.0. It is a deterministic bias the median-interval
+    estimator reads as spread, which is why the interval does not shrink with n -- 6 blocks report
+    [0.28, 3.47] and 20 blocks [0.37, 2.73] on identical code.
+
+    The level is the GEOMETRIC MEAN OF THE PER-ARM MEDIANS, not the median over the seat's
+    flights. That is what makes it arm-neutral: an arm worse by k everywhere raises every seat's
+    level by sqrt(k), which divides out of the ratio exactly. Pooling instead would let whichever
+    arm happened to fly a seat more often set that seat's level, putting the effect under test
+    into the thing it is measured against.
+
+    A seat that flew only one arm has no such level and is excluded rather than normalised
+    against itself.
+    """
+    per = defaultdict(lambda: defaultdict(list))
+    for r in shots:
+        if (r.get("seat") is not None and r.get("within") and usable(r)
+                and r["mean"] is not None and r["mean"] > 0):
+            per[r["seat"]][r["within"]].append(r["mean"])
+
+    levels, lopsided = {}, []
+    for seat, by_arm in per.items():
+        if len(by_arm) < 2:
+            lopsided.append(seat)
+            continue
+        levels[seat] = math.exp(statistics.fmean(
+            math.log(statistics.median(v)) for v in by_arm.values()))
+
+    return levels, sorted(lopsided)
+
+
+def _levelled(records, levels):
+    """One arm's flights in one shot, each divided by its own seat's level."""
+    out = []
+    for r in records:
+        seat = r.get("seat")
+        if seat is None:
+            # A one-rocket run has no roster and needs no levelling: there is only one seat, so
+            # every shot's pair sits on the same ground already.
+            out.append(r["mean"])
+        elif seat in levels:
+            out.append(r["mean"] / levels[seat])
+    return out
+
+
+# Which ending marks a flight as having lost its correction outright, splitting the outcome into
+# two populations that no single median describes. Mechanistic on purpose: `trim` is the bus
+# giving up before its first pulse, and it separates the modes almost perfectly -- 60 of 61 such
+# flights past 60 km against 0 of 185 that converged. A cut on the miss itself would be a
+# threshold fitted to the sample it is then read from, which SHOT-PROTOCOL.md warns against.
+LOST_ENDINGS = ("trim",)
+
+
+def _fisher_p(a, b, c, d):
+    """Two-sided Fisher exact on a 2x2 table, by summing every table no likelier than this one."""
+    n = a + b + c + d
+    if n == 0 or (a + c) == 0 or (b + d) == 0 or (a + b) == 0 or (c + d) == 0:
+        return 1.0
+
+    def prob(x):
+        return (math.comb(a + b, x) * math.comb(c + d, a + c - x)) / math.comb(n, a + c)
+
+    obs = prob(a)
+    lo = max(0, (a + c) - (c + d))
+    hi = min(a + b, a + c)
+    return min(1.0, sum(p for x in range(lo, hi + 1)
+                        if (p := prob(x)) <= obs * (1.0 + 1e-9)))
+
+
+def _say_modes(shots, order):
+    """Which mode each arm's flights landed in, tested as a count rather than a median.
+
+    The outcome is bimodal -- a healthy population around 20 m and a lost one around 88 km, with a
+    real gap between 4 and 60 km -- and a median endpoint is blind to a change that moves flights
+    between them while leaving each mode where it was. SHOT-PROTOCOL.md records a night read
+    UNRESOLVED at p=0.464 on a change that moved 12 of 25 to 1 of 25 at p=3.8e-4.
+
+    So the count is reported beside the ratio, always, and the two modes are summarised apart. An
+    arm that fixes the lost mode and wrecks the healthy one -- which is what QuietCoast did, 0.15x
+    on divergent worlds against 89x on the rest -- reads as a regression on the pooled median and
+    as exactly what it is here.
+    """
+    rows = [s for s in shots if s.get("within") and s.get("why") and usable(s)
+            and s.get("why_named")]
+    if not rows:
+        return
+
+    lost = {name: [s for s in rows if s["within"] == name and s["why"] in LOST_ENDINGS]
+            for name in order}
+    flown = {name: [s for s in rows if s["within"] == name] for name in order}
+    if not any(lost.values()):
+        return
+
+    print("   which mode the flights landed in")
+    print(f"   {'arm':<14}{'flights':>9}{'lost':>7}{'rate':>8}"
+          f"{'healthy med':>14}{'lost med':>12}")
+    for name in order:
+        if not flown[name]:
+            continue
+        n, bad = len(flown[name]), len(lost[name])
+        ok = [s["mean"] for s in flown[name] if s["why"] not in LOST_ENDINGS]
+        far = [s["mean"] for s in lost[name]]
+        print(f"   {name:<14}{n:>9}{bad:>7}{bad / n:>7.0%}"
+              f"{(statistics.median(ok) if ok else float('nan')):>14.3f}"
+              f"{(statistics.median(far) if far else float('nan')):>12.2f}")
+
+    base = order[0]
+    for name in order[1:]:
+        if not flown[name] or not flown[base]:
+            continue
+        a, b = len(lost[name]), len(flown[name]) - len(lost[name])
+        c, d = len(lost[base]), len(flown[base]) - len(lost[base])
+        p = _fisher_p(a, b, c, d)
+        print(f"   {name} vs {base}: {a}/{a + b} lost against {c}/{c + d},"
+              f" Fisher p={p:.4f}"
+              + ("   RESOLVED" if p <= ALPHA else "   unresolved"))
+    print()
 
 
 def _say_seats(shots):
