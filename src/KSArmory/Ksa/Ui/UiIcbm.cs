@@ -465,6 +465,10 @@ internal sealed partial class Ui
 
         if (config.QuietCoast)
         {
+            ImGui.TextDisabled("  only after the correction has finished, and back under command "
+                               + $"{config.QuietCoastEndsBeforeReleaseSeconds:F0} s before the "
+                               + "release approach -- steady is not pointed");
+
             float go = (float)config.QuietCoastDeg;
             if (ImGui.SliderFloat("  Let go inside (deg)", ref go, 0.05f, 5.0f, "%.2f"))
             {
@@ -475,6 +479,12 @@ internal sealed partial class Ui
             if (ImGui.SliderFloat("  Take it back past (deg)", ref back, 0.1f, 20.0f, "%.1f"))
             {
                 config.ReacquireCoastDeg = back;
+            }
+
+            float ends = (float)config.QuietCoastEndsBeforeReleaseSeconds;
+            if (ImGui.SliderFloat("  Re-point before release (s)", ref ends, 0.0f, 240.0f, "%.0f"))
+            {
+                config.QuietCoastEndsBeforeReleaseSeconds = ends;
             }
         }
 

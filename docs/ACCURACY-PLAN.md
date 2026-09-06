@@ -3412,7 +3412,7 @@ reducing the push, that is the reason to look at first.
 
 ## 3az. QuietCoast fixes the divergence and wrecks everything else — flown 2026-09-06
 
-> **Read this first: the fix as built must not ship.** It helps the fifth of worlds that diverge and
+> **Read this first: the fix as flown must not ship.** It helps the fifth of worlds that diverge and
 > is **89x worse** on the four fifths that do not. Healthy worlds, 44 rockets an arm: base median
 > **0.018 km**, quiet median **1.599 km**, quiet max 4.16 km against base's 0.11.
 >
@@ -3424,8 +3424,10 @@ reducing the push, that is the reason to look at first.
 > **What it needs is to stop being quiet well before the release approach**, with time to re-point
 > and re-settle on the committed line. `QuietDuringCoast` excludes `_salvoAway`, which is *after* the
 > warheads are gone and far too late.
+>
+> **Built as `Sim/CoastQuiet.cs`, 2026-09-06. Not flown.** See 3bb.
 
-## 3az. QuietCoast works, is worth 0.73x, and is not the whole fault — flown 2026-09-06
+## 3ba. QuietCoast works, is worth 0.73x, and is not the whole fault — flown 2026-09-06
 
 The corrected fix (`AttitudeHook.Quiet` cancelling the attitude rather than merely not writing it)
 flew paired, and its first divergent world separates the arms perfectly.
@@ -3535,6 +3537,38 @@ frequency-against-magnitude trade flagged in 3ay. If the release line does not i
 through the coast — `PostBoostAim` and `ReleasePointing` re-point before the warheads leave — then
 the band can be very wide and the coast can be genuinely silent.
 
+## 3bb. The quiet window is bounded at both ends — built 2026-09-06, NOT FLOWN
+
+`Sim/CoastQuiet.cs`. Two bounds, and 3az/3ba between them say why each is needed:
+
+* **Quiet begins only once the post-boost correction has finished.** `BusTrim` resolves onto the
+  vehicle's *own control axes*, taking the attitude to **be** the release line — so a bus left to
+  drift between passes thrusts along stale axes. That is the mechanism behind 3az's other half,
+  which the commit body did not name: quiet ended on `clock` in **55 of 56** flights against 8 for
+  the control, i.e. the correction loop stopped converging altogether. Steady-is-not-pointed
+  explains the release; it does not explain that.
+* **Quiet ends `QuietCoastEndsBeforeReleaseSeconds` (60) before the release approach**, which is
+  3az's own prescription.
+
+**Neither bound costs much of what the quiet is for.** Measured off 2026-09-05-2339's own logs: the
+coast to release runs **~980 s** ("944 s since the aim last read" at a probe near release), and the
+correction is over inside `PostBoostAim.MaxSeconds` = 120. So ~80% of the off-rails exposure is
+still quiet, against 100% for the version that cost 89x.
+
+**And re-pointing is nearly free**, which is the part worth not re-deriving: quiet means no actuator
+commanded, which means *on rails*, which is exact conic propagation. The bus does not move while it
+is quiet — the drift is attitude and nothing else — so taking the line back has no trajectory to
+undo. A slew at `Strict`'s 30 deg/s is seconds even from the far side.
+
+The predicate moved to `Sim/` because it is the thing that broke and `Ksa/` cannot be tested.
+`CoastQuietTests` has 15 cases; the four that describe the bounds were checked failing against the
+version that shipped.
+
+**What to fly.** `QuietCoast=true` paired against base, scored with the mode split — the pooled
+median cannot express this arm and never could. Two pre-registered endpoints:
+the lost-mode rate (Fisher, base ran 12 of 56) and the healthy-mode median (base 0.017 km). The
+claim is that it keeps 3ba's effect on the first and is a null on the second.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3600,7 +3634,9 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **18** | **The stage census adopts the neighbours, and a distant adopter disposes the stage before its owner can.** `MayDispose` measures clearance from the disposing craft, so a neighbour 20 km away has its gate open at once while the owner waits for 1 km — 98% of disposals read foreign, none nearer than the 19.2 km pad spacing. An attribution fault, NOT a retention fault: one rocket disposes its own three stages at 1.0 km, and the divergent worlds dispose as much as the healthy ones | 0 shots | 3at |
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
-| **20** | **Stop driving attitude through the coast — now THE fix.** Rails is gated on `anyActuatorCommanded`, not on bubble membership: the divergent worlds are shared and **on rails** for their first 224-241 probes and cost nothing, until the mod's own hold commands a thruster. Release the hold once the release line is held | 0 shots then 10 paired, forced | 3ax |
+| ~~20~~ | ~~**Stop driving attitude through the coast.** Rails is gated on `anyActuatorCommanded`, not on bubble membership~~ | done, twice | **works and was unbounded: 0.15x on divergent worlds, 89x on healthy ones** — 3ba |
+| **20b** | **Fly the bounded quiet window** (`Sim/CoastQuiet.cs`, built, off). Quiet only between the correction finishing and 60 s before the release approach | 14 paired shots | 3bb: keep 3ba's 0.15x on the lost mode, be a null on the healthy one. **The night to fly first** |
+| **8** | `minTargetFrameRate=10` alone, as one measured afternoon before the rest of that row | hours | 2.4x throughput on 5b's own numbers, which every row here pays for in shots |
 | **21** | **Gate a rotation command's nozzle set to zero net force.** `checkring.py --translation` reads six-axis translation authority; nothing checks that a *rotation* set does not translate | 0 shots | 3as |
 | ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
 | ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |

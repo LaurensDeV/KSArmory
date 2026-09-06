@@ -354,6 +354,12 @@ internal sealed class IcbmConfig
     /// <see cref="ReacquireCoastDeg"/>. Only during the coast, and never while burning, trimming or
     /// deploying — those need the attitude and are not where the coast's damage is done.</para>
     ///
+    /// <para><b>It is bounded at both ends, and flying it without either end cost 89x.</b> Quiet
+    /// begins only once the post-boost correction has finished and ends a margin before the release
+    /// approach — see <see cref="QuietCoastEndsBeforeReleaseSeconds"/>. Neither bound costs much of
+    /// what it is for: the coast to release runs ~980 s, the correction is over inside 120 of them,
+    /// and the hold in between is ~88% of the exposure.</para>
+    ///
     /// <para><b>Off, and off is what ships</b>, until it has been flown against a forced control.</para>
     /// </summary>
     public bool QuietCoast;
@@ -363,6 +369,26 @@ internal sealed class IcbmConfig
 
     /// <summary>Pointing error at which it takes the attitude back, in degrees.</summary>
     public double ReacquireCoastDeg = 2.0;
+
+    /// <summary>
+    /// How long before the release approach the coast hold takes the attitude back, in seconds.
+    ///
+    /// <para><b>Steady is not pointed.</b> <c>ReleaseSequence</c> waits for the bus to be steady
+    /// before it latches its reference, and a bus nobody is holding is perfectly steady while
+    /// aimed somewhere wrong — so warheads leave along whatever line the drift left. Flown
+    /// 2026-09-05 with no such bound: the lost mode went from 12 of 56 to 1 of 56, and the healthy
+    /// median from 0.017 km to 3.607.</para>
+    ///
+    /// <para>Re-pointing is cheap because going quiet does not move the bus. No actuator commanded
+    /// is <em>on rails</em>, which is exact conic propagation — the drift is attitude and nothing
+    /// else, so taking the line back restores it with no trajectory to undo.</para>
+    ///
+    /// <para>Measured against the margin it needs rather than chosen: a slew at the <c>Strict</c>
+    /// profile's 30 deg/s is seconds even from the far side, and settling is
+    /// <see cref="PostBoostAim.SettlesWithinSeconds"/>. Sixty is several times both, and costs ~6%
+    /// of the quiet window.</para>
+    /// </summary>
+    public double QuietCoastEndsBeforeReleaseSeconds = 60.0;
 
     /// <summary>
     /// What a second of holding the warheads is charged at, overriding

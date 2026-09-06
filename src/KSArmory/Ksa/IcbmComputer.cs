@@ -1512,35 +1512,23 @@ internal sealed class IcbmComputer
                    : $", nearest {KsaWorld.DisplayName(near)} at {metres / 1000.0:F2} km";
     }
 
-    // Whether to stop pointing for now. Latched with a band rather than a threshold: a bus settled
-    // to a hundredth of a degree would otherwise re-command every time the error crossed it, which
-    // is the actuator being commanded again and the whole cost back.
-    //
-    // Only the coast, and only once the line is actually held: the burn, the trim and the release
-    // sequence all need the attitude, and none of them is where the damage is done.
-    private bool _coastIsQuiet;
+    // The band and both bounds live in Sim/CoastQuiet.cs, where they can be tested -- this is the
+    // predicate whose missing bounds cost 89x on the worlds that were already healthy.
+    private readonly CoastQuiet _coastQuiet = new();
 
     private bool QuietDuringCoast()
-    {
-        if (!Config.QuietCoast || Program.Phase != IcbmPhase.Coast || Program.IsBurning
-            || TrimIsFiring || _salvoAway)
-        {
-            _coastIsQuiet = false;
-            return false;
-        }
-
-        double errorDeg = KsaWorld.PointingErrorDeg(Craft);
-        if (!double.IsFinite(errorDeg))
-        {
-            _coastIsQuiet = false;
-            return false;
-        }
-
-        if (_coastIsQuiet) _coastIsQuiet = errorDeg <= Config.ReacquireCoastDeg;
-        else _coastIsQuiet = errorDeg <= Config.QuietCoastDeg;
-
-        return _coastIsQuiet;
-    }
+        => _coastQuiet.Update(new CoastQuietState(
+                                  Enabled: Config.QuietCoast,
+                                  Coasting: Program.Phase == IcbmPhase.Coast,
+                                  Burning: Program.IsBurning,
+                                  Trimming: TrimIsFiring,
+                                  SalvoAway: _salvoAway,
+                                  CorrectionFinished: _postBoostSaid,
+                                  InReleaseApproach: CoastQuiet.InReleaseApproach(
+                                      SecondsToReleaseApproach,
+                                      Config.QuietCoastEndsBeforeReleaseSeconds),
+                                  PointingErrorDeg: KsaWorld.PointingErrorDeg(Craft)),
+                              Config.QuietCoastDeg, Config.ReacquireCoastDeg);
 
     // A flight-plan margin as a reader wants it: a number, or "inf" for a horizon nothing reaches.
     private static string Fmt(double seconds) =>
