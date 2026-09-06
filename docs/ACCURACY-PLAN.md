@@ -4012,6 +4012,65 @@ which is worth more than fixing it: a fifth of every night currently measures th
 worth about half the miss on divergent ones, and if a player can ever produce a shared bubble —
 two launches, a station, a spent stage held — it still earns its place. It stops being urgent.
 
+## 3bk. Every target under ~800 km gets the same shot — measured 2026-09-06
+
+Reported from play as the computer wanting to go orbital first even for a close target. It does not
+go orbital, and what it does is worse: **it flies the identical trajectory for every target from
+100 km to 800 km.**
+
+Flown headlessly on `IcbmFlightTests`' own pad rig, varying only the aim:
+
+| range | cutoff | speed | climb | % of circular | burn | left |
+| --- | --- | --- | --- | --- | --- | --- |
+| 100 km | 65.4 km | 3024 m/s | 30.3 deg | 38% | 92 s | 11,427 kg |
+| 200 km | 65.4 | 3024 | 30.3 | 38% | 92 | 11,427 |
+| 300 km | 65.4 | 3024 | 30.3 | 38% | 92 | 11,427 |
+| 450 km | 65.4 | 3024 | 30.3 | 38% | 92 | 11,427 |
+| 600 km | 65.4 | 3024 | 30.3 | 38% | 92 | 11,427 |
+| 800 km | 65.4 | 3024 | 30.3 | 38% | 92 | 11,427 |
+| 1,200 km | 86.9 | 3391 | 30.4 | 43% | 105 | 9,702 |
+| 2,500 km | 138.0 | 4531 | 31.9 | 58% | 128 | 5,922 |
+| 6,269 km | 238.8 | 6224 | 30.9 | 80% | 169 | 2,181 |
+
+**Identical to every digit** below 800 km, then scaling normally above 1,200. What each of those
+shots actually wants is not close to the others — the cheapest arc is 1,697 m/s with a 73 km apogee
+at 300 km, and 2,372 m/s with 146 km at 600.
+
+### Three candidates tested and excluded
+
+* **The release gate.** `DeployAltitudeMetres = 100 km`, and a short arc apogees below it — 73 km at
+  300 km range — so the vehicle must loft past it to be allowed to let go. Lowering it to 20 km
+  changes **only the hold message**; the burn is unchanged.
+* **The arrival floor.** `ArrivalPreference = 0` moves the 2,500 and 6,269 km shots and leaves
+  100-800 km identical.
+* **The pitch schedule.** `TurnEndMetres` from 55 km to 15 km moves the numbers about 6% and keeps
+  them identical across the whole short range.
+
+### What is left, and it is structural
+
+**The handover.** Closed-loop guidance cannot fly the first minute — its answer near the pad is
+"point downrange", which through thick air is flying the stack into its own slipstream — so the
+ascent is an open-loop schedule and guidance takes over on dynamic pressure. By the time the air is
+thin the stack is at ~65 km doing ~3 km/s, which is **already more than any of these shots needs**.
+There is nothing left for the loop to decide, so it cuts off at once and every short target gets
+whatever the ascent happened to deliver.
+
+The floor is the ascent, and the ascent is flown before anything consults the target.
+
+### What would fix it, in rough order of honesty
+
+1. **Throttle the ascent on the solution.** The programme knows the required velocity from the pad —
+   `BallisticArc.TryCheapest` answers at any time — so the open-loop phase could fly a lower
+   throttle or a shorter first burn when the shot is small. This is the real fix and it is the one
+   that changes the ascent.
+2. **Refuse the shot.** A stack sized for 6,269 km is the wrong weapon for 100, and saying so is
+   better than silently flying a 3 km/s lob at a target 100 km away. Cheap, honest, and no help to
+   anyone who wants the shot.
+3. **Leave it and document the floor.** The mod's own reach readout would then have a lower bound as
+   well as an upper one, which it does not today.
+
+**Nothing here is built.** `ShortRangeAscentTests` is the measurement and the record.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4152,6 +4211,7 @@ what 20b is flying against.
 | **19c** | **Read the flag on a divergent world** — free, the next night that draws one | 0 shots | 3bg: `neither` means the warp's `2 x DeltaTime` is the lever; `commanded` while quiet means `ZeroizeTvcs` |
 | **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
 | ~~21~~ | ~~**Gate a rotation command's nozzle set to zero net force**~~ | done, and already green | **`checkring.py` has measured it since `333f7b0` and `check-all.sh` gates it: the shipped bus leaks 0.000 on all three axes, so the coast push is not the mod's own thrusters** — 4c |
+| **23** | **Make the ascent know how far the target is.** Every shot under ~800 km is identical because guidance takes over on dynamic pressure, by which point the stack has ~3 km/s and the shot needs less | 0 shots to reproduce | 3bk: a 100 km target is flown exactly as an 800 km one |
 | ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
 | ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |
 | **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
