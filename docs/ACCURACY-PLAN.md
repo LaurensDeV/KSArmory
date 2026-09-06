@@ -3655,6 +3655,59 @@ comparison is the terrain rather than the arm. That is what the seat levelling i
 blocks are for. All 8 arrived; the mod's log has no exception and KSA's has only its own
 master-server ping.
 
+## 3be. 5e is refuted — the exit reaches steeper than the latch can afford
+
+Item 5e was to re-check the latched arrival floor against the state the burn *leaves*, on the
+reading that no arc satisfying a steep floor exists from there. Measured headlessly
+(`ArrivalFloorRestateTests`), bisecting on arc **existence** rather than on affordability:
+
+| shot | affordable at latch | existence wall at cutoff |
+| --- | --- | --- |
+| 2,736 km | 67.8 deg | **77.8** |
+| 6,269 km | 56.2 | **62.2** |
+| 12,902 km | 37.5 | **40.9** |
+
+**The wall is above the ceiling at every range.** The post-boost state reaches steeper arcs than
+the latch state can pay for, so the latched floor is never the binding constraint and re-checking it
+against the exit would *raise* the floor rather than lower it. `ArrivalFloorAffordabilityTests`
+agrees from the other side: every floor from 0 to 30 deg is Reachable in the rig, with the arrival
+tracking the floor once it binds and no fallback anywhere.
+
+So 5e comes off the plan, and with it the standing explanation for why
+`ArrivalPreference = 0.8` loses.
+
+### What ends the control instead, from the flown night
+
+2026-09-01-2148, re-read with the mode split and the seat levelling:
+
+| arm | arrival | **owed m/s** | healthy med | lost | levelled ratio |
+| --- | --- | --- | --- | --- | --- |
+| base | 16.9 | 2.63 | 0.029 km | 0/24 | — |
+| p50 | 34.2 | 2.56 | 0.013 | 0/24 | 0.56x [0.24, 1.52] |
+| p65 | 44.4 | 2.60 | 0.017 | 0/24 | 0.68x [0.51, 1.14] |
+| **p80** | **54.4** | **4.19** | **0.098** | 3/24 | **5.65x [3.88, 12.65]** |
+
+**One column moves and it is the trim's debt** — what was still owed when the warheads left. It sits
+at 2.6 for three arms and jumps to 4.19 at 0.8. The damage is in the *healthy* mode, 0.029 to 0.098
+km; it is not the divergence, which is 3 of 24 at Fisher p=0.234.
+
+The terminators say the same: p50 and p65 end `noimprov` **24 of 24** with no `clock` and no
+`payback`, which is every flight converging. p80 ends 18 `noimprov`, 3 `clock`, 3 `trim`.
+
+**So the arrival ceiling is the trim's ability to finish paying, somewhere between 44 and 54 deg.**
+That is a measurement to make, not a fix to build, and it is worth making only after 20b: a steeper
+floor is a longer transfer, and a longer coast is more exposure to whatever the coast is doing to
+the bus.
+
+### And a caveat on the seat levelling, from this same night
+
+p50 levelled reads [0.24, 1.52] where un-levelled reads [0.26, 1.12] — **wider, not narrower**, the
+only case measured that goes the wrong way. Four arms over eight seats is two flights per seat per
+arm per shot, so each seat's level is estimated from a quarter of the data a two-arm night gives it
+and the noise in the level outweighs the terrain it removes. **Levelling is for two-arm nights**,
+which is what `--paired` is for and what the protocol already recommends; on a four-arm night read
+the un-levelled line.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3698,7 +3751,8 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~5b~~ | ~~Fly `ArrivalPreference` at 0.5/0.65/0.8~~ | done | **0.5 wins, 0.48x, 29.5 -> 13.5 m; 0.8 is a settled loss** — 3aa |
 | ~~5d~~ | ~~Re-fly `ArrivalPreference = 0.5` on a clean harness~~ | done | **0.69x [0.17, 0.88], 11 wins of 12, rank p=0.009 — RESOLVED, and 3ak's 1.91x was the harness** — 3am |
 | ~~5c~~ | ~~Price a steep arrival against the **trim's** budget, not the ascent's~~ | done | **refuted: the trim's authority *grows* with the angle, 122 km to 166 km — what ends it is the arc ceasing to exist** — 3ag |
-| **5e** | Re-check the latched arrival floor against the state the burn **leaves** the vehicle in, not the one it is priced from | 0 shots then 12 | 3ag: 0.5 latches 33.5 deg against a wall at 35-40, and 0.8 latches 53.6 — what 5c became |
+| ~~5e~~ | ~~Re-check the latched arrival floor against the state the burn **leaves** the vehicle in~~ | done | **refuted: the exit reaches steeper than the latch can afford, 77.8 against 67.8 — and the ceiling is the trim's debt, 2.6 to 4.19 m/s** — 3be |
+| **5f** | Why the trim still owes 4.19 m/s at a 54 deg floor against 2.6 at 44 — the arrival ceiling, and a measurement rather than a fix | 0 shots, after 20b | 3be: 44 to 54 deg is where the healthy median goes 0.017 to 0.098 km |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |

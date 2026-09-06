@@ -70,6 +70,13 @@ announced it.
 The un-levelled ratio is printed beside the levelled one. A large gap between them is the roster's
 ground, and worth looking at rather than absorbing silently.
 
+**Levelling is for a two-arm night, and on a four-arm one read the un-levelled line.** Eight seats
+across four arms is two flights per seat per arm per shot — a quarter of what two arms give — so the
+level is estimated from too little and its own noise outweighs the terrain it removes. Measured on
+2026-09-01-2148, the only case that goes the wrong way: p50 reads [0.24, 1.52] levelled against
+[0.26, 1.12] raw. Two arms is what `--paired` is for and what §3 already recommends; this is one
+more reason.
+
 **What this already cost.** 2026-09-03-1544 flew `ArrivalPreference=0.0` and reported ×2.24
 [0.90, 4.57], p=0.105 — unresolved, a night that answered nothing. Levelled it is ×2.36
 [1.88, 2.94]: a clear loss, from the shots already flown.
