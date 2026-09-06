@@ -3927,6 +3927,53 @@ loop does not run. **Not written up as a finding** — it is n=1 either side, an
 out of a count is the mistake this file already lists seven times. It is the first thing to check on
 the next divergent world, and it costs nothing to check.
 
+## 3bj. The divergence is very likely the harness, not the weapon — 2026-09-06
+
+Read the divergence rate against what each night actually flew, over every batch since 2026-08-30:
+
+| target | range | baseline divergence |
+| --- | --- | --- |
+| `10.622,-80.604` | 2,000 km | **0 of 24 shots** |
+| `26.485S,68.148W` | 6,269 km | ~8-20% of shots, every night |
+
+**Ninety-six shots before 2026-09-01 with no divergence at all**, then a fifth of them ever since.
+That looks like a regression and is not one. Two candidates were tested against the existing logs
+and both are refuted:
+
+* **A code change in the window.** The three failures of `2026-09-01-2148` were **all the `p80`
+  arm** — the steepest arrival, already a settled loss. No baseline flight diverged until the target
+  moved.
+* **The arrival preference shipping at 0.5** (`de9f81c`, 09-03 09:29). Divergence appears on the
+  09-02 nights, *before* it shipped, and there the divergent worlds fail with **base and p50
+  together, all eight rockets, at preference zero**. The angle is not the driver.
+
+What changed on 2026-09-02 is the **target**, from a 2,000 km shot to a 6,269 km one — and with it
+the coast, from a few minutes to ~980 s.
+
+### Why that is the mechanism rather than a coincidence
+
+3ax's account is a bubble envelope that grows with the spread of its own members: a rocket holding
+its shed stage `s` away reaches `5s`, and touches the neighbouring pad at `s = 4.00 km` against a
+4.194 km split radius. **The envelope grows with time, so a longer coast is more chances to touch.**
+A 2,000 km shot never gets there; a 6,269 km one does, about a fifth of the time.
+
+### The consequence, which is the point
+
+**A player firing one ICBM has no neighbour to merge with.** `make-scaling-save.py` puts the rockets
+20 km apart precisely so they "own bubbles and take the single-vehicle path" — that is its own
+comment — and 20 km turns out to be too close for this coast. So the ~15% catastrophic mode is
+plausibly a property of **the eight-rocket throughput harness**, not of the weapon, and the last
+week of QuietCoast work has been aimed at an artefact of how the measurements are taken.
+
+**This is a hypothesis with one cheap test and a large payoff.** Fly the same 6,269 km shot on
+`SOLVER SCALE 1` — one rocket, no neighbour — several times. No divergence there confirms it. Then
+regenerate the harness save at a wider spacing and the failure mode leaves every future night,
+which is worth more than fixing it: a fifth of every night currently measures the harness.
+
+**What it does not do is make QuietCoast pointless.** It is measured harmless on healthy worlds and
+worth about half the miss on divergent ones, and if a player can ever produce a shared bubble —
+two launches, a station, a spent stage held — it still earns its place. It stops being urgent.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
