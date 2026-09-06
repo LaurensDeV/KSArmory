@@ -3738,6 +3738,48 @@ Three more, all public or config:
 `Profiler.MainThread` is public, and `Program.OnFrame` already tags `UpdateVehicleRenderData` and the
 rest. 5b says the missing piece "wants a profiler rather than another guess" — it is there.
 
+## 4b. Item 8's throughput is bought out of the trim's precision — priced 2026-09-06
+
+Section 4 offers `minTargetFrameRate = 10` as **2.4x for a config line**, and the ranked plan says
+to do it before 5b-7 if a night is short. It is not free, and what it spends is the one term 3be
+just identified as the arrival ceiling.
+
+`dtPlayer = min(elapsed, 1 / MinTargetFrameRate)` is the step the trim is integrated across, and
+`BusTrim`'s own docs measure its precision as linear in that step: **0.118 m/s left on the bus at
+33 ms, 0.245 at 66, 0.420 at 108, 0.750 at 200**. So the two are the same lever pulled in opposite
+directions. On 5b's 8-rocket world, 78.7 ms frame:
+
+| `MinTargetFrameRate` | step | trim residual | throughput | vs `BusTrim.MaxFaithfulStep` |
+| --- | --- | --- | --- | --- |
+| **30 — today** | 33.3 ms | **0.119 m/s** | 1.00x | inside |
+| 20 | 50.0 | 0.183 | 1.50x | inside |
+| **16** | 62.5 | **0.232** | **1.88x** | **inside** |
+| 15 | 66.7 | 0.248 | 2.00x | outside |
+| **10 — as proposed** | 78.7 | **0.298** | 2.36x | **outside** |
+
+**At 10 the step leaves `BusTrim.MaxFaithfulStep = 0.066` and the residual is 2.5x today's.** That
+constant is not a preference: it is the step at which the trim's stop threshold,
+`max(SettledMetresPerSecond, 0.5 x accel x step)`, stops being reachable, and past it the trim
+settles wide and reports itself done.
+
+**Sixteen is the row that fits.** 1.88x of the 2.36x, with the step still inside the trim's own
+bound — most of the throughput and none of the boundary violation.
+
+**What it costs in metres is not derivable from here and must not be guessed.** The naive product
+of residual and `dMiss/dV` is wrong: a night with 2.6 m/s still owed at release lands at 18.5 m,
+so the mapping from the trim's books to the ground is not that. **Fly it, on the miss, against a
+same-night baseline** — it is a paired arm like any other, not a setting to adopt on a throughput
+number.
+
+**And the free version is the one section 4 already names.** `WorldSpeed.ForStep` turns "I want this
+step" into a speed request, so the burn and the trim can hold today's step while ascent and coast
+run long. That is the shape that gets the throughput without paying for it — and it is code rather
+than a config line, which is the part the "2.4x for a config line" headline hides.
+
+Ordering: this collides with **5f** (why the trim owes 4.19 m/s at a 54 degree floor). Both are
+about the same actuator's precision, and 5f should be measured on today's step before anything
+coarsens it.
+
 ## The ranked plan
 
 | # | Do | Cost | Worth |
@@ -3764,7 +3806,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | **1c** | Pad or replace `MaxTerrainHeightApprox` at `KsaWorld.cs:374` | 0 shots | the radar mask's containing sphere is not one (3z) |
 | **6** | `_worseFor` as a run counter; headless counterfactual over `RoughGround` first | 0 shots then 12 | long range, if `settled` stops being modal |
 | **7** | Seed `Resume()` from the burn's last measured response | 12 paired shots | long range; decomposes the pass-one trim demand |
-| **8** | `minTargetFrameRate`, `orbitSolvers`, the three offscreen viewports, coast off-rails | hours | **2.4x or better throughput**, which every row above pays for in shots |
+| **8b** | `orbitSolvers`, the three offscreen viewports never cleared, the off-rails coast — the throughput levers that are **not** paid for out of the step | hours | section 4; unlike `minTargetFrameRate` these cost the trim nothing — 4b |
 | ~~9~~ | ~~Hand the terminal fraction of the burn to `FlightComputer.Burn`~~ | days | **dropped** — abolishing the residual entirely buys ~9 m at 2,000 km and nothing at 12,902 (3x) |
 | **13** | **Why the committed arrival drifts 26 s** — one shot in twelve, all eight rockets, 75-99 km, `trim` median 92.41 km | 0 shots then 12 | 3ak: the largest single item at this geometry, and unexplained — **but 3an bounds the drift to 0-8 s across all 52 divergences, so it is not what the `trim` terminator is; see 17** |
 | ~~12~~ | ~~Why the epoch sign runs at −0.6~~ | done | **the diagnostic had the sign backwards; the fix was justified and is applied** — 3al |
@@ -3776,7 +3818,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | ~~20~~ | ~~**Stop driving attitude through the coast.** Rails is gated on `anyActuatorCommanded`, not on bubble membership~~ | done, twice | **works and was unbounded: 0.15x on divergent worlds, 89x on healthy ones** — 3ba |
 | **20b** | **Fly the quiet window** (`Sim/CoastQuiet.cs`, built, off; verified engaging at 80% of the coast, 3bd). Quiet through the coast, back under command 60 s before the release approach | 14 paired shots | 3bb/3bd: keep 3ba's 0.15x on the lost mode, be a null on the healthy one. **The night to fly first** |
-| **8** | `minTargetFrameRate=10` alone, as one measured afternoon before the rest of that row | hours | 2.4x throughput on 5b's own numbers, which every row here pays for in shots |
+| **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
 | **21** | **Gate a rotation command's nozzle set to zero net force.** `checkring.py --translation` reads six-axis translation authority; nothing checks that a *rotation* set does not translate | 0 shots | 3as |
 | ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
 | ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |
