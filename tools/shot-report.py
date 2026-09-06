@@ -137,10 +137,16 @@ SAMPLE = re.compile(r"dt=([\d.]+)ms step=([\d.]+)ms sim=([\d.]+)x")
 #     0.5-4.0 m/s, and it leaks into the sample after it stops.
 # What is left is the pre-split coast, where item 17's walk happens, and it settles to 0.0007 m/s
 # over 752 samples of a healthy flight -- a floor some fortyfold below the signal.
+# Named rather than positional because the rails and hold states sit in the MIDDLE of the line, so
+# a new capture cannot simply be appended without renumbering everything after it.
 OFFGRAV = re.compile(
-    r"coast probe on ([^:]+):.*?density\s+([\dE.+-]+),.*?off-gravity\s+([\d.]+)\s*m/s"
-    r" \(r [-+]?[\d.]+, a [-+]?[\d.]+, c ([-+]?[\d.]+)\)"
-    r".*?bubble (-?\d+),.*?\btrim\s+(\w+)")
+    r"coast probe on (?P<who>[^:]+):.*?density\s+(?P<density>[\dE.+-]+),"
+    r".*?off-gravity\s+(?P<push>[\d.]+)\s*m/s"
+    r" \(r [-+]?[\d.]+, a [-+]?[\d.]+, c (?P<cross>[-+]?[\d.]+)\)"
+    r".*?bubble (?P<bubble>-?\d+),"
+    r".*?\b(?P<rails>on rails|off rails|rails unknown)\b(?: \(forced\))?"
+    r"(?:, (?P<hold>quiet|holding \([^)]*\)))?"
+    r".*?\btrim\s+(?P<trim>\w+)")
 BAND = re.compile(
     r"DEBUG\s+(\S+)\s+control:.*?pointing band\s+([\d.]+)\s*deg")
 BANNER = re.compile(r"KSArmory\s+(\S+)\s+built for KSA\s+(\S+),\s*running\s+(\S+)")
@@ -344,6 +350,7 @@ def read_shot(out_path, log_path, craft=None):
             "why": None, "passes": None, "owed": None, "why_named": False,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
             "off_grav": [], "off_cross": [], "shared_bubble": 0,
+            "rails_probes": 0, "rails_off": 0, "quiet_probes": 0,
             "version": None}
 
     text = out_path.read_text(errors="replace") if out_path.exists() else ""
@@ -417,8 +424,24 @@ def read_shot(out_path, log_path, craft=None):
         shot["clock_gap"].append(world - own)
     seen = set()
     for m in OFFGRAV.finditer(log):
-        who, density, push = m.group(1), float(m.group(2)), float(m.group(3))
-        cross, bubble, trim = float(m.group(4)), int(m.group(5)), m.group(6)
+        who, density, push = m.group("who"), float(m.group("density")), float(m.group("push"))
+        cross, bubble, trim = float(m.group("cross")), int(m.group("bubble")), m.group("trim")
+
+        # Every probe counts towards how the coast was SPENT, including the entry one and the ones
+        # taken while the trim is working -- those are exactly the parts of the coast the quiet
+        # window is bounded away from, so excluding them would measure the window against itself.
+        #
+        # THIS ONE CRAFT'S probes, unlike the columns below it. A paired night gives the two arms
+        # different rockets in one world, so a whole-log count is identical for both by
+        # construction -- which is what it read before this filter, 4% against 4%. Same trap
+        # why_it_ended documents, one craft's reading worn by eight.
+        if _craft(who) == _craft(craft or who):
+            shot["rails_probes"] += 1
+            if m.group("rails") == "off rails":
+                shot["rails_off"] += 1
+            if m.group("hold") == "quiet":
+                shot["quiet_probes"] += 1
+
         if who not in seen:          # the coast-entry transition, not a push
             seen.add(who)
             continue
@@ -813,6 +836,7 @@ def paired(root, shots):
                   f" signed-rank p={wilcoxon_p(raws):.3f}")
         print()
 
+    _say_coast(shots, order)
     _say_modes(shots, order)
     _say_seats(shots)
     _say_terminators(shots, order)
@@ -820,6 +844,35 @@ def paired(root, shots):
     if len(groups) < 6:
         print(f"   NOTE: {len(groups)} shots cannot reach p<=0.05 on a sign test. Six is the floor,")
         print("   and that is only if the variant wins every one of them.")
+
+
+def _say_coast(shots, order):
+    """How each arm's coast was actually spent — off rails, and under a quiet hold.
+
+    **The fraction is the discriminator, not the presence.** 65 of 65 divergent flights and 124 of
+    126 healthy ones went off rails at some point, so a binary reading separates nothing; what
+    separates them is how much of the coast, 70% against 1%.
+
+    And it is what makes a null readable. The quiet window is bounded at both ends
+    (`Sim/CoastQuiet.cs`), so how much of a coast it covers is a per-flight outcome — an arm that
+    changed nothing because it never engaged looks exactly like one that engaged and did not
+    matter, and only this table tells them apart.
+    """
+    rows = [s for s in shots if s.get("within") and usable(s) and s.get("rails_probes")]
+    if not rows:
+        return
+
+    print("   how the coast was spent (median over flights, per cent of coast probes)")
+    print(f"   {'arm':<14}{'off rails':>11}{'quiet':>8}{'probes':>9}{'flights':>9}")
+    for name in order:
+        mine = [s for s in rows if s["within"] == name]
+        if not mine:
+            continue
+        off = statistics.median(s["rails_off"] / s["rails_probes"] for s in mine)
+        quiet = statistics.median(s["quiet_probes"] / s["rails_probes"] for s in mine)
+        probes = statistics.median(s["rails_probes"] for s in mine)
+        print(f"   {name:<14}{off:>10.0%}{quiet:>8.0%}{probes:>9.0f}{len(mine):>9}")
+    print()
 
 
 def _seat_levels(shots):

@@ -1670,8 +1670,21 @@ internal sealed class IcbmComputer
         // the governor behind it, and neither is visible anywhere else. docs/ACCURACY-PLAN.md 17.
         bool? rails = KsaWorld.OnRails(Craft);
 
+        // Whether the hold is letting go right now, and which gate is keeping it from doing so.
+        // Without this a night that reads as a null cannot say whether the fix failed or simply
+        // never engaged -- the quiet window is bounded at both ends (Sim/CoastQuiet.cs), so how
+        // much of a coast it actually covers is a per-flight outcome rather than a constant.
+        string hold = !Config.QuietCoast ? ""
+                      : _coastQuiet.IsQuiet ? ", quiet"
+                      : !_postBoostSaid ? ", holding (correcting)"
+                      : CoastQuiet.InReleaseApproach(SecondsToReleaseApproach,
+                                                     Config.QuietCoastEndsBeforeReleaseSeconds)
+                          ? ", holding (release approach)"
+                      : ", holding (off the line)";
+
         string loop = $", {(rails is null ? "rails unknown" : rails.Value ? "on rails" : "off rails")}"
                       + (KsaWorld.ForcedOffRails ? " (forced)" : "")
+                      + hold
                       + $", trim {(TrimIsFiring ? "firing" : _trim.Done ? "done" : "idle")}"
                       + $", {_sinceObserve:F0} s since the aim last read"
                       + (_measureDue ? ", reading due" : "");
