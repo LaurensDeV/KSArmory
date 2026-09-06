@@ -1543,6 +1543,48 @@ internal sealed class IcbmComputer
     private double _sinceCoastProbe;
     private double _coastProbeMiss = double.NaN;
 
+    // What the rails decision saw BETWEEN probes, rather than at the instant one is taken.
+    //
+    // A probe is one reading every 10 simulated seconds and PhysicsBubble remakes the decision
+    // every sub-step, so an actuator commanded briefly is invisible to a sampled reading. That gap
+    // is not hypothetical: 3bh has a divergent world where every off-rails probe of BOTH arms read
+    // "neither actuator flag", and quieting still moved the off-rails share from 68% to 38% -- a
+    // difference with no visible cause, which is exactly what under-sampling looks like.
+    private int _railFrames;
+    private int _offRailsFrames;
+    private int _commandedFrames;
+    private int _activeFrames;
+
+    private void SampleRails()
+    {
+        if (KsaWorld.OnRails(Craft) is not { } rails) return;
+
+        _railFrames++;
+        if (rails) return;
+
+        _offRailsFrames++;
+
+        switch (KsaWorld.OffRailsActuator(Craft))
+        {
+            case "commanded": _commandedFrames++; break;
+            case "active": _activeFrames++; break;
+            case "commanded+active": _commandedFrames++; _activeFrames++; break;
+        }
+    }
+
+    private string RailsSaid()
+    {
+        if (_railFrames == 0) return "";
+
+        string said = $", frames off rails {100.0 * _offRailsFrames / _railFrames:F0}%"
+                      + $" (commanded {100.0 * _commandedFrames / _railFrames:F0}%"
+                      + $", active {100.0 * _activeFrames / _railFrames:F0}%"
+                      + $", of {_railFrames})";
+
+        _railFrames = _offRailsFrames = _commandedFrames = _activeFrames = 0;
+        return said;
+    }
+
     // The 168 seconds between cutoff and the first release, which is the one window in a flight that
     // nothing instruments. Shot 006 of 2026-09-02-1508 put all eight rockets 75-99 km out, and the
     // whole divergence happened in here: healthy through cutoff, healthy for 65 s of coast, then the
@@ -1562,6 +1604,9 @@ internal sealed class IcbmComputer
             _coastProbeHasState = false;
             return;
         }
+
+        // Every frame of the coast, so the probe can report the interval rather than the instant.
+        SampleRails();
 
         _sinceCoastProbe += simStep;
         if (_sinceCoastProbe < CoastProbeSeconds) return;
@@ -1692,6 +1737,7 @@ internal sealed class IcbmComputer
         string loop = $", {(rails is null ? "rails unknown" : rails.Value ? "on rails" : "off rails")}"
                       + (KsaWorld.ForcedOffRails ? " (forced)" : "")
                       + (actuator is null ? rails is false ? " (neither actuator flag)" : "" : $" ({actuator})")
+                      + RailsSaid()
                       + hold
                       + $", trim {(TrimIsFiring ? "firing" : _trim.Done ? "done" : "idle")}"
                       + $", {_sinceObserve:F0} s since the aim last read"
