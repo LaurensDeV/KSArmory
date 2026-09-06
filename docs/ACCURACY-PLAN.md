@@ -3636,6 +3636,25 @@ bake in.
 lets the loop run, which here is the far end. Nothing in the code says otherwise and nothing would
 have caught it but the flight.
 
+### Verified with the bound off — flown 2026-09-06
+
+| arm | off rails | quiet | endings | misses |
+| --- | --- | --- | --- | --- |
+| base | 6% | 0% | clock 1, noimprov 3 | 13, 20, 21, 22 m |
+| **quiet** | **4%** | **80%** | clock 1, noimprov 2, payback 1 | 5, 31, 42, 74 m |
+
+Three things this establishes, none of which is that the fix works — one shot settles nothing:
+
+* **The window engages, at exactly the ~80% of the coast it was designed for.**
+* **The mechanism moves**: off rails 6% to 4%, which is the term 3ax identified.
+* **The correction loop is intact.** Its endings are ordinary, against 3ba's `clock` on 55 of 56 —
+  so whatever broke the loop there is not present here.
+
+The arms sit on opposite seat parities and the quiet arm drew the bad half, so the raw miss
+comparison is the terrain rather than the arm. That is what the seat levelling is for and what 14
+blocks are for. All 8 arrived; the mod's log has no exception and KSA's has only its own
+master-server ping.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -3702,7 +3721,7 @@ rest. 5b says the missing piece "wants a profiler rather than another guess" —
 | ~~16~~ | ~~Make each headless fixture state its own arrival geometry~~ | done | **`ArrivalPreference = 0.5` ships as the default; 15 cases across 7 classes now state their geometry through `FixtureGeometry`, 1,854 pass** — 3ao |
 | ~~14~~ | ~~A per-craft coast probe~~ | done | **caught the failure: sharp onset at 505 km, accelerating, and the guard proven not to be the cause** — 3am |
 | ~~20~~ | ~~**Stop driving attitude through the coast.** Rails is gated on `anyActuatorCommanded`, not on bubble membership~~ | done, twice | **works and was unbounded: 0.15x on divergent worlds, 89x on healthy ones** — 3ba |
-| **20b** | **Fly the bounded quiet window** (`Sim/CoastQuiet.cs`, built, off). Quiet only between the correction finishing and 60 s before the release approach | 14 paired shots | 3bb: keep 3ba's 0.15x on the lost mode, be a null on the healthy one. **The night to fly first** |
+| **20b** | **Fly the quiet window** (`Sim/CoastQuiet.cs`, built, off; verified engaging at 80% of the coast, 3bd). Quiet through the coast, back under command 60 s before the release approach | 14 paired shots | 3bb/3bd: keep 3ba's 0.15x on the lost mode, be a null on the healthy one. **The night to fly first** |
 | **8** | `minTargetFrameRate=10` alone, as one measured afternoon before the rest of that row | hours | 2.4x throughput on 5b's own numbers, which every row here pays for in shots |
 | **21** | **Gate a rotation command's nozzle set to zero net force.** `checkring.py --translation` reads six-axis translation authority; nothing checks that a *rotation* set does not translate | 0 shots | 3as |
 | ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
