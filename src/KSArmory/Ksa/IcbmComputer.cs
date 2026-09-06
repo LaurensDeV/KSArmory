@@ -1684,8 +1684,14 @@ internal sealed class IcbmComputer
                           ? ", holding (release approach)"
                       : ", holding (off the line)";
 
+        // Which actuator term is holding it, when one is. Absent on a vehicle that is on rails and
+        // absent on one held off by something neither flag can see -- and that second absence is
+        // the informative one, because it is what says to go looking past the actuators.
+        string? actuator = rails is false ? KsaWorld.OffRailsActuator(Craft) : null;
+
         string loop = $", {(rails is null ? "rails unknown" : rails.Value ? "on rails" : "off rails")}"
                       + (KsaWorld.ForcedOffRails ? " (forced)" : "")
+                      + (actuator is null ? rails is false ? " (neither actuator flag)" : "" : $" ({actuator})")
                       + hold
                       + $", trim {(TrimIsFiring ? "firing" : _trim.Done ? "done" : "idle")}"
                       + $", {_sinceObserve:F0} s since the aim last read"

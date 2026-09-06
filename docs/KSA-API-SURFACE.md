@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-167 types and 463 members across 7 assemblies.
+168 types and 466 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -463,6 +463,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.FlightComputerBurnMode
 
 *referenced as a type only*
+
+### KSA.FlightComputerOutput
+
+- `bool AnyActuatorCommanded`
 
 ### KSA.FlightComputerRollMode
 
@@ -996,7 +1000,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.VehicleUpdateState
 
+- `KSA.FlightComputerOutput FlightComputerOutput`
 - `KSA.PartFailureEvent PartFailureEvent`
+- `bool AnyActuatorActive()`
 
 ### KSA.ViewportRegistry
 

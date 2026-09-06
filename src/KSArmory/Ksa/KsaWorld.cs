@@ -234,6 +234,53 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Which of the engine's actuator tests is holding this vehicle off rails, as a short label —
+    /// or null when neither is, which narrows the cause to the four this cannot see.
+    ///
+    /// <para><b>Built because eliminating one term cost three nights.</b> Item 20 read the
+    /// off-rails coast as this mod's own attitude hold commanding a thruster, and flying a bus that
+    /// verifiably stopped commanding changed nothing: 88% of the coast quiet, 72% of it still off
+    /// rails, against a control at 72%. `docs/ACCURACY-PLAN.md` 3bf. Naming the term is a great
+    /// deal cheaper than eliminating them one arm at a time.</para>
+    ///
+    /// <para><c>PhysicsBubble</c> takes a vehicle off rails on
+    /// <c>anyActuatorCommanded || AnyActuatorActive() || ocean || animating || KittenWantsWake</c>,
+    /// then on a freefall needing full physics, then on the origin's precision. The two actuator
+    /// terms are the ones a mod can read, and they are the ones under suspicion; the others are
+    /// ruled out by inspection for a coasting bus — it is not in an ocean, not a kitten, and the
+    /// precision test needs a bubble origin past 2.2e12 m.</para>
+    ///
+    /// <para><b>The reading is one frame stale and says so.</b> The state carries the worker run
+    /// staged for this frame, so a flag set during the run this frame dispatches is not visible
+    /// until the next — which is a phase error of one frame on a term that persists for minutes,
+    /// and irrelevant at that scale.</para>
+    /// </summary>
+    public static string? OffRailsActuator(Vehicle? v)
+    {
+        if (!IsAlive(v) || !CanQueuePartFailures) return null;
+
+        try
+        {
+            if (_updateStateField!.GetValue(v!) is not VehicleUpdateState state) return null;
+
+            bool commanded = state.FlightComputerOutput.AnyActuatorCommanded;
+            bool active = state.AnyActuatorActive();
+
+            return (commanded, active) switch
+            {
+                (true, true) => "commanded+active",
+                (true, false) => "commanded",
+                (false, true) => "active",
+                _ => null,
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// How long the engine's own flight plan for this vehicle is still verified for.
     ///
     /// <para>The plan's expiry losing its race with sim time is one of the seven things that puts a
