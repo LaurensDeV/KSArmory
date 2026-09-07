@@ -4436,6 +4436,58 @@ divergence above.
 arrival-release count by Fisher. That is item 10, and it was ranked fifth on a plan that did not
 know the ceiling was the common failure.
 
+## 3br. AimWithinTrimBudget does not help, and 3bq's inference was wrong — flown 2026-09-07
+
+Item 10 flown to a verdict, `2026-09-07-1312`, 14 paired blocks at 6,269 km with the levelled
+estimator.
+
+**On the healthy mode it does not help.** `1.11x [0.94, 1.29]`, 5 wins of 14, signed-rank p=0.068 —
+unresolved and trending the wrong way. The interval **rules out anything better than 0.94x**, which
+excludes the 0.85x the earlier twelve shots suggested. Those twelve were un-levelled, at 2,000 km,
+on a different build; this is the better instrument and it does not reproduce them. "The only
+setting that has never lost" no longer holds.
+
+**On the catastrophic mode it is untested.** The night drew **0 divergent worlds of 14** — about a
+10% draw at the established rate — so the arrival-release endpoint had no events to count in either
+arm.
+
+### And that null exposes the error in 3bq
+
+3bq found the arrival-release count 1:1 with divergent shots across 13 of 14 nights and concluded
+the ceiling breach was the thing to attack, with `AimWithinTrimBudget` as the lever. **The
+correspondence is real; the causal direction was wrong.**
+
+A ceiling breach has two possible causes and they are not the same fault:
+
+* **A runaway** — the aim correction and the trim winding each other up, which is what
+  `BusTrim.MaxMetresPerSecond`'s docs describe and what `AimWithinTrimBudget` bounds.
+* **An external push** — the bus being moved off its reference conic by something the guidance does
+  not control, which is what the off-rails coast does at ~4-6 m/s.
+
+**The divergent worlds are the second, and the evidence was already in hand.** Divergence is
+world-level and takes every rocket with it regardless of what that rocket's computer is set to:
+
+| night | base lost | other arm lost |
+| --- | --- | --- |
+| `1413` | 4/56 | 4/56 |
+| `1730` | 4/52 | 4/52 |
+
+Two arms, same worlds, identical counts. A per-craft setting cannot prevent something that hits
+both arms equally — so bounding the aim was never going to reach it, and 3bq's "the lever is already
+built" does not follow from its own correspondence.
+
+**What the correspondence does say** stands and is still useful: the ceiling breach is a reliable
+*marker* of a divergent world, on every affected flight, already logged. It is a detector, not a
+cause.
+
+### Where that leaves the ladder
+
+Rung C is still behind the trim's demand at a steep arrival, and that demand is **not** the
+divergence — 2148's p80 failures were arm-specific, 3 of 24 on the steep arm with base at 0, in
+worlds that did not diverge. So there are two separate things ending at the same ceiling, and only
+the steep-arrival one is on the path to rung C. It remains unexplained by a factor of ~3.6x after
+the cutoff residual (1.6x) and the lighter bus (1.7x).
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4581,7 +4633,8 @@ what 20b is flying against.
 | **23** | **Make the ascent know how far the target is.** Every shot under ~800 km is identical because guidance takes over on dynamic pressure, by which point the stack has ~3 km/s and the shot needs less | 0 shots to reproduce | 3bk: a 100 km target is flown exactly as an 800 km one |
 | ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
 | ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |
-| **10** | **Fly `AimWithinTrimBudget` to a verdict — now the top item.** It bounds the aim by what the trim can pay, which 3bq shows is the common final step of every divergent shot. Score on the levelled miss AND the arrival-release count | 14 paired shots | 0.85x and never lost; the count endpoint resolves far sooner than the median — 3bq |
+| ~~10~~ | ~~Fly `AimWithinTrimBudget` to a verdict~~ | done, 14 paired | **does not help: 1.11x [0.94, 1.29], and the interval now excludes better than 0.94x. The divergent endpoint drew 0 of 14 worlds** — 3br |
+| **5h** | **The steep-arrival trim demand, which is NOT the divergence.** 2148's p80 failures were arm-specific, 3 of 24 with base at 0, in worlds that did not diverge. ~3.6x of the 6.2x is unexplained after the cutoff residual and the lighter bus | 0 shots to price headlessly | 3br: **the one on the path to rung C** |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 
 **5d is ready to fly, and this is the command.** `--plan-only` clean on 2026-09-02 against
