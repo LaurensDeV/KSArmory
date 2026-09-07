@@ -4719,6 +4719,57 @@ other half.
   `GetNearSurfaceRadius()` breaks that, and `RemoveEligibleVehicles` cannot detect it because
   `GetDesiredBubFrame` reads the shared origin.
 
+## 3bw. The miss is already there at release — traced 2026-09-07
+
+The 10 m shot, decomposed. Two single-rocket flights with `Config.TraceWarhead` on, which nothing
+had done since the shot got to 10 m, the 1 ms sub-step shipped, or the arrival went to 32 degrees.
+
+| shot | probe **at release** | landed | walk during the fall |
+| --- | --- | --- | --- |
+| 001 | **8 m from the aim** | 12 m | **1 m** (+1 down, 0 cross) |
+| 002 | **18 m from the aim** | 19 m | **4 m** (+4 down, 0 cross) |
+
+**Everything downstream of the release is clean.** The round and its own predictor agree on the
+landing surface to **0.0 m**; the round stops 1.3 m (001) and 3.7 m (002) under it; the flight time
+agrees three ways to 10 ms — 311.68 s by the world clock, 311.69 by the round's own, 311.68 by the
+probe — and the sampling lag is −0.6 ms, worth −3 m at 5,487 m/s.
+
+**3ai is closed.** "About half the remaining miss is the round disagreeing with its own predictor",
+measured at a 150 m median, is now **1 to 4 m of walk**. The pairing work that closed it shows in
+one line: *"the round held −1.3 m off the true surface, unpaired it would have held −18.6 m"* over a
+frame in which the body moved 894 m.
+
+### So the whole budget was aimed at the wrong half
+
+Everything priced for the current shot happens **after** the miss exists:
+
+| term | priced at 32 deg | when it acts |
+| --- | --- | --- |
+| round integrator at 1 ms | 4.6 m | during the fall — **measured at 1-4 m of total walk** |
+| cutoff residual x realised sensitivity | 3.5 m | before release, and already absorbed |
+| ground sampled once a frame | 2.0 m | during the fall — **measured at 1.3-3.7 m** |
+| height-field quantum, crossing tolerance | 0.9 m | at the stop |
+
+The fall's terms are real and they are **the small half**. The aim is already 8 to 18 m off when the
+warheads leave.
+
+### And the cause is the correction's own stopping rule
+
+`AimCorrection.ImprovedByMetres = 250.0`, and `PostBoostAim.PassesWithoutImprovement = 3`: the loop
+stops when three passes fail to bring the predicted impact **250 m** closer. At a miss of 8 to 18 m
+**no pass can ever improve by 250 m**, so the loop stops after three passes whatever it might have
+achieved. `SteadyMetres = 2_000.0` is the same shape one level up.
+
+**These are convergence thresholds twenty-five times larger than the entire miss**, sized when the
+shot was kilometres and never re-sized as it came down.
+
+The Dead list's *"`ImprovedByMetres` (50/250/1000 identical)"* is consistent with this rather than
+against it: all three are far above the miss, so all three stop the loop identically. **The value
+that was never tried is one below the miss.** An absolute threshold cannot be right across a shot
+that has run from kilometres to metres — a fraction of the current predicted miss can.
+
+**This is the largest single term in the shot and nothing has ever attacked it.**
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4833,6 +4884,7 @@ what 20b is flying against.
 | ~~5f~~ | ~~Why the trim owes 4.19 m/s at a 54 deg floor against 2.6 at 44~~ | done | **it is asked for 4.5x more, not failing to pay: 0.76 m/s owed at 44 deg against 3.41 at 54, and only 54 ever hits the 10 m/s ceiling** — 3bo |
 | ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
 | ~~5h~~ | ~~Read `split debt` on a steep-arrival arm~~ | done, 1 shot | **the debt is the coast's length: the steep arm holds its reference 1.92x longer and owes 2.6x more, agreeing per second. Not the angle** — 3bu |
+| **25** | **The aim correction stops 25x above the miss.** `ImprovedByMetres` is 250 m absolute against an 8-18 m miss, so no pass can ever count as an improvement and the loop always stops on three. Make it relative to the predicted miss | build, then 14 paired | 3bw: **the largest term in the shot, and never attacked** |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
