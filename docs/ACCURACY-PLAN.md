@@ -4890,6 +4890,68 @@ an instrument — which is what both of these were for, and both delivered that 
 two arms at all. `shot-report.py --paired` now says so rather than printing arm medians that mean
 nothing.
 
+## 3bz. The aim loop has converged; what is left is the ground — 2026-09-07
+
+**Item 26, answered.** With the craft named on the `aim:` line the whole coast is legible, and the
+correction turns out not to be the limiter at all.
+
+First, a retraction: 3by said the trace goes dark 77-120 s before release. **It does not.** At bus
+separation the craft is renamed `GeoSat FAT 4` to `GeoSat FAT 4_1` — `PlatformHandover` working as
+designed — and the trace continues under the new name 0.5 s later at the same cadence, ending at
+exactly the bias the freeze ships. The grep matched only the bare name. Item 26b is withdrawn.
+
+### The correction converges, monotonically, on every flight
+
+Over the coast, cutoff to freeze, ~500 samples each:
+
+| seat | bias at cutoff | bias at freeze | path walked | loop's final predicted miss | **landed** |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 1.59 km | 932.9 m | 658 m | 2.5 m | 4 m |
+| 2 | 3.78 km | 458.1 m | 3325 m | 11.3 m | 15 m |
+| 3 | 1.39 km | 270.4 m | 1130 m | 7.5 m | **81 m** |
+| 4 | 3.81 km | 345.7 m | 3464 m | 1.4 m | 23 m |
+| 5 | 1.46 km | 449.1 m | 1195 m | 5.4 m | 19 m |
+| 6 | 1.63 km | 1.27 km | 400 m | 7.0 m | 5 m |
+| 7 | 1.32 km | 55.3 m | 1294 m | 9.6 m | 31 m |
+| 8 | 3.69 km | 56.2 m | 3634 m | 12.4 m | 12 m |
+
+**The path walked equals the net change on every flight** — so the bias descends monotonically and
+does not wander. And the loop converges to **1.4 to 12.4 m by its own reckoning**, every time.
+
+### And its own prediction has nothing to do with where the rocket lands
+
+| landing correlates with | rho |
+| --- | --- |
+| the loop's own converged prediction | **+0.07** |
+| **that seat's level, measured on a different night** | **+0.93** |
+
+The seat levels come from `2026-09-07-1824` — a different night, different builds, 112 flights — and
+they predict this night's landings in **metres**, not merely in rank: landed/level runs 0.44, 0.94,
+0.88, 1.21, 0.76, 0.50, 1.15, 1.33, median 0.9.
+
+**And a seat is a patch of ground.** `AimSpread` displaces each seat 12 km from the last, and every
+night since 2026-09-04 has used the same aim point — so seat 3 has always been the same hillside.
+That is why the level reproduces, and it is what `shot-report.py`'s own levelling docstring already
+says: it is "a property of the world rather than of anything under test".
+
+### What this means for the plan
+
+**The aim correction is finished work.** It converges, monotonically, to single-digit metres against
+an observer that is exact to 0.46 m — and the rocket then lands at whatever its ground dictates.
+This is the same shape as the drag-free predictor (`a correction loop can only remove what its
+observer can see`), one level down: the loop removes everything it can see, and what remains is
+terrain its prediction does not resolve.
+
+So items **24** (forced rails), **25** (the improvement band) and **20b** (quiet coast) are all
+tuning of a loop that is already converging two orders of magnitude below the miss. **They cannot
+pay.** The lever is the ground: what the predictor samples, at what wavelength, and how a 32 deg
+arrival converts unresolved relief into downrange miss — `docs/KSA-TERRAIN.md` and 3ae's
+sub-kilometre band.
+
+**And the instrument checks one seat of eight.** The report's terrain line reads the scenario aim
+point only — "downrange slope -0.02%, 1.0x flat ground, well conditioned" — which is seat 1's
+ground, the best on the roster at 9 m. Seat 3, 24 km away and ten times worse, is never looked at.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5005,8 +5067,7 @@ what 20b is flying against.
 | ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
 | ~~5h~~ | ~~Read `split debt` on a steep-arrival arm~~ | done, 1 shot | **the debt is the coast's length: the steep arm holds its reference 1.92x longer and owes 2.6x more, agreeing per second. Not the angle** — 3bu |
 | ~~25~~ | ~~The aim correction stops 25x above the miss~~ | done, 14 paired | **the stopping rule was blind and unblinding it changes nothing: `noimprov` 31 to 3, miss 0.88x [0.84, 1.10] unresolved** — 3bx |
-| **26** | **What the correction converges to.** `Freeze()` discards up to 153 m of the loop's walking at release under the shipped 250 m band, ~2 m under a proportional one; the score it reverts to barely predicts the landing (rho +0.12, n=112). Worth 0.88x [0.84, 1.10], unresolved | 14 shots flown | 3by |
-| **26b** | **The aim trace stops 77-120 s before release**, all eight within five seconds of each other, and the bias moves 3x to 20x inside that window. Find what gates the prediction off and log through it | not started | 3by |
+| **26** | **Answered: the aim loop is not the limiter.** It converges monotonically to 1.4-12.4 m predicted on every flight; the landing correlates +0.07 with that and **+0.93 with the ground under that seat**, measured on another night | done | 3bz |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |

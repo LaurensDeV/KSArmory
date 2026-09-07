@@ -19,6 +19,15 @@
 > | "a fifth of worlds do not get to fly the ladder" | that fifth is bound up with the **multi-rocket harness**, and N=1 against N=8 is p=0.145, not significant (3bn) |
 > | §5: the ladder stops at rung C because wall clock cannot be bought | the CPU-bound measurement stands; **the inference does not** — see §4 and 4b of the plan |
 >
+> **And the largest correction of all, from 2026-09-07 (plan 3bz).** This file, and every rung in
+> it, treats the *guidance* as the thing standing between the shot and a metre. It is not. Traced
+> over the whole coast on eight rockets, the aim correction **converges monotonically to 1.4-12.4 m
+> by its own prediction on every flight** — against an observer exact to 0.46 m — and the landing
+> then correlates **+0.07** with that prediction and **+0.93 with the ground under that seat's
+> aimpoint**, measured on a different night. Seats are 12 km apart on a fixed aim point, so a seat
+> *is* a patch of ground. **The remaining miss is terrain the predictor does not resolve**, and no
+> further tuning of the correction loop can reach it.
+>
 > **And one structural correction.** This file's envelope is a *deorbit* family, where flight time
 > **falls** as the arc steepens. The mod flies a *launch* to a fixed target, where it **rises** —
 > 969 s at 32° against 1,861 s at 51° (3bu). Since the trim's debt accumulates with the age of its
