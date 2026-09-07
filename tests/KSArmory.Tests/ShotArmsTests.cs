@@ -194,4 +194,29 @@ public class ShotArmsTests
         Assert.Equal("base", arms.For(0).Describe());
         Assert.Contains("TrimCeilingFromBudget=true", arms.For(1).Describe());
     }
+
+    /// <summary>
+    /// The arrival-angle re-test's own spec, pinned so a night cannot be lost to a typo in it.
+    ///
+    /// <para>The angle was flown once already, at a target where terrain was <b>7%</b> of the miss;
+    /// at the one every night now uses it is <b>41%</b>, and 85% at the worst seat. So the arm that
+    /// read a dead heat there has never been tried where the thing it fixes is present —
+    /// <c>docs/ACCURACY-PLAN.md</c> 3cc.</para>
+    /// </summary>
+    [Fact]
+    public void TheArrivalRetestSpecParsesAndSetsThePreference()
+    {
+        Assert.True(ShotArms.TryParse("base|steep:ArrivalPreference=0.65", out ShotArms arms,
+                                      out string fault), fault);
+        Assert.Equal(2, arms.Count);
+        Assert.Equal(["base", "steep"], arms.All.Select(a => a.Name).ToArray());
+
+        IcbmConfig baseline = new();
+        Assert.True(ShotArms.TryApply(arms.For(0), baseline, out fault), fault);
+        Assert.Equal(0.5, baseline.ArrivalPreference, 6);
+
+        IcbmConfig steep = new();
+        Assert.True(ShotArms.TryApply(arms.For(1), steep, out fault), fault);
+        Assert.Equal(0.65, steep.ArrivalPreference, 6);
+    }
 }

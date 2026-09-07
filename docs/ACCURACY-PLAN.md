@@ -5080,6 +5080,69 @@ conditioned" — that is seat 1, the second-best ground of the eight. Seat 3, 24
 times rougher, was never in the report. Fixed: it now reads all eight from the per-craft
 `ground under the aim on <craft>` lines that were already in every log.
 
+## 3cc. The arrival angle, re-tested where terrain is actually present — PREPARED, NOT FLOWN
+
+3cb prices a steeper arrival at 0.65x-0.74x. **The angle has already been flown, and read a dead
+heat** — so the first job was to find out why that does not settle it.
+
+### The old test was run where the thing it fixes was absent
+
+`2026-09-01-2148` flew four arms at aim point **10.622,-80.604**. Head-to-head over its 12 shots,
+p50 (34.2 deg) beat p65 (44.4 deg) **7 shots to 5**, medians 14 m against 17 m — nothing.
+
+But the two sites are not the same experiment, and the warhead traces say so:
+
+| site | median miss | median walk after release | terrain's share |
+| --- | --- | --- | --- |
+| **10.6N, 80.x W** — where the angle was tested | 27 m | **2 m** | **7%** |
+| **26.5S, 68.x W** — every night since 2026-09-04 | 27 m | **11 m** | **41%** |
+
+**Identical overall miss, composed completely differently.** At 2148's target the arrival angle had
+almost no terrain error to remove, so a dead heat there is what a working lever looks like when the
+term it multiplies is 7% of the total. At the current target it is 41%, and 85% at seat 3. This is
+the same shape as the drag-free predictor and the 250 m band: **the measurement was taken where the
+effect could not appear.**
+
+### The night
+
+Two arms, because seat levelling is for two-arm nights (3be's own caveat: four arms over eight seats
+made the interval *wider*). `ArrivalPreference = 0.65` is 0.65 x 63.8 = **41.5 deg** against the
+shipped 31.9 — below the 44-54 deg cliff 3be located, and a value already flown without a trim
+blow-up (`owed` 2.60 against p50's 2.56; it is p80 at 4.19 that breaks).
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh \
+    --paired 'base|steep:ArrivalPreference=0.65' \
+    --aim 26.485S,68.148W --blocks 14 --out ~/shots/<date>
+```
+
+`ShotArmsTests.TheArrivalRetestSpecParsesAndSetsThePreference` pins that spec so the night cannot be
+lost to a typo in it.
+
+### What it predicts, written down first
+
+**Primary endpoint is the walk, not the miss.** The walk is what the angle acts on directly and it
+is 41% of the miss, so scoring on the miss dilutes a 0.71x effect to about 0.88x — marginal at 14
+blocks, where 1824 resolved 0.88x only as [0.84, 1.10].
+
+1. **The walk falls to ~0.71x** — `cot(41.5) / cot(31.9)` = 1.132 / 1.600.
+2. **The gain is graded by seat roughness.** Seats 3, 6 and 4 (20.5, 15.8, 11.9 m rms) should improve
+   most; seats 8 and 1 (2.9, 3.3 m) have almost nothing to give and should barely move. **This is
+   the strong test** — a uniform improvement across seats would mean something other than terrain.
+3. **Cross-range stays flat** at 0-4 m in both arms. If cross-range moves, the mechanism is not the
+   one 3cb describes.
+4. **The miss falls to ~0.85-0.90x**, likely unresolved on its own at this n.
+
+**What would refute it:** the walk unchanged, or improving as much at seat 8 as at seat 3.
+
+### Risks to watch
+
+* **p65 diverged on 4 of 12 shots at the old site** (98, 110, 122, 112 m against 12-26 m otherwise),
+  with `owed` normal — so it is not the trim ceiling and it is unexplained. The report's mode split
+  is what catches it; if it recurs here the night is about *that*, not about the angle.
+* A steeper arrival is a **longer coast**, which is more exposure to whatever the coast does to the
+  bus — 20b's open question, and the reason 3be deferred this measurement in the first place.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5196,6 +5259,7 @@ what 20b is flying against.
 | ~~5h~~ | ~~Read `split debt` on a steep-arrival arm~~ | done, 1 shot | **the debt is the coast's length: the steep arm holds its reference 1.92x longer and owes 2.6x more, agreeing per second. Not the angle** — 3bu |
 | ~~25~~ | ~~The aim correction stops 25x above the miss~~ | done, 14 paired | **the stopping rule was blind and unblinding it changes nothing: `noimprov` 31 to 3, miss 0.88x [0.84, 1.10] unresolved** — 3bx |
 | **26** | **Answered: the aim loop is not the limiter.** It converges monotonically to 1.4-12.4 m predicted on every flight; the landing correlates +0.07 with that and **+0.93 with the ground under that seat**, measured on another night | done | 3bz |
+| **27** | **Re-fly the arrival angle where terrain is present.** `ArrivalPreference = 0.65`, 14 blocks, primary endpoint the walk. The one previous test was at a target where terrain was 7% of the miss; it is 41% at the current one | **prepared, not flown** | 3cc |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
