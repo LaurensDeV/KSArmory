@@ -145,6 +145,19 @@ else
     fi
 
     [[ -n "$ARMS_SPEC" ]] || { echo "error: --arms or --paired is required" >&2; usage 2; }
+
+    # A paired night varies the setting BETWEEN rockets in one world, so with no save there are no
+    # rockets and there is nothing to pair. It does not fail: the scenario starts, finds an empty
+    # world, and sits at the menu with a live game and a log that stops after `ready`, which reads
+    # exactly like a slow flight until somebody looks. The variable is the whole configuration and
+    # is easily lost -- it is environment rather than a flag, so any fresh shell drops it.
+    if [[ -n "$PAIRED" && -z "${KSARMORY_SCENARIO_SAVE:-}" ]]; then
+        echo "error: --paired needs KSARMORY_SCENARIO_SAVE naming a save with several rockets." >&2
+        echo "       Without one the world is empty and the run hangs rather than failing:" >&2
+        echo "         KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' $0 --paired ... --aim ..." >&2
+        exit 1
+    fi
+
     [[ -n "$SEED" ]] || SEED="$(date +%s)"
 
     # The tree is read exactly once, here, and it has to be clean: an arm built from a dirty tree
