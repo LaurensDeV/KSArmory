@@ -373,6 +373,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ViewClaim.cs` | who may hold the player's main view, and what that means for the loser |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
 | `Sim/ReportDraft.cs` | a bug report or idea being written, and whether it is worth sending |
+| `Sim/Distance.cs` | a distance in the unit that shows it — **a fixed unit goes blind as the shot improves**, and `bias 0.0 km` was the whole of a ten-metre miss printed as nothing |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |

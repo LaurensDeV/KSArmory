@@ -402,7 +402,7 @@ internal sealed class PostBoostAim
         _cycleStartedAt = _elapsed;
         _stage = Stage.Settling;
 
-        _said = $"correcting the aim, {now.PredictedMissMetres / 1000.0:F1} km out (pass {Cycles})";
+        _said = $"correcting the aim, {Distance.Say(now.PredictedMissMetres)} out (pass {Cycles})";
         return new Decision(true, false, _said);
     }
 

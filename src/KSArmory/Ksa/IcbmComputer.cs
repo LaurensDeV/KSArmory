@@ -1945,7 +1945,7 @@ internal sealed class IcbmComputer
                  + (double.IsFinite(arrival) ? ", " : "")
                  + $"aim response {_aim.Response:F2} (raw {_aim.LastRawResponse:F2}) off "
                  + $"{_aim.PlantMeasurements} plant reading(s), "
-                 + $"bias {Vec.Len(_aim.BiasCci) / 1000.0:F1} km, "
+                 + $"bias {Distance.Say(Vec.Len(_aim.BiasCci))}, "
                  + $"best {_aim.BestMissMetres / 1000.0:F2} km, worse for {_aim.WorseFor}");
     }
 
@@ -2044,6 +2044,7 @@ internal sealed class IcbmComputer
     private static string Rate(double metresPerSecond)
         => double.IsFinite(metresPerSecond) ? $"{metresPerSecond:F2} m/s" : "nothing";
 
+
     // One warhead per designation, and it is the first away. A salvo leaves inside a tenth of a
     // second and lands in a group tens of metres wide, so any of the six answers the question and
     // six traces answer it six times.
@@ -2137,7 +2138,7 @@ internal sealed class IcbmComputer
 
             Log.Info($"release probe: predicted from the release state -> "
                       + $"{parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}, "
-                      + $"{miss / 1000.0:F1} km from the target, {hit.Seconds:F0} s of flight{thrown}");
+                      + $"{Distance.Say(miss)} from the target, {hit.Seconds:F0} s of flight{thrown}");
         }
         catch
         {
@@ -2216,12 +2217,12 @@ internal sealed class IcbmComputer
             // same terms the aim point is - which is what makes the two comparable at all.
             double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
 
-            return $", own prediction {PredictedMissMetres / 1000.0:F1} km off "
+            return $", own prediction {Distance.Say(PredictedMissMetres)} off "
                    + $"(lands {parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3})";
         }
         catch
         {
-            return $", own prediction {PredictedMissMetres / 1000.0:F1} km off";
+            return $", own prediction {Distance.Say(PredictedMissMetres)} off";
         }
     }
 
@@ -2796,8 +2797,8 @@ internal sealed class IcbmComputer
             // What the correction is being told and what it has done about it, per cycle. A bias
             // that ends at its limit says nothing about how it got there - walked, jumped, or
             // pushed back and forth - and those want different fixes.
-            Log.Debug($"aim: bias {AimBiasMetres / 1000.0:F1} km, predicted miss "
-                      + $"{PredictedMissMetres / 1000.0:F1} km, from "
+            Log.Debug($"aim: bias {Distance.Say(AimBiasMetres)}, predicted miss "
+                      + $"{Distance.Say(PredictedMissMetres)}, from "
                       + $"{(fromCutoff ? "the solved cutoff" : "the live state")}, "
                       + $"kick {Vec.Len(ReleaseImpulseCci()):F2} m/s");
 
@@ -2840,7 +2841,7 @@ internal sealed class IcbmComputer
                 Log.Debug($"aim loop on {KsaWorld.DisplayName(Craft)}: "
                           + $"{PredictedMissMetres / 1000.0:F2} km out, best "
                           + $"{_aim.BestMissMetres / 1000.0:F2}, response {_aim.Response:F2}, "
-                          + $"bias {biasWas / 1000.0:F1} -> {Vec.Len(_aim.BiasCci) / 1000.0:F1} km, "
+                          + $"bias {Distance.Say(biasWas)} -> {Distance.Say(Vec.Len(_aim.BiasCci))}, "
                           + $"worse for {_aim.WorseFor}, "
                           + $"{_aim.PlantMeasurements} plant reading(s), raw {_aim.LastRawResponse:F2}"
                           // What the trim had actually delivered when the impact was read. A plant
