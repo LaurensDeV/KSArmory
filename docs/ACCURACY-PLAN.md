@@ -4845,14 +4845,19 @@ the world landed closest; the smallest landed second-worst.
 `AimCorrection.Freeze()` runs at `pass.MayRelease` on **every** flight and reverts the bias to
 `_bestBias`. So the band is not only a stopping rule — it decides *which* aim ships:
 
-* **base**, at a flat 250 m: `_bestMiss` stops ratcheting once the miss is inside 250 m, so
-  `_bestBias` is pinned at the aim from when the shot was ~200 m out and the walking the loop does
-  afterwards is **discarded at release**. Its `best` column reads 190 and 220 m for flights landing
-  at 4 and 10 m, which is that pinning made visible.
+* **base**, at a flat 250 m: `_bestMiss` stops ratcheting once the miss is inside 250 m. Its
+  `best` column reads 190 and 220 m for flights landing at 4 and 10 m, so the *score* is certainly
+  stale by release.
+
+  **Whether the aim it ships is equally stale does not follow, and one reading is against it**:
+  FAT 4's shipped bias is 396 m where the trace 20 s earlier read 341 m, so `Freeze()` kept
+  something *later* than that sample rather than reverting behind it. `_bestBias` is only written
+  when `_bestMiss` ratchets, so the two should move together — that they visibly do not is the
+  thing to resolve, and it needs the per-craft bias series the named trace line now produces.
 * **band**, at 25% with a 1 m floor: `_bestMiss` ratchets to 0–10 m, so `_bestBias` is nearly the
   latest aim.
 
-**The arm that ships a coarse, early aim landed better** — base 4, 6, 10, 13 m against band
+**The arm whose score goes stale landed better** — base 4, 6, 10, 13 m against band
 6, 7, 37, 67 m. One world, 4 v 4, so this settles nothing on its own; a Wilcoxon over four unpaired
 flights cannot reach significance at any effect size. But the mechanism is now visible rather than
 inferred, and it agrees with the ρ above: **reverting to the best-scoring aim reverts to an aim
