@@ -451,6 +451,19 @@ internal sealed partial class Ui
             : $"the correction may walk {AimCorrection.MaxMetres / 1000.0:F0} km, which one budget "
               + "cannot fly at any range"));
 
+        bool tracks = config.AimThresholdTracksTheMiss;
+        if (ImGui.Checkbox("Aim threshold follows the miss", ref tracks))
+        {
+            config.AimThresholdTracksTheMiss = tracks;
+        }
+
+        ImGui.TextDisabled("  " + (config.AimThresholdTracksTheMiss
+            ? $"a cycle counts if it closes max({AimCorrection.ImprovedByFloorMetres:F0} m, "
+              + $"{AimCorrection.ImprovedByFraction:P0} of the best) -- so the loop can still see "
+              + "itself improving at ten metres"
+            : $"a cycle counts only if it closes {AimCorrection.ImprovedByMetres:F0} m, which no "
+              + "cycle can at a ten-metre miss"));
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

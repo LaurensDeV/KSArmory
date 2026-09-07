@@ -89,6 +89,49 @@ internal sealed class AimCorrection
     public const double ImprovedByMetres = 250.0;
 
     /// <summary>
+    /// What fraction of the current best a cycle must close to count as an improvement, when the
+    /// threshold is allowed to follow the miss.
+    ///
+    /// <para><b>An absolute threshold cannot be right across a shot that has run from kilometres to
+    /// metres.</b> 250 m was a quarter of the miss when it was written and is twenty-five times the
+    /// whole of it now, so no cycle can ever count as an improvement and the loop stops on
+    /// <see cref="PostBoostAim.PassesWithoutImprovement"/> whatever it might have achieved.
+    /// Traced 2026-09-07: the aim is 8 and 18 m off at release on two flights that land at 12 and
+    /// 19, with only 1 to 4 m made during the whole fall — <c>docs/ACCURACY-PLAN.md</c> 3bw.</para>
+    ///
+    /// <para>A quarter is what 250 m was at the kilometre-scale miss this was written for, so the
+    /// relative form reproduces the old behaviour where it was calibrated and tightens as the shot
+    /// improves. That is the property an absolute number cannot have.</para>
+    /// </summary>
+    public const double ImprovedByFraction = 0.25;
+
+    /// <summary>
+    /// The floor under that fraction, in metres — below this the predictor cannot tell two aims
+    /// apart, so a smaller threshold would be chasing its own noise.
+    ///
+    /// <para>Set by what the instrument can resolve rather than by what is wanted:
+    /// <c>ImpactPredictor</c> is exact to 0.46 m against a converged flight (3ae), and the round
+    /// walks 1 to 4 m from its own release probe over a whole fall (3bw). One metre is under the
+    /// walk and over the predictor's own error.</para>
+    /// </summary>
+    public const double ImprovedByFloorMetres = 1.0;
+
+    /// <summary>
+    /// How much closer a cycle must bring the impact to count, given the best seen so far.
+    ///
+    /// <para><paramref name="tracksTheMiss"/> false is the shipped constant and the behaviour every
+    /// flown night has had. True scales it with the miss, which is what
+    /// <see cref="IcbmConfig.AimThresholdTracksTheMiss"/> asks for.</para>
+    /// </summary>
+    public static double ImprovementThreshold(double bestMissMetres, bool tracksTheMiss)
+    {
+        if (!tracksTheMiss) return ImprovedByMetres;
+        if (!double.IsFinite(bestMissMetres) || bestMissMetres <= 0.0) return ImprovedByFloorMetres;
+
+        return Math.Max(ImprovedByFloorMetres, ImprovedByFraction * bestMissMetres);
+    }
+
+    /// <summary>
     /// How many cycles may fail to improve on the best before the loop calls it a direction rather
     /// than a hump.
     ///
@@ -260,7 +303,8 @@ internal sealed class AimCorrection
     /// </summary>
     /// <param name="landedCci">Where flying the current solution actually puts it.</param>
     /// <param name="targetCci">Where it is supposed to go — never the corrected aim.</param>
-    public void Observe(double3 landedCci, double3 targetCci)
+    public void Observe(double3 landedCci, double3 targetCci,
+                        bool thresholdTracksTheMiss = false)
     {
         if (!Vec.IsFinite(landedCci) || !Vec.IsFinite(targetCci)) return;
 
@@ -340,13 +384,17 @@ internal sealed class AimCorrection
 
         double miss = Vec.Len(error);
 
-        if (miss < _bestMiss - ImprovedByMetres)
+        // The band the loop judges itself by, which has to shrink with the shot: 250 m was a
+        // quarter of the miss when it was chosen and is twenty-five times it now.
+        double band = ImprovementThreshold(_bestMiss, thresholdTracksTheMiss);
+
+        if (miss < _bestMiss - band)
         {
             _bestMiss = miss;
             _bestBias = BiasCci;
             _worseFor = 0;
         }
-        else if (miss > _bestMiss + ImprovedByMetres && ++_worseFor >= WorseBeforeStopping)
+        else if (miss > _bestMiss + band && ++_worseFor >= WorseBeforeStopping)
         {
             BiasCci = _bestBias;
             Settled = true;

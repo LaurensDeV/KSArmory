@@ -385,6 +385,29 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool RailsDuringCoast;
 
+    /// <summary>
+    /// Let the aim correction's improvement threshold follow the miss instead of being 250 m flat.
+    ///
+    /// <para><b>The loop currently cannot see its own shot.</b>
+    /// <see cref="AimCorrection.ImprovedByMetres"/> is 250 m absolute and
+    /// <see cref="PostBoostAim.PassesWithoutImprovement"/> is three, so a cycle counts as an
+    /// improvement only by bringing the impact 250 m closer — and traced 2026-09-07 the aim is
+    /// <b>8 and 18 m</b> off at release on two flights landing at 12 and 19, with 1 to 4 m made
+    /// during the whole fall. No cycle can improve by 250 m at that scale, so the loop always stops
+    /// on three passes whatever it might have achieved. <c>docs/ACCURACY-PLAN.md</c> 3bw.</para>
+    ///
+    /// <para>On, the band is <c>max(1 m, 0.25 x best)</c> — a quarter being what 250 m was at the
+    /// kilometre-scale miss the constant was chosen for, so it reproduces the old behaviour where it
+    /// was calibrated and tightens as the shot improves. The floor is what the instrument can
+    /// resolve rather than what is wanted.</para>
+    ///
+    /// <para><b>Off, and off is what ships</b>, until it has been flown. The Dead list's
+    /// "<c>ImprovedByMetres</c> 50/250/1000 identical" is not evidence against this: all three are
+    /// far above the miss, so all three stop the loop the same way. The value never tried is one
+    /// below it.</para>
+    /// </summary>
+    public bool AimThresholdTracksTheMiss;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

@@ -39,7 +39,8 @@ internal readonly record struct PostBoostSituation(
     bool AimHasSettled,
     double TrimSpentMetresPerSecond,
     bool TrimGaveUp = false,
-    double HoldingCostMetresPerSecond = 0.0);
+    double HoldingCostMetresPerSecond = 0.0,
+    bool ThresholdTracksTheMiss = false);
 
 /// <summary>
 /// Correcting the aim after the engines have stopped, with the trim as the actuator.
@@ -360,7 +361,11 @@ internal sealed class PostBoostAim
 
         // A pass that cannot beat the best any pass has managed is a pass that bought nothing, and
         // enough of those in a row is a correction that has finished whatever its readings say.
-        if (now.PredictedMissMetres < _bestMiss - ImprovedByMetres)
+        // Same band as the aim loop's, and for the same reason -- an absolute threshold
+        // stops a metre-scale shot on its first evaluation. docs/ACCURACY-PLAN.md 3bw.
+        double band = AimCorrection.ImprovementThreshold(_bestMiss, now.ThresholdTracksTheMiss);
+
+        if (now.PredictedMissMetres < _bestMiss - band)
         {
             _bestMiss = now.PredictedMissMetres;
             _noImprovement = 0;
