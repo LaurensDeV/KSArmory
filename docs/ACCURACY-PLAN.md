@@ -4379,6 +4379,63 @@ it can explain.
 (`2d28003`) and `shot-report` reads it per craft, so the next paired night with arrival arms gives
 the flown residual per arm for nothing — and this entry predicts it will be small.
 
+## 3bq. Every divergent shot is a trim over its ceiling — and the lever is already built
+
+5h, traced to the end. Two findings, and the second makes the first actionable.
+
+### The trim ceiling is the common final step of every divergence
+
+`ReleaseAnArrivalTheTrimCannotFly` (`3d9cb55`) logs `arrival released on ...` when the trim is asked
+for more than `BusTrim.MaxMetresPerSecond` having spent nothing. Counted against divergent shots,
+per night:
+
+**13 of 14 nights match exactly** — 0 and 0, 1 and 1, 3 and 3, 8 and 8. The single exception is
+`2026-09-02-1508`, the first night after the guard landed. Across 20 single-rocket shots: 0 releases
+and 0 divergent. Across 20 two-rocket shots: 8 and 8.
+
+**So every divergent world is a trim asked for more than its ceiling, and the recovery fires and
+does not save the shot.** That is a far tighter identification than the bubble census — one event,
+already logged, on every affected flight.
+
+### Three candidates measured and eliminated
+
+* **The arc amplifying the kick.** `SteepSplitDebtTests`: give two conics an identical 1.1 m/s kick
+  and they stay **1.100 m/s apart at every arrival angle and every delay to 40 s**. The trajectory
+  does not amplify anything.
+* **The clearance wait.** The steep arm drifts *slowest* through it (3bp).
+* **The cutoff residual and the lighter bus.** 1.6x and 1.7x, and they share a cause so they do not
+  multiply.
+
+### And raising the ceiling is not the answer, by construction
+
+`BusTrim.MaxMetresPerSecond`'s own docs: *"An answer in the tens is not a bus that has been shoved
+off its arc — it is the solve being asked the wrong question, and thrusting at it makes the shot
+worse rather than better while looking exactly like work."* It is a runaway guard, and the runaway
+it guards against was flown — the aim correction and the trim winding each other up by ten every ten
+cycles. `TrimCeilingFromBudget` is already on the Dead list.
+
+### What asks the wrong question is the aim, and the bound already exists
+
+`IcbmConfig.AimWithinTrimBudget`, off by default, and its documentation names this exact symptom:
+
+> `AimCorrection.MaxMetres` is 300 km flat, and what the budget buys is 24 km on a 3,459 km shot —
+> so the loop is licensed to walk somewhere the actuator can never follow. **The flown symptom is a
+> demand that exceeds whatever is left of the ceiling on every pass until the budget is gone**, read
+> until now as the solve diverging: it is not, it is an aim move being priced honestly.
+
+That is the 20 to 26 m/s demand, described before it was traced. The setting is **the only one in
+`IcbmConfig` that has never lost**: 0.85x over twelve paired shots, 9 wins of 12, interval
+[0.53, 1.14] — unresolved for want of shots and nothing else.
+
+**And the want of shots is now fixed.** The seat levelling takes a 14-block night from 9% power at
+x0.60 to 90% (3bo's sibling, `fa4ac74`), and there is a sharper endpoint available than the median:
+**the arrival-release count**, which is a count, resolves on far fewer shots, and is 1:1 with
+divergence above.
+
+**So the thing to do is fly it, on two pre-registered endpoints** — the levelled miss ratio, and the
+arrival-release count by Fisher. That is item 10, and it was ranked fifth on a plan that did not
+know the ceiling was the common failure.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4524,7 +4581,7 @@ what 20b is flying against.
 | **23** | **Make the ascent know how far the target is.** Every shot under ~800 km is identical because guidance takes over on dynamic pressure, by which point the stack has ~3 km/s and the shot needs less | 0 shots to reproduce | 3bk: a 100 km target is flown exactly as an 800 km one |
 | ~~22~~ | ~~**What actually merges the bubbles**~~ | done | **a 197 m race that cannot be won: a bubble's envelope is the spread of its members, so a rocket holding its stage `s` away reaches `5s` and touches the 20.04 km neighbouring pad at s=4.00 km, against a 4.194 km split radius — and MergeBubbles runs before the step, SplitBubbles after. Not the lever; the actuator command is** — 3ax |
 | ~~19~~ | ~~**What puts the bus off rails mid-coast**~~ | done | **a shared physics bubble. `PhysicsBubble.cs:1340` needs `NumVehicles < 2` for the rails path; bubbles merge on proximity and only ever leave on a parent or frame change, so it never ends. 3 of 12 worlds, 519-538 probes each, push 90% cross-track and identical across worlds. Not the flight plan (margin 394 s against 495-948 healthy)** — 3au |
-| **10** | `AimWithinTrimBudget` to 24 shots, **pre-declared**. 3ah re-ranked it to the top and then the item 11 fix removed the fault it was for, so it is back to being a tuning question — re-rank it once a night has run on the fixed build | 24 shots | 0.85x [0.53, 1.14], the only arm that has never lost |
+| **10** | **Fly `AimWithinTrimBudget` to a verdict — now the top item.** It bounds the aim by what the trim can pay, which 3bq shows is the common final step of every divergent shot. Score on the levelled miss AND the arrival-release count | 14 paired shots | 0.85x and never lost; the count endpoint resolves far sooner than the median — 3bq |
 | ~~11~~ | ~~Do not set an aim bias from a state that has not burnt yet~~ | done | **flown: 8 of 8 within 0.33 km against a worst of 310.42, and every terminator cleared** — 3ah |
 
 **5d is ready to fly, and this is the command.** `--plan-only` clean on 2026-09-02 against
