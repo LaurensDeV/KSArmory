@@ -4350,17 +4350,30 @@ against the acceleration's 1.73x, which is `accel x step x throttle` behaving ex
 residual rises 1.59x, and in absolute terms the residual is 0.06 to 0.10 m/s against a demand of
 0.76 to 3.41. **The cutoff residual is a minor term in the trim's debt at every angle.**
 
-### So the clearance wait is the dominant term, and that is where rung C is decided
+### It is not the clearance wait either — measured, and the inference was wrong
 
-What is left is the decoupler shove plus whatever the bus drifts while `MayFire` is false. The
-trim's own line already prices it: `owed 0.45 m/s at the split, 2.61 after 5 s of clearing` — the
-debt grows **five-fold** during the wait. A steeper arc is more curved, so drifting for the same
-five seconds costs more, which is the shape the 4.5x wants.
+The obvious next candidate was the drift while `MayFire` is false, since the trim's own line reads
+`owed 0.45 m/s at the split, 2.61 after 5 s of clearing`. **Measured per arm, it goes the other
+way:**
 
-**The fix follows the term rather than the symptom.** Not the trim ceiling (3bo: 21.74 m/s left when
-refused, more than twice a ceiling already on the Dead list), and not the cutoff (this entry).
-Either shorten the clearance, or let the trim work during it — `SeparationClearance` is a
-`MayFire` gate, and whether it has to be one is the question nobody has asked.
+| arm | arrival | at split | after clearing | growth | wait | drift rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| base | 16.9 deg | 0.550 | 2.660 | 4.84x | 17.0 s | 0.124 m/s per s |
+| p50 | 34.2 | 0.610 | 2.600 | 4.26x | 12.0 | 0.166 |
+| p65 | 44.4 | 0.760 | 2.630 | 3.46x | 14.0 | 0.134 |
+| **p80** | **54.4** | **3.410** | 4.700 | **1.38x** | 18.0 | **0.072** |
+
+The steep arm drifts **slowest** during clearance and grows least. The clearance wait adds a similar
+*absolute* 1.3 to 2.1 m/s to every arm; it is not what separates them.
+
+**The whole difference is already present at the split**, and neither term measured so far accounts
+for it. The cutoff residual is 0.097 m/s against 0.061 — 1.6x. The bus is lighter, so the same
+decoupler impulse gives a bigger kick, but that is the same 1.7x mass ratio. **1.6x and 1.7x do not
+make 6.2x** (3.410 against 0.550).
+
+So what happens between cutoff and the split is the open question, and it is a narrow one: a few
+seconds, one decoupler event, and a debt that arrives six times larger than the arms either side of
+it can explain.
 
 **5g's other half still needs a flight**, and it is now cheap: the cutoff line names its craft
 (`2d28003`) and `shot-report` reads it per craft, so the next paired night with arrival arms gives
@@ -4479,7 +4492,7 @@ what 20b is flying against.
 | ~~5e~~ | ~~Re-check the latched arrival floor against the state the burn **leaves** the vehicle in~~ | done | **refuted: the exit reaches steeper than the latch can afford, 77.8 against 67.8 — and the ceiling is the trim's debt, 2.6 to 4.19 m/s** — 3be |
 | ~~5f~~ | ~~Why the trim owes 4.19 m/s at a 54 deg floor against 2.6 at 44~~ | done | **it is asked for 4.5x more, not failing to pay: 0.76 m/s owed at 44 deg against 3.41 at 54, and only 54 ever hits the 10 m/s ceiling** — 3bo |
 | ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
-| **5h** | **The clearance wait is the dominant term in the trim's debt.** The debt grows five-fold during it (0.45 to 2.61 m/s over 5 s). Either shorten `SeparationClearance`, or ask whether it has to gate `MayFire` at all | 0 shots to price headlessly | 3bp: **this is what rung C is behind** |
+| **5h** | **What happens between cutoff and the split at a steep arrival.** The trim's debt is already 6.2x larger at the split (3.410 against 0.550 m/s) and neither the cutoff residual (1.6x) nor the lighter bus (1.7x) explains it. NOT the clearance wait — the steep arm drifts slowest through it | 0 shots to price headlessly | 3bp: **this is what rung C is behind**, and it is a few seconds wide |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
