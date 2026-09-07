@@ -5000,6 +5000,86 @@ correction for that flight**: an orbital pickup returns `Holding`, and a first-f
 returns `NoSolution`. Neither happens on a pad launch, and neither is guarded against. Unflown, and
 the cheap check is that the phase line reads `Rising` first with no `Holding`/`NoSolution` before it.
 
+## 3cb. The miss is the walk after release, it is pure downrange, and it follows the ground — 2026-09-07
+
+Headless, off logs already on disk. 3bz said the residual is the ground; this says by what mechanism
+and what it is worth.
+
+### The miss is what happens after the prediction, and it is all downrange
+
+`WarheadTrace` records, per warhead, how far it ended up from what the release-time prediction said.
+Over **1,822 warheads** across every night that had the trace on, grouped by aim point:
+
+| aim point | seat | n | final miss | **walk from the release probe** | downrange | cross |
+| --- | --- | --- | --- | --- | --- | --- |
+| -26.7,-69.0 | 8 | 150 | 13 m | 2 m | 2 m | 0 m |
+| -26.5,-68.1 | 1 | 174 | 14 m | 5 m | 5 m | 0 m |
+| -26.6,-68.7 | 6 | 156 | 15 m | 11 m | 11 m | 1 m |
+| -26.6,-68.5 | 4 | 150 | 15 m | 13 m | 13 m | 1 m |
+| -26.5,-68.3 | 2 | 169 | 21 m | 11 m | 11 m | 1 m |
+| -26.6,-68.9 | 7 | 162 | 29 m | 19 m | 19 m | 1 m |
+| -26.6,-68.6 | 5 | 155 | 33 m | 23 m | 23 m | 1 m |
+| **-26.5,-68.4** | **3** | 159 | **85 m** | **71 m** | 71 m | 4 m |
+
+The seat mapping is not assumed: the aim points sit on a line 12 km apart from the scenario anchor,
+and each one's median miss reproduces its seat's level from 3bz independently.
+
+**Two things fall straight out.** The final miss *is* the walk plus about ten metres — so almost the
+whole miss is made between release and the ground, not before it. And **the walk is entirely
+downrange**: cross-range is 0-4 m at every aim point, on every night. That is the signature of a
+**height** error at the impact point, not a lateral one.
+
+### And it follows the sub-kilometre relief
+
+| response | vs sub-km rms | vs sub-km peak-to-peak |
+| --- | --- | --- |
+| final miss | +0.61 (p=0.116) | +0.59 (p=0.134) |
+| **walk from the release probe** | **+0.72 (p=0.052)** | +0.69 (p=0.063) |
+
+The walk is the better-behaved response, as it should be — it has the guidance's own few metres
+taken out of it. Eight aim points is all the power this roster has, so p=0.052 is the ceiling
+available without a different spread.
+
+**The height error implied by the geometry is about one rms of the sub-kilometre relief**, with no
+fitting anywhere: `h = walk x tan(32 deg)` gives h/rms of 0.9, 1.3, 2.2, 0.7, 2.1, 0.4, 1.7, 0.4 —
+median **1.1**, over ground running 2.9 m to 20.5 m rms.
+
+### What it is not
+
+**Not the crossing search.** `ImpactPredictor` bisects on *depth* to `CrossingToleranceMetres` =
+0.25 m and samples `SurfaceUnder` at each trial point, so its vertical resolution is a quarter of a
+metre and it does see the real height field. The fault is not that the predictor cannot find the
+ground.
+
+**More likely amplification than blindness.** A shallow arrival makes *where* an arc crosses the
+ground acutely sensitive to the ground's own height, so any small difference between the predicted
+arc and the flown warhead — release kick, drag, a metre of state — lands somewhere else entirely
+when the surface underneath is bumpy. That reading fits the pure-downrange signature and the
+h ~ rms scale, and it is the one to test next.
+
+### What the lever is worth, priced off the measured walk
+
+A height error becomes `h x cot(gamma)` of downrange miss. The mod arrives at **32.0 deg** and the
+release summaries say the tanks could afford **63.8 deg** — it is flying at half its budget.
+
+| arrival | cot | vs today | median walk | seat 3's 71 m |
+| --- | --- | --- | --- | --- |
+| **32 deg (flown)** | 1.60 | 1.00x | 12 m | 71 m |
+| 40 deg | 1.19 | 0.74x | 9 m | 53 m |
+| 44 deg | 1.04 | **0.65x** | 8 m | 46 m |
+| 54 deg | 0.73 | 0.45x | 5 m | — |
+| 63.8 deg (affordable) | 0.49 | 0.31x | 4 m | — |
+
+**32 to 44 deg is a 35% cut in the dominant term and stays below the 44-54 deg coast cliff 3bo
+measured.** That is the next thing to fly, and it is a one-line setting: `MinArrivalAngleDeg`.
+
+### The instrument only ever looked at one seat
+
+`shot-report.py`'s terrain section reads the scenario aim point alone and calls it "well
+conditioned" — that is seat 1, the second-best ground of the eight. Seat 3, 24 km away and seven
+times rougher, was never in the report. Fixed: it now reads all eight from the per-craft
+`ground under the aim on <craft>` lines that were already in every log.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.

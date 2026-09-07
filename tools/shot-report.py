@@ -1422,6 +1422,53 @@ def main_effect(shots, factor):
                 f"{k} {statistics.median(v):.2f}({len(v)})" for k, v in sorted(cells.items())))
 
 
+# "ground under the aim on <craft>: N samples over 5.0 km of the approach, swing X m, below a 1 km
+# wavelength Y m peak-to-peak and Z m rms" -- written once per flight, per craft, since the release
+# summary shipped. The terrain section below reads the SCENARIO aim point and nothing else, which is
+# seat 1 of eight; AimSpread puts the others 12 km apart on ground that is nothing like it. Seat 3
+# is seven times rougher and was never in the report -- docs/ACCURACY-PLAN.md 3cb.
+GROUND = re.compile(r"ground under the aim on (?P<craft>.+?)(?:_\d+)?: .*?swing (?P<swing>[\d.]+) m, "
+                    r"below a 1 km wavelength (?P<pp>[\d.]+) m peak-to-peak "
+                    r"and (?P<rms>[\d.]+) m rms")
+
+
+def ground_per_seat(root):
+    """Every seat's own ground, off the lines already in the logs."""
+    per = defaultdict(lambda: defaultdict(list))
+    for log_path in sorted(root.glob("shots/*.log")):
+        log = log_path.read_text(errors="replace")
+        order = [c for c, _p, _s in PERFLIGHT.findall(log)]
+        where = {c: i for i, c in enumerate(order)}
+        for m in GROUND.finditer(log):
+            seat = where.get(m["craft"])
+            if seat is None:
+                continue
+            for k in ("swing", "pp", "rms"):
+                per[seat][k].append(float(m[k]))
+    return per
+
+
+def say_ground_per_seat(root):
+    per = ground_per_seat(root)
+    if len(per) < 2:
+        return
+
+    print("\n== the ground under each seat's own aim point")
+    print("   the section above reads the SCENARIO aim point only, which is one of these.")
+    print("   sub-km relief is what a shallow arrival turns into downrange miss (3cb).")
+    print(f"   {'seat':>4}{'n':>5}{'swing':>10}{'sub-km p-p':>13}{'sub-km rms':>13}")
+    for seat in sorted(per):
+        g = per[seat]
+        sw, pp, rm = (statistics.median(g[k]) for k in ("swing", "pp", "rms"))
+        print(f"   {seat + 1:>4}{len(g['rms']):>5}{sw:>9.0f}m{pp:>12.1f}m{rm:>12.1f}m")
+
+    rough = max(per, key=lambda s: statistics.median(per[s]["rms"]))
+    smooth = min(per, key=lambda s: statistics.median(per[s]["rms"]))
+    ratio = statistics.median(per[rough]["rms"]) / max(statistics.median(per[smooth]["rms"]), 1e-9)
+    print(f"   seat {rough + 1} is {ratio:.1f}x rougher than seat {smooth + 1} below a kilometre, "
+          f"and lands accordingly.")
+
+
 # --- terrain ----------------------------------------------------------------
 
 
@@ -1594,6 +1641,7 @@ def main():
     # Same shape of confound as the pick-up above: it invalidates comparisons silently, and the
     # night runs to completion looking like an ordinary result either way.
     terrain_report(shots, verbose=False)
+    say_ground_per_seat(root)
 
     print("\n== per arm")
     for endpoint in ("mean", "spread", "worst"):
