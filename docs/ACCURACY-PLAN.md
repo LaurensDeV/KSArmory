@@ -4770,6 +4770,52 @@ that has run from kilometres to metres — a fraction of the current predicted m
 
 **This is the largest single term in the shot and nothing has ever attacked it.**
 
+## 3bx. The aim band was blind, and unblinding it does not move the miss — flown 2026-09-07
+
+Item 25, 14 paired blocks. Both endpoints were pre-registered and they disagree, which is the useful
+part.
+
+**The mechanism is confirmed.** What ended each arm's corrections:
+
+| arm | `clock` | `noimprov` | `payback` |
+| --- | --- | --- | --- |
+| base | 10 | **31** | 15 |
+| band | 27 | **3** | 26 |
+
+`noimprov` falls **31 to 3**. The loop really was stopping because no pass could close 250 m at an
+8-18 m miss, and with the band following the miss it almost never stops that way — it runs to the
+clock instead. 3bw's reading of the stopping rule was right.
+
+**And the miss does not follow.** `0.88x [0.84, 1.10]`, 9 wins of 14, signed-rank p=0.241 —
+unresolved, and the interval's own best end is a 16% gain. The trim's debt at release is unchanged
+either way: 2.63 m/s against 2.65.
+
+### What that means, and it is not what 3bw expected
+
+3bw measured the aim 8 to 18 m off at release on shots landing at 12 and 19, and inferred that a
+loop able to see below 250 m would close it. **The loop now runs far longer and closes nothing.**
+
+So the 8-18 m is not a loop that stopped early. It is a floor the correction reaches and cannot get
+under, and the band was merely hiding that behind a stopping rule that fired first. Removing the
+blindfold shows the wall behind it.
+
+**The next question is therefore what the correction converges *to*, not when it stops**, and one
+column already argues against the obvious answer: the trim still owes **2.6 m/s at release in both
+arms**, unchanged by any number of extra passes. A correction that is computed but not flown would
+look exactly like this — the aim moves, the arc is re-solved, and the trim does not deliver it.
+
+### Keep the change, off
+
+`AimThresholdTracksTheMiss` stays built and off. It is measured harmless (the interval's upper bound
+is 1.10 and the pooled medians are 0.02 against 0.01), it makes the loop's stopping rule mean
+something at the scale the shot now flies, and any future work on what the correction converges to
+needs it on to be measurable at all — a loop that stops on three passes cannot show whether a change
+helped it converge.
+
+**And it retires the Dead list's entry properly.** *"`ImprovedByMetres` 50/250/1000 identical"* was
+right that the value does not matter above the miss, and this is the first measurement below it: the
+loop's behaviour changes completely (31 to 3) and the shot does not.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4884,7 +4930,8 @@ what 20b is flying against.
 | ~~5f~~ | ~~Why the trim owes 4.19 m/s at a 54 deg floor against 2.6 at 44~~ | done | **it is asked for 4.5x more, not failing to pay: 0.76 m/s owed at 44 deg against 3.41 at 54, and only 54 ever hits the 10 m/s ceiling** — 3bo |
 | ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
 | ~~5h~~ | ~~Read `split debt` on a steep-arrival arm~~ | done, 1 shot | **the debt is the coast's length: the steep arm holds its reference 1.92x longer and owes 2.6x more, agreeing per second. Not the angle** — 3bu |
-| **25** | **The aim correction stops 25x above the miss.** `ImprovedByMetres` is 250 m absolute against an 8-18 m miss, so no pass can ever count as an improvement and the loop always stops on three. Make it relative to the predicted miss | build, then 14 paired | 3bw: **the largest term in the shot, and never attacked** |
+| ~~25~~ | ~~The aim correction stops 25x above the miss~~ | done, 14 paired | **the stopping rule was blind and unblinding it changes nothing: `noimprov` 31 to 3, miss 0.88x [0.84, 1.10] unresolved** — 3bx |
+| **26** | **What the aim correction converges TO.** It reaches 8-18 m at release and more passes do not improve it, so it is a floor rather than an early stop. The trim still owes 2.6 m/s at release in both arms — a correction computed but not flown looks exactly like this | 0 shots to price headlessly | 3bx: **the largest term in the shot, one layer deeper than 25** |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
