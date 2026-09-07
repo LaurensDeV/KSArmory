@@ -753,6 +753,19 @@ def paired(root, shots):
     base = order[0]
 
     print(f"== paired within {len(groups)} shot(s) in {root}")
+
+    # One block never flips, and that is the whole difference. ShotArms alternates the variants
+    # down the roster and swaps them each shot, so seat and arm decouple over a night and are
+    # PERFECTLY confounded within a single one. The seat term is the larger of the two -- measured
+    # 9 m to 92 m across the roster on 2026-09-07-1824 -- so the arm medians below are a statement
+    # about which seats a variant drew. Two such runs were read as an arm result before this said
+    # so: docs/ACCURACY-PLAN.md 3by.
+    if len(groups) < 2:
+        print()
+        print("   !! ONE BLOCK: the arms did not flip, so each variant flew a FIXED set of seats.")
+        print("      Seat is worth 9-92 m across the roster and swamps anything under test, so")
+        print("      the per-arm medians below rank SEATS, not arms. Read this run as a")
+        print("      diagnostic; fly several blocks to compare arms. ACCURACY-PLAN.md 3by.")
     print(f"   spec: {spec}")
     print(f"   baseline: {base}")
     _say_regime(shots)
@@ -816,6 +829,7 @@ def paired(root, shots):
 
         if not ratios:
             print(f"   {name}: no shot flew both it and {base}")
+            print(f"   {' ' * len(name)}  so nothing above is an arm comparison -- see the note.")
             continue
 
         point, lo, hi = _median_interval(ratios)

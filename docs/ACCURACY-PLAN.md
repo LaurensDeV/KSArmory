@@ -4816,75 +4816,79 @@ helped it converge.
 right that the value does not matter above the miss, and this is the first measurement below it: the
 loop's behaviour changes completely (31 to 3) and the shot does not.
 
-## 3by. The aim the predictor scores best is not the aim that lands best — 2026-09-07
+## 3by. A one-block paired run confounds the arm with the seat — 2026-09-07
 
-Item 26, one paired world (`base|band:AimThresholdTracksTheMiss=true`, 4 v 4) flown to read the aim
-trace now `Distance.Say` can express a ten-metre shot.
+Item 26. Two single-block paired worlds were flown to read the aim trace, and **both are void as
+arm comparisons.** `ShotArms` alternates the variants down the roster and flips them each shot, so a
+*multi*-shot night balances seat against arm — and a **one-block run never flips**. Both worlds gave
+band seats 1, 3, 5, 7 and base seats 2, 4, 6, 8, which makes "band vs base" and "odd vs even seat"
+the same contrast.
 
-**The `aim:` line does not name its craft, but the release summary does** — and it carries the final
-bias, the best miss the loop banked and the excursion count, once per flight. That is the pairing,
-and it was already in every log:
+The seat effect is far larger than anything being tested. Measured arm-neutral over the 14-shot
+night: **s1=9 m, s2=16 m, s3=92 m, s4=19 m, s5=25 m, s6=10 m, s7=27 m, s8=9 m** — seat 3 is ten
+times seat 1, and band was carrying it in both runs.
 
-| craft | arm | best predicted miss | landed |
+| | band (seats 1,3,5,7) | base (seats 2,4,6,8) | ratio |
 | --- | --- | --- | --- |
-| FAT 4 | base | 190 m | **4 m** |
-| FAT | band | 10 m | 6 m |
-| FAT 8 | base | 30 m | 6 m |
-| FAT 5 | band | 10 m | 7 m |
-| FAT 6 | base | **220 m** | 10 m |
-| FAT 2 | base | 60 m | 13 m |
-| FAT 7 | band | **0 m** | 37 m |
-| FAT 3 | band | 10 m | **67 m** |
+| **expected from seats alone, zero arm effect** | | | **2.00x** |
+| world 2159 observed | 22.0 m | 8.0 m | 2.75x |
+| world 2255 observed | 25.0 m | 13.5 m | 1.85x |
 
-**Spearman ρ = −0.39 between what the loop scored and where the rocket landed** (exact p = 0.34,
-n = 8 — not significant, and the point estimate is the wrong sign). The largest predicted miss in
-the world landed closest; the smallest landed second-worst.
+Both bracket the seat prediction. **No arm effect is needed to explain either**, and the earlier
+draft of this entry — "the arm whose score goes stale landed better" — is withdrawn.
 
-### What the two arms actually differ in, which is not what 3bx assumed
+### What the arm is actually worth, from the night that flips
 
-`AimCorrection.Freeze()` runs at `pass.MayRelease` on **every** flight and reverts the bias to
-`_bestBias`. So the band is not only a stopping rule — it decides *which* aim ships:
+`2026-09-07-1824`, 14 shots, 112 flights, seats levelled: **band 0.88x [0.84, 1.10] at 97%,
+unresolved** — the point estimate favours **band**, the opposite direction to the confounded runs.
 
-* **base**, at a flat 250 m: `_bestMiss` stops ratcheting once the miss is inside 250 m. Its
-  `best` column reads 190 and 220 m for flights landing at 4 and 10 m, so the *score* is certainly
-  stale by release.
+### And the predictor is uninformative rather than inverted
 
-  **Whether the aim it ships is equally stale does not follow, and one reading is against it**:
-  FAT 4's shipped bias is 396 m where the trace 20 s earlier read 341 m, so `Freeze()` kept
-  something *later* than that sample rather than reverting behind it. `_bestBias` is only written
-  when `_bestMiss` ratchets, so the two should move together — that they visibly do not is the
-  thing to resolve, and it needs the per-craft bias series the named trace line now produces.
-* **band**, at 25% with a 1 m floor: `_bestMiss` ratchets to 0–10 m, so `_bestBias` is nearly the
-  latest aim.
+The confounded world read rho = -0.39 (n=8) between the loop's best score and the landing, which is
+what suggested the judge ran backwards. Over the 14-shot night with seats levelled it is
+**rho = +0.120, p = 0.205, n = 112** — the expected sign, weak, and not significant. So the claim
+that survives is the narrower one: **the score the correction optimises carries little information
+about where the rocket lands**, matching the +0.04 within-session correlation `shot-report.py`
+already records. It is not evidence that reverting to the best aim is harmful.
 
-**The arm whose score goes stale landed better** — base 4, 6, 10, 13 m against band
-6, 7, 37, 67 m. One world, 4 v 4, so this settles nothing on its own; a Wilcoxon over four unpaired
-flights cannot reach significance at any effect size. But the mechanism is now visible rather than
-inferred, and it agrees with the ρ above: **reverting to the best-scoring aim reverts to an aim
-chosen by a judge that does not track the outcome.**
+### The mechanism measurement stands, because it is not a comparison
 
-`Freeze()`'s reasoning still holds where it was drawn — 2.1 km at pass 2, 6.0 at pass 3, 4.5 at
-pass 4, at 12,902 km. At kilometre scale the predictor *is* informative. At ten metres it is not,
-which is the 250 m band's lesson one level up: **a rule sized for a kilometre shot goes blind as
-the shot improves, and this one goes blind while still making decisions.**
+`aim frozen on <craft>` says what `Freeze()` discarded at each release, and that is a within-flight
+reading of what the code does — no seat term in it:
 
-### Two things I read wrong first
+| arm | freeze reverted, per flight |
+| --- | --- |
+| band (25% band) | 2.0, 2.5, 2.8, 4.8 m |
+| base (flat 250 m) | 2.4, 27.4, 104.2, **153.3** m |
 
-* **The bias is not frozen at release.** Two consecutive trace samples read identical on all eight,
-  which I took for convergence; they are one measurement interval apart. Against the release
-  summaries the biases moved 0–55 m over that window, and FAT 4's walked 341 → 396 m.
-* **No flight settled on the excursion count.** `WorseBeforeStopping` is **12** and the highest
-  observed is 2, so the `worse for`/landing correlation (ρ = +0.74, p = 0.036) is not that path
-  firing. It is also confounded beyond use: a flat 250 m band makes the count structurally zero, so
-  it is only measurable on the band arm at all.
+So the two bands do differ exactly as designed: `_bestMiss` stops ratcheting inside 250 m, so
+`_bestBias` goes stale and **`Freeze()` throws away up to 153 m of the walking the loop did after
+it**, where the proportional band discards ~2 m. That is a real and previously invisible behaviour.
+Whether it costs anything is the open question, and 1824 is the only evidence: 0.88x, unresolved.
 
-### And the counter was not counting what it says
+### And the trace still goes dark before the part that matters
 
-`_worseFor` was never cleared by a pass that was neither better nor worse, so it accumulated over a
-whole flight: twelve scattered excursions stopped the loop as readily as one run of twelve. The name,
-and the patch it was sized against, are both about a *run*. Unreachable at the shipped 250 m band —
-nothing at this scale is 250 m worse than the best — and live the moment the band follows the miss.
-Fixed, with `AimPatienceTests` failing against the cumulative form.
+With the craft named, the eight traces are readable — and every one of them **stops 77 to 120 s
+before its own release**, all within five seconds of each other, which makes it a world event rather
+than anything per-craft:
+
+| craft | last trace | freeze | dark for | trace said | shipped |
+| --- | --- | --- | --- | --- | --- |
+| FAT 7 | 23:00:46 | 23:02:46 | 120 s | 1.32 km | **59.1 m** |
+| FAT 8 | 23:00:45 | 23:02:45 | 120 s | 3.69 km | **136.7 m** |
+| FAT 2 | 23:00:50 | 23:02:46 | 116 s | 3.78 km | 463.7 m |
+| FAT 4 | 23:00:47 | 23:02:11 | 85 s | 3.81 km | 346.2 m |
+
+**The bias moves by a factor of three to twenty inside the unlogged window**, so the trace covers
+everything except the part that decides the shot. Item 26 is still open, and 26b is what closes it:
+find what stops the prediction at that instant and log through it.
+
+### The rule this cost, and it is a protocol rule
+
+**A single-block paired run is a diagnostic, never a comparison.** It is the right shape for reading
+an instrument — which is what both of these were for, and both delivered that — and it cannot rank
+two arms at all. `shot-report.py --paired` now says so rather than printing arm medians that mean
+nothing.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -5001,7 +5005,8 @@ what 20b is flying against.
 | ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
 | ~~5h~~ | ~~Read `split debt` on a steep-arrival arm~~ | done, 1 shot | **the debt is the coast's length: the steep arm holds its reference 1.92x longer and owes 2.6x more, agreeing per second. Not the angle** — 3bu |
 | ~~25~~ | ~~The aim correction stops 25x above the miss~~ | done, 14 paired | **the stopping rule was blind and unblinding it changes nothing: `noimprov` 31 to 3, miss 0.88x [0.84, 1.10] unresolved** — 3bx |
-| **26** | **The predictor's best-scoring aim does not track the landing** (rho -0.39, n=8) — and `Freeze()` ships that aim on every flight. What the correction converges to is a judge, not a floor | 1 world | 3by |
+| **26** | **What the correction converges to.** `Freeze()` discards up to 153 m of the loop's walking at release under the shipped 250 m band, ~2 m under a proportional one; the score it reverts to barely predicts the landing (rho +0.12, n=112). Worth 0.88x [0.84, 1.10], unresolved | 14 shots flown | 3by |
+| **26b** | **The aim trace stops 77-120 s before release**, all eight within five seconds of each other, and the bias moves 3x to 20x inside that window. Find what gates the prediction off and log through it | not started | 3by |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
