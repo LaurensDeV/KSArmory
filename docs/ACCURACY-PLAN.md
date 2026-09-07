@@ -4488,6 +4488,61 @@ worlds that did not diverge. So there are two separate things ending at the same
 the steep-arrival one is on the path to rung C. It remains unexplained by a factor of ~3.6x after
 the cutoff residual (1.6x) and the lighter bus (1.7x).
 
+## 3bs. 5h: every geometric sensitivity FALLS with steepness — 2026-09-07
+
+Every geometric sensitivity was measured against the arrival angle, and **all of them fall as the
+arrival steepens.** So the trim's 6.2x demand at 54 degrees cannot come from the trajectory being
+more sensitive to an error. It comes from the error itself.
+
+| what the trim solves against | 39.9 deg | 44.0 | 54.0 | 60.0 |
+| --- | --- | --- | --- | --- |
+| a 1 km wrong departure, downrange | 1.000 m/s | 0.858 | **0.517** | 0.301 |
+| a 1 km wrong departure, up | 1.895 | 1.810 | **1.622** | 1.511 |
+| a 1 s wrong arrival | 5.173 | 4.581 | **3.332** | 2.607 |
+| a 1.1 m/s kick, after any delay to 40 s | 1.100 | 1.100 | **1.100** | 1.100 |
+
+The kick row is flat — two conics given the same shove stay the same distance apart at every angle,
+so the arc amplifies nothing. The other three all shrink. **A steep arc is the more forgiving
+geometry, not the less.**
+
+### Dividing the flown demand by the measured sensitivity
+
+Only one input looked as though it could be wrong, so I priced it:
+
+| arm | arrival | demand at the split | m/s per second out | implied arrival error |
+| --- | --- | --- | --- | --- |
+| base | 16.9 deg | 0.550 | 5.173 | 0.11 s |
+| p65 | 44.4 | 0.760 | 4.581 | 0.17 s |
+| p80 | 54.4 | 3.410 | 3.332 | **1.02 s** |
+
+**And the check refutes it.** `Arrivals()` prints the committed arrival beside the flown prediction
+unconditionally, so the gap is already in every log: **0 s, on all six samples, at p80.** A 1.02 s
+arrival error would have shown there and does not. The arrival-time route is out.
+
+### So what is left is an input nobody has priced
+
+`BusTrim.TrySolve` reads exactly four things:
+
+```csharp
+Kepler.TryCoast(mu, ReferencePositionCci, ReferenceVelocityCci, SecondsSinceReference, ...)
+toGainCci = shouldBeDoing - now.VelocityCci;
+```
+
+Of the four, three are now measured and none of them explains it — the reference *position*
+(sensitivity falls with steepness), the actual velocity against a kick (flat), and the arrival time
+(refuted above, and it is not even an argument to this call).
+
+**The untested one is `SecondsSinceReference`, and its sensitivity is gravity.** `shouldBeDoing`
+moves at `|g|` per second along the reference conic — about 8.9 m/s^2 at 200 km — so **a clock error
+of 0.1 s is 0.89 m/s of demand**, and 0.38 s is the whole of p80's 3.41. It is incremented only
+while `Phase == IcbmPhase.Coast` (`IcbmProgram.cs:636`) while the reference is set during the burn
+at the *predicted* cutoff (`:895`), so the two do not obviously share an epoch.
+
+**That is a hypothesis with the right magnitude and no evidence yet.** What it needs is the same
+treatment the others got: price the sensitivity per arrival angle, then find whether the quantity
+itself differs. `docs/FRAMES-AND-EPOCHS.md` is the file to read first — a clock that starts at one
+event and indexes a state belonging to another is the shape it exists to catch.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4601,7 +4656,7 @@ what 20b is flying against.
 | ~~5e~~ | ~~Re-check the latched arrival floor against the state the burn **leaves** the vehicle in~~ | done | **refuted: the exit reaches steeper than the latch can afford, 77.8 against 67.8 — and the ceiling is the trim's debt, 2.6 to 4.19 m/s** — 3be |
 | ~~5f~~ | ~~Why the trim owes 4.19 m/s at a 54 deg floor against 2.6 at 44~~ | done | **it is asked for 4.5x more, not failing to pay: 0.76 m/s owed at 44 deg against 3.41 at 54, and only 54 ever hits the 10 m/s ceiling** — 3bo |
 | ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
-| **5h** | **What happens between cutoff and the split at a steep arrival.** The trim's debt is already 6.2x larger at the split (3.410 against 0.550 m/s) and neither the cutoff residual (1.6x) nor the lighter bus (1.7x) explains it. NOT the clearance wait — the steep arm drifts slowest through it | 0 shots to price headlessly | 3bp: **this is what rung C is behind**, and it is a few seconds wide |
+| **5h** | **Price `SecondsSinceReference` — the one input to `BusTrim.TrySolve` nobody has measured.** Its sensitivity is gravity: 0.1 s is 0.89 m/s, and 0.38 s is the whole of p80's demand. It counts only during Coast while the reference is set during the burn | 0 shots | 3bs: position, kick and arrival time are all measured and none explains it |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
