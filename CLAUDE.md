@@ -1335,10 +1335,19 @@ improving stops in the wrong place.** Measured at 7,645 km: a best of 3.34 km ba
 flown miss against 15.74 for a loop that gave up inside the patch. Stopping early is not the
 conservative choice, because stopping is what makes `AimCorrection.IsSteady` true and *that* commits
 the arrival: the aim it kept is then judged against a different trajectory, and the 3.34 km it
-stopped for measures 15.86 km one cycle later. Waiting costs cycles and nothing else — the best aim
-is kept and reverted to either way, and `MaxMetres` bounds where the aim can wander meanwhile. So
-`WorseBeforeStopping` is patient, bounded above by `IcbmProgram.LatchArrivalWithinSeconds`, past
-which the arrival commits whatever the aim is doing.
+stopped for measures 15.86 km one cycle later. So `WorseBeforeStopping` is patient, bounded above by
+`IcbmProgram.LatchArrivalWithinSeconds`, past which the arrival commits whatever the aim is doing.
+
+**But "the best aim is kept either way" is only true above 250 m, and the shot is no longer there.**
+`AimCorrection` banks a new best only on beating the old by `ImprovedByMetres`, a flat 250 m, so
+once the best is 250 m or less improving on it would take a *negative* miss: **the ratchet is
+arithmetically dead**, and so is the `worse` arm that needs 250 m the other way. The aim that ships
+is then whichever was current when the miss first fell under 250 m, and every correction made after
+that is discarded by the terminal `Freeze()` — flown as reverts of 2.4, 27.4, 104.2 and **153.3 m**,
+against 2.0 to 4.8 m for a band that follows the miss. `AimRatchetTests` pins the arithmetic.
+`IcbmConfig.AimThresholdTracksTheMiss` is the way out and is **off and unflown** at 0.88x
+[0.84, 1.10]; `docs/ACCURACY-PLAN.md` 3ca has it, and 3bz has why it may not matter — the loop is
+already converging two orders of magnitude below what the ground contributes.
 
 **The miss is one product, and there is no floor under it.** Flown from the same cutoff position
 with the *exact* required velocity, the integrator lands on the target to under a metre — so the

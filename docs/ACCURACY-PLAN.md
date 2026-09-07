@@ -4952,6 +4952,54 @@ sub-kilometre band.
 point only — "downrange slope -0.02%, 1.0x flat ground, well conditioned" — which is seat 1's
 ground, the best on the roster at 9 m. Seat 3, 24 km away and ten times worse, is never looked at.
 
+## 3ca. The improvement ratchet is arithmetically dead below 250 m — 2026-09-07
+
+Read out of the code and pinned by `AimRatchetTests`; no flight needed, though the flown reverts
+match it exactly.
+
+`AimCorrection.Observe` banks a new best aim only on `miss < _bestMiss - band`, and `_bestBias` is
+written **only** in that branch. With the shipped flat band of 250 m:
+
+* **Once `_bestMiss <= 250 m`, `_bestMiss - band <= 0`** and no non-negative miss can ever bank
+  again. The ratchet is dead for the rest of the flight.
+* **The `worse` arm needs `miss > _bestMiss + 250`**, which a converged loop never reaches — so
+  `_worseFor` never counts, `Settled` never becomes true on its own, and `WorseBeforeStopping = 12`
+  is unreachable. (Consistent with the flown maximum of 2 in 3by.)
+* So the aim that ships is decided **entirely** by the terminal `Freeze()` at release, which reverts
+  to whichever aim was current when the miss first fell under 250 m.
+
+Everything the loop achieves after that point is discarded. Flown, that is the revert spread:
+
+| arm | `Freeze()` discarded |
+| --- | --- |
+| flat 250 m | 2.4, 27.4, 104.2, **153.3 m** |
+| 25% of best, 1 m floor | 2.0, 2.5, 2.8, 4.8 m |
+
+The spread on the flat band is **how early the ratchet died**: a shot stepping 3 km straight to 40 m
+banks 40 m and has nothing left to walk; one going 3 km to 600 m to 240 m banks at 240 m with
+hundreds of metres of correction still to make, and loses all of it. And the steps stay full-size on
+the way down — `Resume()` seeds `_response = 1.0`, `MinResponse` is 1.0, and `_response` stops being
+re-measured once the aim moves less than `ResponseFromMetres = 500 m` per cycle, which at these
+scales is immediately.
+
+**Two things this is not.** It is not the `_worseFor` accumulation bug fixed in `fdfd325` — that was
+the same comparison's other arm, and both are inert at 250 m. And it is **not** established as
+costing anything: `AimThresholdTracksTheMiss` is off, unflown at **0.88x [0.84, 1.10]**, and 3bz
+says the loop is already converging two orders of magnitude below what the ground contributes. The
+defect is that a documented mechanism does not operate, which is worth knowing whether or not
+switching it on pays.
+
+### And `Resume()` is load-bearing and conditional
+
+`_aim.Resume()` runs once, on the first non-burning frame after cutoff, guarded by
+`_resumedForCoast`. For a pad launch the phase machine holds `IsBurning` true from arming to cutoff,
+so the flag survives to be spent there — and `Resume()` is what un-settles the loop after the
+mid-burn `Freeze()`, resets `_bestMiss` to infinity and makes the post-cutoff correction possible at
+all. **A non-burning frame before cutoff would spend the flag and silently kill the coast
+correction for that flight**: an orbital pickup returns `Holding`, and a first-frame solver failure
+returns `NoSolution`. Neither happens on a pad launch, and neither is guarded against. Unflown, and
+the cheap check is that the phase line reads `Rising` first with no `Holding`/`NoSolution` before it.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
