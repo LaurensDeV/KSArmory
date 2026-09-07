@@ -4280,6 +4280,54 @@ zero overlap in every population (N=2 PASS 10.9-23.2% against FAIL 33.0-48.2%). 
 `SOLVER SCALE 2` and `SOLVER SCALE 8`, **interleaved within one session on one build** — about 90
 minutes, and it settles whether the N=2 excess is the rocket count or the session.
 
+## 3bo. 5f answered: the trim is asked for 4.5x more, not failing to deliver — 2026-09-07
+
+The arrival ceiling. 3be found the trim's debt at release jumping 2.6 to 4.19 m/s between a 44 and a
+54 degree arrival, and left open whether the trim was being asked for more or failing to pay it.
+Read off `2026-09-01-2148`'s own logs, per arm:
+
+| arm | arrival | **owed at the split** | p90 | ceiling refusals | left on the bus when refused |
+| --- | --- | --- | --- | --- | --- |
+| base | 16.9 deg | 0.550 m/s | 1.10 | 0 | — |
+| p50 | 34.2 | 0.610 | 0.78 | 0 | — |
+| p65 | 44.4 | 0.760 | 0.94 | 0 | — |
+| **p80** | **54.4** | **3.410** | **5.35** | **3** | **21.74 m/s** |
+
+**The demand is 4.5x larger at 54 degrees than at 44**, and p80 is the only arm that ever hits
+`BusTrim.MaxMetresPerSecond = 10.0` — three flights refused outright with a median 21.74 m/s still
+owed. So this is not a delivery failure and widening the ceiling is not the fix: 21.74 m/s is more
+than twice a ceiling that `TrimCeilingFromBudget` is already on the Dead list for widening.
+
+Note the shape: 0.55, 0.61, 0.76 across 17, 34 and 44 degrees is nearly flat, then 3.41 at 54. **The
+ceiling on the arrival angle is a cliff, not a slope**, and it sits between 44 and 54 degrees.
+
+### And the debt is accumulated during the clearance wait, not at the split
+
+The trim's own line says it: `owed 0.45 m/s at the split, 2.61 after 5 s of clearing`. `MayFire` is
+false until `SeparationClearance` is satisfied, so the bus drifts off its solution while it waits
+for the spent stack to get clear, and the trim inherits whatever that drift came to. That is why a
+number measured "at the split" is the wrong one to fix and the growth rate is the right one.
+
+### What it does not yet say
+
+**Why the demand is larger.** The decoupler shove is the same at any arrival angle, so the extra
+must come from the cutoff state or from the clearance wait. The obvious candidate is that a steeper
+arrival costs more delta-v, so the burn runs longer, the stack is lighter at cutoff, and the last
+frame adds more — `residual = accel x step x throttle`, and `accel` is the term that grows.
+
+**It cannot be split from the logs as they stand**: the cutoff line is `CAPTURE cutoff: residual ...`
+and does not name its craft, so the residual cannot be attributed to an arm in a paired night. One
+line — naming the craft the way the post-boost line already does — makes this a free reading on the
+next night that flies more than one arm.
+
+### What this means for the ladder
+
+Rung C wants 45 to 60 degrees. **44 degrees is affordable and 54 is not**, and the boundary is the
+trim's demand rather than the arc's existence (3be) or the ascent's budget. So the next rung is not
+bought by asking for a steeper floor; it is bought by making the post-cutoff state cheap enough to
+correct at one. The two levers that follow are the cutoff residual itself and the clearance wait,
+in that order.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4391,7 +4439,8 @@ what 20b is flying against.
 | ~~5d~~ | ~~Re-fly `ArrivalPreference = 0.5` on a clean harness~~ | done | **0.69x [0.17, 0.88], 11 wins of 12, rank p=0.009 — RESOLVED, and 3ak's 1.91x was the harness** — 3am |
 | ~~5c~~ | ~~Price a steep arrival against the **trim's** budget, not the ascent's~~ | done | **refuted: the trim's authority *grows* with the angle, 122 km to 166 km — what ends it is the arc ceasing to exist** — 3ag |
 | ~~5e~~ | ~~Re-check the latched arrival floor against the state the burn **leaves** the vehicle in~~ | done | **refuted: the exit reaches steeper than the latch can afford, 77.8 against 67.8 — and the ceiling is the trim's debt, 2.6 to 4.19 m/s** — 3be |
-| **5f** | Why the trim still owes 4.19 m/s at a 54 deg floor against 2.6 at 44 — the arrival ceiling, and a measurement rather than a fix | 0 shots, after 20b | 3be: 44 to 54 deg is where the healthy median goes 0.017 to 0.098 km |
+| ~~5f~~ | ~~Why the trim owes 4.19 m/s at a 54 deg floor against 2.6 at 44~~ | done | **it is asked for 4.5x more, not failing to pay: 0.76 m/s owed at 44 deg against 3.41 at 54, and only 54 ever hits the 10 m/s ceiling** — 3bo |
+| **5g** | **Name the craft on the cutoff line**, then read the cutoff residual per arm — is the steep arrival's demand a lighter stack at cutoff, or the clearance wait? | 0 shots, free on the next multi-arm night | 3bo: the two levers under rung C, in order |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
