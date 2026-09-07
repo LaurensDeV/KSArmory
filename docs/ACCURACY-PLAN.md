@@ -4543,6 +4543,61 @@ treatment the others got: price the sensitivity per arrival angle, then find whe
 itself differs. `docs/FRAMES-AND-EPOCHS.md` is the file to read first — a clock that starts at one
 event and indexes a state belonging to another is the shape it exists to catch.
 
+## 3bt. Eight candidates eliminated, and the rig cannot reach the ninth — 2026-09-07
+
+5h taken as far as headless work goes. Everything measurable about the geometry has been measured
+and **none of it explains the 6.2x demand at a steep arrival.**
+
+| candidate | measured | verdict |
+| --- | --- | --- |
+| the arc amplifying a velocity kick | 1.100 m/s at every angle, every delay to 40 s | **flat** |
+| the clearance wait | steep arm drifts *slowest*, 0.072 against 0.124-0.166 m/s per s | **wrong way** |
+| the cutoff residual | 0.061 to 0.097 m/s | 1.6x |
+| the lighter bus at cutoff | 24.2 g to 41.8 | 1.7x, and shares a cause with the row above |
+| a wrong departure, downrange | 1.000 to 0.517 m/s per km | **falls with steepness** |
+| a wrong departure, up | 1.895 to 1.622 m/s per km | **falls** |
+| a wrong arrival time, sensitivity | 5.173 to 3.332 m/s per s | **falls** |
+| a wrong arrival time, the error itself | committed against flown: **0 s**, 6 of 6 | **refuted** |
+| the cutoff prediction | predicted against actual: **1 m**, every angle | **exact** |
+
+**Every geometric sensitivity falls as the arrival steepens.** A steep arc is the more forgiving
+geometry, which is worth having on its own — it removes "steep is intrinsically harder to correct"
+from the reasons rung C might be unreachable.
+
+### And the rig is out of reach of the answer
+
+The headless flight rig is **clean at every arrival angle** — 1 m of prediction error, a residual
+that moves 1.6x, and no sign of the flown 6.2x anywhere. That is not a null result about the
+vehicle; it is a statement about the instrument. The rig **has no decoupler event, no split, and
+does not run `BusTrim` at all** — and `_owedAtSplit` is by definition measured after a split.
+
+So the term that is large is one the rig cannot produce, and more headless candidates would be
+guessing.
+
+### The diagnostic, which is what ships instead
+
+`BusTrim` nulls `Kepler.TryCoast(reference, since).velocity - v`, so **exactly four inputs decide
+the debt.** `SayTheSplitDebt` prints all four beside the answer, once, the first time the trim has
+one:
+
+```
+split debt on <craft>: owed N m/s, T s since the reference, D km from it,
+                       V m/s off its velocity, arc arrives A deg
+```
+
+That turns "the demand is large" into "*this term* is large", which is the difference between
+another night of candidates and one reading. It costs one line per flight and is free on the next
+night flown for any reason — including a steep-arrival arm, which is the one that would answer it
+outright.
+
+**Note the clock, because it is the one input with no headless bound.** `SecondsSinceReference`
+is incremented only while `Phase == IcbmPhase.Coast` (`IcbmProgram.cs:636`), and `shouldBeDoing`
+moves at gravity along the reference conic — about 8.9 m/s^2 — so **0.1 s of clock error is 0.89
+m/s of demand and 0.38 s is the whole of p80's 3.41.** The reference is set during the *burn* at the
+predicted cutoff (`:895`), which the measurement above shows lands within a metre, so the epoch
+looks right; but it is the only term whose magnitude nothing has bounded, and
+`docs/FRAMES-AND-EPOCHS.md` is the file for the shape.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4656,7 +4711,7 @@ what 20b is flying against.
 | ~~5e~~ | ~~Re-check the latched arrival floor against the state the burn **leaves** the vehicle in~~ | done | **refuted: the exit reaches steeper than the latch can afford, 77.8 against 67.8 — and the ceiling is the trim's debt, 2.6 to 4.19 m/s** — 3be |
 | ~~5f~~ | ~~Why the trim owes 4.19 m/s at a 54 deg floor against 2.6 at 44~~ | done | **it is asked for 4.5x more, not failing to pay: 0.76 m/s owed at 44 deg against 3.41 at 54, and only 54 ever hits the 10 m/s ceiling** — 3bo |
 | ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
-| **5h** | **Price `SecondsSinceReference` — the one input to `BusTrim.TrySolve` nobody has measured.** Its sensitivity is gravity: 0.1 s is 0.89 m/s, and 0.38 s is the whole of p80's demand. It counts only during Coast while the reference is set during the burn | 0 shots | 3bs: position, kick and arrival time are all measured and none explains it |
+| **5h** | **Read `split debt` on a steep-arrival arm.** Eight candidates eliminated headlessly and the rig cannot reach the ninth — it has no split and does not run the trim. The diagnostic is built and prints all four inputs | free on any night with an arrival arm | 3bt: **this is what rung C is behind**, and one reading names the term |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |

@@ -1479,6 +1479,7 @@ internal sealed class IcbmComputer
         if (!double.IsFinite(_owedAtSplit) && double.IsFinite(trim.ToGainMetresPerSecond))
         {
             _owedAtSplit = trim.ToGainMetresPerSecond;
+            SayTheSplitDebt(trim, referenceVelocity, state);
         }
 
         // Deliberately NOT dropped when the trim reports done. A post-boost pass calls
@@ -1805,6 +1806,33 @@ internal sealed class IcbmComputer
                  + $"ceiling and had spent nothing, solving to an arrival {committed:F0} s away "
                  + $"where the flown prediction says {flown:F0}. Giving the arrival up and taking "
                  + "the cheapest arc again.");
+    }
+
+    // The trim's debt at the split, decomposed into the four things that make it. `ACCURACY-PLAN.md`
+    // 5h: the debt is 6.2x larger at a 54 degree arrival than at 44, and eight candidates have been
+    // measured headlessly without finding it -- the arc amplifying a kick (flat), the clearance wait
+    // (wrong direction), the cutoff residual (1.6x), the lighter bus (1.7x), the reference position
+    // and arrival-time sensitivities (both FALL with steepness), the arrival-time error itself
+    // (measured at 0 s) and the cutoff prediction (1 m at every angle).
+    //
+    // What that rules out is the geometry. What it leaves is a term the headless rig has no way to
+    // produce, because it has no decoupler event and does not run the trim at all -- so the next
+    // reading has to come from a flight, and this is it.
+    //
+    // BusTrim nulls `Kepler.TryCoast(reference, since).velocity - v`, so exactly four inputs decide
+    // it. Printing all four beside the answer turns "the demand is large" into "this term is large",
+    // which is the difference between another night of candidates and one reading.
+    private void SayTheSplitDebt(in TrimCommand trim, double3 referenceVelocity, in IcbmState state)
+    {
+        double3 offPosition = state.PositionCci - Program.ReferencePositionCci;
+        double3 offVelocity = state.VelocityCci - referenceVelocity;
+
+        Log.Info($"split debt on {KsaWorld.DisplayName(Craft)}: "
+                 + $"owed {trim.ToGainMetresPerSecond:F3} m/s, "
+                 + $"{Program.SecondsSinceReference:F2} s since the reference, "
+                 + $"{Vec.Len(offPosition) / 1000.0:F3} km from it, "
+                 + $"{Vec.Len(offVelocity):F3} m/s off its velocity, "
+                 + $"arc arrives {Program.Arc?.ArrivalAngleDeg ?? double.NaN:F1} deg");
     }
 
     private bool _releasedTheArrival;

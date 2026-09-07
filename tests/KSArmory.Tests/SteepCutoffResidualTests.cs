@@ -90,4 +90,48 @@ public class SteepCutoffResidualTests(ITestOutputHelper Out)
                                     aim, out BallisticArc.Solution arc, 1.0, false, double.NaN, 0.0)
                ? arc.ArrivalAngleDeg
                : double.NaN;
+
+    /// <summary>
+    /// How far the guidance's predicted cutoff position is from where cutoff actually happened,
+    /// against the arrival angle. `ACCURACY-PLAN.md` 5h.
+    ///
+    /// <para><b>Why it should get worse when steep.</b> `BurnoutGuidance` predicts the cutoff
+    /// position by holding gravity at its present value and taking the thrust displacement as a
+    /// straight line along the current thrust direction. Both approximations are self-cancelling
+    /// while the loop keeps running — "the next cycle sees and removes it" — but the <em>last</em>
+    /// cycle's prediction is never corrected, and it is the one the trim spends the whole coast
+    /// nulling against. A steeper arrival burns longer and cuts off lighter, at 41.8 g against 24.2
+    /// (3bp), so the same extrapolation covers more ground.</para>
+    ///
+    /// <para>This is the reference position `BusTrim` propagates. 3bs measured what a wrong one
+    /// costs: 1.622 m/s per km up and 0.517 downrange at 54 degrees.</para>
+    /// </summary>
+    [Fact]
+    public void HowFarTheCutoffPredictionMisses()
+    {
+        double3 aim = Equator(0.3138);
+
+        Out.WriteLine($"{"pref",6}{"arrival",9}{"predicted vs actual",21}{"up",10}{"downrange",12}");
+
+        foreach (double preference in new[] { 0.0, 0.5, 0.65, 0.8 })
+        {
+            IcbmProgram program = new(new IcbmConfig { Armed = true, ArrivalPreference = preference });
+            IcbmFlightRig.Flight flight = PadRig().Fly(program, aim, 0.02, 3_000.0);
+
+            if (!flight.Reached)
+            {
+                Out.WriteLine($"{preference,6:F2}   never reached cutoff");
+                continue;
+            }
+
+            double3 err = program.CutoffPositionCci - flight.CutoffPositionCci;
+            double3 up = Vec.Unit(flight.CutoffPositionCci);
+            double3 along = Vec.Unit(flight.CutoffVelocityCci
+                                     - Vec.Dot(flight.CutoffVelocityCci, up) * up);
+
+            Out.WriteLine($"{preference,6:F2}{ArrivalDeg(flight, aim),9:F1}"
+                          + $"{Vec.Len(err) / 1000.0,18:F3} km"
+                          + $"{Vec.Dot(err, up) / 1000.0,10:F3}{Vec.Dot(err, along) / 1000.0,12:F3}");
+        }
+    }
 }
