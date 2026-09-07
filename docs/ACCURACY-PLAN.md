@@ -4071,6 +4071,48 @@ The floor is the ascent, and the ascent is flown before anything consults the ta
 
 **Nothing here is built.** `ShortRangeAscentTests` is the measurement and the record.
 
+## 3bl. A lone rocket never diverges — flown 2026-09-06, 20 of 20
+
+3bj's test, and it comes back clean.
+
+| | 8 rockets, this target | **1 rocket** |
+| --- | --- | --- |
+| shots | 153 | **20** |
+| divergent | 24 (**15.7%**) | **0** |
+| median miss | 0.017 km healthy, 85 km lost | **0.010 km** |
+| worst shot | — | **0.03 km** |
+| shared-bubble probes | 18,048 | **0** |
+| off-gravity max | 4.2333 m/s | **0.0011 m/s** |
+
+**Zero divergent worlds in twenty**, against a rate of 15.7% established over 153 shots at the same
+target: `p = 0.033`. And the two columns that carry the mechanism go to nothing — no shared
+bubble at all, and the non-gravitational push falls by a factor of ~3,800.
+
+**The frame-time confounder is ruled out rather than assumed.** 20c's worry was that a lone rocket
+runs faster frames and that, not the missing neighbour, is what saves it. It does not: **30.5 ms**
+here against 30.1 and 33.3 on the two eight-rocket nights. Same regime, no divergence.
+
+### What this means
+
+**The ~15% catastrophic mode is the test harness, not the weapon.** It needs a neighbouring vehicle
+to merge bubbles with, and a player firing one ICBM has none. Every night since 2026-09-02 has spent
+about a fifth of its flights measuring `make-scaling-save.py`'s 20 km pad spacing.
+
+**And the shot without it is 10 m, worst 30, all twenty inside 35 m** — "too tight to measure the
+ground", which is the terrain check giving up for the first time. That is the number to quote for
+what the guidance actually does: the healthy eight-rocket median of 17 m carries the seat spread,
+and seat 1 — the base aimpoint, which is what a lone rocket flies — reads 7-10 m across every night.
+The two agree exactly.
+
+### What follows
+
+1. **Regenerate the harness save at a wider `--spacing`.** The flag exists. This removes the failure
+   mode from every future night rather than fixing it, which is worth more.
+2. **Re-read QuietCoast in that light.** It is a fix for an artefact — still harmless, still worth
+   half the miss when a bubble *is* shared, and no longer on the critical path.
+3. **Metre-level resumes from 10 m, not 17.** Rung C wants ~5 m, and the gap is the trim's debt at a
+   steep arrival (5f), not the divergence.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
