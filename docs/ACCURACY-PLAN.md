@@ -4908,8 +4908,15 @@ between two modes, and the baseline swings 2.7x between sessions.
    degrees the residual is irrelevant" is re-priced at the 15-degree rung the mod is actually on
    (29%, not 2%), and `IcbmConfig` states the flown range outright. **The parametric tables were left
    alone**: they are arithmetic at the angle each states and were never the wrong part.
-5. **`KSA-TERRAIN.md`: "there is no raycast, no collider query."** `BoundingVolumeHierarchy.LookupBvhDirection`
-   is a public ray query, and there is a Bepu triangle collider on a 2 m grid within 8 m of clearance.
+5. ~~**`KSA-TERRAIN.md`: "there is no raycast, no collider query."**~~ — **this correction was
+   itself wrong, withdrawn 2026-09-07.** `BoundingVolumeHierarchy.LookupBvhDirection` is a
+   direction-to-triangle lookup on the **undisplaced sphere mesh**, not a terrain query:
+   `CubeMesh.cs:280` builds the BVH from unit-sphere LOD vertices, and
+   `BoundingVolumeHierarchy.cs:643` normalises the hit vertex and then calls
+   `GetTerrainHeightFromDirCcf` to find the radius. It cannot answer where the ground is without
+   asking the height field anyway. `KSA-TERRAIN.md` keeps its "no raycast" line. The Bepu collider
+   half stands but is not reachable — `TerrainPatch`'s entry points want a `ReadOnlyPhysicsStates`
+   ref struct, and the patch only exists within 8 m of clearance.
 6. ~~**`accurate: true` degrades silently**~~ — **read out, and both halves were wrong.** The
    mechanism is real: the modifier loop is bounded by `?.NumModifiers` and a null runs it zero times
    with no log line. But it does not degrade to the *coarse* answer — the base term stays bicubic

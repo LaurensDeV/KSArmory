@@ -1,5 +1,31 @@
 # Getting the warheads inside a metre
 
+> ## Read this before anything below — audited 2026-09-07
+>
+> **This file is now largely a record, and much of it is superseded.** `docs/ACCURACY-PLAN.md` is
+> the live document; its header and entries 3bb-3bv carry the current state. The reasoning here is
+> still worth having — §4 below lists what it holds that nothing newer does — but **do not take a
+> number from this file without checking it.**
+>
+> | this file says | actually |
+> | --- | --- |
+> | the mod arrives at **12.9-17.5°** | **32.0°** on every night since 2026-09-03; `ArrivalPreference` ships at 0.5 |
+> | `cot γ` is 4.37, or 8.03 at the 7.1° the tables price | **1.60** — every height-driven column below is ~5x what it should be |
+> | rung A (~80 m) and B (~30 m) are ahead | **both passed.** A lone rocket flies **10 m median, 30 m worst**, 20 of 20 (3bl) |
+> | the miss is `residual x arc sensitivity` | that is the **open-loop** shot. The flown loop realises **36 m per m/s against the arc's 884** (3x), and lands at 10-20 m while carrying 2.6 m/s owed |
+> | rung D needs a 1 ms sub-step and ground per sub-step | the sub-step **shipped** (`065907a`); ground-per-sub-step is **refuted** — chaotic, not convergent |
+> | B1's item 3, the aim bias re-priced at a steeper arc | **refuted.** Every geometric sensitivity *falls* as the arc steepens (3bs) |
+> | B5, the tube cant | **dead** — the bus was straightened, all six axes read `(1,0,0)` |
+> | "a fifth of worlds do not get to fly the ladder" | that fifth is bound up with the **multi-rocket harness**, and N=1 against N=8 is p=0.145, not significant (3bn) |
+> | §5: the ladder stops at rung C because wall clock cannot be bought | the CPU-bound measurement stands; **the inference does not** — see §4 and 4b of the plan |
+>
+> **And one structural correction.** This file's envelope is a *deorbit* family, where flight time
+> **falls** as the arc steepens. The mod flies a *launch* to a fixed target, where it **rises** —
+> 969 s at 32° against 1,861 s at 51° (3bu). Since the trim's debt accumulates with the age of its
+> reference, and that is what caps the arrival, **a rung expressed as an arrival angle is expressed
+> in the wrong variable.** Expressed as coast duration the ladder would have shown the cliff between
+> 44° and 54° that 3bo measured.
+
 **A plan, not a record — with one exception.** Nothing here has been flown except §5, whose
 proposal was tested on 2026-08-25 and refuted; that section is now a record and the ladder stops at
 rung C because of it. `docs/MIRV-NEXT.md` is what the shot costs
