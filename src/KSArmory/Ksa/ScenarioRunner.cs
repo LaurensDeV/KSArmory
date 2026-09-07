@@ -54,6 +54,7 @@ internal sealed class ScenarioRunner
     private ShotArms? _arms;
     private string _armSpec = string.Empty;
     private bool _keepStages;
+    private bool _traceWarhead;
     private int _armPhase;
 
     private bool _isBallistic;
@@ -294,10 +295,18 @@ internal sealed class ScenarioRunner
         _armSpec = lines.Length > 1 ? lines[1].Trim() : string.Empty;
         _armPhase = lines.Length > 2 && int.TryParse(lines[2].Trim(), out int phase) ? phase : 0;
 
-        // Line four is options. A file rather than an environment variable, because the game is a
-        // Windows process launched from WSL and the environment does not survive that -- the same
-        // reason the request itself travels this way.
-        _keepStages = lines.Length > 3 && lines[3].Trim() == "keepstages";
+        // Line four is options, space separated. A file rather than an environment variable,
+        // because the game is a Windows process launched from WSL and the environment does not
+        // survive that -- the same reason the request itself travels this way.
+        //
+        // A set rather than one token, because the second option was wanted the moment there was
+        // one: an equality test against the whole line silently ignores every flag but the first.
+        string[] options = lines.Length > 3
+            ? lines[3].Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            : [];
+
+        _keepStages = Array.IndexOf(options, "keepstages") >= 0;
+        _traceWarhead = Array.IndexOf(options, "trace") >= 0;
 
         // "name" or "name|save". Skipping the configuration dialog gets the game past a dialog,
         // not into a scene: settings.toml's startVehicle is only ever read *by* that dialog, so
@@ -375,6 +384,10 @@ internal sealed class ScenarioRunner
         // SplitBubbles would release it -- which makes the shared bubble certain instead of a
         // one-in-four wait. docs/ACCURACY-PLAN.md 3ax.
         _config.DisposeSpentStages = !_keepStages;
+
+        // Off unless asked for: it re-flies a prediction of one warhead every frame, which
+        // is measurement rather than anything the shot needs.
+        if (_traceWarhead) _config.TraceWarhead = true;
 
         if (_keepStages)
         {
