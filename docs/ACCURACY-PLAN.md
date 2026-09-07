@@ -4328,6 +4328,44 @@ bought by asking for a steeper floor; it is bought by making the post-cutoff sta
 correct at one. The two levers that follow are the cutoff residual itself and the clearance wait,
 in that order.
 
+## 3bp. 5g, half of it headless: the cutoff residual is a minor term — 2026-09-07
+
+3bo left the trim's 4.5x demand at a steep arrival split between two candidates: a lighter stack at
+cutoff, or the clearance wait. The first needs no flight — `IcbmProgram.ResidualAtCutoff` is public
+and the flight rig runs the real program. `SteepCutoffResidualTests`, 2,000 km, varying only the
+preference:
+
+| pref | arrival | **residual at cutoff** | burn | propellant left | accel at cutoff |
+| --- | --- | --- | --- | --- | --- |
+| 0.00 | 34.7 deg | 0.061 m/s | 120 s | 6,989 kg | 24.2 g |
+| 0.50 | 36.3 | 0.067 | 121 | 6,963 | 24.2 |
+| 0.65 | 47.4 | 0.061 | 131 | 5,538 | 29.4 |
+| **0.80** | **58.7** | **0.097** | 150 | 3,535 | **41.8** |
+
+**The mechanism is confirmed and it is small.** A steeper arrival does burn longer, leave a lighter
+stack and cut off at a higher acceleration — 24.2 g to 41.8 — and the residual tracks it: 1.59x
+against the acceleration's 1.73x, which is `accel x step x throttle` behaving exactly as written.
+
+**But it is a third of what is needed.** The flown demand rises 4.5x (0.760 to 3.410 m/s) where the
+residual rises 1.59x, and in absolute terms the residual is 0.06 to 0.10 m/s against a demand of
+0.76 to 3.41. **The cutoff residual is a minor term in the trim's debt at every angle.**
+
+### So the clearance wait is the dominant term, and that is where rung C is decided
+
+What is left is the decoupler shove plus whatever the bus drifts while `MayFire` is false. The
+trim's own line already prices it: `owed 0.45 m/s at the split, 2.61 after 5 s of clearing` — the
+debt grows **five-fold** during the wait. A steeper arc is more curved, so drifting for the same
+five seconds costs more, which is the shape the 4.5x wants.
+
+**The fix follows the term rather than the symptom.** Not the trim ceiling (3bo: 21.74 m/s left when
+refused, more than twice a ceiling already on the Dead list), and not the cutoff (this entry).
+Either shorten the clearance, or let the trim work during it — `SeparationClearance` is a
+`MayFire` gate, and whether it has to be one is the question nobody has asked.
+
+**5g's other half still needs a flight**, and it is now cheap: the cutoff line names its craft
+(`2d28003`) and `shot-report` reads it per craft, so the next paired night with arrival arms gives
+the flown residual per arm for nothing — and this entry predicts it will be small.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4440,7 +4478,8 @@ what 20b is flying against.
 | ~~5c~~ | ~~Price a steep arrival against the **trim's** budget, not the ascent's~~ | done | **refuted: the trim's authority *grows* with the angle, 122 km to 166 km — what ends it is the arc ceasing to exist** — 3ag |
 | ~~5e~~ | ~~Re-check the latched arrival floor against the state the burn **leaves** the vehicle in~~ | done | **refuted: the exit reaches steeper than the latch can afford, 77.8 against 67.8 — and the ceiling is the trim's debt, 2.6 to 4.19 m/s** — 3be |
 | ~~5f~~ | ~~Why the trim owes 4.19 m/s at a 54 deg floor against 2.6 at 44~~ | done | **it is asked for 4.5x more, not failing to pay: 0.76 m/s owed at 44 deg against 3.41 at 54, and only 54 ever hits the 10 m/s ceiling** — 3bo |
-| **5g** | **Name the craft on the cutoff line**, then read the cutoff residual per arm — is the steep arrival's demand a lighter stack at cutoff, or the clearance wait? | 0 shots, free on the next multi-arm night | 3bo: the two levers under rung C, in order |
+| ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
+| **5h** | **The clearance wait is the dominant term in the trim's debt.** The debt grows five-fold during it (0.45 to 2.61 m/s over 5 s). Either shorten `SeparationClearance`, or ask whether it has to gate `MayFire` at all | 0 shots to price headlessly | 3bp: **this is what rung C is behind** |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
