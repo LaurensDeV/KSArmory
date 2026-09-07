@@ -34,13 +34,18 @@ which is 4 of 5 divergent worlds in favour (3bf, 3bh, 3bi). Item 20's stated mec
 though: a bus that verifiably stopped commanding attitude stayed off rails at an unchanged rate, and
 the two actuator flags now read `neither` on every off-rails probe of both arms (3bg).
 
-**4. The catastrophic mode is the harness, and that is now flown rather than argued.** 20 single
-rocket shots: **0 divergent, 10 m median, 30 m worst, all inside 35 m**. Add one neighbour 20 km
-away and it is **8 of 20** — Fisher **p=0.0033**, misses to 162 km. A player firing one ICBM has no
-neighbour, so ~15% of every night since 2026-09-02 has measured `make-scaling-save.py`'s pad
-spacing. Widen it. **3bl**, **3bm**, and it also means **metre-level resumes from 10 m rather than
-17**: the eight-rocket healthy median carries the seat spread, and seat 1 — the aimpoint a lone
-rocket flies — has read 7-10 m all week.
+**4. The catastrophic mode is a missed staging census, not the pad spacing.** Divergence is
+**inherited from the ascent** — 100% of divergent flights are already bubble-merged at their first
+coast probe, 100% of healthy ones never merge at all — and what keeps that bubble alive is debris
+left in the world: **6 of 10 worlds carrying debris into the coast diverged, 0 of 55 without,
+p=2.5e-6**. The trigger is staging synchrony, **182 ms spread divergent against 5 ms healthy**, one
+rocket missing the single census pass that would have had a neighbour dispose its stack. **3bn**.
+
+Widening the pad spacing is *not* indicated: the rockets never come within the 4.194 km split
+radius, and the eight-rocket worlds come closer while diverging less. A lone rocket did fly 20 of 20
+clean at **10 m median, 30 m worst** — so **metre-level resumes from 10 m rather than 17** — but
+against a clean eight-rocket subset that difference is **p=0.145 and not significant** (3bn corrects
+3bl).
 
 **5. And the divergence tracks the target, not the code.** 0 of 24 shots at 2,000 km, 8-20% at
 6,269 km, with the change falling on the day the target moved rather than on any commit. The bubble
@@ -4081,6 +4086,11 @@ The floor is the ascent, and the ascent is flown before anything consults the ta
 
 ## 3bl. A lone rocket never diverges — flown 2026-09-06, 20 of 20
 
+> **Its significance is withdrawn by 3bn.** The p=0.033 was computed against a pooled
+> eight-rocket rate contaminated by other builds, aims, arms and two bad batches. Against a clean
+> subset N=1 against N=8 is **p=0.145, not significant**; only N=1 against N=2 survives. The
+> 20-of-20 clean flights and the 10 m median stand as measurements.
+
 3bj's test, and it comes back clean.
 
 | | 8 rockets, this target | **1 rocket** |
@@ -4123,6 +4133,11 @@ The two agree exactly.
 
 ## 3bm. One neighbour is enough — flown 2026-09-07, 0/20 against 8/20
 
+> **Read 3bn first.** The 1-against-2 contrast holds (p=0.0033). The explanation offered here —
+> `NumVehicles < 2` putting a merged pair off rails — is **wrong**, and the mechanism is debris
+> left in the world by a missed staging census. The 6.32-against-4.23 push comparison is also an
+> artefact of sampling the same declining profile 180 s apart.
+
 The other half of 3bl. Same target, same build, same night, varying only how many rockets share the
 world.
 
@@ -4160,6 +4175,110 @@ fly two rockets at increasing spacings until the rate goes to zero, then take th
 
 Until that lands, **a lone rocket is the honest instrument** — 20 of 20 clean, 10 m median, 30 m
 worst — at the cost of the throughput the eight-rocket save was adopted for.
+
+## 3bn. Correcting 3bl/3bm, and the real mechanism — 2026-09-07
+
+Four investigations over the engine source, the flight logs, the disposal code and the comparison
+itself. **The headline of 3bl does not survive; something better does.**
+
+### 3bl's significance was computed against a contaminated pool
+
+`p = 0.033` came from 0 of 20 against a pooled eight-rocket rate of 24/153. That pool is **12+
+builds over five days, three aim points and about ten experimental arms**, and it contains
+`1730` shot 002 (`CONTAMINATED.md`), the aborted `1331`, and a roster half of which flew
+`QuietCoast`, which the tree itself records as a regression. Every one of those inflates the
+eight-rocket rate.
+
+Against a clean comparable subset:
+
+| comparison | Fisher p | |
+| --- | --- | --- |
+| N=1 0/20 vs **N=2 8/20** | **0.0033** | real |
+| N=2 8/20 vs N=8 pure-base 5/34 | 0.0505 | borderline |
+| **N=1 0/20 vs N=8 pure-base 5/34** | **0.145** | **not significant** |
+
+**So N=1 and N=8 are indistinguishable at this n, and N=2 is the outlier.** "A lone rocket never
+diverges" is supported against two rockets and *not* against eight. 3bl and 3bm are corrected
+accordingly, and the conclusion that the mode is "the harness" is downgraded to a hypothesis that
+its own evidence does not yet carry.
+
+**And the two batches were flown back to back, not interleaved** — 23:03 to 02:11, then 02:11 to
+05:27 — which is exactly the comparison `SHOT-PROTOCOL.md` forbids, on a baseline that has read
+14.49 km and 5.43 km three hours apart on identical code.
+
+### What does survive, and it is much stronger
+
+**Divergence is inherited from the ascent, not acquired during the coast.** Over 55,747 coast
+probes: **100% of divergent flights are already merged at their first coast probe** (median 19 of
+the world's 20 vehicles), and **100% of healthy flights start at bubble 1 and stay there**. No probe
+in the whole corpus ever shows a merge happening mid-coast, and the merged count only falls
+afterwards as members burn up.
+
+**What keeps the ascent bubble alive is debris left in the world**, and at N=8 the discriminator is
+exact: **6 of the 10 worlds that carried debris into the coast diverged; 0 of the 55 that did not.
+Fisher p = 2.5e-6.**
+
+**And the trigger is staging synchrony.** In a clean world all eight stage-2 commands land within
+**5 ms** — one frame — so the next census pass holds every new stack, each computer adopts a
+neighbour's, and 167 disposals fire at once. In a divergent world one rocket stages **171 ms** late,
+misses that single pass (`_awaitingStage` is cleared on one pass, `IcbmComputer.cs:1047-1049`), and
+the seven fragments its stack later breaks into are never claimed by anyone. Median stage-2 spread:
+**182 ms divergent against 5 ms healthy**; every world at or above 100 ms diverged and every world
+below it was clean.
+
+This also inverts item 18: **the census adopting the neighbours is what makes disposal work.** 167
+disposals a world at N=8, 99% of them foreign at a median 58.8 km, against 14 a world at N=2 where
+there is only one neighbour to adopt. Stage survival goes as `(1-f_own)(1-f)^(N-1)` with `f ~ 0.43`
+— exponential in the rocket count, in the *helpful* direction. That is why N=2 is the worst of the
+three, and it is a better account than 3bm's `NumVehicles < 2` paragraph, which 3ax had already
+corrected and which should be read as stale.
+
+### Two things this kills
+
+**Widening `--spacing` is probably not the fix.** The rockets never come within the 4.194 km split
+radius in either population — minimum `nearest` is 8.79 km at N=2 and 5.19 km at N=8 — and the
+eight-rocket worlds come *closer* while diverging *less*. What decides it is what is left in the
+world at cutoff, not how far apart the pads are.
+
+**"Two rockets are worse because a merged pair puts both off rails" is wrong.** Everything gated on
+`NumVehicles` in `PhysicsBubble` is one-versus-many; nothing changes at 3, 4 or 8. Every
+count-dependent term found points the other way — a contagious envelope, an unsplittable remainder,
+and a *finer* sub-step with more pairs.
+
+### A candidate for the push itself, worth checking
+
+`PhysicsStates.ComputeDerivatives` puts the centrifugal and Coriolis terms inside
+`if (environment.InPhysicsRadius)`, which is **per vehicle**, while the bubble frame is taken from
+**vehicle 0 only** — the heaviest member, re-sorted every step. So a member above the atmosphere in
+a bubble whose leader is still below it is integrated in a rotating frame **with the rotating-frame
+accelerations switched off**. The deficit is `2w x v + w x (w x r)`: about 0.44 m/s^2 at 3 km/s and
+1.0 at 7 km/s, which over a probe interval is the metres per second actually observed. A lone
+rocket cannot reach this state because it *is* vehicle 0 — matching its 0.0011 m/s reading.
+
+**Inferred from the source, not measured.** It predicts the push should scale with the member's own
+speed and not with neighbour count, which the logs independently confirm: at matched probe index the
+push is 3.91 against 3.83, 2.25 against 2.07, 1.81 against 1.58 for N=2 against N=8 — ratios of
+1.02 to 1.15. **The 6.32-versus-4.23 headline was the same declining profile sampled 180 s apart**,
+not a larger push.
+
+### And two real defects found on the way
+
+* **A neighbour can adopt and destroy another craft's separation stack.** `watchedByTheClearance` is
+  `ReferenceEquals(stage, _separatedFrom)` on the *disposing* computer only, so craft A destroys
+  craft B's stack at 20 km where B's own gate would have refused. B's clearance then reads NaN and
+  falls to its blind clock — the exact failure `StageDisposal`'s own doc comment says the rule
+  exists to prevent.
+* **A live neighbouring bus can be adopted**, observed twice in `e602bea`'s own message at 39.9 and
+  79.9 km, six minutes before those buses released.
+
+### What to fly next
+
+**Not the rate.** 40% against 10% needs ~20 shots an arm to reach p~0.06, about seven hours.
+
+**Fly the held-frame fraction instead**, which is already logged and separates PASS from FAIL with
+zero overlap in every population (N=2 PASS 10.9-23.2% against FAIL 33.0-48.2%). Four shots each of
+`SOLVER SCALE 2` and `SOLVER SCALE 8`, **interleaved within one session on one build** — about 90
+minutes, and it settles whether the N=2 excess is the rocket count or the session.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
