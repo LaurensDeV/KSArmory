@@ -346,7 +346,11 @@ already only asks near the surface (`SurfaceUnder` returns the mean sphere above
 **The mod's terrain-mask ceiling is a sample, not a bound.** `KsaWorld` passes
 `body.MaxTerrainHeightApprox` to `TerrainMask.Blocked` as the sphere that contains all terrain.
 `Celestial.UpdateApproxTerrainAltitudes` (`:931`) computes it once at construction from **16,384**
-Fibonacci-spiral directions at `accurate: true` — about one sample per 5.6 km on Earth. So it can
+Fibonacci-spiral directions at `accurate: true` — about one sample per **176 km** on Earth,
+not the 5.6 km this file claimed: 16,384 points over a sphere is `sqrt(4*pi/16384) x 6,371 km`,
+and the earlier figure was out by a factor of 31. Measured against the shipped
+`Earth_Height.ktx2` the spiral returns **~5,692 m** where the base field alone reaches
+**8,011 m** (and the template declares 8,631). So it can
 undershoot the true maximum, and CLAUDE.md's *a sphere containing the terrain cannot produce a false
 negative* holds only up to that sampling. The alternative, `Astronomical.MaxTerrainRadius`
 (`Astronomical.cs:116`), is `MeanRadius + HeightReference.Maximum` — a hard bound on the base texture

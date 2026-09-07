@@ -666,6 +666,40 @@ internal static class KsaWorld
     /// cheap rejects have all passed, and never for a contact they threw out.</para>
     /// </summary>
     /// <param name="samples">Height lookups this look may cost. Zero asks none.</param>
+    // Each modifier contributes its amplitude times a weight, a lookup and a noise value all in
+    // [0, 1], so the sum of the declared amplitudes is a supremum rather than an estimate. Earth's
+    // total 7,525 m.
+    private const double TerrainModifierHeadroomMetres = 8_000.0;
+
+    // How high the terrain can possibly reach, as a bound the cheap reject may stand in front of
+    // the exact test with.
+    //
+    // Celestial.MaxTerrainHeightApprox is NOT such a bound, and using it was a false negative. It
+    // is computed in the Celestial constructor, before Universe.SetupRenderData populates the
+    // modifiers, so erosion, dunes and detail contribute nothing -- and it samples a 16,384-point
+    // Fibonacci spiral, about 176 km apart on Earth. Measured against the shipped height texture it
+    // returns ~5,692 m where the base field alone reaches 8,011. A sightline six kilometres over the
+    // Himalayas was declared unmasked without a single sample, which is the false negative
+    // CLAUDE.md's "a sphere containing the terrain cannot produce a false negative" forbids.
+    //
+    // Astronomical.MaxTerrainRadius is exact for the base field, straight off the template. Over-
+    // padding costs one thing: a contact high above the ground pays for samples it did not need.
+    private static double MaxTerrainHeightMetres(Celestial body)
+    {
+        try
+        {
+            double exact = body.MaxTerrainRadius - body.MeanRadius;
+
+            return double.IsFinite(exact) && exact > 0.0
+                       ? exact + TerrainModifierHeadroomMetres
+                       : body.MaxTerrainHeightApprox;
+        }
+        catch
+        {
+            return body.MaxTerrainHeightApprox;
+        }
+    }
+
     public static bool IsHiddenByTerrain(double3 eyeEcl, double3 targetEcl, int samples,
                                          double clearance, out string blockedBy)
     {
@@ -679,7 +713,7 @@ internal static class KsaWorld
             double3 centre = body.GetPositionEcl();
 
             if (!TerrainMask.Blocked(eyeEcl, targetEcl, centre, body.MeanRadius,
-                                     body.MaxTerrainHeightApprox, samples, clearance,
+                                     MaxTerrainHeightMetres(body), samples, clearance,
                                      new TerrainHeights(body)))
             {
                 return false;
