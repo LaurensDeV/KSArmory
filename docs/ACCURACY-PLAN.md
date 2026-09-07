@@ -4638,6 +4638,87 @@ older, at 2,000 km rather than 6,269, and at 54.4 degrees rather than 51.
 is free now that it prints. What would confirm the account: a breaching flight showing a reference
 far older still, or the age flat and one of the other three inputs large.
 
+## 3bv. The bubble's FRAME is the divergence, and the existing logs already prove it
+
+Four investigations over the decompiled engine. This one closes a question open since 3ar.
+
+### There is no way back to rails from a Ccf bubble
+
+`PhysicsStates.TryToPutOnRails` (`PhysicsStates.cs:803-825`):
+
+```csharp
+if (Environment.InPhysicsRadius) { ...motionless landing only... }
+else if (Origin.BubFrame.IsCci()) { Props.Situation = ...WithOnRails(true); }
+```
+
+**A coasting vehicle returns to rails only when the bubble origin is `Cci`.** In a `Ccf` bubble
+there is no return path at all. The other candidate, `TryToPutCoastingOnRails`, is **unsatisfiable
+on any body with an atmosphere** — it demands `InPhysicsRadius` and simultaneously an altitude above
+`AtmosphereRadius + boundingRadius`, and on Earth those differ by one metre in the wrong direction.
+
+**So 3ay's null is explained.** QuietCoast releases the actuator, which is necessary and not
+sufficient: in a `Ccf` bubble the release buys nothing because nothing will put the vehicle back.
+Flown, base 282/380 off rails against quiet 276/376 — the actuator went quiet and rails never came
+back, exactly as this predicts.
+
+### And the missing acceleration is the rotating-frame terms
+
+`ComputeDerivatives` (`PhysicsStates.cs:853-872`) puts **centrifugal and Coriolis inside
+`if (environment.InPhysicsRadius)`**, which is *per vehicle*, while the frame is the *bubble's*,
+taken from its heaviest member (`PhysicsBubble.cs:2211-2224`, re-sorted by mass at `:477`). A member
+above the near-surface radius in a `Ccf` bubble is therefore integrated in a rotating frame **with
+the rotating-frame accelerations switched off**. Earth's near-surface radius works out at
+**167.41 km** altitude, derived from the 8 km scale height.
+
+The deficit is `2w x v + w x (w x r)`: **0.42 m/s^2 at 2.9 km/s**, 0.77 at 5, 1.06 at 7.
+
+### The corroboration is in logs already taken
+
+3au's two rows, which it could not explain:
+
+| shot | bubble | push | direction | over a 10 s probe |
+| --- | --- | --- | --- | --- |
+| 006 FAIL | 16 | 4.206 m/s | **90% cross-track** | **0.42 m/s^2** = `2wv` at 2.9 km/s |
+| 007 PASS | 2 | 0.572 | **93% radial** | 0.057 m/s^2 = the centrifugal term alone |
+
+`w x v` is perpendicular to the plane of `w` and `v`, so a near-polar arc puts it **cross-track**;
+the centrifugal term lies in the `w`-`r` plane and reads **radial**. **3au's "the direction, not the
+magnitude, is what repeats" is precisely what this mechanism predicts**, and it was measured before
+anyone knew what to predict.
+
+### The diagnostic, built
+
+`KsaWorld.BubbleFrameOf` and `BubbleLeaderAltitudeMetres` — both off public API
+(`Vehicle.BubbleOrigin`, `Vehicle.BubbleLeader`) — and the coast probe now prints
+`Cci|Ccf origin at N km, leader at M km`.
+
+**One flight settles it.** `Ccf` on divergent probes and `Cci` on healthy ones closes the account;
+`Cci` on a divergent probe refutes it outright.
+
+### And there is a lever, which is the part that matters
+
+`vehicle.GetPhysicsStatesMutable().Props.SetOnRails(true)` is **fully public** (`Vehicle.cs:916`,
+`VehicleProperties.cs:72`). It does not leave the bubble — it makes the bubble irrelevant, because a
+rails `Freefall` vehicle takes `ApplyFreefallMotion` and an exact conic regardless of the frame, and
+`UpdateFromAnalytic` handles a `Ccf` origin correctly.
+
+Two things to respect if it is built. **Rails costs the attitude hold** — any commanded actuator
+flips it straight back off — so it is only compatible with QuietCoast, and the natural shape is
+rails for the long coast, released a fixed time before deployment so the hold can settle. And the
+write reaches the worker from the `PrepareWorker` prefix the mod already patches, because
+`GetNewProps()` re-seeds from `ReadOnlyVehicle.Props` each frame.
+
+**That makes QuietCoast worth re-flying rather than retired** — it was the right idea missing its
+other half.
+
+### Two engine defects worth reporting upstream
+
+* `TryToPutCoastingOnRails` is unsatisfiable on any atmospheric body (contradictory altitude tests).
+* The bubble frame is a whole-bubble property while the rails rule and the fictitious-force rule are
+  both per-vehicle and assume the frame matches the vehicle's own altitude band. A bubble straddling
+  `GetNearSurfaceRadius()` breaks that, and `RemoveEligibleVehicles` cannot detect it because
+  `GetDesiredBubFrame` reads the shared origin.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4778,7 +4859,8 @@ what 20b is flying against.
 | **20b** | **Fly the quiet window to a verdict on divergent worlds.** Healthy is settled (harmless, twice). The divergent case is 4 of 5 worlds in favour, and the endpoint is the lost-mode MEDIAN, not the rate | ~3 nights, or 1 per divergent world | 3bi: 85.84 km to 50.35 within the lost mode; the rate does not move |
 | **20c** | **Check the frame-time regime on the next divergent world** — free, already logged | 0 shots | 3bi: the two disagreeing worlds sit either side of the 24 ms boundary, 23.3 against 26.5 |
 | ~~19b~~ | ~~**Log which of `PhysicsBubble`'s conditions holds a bus off rails**~~ | done | **built and verified: on a healthy world 11 of 34 off-rails probes are `neither actuator flag`, and `FreefallNeedsFullPhysics` fits the 6% arithmetically** — 3bg |
-| **19c** | **Read the flag on a divergent world** — free, the next night that draws one | 0 shots | 3bg: `neither` means the warp's `2 x DeltaTime` is the lever; `commanded` while quiet means `ZeroizeTvcs` |
+| **19c** | **Read `Cci`/`Ccf` on a divergent world.** The frame decides whether off rails is recoverable at all, and the diagnostic is built and public | free on the next divergent world | 3bv: `Ccf` closes the account, `Cci` refutes it |
+| **24** | **Force rails through the coast** — `Props.SetOnRails(true)`, public, makes the bubble irrelevant rather than escaping it. Only compatible with QuietCoast, and must be released before the deployment settles | build, then 14 paired | 3bv: this is QuietCoast's missing half |
 | **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
 | ~~21~~ | ~~**Gate a rotation command's nozzle set to zero net force**~~ | done, and already green | **`checkring.py` has measured it since `333f7b0` and `check-all.sh` gates it: the shipped bus leaks 0.000 on all three axes, so the coast push is not the mod's own thrusters** — 4c |
 | **23** | **Make the ascent know how far the target is.** Every shot under ~800 km is identical because guidance takes over on dynamic pressure, by which point the stack has ~3 km/s and the shot needs less | 0 shots to reproduce | 3bk: a 100 km target is flown exactly as an 800 km one |

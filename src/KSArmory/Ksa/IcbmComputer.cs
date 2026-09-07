@@ -1735,9 +1735,19 @@ internal sealed class IcbmComputer
         // the informative one, because it is what says to go looking past the actuators.
         string? actuator = rails is false ? KsaWorld.OffRailsActuator(Craft) : null;
 
+        // The bubble's frame, which decides whether going off rails is recoverable at all: only a
+        // Cci origin lets TryToPutOnRails put a coasting vehicle back. Printed with the origin's
+        // altitude and the leader's, because the frame is chosen by the heaviest member and a spent
+        // stage left low is what holds a whole bubble in Ccf.
+        string frame = KsaWorld.BubbleFrameOf(Craft) is var (name, originAlt)
+            ? $", {name} origin at {originAlt / 1000.0:F0} km"
+              + $", leader at {KsaWorld.BubbleLeaderAltitudeMetres(Craft) / 1000.0:F0} km"
+            : "";
+
         string loop = $", {(rails is null ? "rails unknown" : rails.Value ? "on rails" : "off rails")}"
                       + (KsaWorld.ForcedOffRails ? " (forced)" : "")
                       + (actuator is null ? rails is false ? " (neither actuator flag)" : "" : $" ({actuator})")
+                      + frame
                       + RailsSaid()
                       + hold
                       + $", trim {(TrimIsFiring ? "firing" : _trim.Done ? "done" : "idle")}"

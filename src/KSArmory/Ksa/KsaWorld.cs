@@ -323,6 +323,61 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// The bubble's reference frame, and how high its origin sits — <c>Cci</c>, <c>Ccf</c>, or null
+    /// when there is no bubble to ask.
+    ///
+    /// <para><b>This is the discriminator for the whole off-rails divergence, and it is one
+    /// boolean.</b> `PhysicsStates.TryToPutOnRails` returns a coasting vehicle to rails only when
+    /// the bubble origin is <c>Cci</c>; in a <c>Ccf</c> bubble there is no path back at all. And
+    /// `ComputeDerivatives` drops the centrifugal and Coriolis terms for any member above its own
+    /// <c>InPhysicsRadius</c> while the frame stays <c>Ccf</c> — a deficit of
+    /// <c>2w x v + w x (w x r)</c>, which is 0.42 m/s^2 at 2.9 km/s.</para>
+    ///
+    /// <para>The frame is the <em>bubble's</em>, taken from its heaviest member, so a spent stage
+    /// left below the near-surface radius holds the whole bubble in <c>Ccf</c> while the bus coasts
+    /// far above it. That is why releasing the attitude bought nothing: the actuator is one
+    /// condition of going off rails, and the frame is what refuses to undo it.</para>
+    /// </summary>
+    public static (string Frame, double OriginAltitudeMetres)? BubbleFrameOf(Vehicle? v)
+    {
+        if (!IsAlive(v)) return null;
+
+        try
+        {
+            if (!v!.HasPhysicsBubble) return null;
+
+            ref readonly BubbleOrigin origin = ref v.BubbleOrigin;
+            double altitude = origin.Parent is Celestial body
+                                  ? Vec.Len(origin.PositionBub) - body.MeanRadius
+                                  : double.NaN;
+
+            return (origin.BubFrame.IsCcf() ? "Ccf" : "Cci", altitude);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>How high the bubble's heaviest member is, which is what chooses the frame above.</summary>
+    public static double BubbleLeaderAltitudeMetres(Vehicle? v)
+    {
+        if (!IsAlive(v)) return double.NaN;
+
+        try
+        {
+            if (v!.BubbleLeader is not { } leader || !IsAlive(leader)) return double.NaN;
+            if (leader.Orbit?.Parent is not Celestial body) return double.NaN;
+
+            return Vec.Len(PositionEcl(leader) - body.GetPositionEcl()) - body.MeanRadius;
+        }
+        catch
+        {
+            return double.NaN;
+        }
+    }
+
+    /// <summary>
     /// How far the flight computer says this craft is from the attitude it was asked for, in
     /// degrees, or NaN when it cannot be read.
     ///

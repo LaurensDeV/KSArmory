@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-168 types and 466 members across 7 assemblies.
+169 types and 469 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -317,6 +317,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.BubbleFrame
 
 *referenced as a type only*
+
+### KSA.BubbleFrameEx
+
+- `bool IsCcf(KSA.BubbleFrame)`
 
 ### KSA.BubbleOrigin
 
@@ -649,6 +653,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Orbit
 
+- `KSA.IParentBody get_Parent()`
 - `KSA.Orbit CreateFromStateCci(KSA.IParentBody, KSA.UniverseTime, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.byte4)`
 - `double get_Apoapsis()`
 - `double get_Eccentricity()`
@@ -958,6 +963,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float get_PropellantMass()`
 - `float get_TotalMass()`
 - `int get_BubbleVehicleCount()`
+- `ref KSA.BubbleOrigin get_BubbleOrigin()`
 - `ref KSA.StructuralLoad get_StructuralLoad()`
 - `void PrepareWorker(KSA.SimStep)`
 - `void ProcessInput(KSA.InputAction, Brutal.GlfwApi.GlfwKeyAction, Brutal.GlfwApi.GlfwModifier)`
