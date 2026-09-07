@@ -34,7 +34,15 @@ which is 4 of 5 divergent worlds in favour (3bf, 3bh, 3bi). Item 20's stated mec
 though: a bus that verifiably stopped commanding attitude stayed off rails at an unchanged rate, and
 the two actuator flags now read `neither` on every off-rails probe of both arms (3bg).
 
-**4. And the divergence tracks the target, not the code.** 0 of 24 shots at 2,000 km, 8-20% at
+**4. The catastrophic mode is the harness, and that is now flown rather than argued.** 20 single
+rocket shots: **0 divergent, 10 m median, 30 m worst, all inside 35 m**. Add one neighbour 20 km
+away and it is **8 of 20** — Fisher **p=0.0033**, misses to 162 km. A player firing one ICBM has no
+neighbour, so ~15% of every night since 2026-09-02 has measured `make-scaling-save.py`'s pad
+spacing. Widen it. **3bl**, **3bm**, and it also means **metre-level resumes from 10 m rather than
+17**: the eight-rocket healthy median carries the seat spread, and seat 1 — the aimpoint a lone
+rocket flies — has read 7-10 m all week.
+
+**5. And the divergence tracks the target, not the code.** 0 of 24 shots at 2,000 km, 8-20% at
 6,269 km, with the change falling on the day the target moved rather than on any commit. The bubble
 envelope grows with the coast, so the long shot has time to reach a neighbouring pad and the short
 one does not. **A player firing one ICBM has no neighbour**, so the catastrophic mode is plausibly a
@@ -4112,6 +4120,46 @@ The two agree exactly.
    half the miss when a bubble *is* shared, and no longer on the critical path.
 3. **Metre-level resumes from 10 m, not 17.** Rung C wants ~5 m, and the gap is the trim's debt at a
    steep arrival (5f), not the divergence.
+
+## 3bm. One neighbour is enough — flown 2026-09-07, 0/20 against 8/20
+
+The other half of 3bl. Same target, same build, same night, varying only how many rockets share the
+world.
+
+| rockets | divergent | rate | shared-bubble probes | off-gravity max |
+| --- | --- | --- | --- | --- |
+| **1** | **0/20** | **0%** | **0** | **0.0011 m/s** |
+| **2** | **8/20** | **40%** | 3,008 | **6.3218 m/s** |
+| 8 | 24/153 | 16% | 18,048 | 4.2333 m/s |
+
+**Adding a single neighbour 20 km away takes divergence from 0% to 40%** — Fisher exact
+**p = 0.0033**. The two-rocket batch's misses run to **162 km** with a mean of 63.50, so it is the
+same failure and not a milder one.
+
+**A neighbour is necessary, and one is sufficient.** That settles 3bj: the catastrophic mode belongs
+to the harness, and `make-scaling-save.py`'s 20 km spacing is what produces it.
+
+### Two rockets are worse than eight, which is worth not glossing over
+
+40% against 16%, with a larger push (6.32 against 4.23 m/s). Fewer vehicles diverging *more* is the
+opposite of what a "more neighbours, more merging" reading predicts, so the mechanism is not simply
+proximity count. `PhysicsBubble` needs `NumVehicles < 2` for the rails path, so a pair that merges
+puts **both** members off rails, where eight may form several bubbles of which only some merge.
+
+**Not established, and not needed for the decision.** The 1-against-2 contrast is what the fix rests
+on and it is unambiguous. This is filed as the reason not to assume the eight-rocket rate is the
+worst case — a two-rocket save is the harsher instrument, which matters if anyone reaches for one
+to go faster.
+
+### The fix
+
+Regenerate the harness save with `--spacing` well past the envelope. The envelope is `5s` for a
+rocket holding its stage `s` away, so the spacing has to beat five times the largest stage
+separation before disposal, not five times the split radius. **Measure it rather than guessing**:
+fly two rockets at increasing spacings until the rate goes to zero, then take the next step up.
+
+Until that lands, **a lone rocket is the honest instrument** — 20 of 20 clean, 10 m median, 30 m
+worst — at the cost of the throughput the eight-rocket save was adopted for.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
