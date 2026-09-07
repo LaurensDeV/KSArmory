@@ -4598,6 +4598,46 @@ predicted cutoff (`:895`), which the measurement above shows lands within a metr
 looks right; but it is the only term whose magnitude nothing has bounded, and
 `docs/FRAMES-AND-EPOCHS.md` is the file for the shape.
 
+## 3bu. 5h answered: the debt is the coast's length, not the arrival's angle — flown 2026-09-07
+
+One shot, `base|p80:ArrivalPreference=0.8`, four rockets an arm, with `SayTheSplitDebt` printing all
+four inputs.
+
+| arm | arrival | owed at the split | **age of the reference** | distance from it |
+| --- | --- | --- | --- | --- |
+| base | 32.0-32.2 deg | 0.307 / 0.348 / 0.316 / 0.382 | **~969 s** | 4,300 km |
+| p80 | 51.0-51.6 deg | 0.760 / 0.891 / 0.847 / 0.956 | **~1,861 s** | 5,300 km |
+
+**The steep arm's reference is 1.92x older and its debt is 2.6x larger.** Per second of reference
+age the two arms agree to within a third — 3.4e-4 against 4.7e-4 m/s per second.
+
+**So the debt accumulates over the coast, and a steeper arrival simply has a longer one.** It is not
+a property of the angle: 3bs already showed every geometric sensitivity *falls* as the arc steepens,
+and this says what was left — the steep arc holds its reference for nearly twice as long, and the
+divergence between the vehicle and a conic propagated from an old reference grows with the holding.
+
+### What that corrects
+
+**"At the split" is a much later instant than the name suggests.** The split here is the bus leaving
+the spent stack near the release, not the booster staging: 969 s after cutoff on a shot that arrives
+in ~1,390. Every reading in 3bo, 3bp and 3bs labelled "at the split" is a reading taken most of a
+coast after cutoff, and the decompositions built on it were pricing terms at the wrong instant.
+
+**And it explains why the headless rig was clean at every angle** (3bt). The rig has no split and no
+trim, so it never holds a reference for 1,861 seconds — the one variable that turns out to matter is
+the one it does not have.
+
+### What it does not do is reproduce the 2148 failure
+
+This shot is healthy in both arms, with no ceiling breach: 0.87 m/s at 51 degrees against a 10 m/s
+ceiling. 2148's p80 read **3.410** median with three refusals at 20-26 m/s. So the accumulation
+above is the ordinary behaviour, and the flown failure is something on top of it — on a build a week
+older, at 2,000 km rather than 6,269, and at 54.4 degrees rather than 51.
+
+**The next reading is therefore the same line on a night that actually breaches the ceiling**, which
+is free now that it prints. What would confirm the account: a breaching flight showing a reference
+far older still, or the age flat and one of the other three inputs large.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4711,7 +4751,8 @@ what 20b is flying against.
 | ~~5e~~ | ~~Re-check the latched arrival floor against the state the burn **leaves** the vehicle in~~ | done | **refuted: the exit reaches steeper than the latch can afford, 77.8 against 67.8 — and the ceiling is the trim's debt, 2.6 to 4.19 m/s** — 3be |
 | ~~5f~~ | ~~Why the trim owes 4.19 m/s at a 54 deg floor against 2.6 at 44~~ | done | **it is asked for 4.5x more, not failing to pay: 0.76 m/s owed at 44 deg against 3.41 at 54, and only 54 ever hits the 10 m/s ceiling** — 3bo |
 | ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
-| **5h** | **Read `split debt` on a steep-arrival arm.** Eight candidates eliminated headlessly and the rig cannot reach the ninth — it has no split and does not run the trim. The diagnostic is built and prints all four inputs | free on any night with an arrival arm | 3bt: **this is what rung C is behind**, and one reading names the term |
+| ~~5h~~ | ~~Read `split debt` on a steep-arrival arm~~ | done, 1 shot | **the debt is the coast's length: the steep arm holds its reference 1.92x longer and owes 2.6x more, agreeing per second. Not the angle** — 3bu |
+| **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |
 | ~~1d~~ | ~~Price the round's arrival over relief~~ | done | **−5,143 m against its own probe over KSA's erosion, stable to 11 m** — 3ac |
