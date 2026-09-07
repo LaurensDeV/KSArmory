@@ -95,7 +95,12 @@ VERDICT = re.compile(
 ARRIVED = re.compile(r"(\d+)\s+of\s+(\d+)\s+arrived")
 PICKUP = re.compile(r"already flying at\s+(\d+)\s*km doing\s+(\d+)\s*m/s")
 ONPAD = re.compile(r"on the ground at")
-CUTOFF = re.compile(r"cutoff:\s*residual\s+([-\d.]+)\s*m/s,\s*own prediction\s+([-\d.]+)\s*km off")
+# The craft is optional because logs written before the line carried a name still have to read.
+# Without it this took the FIRST cutoff in the file and handed it to every rocket in the world --
+# the same one-craft's-reading-worn-by-eight that why_it_ended exists to avoid, and the reason the
+# residual could not be attributed to an arm on a paired night (3bo).
+CUTOFF = re.compile(r"cutoff(?: on (?P<craft>.+?))?:\s*residual\s+(?P<residual>[-\d.]+)\s*m/s,"
+                    r"\s*own prediction\s+(?P<own>[-\d.]+)\s*km off")
 TRIM = re.compile(r"owed\s+([-\d.]+)\s*m/s at the split,\s*([-\d.]+)\s*m/s on release")
 OFFLINE = re.compile(r"warhead away from tube\s+(\d+),\s*([-\d.]+)\s*deg off the salvo's line")
 PROBE = re.compile(r"release probe:.*?([\d.]+)\s*km from the target,\s*(\d+)\s*s of flight")
@@ -368,9 +373,14 @@ def read_shot(out_path, log_path, craft=None):
         shot["pickup_km"], shot["pickup_ms"] = float(m.group(1)), float(m.group(2))
     elif ONPAD.search(both):
         shot["pickup_km"], shot["pickup_ms"] = 0.0, 0.0
-    m = CUTOFF.search(both)
+    # This craft's own cutoff where the line names one, and the shared first reading where it does
+    # not -- old batches keep behaving exactly as they did.
+    named = [m for m in CUTOFF.finditer(both) if m.group("craft")]
+    want = _craft(craft) if craft else None
+    m = next((m for m in named if _craft(m.group("craft")) == want), None) if want else None
+    m = m or (None if named and want else CUTOFF.search(both))
     if m:
-        shot["residual"], shot["own_km"] = float(m.group(1)), float(m.group(2))
+        shot["residual"], shot["own_km"] = float(m.group("residual")), float(m.group("own"))
     m = TRIM.search(both)
     if m:
         shot["trim_split"], shot["trim_release"] = float(m.group(1)), float(m.group(2))

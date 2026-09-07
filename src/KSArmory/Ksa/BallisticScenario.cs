@@ -678,6 +678,11 @@ internal sealed class BallisticScenario
     // The two numbers that separate a shot that was never aimed right from one that was aimed right
     // and flown badly: what the engines left ungained, and how far the mod's own prediction of the
     // arc it cut off on lands from the target.
+    //
+    // Named, because a paired night runs several arms in one world and an unnamed residual cannot
+    // be attributed to any of them. 3bo needs exactly this reading: the trim's demand is 4.5x
+    // larger at a 54 degree arrival than a 44, and whether that is a lighter stack at cutoff or the
+    // clearance wait is decided by the residual per arm.
     private void ReportCutoff()
     {
         if (_saidCutoff || _computer is not { } computer) return;
@@ -689,7 +694,8 @@ internal sealed class BallisticScenario
             ? $"{computer.PredictedMissMetres / 1000.0:F2} km off"
             : "nothing predicted";
 
-        _say($"CAPTURE cutoff: residual {computer.Program.ResidualAtCutoff:F2} m/s, "
+        _say($"CAPTURE cutoff on {KsaWorld.DisplayName(computer.Craft)}: "
+             + $"residual {computer.Program.ResidualAtCutoff:F2} m/s, "
              + $"own prediction {predicted}");
     }
 
