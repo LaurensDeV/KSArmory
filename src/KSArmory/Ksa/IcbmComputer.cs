@@ -1946,7 +1946,7 @@ internal sealed class IcbmComputer
                  + $"aim response {_aim.Response:F2} (raw {_aim.LastRawResponse:F2}) off "
                  + $"{_aim.PlantMeasurements} plant reading(s), "
                  + $"bias {Distance.Say(Vec.Len(_aim.BiasCci))}, "
-                 + $"best {_aim.BestMissMetres / 1000.0:F2} km, worse for {_aim.WorseFor}");
+                 + $"best {Distance.Say(_aim.BestMissMetres)}, worse for {_aim.WorseFor}");
     }
 
     // What the ground the warheads are about to cross actually does, once per flight, beside the
@@ -2797,7 +2797,11 @@ internal sealed class IcbmComputer
             // What the correction is being told and what it has done about it, per cycle. A bias
             // that ends at its limit says nothing about how it got there - walked, jumped, or
             // pushed back and forth - and those want different fixes.
-            Log.Debug($"aim: bias {Distance.Say(AimBiasMetres)}, predicted miss "
+            //
+            // Named, for the reason why_it_ended and the cutoff line are: eight rockets write this
+            // into one log, so unattributed it is a set of readings rather than eight traces and no
+            // bias can be paired with the miss its own rocket landed at.
+            Log.Debug($"aim on {KsaWorld.DisplayName(Craft)}: bias {Distance.Say(AimBiasMetres)}, predicted miss "
                       + $"{Distance.Say(PredictedMissMetres)}, from "
                       + $"{(fromCutoff ? "the solved cutoff" : "the live state")}, "
                       + $"kick {Vec.Len(ReleaseImpulseCci()):F2} m/s");

@@ -4816,6 +4816,71 @@ helped it converge.
 right that the value does not matter above the miss, and this is the first measurement below it: the
 loop's behaviour changes completely (31 to 3) and the shot does not.
 
+## 3by. The aim the predictor scores best is not the aim that lands best — 2026-09-07
+
+Item 26, one paired world (`base|band:AimThresholdTracksTheMiss=true`, 4 v 4) flown to read the aim
+trace now `Distance.Say` can express a ten-metre shot.
+
+**The `aim:` line does not name its craft, but the release summary does** — and it carries the final
+bias, the best miss the loop banked and the excursion count, once per flight. That is the pairing,
+and it was already in every log:
+
+| craft | arm | best predicted miss | landed |
+| --- | --- | --- | --- |
+| FAT 4 | base | 190 m | **4 m** |
+| FAT | band | 10 m | 6 m |
+| FAT 8 | base | 30 m | 6 m |
+| FAT 5 | band | 10 m | 7 m |
+| FAT 6 | base | **220 m** | 10 m |
+| FAT 2 | base | 60 m | 13 m |
+| FAT 7 | band | **0 m** | 37 m |
+| FAT 3 | band | 10 m | **67 m** |
+
+**Spearman ρ = −0.39 between what the loop scored and where the rocket landed** (exact p = 0.34,
+n = 8 — not significant, and the point estimate is the wrong sign). The largest predicted miss in
+the world landed closest; the smallest landed second-worst.
+
+### What the two arms actually differ in, which is not what 3bx assumed
+
+`AimCorrection.Freeze()` runs at `pass.MayRelease` on **every** flight and reverts the bias to
+`_bestBias`. So the band is not only a stopping rule — it decides *which* aim ships:
+
+* **base**, at a flat 250 m: `_bestMiss` stops ratcheting once the miss is inside 250 m, so
+  `_bestBias` is pinned at the aim from when the shot was ~200 m out and the walking the loop does
+  afterwards is **discarded at release**. Its `best` column reads 190 and 220 m for flights landing
+  at 4 and 10 m, which is that pinning made visible.
+* **band**, at 25% with a 1 m floor: `_bestMiss` ratchets to 0–10 m, so `_bestBias` is nearly the
+  latest aim.
+
+**The arm that ships a coarse, early aim landed better** — base 4, 6, 10, 13 m against band
+6, 7, 37, 67 m. One world, 4 v 4, so this settles nothing on its own; a Wilcoxon over four unpaired
+flights cannot reach significance at any effect size. But the mechanism is now visible rather than
+inferred, and it agrees with the ρ above: **reverting to the best-scoring aim reverts to an aim
+chosen by a judge that does not track the outcome.**
+
+`Freeze()`'s reasoning still holds where it was drawn — 2.1 km at pass 2, 6.0 at pass 3, 4.5 at
+pass 4, at 12,902 km. At kilometre scale the predictor *is* informative. At ten metres it is not,
+which is the 250 m band's lesson one level up: **a rule sized for a kilometre shot goes blind as
+the shot improves, and this one goes blind while still making decisions.**
+
+### Two things I read wrong first
+
+* **The bias is not frozen at release.** Two consecutive trace samples read identical on all eight,
+  which I took for convergence; they are one measurement interval apart. Against the release
+  summaries the biases moved 0–55 m over that window, and FAT 4's walked 341 → 396 m.
+* **No flight settled on the excursion count.** `WorseBeforeStopping` is **12** and the highest
+  observed is 2, so the `worse for`/landing correlation (ρ = +0.74, p = 0.036) is not that path
+  firing. It is also confounded beyond use: a flat 250 m band makes the count structurally zero, so
+  it is only measurable on the band arm at all.
+
+### And the counter was not counting what it says
+
+`_worseFor` was never cleared by a pass that was neither better nor worse, so it accumulated over a
+whole flight: twelve scattered excursions stopped the loop as readily as one run of twelve. The name,
+and the patch it was sized against, are both about a *run*. Unreachable at the shipped 250 m band —
+nothing at this scale is 250 m worse than the best — and live the moment the band follows the miss.
+Fixed, with `AimPatienceTests` failing against the cumulative form.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -4931,7 +4996,8 @@ what 20b is flying against.
 | ~~5g~~ | ~~Name the craft on the cutoff line, read the residual per arm~~ | built `2d28003`; headless half done | **the cutoff residual is a minor term: 1.59x where the demand is 4.5x, and 0.06-0.10 m/s against 0.76-3.41** — 3bp |
 | ~~5h~~ | ~~Read `split debt` on a steep-arrival arm~~ | done, 1 shot | **the debt is the coast's length: the steep arm holds its reference 1.92x longer and owes 2.6x more, agreeing per second. Not the angle** — 3bu |
 | ~~25~~ | ~~The aim correction stops 25x above the miss~~ | done, 14 paired | **the stopping rule was blind and unblinding it changes nothing: `noimprov` 31 to 3, miss 0.88x [0.84, 1.10] unresolved** — 3bx |
-| **26** | **What the aim correction converges TO.** It reaches 8-18 m at release and more passes do not improve it, so it is a floor rather than an early stop. The trim still owes 2.6 m/s at release in both arms — a correction computed but not flown looks exactly like this | 0 shots to price headlessly | 3bx: **the largest term in the shot, one layer deeper than 25** |
+| **26** | **The predictor's best-scoring aim does not track the landing** (rho -0.39, n=8) — and `Freeze()` ships that aim on every flight. What the correction converges to is a judge, not a floor | 1 world | 3by |
+| **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
 | ~~1b~~ | ~~Gate `ImpactPredictor`'s step on clearance, not density~~ | — | **dropped** — worth 0.13 m, costs ~120 lookups a prediction (3ab) |

@@ -394,11 +394,23 @@ internal sealed class AimCorrection
             _bestBias = BiasCci;
             _worseFor = 0;
         }
-        else if (miss > _bestMiss + band && ++_worseFor >= WorseBeforeStopping)
+        else if (miss > _bestMiss + band)
         {
-            BiasCci = _bestBias;
-            Settled = true;
-            return;
+            if (++_worseFor >= WorseBeforeStopping)
+            {
+                BiasCci = _bestBias;
+                Settled = true;
+                return;
+            }
+        }
+        else
+        {
+            // A pass level with the best ends the excursion. WorseBeforeStopping is a run - the
+            // patch the loop is meant to sit through - and without this the count accumulated over
+            // a whole flight, so twelve scattered excursions stopped it as readily as one patch of
+            // twelve. Unreachable while the band was a flat 250 m, because nothing at this shot's
+            // scale is 250 m worse than the best.
+            _worseFor = 0;
         }
 
         BiasCci = Vec.ClampLength(BiasCci - error / _response, Reach);

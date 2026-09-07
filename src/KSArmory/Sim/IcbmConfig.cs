@@ -401,10 +401,17 @@ internal sealed class IcbmConfig
     /// was calibrated and tightens as the shot improves. The floor is what the instrument can
     /// resolve rather than what is wanted.</para>
     ///
-    /// <para><b>Off, and off is what ships</b>, until it has been flown. The Dead list's
-    /// "<c>ImprovedByMetres</c> 50/250/1000 identical" is not evidence against this: all three are
-    /// far above the miss, so all three stop the loop the same way. The value never tried is one
-    /// below it.</para>
+    /// <para><b>Off, and off is what ships.</b> The Dead list's "<c>ImprovedByMetres</c>
+    /// 50/250/1000 identical" is not evidence against it — all three are far above the miss, so all
+    /// three stop the loop the same way — but one flown world is, and it is adverse: 6, 7, 37, 67 m
+    /// against 4, 6, 10, 13 m for the flat band, 4 v 4.</para>
+    ///
+    /// <para>The band is not only a stopping rule, which is what that world showed.
+    /// <see cref="AimCorrection.Freeze"/> reverts to the best-scoring aim at every release, so a
+    /// band that ratchets <c>_bestMiss</c> down also decides which aim ships — and the predictor's
+    /// ranking does not track where the rocket lands (rho -0.39 over eight flights). Tightening the
+    /// band makes the loop act on a judge it should trust less, not more.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3by.</para>
     /// </summary>
     public bool AimThresholdTracksTheMiss;
 
