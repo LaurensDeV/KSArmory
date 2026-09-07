@@ -630,7 +630,12 @@ internal sealed class IcbmComputer
             {
                 // Quiet, not Release: dropping the aim leaves the computer holding its last target
                 // and still firing for it, which is the whole cost back.
-                AttitudeHook.Quiet(Craft);
+                //
+                // And on rails as well where asked, because quiet alone is only half of it: in a Ccf
+                // bubble TryToPutOnRails refuses, so a quieted bus stays integrated for the rest of
+                // the coast. IcbmConfig.RailsDuringCoast, docs/ACCURACY-PLAN.md 3bv.
+                if (Config.RailsDuringCoast) AttitudeHook.QuietOnRails(Craft);
+                else AttitudeHook.Quiet(Craft);
             }
             else
             {

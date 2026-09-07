@@ -363,6 +363,28 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool QuietCoast;
 
+    /// <summary>
+    /// Assert rails as well as going quiet, so the coast is propagated rather than integrated.
+    ///
+    /// <para><b>This is the half <see cref="QuietCoast"/> was missing.</b> Releasing the actuator is
+    /// necessary and not sufficient: <c>PhysicsStates.TryToPutOnRails</c> puts a coasting vehicle
+    /// back on rails only when the physics bubble's origin frame is <c>Cci</c>, and a bubble whose
+    /// heaviest member sits below the near-surface radius — a rocket on its pad, a spent stage under
+    /// 167 km — is <c>Ccf</c>, where there is no path back at all. Flown 2026-09-05: a quieted arm
+    /// spent 276 of 376 coast probes off rails against a pointed arm's 282.</para>
+    ///
+    /// <para>Off rails and above its own <c>InPhysicsRadius</c>, the engine drops the centrifugal
+    /// and Coriolis terms — a deficit of <c>2w x v + w x (w x r)</c>, 0.42 m/s^2 at 2.9 km/s, which
+    /// is the non-gravitational push that walks the impact 50 to 160 km.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3bv has the derivation and the corroboration from logs already
+    /// taken.</para>
+    ///
+    /// <para><b>Off, and off is what ships</b>, until it has been flown. It does nothing unless
+    /// <see cref="QuietCoast"/> is on as well, because any commanded actuator takes the vehicle off
+    /// rails again on the same sub-step.</para>
+    /// </summary>
+    public bool RailsDuringCoast;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

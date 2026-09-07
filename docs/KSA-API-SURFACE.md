@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-169 types and 470 members across 7 assemblies.
+171 types and 473 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -767,6 +767,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `bool _forceOffRails`
 
+### KSA.PhysicsStates
+
+- `ref KSA.VehicleProperties Props`
+
 ### KSA.PlumeTrailEmitterState
 
 - `void .ctor()`
@@ -952,6 +956,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Orbit get_Orbit()`
 - `KSA.Part get_ControlPart()`
 - `KSA.PartTree get_Parts()`
+- `KSA.PhysicsStates GetPhysicsStatesMutable()`
 - `KSA.Situation get_Situation()`
 - `KSA.Vehicle CreateVehicle(KSA.CelestialSystem, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 - `KSA.Vehicle get_BubbleLeader()`
@@ -986,6 +991,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.VehicleEditor
 
 *referenced as a type only*
+
+### KSA.VehicleProperties
+
+- `void SetOnRails(bool)`
 
 ### KSA.VehicleReferenceFrame
 

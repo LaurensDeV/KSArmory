@@ -497,6 +497,17 @@ internal sealed partial class Ui
             {
                 config.QuietCoastEndsBeforeReleaseSeconds = ends;
             }
+
+            bool rails = config.RailsDuringCoast;
+            if (ImGui.Checkbox("  Assert rails while quiet", ref rails))
+            {
+                config.RailsDuringCoast = rails;
+            }
+
+            ImGui.TextDisabled("  " + (config.RailsDuringCoast
+                ? "propagated as an exact conic rather than integrated -- the half quiet alone "
+                  + "cannot do, because a Ccf bubble never puts a coasting craft back"
+                : "quiet only; in a Ccf bubble the engine will not return it to rails on its own"));
         }
 
         float preference = (float)config.ArrivalPreference;
