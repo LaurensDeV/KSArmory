@@ -1479,7 +1479,22 @@ internal sealed class IcbmComputer
             // 12,902 km, a run read 2.1 km at pass 2, 6.0 at pass 3, 4.5 at pass 4 and released on
             // the 4.5. Freeze is the existing "stop and keep the best" and costs nothing when the
             // loop had already settled.
+            //
+            // Said, because what it reverts is the largest decision nothing had ever written down:
+            // the bias the warheads actually leave on is this one, not the one the trace ends at,
+            // and at 250 m the score it reverts to goes stale while the loop walks on -- read
+            // 190 m of banked best against a 4 m landing. docs/ACCURACY-PLAN.md 3by.
+            double3 walkedTo = _aim.BiasCci;
             _aim.Freeze();
+            double reverted = Vec.Len(_aim.BiasCci - walkedTo);
+
+            Log.Info($"aim frozen on {KsaWorld.DisplayName(Craft)}: shipping "
+                     + $"{Distance.Say(Vec.Len(_aim.BiasCci))}, "
+                     + (reverted > 0.0
+                            ? $"reverted {Distance.Say(reverted)} from the {Distance.Say(Vec.Len(walkedTo))} "
+                              + "the loop had walked to"
+                            : "which is where the loop had walked to")
+                     + $", best {Distance.Say(_aim.BestMissMetres)}");
         }
 
         if (!double.IsFinite(_owedAtSplit) && double.IsFinite(trim.ToGainMetresPerSecond))
