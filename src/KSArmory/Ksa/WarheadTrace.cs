@@ -42,6 +42,12 @@ internal sealed class WarheadTrace
     /// than one built here: the question is whether the round and the mod's own predictor agree, and
     /// a second height-field reader would answer a different one.
     /// </param>
+    /// <param name="Craft">
+    /// Whose warhead this is. Eight rockets write into one log, so a line without it is a reading
+    /// that cannot be paired with the flight it came from — and the aim points are 12 km apart but
+    /// two of the eight sit 100 m apart, so recovering it from the landing coordinate does not work
+    /// either. Same fault the cutoff line and <c>why_it_ended</c> already carry a name for.
+    /// </param>
     internal readonly record struct Setup(
         Celestial Parent,
         BallisticBody Body,
@@ -49,7 +55,8 @@ internal sealed class WarheadTrace
         double3 TrueAimCci,
         double PredictStepSeconds,
         Func<double3, double> TerrainRadiusAt,
-        Func<double3, double> DensityRatioAt);
+        Func<double3, double> DensityRatioAt,
+        string Craft = "");
 
     // How often the round's own state is written down, and how often the prediction is re-flown from
     // it. Only the second is expensive - about two hundred RK4 steps at release, falling to a
@@ -146,7 +153,7 @@ internal sealed class WarheadTrace
             // Full precision on purpose: this line is what lets the same release be re-flown in
             // tests/KSArmory.Tests without the game, which is the only way the flight and the rig
             // can be made to answer the same question.
-            Log.Info($"warhead trace: {RoundLabel.For(round.Tube)} away"
+            Log.Info($"warhead trace on {setup.Craft}: {RoundLabel.For(round.Tube)} away"
                      + $" | Cci r=({positionCci.X:F1},{positionCci.Y:F1},{positionCci.Z:F1})"
                      + $" v=({velocityCci.X:F4},{velocityCci.Y:F4},{velocityCci.Z:F4})"
                      + $" | alt {setup.Body.AltitudeOf(positionCci) / 1000.0:F3} km,"
@@ -368,7 +375,7 @@ internal sealed class WarheadTrace
 
             double3 atReleaseEpoch = setup.Body.UncarryCci(positionCci, atBurst);
 
-            Log.Info($"warhead trace: {RoundLabel.For(round.Tube)} {Ended(round)}"
+            Log.Info($"warhead trace on {setup.Craft}: {RoundLabel.For(round.Tube)} {Ended(round)}"
                      + $" at {LatLon(setup, positionCci)}"
                      + $" | {Ground(setup, positionCci, setup.TrueAimCci):F0} m from the aim"
                      + Walk(setup, atReleaseEpoch)

@@ -139,6 +139,8 @@ internal sealed class IcbmComputer
 
     private readonly WarheadTrace _trace = new();
     private bool _traceWanted;
+    private MunitionProfile? _tracedWarhead;
+    private bool _saidTraceStranded;
     private bool _tracedThisShot;
 
     // Cached rather than converted at each call site: a method group becomes a delegate by
@@ -386,6 +388,8 @@ internal sealed class IcbmComputer
         // just moved. Whatever is still in the air from the last one is dropped rather than scored
         // against the wrong target.
         _tracedThisShot = false;
+        _tracedWarhead = null;
+        _saidTraceStranded = false;
         _trace.Forget();
 
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} designated {site.Describe()}");
@@ -2077,6 +2081,7 @@ internal sealed class IcbmComputer
         if (inFlight.Rounds is not { Count: > 0 } rounds) return;
 
         _tracedThisShot = true;
+        _tracedWarhead = setup.Warhead;
         _trace.Begin(rounds[^1], setup);
     }
 
@@ -2084,7 +2089,22 @@ internal sealed class IcbmComputer
     {
         if (!_traceWanted) { _trace.Forget(); return; }
         if (!_trace.Watching) return;
-        if (TraceSetup() is not { } setup) return;
+
+        if (TraceSetup() is not { } setup)
+        {
+            // Said once rather than returning quietly. A stranded trace is indistinguishable in the
+            // log from a flight that was never traced, which is what made half a night's readings
+            // look like a sampling choice rather than a fault.
+            if (!_saidTraceStranded)
+            {
+                _saidTraceStranded = true;
+                Log.Warn($"warhead trace on {KsaWorld.DisplayName(Craft)} stranded: "
+                         + (Parent is null ? "no parent body" : "no warhead profile")
+                         + " -- the round is still flying and nothing is watching it");
+            }
+
+            return;
+        }
 
         _trace.Update(simStep, setup);
     }
@@ -2092,11 +2112,19 @@ internal sealed class IcbmComputer
     private WarheadTrace.Setup? TraceSetup()
     {
         if (Parent is not { } parent) return null;
-        if (_warhead is not { } warhead) return null;
+
+        // Latched, because a trace follows one round that has already left and the profile of a
+        // round in the air cannot change. `_warhead` is re-read from the launcher every frame, so
+        // it goes null the moment the launcher does -- and TraceSetup returning null there does not
+        // end the trace, it *strands* it: Finish is only reachable from Update, so the round lands
+        // with nothing watching and the flight is simply absent from the log. Measured on
+        // 2026-09-08: all eight traces began, four finished.
+        if ((_warhead ?? _tracedWarhead) is not { } warhead) return null;
 
         return new WarheadTrace.Setup(parent, Body, warhead, _trueAimCci, PredictStepSeconds,
                                       _terrainRadius ??= TerrainRadiusAt,
-                                      _densityRatio ??= DensityRatioAt);
+                                      _densityRatio ??= DensityRatioAt,
+                                      KsaWorld.DisplayName(Craft));
     }
 
     // What the prediction says about the state the warhead is actually leaving on, beside where the
