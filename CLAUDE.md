@@ -429,6 +429,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/GunSound.cs` | the cannon you can hear, one looping channel pitched by its fire rate |
 | `Ksa/TracerTrail.cs` | tracers, an emitter riding a shell rather than thrown from the muzzle |
 | `Ksa/Sight.cs` | paints the gunner's sight over the camera the optical head drives |
+| `Ksa/SightSurface.cs` | **which window that sight paints on** — and the draw list that reaches it, because a camera window's picture is a window and the main view's is not |
 | `Ksa/SightCamera.cs` | borrows the main view to look through the optical head, and gives it back |
 | `Ksa/Markers.cs` | on-screen brackets over every weapons system, labelled on hover or when pinned |
 | `Ksa/LockCueOverlay.cs` | brackets on **what the selected weapon is engaging**, closing as the lock matures |
@@ -467,7 +468,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 473 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 480 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |

@@ -43,33 +43,39 @@ internal static class Sight
     {
         if (policy.Viewport < 0 || battery.OpticPart is null) return;
 
-        // The background list, not a window of the mod's own. A full-screen window is submitted
-        // after the panel and therefore draws over it, so the reference line and the status block
-        // cut across whatever the operator is reading. This list renders beneath every window,
-        // which is what a sight on the glass wants and is what the game itself uses for its own
-        // main-viewport overlays.
-        ImDrawListPtr draw = ImGui.GetBackgroundDrawList();
+        // The window this head is actually driving, which need not be the one the player flies
+        // from. Everything below is measured and drawn against it -- a projection, a field of
+        // view or a centre taken from the main view instead puts the whole picture on the wrong
+        // window, at the wrong scale, from a camera pointing somewhere else.
+        if (!SightSurface.TryFor(policy.Viewport, out SightSurface surface)) return;
 
-        ImGuiViewportPtr main = ImGui.GetMainViewport();
-        float2 centre = new(main.Pos.X + main.Size.X * 0.5f, main.Pos.Y + main.Size.Y * 0.5f);
-
-        if (policy.Symbology)
+        try
         {
-            DrawReferenceLine(draw, battery);
-            DrawBoresight(draw, centre);
-        }
+            ImDrawListPtr draw = surface.Draw;
+            float2 centre = surface.Centre;
 
-        // Outside the symbology switch: this is a control's own state rather than an annotation
-        // of one, and a drag with nothing showing where its rest area ends is a control you have
-        // to learn by feel.
-        if (policy.MouseAim && policy.Viewport == KsaWorld.MainViewportIndex)
+            if (policy.Symbology)
+            {
+                DrawReferenceLine(surface, battery);
+                DrawBoresight(draw, centre);
+            }
+
+            // Outside the symbology switch: this is a control's own state rather than an
+            // annotation of one, and a drag with nothing showing where its rest area ends is a
+            // control you have to learn by feel.
+            if (policy.MouseAim && policy.Viewport == KsaWorld.MainViewportIndex)
+            {
+                DrawDragIndicator(draw, policy, centre);
+            }
+
+            DrawTarget(surface, battery, weapon);
+
+            if (policy.Symbology && weapon is not null) DrawStatus(surface, weapon, policy);
+        }
+        finally
         {
-            DrawDragIndicator(draw, policy, centre);
+            surface.Finish();
         }
-
-        DrawTarget(draw, battery, main, centre, weapon);
-
-        if (policy.Symbology && weapon is not null) DrawStatus(draw, weapon, policy, main);
     }
 
     // Where the cursor is against the rest area, drawn from the same numbers the head acts on --
@@ -117,15 +123,17 @@ internal static class Sight
     // The horizontal through the site, drawn from places that genuinely sit on it. A line laid
     // flat across the screen would only be right where the camera happens to be level, and the
     // whole reason to draw one is that it is not.
-    private static void DrawReferenceLine(ImDrawListPtr draw, IOpticalHead battery)
+    private static void DrawReferenceLine(SightSurface surface, IOpticalHead battery)
     {
+        ImDrawListPtr draw = surface.Draw;
+
         if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward)) return;
 
         // Sized to the field the camera is actually showing. A fixed span puts both ends far
         // outside a magnified picture, and at 3° that is most of a right angle away -- behind the
         // camera at any elevation, which is a reference line that vanishes the moment it is
         // needed.
-        double fovRad = KsaWorld.ViewportFovRad(KsaWorld.MainViewportIndex);
+        double fovRad = KsaWorld.ViewportFovRad(surface.Index);
         double half = Math.Clamp(fovRad, 0.02, 1.2);
 
         Span<double3> arc = stackalloc double3[ArcPoints];
@@ -139,7 +147,10 @@ internal static class Sight
         // Off the edge of the picture is expected and kept -- the draw list clips. Only a point
         // behind the camera is dropped, and then the segments touching it are skipped rather than
         // the whole line, so the reference survives the head swinging past the vertical.
-        for (int i = 0; i < n; i++) ok[i] = KsaWorld.TryProjectUnbounded(arc[i], out at[i]);
+        for (int i = 0; i < n; i++)
+        {
+            ok[i] = KsaWorld.TryProjectUnbounded(surface.Index, arc[i], out at[i]);
+        }
 
         int middle = n / 2;
 
@@ -156,16 +167,22 @@ internal static class Sight
     }
 
     // The target bracket, the gun pipper, and the lead between them.
-    private static void DrawTarget(ImDrawListPtr draw, IOpticalHead battery, ImGuiViewportPtr main,
-                                   float2 centre, ISightPicture? weapon)
+    private static void DrawTarget(SightSurface surface, IOpticalHead battery,
+                                   ISightPicture? weapon)
     {
+        ImDrawListPtr draw = surface.Draw;
+        float2 centre = surface.Centre;
+
         if (battery.LockedTrack is not { } track) return;
 
         // Where the craft is *drawn*, which is not where it is simulated. A bracket is the one
         // thing that has to sit exactly on the target, and the analytic-versus-physics gap is
         // metres on the ground -- noise at 50° of field and tens of pixels at 3°.
         if (!track.Contact.TryDrawEgo(out double3 targetEgo)) return;
-        if (!KsaWorld.TryProjectEgoOrClamp(targetEgo, out float2 at, out bool inView)) return;
+        if (!KsaWorld.TryProjectEgoOrClamp(surface.Index, targetEgo, out float2 at, out bool inView))
+        {
+            return;
+        }
 
         bool settled = battery.OpticOnTarget;
         ImColor8 colour = settled ? Reticle : Pending;
@@ -186,7 +203,7 @@ internal static class Sight
         int count = KSArmory.Reticle.Build(at, half, settled, _strokes);
         for (int i = 0; i < count; i++) Line(draw, _strokes[i].A, _strokes[i].B, colour);
 
-        if (weapon is not null) DrawPipper(draw, weapon, main, at, track, targetEgo);
+        if (weapon is not null) DrawPipper(surface, weapon, at, track, targetEgo);
 
         string label = KSArmory.Reticle.RangeAndClosing(track.Range, track.ClosingSpeed);
         Text(draw, new float2(at.X - half, at.Y + half + 6f), label, colour);
@@ -196,9 +213,11 @@ internal static class Sight
 
     // Where the shells will actually be. Sized to what the round covers at that range rather than
     // to a fixed icon, so the ring closing on the bracket is the shot coming together.
-    private static void DrawPipper(ImDrawListPtr draw, ISightPicture battery, ImGuiViewportPtr main,
+    private static void DrawPipper(SightSurface surface, ISightPicture battery,
                                    float2 targetAt, Track track, double3 targetEgo)
     {
+        ImDrawListPtr draw = surface.Draw;
+
         if (!battery.TryRingAimEcl(out double3 aimEcl, out bool isGunLead) || !isGunLead) return;
 
         // The lead as a separation from the target, carried onto the target's *drawn* position.
@@ -207,14 +226,19 @@ internal static class Sight
         // there.
         double3 leadEgo = targetEgo + (aimEcl - track.PositionEcl);
 
-        if (!KsaWorld.TryProjectEgoOrClamp(leadEgo, out float2 at, out bool leadInView)) return;
+        if (!KsaWorld.TryProjectEgoOrClamp(surface.Index, leadEgo, out float2 at,
+                                           out bool leadInView))
+        {
+            return;
+        }
+
         if (!leadInView) return;
 
         MunitionProfile shell = Catalogue.MunitionNamed(battery.Profile.GunMunition ?? battery.Munition.Name);
 
         float radius = SightZoom.ApparentPixels(Warhead.LethalRadius(shell.ChargeKg), track.Range,
-                                                double.RadiansToDegrees(KsaWorld.ViewportFovRad(KsaWorld.MainViewportIndex)),
-                                                main.Size.Y);
+                                                double.RadiansToDegrees(KsaWorld.ViewportFovRad(surface.Index)),
+                                                surface.Size.Y);
         radius = Math.Clamp(radius, 6f, 90f);
 
         // The lead itself. Drawn from the bracket to the pipper because that separation *is* the
@@ -252,10 +276,10 @@ internal static class Sight
 
     // The block a gunner reads without looking away from the target: what is on, what is loaded,
     // and how far in the optics are wound.
-    private static void DrawStatus(ImDrawListPtr draw, ISightPicture battery, OpticConfig policy,
-                                   ImGuiViewportPtr main)
+    private static void DrawStatus(SightSurface surface, ISightPicture battery, OpticConfig policy)
     {
-        float2 at = new(main.Pos.X + 24f, main.Pos.Y + 24f);
+        ImDrawListPtr draw = surface.Draw;
+        float2 at = new(surface.Pos.X + 24f, surface.Pos.Y + 24f);
         const float line = 17f;
 
         Text(draw, at, battery.Profile.DisplayName, Reticle);
@@ -283,9 +307,11 @@ internal static class Sight
                  isGunLead ? Gun : Reticle);
         }
 
-        double fovDeg = double.RadiansToDegrees(KsaWorld.ViewportFovRad(KsaWorld.MainViewportIndex));
+        double fovDeg = double.RadiansToDegrees(KsaWorld.ViewportFovRad(surface.Index));
         string zoom = $"x{SightZoom.Clamp(policy.Magnification):0.#}   {fovDeg:F1} deg";
-        Text(draw, new float2(main.Pos.X + main.Size.X - 150f, main.Pos.Y + 24f), zoom, Reticle);
+
+        Text(draw, new float2(surface.Pos.X + surface.Size.X - 150f, surface.Pos.Y + 24f),
+             zoom, Reticle);
     }
 
     // Drawn twice: a dark stroke under a bright one, so the sight stays readable against both sky

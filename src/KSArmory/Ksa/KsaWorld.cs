@@ -1998,6 +1998,55 @@ internal static class KsaWorld
         }
     }
 
+    // One of the game's camera windows, by the index the panel names it with. The registry's
+    // order is not promised, so an index means something only for as long as the span it was read
+    // from -- which is one frame. Every caller resolves afresh.
+    private static bool TryViewport(int index, out IGameViewport viewport)
+    {
+        viewport = null!;
+
+        ReadOnlySpan<IGameViewport> viewports = GameViewports;
+        if (index < 0 || index >= viewports.Length) return false;
+
+        viewport = viewports[index];
+        return viewport is not null;
+    }
+
+    /// <summary>
+    /// Where one camera window's picture sits on the desktop, and which ImGui platform window it
+    /// is currently part of.
+    ///
+    /// <para><paramref name="imGuiId"/> is what separates a secondary view docked inside the game
+    /// window from the same view dragged onto another monitor: ImGui gives a torn-off window a
+    /// platform viewport of its own, and a draw list belonging to the wrong one renders on the
+    /// wrong screen. KSA records it in <c>DrawImGui</c>, so it is a frame old at worst and zero
+    /// until that window has been drawn once.</para>
+    /// </summary>
+    public static bool TryViewportPicture(int index, out float2 pos, out float2 size,
+                                          out uint imGuiId)
+    {
+        pos = default;
+        size = default;
+        imGuiId = 0u;
+
+        try
+        {
+            if (!TryViewport(index, out IGameViewport viewport)) return false;
+
+            int w = viewport.Width, h = viewport.Height;
+            if (w <= 0 || h <= 0) return false;
+
+            pos = viewport.Position;
+            size = new float2(w, h);
+            imGuiId = viewport.ImGuiId;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>How many camera views the game currently has open.</summary>
     public static int ViewportCount
     {
@@ -2566,7 +2615,11 @@ internal static class KsaWorld
     private const float EdgeMargin = 28f;
 
     /// <summary>
-    /// Where a world point lands on the main viewport, <em>including off the edge of it</em>.
+    /// Where a world point lands on one camera window, <em>including off the edge of it</em>.
+    ///
+    /// <para>The window is named rather than assumed. A sight painting the main view's projection
+    /// onto a secondary window puts its whole picture in the wrong place at the wrong scale, and
+    /// looks from outside exactly like a camera that is not being driven.</para>
     ///
     /// <para>For a shape whose ends are outside the picture but whose middle is inside — the
     /// sight's horizontal reference is the case, and it is the whole shape. Rejecting a point for
@@ -2578,12 +2631,12 @@ internal static class KsaWorld
     /// <para>A point <em>behind</em> the camera is still refused, because a projection maps it to
     /// the opposite side of the screen and a line drawn to it runs the wrong way.</para>
     /// </summary>
-    public static bool TryProjectUnbounded(double3 pointEcl, out float2 screen)
+    public static bool TryProjectUnbounded(int index, double3 pointEcl, out float2 screen)
     {
         screen = default;
         try
         {
-            if (Program.MainViewport is not { } viewport) return false;
+            if (!TryViewport(index, out IGameViewport viewport)) return false;
             if (viewport.GetCamera() is not { } camera) return false;
 
             // ignoreBehind answers NaN rather than a mirrored point, which is the refusal.
@@ -2608,22 +2661,35 @@ internal static class KsaWorld
     /// several pixels, so a sight fed the analytic position sits visibly off the target it is
     /// supposed to be on. <see cref="TryVehicleEgo"/> is where the drawn position comes from.</para>
     /// </summary>
-    public static bool TryProjectEgoOrClamp(double3 posEgo, out float2 screen, out bool inView)
+    public static bool TryProjectEgoOrClamp(int index, double3 posEgo, out float2 screen,
+                                            out bool inView)
     {
         screen = default;
         inView = false;
         try
         {
-            if (Program.MainViewport is not { } viewport) return false;
+            if (!TryViewport(index, out IGameViewport viewport)) return false;
             if (viewport.GetCamera() is not { } camera) return false;
 
             int w = viewport.Width, h = viewport.Height;
             if (w <= 0 || h <= 0) return false;
 
+            // Ego is measured from the camera that sampled it, and everything upstream samples
+            // against the main one -- so it is a *position* for that camera alone. Handing it to
+            // another window's camera displaces the bracket by however far the two cameras are
+            // apart, which is a few degrees at a kilometre and unbounded when the player pulls
+            // their view back. Re-based through Ecl, which is the frame both agree in.
+            if (!ReferenceEquals(camera, Program.GetMainCamera()))
+            {
+                if (Program.GetMainCamera() is not { } sampled) return false;
+
+                posEgo = camera.EclToEgo(sampled.EgoToEcl(posEgo));
+                if (!Vec.IsFinite(posEgo)) return false;
+            }
+
             // Ego is camera-relative, so the separation to the target *is* the position. The
             // basis is read in Ecl because Ego is a pure translation of it and the two agree
-            // exactly for a direction -- which is also why no second conversion is needed here,
-            // and a second conversion would be through a second camera that need not agree.
+            // exactly for a direction.
             bool ahead = Vec.Dot(posEgo, camera.GetForwardEcl()) > 0.0;
 
             if (ahead)

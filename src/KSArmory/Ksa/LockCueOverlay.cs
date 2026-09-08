@@ -59,7 +59,13 @@ internal static class LockCueOverlay
         // TryDrawEgo is the same pairing round bodies and the gunner's sight already use: the
         // anchor's drawn position plus the round's own flight since launch.
         if (!track.Contact.TryDrawEgo(out double3 targetEgo)) return;
-        if (!KsaWorld.TryProjectEgoOrClamp(targetEgo, out float2 at, out bool inView)) return;
+        // The view the player flies from: this is the trigger's own cue rather than a sight's
+        // picture, and it belongs where the trigger is being pressed.
+        if (!KsaWorld.TryProjectEgoOrClamp(KsaWorld.MainViewportIndex, targetEgo, out float2 at,
+                                           out bool inView))
+        {
+            return;
+        }
 
         ImGuiViewportPtr main = ImGui.GetMainViewport();
         ImGui.SetNextWindowPos(main.Pos, ImGuiCond.Always);

@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-171 types and 473 members across 7 assemblies.
+171 types and 480 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -131,6 +131,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void AddRectFilled(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, float, Brutal.ImGuiApi.ImDrawFlags)`
 - `void AddText(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8, Brutal.ImGuiApi.ImString)`
 - `void AddTriangleFilled(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImColor8)`
+- `void PopClipRect(Brutal.ImGuiApi.ImDrawListPtr)`
+- `void PushClipRect(Brutal.ImGuiApi.ImDrawListPtr, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2, bool)`
 
 ### Brutal.ImGuiApi.ImDrawListPtr
 
@@ -139,8 +141,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.ImGuiApi.ImGui
 
 - `Brutal.ImGuiApi.ImDrawListPtr GetBackgroundDrawList(Brutal.ImGuiApi.ImGuiViewportPtr)`
+- `Brutal.ImGuiApi.ImDrawListPtr GetForegroundDrawList(Brutal.ImGuiApi.ImGuiViewportPtr)`
 - `Brutal.ImGuiApi.ImDrawListPtr GetWindowDrawList()`
 - `Brutal.ImGuiApi.ImGuiIOPtr GetIO()`
+- `Brutal.ImGuiApi.ImGuiViewportPtr FindViewportByID(Brutal.ImGuiApi.ImGuiID)`
 - `Brutal.ImGuiApi.ImGuiViewportPtr GetMainViewport()`
 - `Brutal.Numerics.float2 CalcTextSize(Brutal.ImGuiApi.ImString, bool, float)`
 - `Brutal.Numerics.float2 GetContentRegionAvail()`
@@ -219,7 +223,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ImGuiApi.ImGuiID
 
-*referenced as a type only*
+- `Brutal.ImGuiApi.ImGuiID op_Implicit(uint)`
 
 ### Brutal.ImGuiApi.ImGuiIOPtr
 
@@ -272,6 +276,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ImGuiApi.ImGuiViewportPtr
 
+- `bool IsNull()`
 - `ref Brutal.Numerics.float2 get_Pos()`
 - `ref Brutal.Numerics.float2 get_Size()`
 
@@ -543,6 +548,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Camera get_BaseCamera()`
 - `KSA.FixedController get_FixedController()`
 - `KSA.OrbitController get_OrbitController()`
+- `uint get_ImGuiId()`
 - `void SetCameraMode(KSA.CameraMode)`
 
 ### KSA.IObjectId
