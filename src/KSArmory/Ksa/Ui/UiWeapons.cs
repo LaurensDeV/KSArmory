@@ -64,6 +64,15 @@ internal partial class Ui
     // draining. Keyed by the group's part Id, which is what makes two rails one weapon.
     private readonly Dictionary<string, int> _lastFired = [];
 
+    // The trigger, wherever it is pressed. Both buttons reach the same stations in the same order,
+    // which is the whole of what makes a symmetric pair fire as a pair -- and FireGroup below is
+    // the only thing in the panel that reaches FireAtLock, so a third button cannot quietly go
+    // straight at one station the way the header's did.
+    private void FireSelectedGroup()
+    {
+        if (_batteries.For(Focused) is { } selected) FireGroup(selected);
+    }
+
     // Fires the next station of the selected weapon's group. The trigger is the group's, so it
     // steps between stations rather than always reaching the one whose row happens to be selected.
     private void FireGroup(WeaponSystems.Entry selected)

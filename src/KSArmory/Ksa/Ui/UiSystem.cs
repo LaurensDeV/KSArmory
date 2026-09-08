@@ -363,8 +363,13 @@ internal sealed partial class Ui
 
         // Spaced off the tick boxes: it is the one control here that does something the moment
         // it is clicked rather than setting a state.
+        // Through the group, not straight at the selected station. Two rails carrying the same
+        // store are one weapon with two stations, and firing the selected one reaches the same
+        // rail every time -- so the second is never fired at all, however often this is pressed.
+        // The switcher's own trigger has always stepped between them; this is the prominent
+        // button and did not, which is the one an operator actually uses.
         ImGui.SameLine(0f, ImGui.GetFrameHeight());
-        if (ImGui.Button("FIRE")) _battery.FireAtLock();
+        if (ImGui.Button("FIRE")) FireSelectedGroup();
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip(_fit.AutoEngages
                                  ? "Fire one salvo at the current lock, now."

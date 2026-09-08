@@ -813,6 +813,14 @@ and one whose drives the engine refused all look identical from outside. `Holdin
 the only thing that separates them, and it is no use behind a fold or on a tab nobody is looking
 at.
 
+**And the trigger goes through the station group, from every button.** Two rails carrying the same
+store are drawn as one weapon with two stations, and firing the *selected* one reaches the same rail
+every time — so the second is never fired at all, however often the button is pressed.
+`Ui.FireGroup` steps between them, skipping empty ones, and is the only thing in the panel that
+reaches `WeaponSystem.FireAtLock`. It has to stay that way: the switcher's own trigger stepped
+correctly from the start while the header's — the prominent one, the one an operator actually
+uses — went straight at the selection.
+
 **The master arm, auto-engage and FIRE are on that strip too, and belong there by the same test.**
 Whether the installation is shooting is about the whole system and no part of it, so the
 fire-control component row is the wrong home for it however sensible the part sounds — that row is
