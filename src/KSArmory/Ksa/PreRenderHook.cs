@@ -19,8 +19,15 @@ namespace KSArmory;
 /// therefore moves a round by one step of its own travel — 4 m at 250 m/s — and then jitters it by
 /// the difference between a long frame and a short one, because the display's pacing alternates.</para>
 ///
-/// <para>A postfix on <c>Program.OnFrameCelestials</c> is the last point before <c>OnPreRender</c>
-/// that is not behind that guard. It is the private half of the frame loop rather than declared API,
+/// <para><c>Program.OnFrameCelestials</c> is the last phase before <c>OnPreRender</c> that is not
+/// behind that guard, and this is a <b>prefix</b> on it. That is not a detail: <c>OnFrameCelestials</c>
+/// resolves the camera-nearby body and updates the planet's shader data for the frame, so a step
+/// taken <em>after</em> it prepares the planet against a camera the mod is about to move — which
+/// renders the surface as open water. With the UI shown the mod steps at <c>OnDrawUiViewports</c>,
+/// which is ahead of it; a prefix is what puts a hidden-UI frame on the same side. Making the two
+/// paths identical was the whole point, and a postfix quietly was not.</para>
+///
+/// <para>It is the private half of the frame loop rather than declared API,
 /// which is a rule <see cref="AttitudeHook"/> takes some care not to bend — but the two are not
 /// alike in what losing them costs. <b>The fallback here is the behaviour without it.</b> If KSA ever
 /// renames the method the patch does not apply, this says so once, and
@@ -66,11 +73,11 @@ internal static class PreRenderHook
                 return;
             }
 
-            MethodInfo postfix = typeof(PreRenderHook).GetMethod(
-                nameof(AfterOnFrameCelestials), BindingFlags.NonPublic | BindingFlags.Static)!;
+            MethodInfo prefix = typeof(PreRenderHook).GetMethod(
+                nameof(BeforeOnFrameCelestials), BindingFlags.NonPublic | BindingFlags.Static)!;
 
             _harmony = new Harmony(HarmonyId);
-            _harmony.Patch(target, postfix: new HarmonyMethod(postfix));
+            _harmony.Patch(target, prefix: new HarmonyMethod(prefix));
 
             Installed = true;
             Trouble = "";
@@ -104,7 +111,7 @@ internal static class PreRenderHook
     // A no-op on every frame the GUI pass already claimed, which is every frame with a UI. The
     // latch is what makes that true rather than a condition here: asking whether the UI drew would
     // be a second answer to a question one place already owns.
-    private static void AfterOnFrameCelestials(double deltaTime)
+    private static void BeforeOnFrameCelestials(double deltaTime)
     {
         try
         {

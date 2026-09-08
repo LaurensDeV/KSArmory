@@ -472,12 +472,17 @@ the last `DeltaTime` alone — is for, and it is the right shape: the step bound
 reaches it first, so the simulation never stops. That alone leaves the step landing at #14, after
 the render, so everything written into the world — subpart transforms, effects — is drawn on the
 following frame; at 250 m/s that is 4 m of a round's own travel, and it alternates with the
-display's frame pacing rather than sitting still. `Ksa/PreRenderHook.cs` closes it with a postfix
+display's frame pacing rather than sitting still. `Ksa/PreRenderHook.cs` closes it with a **prefix**
 on **`OnFrameCelestials`** (#11), the last phase before `OnPreRender` that is not behind the
-`DrawUI` guard — chosen over #9 and #10 only because it is nearest the render, and over `DrawFps`
-and `OnDrawUiConsole` because those are inside the ImGui block's own concerns. Every candidate is
-private, so the patch resolves by name and **degrades to #14 if it ever fails**, which is the
-behaviour without it.
+`DrawUI` guard. Every candidate is private, so the patch resolves by name and **degrades to #14 if
+it ever fails**, which is the behaviour without it.
+
+**A prefix and not a postfix, and that is not a detail.** #11 resolves the camera-nearby body and
+updates the planet's shader data for the frame, so a step taken after it prepares the planet
+against a camera the mod is about to move — reported from play as the ground rendering as open
+water on pressing F2 during a chase. With the UI drawn the mod steps at #7, which is ahead of #11;
+a prefix is what puts a hidden-UI frame on the same side of it. **The hook exists to make the two
+paths identical, and a postfix quietly did not.**
 
 Two gaps it does not close, both covered by the #14 fallback: the early return at `:2119` is ahead
 of #9, so a frame taking it reaches none of #9–#12; and `PrepareFrame` returning `Exit` skips
