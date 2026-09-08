@@ -68,7 +68,7 @@ internal static class Sight
                 DrawDragIndicator(draw, policy, centre);
             }
 
-            DrawTarget(surface, battery, weapon);
+            DrawTarget(surface, battery, policy, weapon);
 
             if (policy.Symbology && weapon is not null) DrawStatus(surface, weapon, policy);
         }
@@ -167,7 +167,7 @@ internal static class Sight
     }
 
     // The target bracket, the gun pipper, and the lead between them.
-    private static void DrawTarget(SightSurface surface, IOpticalHead battery,
+    private static void DrawTarget(SightSurface surface, IOpticalHead battery, OpticConfig policy,
                                    ISightPicture? weapon)
     {
         ImDrawListPtr draw = surface.Draw;
@@ -208,7 +208,30 @@ internal static class Sight
         string label = KSArmory.Reticle.RangeAndClosing(track.Range, track.ClosingSpeed);
         Text(draw, new float2(at.X - half, at.Y + half + 6f), label, colour);
 
-        if (!settled) Text(draw, new float2(at.X - half, at.Y - half - 18f), "SLEWING", colour);
+        // Why the head is not on it, when it is not. The bracket alone says a contact is held,
+        // never that anything is being done about it -- and a head resting with a contact tracked
+        // draws exactly the picture of a camera that has stopped working.
+        OpticHold hold = OpticFollow.Why(OnAxis(battery, track), policy.Manual,
+                                         battery.Designation.Kind != AimpointKind.None,
+                                         policy.Tracking, settled);
+
+        if (hold.Holds)
+        {
+            Text(draw, new float2(at.X - half, at.Y - half - 18f), hold.Reason, Pending);
+        }
+    }
+
+    // Whether the head is looking at the contact, measured off the same view the camera is
+    // driven from rather than off where the bracket landed -- a bracket clamped to the edge has
+    // no distance left in it, which is the case that most needs an answer.
+    private static bool OnAxis(IOpticalHead battery, Track track)
+    {
+        if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward)) return true;
+
+        double3 toTarget = track.PositionEcl - eye;
+        if (Vec.Len2(toTarget) < 1.0) return true;
+
+        return double.RadiansToDegrees(Vec.AngleBetween(forward, toTarget)) <= OpticFollow.OnAxisDeg;
     }
 
     // Where the shells will actually be. Sized to what the round covers at that range rather than

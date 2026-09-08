@@ -340,6 +340,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/FinTest.cs` | the built-in-test sweep a tail kit runs on the rack — **drawn only** |
 | `Sim/FireGate.cs` | whether the launcher is pointing where it is about to shoot |
 | `Sim/FireLadder.cs` | **why a system is not shooting** — the gates in order, and the first one that says no |
+| `Sim/OpticHold.cs` | **why a director is not looking at what it has bracketed** — the same question for the sight, in the precedence the head's own aim applies |
 | `Sim/DriveStatus.cs` | which drives the engine is still accepting writes for, latched per channel |
 | `Sim/GunChannel.cs` | the cannon's belt, burst position and next-round timing |
 | `Sim/BallisticLead.cs` | where an unguided round must be aimed to arrive where the target will be |
