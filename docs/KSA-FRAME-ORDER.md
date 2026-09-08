@@ -468,6 +468,21 @@ That is what `KsaWorld.ConsumeSimStep` handing `StepGate` the *span* between ste
 the last `DeltaTime` alone — is for, and it is the right shape: the step boundaries are contiguous
 (§2), so the span across any number of missed frames is exact.
 
+**What this mod does about it.** `Sim/FrameLatch.cs` hands the frame's work to whichever hook
+reaches it first, so the simulation never stops. That alone leaves the step landing at #14, after
+the render, so everything written into the world — subpart transforms, effects — is drawn on the
+following frame; at 250 m/s that is 4 m of a round's own travel, and it alternates with the
+display's frame pacing rather than sitting still. `Ksa/PreRenderHook.cs` closes it with a postfix
+on **`OnFrameCelestials`** (#11), the last phase before `OnPreRender` that is not behind the
+`DrawUI` guard — chosen over #9 and #10 only because it is nearest the render, and over `DrawFps`
+and `OnDrawUiConsole` because those are inside the ImGui block's own concerns. Every candidate is
+private, so the patch resolves by name and **degrades to #14 if it ever fails**, which is the
+behaviour without it.
+
+Two gaps it does not close, both covered by the #14 fallback: the early return at `:2119` is ahead
+of #9, so a frame taking it reaches none of #9–#12; and `PrepareFrame` returning `Exit` skips
+everything from #2 on.
+
 **`Program.FrameNumber` (`Program.cs:281`) is not a reliable skipped-frame detector.** It is
 incremented at `Program.cs:2160`, past three early returns (`:2075`, `:2119`, `:2156`), so it counts
 frames that reached the end of the render rather than frames that were begun. It does increment on

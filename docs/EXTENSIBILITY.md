@@ -1,6 +1,6 @@
 # Extensibility: a weapon pack is a mod, and this mod never learns it exists
 
-BDArmory's answer is a part `.cfg` and a model, and no compiler. That works because KSP has
+The usual answer in KSP is a part `.cfg` and a model, and no compiler. That works because KSP has
 `PartModule`: a mod names a class in a config and the engine drives it. KSA has no such thing —
 `docs/FROM-KSP-MODDING.md` and `docs/BLOCKED-ON-KSA.md` record why — so the mechanism here has to
 be different even where the experience is the same.

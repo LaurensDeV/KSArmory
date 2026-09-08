@@ -397,7 +397,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
 | `Ksa/IcbmComputers.cs` | one per craft this mod recognises a weapon on, crewed and forgotten with it |
-| `Ksa/AttitudeHook.cs` | **the one place this mod patches the game** — the only window in which an attitude command survives |
+| `Ksa/AttitudeHook.cs` | **one of the two places this mod patches the game** — the only window in which an attitude command survives |
+| `Ksa/PreRenderHook.cs` | the other — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
 | `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
 | `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
@@ -1118,14 +1119,33 @@ archive leaves the machine.
 
 ## Design decisions worth not re-litigating
 
-**Rounds are simulated by this mod, not by KSA's vehicle physics.** They are drawn with
-`GizmosRenderer` rather than being real part-based vehicles. This was deliberate: spawning real
-vehicles needs a part template (GLB model, XML schema, and registering a module type into
-engine-internal update lists that would require Harmony patching), and steering them means
-writing kinematics from a worker-thread update. Self-simulating gives sub-frame accuracy for
-free and cannot corrupt a save. The cost is that rounds look like tracer spheres with trails.
-Swapping in real part-based missiles later means replacing `Visuals.DrawRounds` and the
-integration in `Interceptor`, nothing else.
+**Rounds are simulated by this mod, not by KSA's vehicle physics — and the reason is the fuse, not
+the flight.** The engine steps a vehicle once a frame. A 20 mm shell leaves at **1100 m/s** with a
+**2.5 m** fuse radius, so one 60 fps frame is 18 m of travel across a 2.5 m trigger — seven times
+past it. A 57E6 closing on a crosser at ~1100 m/s has a 12 m fuse and the same problem.
+`Interceptor` sub-steps at **5 ms**, up to 64 of them, and `Sim/ContactSweep.cs` sweeps the segment
+rather than testing the endpoint, because even 5 ms is 5.5 m against that 2.5 m radius. None of
+that is expressible as a vehicle. Nor is the count: a CIWS burst is 150 shells in the air, and
+`Sim/StageDisposal.cs` exists because frame time is the only thing that buys simulation rate.
+Self-simulation also cannot corrupt a save.
+
+**What it costs is the drawing, and that is a different bill from the one this used to claim.**
+Rounds are no longer gizmo tracers — they are real subparts of the launcher, so the engine draws
+the mesh while the mod owns the state, and *every* drawn quantity has to be paired across that
+seam by hand: the offset's epoch, the body's roll, the camera's anchor. A round that were a real
+vehicle would get its attitude, its placement and a followable camera from the engine for nothing.
+**Two of the five faults found in the 2026-09-08 session were of exactly that shape** — a body roll
+with no reference, and a chase camera anchored to the craft's analytic position while the mesh hung
+off its part tree. The other three (a hook behind `DrawUI`, a chase that only knew how to look along
+a velocity, a bomb's self-destruct timer) would have happened either way.
+
+**The case worth revisiting is the unfused store, not the missile.** A B61 and a Mk 21 both carry
+`FuseRadius = 0` and stop on terrain, so neither needs a sub-frame anything; they are singular,
+slow, and already ask the engine where the ground is. They are the only rounds a vehicle could
+carry without losing something. What that would cost is the uniformity — `IProjectile` is the
+contract every frame and epoch rule is pinned against, and one weapon outside it is a second set of
+rules — plus a part template and a save that now contains a bomb. Not obviously worth it, and worth
+re-deciding rather than assumed.
 
 **Everything is computed in the ecliptic (`Ecl`) frame** and converted to camera-relative `Ego`
 only at draw time. `Ego` is a pure translation of `Ecl`, so this is exact — see the notes.
@@ -1383,7 +1403,7 @@ angle-of-attack limiter on pressure rather than density or altitude is what make
 Moon work without anything knowing the Moon has no air — thin air at two kilometres a second is
 still kilopascals.
 
-**Attitude is written from a Harmony prefix, and nothing else in this mod is patched.** KSA
+**Attitude is written from a Harmony prefix, and it is one of two patches.** KSA
 double-buffers a vehicle's flight computer: `ApplyVehicleSolvers` writes the worker's result over
 it, `ExecuteNextVehicleSolvers` snapshots it for the next worker, and *then* the GUI pass runs — so
 a command written from any StarMap hook is not in the snapshot and is overwritten before anything
@@ -1398,6 +1418,19 @@ assembly's metadata, so `docs/KSA-API-SURFACE.md` tracks it and a KSA signature 
 error rather than a rocket that quietly stops steering. Harmony ships with StarMap, so this asks a
 player to install nothing. **Nothing in the prefix may throw** — it runs inside the engine's frame
 loop, where an exception is the game rather than a log line.
+
+**The second patch is on a private method, and what makes that acceptable is what losing it
+costs.** `Ksa/PreRenderHook.cs` postfixes `Program.OnFrameCelestials` because StarMap's three
+per-frame hooks are the whole list and none of them is both pre-render and outside
+`if (DrawUI)` — so with the UI hidden the mod could step before the render or at all, and
+`FrameLatch` alone can only pick the second. That costs one frame: a subpart transform written
+after the render is drawn on the next one, so pressing F2 moved every round by a step of its own
+travel — 4 m at 250 m/s — and then jittered it by the difference between a long frame and a short
+one. Unlike the attitude prefix there is no signature to pin and no build error to be had, and
+that is exactly why the failure must degrade rather than break: a rename makes the patch not
+apply, which is logged once, and `[StarMapAfterOnFrame]` goes on running the step as it does
+today. A patch whose absence is the status quo is a different risk from one whose absence is a
+rocket that stops steering.
 
 **`Ksa/VehicleCommand.cs` is the only place this mod flies somebody else's rocket**, and every write
 in it is one the game already makes for itself: the flight computer's `Custom` attitude target,
@@ -1449,7 +1482,7 @@ that is the same number as the launching craft's velocity; a store released from
 does not measure its airspeed against it.
 
 **Rounds are drawn as real subparts, anchored to the tube they left.** Twelve `Missile`
-subparts, scaled to nothing until fired, with their transform written each frame. Two rules:
+subparts, scaled to nothing until fired, with their transform written each frame. Three rules:
 
 - **Anchor to the tube, add only the travel *since* launch.** `OffsetFromPlatform` is measured
   from the platform's *analytic* orbit position; a subpart is placed against the vehicle's
@@ -1459,8 +1492,21 @@ subparts, scaled to nothing until fired, with their transform written each frame
   frame, so it carries none of that.
 - **Orient off `VelocityLocal`, never `VelocityEcl`.** The latter carries ~29.8 km/s of ecliptic
   motion and points every round the same way.
+- **Build the attitude in the ecliptic, not in the part frame — a direction is not a rotation, and
+  the leftover is the roll.** Swinging the mesh's nose onto the flight direction by the shortest arc
+  leaves the roll to whatever the arc gives, which is a function of the direction and of the
+  launcher's attitude. Both move. The mesh's nose is square to the plane a fall sweeps through, so
+  the residual tracks the flight-path angle one for one — **51° of roll over a 5 km drop**, 59° over
+  a 2 km one, at 1–5°/s — and solving in the part frame glues it to the craft besides, at a degree
+  per degree the launcher turns on rounds that had already gone. A missile hardly shows either,
+  because proportional navigation hardly turns. The fins are not involved: `FinMixer` is drawn only,
+  and no fin model was ever going to hold a roll the drawing invents. So a body leaves at the
+  launcher's own roll and is swung onto where it points now along the **great circle from where it
+  left**, which is the one path that adds no roll — the same "carry the reference forward" answer as
+  `Sim/AimFrame.cs` and `OpticGeometry.Rotation`, and stateless because
+  `IProjectile.ReleaseHeadingEcl` and `LaunchAttitude` already record where it left.
 
-`RoundBodyAnchorTests` and `FireGeometryTests` hold both.
+`RoundBodyAnchorTests` and `FireGeometryTests` hold the first two, `TubeGeometryTests` the third.
 
 **A scenario cannot place a craft through the *system XML*, but the mod can place one itself.**
 `LoadVehicleFromLibrary` in a system XML resolves through `DefaultVehicleSaves`, whose
@@ -2081,15 +2127,39 @@ pass while a round's is integrated after it, so the engine would add a frame-new
 position to an offset built against the older one — ~500 m per frame, which is what
 `RoundFollowable` exists to prevent.
 
-**And what `RoundFollowable` reports has to be resolved the way a round *body* is**, not from the
-round's own integrated position. The engine calls `GetPositionEcl` in its own frame pass, before
-the mod has stepped anything, so `round.PositionEcl` belongs to a different instant from every
-celestial and vehicle just placed — and a camera on it sits one simulated step out of register with
-the scene. That is 715 m on a 24 ms frame against 238 m on a 9 ms one, and the display's frame
-pacing alternates between exactly those, so the camera's height over the ground swings **±145 m
-every frame**. Resolving through `platform + OffsetFromPlatform` is the pairing round bodies
-already use — measured at 79.5 km with 0.0 m drift — and it is what holds the reticule steady
-through a transition on the Moon.
+**And what `RoundFollowable` reports has to be carried into the engine's epoch**, because the
+answer it gives is a frame old. The engine advances the world in `PrepareFrame` and calls
+`GetPositionEcl` in the viewport pass, both before the mod has stepped anything, so
+`round.PositionEcl` belongs to a different instant from every celestial and vehicle just placed —
+and a camera on it sits one simulated step out of register with the scene. That is 715 m on a
+24 ms frame against 238 m on a 9 ms one, and the display's frame pacing alternates between exactly
+those, so the camera's height over the ground swings **±145 m every frame**.
+
+**It resolves through `IEffectSource.TryRoundEffectEcl` — the same call that places the body — and
+that is the whole rule: the camera is not trying to be right, it is trying to be paired.** Nothing
+here can be right in absolute terms. The mod's reading of a round is a step behind the world the
+engine has just advanced; a craft's analytic orbit position is not where its parts are drawn; and
+the gap between those two opens and closes as the craft goes off rails and back, which is what
+**lighting an engine does** — reported from play as the camera shifting when the launching rocket's
+engine is toggled. None of those is visible on its own. What is visible is the separation between
+the eye and the mesh, and every one of them cancels out of it the moment both sides come from one
+expression.
+
+**So correcting one side alone is worse than leaving both wrong.** A term added to put the camera in
+the engine's epoch takes it *away* from the mesh, which stayed in the mod's — measured in play as a
+camera that jittered constantly with the round out of frame. The plume and the tracer already hang
+on this call for the same reason: a flame has to sit on the body rather than near it.
+
+It must also be the same answer all frame. `GetPositionEclFromCce` and `GetPositionCceFromEcl` come
+through the same method and the engine converts at phases the mod does not choose, so an answer that
+moves when the mod steps disagrees with itself inside one frame. This one moves by the round's own
+flight, which is metres; `round.PositionEcl` moves by a whole step of the ecliptic's ~29.8 km/s.
+
+**A burst is anchored to the body it happened over, and nothing else will do.** The linger holds
+the view on the burst for three seconds, which is long enough for every wrong anchor to show:
+against the launching craft it flies off with it, and as a bare ecliptic point the planet leaves it
+89 km behind. `KsaWorld.TryAnchorToGround` and `TryGroundAnchorEcl` are an exact pair, and the
+craft is kept only as the fallback for a burst no body could be resolved for.
 
 It only shows on a small body. The same error exists on Earth and is dwarfed there: what makes it
 visible is that a camera translation displaces an object by roughly `1/range`, and the terrain a
@@ -2122,9 +2192,34 @@ displacement depending on the craft's attitude. Read the pose you mean to ease a
 the follow swap, and put the camera back afterwards: this frame's view matrix is already built and
 the controller does not pick the offset up until the next one.
 
+**The rig stands behind the round on the line to what it is flying at, not on its flight path.**
+For anything steering onto a target the two are a lead angle apart and it barely shows. A bomb's
+target is tens of degrees below the path it falls along — 32° from five kilometres at 250 m/s, and
+it grows with release height — so a rig built on the flight path has the target nowhere in frame
+for the whole fall, whether the ride began at the sight or at the craft. Three rules go with it.
+The look-at is taken *along* that axis rather than at the target itself, so the **round** stays in
+the middle of the frame however far off the target is. The axis is **held within 80°** of the
+flight path, because a round that goes past what it was aimed at sees that line swing through abeam
+and reverse — and clamping is continuous where refusing is not, so a miss slides to the edge rather
+than whipping. And inside the look-ahead the aim hands back to the flight path, which costs
+nothing: a round arriving is pointing at what it arrives at.
+
+What it is flying at is resolved once a frame — a craft off the world, another round in the air
+off itself, a designated place off the aimpoint the system resamples — and read four times, by the
+transition, the closing curve, the pose and the brackets. Separate readings would let the camera
+and the brackets disagree about where the same point is. Everything downstream falls back to the
+flight path when there is nothing, which is what an undesignated bomb is.
+
+**A launcher's altitude is the ground only while the round is still above it.**
+`FloorBelowLauncher` keeps the eye out of the hillside a Pantsir is parked on, which is a launch
+case; applied for the whole flight it pins the camera at the aircraft's altitude for the whole of a
+bomb's fall, hundreds of metres above the thing it is meant to be riding.
+
 **The chase travels onto the round rather than cutting to it, and only its position really moves.**
-The player is looking at the target and the chase looks along a round flying at it, so the two aim
-points are close and the view barely turns — which is the whole reason it reads as calm.
+Both ends of the aim are taken at the **same depth** — the player's own view direction carried out
+to the range of what the round is flying at, against the chase's own look-at — so the sweep is
+bounded by how far the player's view was off the target, not by how far away it is. Through the
+sight that is nothing; from a camera parked on the craft it is a turn onto the target and no more.
 `ChaseView.TryBlend` takes those aims as two **points**, not two directions: directions turn at a
 wildly uneven rate and collapse to zero length when opposed, which is a round fired back over the
 launcher. Both ends are rebuilt from this frame's samples, held as separations from the craft and
@@ -2237,6 +2332,18 @@ should not be weakened without understanding what they buy:
   did not is stepped one hook later instead of not at all. **The release must be unconditional** —
   a latch left set stops the mod for the session rather than for a frame, which is what
   `FrameLatchTests` pins.
+
+  **Driving a camera is not drawing, so it goes with the step and not with the panel.** F2 is
+  supposed to take the HUD away, and the overlay, the brackets and the sight's painting genuinely
+  cannot happen without a UI pass. A view the mod has *borrowed* is not in that category: left
+  unrestated it freezes at whatever offset it last had — no closing, no transition, no aim — while
+  the world it is pointed at carries on, and the player cannot take it back by hand because
+  `FixedController` reads no input. So `KSArmoryMod.DriveCameras` is called from `StepOnce` rather
+  than from the GUI hook, outside the flight gate so a view is still handed back on the way out,
+  and `ChaseCamera` supplies an `IViewPose` the way `SightCamera` already did — which is what puts
+  the pose in the engine's own pass rather than in a hook that may not run. What is still one frame
+  late under a hidden UI is everything the mod *writes into the world*: subpart transforms and
+  effects land after the render and are drawn on the next frame.
 
 - **A frame in which this mod's hook never runs is integrated on the next one.** Still true for any
   frame the mod genuinely misses, and the mitigation stands underneath the two-hook arrangement
