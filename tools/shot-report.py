@@ -119,9 +119,15 @@ WALK = re.compile(r"walk from the release probe\s+([-\d.]+)\s*m\s*\(([-+\d.]+)\s
 # every sample, so a median over all of them medians an accumulating quantity rather than reporting
 # the final one. And the leading figure is a MAGNITUDE: a round 3 km short and one 700 m long read
 # 2958 and 679, whose difference is not the 3637 m of swing between them. Sign first.
+#
+# The craft is optional and is the whole of the attribution: the aim points cannot recover it,
+# because seats 5 and 6 land 100 m apart and nearest-point matching mislabels them (3ce). A log
+# written before the name was added keeps behaving as it did -- every flight gets the whole shot.
 FINAL_WALK = re.compile(
-    r"landed at\s+[-\d.,]+\s*\|\s*[-\d.]+\s*m from the aim\s*\|\s*"
-    r"walk from the release probe\s+[-\d.]+\s*m\s*\(([-+\d.]+)\s*down,\s*([-+\d.]+)\s*cross\)")
+    r"warhead trace(?: on (?P<craft>.+?))?: round \d+ "
+    r"landed at\s+[-\d.,]+\s*\|\s*(?P<aim>[-\d.]+)\s*m from the aim\s*\|\s*"
+    r"walk from the release probe\s+[-\d.]+\s*m\s*"
+    r"\((?P<down>[-+\d.]+)\s*down,\s*(?P<cross>[-+\d.]+)\s*cross\)")
 
 FLIGHT = re.compile(
     r"flight\s+([-\d.]+)s by the world clock,\s+([-\d.]+)s by its own, "
@@ -161,9 +167,10 @@ BANNER = re.compile(r"KSArmory\s+(\S+)\s+built for KSA\s+(\S+),\s*running\s+(\S+
 # signed downrange walk as well, which is what orients the axis without needing a frame or the
 # body's rotation rate.
 IMPACT = re.compile(
-    r"warhead trace: round \d+ landed at\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\|\s*"
+    r"warhead trace(?: on (?P<craft>.+?))?: round \d+ "
+    r"landed at\s*(?P<lat>-?[\d.]+),\s*(?P<lon>-?[\d.]+)\s*\|\s*"
     r"[-\d.]+\s*m from the aim\s*\|\s*walk from the release probe\s+[-\d.]+\s*m\s*"
-    r"\(([-+\d.]+)\s*down,\s*([-+\d.]+)\s*cross\)")
+    r"\((?P<down>[-+\d.]+)\s*down,\s*(?P<cross>[-+\d.]+)\s*cross\)")
 # What ended the post-boost correction, which is the one thing that decides whether the aim loop
 # was allowed to finish. Every Finish() in Sim/PostBoostAim.cs, in the order it is tested, plus the
 # two numbers that say how near it got: the passes it ran and what the trim was still owed. A shot
@@ -282,6 +289,24 @@ def _floats(pattern, text, groups=1):
     return out
 
 
+def _traces(pattern, log, craft):
+    """One flight's own trace lines, or the whole shot's where nothing names a craft.
+
+    The name is the whole of the attribution and there is no fallback: the aim points are 12 km
+    apart but seats 5 and 6 land 100 m from each other, so matching a landing to a rocket by
+    position mislabels three survivors of four -- ACCURACY-PLAN.md 3ce, which is what naming the
+    line was for. A log written before it keeps behaving exactly as it did, every flight carrying
+    the whole shot; a log that carries the name is cut down to one rocket, and a flight whose
+    trace did not finish gets nothing rather than its neighbour's.
+    """
+    found = list(pattern.finditer(log))
+    named = [m for m in found if m.group("craft")]
+    if not named or craft is None:
+        return found, False
+    want = _craft(craft)
+    return [m for m in named if _craft(m.group("craft")) == want], True
+
+
 def split_flights(out_path, log_path):
     """One record per rocket that flew, or one for the whole run when only one did.
 
@@ -350,7 +375,8 @@ def read_shot(out_path, log_path, craft=None):
             "plant": [], "worse_for": [], "floor_deg": [], "afford_deg": [],
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
-            "early_s": [], "final_down": [], "final_cross": [],
+            "early_s": [], "final_down": [], "final_cross": [], "final_aim": [],
+            "trace_named": False,
             "band_deg": [], "impacts": [],
             "why": None, "passes": None, "owed": None, "why_named": False,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
@@ -407,17 +433,23 @@ def read_shot(out_path, log_path, craft=None):
         shot["walk_down"].append(down)
         shot["walk_cross"].append(cross)
 
-    for down, cross in _floats(FINAL_WALK, log, 2):
-        shot["final_down"].append(down)
-        shot["final_cross"].append(cross)
+    landings, shot["trace_named"] = _traces(FINAL_WALK, log, craft)
+    for m in landings:
+        shot["final_down"].append(float(m.group("down")))
+        shot["final_cross"].append(float(m.group("cross")))
+        shot["final_aim"].append(float(m.group("aim")))
 
     # The surface line follows the landing it belongs to and carries no round number, so the two
     # pair by order. A landing with no surface line after it is dropped rather than guessed at.
+    #
+    # Every landing in the shot, not just this flight's: the relief under the target is a property
+    # of the ground and the terrain report wants all eight aim points, which is what `--terrain`
+    # reading one seat cost it (3cb).
     pending = None
     for line in log.splitlines():
         m = IMPACT.search(line)
         if m:
-            pending = (float(m.group(1)), float(m.group(2)), float(m.group(3)))
+            pending = (float(m.group("lat")), float(m.group("lon")), float(m.group("down")))
             continue
         m = SURFACE.search(line)
         if m and pending is not None:
@@ -718,7 +750,7 @@ def _say_loop_left(shots, order):
     print()
 
 
-def paired(root, shots):
+def paired(root, shots, endpoint="miss"):
     """Compare the variants flown INSIDE each shot, which is the only comparison this
     instrument currently supports.
 
@@ -751,8 +783,33 @@ def paired(root, shots):
         sys.exit("no flight in this batch says which variant it flew")
 
     base = order[0]
+    label, unit, score = ENDPOINTS[endpoint]
 
     print(f"== paired within {len(groups)} shot(s) in {root}")
+    print(f"   scored on the {label} ({unit})")
+
+    # A flight with no score is not a tie and not a zero -- it is an observation the instrument
+    # did not take, and saying how many were missed is what 3cd needed and did not have: it named
+    # the walk its primary endpoint on a night whose trace covered half the roster, and could not
+    # read its own headline. Said before the comparison rather than after it.
+    if endpoint != "miss":
+        flown = [r for r in shots if r.get("within") and usable(r)]
+        got = [r for r in flown if score(r) is not None]
+        print(f"   coverage: {len(got)} of {len(flown)} usable flights carry one "
+              f"({len(got) / len(flown):.0%})" if flown else "   coverage: nothing usable flew")
+        if not got:
+            sys.exit(f"   nothing in this night carries an attributable {label}, so there is "
+                     f"no comparison to make on it.\n"
+                     "   A night flown before the warhead trace named its craft cannot be "
+                     "rescored: the\n"
+                     "   landings cannot be matched to rockets after the fact, because seats 5 "
+                     "and 6 land\n"
+                     "   100 m apart. ACCURACY-PLAN.md 3ce. Score it on --endpoint miss, or "
+                     "re-fly it.")
+        if len(got) < 0.75 * len(flown):
+            print("   !! under three quarters of the roster is traced -- read this as a "
+                  "diagnostic,")
+            print("      not as a comparison. ACCURACY-PLAN.md 3cd is what that costs.")
 
     # One block never flips, and that is the whole difference. ShotArms alternates the variants
     # down the roster and swaps them each shot, so seat and arm decouple over a night and are
@@ -775,20 +832,21 @@ def paired(root, shots):
     pooled = defaultdict(list)
     for per_arm in groups.values():
         for name, records in per_arm.items():
-            pooled[name].extend(r["mean"] for r in records)
+            pooled[name].extend(v for v in (score(r) for r in records) if v is not None)
 
-    print("   arm            flights   median km   (pooled, for scale only)")
+    print(f"   arm            flights   median {unit:<3}  (pooled, for scale only)")
     for name in order:
-        if name in pooled:
+        if pooled.get(name):
             print(f"   {name:<14} {len(pooled[name]):>7}   {statistics.median(pooled[name]):>9.2f}")
     print()
 
     _say_loop_left(shots, order)
 
-    levels, lopsided = _seat_levels(shots)
+    levels, lopsided = _seat_levels(shots, score)
     if levels:
+        scale = 1000.0 if unit == "km" else 1.0
         print("   seat levels divided out (arm-neutral, from this night): "
-              + ", ".join(f"s{s + 1}={levels[s] * 1000:.0f}m" for s in sorted(levels)))
+              + ", ".join(f"s{s + 1}={levels[s] * scale:.0f}m" for s in sorted(levels)))
         if lopsided:
             print(f"   seats excluded for flying only one arm: "
                   + ", ".join(f"s{s + 1}" for s in lopsided))
@@ -803,16 +861,21 @@ def paired(root, shots):
             if base not in per_arm or name not in per_arm:
                 continue
 
-            raw_a = statistics.median([r["mean"] for r in per_arm[base]])
-            raw_b = statistics.median([r["mean"] for r in per_arm[name]])
+            got_a = [v for v in (score(r) for r in per_arm[base]) if v is not None]
+            got_b = [v for v in (score(r) for r in per_arm[name]) if v is not None]
+            if not got_a or not got_b:
+                continue
+
+            raw_a = statistics.median(got_a)
+            raw_b = statistics.median(got_b)
             if raw_a > 0 and raw_b > 0:
                 raws.append(math.log(raw_b / raw_a))
 
             # The comparison is made on seat-levelled flights, so the two arms are not being
             # scored against different ground. Where no seat could be levelled this falls back to
             # the raw values, which is the pre-levelling instrument and is reported as such.
-            levelled_a = _levelled(per_arm[base], levels)
-            levelled_b = _levelled(per_arm[name], levels)
+            levelled_a = _levelled(per_arm[base], levels, score)
+            levelled_b = _levelled(per_arm[name], levels, score)
             if not levelled_a or not levelled_b:
                 continue
 
@@ -899,7 +962,7 @@ def _say_coast(shots, order):
     print()
 
 
-def _seat_levels(shots):
+def _seat_levels(shots, score):
     """What each seat is worth before any arm is compared, so it can be divided out.
 
     A seat is a fixed point on the ground. `AimSpread.AimFor` anchors seat 0 on the operator's aim
@@ -926,9 +989,11 @@ def _seat_levels(shots):
     """
     per = defaultdict(lambda: defaultdict(list))
     for r in shots:
-        if (r.get("seat") is not None and r.get("within") and usable(r)
-                and r["mean"] is not None and r["mean"] > 0):
-            per[r["seat"]][r["within"]].append(r["mean"])
+        if r.get("seat") is None or not r.get("within") or not usable(r):
+            continue
+        v = score(r)
+        if v is not None and v > 0:
+            per[r["seat"]][r["within"]].append(v)
 
     levels, lopsided = {}, []
     for seat, by_arm in per.items():
@@ -941,17 +1006,20 @@ def _seat_levels(shots):
     return levels, sorted(lopsided)
 
 
-def _levelled(records, levels):
+def _levelled(records, levels, score):
     """One arm's flights in one shot, each divided by its own seat's level."""
     out = []
     for r in records:
+        v = score(r)
+        if v is None:
+            continue
         seat = r.get("seat")
         if seat is None:
             # A one-rocket run has no roster and needs no levelling: there is only one seat, so
             # every shot's pair sits on the same ground already.
-            out.append(r["mean"])
+            out.append(v)
         elif seat in levels:
-            out.append(r["mean"] / levels[seat])
+            out.append(v / levels[seat])
     return out
 
 
@@ -1248,6 +1316,42 @@ def load(root):
             rec.update(n=n + suffix, block=block, arm=arm, verdict=verdict, dll=dll, craft=craft)
             shots.append(rec)
     return root, shots
+
+
+# The trace prints whole metres, so a zero means "under half a metre" rather than "exactly none".
+# A ratio needs a positive number and this is the smallest the instrument can distinguish.
+WALK_FLOOR_M = 0.5
+
+
+def _walk_score(shot):
+    """This flight's own downrange walk after release, in metres, or None if it was not traced.
+
+    **Signed downrange, read as a magnitude.** The walk's sign is a property of the seat -- seat 3
+    reads -54 to -87 m on every flight and seat 4 +14 to +21 -- so what an arm can do to it is
+    shrink it toward zero, which is a comparison of magnitudes. Pooling the signed values instead
+    would cancel two seats against each other and measure nothing.
+
+    **An unattributed trace is not this flight's**, and a night flown before the trace named its
+    craft has none that are. Read as a score they hand every rocket in the world the same number,
+    which is a ratio of exactly 1.00 with an interval of [1.00, 1.00] -- a dead heat that is
+    really the absence of a measurement. So a multi-rocket flight with no name on its trace scores
+    nothing, and the coverage line says how many of those there were.
+    """
+    if not shot.get("final_down"):
+        return None
+    if shot.get("seat") is not None and not shot.get("trace_named"):
+        return None
+    return max(statistics.median(abs(v) for v in shot["final_down"]), WALK_FLOOR_M)
+
+
+# What a paired comparison is scored on. The miss is the shipped endpoint and every night before
+# 2026-09-09 was read on it; the walk is 70% of it, is the only part the arrival angle acts on,
+# and scoring the total diluted a 0.71x effect to 0.80x on an interval that could not resolve it
+# (3cf). Both are per FLIGHT and both are levelled per seat.
+ENDPOINTS = {
+    "miss": ("miss at the ground", "km", lambda s: s["mean"]),
+    "walk": ("downrange walk after release", "m", _walk_score),
+}
 
 
 def usable(shot):
@@ -1583,6 +1687,9 @@ def main():
                     help="pool the arms into FACTOR on/off and report that main effect")
     ap.add_argument("--paired", action="store_true",
                     help="compare the variants flown inside each shot -- see Sim/ShotArms.cs")
+    ap.add_argument("--endpoint", choices=sorted(ENDPOINTS), default="miss",
+                    help="what --paired scores on: the miss at the ground, or the walk after "
+                         "release, which is the part of it the arrival angle acts on")
     ap.add_argument("--terrain", action="store_true",
                     help="the relief under the impacts, and whether it is shaping the misses")
     args = ap.parse_args()
@@ -1595,8 +1702,11 @@ def main():
         return
 
     if args.paired:
-        paired(root, shots)
+        paired(root, shots, args.endpoint)
         return
+
+    if args.endpoint != "miss":
+        sys.exit("--endpoint only says what --paired scores on; pass --paired too")
 
     if args.gate:
         print(" ".join(gate(root, shots, arms)))
