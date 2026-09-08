@@ -376,7 +376,7 @@ def read_shot(out_path, log_path, craft=None):
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [], "final_aim": [],
-            "trace_named": False,
+            "trace_named": False, "own_impacts": [],
             "band_deg": [], "impacts": [],
             "why": None, "passes": None, "owed": None, "why_named": False,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
@@ -445,16 +445,24 @@ def read_shot(out_path, log_path, craft=None):
     # Every landing in the shot, not just this flight's: the relief under the target is a property
     # of the ground and the terrain report wants all eight aim points, which is what `--terrain`
     # reading one seat cost it (3cb).
-    pending = None
+    pending, whose = None, None
+    want = _craft(craft) if craft else None
     for line in log.splitlines():
         m = IMPACT.search(line)
         if m:
             pending = (float(m.group("lat")), float(m.group("lon")), float(m.group("down")))
+            whose = _craft(m.group("craft")) if m.group("craft") else None
             continue
         m = SURFACE.search(line)
         if m and pending is not None:
             shot["impacts"].append(pending + (float(m.group(1)),))
-            pending = None
+
+            # This flight's own, which is what makes the ground under ONE seat measurable -- and
+            # what stops the pooled fit counting every landing once per rocket in the world. The
+            # craft is the only thing that can say: seats 5 and 6 land 100 m apart (3ce).
+            if whose is not None and (want is None or whose == want):
+                shot["own_impacts"].append(pending + (float(m.group(1)),))
+            pending, whose = None, None
 
     # Positive is early: the round beat the flight time its own predictor gave it.
     for _world, own, probe in _floats(FLIGHT, log, 3):
@@ -913,6 +921,8 @@ def paired(root, shots, endpoint="miss"):
         print("      per shot: "
               + ", ".join(f"{math.exp(r):.2f}" for r in ratios))
 
+        _say_graded(groups, base, name, levels, score, shots, unit)
+
         # The un-levelled reading, for continuity with every night flown before levelling and so
         # that a large gap between the two is visible rather than silently absorbed. The levelled
         # line above is the one to read: this one has the roster's ground in it.
@@ -1004,6 +1014,76 @@ def _seat_levels(shots, score):
             math.log(statistics.median(v)) for v in by_arm.values()))
 
     return levels, sorted(lopsided)
+
+
+def _seat_relief(shots):
+    """How rough the ground under each seat's own landings is, as an rms about its own mean.
+
+    A seat is a fixed point on the ground and its landings fall within a few hundred metres of
+    each other, so the spread of the surface heights they stopped on IS the relief the walk runs
+    over. It needs the trace to name its craft: seats 5 and 6 land 100 m apart, which is why this
+    could not be computed before 3ce and why 3cd's strong test had to be assembled by hand.
+    """
+    per = defaultdict(list)
+    for r in shots:
+        if r.get("seat") is None:
+            continue
+        per[r["seat"]].extend(q[3] for q in r["own_impacts"])
+
+    return {seat: statistics.pstdev(h) for seat, h in per.items() if len(h) >= 3}
+
+
+def _say_graded(groups, base, name, levels, score, shots, unit):
+    """Per seat: what the arm did to it, against how rough the ground under it is.
+
+    **This is 3cc's strong test**, and it is the one that separates a terrain mechanism from a
+    number. If a steeper arrival works by shortening the ground the round samples on the way in,
+    the seats with the most relief have the most to give and the flat ones have almost none -- so
+    the ratio should FALL as the relief rises, a negative rank correlation. A uniform gain across
+    seats is some other mechanism wearing the same ratio.
+
+    3cd ran this on the miss and read rho=+0.12, p=0.79. The miss is 70% walk, so that test was
+    diluted twice over -- once by the endpoint and once by seat 3 carrying most of the signal.
+    """
+    relief = _seat_relief(shots)
+    if not relief:
+        return
+
+    rows = []
+    for seat in sorted(relief):
+        a, b = [], []
+        for per_arm in groups.values():
+            for rec in per_arm.get(base, []):
+                if rec.get("seat") == seat and score(rec) is not None:
+                    a.append(score(rec))
+            for rec in per_arm.get(name, []):
+                if rec.get("seat") == seat and score(rec) is not None:
+                    b.append(score(rec))
+        if len(a) < 2 or len(b) < 2:
+            continue
+        ma, mb = statistics.median(a), statistics.median(b)
+        if ma <= 0:
+            continue
+        rows.append((seat, len(a), len(b), ma, mb, mb / ma, relief[seat]))
+
+    if len(rows) < 4:
+        return
+
+    print(f"   is the gain graded by the ground under the seat?  ({name} vs {base})")
+    print(f"   {'seat':>6}{'n ' + base[:6]:>10}{'n ' + name[:6]:>10}"
+          f"{base[:6] + ' ' + unit:>12}{name[:6] + ' ' + unit:>12}{'ratio':>8}{'relief m':>10}")
+    for seat, na, nb, ma, mb, ratio, rms in rows:
+        print(f"   {seat + 1:>6}{na:>10}{nb:>10}{ma:>12.1f}{mb:>12.1f}{ratio:>8.2f}{rms:>10.1f}")
+
+    rho, p = _spearman([r[6] for r in rows], [r[5] for r in rows])
+    if math.isnan(rho):
+        print()
+        return
+
+    verdict = ("the roughest seats gained most -- the terrain mechanism"
+               if p <= 0.05 and rho < 0 else "no grading at this n")
+    print(f"   rank correlation relief vs ratio: rho={rho:+.2f}, p={p:.3f}   {verdict}")
+    print()
 
 
 def _levelled(records, levels, score):
@@ -1598,7 +1678,12 @@ def terrain(shots):
     scatter cannot give -- a principal axis is a line -- so the walk's signed downrange component
     orients it.
     """
-    pts = [q for s in shots for q in s["impacts"]]
+    # The attributed landings where the night has them: pooling `impacts` gives every rocket in a
+    # world the whole world's landings, so a fit over eight flights counted each one eight times.
+    # The slope was unaffected -- a duplicated point does not move a least squares line -- but `n`
+    # and the standard error were, and a log written before the trace named its craft has only
+    # the pooled form.
+    pts = [q for s in shots for q in s["own_impacts"]] or [q for s in shots for q in s["impacts"]]
     degs = [d for s in shots for d in s["arrival_deg"]]
     if len(pts) < 4 or not degs:
         return None
