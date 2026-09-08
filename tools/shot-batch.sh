@@ -130,6 +130,20 @@ if (( RESUME )); then
         fi
     done
 
+    # The same rule for the two on/off flags, compared as on/off rather than by value: what
+    # scenario.sh reads is whether they are set at all, so "1" and "yes" are one setting. A night
+    # whose second half lost KSARMORY_SCENARIO_TRACE is scored on half a roster and says so only
+    # in the morning, which is the same failure the save guard above exists to prevent.
+    for var in TRACE KEEPSTAGES; do
+        eval "got=\"\${KSARMORY_SCENARIO_$var:+on}\""
+        want="$(awk -F'\t' -v k="$(echo "$var" | tr 'A-Z' 'a-z')" '$1 == k { print $2 }' "$OUT/batch.tsv")"
+        if [[ "${got:-off}" != "${want:-off}" ]]; then
+            echo "error: KSARMORY_SCENARIO_$var is '${got:-off}', but this night was planned" >&2
+            echo "       with '${want:-off}'. Fix the environment rather than the record." >&2
+            exit 1
+        fi
+    done
+
     echo "== resuming $OUT (aim ${AIM}, bar ${BAR:-default})"
 else
     # One build, because the arms differ by settings rather than by code. Named for the spec's
@@ -285,6 +299,14 @@ PY
         # is every celestial's work per frame and per ground lookup, and a night flown on it is not
         # comparable with one flown on SolLite. scenario.sh defaults mirv to SolLite.
         printf 'system\t%s\n'  "${KSARMORY_SCENARIO_SYSTEM:-SolLite (scenario.sh default)}"
+
+        # The two scenario flags that change what a night MEANS rather than how it is run. The
+        # trace is the instrument a walk-scored night is read through, and a night flown without
+        # it is scored on nothing -- indistinguishable in this record from one flown with it until
+        # the report says "coverage 0%" hours later. Keeping stages changes the world the rockets
+        # coast in. Both are read from the environment, so both are recorded like the save.
+        printf 'trace\t%s\n'      "${KSARMORY_SCENARIO_TRACE:+on}"
+        printf 'keepstages\t%s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+on}"
     } > "$OUT/batch.tsv"
 
     printf 'n\tblock\tarm\tverdict\tdll_sha256\tseconds\tstarted\n' > "$SHOTS_TSV"
