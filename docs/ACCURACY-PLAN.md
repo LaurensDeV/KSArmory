@@ -5199,6 +5199,47 @@ converging two orders of magnitude below the miss. **The next question is not wh
 what the 12 m actually consists of**, and the honest answer is that nothing currently measures it
 per flight — the walk would, and its instrument covers half the roster.
 
+## 3ce. The warhead trace was stranded, not sampled — 2026-09-08
+
+Item 28. 3cd blamed its own unmeasurable primary endpoint on the trace covering "seats 1-4 only".
+Both halves of that were wrong.
+
+### It was never a sample
+
+**All eight traces began; four finished.** `IcbmComputer._warhead` is re-read from the launcher every
+frame, so it goes null the moment the launcher does — and `TraceSetup()` returning null did not end
+the trace, it **stranded** it. `WarheadTrace.Finish` is reachable only from `Update`, so the round
+lands with nothing watching and the flight is simply *absent* from the log, which is
+indistinguishable from a flight nobody traced.
+
+Fixed by latching the profile at `Begin` — a trace follows one round already in the air, and the
+profile of a round in the air cannot change — and a setup that still fails now says so once at WARN.
+**Flown: 8 begun, 7 finished, all named, no strandings.**
+
+### And it was not seats 1-4
+
+The trace line never named its craft, and the craft **cannot** be recovered from the landing
+coordinate here: the aim points are 12 km apart but **seats 5 and 6 sit 100 m apart** (59.8 and
+59.9 km from the anchor), so nearest-point matching mislabels three of the four survivors. The real
+survivors were seats **1, 3, 6, 8**.
+
+**So 3cd's walk figure of 1.50x is void** — it was computed on wrong arm labels. Redone with correct
+attribution the same data splits 22 flights to 2, which supports nothing. The walk endpoint from
+that night is *unmeasurable*, not measured-and-unfavourable. **3cd's other results are unaffected**:
+the miss at 0.96x [0.66, 1.13] and the refuted roughness grading both come off the FLIGHT lines and
+never touched the trace.
+
+Both trace ends now carry `warhead trace on <craft>`. Third time this fault has been fixed, after
+the cutoff line and the `aim:` line.
+
+### A third loss path remains, and it is outside StepTrace
+
+One flight in eight still begins and never finishes, with **no** stranded warning — so `StepTrace`
+is not being reached at all. `IcbmComputer.Update` returns early on `!KsaWorld.IsAlive(Craft)`, and
+once the bus is gone nothing steps the trace and nothing can report that. Closing it means the trace
+outliving its craft the way `WeaponSystem.GoLoose` already lets a *round* outlive its launcher.
+Not built; 7 of 8 is enough to decompose the miss, and the loss looks unbiased.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5316,7 +5357,7 @@ what 20b is flying against.
 | ~~25~~ | ~~The aim correction stops 25x above the miss~~ | done, 14 paired | **the stopping rule was blind and unblinding it changes nothing: `noimprov` 31 to 3, miss 0.88x [0.84, 1.10] unresolved** — 3bx |
 | **26** | **Answered: the aim loop is not the limiter.** It converges monotonically to 1.4-12.4 m predicted on every flight; the landing correlates +0.07 with that and **+0.93 with the ground under that seat**, measured on another night | done | 3bz |
 | ~~27~~ | ~~Re-fly the arrival angle where terrain is present~~ | done | **0.96x [0.66, 1.13], unresolved; the graded-by-roughness prediction is REFUTED at rho +0.12, p=0.79** — 3cd |
-| **28** | **Make `WarheadTrace` cover the whole roster.** It ran on seats 1-4 only, ~6 warheads a cell, which made 3cd's primary endpoint unmeasurable and is the only per-flight decomposition of the miss there is | not started | 3cd |
+| **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
