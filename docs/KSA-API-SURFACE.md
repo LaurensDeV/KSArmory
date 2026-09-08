@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-171 types and 480 members across 7 assemblies.
+171 types and 486 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -188,6 +188,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void EndTabBar()`
 - `void EndTabItem()`
 - `void EndTable()`
+- `void NewLine()`
 - `void PopID()`
 - `void PopStyleColor(int)`
 - `void ProgressBar(float, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImString)`
@@ -550,6 +551,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.OrbitController get_OrbitController()`
 - `uint get_ImGuiId()`
 - `void SetCameraMode(KSA.CameraMode)`
+- `void SetName(string)`
 
 ### KSA.IObjectId
 
@@ -591,6 +593,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool get_Visible()`
 - `int get_Height()`
 - `int get_Width()`
+- `string get_Name()`
+- `void SetVisible(bool)`
 
 ### KSA.InputAction
 
@@ -1029,6 +1033,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.ViewportRegistry
 
 - `System.ReadOnlySpan`1<KSA.IGameViewport> get_GameViews()`
+- `bool TryOpenSecondaryViewport(ref KSA.IGameViewport)`
+- `int get_AvailableSecondaryCount()`
 
 ### KSA.ViewportType
 

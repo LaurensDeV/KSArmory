@@ -827,6 +827,16 @@ public sealed class KSArmoryMod
 
         if (wantsMainView || policy.Viewport < 0) return;
 
+        // The window has an X on it. Closing one while a head is driving it leaves this pointing
+        // at a viewport nobody is showing, which draws nothing and reads as the head having
+        // stopped working -- so it is switched off here rather than left to look broken.
+        if (!KsaWorld.IsUsableCameraWindow(policy.Viewport))
+        {
+            policy.Viewport = -1;
+            Log.Info("camera: that window was closed; the director is off");
+            return;
+        }
+
         if (battery.OpticPart is null) return;
         if (!battery.TryOpticViewEcl(out double3 eye, out double3 forward))
         {
@@ -837,6 +847,19 @@ public sealed class KSArmoryMod
 
         _viewTrace += 1;
         bool trace = _viewTrace % 60 == 0;
+
+        // What happened to the pose since it was last written. The mod writes this camera in the
+        // GUI pass, after the viewport controllers have run, and the engine renders afterwards --
+        // so between one write and the next nothing should have moved it. A drift here is the
+        // discriminator for a scene that will not sit still in the window: near zero means the
+        // camera is being obeyed and the geometry is drawn in somebody else's frame, and a real
+        // number means something is writing over the aim.
+        if (trace) ProbeViewDrift(policy.Viewport);
+
+        // Says which head this window is showing. It matters because the window is meant to be
+        // dragged out onto a second monitor, where the title bar is the only thing identifying
+        // it, and four cameras all called "Camera 3" are four of the same window.
+        KsaWorld.NameViewport(policy.Viewport, ViewportTitle(battery));
 
         // Local "up" at the launcher, which is what the boresight already is — so the horizon
         // sits level rather than rolling with the ecliptic.
@@ -854,6 +877,49 @@ public sealed class KSArmoryMod
             policy.Viewport = -1;
             Log.Warn("camera: could not drive that view; released it");
         }
+    }
+
+    // Where the camera window was left, so the next pass can say whether anything moved it.
+    private double3 _wroteEye, _wroteForward;
+    private bool _wroteView;
+
+    private void ProbeViewDrift(int viewport)
+    {
+        if (!KsaWorld.TryReadViewportPose(viewport, out double3 eye, out double3 forward, out _))
+        {
+            return;
+        }
+
+        if (_wroteView)
+        {
+            double moved = Vec.Len(eye - _wroteEye);
+            double turned = double.RadiansToDegrees(Vec.AngleBetween(_wroteForward, forward));
+
+            // Against the main camera too: if the window is being dragged around by the view the
+            // player is flying, that is where it will show.
+            string against = KsaWorld.TryReadViewportPose(KsaWorld.MainViewportIndex,
+                                                          out double3 mainEye, out _, out _)
+                           ? $" mainSep {Vec.Len(mainEye - eye):F1} m"
+                           : string.Empty;
+
+            Log.Debug(() => $"camera probe: view {viewport} drifted {moved:F2} m, "
+                            + $"{turned:F2} deg since the last write{against}");
+        }
+
+        _wroteEye = eye;
+        _wroteForward = forward;
+        _wroteView = true;
+    }
+
+    // The head and the craft carrying it. Both, because a window titled by the part alone is
+    // ambiguous the moment two craft in one world carry the same pod.
+    private static string ViewportTitle(OpticalHead head)
+    {
+        string part = head.Profile.DisplayName;
+
+        return head.Platform is { IsDisposed: false } craft
+             ? $"{part} - {KsaWorld.DisplayName(craft)}"
+             : part;
     }
 
     // Every round any crewed system has in the air, wrapped as contacts so a radar can see them.

@@ -53,13 +53,36 @@ internal sealed partial class Ui
         ImGui.SameLine();
         if (ImGui.RadioButton("main view", policy.Viewport == main)) TakeMainView(policy, main);
 
+        // On their own line rather than trailing the two above: a window is named after whatever
+        // is driving it, so these are as long as a pod and a craft name and wrap the row.
         foreach (int index in _viewports)
         {
-            ImGui.SameLine();
             if (ImGui.RadioButton(KsaWorld.DescribeViewport(index), policy.Viewport == index))
             {
                 policy.Viewport = index;
             }
+
+            ImGui.SameLine();
+        }
+
+        // The same call behind KSA's View > Add Camera, offered here because that is a menu
+        // nobody finds while looking at this row. Selected as well as opened: opening a window
+        // and leaving it showing whatever the last owner pointed it at is a button that appears
+        // to do nothing.
+        if (KsaWorld.SpareCameraWindows > 0)
+        {
+            if (ImGui.Button("New window") && KsaWorld.TryOpenCameraWindow(out int opened))
+            {
+                policy.Viewport = opened;
+            }
+        }
+        else if (_viewports.Count == 0)
+        {
+            ImGui.TextDisabled("no camera windows spare");
+        }
+        else
+        {
+            ImGui.NewLine();
         }
 
         if (policy.Viewport == main)
@@ -73,8 +96,12 @@ internal sealed partial class Ui
         }
         else if (policy.Viewport >= 0)
         {
-            ImGui.TextDisabled("  no sky or terrain detail here - KSA renders secondary views");
-            ImGui.TextDisabled("  without the atmosphere pass. See docs/BLOCKED-ON-KSA.md");
+            ImGui.TextDisabled("  drag the window's title bar out of the game to put it on");
+            ImGui.TextDisabled("  another monitor - the sight goes with it");
+
+            ImGui.TextColored(Amber, "  no terrain, sky or cloud here: KSA runs those passes for");
+            ImGui.TextColored(Amber, "  the main view alone. Craft and rounds draw normally.");
+            ImGui.TextDisabled("  See docs/BLOCKED-ON-KSA.md");
         }
 
         // A button rather than a tick box: it opens a window, and a checkmark reads as "this

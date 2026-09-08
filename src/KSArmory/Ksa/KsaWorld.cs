@@ -2047,6 +2047,133 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Names a camera window after whatever is driving it.
+    ///
+    /// <para>A window on another monitor is identified by its title and nothing else, and "Camera
+    /// 3" says nothing about which of four it is. Written only when it differs: the name is the
+    /// ImGui window's identity, so rewriting it every frame would reset its position and drag it
+    /// back out of the monitor the player put it on. KSA restores the default name when the
+    /// viewport is released, so there is nothing to put back.</para>
+    /// </summary>
+    public static void NameViewport(int index, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        try
+        {
+            if (!TryViewport(index, out IGameViewport viewport)) return;
+            if (viewport.Name == name) return;
+
+            viewport.SetName(name);
+        }
+        catch { /* a window that will not be renamed is still a window */ }
+    }
+
+    /// <summary>
+    /// Whether an index still names a camera window a player can see.
+    ///
+    /// <para>The window has an X on it, and closing it hands the lease back — after which the
+    /// index either names a viewport nobody is showing or, once the registry has been rebuilt,
+    /// somebody else's. Driving one costs nothing visible and looks exactly like the head being
+    /// broken, which is the failure this whole row is prone to.</para>
+    /// </summary>
+    public static bool IsUsableCameraWindow(int index)
+    {
+        try
+        {
+            return TryViewport(index, out IGameViewport viewport)
+                && viewport is { Visible: true, Type: ViewportType.Secondary };
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads back where a camera window is actually looking from and along.
+    ///
+    /// <para>For the one question a screenshot cannot answer: whether anything moved the camera
+    /// between the mod writing it and the engine drawing with it. Nothing else in the mod reads a
+    /// camera it drives — the aim is written and trusted — so a fight over the pose would show up
+    /// only as a scene that will not sit still.</para>
+    /// </summary>
+    public static bool TryReadViewportPose(int index, out double3 eyeEcl, out double3 forwardEcl,
+                                           out double3 upEcl)
+    {
+        eyeEcl = forwardEcl = upEcl = Vec.Zero;
+
+        try
+        {
+            if (!TryViewport(index, out IGameViewport viewport)) return false;
+            if (viewport.GetCamera() is not { } camera) return false;
+
+            eyeEcl = camera.PositionEcl;
+            forwardEcl = camera.GetForwardEcl();
+            upEcl = camera.GetUpEcl();
+
+            return Vec.IsFinite(eyeEcl) && Vec.IsFinite(forwardEcl);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>How many spare camera windows the game will still hand out.</summary>
+    public static int SpareCameraWindows
+    {
+        get
+        {
+            try { return ViewportRegistry.AvailableSecondaryCount; }
+            catch { return 0; }
+        }
+    }
+
+    /// <summary>
+    /// Opens one of the game's spare camera windows and returns the index that names it.
+    ///
+    /// <para>KSA builds four at startup and leases them out; this is the same call behind its own
+    /// <c>View &gt; Add Camera</c>. The lease is what stops two owners driving one window, and it
+    /// is given back by KSA itself when the player closes the window — so nothing here has to
+    /// track one.</para>
+    ///
+    /// <para>The window ImGui puts it in can be dragged out of the game onto another monitor:
+    /// KSA turns on ImGui's platform viewports, and the window it opens sets no flag against
+    /// it.</para>
+    /// </summary>
+    public static bool TryOpenCameraWindow(out int index)
+    {
+        index = -1;
+
+        try
+        {
+            if (!ViewportRegistry.TryOpenSecondaryViewport(out IGameViewport? opened)) return false;
+
+            opened.SetVisible(true);
+
+            // The index is a position in the registry's span, so it is read back rather than
+            // remembered -- opening one is exactly the event that can move the others.
+            ReadOnlySpan<IGameViewport> viewports = GameViewports;
+            for (int i = 0; i < viewports.Length; i++)
+            {
+                if (ReferenceEquals(viewports[i], opened))
+                {
+                    index = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"camera: could not open a window ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
     /// <summary>How many camera views the game currently has open.</summary>
     public static int ViewportCount
     {
@@ -3025,7 +3152,12 @@ internal static class KsaWorld
         try
         {
             IGameViewport v = GameViewports[index];
-            return $"Camera {index} ({v.Width}x{v.Height})";
+
+            // The window's own name, so the button and the title bar say the same thing. An
+            // index would not: KSA titles a camera by its viewport Id, which is its position in
+            // a list that also holds the thumbnail and the crew portraits, and the two have
+            // never agreed.
+            return v.Name;
         }
         catch
         {
@@ -3538,9 +3670,9 @@ internal static class KsaWorld
     /// reapplied — and only if it runs after that controller. The GUI hook does, which is why
     /// the call sits there.</para>
     ///
-    /// <para>KSA opens views itself; <c>AddViewport</c> is private, so a mod cannot make one. It
-    /// can drive one the player has opened, which is the difference between borrowing a window
-    /// and stealing the main camera.</para>
+    /// <para>The window is one KSA built at startup and hands out on request — see
+    /// <see cref="TryOpenCameraWindow"/>. A mod still cannot <em>make</em> a viewport, which is
+    /// the difference between borrowing a window and stealing the main camera.</para>
     /// </summary>
     public static bool TryLookFromViewport(int index, double3 eyeEcl, double3 forwardEcl,
                                            double3 upEcl, double dt)
