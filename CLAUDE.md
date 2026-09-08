@@ -1782,12 +1782,19 @@ noise against a 22 m trigger and the entire error budget against a hull.
 **A store that falls is reaped on the fall, not on the flight.** `MaxFlightSeconds` is a
 self-destruct for a round that misses the world, and for anything the ground does not stop that is
 exactly right — a shell has no ending of its own. A round with `HitsTerrain` does: it ends by
-arriving, and a long fall is long rather than stuck. So its clock counts only where there is air to
-arrive through, and what catches the store that can *never* arrive is `Sim/RoundReach.cs` — a conic
-whose lowest point is above the atmosphere never touches it, which is exact out there because there
-is no drag to bend it and because drag only ever lowers a periapsis. Between them the two are
-bounded at both ends, where either alone is not: arriving means entering the air, and entering the
-air starts the clock.
+arriving, and a long fall is long rather than stuck. So its clock counts only where arriving
+happens, and what catches the store that can *never* arrive is `Sim/RoundReach.cs` — a conic whose
+lowest point is above the ceiling never reaches it, which is exact out there because there is no
+drag to bend it and because drag only ever lowers a periapsis.
+
+**Three states and not two, because the clock has to be able to run.** Holding it for everything
+that is not failing leaves a round nothing reaps at all — a body with no atmosphere never starts an
+air clock, so a store falling towards the Moon has only the ground to end it and nothing whatsoever
+where the ground cannot be read. So `Approach.Arriving` is **geometric rather than atmospheric**:
+below the ceiling, whatever the ceiling is made of, which on an airless body is its highest ground.
+`Unknown` runs the clock too, so a round that can be neither classified nor stopped cannot be
+immortal — and since it then advances every step, it *is* the age limit, which is what every round
+had before any of this.
 
 The 120 s the B61 shipped with was a coast being counted against a fall. A release at 100 km takes
 **152 s** to arrive and one at 250 km **246 s**, nearly all of it above the air, so the bomb was

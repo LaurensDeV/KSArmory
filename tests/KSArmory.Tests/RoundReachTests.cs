@@ -25,7 +25,7 @@ public class RoundReachTests
     {
         // The whole point. It keeps the craft's orbital velocity and flies alongside it, so no
         // amount of waiting brings it down and nothing else would ever reap it.
-        Assert.False(RoundReach.CanReachGround(Mu, At(400_000), Circular(400_000), Ceiling));
+        Assert.Equal(Approach.Impossible, RoundReach.Classify(Mu, At(400_000), Circular(400_000), Ceiling));
     }
 
     [Fact]
@@ -35,13 +35,31 @@ public class RoundReachTests
         // 246 s to do it - twice what the old two-minute self-destruct allowed.
         double3 slow = Circular(250_000) * 0.5;
 
-        Assert.True(RoundReach.CanReachGround(Mu, At(250_000), slow, Ceiling));
+        Assert.Equal(Approach.Coasting, RoundReach.Classify(Mu, At(250_000), slow, Ceiling));
     }
 
+    /// <summary>
+    /// Exactly radial has no conic — the angular momentum is zero and Kepler cannot answer — so it
+    /// is not classified and the clock reaps it. That is the honest outcome rather than a guess:
+    /// radial covers both a store dropped straight down, which always arrives, and one thrown
+    /// straight out on an escape, which never does.
+    /// </summary>
     [Fact]
-    public void AStoreFallingStraightDownArrives()
+    public void ExactlyRadialIsNotJudged()
     {
-        Assert.True(RoundReach.CanReachGround(Mu, At(250_000), new double3(-100, 0, 0), Ceiling));
+        Assert.Equal(Approach.Unknown,
+                     RoundReach.Classify(Mu, At(250_000), new double3(-100, 0, 0), Ceiling));
+    }
+
+    /// <summary>
+    /// Nothing real is exactly radial: a craft in orbit or standing on a turning surface always
+    /// carries some transverse speed, and a metre a second of it is enough for the conic to answer.
+    /// </summary>
+    [Fact]
+    public void NearlyRadialIsJudgedNormally()
+    {
+        Assert.Equal(Approach.Coasting,
+                     RoundReach.Classify(Mu, At(250_000), new double3(-100, 1, 0), Ceiling));
     }
 
     [Fact]
@@ -52,8 +70,8 @@ public class RoundReachTests
         double3 justInside = Speed(At(400_000), periapsis: Ceiling - 1_000.0);
         double3 justOutside = Speed(At(400_000), periapsis: Ceiling + 1_000.0);
 
-        Assert.True(RoundReach.CanReachGround(Mu, At(400_000), justInside, Ceiling));
-        Assert.False(RoundReach.CanReachGround(Mu, At(400_000), justOutside, Ceiling));
+        Assert.Equal(Approach.Coasting, RoundReach.Classify(Mu, At(400_000), justInside, Ceiling));
+        Assert.Equal(Approach.Impossible, RoundReach.Classify(Mu, At(400_000), justOutside, Ceiling));
     }
 
     /// <summary>
@@ -75,7 +93,7 @@ public class RoundReachTests
     {
         // Destroying a round on a maybe is the one outcome with no way back, so an unanswerable
         // question leaves the age limit standing rather than reaping.
-        Assert.True(RoundReach.CanReachGround(Mu, At(400_000), Circular(400_000), ceiling));
+        Assert.Equal(Approach.Unknown, RoundReach.Classify(Mu, At(400_000), Circular(400_000), ceiling));
     }
 
     [Fact]
@@ -85,7 +103,7 @@ public class RoundReachTests
         // opposite verdicts - so neither is decided here, and the age limit catches them.
         double3 escaping = Circular(400_000) * 2.0;
 
-        Assert.True(RoundReach.CanReachGround(Mu, At(400_000), escaping, Ceiling));
+        Assert.Equal(Approach.Unknown, RoundReach.Classify(Mu, At(400_000), escaping, Ceiling));
     }
 
     [Fact]
@@ -93,7 +111,7 @@ public class RoundReachTests
     {
         // Below the ceiling the conic no longer describes the flight - there is drag now - and the
         // round is arriving regardless of what a vacuum trajectory would have said.
-        Assert.True(RoundReach.CanReachGround(Mu, At(20_000), Circular(20_000), Ceiling));
+        Assert.Equal(Approach.Arriving, RoundReach.Classify(Mu, At(20_000), Circular(20_000), Ceiling));
     }
 
     [Fact]
@@ -101,8 +119,8 @@ public class RoundReachTests
     {
         var nan = new double3(double.NaN, 0, 0);
 
-        Assert.True(RoundReach.CanReachGround(Mu, nan, Circular(400_000), Ceiling));
-        Assert.True(RoundReach.CanReachGround(Mu, At(400_000), nan, Ceiling));
-        Assert.True(RoundReach.CanReachGround(0.0, At(400_000), Circular(400_000), Ceiling));
+        Assert.Equal(Approach.Unknown, RoundReach.Classify(Mu, nan, Circular(400_000), Ceiling));
+        Assert.Equal(Approach.Unknown, RoundReach.Classify(Mu, At(400_000), nan, Ceiling));
+        Assert.Equal(Approach.Unknown, RoundReach.Classify(0.0, At(400_000), Circular(400_000), Ceiling));
     }
 }

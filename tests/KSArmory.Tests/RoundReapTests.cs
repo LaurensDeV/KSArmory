@@ -41,7 +41,7 @@ public class RoundReapTests
     public void ACoastAboveTheAirDoesNotSpendTheBudget()
     {
         Slug bomb = Released(Bomb);
-        bomb.CanStillArrive = (_, _) => true;
+        bomb.ApproachAt = (_, _) => Approach.Coasting;
 
         Fly(bomb, Bomb.MaxFlightSeconds * 3.0, density: 0.0);
 
@@ -52,7 +52,7 @@ public class RoundReapTests
     public void FallingThroughAirDoesSpendIt()
     {
         Slug bomb = Released(Bomb);
-        bomb.CanStillArrive = (_, _) => true;
+        bomb.ApproachAt = (_, _) => Approach.Arriving;
 
         Fly(bomb, Bomb.MaxFlightSeconds + 5.0, density: 1.0);
 
@@ -67,7 +67,7 @@ public class RoundReapTests
     public void AStoreThatCanNeverArriveIsReapedAtOnce()
     {
         Slug bomb = Released(Bomb);
-        bomb.CanStillArrive = (_, _) => false;
+        bomb.ApproachAt = (_, _) => Approach.Impossible;
 
         Fly(bomb, 5.0, density: 0.0);
 
@@ -75,20 +75,53 @@ public class RoundReapTests
     }
 
     /// <summary>
-    /// Latched: drag only ever lowers a periapsis, so a trajectory shown to reach the air goes on
-    /// reaching it. Asking again inside the atmosphere would be asking of a conic that no longer
-    /// describes the flight.
+    /// Asked every step rather than latched, because a coast ends: the round that was coasting a
+    /// moment ago is the one arriving now, and only re-asking notices. It is closed form, so the
+    /// cost is a few multiplies on the one round in the world that has terrain to hit.
     /// </summary>
     [Fact]
-    public void OnceItWillArriveTheQuestionIsNotAskedAgain()
+    public void TheQuestionIsAskedEveryStep()
     {
         int asked = 0;
         Slug bomb = Released(Bomb);
-        bomb.CanStillArrive = (_, _) => { asked++; return true; };
+        bomb.ApproachAt = (_, _) => { asked++; return Approach.Coasting; };
 
         Fly(bomb, 30.0, density: 0.0);
 
-        Assert.Equal(1, asked);
+        Assert.Equal(30, asked);
+    }
+
+    /// <summary>
+    /// The hole three states exist to close. A body with no atmosphere never starts an air clock,
+    /// so a store falling towards the Moon had nothing but the ground to end it — and nothing at
+    /// all where the ground could not be read, which is a round that lives for the session holding
+    /// timewarp down. <c>Arriving</c> is geometric rather than atmospheric for this reason.
+    /// </summary>
+    [Fact]
+    public void OnAnAirlessBodyTheClockStillRuns()
+    {
+        Slug bomb = Released(Bomb);
+        bomb.ApproachAt = (_, _) => Approach.Arriving;
+
+        Fly(bomb, Bomb.MaxFlightSeconds + 5.0, density: 0.0);
+
+        Assert.Equal(RoundState.Expired, bomb.State);
+    }
+
+    /// <summary>
+    /// And with nothing able to classify it at all — no body, no ceiling, a trajectory the conic
+    /// does not answer — the clock runs on every step, which is its age and the behaviour of every
+    /// round before any of this.
+    /// </summary>
+    [Fact]
+    public void AnUnclassifiableRoundIsStillReaped()
+    {
+        Slug bomb = Released(Bomb);
+        bomb.ApproachAt = (_, _) => Approach.Unknown;
+
+        Fly(bomb, Bomb.MaxFlightSeconds + 5.0, density: 0.0);
+
+        Assert.Equal(RoundState.Expired, bomb.State);
     }
 
     /// <summary>
@@ -116,7 +149,7 @@ public class RoundReapTests
         Assert.False(Shell.HitsTerrain);
 
         Slug shell = Released(Shell);
-        shell.CanStillArrive = (_, _) => true;
+        shell.ApproachAt = (_, _) => Approach.Coasting;
 
         Fly(shell, Shell.MaxFlightSeconds + 5.0, density: 0.0);
 

@@ -2351,7 +2351,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private Func<double3, double, double>? _airDensityAt;
     private double3 _bodyVelocityEcl;
 
-    private Func<double3, double3, bool>? _canStillArrive;
+    private Func<double3, double3, Approach>? _approachAt;
 
     // Whether a round the ground stops can still get to it. The maths is RoundReach's; what is
     // here is reading the body it is asked about.
@@ -2359,17 +2359,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // Body-centred inertial, so the body's own velocity comes off and its spin does not: a conic
     // is flown in the frame the body orbits in, not the one its surface turns in. Both terms are
     // this frame's samples, so the ~29.8 km/s they share cancels in the subtraction.
-    private bool CanStillArrive(double3 positionEcl, double3 velocityEcl)
+    private Approach ApproachAt(double3 positionEcl, double3 velocityEcl)
     {
         Celestial? body = _looseBody ?? (Platform is null ? null : KsaWorld.ParentBody(Platform));
-        if (body is null) return true;
+        if (body is null) return Approach.Unknown;
 
         double ceiling = KsaWorld.ArrivalCeilingRadius(body);
-        if (!(ceiling > 0.0)) return true;
+        if (!(ceiling > 0.0)) return Approach.Unknown;
 
         // _bodyVelocityEcl rather than a fresh read: it is this frame's sample of the same thing,
         // taken beside the one the round was stepped against, so the two belong to one instant.
-        return RoundReach.CanReachGround(KsaWorld.BodyMu(body),
+        return RoundReach.Classify(KsaWorld.BodyMu(body),
                                          positionEcl - KsaWorld.PositionEcl(body),
                                          velocityEcl - _bodyVelocityEcl,
                                          ceiling);
@@ -2516,7 +2516,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                             _airDensityAt ??= AirDensityIntoFrame,
                                             GroundTest.Shared,
                                             _groundDriftAt ??= GroundCentreDriftIntoFrame,
-                                            _canStillArrive ??= CanStillArrive));
+                                            _approachAt ??= ApproachAt));
 
 
             // Paired with the switch below rather than with "no longer flying": a round shot down

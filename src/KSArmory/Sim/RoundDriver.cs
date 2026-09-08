@@ -22,9 +22,9 @@ namespace KSArmory;
 /// </param>
 /// <param name="AirDensityAt">The density at a stated position, back-dated the same way.</param>
 /// <param name="Ground">Where the surface is under the round, or null for a round nothing stops.</param>
-/// <param name="CanStillArrive">
-/// Whether a round the ground stops can still get to it, given its ecliptic position and velocity.
-/// Absent leaves that round's age as the only thing that reaps it.
+/// <param name="ApproachAt">
+/// How far along its arrival a round the ground stops has got, given its ecliptic position and
+/// velocity. Absent leaves that round's age as the only thing that reaps it.
 /// </param>
 /// <param name="GroundCentreDriftAt">
 /// How far the sampled ground centre has moved by a stated time into the frame, back-dated the same
@@ -36,7 +36,7 @@ internal readonly record struct RoundFields(
     Func<double3, double, double>? AirDensityAt,
     IGroundTest? Ground,
     Func<double, double3>? GroundCentreDriftAt = null,
-    Func<double3, double3, bool>? CanStillArrive = null)
+    Func<double3, double3, Approach>? ApproachAt = null)
 {
     /// <summary>
     /// No lookups at all: every field held at the frame's first sample for the whole frame.
@@ -89,7 +89,7 @@ internal static class RoundDriver
             slug.AirDensityAt = fields.AirDensityAt;
             slug.Ground = fields.Ground;
             slug.GroundCentreDriftAt = fields.GroundCentreDriftAt;
-            slug.CanStillArrive = fields.CanStillArrive;
+            slug.ApproachAt = fields.ApproachAt;
         }
 
         round.Update(dt, target, gravity, frameVelocityEcl, platformEcl, munition, mediumDensityRatio);
