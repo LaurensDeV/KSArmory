@@ -821,6 +821,14 @@ reaches `WeaponSystem.FireAtLock`. It has to stay that way: the switcher's own t
 correctly from the start while the header's — the prominent one, the one an operator actually
 uses — went straight at the selection.
 
+**And the line beside a trigger describes the station that trigger will reach.** Both come from
+`Ui.NextStationIndex`, which is the point: `Hold` read off the *selected* station says
+`out of rounds` about a pair whose first rail has just fired, while the second is loaded and clear
+to go — a launcher reported as empty with half its stores still on it. The fallback when every
+station is dry is the selected one, because then its refusal is exactly what an operator wants to
+read; the fallback when the selection cannot be resolved at all is the system in hand, never null,
+because null paints a green "clear to fire" over a launcher that is holding.
+
 **The master arm, auto-engage and FIRE are on that strip too, and belong there by the same test.**
 Whether the installation is shooting is about the whole system and no part of it, so the
 fire-control component row is the wrong home for it however sensible the part sounds — that row is

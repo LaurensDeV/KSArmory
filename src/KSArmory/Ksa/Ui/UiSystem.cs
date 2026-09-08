@@ -377,7 +377,10 @@ internal sealed partial class Ui
 
         // Auto-engage off is a mode, not a hold: FIRE still works, so saying "holding fire" about
         // it sends the operator looking for a fault that is not there.
-        if (_battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
+        //
+        // Read off the station the trigger would reach rather than the one selected. Both FIRE
+        // buttons go through the group, so both lines beside them have to as well.
+        if (HoldOnTheTrigger(_battery) is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
         else if (!_policy.AutoEngage) ImGui.TextColored(Green, "Clear to fire -- on the trigger");
         else ImGui.TextColored(Green, "Clear to fire");
 

@@ -77,10 +77,28 @@ internal partial class Ui
     // steps between stations rather than always reaching the one whose row happens to be selected.
     private void FireGroup(WeaponSystems.Entry selected)
     {
+        int at = NextStationIndex(selected);
+
+        // Every station dry. Fire the selected one anyway so its own refusal is announced: the
+        // operator gets "launcher empty" from fire control rather than a button that does nothing.
+        if (at < 0) { selected.Battery.FireAtLock(); return; }
+
+        _lastFired[selected.Battery.Profile.PartId] = at;
+        _stations[at].Battery.FireAtLock();
+    }
+
+    // Which station of the selected weapon's group the trigger would reach if it were pressed now,
+    // or -1 when every one of them is dry. Leaves the group itself in _stations.
+    //
+    // Asked by the trigger and by the line beside it, because they have to be about the same
+    // station: a pair whose first rail has just fired reads "out of rounds" off that rail while the
+    // second is loaded and clear to go.
+    private int NextStationIndex(WeaponSystems.Entry selected)
+    {
         string partId = selected.Battery.Profile.PartId;
         GatherGroup(partId, _stations);
 
-        if (_stations.Count == 1) { _stations[0].Battery.FireAtLock(); return; }
+        if (_stations.Count <= 1) return _stations.Count - 1;
 
         _stationAmmo.Clear();
         foreach (WeaponSystems.Entry s in _stations)
@@ -90,16 +108,27 @@ internal partial class Ui
             _stationAmmo.Add(s.Battery.Profile.TubeCount > 0 ? s.Battery.Ammo : s.Battery.GunAmmo);
         }
 
-        int last = _lastFired.GetValueOrDefault(partId, -1);
-        int at = WeaponSelection.NextStation(CollectionsMarshal.AsSpan(_stationAmmo), last);
-
-        // Every station dry. Fire the selected one anyway so its own refusal is announced: the
-        // operator gets "launcher empty" from fire control rather than a button that does nothing.
-        if (at < 0) { selected.Battery.FireAtLock(); return; }
-
-        _lastFired[partId] = at;
-        _stations[at].Battery.FireAtLock();
+        return WeaponSelection.NextStation(CollectionsMarshal.AsSpan(_stationAmmo),
+                                           _lastFired.GetValueOrDefault(partId, -1));
     }
+
+    // The station a line beside the trigger has to describe. Falls back to the selected one only
+    // when the whole group is empty, which is the one case where its refusal is the right thing to
+    // read.
+    private WeaponSystems.Entry TriggerStation(WeaponSystems.Entry selected)
+    {
+        int at = NextStationIndex(selected);
+
+        return at < 0 ? selected : _stations[at];
+    }
+
+    // The same, as the reason to print. Null is clear to fire -- so an unresolvable selection
+    // falls back to the system in hand rather than to null, which would paint a green "clear to
+    // fire" over a launcher that is holding.
+    private string? HoldOnTheTrigger(WeaponSystem inHand)
+        => _batteries.For(Focused) is { } selected
+               ? TriggerStation(selected).Battery.Hold
+               : inHand.Hold;
 
     // Every station carrying the same store, in ordinal order.
     private void GatherGroup(string partId, List<WeaponSystems.Entry> into)
@@ -216,7 +245,10 @@ internal partial class Ui
         // This window is the trigger, so its line has to be about the trigger. Auto-engage off
         // blocks nothing FIRE does, and reporting it here is what made a working button look
         // broken.
-        if (selected.Battery.Hold is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
+        if (TriggerStation(selected).Battery.Hold is { } why)
+        {
+            ImGui.TextColored(Amber, $"Holding fire: {why}");
+        }
         else if (!selected.Policy.AutoEngage) ImGui.TextColored(Green, "Clear to fire -- on the trigger");
         else ImGui.TextColored(Green, "Clear to fire");
     }
