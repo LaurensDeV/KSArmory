@@ -659,12 +659,18 @@ public class TubeGeometryTests
         AssertClose(once - anchor, (twice - anchor) * 0.5, "travel scaling");
     }
 
+    // The round mesh's own up: perpendicular to the nose, so it is what the roll about the nose
+    // shows. Anything square to NoseAxis would do.
+    private static readonly double3 MeshUp = new(0, 0, 1);
+
     [Fact]
     public void ABodyPointsAlongTheDirectionItIsGiven()
     {
         double3 direction = new(0, 0, 400);
 
-        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(direction, doubleQuat.Identity, doubleQuat.Identity);
+        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(direction, new double3(0, 1, 0),
+                                                                 doubleQuat.Identity,
+                                                                 doubleQuat.Identity, doubleQuat.Identity);
 
         // The mesh is built nose-along +X, so the rotation must carry +X onto the flight direction.
         AssertClose(Vec.Unit(direction), Vec.Unit(rotation * FireGeometry.NoseAxis), "body nose");
@@ -680,10 +686,127 @@ public class TubeGeometryTests
 
         double3 directionEcl = new(300, 0, 0);
 
-        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(directionEcl, ecl2Asmb, asmb2Part);
+        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(directionEcl, new double3(0, 1, 0),
+                                                                 doubleQuat.Identity,
+                                                                 ecl2Asmb, asmb2Part);
         double3 expected = Vec.Unit(asmb2Part * (ecl2Asmb * directionEcl));
 
         AssertClose(expected, Vec.Unit(rotation * FireGeometry.NoseAxis), "body nose through both frames");
+    }
+
+    // ---- Body roll -----------------------------------------------------
+
+    /// <summary>
+    /// A bomb nosing over falls in one plane, and a finned store does not roll out of it. Swinging
+    /// the mesh's nose onto the flight direction by the shortest arc leaves the roll to whatever
+    /// the arc gives, and the mesh's nose is square to the plane a fall sweeps through — so the
+    /// residual tracks the flight-path angle one for one, 51° of it over a 5 km drop.
+    /// </summary>
+    [Fact]
+    public void AFallInOnePlaneDoesNotRollTheBodyOutOfIt()
+    {
+        double3 release = new(0, 1, 0);
+        double3 acrossThePlane = new(1, 0, 0);
+
+        for (double deg = 0; deg <= 89; deg += 1)
+        {
+            double rad = deg * Math.PI / 180.0;
+            var direction = new double3(0, Math.Cos(rad), -Math.Sin(rad)) * 250.0;
+
+            doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(
+                direction, release, doubleQuat.Identity, doubleQuat.Identity, doubleQuat.Identity);
+
+            double outOfPlane = Vec.Dot(Vec.Unit(rotation * MeshUp), acrossThePlane);
+
+            Assert.True(Math.Abs(outOfPlane) < 1e-9,
+                        $"rolled {Math.Asin(Math.Abs(outOfPlane)) * 180.0 / Math.PI:F1} deg "
+                        + $"out of the fall plane {deg:F0} deg into the nose-over");
+        }
+    }
+
+    /// <summary>
+    /// A round that has been released is gone. Building its attitude in the part frame glues the
+    /// roll to the launcher: a degree per degree the craft turns, on rounds already in the air.
+    /// The nose was fixed for this reason — see <c>IProjectile.ReleaseHeadingEcl</c> — and the roll
+    /// was left.
+    /// </summary>
+    [Fact]
+    public void TurningTheCraftAfterReleaseDoesNotTurnTheRound()
+    {
+        double3 release = new(0, 1, 0);
+        double3 direction = new(0, 240, -70);
+        doubleQuat asmb2Part = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), 0.4);
+        doubleQuat launchAttitude = doubleQuat.CreateFromAxisAngle(new double3(0, 0, 1), 0.3);
+
+        double3? nose = null;
+        double3? up = null;
+
+        for (double deg = 0; deg <= 180; deg += 15)
+        {
+            // Rolling about the round's own flight direction, which is the case that cancels in
+            // the nose and shows only in the roll.
+            doubleQuat now = doubleQuat.CreateFromAxisAngle(Vec.Unit(direction), deg * Math.PI / 180.0)
+                             * launchAttitude;
+            doubleQuat ecl2Asmb = doubleQuat.Conjugate(now);
+
+            doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(direction, release,
+                                                                     launchAttitude, ecl2Asmb, asmb2Part);
+
+            // Back out to the ecliptic, which is the frame the player sees the round in.
+            doubleQuat part2Ecl = doubleQuat.Conjugate(asmb2Part * ecl2Asmb);
+
+            double3 inEcl = Vec.Unit(part2Ecl * (rotation * FireGeometry.NoseAxis));
+            double3 upEcl = Vec.Unit(part2Ecl * (rotation * MeshUp));
+
+            nose ??= inEcl;
+            up ??= upEcl;
+
+            AssertClose(nose.Value, inEcl, $"nose after {deg:F0} deg of craft roll");
+            AssertClose(up.Value, upEcl, $"roll after {deg:F0} deg of craft roll");
+        }
+    }
+
+    /// <summary>
+    /// Nothing about the moment of release changes: a round still leaves at the attitude the
+    /// shortest arc gave it, which is the launcher's own roll.
+    /// </summary>
+    [Fact]
+    public void AtReleaseTheBodySitsWhereItAlwaysDid()
+    {
+        double3 release = new(0, 1, 0);
+        doubleQuat ecl2Asmb = doubleQuat.CreateFromAxisAngle(new double3(0, 1, 0), 0.7);
+        doubleQuat asmb2Part = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), 0.4);
+        doubleQuat launchAttitude = doubleQuat.Conjugate(ecl2Asmb);
+
+        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(release, release, launchAttitude,
+                                                                 ecl2Asmb, asmb2Part);
+        doubleQuat seated = FireGeometry.RotationFromNose(asmb2Part * (ecl2Asmb * release));
+
+        AssertClose(seated * FireGeometry.NoseAxis, rotation * FireGeometry.NoseAxis, "nose at release");
+        AssertClose(seated * MeshUp, rotation * MeshUp, "roll at release");
+    }
+
+    /// <summary>
+    /// A round with nothing recorded about how it left — one loaded from a save written before the
+    /// field existed — still gets its nose put right, on the shortest arc it always used.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void WithNothingRecordedAboutTheReleaseTheNoseIsStillRight(bool haveHeading)
+    {
+        double3 direction = new(0, 240, -70);
+        doubleQuat ecl2Asmb = doubleQuat.CreateFromAxisAngle(new double3(0, 0, 1), 0.9);
+        doubleQuat asmb2Part = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), 0.4);
+
+        doubleQuat rotation = TubeGeometry.BodyRotationPartFrame(
+            direction,
+            haveHeading ? new double3(0, 1, 0) : Vec.Zero,
+            haveHeading ? default : doubleQuat.Identity,   // never-set attitude, alongside a heading
+            ecl2Asmb, asmb2Part);
+
+        AssertClose(Vec.Unit(asmb2Part * (ecl2Asmb * direction)),
+                    Vec.Unit(rotation * FireGeometry.NoseAxis), "body nose");
     }
 
     // ---- Fins ----------------------------------------------------------

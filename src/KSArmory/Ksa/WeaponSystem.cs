@@ -1434,7 +1434,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
             if (!LauncherPart.TryPlaceMissile(platform, launcher, _missileBodies[index],
                                               round.LaunchAnchorPartFrame, round.TravelSinceLaunch,
-                                              heading, round.LaunchAttitude,
+                                              heading, release, round.LaunchAttitude,
                                               out double3 bodyPos, out doubleQuat bodyRot))
             {
                 RoundBodiesWork = false;

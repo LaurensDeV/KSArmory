@@ -483,9 +483,9 @@ internal static class LauncherPart
     public static bool TryPlaceMissile(
         Vehicle platform, Part launcher, Part missile,
         double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl,
-        doubleQuat launchAttitude)
+        double3 releaseHeadingEcl, doubleQuat launchAttitude)
         => TryPlaceMissile(platform, launcher, missile, launchAnchorPartFrame, travelEcl,
-                           directionEcl, launchAttitude, out _, out _);
+                           directionEcl, releaseHeadingEcl, launchAttitude, out _, out _);
 
     /// <summary>
     /// As above, and reports the transform it used so a fin set can be hung on the same one -
@@ -494,7 +494,8 @@ internal static class LauncherPart
     public static bool TryPlaceMissile(
         Vehicle platform, Part launcher, Part missile,
         double3 launchAnchorPartFrame, double3 travelEcl, double3 directionEcl,
-        doubleQuat launchAttitude, out double3 position, out doubleQuat rotation)
+        double3 releaseHeadingEcl, doubleQuat launchAttitude,
+        out double3 position, out doubleQuat rotation)
     {
         position = Vec.Zero;
         rotation = doubleQuat.Identity;
@@ -515,7 +516,8 @@ internal static class LauncherPart
                                                           ecl2Asmb, asmb2Part, sinceLaunch);
             if (!Vec.IsFinite(position)) return false;
 
-            rotation = TubeGeometry.BodyRotationPartFrame(directionEcl, ecl2Asmb, asmb2Part);
+            rotation = TubeGeometry.BodyRotationPartFrame(directionEcl, releaseHeadingEcl,
+                                                          launchAttitude, ecl2Asmb, asmb2Part);
 
             missile.PositionParentAsmb = position;
             missile.PositionParentAsmbSafe = position;
