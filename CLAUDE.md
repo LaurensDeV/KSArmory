@@ -813,6 +813,15 @@ and one whose drives the engine refused all look identical from outside. `Holdin
 the only thing that separates them, and it is no use behind a fold or on a tab nobody is looking
 at.
 
+**And not every gate binds the trigger, so the line has to say which kind it is.** Auto-engage was
+kept out of the ladder so that "clear to fire" means the trigger will work — but the *envelope* and
+the *salvo count* were left in it, and `WeaponSystem.Fire` consults neither. They are automatic
+fire's economy rather than the round's capability: a floor about a round still boosting and a
+ceiling about one expiring short, neither of which stops the shot happening. So closing inside the
+minimum reported `Holding fire: target out of reach` beside a button that then fired, and the round
+flew at the target — the panel describing a refusal that does not exist. `FireHold.BindsTrigger`
+splits them, and the auto-only ones read `Auto-engage held: … -- trigger is clear`.
+
 **And the trigger goes through the station group, from every button.** Two rails carrying the same
 store are drawn as one weapon with two stations, and firing the *selected* one reaches the same rail
 every time — so the second is never fired at all, however often the button is pressed.

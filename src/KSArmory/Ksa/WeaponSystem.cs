@@ -689,6 +689,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </summary>
     public string? Hold { get; private set; } = "not started";
 
+    /// <summary>
+    /// Whether <see cref="Hold"/> stops the operator as well as fire control.
+    ///
+    /// <para>False for the rungs that are automatic fire's economy rather than the round's
+    /// capability — a target out of reach, a salvo already committed. The trigger has never
+    /// consulted those, so a panel that says <c>Holding fire</c> about them describes a refusal
+    /// that does not happen: the button works and the round flies.</para>
+    /// </summary>
+    public bool HoldBindsTrigger { get; private set; } = true;
+
     // Whether a contact is radiating, which is the only thing an anti-radiation round can steer
     // at. Asked of the handle rather than of the track, because only a craft can carry a set: a
     // shell in the air has none, and neither has a designated coordinate. Both answer false and
@@ -699,7 +709,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // The ladder itself is Sim/FireLadder.cs; this is only where its inputs are read off the
     // world. Sampled into one value rather than passed as a dozen arguments so no rung can be
     // answered from a later instant than the one above it.
-    private string? Holding()
+    private FireHold? Holding()
     {
         Track? locked = Radar.Locked;
 
@@ -843,16 +853,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private void UpdateFireControl(double dt)
     {
-        string? hold = Holding();
+        FireHold? held = Holding();
+        string? hold = held?.Reason;
 
         // Logged on change, not every frame: a panel line answers "why is it not shooting" only
         // for whoever is looking at the panel.
         if (hold != Hold)
         {
-            Announce(hold is null ? "clear to fire" : $"holding fire: {hold}");
+            Announce(hold is null ? "clear to fire"
+                     : held is { BindsTrigger: false } ? $"auto-engage held: {hold}"
+                     : $"holding fire: {hold}");
         }
 
         Hold = hold;
+        HoldBindsTrigger = held?.BindsTrigger ?? true;
         if (_salvoTimer > 0.0) _salvoTimer = Math.Max(0.0, _salvoTimer - dt);
 
         // Reload cycle.

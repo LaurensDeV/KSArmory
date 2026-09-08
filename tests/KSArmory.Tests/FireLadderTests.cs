@@ -56,7 +56,11 @@ public class FireLadderTests
 
     private static string? Hold(FireConditions now, SystemConfig? policy = null,
                                 MunitionProfile? munition = null)
-        => FireLadder.Holding(now, policy ?? Armed(), munition ?? Round());
+        => FireLadder.Holding(now, policy ?? Armed(), munition ?? Round())?.Reason;
+
+    private static bool BindsTrigger(FireConditions now, SystemConfig? policy = null,
+                                     MunitionProfile? munition = null)
+        => FireLadder.Holding(now, policy ?? Armed(), munition ?? Round())?.BindsTrigger ?? true;
 
     [Fact]
     public void EverythingSatisfiedIsNotHoldingFire()
@@ -277,5 +281,62 @@ public class FireLadderTests
         Assert.Equal("no lock",
                      Hold(Ready() with { Locked = null },
                           new SystemConfig { Armed = true, AutoEngage = false }));
+    }
+
+    // ---- What binds the trigger, and what is only automatic fire's ---------
+
+    /// <summary>
+    /// The reported fault. The trigger consults neither the envelope nor the salvo count, so a
+    /// panel saying "holding fire" about them describes a refusal that does not happen: the
+    /// operator presses FIRE at a target inside the minimum, the round leaves, and it flies.
+    /// </summary>
+    [Theory]
+    [InlineData(50.0)]      // inside the minimum, which is what closing on a target does
+    [InlineData(90_000.0)]  // and beyond the maximum, the same gate from the other end
+    public void BeingOutOfReachDoesNotBindTheTrigger(double range)
+    {
+        FireConditions now = Ready() with { Locked = Engageable(range) };
+
+        Assert.Contains("out of reach", Hold(now), StringComparison.Ordinal);
+        Assert.False(BindsTrigger(now));
+    }
+
+    [Fact]
+    public void ACommittedSalvoDoesNotBindTheTriggerEither()
+    {
+        FireConditions now = Ready() with
+        {
+            Locked = new TrackState
+            {
+                Range = 5000.0,
+                Allegiance = Allegiance.Hostile,
+                RoundsAssigned = 99,
+            },
+        };
+
+        Assert.Equal("salvo committed", Hold(now));
+        Assert.False(BindsTrigger(now));
+    }
+
+    /// <summary>
+    /// Everything above them does bind it: those are about whether the round can leave the rail at
+    /// all, and the manual path refuses each of them in turn.
+    /// </summary>
+    [Fact]
+    public void AnythingThatStopsTheRoundLeavingBindsIt()
+    {
+        Assert.True(BindsTrigger(Ready() with { HasPlatform = false }));
+        Assert.True(BindsTrigger(Ready() with { IsOperational = false }));
+        Assert.True(BindsTrigger(Ready() with { Ammo = 0 }));
+        Assert.True(BindsTrigger(Ready() with { IsLaid = false }));
+        Assert.True(BindsTrigger(Ready() with { Locked = null }));
+        Assert.True(BindsTrigger(Ready(), new SystemConfig { Armed = false }));
+    }
+
+    /// <summary>Nothing holding is not a hold of either kind.</summary>
+    [Fact]
+    public void ClearToFireBindsNothing()
+    {
+        Assert.Null(FireLadder.Holding(Ready(), Armed(), Round()));
     }
 }

@@ -380,9 +380,7 @@ internal sealed partial class Ui
         //
         // Read off the station the trigger would reach rather than the one selected. Both FIRE
         // buttons go through the group, so both lines beside them have to as well.
-        if (HoldOnTheTrigger(_battery) is { } why) ImGui.TextColored(Amber, $"Holding fire: {why}");
-        else if (!_policy.AutoEngage) ImGui.TextColored(Green, "Clear to fire -- on the trigger");
-        else ImGui.TextColored(Green, "Clear to fire");
+        DrawHoldLine(_battery, _policy.AutoEngage);
 
         if (_battery.Rounds.Count > 0)
         {

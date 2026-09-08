@@ -122,13 +122,37 @@ internal partial class Ui
         return at < 0 ? selected : _stations[at];
     }
 
-    // The same, as the reason to print. Null is clear to fire -- so an unresolvable selection
-    // falls back to the system in hand rather than to null, which would paint a green "clear to
-    // fire" over a launcher that is holding.
-    private string? HoldOnTheTrigger(WeaponSystem inHand)
-        => _batteries.For(Focused) is { } selected
-               ? TriggerStation(selected).Battery.Hold
-               : inHand.Hold;
+    // The system a line beside the trigger has to speak for. An unresolvable selection falls back
+    // to the one in hand rather than to nothing, which would paint a green "clear to fire" over a
+    // launcher that is holding.
+    private WeaponSystem TriggerSystem(WeaponSystem inHand)
+        => _batteries.For(Focused) is { } selected ? TriggerStation(selected).Battery : inHand;
+
+    // One line for both triggers, so the two cannot drift: the reason, and whether it binds, come
+    // from the same station either button would fire.
+    private void DrawHoldLine(WeaponSystem inHand, bool autoEngage)
+    {
+        WeaponSystem speaking = TriggerSystem(inHand);
+
+        if (speaking.Hold is not { } why)
+        {
+            ImGui.TextColored(Green, autoEngage ? "Clear to fire" : "Clear to fire -- on the trigger");
+            return;
+        }
+
+        if (speaking.HoldBindsTrigger)
+        {
+            ImGui.TextColored(Amber, $"Holding fire: {why}");
+            return;
+        }
+
+        // Auto-engage's own gate, said as one. The old wording described a refusal that does not
+        // happen: the operator presses FIRE at a target inside the minimum, the round leaves, and
+        // the panel had called that holding fire.
+        ImGui.TextColored(Amber, $"Auto-engage held: {why}");
+        ImGui.SameLine();
+        ImGui.TextColored(Green, "-- trigger is clear");
+    }
 
     // Every station carrying the same store, in ordinal order.
     private void GatherGroup(string partId, List<WeaponSystems.Entry> into)
@@ -245,11 +269,6 @@ internal partial class Ui
         // This window is the trigger, so its line has to be about the trigger. Auto-engage off
         // blocks nothing FIRE does, and reporting it here is what made a working button look
         // broken.
-        if (TriggerStation(selected).Battery.Hold is { } why)
-        {
-            ImGui.TextColored(Amber, $"Holding fire: {why}");
-        }
-        else if (!selected.Policy.AutoEngage) ImGui.TextColored(Green, "Clear to fire -- on the trigger");
-        else ImGui.TextColored(Green, "Clear to fire");
+        DrawHoldLine(selected.Battery, selected.Policy.AutoEngage);
     }
 }
