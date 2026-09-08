@@ -5240,6 +5240,60 @@ once the bus is gone nothing steps the trace and nothing can report that. Closin
 outliving its craft the way `WeaponSystem.GoLoose` already lets a *round* outlive its launcher.
 Not built; 7 of 8 is enough to decompose the miss, and the loss looks unbiased.
 
+## 3cf. The miss splits in two, and only one half is the ground — 2026-09-08
+
+The first decomposition of the miss, and the reason to have fixed the trace. Eight blocks, single
+arm, `~/shots/2026-09-08-decompose`, **60 named traces of 64** (the stranding fix took it from 50%
+to 91%). All 8 blocks PASS.
+
+### The split
+
+| | median |
+| --- | --- |
+| **total miss at the ground** | **15.0 m** |
+| of which made **during the fall** (the walk) | **10.5 m — 70%** |
+|   downrange | 10.5 m |
+|   cross-range | **1.0 m** |
+| implied error **before release** | **7.0 m** |
+
+### The two halves are different terms, and the statistics say so
+
+| component | vs seat roughness | exact p |
+| --- | --- | --- |
+| **the walk** | **+0.74** | **0.046** |
+| the part made before release | +0.12 | 0.793 |
+| the total miss | +0.62 | 0.115 |
+
+**The walk follows the ground and the pre-release error does not.** That is the whole finding: the
+miss is not one quantity to be reduced but two, and they answer to different things. The
+before-release component runs 2, 8, 13, 0, 7, 4, 12, 9 m across the seats with no relation to the
+terrain under them — and it sits right on the 1.4-12.4 m the aim loop converges to in 3bz, which is
+what it should be if it *is* the loop's converged residual.
+
+### And this explains 3cd's null
+
+The arrival angle acts on the walk, which is 70% of the miss — so scoring it on the **total** miss
+diluted a 0.71x effect to about 0.80x, on a night whose interval was [0.66, 1.13]. 3cd could not
+have resolved it either way. **The night was not evidence that the angle does nothing; it was a
+measurement of the wrong quantity**, because the right one was unmeasurable at the time.
+
+Note also that the total miss vs roughness reads +0.62 (p=0.115) here against +0.61 (p=0.116) in
+3cb, on independent flights — so 3cb's correlational half reproduces, and the walk sharpens it to
+p=0.046 exactly as splitting a diluted signal should.
+
+### What this makes the plan
+
+Two budgets, and a metre needs both under a metre:
+
+1. **The walk, 10.5 m, terrain-driven, pure downrange.** The arrival angle is the lever and it has
+   never been scored against this quantity. **That is the next night**, and it is 3cc's original
+   design finally executable: `base|steep:ArrivalPreference=0.65`, scored on the walk.
+2. **The pre-release residual, ~7 m, ground-independent.** Nothing has attacked this; 3bz established
+   the loop converges *to* it, not that it cannot go below it. Unexplored.
+
+Neither is the aim loop's stopping rule, its band, or its improvement threshold — 3bz and 3ca
+between them close that file.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5358,6 +5412,8 @@ what 20b is flying against.
 | **26** | **Answered: the aim loop is not the limiter.** It converges monotonically to 1.4-12.4 m predicted on every flight; the landing correlates +0.07 with that and **+0.93 with the ground under that seat**, measured on another night | done | 3bz |
 | ~~27~~ | ~~Re-fly the arrival angle where terrain is present~~ | done | **0.96x [0.66, 1.13], unresolved; the graded-by-roughness prediction is REFUTED at rho +0.12, p=0.79** — 3cd |
 | **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
+| **29** | **Re-fly the arrival angle scored on the WALK**, which is 70% of the miss and the only part the angle acts on. 3cd scored the total and diluted 0.71x to 0.80x on a [0.66, 1.13] interval | next | 3cf |
+| **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
