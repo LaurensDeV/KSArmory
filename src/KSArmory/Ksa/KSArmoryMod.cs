@@ -432,10 +432,6 @@ public sealed class KSArmoryMod
                 _bursts.Update(_config);
                 _bursts.Draw(_config);
 
-                // On the simulated step, like everything else that is a thing in the world
-                // rather than a duration somebody is watching.
-                NuclearClouds.Update(_lastSimStep, _config.DirtyNuclearSmoke);
-
                 // Only the system the panel is showing. Every crewed battery reading the same
                 // cursor would fire every launcher in the world at one click.
                 if (_roster.For(_ui.Focused) is { } aimed)
@@ -715,6 +711,15 @@ public sealed class KSArmoryMod
             _smoke.Update(loose[i]);
             _tracers.Update(loose[i]);
         }
+
+        // A cloud belongs to the world rather than to any weapon, and it is here rather than with
+        // the drawing for the reason its own comment always gave: it is a thing in the world, not
+        // a duration somebody is watching. Left in the UI pass it stopped growing whenever the UI
+        // was hidden, which is the one time a player is watching it and nothing else.
+        //
+        // The scene gates it, not the craft. A mushroom cloud does not stop rising because whoever
+        // was flying has just been killed by it.
+        NuclearClouds.Update(_lastSimStep, _config.DirtyNuclearSmoke);
 
         // A sight outlives nothing: without this the dictionary keeps a system for the session
         // after its craft has gone, which is the leak every pooled effect below sweeps for.
