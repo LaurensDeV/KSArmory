@@ -1129,23 +1129,16 @@ that is expressible as a vehicle. Nor is the count: a CIWS burst is 150 shells i
 `Sim/StageDisposal.cs` exists because frame time is the only thing that buys simulation rate.
 Self-simulation also cannot corrupt a save.
 
-**What it costs is the drawing, and that is a different bill from the one this used to claim.**
-Rounds are no longer gizmo tracers — they are real subparts of the launcher, so the engine draws
-the mesh while the mod owns the state, and *every* drawn quantity has to be paired across that
-seam by hand: the offset's epoch, the body's roll, the camera's anchor. A round that were a real
-vehicle would get its attitude, its placement and a followable camera from the engine for nothing.
-**Two of the five faults found in the 2026-09-08 session were of exactly that shape** — a body roll
-with no reference, and a chase camera anchored to the craft's analytic position while the mesh hung
-off its part tree. The other three (a hook behind `DrawUI`, a chase that only knew how to look along
-a velocity, a bomb's self-destruct timer) would have happened either way.
+**What it costs is the drawing.** Rounds are real subparts of the launcher, so the engine draws the
+mesh while the mod owns the state, and every drawn quantity has to be paired across that seam by
+hand — the offset's epoch, the body's roll, the camera's anchor. A real vehicle would get its
+attitude, its placement and a followable camera for nothing.
 
-**The case worth revisiting is the unfused store, not the missile.** A B61 and a Mk 21 both carry
-`FuseRadius = 0` and stop on terrain, so neither needs a sub-frame anything; they are singular,
-slow, and already ask the engine where the ground is. They are the only rounds a vehicle could
-carry without losing something. What that would cost is the uniformity — `IProjectile` is the
-contract every frame and epoch rule is pinned against, and one weapon outside it is a second set of
-rules — plus a part template and a save that now contains a bomb. Not obviously worth it, and worth
-re-deciding rather than assumed.
+**The case worth revisiting is the unfused store, not the missile.** A B61 and a Mk 21 carry
+`FuseRadius = 0` and stop on terrain, so neither needs a sub-frame anything, and they are the only
+rounds a vehicle could carry without losing something. Against that: `IProjectile` is the contract
+every frame and epoch rule is pinned against, so one weapon outside it is a second set of rules —
+plus a part template, and a save that now contains a bomb.
 
 **Everything is computed in the ecliptic (`Ecl`) frame** and converted to camera-relative `Ego`
 only at draw time. `Ego` is a pure translation of `Ecl`, so this is exact — see the notes.
@@ -1420,17 +1413,16 @@ player to install nothing. **Nothing in the prefix may throw** — it runs insid
 loop, where an exception is the game rather than a log line.
 
 **The second patch is on a private method, and what makes that acceptable is what losing it
-costs.** `Ksa/PreRenderHook.cs` postfixes `Program.OnFrameCelestials` because StarMap's three
-per-frame hooks are the whole list and none of them is both pre-render and outside
-`if (DrawUI)` — so with the UI hidden the mod could step before the render or at all, and
-`FrameLatch` alone can only pick the second. That costs one frame: a subpart transform written
-after the render is drawn on the next one, so pressing F2 moved every round by a step of its own
-travel — 4 m at 250 m/s — and then jittered it by the difference between a long frame and a short
-one. Unlike the attitude prefix there is no signature to pin and no build error to be had, and
-that is exactly why the failure must degrade rather than break: a rename makes the patch not
-apply, which is logged once, and `[StarMapAfterOnFrame]` goes on running the step as it does
-today. A patch whose absence is the status quo is a different risk from one whose absence is a
-rocket that stops steering.
+costs.** `Ksa/PreRenderHook.cs` prefixes `Program.OnFrameCelestials`, because StarMap's three
+per-frame hooks are the whole list and none is both pre-render and outside `if (DrawUI)` — so with
+the UI hidden the mod could step before the render or at all, and `FrameLatch` alone can only pick
+the second. Stepping after the render draws every round a frame late, 4 m at 250 m/s, jittering
+with the display's pacing. **A prefix and not a postfix**: that phase resolves the camera-nearby
+body and updates the planet's shader data, so stepping after it renders the ground as open water.
+There is no signature to pin and no build error to be had, which is exactly why the failure must
+degrade: a rename makes the patch not apply, it is logged once, and `[StarMapAfterOnFrame]` runs
+the step as before. A patch whose absence is the status quo is a different risk from one whose
+absence is a rocket that stops steering.
 
 **`Ksa/VehicleCommand.cs` is the only place this mod flies somebody else's rocket**, and every write
 in it is one the game already makes for itself: the flight computer's `Custom` attitude target,
@@ -1492,19 +1484,17 @@ subparts, scaled to nothing until fired, with their transform written each frame
   frame, so it carries none of that.
 - **Orient off `VelocityLocal`, never `VelocityEcl`.** The latter carries ~29.8 km/s of ecliptic
   motion and points every round the same way.
-- **Build the attitude in the ecliptic, not in the part frame — a direction is not a rotation, and
-  the leftover is the roll.** Swinging the mesh's nose onto the flight direction by the shortest arc
-  leaves the roll to whatever the arc gives, which is a function of the direction and of the
-  launcher's attitude. Both move. The mesh's nose is square to the plane a fall sweeps through, so
-  the residual tracks the flight-path angle one for one — **51° of roll over a 5 km drop**, 59° over
-  a 2 km one, at 1–5°/s — and solving in the part frame glues it to the craft besides, at a degree
-  per degree the launcher turns on rounds that had already gone. A missile hardly shows either,
-  because proportional navigation hardly turns. The fins are not involved: `FinMixer` is drawn only,
-  and no fin model was ever going to hold a roll the drawing invents. So a body leaves at the
-  launcher's own roll and is swung onto where it points now along the **great circle from where it
-  left**, which is the one path that adds no roll — the same "carry the reference forward" answer as
-  `Sim/AimFrame.cs` and `OpticGeometry.Rotation`, and stateless because
-  `IProjectile.ReleaseHeadingEcl` and `LaunchAttitude` already record where it left.
+- **Build the attitude in the ecliptic, not in the part frame: a direction is not a rotation, and
+  the leftover is the roll.** A shortest arc onto the flight direction leaves that roll to whatever
+  the arc gives — a function of the direction *and* of the launcher's attitude, both of which move.
+  The mesh's nose is square to the plane a fall sweeps through, so the residual tracks the
+  flight-path angle one for one: **51° over a 5 km drop**, at 1–5°/s. Solving in the part frame
+  glues it to the craft besides, a degree per degree the launcher turns on rounds already gone. The
+  fins are not involved — `FinMixer` is drawn only, and no fin model holds a roll the drawing
+  invents. So a body leaves at the launcher's roll and swings onto where it points now along the
+  **great circle from where it left**, the one path that adds none. Stateless, because
+  `ReleaseHeadingEcl` and `LaunchAttitude` already record the release, and it is `AimFrame`'s
+  carry-the-reference-forward answer again.
 
 `RoundBodyAnchorTests` and `FireGeometryTests` hold the first two, `TubeGeometryTests` the third.
 
@@ -2135,20 +2125,15 @@ and a camera on it sits one simulated step out of register with the scene. That 
 24 ms frame against 238 m on a 9 ms one, and the display's frame pacing alternates between exactly
 those, so the camera's height over the ground swings **±145 m every frame**.
 
-**It resolves through `IEffectSource.TryRoundEffectEcl` — the same call that places the body — and
-that is the whole rule: the camera is not trying to be right, it is trying to be paired.** Nothing
-here can be right in absolute terms. The mod's reading of a round is a step behind the world the
-engine has just advanced; a craft's analytic orbit position is not where its parts are drawn; and
-the gap between those two opens and closes as the craft goes off rails and back, which is what
-**lighting an engine does** — reported from play as the camera shifting when the launching rocket's
-engine is toggled. None of those is visible on its own. What is visible is the separation between
-the eye and the mesh, and every one of them cancels out of it the moment both sides come from one
-expression.
-
-**So correcting one side alone is worse than leaving both wrong.** A term added to put the camera in
-the engine's epoch takes it *away* from the mesh, which stayed in the mod's — measured in play as a
-camera that jittered constantly with the round out of frame. The plume and the tracer already hang
-on this call for the same reason: a flame has to sit on the body rather than near it.
+**It resolves through `IEffectSource.TryRoundEffectEcl` — the call that places the body — and that
+is the whole rule: the camera is not trying to be right, it is trying to be paired.** Nothing here
+can be right in absolute terms. The mod's reading of a round is a step behind the world the engine
+just advanced, and a craft's analytic orbit position is not where its parts are drawn — a gap that
+opens and closes as the craft goes off rails and back, which is what **lighting an engine does**.
+None of that is visible. The separation between eye and mesh is, and every term cancels out of it
+once both sides come from one expression. **So correcting one side alone is worse than leaving both
+wrong**: a term putting the camera in the engine's epoch takes it away from the mesh, which stayed
+in the mod's. The plume and the tracer hang on this call for the same reason.
 
 It must also be the same answer all frame. `GetPositionEclFromCce` and `GetPositionCceFromEcl` come
 through the same method and the engine converts at phases the mod does not choose, so an answer that
@@ -2195,20 +2180,18 @@ the controller does not pick the offset up until the next one.
 **The rig stands behind the round on the line to what it is flying at, not on its flight path.**
 For anything steering onto a target the two are a lead angle apart and it barely shows. A bomb's
 target is tens of degrees below the path it falls along — 32° from five kilometres at 250 m/s, and
-it grows with release height — so a rig built on the flight path has the target nowhere in frame
-for the whole fall, whether the ride began at the sight or at the craft. Three rules go with it.
-The look-at is taken *along* that axis rather than at the target itself, so the **round** stays in
-the middle of the frame however far off the target is. The axis is **held within 80°** of the
-flight path, because a round that goes past what it was aimed at sees that line swing through abeam
-and reverse — and clamping is continuous where refusing is not, so a miss slides to the edge rather
-than whipping. And inside the look-ahead the aim hands back to the flight path, which costs
-nothing: a round arriving is pointing at what it arrives at.
+it grows with release height — so a rig built on the flight path has it nowhere in frame for the
+whole fall. Three rules go with it: the look-at is taken *along* that axis rather than at the target,
+so the **round** stays centred however far off the target is; the axis is **held within 80°** of the
+flight path, because a round that goes past its target sees that line swing through abeam and
+reverse, and clamping is continuous where refusing is not; and inside the look-ahead the aim hands
+back to the flight path, which costs nothing, because a round arriving is pointing at what it
+arrives at.
 
-What it is flying at is resolved once a frame — a craft off the world, another round in the air
-off itself, a designated place off the aimpoint the system resamples — and read four times, by the
-transition, the closing curve, the pose and the brackets. Separate readings would let the camera
-and the brackets disagree about where the same point is. Everything downstream falls back to the
-flight path when there is nothing, which is what an undesignated bomb is.
+What it is flying at is resolved **once** a frame and read four times — by the transition, the
+closing curve, the pose and the brackets — so the camera and the brackets cannot disagree about
+where the same point is. With nothing to fly at, everything falls back to the flight path, which is
+what an undesignated bomb is.
 
 **A launcher's altitude is the ground only while the round is still above it.**
 `FloorBelowLauncher` keeps the eye out of the hillside a Pantsir is parked on, which is a launch
@@ -2338,12 +2321,10 @@ should not be weakened without understanding what they buy:
   cannot happen without a UI pass. A view the mod has *borrowed* is not in that category: left
   unrestated it freezes at whatever offset it last had — no closing, no transition, no aim — while
   the world it is pointed at carries on, and the player cannot take it back by hand because
-  `FixedController` reads no input. So `KSArmoryMod.DriveCameras` is called from `StepOnce` rather
-  than from the GUI hook, outside the flight gate so a view is still handed back on the way out,
-  and `ChaseCamera` supplies an `IViewPose` the way `SightCamera` already did — which is what puts
-  the pose in the engine's own pass rather than in a hook that may not run. What is still one frame
-  late under a hidden UI is everything the mod *writes into the world*: subpart transforms and
-  effects land after the render and are drawn on the next frame.
+  `FixedController` reads no input. So `KSArmoryMod.DriveCameras` runs from `StepOnce` rather than
+  from the GUI hook, outside the flight gate so a view is still handed back on the way out, and
+  `ChaseCamera` supplies an `IViewPose` as `SightCamera` already did. The same rule sends
+  `NuclearClouds.Update` there: a thing in the world, not a duration somebody is watching.
 
 - **A frame in which this mod's hook never runs is integrated on the next one.** Still true for any
   frame the mod genuinely misses, and the mitigation stands underneath the two-hook arrangement
