@@ -147,6 +147,11 @@ public sealed class KSArmoryMod
         // panel says so rather than leaving a rocket that refuses to steer unexplained.
         AttitudeHook.Install();
 
+        // The other half of stepping on a frame the GUI pass skipped. FrameLatch decides which
+        // hook runs the step; this is what puts a hidden-UI frame's step before the render rather
+        // than after it. Degrades to the frame postfix, so a refusal costs a frame and nothing.
+        PreRenderHook.Install(StepOnce);
+
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
         _icbms = new IcbmComputers(_config);
@@ -262,6 +267,60 @@ public sealed class KSArmoryMod
         {
             using (_budget.Measure("sim", top: true)) StepSimulation(dtPlayer);
         }
+
+        // Here rather than in the GUI hook, and outside the flight gate above so a view is still
+        // handed back on the way out. Driving a camera is not drawing: hiding the UI takes the GUI
+        // pass away entirely, and a mod that stops restating a view it has borrowed leaves the
+        // player riding a frozen offset with no closing, no transition and no aim -- while the
+        // world it is pointed at carries on.
+        using (_budget.Measure("cameras")) DriveCameras(dtPlayer);
+    }
+
+    // Everything that borrows the player's view, in claim order.
+    //
+    // The chase reads the sight's base field from the frame before and the sight is told whether
+    // the chase outranks it this frame, so the two are in this order and not the other: swapping
+    // them flies a transition begun through a magnified sight down a three-degree straw.
+    private void DriveCameras(double dt)
+    {
+        if (_roster is null || _ui is null) return;
+
+        _watch.Apply(dt);
+
+        // After the watch camera: both write the view, and the chase takes it outright, so
+        // letting the watch nudge afterwards would fight it every frame.
+        if (_roster.For(_ui.Focused) is { } chased)
+        {
+            _chase.Apply(chased.Battery, chased.Policy.ChaseRounds && KsaWorld.InFlight,
+                         dt, _lastSimStep, _config.FreezeChaseTransition, _sight.BaseFovDeg);
+        }
+        else
+        {
+            _chase.Release();
+        }
+
+        if (KsaWorld.InFlight && _heads?.Driving(_ui.Focused) is { } head)
+        {
+            TakeOpticView(head.Head, head.Policy, dt);
+        }
+        else if (KsaWorld.InFlightScene)
+        {
+            // Nothing is being shown, so nothing may be holding the player's view on its behalf.
+            // Skipping this is how a sight survives the craft it was looking through.
+            //
+            // The scene, not KsaWorld.InFlight: destroying the craft being flown clears the
+            // controlled vehicle and leaves the scene running, so asking whether the player has a
+            // craft sends the one case that most needs a hand-back down the path that does not do
+            // one -- and being shot while looking through a director is how that is reached.
+            _sight.Release();
+        }
+        else
+        {
+            // Out of flight the recording describes a scene that no longer exists, and restoring
+            // a dead scene's camera mode and follow onto the editor is a view the player cannot
+            // account for. The new scene brings its own camera.
+            _sight.Forget();
+        }
     }
 
     /// <summary>
@@ -361,28 +420,8 @@ public sealed class KSArmoryMod
                 LockCueOverlay.Draw(engaging.Battery);
             }
 
-            // Both of these write a camera, and both must be last and every frame: KSA's
-            // controller writes from its own mode, so a view taken earlier in the frame is
-            // overwritten before anything renders.
-            _watch.Apply(dt);
-
-            // After the watch camera: both write the view, and the chase takes it outright, so
-            // letting the watch nudge afterwards would fight it every frame.
-            if (_roster.For(_ui.Focused) is { } chased)
-            {
-                // The sight's own base field, which is zero unless it is holding the view. The
-                // chase outranks the sight but inherits its picture, so without this a transition
-                // begun while magnified is flown at 16x.
-                _chase.Apply(chased.Battery, chased.Policy.ChaseRounds && KsaWorld.InFlight,
-                             dt, _lastSimStep, _config.FreezeChaseTransition, _sight.BaseFovDeg);
-            }
-            else
-            {
-                _chase.Release();
-            }
-
-            // After the camera has been placed, so the brackets are projected through this frame's
-            // view rather than the one before it.
+            // The cameras themselves were driven from StepOnce at the top of this hook. This is
+            // only the brackets over what the chased round is flying at.
             if (KsaWorld.InFlight) ChaseHud.Draw(_chase);
 
             // After the panel, so a click on a window is not also a click on the world behind it.
@@ -421,41 +460,16 @@ public sealed class KSArmoryMod
                 TargetLock.Update(_roster.For(_ui.Focused)?.Battery, _heads?.Driving(_ui.Focused)?.Head);
                 TargetLock.Draw(_roster.For(_ui.Focused)?.Battery, _heads?.Driving(_ui.Focused)?.Head);
             }
-            // Last, and every frame. KSA's controller writes the camera from its own mode, so a
-            // view taken earlier in the frame is simply overwritten before anything renders.
-            if (KsaWorld.InFlight && _heads?.Driving(_ui.Focused) is { } head)
+            // The sight's own painting. Taking the view is in DriveCameras; this is what is
+            // drawn over it, and it is asked of the claim rather than of the setting: the sight
+            // yields the main view to the chase without releasing it, and painting through that
+            // leaves its bracket over a picture of something else, stacked under the chase's own.
+            if (KsaWorld.InFlight && _heads?.Driving(_ui.Focused) is { } head
+                && ViewClaim.SightPaints(head.Policy.Viewport >= 0,
+                                         head.Policy.Viewport == KsaWorld.MainViewportIndex,
+                                         _sight.Holding, _chase.HoldsMainView))
             {
-                TakeOpticView(head.Head, head.Policy, dt);
-
-                // Asked of the claim, not of the setting: the sight yields the main view to the
-                // chase without releasing it, and painting through that leaves its bracket over a
-                // picture of something else, stacked under the chase's own.
-                if (ViewClaim.SightPaints(head.Policy.Viewport >= 0,
-                                          head.Policy.Viewport == KsaWorld.MainViewportIndex,
-                                          _sight.Holding, _chase.HoldsMainView))
-                {
-                    Sight.Draw(head.Head, head.Policy, _roster.For(_ui.Focused)?.Battery);
-                }
-            }
-            else if (KsaWorld.InFlightScene)
-            {
-                // Nothing is being shown, so nothing may be holding the player's view on its
-                // behalf. Skipping this is how a sight survives the craft it was looking through.
-                //
-                // The scene, not KsaWorld.InFlight: destroying the craft being flown clears the
-                // controlled vehicle and leaves the scene running, so asking whether the player has
-                // a craft sends the one case that most needs a hand-back down the path that does
-                // not do one -- and being shot while looking through a director is how that is
-                // reached.
-                _sight.Release();
-            }
-
-            else
-            {
-                // Out of flight the recording describes a scene that no longer exists, and
-                // restoring a dead scene's camera mode and follow onto the editor is a view the
-                // player cannot account for. The new scene brings its own camera.
-                _sight.Forget();
+                Sight.Draw(head.Head, head.Policy, _roster.For(_ui.Focused)?.Battery);
             }
 
         }
@@ -770,6 +784,7 @@ public sealed class KSArmoryMod
         _icbms?.Clear();
         _icbms = null;
         AttitudeHook.Remove();
+        PreRenderHook.Remove();
         KsaWorld.ResetSimStepTracking();
         _roster = null;
         _ui = null;
@@ -1001,6 +1016,7 @@ public sealed class KSArmoryMod
         _icbms?.Clear();
         _icbms = null;
         AttitudeHook.Remove();
+        PreRenderHook.Remove();
         Log.Error("too many faults - air defence disabled for this session");
     }
 }

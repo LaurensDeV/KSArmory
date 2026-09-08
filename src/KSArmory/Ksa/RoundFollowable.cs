@@ -20,33 +20,47 @@ internal sealed class RoundFollowable : IFollowable
 
     private IProjectile? _round;
 
-    // What to hold still against once the round has gone off. Not an ecliptic position: that frame
-    // carries ~29.8 km/s the whole world shares, so a camera pinned to a point in it drifts.
+    // Where a burst was, in the frame of the body it happened over -- the only description of a
+    // place that does not move. The fallback for a burst no body could be found for is the craft
+    // that fired it, which is wrong in the same way but far less so than the ecliptic.
+    private object? _burstBody;
+    private double3 _burstAnchor;
     private Vehicle? _anchor;
     private double3 _anchorOffset;
 
-    // The craft the round left, so its position can be resolved the way a round *body* is: this
-    // is read by the engine in its own frame pass, and re-reading the platform there is what puts
-    // the answer in the engine's epoch rather than the mod's.
+    // The weapon that fired it, asked where the round's body is DRAWN. Not for its own sake: what
+    // matters is that the camera and the mesh come out of one expression.
+    private IEffectSource? _source;
     private Vehicle? _platform;
 
-    /// <summary>Points this at a round on the craft that fired it, or at nothing.</summary>
-    public void Track(IProjectile? round, Vehicle? platform)
+    /// <summary>Points this at a round on the weapon that fired it, or at nothing.</summary>
+    public void Track(IProjectile? round, IEffectSource? source)
     {
         _round = round;
-        _platform = round is null ? null : platform;
+        _source = round is null ? null : source;
+        _platform = round is null ? null : source?.Platform;
+        _burstBody = null;
         _anchor = null;
     }
 
-    /// <summary>
-    /// Holds where the round was, relative to the craft that fired it, for looking at a burst.
-    /// </summary>
+    /// <summary>Holds where the round went off, for looking at the burst.</summary>
     public void HoldAgainst(Vehicle? platform, IProjectile round)
     {
         _round = null;
-        _anchor = platform;
-        _anchorOffset = round.OffsetFromPlatform;
         LastPositionEcl = round.PositionEcl;
+
+        // Body-fixed, because a burst happens over ground and ground turns. Against the launching
+        // craft instead it flies away with it, which for a rocket still under thrust is hundreds
+        // of metres across a three-second linger; as a bare ecliptic point the planet leaves it
+        // behind at ~29.8 km/s, which is 89 km over the same three seconds.
+        _burstBody = KsaWorld.TryAnchorToGround(round.PositionEcl, out object? body,
+                                                out double3 anchor)
+                     ? body
+                     : null;
+        _burstAnchor = anchor;
+
+        _anchor = _burstBody is null ? platform : null;
+        _anchorOffset = round.OffsetFromPlatform;
     }
 
     /// <summary>Where the round was last seen, for when it stops existing mid-frame.</summary>
@@ -65,27 +79,63 @@ internal sealed class RoundFollowable : IFollowable
     public bool ShowAxes { get; set; }
 
     /// <summary>
-    /// Where the round is, resolved the way a round <em>body</em> is: the platform re-read here,
-    /// plus the round's offset from it.
+    /// Where the round's body is <em>drawn</em> — the one expression, shared with the mesh.
     ///
-    /// <para>Not <c>round.PositionEcl</c>. The engine calls this in its own frame pass, before the
-    /// mod has stepped anything, and the mod's integrated position belongs to a different instant
-    /// from every celestial and vehicle the engine has just placed. A camera on it therefore sits
-    /// one simulated step out of register with the scene — 715 m on a 24 ms frame against 238 m on
-    /// a 9 ms one, alternating with the display's pacing, which swings the camera's height over
-    /// the ground by ±145 m every frame.</para>
+    /// <para><b>The camera is not trying to be right; it is trying to be paired.</b> Nothing here
+    /// can be correct in absolute terms: the mod's reading of the round is a step behind the world
+    /// the engine has just advanced, a craft's analytic orbit position is not where its parts are
+    /// drawn, and the gap between those two opens and closes as the craft goes off rails and back
+    /// — which is what lighting an engine does. None of that is visible. What is visible is the
+    /// separation between the eye and the mesh, so every one of those terms cancels the moment
+    /// both sides come out of <see cref="IEffectSource.TryRoundEffectEcl"/>, which is the call the
+    /// body placement itself uses.</para>
     ///
-    /// <para>Round bodies are placed from exactly these two terms and hold 0.0 m of drift out to
-    /// 79.5 km, which is what this pairing buys.</para>
+    /// <para>Correcting one side alone is worse than leaving both wrong, and that is not a
+    /// figure of speech: a term added here to put the camera in the engine's epoch takes it
+    /// <em>away</em> from the mesh, which stayed in the mod's. The plume and the tracer hang on
+    /// this same call for the same reason — a flame has to sit on the body rather than near it.</para>
+    ///
+    /// <para>It must also be the same answer all frame. <see cref="GetPositionEclFromCce"/> and
+    /// <see cref="GetPositionCceFromEcl"/> come through here too and the engine converts at phases
+    /// the mod does not choose, so an answer that moves when the mod steps disagrees with itself
+    /// inside one frame. This one moves by the round's own flight, which is metres;
+    /// <c>round.PositionEcl</c> would move by a whole step of the ecliptic's ~29.8 km/s, about
+    /// 500 m, which puts the round out of the viewport entirely.</para>
     /// </summary>
     public double3 GetPositionEcl()
     {
-        if (_round is { } round && _platform is { } craft && KsaWorld.IsAlive(craft))
+        // Inside the engine's own frame pass, where an exception is the game rather than a log
+        // line. The last good answer is always a better outcome than that.
+        try
         {
-            LastPositionEcl = KsaWorld.PositionEcl(craft) + round.OffsetFromPlatform;
+            if (_round is { } round && _source is { } source
+                && source.TryRoundEffectEcl(round, out double3 drawn))
+            {
+                LastPositionEcl = drawn;
+            }
+            else if (_round is { } fallback && _platform is { } craft && KsaWorld.IsAlive(craft))
+            {
+                LastPositionEcl = KsaWorld.PositionEcl(craft) + fallback.OffsetFromPlatform;
+            }
+            else if (_round is { } loose)
+            {
+                LastPositionEcl = loose.PositionEcl;
+            }
+            else if (_burstBody is not null
+                     && KsaWorld.TryGroundAnchorEcl(_burstBody, _burstAnchor,
+                                                    out double3 burst, out _))
+            {
+                LastPositionEcl = burst;
+            }
+            else if (_anchor is { } platform)
+            {
+                LastPositionEcl = KsaWorld.PositionEcl(platform) + _anchorOffset;
+            }
         }
-        else if (_round is { } loose) LastPositionEcl = loose.PositionEcl;
-        else if (_anchor is { } platform) LastPositionEcl = KsaWorld.PositionEcl(platform) + _anchorOffset;
+        catch
+        {
+            // Held where it was.
+        }
 
         return LastPositionEcl;
     }
