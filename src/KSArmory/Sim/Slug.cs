@@ -70,6 +70,23 @@ internal sealed class Slug : IProjectile
     /// </summary>
     public Func<double3, double, double3>? GravityAt { get; set; }
 
+    /// <summary>
+    /// Whether this round can still reach the ground, asked of the caller because only it knows
+    /// the body. Null leaves the age limit as the only reaper, which is what shipped before.
+    /// </summary>
+    /// <remarks>Position and velocity in the ecliptic; the caller converts.</remarks>
+    public Func<double3, double3, bool>? CanStillArrive { get; set; }
+
+    // Seconds spent somewhere there is air to arrive through. A round the ground stops is reaped on
+    // this rather than on Age: a coast above the atmosphere is not the round being stuck, and
+    // counting it is what killed a bomb 100 km up at the two-minute mark with 30 s of fall left.
+    private double _airborneSeconds;
+
+    // Whether the trajectory has been shown to reach the atmosphere. Latched, because drag only
+    // ever lowers a periapsis - a conic that arrives once goes on arriving - and because the test
+    // is only exact where there is no air to have bent it.
+    private bool _willArrive;
+
     /// <inheritdoc cref="IProjectile.FaithfulStepSeconds"/>
     public double FaithfulStepSeconds
         => _lastDensity > Medium.NoticeableDensity
@@ -120,6 +137,41 @@ internal sealed class Slug : IProjectile
 
     /// <inheritdoc cref="IProjectile.Munition"/>
     public required MunitionProfile Munition { get; init; }
+
+    // What ends a round that nothing has stopped.
+    //
+    // For anything the ground does not stop, that is its age, exactly as it always was: a shell
+    // that misses has no ending of its own and something has to sweep it up.
+    //
+    // A round the ground DOES stop is different. It ends by arriving, so the clock is asked only
+    // about the part of the flight where arriving is possible - time spent above the atmosphere is
+    // a coast, not a round going nowhere. What has to be caught instead is the one that can never
+    // arrive at all, which is a question about the trajectory: see RoundReach. Between them the
+    // two are bounded at both ends, which a clock that stops on its own would not be - arriving
+    // means entering the air, and entering the air starts the clock.
+    private void Reap(MunitionProfile munition, double dt)
+    {
+        if (State != RoundState.Flying) return;
+
+        if (!munition.HitsTerrain)
+        {
+            if (Age >= munition.MaxFlightSeconds) State = RoundState.Expired;
+            return;
+        }
+
+        if (_lastDensity > Medium.NoticeableDensity) _airborneSeconds += dt;
+        else if (!_willArrive && CanStillArrive is { } reach)
+        {
+            // Only out here, where the conic is exact and where the question can arise at all.
+            if (reach(PositionEcl, VelocityEcl)) _willArrive = true;
+            else State = RoundState.Expired;
+        }
+
+        if (State == RoundState.Flying && _airborneSeconds >= munition.MaxFlightSeconds)
+        {
+            State = RoundState.Expired;
+        }
+    }
 
     public object? TargetRef { get; private set; }
 
@@ -323,7 +375,7 @@ internal sealed class Slug : IProjectile
             if (_trail.Count > TrailCapacity) _trail.RemoveAt(0);
         }
 
-        if (State == RoundState.Flying && Age >= munition.MaxFlightSeconds) State = RoundState.Expired;
+        Reap(munition, dt);
     }
 
     private void Step(double h, double elapsedInFrame, double frameSeconds, TargetState? target,

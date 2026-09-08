@@ -287,6 +287,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
+| `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
 | `Sim/Medium.cs` | what the air or water a round flies through does to it — buoyancy and drag, shared by every round |
 | `Sim/ContactSweep.cs` | the contact rule: whether a round runs into a body over one step |
 | `Sim/IHullTest.cs` | **the seam a kinetic round asks whether it truly touched something** |
@@ -1777,6 +1778,23 @@ argument, so passing the round-relative separation puts the whole per-triangle c
 metres-scale frame centred on the round. What it is fed is the *analytic* position while the mesh
 is drawn at the *physics* one; the verbose world dump prints that gap per craft, because it is
 noise against a 22 m trigger and the entire error budget against a hull.
+
+**A store that falls is reaped on the fall, not on the flight.** `MaxFlightSeconds` is a
+self-destruct for a round that misses the world, and for anything the ground does not stop that is
+exactly right — a shell has no ending of its own. A round with `HitsTerrain` does: it ends by
+arriving, and a long fall is long rather than stuck. So its clock counts only where there is air to
+arrive through, and what catches the store that can *never* arrive is `Sim/RoundReach.cs` — a conic
+whose lowest point is above the atmosphere never touches it, which is exact out there because there
+is no drag to bend it and because drag only ever lowers a periapsis. Between them the two are
+bounded at both ends, where either alone is not: arriving means entering the air, and entering the
+air starts the clock.
+
+The 120 s the B61 shipped with was a coast being counted against a fall. A release at 100 km takes
+**152 s** to arrive and one at 250 km **246 s**, nearly all of it above the air, so the bomb was
+destroyed in flight with the descent still to come — and a bomb released *in orbit* keeps the
+craft's orbital velocity, flies alongside it, and is now reaped at once rather than holding
+`WarpPolicy` down for two minutes first. An unanswerable trajectory — open, or purely radial, which
+want opposite verdicts — is not judged at all and falls back to the clock.
 
 **A warhead is one number: `MunitionProfile.ChargeKg`.** Lethal radius, blast radius and the size
 of the fireball are all read off it in `Sim/Warhead.cs`, as the **cube root** — Hopkinson–Cranz,

@@ -1455,6 +1455,43 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// The radius at which arriving begins on this body: the top of its atmosphere, or its highest
+    /// ground where it has none. Zero when neither can be read, which callers take as "do not
+    /// judge".
+    ///
+    /// <para>Deliberately not the mean radius. A trajectory that clears the mean sphere can still
+    /// meet a mountain, and this is asked in order to <em>destroy</em> a round — so it errs high,
+    /// where erring low reaps something that would have arrived.</para>
+    /// </summary>
+    public static double ArrivalCeilingRadius(Celestial body)
+    {
+        try
+        {
+            double radius = body.MeanRadius;
+            if (!(radius > 0.0)) return 0.0;
+
+            double above = 0.0;
+
+            if (body.GetAtmosphereReference()?.Physical is { } air && air.Height > 0.0)
+            {
+                above = air.Height;
+            }
+
+            // On an airless body the ground itself is the ceiling. This omits erosion and detail -
+            // it is computed before the render data populates the modifiers - so it is a floor
+            // under the real terrain rather than a bound on it, which is the wrong way round for a
+            // test that destroys things. A body with neither is left unjudged.
+            above = Math.Max(above, body.MaxTerrainHeightApprox);
+
+            return above > 0.0 ? radius + above : 0.0;
+        }
+        catch
+        {
+            return 0.0;
+        }
+    }
+
+    /// <summary>
     /// The body's gravitational parameter, or zero when it cannot be read. What a round needs to
     /// re-aim its own gravity at a centre that moves rather than being handed a fixed vector.
     /// </summary>

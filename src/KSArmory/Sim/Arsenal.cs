@@ -299,7 +299,12 @@ public static class Arsenal
 
         MinRange = 0f,
         MaxRange = 20000f,
-        MaxFlightSeconds = 120f,
+
+        // Counted only where there is air to arrive through, so this is a budget for the fall
+        // rather than for the flight: a coast above the atmosphere spends none of it, and what
+        // reaps a store that will never arrive at all is RoundReach. Two minutes of *fall* was
+        // already ample - a 5 km drop is 34 s - and this is headroom rather than a fix.
+        MaxFlightSeconds = 300f,
 
         DragK = 1.25e-4f,
         FuseRadius = 0f,
