@@ -28,6 +28,12 @@
 > *is* a patch of ground. **The remaining miss is terrain the predictor does not resolve**, and no
 > further tuning of the correction loop can reach it.
 >
+> **And the arrival angle did not deliver (3cd, flown 2026-09-08).** The ladder in this file is
+> built on arrival angle as the lever. Flown at 41.7 deg against 32.0 at the target where terrain is
+> 41% of the miss, it read **0.96x [0.66, 1.10], unresolved**, and the prediction that the gain would
+> be graded by seat roughness — the strong test — was **refuted** at rho +0.12, p=0.79. `cot(gamma)`
+> is real arithmetic, but a steeper arc also buys a longer coast, and the two appear to cancel.
+>
 > **And one structural correction.** This file's envelope is a *deorbit* family, where flight time
 > **falls** as the arc steepens. The mod flies a *launch* to a fixed target, where it **rises** —
 > 969 s at 32° against 1,861 s at 51° (3bu). Since the trim's debt accumulates with the age of its

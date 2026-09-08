@@ -5143,6 +5143,62 @@ blocks, where 1824 resolved 0.88x only as [0.84, 1.10].
 * A steeper arrival is a **longer coast**, which is more exposure to whatever the coast does to the
   bus — 20b's open question, and the reason 3be deferred this measurement in the first place.
 
+## 3cd. The steeper arrival did nothing, and the graded prediction is refuted — 2026-09-08
+
+Item 27 flown. 14 blocks, 112 flights, `base|steep:ArrivalPreference=0.65` at 26.485S,68.148W,
+`~/shots/2026-09-08-arrival`. Frame time 23.8 ms — the fastest session yet, and the machine was idle.
+
+**The arm did what it was asked**: arrival **32.0 to 41.7 deg**, floor tracking it at 41.4.
+
+### Against the predictions written down in 3cc
+
+| # | prediction | outcome |
+| --- | --- | --- |
+| 1 | walk falls to 0.71x | **unmeasurable** — see below |
+| 2 | **gain graded by seat roughness** | **REFUTED** — rho = +0.12, p = 0.793 |
+| 3 | cross-range stays 0-4 m | held (0 m base, 1 m steep), but on the same unusable subset |
+| 4 | miss ~0.85-0.90x, likely unresolved | **0.96x [0.66, 1.13]**, 7 of 14, sign p=1.000, unresolved |
+
+**Prediction 2 was the strong test and it failed.** Per-seat ratios came out 0.86, 0.57, 0.56, 1.31,
+0.46, 1.45, 2.50, 1.29 against roughness of 3.2, 5.1, 20.5, 11.9, 6.8, 15.8, 7.0, 2.9 m rms — no
+relationship. Seat 3 did improve 84 to 47 m, which is what the hypothesis wants; seat 7 went 24 to
+60 m, which it does not, and seven flights a cell is what that scatter looks like.
+
+**So the steeper arrival is not worth anything at this target either**, and the terrain-amplification
+story does not survive its own intervention. What stands from 3cb is the *correlational* half — the
+miss is made after release, it is pure downrange, it tracks sub-km roughness at rho +0.72. What does
+not stand is the inference that arriving steeper therefore fixes it.
+
+The likeliest reading is a **trade that cancels**: a steeper arrival buys less terrain gain and pays
+a longer coast, and `owed` moved 2.67 to 2.83 m/s in exactly that direction. That is the same
+mechanism that makes 0.8 a settled loss, arriving earlier and smaller.
+
+### The primary endpoint could not be measured, and that is a design fault of mine
+
+`WarheadTrace` ran on **seats 1-4 only**, never 5-8, at about six warheads per seat per arm — 52 of
+672. Declaring the walk the primary endpoint without first checking the trace's coverage made the
+whole night's headline unmeasurable. The subset also disagrees with the full sample about the miss
+(9 m against 18 m, where 56 v 56 reads level), so it is not merely small but unrepresentative.
+**Anything scored on the walk needs the trace's coverage established first.**
+
+### What else the night says
+
+* **Off rails 15% to 3%.** The largest mechanism move of the night and nothing to do with what was
+  being tested. A steeper arc spends far less of its coast off rails — worth knowing against 3aq and
+  item 19c.
+* **No divergence.** 4 of 56 lost in each arm, Fisher p=1.0. The 4-of-12 blow-up p65 showed at the
+  old target did **not** recur, so that was the target or the harness rather than the angle.
+* **One world lost whole.** Block 4 put all eight flights at 87-120 km, both arms together — a
+  world-level failure, not an arm effect, and the mode split counts it in both columns.
+
+### Where this leaves the ladder
+
+Two levers have now been flown at this target and neither moved it: the improvement band (0.88x
+[0.84, 1.10]) and the arrival angle (0.96x [0.66, 1.13]). 3bz says the aim loop is already
+converging two orders of magnitude below the miss. **The next question is not which knob to turn but
+what the 12 m actually consists of**, and the honest answer is that nothing currently measures it
+per flight — the walk would, and its instrument covers half the roster.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5259,7 +5315,8 @@ what 20b is flying against.
 | ~~5h~~ | ~~Read `split debt` on a steep-arrival arm~~ | done, 1 shot | **the debt is the coast's length: the steep arm holds its reference 1.92x longer and owes 2.6x more, agreeing per second. Not the angle** — 3bu |
 | ~~25~~ | ~~The aim correction stops 25x above the miss~~ | done, 14 paired | **the stopping rule was blind and unblinding it changes nothing: `noimprov` 31 to 3, miss 0.88x [0.84, 1.10] unresolved** — 3bx |
 | **26** | **Answered: the aim loop is not the limiter.** It converges monotonically to 1.4-12.4 m predicted on every flight; the landing correlates +0.07 with that and **+0.93 with the ground under that seat**, measured on another night | done | 3bz |
-| **27** | **Re-fly the arrival angle where terrain is present.** `ArrivalPreference = 0.65`, 14 blocks, primary endpoint the walk. The one previous test was at a target where terrain was 7% of the miss; it is 41% at the current one | **prepared, not flown** | 3cc |
+| ~~27~~ | ~~Re-fly the arrival angle where terrain is present~~ | done | **0.96x [0.66, 1.13], unresolved; the graded-by-roughness prediction is REFUTED at rho +0.12, p=0.79** — 3cd |
+| **28** | **Make `WarheadTrace` cover the whole roster.** It ran on seats 1-4 only, ~6 warheads a cell, which made 3cd's primary endpoint unmeasurable and is the only per-flight decomposition of the miss there is | not started | 3cd |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
