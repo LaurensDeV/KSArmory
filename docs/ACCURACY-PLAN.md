@@ -8,7 +8,50 @@ Read this first; those two keep their reasoning and their measurements.
 the KSA corpus and the backlog itself — and between them they moved the top of the list from "tune a
 constant" to "there is a bug, and the engine has a lever nobody used".
 
-## Where it stands after 2026-09-06 — read this before the table below
+## Where it stands after 2026-09-08 — read this first
+
+**The one-line version: the shot is 15 m, and it is two errors of roughly equal size — 10.5 m made
+during the fall, which follows the ground, and 7 m made before release, which does not. The aim
+correction is finished work and is neither of them.**
+
+Written at the end of a session that produced no improvement in metres and closed several routes.
+The four entries to read are **3bz**, **3ca**, **3cf** and **3ce**; 1-4 below are 2026-09-06 and
+still stand.
+
+**A. The aim loop is converged and is not the limiter (3bz).** Traced over a whole coast on eight
+rockets it walks the bias down monotonically — the path it covers equals its net change on every
+flight — and settles at 1.4-12.4 m by its own prediction, against an observer exact to 0.46 m. The
+landing correlates **+0.07** with that prediction and **+0.93** with the ground under that seat.
+Items 24, 25 and 20b are all tuning of this loop and cannot pay.
+
+**B. The miss decomposes, and the halves are different terms (3cf).** 15.0 m total: **10.5 m made
+during the fall**, pure downrange at 1.0 m cross-range, correlating with seat roughness at
+**+0.74, p = 0.046**; and **7.0 m made before release**, correlating **+0.12, p = 0.793** — nothing.
+The second sits exactly on the aim loop's converged residual. **Two budgets, and a metre needs both
+under a metre.**
+
+**C. Two levers flown, both null, and one of the nulls is not real.** The improvement band read
+0.88x [0.84, 1.10] and the arrival angle 0.96x [0.66, 1.13]. But the angle acts only on the walk,
+which is 70% of the miss, so scoring it on the *total* diluted 0.71x to about 0.80x — 3cd could not
+have resolved it either way. **Item 29 re-flies it scored on the walk**, which is 3cc's design
+finally executable.
+
+**D. A shipped mechanism does not operate (3ca).** `AimCorrection`'s ratchet is arithmetically dead
+below 250 m — banking a better aim would take a negative miss — so `Freeze()` ships whichever aim
+was current when the miss first fell under 250 m and discards up to **153 m** of walking after it.
+Pinned by `AimRatchetTests`. Off by default and unflown at 0.88x, so it is a documented mechanism
+not working rather than a known cost.
+
+**E. Three instrument faults, all now fixed, all of which had produced wrong published results.**
+A one-block paired run confounds arm with seat and cannot compare arms at all (3by) — two of this
+session's own results died on it. The warhead trace was being *stranded* rather than sampled, 4 of 8
+finishing, and did not name its craft (3ce): coverage is now 91%, and 3cd's walk figure is void.
+The report's terrain check read one aim point of eight, the smoothest, and called it well
+conditioned (3cb).
+
+### Read this before the 2026-09-06 header below
+
+## Where it stood after 2026-09-06 — read this before the table below
 
 **The one-line version: the shot is 17 m on a healthy world, and about a fifth of worlds are not
 healthy — but that fifth is plausibly this harness rather than the weapon.**
