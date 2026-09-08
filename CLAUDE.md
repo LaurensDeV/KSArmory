@@ -1492,6 +1492,21 @@ built on that number turns away every multi-stage rocket in the game. It flies, 
 how much, and holds its warheads: releasing on a trajectory known to fall short scatters them over
 whatever is under the short fall.
 
+**A boost motor pushes along the round, which is the velocity it has *gained* — never the velocity
+it has.** A rail-launched round inherits the whole of its craft's velocity and adds `LaunchSpeed` of
+its own: 25 m/s against several hundred. So its total velocity points wherever the craft was going,
+whatever the rail was aimed at, and thrusting along it drove an AGM-88 **1,050 m/s in the craft's
+direction of travel** over a five-second boost — away from the target for a launcher that had turned
+round, and into the ground for one that was descending. What it has gained starts as the ejection up
+the tube and accumulates along the thrust, and proportional navigation's lateral term lands in it
+too, so the round still curves onto its target rather than flying the rail's bearing for ever.
+
+**Every launcher this mod had when that was written stood still**, and for a stationary launcher the
+gain *is* the velocity — so "along the flight path" and "along the tube" were the same expression and
+nothing distinguished them. A ground battery's flight is unchanged, which is what makes the
+correction safe. The release log has always printed `<n> deg from the platform's track` for exactly
+this reason; on the shot that found it, that number was near 180.
+
 **A round flies in the ground's frame, not the launcher's.** `KsaWorld.GroundVelocityAt` is the
 parent body's own motion plus its spin at that radius, and it is what a round's airspeed, its drag
 and the direction it points are all measured against. For a launcher standing still on the ground

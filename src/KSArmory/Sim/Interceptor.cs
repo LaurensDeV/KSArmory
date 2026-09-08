@@ -189,6 +189,16 @@ internal sealed class Interceptor : IProjectile
     /// <inheritdoc />
     public doubleQuat LaunchAttitude { get; set; }
 
+    /// <summary>
+    /// The launching craft's velocity in the round's own frame at release, so the motor can push
+    /// along the round rather than along everything it inherited.
+    ///
+    /// <para>Zero for a launcher standing still, which is every launcher this mod had when the
+    /// boost was written — and is why thrusting along the flight path was indistinguishable from
+    /// thrusting along the tube. Set at launch and never updated.</para>
+    /// </summary>
+    public double3 LaunchFrameVelocityLocal { get; set; }
+
     /// <inheritdoc cref="IProjectile.Munition"/>
     public required MunitionProfile Munition { get; init; }
 
@@ -366,11 +376,28 @@ internal sealed class Interceptor : IProjectile
 
         double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
 
-        // Boost motor: axial thrust along the flight path. Between the two medium terms because
-        // it is the one force this round has and a shell does not.
+        // Boost motor: axial thrust along the round, which is the velocity it has gained since
+        // release and not the velocity it has. Between the two medium terms because it is the one
+        // force this round has and a shell does not.
+        //
+        // A rail-launched round inherits the whole of its craft's velocity and adds LaunchSpeed of
+        // its own -- 25 m/s against several hundred -- so its *total* velocity points wherever the
+        // craft was going, whatever the rail was pointing at. Thrusting along that drives an AGM-88
+        // 1,050 m/s in the craft's direction of travel over a five-second boost, which for a
+        // launcher that has turned round is away from everything it was aimed at.
+        //
+        // What it has gained starts as the ejection up the tube and accumulates along the thrust,
+        // and proportional navigation's lateral term lands in it too -- so the round still curves
+        // onto its target rather than flying the rail's bearing for ever. For a launcher standing
+        // still the gain *is* the velocity, so nothing about a ground battery's flight changes.
         if (Age <= munition.TotalBoostSeconds)
         {
-            double3 axis = Vec.Unit(localVelocity);
+            double3 axis = Vec.Unit(localVelocity - LaunchFrameVelocityLocal);
+
+            // Nothing gained yet, which is a round its rail imparts no speed to at all. The
+            // heading it left along is the only thing that says which way it is pointing.
+            if (axis.Equals(Vec.Zero)) axis = Vec.Unit(ReleaseHeadingEcl);
+
             if (!axis.Equals(Vec.Zero)) accel += axis * munition.BoostAccelAt(Age);
         }
 

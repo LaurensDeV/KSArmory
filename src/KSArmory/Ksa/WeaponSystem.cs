@@ -1920,6 +1920,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 LaunchAnchorPartFrame = launchAnchorPartFrame,
                 ReleaseHeadingEcl = releaseHeading,
                 LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
+
+                // What the round inherited rather than earned, so the motor can push along the
+                // round instead of along the craft's track. Differenced here from the two terms
+                // rather than passed as one: both are this frame's samples and the ecliptic's
+                // ~29.8 km/s cancels in the subtraction. Zero for a launcher standing still.
+                LaunchFrameVelocityLocal = platformVel - frameVel,
                 Aimpoint = aim,
             });
         _salvoTimer = Profile.SalvoSpacing;
