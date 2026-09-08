@@ -15,8 +15,8 @@ during the fall, which follows the ground, and 7 m made before release, which do
 correction is finished work and is neither of them.**
 
 Written at the end of a session that produced no improvement in metres and closed several routes.
-The four entries to read are **3bz**, **3ca**, **3cf** and **3ce**; 1-4 below are 2026-09-06 and
-still stand.
+The four entries to read are **3bz**, **3ca**, **3cf** and **3ce**, and **3cg** is the night they
+point at, prepared; 1-4 below are 2026-09-06 and still stand.
 
 **A. The aim loop is converged and is not the limiter (3bz).** Traced over a whole coast on eight
 rockets it walks the bias down monotonically — the path it covers equals its net change on every
@@ -5337,6 +5337,134 @@ Two budgets, and a metre needs both under a metre:
 Neither is the aim loop's stopping rule, its band, or its improvement threshold — 3bz and 3ca
 between them close that file.
 
+**The first of those is prepared and ready to fly — 3cg**, which also has the three instrument
+faults that had to be fixed before the walk could be scored at all.
+
+## 3cg. The walk night, prepared — and the instrument built first this time — 2026-09-08
+
+Item 29. **The same arm as 3cd and a different endpoint**, which is the whole of what makes it a
+new measurement rather than a re-run: 3cd flew `base|steep:ArrivalPreference=0.65` and scored the
+total miss, where the angle acts only on the walk. Simulated on the walk's own measured scatter,
+that night had **0.37 power** against the effect it was looking for. Scored on the walk the same
+14 blocks reads **0.85**.
+
+### The endpoint was measured before it was declared, which is 3cd's lesson
+
+3cd named the walk its primary endpoint and could not read its own headline, because the trace
+covered half the roster. So this time the quantity was priced off `~/shots/2026-09-08-decompose`
+first — 57 attributed traces, 8 seats — and it is a better endpoint than the miss for a reason
+nobody had looked for:
+
+**The walk is very nearly a per-seat constant, sign included.**
+
+| seat | its |walk| over eight flights |
+| --- | --- |
+| 3 | −54, −54, −58, −63, −64, −83, −87, −87 |
+| 8 | 0, 1, 1, 1, 2, 2, 2 |
+| 4 | +14, +15, +15, +15, +20, +21 |
+
+Within-seat log sd **0.448 (×1.57)** against the miss's fitted ×1.74, and the sign belongs to the
+seat rather than to the flight. So an arm cannot move the walk's *sign*; what it can do is shrink
+each seat's own bias toward zero, which is why the score is a magnitude and why pooling the signed
+values would cancel two seats against each other.
+
+Power of the report's own estimator — signed-rank over shots, seat-levelled, 88% trace coverage:
+
+| effect | endpoint | 6 blocks | 10 | 14 |
+| --- | --- | --- | --- | --- |
+| 0.71× | **walk** | 0.31 | 0.70 | **0.85** |
+| 0.71× | miss | 0.20 | 0.51 | 0.69 |
+| 0.80× — what 0.71× dilutes to on the total | miss | 0.10 | 0.27 | **0.37** |
+
+### Three instrument faults found on the way, all fixed
+
+None of them is about the angle, and two were introduced by the fix that made this night possible.
+
+1. **`--terrain` had been blind since `471f09f`.** `IMPACT` still matched `warhead trace: round N
+   landed at`, which the line stopped saying when it started naming its craft — so the terrain
+   check reported *no warhead traces in this night* on the very night 3cf's terrain correlations
+   came from. 464 impacts read as none, silently, on every night from here on.
+2. **Every trace line in a shot went to every flight in it**, so a per-flight walk was the whole
+   roster's and identical across arms **by construction** — a ratio of exactly 1.00 on an interval
+   of [1.00, 1.00]. `--endpoint walk` now refuses an unattributed trace rather than scoring it,
+   because that dead heat is the absence of a measurement wearing the shape of one.
+3. **The terrain fit counted each landing once per rocket in the world.** The slope was unmoved —
+   duplicating a point does not move a least squares line — but the standard error was tight by
+   exactly √8: `2026-09-08-decompose` reads 58 impacts at ±0.21% where it read 464 at ±0.07, and
+   the "well conditioned" verdict rests on that bar.
+
+`--paired` also now prints **3cc's strong test** directly: per seat, what the arm did to it against
+how rough the ground under its own landings is, with the rank correlation between them. 3cd had to
+assemble that by hand, on the miss.
+
+### The night
+
+```bash
+KSARMORY_SCENARIO_SAVE="SOLVER SCALE 8" KSARMORY_SCENARIO_TRACE=1 ./tools/shot-batch.sh \
+    --paired 'base|steep:ArrivalPreference=0.65' \
+    --aim 26.485S,68.148W --blocks 14
+./tools/shot-report.py --paired --endpoint walk ~/shots/<night>
+./tools/shot-report.py --paired ~/shots/<night>            # the miss, for continuity with 3cd
+```
+
+`--plan-only` clean against HEAD. **`KSARMORY_SCENARIO_TRACE` is not optional here** — it is the
+instrument the endpoint is read through, and a night flown without it scores nothing. `batch.tsv`
+now records it and a resume refuses without it, for the reason it already refuses a lost save.
+
+### What it predicts, written down first
+
+1. **The walk falls to ~0.71×** — `cot(41.5) / cot(31.9)` = 1.132 / 1.600, unchanged from 3cc.
+2. **Graded by the ground**: the rank correlation of the per-seat ratio against the per-seat relief
+   is **negative**. This is still the strong test and it is now one line of the report rather than
+   an afternoon of arithmetic.
+3. **Cross-range stays flat.** The walk is 10.5 m downrange against 1.0 m across, and the mechanism
+   is entirely downrange.
+4. **The miss falls to ~0.85–0.90×, and is unresolved at this n** — which is 3cd's result, and is
+   the point: reading the same night both ways is what shows the dilution rather than asserting it.
+
+**What would refute it:** the walk unchanged, or improving as much at seat 8 (relief 0.2 m) as at
+seat 3 (5.1 m).
+
+### Risks to watch
+
+* **Coverage first, before anything else in the report.** Some flights still begin a trace and
+  never finish it, outside `StepTrace` (3ce). Under 75% the report says so and the night is a
+  diagnostic. Measured: **89% over the eight blocks of `2026-09-08-decompose`**, and **6 of 8 on
+  the smoke shot below** — one draw, and the two that went dark were the last two to release. If
+  the night comes in under 75%, 3ce's third loss path is the thing to close, not the endpoint.
+* A steeper arrival is a **longer coast**, which is 20b's open question. 3cd measured off rails
+  **15% → 3%** on this same arm, so if anything the steep arm spends less of its coast exposed.
+* **The one change since 3cd that reaches a warhead is the round reaper.** `MunitionProfile.
+  HitsTerrain` rounds are now reaped on time spent below the arrival ceiling rather than on age,
+  and a new `Approach.Impossible` reaps a conic that can never arrive. Both are permissive here —
+  the Mk 21 flies ~350 s from release against a 1,800 s limit and its arc arrives — and every case
+  the classification cannot answer, a hyperbolic arc included, falls back to the old clock. What it
+  does change is that a **diverged** warhead thrown onto an arc that never arrives is reaped
+  promptly instead of holding timewarp down for 1,800 s, which shortens a lost world rather than
+  altering a scored one. Watch the `arrived` counts on block 1.
+
+### And the rest of the session does not reach a night, which was checked rather than assumed
+
+Fourteen commits landed between 3cf and this night, almost none of them about accuracy. Each was
+read against the ballistic path so that the next night's baseline can be compared with 3cd's:
+
+| what landed | why it cannot move the miss |
+| --- | --- |
+| a round body's roll carried from where it left | `TubeGeometry.BodyRotationPartFrame` is the drawn body's rotation and nothing reads it back |
+| the chase camera, and driving cameras from the step | camera only, and the same work on the same frames — it moved within the frame, not into it |
+| **a third step hook**, `PreRenderHook` on `OnFrameCelestials` | the GUI pass is phase #7 and this is #11, so `FrameLatch` is already claimed on every frame a night flies. Nothing in the mod hides the UI, and the batch's screenshots are Windows screen grabs rather than KSA's own capture — so on a night this prefix is a no-op every frame |
+| the nuclear cloud growing on the step | moved out of the draw, same frames |
+| the boost axis | `Interceptor` only. A Mk 21 is `!Powered`, so it is a `Slug` and never reaches that code |
+| the fire ladder's auto-only rungs, the station the trigger reaches | `FireHold` is a `readonly record struct`, `Hold` still holds on any reason, and the ballistic release never consults the ladder — a store is released by hand |
+| the sight's window, the camera-window lease | additions to `KsaWorld`; every line the session removed there is a camera or a projection |
+
+**The one that does reach a warhead is the reaper above**, and it is permissive and fail-safe in
+every direction that matters. **Flown, once, before the night rather than after it**: one
+`scenario.sh mirv` at this night's aim on `SOLVER SCALE 8` — **PASS, 8 of 8 flights, 48 of 48
+warheads arrived**, misses 4-69 m with a group spread of 1-4 m, nothing reaped, and no exception in
+either log. That is the reaper in the loop for eight full ballistic flights, which is what the
+commit that added it did not have.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5455,7 +5583,7 @@ what 20b is flying against.
 | **26** | **Answered: the aim loop is not the limiter.** It converges monotonically to 1.4-12.4 m predicted on every flight; the landing correlates +0.07 with that and **+0.93 with the ground under that seat**, measured on another night | done | 3bz |
 | ~~27~~ | ~~Re-fly the arrival angle where terrain is present~~ | done | **0.96x [0.66, 1.13], unresolved; the graded-by-roughness prediction is REFUTED at rho +0.12, p=0.79** — 3cd |
 | **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
-| **29** | **Re-fly the arrival angle scored on the WALK**, which is 70% of the miss and the only part the angle acts on. 3cd scored the total and diluted 0.71x to 0.80x on a [0.66, 1.13] interval | next | 3cf |
+| **29** | **Re-fly the arrival angle scored on the WALK**, which is 70% of the miss and the only part the angle acts on. 3cd scored the total and diluted 0.71x to 0.80x on a [0.66, 1.13] interval | **ready — 14 blocks, command in 3cg** | 3cf, and the instrument is built and priced in **3cg**: 0.85 power on the walk against 0.37 on the diluted miss |
 | **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
