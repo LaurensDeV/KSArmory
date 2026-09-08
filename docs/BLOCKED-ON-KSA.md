@@ -44,7 +44,11 @@ written against, citations included. Its one real change — a crash from an inc
 in thumbnail rendering — is in native `VulkanEx.dll`, which nothing decompiles; everything on this
 list is a question about the managed API, so the corpus answers all of them.
 
-The line numbers below are against **2026.8.22.5348** and have not been re-derived: 2026.9.4.5400
+**Except in the secondary-viewport entry, whose citations were re-derived against 2026.9.7.5402
+when the sight was taught to paint on a camera window** — that entry's line numbers, and its list
+of what such a window does and does not render, are current.
+
+The other line numbers below are against **2026.8.22.5348** and have not been re-derived: 2026.9.4.5400
 replaced the `Viewport` class with `IViewport` / `ViewportBase` / `GameViewport` and moved the list
 into `ViewportRegistry`, which moved most of the render path. The *claims* were rechecked against
 the new corpus; only the citations are stale. Lighting is still a per-viewport choice —
@@ -130,12 +134,16 @@ work; the *picture* is wrong.
 **What happens.** A secondary viewport shows a raw starfield above a hard horizon and a
 featureless grey ball, where the main view at the same position shows sky, clouds and terrain.
 
-**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4168-4283`),
-a much shorter path than the main one. The loop that calls it ends at `Program.cs:4339`, and every
-pass that makes a planet look like a planet is after that line and only ever sees the main
-viewport: the planet renderer, the light and shadow passes, the ocean, and
-`_planetTransparenciesRenderer.Render` (`:4522`) — the sole call site of the atmosphere and cloud
-compute passes anywhere in the game.
+**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4313-4449`),
+a much shorter path than the main one. The loop that calls it ends at `Program.cs:4504`, and the
+next statement is `_renderedViewport = MainViewport` (`:4508`) — so every pass after it is pinned
+to the main view whatever else is open: the planet renderer, the light and shadow passes, the
+ocean (`:4683`), and `_planetTransparenciesRenderer.Render` (`:4691`), the sole call site of the
+atmosphere and cloud compute passes anywhere in the game.
+
+**`ViewportOptionFlags.RenderAtmosphere` is set on all four secondary viewports and does not mean
+this** (`Program.cs:952`). Inside `RenderViewport` it gates one call, `_sunbloomRenderer.Render`
+(`:4408`), and nothing else. The flag is the first thing that looks like the fix and is not.
 
 Two details explain the exact image:
 
@@ -151,10 +159,28 @@ Two details explain the exact image:
 
 **Why a mod cannot fix it.** `PlanetTransparenciesRenderer`, `OceanRenderer` and
 `OverallBloomRenderer` are constructed holding `Program._offscreenTarget`
-(`Program.cs:1128, 1143, 1152`), which *is* `MainViewport.OffscreenTarget` — the same object
-(`Program.cs:1477`). The `Viewport` they accept per call only selects a shader dynamic offset;
-the image they write into was baked into their descriptor sets at construction. Redirecting them
-means rebuilding Vulkan resources, which is not something a mod can do sensibly even with Harmony.
+(`Program.cs:1162, 1168, 1183, 1192`), which *is* `MainViewport.OffscreenTarget` — attached as a
+shared target at `Program.cs:1526`. The `IViewport` they accept per call only selects a shader
+dynamic offset; the image they write into was baked into their descriptor sets at construction.
+
+**Redirecting them is not the blocker, though, and an earlier version of this entry said it was.**
+`PlanetRenderer`'s constructor is public and takes an `IRenderPassInfo`
+(`PlanetRenderer.cs:462`); `PlanetTransparenciesRenderer.RebuildFrameResources(RenderTarget,
+RenderTarget, RenderTarget)` is public (`:304`); every dependency is reachable
+(`Program.GetRenderer`, `GetCloudShadowsRenderer`, `SunShadowSystem`,
+`Instance.TextureSystem`); and `Renderer.ComputeCommandBufferPool` and `TrySubmitFrame` are public
+too. A second set bound to a leased secondary viewport's own `OffscreenTarget` is reachable in
+principle.
+
+**The blocker is that nothing lets a mod record into the frame.** Every StarMap hook takes
+`(double currentPlayerTime, double dtPlayer)` and no more — `BeforeMain`, `BeforeGui`, `AfterGui`,
+`AfterOnFrame`, `AllModsLoaded`, `ImmediateLoad`, `Unload`. The passes must be recorded between
+`BeginRendering` and `EndRendering` on the target, inside the private `Program.RenderGame`. Two
+further costs sit behind that even if it were patched: `SunShadowSystem` and
+`_cascadedShadowSystem` fit their cascades to the frame camera, so a second view's terrain would
+carry the first view's shadows, and the whole thing roughly doubles the heaviest GPU work in the
+frame. **The failure mode is what settles it** — a mis-set descriptor in a hand-built pass is a
+device-lost, where both patches this mod already carries degrade to a log line or a build error.
 
 **What would unblock it**, roughly easiest first:
 
@@ -178,92 +204,58 @@ selected and handed straight back when it is not. The panel still offers a secon
 watching a site while flying something else, and warns there that the picture is wrong. Whichever
 of these entries unblocks first, that option stops needing the warning.
 
----
+**What the secondary window *does* get is worth knowing, because it decides what it is good for.**
+`RenderViewport` draws stars and the Milky Way, the distant-sphere pass, vehicles, part models,
+static objects, the translucency pass, orbit lines and gizmos, then composites through that
+viewport's own CMAA2 and tonemap. So craft, rounds and their trails all draw normally and the
+sight tracks them properly; it is the *ground* that is missing. A pod watching an aircraft, a
+missile or something in orbit is usable. One watching a target on the ground is not.
 
-## Wheels, suspension and steering
+**Confirmed in flight**, and the picture is the proof: a pod on the pad shows the launch complex
+and nothing else — the pad is a `StaticObject`, which `RenderViewport` does draw
+(`StaticObjectRenderer.WriteCommands`), while the field it stands in is terrain, which it does
+not. So "the ground" appearing is not evidence the block has lifted; only a hillside away from a
+structure is.
 
-**Wanted.** The Pantsir sits on an 8×8 chassis. The wheels should turn, steer and carry the
-vehicle; ideally it should drive.
+## A second renderer was built and flown, and it does not work — the mesh is the reason
 
-**Why it is blocked.** KSA has no wheel, suspension, steering or landing-gear module of any kind.
-Searching the whole decompiled corpus for such a type returns nothing, and no Core part declares
-one. There is no ground-vehicle physics to attach to.
+**Do not try this again without reading this section.** The retargeting argument above is sound as
+far as it goes: `PlanetRenderer`'s constructor is public and takes an `IRenderPassInfo`, a
+`RenderTarget` is one, every viewport past the main one owns its own, and both injection points
+exist — a prefix on the private `Program.RenderViewport` for the work Vulkan forbids inside a
+render pass, and one on the public `StaticObjectRenderer.WriteCommands` for the draw, which is
+called between `BeginRendering` and `EndRendering` on the right target. All of that was built, and
+the log says so: *both render hooks are in*, *a second planet renderer is up on Camera 3
+(500x500)*, no exception.
 
-**What would unblock it.** A wheel or suspension module with a declarable part interface. Until
-then the wheels are geometry and the vehicle is placed rather than driven.
+**It produced no terrain in the window and made the main view's ground and trees flicker.**
 
----
+The reason is a level below the render targets. `PlanetRenderer.GetMesh` is
+`celestial.GetLodMesh(_meshLodIndex)`, and `GenerateMeshData` dispatches a compute pass that writes
+into `cubeMesh.Mesh`'s own vertex and index buffers (`PlanetRenderer.cs:2131`, `:1782-1800`). **The
+terrain mesh belongs to the `Celestial`, not to the renderer** — there is exactly one per body, and
+it is regenerated every frame for one camera. A second renderer does not get its own; it writes the
+same buffers with a different camera's LOD and a different texture anchor, and the two alternate.
 
-## Partial damage
+So the engine is not merely *unfinished* per-viewport, as the list above implies: below the target
+binding it is **single-camera by construction**, and a per-viewport render needs per-viewport
+terrain mesh state that does not exist to be allocated. That does not change what would unblock it
+— it adds to it. Item 4 has to bring the mesh with it.
 
-**Wanted.** A round that lands close enough to hurt but not destroy should degrade the target —
-knock out a sensor, break a part.
+The whole arm was removed rather than shipped off: it broke the main view, which is a worse thing
+than the window it was trying to fill, and it cost three assembly references and a third Harmony
+patch to do it.
 
-**No longer blocked, as of 2026.9.4.5400, and taken up.** KSA grew a structural failure model:
-`PartStructuralLimits` derives a crash tolerance in pascals from a part's mass and volume
-(`PartTemplate.CrashTolerance` overrides it), `PartFailure.Detect` accumulates contact pressure and
-fails individual parts, and `PartFailureEvent` — **public, with public `FailedParts`,
-`DestroyWholeVehicle` and `Apply(Vehicle)`** — isolates a failed part, sheds debris and splits the
-remainder into fragments, promoting the largest controllable one if the player was flying it.
-`PartFailure.IsolateAndDestroy` itself is `internal`, so `Apply` is the door.
+**A synthetic-vision overlay was then built and also dropped, and that one worked.** It projected
+the height field `TerrainMapScan` already samples through the head's own camera and drew it as a
+grid of ImGui polylines — safe by construction, since it touches no render pass and cannot flicker
+anything. It was removed because it is not worth its keep rather than because it failed: wire on
+the glass occludes nothing, so a craft behind a hill still draws in front of it, and a square a
+couple of kilometres across fades to nothing well short of a horizon. **The lesson for anyone
+reaching for this again is that the drawing was never the hard part** — a sight that cannot hide
+what is behind terrain is not much more use than no terrain at all, and only the engine can give
+depth.
 
-**What the mod does with it.** `Sim/BlastDamage.cs` judges every part of a craft on its own
-distance from the burst and its own `CrashTolerancePascals`, so nothing picks a part and no
-gameplay number is added: the strength is the engine's. The reach is the mod's existing
-Hopkinson–Cranz law with a second cube root on the strength ratio, anchored so a part of KSA's
-reference strength fails at exactly the lethal radius the 57E6 was already calibrated to — which
-is why the flown numbers did not move. `Config.DamageIndividualParts` is the way back to binary
-kills.
-
-**The three design questions this entry used to leave open, and what they were answered with:**
-
-- *Which part a blast picks* — none. Every part is tested, and a weak radome goes at three times
-  the range that would scratch a dense tank. The engine clamps a derived tolerance to 0.1–20 MPa,
-  which is 3.11x to 0.53x of the lethal radius, and the weak end is capped at the blast radius so
-  the outer radius stays the honest limit of the weapon.
-- *Whether a craft that loses parts dies* — `PartFailure.TrippedTheFragmentGuard` decides, asked
-  rather than reproduced. Losing half a craft's parts at once destroys it, so a warhead that
-  engulfs a drone is still a kill and only a craft big enough to lose a piece loses one.
-- *What the rosters do when a craft splits into fragments they did not choose* —
-  `PlatformHandover` already answered it, and a part-failure split reaches it by the same signal a
-  decoupler split does. What was **not** answered, and had to be: a launcher or director part
-  destroyed *outright* while its craft lives. That state was unreachable while only a decoupler
-  could take a part away, because a decoupler leaves it somewhere. Both rosters now bound the
-  fruitless search and retire the entry, a weapons system going loose so its rounds still fly.
-
-**Still open.** A launcher's own sensors are **subparts**, and `PartFailureEvent` fails parts. So
-a Pantsir loses its whole launcher or nothing, and "the site keeps firing with its radar shot off"
-is not expressible on the shipped weapons. It would need either the sensors as separate parts or a
-subpart failure path the engine does not offer.
-
-**And a resolution hazard worth knowing about.** Both rosters resolve a part by **ordinal**, so
-destroying the first of two launchers on one craft makes the survivor ordinal 0 — the entry that
-was flying the destroyed one adopts the survivor's part, and the other entry is the one that
-retires. The settings follow the wrong half of the pair. Pre-existing, orthogonal to this, and
-fixed only by giving a part an identity that outlives a tree rebuild.
-
-**And it already reached the mod without anything being taken up:**
-`Universe.DestroyVehicleFromEvent` calls `PartFailure.ShedDebris(vehicle, 12)` before destroying,
-so a craft this mod kills leaves debris vehicles behind. Those are craft, so they enter
-`ContactCandidates` and can be seen, tracked and shot at. Flown behaviour unverified — see
-`CHECKLIST.md`.
-
----
-
-## A self-contained test scenario
-
-**Wanted.** One click that places a launcher, a target and a scenario, so the mod can be tried
-without the player assembling anything.
-
-**Why it is blocked.** `LoadVehicleFromLibrary` in a system XML resolves through
-`DefaultVehicleSaves`, whose `SaveFolderPath` is **hardcoded** to `Content/Core/defaultvehicles`
-under the game install. It is not per-mod and not writable without elevation.
-
-**What would unblock it.** A per-mod vehicle library path, or any way for a mod to register saved
-craft with the loader.
-
-**Workaround in the mod.** `tools/install-testcraft.sh` writes a craft into the *user's* vehicle
-folder, which is writable, and `TestTarget` spawns drones on demand from the panel.
 
 ---
 

@@ -1948,6 +1948,44 @@ and atmosphere passes all run only for the frame viewport, which is KSA's and is
 `docs/BLOCKED-ON-KSA.md`. So `Ksa/SightCamera.cs` borrows the player's view instead, and the
 secondary path stays as the option for watching a site while flying something else.
 
+**A camera window can be dragged onto another monitor, and the sight has to follow it there.**
+KSA turns on ImGui's platform viewports and puts a secondary view in a plain window, so tearing
+one off is the player's to do and costs this mod nothing — `KsaWorld.TryOpenCameraWindow` only
+leases one of the four the game builds at startup, which is what **New window** on the director's
+row does. What did cost something is that a sight is *painted*, and every coordinate it painted
+with named the main view: the draw list, the centre, the field of view and both projections. So
+selecting a camera window drove that window's camera correctly and drew its whole picture — the
+reticule, the bracket, the range, the lead — over the view the player was flying from, computed
+from the wrong camera. `Sim/ViewClaim.SightPaints` had said yes to that since the day it was
+written.
+
+**And `Ego` belongs to the camera that sampled it, which is the trap under all of this.**
+`Camera.GetPositionEgo` returns `-PositionCce` for the object a camera follows, so Ego is that
+camera's own frame — not a shared one. Everything upstream of the sight samples against the *main*
+camera (`KsaWorld.TryVehicleEgo`, `TryEgoToEcl`), so handing a bracket's Ego straight to another
+window's camera displaces it by however far the two cameras are apart: a few degrees at a
+kilometre with the player parked near the craft, and unbounded once they pull back.
+`TryProjectEgoOrClamp` re-bases through Ecl whenever the window is not the main one. A *direction*
+still needs no conversion — Ego is a pure translation of Ecl — which is exactly why the position
+case looks safe and is not.
+
+`Ksa/SightSurface.cs` resolves the window once and everything downstream reads it. Two rules are
+in it rather than in the sight, because they are about windows rather than about sights: the main
+view is painted on the **background** list so the sight stays under the panel, and a camera window
+on the **foreground** list of its own platform viewport, clipped to the picture — its image is an
+opaque `Image` in a window, so the background list is behind it, and naming the platform viewport
+is the whole of what follows the window onto a second monitor. A window whose platform viewport
+cannot be resolved is painted on **nothing**, never on the main view: falling back there is the
+original fault by another route.
+
+**A bracket says a contact is held; it never says anything is being done about it.** A director
+brackets whatever its sensor holds, and only slews onto it if something told it to — so a head at
+rest with a contact tracked paints a bracket well off the boresight and reads, from the picture
+alone, as a camera that has stopped working. `Sim/OpticHold.cs` is the director's half of
+`FireHold`, and its ordering is not a preference: it mirrors `OpticalHead.AimFor`, which takes a
+hand-aimed head first, then a designation, then the tracking switch. All three can be true at
+once, so a reason read in any other order names a rung the head never reached.
+
 **The sight magnifies by rewriting the field of view every frame, and it has to.** The player's own
 zoom keys route through `Camera.ChangeFieldOfView`, which clamps to 15°–120°, so one keypress
 throws away anything narrower and says nothing about having done so; only rewriting puts it back.
