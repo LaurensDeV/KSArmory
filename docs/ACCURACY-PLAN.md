@@ -5777,6 +5777,30 @@ they land on one side.
 **The estimator is the first of these and blocks the rest**: a night whose answer moves further on
 its own nuisance parameter than on the arm cannot settle a 0.71x effect at any n.
 
+### The new estimator, calibrated on identical code — 2026-09-09
+
+Null nights built the way `ShotArms` builds real ones — split a single arm's roster into two
+pseudo-arms by seat parity, flipped per shot — so the true ratio is **1.000** by construction and
+anything called RESOLVED is a false positive.
+
+| null | n | point, median (range) | interval | signed-rank | shot-flip |
+| --- | --- | --- | --- | --- | --- |
+| `2026-09-08-decompose`, 8 shots | 996 | 0.993 (0.81-1.24) | 1.64x | 3.5% | 1.7% |
+| **`walk3` baseline arm, 14 shots** | 588 | 1.006 (**0.45-2.37**) | **2.33x** | **6.1%** | **3.1%** |
+
+**At the design's own shot count the signed-rank is twice too permissive and the shot-flip is
+nominal.** At eight shots it is the other way about — the rank test reads 3.5% and the flip test is
+conservative at 1.7% — so the correction is a property of this n rather than of the test, and both
+are recorded because one of them alone would have justified either choice. The verdict is read off
+the flip test because 14 blocks is the design that is actually flown.
+
+**And the range is the finding.** On *identical code*, fourteen blocks produce point estimates from
+**0.45x to 2.37x**, with a median interval 2.33x wide. Both nights of this section — 0.72x and
+1.12x — sit comfortably inside what the estimator returns when there is nothing there at all. That
+is not a claim that the effect is absent; it is the statement that **this instrument cannot see
+0.71x at fourteen blocks**, whatever it prints, and no amount of re-flying the same design changes
+that.
+
 ### Built the same day, all unflown
 
 1, 2 and 5 landed on 2026-09-09, plus the seat-0 standoff. The shot-flip null is now what decides

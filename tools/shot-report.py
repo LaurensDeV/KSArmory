@@ -1124,9 +1124,13 @@ def _shot_flip_p(shots, groups, base, name, score, observed):
     level is the geometric mean of the per-arm medians -- relabelling the arms moves it. Refitting
     the levels inside the permutation is what accounts for that; nothing else does.
 
-    Measured over the two nights of 3ci this is anti-conservative by two to four times: walk2's
-    miss reads 0.042 by the signed rank and 0.134 here, walk3's 0.030 and 0.114. Under this null
-    neither night resolved anything at the protocol's bar, on either endpoint.
+    Calibrated on identical code -- one arm's roster split into two pseudo-arms, so the truth is
+    1.000 -- at the design's own fourteen blocks: the signed rank reads **6.1%** false RESOLVED
+    against a nominal 2.9% and this reads **3.1%**. At eight blocks it inverts (3.5% and 1.7%), so
+    the correction belongs to the n that is flown rather than to the test.
+
+    The same calibration says the estimator returns 0.45x to 2.37x on identical code at fourteen
+    blocks. Read a verdict from it accordingly.
     """
     flippable = [g for g, per_arm in groups.items() if base in per_arm and name in per_arm]
     if not flippable or not observed:
