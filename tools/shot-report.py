@@ -24,6 +24,7 @@ here. The three decisions worth knowing without reading it:
 import argparse
 import math
 import pathlib
+import random
 import re
 import statistics
 import sys
@@ -956,17 +957,23 @@ def paired(root, shots, endpoint="miss"):
         point, lo, hi = _median_interval(ratios)
         p = _sign_p(wins, losses)
         w = wilcoxon_p(ratios)
+        flip = _shot_flip_p(shots, groups, base, name, score, point)
 
         # The rank test is the one to read, so read it. The sign test is kept beside it because it
         # assumes less and because every number in docs/MIRV-NEXT.md before 8af was scored on it --
         # but taking min(p, w) was two chances at the same threshold, and against 0.05 where the
         # interval beside it is built at ALPHA. An arm at sign 0.04 and rank 0.20 read as RESOLVED.
-        best = w
+        # The verdict is read off the RANDOMISATION, not off the signed rank. The rank test shares
+        # a nuisance parameter with its own null -- see _shot_flip_p -- and reads two to four times
+        # too small here. It is still printed, because a large gap between the two is the tell that
+        # the levelling is doing more work than the arm.
+        best = flip if not math.isnan(flip) else w
 
         print(f"   {name} vs {base}: {math.exp(point):.2f}x"
               f"   [{math.exp(lo):.2f}, {math.exp(hi):.2f}] at {int((1 - ALPHA) * 100)}%")
         print(f"      won {wins} of {len(ratios)} paired shots, "
-              f"sign p={p:.3f}, signed-rank p={w:.3f}"
+              f"sign p={p:.3f}, signed-rank p={w:.3f}, "
+              + (f"shot-flip p={flip:.3f}" if not math.isnan(flip) else "shot-flip n/a")
               + ("   RESOLVED" if best <= ALPHA else "   unresolved"))
         print("      per shot: "
               + ", ".join(f"{math.exp(r):.2f}" for r in ratios))
@@ -1064,6 +1071,78 @@ def _seat_levels(shots, score):
             math.log(statistics.median(v)) for v in by_arm.values()))
 
     return levels, sorted(lopsided)
+
+
+def _paired_ratios(groups, base, name, levels, score):
+    """The per-shot log ratios the verdict is computed from, for a given set of seat levels."""
+    ratios = []
+    for _, per_arm in sorted(groups.items()):
+        if base not in per_arm or name not in per_arm:
+            continue
+        levelled_a = _levelled(per_arm[base], levels, score)
+        levelled_b = _levelled(per_arm[name], levels, score)
+        if not levelled_a or not levelled_b:
+            continue
+        a = statistics.median(levelled_a)
+        b = statistics.median(levelled_b)
+        if a > 0 and b > 0:
+            ratios.append(math.log(b / a))
+    return ratios
+
+
+# Enough that the smallest p it can report is well under the 0.0294 bar, and cheap: a draw is a
+# relabel and two medians per shot, not a re-parse.
+FLIP_DRAWS = 2000
+
+
+def _shot_flip_p(shots, groups, base, name, score, observed):
+    """p from the one thing the design actually randomises: which parity of the roster is the arm.
+
+    The signed-rank asks whether the per-shot log ratios are centred on zero, which assumes they
+    are exchangeable about it. They are not. `_seat_levels` fits its divisor from the SAME flights
+    the ratios are built from, so the statistic and its null share a nuisance parameter, and the
+    level is the geometric mean of the per-arm medians -- relabelling the arms moves it. Refitting
+    the levels inside the permutation is what accounts for that; nothing else does.
+
+    Measured over the two nights of 3ci this is anti-conservative by two to four times: walk2's
+    miss reads 0.042 by the signed rank and 0.134 here, walk3's 0.030 and 0.114. Under this null
+    neither night resolved anything at the protocol's bar, on either endpoint.
+    """
+    flippable = [g for g, per_arm in groups.items() if base in per_arm and name in per_arm]
+    if not flippable or not observed:
+        return float("nan")
+
+    labelled = [r for r in shots if r.get("within") in (base, name) and r.get("seat") is not None]
+    by_shot = defaultdict(list)
+    for r in labelled:
+        by_shot[_shot_id(r["n"])].append(r)
+
+    rng = random.Random(20260909)
+    hits = 0
+
+    for _ in range(FLIP_DRAWS):
+        flipped = [g for g in flippable if rng.random() < 0.5]
+
+        for g in flipped:
+            for r in by_shot.get(g, ()):
+                r["within"] = name if r["within"] == base else base
+
+        try:
+            levels, _ = _seat_levels(shots, score)
+            swapped = defaultdict(lambda: defaultdict(list))
+            for g, per_arm in groups.items():
+                for arm, rows in per_arm.items():
+                    other = (name if arm == base else base) if g in set(flipped) else arm
+                    swapped[g][other] = rows
+            ratios = _paired_ratios(swapped, base, name, levels, score)
+            if ratios and abs(_median_interval(ratios)[0]) >= abs(observed) - 1e-12:
+                hits += 1
+        finally:
+            for g in flipped:
+                for r in by_shot.get(g, ()):
+                    r["within"] = name if r["within"] == base else base
+
+    return (hits + 1) / (FLIP_DRAWS + 1)
 
 
 def _seat_relief(shots):
