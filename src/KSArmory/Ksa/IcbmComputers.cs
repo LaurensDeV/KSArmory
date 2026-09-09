@@ -162,16 +162,31 @@ internal sealed class IcbmComputers(Config session)
         _computers.Clear();
     }
 
-    // A destroyed craft's computer goes with it. Nothing is handed back, because there is nothing
-    // left to hand it to - the same rule the rest of the mod follows about not keeping a dead
-    // vehicle reachable.
+    // A destroyed craft's computer goes with it, unless it is still following a warhead down.
+    // Nothing is handed back either way, because there is nothing left to hand it to - the same
+    // rule the rest of the mod follows about not keeping a dead vehicle reachable, and the one
+    // exception to it is bounded by a single round's flight.
     private void Retire()
     {
         _stale.Clear();
 
         foreach (KeyValuePair<Vehicle, IcbmComputer> kv in _computers)
         {
-            if (!KsaWorld.IsAlive(kv.Key)) _stale.Add(kv.Key);
+            if (KsaWorld.IsAlive(kv.Key)) continue;
+
+            // Held only while a warhead it let go is still being followed, which is bounded by that
+            // round's own flight rather than by the session. A bus on a steep arrival breaks up
+            // before its warheads arrive, so retiring on the craft alone loses the trace -- and it
+            // loses it silently, because the flight still lands and is still scored.
+            // ACCURACY-PLAN.md 3ch. It flies nothing meanwhile: the attitude hook is released here
+            // and Update takes the dead-craft path, which steps the trace and nothing else.
+            if (kv.Value.TraceOutstanding)
+            {
+                AttitudeHook.Release(kv.Key);
+                continue;
+            }
+
+            _stale.Add(kv.Key);
         }
 
         for (int i = 0; i < _stale.Count; i++)

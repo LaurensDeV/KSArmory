@@ -470,7 +470,12 @@ internal sealed class IcbmComputer
                        bool traceWarhead = false,
                        IReadOnlyList<IcbmComputer>? busyElsewhere = null)
     {
-        if (!KsaWorld.IsAlive(Craft)) return;
+        // A warhead outlives the bus that let it go, and on a steep arrival the bus does not last:
+        // it breaks up on reentry BEFORE its own warheads arrive -- measured 10:43:26 against
+        // impacts at 10:43:38-49. A trace that stops with its craft therefore loses exactly the
+        // flights on the steepest arc, which on a paired night is one whole arm. Everything the
+        // trace still needs is the planet and the aim, and neither of those is the vehicle.
+        if (!KsaWorld.IsAlive(Craft)) { StepTraceLoose(simStep); return; }
 
         _busyElsewhere = busyElsewhere ?? [];
         _traceWanted = traceWarhead;
@@ -2090,6 +2095,23 @@ internal sealed class IcbmComputer
         _tracedThisShot = true;
         _tracedWarhead = setup.Warhead;
         _trace.Begin(rounds[^1], setup);
+    }
+
+    // Sample() is what normally re-derives the aim, and it cannot run without the craft. Only the
+    // aim has to be re-derived at all: a place on a turning planet moves through Cci every frame,
+    // where Parent, Body and the warhead profile are latched and do not.
+    private void StepTraceLoose(double simStep)
+    {
+        if (!_traceWanted || !_trace.Watching) return;
+        if (Parent is not { } parent) return;
+
+        if (Target.IsSet && Target.BodyName == parent.Id)
+        {
+            _trueAimCci = (SurfacePointEcl(parent, Target.LatitudeDeg, Target.LongitudeDeg)
+                           - parent.GetPositionEcl()).Transform(parent.GetCce2Cci());
+        }
+
+        StepTrace(simStep);
     }
 
     private void StepTrace(double simStep)

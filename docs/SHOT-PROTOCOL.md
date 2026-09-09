@@ -536,6 +536,24 @@ again. `docs/ARRIVAL-ANGLE.md` is the argument; `IcbmConfig.MinArrivalAngleDeg` 
 
 Two looks, both mechanical, both in `tools/shot-report.py`.
 
+### The instrument check — after the FIRST shot, fatal
+
+`shot-report.py --instrument`, run by `shot-batch.sh` once the first shot is in. It counts warhead
+trace landings against releases straight off the logs, and **stops the night** below 75%.
+
+It is separate from the gate below, and earlier, because it answers a different question: the gate
+asks which arm to stop flying, and this asks whether anything is being recorded at all. A night
+whose instrument is dark still flies, still passes, and still produces a full set of miss
+distances — so nothing downstream looks wrong until the morning.
+
+**The arm that lands last is the one that goes missing**, which on a paired night removes one arm
+entirely rather than thinning both. That is not hypothetical: the walk night of 2026-09-08 traced
+8 releases and 4 landings in every one of its fourteen shots, all four baseline, and spent three
+and a half hours confirming what shot one already showed. `ACCURACY-PLAN.md` 3ch.
+
+The floor is 75% rather than 100% because a warhead can genuinely be reaped or shot down, and one
+real outcome must not stop a night.
+
 ### The gate — mid-batch, removal only
 
 Runs after every fourth shot. It can only take an arm *out*; it never calls a win, because a win

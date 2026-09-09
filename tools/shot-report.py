@@ -4,6 +4,7 @@
     ./tools/shot-report.py ~/shots/2026-08-22            # the table, the arms, the verdicts
     ./tools/shot-report.py ~/shots/2026-08-22 --shots    # ...with every shot's diagnostics
     ./tools/shot-report.py ~/shots/2026-08-22 --gate     # names arms to drop, for shot-batch.sh
+    ./tools/shot-report.py ~/shots/2026-08-22 --instrument  # is the trace recording? after shot 1
 
 docs/SHOT-PROTOCOL.md is the protocol this implements and the reasoning behind every constant
 here. The three decisions worth knowing without reading it:
