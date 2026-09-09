@@ -1127,7 +1127,7 @@ internal sealed class IcbmComputer
                      + "so it stops costing frame time while it falls");
 
             KsaWorld.WaitForVehicleSolvers();
-            KsaWorld.Destroy(stage, 0.0f);
+            KsaWorld.Remove(stage);
             _shed.RemoveAt(i);
         }
     }

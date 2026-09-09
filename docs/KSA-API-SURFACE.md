@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-171 types and 486 members across 7 assemblies.
+172 types and 487 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -406,6 +406,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Controller
 
 - `KSA.Camera Camera`
+
+### KSA.CrewDisposition
+
+*referenced as a type only*
 
 ### KSA.Decoupler
 
@@ -939,6 +943,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double get_SimulationSpeed()`
 - `void AutoWarpStop(bool)`
 - `void AutoWarpTo(KSA.UniverseTime, double)`
+- `void DestroyVehicle(KSA.Vehicle, KSA.CrewDisposition)`
 - `void DestroyVehicleFromEvent(KSA.Vehicle, KSA.VehicleDestructionEvent)`
 - `void SetSimulationSpeed(KSA.SimSpeed)`
 

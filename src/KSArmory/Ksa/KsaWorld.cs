@@ -1641,8 +1641,38 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// Takes a vehicle out of the world without breaking it up. Same threading rule as
+    /// <see cref="Destroy"/>.
+    ///
+    /// <para><c>DestroyVehicleFromEvent</c> runs the engine's failure machinery, which ends in
+    /// <c>PartFailure.ShedDebris(vehicle, 12)</c> — so destroying one spent stage can leave up to
+    /// twelve vehicles behind rather than none. For a kill that is the point; for disposal it is
+    /// the opposite of what was asked, and it is what kept two worlds of 3ci carrying seven extra
+    /// vehicles, in one physics bubble that could no longer return to rails.</para>
+    ///
+    /// <para><c>EndMission</c> rather than <c>Kill</c>: nothing aboard a spent stage died, and the
+    /// crew disposition is the only thing separating the two.</para>
+    /// </summary>
+    public static void Remove(Vehicle v)
+    {
+        if (!IsAlive(v)) return;
+        try
+        {
+            Universe.DestroyVehicle(v, CrewDisposition.EndMission);
+            InvalidateCensus();
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not remove {DisplayName(v)} from the world: {e.Message}");
+        }
+    }
+
+    /// <summary>
     /// Destroys a vehicle, attributing it to collision damage. Must be called from the main
     /// thread, and only after <see cref="WaitForVehicleSolvers"/> — see there for why.
+    ///
+    /// <para>This breaks the vehicle up and leaves debris. To take one out of the world instead,
+    /// use <see cref="Remove"/>.</para>
     /// </summary>
     public static void Destroy(Vehicle v, float blastSeverity)
     {
