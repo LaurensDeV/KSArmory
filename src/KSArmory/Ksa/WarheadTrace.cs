@@ -377,7 +377,7 @@ internal sealed class WarheadTrace
 
             Log.Info($"warhead trace on {setup.Craft}: {RoundLabel.For(round.Tube)} {Ended(round)}"
                      + $" at {LatLon(setup, positionCci)}"
-                     + $" | {Ground(setup, positionCci, setup.TrueAimCci):F0} m from the aim"
+                     + $" | {Ground(setup, positionCci, setup.TrueAimCci):F2} m from the aim"
                      + Walk(setup, atReleaseEpoch)
                      + $" | flight {atBurst:F2}s by the world clock, {round.Age:F2}s by its own,"
                      + $" probe said {_probeSeconds:F2}s"
@@ -491,9 +491,14 @@ internal sealed class WarheadTrace
         double metres = Ground(setup, atReleaseEpochCci, _probeGroundCci);
         double3 separation = atReleaseEpochCci - _probeGroundCci;
 
-        return $" | walk from the release probe {metres:F0} m"
-               + $" ({Vec.Dot(separation, _probeAlong):+0;-0;0} down,"
-               + $" {Vec.Dot(separation, _probeCross):+0;-0;0} cross)";
+        // Two decimals, because whole metres is not a rounding here -- it is the endpoint's
+        // resolution. About a third of flights walk 3 m or less, so seat 8 reads 0,0,1,1,1,1,1 and
+        // a levelled value can be 0.5, 1.0 or 2.0 from the print alone. Dithering each value inside
+        // its own bin swings the arm ratio by +/-9%, which is a seventh of the effect being
+        // measured, thrown away by a format string. ACCURACY-PLAN.md 3ci.
+        return $" | walk from the release probe {metres:F2} m"
+               + $" ({Vec.Dot(separation, _probeAlong):+0.00;-0.00;0.00} down,"
+               + $" {Vec.Dot(separation, _probeCross):+0.00;-0.00;0.00} cross)";
     }
 
     private bool Predict(in Setup setup, double3 positionCci, double3 velocityCci,
