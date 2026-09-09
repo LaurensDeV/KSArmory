@@ -47,6 +47,11 @@ internal sealed partial class Ui
                                ? "  two rails will not each fire a full salvo at the same target"
                                : "  off: each weapon counts only its own rounds, as it used to");
 
+        ImGui.Checkbox("Mushroom clouds", ref _config.NuclearClouds);
+        ImGui.TextDisabled(_config.NuclearClouds
+                               ? "  a nuclear burst leaves a cloud standing -- 6-8 ms a frame"
+                               : "  off: the burst does the same damage and leaves nothing behind");
+
         ImGui.Checkbox("Dirty nuclear smoke", ref _config.DirtyNuclearSmoke);
         ImGui.TextDisabled(_config.DirtyNuclearSmoke
                                ? "  a cloud tints every plume in the world while it stands"

@@ -404,6 +404,19 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     printf '    %s in %d:%02d (exit %d)\n' "$verdict" $(( elapsed / 60 )) $(( elapsed % 60 )) "$rc"
     grep -oE 'worst .*spread [0-9.]+ km' "$OUT/shots/$n-$arm.out" | tail -1 | sed 's/^/    /' || true
 
+    # A shot the frame could not keep up with is not measuring the arm: at that step the trim gives
+    # up at the split and every warhead in the world is lost. It is re-flown rather than banked,
+    # because a shot that will be excluded has already cost the wall clock either way, and the plan
+    # is extended the same way the gate extends it for a dropped arm.
+    if ! "$REPO_ROOT/tools/shot-report.py" "$OUT" --frame-check "$n-$arm" > /dev/null 2>&1; then
+        "$REPO_ROOT/tools/shot-report.py" "$OUT" --frame-check "$n-$arm" 2>&1 | sed 's/^/    /' || true
+        printf '%s\t%s\n' "$n-$arm" "$(date -Is)" >> "$OUT/slow.tsv"
+        extra="$(( ${#PLAN_ROWS[@]} + 1 ))"
+        PLAN_ROWS+=("$(printf '%03d\t%s\t%s' "$extra" "$block" "$arm")")
+        printf '%s\n' "${PLAN_ROWS[@]}" > "$PLAN"
+        echo "    frame: re-flying block $block as shot $(printf '%03d' "$extra")"
+    fi
+
     # After the FIRST shot, not every fourth: an instrument that is not recording makes the whole
     # night worthless, and every shot after this one is spent confirming that. The walk night of
     # 2026-09-08 flew fourteen blocks over three and a half hours and its declared endpoint was

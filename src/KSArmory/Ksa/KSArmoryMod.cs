@@ -719,7 +719,8 @@ public sealed class KSArmoryMod
         //
         // The scene gates it, not the craft. A mushroom cloud does not stop rising because whoever
         // was flying has just been killed by it.
-        NuclearClouds.Update(_lastSimStep, _config.DirtyNuclearSmoke);
+        if (_config.NuclearClouds) NuclearClouds.Update(_lastSimStep, _config.DirtyNuclearSmoke);
+        else NuclearClouds.Clear();
 
         // A sight outlives nothing: without this the dictionary keeps a system for the session
         // after its craft has gone, which is the leak every pooled effect below sweeps for.

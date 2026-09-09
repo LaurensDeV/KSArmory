@@ -96,6 +96,19 @@ public sealed class Config
     public bool FloatingPanelButton = true;
 
     /// <summary>
+    /// Draw the mushroom clouds a nuclear burst leaves standing.
+    ///
+    /// <para>Costs about <b>6-8 ms a frame</b> while they stand, measured across the fourteen shots
+    /// of 2026-09-09-walk2: an 18-24 ms burn phase against 23-30 ms once the first warhead is down.
+    /// That is a third of the frame for decoration, and on a scripted shot nobody is watching it.
+    /// A ballistic scenario turns it off for that reason -- see <c>Ksa/ScenarioRunner.cs</c>.</para>
+    ///
+    /// <para>It does not change what a burst <em>does</em>: the blast sweep, the damage and the
+    /// flash are all elsewhere. Only the standing cloud goes.</para>
+    /// </summary>
+    public bool NuclearClouds = true;
+
+    /// <summary>
     /// Dirty the smoke of a nuclear cloud rather than leaving it white.
     ///
     /// <para>Costs something worth knowing about: the engine carries one trail colour for the whole

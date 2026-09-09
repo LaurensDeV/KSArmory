@@ -413,6 +413,15 @@ internal sealed class ScenarioRunner
         // which is the same reason BallisticScenario turns verbose logging on. Off everywhere else.
         _config.TraceWarhead = true;
 
+        // Decoration nobody is looking at, and it is not cheap: a standing cloud costs 6-8 ms a
+        // frame, measured across 2026-09-09-walk2 as an 18-24 ms burn phase against 23-30 ms once
+        // the first warhead is down. Frame time is the only thing that buys simulation rate, and
+        // the two shots that night that lost every warhead were the two slowest. It changes nothing
+        // a burst DOES -- the sweep, the damage and the flash are elsewhere -- and like the staging
+        // above it is set here rather than anywhere an arm can reach, so it cannot differ between
+        // arms.
+        _config.NuclearClouds = false;
+
         // A scripted world lives for eight minutes with nobody looking at it, so a spent stage
         // arcing back down is pure frame time -- and frame time is the only thing that buys
         // simulation rate. It is what makes several rockets in one world affordable.

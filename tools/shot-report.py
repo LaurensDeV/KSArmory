@@ -783,6 +783,24 @@ def paired(root, shots, endpoint="miss"):
 
     order = [piece.split(":")[0].strip() for piece in spec.split("|") if piece.strip()]
 
+    # Dropped before anything is scored, and dropped on a property of the RUN rather than of the
+    # result: a shot whose burn phase ran slower than SLOW_BURN_MS is not measuring the arm at all
+    # -- the trim gives up at the split and every warhead in the world is lost. Both such shots on
+    # 2026-09-09-walk2 lost all eight, both arms equally, and between them they took the walk from
+    # 0.72x p=0.027 to 0.80x p=0.268. Knowable before the shot is scored, which is what makes it a
+    # rule rather than a choice. shot-batch.sh re-flies these, so a night flown since has none.
+    slow = set()
+    for log_path in sorted(root.glob("shots/*.log")):
+        ms = burn_frame_ms(log_path)
+        if ms is not None and ms > SLOW_BURN_MS:
+            slow.add(_shot_id(log_path.stem.split("-", 1)[0]))
+
+    # Filtered here rather than only where the groups are built, because the SEAT LEVELS are the
+    # estimator's denominator and are fitted from this same list. Levelling on a set that still
+    # holds two shots' worth of 85-100 km landings puts the excluded flights back into the answer
+    # through the divisor -- read as 0.73x p=0.052 against 0.73x p=0.027 with them out of both.
+    shots = [r for r in shots if _shot_id(r["n"]) not in slow]
+
     groups = defaultdict(lambda: defaultdict(list))
     for r in shots:
         if r.get("within") and usable(r):
@@ -796,6 +814,12 @@ def paired(root, shots, endpoint="miss"):
 
     print(f"== paired within {len(groups)} shot(s) in {root}")
     print(f"   scored on the {label} ({unit})")
+    if slow:
+        print(f"   {len(slow)} shot(s) excluded: burn phase over {SLOW_BURN_MS:.0f} ms, where the "
+              "trim gives up")
+        print("      at the split and the whole shot is lost. Pre-registered, and read off the "
+              "run rather")
+        print("      than off the result -- ACCURACY-PLAN.md 3ci.")
 
     # A flight with no score is not a tie and not a zero -- it is an observation the instrument
     # did not take, and saying how many were missed is what 3cd needed and did not have: it named
@@ -1501,6 +1525,61 @@ TRACE_LANDED = re.compile(r"warhead trace on .+?: round \d+ (?:landed|burst)")
 TRACE_COVERAGE_FLOOR = 0.75
 
 
+# The burn phase alone -- every sample before the first warhead is down. A whole-shot median mixes
+# in the descent, where a standing mushroom cloud costs 6-8 ms a frame, so it reports the decoration
+# rather than the regime the guidance actually ran in.
+FIRST_LANDING = re.compile(r"warhead trace on .+?: round \d+ (?:landed|burst)")
+
+# Above this the shot is not measuring what it was flown for. Both shots of 2026-09-09-walk2 that
+# lost every warhead ran at 28.0 and 29.7 ms in the burn phase against 18.2-24.1 for the twelve that
+# did not -- a clean separation, and the trim owed 97-178 m/s at the split where it normally owes
+# under one. Mechanistic and outcome-independent: it is knowable before a shot is scored, which is
+# what lets it be pre-registered rather than chosen after the fact.
+SLOW_BURN_MS = 26.0
+
+
+def burn_frame_ms(log_path):
+    """Median frame step before the first warhead lands, or None if the shot took no samples."""
+    before = []
+    landed = False
+    for line in pathlib.Path(log_path).read_text(errors="replace").splitlines():
+        if not landed and FIRST_LANDING.search(line):
+            landed = True
+        if landed:
+            continue
+        m = SAMPLE.search(line)
+        if m:
+            before.append(float(m.group(1)))
+    return statistics.median(before) if before else None
+
+
+def frame_check(root, only=None):
+    """Name the shots whose burn phase ran too slow to be measuring the arm.
+
+    Prints one line per shot and exits non-zero if any is over. `only` restricts it to one shot,
+    which is what shot-batch.sh asks after each flight.
+    """
+    root = pathlib.Path(root)
+    logs = sorted(root.glob("shots/*.log"))
+    if only:
+        logs = [p for p in logs if p.name.startswith(f"{only}-")]
+
+    bad = []
+    for log_path in logs:
+        ms = burn_frame_ms(log_path)
+        if ms is None:
+            continue
+        flag = "  SLOW" if ms > SLOW_BURN_MS else ""
+        print(f"frame: {log_path.stem} burn-phase {ms:.1f} ms{flag}")
+        if ms > SLOW_BURN_MS:
+            bad.append(log_path.stem)
+
+    if bad:
+        print(f"frame: {len(bad)} shot(s) over the {SLOW_BURN_MS:.0f} ms floor: {', '.join(bad)}")
+        print("frame: at that step the trim gives up at the split and the whole shot is lost.")
+    return 1 if bad else 0
+
+
 def instrument(root, traced):
     """Is the trace recording what the night was declared on? Run after the FIRST shot.
 
@@ -1823,6 +1902,8 @@ def main():
     ap.add_argument("directory")
     ap.add_argument("--shots", action="store_true", help="one line of diagnostics per shot")
     ap.add_argument("--gate", action="store_true", help="print arms to drop and exit")
+    ap.add_argument("--frame-check", metavar="SHOT", nargs="?", const="",
+                    help="burn-phase frame time per shot; non-zero if any is too slow to score")
     ap.add_argument("--instrument", action="store_true",
                     help="is the warhead trace recording? run after the FIRST shot -- exits "
                          "non-zero when the declared endpoint will be empty")
@@ -1839,6 +1920,9 @@ def main():
 
     # Ahead of load(), which wants shots.tsv and a full parse. This reads the logs directly, so it
     # answers after a single shot -- which is the whole point of it.
+    if args.frame_check is not None:
+        sys.exit(frame_check(args.directory, args.frame_check or None))
+
     if args.instrument:
         traced = False
         for line in (pathlib.Path(args.directory) / "batch.tsv").read_text().splitlines():
