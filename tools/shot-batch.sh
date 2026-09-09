@@ -404,6 +404,18 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     printf '    %s in %d:%02d (exit %d)\n' "$verdict" $(( elapsed / 60 )) $(( elapsed % 60 )) "$rc"
     grep -oE 'worst .*spread [0-9.]+ km' "$OUT/shots/$n-$arm.out" | tail -1 | sed 's/^/    /' || true
 
+    # After the FIRST shot, not every fourth: an instrument that is not recording makes the whole
+    # night worthless, and every shot after this one is spent confirming that. The walk night of
+    # 2026-09-08 flew fourteen blocks over three and a half hours and its declared endpoint was
+    # empty in shot one. This is the check that was missing, and it is fatal rather than advisory.
+    if (( flown == 1 )); then
+        if ! "$REPO_ROOT/tools/shot-report.py" "$OUT" --instrument; then
+            echo "== stopping the night: the instrument is not recording what it was flown for" >&2
+            echo "== $flown shot(s) in $OUT" >&2
+            exit 1
+        fi
+    fi
+
     # The gate can only remove an arm, never call one a win: a catastrophe is visible in a shot or
     # two and is worth the budget back, and everything finer than that is a morning-after question
     # the whole batch has to be in hand to answer. --gate prints the arms to drop, if any.

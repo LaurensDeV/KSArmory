@@ -1488,6 +1488,60 @@ def by_shot(records):
     return scores, broken
 
 
+# The trace reports a release and, one poll after the round stops, a landing. Counting the two
+# against each other is the only check that sees an instrument fault the miss endpoint cannot:
+# every flight lands and is scored, so a night reads healthy while its declared endpoint is empty.
+TRACE_AWAY = re.compile(r"warhead trace on .+?: round \d+ away")
+TRACE_LANDED = re.compile(r"warhead trace on .+?: round \d+ (?:landed|burst)")
+
+# A whole arm goes missing as HALF the roster, so anything at or below this is the fault rather
+# than an unlucky round. Set below 1.0 because a genuinely reaped or shot-down warhead is a real
+# outcome and must not stop a night on its own.
+TRACE_COVERAGE_FLOOR = 0.75
+
+
+def instrument(root, traced):
+    """Is the trace recording what the night was declared on? Run after the FIRST shot.
+
+    The walk night of 2026-09-08 traced 8 away and 4 landed in every one of its fourteen shots,
+    and the missing four were one whole arm -- the one that releases later and lands last, cut off
+    because the scenario ended on the last impact. Three and a half hours bought no endpoint.
+    Visible on shot one, and nothing was looking. ACCURACY-PLAN.md 3cg.
+    """
+    root = pathlib.Path(root)
+    logs = sorted(root.glob("shots/*.log"))
+    if not logs:
+        return 0
+
+    away = landed = 0
+    for log_path in logs:
+        text = log_path.read_text(errors="replace")
+        away += len(TRACE_AWAY.findall(text))
+        landed += len(TRACE_LANDED.findall(text))
+
+    if not traced:
+        return 0
+
+    if away == 0:
+        print(f"instrument: this night asked for traces and {len(logs)} shot(s) released none")
+        return 1
+
+    share = landed / away
+    print(f"instrument: warhead trace {landed} of {away} releases reported "
+          f"({share:.0%}) over {len(logs)} shot(s)")
+
+    if share < TRACE_COVERAGE_FLOOR:
+        print(f"instrument: below the {TRACE_COVERAGE_FLOOR:.0%} floor -- the endpoint will be "
+              "empty or confounded.")
+        print("instrument: the arm that lands LAST is the one that goes missing, so on a paired "
+              "night this")
+        print("instrument: removes one arm entirely and the report cannot compare. Stop the "
+              "night and fix it.")
+        return 1
+
+    return 0
+
+
 def gate(root, shots, arms):
     """Arms to stop flying. Removal only -- a win is never called mid-batch."""
     base = baseline_name(root, arms)
@@ -1768,6 +1822,9 @@ def main():
     ap.add_argument("directory")
     ap.add_argument("--shots", action="store_true", help="one line of diagnostics per shot")
     ap.add_argument("--gate", action="store_true", help="print arms to drop and exit")
+    ap.add_argument("--instrument", action="store_true",
+                    help="is the warhead trace recording? run after the FIRST shot -- exits "
+                         "non-zero when the declared endpoint will be empty")
     ap.add_argument("--main", metavar="FACTOR",
                     help="pool the arms into FACTOR on/off and report that main effect")
     ap.add_argument("--paired", action="store_true",
@@ -1778,6 +1835,15 @@ def main():
     ap.add_argument("--terrain", action="store_true",
                     help="the relief under the impacts, and whether it is shaping the misses")
     args = ap.parse_args()
+
+    # Ahead of load(), which wants shots.tsv and a full parse. This reads the logs directly, so it
+    # answers after a single shot -- which is the whole point of it.
+    if args.instrument:
+        traced = False
+        for line in (pathlib.Path(args.directory) / "batch.tsv").read_text().splitlines():
+            if line.startswith("trace\t"):
+                traced = line.split("\t", 1)[1].strip() == "on"
+        sys.exit(instrument(args.directory, traced))
 
     root, shots = load(args.directory)
     arms = sorted({s["arm"] for s in shots})

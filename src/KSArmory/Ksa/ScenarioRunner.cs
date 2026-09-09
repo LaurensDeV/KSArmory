@@ -35,6 +35,7 @@ internal sealed class ScenarioRunner
         Arming,
         Engaging,
         Flying,
+        Settling,
         Done,
     }
 
@@ -193,7 +194,48 @@ internal sealed class ScenarioRunner
             if (_outcomes[i] is null) allDone = false;
         }
 
-        if (allDone) FinishAll();
+        if (!allDone) return;
+
+        // Not FinishAll yet. WarheadTrace reports from a poll on the frame AFTER the round stops
+        // flying, and the last impact and END landed in the same millisecond -- so the arm that
+        // lands last never reported at all. On a paired night that is one whole arm: the walk night
+        // of 2026-09-08 traced 8 away and 4 landed in every one of its fourteen shots, all four
+        // baseline. Invisible on a single-arm night, where the roster lands in one window.
+        _phase = Phase.Settling;
+        _settleFrom = _elapsed;
+    }
+
+    // Hold the run open until every trace has reported, rather than for a guessed duration: the
+    // question "is anything still being followed" is exactly what the wait is for, and it costs
+    // nothing on a run with tracing off, where no computer is ever outstanding.
+    private const double SettleBudgetSeconds = 30.0;
+
+    private double _settleFrom;
+
+    private void Settle(IcbmComputers? icbms, double playerStep)
+    {
+        _ = playerStep;
+
+        bool outstanding = false;
+
+        if (icbms is not null)
+        {
+            foreach (IcbmComputer computer in icbms.All)
+            {
+                if (computer.TraceOutstanding) { outstanding = true; break; }
+            }
+        }
+
+        if (!outstanding) { FinishAll(); return; }
+
+        // A trace that never reports must not hang the run. Bounded rather than trusted, and said
+        // out loud -- a short group is a finding about the instrument and the report reads coverage.
+        if (_elapsed - _settleFrom > SettleBudgetSeconds)
+        {
+            Report($"{_name}: settle gave up after {SettleBudgetSeconds:F0} s"
+                   + " -- a warhead trace never reported");
+            FinishAll();
+        }
     }
 
     // Every flight's verdict on its own line, because a batch scores them one by one. The run's own
@@ -419,16 +461,22 @@ internal sealed class ScenarioRunner
         _elapsed += playerStep;
         _simElapsed += dt;
 
-        if (_elapsed > _budget)
+        // Not while settling. Every flight has already been judged by then, so a run that spent its
+        // budget flying and then crossed it waiting for a trace would be reported TIMEOUT with a
+        // full set of verdicts in hand. The settle carries its own bound instead.
+        if (_phase != Phase.Settling)
         {
-            Finish($"TIMEOUT after {_elapsed:F0} s of wall clock -- {Stuck()}");
-            return;
-        }
+            if (_elapsed > _budget)
+            {
+                Finish($"TIMEOUT after {_elapsed:F0} s of wall clock -- {Stuck()}");
+                return;
+            }
 
-        if (_isBallistic && _simElapsed > BallisticSimBudgetSeconds)
-        {
-            Finish($"TIMEOUT after {_simElapsed / 60.0:F0} minutes of world time -- {Stuck()}");
-            return;
+            if (_isBallistic && _simElapsed > BallisticSimBudgetSeconds)
+            {
+                Finish($"TIMEOUT after {_simElapsed / 60.0:F0} minutes of world time -- {Stuck()}");
+                return;
+            }
         }
 
         WeaponSystems.Entry? entry = null;
@@ -465,6 +513,10 @@ internal sealed class ScenarioRunner
                 CrewTheFlights(roster, icbms);
                 FlyThem(roster, icbms, dt, playerStep);
                 ApplyWorldSpeed();
+                return;
+
+            case Phase.Settling:
+                Settle(icbms, playerStep);
                 return;
 
             case Phase.WaitingForWorld:

@@ -139,6 +139,13 @@ internal sealed class IcbmComputer
 
     private readonly WarheadTrace _trace = new();
     private bool _traceWanted;
+
+    /// <summary>
+    /// A warhead is being followed and has not reported yet. The trace reports from a poll one
+    /// frame after the round stops flying, so a harness that ends the run on the last impact ends
+    /// it before the report — see <see cref="ScenarioRunner"/>.
+    /// </summary>
+    public bool TraceOutstanding => _traceWanted && _trace.Watching;
     private MunitionProfile? _tracedWarhead;
     private bool _saidTraceStranded;
     private bool _tracedThisShot;
