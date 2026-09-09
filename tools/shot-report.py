@@ -130,6 +130,14 @@ FINAL_WALK = re.compile(
     r"walk from the release probe\s+[-\d.]+\s*m\s*"
     r"\((?P<down>[-+\d.]+)\s*down,\s*(?P<cross>[-+\d.]+)\s*cross\)")
 
+# A warhead that DETONATED instead of landing. It still prints a walk, and the walk is measured
+# where it stopped -- which is not where it was going, so it is not an arrival and must not be
+# scored as one. What it must also not be is invisible: these matched nothing, were dropped from
+# the endpoint without a word, and on 2026-09-09-walk3 all four were the same arm. An exclusion
+# that lands on one side is the difference under test.
+FINAL_BURST = re.compile(
+    r"warhead trace(?: on (?P<craft>.+?))?: round \d+ burst at")
+
 FLIGHT = re.compile(
     r"flight\s+([-\d.]+)s by the world clock,\s+([-\d.]+)s by its own, "
     r"probe said\s+([-\d.]+)s")
@@ -377,7 +385,7 @@ def read_shot(out_path, log_path, craft=None):
             "offline": [], "probe_km": [], "thrown": [], "arrival_deg": [],
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [], "final_aim": [],
-            "trace_named": False, "own_impacts": [],
+            "trace_named": False, "own_impacts": [], "bursts": 0,
             "band_deg": [], "impacts": [],
             "why": None, "passes": None, "owed": None, "why_named": False,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
@@ -433,6 +441,11 @@ def read_shot(out_path, log_path, craft=None):
         shot["walk_m"].append(metres)
         shot["walk_down"].append(down)
         shot["walk_cross"].append(cross)
+
+    # Counted so the coverage line can say so. A burst is a real outcome and a real cost, but it
+    # is not an arrival, and a silent drop is what let four of them leave one arm short.
+    bursts, _ = _traces(FINAL_BURST, log, craft)
+    shot["bursts"] = len(list(bursts))
 
     landings, shot["trace_named"] = _traces(FINAL_WALK, log, craft)
     for m in landings:
@@ -830,6 +843,19 @@ def paired(root, shots, endpoint="miss"):
         got = [r for r in flown if score(r) is not None]
         print(f"   coverage: {len(got)} of {len(flown)} usable flights carry one "
               f"({len(got) / len(flown):.0%})" if flown else "   coverage: nothing usable flew")
+
+        # Said per arm, because that is the only form in which it is readable. A burst is not an
+        # arrival and is not scored; four of them all on one arm is not a coverage note, it is a
+        # confound, and it has to be visible beside the ratio rather than inferred from a seat's n.
+        burst_by_arm = defaultdict(int)
+        for r in flown:
+            burst_by_arm[r["within"]] += r.get("bursts", 0)
+        if any(burst_by_arm.values()):
+            spread = ", ".join(f"{a}={burst_by_arm[a]}" for a in sorted(burst_by_arm))
+            print(f"   burst rather than landed, so not scored: {spread}")
+            if len([a for a in burst_by_arm if burst_by_arm[a]]) == 1:
+                print("      !! ALL ON ONE ARM -- that is an exclusion falling on the difference")
+                print("         under test, not a coverage note. Read the ratio with it in mind.")
         if not got:
             sys.exit(f"   nothing in this night carries an attributable {label}, so there is "
                      f"no comparison to make on it.\n"
