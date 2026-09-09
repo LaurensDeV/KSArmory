@@ -804,8 +804,7 @@ def paired(root, shots, endpoint="miss"):
     # rule rather than a choice. shot-batch.sh re-flies these, so a night flown since has none.
     slow = set()
     for log_path in sorted(root.glob("shots/*.log")):
-        ms = burn_frame_ms(log_path)
-        if ms is not None and ms > SLOW_BURN_MS:
+        if coast_divergence(log_path) > DIVERGED_COAST:
             slow.add(_shot_id(log_path.stem.split("-", 1)[0]))
 
     # Filtered here rather than only where the groups are built, because the SEAT LEVELS are the
@@ -828,11 +827,11 @@ def paired(root, shots, endpoint="miss"):
     print(f"== paired within {len(groups)} shot(s) in {root}")
     print(f"   scored on the {label} ({unit})")
     if slow:
-        print(f"   {len(slow)} shot(s) excluded: burn phase over {SLOW_BURN_MS:.0f} ms, where the "
-              "trim gives up")
-        print("      at the split and the whole shot is lost. Pre-registered, and read off the "
-              "run rather")
-        print("      than off the result -- ACCURACY-PLAN.md 3ci.")
+        print(f"   {len(slow)} shot(s) excluded: the coast left the inertial frame, so the trim "
+              "owed a")
+        print("      debt it could not pay and every warhead left on a trajectory already tens of "
+              "km")
+        print("      wrong. Read off the RUN rather than off the result -- ACCURACY-PLAN.md 3ci.")
 
     # A flight with no score is not a tie and not a zero -- it is an observation the instrument
     # did not take, and saying how many were missed is what 3cd needed and did not have: it named
@@ -1556,12 +1555,26 @@ TRACE_COVERAGE_FLOOR = 0.75
 # rather than the regime the guidance actually ran in.
 FIRST_LANDING = re.compile(r"warhead trace on .+?: round \d+ (?:landed|burst)")
 
-# Above this the shot is not measuring what it was flown for. Both shots of 2026-09-09-walk2 that
-# lost every warhead ran at 28.0 and 29.7 ms in the burn phase against 18.2-24.1 for the twelve that
-# did not -- a clean separation, and the trim owed 97-178 m/s at the split where it normally owes
-# under one. Mechanistic and outcome-independent: it is knowable before a shot is scored, which is
-# what lets it be pre-registered rather than chosen after the fact.
+# Reported, NOT used to exclude. It reads 28.0 and 29.7 ms on the two shots of 2026-09-09-walk2
+# that lost every warhead against 18.2-24.1 for the twelve that did not, which looks causal and is
+# not: WarheadTrace only starts sampling at the first RELEASE -- measured at 37 ms after the first
+# release summary -- so this window opens minutes AFTER the trim has already given up. The ascent
+# frame time, which could have been causal, does not separate the shots at all (21.6-21.7 ms on the
+# two failures against 19.5-22.9 healthy). What is slow is the descent, and it is slow BECAUSE the
+# coast diverged: the world is carrying shed debris and every vehicle is integrated rather than
+# propagated. Symptom, downstream of the cause below.
 SLOW_BURN_MS = 26.0
+
+# The cause, and what the exclusion is actually read off. A shot whose coast leaves the inertial
+# frame accumulates a spurious push that becomes the trim's debt: summed over one craft's pre-split
+# coast it is 104.2 m/s against a trim that then owed 113.3 and refused. ACCURACY-PLAN.md 3ci.
+#
+# Summed |off-gravity| over every pre-release coast probe in the shot. Across the 28 shots of
+# 2026-09-09-walk2 and -walk3 the twenty-six sound ones read 34-54 and the two lost ones 1305 and
+# 1321 -- a 24x gap with nothing in it, against 1.3x for the frame time. The floor sits far from
+# both ends because there is no evidence about what a marginal shot looks like, and a threshold
+# inside a gap that wide should not pretend to precision.
+DIVERGED_COAST = 200.0
 
 
 def burn_frame_ms(log_path):
@@ -1579,11 +1592,33 @@ def burn_frame_ms(log_path):
     return statistics.median(before) if before else None
 
 
-def frame_check(root, only=None):
-    """Name the shots whose burn phase ran too slow to be measuring the arm.
+OFF_GRAVITY = re.compile(r"off-gravity ([\d.]+)")
+RELEASE_LINE = re.compile(r"release summary")
+STAMP = re.compile(r"^(\d{2}:\d{2}:\d{2})")
 
-    Prints one line per shot and exits non-zero if any is over. `only` restricts it to one shot,
-    which is what shot-batch.sh asks after each flight.
+
+def coast_divergence(log_path):
+    """How far this shot's coast left the inertial frame before the warheads were away.
+
+    Summed |off-gravity| over the coast probes that precede the first release summary. Everything
+    after it is descent and is not what the trim was flying through.
+    """
+    total = 0.0
+    for line in pathlib.Path(log_path).read_text(errors="replace").splitlines():
+        if RELEASE_LINE.search(line):
+            break
+        m = OFF_GRAVITY.search(line)
+        if m:
+            total += float(m.group(1))
+    return total
+
+
+def frame_check(root, only=None):
+    """Name the shots whose coast diverged badly enough that they measure nothing.
+
+    Prints the divergence and the burn-phase frame time per shot and exits non-zero on the first,
+    not the second -- see the constants above for why the frame time is a symptom. `only` restricts
+    it to one shot, which is what shot-batch.sh asks after each flight.
     """
     root = pathlib.Path(root)
     logs = sorted(root.glob("shots/*.log"))
@@ -1596,16 +1631,19 @@ def frame_check(root, only=None):
     bad = []
     for log_path in logs:
         ms = burn_frame_ms(log_path)
-        if ms is None:
-            continue
-        flag = "  SLOW" if ms > SLOW_BURN_MS else ""
-        print(f"frame: {log_path.stem} burn-phase {ms:.1f} ms{flag}")
-        if ms > SLOW_BURN_MS:
+        drift = coast_divergence(log_path)
+        diverged = drift > DIVERGED_COAST
+        shown = f"{ms:.1f} ms" if ms is not None else "no samples"
+        flag = "  DIVERGED" if diverged else ""
+        print(f"run: {log_path.stem} coast {drift:.0f}, burn-phase {shown}{flag}")
+        if diverged:
             bad.append(log_path.stem)
 
     if bad:
-        print(f"frame: {len(bad)} shot(s) over the {SLOW_BURN_MS:.0f} ms floor: {', '.join(bad)}")
-        print("frame: at that step the trim gives up at the split and the whole shot is lost.")
+        print(f"run: {len(bad)} shot(s) over the {DIVERGED_COAST:.0f} coast floor: "
+              f"{', '.join(bad)}")
+        print("run: the coast left the inertial frame, so the trim owed a debt it could not pay")
+        print("run: and every warhead left on a trajectory already tens of km wrong.")
     return 1 if bad else 0
 
 

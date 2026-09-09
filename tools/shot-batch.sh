@@ -404,8 +404,9 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     printf '    %s in %d:%02d (exit %d)\n' "$verdict" $(( elapsed / 60 )) $(( elapsed % 60 )) "$rc"
     grep -oE 'worst .*spread [0-9.]+ km' "$OUT/shots/$n-$arm.out" | tail -1 | sed 's/^/    /' || true
 
-    # A shot the frame could not keep up with is not measuring the arm: at that step the trim gives
-    # up at the split and every warhead in the world is lost. It is re-flown rather than banked,
+    # A shot whose coast left the inertial frame is not measuring the arm: the trim then owes a
+    # debt it cannot pay and every warhead in the world leaves on a trajectory already tens of km
+    # wrong. It is re-flown rather than banked,
     # because a shot that will be excluded has already cost the wall clock either way, and the plan
     # is extended the same way the gate extends it for a dropped arm.
     if ! "$REPO_ROOT/tools/shot-report.py" "$OUT" --frame-check "$n-$arm" > /dev/null 2>&1; then
