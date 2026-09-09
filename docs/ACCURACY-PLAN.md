@@ -5465,6 +5465,120 @@ warheads arrived**, misses 4-69 m with a group spread of 1-4 m, nothing reaped, 
 either log. That is the reaper in the loop for eight full ballistic flights, which is what the
 commit that added it did not have.
 
+## 3ch. The walk night flew and recorded nothing — the trace dies with the bus — 2026-09-08/09
+
+Item 29 flew. **All fourteen blocks, 112 flights, 112 usable, every one PASS**, finished at 02:27
+with no exception in either log. And its declared endpoint was empty:
+
+```
+coverage: 55 of 112 usable flights carry one (49%)
+arm            flights   median m
+base                55        7.00
+steep: no shot flew both it and base
+       so nothing above is an arm comparison
+```
+
+8 released and 4 traced to landing in **every one of the fourteen shots** (one had 3), and the four
+were the same arm every time. The report refused to compare rather than printing a confounded
+ratio, which is 3cg's coverage line doing its job — in the morning, after the night was spent.
+
+### The bus breaks up before its own warheads arrive
+
+`IcbmComputers.Retire` drops a computer when its craft dies, and `IcbmComputer.Update` returns
+early on a dead craft, so nothing steps the trace it owns. A bus has no heat shield and its
+warheads do:
+
+```
+10:43:26.215  GeoSat FAT 5_1 destroyed - 6 round(s) still in the air
+10:43:38.778  CAPTURE impact: round 6 down 0.03 km from the aim point
+```
+
+The rounds go loose and land correctly — `GoLoose` already covers that. Only the measurement is
+lost, and it is lost silently, because the flight still lands and is still scored.
+
+**That is why it selects an arm rather than thinning both.** The steeper the arc, the sooner the
+bus is destroyed relative to its own warheads. The steep arm loses every trace and the shallow one
+loses none:
+
+| | shot 001 releases | traced to landing |
+| --- | --- | --- |
+| base, 32.1 / 32.0 / 32.0 / 32.1 deg | 23:02:26 – 23:03:14 | **4 of 4** |
+| steep, 41.4 / 41.6 / 41.6 / 41.8 deg | 23:06:36 – 23:06:47 | **0 of 4** |
+
+It is the same fault 3ce found and half closed. That comment is still in `TraceSetup`: *Measured on
+2026-09-08: all eight traces began, four finished.* Latching `_tracedWarhead` fixed the launcher
+going away; the craft going away was the other half of it.
+
+### Neither thing that looked could have seen it
+
+Both checks were real and both were blind for the same reason.
+
+* **The endpoint was priced on `2026-09-08-decompose`**, which is `paired <none>` — single arm.
+  Eight rockets flying one variant land in one window, and it traced **60 of 64, 94%**.
+* **The pre-night verification flight was a bare `scenario.sh mirv`** — also single arm, and it is
+  in 3cg as *PASS, 8 of 8 flights, 48 of 48 warheads*.
+
+**A single-arm run cannot produce this fault at any n.** It needs two arms whose buses die on
+opposite sides of their own impacts, which is the design the endpoint was declared for and neither
+check exercised.
+
+### It was on the page, correctly described, and filed under the wrong cause
+
+3cg's own risk list says: *6 of 8 on the smoke shot below — one draw, and the two that went dark
+were the last two to release.* That is the mechanism, written down before the night. It was read as
+a draw from 3ce's known-random loss path rather than as a deterministic selection on arc steepness,
+and the 75% floor it set was checked in the morning.
+
+**The protocol was right and the timing was wrong.** Coverage is a property of shot one; the night
+spent three and a half hours confirming it.
+
+### Fixed, and flown
+
+* `IcbmComputers.Retire` **holds a computer whose trace is outstanding**, bounded by that round's
+  flight rather than by the session, with the attitude hook released so it flies nothing meanwhile.
+  `Update` takes a dead-craft path that steps the trace and nothing else, re-deriving only the aim —
+  a place on a turning planet moves through Cci every frame, where `Parent`, `Body` and the warhead
+  profile are latched and do not. Both delegates the prediction needs already read the planet.
+* `ScenarioRunner` holds a `Settling` phase until no computer has an outstanding trace. This was
+  built first, **on an inferred mechanism, and it fixed nothing** — the last impact and `END` did
+  land in the same millisecond, but a trace that no longer exists does not need more frames. It is
+  kept because it is a real second-order fault and because it is what gives the dead-craft path a
+  frame to run in.
+* `shot-report.py --instrument` counts landings against releases straight off the logs, so it
+  answers after **one** shot, and `shot-batch.sh` **stops the night** below 75%. Reads 50% on the
+  wasted night, 94% on the one that priced the endpoint, 100% after the fix.
+
+Flown in the configuration that produced the fault — one paired block at 26.485S,68.148W on
+`SOLVER SCALE 8`, trace on: **8 away, 8 landed, 100%**, PASS, no exception, and both arms carry a
+walk where before only the baseline did.
+
+**The shape this ought to be** is `GoLoose`: a trace holding a `Celestial` and a captured name and
+never the dead `Vehicle`, stepped by something that outlives the bus. What landed instead retains
+the computer, which keeps a destroyed craft reachable for the length of one flight — narrower, and
+against the letter of the rule in `CLAUDE.md`. Worth revisiting if a second thing ever needs to
+outlive a bus.
+
+### What it still does not answer
+
+Item 29 is **unflown, not refuted**. Nothing here is evidence about the arrival angle.
+
+The miss endpoint was scored for all 112 flights and reads **0.83x [0.55, 1.12], signed-rank
+p=0.042, 10 of 14 paired shots** — not significant at the protocol's 0.0294, with the interval
+still admitting 0.6, so *UNRESOLVED, open*. That is what 3cg predicted for it (0.85–0.90x,
+unresolved at this n, 0.37 power), and it is the one prediction the night did test and confirm.
+
+What is solid at n=112 and needs no rank test:
+
+| | base | steep |
+| --- | --- | --- |
+| arc flown | 32.0 deg | **41.7 deg** |
+| off rails, median share of coast probes | 14% | **3%** |
+| corrections ended by payback | 21 | **3** |
+| corrections ended by the clock | 5 | **22** |
+
+The arm does what it claims, and 20b's worry is answered again in the same direction as 3cd: the
+steeper arm spends **less** of its coast off rails, not more.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5583,7 +5697,7 @@ what 20b is flying against.
 | **26** | **Answered: the aim loop is not the limiter.** It converges monotonically to 1.4-12.4 m predicted on every flight; the landing correlates +0.07 with that and **+0.93 with the ground under that seat**, measured on another night | done | 3bz |
 | ~~27~~ | ~~Re-fly the arrival angle where terrain is present~~ | done | **0.96x [0.66, 1.13], unresolved; the graded-by-roughness prediction is REFUTED at rho +0.12, p=0.79** — 3cd |
 | **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
-| **29** | **Re-fly the arrival angle scored on the WALK**, which is 70% of the miss and the only part the angle acts on. 3cd scored the total and diluted 0.71x to 0.80x on a [0.66, 1.13] interval | **ready — 14 blocks, command in 3cg** | 3cf, and the instrument is built and priced in **3cg**: 0.85 power on the walk against 0.37 on the diluted miss |
+| **29** | **Re-fly the arrival angle scored on the WALK**, which is 70% of the miss and the only part the angle acts on. 3cd scored the total and diluted 0.71x to 0.80x on a [0.66, 1.13] interval | **ready — 14 blocks, command in 3cg**; the 2026-09-08 attempt flew clean and recorded nothing, **3ch** | 3cf, and the instrument is built and priced in **3cg**: 0.85 power on the walk against 0.37 on the diluted miss. The trace now survives its bus and reads 100% on one paired block |
 | **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
