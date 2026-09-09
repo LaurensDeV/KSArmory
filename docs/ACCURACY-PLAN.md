@@ -5777,6 +5777,20 @@ they land on one side.
 **The estimator is the first of these and blocks the rest**: a night whose answer moves further on
 its own nuisance parameter than on the arm cannot settle a 0.71x effect at any n.
 
+### Built the same day, all unflown
+
+1, 2 and 5 landed on 2026-09-09, plus the seat-0 standoff. The shot-flip null is now what decides
+the verdict — reproducing an independent computation to within 0.02 on all four readings — and
+`--levels-from` fits the divisor out of sample. **Cross-levelled, the two nights read 0.87x and
+0.88x.** The walk is logged to centimetres, the camera's site stands 250 m off the aim, and disposal
+removes a stage rather than shedding twelve pieces of it.
+
+What is **not** built is 3: the trace still follows round 1 only, so the declared endpoint is still
+one warhead against a six-warhead mean. And 4 is recorded rather than fixed.
+
+None of it has flown. The next night is the first evidence any of it works, and the first thing to
+check is not the arm but whether the two nights' own baselines agree.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5895,8 +5909,10 @@ what 20b is flying against.
 | **26** | **Answered: the aim loop is not the limiter.** It converges monotonically to 1.4-12.4 m predicted on every flight; the landing correlates +0.07 with that and **+0.93 with the ground under that seat**, measured on another night | done | 3bz |
 | ~~27~~ | ~~Re-fly the arrival angle where terrain is present~~ | done | **0.96x [0.66, 1.13], unresolved; the graded-by-roughness prediction is REFUTED at rho +0.12, p=0.79** — 3cd |
 | **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
-| **30** | **Fix the walk estimator before flying it again**: seat levels declared out of sample, shot-flip randomisation instead of the signed-rank (anti-conservative by 2-4x here), sub-metre walk logging (+/-9% for free), and trace more than round 1 | a day, no shots | **3ci** — a night whose answer moves further on its own nuisance parameter than on the arm cannot settle 0.71x at any n |
-| **31** | **Stop stage disposal shedding debris** — `DestroyVehicle` rather than `DestroyVehicleFromEvent`, which sheds twelve | small, then one night | **3ci/3bv** — the initiating term behind two wholly lost shots, 104 m/s of spurious push on a coast that left the inertial frame |
+| ~~30~~ | ~~Fix the walk estimator~~ | **built 2026-09-09, unflown** | shot-flip null, `--levels-from`, centimetre logging. Cross-levelled the two nights read **0.87x and 0.88x** where in-sample they read 0.72x and 1.12x — **the nights never disagreed, the divisor did**. Still to do: trace more than round 1 |
+| **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
+| ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
+| **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
 | ~~29~~ | ~~Re-fly the arrival angle scored on the WALK~~ | **flown twice, 2026-09-09** | **UNRESOLVED, open — 0.86x [0.62, 1.23] on 26 shots, and the walk is the wrong endpoint: the effect is in the PRE-RELEASE term, where cot γ predicts 0.70 and it measures 0.62-0.70.** Blocked on the estimator, not on shots — **3ci** |
 | **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
