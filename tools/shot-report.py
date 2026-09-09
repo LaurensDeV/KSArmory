@@ -1562,7 +1562,10 @@ def frame_check(root, only=None):
     root = pathlib.Path(root)
     logs = sorted(root.glob("shots/*.log"))
     if only:
-        logs = [p for p in logs if p.name.startswith(f"{only}-")]
+        # Either form: the bare shot number the plan uses, or the "<n>-<arm>" stem shot-batch.sh
+        # names its files with. Matching only the second with a "-" appended silently matches
+        # NOTHING and passes every shot, which is a gate that reports success without looking.
+        logs = [p for p in logs if p.stem == only or p.stem.startswith(f"{only}-")]
 
     bad = []
     for log_path in logs:
