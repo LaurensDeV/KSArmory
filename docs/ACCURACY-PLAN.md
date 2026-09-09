@@ -5579,6 +5579,204 @@ What is solid at n=112 and needs no rank test:
 The arm does what it claims, and 20b's worry is answered again in the same direction as 3cd: the
 steeper arm spends **less** of its coast off rails, not more.
 
+## 3ci. Item 29 flown twice, and the endpoint it was declared on is the wrong instrument — 2026-09-09
+
+Two 14-block paired nights at 26.485S,68.148W, `base|steep:ArrivalPreference=0.65`, the instrument
+of 3ch working: `~/shots/2026-09-09-walk2` and `~/shots/2026-09-09-walk3`, 112 flights each, 100%
+trace coverage on both.
+
+**The pre-registered answer to item 29 is UNRESOLVED, open.** Not "no effect": the honest combined
+read over 26 shots, with the nuisance parameter fitted out of sample and the p from the design's own
+null, is **walk 0.86x [0.62, 1.23] p=0.40** and **miss 0.78x [0.55, 1.15] p=0.065**. The interval
+still admits 3cg's predicted 0.71x and admits 1.2 as well.
+
+### The two nights disagreed, and the disagreement is the estimator
+
+| | walk2 | walk3 |
+| --- | --- | --- |
+| walk, as the report ships it | 0.72x p=0.027 | **1.12x** p=0.217 |
+| walk, seat levels from the *other* night | 0.87x p=0.301 | **0.86x** p=0.761 |
+| walk, levels from `2026-09-08-decompose` | 0.71x p=0.007 | 1.07x p=0.903 |
+| walk, level-free per-seat estimator | 0.77x | 0.97x |
+| un-levelled, which the report already prints | 1.43x | 1.07x |
+
+`_seat_levels` fits its divisor from the night under test and documents it as *a property of the
+world rather than of anything under test*. Take it out of sample and **the reversal disappears** —
+two nights that read 0.72 and 1.12 read 0.87 and 0.86, agreeing to within 2%. The point estimate
+moves further on the choice of that nuisance parameter than on anything the arm does.
+
+**It is not seat 3**, despite dominating the raw magnitudes at 33-58 m against 1-7 m; dropping it
+moves either night by under 0.02. It is the *flat* seats, and the reason is the log format: the
+trace prints whole metres and about 30% of flights read |walk| <= 3 m, so seat 8 reads 0,0,1,1,1,1,1.
+Dithering each value inside its own print bin swings the answer **+/-9%**. The median-of-four is not
+scale-equivariant per seat either — changing one divisor changes *which* seat is the median.
+
+### The signed-rank is anti-conservative here, by two to four times
+
+Randomising the design's own null — flip which roster parity is "steep", per shot, refitting the
+levels each time:
+
+| | report's signed-rank | randomisation |
+| --- | --- | --- |
+| walk2 walk, 12 shots | 0.027 | **0.045** |
+| walk2 miss, 12 shots | 0.042 | **0.134** |
+| walk3 miss, 14 shots | 0.030 | **0.114** |
+| walk3 walk, 14 shots | 0.217 | 0.399 |
+
+**Under a valid null nothing on either night resolves at 0.0294, on either endpoint.** Every
+"RESOLVED" printed today was an artefact of a test that does not account for the levels being
+refitted from the same data.
+
+### The walk is one warhead of six, and the miss is the mean of six
+
+`WarheadTrace` follows **round 1 only** — one landing per flight. So the declared endpoint has the
+variance of a single warhead while the endpoint it was meant to beat is a six-warhead mean, and
+round 1's own miss correlates with its own walk at only rho +0.52 to +0.60. 3cg's power table
+compared the two as though they were the same quantity measured two ways. They are not.
+
+### And the walk is not 70% of the miss at this target
+
+3cf priced it at 10.5 of 15.0 m on `2026-09-08-decompose`. Over these two nights the per-flight
+median `|walk| / |total|` is **0.43** (walk3 base) and **0.53** (walk2 base). The dilution argument
+that made the walk the preferred endpoint is roughly halved, and 3cg's 0.85-against-0.37 power
+figure does not hold at this composition.
+
+### What the arm actually does — the decomposition that closes
+
+`miss = (release probe - target) + (walk from probe)`. The walk is measured **from the probe**, so
+everything upstream of release is invisible to it — and on walk3 that is where the whole effect is.
+Signed downrange, positive long, recovered by fitting each seat's aim point from its own 14 landings:
+
+| walk3 | base (n=56) | steep (n=52) |
+| --- | --- | --- |
+| pre-release, median | **-8.00 m** | **+1.47 m** |
+| pre-release, sign | **52 short / 4 long** (p = 5.5e-12) | 22 / 30 |
+| walk, median | -2.50 m | -3.50 m |
+| total, mean | -16.16 m | -5.38 m |
+
+Of **10.8 m of systematic short bias removed, 7.7 m is pre-release and 3.1 m is walk**, against a
+7.5 m fall in the median miss. The accounting closes, and the sign result reproduces on walk2
+(base -8.30 m, 37 short / 11 long, p = 1.1e-4).
+
+**3cg's `cot γ` was arithmetically right and attached to the wrong term.** `tan(32.0)/tan(41.7) =
+0.701`; the measured *pre-release* ratio is 0.62x (walk3) and 0.70x (walk2). Both bracket it. The
+walk does not.
+
+The one thing the arm does consistently on both nights is tighten the group: **3.0 -> 2.0 m, 14 of
+14, p=0.000** on walk3 and 10 of 12 on walk2.
+
+### The confound no rotation can remove
+
+**The two arms are never measured at the same time.** In all 28 shots the base rockets release 0-62 s
+in and the steep ones 122-297 s in, with **zero overlap** — the lateness is caused by the arm under
+test, so seat rotation cannot break it. Their warheads therefore fall in separate windows running at
+different world steps:
+
+| | base descent step | steep descent step |
+| --- | --- | --- |
+| walk2 | 22.8 ms @ 1.00x | 29.4 ms @ ~1.30x |
+| walk3 | **17.6 ms** @ 1.00x | 29.6 ms @ ~1.72x |
+
+The environment change between the nights (resolution lowered, clouds off — confounded with each
+other) improved **only the baseline arm's** step, by 0.77; steep's was already pinned at the ceiling.
+Applying `1/0.77` to walk2's 0.80x lands near 1.04, which is most of the reversal. **Not proven** —
+the within-arm step range is too narrow to measure an elasticity, and rounds sub-step so a coarser
+world step may not reach the integration.
+
+**The number that bounds all of it:** three hours apart, same target, same seats, the *baseline
+arm's own* walk moved **x0.758**. The baseline's session drift is larger than the 0.71x effect being
+chased.
+
+### The exclusion this night's own tooling applied was not legitimate on walk2
+
+3ch's frame-time rule was committed at 15:15:48 and walk3 started at 15:15:59 — eleven seconds. It is
+pre-registered for walk3 and **post-hoc for walk2, the night it was derived from**.
+
+Worse, the claim made for it — that the two lost shots were arm-neutral — is false. The *count* of
+lost flights was equal, 8 and 8, but the misses were not:
+
+| | base | steep |
+| --- | --- | --- |
+| shot 004 | 85.2 / 95.4 / 84.7 / 73.1 km | 107.2 / 102.5 / 94.6 / 92.0 km |
+| shot 014 | 101.9 / 82.8 / 80.0 / 73.6 | 113.3 / 107.9 / 97.2 / 99.3 |
+
+They are **the two most anti-steep shots of the night on both endpoints**. Over all 91 ways of
+dropping two shots the estimate ranges 0.697-0.978 with median 0.817; the pair that was dropped is
+**5th of 91** and one of only **2 of 91** reaching p <= 0.0294. Neither shot dropped alone clears the
+bar. Both are the same crossover phase, so dropping them breaks the 7/7 balance to 7/5.
+
+**The pre-registered walk2 answer is 0.80x [0.56, 1.19] p=0.268.** The 0.72x should not stand.
+
+What survives is that the two worlds were genuinely broken — 3ci's own cause below — and that
+SHOT-PROTOCOL's pre-existing lost-mode split reaches the same two shots independently.
+
+### Why those two worlds broke — and the frame-time gate was measuring a symptom
+
+Not the frame. `burn_frame_ms` samples only the `dt=` lines `WarheadTrace` prints, and the trace
+starts at the **first release** — measured 37 ms after the first release summary. The window opens
+minutes after the trim has already given up. Ascent frame time, which could have been causal, does
+not separate the shots at all: **21.6 and 21.7 ms on the two failures against 19.5-22.9 healthy**.
+
+The cause is that **the coast left the inertial frame**. Disposing of a spent stage routes through
+`PartFailure.ShedDebris(vehicle, 12)`, which replaces one vehicle with up to twelve; `CollectShedStages`
+takes its census once, a frame later, so catching them is a race. The two lost shots ran 7 fewer
+disposals and carried 7 more vehicles (16 against 9). A world that size stays **one physics bubble** —
+`ComputeMergeStateCore` forces `IsRailsCoasting = false` for any multi-member bubble, so it can never
+split again — its origin ends up on a landed craft at ~5 km, and `GetDesiredBubFrame` then returns the
+**rotating** `Ccf`. In a `Ccf` bubble `ComputeDerivatives` puts the fictitious forces behind a
+per-vehicle `InPhysicsRadius` test that a bus at 890 km fails, so it is advanced in a rotating frame
+as though it were inertial, and `TryToPutOnRails` has no path back.
+
+| | Cci + on rails | Ccf + off rails |
+| --- | --- | --- |
+| shot 004 | 200 probes, 0.0000 m/s | **721 probes, 11.36 m/s each** |
+| shot 003 (sound) | 933 probes, 0.037 m/s | 56, all after release |
+
+Summed over one craft's pre-split coast that is **104.2 m/s against a trim that owed 113.3** and
+refused to fire. This is 3bv's predicted mechanism, and these two shots are the flight that settles it.
+
+The gate now reads that directly. Summed `|off-gravity|` over pre-release coast probes, across all 28
+shots: **34-54 on the twenty-six sound ones, 1305 and 1321 on the two lost** — a 24x gap with nothing
+in it, against 1.3x for the frame time it replaces.
+
+### A harness artefact worth fixing before the next night
+
+Five warheads across the two nights ended `burst` rather than `landed`, **all steep, all seat 1**
+(5 of 14 against 0 of 14, Fisher p=0.041). They hit the Pantsir: `BallisticScenario` moves the
+defended site *to* the aim point so the impact has a camera on it, and `AimSpread` anchors seat 0 on
+that same point. Confirmed by the trace's own stop height — all bursts stopped **2.0-7.6 m above their
+own ground crossing** where all 264 landings read +0.0 or below, against a 4.7 m Pantsir.
+
+Fratricide is ruled out: all six warheads of a group detonate within ~1 ms, so nothing is airborne
+when the first goes off. Steepness is probably not the cause either — the shadow a craft casts up its
+approach is `H·cot γ`, **7.5 m at 32° against 5.3 m at 41.5°**, so the shallow arm should clip it more.
+
+It biases *against* steep, because the excluded warheads are steep's smallest walks at that seat
+(3, 2, 2, 6 m). Re-scoring them as landings moves walk3 from 1.12x to 1.09x — about a third of the
+excess, not the reversal. `shot-report.py` counts them, splits them per arm and says so loudly when
+they land on one side.
+
+### What to do before flying this again
+
+1. **Fix the estimator first.** Declare the seat levels in advance from a prior single-arm night, or
+   use the level-free per-seat form; validate p with the shot-flip randomisation rather than the
+   signed-rank, which is anti-conservative here by two to four times.
+2. **Log the walk sub-metre.** Whole metres costs +/-9% of the answer for nothing.
+3. **Trace more than round 1**, so the declared endpoint is not a single warhead against a
+   six-warhead mean.
+4. **Record the per-arm descent step**, or hold the world step for the whole flight. Until then every
+   arm that shifts release time is confounded with falling in a faster-running world — which is
+   *every* `ArrivalPreference` night ever flown, 3cd and 3ch included.
+5. **Stop stage disposal shedding debris.** `Universe.DestroyVehicle(v, CrewDisposition.EndMission)`
+   removes a vehicle and sheds nothing, where `DestroyVehicleFromEvent` sheds twelve. Unflown, and it
+   is the initiating term of the whole failure class.
+6. **Spread seat 0 off the anchor, or exclude the defended site from contact on a scored run.**
+7. **Do not trust 3cg's 0.85 power figure.** The achieved intervals were 2.1x and 1.49x wide on the
+   same design.
+
+**The estimator is the first of these and blocks the rest**: a night whose answer moves further on
+its own nuisance parameter than on the arm cannot settle a 0.71x effect at any n.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5697,7 +5895,9 @@ what 20b is flying against.
 | **26** | **Answered: the aim loop is not the limiter.** It converges monotonically to 1.4-12.4 m predicted on every flight; the landing correlates +0.07 with that and **+0.93 with the ground under that seat**, measured on another night | done | 3bz |
 | ~~27~~ | ~~Re-fly the arrival angle where terrain is present~~ | done | **0.96x [0.66, 1.13], unresolved; the graded-by-roughness prediction is REFUTED at rho +0.12, p=0.79** — 3cd |
 | **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
-| **29** | **Re-fly the arrival angle scored on the WALK**, which is 70% of the miss and the only part the angle acts on. 3cd scored the total and diluted 0.71x to 0.80x on a [0.66, 1.13] interval | **ready — 14 blocks, command in 3cg**; the 2026-09-08 attempt flew clean and recorded nothing, **3ch** | 3cf, and the instrument is built and priced in **3cg**: 0.85 power on the walk against 0.37 on the diluted miss. The trace now survives its bus and reads 100% on one paired block |
+| **30** | **Fix the walk estimator before flying it again**: seat levels declared out of sample, shot-flip randomisation instead of the signed-rank (anti-conservative by 2-4x here), sub-metre walk logging (+/-9% for free), and trace more than round 1 | a day, no shots | **3ci** — a night whose answer moves further on its own nuisance parameter than on the arm cannot settle 0.71x at any n |
+| **31** | **Stop stage disposal shedding debris** — `DestroyVehicle` rather than `DestroyVehicleFromEvent`, which sheds twelve | small, then one night | **3ci/3bv** — the initiating term behind two wholly lost shots, 104 m/s of spurious push on a coast that left the inertial frame |
+| ~~29~~ | ~~Re-fly the arrival angle scored on the WALK~~ | **flown twice, 2026-09-09** | **UNRESOLVED, open — 0.86x [0.62, 1.23] on 26 shots, and the walk is the wrong endpoint: the effect is in the PRE-RELEASE term, where cot γ predicts 0.70 and it measures 0.62-0.70.** Blocked on the estimator, not on shots — **3ci** |
 | **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
