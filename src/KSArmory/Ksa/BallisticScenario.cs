@@ -136,6 +136,11 @@ internal sealed class BallisticScenario
 
     // Whether the target's own weapons are being held off, and whether that has been said.
     private bool _disarmSite;
+
+    // How far the camera's craft stands off the point the warheads are aimed at. The group lands
+    // within tens of metres of that point, so this only has to clear the scatter -- and at 250 m
+    // the site is still well inside a chase camera's view of the burst.
+    private const double SiteStandoffMetres = 250.0;
     private bool _saidDisarm;
     private string _saidTrim = "";
     private bool _capturedDeployment;
@@ -411,10 +416,19 @@ internal sealed class BallisticScenario
                     // here. Moving what is already in the world beats spawning a second one: two
                     // identical launchers is a scene nobody can read, and the shot stays at the
                     // coordinates every other run was measured at.
-                    if (KsaWorld.TryPlaceOnSurface(site, parent.Id, aimLat, aimLon))
+                    // BESIDE the aim, not on it. AimSpread anchors seat 0 on the operator's point
+                    // exactly, so a site standing there is a 4.7 m obstacle inside the impact
+                    // scatter: five warheads across the two nights of 3ci stopped on its roof and
+                    // were scored as bursts rather than landings, every one of them on the same
+                    // arm. Far enough to be clear of a group that lands within tens of metres, near
+                    // enough that it is still the camera. ACCURACY-PLAN.md 3ci.
+                    double standoffDeg = SiteStandoffMetres / parent.MeanRadius * 180.0 / Math.PI;
+
+                    if (KsaWorld.TryPlaceOnSurface(site, parent.Id, aimLat + standoffDeg, aimLon))
                     {
-                        _say($"moved {KsaWorld.DisplayName(site)} to the aim point, so the impact "
-                             + "lands somewhere with a camera on it");
+                        _say($"moved {KsaWorld.DisplayName(site)} to within "
+                             + $"{SiteStandoffMetres:F0} m of the aim point, so the impact lands "
+                             + "somewhere with a camera on it and nothing stands where it falls");
                     }
                     else
                     {
