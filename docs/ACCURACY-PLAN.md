@@ -5801,6 +5801,43 @@ is not a claim that the effect is absent; it is the statement that **this instru
 0.71x at fourteen blocks**, whatever it prints, and no amount of re-flying the same design changes
 that.
 
+## 3cj. The instrument flown against itself, and what fourteen blocks can see — 2026-09-09
+
+`~/shots/2026-09-09-null`, 14 blocks of `base|control` — two arm names, no settings on either, so
+every rocket flies identical code and the true ratio is **1.000** by construction. All 14 PASS,
+112/112 traces, no bursts, no exception in either log, no shot near the coast floor.
+
+| endpoint | reads | interval | width | shot-flip p |
+| --- | --- | --- | --- | --- |
+| miss | **1.00x** | [0.78, 1.15] | 1.47x | 0.969 |
+| walk | 1.05x | [0.72, 1.26] | 1.75x | 0.608 |
+| **release** | 0.93x | [0.85, 1.14] | **1.34x** | 0.578 |
+
+**The instrument says "no difference" when there is none**, on all three endpoints, and it does so
+tighter than the synthetic null of 3ci predicted (median width 2.33x). That is the first thing any
+of the six changes built that day has actually demonstrated.
+
+### What it can see, measured by injection rather than assumed
+
+A known factor multiplied into one arm's flights **before** any permutation, on this night's own
+scatter, with the whole estimator re-run — levels refitted, shot-flip null:
+
+| endpoint | 0.60x | 0.70x | 0.80x | 1.00x |
+| --- | --- | --- | --- | --- |
+| **release** | **0.018** | 0.034 | 0.089 | 0.579 |
+| miss | 0.054 | 0.072 | 0.128 | 0.971 |
+| walk | 0.033 | 0.073 | 0.282 | 0.630 |
+
+**`release` is the most sensitive of the three and the walk the least**, which is the opposite of
+3cg's ordering and follows from where the effect lives. Fourteen blocks resolve 0.60x on it and
+land at **0.034** for 0.70x — just outside the 0.0294 bar, so the design 3cd, 3ch and 3ci all flew
+was **marginal for the effect they were looking for even with a working instrument**.
+
+Two caveats on the table. It is one arrangement of one night rather than an expectation over
+nights, so it is indicative and not a power calculation. And the injection is a uniform
+multiplication where the real effect is a **bias removal** — the base arm carries 8 m of systematic
+short and the steep arm carries none — which is not the same shape.
+
 ### Built the same day, all unflown
 
 1, 2 and 5 landed on 2026-09-09, plus the seat-0 standoff. The shot-flip null is now what decides
