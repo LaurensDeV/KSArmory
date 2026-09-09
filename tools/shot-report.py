@@ -317,6 +317,38 @@ def _traces(pattern, log, craft):
     return [m for m in named if _craft(m.group("craft")) == want], True
 
 
+AWAY_NAMED = re.compile(r"warhead trace on (?P<craft>.+?): round \d+ away")
+
+
+def _release_probes(log, craft):
+    """This flight's own release probe, paired to the release it follows.
+
+    The probe line carries no craft name -- it reads `warhead trace: probe from the round's own
+    state ->` -- so matched on its own it belongs to every flight in the shot, which is exactly the
+    fault 3ce found in the landing lines and fixed by naming them. It is emitted one line after the
+    named `round N away` for the same round, so the preceding release is the attribution.
+
+    Returns nothing rather than guessing when no release has been seen yet, and only that flight's
+    probes when the craft is known. A log whose releases are unnamed gets the whole shot's, which is
+    the pre-3ce behaviour and is reported as unattributed by the caller.
+    """
+    want = _craft(craft) if craft else None
+    mine, seen_named, owner = [], False, None
+
+    for line in log.splitlines():
+        named = AWAY_NAMED.search(line)
+        if named:
+            seen_named = True
+            owner = _craft(named.group("craft"))
+            continue
+
+        hit = TRACEPROBE.search(line)
+        if hit and (want is None or owner == want):
+            mine.append(hit)
+
+    return mine, seen_named
+
+
 def split_flights(out_path, log_path):
     """One record per rocket that flew, or one for the whole run when only one did.
 
@@ -387,6 +419,7 @@ def read_shot(out_path, log_path, craft=None):
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [], "final_aim": [],
             "trace_named": False, "own_impacts": [], "bursts": 0,
+            "release_km": [], "probe_named": False,
             "band_deg": [], "impacts": [],
             "why": None, "passes": None, "owed": None, "why_named": False,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
@@ -428,6 +461,12 @@ def read_shot(out_path, log_path, craft=None):
 
     shot["offline"] = [v for _, v in _floats(OFFLINE, both, 2)]
     shot["probe_km"] = [v for v, _ in _floats(PROBE, log, 2)]
+
+    # This flight's own release probe, not the shot's. The miss it reports is the PRE-RELEASE half
+    # of the total -- what the shot is already wrong by before the warheads are let go -- and 3ci
+    # measured cot(gamma) acting there rather than on the walk.
+    own_probes, shot["probe_named"] = _release_probes(log, craft)
+    shot["release_km"] = [float(h.group(2)) / 1000.0 for h in own_probes]
     shot["thrown"] = [v for (v,) in _floats(THROWN, log)]
     for _, aim, speed, deg in (t for t in _floats(TRACEPROBE, log, 4)):
         shot["trace_km"].append(aim / 1000.0)
@@ -1556,6 +1595,28 @@ def load(root):
 WALK_FLOOR_M = 0.5
 
 
+RELEASE_FLOOR_M = 0.5
+
+
+def _release_score(shot):
+    """What this flight is already wrong by BEFORE the warheads are let go, in metres.
+
+    `miss = (release probe - target) + (walk from the probe)`. The walk is measured FROM the probe,
+    so it cannot see this half at all -- and on both nights of 3ci this is where the arrival angle
+    acts: the base arm carries a systematic 8 m short bias here where the steep arm carries none,
+    and the ratio measures 0.62-0.70 against cot(gamma)'s predicted 0.701. The walk measures 1.12
+    and 0.72 on the same flights.
+
+    Unattributed probes are refused for the reason 3ce refuses unattributed landings: one flight's
+    number standing in for all eight is a dead heat wearing the shape of a measurement.
+    """
+    if not shot.get("release_km"):
+        return None
+    if shot.get("seat") is not None and not shot.get("probe_named"):
+        return None
+    return max(statistics.median(abs(v) for v in shot["release_km"]) * 1000.0, RELEASE_FLOOR_M)
+
+
 def _walk_score(shot):
     """This flight's own downrange walk after release, in metres, or None if it was not traced.
 
@@ -1584,6 +1645,7 @@ def _walk_score(shot):
 ENDPOINTS = {
     "miss": ("miss at the ground", "km", lambda s: s["mean"]),
     "walk": ("downrange walk after release", "m", _walk_score),
+    "release": ("miss the shot already has at release", "m", _release_score),
 }
 
 
