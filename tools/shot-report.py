@@ -773,7 +773,7 @@ def _say_loop_left(shots, order):
     print()
 
 
-def paired(root, shots, endpoint="miss"):
+def paired(root, shots, endpoint="miss", levels_from=None):
     """Compare the variants flown INSIDE each shot, which is the only comparison this
     instrument currently supports.
 
@@ -902,9 +902,29 @@ def paired(root, shots, endpoint="miss"):
     _say_loop_left(shots, order)
 
     levels, lopsided = _seat_levels(shots, score)
+    borrowed = ""
+
+    # Out of sample when asked for. The divisor is a property of the world -- seat 3 reads 76-108 m
+    # against seat 1's 6-12 across seven consecutive nights and many builds -- so it can be fitted
+    # from a night that is not the one under test, and then it cannot absorb any of the arm. Fitted
+    # in-sample the two nights of 3ci read 0.72x and 1.12x; levelled with each other's numbers they
+    # read 0.87x and 0.86x, which is the same measurement twice. That difference is larger than the
+    # effect being chased, so which set is used has to be stated rather than assumed.
+    if levels_from:
+        other_root, other_shots = load(levels_from)
+        outside, _ = _seat_levels(other_shots, score)
+        missing = sorted(set(levels) - set(outside))
+        if not outside:
+            sys.exit(f"--levels-from {other_root}: no seat levels could be fitted there")
+        if missing:
+            print(f"   !! {other_root.name} has no level for seat(s) "
+                  + ", ".join(f"s{m + 1}" for m in missing) + " -- those seats are dropped")
+        levels = {seat: v for seat, v in outside.items() if seat in levels}
+        borrowed = f", from {other_root.name}"
+
     if levels:
         scale = 1000.0 if unit == "km" else 1.0
-        print("   seat levels divided out (arm-neutral, from this night): "
+        print(f"   seat levels divided out (arm-neutral{borrowed or ', from this night'}): "
               + ", ".join(f"s{s + 1}={levels[s] * scale:.0f}m" for s in sorted(levels)))
         if lopsided:
             print(f"   seats excluded for flying only one arm: "
@@ -2060,6 +2080,9 @@ def main():
     ap.add_argument("--endpoint", choices=sorted(ENDPOINTS), default="miss",
                     help="what --paired scores on: the miss at the ground, or the walk after "
                          "release, which is the part of it the arrival angle acts on")
+    ap.add_argument("--levels-from", metavar="DIR",
+                    help="fit the seat levels from another night, so the divisor cannot absorb "
+                         "any of the arm under test")
     ap.add_argument("--terrain", action="store_true",
                     help="the relief under the impacts, and whether it is shaping the misses")
     args = ap.parse_args()
@@ -2084,7 +2107,7 @@ def main():
         return
 
     if args.paired:
-        paired(root, shots, args.endpoint)
+        paired(root, shots, args.endpoint, args.levels_from)
         return
 
     if args.endpoint != "miss":
