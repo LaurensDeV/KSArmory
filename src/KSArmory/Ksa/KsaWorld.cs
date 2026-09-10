@@ -359,6 +359,27 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>
+    /// What the bubble's heaviest member is called, which is what chooses the frame above.
+    ///
+    /// <para>The altitude alone said a bubble had taken the rotating frame from something on the
+    /// ground and could not say from <em>what</em>. That left the merge seed of 3cn bracketed to a
+    /// ten-second window and unattributable — the one line that would have closed it.</para>
+    /// </summary>
+    public static string BubbleLeaderName(Vehicle? v)
+    {
+        if (!IsAlive(v)) return "?";
+
+        try
+        {
+            return v!.BubbleLeader is { } leader && IsAlive(leader) ? DisplayName(leader) : "?";
+        }
+        catch
+        {
+            return "?";
+        }
+    }
+
     /// <summary>How high the bubble's heaviest member is, which is what chooses the frame above.</summary>
     public static double BubbleLeaderAltitudeMetres(Vehicle? v)
     {

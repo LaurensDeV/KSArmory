@@ -1635,7 +1635,21 @@ internal sealed class IcbmComputer
     // that is not.
     private void ProbeTheCoast(double simStep)
     {
-        if (Program.Phase != IcbmPhase.Coast || _salvoAway)
+        // After the salvo the bus is no longer being guided, but it is still in the world and still
+        // in whatever bubble the world has made -- and 3cn's merge seed happens exactly there. A bus
+        // that goes silent from release to re-entry leaves that window unobservable, which is why
+        // the seed is bracketed to ten seconds and unattributed. This is the light version: no
+        // prediction, because there is nothing left to predict, just what frame it is being carried
+        // in and who is deciding that.
+        if (_salvoAway)
+        {
+            _coastProbeMiss = double.NaN;
+            _coastProbeHasState = false;
+            WatchTheBubble(simStep);
+            return;
+        }
+
+        if (Program.Phase != IcbmPhase.Coast)
         {
             _sinceCoastProbe = 0.0;
             _coastProbeMiss = double.NaN;
@@ -1778,7 +1792,8 @@ internal sealed class IcbmComputer
         // stage left low is what holds a whole bubble in Ccf.
         string frame = KsaWorld.BubbleFrameOf(Craft) is var (name, originAlt)
             ? $", {name} origin at {originAlt / 1000.0:F0} km"
-              + $", leader at {KsaWorld.BubbleLeaderAltitudeMetres(Craft) / 1000.0:F0} km"
+              + $", leader {KsaWorld.BubbleLeaderName(Craft)}"
+              + $" at {KsaWorld.BubbleLeaderAltitudeMetres(Craft) / 1000.0:F0} km"
             : "";
 
         string loop = $", {(rails is null ? "rails unknown" : rails.Value ? "on rails" : "off rails")}"
@@ -1815,6 +1830,34 @@ internal sealed class IcbmComputer
                  + NearestSaid()
                  + loop
                  + $", release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
+    }
+
+    // What the world is doing to a bus nobody is flying any more. Bounded by the bus's own life, and
+    // silent unless the membership or the frame actually changes -- a line every ten seconds for
+    // every spent bus in the world would drown the log it is meant to make readable.
+    private int _watchedBubble = -1;
+    private string _watchedFrame = "";
+
+    private void WatchTheBubble(double simStep)
+    {
+        _sinceCoastProbe += simStep;
+        if (_sinceCoastProbe < CoastProbeSeconds) return;
+        _sinceCoastProbe = 0.0;
+
+        if (!KsaWorld.IsAlive(Craft)) return;
+
+        int members = KsaWorld.BubbleVehicleCount(Craft);
+        string frame = KsaWorld.BubbleFrameOf(Craft) is { } b ? b.Frame : "?";
+
+        if (members == _watchedBubble && frame == _watchedFrame) return;
+
+        _watchedBubble = members;
+        _watchedFrame = frame;
+
+        Log.Info($"spent bus {KsaWorld.DisplayName(Craft)}: bubble {members}, {frame} origin"
+                 + $", leader {KsaWorld.BubbleLeaderName(Craft)}"
+                 + $" at {KsaWorld.BubbleLeaderAltitudeMetres(Craft) / 1000.0:F0} km"
+                 + $", {(KsaWorld.OnRails(Craft) is false ? "off rails" : "on rails")}");
     }
 
     // The one state the latch cannot get itself out of. The arrival is pinned during the burn and
