@@ -63,6 +63,70 @@ pass and a tone curve.
 
 ---
 
+## A physics bubble that spans the near-surface radius strips a high vehicle's fictitious forces
+
+**What this costs:** roughly one shot in thirty loses every warhead it has, by 3 to 113 km. On the
+eight nights carrying the diagnostic, 3.0% of flights carry **99.1% of the total summed miss**. It is
+the largest single accuracy defect this mod has, and none of it is the mod's arithmetic.
+
+**The inconsistency.** `PhysicsBubble` takes its frame from its **heaviest member** — a whole-bubble
+property — while the two rules that depend on that frame are **per vehicle**:
+
+* `PhysicsStates.ComputeDerivatives` puts the rotating-frame terms `-2ω×v` and `-ω×(ω×r)` inside
+  `if (environment.InPhysicsRadius)`;
+* `PhysicsStates.TryToPutOnRails` restores a coasting vehicle only through its
+  `else if (Origin.BubFrame.IsCci())` branch, so a rotating bubble has no path back to rails.
+
+`PhysicsStates.GetDesiredBubFrame` returns `Ccf` when the bubble **origin** sits inside the parent's
+near-surface radius, and `PhysicsBubble` sorts `_vehicleStates` by descending mass to choose that
+origin. So a bubble containing something heavy on the ground is rotating for **every** member,
+including one far above `InPhysicsRadius` — which is then advanced in a rotating frame with the
+rotating-frame accelerations switched off.
+
+**Measured, four craft, one world.** 2026-09-10, a 13-vehicle bubble anchored on a landed craft at
+~5 km swallowed four upper stages at ~1,380 km. Spurious acceleration implied by each craft's own
+off-gravity, divided by its share of frames off rails:
+
+| frames off rails | implied rate |
+| --- | --- |
+| 17% | 0.447 m/s² |
+| 24% | 0.439 m/s² |
+| 93% | 0.431 m/s² |
+| 100% | 0.428 m/s² |
+
+`2ω×v + ω×(ω×r)` at 2.9 km/s predicts **0.42 m/s²**. Four independent craft across a 6× spread of
+exposure, 93% of it cross-track, which is `ω×v` on a near-polar arc. The vehicles ended 3.4-4.4 km
+from an aim point their guidance had solved to within 6 m.
+
+**How a bubble that size forms.** `PairFreeFlight.ComputeApproach` sets `nearContact` when
+`centerDistance <= 5·combinedRadius + 2`, and `nearContact` merges unconditionally.
+`ComputeMergeStateCore` then sets a multi-member bubble's `EnvelopeRadius` to the distance from its
+leader to its furthest member — so the instant any high vehicle joins a bubble holding a landed one,
+the envelope becomes hundreds of kilometres and its reach five times that, and it takes the world in
+a frame or two. `ComputeMergeStateCore` also forces `IsRailsCoasting = false` for any multi-member
+bubble, so it cannot split again.
+
+**What a mod can and cannot do.** Nothing here is reachable: a mod chooses neither a bubble's
+membership, nor its origin, nor its frame. `SetOnRails(true)` can be written, but any commanded
+actuator undoes it on the same sub-step, and in these flights the engine's own actuator flags read
+**0%** — the vehicles went off rails through a term neither flag names. Keeping the world small
+helps and is already done (spent stages are removed rather than shed as debris) but does not
+prevent it.
+
+**What would fix it upstream**, in decreasing order of how much this mod would notice: apply the
+fictitious-force terms to every member of a rotating bubble rather than only those inside
+`InPhysicsRadius`; or choose the bubble frame from the member being integrated rather than from the
+heaviest; or refuse a merge that would span the near-surface radius at all.
+
+**Bubble physics is recent and may still be in progress**, so this entry may describe a half-built
+feature rather than a settled design. It is written to be checkable either way: the four-craft
+agreement with prediction to three digits is the part worth keeping whatever the code does next.
+
+Detection is possible from a mod and is built — `tools/shot-report.py --frame-check` counts coast
+probes reporting a rotating frame on a vehicle that has not yet staged, and separates 4 ruined shots
+from 114 sound ones across 118 with no false positive. `ACCURACY-PLAN.md` 3bv, 3ci and 3cn have the
+flown accounts.
+
 ## A menu bar a mod can add to
 
 **Delete the workaround the moment this changes.** `src/KSArmory/Ksa/Ui/ModMenuEntry.cs` exists
