@@ -2886,9 +2886,26 @@ internal sealed class IcbmComputer
             // cutoff, which before the vehicle has flown is the pad -- so the arc is flown with drag
             // from sea level and lands thousands of kilometres short of a target nothing is wrong
             // with. AimCorrection.DepartureIsWorthObserving has the flown numbers.
+            // After cutoff the reading has to come off a correction the bus has FLOWN, which is
+            // `_trim.Done` and not `!TrimIsFiring`. The two differ only through `_mayTrim`, and
+            // `_mayTrim` goes false whenever the separation interlock re-closes -- which it does on
+            // 45 flights of 160, by centimetres, because the trim's first job is to null the very
+            // shove that is carrying the halves apart. So the thrusters fall quiet with the
+            // correction still in transit, this gate opens, and the impact is sampled mid-flight.
+            //
+            // What it costs is not the one reading. The next reading's secant attributes the whole
+            // overshoot to the aim move and freezes the plant estimate at 2.59-2.76 where the true
+            // plant is 1.04-1.11, so the loop converges three times too slowly and the flat 250 m
+            // band stops it two readings early. Across 2026-09-10-release that is exactly the six
+            // flights whose response exceeded 2.55, and exactly the six that released 263-481 m off
+            // against a 2-24 m norm -- perfect separation, both ways. ACCURACY-PLAN.md 3cl.
+            //
+            // PostBoostAim was already handed `TrimSettled: _trim.Done` and refuses to judge a pass
+            // on an unflown correction. This is the same question asked one call earlier, and it was
+            // asking a different one.
             if (Config.CorrectAim && state.HasAim && !TrimIsFiring
                 && AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci))
-                && (Program.IsBurning || _measureDue))
+                && (Program.IsBurning || (_measureDue && _trim.Done)))
             {
                 PriceTheAim(state);
 
