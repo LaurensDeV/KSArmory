@@ -55,7 +55,12 @@ internal static class IcbmOverlay
             bool alive = KsaWorld.IsAlive(computer.Craft);
             if (!alive && !computer.SalvoStillArriving) continue;
 
-            if (computer.Config.MarkTarget && computer.TargetEcl() is { } target)
+            // Marked while the shot is still going to happen, and while it is on its way -- but not
+            // once it has landed, when the ring has nothing left to mark. That last condition was
+            // missing from the start and only became visible when the ring stopped disappearing
+            // early for the unrelated reason above.
+            if (computer.Config.MarkTarget && !computer.SalvoHasLanded
+                && computer.TargetEcl() is { } target)
             {
                 DrawAimRing(computer, target);
             }

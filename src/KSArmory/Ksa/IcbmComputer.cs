@@ -262,6 +262,16 @@ internal sealed class IcbmComputer
     /// </summary>
     public bool SalvoStillArriving => _salvoAway && double.IsFinite(SecondsToArrival);
 
+    /// <summary>
+    /// The salvo has gone and everything in it has arrived, so there is nothing left on its way to
+    /// the aim point.
+    ///
+    /// <para>False before a shot as well as during one — an aim point that has not been fired at
+    /// yet is exactly what a mark is for. It is only once the warheads are down that the mark has
+    /// no referent.</para>
+    /// </summary>
+    public bool SalvoHasLanded => _salvoAway && !double.IsFinite(SecondsToArrival);
+
     private double _arrivalLeft = double.NaN;
 
     /// <summary>
