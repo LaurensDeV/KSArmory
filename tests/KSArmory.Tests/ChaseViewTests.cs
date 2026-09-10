@@ -178,16 +178,38 @@ public class ChaseViewTests
     }
 
     /// <summary>
-    /// Inside the look-ahead the flight path and the line to the target are the same answer — a
-    /// round arriving is pointing at what it arrives at — so the aim is handed back there. That is
-    /// what keeps the last second of a shot away from the direction reversing as it goes past.
+    /// Closing does not hand the aim back to the flight path. A round arriving is only pointing at
+    /// what it arrives at when the target is standing still: proportional navigation flies a
+    /// collision course and holds its lead angle to impact by design, so handing back over the last
+    /// stretch swings the view off the target by that whole angle at the one moment anybody is
+    /// watching it. This case is dead abeam — 100 m away, nothing ahead — which is the geometry
+    /// that handback treated as "the same answer".
     /// </summary>
     [Fact]
-    public void ATargetInsideTheLookAheadLeavesTheFlightPathAlone()
+    public void ClosingOnTheTargetKeepsTheAimOnIt()
     {
-        var close = new double3(0, 100, 0);
+        var abeam = new double3(0, 100, 0);
 
-        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), close, Up, EngineAxis, 30.0, 8.0, 120.0,
+        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), abeam, Up, EngineAxis, 30.0, 8.0, 120.0,
+                          out _, out double3 forwardWithAim, out _);
+
+        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), null, Up, EngineAxis, 30.0, 8.0, 120.0,
+                          out _, out double3 forwardWithout, out _);
+
+        double moved = Vec.AngleBetween(forwardWithAim, forwardWithout) * 180.0 / Math.PI;
+        Assert.True(moved > 1.0, $"an abeam target inside the look-ahead moved the aim {moved:F1} deg");
+    }
+
+    /// <summary>
+    /// With the target on top of the round there is no line to it left to point along, so the
+    /// flight path is all there is. A guard against normalising nothing, not a framing distance.
+    /// </summary>
+    [Fact]
+    public void ATargetOnTopOfTheRoundLeavesTheFlightPathAlone()
+    {
+        var onTop = new double3(0, 0.2, 0);
+
+        ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), onTop, Up, EngineAxis, 30.0, 8.0, 120.0,
                           out double3 withAim, out double3 forwardWithAim, out _);
 
         ChaseView.TryPose(Vec.Zero, new double3(700, 0, 0), null, Up, EngineAxis, 30.0, 8.0, 120.0,

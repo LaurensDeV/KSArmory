@@ -23,6 +23,10 @@ public static class ChaseView
     /// <paramref name="upHint"/>, which stays the local vertical and decides the lift. See
     /// <see cref="LeanOffAxis"/> for why the two are different directions.
     /// </param>
+    // Below this the line to the target has no reliable direction left, so the flight path is all
+    // there is. Metres, because it is about Unit() rather than about framing.
+    private const double MinAimRange = 1.0;
+
     public static bool TryPose(double3 roundEcl, double3 velocityLocal, double3? aimEcl,
                                double3 upHint, double3 engineAxisEcl,
                                double distanceBehind, double heightAbove, double lookAhead,
@@ -50,13 +54,20 @@ public static class ChaseView
             double3 toAim = aim - roundEcl;
             double range = Vec.Len(toAim);
 
-            // Inside the look-ahead the two answers agree — a round arriving is pointing at what
-            // it is arriving at — so handing back to the flight path there costs nothing and keeps
-            // the aim out of the reversal as the round goes past.
-            if (range > ahead)
+            // Held to the target all the way in. A round arriving is only pointing at what it
+            // arrives at when the target is not moving: proportional navigation flies a collision
+            // course, which holds a lead angle to impact by design, so handing back to the flight
+            // path over the last stretch swings the view off the target by that whole angle at the
+            // one moment anybody is watching. What that handback was guarding — the line reversing
+            // as the round goes past — is HeldNearFlightPath's job, and it bounds the swing to 80°
+            // whether the round is arriving or long past.
+            //
+            // The look-at stays at least a look-ahead out so the framing does not pitch up as the
+            // range collapses, and MinAimRange is a divide-by-zero guard rather than a distance.
+            if (range > MinAimRange)
             {
                 axis = HeldNearFlightPath(Vec.Unit(toAim), along);
-                lookRange = range;
+                lookRange = Math.Max(range, ahead);
             }
         }
 

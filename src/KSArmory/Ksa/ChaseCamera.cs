@@ -74,6 +74,10 @@ internal sealed class ChaseCamera : IViewPose
 
     private readonly RoundFollowable _followed = new();
 
+    // The aim as a separation from the round, sampled in Apply. Null when there is nothing to fly
+    // at, which is what puts the pose back on the flight path.
+    private double3? _aimFromRound;
+
     private KsaWorld.MainView _saved;
     private IProjectile? _round;
 
@@ -186,6 +190,7 @@ internal sealed class ChaseCamera : IViewPose
         // engine resolves the camera through, and untracking it first leaves that resolving off a
         // round the chase has already let go of.
         _followed.Track(null, null);
+        _aimFromRound = null;
 
         _saved = default;
         _refusedFrames = 0;
@@ -281,6 +286,10 @@ internal sealed class ChaseCamera : IViewPose
         // curve, the pose and the brackets are four readings of one point, and sampling it
         // separately for each would let them disagree about where it is.
         TargetState? aim = SampleAim(round);
+
+        // Here, where the engine's reading of the target and the mod's of the round belong to one
+        // frame. Everything downstream reads this rather than sampling again.
+        _aimFromRound = aim is { } sampled ? sampled.PositionEcl - round.PositionEcl : null;
 
         if (_round is null)
         {
@@ -441,11 +450,13 @@ internal sealed class ChaseCamera : IViewPose
         up = _poseUp;
         eye = forward = Vec.Zero;
 
-        // The aim in the round's own frame, which is the frame the pose is built in. Both terms
-        // belong to one set of samples, so the subtraction carries none of the ecliptic.
-        double3? aimFromRound = SampleAim(round) is { } target
-                                ? target.PositionEcl - round.PositionEcl
-                                : null;
+        // Taken in Apply and not here. A craft's position comes from the engine, which advanced it
+        // in PrepareFrame; round.PositionEcl comes from the mod, which steps later in the frame. So
+        // the two are one set of samples only inside Apply -- and TryPoseFor is asked again from
+        // the viewport pass, where re-reading them leaves one frame of the round's ecliptic travel
+        // in the separation: about 500 m at 60 fps, alternating with the display's 8.33/25.0 ms
+        // pacing, which at a couple of kilometres swings the aim by degrees on every frame.
+        double3? aimFromRound = _aimFromRound;
 
         if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, aimFromRound, up, up,
                                _behind, _above, Ahead, out eye, out forward, out _))
