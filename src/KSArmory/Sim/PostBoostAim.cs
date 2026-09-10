@@ -243,6 +243,17 @@ internal sealed class PostBoostAim
     private Stage _stage = Stage.Settling;
     private double _elapsed;
     private double _cycleStartedAt;
+    /// <summary>
+    /// How long the last correction took to fly, which is how far in the future a correction being
+    /// measured now will actually be released.
+    ///
+    /// <para>Already the basis of the payback rule below — a cycle is declined when it costs more
+    /// than <c>CycleSeconds x holdingCost</c>. Exposed because that same product is a one-signed
+    /// walk in the impact rather than a scatter about it, so a prediction made for <em>now</em> is
+    /// systematically short by it. ACCURACY-PLAN.md 3co.</para>
+    /// </summary>
+    public double CycleSeconds => _lastCycleSeconds;
+
     private double _lastCycleSeconds = FirstCycleSeconds;
     private double3 _anchor;
     private bool _haveDirection;

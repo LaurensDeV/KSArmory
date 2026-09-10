@@ -2859,11 +2859,33 @@ internal sealed class IcbmComputer
         double3 fromCci = fromCutoff ? Program.CutoffPositionCci : state.PositionCci;
         double3 alongCci = fromCutoff ? Program.Arc!.Value.RequiredVelocityCci : state.VelocityCci;
 
-        // How far in the future the predicted arc departs. Zero once the engines are off, and the
-        // rest of the burn while they are running.
+        // How far in the future the predicted arc departs. The rest of the burn while the engines
+        // are running -- and, once they are off, the dwell before the correction being measured now
+        // will actually be flown. Predicting the release of *now* is what makes the whole loop
+        // systematically short: the impact walks over that dwell at the flight's own holding cost,
+        // one-signed, so the floor under the miss is a bias. ACCURACY-PLAN.md 3co.
         double departsIn = fromCutoff && double.IsFinite(Command.SecondsToCutoff)
                          ? Math.Max(0.0, Command.SecondsToCutoff)
-                         : 0.0;
+                         : Config.FeedForwardTheHold && !Program.IsBurning
+                             ? Math.Max(0.0, _postBoost.CycleSeconds)
+                             : 0.0;
+
+        // Carried forward on the arc it is already on, which is the same call HoldingCost makes to
+        // measure the walk in the first place. A refusal leaves the prediction where it was rather
+        // than half-moved: a coast that cannot be propagated is not one to correct against.
+        if (!fromCutoff && departsIn > 0.0)
+        {
+            if (Kepler.TryCoast(Body.Mu, fromCci, alongCci, departsIn,
+                                out double3 atReleasePos, out double3 atReleaseVel))
+            {
+                fromCci = atReleasePos;
+                alongCci = atReleaseVel;
+            }
+            else
+            {
+                departsIn = 0.0;
+            }
+        }
 
         // Held in a field because the terrain callback runs inside the prediction and needs it too.
         _departsIn = departsIn;

@@ -386,6 +386,24 @@ internal sealed class IcbmConfig
     public bool RailsDuringCoast;
 
     /// <summary>
+    /// After cutoff, predict the impact of releasing at the instant the correction will actually be
+    /// flown, rather than of releasing now.
+    ///
+    /// <para>The loop measures a miss for <em>now</em>, hands the correction to the trim, and the
+    /// trim flies it over about fourteen seconds — by which time "now" has moved that far down the
+    /// arc. The impact walks over that dwell at the flight's own measured holding cost, and the walk
+    /// is <b>one-signed</b>, so what looks like a floor under the miss is a bias. Resolved in flight
+    /// on 2026-09-10: at a 32 deg arrival every flight reads short, a median <b>-14.8 m
+    /// downrange</b> against -2.8 to +1.0 m of <em>up</em> — a timing error, not a height-reference
+    /// one. At 42 deg, where the measured holding cost is seven times smaller, it reads +2.3 m.</para>
+    ///
+    /// <para>Off by default, and it is a correction rather than a tuning: with it on the prediction
+    /// describes the release that is going to happen instead of one that is not.
+    /// ACCURACY-PLAN.md 3co.</para>
+    /// </summary>
+    public bool FeedForwardTheHold;
+
+    /// <summary>
     /// Let the aim correction's improvement threshold follow the miss instead of being 250 m flat.
     ///
     /// <para><b>The loop currently cannot see its own shot.</b>
