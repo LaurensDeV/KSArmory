@@ -6272,7 +6272,120 @@ Split the base arm by how its correction loop terminated:
 **Flights that stop on the dead band are three times worse.** That band is
 `AimCorrection.ImprovedByMetres`, which **3ca** already showed is arithmetically dead below 250 m and
 **3cl** found all six of its outliers missing by 20-50 m. Three independent lines now point at one
-constant, and `IcbmConfig.AimThresholdTracksTheMiss` already exists, off by default, never flown.
+constant, and `IcbmConfig.AimThresholdTracksTheMiss` already exists, off by default.
+
+**It has flown once, and this paragraph first said it had not.** 3bx was that setting as its `band`
+arm: 0.88x [0.84, 1.10] on the miss, 14 blocks, with the arm aliased to the seat (3cl) and before
+33b took the poisoned plant out. Those logs predate the named release probe, so they cannot be
+re-scored on the endpoint where the setting acts. 3cp is the re-fly, and what it found before flying.
+
+## 3cp. Item 34 on the release endpoint — and the freeze at release is never flown — 2026-09-11
+
+The same arm as 3bx, `base|band:AimThresholdTracksTheMiss=true`, scored on the endpoint where it
+acts. 3bx read 0.88x [0.84, 1.10] on the **miss**, which carries the walk the setting cannot reach,
+on a night whose arm was aliased to the seat and whose plant was still poisoned; its probes predate
+the craft name, so it cannot be re-scored.
+
+### What the logs said before flying: the revert at release is bookkeeping
+
+3ca, 3by, `IcbmConfig`'s own docs and the comment above the freeze in `IcbmComputer` all say the
+flat band decides **which aim ships**, because `Freeze()` reverts to the stale best at release. It
+reverts the *bias*. Nothing flies it:
+
+```
+10:24:27.681  aim frozen on GeoSat FAT 5_1: shipping 584.5 m, reverted 179.5 m ... best 171.3 m
+10:24:27.686  release summary on GeoSat FAT 5_1: ... (10.61 m/s spent, done) ...
+10:24:27.691  release probe: predicted from the release state -> ... 32.5 m from the target
+```
+
+The freeze runs inside the frame that releases, the six probes follow within 60 ms, and no trim
+pass fits in between. So the warheads leave on whatever the **last trim pass flew** — the aim the
+loop had walked to — and the reverted number describes nothing physical.
+
+Measured rather than inferred, over **536 flights** of walk3, null, release and trimgate with a
+release freeze and an attributed probe, rotating-frame shots out:
+
+| revert at release | n | median release probe | p75 |
+| --- | --- | --- | --- |
+| 0-10 m | 37 | 5.0 m | 8.0 |
+| 10-50 m | 96 | 6.0 m | 8.0 |
+| 50-150 m | 267 | 7.0 m | 12.0 |
+| **150 m and over** | **136** | **6.0 m** | 12.0 |
+
+Spearman(revert, probe) **+0.10**, within seat **+0.11** median. Post-cutoff the plant is 0.98-1.11
+(3cl), so a revert that was flown would put its own size into the probe: **132 of the 136** flights
+that reverted 150 m or more released inside 80 m. The terminator split of 3co shrinks the same way
+once read as the magnitude the endpoint scores — `noimprov` 7.0 m, `clock` 6.0, `payback` 4.0, and
+payback is the selection effect of the refuted list. Its "three times worse" was signed medians.
+
+**Not yet corrected in `CLAUDE.md`, `IcbmConfig.AimThresholdTracksTheMiss` or `IcbmComputer.cs`.**
+Two of the three are under `src/`, and the night flies the source the smoke flew; all three should
+change together, with the night's numbers.
+
+It also leaves a real question the other way round: **at long range the revert would matter and is
+not flown.** The freeze's own comment cites 12,902 km, 2.1 km at pass 2 against 4.5 at pass 4 and a
+release on the 4.5 — on this evidence that flight left on the 4.5 whatever the freeze said.
+
+### So the setting has one channel, and it is the stopping rule
+
+`PostBoostAim` ends on three passes without beating `_bestMiss` by the same band. Tracking the miss,
+the loop keeps correcting, and every extra pass is one the trim **flies**: 3bx measured `noimprov`
+31 to 3 of 56, `clock` 10 to 27, `payback` 15 to 26, with the release debt unchanged at 2.63 against
+2.65 m/s. The payback rule bounds what those passes can spend in holding.
+
+### The night
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' KSARMORY_SCENARIO_TRACE=1 ./tools/shot-batch.sh \
+    --paired 'base|band:AimThresholdTracksTheMiss=true' \
+    --aim 26.485S,68.148W --blocks 20 --out ~/shots/2026-09-11-band
+./tools/shot-report.py ~/shots/2026-09-11-band --paired --endpoint release \
+    --levels-from ~/shots/2026-09-09-null                                   # primary
+./tools/shot-report.py ~/shots/2026-09-11-band --paired --endpoint release  # in-sample, beside it
+./tools/shot-report.py ~/shots/2026-09-11-band --paired                     # the miss, for 3bx
+```
+
+Twenty blocks because 3cj's injection put 14 at 0.034 for 0.70x on this endpoint, outside the bar.
+About five hours: `trimgate` flew twenty in 5 h 09.
+
+**Smoked with the paired spec, one block, `~/shots/2026-09-11-band-smoke`:** PASS in 13 minutes, 8
+of 8 flights, group spread 2 m, trace and release probe both 8 of 8, no rotating-frame probe, no
+`GAVE UP`, and nothing in KSA's log but its version ping. **The setting takes:** band ended `clock`
+three times and `payback` once with no `noimprov`, and reverted 2.0, 3.0, 3.7 and 29.3 m; base
+ended `noimprov` twice, `clock` and `payback`, reverting 98-178 m. Release probes read 3.0-11.1 m on
+band against 6.8-21.8 m on base, every base flight short — **and base held seats 1, 3, 5 and 7, so
+that is the seat and not the arm** (3by).
+
+### What it predicts, written down first
+
+1. **Primary, release, levelled from the null: 0.70-0.90x, point near 0.80x.** The optimistic end is
+   the band arm splitting between `clock` (6.0 m) and `payback` (4.0 m) where base ends on
+   `noimprov` (7.0 m); the pessimistic end discounts payback as selection. **The likeliest verdict
+   is UNRESOLVED**, and an interval whose lower bound clears 0.75 closes item 34 and the dead band
+   for good — which is worth a night on its own, since three nights have pointed at it.
+2. **Mechanism, which must hold or nothing else is readable:** `noimprov` on at most a tenth of
+   band flights against about 60% of base (336 of 536 pooled). A band arm still ending there means
+   the setting did not take.
+3. **The band arm reverts under 5 m** (3by: 2.0-4.8) against base's ~110 m median — bookkeeping,
+   and therefore predicted to buy nothing by itself.
+4. **Base's revert-to-probe correlation stays near +0.1** — the finding above, replicated on a night
+   that was not used to find it.
+5. **The miss reads ~0.9x and is unresolved**, as 3bx did.
+
+**What would refute it:** band's release at or above base's with `noimprov` gone. Then more passes
+buy nothing at this geometry, and the pre-release 7 m is not the loop stopping early.
+
+### Risks to watch
+
+* **The band arm releases later**, so it spends longer in the coast where 3cn's bubble fault waits.
+  The rotating-frame gate drops and re-flies a shot on a property of the run, but a fault that
+  prefers the later arm is 3cn's exact shape — read which arm the excluded shots' late flights were.
+* **A later release lands in a different world step** — item 32. That confounds the walk and the
+  miss, not the release, which is why the release is primary.
+* **More passes spend more trim.** Watch `GAVE UP` and `budget` on the band arm.
+* **No 80 m exclusion (33c) tonight.** It excludes on the endpoint itself, and this arm acts on that
+  endpoint; after 33b the mode it was written for is gone (0 of 160). The primary is read
+  unexcluded.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -6394,7 +6507,7 @@ what 20b is flying against.
 | **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
 | ~~30~~ | ~~Fix the walk estimator~~ | **built 2026-09-09, unflown** | shot-flip null, `--levels-from`, centimetre logging. Cross-levelled the two nights read **0.87x and 0.88x** where in-sample they read 0.72x and 1.12x — **the nights never disagreed, the divisor did**. Still to do: trace more than round 1 |
 | **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
-| **34** | **Fly `AimThresholdTracksTheMiss`** — the dead 250 m ratchet, off by default and never flown | 20 blocks, 4.5 h | **3co** — flights ending on that band read -7.66 m against -2.8 for every other terminator, on 89 of 134. Third independent line after 3ca and 3cl |
+| **34** | **Re-fly `AimThresholdTracksTheMiss` on the release endpoint** — flown once, on the miss (3bx, 0.88x, aliased and pre-33b) | 20 blocks, ~5 h | **3cp** — flying 2026-09-11. Its revert at release is never flown, so the stopping rule is the only channel; predicted 0.70-0.90x, likeliest UNRESOLVED. 3co's "three times worse" is 7.0 against 6.0 m in magnitude |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
