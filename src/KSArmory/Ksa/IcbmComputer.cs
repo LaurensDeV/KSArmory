@@ -2207,6 +2207,13 @@ internal sealed class IcbmComputer
     //
     // At INFO, and it earns it: this fires once per warhead released rather than per frame, and a
     // diagnostic nobody has switched on is one that is never there in the salvo that needed it.
+    // The arrival frame's three components, in the order that says what to look at next: up is a
+    // height-reference error, downrange is energy or timing, cross is the plane or the clock.
+    // docs/FRAMES-AND-EPOCHS.md, "Measure vectors, not magnitudes".
+    private static string Said(double3 parts)
+        => $" ({parts.X:+0.0;-0.0;0.0} up, {parts.Y:+0.0;-0.0;0.0} downrange,"
+           + $" {parts.Z:+0.0;-0.0;0.0} cross)";
+
     private void ProbeRelease()
     {
         if (Parent is not { } parent) return;
@@ -2251,9 +2258,19 @@ internal sealed class IcbmComputer
             _arrivalLeft = hit.Seconds;
             _salvoAway = true;
 
+            // Resolved, not just measured. A magnitude cannot say whether the residual is one-signed,
+            // and the whole question about the pre-release term is its SIGN: 301 of 375 flights at a
+            // 32 deg arrival land short, which is a bias and removable, where scatter is neither.
+            // That had to be reconstructed by fitting each seat's aim point from its own landings,
+            // and this makes it a direct read. ACCURACY-PLAN.md 3co.
+            string resolved = ArrivalFrame.TryAt(hit.PointCci, hit.VelocityCci, out ArrivalFrame frame)
+                ? Said(frame.Resolve(hit.GroundFixedPointCci - _trueAimCci))
+                : "";
+
             Log.Info($"release probe: predicted from the release state -> "
                       + $"{parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}, "
-                      + $"{Distance.Say(miss)} from the target, {hit.Seconds:F0} s of flight{thrown}");
+                      + $"{Distance.Say(miss)} from the target{resolved}, "
+                      + $"{hit.Seconds:F0} s of flight{thrown}");
         }
         catch
         {

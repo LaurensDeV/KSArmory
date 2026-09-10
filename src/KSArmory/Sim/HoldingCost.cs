@@ -72,7 +72,8 @@ internal static class HoldingCost
         if (!Vec.IsFinite(positionCci) || !Vec.IsFinite(velocityCci) || !Vec.IsFinite(kickCci)) return false;
         if (kickCci.Equals(Vec.Zero)) return false;
 
-        if (!TryWorth(body, positionCci, velocityCci, kickCci, stepSeconds, drag, out double now))
+        if (!TryWorth(body, positionCci, velocityCci, kickCci, stepSeconds, drag,
+                      out double3 nowCci))
         {
             return false;
         }
@@ -85,12 +86,13 @@ internal static class HoldingCost
             return false;
         }
 
-        if (!TryWorth(body, laterPos, laterVel, kickCci, stepSeconds, drag, out double later))
+        if (!TryWorth(body, laterPos, laterVel, kickCci, stepSeconds, drag,
+                      out double3 laterCci))
         {
             return false;
         }
 
-        double decay = (now - later) / probeSeconds;
+        double decay = (Vec.Len(nowCci) - Vec.Len(laterCci)) / probeSeconds;
 
         // A kick worth more later than now is the predictor's own noise on two nearly identical
         // arcs, not a shot that improves by waiting. Refused rather than clamped to zero, for the
@@ -104,9 +106,9 @@ internal static class HoldingCost
     // How far the release impulse moves the impact, from one state.
     private static bool TryWorth(BallisticBody body, double3 positionCci, double3 velocityCci,
                                  double3 kickCci, double stepSeconds,
-                                 ImpactPredictor.Drag? drag, out double metres)
+                                 ImpactPredictor.Drag? drag, out double3 offsetCci)
     {
-        metres = double.NaN;
+        offsetCci = Vec.Zero;
 
         if (!ImpactPredictor.TryPredict(body, positionCci, velocityCci, stepSeconds,
                                         ImpactPredictor.DefaultMaxSeconds,
@@ -124,7 +126,13 @@ internal static class HoldingCost
 
         // Body-fixed, so the planet's turn over the two flights does not enter a difference that is
         // metres against a spin worth hundreds of them.
-        metres = (plain.GroundFixedPointCci - kicked.GroundFixedPointCci).Length();
-        return double.IsFinite(metres);
+        // The VECTOR, not its length. What the decay of this quantity turns out to be is a
+        // one-signed walk in the impact rather than a scatter about it -- 301 of 375 flights at a
+        // 32 deg arrival land short -- and a magnitude cannot express that, so a correction built on
+        // one could only ever be a guess about the direction. Callers that want the scale still take
+        // `.Length()`; nothing yet reads the direction, and that is the point of exposing it.
+        // ACCURACY-PLAN.md 3co.
+        offsetCci = plain.GroundFixedPointCci - kicked.GroundFixedPointCci;
+        return Vec.IsFinite(offsetCci);
     }
 }
