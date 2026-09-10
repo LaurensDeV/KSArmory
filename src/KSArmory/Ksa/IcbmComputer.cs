@@ -252,6 +252,16 @@ internal sealed class IcbmComputer
         return _arrivalLeft > 0.0 ? _arrivalLeft : double.NaN;
     }
 
+    /// <summary>
+    /// Warheads are down there somewhere and have not landed yet.
+    ///
+    /// <para>True across the craft's own death, which is the point of it: a bus has no heat shield
+    /// and its warheads do, so it breaks up on reentry five to twenty seconds before they arrive.
+    /// Anything that describes where they are going has to outlive it — the same rule the mod
+    /// already applies to a fired round, which does not belong to its launcher any more.</para>
+    /// </summary>
+    public bool SalvoStillArriving => _salvoAway && double.IsFinite(SecondsToArrival);
+
     private double _arrivalLeft = double.NaN;
 
     /// <summary>
@@ -390,6 +400,7 @@ internal sealed class IcbmComputer
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
+        _salvoAway = false;
 
         // A new aim point is a new shot, and the trace's walk is measured against an aim that has
         // just moved. Whatever is still in the air from the last one is dropped rather than scored
@@ -475,7 +486,14 @@ internal sealed class IcbmComputer
         // impacts at 10:43:38-49. A trace that stops with its craft therefore loses exactly the
         // flights on the steepest arc, which on a paired night is one whole arm. Everything the
         // trace still needs is the planet and the aim, and neither of those is the vehicle.
-        if (!KsaWorld.IsAlive(Craft)) { StepTraceLoose(simStep); return; }
+        if (!KsaWorld.IsAlive(Craft))
+        {
+            // The countdown keeps running, because the warheads do. Frozen here it never reaches
+            // zero, and anything holding on for the salvo to arrive would hold for ever.
+            if (double.IsFinite(_arrivalLeft)) _arrivalLeft -= simStep;
+            StepTraceLoose(simStep);
+            return;
+        }
 
         _busyElsewhere = busyElsewhere ?? [];
         _traceWanted = traceWarhead;
@@ -487,12 +505,18 @@ internal sealed class IcbmComputer
         // Read every frame, not inside DriveTrim: that returns early whenever the trim is off or
         // the phase has moved past deployment, which leaves a stale count behind and puts the
         // arrival readout back to counting down to an impact nothing was going to make.
-        // Whether anything is already flying, which is the only thing that actually changes when a
-        // warhead leaves. Neither Ammo nor TubesReadyToFire does: a warhead goes through the
-        // deployment path rather than the magazine's fire path, so both still read six with the
-        // salvo long gone -- which left this readout counting down to the *bus's* own impact, about
-        // half a minute after the warheads it dropped.
-        _salvoAway = release is IRoundsInFlight flying && flying.Rounds.Count > 0;
+        // A LATCH. Rounds being in the air is what first says a warhead has left -- neither Ammo nor
+        // TubesReadyToFire does, because a warhead goes through the deployment path rather than the
+        // magazine's fire path and both still read six with the salvo long gone -- but "rounds are
+        // in the air" and "the salvo has gone" are only the same thing while the warheads are
+        // flying. Recomputed each frame it went false again the moment the last one landed, which
+        // let Predict resume writing the arrival and brought the readout back counting down to the
+        // BUS's own impact, about half a minute later. That is the bug this line's own comment was
+        // written to fix, reintroduced by the way it was fixed.
+        //
+        // All three readers want the latched meaning: the coast probe stops predicting once the
+        // salvo is gone, and CoastQuiet asks whether it has gone rather than what is airborne.
+        _salvoAway |= release is IRoundsInFlight flying && flying.Rounds.Count > 0;
 
         // Run down on the world's own clock. Everything else the readout could be aged by stops
         // when this computer stops predicting; the step does not.

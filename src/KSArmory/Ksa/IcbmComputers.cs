@@ -180,7 +180,12 @@ internal sealed class IcbmComputers(Config session)
             // loses it silently, because the flight still lands and is still scored.
             // ACCURACY-PLAN.md 3ch. It flies nothing meanwhile: the attitude hook is released here
             // and Update takes the dead-craft path, which steps the trace and nothing else.
-            if (kv.Value.TraceOutstanding)
+            // Held while it is still following a warhead down, or while the salvo it dropped is
+            // still arriving -- the second because a bus breaks up on reentry before its own
+            // warheads land, and the target mark has to outlive it or it goes out with the
+            // warheads still falling toward it. Both are bounded by the flight rather than the
+            // session.
+            if (kv.Value.TraceOutstanding || kv.Value.SalvoStillArriving)
             {
                 AttitudeHook.Release(kv.Key);
                 continue;

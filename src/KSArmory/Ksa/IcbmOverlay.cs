@@ -47,14 +47,21 @@ internal static class IcbmOverlay
     {
         foreach (IcbmComputer computer in computers.All)
         {
-            if (!KsaWorld.IsAlive(computer.Craft)) continue;
+            // The ring marks where the WARHEADS are going, so it outlives the craft that sent them:
+            // a bus has no heat shield and they do, and it breaks up on reentry five to twenty
+            // seconds before they arrive. Gated on the craft alone, the mark went out with the
+            // warheads still falling toward it. The aim point needs nothing from the vehicle --
+            // Target and Parent are both latched -- so this costs only the check.
+            bool alive = KsaWorld.IsAlive(computer.Craft);
+            if (!alive && !computer.SalvoStillArriving) continue;
 
             if (computer.Config.MarkTarget && computer.TargetEcl() is { } target)
             {
                 DrawAimRing(computer, target);
             }
 
-            if (!computer.Config.DrawTrajectory) continue;
+            // The trajectory is the vehicle's own and goes with it.
+            if (!alive || !computer.Config.DrawTrajectory) continue;
 
             computer.PathEcl(scratch);
             if (scratch.Count < 2) continue;
