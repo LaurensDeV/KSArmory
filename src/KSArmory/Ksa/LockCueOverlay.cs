@@ -28,7 +28,11 @@ internal static class LockCueOverlay
 
     // Locked and refused. The reason is written beside it, because a cue that says "no" without
     // saying why sends the operator back to the panel, which is where this started.
-    private static readonly ImColor8 Refused = new(255, 170, 60, 210);
+    //
+    // Red, and it has to be a different hue family from Acquiring rather than a deeper orange:
+    // the two mean opposite things, and this is the one that stays on screen -- dwell is under a
+    // second and a hold lasts as long as its reason does. Same red as the panel's ARMED.
+    private static readonly ImColor8 Refused = new(255, 89, 77, 210);
 
     // Larger than Markers' icon so the two read as different marks when both are on one contact:
     // the system bracket says "there is a weapon there", this says "it is being shot at".

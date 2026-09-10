@@ -21,7 +21,6 @@ internal static class Sight
     private static readonly ImColor8 Reticle = new(90, 255, 120, 235);
     private static readonly ImColor8 Pending = new(255, 200, 60, 200);
     private static readonly ImColor8 Gun = new(255, 120, 90, 235);
-    private static readonly ImColor8 Armed = new(255, 90, 90, 240);
     private static readonly ImColor8 Shadow = new(0, 0, 0, 140);
 
     private static readonly ReticleStroke[] _strokes = new ReticleStroke[KSArmory.Reticle.MaxStrokes];
