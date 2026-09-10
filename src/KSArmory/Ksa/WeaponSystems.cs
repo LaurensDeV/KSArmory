@@ -687,7 +687,22 @@ internal sealed class WeaponSystems(Config config)
     {
         // Last chance: a battery about to be forgotten still holds settings someone chose.
         WriteNow();
+        Discard();
+    }
 
+    /// <summary>
+    /// Drops every system without writing anything down, for a world that has been replaced.
+    ///
+    /// <para>The file on disk is the truth after a save load: the settings about to be read belong
+    /// to the save being opened, and writing the outgoing session's over them first is how
+    /// reloading stops restoring what was saved.</para>
+    ///
+    /// <para>Loose systems go too, and that is the point of having this. A loose system outlives
+    /// its platform so its rounds still fly, which is right for a launcher shot out from under
+    /// them and wrong for the world being taken away — nothing it is holding exists any more.</para>
+    /// </summary>
+    public void Discard()
+    {
         foreach (Entry e in _entries.Values) e.Battery.Reset();
         _entries.Clear();
 

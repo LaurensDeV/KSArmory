@@ -399,8 +399,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BombSightOverlay.cs` | the pipper: the impact ring and the arc down to it |
 | `Ksa/IcbmComputer.cs` | **one craft's ballistic computer** — reads the world, runs the program, flies the rocket |
 | `Ksa/IcbmComputers.cs` | one per craft this mod recognises a weapon on, crewed and forgotten with it |
-| `Ksa/AttitudeHook.cs` | **one of the two places this mod patches the game** — the only window in which an attitude command survives |
-| `Ksa/PreRenderHook.cs` | the other — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
+| `Ksa/AttitudeHook.cs` | **one of the three places this mod patches the game** — the only window in which an attitude command survives |
+| `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
+| `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
 | `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
 | `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
@@ -469,7 +470,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 487 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 488 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1424,7 +1425,7 @@ angle-of-attack limiter on pressure rather than density or altitude is what make
 Moon work without anything knowing the Moon has no air — thin air at two kilometres a second is
 still kilopascals.
 
-**Attitude is written from a Harmony prefix, and it is one of two patches.** KSA
+**Attitude is written from a Harmony prefix, and it is one of three patches.** KSA
 double-buffers a vehicle's flight computer: `ApplyVehicleSolvers` writes the worker's result over
 it, `ExecuteNextVehicleSolvers` snapshots it for the next worker, and *then* the GUI pass runs — so
 a command written from any StarMap hook is not in the snapshot and is overwritten before anything
@@ -1451,6 +1452,26 @@ There is no signature to pin and no build error to be had, which is exactly why 
 degrade: a rename makes the patch not apply, it is logged once, and `[StarMapAfterOnFrame]` runs
 the step as before. A patch whose absence is the status quo is a different risk from one whose
 absence is a rocket that stops steering.
+
+**The third is how the mod knows a save was loaded, because nothing else can tell it.** StarMap
+has no load hook — `BeforeMain`, `ImmediateLoad`, `AllModsLoaded`, `Unload`, `AfterOnFrame`,
+`BeforeGui`, `AfterGui` is the whole list — and `KsaWorld.InFlightScene` stays **true** right
+across one: `Universe.LoadSystem` runs at startup and a save only replaces what is inside the
+system it built, so the mod never leaves the scene and the out-of-flight path never runs. What
+that costs is rounds outliving their world. `Universe.DeserializeSave` calls `DestroyAllVehicles`,
+so every craft dies on one frame and each system still flying rounds goes **loose** — which is
+right for a launcher shot out from under them and wrong for the world being taken away. The loose
+systems then step the old scene's rounds into the new one until each expires, measured from play
+as a Pantsir burst logging shell expiries for five seconds after a reload.
+
+`Ksa/WorldReloadHook.cs` postfixes `Program.OnGameLoaded`, which is called from exactly one place,
+immediately after `DeserializeSave` has rebuilt the world. It is `public static`, so
+`PinTheSignature` puts it in `docs/KSA-API-SURFACE.md` and a KSA change to it is a build error —
+the property `AttitudeHook` has and `PreRenderHook` does not. It fires for a later save as readily
+as an earlier one, which is what a clock-rewind test would not do. And the failure degrades: a
+patch that does not apply is logged once and costs one reload's worth of stale rounds.
+`WeaponSystems.Discard` is the reset it drives — **not `Clear`**, because `Clear` writes the
+settings down first, and the settings about to be read belong to the save being opened.
 
 **`Ksa/VehicleCommand.cs` is the only place this mod flies somebody else's rocket**, and every write
 in it is one the game already makes for itself: the flight computer's `Custom` attitude target,

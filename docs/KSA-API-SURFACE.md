@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-172 types and 487 members across 7 assemblies.
+172 types and 488 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -801,6 +801,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.VehicleEditor Editor`
 - `System.ReadOnlySpan`1<KSA.Vehicle> get_VehiclesInFrame()`
 - `int ResourceFrameIndex`
+- `void OnGameLoaded()`
 - `void SetCameraUbo(KSA.IViewport)`
 - `void UpdateShaderData(double, KSA.IViewport)`
 - `void set_ControlledVehicle(KSA.Vehicle)`

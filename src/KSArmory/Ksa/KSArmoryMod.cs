@@ -152,6 +152,10 @@ public sealed class KSArmoryMod
         // than after it. Degrades to the frame postfix, so a refusal costs a frame and nothing.
         PreRenderHook.Install(StepOnce);
 
+        // The only way to see a save load: StarMap has no hook for one, and the mod never leaves
+        // the flight scene across it. A refusal costs one reload's worth of stale rounds.
+        WorldReloadHook.Install();
+
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
         _icbms = new IcbmComputers(_config);
@@ -258,6 +262,10 @@ public sealed class KSArmoryMod
 
         KsaWorld.BeginFrame();
 
+        // Before anything integrates: the roster still holds the previous world's systems, and one
+        // more step of them is one more step of rounds that no longer have a world to fly in.
+        if (WorldReloadHook.ConsumeReload()) ForgetTheWorld();
+
         // The *scene*, not the craft. Losing the vehicle being flown does not end the flight: KSA
         // clears Program.ControlledVehicle and carries straight on, so gating the whole simulation
         // on it freezes every round in the air the instant a launcher dies. They then neither land
@@ -274,6 +282,36 @@ public sealed class KSArmoryMod
         // player riding a frozen offset with no closing, no transition and no aim -- while the
         // world it is pointed at carries on.
         using (_budget.Measure("cameras")) DriveCameras(dtPlayer);
+    }
+
+    // Drops everything held about a world a save load has just replaced. Nothing else does it:
+    // KsaWorld.InFlightScene stays true across a load, so the out-of-flight path never runs -- and
+    // DeserializeSave destroys every craft at once, which sends each system still flying rounds
+    // loose. A loose system is built to outlive its platform so its rounds keep flying, so those
+    // rounds cross into the new scene and go on being stepped until they expire.
+    private void ForgetTheWorld()
+    {
+        Log.Info("a save was loaded - forgetting the previous world");
+
+        // Discard rather than Clear: the settings about to be read belong to the save being opened,
+        // and writing the outgoing session's over them first is how a reload stops restoring them.
+        _roster?.Discard();
+        _armaments.Clear();
+        _heads?.Clear();
+        _icbms?.Clear();
+
+        // Markers pin the craft they show, and every one of them has just been destroyed.
+        Markers.Forget();
+
+        // Forget, not release: DeserializeSave has already unfollowed every viewport camera, so the
+        // recording describes a pose in a scene that no longer exists and there is nothing left to
+        // hand it back to. Same treatment the editor gets, and for the same reason.
+        _chase.Release();
+        _sight.Forget();
+
+        // The universe clock restarted at the save's own time, so the boundary last integrated
+        // through belongs to a world that is gone.
+        KsaWorld.ResetSimStepTracking();
     }
 
     // Everything that borrows the player's view, in claim order.
@@ -791,6 +829,7 @@ public sealed class KSArmoryMod
         _icbms = null;
         AttitudeHook.Remove();
         PreRenderHook.Remove();
+        WorldReloadHook.Remove();
         KsaWorld.ResetSimStepTracking();
         _roster = null;
         _ui = null;
@@ -1089,6 +1128,7 @@ public sealed class KSArmoryMod
         _icbms = null;
         AttitudeHook.Remove();
         PreRenderHook.Remove();
+        WorldReloadHook.Remove();
         Log.Error("too many faults - air defence disabled for this session");
     }
 }
