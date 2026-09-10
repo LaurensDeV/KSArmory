@@ -282,6 +282,33 @@ for b in range(1, int(blocks) + 1):
         print(f"{n:03d}\t{b}\t{arm}")
 PY
 
+    # Which seat flies which arm, as a BALANCED RANDOM PERMUTATION rather than the shot number.
+    #
+    # ShotArms.For is `_arms[(rosterIndex + phase) % count]`, so with the shot number as the phase
+    # and two arms the assignment is a deterministic alternation and
+    #     arm == XOR(seat parity, shot parity)
+    # -- the three are mutually aliased, and no analysis of such a night can separate an arm effect
+    # from a seat-parity one. It is not hypothetical: the release-probe fault of 3cl sits on seats
+    # 3, 5 and 7 on every arm and on nights with no arms at all, yet reads Fisher p=0.0017 "for the
+    # steep arm" because those happen to be the odd seats. ACCURACY-PLAN.md 3cl.
+    #
+    # A permutation keeps what the alternation was for -- each seat flies each arm equally often --
+    # and breaks the alias, which is also what makes shot-report.py's shot-flip null the right test
+    # rather than merely a defensible one.
+    if [[ -n "$PAIRED" ]]; then
+        arm_count="$(awk -F'|' '{print NF}' <<< "$PAIRED")"
+        python3 - "$SEED" "$BLOCKS" "$arm_count" > "$OUT/phases.tsv" <<'PHASES'
+import random, sys
+seed, blocks, arms = (int(v) for v in sys.argv[1:4])
+rng = random.Random(seed ^ 0x9E3779B9)
+arms = max(1, arms)
+phases = [i % arms for i in range(blocks)]
+rng.shuffle(phases)
+for n, phase in enumerate(phases, start=1):
+    print("%03d\t%d" % (n, phase))
+PHASES
+    fi
+
     {
         printf 'started\t%s\n' "$(date -Is)"
         printf 'host\t%s\n'    "$(hostname)"
@@ -377,7 +404,13 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     # the night rather than one of them owning the odd positions -- which matters because a
     # rocket's place in the roster is itself worth 175x in miss.
     PAIRED_ARGS=()
-    [[ -n "$PAIRED" ]] && PAIRED_ARGS=(--arms "$PAIRED" --arm-phase "$(( 10#$n ))")
+    if [[ -n "$PAIRED" ]]; then
+        # From the permutation, falling back to the shot number for a night planned before there
+        # was one -- a resume must keep flying the assignment it started with.
+        phase="$(awk -F'\t' -v n="$n" '$1 == n { print $2 }' "$OUT/phases.tsv" 2>/dev/null)"
+        [[ -n "$phase" ]] || phase="$(( 10#$n ))"
+        PAIRED_ARGS=(--arms "$PAIRED" --arm-phase "$phase")
+    fi
 
     "$REPO_ROOT/tools/scenario.sh" "$SCENARIO_ARG" --no-deploy "${PAIRED_ARGS[@]+"${PAIRED_ARGS[@]}"}" \
         > "$OUT/shots/$n-$arm.out" 2>&1
