@@ -6187,6 +6187,93 @@ moves 0.80 → 0.72, which is the size of the effect that night was chasing. **A
 the same way — towards steep — when the shot is dropped.** That is the argument for pre-registering
 it and against ever applying it to a night already declared.
 
+## 3co. The pre-release bias is a lag, and feeding it forward loses by 16x — 2026-09-10
+
+### What the bias is
+
+The miss splits into `(release probe - target) + (walk from the probe)`, and the pre-release half
+carries a systematic **short** bias: **301 of 375 flights** at a 32 deg arrival, p = 1.4e-33. It is
+the same size as the whole median flight miss, and a bias is removable in principle where scatter is
+not.
+
+It is **`holdingCost x dwell`** — the seconds between a correction being *measured* and being
+*flown*. `Sim/HoldingCost.cs` already measures the quantity per flight and calls itself "the floor
+under the miss" in as many words. What nobody had noticed is that the floor is **one-signed**, and
+therefore a bias rather than a scatter.
+
+The load-bearing observation: over 212 flights the printed aim bias is **identical** for a median
+13.8 s before release while the predicted impact walks 6.1 -> 8.3 m. **The aim did not move; the
+impact did.** Fitted against `holdingCost x dwell`: spearman +0.678, t = 14.0, n = 232.
+
+### It is not the arrival angle, and that is measurable
+
+The steep arm has looked immune to this all week. It is not steeper in any way that matters — its
+**measured holding cost is seven times smaller**, 0.040 m/s against 0.290 on the same night. `cot γ`
+predicts a ratio of 0.704; the measurement is 0.172. Four times too large, and it changes sign.
+
+### Resolved in flight rather than reconstructed
+
+The probe printed only magnitudes, so the sign had to be recovered by fitting each seat's aim point
+from its own landings. `ProbeRelease` now resolves the miss into the arrival frame, and one shot
+settled it:
+
+| arm | n | median downrange | up, all 8 flights |
+| --- | --- | --- | --- |
+| base, 32 deg | 4 | **-14.8 m**, 4 of 4 short | **-2.8 to +1.0 m** |
+| steep, 42 deg | 4 | +2.3 m | |
+
+**The error is downrange and not up.** A height-reference error lands in `up`; this does not. That
+refutes the terrain-reference mechanism outright and is what a timing error looks like.
+
+**That shot was a high draw and the reconstruction was the better estimate.** Across two full 20-block
+nights the release probe reads **7.0 m** on the base arm and 5.0-6.0 on the steep — so the term is
+about **7 m**, matching the fitted -6.7, and the -14.8 above is one shot at twice that.
+
+### Feeding it forward: flown, and a 16x loss
+
+`IcbmConfig.FeedForwardTheHold` coasted the state to the expected release instant before the kick,
+reusing the `departsIn` machinery the burn case already has. One paired shot, four flights each:
+
+| arm | median downrange |
+| --- | --- |
+| base | **-14.8 m**, 4 of 4 short |
+| **fwd** | **+234.2 m** |
+
+Against a term of ~7 m that is **thirty times out of scale**, in the opposite direction. Reverted.
+
+**The tell is that the loop was happy.** One flight's aim loop converged 0.24 -> 0.10 -> 0.01 ->
+0.01 km and stopped, while the release probe on that same flight read +234 m. The observer and the
+world disagreed by 224 m — which is exactly CLAUDE.md's own rule that *a correction loop can only
+remove what its observer can see*, met from the other side: **the observer was moved**.
+
+Why it is structurally wrong rather than mistuned: `departsIn` drives the coasted state, the frame
+un-carry and the terrain callback, and the burn case is consistent because the arc really does depart
+at cutoff. **On the coast the release does not happen `CycleSeconds` after every prediction — it
+happens when `PostBoostAim` decides to stop.** So the late cycles aim at an instant that never
+arrives and the aim settles on a bias for a release that does not happen.
+
+The mechanism is not refuted. Applying it as a blanket offset on every cycle is.
+
+### What is kept
+
+The resolved release probe and `PostBoostAim.CycleSeconds`. Between them they turned a night's
+reconstruction into a one-shot read, and they are why this loss cost 16 minutes instead of 4.5 hours.
+
+### The next candidate, and it is better evidenced than this one was
+
+Split the base arm by how its correction loop terminated:
+
+| terminator | n | median pre-release |
+| --- | --- | --- |
+| the flat 250 m band | 89 | **-7.66 m** |
+| ran out of time | 24 | -2.83 m |
+| payback | 21 | -2.75 m |
+
+**Flights that stop on the dead band are three times worse.** That band is
+`AimCorrection.ImprovedByMetres`, which **3ca** already showed is arithmetically dead below 250 m and
+**3cl** found all six of its outliers missing by 20-50 m. Three independent lines now point at one
+constant, and `IcbmConfig.AimThresholdTracksTheMiss` already exists, off by default, never flown.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -6307,6 +6394,8 @@ what 20b is flying against.
 | **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
 | ~~30~~ | ~~Fix the walk estimator~~ | **built 2026-09-09, unflown** | shot-flip null, `--levels-from`, centimetre logging. Cross-levelled the two nights read **0.87x and 0.88x** where in-sample they read 0.72x and 1.12x — **the nights never disagreed, the divisor did**. Still to do: trace more than round 1 |
 | **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
+| **34** | **Fly `AimThresholdTracksTheMiss`** — the dead 250 m ratchet, off by default and never flown | 20 blocks, 4.5 h | **3co** — flights ending on that band read -7.66 m against -2.8 for every other terminator, on 89 of 134. Third independent line after 3ca and 3cl |
+| ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
 | ~~29~~ | ~~Re-fly the arrival angle~~ | **closed 2026-09-10, three nights, 46 paired shots** | **NO DEMONSTRABLE EFFECT on any endpoint** — every one straddles 1.0 and nothing resolves. The instrument is not the excuse: the null reads 1.00x and 20 blocks can see 0.60x. **3ck** |
