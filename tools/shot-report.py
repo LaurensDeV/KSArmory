@@ -867,11 +867,12 @@ def paired(root, shots, endpoint="miss", levels_from=None):
     print(f"== paired within {len(groups)} shot(s) in {root}")
     print(f"   scored on the {label} ({unit})")
     if slow:
-        print(f"   {len(slow)} shot(s) excluded: the coast left the inertial frame, so the trim "
-              "owed a")
-        print("      debt it could not pay and every warhead left on a trajectory already tens of "
-              "km")
-        print("      wrong. Read off the RUN rather than off the result -- ACCURACY-PLAN.md 3ci.")
+        print(f"   {len(slow)} shot(s) excluded: a bus was integrated in a rotating frame before "
+              "it released,")
+        print("      so it picked up ~0.42 m/s2 the guidance never asked for and the trim could "
+              "not pay")
+        print("      it back. Read off the RUN rather than off the result -- ACCURACY-PLAN.md "
+              "3ci, 3cn.")
 
     # A flight with no score is not a tie and not a zero -- it is an observation the instrument
     # did not take, and saying how many were missed is what 3cd needed and did not have: it named
@@ -1730,16 +1731,11 @@ FIRST_LANDING = re.compile(r"warhead trace on .+?: round \d+ (?:landed|burst)")
 # propagated. Symptom, downstream of the cause below.
 SLOW_BURN_MS = 26.0
 
-# The cause, and what the exclusion is actually read off. A shot whose coast leaves the inertial
-# frame accumulates a spurious push that becomes the trim's debt: summed over one craft's pre-split
-# coast it is 104.2 m/s against a trim that then owed 113.3 and refused. ACCURACY-PLAN.md 3ci.
-#
-# Summed |off-gravity| over every pre-release coast probe in the shot. Across the 28 shots of
-# 2026-09-09-walk2 and -walk3 the twenty-six sound ones read 34-54 and the two lost ones 1305 and
-# 1321 -- a 24x gap with nothing in it, against 1.3x for the frame time. The floor sits far from
-# both ends because there is no evidence about what a marginal shot looks like, and a threshold
-# inside a gap that wide should not pretend to precision.
-DIVERGED_COAST = 200.0
+# One probe is enough. The quantity is now a COUNT of rotating-frame probes on an unsplit bus
+# rather than a sum of accelerations, so there is no scale to calibrate and no dilution to allow
+# for: a bus either was integrated in the wrong frame before it released or it was not. Measured
+# across every night flown, sound shots read exactly 0 and the three ruined ones read 16 and up.
+DIVERGED_COAST = 0
 
 
 def burn_frame_ms(log_path):
@@ -1762,20 +1758,51 @@ RELEASE_LINE = re.compile(r"release summary")
 STAMP = re.compile(r"^(\d{2}:\d{2}:\d{2})")
 
 
-def coast_divergence(log_path):
-    """How far this shot's coast left the inertial frame before the warheads were away.
+COAST_PROBE = re.compile(r"coast probe on (?P<craft>.+?):")
+SPLIT_ON = re.compile(r"split on (?P<craft>[^:]+):")
+ROTATING = re.compile(r"Ccf origin")
 
-    Summed |off-gravity| over the coast probes that precede the first release summary. Everything
-    after it is descent and is not what the trim was flying through.
+
+def coast_divergence(log_path):
+    """Whether any bus was integrated in a rotating frame before it let its warheads go.
+
+    Counts coast probes reading `Ccf origin` on a craft that has not yet split. That is the fault
+    itself rather than a proxy for it: a bubble spanning the near-surface radius takes its frame
+    from its heaviest member, and if that is something on the ground the frame is `Ccf` -- at which
+    point a bus a thousand kilometres up is advanced as though the rotating frame were inertial,
+    because the fictitious forces sit behind a per-vehicle `InPhysicsRadius` test it fails. It picks
+    up about 0.42 m/s^2 it should not have, and four craft of 2026-09-10-trimgate shot 020 measured
+    0.428-0.447 against that prediction. ACCURACY-PLAN.md 3bv, 3ci, 3cn.
+
+    Separation is 0 against 16 on that night, every clean shot to nothing.
+
+    **Per craft, and bounded by that craft's OWN split.** The first form summed |off-gravity| and
+    stopped at the first `release summary` in the file, which on a paired night is the EARLY arm's --
+    the arms release two to five minutes apart, so the window closed before the late arm had even
+    split, and the gate was structurally blind to half of every paired night. On shot 020 it shut at
+    15:15:38, where the divergence began at 15:17:29 and the split it ruined was at 15:18:04.
     """
-    total = 0.0
+    split = set()
+    hits = 0
+
     for line in pathlib.Path(log_path).read_text(errors="replace").splitlines():
-        if RELEASE_LINE.search(line):
-            break
-        m = OFF_GRAVITY.search(line)
-        if m:
-            total += float(m.group(1))
-    return total
+        done = SPLIT_ON.search(line)
+        if done:
+            split.add(done.group("craft").strip())
+            continue
+
+        probe = COAST_PROBE.search(line)
+        if probe and ROTATING.search(line):
+            craft = probe.group("craft").strip()
+            # A bus carries the stack's name with a suffix -- `GeoSat FAT 7` splits into
+            # `GeoSat FAT 7_1` -- so the child has to be recognised as already split. The clean
+            # shots are full of rotating-frame probes on those: the big bubble forms around the
+            # already-released, re-entering first group 55-84 s AFTER the last split, which is
+            # ordinary and is not what ruins a shot.
+            if craft not in split and craft.rsplit("_", 1)[0] not in split:
+                hits += 1
+
+    return hits
 
 
 def frame_check(root, only=None):
@@ -1800,7 +1827,8 @@ def frame_check(root, only=None):
         diverged = drift > DIVERGED_COAST
         shown = f"{ms:.1f} ms" if ms is not None else "no samples"
         flag = "  DIVERGED" if diverged else ""
-        print(f"run: {log_path.stem} coast {drift:.0f}, burn-phase {shown}{flag}")
+        print(f"run: {log_path.stem} rotating-frame probes {drift:.0f}, "
+              f"burn-phase {shown}{flag}")
         if diverged:
             bad.append(log_path.stem)
 
