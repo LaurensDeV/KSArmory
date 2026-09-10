@@ -415,9 +415,9 @@ public sealed class KSArmoryMod
             // already follow -- so the brackets are always on what FIRE would actually shoot.
             // After the markers, so a lock reads over a system bracket on the same contact.
             if (KsaWorld.InFlight && _config.DrawLockCue
-                && _roster.For(KsaWorld.ControlledVehicle ?? _ui.Focused) is { } engaging)
+                && _ui.TriggerWeaponOn(KsaWorld.ControlledVehicle ?? _ui.Focused) is { } engaging)
             {
-                LockCueOverlay.Draw(engaging.Battery);
+                LockCueOverlay.Draw(engaging);
             }
 
             // The cameras themselves were driven from StepOnce at the top of this hook. This is

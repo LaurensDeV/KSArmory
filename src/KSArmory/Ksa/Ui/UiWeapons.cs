@@ -128,6 +128,25 @@ internal partial class Ui
     private WeaponSystem TriggerSystem(WeaponSystem inHand)
         => _batteries.For(Focused) is { } selected ? TriggerStation(selected).Battery : inHand;
 
+    /// <summary>
+    /// The weapon a cue drawn over the world has to speak for, which is the station the trigger
+    /// would reach rather than the one selected.
+    ///
+    /// <para>Two rails carrying the same store are one weapon with two stations, so a cue read off
+    /// the selection paints a refusal over a target the loaded rail is clear to shoot at. Both
+    /// triggers and the line beside them already go through the group; this is the same question
+    /// from the glass, answered in the same place so the two cannot drift.</para>
+    /// </summary>
+    public WeaponSystem? TriggerWeaponOn(KSA.Vehicle? craft)
+    {
+        if (craft is null || _batteries.For(craft) is not { } selected) return null;
+
+        // Every consumer of _weaponScratch refills it before reading it, so filling it here for a
+        // craft the panel is not showing cannot disturb what the panel does with it.
+        _batteries.AllOn(craft, _weaponScratch);
+        return TriggerStation(selected).Battery;
+    }
+
     // One line for both triggers, so the two cannot drift: the reason, and whether it binds, come
     // from the same station either button would fire.
     private void DrawHoldLine(WeaponSystem inHand, bool autoEngage)

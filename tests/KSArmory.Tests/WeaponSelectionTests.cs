@@ -130,6 +130,17 @@ public class WeaponSelectionTests
     }
 
     /// <summary>
+    /// Two rails carrying one store each, the first spent by auto-engage rather than by a button
+    /// -- so nothing recorded a last-fired station and the search starts from nowhere. The loaded
+    /// rail is still the one the trigger reaches.
+    /// </summary>
+    [Fact]
+    public void ASpentFirstRailHandsTheTriggerToTheLoadedOne()
+    {
+        Assert.Equal(1, WeaponSelection.NextStation([0, 1], lastFired: -1));
+    }
+
+    /// <summary>
     /// A group with nothing left says so rather than naming a station, so the caller reports an
     /// empty weapon instead of firing at an empty rail and reporting nothing at all.
     /// </summary>
