@@ -523,18 +523,6 @@ internal sealed partial class Ui
                 : "quiet only; in a Ccf bubble the engine will not return it to rails on its own"));
         }
 
-        bool feedForward = config.FeedForwardTheHold;
-        if (ImGui.Checkbox("Aim for where it will release", ref feedForward))
-        {
-            config.FeedForwardTheHold = feedForward;
-        }
-
-        ImGui.TextDisabled(config.FeedForwardTheHold
-            ? "  the correction is measured for the instant it will be flown, not for now"
-            : "  off: measured for now, so the impact walks over the ~14 s before release");
-        ImGui.TextDisabled("  Flown at a 32 deg arrival: every flight short, median -14.8 m");
-        ImGui.TextDisabled("  downrange against -2.8 to +1.0 m of height. A timing error.");
-
         float preference = (float)config.ArrivalPreference;
         if (ImGui.SliderFloat("Precision against range", ref preference, 0.0f, 1.0f, "%.2f"))
         {
