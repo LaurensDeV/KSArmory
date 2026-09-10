@@ -6032,6 +6032,54 @@ but neither `swing` nor the sub-km relief separates them from seats 4 and 6, whi
 never trigger. The **downrange slope** at each aim point is the missing number and is not in these
 logs.
 
+## 3cm. 33b flown: the poisoned plant is gone, and the median does not move — 2026-09-10
+
+`~/shots/2026-09-10-trimgate`, 20 blocks against the 20 of `2026-09-10-release`, same aim, same
+arms, first night flown with the randomised arm phase. All 20 PASS, 160/160 traces, no exceptions.
+
+| | release (before) | trimgate (after) |
+| --- | --- | --- |
+| **flights with `response` ≥ 2.55** | **6 of 160** | **0 of 160** |
+| max `response` seen | 2.76 | **1.32** |
+| per-shot max `response`, median | 1.74 | 1.14 |
+| shots in the upper mode (2.0-2.8) | **10 of 20** | **0 of 20** |
+| median release probe | 6.0 m | **6.0 m** |
+
+**The mechanism is gone.** The baseline's per-shot plant reading was bimodal — ten shots between
+1.00 and 1.74, ten between 2.01 and 2.76 — and the upper mode contained every flight that missed by
+hundreds of metres. Tonight there is no upper mode: every one of 20 shots sits inside the baseline's
+lower cluster, and 11 of the 20 baseline shots are worse than tonight's worst. Fisher on 6/160
+against 0/160 is p ≈ 0.03, and the collapse of the distribution is the stronger evidence.
+
+**And the median is unchanged at 6.0 m, exactly as predicted.** This removes a tail, not a typical
+shot. The mean over sound flights was already 8.5 m against 21.9 m with the outliers in, so what the
+fix buys is the difference between those — a rare 400 m failure, not a better rocket.
+
+### A different mode, one shot, and it is larger than the one that was fixed
+
+Shot 020 released **all four steep flights** 3,421-4,384 m off, with the base four at 3-16 m. It is
+not the plant mode — `response` reads 1.00-1.11 — and not 3ci's coast mode, the coast reading a
+sound 52. The signature is the trim:
+
+| | owed at split | owed on release | spent | state |
+| --- | --- | --- | --- | --- |
+| base ×4 | 0.27-0.54 | 2.53-2.72 | 8.5-24.7 | done |
+| **steep ×4** | **1.88-8.01** | **3.82-9.83** | 9.6-13.1 | **GAVE UP** |
+
+`3.82 m/s` of unpaid velocity against this geometry's sensitivity is about the 3.8 km observed, so
+the debt fully explains the miss. What is not explained is why the split cost the steep arm 1.88-8.01
+m/s where every other flight of the night paid 0.27-0.54.
+
+**Not established as a regression.** The release night had none of these, but `walk2` did — in the
+much larger 97-178 m/s form of 3ci — and one shot in twenty against none in twenty is Fisher p = 1.0.
+What it does mean is that after 33b the **largest** remaining failure by magnitude is this one, at
+4.4 km against the 481 m that was just removed.
+
+It also shows the coast gate of 3ci missing a case it should arguably see: shot 020 read 52, in the
+sound band, because that metric sums small residuals over the whole pre-release window and this
+divergence is concentrated and late. A probe count above a threshold would separate what a sum does
+not.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -6156,7 +6204,8 @@ what 20b is flying against.
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
 | ~~29~~ | ~~Re-fly the arrival angle~~ | **closed 2026-09-10, three nights, 46 paired shots** | **NO DEMONSTRABLE EFFECT on any endpoint** — every one straddles 1.0 and nothing resolves. The instrument is not the excuse: the null reads 1.00x and 20 blocks can see 0.60x. **3ck** |
 | ~~33~~ | ~~The intermittent 300 m release-probe miss~~ | **caused and fixed 2026-09-10, unflown** | the post-cutoff reading was taken off a correction still in flight, because `!TrimIsFiring` is not `_trim.Done`. Perfect separation both ways at `response ≥ 2.55` — **3cl** |
-| **33b** | **Fly the fix**: does the mode go to zero? It ran 6 of 160, so a night is the evidence and a shot is not | one night | **3cl** — and the held-but-not-read population says expect 24 m rather than single digits |
+| ~~33b~~ | ~~Fly the fix~~ | **flown 2026-09-10, confirmed** | **6 of 160 to 0 of 160**, max response 2.76 to 1.32, the upper mode gone from all 20 shots. Median unchanged at 6.0 m — a tail, not a rocket — **3cm** |
+| **33e** | **The trim gives up and the arm lands 4 km out** — shot 020, all four steep, owing 1.88-8.01 m/s at a split that costs everything else 0.27-0.54 | logs first | **3cm** — now the largest failure by magnitude, and the coast gate reads it as sound |
 | **33c** | **Pre-register the 80 m release-probe rule**, dropping the SHOT and re-flying it | small | **3cl** — a clean empty band from 72 to 100 m over 672 flights, zero sound flights lost, and a flight-level drop is what manufactures a false RESOLVED |
 | **33d** | **Why seats 3, 5 and 7** carry every high plant reading on every arm | `--terrain`, no shots | **3cl** — the downrange slope at each aim point is the missing number, and it is not in any log |
 | **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
