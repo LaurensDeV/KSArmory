@@ -115,7 +115,18 @@ rung each phase is aiming at:
 **32.0 degree** arrival landed at a median of **20 m** with **0.00 km** of group spread, which is past
 rung B's thirty. The weapon is not past rung B, and the distinction is the whole of where this plan
 now stands: 16 of those 80 landed at **84 km**, all of them from the two worlds in ten that threw the
-`trim` terminator. `docs/ACCURACY-PLAN.md` 3ar has the mechanism — the coast is integrated rather
+`trim` terminator.
+
+> **The rate has fallen six-fold since, and the weight has not.** Measured across the eight nights
+> that carry the bubble and frame probe fields, 2026-09-08 to 2026-09-10: **4 shots of 118 (3.4%)**
+> and 28 flights of 944, against the fifth of worlds quoted here from 2026-09-04. Nothing in that
+> fall is attributable to any build — seven DLLs, Fisher p = 0.624 across item 31's fix. And those
+> 3.0% of flights still carry **99.1% of the total summed miss**, where a sound flight is p99 =
+> 141 m. So the blocker is unchanged in kind: it is rarer and it is still the whole of the tail.
+> `ACCURACY-PLAN.md` 3cn has the cause — a physics bubble spanning the near-surface radius, which
+> takes the rotating frame from a landed member and strips the fictitious forces from a bus a
+> thousand kilometres up — and the detector that catches it 4 of 4 with no false positive in 114
+> sound shots. `docs/ACCURACY-PLAN.md` 3ar has the mechanism — the coast is integrated rather
 than propagated for 70% of its length in an affected world — and item 19 is the one thing left
 between here and a reliable rung B.
 

@@ -6080,6 +6080,113 @@ sound band, because that metric sums small residuals over the whole pre-release 
 divergence is concentrated and late. A probe count above a threshold would separate what a sum does
 not.
 
+## 3cn. 33e: a bubble that spans the near-surface radius, and the gate that could not see it — 2026-09-10
+
+### The cause, and it is the engine's
+
+`2026-09-10-trimgate` shot 020 released its four steep flights 3,421-4,384 m off while the four base
+flights in the same world released 3-16 m off. The world had merged into a **single 13-vehicle
+physics bubble anchored on a landed craft at ~5 km**, 36 seconds before the steep arm split.
+
+`PhysicsBubble` takes its frame from its heaviest member, and a member below the parent's
+near-surface radius makes that frame the **rotating** `Ccf`. The fictitious-force term and the
+re-rails rule are both **per vehicle**: `ComputeDerivatives` puts `-2ω×v` and `-ω×(ω×r)` behind
+`environment.InPhysicsRadius`, which a bus at 1,380 km fails, and `TryToPutOnRails` restores rails
+only through an `Origin.BubFrame.IsCci()` branch, so there is no way back. **A bubble spanning that
+radius breaks both rules at once**, and the bus is advanced in a rotating frame as though it were
+inertial.
+
+The arithmetic closes to three digits. Last pre-split probe per craft, off-gravity divided by the
+interval and by the share of frames off rails:
+
+| craft | frames off rails | implied rate | split debt |
+| --- | --- | --- | --- |
+| GeoSat FAT | 17% | **0.447 m/s²** | 1.93 m/s |
+| GeoSat FAT 5 | 24% | **0.439** | 1.88 |
+| GeoSat FAT 3 | 93% | **0.431** | 6.50 |
+| GeoSat FAT 7 | 100% | **0.428** | 8.01 |
+
+3bv predicts **0.42 m/s²** for `2ω×v + ω×(ω×r)` at 2.9 km/s, and the direction is 93% cross-track,
+which is `ω×v` on this near-polar arc. Four independent craft across a 6× spread of exposure. This is
+3bv's second engine defect reproduced deterministically, and it is worth attaching to that report.
+
+**The trim was outmatched, not broken.** Measured authority 0.12-0.38 m/s² against 0.43 of spurious
+push; it hit `BusTrim.Stalled` — ten seconds without 0.01 m/s of progress — after spending 9.6-13.1
+m/s. Not the ceiling (9.83 < 10) and not the budget.
+
+**And it was not the arm.** Base split at 15:14 and released before the merge; steep split at 15:18,
+after it. A world-level event landing in the gap between two arms that never overlap is
+arm-correlated by construction, and would have hit whichever arm split later.
+
+### The gate of 3ci was blind twice over
+
+It read **51.6** for this shot — 15th of 20 within its own night, and below the median of two other
+nights. To catch it the floor would have to fall to 51.59, which flags **36 of 114 sound shots**.
+
+* **The window closed before the fault existed.** It stopped at the first `release summary` *in the
+  world*, which on a paired night is the **early** arm's. On shot 020 that is +302 s; all sixteen
+  rotating-frame probes are at +413-443 s. **100% of the divergence was outside the window**, so a
+  perfect metric would still have missed it — and on a paired night the gate never inspected a median
+  12% of the coast it existed to measure, always the late arm's.
+* **The number was 99.92% not-coast.** On a sound shot the 49.1 decomposes into **0.039 of pre-split
+  coast and 49.06 of post-split bus probes** — the trim's own commanded thrust, which is precisely
+  the regime 3ar excluded when it built this instrument. The "sound band 34-57" of 3ci and 3cm was a
+  measurement of the trim firing. A real divergence had to beat a floor a thousand times its size.
+
+### The detector that works
+
+Count coast probes reading a **rotating frame on a bus that has not yet split**. No scale to
+calibrate: a bus either was integrated in the wrong frame before it released or it was not.
+
+| night | shots | ruined | gate reads |
+| --- | --- | --- | --- |
+| decompose, 08-walk, walk3, null, release | 70 | 0 | **0 on every shot** |
+| walk2 | 14 | 2 | 692, 693 |
+| trimgate | 20 | 1 | 16 |
+| **arrival** (held out, never used to design it) | 14 | 1 | **703** |
+
+**118 shots: 4 ruined caught, 114 sound at exactly 0.** The held-out night matters — it was found
+after the rule was written and its one 8/8 event fires the gate on all eight flights and none of the
+other 104.
+
+Two things had to be right and both were wrong first: `split on <craft>:` runs to the colon rather
+than the first space, or every craft matches "GeoSat"; and a bus carries its stack's name with a
+suffix, so the child must count as split — otherwise a clean shot's own re-entering group, which
+forms a rotating bubble 55-84 s **after** the last split quite harmlessly, reads 57-60 hits.
+
+**Bubble membership is an equally perfect discriminator** — sound flights never exceed 2, affected
+never fall below 13, an empty band of ten integers — and has a numeric margin where a frame test has
+only a boundary at zero. It is not what shipped, because the frame is the fault and the membership is
+a correlate. If the frame test ever flags a sound shot, membership is the fallback.
+
+### Incidence, and a stale figure in METRE-LEVEL
+
+Pooled over the eight nights carrying the probe fields: **28 flights of 944 (3.0%), 4 shots of 118
+(3.4%)**. Nothing moves with any build — seven DLLs, one KSA version; splitting at item 31's fix
+gives Fisher **p = 0.624**.
+
+METRE-LEVEL's "a fifth of worlds" is a **2026-09-04** number and is real for that night (16 of 80,
+2 worlds of 10). The current rate is **six times lower**. What has not changed is the weight: those
+3.0% of flights carry **99.1% of the total summed miss** on those nights, where sound flights read
+p99 = 141 m.
+
+### The printed debt is the wrong thing to threshold
+
+Within these eight nights it looks clean — sound owed-at-split 0.13-1.01, affected 1.88 upward. Over
+the full corpus of 2,669 flights the two populations **overlap through 1.90-6.83 m/s**, because the
+sound band is set by the geometry: a 54.6° arrival normally demands 4-7 m/s post-split where a 32°
+arrival demands 2.3-3.4. And `2026-09-02-1242` shot 001 threw six give-ups at a **dead-normal**
+2.45-2.90 m/s that landed 31-311 km out. A threshold fitted to one arrival angle is fitted to that
+angle. The state — what frame the bus was in — is geometry-free.
+
+### What it costs, for designing nights rather than re-reading them
+
+Shot-level exclusion, never flight-level. No verdict flips on any night, but the p-values move
+**1.8× to 2.8×** on the three endpoints where the event has weight, and walk2's walk point estimate
+moves 0.80 → 0.72, which is the size of the effect that night was chasing. **All three nights move
+the same way — towards steep — when the shot is dropped.** That is the argument for pre-registering
+it and against ever applying it to a night already declared.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -6205,7 +6312,10 @@ what 20b is flying against.
 | ~~29~~ | ~~Re-fly the arrival angle~~ | **closed 2026-09-10, three nights, 46 paired shots** | **NO DEMONSTRABLE EFFECT on any endpoint** — every one straddles 1.0 and nothing resolves. The instrument is not the excuse: the null reads 1.00x and 20 blocks can see 0.60x. **3ck** |
 | ~~33~~ | ~~The intermittent 300 m release-probe miss~~ | **caused and fixed 2026-09-10, unflown** | the post-cutoff reading was taken off a correction still in flight, because `!TrimIsFiring` is not `_trim.Done`. Perfect separation both ways at `response ≥ 2.55` — **3cl** |
 | ~~33b~~ | ~~Fly the fix~~ | **flown 2026-09-10, confirmed** | **6 of 160 to 0 of 160**, max response 2.76 to 1.32, the upper mode gone from all 20 shots. Median unchanged at 6.0 m — a tail, not a rocket — **3cm** |
-| **33e** | **The trim gives up and the arm lands 4 km out** — shot 020, all four steep, owing 1.88-8.01 m/s at a split that costs everything else 0.27-0.54 | logs first | **3cm** — now the largest failure by magnitude, and the coast gate reads it as sound |
+| ~~33e~~ | ~~The trim gives up and the arm lands 4 km out~~ | **caused 2026-09-10** | a physics bubble spanning the near-surface radius: 0.42 m/s² of missing fictitious force, four craft measuring 0.428-0.447. **The engine's, not the mod's** — **3cn** |
+| **33f** | **Assert rails through the whole coast**, not only inside `QuietCoast`'s latch — these buses read `commanded 0%` and went off rails anyway | one boolean, one night | **3cn** — the only candidate that addresses the cause; may fail, since `TryToPutOnRails` has no path back once the frame is rotating |
+| **33g** | **Refuse a split debt the world caused** rather than spending 13 m/s of tank chasing it — a debt several times a decoupler's ~1.1 m/s arriving with off-gravity non-zero is not a shove | small | **3cn** — the warheads leave on that trajectory either way; the propellant should not |
+| **33h** | **Name the bubble leader in the probe**, and keep probing a bus after release | one log line | **3cn** — the merge seed is bracketed to 10 s and unobservable, because a bus goes silent from release to re-entry, which is exactly the window |
 | **33c** | **Pre-register the 80 m release-probe rule**, dropping the SHOT and re-flying it | small | **3cl** — a clean empty band from 72 to 100 m over 672 flights, zero sound flights lost, and a flight-level drop is what manufactures a false RESOLVED |
 | **33d** | **Why seats 3, 5 and 7** carry every high plant reading on every arm | `--terrain`, no shots | **3cl** — the downrange slope at each aim point is the missing number, and it is not in any log |
 | **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
