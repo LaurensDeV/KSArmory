@@ -104,6 +104,7 @@ ONPAD = re.compile(r"on the ground at")
 CUTOFF = re.compile(r"cutoff(?: on (?P<craft>.+?))?:\s*residual\s+(?P<residual>[-\d.]+)\s*m/s,"
                     r"\s*own prediction\s+(?P<own>[-\d.]+)\s*km off")
 TRIM = re.compile(r"owed\s+([-\d.]+)\s*m/s at the split,\s*([-\d.]+)\s*m/s on release")
+TRIM_GAVE_UP = re.compile(r"release summary on (?P<craft>.+?): .*?GAVE UP")
 OFFLINE = re.compile(r"warhead away from tube\s+(\d+),\s*([-\d.]+)\s*deg off the salvo's line")
 PROBE = re.compile(r"release probe:.*?([\d.]+)\s*km from the target,\s*(\d+)\s*s of flight")
 THROWN = re.compile(r"thrown\s+([-\d.]+)\s*deg from the platform's track")
@@ -421,7 +422,7 @@ def read_shot(out_path, log_path, craft=None):
             "trace_named": False, "own_impacts": [], "bursts": 0,
             "release_km": [], "probe_named": False,
             "band_deg": [], "impacts": [],
-            "why": None, "passes": None, "owed": None, "why_named": False,
+            "why": None, "passes": None, "owed": None, "why_named": False, "gave_up": False,
             "lag_ms": [], "lag_m": [], "clock_gap": [], "dt_ms": [], "sim": [], "coast_ms": [],
             "off_grav": [], "off_cross": [], "shared_bubble": 0,
             "rails_probes": 0, "rails_off": 0, "quiet_probes": 0,
@@ -457,6 +458,13 @@ def read_shot(out_path, log_path, craft=None):
     if m:
         shot["version"] = m.group(1)
     shot["why"], shot["passes"], shot["owed"], shot["why_named"] = why_it_ended(log, craft)
+
+    # The trim's own verdict, which is strictly more sensitive than the terminator. Over 2,662
+    # flights the two agree 99.51%, and where they disagree it is always this way round: 13 flights
+    # gave up and then hit an EARLIER terminator -- clock twelve times, budget once -- so `why`
+    # reads "clock" and the flight is scored as sound while it landed 0.86-70.3 km out.
+    gave, _ = _traces(TRIM_GAVE_UP, log, craft)
+    shot["gave_up"] = bool(list(gave))
     shot.update(release_summary(log, craft))
 
     shot["offline"] = [v for _, v in _floats(OFFLINE, both, 2)]
@@ -1338,7 +1346,8 @@ def _say_modes(shots, order):
     if not rows:
         return
 
-    lost = {name: [s for s in rows if s["within"] == name and s["why"] in LOST_ENDINGS]
+    lost = {name: [s for s in rows if s["within"] == name
+                   and (s["why"] in LOST_ENDINGS or s.get("gave_up"))]
             for name in order}
     flown = {name: [s for s in rows if s["within"] == name] for name in order}
     if not any(lost.values()):
@@ -1351,7 +1360,8 @@ def _say_modes(shots, order):
         if not flown[name]:
             continue
         n, bad = len(flown[name]), len(lost[name])
-        ok = [s["mean"] for s in flown[name] if s["why"] not in LOST_ENDINGS]
+        ok = [s["mean"] for s in flown[name]
+              if s["why"] not in LOST_ENDINGS and not s.get("gave_up")]
         far = [s["mean"] for s in lost[name]]
         print(f"   {name:<14}{n:>9}{bad:>7}{bad / n:>7.0%}"
               f"{(statistics.median(ok) if ok else float('nan')):>14.3f}"
