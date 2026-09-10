@@ -5852,6 +5852,56 @@ one warhead against a six-warhead mean. And 4 is recorded rather than fixed.
 None of it has flown. The next night is the first evidence any of it works, and the first thing to
 check is not the arm but whether the two nights' own baselines agree.
 
+## 3ck. Item 29 answered: no demonstrable effect, on any endpoint, over 46 paired shots — 2026-09-10
+
+`~/shots/2026-09-10-release`, **20 blocks** rather than 14 because 3cj's injection table put 14 at
+`p = 0.034` for the effect being chased — outside the bar. Primary endpoint **`release`, declared
+before the night**, seat levels taken `--levels-from` the null so the divisor is out of sample. All
+20 PASS, 160/160 traces, no bursts, no exceptions, no shot within a factor of four of the coast
+floor.
+
+**The pre-registered answer is UNRESOLVED: 1.17x [0.56, 1.73], shot-flip p=0.258, steep won 9 of
+20.** It did not replicate 3ci's 0.57x — it landed on the other side of 1.
+
+| night | shots | miss | walk | release |
+| --- | --- | --- | --- | --- |
+| walk2 | 12 | 0.83x | **0.72x** | 0.91x |
+| walk3 | 14 | 0.61x | **1.12x** | **0.57x** |
+| **null** (identical code) | 14 | 1.00x | 1.05x | 0.93x |
+| release | 20 | 0.88x | 0.87x | **1.17x** |
+
+**Every endpoint straddles 1.0 across the nights and nothing resolves anywhere.** The two results
+that once looked like findings — the walk at 0.72x and the release at 0.57x — each reversed on the
+next night, and each had been read off a night it was selected from. The null reading 1.00x is what
+makes this a null *result* rather than a broken instrument: 3cj showed the estimator says "no
+difference" when there is none, and 3cj's injection table showed 20 blocks can see 0.60x on this
+endpoint.
+
+**So `ArrivalPreference = 0.65` has no effect this design can demonstrate at this target**, and
+item 29 closes. What survives from 3ci is the *decomposition* — the miss is pre-release plus walk,
+and the base arm's 8 m systematic short bias is real and reproduced on two nights. What does not
+survive is that the arrival angle removes it.
+
+### The one new thing: an intermittent 300 m release-probe miss
+
+Six flights of 160 (**3.75%**) left with the probe already reading 263-481 m off, where the other
+154 read 2-24 m. **Five of the six are the steep arm.**
+
+| shot | flights over 100 m |
+| --- | --- |
+| 003 | 284 m, 481 m — both 42 deg |
+| 005 | 391 m, 441 m — both 42 deg |
+| 008 | 263 m — 32 deg |
+| 015 | 340 m — 42 deg |
+
+They are what drives the primary's spread: the per-shot ratios reach **19.94 and 18.06** on the two
+shots carrying a pair of them, against a night otherwise between 0.19 and 3.43.
+
+**Not the 250 m standoff**, despite the suspicious size: the smoke shot flew the standoff and read
+2-7 m across all eight, and the aim point itself never moves. It is intermittent, it clusters two-
+to-a-shot, and it is the thing to chase next — it is 30x the norm and no night before this had the
+n to see it.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -5974,7 +6024,8 @@ what 20b is flying against.
 | **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
-| ~~29~~ | ~~Re-fly the arrival angle scored on the WALK~~ | **flown twice, 2026-09-09** | **UNRESOLVED, open — 0.86x [0.62, 1.23] on 26 shots, and the walk is the wrong endpoint: the effect is in the PRE-RELEASE term, where cot γ predicts 0.70 and it measures 0.62-0.70.** Blocked on the estimator, not on shots — **3ci** |
+| ~~29~~ | ~~Re-fly the arrival angle~~ | **closed 2026-09-10, three nights, 46 paired shots** | **NO DEMONSTRABLE EFFECT on any endpoint** — every one straddles 1.0 and nothing resolves. The instrument is not the excuse: the null reads 1.00x and 20 blocks can see 0.60x. **3ck** |
+| **33** | **The intermittent 300 m release-probe miss** — 6 flights of 160, 263-481 m where the norm is 2-24 m, five of six on the steep arm | logs first, no shots | **3ck** — 30x the norm, clusters two to a shot, and it dominates the spread of any night that contains one |
 | **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
