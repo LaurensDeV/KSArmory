@@ -5884,8 +5884,9 @@ survive is that the arrival angle removes it.
 
 ### The one new thing: an intermittent 300 m release-probe miss
 
-Six flights of 160 (**3.75%**) left with the probe already reading 263-481 m off, where the other
-154 read 2-24 m. **Five of the six are the steep arm.**
+Six flights of 160 (**3.75%**) left with the probe already reading 263-481 m off. **Five of the six
+are the steep arm — and all six are on odd seats, which is the more informative statement; see
+3cl, where the arm turns out to be an alias for the seat.**
 
 | shot | flights over 100 m |
 | --- | --- |
@@ -5898,9 +5899,138 @@ They are what drives the primary's spread: the per-shot ratios reach **19.94 and
 shots carrying a pair of them, against a night otherwise between 0.19 and 3.43.
 
 **Not the 250 m standoff**, despite the suspicious size: the smoke shot flew the standoff and read
-2-7 m across all eight, and the aim point itself never moves. It is intermittent, it clusters two-
-to-a-shot, and it is the thing to chase next — it is 30x the norm and no night before this had the
-n to see it.
+2-7 m across all eight, and the aim point itself never moves. It is intermittent and it clusters
+two-to-a-shot.
+
+Two things said here were wrong and 3cl corrects them: the sound flights run to a **69 m** shoulder
+rather than stopping at 24 m — the clean gap is 71 to 101 m — and earlier nights **did** have the n
+to see it. `walk2` carries two and `walk3` two, at 2.1% and 1.8%; nobody looked.
+
+## 3cl. Item 33: the reading is taken off a correction still in flight — 2026-09-10
+
+The release-probe outliers of 3ck, run down. Two findings, and the second is larger than the fault
+it came from.
+
+### It reaches the ground, one for one
+
+This is not a transient the loop recovers from. Across all ten instances on all nights, the ratio of
+what the group actually did to what the probe said at release is **1.00, 1.00, 1.25, 0.99, 1.01,
+0.95, 0.98, 0.95, 0.94, 1.01 — median 1.00**, with group spreads of 2-3 m. The walk afterwards is an
+ordinary 0-24 m. A flight that leaves 400 m wrong lands 400 m wrong, and all six warheads go
+together.
+
+It carries **45% of the release night's whole flight-level miss** — 2,150 m of 4,823 over 160
+flights — from 3.75% of the flights.
+
+### The cause: `!TrimIsFiring` is not `_trim.Done`
+
+```csharp
+public bool TrimIsFiring => _trim.Armed && !_trim.Done && _mayTrim;   // IcbmComputer.cs:342
+```
+
+The post-cutoff Observe gate asked `!TrimIsFiring`; `PostBoostAim`, one call earlier, is handed
+`TrimSettled: _trim.Done`. **The two differ only through `_mayTrim`** — and `_mayTrim` goes false
+whenever `SeparationClearance` re-closes, which it does on **45 flights of 160, by centimetres**,
+because the trim's first job is to null the very shove carrying the halves apart. `Check` clears at
+`stageRadius + 10 m` and every bus on the night clears at the exact boundary: 160 of 160 read
+`clear ... at 15 m` against a 15.2 m requirement, and all 45 re-closures read `15.2 of 15.2`,
+`15.2 of 15.3` or `15.3 of 15.3`.
+
+So the thrusters fall quiet with the correction still in transit, the gate opens, and the impact is
+sampled mid-flight. **The cost is not that reading.** The next one's secant attributes the whole
+overshoot to the aim move and freezes the plant estimate at 2.59-2.76 where the true plant measures
+1.04-1.11 — so the loop converges three times too slowly, and `PostBoostAim`'s flat 250 m band stops
+it two readings early. All six missed that band by **20-50 m** on reading five.
+
+The separation is perfect in both directions:
+
+| exposure | n | worst release probe |
+| --- | --- | --- |
+| never held by the interlock | 115 | 26 m |
+| held, no reading inside the hold | 13 | 24 m |
+| **held and read inside it** | **32** | **481 m** — contains all six |
+
+| max `response` | n | misses |
+| --- | --- | --- |
+| **≥ 2.55** | **6** | **263, 284, 340, 391, 441, 481 m — exactly the outliers** |
+| 2.0 - 2.55 | 7 | 20-69 m |
+| < 2.0 | 19 | 1-23 m |
+
+Gated on `_trim.Done` after cutoff. Two further contributors are recorded and not taken: a
+post-cutoff plant clamped far tighter than `[1, 6]` — after cutoff the plant is 1 by construction
+and every clean reading measured 0.98-1.11 — and `IcbmConfig.AimThresholdTracksTheMiss`, whose
+relative band would have counted reading five as an improvement on all six. That last is independent
+evidence for 3ca's dead ratchet from a night that had nothing to do with it.
+
+### The larger finding: the arm is an alias for the seat
+
+`ShotArms.For` is `_arms[(rosterIndex + phase) % count]` and `shot-batch.sh` passed **the shot
+number** as the phase. With two arms that is a deterministic alternation, so
+
+> **arm ≡ XOR(seat parity, shot parity)**
+
+and the three are mutually aliased in every paired night ever flown here.
+
+The susceptibility this fault needs is **seat-linked and arm-free**: over 656 flights, `response > 2`
+occurs 29 times and **29 of 29 are on seats 3, 5 and 7** (p = 4.4e-13). Seats 1, 2, 4, 6 and 8 never
+exceed 1.43 in over 600 flights. It appears on the **null night**, where both arms are identical
+code, and on `decompose`, which has no arms at all.
+
+Yet the naive test reads **Fisher p = 0.0017 "for the steep arm"** — because those are the odd
+seats. Of ten instances the only two that break the alias split **one each way**: release shot 008
+put its outlier on an odd seat flying *base*, walk2 shot 012 on an even seat flying *steep*. **Six
+nights contain 1 against 1 of discriminating information.** Conditioned on the susceptible state the
+honest arm test is steep 6/16 against 1/11, **p = 0.183**.
+
+`shot-batch.sh` now writes a **balanced random permutation** of phases at plan time. Each seat still
+flies each arm equally often; the alias is gone. It also makes `shot-report.py`'s shot-flip null the
+right test rather than merely a defensible one — that test permutes exactly what this now
+randomises.
+
+### Incidence, and what it does to a night
+
+| night | shots | flights | over 100 m | rate |
+| --- | --- | --- | --- | --- |
+| decompose | 8 | 64 | 0 | 0% |
+| 2026-09-08-walk | 14 | 112 | 0 | 0% |
+| walk2 (non-diverged) | 12 | 96 | 2 | 2.1% |
+| walk3 | 14 | 112 | 2 | 1.8% |
+| null | 14 | 112 | 0 | 0% |
+| release | 20 | 160 | 6 | 3.75% |
+| **pooled** | **82** | **656** | **10** | **1.5%** |
+
+**The six changes of 2026-09-09 did not cause it** — the earliest sighting predates all of them, and
+before-against-after is 4/384 against 6/272, Fisher p = 0.333. It clusters within a shot
+(P(≥3 shots with a pair) = 0.0033 under uniform placement), so it is a property of the world rather
+than an independent per-rocket draw.
+
+**And it is why post-hoc exclusion is forbidden.** Dropping the six flights moves the release
+night's *miss* endpoint from p = 0.151 to **p = 0.023** — it would manufacture a RESOLVED win out of
+a null night, because the exclusion falls 5-1 on one arm. Item 29's answer stands exactly as flown.
+The declared primary does not move (1.17x either way), but the point estimate shifts 0.25 in ratio
+— **the same size as the effect the night was chasing** — and leave-one-out shows it is one shot.
+
+### The rule that will be pre-registered
+
+Over all 672 flights of all six nights the sorted probe misses run `… 57, 63, 69, 71 ‖ 101, 114,
+212, 263, …`. **Nothing at all between 72 and 100 m.** So: a flight whose release probe exceeds
+**80 m** is not a measurement of the arm — drop the **shot**, and re-fly it.
+
+Shot-level, not flight-level, and that is the whole point: a flight-level drop breaks the pairing
+and lands 9-1 on one arm, which is exactly the p = 0.023 artefact above. A shot-level drop leaves
+both endpoints unresolved. Cost across six nights: 9 shots of 84, **zero sound flights**, about 1.7
+re-flights on a 20-block night.
+
+### What no re-analysis can settle
+
+Whether the arm contributes at all. The alias is structural, the two informative events split one
+each way, and the conditional test is p = 0.183. It needs nights flown with the randomised phase —
+which is now what happens.
+
+Why seats 3, 5 and 7. The plant reading says the ground under those aim points is ill-conditioned,
+but neither `swing` nor the sub-km relief separates them from seats 4 and 6, which are rougher and
+never trigger. The **downrange slope** at each aim point is the missing number and is not in these
+logs.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -6025,7 +6155,10 @@ what 20b is flying against.
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
 | ~~29~~ | ~~Re-fly the arrival angle~~ | **closed 2026-09-10, three nights, 46 paired shots** | **NO DEMONSTRABLE EFFECT on any endpoint** — every one straddles 1.0 and nothing resolves. The instrument is not the excuse: the null reads 1.00x and 20 blocks can see 0.60x. **3ck** |
-| **33** | **The intermittent 300 m release-probe miss** — 6 flights of 160, 263-481 m where the norm is 2-24 m, five of six on the steep arm | logs first, no shots | **3ck** — 30x the norm, clusters two to a shot, and it dominates the spread of any night that contains one |
+| ~~33~~ | ~~The intermittent 300 m release-probe miss~~ | **caused and fixed 2026-09-10, unflown** | the post-cutoff reading was taken off a correction still in flight, because `!TrimIsFiring` is not `_trim.Done`. Perfect separation both ways at `response ≥ 2.55` — **3cl** |
+| **33b** | **Fly the fix**: does the mode go to zero? It ran 6 of 160, so a night is the evidence and a shot is not | one night | **3cl** — and the held-but-not-read population says expect 24 m rather than single digits |
+| **33c** | **Pre-register the 80 m release-probe rule**, dropping the SHOT and re-flying it | small | **3cl** — a clean empty band from 72 to 100 m over 672 flights, zero sound flights lost, and a flight-level drop is what manufactures a false RESOLVED |
+| **33d** | **Why seats 3, 5 and 7** carry every high plant reading on every arm | `--terrain`, no shots | **3cl** — the downrange slope at each aim point is the missing number, and it is not in any log |
 | **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
