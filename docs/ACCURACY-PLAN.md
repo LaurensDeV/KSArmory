@@ -6684,6 +6684,40 @@ remains of the walk is the flight model's floor (3cr's under-a-metre flights wal
 rotation-phase term the re-read leaves, worth a couple of metres on seat 3's slope and nothing on
 the flat.
 
+## 3ct. Item 36 built: a pass is decided on its reading, behind a switch — 2026-09-11
+
+`IcbmConfig.DecideOnTheReading`, off. In `PostBoostAim.Update`, a frame that has passed every gate
+but carries no reading asks for one and spends nothing: "a correction has been flown" and the
+fallback clock are cleared only on a finite reading, so a pass is decided on the frame its reading
+arrives rather than `FlownWithinSeconds` later.
+
+**The fallback had the same race.** A reading let through once the fifteen seconds ran out was
+cleared on a frame with no number just the same, which restarted the clock and held the reading that
+followed for another fifteen. The one branch closes both.
+
+Pinned in `PostBoostFlownReadingTests`. `AFrameWithNoReadingLeavesTheFlightForTheReadingThatFollows`
+drives the frames the engine delivers after a pass — six unsettled, one settled with no reading,
+then a finite one — and requires the decision on that last frame;
+`AFrameWithNoReadingDoesNotRestartTheFallbackClock` does the same after the fallback. **Both fail
+with the branch disabled.** `OffTheFrameWithNoReadingStillSpendsTheFlight` pins off as today's
+behaviour.
+
+### What it predicts, written down before it flies
+
+The dwell is already in every log, in the payback line's own arithmetic: the last cycle read
+**16.5 and 18.4 s** on `2026-09-11-band` shot 1 — a couple of seconds of trim and fifteen of
+waiting — and two of that shot's eight rockets ran out `MaxSeconds` at 120 s.
+
+1. **On the arm, a payback line's cycle reads a few seconds, not 16-18**, and the 120 s endings
+   give way to payback and `noimprov`.
+2. **The signed release downrange moves from about −6 m to about −1**, and the one-signed
+   shortfall — 71-74 of 80 short — goes with it.
+3. **1-2 m at the ground**, with the walk untouched.
+
+**What would refute it:** the cycle shortening and the bias not moving, which would make the dwell a
+coincidence rather than the cause; or the arm spending passes it cannot pay for, since a shorter
+cycle lowers payback's threshold and more flights will end on `noimprov` or the pass limit.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -6806,7 +6840,7 @@ what 20b is flying against.
 | **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
 | ~~34~~ | ~~Re-fly `AimThresholdTracksTheMiss` on the release endpoint~~ | **flown 2026-09-11, 20 blocks** | **0.78x [0.51, 1.11], shot-flip p=0.082 — UNRESOLVED, open; the landing 0.98x.** `noimprov` 42 to 6 of 80, and the short bias untouched, 71 and 74 of 80 short. Stays off. The revert at release is never flown (3cp), and the report's null was mis-built under `--levels-from` and read p=0.005 first — **3cq** |
 | ~~35~~ | ~~Re-read the ground as a warhead meets it~~ — `IcbmConfig.ResampleGroundAtImpact` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **walk 0.30x [0.26, 0.40], won 20 of 20; miss 0.60x [0.54, 0.79], won 16 of 20.** Every arm flight stopped within 0.1 m of its own surface, and the miss's p90 fell from 53 m to 23. **3cr, 3cs** |
-| **36** | **Decide on the reading, not fifteen seconds after it** — the post-boost race | not built; headless first | **3cr** — `PostBoostAim` spends its flag on a frame with no reading, so 95% of later readings wait out the 15 s backstop. Predicted −5.75 → ~−1 m before release, 1-2 m at the ground. Next after 35 |
+| **36** | **Decide on the reading, not fifteen seconds after it** — the post-boost race | **built, off**: `IcbmConfig.DecideOnTheReading`; flying | **3cr, 3ct** — `PostBoostAim` spends its flag on a frame with no reading, so 95% of later readings wait out the 15 s backstop, and the fallback restarts its own clock the same way. Predicted −5.75 → ~−1 m before release, 1-2 m at the ground. Next after 35 |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |

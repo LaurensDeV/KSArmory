@@ -1475,7 +1475,8 @@ internal sealed class IcbmComputer
             HoldingCostMetresPerSecond: double.IsFinite(_holdingCost)
                                             ? _holdingCost
                                             : Config.HoldingCostMetresPerSecond,
-            ThresholdTracksTheMiss: Config.AimThresholdTracksTheMiss));
+            ThresholdTracksTheMiss: Config.AimThresholdTracksTheMiss,
+            DecideOnTheReading: Config.DecideOnTheReading));
 
         if (pass.MayMeasure) _measureDue = true;
 

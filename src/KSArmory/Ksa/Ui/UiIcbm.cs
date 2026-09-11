@@ -448,6 +448,15 @@ internal sealed partial class Ui
             + "improving at ten metres. Off: a cycle counts only if it closes "
             + $"{AimCorrection.ImprovedByMetres:F0} m, which no cycle can at a ten-metre miss.");
 
+        bool onReading = config.DecideOnTheReading;
+        if (ImGui.Checkbox("Decide each pass on its reading", ref onReading))
+        {
+            config.DecideOnTheReading = onReading;
+        }
+        Tip("On: a pass is decided on the reading that follows the flown correction. Off: the frame "
+            + "the trim settles on spends the flight before its reading arrives, so each later reading "
+            + $"waits {PostBoostAim.FlownWithinSeconds:F0} s and the warheads leave on one that old.");
+
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
         {

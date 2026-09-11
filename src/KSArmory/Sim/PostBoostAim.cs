@@ -32,6 +32,10 @@ namespace KSArmory;
 /// <param name="TrimSpentMetresPerSecond">
 /// What the passes have taken out of the tank so far — <see cref="BusTrim.SpentMetresPerSecond"/>.
 /// </param>
+/// <param name="DecideOnTheReading">
+/// Whether a frame with no reading leaves the flown correction for the reading that follows —
+/// <see cref="IcbmConfig.DecideOnTheReading"/>.
+/// </param>
 internal readonly record struct PostBoostSituation(
     bool TrimSettled,
     double3 ReleaseDirectionCci,
@@ -40,7 +44,8 @@ internal readonly record struct PostBoostSituation(
     double TrimSpentMetresPerSecond,
     bool TrimGaveUp = false,
     double HoldingCostMetresPerSecond = 0.0,
-    bool ThresholdTracksTheMiss = false);
+    bool ThresholdTracksTheMiss = false,
+    bool DecideOnTheReading = false);
 
 /// <summary>
 /// Correcting the aim after the engines have stopped, with the trim as the actuator.
@@ -324,6 +329,17 @@ internal sealed class PostBoostAim
                 _stage = Stage.Settling;
                 return new Decision(false, false, _said);
             }
+        }
+
+        // A frame with no reading yet asks for one and spends nothing. The prediction runs before the
+        // trim is driven and at most every half second, so the frame the trim settles on carries no
+        // number: spending the flight there leaves the reading that follows it waiting out
+        // FlownWithinSeconds, and the warheads leave on one fifteen seconds old.
+        // docs/ACCURACY-PLAN.md 3cr.
+        if (now.DecideOnTheReading && !double.IsFinite(now.PredictedMissMetres))
+        {
+            _stage = Stage.Measuring;
+            return new Decision(true, false, _said);
         }
 
         _flownSinceMeasured = false;

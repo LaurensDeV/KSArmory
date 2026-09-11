@@ -415,6 +415,24 @@ internal sealed class IcbmConfig
     public bool AimThresholdTracksTheMiss;
 
     /// <summary>
+    /// Whether a post-boost pass is decided on the reading that follows a flown correction, rather
+    /// than on one fifteen seconds later.
+    ///
+    /// <para>The frame the trim settles on carries no reading yet — the prediction runs before the
+    /// trim is driven, at most every half second — and off, that frame spends "a correction has
+    /// been flown". The reading that follows then finds nothing flown and waits out
+    /// <see cref="PostBoostAim.FlownWithinSeconds"/>: 95% of 757 later readings waited 14-15.6 s on
+    /// <c>2026-09-11-band</c>, the warheads left on a reading 14.7 s old, and that dwell is the
+    /// one-signed short bias before release, 71-74 of 80 flights short.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3cr.</para>
+    ///
+    /// <para><b>Off until it has flown.</b> On, a frame with no reading asks for one and spends
+    /// nothing, so the pass is decided on the frame its reading arrives. Predicted: the bias at
+    /// release from about −6 m to −1.</para>
+    /// </summary>
+    public bool DecideOnTheReading;
+
+    /// <summary>
     /// Let a released warhead re-read the ground under each sub-step as it meets it, rather than
     /// holding the frame's first sample.
     ///
