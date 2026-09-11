@@ -52,6 +52,27 @@ public static class Teams
 
         return best;
     }
+
+    /// <summary>
+    /// The team after <paramref name="current"/> in the declared order, then none, then the first
+    /// again — what a switcher row's flag steps through. A team no longer declared steps to the
+    /// first, and with nothing declared there is nothing to step to.
+    /// </summary>
+    public static string? Next(string? current, IReadOnlyList<string> teamNames)
+    {
+        if (teamNames.Count == 0) return null;
+        if (current is null) return teamNames[0];
+
+        for (int i = 0; i < teamNames.Count; i++)
+        {
+            if (string.Equals(teamNames[i], current, StringComparison.OrdinalIgnoreCase))
+            {
+                return i + 1 < teamNames.Count ? teamNames[i + 1] : null;
+            }
+        }
+
+        return teamNames[0];
+    }
 }
 
 /// <summary>

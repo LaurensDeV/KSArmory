@@ -319,8 +319,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     // The list the panel opens on: what exists, not what happens to be under the camera.
     //
-    // A table, one row per system: a heading, a status line and a row of buttons each stops
-    // being readable at two craft.
+    // Grouped by the team each installation fights for, one row each, after the vessel switchers
+    // players already know: the name flies it, and what is wanted mid-fight -- guard, chase, team
+    // -- is one click on the same row. Everything else is behind its "..." window.
     private void DrawSystemList()
     {
         RefreshSystems();
@@ -334,96 +335,276 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             return;
         }
 
-        ImGui.Text($"Weapons systems ({_systems.Count})");
-
-        if (!ImGui.BeginTable("##systems", 3, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
-        {
-            return;
-        }
+        if (!ImGui.BeginTable("##switcher", 5, ImGuiTableFlags.SizingStretchProp)) return;
 
         ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn("##what", ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn("##act", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##guard", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##chase", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##team", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##more", ImGuiTableColumnFlags.WidthFixed);
 
-        for (int i = 0; i < _systems.Count; i++)
+        IReadOnlyList<string> teams = _config.TeamNames;
+
+        // Each declared team in its declared order, then the rest: on no team, or on one that is
+        // no longer declared, which would otherwise be listed nowhere.
+        for (int group = 0; group <= teams.Count; group++)
         {
-            (KSA.Vehicle craft, WeaponInventory inv) = _systems[i];
-            bool isFocused = ReferenceEquals(craft, Focused);
-            WeaponSystems.Entry? entry = _batteries.For(craft);
+            bool headed = false;
 
-            ImGui.PushID(i);
-            ImGui.TableNextRow();
-
-            ImGui.TableNextColumn();
-            if (isFocused) ImGui.TextColored(Green, KsaWorld.DisplayName(craft));
-            else ImGui.Text(KsaWorld.DisplayName(craft));
-
-            // Every system runs its own battery, so every row reports its own state rather than
-            // one row's state and a list of names.
-            ImGui.TableNextColumn();
-            if (entry is { } e)
+            for (int i = 0; i < _systems.Count; i++)
             {
-                // That row's own load, never the focused system's. The panes read whichever
-                // system is focused and a row is not it, so borrowing the focused launcher here
-                // reports one installation's magazine against another's name.
-                // How fast it is going, beside what it is holding. A row for a craft on its way
-                // down says nothing useful about its master arm -- what an observer wants to know
-                // about something falling towards them is how fast, and the arm state is the
-                // operator's own business on their own installation.
-                ImGui.TextColored(e.Policy.Armed ? Red : Grey,
-                                  $"{(e.Policy.Armed ? "ARMED" : "safe")}  {Tally(e.Battery)}"
-                                  + Speed(e.Battery));
-            }
-            else
-            {
-                ImGui.TextDisabled(Describe(inv));
-            }
+                (KSA.Vehicle craft, WeaponInventory inv) = _systems[i];
+                if (GroupOf(TeamOf(craft), teams) != group) continue;
 
-            ImGui.TableNextColumn();
-            DrawSystemRowButtons(craft);
+                if (!headed)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    if (group < teams.Count) ImGui.TextColored(TeamColour(group), teams[group]);
+                    else ImGui.TextColored(Grey, "No team");
+                    headed = true;
+                }
 
-            ImGui.PopID();
+                ImGui.PushID(i);
+                ImGui.TableNextRow();
+                DrawSwitcherRow(craft, inv);
+                ImGui.PopID();
+            }
         }
 
         ImGui.EndTable();
     }
 
-    // Inline, and small: three short buttons fit a table row where a full label does not.
-    // Moving the battery is a decision about one system, so it lives in that system's window.
-    private void DrawSystemRowButtons(KSA.Vehicle craft)
+    // One installation's row. Each switch acts on everything of its kind on the craft -- two
+    // rails are one craft to guard -- where its own window acts on one system at a time.
+    private void DrawSwitcherRow(KSA.Vehicle craft, WeaponInventory inv)
     {
-        // Point the camera at it and label it for a few seconds, without moving or commandeering
-        // anything. One shot rather than a toggle: both halves end on their own, so there is
-        // nothing left to switch off and no state for the button to get out of step with.
-        // Worded, not a glyph: ImGui's default font carries basic Latin only, so a crosshair
-        // renders as a box, and an ASCII stand-in for one has to be hovered to be understood.
-        // "Look at" reads beside "Go to" and "Manage" as the third thing that can be done to a
-        // row, which is what it is.
-        // Nothing to turn towards when the view is already on it. Shown as inert rather than
-        // hidden, so the row keeps its shape and the button does not move under the pointer.
-        if (KsaWorld.MainViewFollows(craft))
+        _rowSystems.Clear();
+        foreach (WeaponSystems.Entry e in _batteries.All)
         {
-            ImGui.TextDisabled("Look at");
-            Tip("Already looking at it.");
+            if (ReferenceEquals(e.Craft, craft)) _rowSystems.Add(e);
         }
-        else
+
+        _heads.On(craft, _rowHeads);
+
+        DrawSwitcherName(craft, inv);
+
+        ImGui.TableNextColumn();
+        if (_rowSystems.Count > 0) DrawGuardButton();
+
+        ImGui.TableNextColumn();
+        if (_rowSystems.Count > 0) DrawChaseButton();
+
+        ImGui.TableNextColumn();
+        DrawTeamButton(craft);
+
+        ImGui.TableNextColumn();
+        if (ImGui.Button("...")) _managed = craft;
+        Tip("Everything else about it, in its own window.");
+    }
+
+    // Clicking a name flies it, as in every switcher of this kind; looking at it without taking
+    // the seat is the right button.
+    private void DrawSwitcherName(KSA.Vehicle craft, WeaponInventory inv)
+    {
+        ImGui.TableNextColumn();
+
+        bool flying = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
+        float width = ImGui.GetContentRegionAvail().X;
+
+        if (flying) ImGui.PushStyleColor(ImGuiCol.Button, FlyingButton);
+        if (ImGui.Button($"{KsaWorld.DisplayName(craft)}##name", new float2?(new float2(width, 0f)))
+            && !flying)
         {
-            if (ImGui.SmallButton("Look at"))
+            KsaWorld.GoTo(craft);
+        }
+        if (flying) ImGui.PopStyleColor();
+
+        if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+        {
+            Markers.Show(craft);
+            _watch.Watch(craft);
+        }
+
+        string status = _batteries.For(craft) is { } e
+            ? $"{(e.Policy.Armed ? "ARMED" : "safe")}  {Tally(e.Battery)}{Speed(e.Battery)}"
+            : Describe(inv);
+
+        Tip(status + "\n\n" + (flying ? "You are flying it." : "Click to fly it.")
+            + " Right-click to look at it and label it without taking the seat.");
+    }
+
+    private void DrawGuardButton()
+    {
+        Guard guard = Guard.Safe;
+        for (int i = 0; i < _rowSystems.Count; i++)
+        {
+            WeaponSystems.Entry e = _rowSystems[i];
+            Guard one = GuardState.Of(e.Policy.Armed, e.Policy.AutoEngage, CanAutoEngage(e));
+            guard = i == 0 ? one : GuardState.Combine(guard, one);
+        }
+
+        ImColor8 ink = guard switch
+        {
+            Guard.Guarding => GuardInk,
+            Guard.Armed => ArmedInk,
+            _ => OffInk,
+        };
+
+        if (IconButton("##guard", Icon.Shield, ink, lit: guard != Guard.Safe))
+        {
+            bool on = GuardState.TurnsOn(guard);
+            foreach (WeaponSystems.Entry e in _rowSystems)
             {
-                Markers.Show(craft);
-                _watch.Watch(craft);
+                e.Policy.Armed = on;
+                if (CanAutoEngage(e)) e.Policy.AutoEngage = on;
             }
-            Tip("Turn the view towards it and label it for a few seconds. Move the camera yourself "
-                + "at any point and it lets go.");
         }
 
-        ImGui.SameLine();
-        bool flyingIt = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
-        if (!flyingIt && ImGui.SmallButton("Go to")) KsaWorld.GoTo(craft);
-        if (flyingIt) ImGui.TextDisabled("here");
+        Tip(guard switch
+        {
+            Guard.Guarding => "Guarding: armed, and engaging whatever its sensors and IFF allow. "
+                              + "Click to make every weapon on it safe.",
+            Guard.Armed => "Armed, but not standing guard: some or all of its weapons fire only when "
+                           + "told. Click to guard.",
+            _ => "Safe. Click to guard: master arm and auto-engage together, on every weapon on it.",
+        });
+    }
 
-        ImGui.SameLine();
-        if (ImGui.SmallButton("Manage")) _managed = craft;
+    private static bool CanAutoEngage(WeaponSystems.Entry e)
+        => WeaponFit.Of(e.Battery.Profile, e.Battery.Sensor).AutoEngages;
+
+    private void DrawChaseButton()
+    {
+        bool chasing = false;
+        foreach (WeaponSystems.Entry e in _rowSystems) chasing |= e.Policy.ChaseRounds;
+
+        if (IconButton("##chase", Icon.Camera, chasing ? ChaseInk : OffInk, lit: chasing))
+        {
+            foreach (WeaponSystems.Entry e in _rowSystems) e.Policy.ChaseRounds = !chasing;
+        }
+
+        Tip((chasing ? "Chasing. " : "Not chasing. ")
+            + "Rides the camera behind a round this craft fires, while it is the craft you are "
+            + "flying or the one whose window is open, and hands the view back on its own: after "
+            + "the burst, or about two seconds after the round has nothing left to arrive at.");
+    }
+
+    private void DrawTeamButton(KSA.Vehicle craft)
+    {
+        IReadOnlyList<string> teams = _config.TeamNames;
+        string? team = TeamOf(craft);
+        int group = GroupOf(team, teams);
+
+        ImColor8 ink = group < teams.Count ? Ink(TeamColour(group)) : OffInk;
+
+        if (IconButton("##team", Icon.Flag, ink, lit: false) && teams.Count > 0)
+        {
+            string? next = Teams.Next(team, teams);
+
+            foreach (WeaponSystems.Entry e in _rowSystems) e.Policy.Iff.OwnTeam = next;
+            foreach (OpticalHeads.Entry h in _rowHeads) h.Policy.Iff.OwnTeam = next;
+
+            // The Teams and IFF tab edits a text buffer of its own, which would go on showing the
+            // team this replaced.
+            if (ReferenceEquals(craft, Focused)) _ownTeamEntry = next ?? string.Empty;
+        }
+
+        Tip(teams.Count == 0
+            ? "No teams declared yet. Add them on the Teams and IFF tab of any craft's window."
+            : $"On {team ?? "no team"}: the side it fights for, which its IFF sorts every contact "
+              + "against. Click for the next declared team.");
+    }
+
+    // The side an installation fights for: its selected weapon's, or its director's when it
+    // carries no weapon. What the flag shows and what the list groups by.
+    private string? TeamOf(KSA.Vehicle craft)
+    {
+        if (_batteries.For(craft) is { } entry) return entry.Policy.Iff.OwnTeam;
+
+        _heads.On(craft, _teamHeads);
+        return _teamHeads.Count > 0 ? _teamHeads[0].Policy.Iff.OwnTeam : null;
+    }
+
+    private static int GroupOf(string? team, IReadOnlyList<string> teams)
+    {
+        if (team is null) return teams.Count;
+
+        for (int i = 0; i < teams.Count; i++)
+        {
+            if (string.Equals(teams[i], team, StringComparison.OrdinalIgnoreCase)) return i;
+        }
+
+        return teams.Count;
+    }
+
+    private readonly List<WeaponSystems.Entry> _rowSystems = [];
+    private readonly List<OpticalHeads.Entry> _rowHeads = [];
+    private readonly List<OpticalHeads.Entry> _teamHeads = [];
+
+    private static readonly float4[] TeamColours =
+    [
+        new(1.00f, 0.42f, 0.36f, 1f),
+        new(0.42f, 0.62f, 1.00f, 1f),
+        new(0.45f, 0.88f, 0.45f, 1f),
+        new(1.00f, 0.78f, 0.30f, 1f),
+        new(0.76f, 0.52f, 1.00f, 1f),
+        new(0.36f, 0.86f, 0.90f, 1f),
+    ];
+
+    private static float4 TeamColour(int group) => TeamColours[group % TeamColours.Length];
+
+    private static ImColor8 Ink(float4 c)
+        => new((byte)(c.X * 255f), (byte)(c.Y * 255f), (byte)(c.Z * 255f), (byte)(c.W * 255f));
+
+    private static readonly float4 LitButton = new(0.22f, 0.36f, 0.26f, 1f);
+    private static readonly float4 FlyingButton = new(0.20f, 0.32f, 0.48f, 1f);
+    private static readonly ImColor8 GuardInk = new(100, 240, 120, 255);
+    private static readonly ImColor8 ArmedInk = new(255, 200, 70, 255);
+    private static readonly ImColor8 ChaseInk = new(130, 190, 255, 255);
+    private static readonly ImColor8 OffInk = new(140, 140, 150, 255);
+    private static readonly ImColor8 Lens = new(24, 26, 32, 255);
+
+    private enum Icon { Shield, Camera, Flag }
+
+    // A square button the height of a text one, with a symbol drawn on it. Drawn rather than
+    // typed, because KSA's fonts carry basic Latin only and a symbol would render as a box.
+    private static bool IconButton(string id, Icon icon, ImColor8 ink, bool lit)
+    {
+        float side = ImGui.GetFrameHeight();
+
+        if (lit) ImGui.PushStyleColor(ImGuiCol.Button, LitButton);
+        bool clicked = ImGui.Button(id, new float2?(new float2(side, side)));
+        if (lit) ImGui.PopStyleColor();
+
+        DrawIcon(ImGui.GetWindowDrawList(), icon, ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), ink);
+        return clicked;
+    }
+
+    private static void DrawIcon(ImDrawListPtr draw, Icon icon, float2 min, float2 max, ImColor8 ink)
+    {
+        float w = max.X - min.X;
+        float h = max.Y - min.Y;
+        float2 P(float u, float v) => new(min.X + (u * w), min.Y + (v * h));
+
+        switch (icon)
+        {
+            case Icon.Shield:
+                draw.AddRectFilled(P(0.25f, 0.18f), P(0.75f, 0.52f), ink);
+                draw.AddTriangleFilled(P(0.25f, 0.52f), P(0.75f, 0.52f), P(0.5f, 0.86f), ink);
+                break;
+
+            case Icon.Camera:
+                draw.AddRectFilled(P(0.18f, 0.34f), P(0.82f, 0.78f), ink);
+                draw.AddRectFilled(P(0.36f, 0.24f), P(0.56f, 0.34f), ink);
+                draw.AddCircleFilled(P(0.5f, 0.56f), 0.13f * h, Lens);
+                break;
+
+            case Icon.Flag:
+                draw.AddLine(P(0.3f, 0.16f), P(0.3f, 0.86f), ink, 1.5f);
+                draw.AddTriangleFilled(P(0.3f, 0.18f), P(0.78f, 0.34f), P(0.3f, 0.5f), ink);
+                break;
+        }
     }
 
     // One system's own window: everything that belongs to that installation rather than to the

@@ -301,4 +301,36 @@ public class IffTests
     {
         Assert.Equal("Red", Teams.TeamFor("Redstone", Sides));
     }
+
+    // ---- Stepping a switcher row's flag ----------------------------------
+
+    private static readonly string[] Declared = ["Red", "Blue", "Green"];
+
+    [Fact]
+    public void TheFlagStepsThroughTheDeclaredTeamsThenNone()
+    {
+        Assert.Equal("Red", Teams.Next(null, Declared));
+        Assert.Equal("Blue", Teams.Next("Red", Declared));
+        Assert.Equal("Green", Teams.Next("Blue", Declared));
+        Assert.Null(Teams.Next("Green", Declared));
+    }
+
+    [Fact]
+    public void TheFlagMatchesATeamWhateverItsCase()
+        => Assert.Equal("Blue", Teams.Next("red", Declared));
+
+    /// <summary>
+    /// A team that has since been removed from the list would otherwise be a flag that steps to
+    /// nothing, or a row stuck on a team nobody can see.
+    /// </summary>
+    [Fact]
+    public void ATeamNoLongerDeclaredStepsToTheFirst()
+        => Assert.Equal("Red", Teams.Next("Orange", Declared));
+
+    [Fact]
+    public void WithNothingDeclaredThereIsNothingToStepTo()
+    {
+        Assert.Null(Teams.Next(null, []));
+        Assert.Null(Teams.Next("Red", []));
+    }
 }

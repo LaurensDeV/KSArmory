@@ -349,6 +349,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/Iff.cs` | which side a contact is on, and whether it may be engaged |
+| `Sim/GuardState.cs` | whether a craft's weapons are standing guard — **the switcher's one switch for master arm and auto-engage together** |
 | `Sim/LineOfSight.cs` | whether a body is between the viewer and something |
 | `Sim/ITerrainHeights.cs` | **the seam a sensor looks over the real skyline through** |
 | `Sim/TerrainMask.cs` | whether a ridge hides a contact, and how few samples that can cost |
@@ -407,7 +408,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/IcbmOverlay.cs` | the arc it is on and the ring it is aimed at |
 | `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
 | `Ksa/SiteDesignator.cs` | click the world to name where the warheads go — **a mode, not a button** |
-| `Ksa/Ui/Ui.cs` | the panel's shell: system list, panes, and which system they read |
+| `Ksa/Ui/Ui.cs` | the panel's shell: the switcher — one row per craft, grouped by team, a name to fly it and guard, chase and team as drawn icons — the panes, and which system they read |
 | `Ksa/Ui/UiSession.cs` | the world clock, and what the session draws and hears |
 | `Ksa/Ui/UiSystem.cs` | one row per component: what each part is, sees and is doing |
 | `Ksa/Ui/UiOptic.cs` | one director's rows — what it looks at, looks through, and will watch. **Reads no weapons system**, because a craft with a director and no armament has all of them |
@@ -471,7 +472,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 493 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 500 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -2212,7 +2213,7 @@ returned to a borrowed pose that nothing is driving. `ViewClaimTests` fails agai
 **A view is taken back in two halves, and watching one of them is how a borrower keeps driving a
 view that is no longer its own.** The camera-mode menu changes the **mode** and leaves the follow;
 `[` and `]` do the opposite — `Universe.SeekNextVehicle` calls `SetFollow` and never touches
-`CameraMode` — and so do the panel's **Go to** button and KSA's `FollowWreckage`. So
+`CameraMode` — and so do clicking a name in the panel's switcher and KSA's `FollowWreckage`. So
 `ViewClaim.StillOurs` asks both, and a borrower that asked only about the mode goes on writing an
 offset measured from *its* craft against whatever craft the player switched to, which places the
 camera wherever the two happen to be apart.

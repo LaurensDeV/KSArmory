@@ -156,7 +156,7 @@ internal sealed partial class Ui
 
         ImGui.SeparatorText("Systems");
         ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
-        Tip("Brackets over every system. Look at in the list pins a label.");
+        Tip("Brackets over every system. Right-clicking a name in the list pins its label.");
         ImGui.Checkbox("Lock cue", ref _config.DrawLockCue);
         Tip("Brackets on what the selected weapon is engaging; they close as it locks.");
         ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);

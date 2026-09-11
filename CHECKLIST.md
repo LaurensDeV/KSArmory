@@ -1306,6 +1306,22 @@ the same band section 7.1b needs — fly one engagement and check both.
 - [ ] A chased round that expires while still closing hands the view straight back, logging
       `chase: the round expired, nothing to hold on`, rather than holding three seconds on nothing.
 
+### 7.6g The switcher — the panel's list, one row per craft
+
+`GuardStateTests` and `IffTests` hold the rules; none of this has been flown.
+
+- [ ] Craft sit under their team's name in its colour, in the declared order, with "No team" last.
+- [ ] Clicking a name flies it, and the craft being flown is tinted. Right-clicking a name turns
+      the view to it and pins its label without taking the seat.
+- [ ] The shield is grey when safe, amber when armed with auto-engage off, green when guarding.
+      One click from grey or amber guards every weapon on the craft; one click from green makes
+      them all safe. The craft's own window agrees afterwards.
+- [ ] The camera icon chases that craft's rounds once it is flown or its window is open.
+- [ ] The flag steps through the declared teams and then none, tinted with each team's colour, and
+      the row moves to that team's group. With no teams declared its tooltip says where to add them.
+- [ ] "..." opens the craft's full window.
+- [ ] The icons draw cleanly at the UI scale in use: nothing clipped, nothing off-centre.
+
 ---
 
 ## 12. The ballistic computer — flown, and landing inside a hundred metres
