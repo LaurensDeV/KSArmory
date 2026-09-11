@@ -6905,6 +6905,49 @@ Two smaller terms were found beside it, and are item 40:
 **What would refute it:** the walk not moving; or the landing walk moving while the re-fly lines
 still drift, which would mean something else changed.
 
+### Smoked: the re-fly lines flat at zero, and the walk with them
+
+`~/shots/2026-09-12-order-smoke`, one block: PASS in 10 minutes, six of six arrived on every rocket,
+all eight corrections ending on `noimprov`, nothing in either log.
+
+| arm | seats | walk from the release probe, per flight | cross | re-fly walk by fifths of the flight |
+| --- | --- | --- | --- | --- |
+| **order** | 2, 4, 6, 8 | +0.3, −1.7, +0.4, −0.5 m — **median −0.1**, 2 of 4 short | +0.01 m | **+0.00, +0.00, −0.01, −0.06, −0.04 m** |
+| base | 1, 3, 5, 7 | −1.9, −5.5, −5.5, −3.4 m — median −4.4, 4 of 4 short | +0.31 m | −0.13, −0.49, −0.84, −1.33, −2.05 m |
+
+**The mechanism is confirmed in flight.** The base arm's re-fly walk grows with the flight exactly as
+it did over 160 flights, and the order arm's stays within 6 cm of zero from release to the last
+re-fly, over 327 lines. What is left of the order arm's landing walk is made in the last few
+kilometres, which is the rotation phase's seat term (item 40), and its cross component is gone.
+
+Against their own seats' twenty flights on `2026-09-11-read`, the order flights sit at the 100th,
+75th, 50th and 100th percentiles and the base flights at the 5th, 38th, 20th and 8th — one world,
+63 points apart. The release probe and the endings match between arms, −5.9 against −5.1 m and
+`noimprov` throughout, as they have to.
+
+### The night, declared before it flies
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|order:SecondOrderWarheads=true' \
+    --aim 26.485S,68.148W --blocks 20 --out ~/shots/2026-09-12-order    # about 4 hours
+```
+
+Both arms now decide each pass on its reading (c59745c).
+
+* **Primary: the signed walk from the release probe, downrange, per flight, arm against arm with
+  seats levelled** — the term is one-signed, so its sign is the question, and the levelling takes
+  out the per-seat signs the rotation phase leaves. Predicted: order − base about +1.8 m. The
+  instrument reads a null where both arms had the first-order step, on `2026-09-11-read`: −0.10 m
+  [−0.28, +0.08] pooled, 9 of 20 shots positive.
+* **Beside it:** the walk's magnitude, `shot-report.py --paired --endpoint walk`; the cross
+  component, +0.19 m to about zero; the landing, `--paired`, a metre or two and not expected to
+  resolve.
+* **The in-flight check:** the re-fly lines by fifths of the flight read −0.08, −0.39, −0.71, −1.07
+  and −1.67 m on both arms of `2026-09-11-read`, and should read about zero throughout on the order
+  arm.
+* **Watch:** nothing before release changes, so the release probe and the correction loop's endings
+  should match between arms. A difference there is the fixture, not the change.
+
 ### The floor is the trim's settle band, and two ways past it
 
 **Not the frame.** `BusTrim` fires an axis only while its share of the velocity to gain exceeds
@@ -7064,7 +7107,7 @@ what 20b is flying against.
 | ~~34~~ | ~~Re-fly `AimThresholdTracksTheMiss` on the release endpoint~~ | **flown 2026-09-11, 20 blocks** | **0.78x [0.51, 1.11], shot-flip p=0.082 — UNRESOLVED, open; the landing 0.98x.** `noimprov` 42 to 6 of 80, and the short bias untouched, 71 and 74 of 80 short. Stays off. The revert at release is never flown (3cp), and the report's null was mis-built under `--levels-from` and read p=0.005 first — **3cq** |
 | ~~35~~ | ~~Re-read the ground as a warhead meets it~~ — `IcbmConfig.ResampleGroundAtImpact` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **walk 0.30x [0.26, 0.40], won 20 of 20; miss 0.60x [0.54, 0.79], won 16 of 20.** Every arm flight stopped within 0.1 m of its own surface, and the miss's p90 fell from 53 m to 23. **3cr, 3cs** |
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
-| **37** | **Integrate a warhead's fall to second order** — `IcbmConfig.SecondOrderWarheads` | **built, off** | **3cu** — the walk left after 35 is the round's own integrator: a half-kick of `a·h/2` held for the whole fall, **1.986 m short of the exact conic** headlessly and −2.1 m flown. Predicted −2.1 → −0.3 m |
+| **37** | **Integrate a warhead's fall to second order** — `IcbmConfig.SecondOrderWarheads` | **built, off; smoked, flying** — the re-fly walk flat at zero against −2.05 m on base | **3cu** — the walk left after 35 is the round's own integrator: a half-kick of `a·h/2` held for the whole fall, **1.986 m short of the exact conic** headlessly and −2.1 m flown. Predicted −2.1 → −0.3 m |
 | **38** | **Release on a reading inside the trim's floor**, and keep going while passes improve | not started | **3cu** — the floor derived as the trim's band x the arc's sensitivity, 7.3 m. 0.86x on the release probe from flown readings alone, 0.80x with the passes modelled |
 | **39** | **Lower the floor with KSA's pulse mode** | not started | **3cu** — one 1 ms pulse is 36x finer than the band; predicted floor ~1 m. An engine path the mod has never driven |
 | **40** | **The predictor's crossing tolerance** (+0.18 m) **and the ground lookup's rotation phase** (±3 m by seat) | not started | **3cu** |
