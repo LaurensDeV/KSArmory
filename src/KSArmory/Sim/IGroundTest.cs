@@ -18,8 +18,8 @@ namespace KSArmory;
 /// <para><b>A reentry vehicle is not that round.</b> It covers 40-90 m of ground in each of its last
 /// frames, so on a slope the sphere is the height of ground it has already left — and flown, that
 /// error times <c>cot(gamma)</c> is the whole of its walk from the release probe
-/// (<c>docs/ACCURACY-PLAN.md</c> 3cr). <see cref="Slug.ResampleGroundNearImpact"/> asks again under
-/// every sub-step near the surface, and is off until flown.</para>
+/// (<c>docs/ACCURACY-PLAN.md</c> 3cr). So a released warhead asks again under every sub-step near
+/// the surface — <see cref="Slug.ResampleGroundNearImpact"/> — which flown took its walk to 0.30x.</para>
 ///
 /// <para>Unlike <see cref="IHullTest"/> this takes an absolute position, and it is entitled to:
 /// terrain is a property of the world rather than of a separation between two things, so there is

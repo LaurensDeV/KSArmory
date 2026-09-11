@@ -2490,7 +2490,10 @@ should not be weakened without understanding what they buy:
 - Rounds collide with terrain only when their profile asks. `MunitionProfile.HitsTerrain` is set
   for the bomb and the reentry vehicle and nothing else, because it costs a terrain sample per
   round per frame and a CIWS burst is 150 shells in the air — so a shell still passes through a
-  hill and a missile that misses still carries on into space. Structures are not collided with at all: where a launch
+  hill and a missile that misses still carries on into space. A reentry vehicle also re-reads the
+  ground under every sub-step within 200 m of it, because a frame's first sample is the height of
+  ground it has already left — `IcbmConfig.ResampleGroundAtImpact`, 0.30x on the walk, flown.
+  Structures are not collided with at all: where a launch
   pad's surface is has no answer in this engine, so a bomb dropped on one bursts at ground level
   beside it.
 - The radar can mask against the real skyline, and ships not doing it.

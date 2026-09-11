@@ -6593,6 +6593,44 @@ about −1 m downrange before release, and 1-2 m at the ground — the next thin
 * **Item 8's 1.88x.** It assumed 78.7 ms frames; descent frames are now 18-30 ms, under the cap
   `MinTargetFrameRate` sets, so it does not bind.
 
+## 3cs. The ground re-read flown: the walk 0.30x, the miss 0.60x, and it ships — 2026-09-11
+
+`~/shots/2026-09-11-ground`, 20 paired blocks of `base|ground:ResampleGroundAtImpact=true`, declared
+in 3cr before it flew. All 20 PASS, 160 of 160 traced, no re-fly, no arm dropped, no exception in
+any log.
+
+| | predicted | flown | |
+| --- | --- | --- | --- |
+| **walk — the declared primary** | ~0.3x | **0.30x [0.26, 0.40]**, won 20 of 20, shot-flip p=0.002 | **WIN** |
+| **miss** | ~0.5x | **0.60x [0.54, 0.79]**, won 16 of 20, p=0.001 | **WIN** |
+| release probe | 0.95-1.05x | 1.03x [0.82, 1.11], p=0.620 | unmoved, as it has to be |
+| arm flights within 0.5 m of their own surface | all | **80 of 80, worst 0.10 m** | |
+
+**Every prediction held, and neither refutation happened.**
+
+| per flight | base | ground |
+| --- | --- | --- |
+| median \|walk\| | 6.8 m | **2.3 m** |
+| median group miss | 17.0 m | **12.0 m** |
+| 90th percentile | 53 m | **23 m** |
+| worst | 103 m | **30 m** |
+
+**The gain follows the ground.** Seat 3's walk falls from 52.1 m to 3.7 (0.07x), seat 4's from 14.5
+to 2.4 and seat 7's from 13.1 to 3.2, while the flat seats were at the floor already — seat 1 3.0 to
+1.4, seat 8 1.1 to 1.9. Against relief the ratio runs rho −0.64 (p=0.086 at eight seats). **The seat
+gradient in the miss is gone**: rho +0.01, where seat 3 had been ten times seat 1 on every night.
+
+**Shipped on**: `IcbmConfig.ResampleGroundAtImpact` defaults to true.
+
+### What the miss is now
+
+**The release probe is 7-8 m median on both arms against a walk of 2.3**, so the pre-release term is
+now three times the walk and the largest thing between here and rung C. **Item 36 is next** — the
+post-boost race of 3cr, whose bias is one-signed and predicted to go from about −6 m to −1. What
+remains of the walk is the flight model's floor (3cr's under-a-metre flights walked 2.0), plus the
+rotation-phase term the re-read leaves, worth a couple of metres on seat 3's slope and nothing on
+the flat.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -6714,7 +6752,7 @@ what 20b is flying against.
 | ~~30~~ | ~~Fix the walk estimator~~ | **built 2026-09-09, unflown** | shot-flip null, `--levels-from`, centimetre logging. Cross-levelled the two nights read **0.87x and 0.88x** where in-sample they read 0.72x and 1.12x — **the nights never disagreed, the divisor did**. Still to do: trace more than round 1 |
 | **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
 | ~~34~~ | ~~Re-fly `AimThresholdTracksTheMiss` on the release endpoint~~ | **flown 2026-09-11, 20 blocks** | **0.78x [0.51, 1.11], shot-flip p=0.082 — UNRESOLVED, open; the landing 0.98x.** `noimprov` 42 to 6 of 80, and the short bias untouched, 71 and 74 of 80 short. Stays off. The revert at release is never flown (3cp), and the report's null was mis-built under `--levels-from` and read p=0.005 first — **3cq** |
-| **35** | **Re-read the ground as a warhead meets it** — `IcbmConfig.ResampleGroundAtImpact` | built 2026-09-11, unflown; a paired smoke shot, then a night on the walk and the miss | **3cr** — the walk is the round stopping on ground it has left: R² 0.86-0.92 on seven nights. Predicted walk 6.7 → ~2 m, miss ~14 → 6-8 m. The largest single term on this plan |
+| ~~35~~ | ~~Re-read the ground as a warhead meets it~~ — `IcbmConfig.ResampleGroundAtImpact` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **walk 0.30x [0.26, 0.40], won 20 of 20; miss 0.60x [0.54, 0.79], won 16 of 20.** Every arm flight stopped within 0.1 m of its own surface, and the miss's p90 fell from 53 m to 23. **3cr, 3cs** |
 | **36** | **Decide on the reading, not fifteen seconds after it** — the post-boost race | not built; headless first | **3cr** — `PostBoostAim` spends its flag on a frame with no reading, so 95% of later readings wait out the 15 s backstop. Predicted −5.75 → ~−1 m before release, 1-2 m at the ground. Next after 35 |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |

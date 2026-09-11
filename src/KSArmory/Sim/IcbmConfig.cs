@@ -425,11 +425,13 @@ internal sealed class IcbmConfig
     /// <c>cot(gamma)</c> at R² 0.86-0.92, and flights whose error happened to be under a metre walked
     /// a median 2 m against 7 overall. <c>docs/ACCURACY-PLAN.md</c> 3cr.</para>
     ///
-    /// <para><b>Off, and off is what ships</b>, until it has been flown. It costs a terrain lookup
-    /// per sub-step within <see cref="Slug.GroundResampleBandMetres"/> of the ground — a few dozen
-    /// a warhead.</para>
+    /// <para><b>On.</b> Flown over 20 paired shots: the walk 0.30x [0.26, 0.40] and the miss 0.60x
+    /// [0.54, 0.79], with all 80 flights stopping within 0.1 m of their own surface and seat 3's
+    /// walk falling from 52 m to 4. <c>docs/ACCURACY-PLAN.md</c> 3cs. It costs a terrain lookup per
+    /// sub-step within <see cref="Slug.GroundResampleBandMetres"/> of the ground — a few dozen a
+    /// warhead.</para>
     /// </summary>
-    public bool ResampleGroundAtImpact;
+    public bool ResampleGroundAtImpact = true;
 
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
