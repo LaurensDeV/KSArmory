@@ -58,8 +58,12 @@ internal static class PlumeSmoke
 
     // Warm grey, and darker than white on every channel: the colour multiplies the sunlight and the
     // sky ambient together, so pulling it down is what takes the glare off as well as the hue.
-    private static readonly float3 Dirty = new(0.55f, 0.50f, 0.44f);
-    private static readonly float3 Clean = new(1f, 1f, 1f);
+    //
+    // Properties rather than static fields, because _colour above is initialised from Clean and
+    // static initialisers run in textual order: a field declared here still reads (0, 0, 0) there,
+    // and every trail is laid black.
+    private static float3 Dirty => new(0.55f, 0.50f, 0.44f);
+    private static float3 Clean => new(1f, 1f, 1f);
 
     /// <summary>
     /// A cursor laying smoke. One per strand of the shape: move it and it draws a capsule from
