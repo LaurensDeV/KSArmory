@@ -36,7 +36,11 @@ happen rather than a member that moved.
   2026-09-11. On the build that carries it, read the new condition in
   `PhysicsStates.ComputeDerivatives`, then retire the frame gate: it drops and re-flies any shot
   with a rotating-frame probe on an unsplit bus, and on a fixed build those shots are sound. Key it
-  on the off-gravity instead. See the entry below
+  on the off-gravity instead. To see the fix rather than wait for it — the tail is ~1% of shots —
+  hold one rocket's split and release ~90 s past the rest: the harness's defence site, moved to
+  within 250 m of the aim, then leads a `Ccf` bubble that catches that bus before it splits on
+  nearly every shot. Its off-gravity should read ~0 and its split debt the usual 0.3-0.5 m/s. See
+  the entry below
 
 **Twelve of the thirteen rechecked against 2026.9.4.5400 and still blocked; partial damage is the
 one that moved** — KSA grew a real part-failure system, and the entry below says what it is and what

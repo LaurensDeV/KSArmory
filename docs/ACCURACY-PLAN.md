@@ -8,7 +8,41 @@ Read this first; those two keep their reasoning and their measurements.
 the KSA corpus and the backlog itself — and between them they moved the top of the list from "tune a
 constant" to "there is a bug, and the engine has a lever nobody used".
 
-## Where it stands after 2026-09-08 — read this first
+## Where it stands after 2026-09-11 — read this first
+
+**The one-line version: the shot is 12 m median per rocket, down from 17, because the walk was the
+warhead stopping on stale ground and now it does not. What is left is mostly a 6-8 m bias made
+before release, which is a race with a known fix.**
+
+The entries to read are **3cr**, **3cs**, **3cp** and **3cq**. The 2026-09-08 block below is
+history, and two of its items have since been overturned.
+
+1. **The walk is fixed and ships (3cr, 3cs).** A warhead stopped on the height it sampled at the top
+   of its last frame, 40-90 m of track back. `IcbmConfig.ResampleGroundAtImpact`, now on by
+   default, re-reads the ground near impact: over 20 paired blocks the walk went **0.30x** and the
+   miss **0.60x** — median miss 17 to 12 m, 90th percentile 53 to 23, worst 103 to 30, and seat 3's
+   walk 52 m to 4. The seat gradient is gone. B below said the walk "follows the ground"; it
+   followed the ground the round had *already left*.
+2. **The pre-release term is next, and it is a race (3cr, item 36).** `PostBoostAim` spends its
+   "correction flown" flag on a frame with no reading, so 95% of later readings wait out a 15 s
+   backstop and the warheads leave on a reading ~14.7 s old: a one-signed short bias, 71-74 of 80
+   flights short, and now three times the walk. 3cr writes out the build and the test. Predicted
+   −6 m to about −1 before release.
+3. **The release freeze is bookkeeping (3cp).** Its revert happens in the frame the warheads leave
+   and nothing flies it — the revert's size predicts the release probe at +0.10 over 536 flights —
+   which overturns D below. `AimThresholdTracksTheMiss` (item 34) flew 0.78x on the release probe,
+   unresolved and flat on the landing, and stays off (3cq).
+4. **The km-scale tail is fixed upstream (3cn, 3cr).** RocketWerkz revision 5429, unreleased as of
+   2026-09-11, applies the fictitious forces a `Ccf` bubble was stripping from a high bus. The
+   mod-side workarounds 33f, 33g and 24 are held; `BLOCKED-ON-KSA.md` has the recheck for the build
+   that carries it, and a way to reproduce the bubble on demand.
+5. **One instrument fault fixed.** `shot-report.py`'s shot-flip null refitted seat levels that
+   `--levels-from` had borrowed, and read p=0.005 where the honest test says 0.082 (3cq). No earlier
+   verdict changes. And 3cd/3ck's arrival-angle null had a confound — the steep arm fell on slower
+   frames, so its stale-ground error was larger — which the re-read removes. Whether the angle buys
+   anything now is open, not predicted.
+
+## Where it stood after 2026-09-08
 
 **The one-line version: the shot is 15 m, and it is two errors of roughly equal size — 10.5 m made
 during the fall, which follows the ground, and 7 m made before release, which does not. The aim
@@ -6584,6 +6618,25 @@ and paid off within five — at the readings the trim owes 0.02 m/s — and 34b'
 from aiming one pass late, which costs about 5 m, so its loss is more likely in the `departsIn`
 reuse (inferred). **Not built**: consume the flag only on a finite reading. Predicted −5.75 m to
 about −1 m downrange before release, and 1-2 m at the ground — the next thing after the walk.
+
+**How to build it, so nobody has to re-derive it.** In `PostBoostAim.Update`, around lines 318-335,
+handle a frame with no reading *before* clearing `_flownSinceMeasured`, so only a finite reading
+consumes the flag. Behind `IcbmConfig.DecideOnTheReading`, off, carried through a new
+`PostBoostSituation` field set where `IcbmComputer` builds the situation (~line 1468), with a panel
+control for `check-tunables`. The observer, the frames and the terrain callback are untouched, which
+is what separates it from 34b.
+
+The test goes in a new `PostBoostFlownReadingTests`, not on `PostCutoffRig`, which does not model
+the engine's frame order: after a pass, several frames with the trim unsettled, one settled frame
+with a NaN reading, then a finite one — the decision must come on that finite frame, where today it
+waits out `FlownWithinSeconds`. The existing three tests never pass NaN after the first cycle, so
+they should not move. Then one paired smoke shot with `base|fix:DecideOnTheReading=true` — later
+readings decided inside a second, the dwell under one — and a night scored on the **signed** release
+downrange, since the term is a bias, with the magnitude beside it.
+
+Two things to watch: payback's threshold shrinks with the cycle, so more flights will end on
+`noimprov` or the clock; and an earlier release shifts the world step under the walk (item 32),
+which confounds the walk and the miss but not the release probe.
 
 ### Stale by the same pass
 
