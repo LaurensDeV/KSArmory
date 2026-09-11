@@ -6718,6 +6718,41 @@ waiting — and two of that shot's eight rockets ran out `MaxSeconds` at 120 s.
 coincidence rather than the cause; or the arm spending passes it cannot pay for, since a shorter
 cycle lowers payback's threshold and more flights will end on `noimprov` or the pass limit.
 
+### Smoked: the bias gone on every seat that flew it
+
+`~/shots/2026-09-11-read-smoke`, one block: PASS in 11 minutes, a release probe on 8 of 8 flights,
+23.8 ms frames, nothing in either log.
+
+| arm | seats | release downrange, per flight | ended on |
+| --- | --- | --- | --- |
+| **read** | 2, 4, 6, 8 | −6.0, +2.7, +10.1, −2.7 m — **median −0.0**, 2 of 4 short | `noimprov` ×4 |
+| base | 1, 3, 5, 7 | −7.4, −1.1, −7.8, −14.2 m — median −7.6, 4 of 4 short | payback ×3 at 16.5-18.6 s, `noimprov` ×1 |
+
+One block cannot compare arms (3by), so each seat is set against its own forty flights on
+`2026-09-11-band` and `-ground`, where both arms had the race. **The four read seats land at the
+70th, 95th, 100th and 87th percentiles of their own history; the four base seats at the 45th, 78th,
+53rd and 35th.** Four uniform ranks averaging 0.88 by chance is p ≈ 0.002. The read arm also ended
+its corrections 30-80 s before the base arm, which is the dwell no longer being served.
+
+Two things to watch rather than conclusions: seat 6 at +10.1 m is just past the top of its own
+history, so a removed bias may leave some flights long; and every read flight ended on `noimprov`,
+the side-effect predicted above.
+
+### The night, declared before it flies
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|read:DecideOnTheReading=true' \
+    --aim 26.485S,68.148W --blocks 20 --out ~/shots/2026-09-11-read    # about 3.8 hours
+```
+
+* **Primary: the signed release downrange**, per flight, arm against arm with seats levelled — the
+  term is a bias, so its sign is the question. Predicted −6 m to about −1.
+* **Beside it:** the release probe's magnitude, `shot-report.py --paired --endpoint release`, and
+  the landing, `--paired`, predicted 1-2 m better and not expected to resolve at this n.
+* **What would refute it:** the signed release downrange not moving; or it moving and the landing
+  getting worse, which would mean the dwell was cancelling something downstream.
+* **Watch:** the ending mix, and whether the read arm spends more trim.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
