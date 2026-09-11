@@ -355,19 +355,62 @@ public class ChaseViewTests
                     $"closing does not accelerate: {atStart:F2} m early against {atImpact:F2} m late");
     }
 
+    // A transition from a player's camera parked off to one side of the launcher onto the chase
+    // behind a round, with what it is flying at five kilometres beyond.
+    private static readonly double3 WasEye = new(0, -60, 20);
+    private static readonly double3 ChaseEye = new(-26, 0, 6);
+    private static readonly double3 Chased = Vec.Zero;
+    private static readonly double3 Target = new(5_000, 0, 0);
+
     [Fact]
     public void TheTransitionStartsWhereTheViewWasAndEndsOnTheChase()
     {
-        var was = new double3(0, 0, 0);
-        var chase = new double3(1000, 0, 0);
-        var lookWas = new double3(5000, 0, 0);
-        var lookChase = new double3(5000, 0, 0);
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 0.0,
+                           out double3 atStart, out _);
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 1.0,
+                           out double3 atEnd, out _);
 
-        ChaseView.TryBlend(was, lookWas, chase, lookChase, EngineAxis, 0.0, out double3 atStart, out _);
-        ChaseView.TryBlend(was, lookWas, chase, lookChase, EngineAxis, 1.0, out double3 atEnd, out _);
+        Assert.Equal(0.0, Vec.Len(atStart - WasEye), 1e-9);
+        Assert.Equal(0.0, Vec.Len(atEnd - ChaseEye), 1e-9);
+    }
 
-        Assert.Equal(was.X, atStart.X, 1e-9);
-        Assert.Equal(chase.X, atEnd.X, 1e-9);
+    /// <summary>
+    /// The look starts on the round, which is what the chase is about, and is fully on what it is
+    /// flying at by the end, which is where the settled pose looks.
+    /// </summary>
+    [Fact]
+    public void TheLookTurnsFromTheRoundOntoTheTarget()
+    {
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 0.0,
+                           out double3 eye, out double3 forward);
+        double offRound = Vec.AngleBetween(forward, Chased - eye) * 180.0 / Math.PI;
+
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 1.0,
+                           out eye, out forward);
+        double offTarget = Vec.AngleBetween(forward, Target - eye) * 180.0 / Math.PI;
+
+        Assert.True(offRound < 1e-3, $"the transition opens {offRound:F3} deg off the round");
+        Assert.True(offTarget < 1e-3, $"the transition ends {offTarget:F3} deg off the target");
+    }
+
+    /// <summary>
+    /// Halfway through, the look is halfway between the two as seen from where the eye has got to.
+    /// Lerping the two positions instead is taken over by the far one almost at once: the target is
+    /// over a hundred times further off than the round here, so the view would be on it already.
+    /// </summary>
+    [Fact]
+    public void HalfwayThroughTheLookIsHalfwayRound()
+    {
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 0.5,
+                           out double3 eye, out double3 forward);
+
+        double toRound = Vec.AngleBetween(forward, Chased - eye);
+        double toTarget = Vec.AngleBetween(forward, Target - eye);
+        double apart = Vec.AngleBetween(Chased - eye, Target - eye);
+
+        Assert.True(apart > 0.5, $"the round and the target are only {apart:F2} rad apart");
+        Assert.Equal(toRound, toTarget, 1e-6);
+        Assert.Equal(apart, toRound + toTarget, 1e-6);
     }
 
     /// <summary>
@@ -379,11 +422,12 @@ public class ChaseViewTests
     {
         var was = new double3(0, 0, 0);
         var chase = new double3(1000, 0, 0);
+        var round = new double3(1026, 0, 0);
         var look = new double3(5000, 0, 0);
 
         double At(double t)
         {
-            ChaseView.TryBlend(was, look, chase, look, EngineAxis, t, out double3 eye, out _);
+            ChaseView.TryBlend(was, chase, round, look, EngineAxis, t, out double3 eye, out _);
             return eye.X;
         }
 
@@ -393,45 +437,65 @@ public class ChaseViewTests
     }
 
     /// <summary>
-    /// Both ends are anchored to different moving things and rebuilt every frame. Advancing both
-    /// by a step of shared motion must move the blended eye by exactly that and no more —
-    /// anything else is the ecliptic's ~29.8 km/s leaking in, ~500 m of it per frame at 60 fps.
+    /// Every point is anchored to a different moving thing and rebuilt every frame. Advancing them
+    /// all by a step of shared motion must move the blended eye by exactly that and turn the view
+    /// not at all — anything else is the ecliptic's ~29.8 km/s leaking in, ~500 m of it per frame
+    /// at 60 fps.
     /// </summary>
     [Fact]
     public void SharedMotionCarriesTheWholeTransitionWithIt()
     {
-        var was = new double3(0, 0, 0);
-        var chase = new double3(1000, 0, 0);
-        var look = new double3(5000, 0, 0);
         var step = new double3(496.7, -12.0, 3.5);
 
-        ChaseView.TryBlend(was, look, chase, look, EngineAxis, 0.35, out double3 before, out _);
-        ChaseView.TryBlend(was + step, look + step, chase + step, look + step, EngineAxis, 0.35,
-                           out double3 after, out _);
+        ChaseView.TryBlend(WasEye, ChaseEye, Chased, Target, EngineAxis, 0.35,
+                           out double3 before, out double3 facingBefore);
+        ChaseView.TryBlend(WasEye + step, ChaseEye + step, Chased + step, Target + step, EngineAxis,
+                           0.35, out double3 after, out double3 facingAfter);
 
         Assert.Equal(step.X, after.X - before.X, 1e-9);
         Assert.Equal(step.Y, after.Y - before.Y, 1e-9);
         Assert.Equal(step.Z, after.Z - before.Z, 1e-9);
+        Assert.True(Vec.Len(facingAfter - facingBefore) < 1e-9, "the shared motion turned the view");
     }
 
     /// <summary>
-    /// A round fired back over the launcher turns the view through an about-face. Aiming at points
-    /// rather than interpolating directions is what makes that ordinary: two points are never
-    /// opposed, where two directions collapse to zero length halfway and normalise to NaN, which
-    /// reaches the engine as a camera rotation it divides by.
+    /// A round fired back over the launcher turns the view through an about-face: the round ahead
+    /// of where the view was, what it is flying at behind it. The eye passes over the round on its
+    /// way in behind it, so the turn goes by way of looking down at it, and it must produce a
+    /// direction all the way — a zero-length one reaches the engine as a camera rotation it
+    /// divides by.
     /// </summary>
     [Fact]
     public void TurningThroughAnAboutFaceStillProducesADirection()
     {
-        for (double t = 0.0; t <= 1.0; t += 0.125)
+        var round = new double3(100, 0, 0);
+        var behind = new double3(-5_000, 0, 0);
+        var settled = new double3(126, 0, 6);
+
+        for (double t = 0.0; t <= 1.0; t += 0.0625)
         {
-            bool ok = ChaseView.TryBlend(new double3(0, 0, 0), new double3(1000, 0, 0),
-                                         new double3(10, 0, 0), new double3(-1000, 0, 0), EngineAxis, t,
+            bool ok = ChaseView.TryBlend(Vec.Zero, settled, round, behind, EngineAxis, t,
                                          out _, out double3 facing);
 
-            Assert.True(ok, $"no direction at t={t:F3}");
-            Assert.True(Vec.IsFinite(facing), $"not finite at t={t:F3}");
+            Assert.True(ok, $"no direction at t={t:F4}");
+            Assert.True(Vec.IsFinite(facing), $"not finite at t={t:F4}");
             Assert.Equal(1.0, Vec.Len(facing), 1e-6);
         }
+    }
+
+    /// <summary>
+    /// With the eye exactly between the round and what it is flying at, the two ends of the turn
+    /// lerp to nothing halfway. Refused, which finishes the transition, rather than normalised into
+    /// a NaN the engine would divide by.
+    /// </summary>
+    [Fact]
+    public void AnExactlyOpposedTurnIsRefusedRatherThanNormalised()
+    {
+        bool ok = ChaseView.TryBlend(Vec.Zero, Vec.Zero, new double3(100, 0, 0),
+                                     new double3(-5_000, 0, 0), EngineAxis, 0.5,
+                                     out _, out double3 facing);
+
+        Assert.False(ok);
+        Assert.True(Vec.IsFinite(facing), "a refusal still has to hand back a direction");
     }
 }

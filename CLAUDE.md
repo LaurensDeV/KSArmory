@@ -372,6 +372,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/FrameBudget.cs` | **what this mod costs the frame, split by what costs it** — the other side of `SolverLoad`'s subtraction, because three suspects eliminated one at a time is not the same as measuring the whole |
 | `Sim/SolverLoad.cs` | whether the engine is keeping up, and what more work in the world costs — **the instrument both throughput levers are priced with**, because neither several rockets nor several game instances has ever been measured |
 | `Sim/ChaseView.cs` | where to put a camera riding behind a round |
+| `Sim/ChaseInterest.cs` | whether a chased round is still going anywhere — **a round with nothing to arrive at can only run out of flight**, and riding it there is watching a despawn |
 | `Sim/ViewClaim.cs` | who may hold the player's main view, and what that means for the loser |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
 | `Sim/ReportDraft.cs` | a bug report or idea being written, and whether it is worth sending |
@@ -2331,15 +2332,22 @@ what an undesignated bomb is.
 case; applied for the whole flight it pins the camera at the aircraft's altitude for the whole of a
 bomb's fall, hundreds of metres above the thing it is meant to be riding.
 
-**The chase travels onto the round rather than cutting to it, and only its position really moves.**
-Both ends of the aim are taken at the **same depth** — the player's own view direction carried out
-to the range of what the round is flying at, against the chase's own look-at — so the sweep is
-bounded by how far the player's view was off the target, not by how far away it is. Through the
-sight that is nothing; from a camera parked on the craft it is a turn onto the target and no more.
-`ChaseView.TryBlend` takes those aims as two **points**, not two directions: directions turn at a
-wildly uneven rate and collapse to zero length when opposed, which is a round fired back over the
-launcher. Both ends are rebuilt from this frame's samples, held as separations from the craft and
-the round; a point stored in the ecliptic at the take falls half a kilometre behind per frame.
+**The chase travels onto the round rather than cutting to it, and the look turns from the round
+onto what it is flying at.** The eye eases from where the player had it to behind the round; the
+look starts **on the round** and is fully on the target when the transition ends, on the same ease
+— a lerp of the two as seen from wherever the eye has got to. So the take's one cut is a turn onto
+the round, which is what the chase is about, and the transition then brings the target in behind
+it until the two are in line, which is the settled pose. Both ends of the turn are taken at the
+**same depth** — the round's direction carried out to the range of what it is flying at — because
+a round a hundred metres off lerped against a target kilometres away is taken over by the far point
+at once, and seven-eighths of the turn is spent in the first fifth of the transition. The far end is
+at the target's range rather than the look-ahead for the same reason from the other side: 120 m out
+it is a point just past the round, and the view turns onto that instead of onto the target.
+`ChaseView.TryBlend` lerps **points** at that depth, which is a lerp of directions that also keeps
+the frame translation below exact; an exactly opposed pair lerps to nothing halfway and is refused,
+which finishes the transition, rather than normalised into NaN. Every point is rebuilt from this
+frame's samples, held as separations from the craft and the round; a point stored in the ecliptic
+at the take falls half a kilometre behind per frame.
 
 **The transition's two ends are offsets from the round, never a pair of ecliptic positions.**
 `PlatformEcl` is sampled in `SampleWorld` before the round is stepped and `round.PositionEcl` read
@@ -2369,6 +2377,19 @@ warped one scales the whole average.
 **`ChaseView.TryPose` decides where the chase stands and is not the transition's business.** The
 transition lerps towards whatever it says. Changing the pose to improve the transition changes the
 shot everyone actually watches, and that is a separate decision.
+
+**A chased round with nothing left to arrive at is let go of, two seconds later.** It can only run
+out of flight: a missile whose target a sibling has killed flies on until `MaxFlightSeconds` reaps
+it, and riding it all that way is watching a despawn. `Sim/ChaseInterest.cs` counts how long the
+round has been closing on nothing — its target gone, or gone past — and `GraceSeconds` keeps the
+moment it lost the target, which is usually a burst ahead of it in frame. Then the chase hands the
+view back and passes over everything else in the air, the same stand-down a burst gets, because the
+siblings have usually lost the same target. The grace runs on **simulated** time, because the camera
+is still riding the round: a pause holds it, where wall clock would cut away from a frozen world. A
+store the ground stops is exempt — a bomb dropped on nothing ends by arriving, and the arrival is
+what the chase is for. The same test decides the take, so a round going nowhere is not taken only to
+be handed straight back, and one still turning onto its target is picked up once it closes. An
+**expiry** gets no linger either: nothing went off.
 
 **Reclaiming it has to switch the setting off, not just release the view once.** The setting is
 what asks for it, so a borrower that stands down and leaves the request standing takes the view

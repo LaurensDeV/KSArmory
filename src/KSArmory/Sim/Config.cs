@@ -350,7 +350,8 @@ public sealed class Config
 
     /// <summary>
     /// Diagnostic: hold the chase camera still through its transition instead of flying it onto
-    /// the round. It still takes the view and still aims, it simply does not travel.
+    /// the round. It still takes the view and keeps the round in the middle of it, it simply does
+    /// not travel.
     ///
     /// <para>This is a discriminator, not a setting anyone wants on. The transition jitters on an
     /// airless body and the camera's measured altitude over the ground alternates by ±145 m a

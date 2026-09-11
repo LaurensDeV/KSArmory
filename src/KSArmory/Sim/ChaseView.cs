@@ -5,6 +5,10 @@ namespace KSArmory;
 /// <summary>Where to put a camera that rides behind a round in flight.</summary>
 public static class ChaseView
 {
+    // Below this a line has no reliable direction left to take Unit() of. Metres, because it is
+    // about the arithmetic rather than about framing.
+    private const double MinAimRange = 1.0;
+
     /// <summary>
     /// Eye and forward for a camera trailing a round, looking past it at what it is flying at.
     /// </summary>
@@ -23,10 +27,6 @@ public static class ChaseView
     /// <paramref name="upHint"/>, which stays the local vertical and decides the lift. See
     /// <see cref="LeanOffAxis"/> for why the two are different directions.
     /// </param>
-    // Below this the line to the target has no reliable direction left, so the flight path is all
-    // there is. Metres, because it is about Unit() rather than about framing.
-    private const double MinAimRange = 1.0;
-
     public static bool TryPose(double3 roundEcl, double3 velocityLocal, double3? aimEcl,
                                double3 upHint, double3 engineAxisEcl,
                                double distanceBehind, double heightAbove, double lookAhead,
@@ -182,21 +182,32 @@ public static class ChaseView
     private const double Sharpness = 0.5;
 
     /// <summary>
-    /// Eases a camera from where the player had it onto the chase pose, without cutting.
+    /// Eases a camera from where the player had it onto the chase pose, turning the look from the
+    /// round onto what it is flying at.
     ///
-    /// <para>Both ends are given at the range of what the round is flying at, so the aim turns by
-    /// however far the player's view was off that and no further — <b>only the position really
-    /// travels</b>. It is why the aim is given as two <em>points</em> rather than two directions:
-    /// interpolating directions turns at a wildly uneven rate and collapses to zero length when
-    /// they oppose, where two points at one depth stay a bounded turn apart.</para>
+    /// <para>The look starts on the round and is fully on <paramref name="toLookAtEcl"/> when the
+    /// transition ends, on the same ease the eye travels by. In between it is a lerp of the two
+    /// <b>as seen from wherever the eye has got to</b>, so the round slides from the middle of the
+    /// frame towards where the settled pose puts it while the target comes in behind.</para>
     ///
-    /// <para><b>Both ends must be positions sampled this frame</b>, not stored ones. They are
+    /// <para><b>Both ends of the turn are taken at one depth</b>: the round's direction is carried
+    /// out to the range of the far end before the two are lerped. A round a hundred metres off
+    /// lerped against a target five kilometres away is taken over by the far point almost at once —
+    /// seven-eighths of a 60° turn in the first fifth of the transition. Two points at one depth
+    /// lerp as their directions do, so the turn is spread over the ease; an exactly opposed pair
+    /// lerps to nothing halfway, and is refused rather than normalised into NaN.</para>
+    ///
+    /// <para><b>Every point must be a position sampled this frame</b>, not a stored one. They are
     /// anchored to different moving things, and the ecliptic is inertial — a point captured at the
     /// start and held still falls half a kilometre behind per frame.</para>
     /// </summary>
+    /// <param name="roundEcl">The round being chased, where the turn starts.</param>
+    /// <param name="toLookAtEcl">
+    /// Along the settled view at the range of what the round is flying at, where the turn ends.
+    /// </param>
     /// <param name="t">Progress, 0 at the player's pose and 1 at the chase. Clamped.</param>
-    public static bool TryBlend(double3 fromEcl, double3 fromLookAtEcl,
-                                double3 toEcl, double3 toLookAtEcl,
+    public static bool TryBlend(double3 fromEcl, double3 toEcl,
+                                double3 roundEcl, double3 toLookAtEcl,
                                 double3 engineAxisEcl, double t,
                                 out double3 eyeEcl, out double3 forwardEcl)
     {
@@ -204,7 +215,7 @@ public static class ChaseView
         forwardEcl = Vec.Unit(toLookAtEcl - toEcl);
 
         if (!Vec.IsFinite(fromEcl) || !Vec.IsFinite(toEcl)) return false;
-        if (!Vec.IsFinite(fromLookAtEcl) || !Vec.IsFinite(toLookAtEcl) || !double.IsFinite(t))
+        if (!Vec.IsFinite(roundEcl) || !Vec.IsFinite(toLookAtEcl) || !double.IsFinite(t))
         {
             return false;
         }
@@ -213,7 +224,16 @@ public static class ChaseView
 
         eyeEcl = fromEcl + ((toEcl - fromEcl) * e);
 
-        double3 lookAt = fromLookAtEcl + ((toLookAtEcl - fromLookAtEcl) * e);
+        double depth = Vec.Len(toLookAtEcl - eyeEcl);
+        if (depth < MinAimRange) return false;
+
+        // An eye on top of the round has no direction to it, so the far end is all there is.
+        double3 toRound = roundEcl - eyeEcl;
+        double3 onRound = Vec.Len(toRound) > MinAimRange
+                          ? eyeEcl + (Vec.Unit(toRound) * depth)
+                          : toLookAtEcl;
+
+        double3 lookAt = onRound + ((toLookAtEcl - onRound) * e);
         double3 forward = lookAt - eyeEcl;
 
         if (Vec.Len2(forward) < 1e-6) return false;

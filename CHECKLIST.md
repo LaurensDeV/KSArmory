@@ -1285,6 +1285,27 @@ the same band section 7.1b needs — fly one engagement and check both.
 - [ ] Master arm, missile count and belt count in the top-left track the panel.
 - [ ] **Sight symbology** off leaves the target bracket and takes everything else away.
 
+### 7.6f The chase camera — the turn onto the target, and letting go
+
+`ChaseViewTests` and `ChaseInterestTests` hold the arithmetic; none of this has been flown.
+
+- [ ] Take a chase from the orbit camera with the craft in the middle of the screen. The view turns
+      onto the missile at the take — the one cut left — and then, as the eye travels in behind it,
+      turns onto the target, arriving on it as the transition ends. Nothing whips round in the
+      last few frames.
+- [ ] Take one through the sight. The turn is small: the sight was already on the target and the
+      missile leaves towards it.
+- [ ] Fire two at one drone and chase the second. When the first kills it the chase stays about
+      two seconds — the burst should be ahead of the round, in frame — then hands the view back.
+      The log says `chase: <tube> has nothing left to arrive at, handing the view back`. It must
+      not cut to another missile.
+- [ ] A missile that misses: the view comes back about two seconds after it passes the target, not
+      when it expires.
+- [ ] Pause inside those two seconds. The chase stays until the world runs again.
+- [ ] Drop a B61 on nothing. The chase rides it all the way down and holds on the burst.
+- [ ] A chased round that expires while still closing hands the view straight back, logging
+      `chase: the round expired, nothing to hold on`, rather than holding three seconds on nothing.
+
 ---
 
 ## 12. The ballistic computer — flown, and landing inside a hundred metres

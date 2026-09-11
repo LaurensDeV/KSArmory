@@ -27,9 +27,8 @@ public class ChaseBlendFrameTests
     private static double3 BlendedOffset(double3 fromOffset, double3 offsetFromPlatform,
                                          double3 eye, double blend)
     {
-        Assert.True(ChaseView.TryBlend(fromOffset - offsetFromPlatform,
-                                       fromOffset - offsetFromPlatform + Up * 8000.0,
-                                       eye, eye + Up * 8000.0,
+        Assert.True(ChaseView.TryBlend(fromOffset - offsetFromPlatform, eye,
+                                       Vec.Zero, eye + Up * 8000.0,
                                        Up, blend,
                                        out double3 blended, out _));
         return blended;
@@ -42,9 +41,8 @@ public class ChaseBlendFrameTests
     private static double3 BlendedAcrossInstants(double3 platformBeforeStep, double3 fromOffset,
                                                  double3 roundAfterStep, double3 eye, double blend)
     {
-        Assert.True(ChaseView.TryBlend(platformBeforeStep + fromOffset,
-                                       platformBeforeStep + fromOffset + Up * 8000.0,
-                                       roundAfterStep + eye, roundAfterStep + eye + Up * 8000.0,
+        Assert.True(ChaseView.TryBlend(platformBeforeStep + fromOffset, roundAfterStep + eye,
+                                       roundAfterStep, roundAfterStep + eye + Up * 8000.0,
                                        Up, blend,
                                        out double3 blended, out _));
         return blended - roundAfterStep;
