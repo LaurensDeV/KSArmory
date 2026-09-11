@@ -28,8 +28,8 @@ internal sealed partial class Ui
         if (!inv.IsInstallation)
         {
             ImGui.TextColored(Grey, "  Nothing this mod recognises.");
-            ImGui.TextDisabled("  A craft becomes an installation by carrying a part from");
-            ImGui.TextDisabled("  Catalogue.Components.");
+            Tip("A craft becomes an installation by carrying a part from Catalogue.Components, "
+                + "unless every part on it only rides on something else, as a lone rail or pod does.");
             return;
         }
 
@@ -149,14 +149,15 @@ internal sealed partial class Ui
 
         // A view control, so it sits with the weapon whose rounds it would ride.
         ImGui.Checkbox("Chase this launcher's rounds", ref _policy.ChaseRounds);
-        ImGui.TextDisabled("  rides the camera behind a round it fires; the view comes back after");
+        Tip("Rides the camera behind a round this launcher fires, and hands the view back on its own: "
+            + "after the burst, or about two seconds after the round has nothing left to arrive at.");
 
         // Only where it answers the right question. A guided round goes where it is steered, so a
         // ballistic pipper over one is a ring in the wrong place with nothing to say so.
         if (_fit.Drops)
         {
             ImGui.Checkbox("Bomb sight", ref _policy.DrawBombSight);
-            ImGui.TextDisabled("  where a store released now would land, flown rather than solved");
+            Tip("Marks where a store released now would land, flown rather than solved.");
         }
     }
 
@@ -197,9 +198,11 @@ internal sealed partial class Ui
         if (_battery.Sensor.Emits)
         {
             ImGui.Checkbox("Radar silent", ref _policy.RadarSilent);
-            ImGui.TextDisabled(_policy.RadarSilent
-                ? "  not transmitting: nothing to home on, and nothing seen either"
-                : "  transmitting: an anti-radiation round can home on this");
+            Tip("On: the set stops transmitting, so an anti-radiation round has nothing to home on, "
+                + "and the set sees nothing either. Off: it transmits, and an anti-radiation round "
+                + "can home on it.");
+            if (_policy.RadarSilent)
+                ImGui.TextDisabled("  not transmitting: nothing to home on, and nothing seen either");
         }
 
         // A button rather than a tick box: it opens a window, and a checkmark reads as "this
@@ -209,12 +212,8 @@ internal sealed partial class Ui
         if (scopeTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
         if (ImGui.Button("Scope")) TakeScope(_policy);
         if (scopeTinted) ImGui.PopStyleColor();
-
-        ImGui.SameLine();
-        ImGui.TextDisabled("what this set holds, by bearing and range");
-
-        ImGui.TextDisabled("  the Radar tab has the same scope above the full track list");
-
+        Tip("Opens or closes a scope of what this set holds, by bearing and range. The Radar tab "
+            + "has the same scope above the full track list.");
     }
 
     // Everything about releasing a weapon, on the part that decides it.
@@ -240,20 +239,20 @@ internal sealed partial class Ui
 
         // Mouse aim drives the traverse and elevation, so a launcher with neither has nothing for
         // the cursor to move -- its row already says it shoots where the craft points.
-        if (_fit.Aims) ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);
-        if (_fit.Aims && _policy.MouseAim)
+        if (_fit.Aims)
         {
-            ImGui.TextDisabled("  The launcher and the optical head follow the cursor. Auto-engage");
-            ImGui.TextDisabled("  still decides when to fire; the drives still have to settle first.");
+            ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);
+            Tip("The launcher follows the cursor instead of what the radar is holding. Auto-engage "
+                + "still decides when to fire, and the drives still have to settle first. An optical "
+                + "head has its own Mouse aim, on its director's row.");
         }
 
         ImGui.Checkbox("Fire at the mouse", ref _policy.MouseFire);
-        if (_policy.MouseFire)
-        {
-            ImGui.TextDisabled("  Click the ground to send a round there. No target and no lock");
-            ImGui.TextDisabled("  needed - the ring shows where, and turns red when it would refuse.");
-            if (!_policy.Armed) ImGui.TextColored(Amber, "  Master arm is off, so clicks do nothing.");
-        }
+        Tip("Click the ground to send a round there. No target and no lock are needed: the ring "
+            + "shows where, and turns red when the weapon is empty or not laid, the point is out of "
+            + "reach, or the round could not be guided there. It does not show the master arm.");
+        if (_policy.MouseFire && !_policy.Armed)
+            ImGui.TextColored(Amber, "  Master arm is off, so clicks do nothing.");
 
         // Last, and alone below a rule. It discards the installation's stored settings, so it is
         // kept clear of anything anyone reaches for in a hurry.
@@ -265,12 +264,8 @@ internal sealed partial class Ui
             _batteries.WriteNow();
             Log.Info($"settings reset for {KsaWorld.DisplayName(craft)}");
         }
-
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Back to defaults, and forgotten from the settings file.\n"
-                             + "This resets the whole installation, not this component.");
-        }
+        Tip("Back to defaults, and forgotten from the settings file. This resets the whole "
+            + "installation, not this component.");
     }
 
     // One armament's reading, or nothing when the system carries none of that kind.
@@ -370,10 +365,12 @@ internal sealed partial class Ui
         // button and did not, which is the one an operator actually uses.
         ImGui.SameLine(0f, ImGui.GetFrameHeight());
         if (ImGui.Button("FIRE")) FireSelectedGroup();
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip(_fit.AutoEngages
-                                 ? "Fire one salvo at the current lock, now."
-                                 : "Release one store now, at whatever is designated.");
+        // The same three cases WeaponSystem.FireAtLock branches on, in its order.
+        Tip(_battery.Profile.TubeCount == 0 ? "Fire one burst now, wherever the guns are pointing."
+            : !_battery.Munition.Powered
+                ? "Release one store now. A guided store steers onto whatever is designated; an "
+                  + "unguided one, or a guided one with nothing designated, simply falls."
+                : "Fire one round at the current lock, now.");
 
         // Auto-engage off is a mode, not a hold: FIRE still works, so saying "holding fire" about
         // it sends the operator looking for a fault that is not there.
@@ -459,9 +456,9 @@ internal sealed partial class Ui
 
         ImGui.Checkbox("Track with turret", ref _policy.TurretTracking);
 
-        if (!ImGui.TreeNode("Drive it by hand")) return;
-
-        ImGui.TextDisabled("  neither needs a target");
+        bool byHand = ImGui.TreeNode("Drive it by hand");
+        Tip("Neither spin nor manual aim needs a target.");
+        if (!byHand) return;
 
         if (_fit.Traverses) ImGui.Checkbox("Spin continuously", ref _policy.TurretSpin);
         ImGui.Checkbox("Manual aim", ref _policy.TurretManual);
@@ -474,7 +471,7 @@ internal sealed partial class Ui
         if (_fit.Elevates)
         {
             ImGui.SliderFloat("Elevation (deg)", ref _policy.TurretManualElevationDeg, 0f, 82f);
-            ImGui.TextDisabled("  elevation applies to spin as well as manual aim");
+            Tip("Applies to spin as well as manual aim.");
         }
 
         ImGui.TreePop();

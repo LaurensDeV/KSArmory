@@ -61,6 +61,8 @@ internal sealed partial class Ui
             {
                 policy.Viewport = index;
             }
+            Tip("Drag the window's title bar out of the game to put it on another monitor; the "
+                + "sight goes with it.");
 
             ImGui.SameLine();
         }
@@ -96,12 +98,9 @@ internal sealed partial class Ui
         }
         else if (policy.Viewport >= 0)
         {
-            ImGui.TextDisabled("  drag the window's title bar out of the game to put it on");
-            ImGui.TextDisabled("  another monitor - the sight goes with it");
-
             ImGui.TextColored(Amber, "  no terrain, sky or cloud here: KSA runs those passes for");
             ImGui.TextColored(Amber, "  the main view alone. Craft and rounds draw normally.");
-            ImGui.TextDisabled("  See docs/BLOCKED-ON-KSA.md");
+            Tip("docs/BLOCKED-ON-KSA.md has the engine reason.");
         }
 
         // A button rather than a tick box: it opens a window, and a checkmark reads as "this
@@ -113,27 +112,24 @@ internal sealed partial class Ui
         if (mapTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
         if (ImGui.Button("Map")) TakeMap(policy);
         if (mapTinted) ImGui.PopStyleColor();
-
-        ImGui.SameLine();
-        ImGui.TextDisabled("the ground under this head, with what it can see on it");
+        Tip("Opens or closes a map of the ground under this head, with what it can see on it.");
 
         ImGui.Checkbox("Track with the director", ref policy.Tracking);
         ImGui.SameLine();
         ImGui.Checkbox("Aim by hand", ref policy.Manual);
         ImGui.SameLine();
         ImGui.Checkbox("Mouse aim", ref policy.MouseAim);
+        Tip("On: the head follows the cursor, ahead of tracking and of the hand-aim sliders.");
 
         if (policy.MouseAim)
         {
-            ImGui.TextDisabled("  the head follows the cursor, ahead of tracking and of the sliders");
-
             // Only meaningful on the main view: the rest area exists because a head driving its
             // own picture chases a cursor its own turning keeps off centre, and pointing at a site
             // from another view has no such loop.
             if (policy.Viewport == KsaWorld.MainViewportIndex)
             {
                 ImGui.SliderFloat("Rest area (px)", ref policy.MouseDeadZonePx, 0f, 200f);
-                ImGui.TextDisabled("  inside the ring the head holds; outside it follows");
+                Tip("Inside the ring the head holds; outside it, the head follows the cursor.");
             }
         }
 
@@ -149,13 +145,10 @@ internal sealed partial class Ui
 
             ImGui.SliderFloat(rollNod ? "Nose roll (deg)" : "Director bearing (deg)",
                               ref policy.ManualBearingDeg, first.Min, first.Max);
+            if (rollNod) Tip("Turns the whole nose. The nod then tilts the ball within it.");
             ImGui.SliderFloat(rollNod ? "Sight nod off boresight (deg)" : "Director elevation (deg)",
                               ref policy.ManualElevationDeg, second.Min, second.Max);
-
-            if (rollNod)
-            {
-                ImGui.TextDisabled("  roll turns the whole nose; nod tilts the ball within it");
-            }
+            if (rollNod) Tip("Tilts the ball within the nose, which the roll turns.");
         }
 
         if (policy.Viewport >= 0) DrawSightLine(entry.Head, policy, main);
@@ -243,10 +236,9 @@ internal sealed partial class Ui
         ImGui.Checkbox("Sight symbology", ref policy.Symbology);
         ImGui.SameLine();
         ImGui.Checkbox("Level the horizon", ref policy.StabiliseHorizon);
-
-        ImGui.TextDisabled(policy.StabiliseHorizon
-            ? "  held against the site's vertical; near straight up or down it carries"
-            : "  rigid with the head - it rolls with the craft, and sideways stays sideways");
+        Tip("On: the picture is held against the site's vertical, and near straight up or down the "
+            + "roll is carried from frame to frame. Off: the picture is rigid with the head, so it "
+            + "rolls with the craft, and sideways stays sideways.");
 
         ImGui.Separator();
         DrawDirectorIff(head, policy);
@@ -275,7 +267,8 @@ internal sealed partial class Ui
             ImGui.SameLine();
             if (ImGui.Button("Release")) head.ClearDesignation();
 
-            ImGui.TextDisabled("  designated by hand; it beats whatever the set would have picked");
+            ImGui.TextDisabled("  designated by hand");
+            Tip("A designation beats whatever the head's own sensor would have picked.");
             return;
         }
 

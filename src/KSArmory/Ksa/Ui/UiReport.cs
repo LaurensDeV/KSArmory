@@ -169,10 +169,11 @@ internal partial class Ui
 
         if (!_report.AttachLog) return;
 
-        // Says what leaves the machine. The endpoint takes the last 12,000 characters and scrubs
-        // home directory paths out of them, and neither is obvious from here.
+        // Says what leaves the machine. The tail is sent as it is and the endpoint replaces the user
+        // name in home-folder paths before filing, so the line says "published", not "sent".
         long sending = Math.Min(_logBytes, ReportDraft.MaxLog);
-        ImGui.TextDisabled($"  last {sending / 1024f:F0} KB of {_logBytes / 1024f:F0} KB, paths removed");
+        ImGui.TextDisabled($"  last {sending / 1024f:F0} KB of {_logBytes / 1024f:F0} KB, "
+                           + "user names in paths hidden when published");
     }
 
     private void DrawSendButton()

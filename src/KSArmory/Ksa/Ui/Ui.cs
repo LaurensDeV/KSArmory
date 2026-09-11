@@ -329,8 +329,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         {
             ImGui.TextColored(Grey, "Nothing of this mod's is fitted to anything.");
             ImGui.TextDisabled("Fit a launcher from Weapons, or an EO director from Sensors.");
-            ImGui.TextDisabled("A craft with only a director is listed too - it is not a weapon,");
-            ImGui.TextDisabled("but it has a camera worth pointing.");
+            Tip("A craft with only a director is listed too. It is not a weapon, but it has a "
+                + "camera worth pointing.");
             return;
         }
 
@@ -404,7 +404,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         if (KsaWorld.MainViewFollows(craft))
         {
             ImGui.TextDisabled("Look at");
-            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Already looking at it.");
+            Tip("Already looking at it.");
         }
         else
         {
@@ -413,11 +413,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 Markers.Show(craft);
                 _watch.Watch(craft);
             }
-            if (ImGui.IsItemHovered())
-            {
-                ImGui.SetTooltip("Turn the view towards it and label it for a few seconds.\n"
-                                 + "Move the camera yourself at any point and it lets go.");
-            }
+            Tip("Turn the view towards it and label it for a few seconds. Move the camera yourself "
+                + "at any point and it lets go.");
         }
 
         ImGui.SameLine();
@@ -683,6 +680,30 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         int end = buffer.IndexOf((byte)0);
         value = System.Text.Encoding.UTF8.GetString(buffer[..(end < 0 ? buffer.Length : end)]);
         return true;
+    }
+
+    // What the control just drawn does, on hover. Explanations live here and a line under a
+    // control is for state the operator has to act on -- see CLAUDE.md on the panel.
+    //
+    // Wrapped, because a bare tooltip never is and a long one runs off the screen.
+    private static void Tip(string text)
+    {
+        if (!ImGui.BeginItemTooltip()) return;
+
+        ImGui.PushTextWrapPos(ImGui.GetFontSize() * TipWidthEms);
+        ImGui.TextWrapped(text);
+        ImGui.PopTextWrapPos();
+        ImGui.EndTooltip();
+    }
+
+    // The width Dear ImGui's own help markers wrap at.
+    private const float TipWidthEms = 35f;
+
+    // A grey (?) carrying an explanation that belongs to a section rather than to one control.
+    private static void Help(string text)
+    {
+        ImGui.TextDisabled("(?)");
+        Tip(text);
     }
 
 }

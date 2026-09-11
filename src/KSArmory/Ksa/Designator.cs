@@ -65,8 +65,9 @@ internal sealed class Designator
 
         double3 at = Lifted(groundEcl, battery);
 
-        // Coloured by whether the shot would be taken, because armed, loaded, in range and within
-        // the seeker's reach are four separate refusals that all look like a click doing nothing.
+        // Coloured by whether the weapon could take the shot, because loaded and laid, in range and
+        // within the seeker's reach are three refusals that all look like a click doing nothing.
+        // The master arm is not one of them: the panel says that in amber beside the switch.
         // The last is the least obvious: a fixed launcher can only shoot where it points.
         //
         // Asked of whichever weapon the launcher carries. Reading the magazine leaves a gun-only

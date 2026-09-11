@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-172 types and 488 members across 7 assemblies.
+172 types and 493 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -152,6 +152,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float2 GetMousePos()`
 - `bool Begin(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Begin(Brutal.ImGuiApi.ImString, ref bool, Brutal.ImGuiApi.ImGuiWindowFlags)`
+- `bool BeginItemTooltip()`
 - `bool BeginMainMenuBar()`
 - `bool BeginMenu(Brutal.ImGuiApi.ImString, bool)`
 - `bool BeginTabBar(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTabBarFlags)`
@@ -176,6 +177,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool TableNextColumn()`
 - `bool TreeNode(Brutal.ImGuiApi.ImString)`
 - `bool TreeNodeEx(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTreeNodeFlags)`
+- `float GetFontSize()`
 - `float GetFrameHeight()`
 - `float GetTextLineHeight()`
 - `uint ColorConvertFloat4ToU32(ref Brutal.Numerics.float4)`
@@ -188,12 +190,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void EndTabBar()`
 - `void EndTabItem()`
 - `void EndTable()`
+- `void EndTooltip()`
 - `void NewLine()`
 - `void PopID()`
 - `void PopStyleColor(int)`
+- `void PopTextWrapPos()`
 - `void ProgressBar(float, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImString)`
 - `void PushID(int)`
 - `void PushStyleColor(Brutal.ImGuiApi.ImGuiCol, ref Brutal.Numerics.float4)`
+- `void PushTextWrapPos(float)`
 - `void SameLine(float, float)`
 - `void Separator()`
 - `void SeparatorText(Brutal.ImGuiApi.ImString)`

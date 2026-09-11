@@ -14,17 +14,16 @@ internal sealed partial class Ui
 {
     private void DrawIff()
     {
-        ImGui.TextDisabled("KSA has no team field. A craft joins a team when the team's name");
-        ImGui.TextDisabled("appears anywhere in its name - so \"Red\" also matches \"Redstone\".");
-        ImGui.TextDisabled("Longest match wins. Name teams distinctly.");
-        ImGui.Separator();
-
         if (TextField("Own team", ref _ownTeamEntry))
         {
             _policy.Iff.OwnTeam = string.IsNullOrWhiteSpace(_ownTeamEntry) ? null : _ownTeamEntry.Trim();
             Remember(_policy.Iff.OwnTeam);
         }
 
+        ImGui.SameLine();
+        Help("KSA has no team field. A craft joins a team when the team's name appears anywhere in "
+             + "its name, so \"Red\" also matches \"Redstone\". Longest match wins. Name teams "
+             + "distinctly.");
         ImGui.SameLine();
         ImGui.TextDisabled(_policy.Iff.OwnTeam is null ? "(none - everything is Unknown)" : "");
 
@@ -108,9 +107,8 @@ internal sealed partial class Ui
             ImGui.TextDisabled($"{arm.Label}: {round.DisplayName}");
 
             ImGui.Checkbox($"Timed airburst (flak)##{arm.Label}", ref round.TimedFuse);
-            ImGui.TextDisabled(round.TimedFuse
-                                   ? "  rounds burst at the lead solution's flight time"
-                                   : "  rounds burst on proximity only");
+            Tip("On: rounds burst at the lead solution's flight time, and the proximity fuse still "
+                + "runs. Off: rounds burst on proximity only.");
         }
     }
 
@@ -159,12 +157,11 @@ internal sealed partial class Ui
     private void DrawDiscriminationControls()
     {
         ImGui.SliderFloat("Reference RCS (m2)", ref _sensor.ReferenceCrossSectionM2, 0f, 2000f);
+        Tip("The cross-section the range is quoted against. Above zero, a contact's own size scales "
+            + "the range by the fourth root of the ratio, so a target a hundredth the size is seen at "
+            + "a third of the range. Zero: the set reaches the same distance whatever it looks at.");
 
-        if (_sensor.ReferenceCrossSectionM2 <= 0f)
-        {
-            ImGui.TextDisabled("  the set reaches the same distance whatever it looks at");
-        }
-        else
+        if (_sensor.ReferenceCrossSectionM2 > 0f)
         {
             // Shown because the fourth-root law is not something anyone should have to take on
             // trust while dragging a slider: it is what makes a small target reachable at all.
@@ -193,24 +190,18 @@ internal sealed partial class Ui
     private void DrawHorizonControls()
     {
         ImGui.Checkbox("Horizon masking", ref _sensor.HorizonMasking);
+        Tip("On: the planet blocks the set. Off: the set sees through the planet.");
 
-        if (!_sensor.HorizonMasking)
-        {
-            ImGui.TextDisabled("  the set sees through the planet");
-            return;
-        }
+        if (!_sensor.HorizonMasking) return;
 
         ImGui.SliderFloat("Limb margin (m)", ref _sensor.TerrainMarginMetres, 0f, 5000f);
         ImGui.SliderInt("Terrain samples", ref _sensor.TerrainSamples, 0, 64);
+        Tip("Up to this many height lookups per contact per scan, deciding whether a ridge hides it. "
+            + "Zero: the mean sphere only, so a contact behind a ridge is still seen.");
 
-        if (_sensor.TerrainSamples <= 0)
-        {
-            ImGui.TextDisabled("  mean sphere only - a contact behind a ridge is still seen");
-        }
-        else
+        if (_sensor.TerrainSamples > 0)
         {
             ImGui.SliderFloat("Terrain clearance (m)", ref _sensor.TerrainClearanceMetres, 0f, 300f);
-            ImGui.TextDisabled($"  up to {_sensor.TerrainSamples} height lookups per contact per scan");
         }
     }
 
@@ -224,19 +215,25 @@ internal sealed partial class Ui
     {
         WeaponFit fit = _fit;
 
-        if (fit.Aims && ImGui.TreeNode("Turret"))
+        if (fit.Aims)
         {
-            if (fit.Traverses) ImGui.SliderFloat("Traverse rate (deg/s)", ref _profile.SlewRateDeg, 5f, 180f);
-            if (fit.Elevates) ImGui.SliderFloat("Elevation rate (deg/s)", ref _profile.ElevationRateDeg, 5f, 120f);
-            ImGui.SliderFloat("Settle before firing (s)", ref _profile.SettleSeconds, 0f, 2f);
-            ImGui.TextDisabled("  tracking and manual aim are on the launcher under Components");
-            ImGui.TreePop();
+            bool turretOpen = ImGui.TreeNode("Turret");
+            ImGui.SameLine();
+            Help("Tracking and manual aim are on the launcher, under Components.");
+
+            if (turretOpen)
+            {
+                if (fit.Traverses) ImGui.SliderFloat("Traverse rate (deg/s)", ref _profile.SlewRateDeg, 5f, 180f);
+                if (fit.Elevates) ImGui.SliderFloat("Elevation rate (deg/s)", ref _profile.ElevationRateDeg, 5f, 120f);
+                ImGui.SliderFloat("Settle before firing (s)", ref _profile.SettleSeconds, 0f, 2f);
+                ImGui.TreePop();
+            }
         }
 
         if (fit.SweepsASearchArray && ImGui.TreeNode("Search array"))
         {
             ImGui.SliderFloat("Search array (rpm)", ref _profile.SearchRadarRpm, 0f, 60f);
-            ImGui.TextDisabled("  stopping this one is on its sensor under Components");
+            Tip("Stopping this system's array is on its sensor, under Components.");
             ImGui.TreePop();
         }
     }
@@ -255,7 +252,7 @@ internal sealed partial class Ui
                 ImGui.SliderFloat("Max lateral (g)", ref _munition.MaxLateralG, 0f, 80f);
                 ImGui.SliderFloat("Gravity compensation", ref _munition.GravityCompensation, 0f, 1.5f);
                 ImGui.SliderFloat("Fin deflection (deg)", ref _munition.FinDeflectionDeg, 0f, 30f);
-                ImGui.TextDisabled("  drawn only - larger than life, or the blades do not read");
+                Tip("Drawn only; it steers nothing. It is set larger than life, or the blades do not read.");
 
                 // A seeker to point and a motor to burn: neither exists on a store that is
                 // released and then falls, so a bomb rack is not offered them.
@@ -265,7 +262,7 @@ internal sealed partial class Ui
                     ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
                     ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
                     ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
-                    ImGui.TextDisabled("  a round leaves along the tube and is clear before it turns");
+                    Tip("A round leaves along the tube and is clear before it turns.");
                 }
             }
 
@@ -279,7 +276,8 @@ internal sealed partial class Ui
             ImGui.SliderFloat("Max engagement range (m)", ref _munition.MaxRange, 500f, 40000f);
 
             ImGui.Checkbox("Eject along the tube", ref _profile.LaunchAlongTube);
-            ImGui.TextDisabled("  off: slew to the target on launch, plus loft");
+            Tip("On: a round leaves along the tube, pointing where the launcher points. "
+                + "Off: it slews to the target on launch, plus loft.");
             ImGui.TreePop();
         }
 

@@ -171,10 +171,10 @@ RECEIVERS = {
 def written(panel, name, receivers):
     """Whether the panel *writes* the member on the right object, rather than mentioning it.
 
-    Mentioning is not reaching. Every one of these controls is followed by a line reading the
-    value back to explain what it just did -- `if (_sensor.NotchSpeed > 0f)` and the like -- so a
-    check that accepted any occurrence would pass with the slider deleted and the explanation
-    left behind, which is exactly the state it exists to catch.
+    Mentioning is not reaching. A control's value is read back beside it -- in its tooltip or in a
+    line of state, `if (_sensor.NotchSpeed > 0f)` and the like -- so a check that accepted any
+    occurrence would pass with the slider deleted and the explanation left behind, which is
+    exactly the state it exists to catch.
     """
     for receiver in receivers:
         at = rf"\b{re.escape(receiver)}\.{re.escape(name)}"

@@ -471,7 +471,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 488 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 493 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -866,6 +866,13 @@ setting is on", so a window arriving instead is unannounced and the tick says no
 it went. Opening a window is an action; tick boxes are for state — armed, auto-engage, what to
 draw, a tool being active. Tint the button if open/closed is worth showing.
 
+**An explanation is a tooltip; a line under a control is state the operator has to act on.** What a
+control does and why goes in `Tip()` right after it, and what a whole section is about in a `Help()`
+marker beside its heading — both in `Ksa/Ui/Ui.cs`. What stays inline is what nobody should have to
+hover for: a live readout, a warning about what the current setting costs, and anything answering
+"why is nothing happening", which a tooltip hides as surely as a fold does. A tick box's on/off
+meaning is an explanation, not state — the tick already says which.
+
 **A setting nobody can reach is not a setting, and that is enforced.** The panel enumerates its
 controls by hand, so a field added to `SensorProfile`, `MunitionProfile`, `SystemConfig`,
 `OpticConfig` or `IcbmConfig` is read by the code, described in the docs, shipped in the archive,
@@ -880,8 +887,8 @@ outside the check, silently.
 
 `tools/check-tunables.py` fails the build on it. Textual, like `check-boundary.sh`, and for the
 same reason: the panel is under `Ksa/` and the test project cannot reference it. It requires a
-**write** rather than a mention — every control is followed by a line reading the value back to
-explain itself, so a check accepting any occurrence passes with the slider deleted and the
+**write** rather than a mention — a control's value is read back beside it, in its tooltip or a
+line of state, so a check accepting any occurrence passes with the slider deleted and the
 explanation left behind. Two escape hatches, both of which name their reason: `EXEMPT` for a
 member no control could sensibly reach — generated geometry, a derived value, an identity string —
 and `VIA` for one the panel drives through a helper, which names the helper so deleting the
@@ -1932,8 +1939,9 @@ traverse, so `GunsAreLaid` reads `GunAimingAccepted` and the guns' own subpart w
 reads the pods'. Pointing both at one flag silences a working cannon whenever a pod elevation is
 refused — or whenever the pods marker resolves to nothing, which needs no engine refusal at all.
 
-**Mouse aim points the launcher, it does not fire it.** `Config.MouseAim` sends the turret and
-the optical head at whatever the cursor is over, ahead of the radar *and* ahead of the tracking
+**Mouse aim points the launcher, it does not fire it.** `SystemConfig.MouseAim` sends the turret at
+whatever the cursor is over, and a director's own `OpticConfig.MouseAim` does the same for its head,
+ahead of the radar *and* ahead of the tracking
 switch — with it on the operator is the sensor, so needing to enable radar tracking first would be
 surprising. Auto-engage still decides when to shoot, and `Aiming` counts mouse aim so `IsLaid`
 still makes the drives settle: without that, rounds leave along a tube that is still swinging.

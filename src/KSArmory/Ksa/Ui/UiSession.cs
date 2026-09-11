@@ -20,48 +20,42 @@ internal sealed partial class Ui
     private void DrawWarpHold()
     {
         ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);
+        Tip($"Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only while something is "
+            + "in the air, and given back after.");
+        if (!_config.LimitWarpInFlight)
+        {
+            ImGui.TextDisabled("  Off: rounds under warp will lag the world and miss.");
+        }
 
         // Beside the warp hold because it is the other session setting that trades away something
         // a player can see for something the simulation needs -- there, fidelity for speed; here,
         // the world's own debris for frame time.
         ImGui.Checkbox("Remove spent stages once they are clear", ref _config.DisposeSpentStages);
-        ImGui.TextDisabled(_config.DisposeSpentStages
-                               ? $"  destroyed past {StageDisposal.ClearOfTheCraftMetres / 1000.0:F0} km, "
-                                 + "so they stop costing frame time while they fall"
-                               : "  off: they fall and are simulated the whole way down");
-        ImGui.TextDisabled("  Frame time is what buys simulation rate -- about 2 ms a vehicle, and");
-        ImGui.TextDisabled("  a rocket sheds four. The half a MIRV bus drops is never taken.");
+        Tip($"On: a spent stage is destroyed once it is {StageDisposal.ClearOfTheCraftMetres / 1000.0:F0} km "
+            + "clear, so it stops costing frame time while it falls. Off: it falls and is simulated "
+            + "the whole way down.\n\nFrame time is what buys simulation rate -- about 2 ms a vehicle, "
+            + "and a rocket sheds four. The half a MIRV bus drops is never taken.");
 
         // The third of the same shape: what a warhead does to a craft is one world-level rule, so
         // two sites could not sensibly disagree about it. It also trades frame time -- one craft
         // becomes several, and every fragment is simulated.
         ImGui.Checkbox("Break individual parts, not whole craft", ref _config.DamageIndividualParts);
-        ImGui.TextDisabled(_config.DamageIndividualParts
-                               ? "  each part judged on its own distance and its own strength"
-                               : "  off: inside the lethal radius the whole craft is destroyed");
-        ImGui.TextDisabled("  A weak part breaks further out than a dense one, and losing enough");
-        ImGui.TextDisabled("  of them at once still destroys the craft outright.");
+        Tip("On: each part is judged on its own distance from the burst and its own strength, so a weak "
+            + "part breaks further out than a dense one, and losing enough of them at once still "
+            + "destroys the craft outright. Off: inside the lethal radius the whole craft is destroyed.");
 
         ImGui.Checkbox("Weapons on one craft share a target count", ref _config.ShareTargetsAcrossWeapons);
-        ImGui.TextDisabled(_config.ShareTargetsAcrossWeapons
-                               ? "  two rails will not each fire a full salvo at the same target"
-                               : "  off: each weapon counts only its own rounds, as it used to");
+        Tip("On: two rails on one craft will not each fire a full salvo at the same target. "
+            + "Off: each weapon counts only its own rounds.");
 
         ImGui.Checkbox("Mushroom clouds", ref _config.NuclearClouds);
-        ImGui.TextDisabled(_config.NuclearClouds
-                               ? "  a nuclear burst leaves a cloud standing -- 6-8 ms a frame"
-                               : "  off: the burst does the same damage and leaves nothing behind");
+        Tip("On: a nuclear burst leaves a cloud standing, at 6-8 ms a frame. "
+            + "Off: the burst does the same damage and leaves nothing behind.");
 
         ImGui.Checkbox("Dirty nuclear smoke", ref _config.DirtyNuclearSmoke);
-        ImGui.TextDisabled(_config.DirtyNuclearSmoke
-                               ? "  a cloud tints every plume in the world while it stands"
-                               : "  off: the cloud is white, and nothing else is touched");
-        ImGui.TextDisabled($"  Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only");
-        ImGui.TextDisabled("  while something is in the air, and given back after.");
-        if (!_config.LimitWarpInFlight)
-        {
-            ImGui.TextDisabled("  Off: rounds under warp will lag the world and miss.");
-        }
+        Tip("On: a standing cloud is grey-brown, as a real one is for most of its life, and so is any "
+            + "rocket smoke this mod lays while one stands. Off: the cloud is white. KSA's own "
+            + "boosters keep their own colour either way.");
     }
 
     // Slow motion, well below what the game's speed control reaches. An engagement is over in a
@@ -133,48 +127,52 @@ internal sealed partial class Ui
     private void DrawDisplayPane()
     {
         ImGui.Checkbox("World overlay", ref _config.DrawOverlays);
-        ImGui.TextDisabled("  everything drawn in the world around a system");
+        Tip("Everything drawn in the world around a system.");
 
         if (_config.DrawOverlays)
         {
             ImGui.Checkbox("Only the system shown in the panel",
                            ref _config.DrawOverlayForFocusedOnly);
-            ImGui.TextDisabled("  off: every crewed system draws its own");
+            Tip("Off: every crewed system draws its own.");
         }
 
         ImGui.SeparatorText("Effects");
         ImGui.Checkbox("Warhead effects", ref _config.DrawExplosions);
-        ImGui.TextDisabled("  the fireball, not a debug line -- kept when those are off");
+        Tip("The fireball, not a debug line -- kept when the world overlay is off.");
 
         ImGui.Checkbox("Rocket motor plume", ref _config.MotorPlume);
+        Tip("The flame at the nozzle while the motor burns.");
+        if (_config.MotorPlume && !_config.DrawExplosions)
+        {
+            ImGui.TextDisabled("  needs Warhead effects on");
+        }
 
         ImGui.Checkbox("Rocket smoke trail", ref _config.MotorSmoke);
-        ImGui.TextDisabled("  hangs for 20 minutes and drifts on the wind - the engine's own");
-        ImGui.TextDisabled("  lifetime, shared with mushroom clouds");
+        Tip("Hangs for 20 minutes and drifts on the wind -- the engine's own lifetime, shared with "
+            + "mushroom clouds.");
 
         ImGui.SliderFloat("Smoke width", ref _config.MotorSmokeWidth, 0.1f, 4f);
-        ImGui.TextDisabled($"  {_config.MotorSmokeWidth:F2}x the round's own size, live");
-        ImGui.TextDisabled("  flame at the nozzle while the motor burns; needs warhead effects on");
+        Tip("A multiple of each round's own size. Live: smoke laid from now on uses it.");
 
         ImGui.SeparatorText("Systems");
         ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
-        ImGui.TextDisabled("  brackets over every system; Look at in the list pins a label");
+        Tip("Brackets over every system. Look at in the list pins a label.");
         ImGui.Checkbox("Lock cue", ref _config.DrawLockCue);
-        ImGui.TextDisabled("  brackets on what the selected weapon is engaging; they close as it locks");
+        Tip("Brackets on what the selected weapon is engaging; they close as it locks.");
         ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);
         ImGui.Checkbox("Drive facing line", ref _config.DrawTurretFacing);
-        ImGui.TextDisabled("  where the drives think they point, not where they are told to");
+        Tip("Where the drives think they point, not where they are told to.");
         ImGui.Checkbox("Bearing reference", ref _config.DrawBearingReference);
-        ImGui.TextDisabled("  white to north, green along each face of the array as the scope reads it");
+        Tip("White to north, green along each face of the array as the scope reads it.");
         ImGui.SliderFloat("Cone draw length (m)", ref _config.ConeDisplayMetres, 200f, 20000f);
-        ImGui.TextDisabled("  cosmetic only; detection range is set on the sensor");
+        Tip("Cosmetic only; detection range is set on the sensor.");
 
         ImGui.SeparatorText("Contacts");
         ImGui.Checkbox("Tracks", ref _config.DrawTracks);
         ImGui.Checkbox("Track marker spheres", ref _config.DrawTrackMarkers);
-        ImGui.TextDisabled("  large ball on each contact; scales with range");
+        Tip("A large ball on each contact, scaled with range.");
         ImGui.Checkbox("Predicted pass point", ref _config.DrawClosestApproach);
-        ImGui.TextDisabled("  where a threat will pass if it holds course");
+        Tip("Where a threat will pass if it holds course.");
 
         ImGui.SeparatorText("Rounds");
         ImGui.Checkbox("Rounds", ref _config.DrawMissiles);
@@ -208,15 +206,15 @@ internal sealed partial class Ui
         if (_config.MotorSound)
         {
             ImGui.SliderFloat("Motor volume", ref _config.MotorVolume, 0f, 1f);
-            ImGui.TextDisabled("  before the engine's own distance and pressure falloff, so a");
-            ImGui.TextDisabled("  round in vacuum is silent whatever this says");
+            Tip("Before the engine's own distance and pressure falloff, so a round in vacuum is "
+                + "silent whatever this says.");
         }
 
         ImGui.Checkbox("Cannon sound", ref _config.CannonSound);
         if (_config.CannonSound)
         {
             ImGui.SliderFloat("Cannon volume", ref _config.CannonVolume, 0f, 1f);
-            ImGui.TextDisabled("  pitched from each gun's own rate, so the buzz is its cycle");
+            Tip("Pitched from each gun's own rate, so the buzz is its cycle.");
         }
     }
 }
