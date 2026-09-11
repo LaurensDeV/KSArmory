@@ -1025,7 +1025,8 @@ def paired(root, shots, endpoint="miss", levels_from=None):
         point, lo, hi = _median_interval(ratios)
         p = _sign_p(wins, losses)
         w = wilcoxon_p(ratios)
-        flip = _shot_flip_p(shots, groups, base, name, score, point)
+        flip = _shot_flip_p(shots, groups, base, name, score, point,
+                            levels if levels_from else None)
 
         # The rank test is the one to read, so read it. The sign test is kept beside it because it
         # assumes less and because every number in docs/MIRV-NEXT.md before 8af was scored on it --
@@ -1163,7 +1164,7 @@ def _paired_ratios(groups, base, name, levels, score):
 FLIP_DRAWS = 2000
 
 
-def _shot_flip_p(shots, groups, base, name, score, observed):
+def _shot_flip_p(shots, groups, base, name, score, observed, fixed_levels=None):
     """p from the one thing the design actually randomises: which parity of the roster is the arm.
 
     The signed-rank asks whether the per-shot log ratios are centred on zero, which assumes they
@@ -1171,6 +1172,11 @@ def _shot_flip_p(shots, groups, base, name, score, observed):
     the ratios are built from, so the statistic and its null share a nuisance parameter, and the
     level is the geometric mean of the per-arm medians -- relabelling the arms moves it. Refitting
     the levels inside the permutation is what accounts for that; nothing else does.
+
+    **A divisor borrowed with `--levels-from` is held fixed rather than refitted.** Fitted on
+    another night, it cannot move with this one's labels, so there is nothing to account for --
+    and refitting would test a ratio built on the borrowed levels against a null built on this
+    night's own, which are tighter, and call a ratio significant whose interval spans one.
 
     Calibrated on identical code -- one arm's roster split into two pseudo-arms, so the truth is
     1.000 -- at the design's own fourteen blocks: the signed rank reads **6.1%** false RESOLVED
@@ -1200,7 +1206,7 @@ def _shot_flip_p(shots, groups, base, name, score, observed):
                 r["within"] = name if r["within"] == base else base
 
         try:
-            levels, _ = _seat_levels(shots, score)
+            levels = fixed_levels if fixed_levels is not None else _seat_levels(shots, score)[0]
             swapped = defaultdict(lambda: defaultdict(list))
             for g, per_arm in groups.items():
                 for arm, rows in per_arm.items():
