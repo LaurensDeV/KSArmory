@@ -15,11 +15,11 @@ namespace KSArmory;
 /// exact except across a cliff edge, and a cliff is where the engine's own height query is
 /// discontinuous anyway.</para>
 ///
-/// <para><b>A reentry vehicle is not that round.</b> It covers about a kilometre of ground track per
-/// frame — <see cref="Slug"/> says so where it explains why the air is re-read per sub-step and the
-/// ground is not — so the sphere is sized on terrain a kilometre behind where the round meets it.
-/// Headlessly that is worth nothing on its own and thousands of metres paired with a finer
-/// sub-step; <c>docs/ACCURACY-PLAN.md</c> 3ad and 3ae have the numbers and why neither is shipped.</para>
+/// <para><b>A reentry vehicle is not that round.</b> It covers 40-90 m of ground in each of its last
+/// frames, so on a slope the sphere is the height of ground it has already left — and flown, that
+/// error times <c>cot(gamma)</c> is the whole of its walk from the release probe
+/// (<c>docs/ACCURACY-PLAN.md</c> 3cr). <see cref="Slug.ResampleGroundNearImpact"/> asks again under
+/// every sub-step near the surface, and is off until flown.</para>
 ///
 /// <para>Unlike <see cref="IHullTest"/> this takes an absolute position, and it is entitled to:
 /// terrain is a property of the world rather than of a separation between two things, so there is

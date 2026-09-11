@@ -29,6 +29,11 @@ internal sealed class Slug : IProjectile
     private double _groundSampledOverSeconds;
     private bool _haveGround;
 
+    // The ground under where the next sub-step begins, and whether it was read there. Only kept
+    // while the round re-reads the ground near impact.
+    private double _radiusBefore;
+    private bool _radiusBeforeFresh;
+
     public Slug(double3 positionEcl, double3 velocityEcl, object? target, int tube,
                 double3 platformEcl, double3 frameVelocityEcl)
     {
@@ -218,6 +223,25 @@ internal sealed class Slug : IProjectile
                ? _groundCentre + drift(secondsIntoFrame)
                : _groundCentre;
 
+    /// <summary>
+    /// Re-read the ground under every sub-step once the round is within
+    /// <see cref="GroundResampleBandMetres"/> of the surface it holds, rather than stopping on the
+    /// frame's first sample.
+    ///
+    /// <para>The held sample is a sphere, and a reentry vehicle covers 40-90 m of ground in the frame
+    /// it is held for — so on a slope it stops on the height of ground it has already left, and that
+    /// error times <c>cot(gamma)</c> is its whole walk from the release probe.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3cr.</para>
+    /// </summary>
+    public bool ResampleGroundNearImpact { get; set; }
+
+    /// <summary>
+    /// How far above the held surface the re-reading starts. It has to clear what the ground can do
+    /// across one frame — a 30% slope over 90 m of track is 27 m — plus a sub-step's drop; anything
+    /// more only buys lookups.
+    /// </summary>
+    public const double GroundResampleBandMetres = 200.0;
+
     /// <summary>True when it was the ground that stopped this round rather than a body or a fuse.</summary>
     public bool HitGround { get; private set; }
 
@@ -225,11 +249,13 @@ internal sealed class Slug : IProjectile
     /// The surface radius the crossing was last tested against, and whether there was one. Sampled
     /// once per frame at the round's own position, so it is up to a frame of ground stale by the
     /// time a sub-step crosses it — which is what <c>docs/MIRV-NEXT.md</c> item 8k is measuring.
+    /// A round that <see cref="ResampleGroundNearImpact"/> reports the surface where it crossed.
     /// </summary>
     public double GroundRadiusUsed => _haveGround ? _groundRadius : double.NaN;
 
     /// <summary>
-    /// Where the round was standing when it last sampled the ground, which is not where it stops.
+    /// Where the surface the round stopped against was read — the start of the frame it stopped in,
+    /// or the crossing itself for a round that <see cref="ResampleGroundNearImpact"/>.
     ///
     /// <para><b>Measurement only.</b> The radius is held for a whole frame, so the round stops
     /// against a surface read some distance back along its own track — and the height field's
@@ -323,6 +349,10 @@ internal sealed class Slug : IProjectile
         _haveGround = munition.HitsTerrain && Ground is not null
                       && Ground.TryGround(atOwnEpoch, out _groundCentre, out _groundRadius)
                       && double.IsFinite(_groundRadius) && _groundRadius > 0.0;
+
+        // The frame's own sample is the ground under where its first sub-step begins.
+        _radiusBefore = _groundRadius;
+        _radiusBeforeFresh = _haveGround;
 
         int steps = Math.Min(munition.MaxSubSteps, Math.Max(1, (int)Math.Ceiling(dt / munition.SubStep)));
         double h = dt / steps;
@@ -516,21 +546,60 @@ internal sealed class Slug : IProjectile
             double3 centreWas = GroundCentre(elapsedInFrame - frameSeconds);
             double3 centreNow = GroundCentre(elapsedInFrame + h - frameSeconds);
 
-            double was = Vec.Len(before - centreWas) - _groundRadius;
-            double now = Vec.Len(PositionEcl - centreNow) - _groundRadius;
+            double radiusWas = _groundRadius;
+            double radiusNow = _groundRadius;
+            bool reread = false;
+
+            // Near the surface, the ground under both ends of this step rather than the sphere the
+            // frame began with, which on a slope is the height of ground the round has left.
+            if (ResampleGroundNearImpact
+                && Vec.Len(PositionEcl - centreNow) - _groundRadius < GroundResampleBandMetres
+                && TryRadiusUnder(PositionEcl, elapsedInFrame + h - frameSeconds, out double under))
+            {
+                if (!_radiusBeforeFresh)
+                {
+                    _radiusBeforeFresh = TryRadiusUnder(before, elapsedInFrame - frameSeconds,
+                                                        out _radiusBefore);
+                }
+
+                radiusWas = _radiusBeforeFresh ? _radiusBefore : _groundRadius;
+                radiusNow = under;
+                reread = true;
+
+                _radiusBefore = under;
+                _radiusBeforeFresh = true;
+            }
+            else
+            {
+                _radiusBeforeFresh = false;
+            }
+
+            double was = Vec.Len(before - centreWas) - radiusWas;
+            double now = Vec.Len(PositionEcl - centreNow) - radiusNow;
 
             if (now <= 0.0)
             {
                 // Back to where it crossed, so the burst is on the surface rather than up to a
                 // sub-step underneath it. Linear across the step: the round's own drop over 1.5 m
                 // is not where the curvature lives.
-                double f = was > 0.0 ? was / (was - now) : 0.0;
+                double f = Math.Clamp(was > 0.0 ? was / (was - now) : 0.0, 0.0, 1.0);
 
-                PositionEcl = before + stepEcl * Math.Clamp(f, 0.0, 1.0);
+                PositionEcl = before + stepEcl * f;
                 MissDistance = 0.0;
                 HitGround = true;
-                DetonationElapsedInFrame = elapsedInFrame + h * Math.Clamp(f, 0.0, 1.0) - frameSeconds;
+                DetonationElapsedInFrame = elapsedInFrame + h * f - frameSeconds;
                 State = RoundState.Detonated;
+
+                // What it stopped against is the ground where it crossed, so that is what the
+                // measurements report rather than the frame's first sample.
+                if (reread)
+                {
+                    _groundRadius = radiusWas + (radiusNow - radiusWas) * f;
+                    _groundSampledAtEcl = PositionEcl
+                                          - (GroundCentreDriftAt?.Invoke(DetonationElapsedInFrame) ?? Vec.Zero);
+                    _groundSampledOverSeconds = -DetonationElapsedInFrame;
+                }
+
                 return;
             }
         }
@@ -538,5 +607,16 @@ internal sealed class Slug : IProjectile
         // Local, not absolute: absolute displacement reports ~30 km per second of the planet's
         // orbit regardless of what the round did.
         DistanceFlown += Vec.Len(stepEcl - _frameVelocityEcl * h);
+    }
+
+    // The ground under a point the round passed at a stated time into the frame, back-dated exactly
+    // as the frame's first sample is in Update.
+    private bool TryRadiusUnder(double3 positionEcl, double secondsIntoFrame, out double radius)
+    {
+        radius = double.NaN;
+        if (Ground is not { } ground) return false;
+
+        double3 atOwnEpoch = positionEcl - (GroundCentreDriftAt?.Invoke(secondsIntoFrame) ?? Vec.Zero);
+        return ground.TryGround(atOwnEpoch, out _, out radius) && double.IsFinite(radius) && radius > 0.0;
     }
 }

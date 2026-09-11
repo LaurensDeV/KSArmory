@@ -230,4 +230,134 @@ public class GroundImpactTests
                     $"burst {altitude:F1} m from the surface of a body that was moving; "
                     + "the cached ground centre is not being carried with it");
     }
+
+    /// <summary>
+    /// Ground at a constant gradient along +Y, sampled like the engine's body at the frame's end. The
+    /// height under a point depends on where the point is, which is the one thing a sphere — and so
+    /// every other ground in this file — cannot show.
+    /// </summary>
+    private sealed class Ramp(double gradient, double3 velocity = default, double frame = 0.0) : IGroundTest
+    {
+        public int FramesIssued;
+
+        public double3 SampleEcl => Centre + velocity * ((FramesIssued + 1) * frame);
+
+        public double RadiusUnder(double3 bodyRelative)
+            => PlanetRadius + gradient * PlanetRadius * Math.Atan2(bodyRelative.Y, bodyRelative.X);
+
+        public bool TryGround(double3 positionEcl, out double3 centreEcl, out double surfaceRadius)
+        {
+            centreEcl = SampleEcl;
+            surfaceRadius = RadiusUnder(positionEcl - centreEcl);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// A reentry vehicle's last few kilometres — 3 km/s at 32 degrees below the horizontal — flown
+    /// onto a ramp at a stated frame. Returns where it stopped relative to the body, and how far
+    /// that is above the true surface there.
+    /// </summary>
+    private static (double3 Stop, double Altitude) Arrive(Ramp ground, double frame, bool resample,
+                                                           double above = 2_000.0,
+                                                           double3 bodyVelocity = default)
+    {
+        double g = 32.0 * Math.PI / 180.0;
+        double3 start = Centre + new double3(PlanetRadius + above, 0, 0);
+        double3 v = new double3(-Math.Sin(g), Math.Cos(g), 0) * 3_000.0;
+
+        Slug round = new(start, bodyVelocity + v, null, 1, start, Vec.Zero)
+        {
+            Munition = Bomb(),
+            Ground = ground,
+            GroundCentreDriftAt = s => bodyVelocity * s,
+            ResampleGroundNearImpact = resample,
+        };
+
+        for (int i = 0; i < 200_000 && round.State == RoundState.Flying; i++)
+        {
+            double3 gravity = Vec.Unit(ground.SampleEcl - round.PositionEcl) * 9.81;
+            round.Update(frame, null, gravity, Vec.Zero, Vec.Zero, round.Munition);
+            ground.FramesIssued++;
+        }
+
+        Assert.True(round.HitGround, "the round never reached the ground");
+
+        double3 centreAtBurst = Centre + bodyVelocity * (ground.FramesIssued * frame)
+                                + bodyVelocity * round.DetonationElapsedInFrame;
+        double3 stop = round.PositionEcl - centreAtBurst;
+
+        return (stop, Vec.Len(stop) - ground.RadiusUnder(stop));
+    }
+
+    /// <summary>
+    /// On a slope the frame's first sample is the height of ground the round has already left, so it
+    /// stops that far off the surface — and flown, that error times <c>cot(gamma)</c> is the whole of
+    /// a warhead's walk from its release probe. Re-reading the ground under each sub-step near the
+    /// surface stops it where it meets it. <c>docs/ACCURACY-PLAN.md</c> 3cr.
+    ///
+    /// <para>The truth is the same round at a tenth of a millisecond, where a frame's sample is a
+    /// quarter of a metre stale. Several frames and release heights, because the held error depends
+    /// on where in its frame the crossing falls.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(-0.30)]   // seat 3's ground, falling away downrange
+    [InlineData(+0.21)]   // rising, where the held sphere lets the round into the hillside
+    public void ReReadingTheGroundStopsTheRoundOnASlopeWhereItMeetsIt(double gradient)
+    {
+        (double3 truth, _) = Arrive(new Ramp(gradient), 0.0001, resample: false);
+
+        double worstHeld = 0.0;
+        double worstReread = 0.0;
+
+        foreach (double frame in new[] { 0.016, 0.023, 0.040 })
+        {
+            foreach (double above in new[] { 2_000.0, 2_017.0, 2_041.0 })
+            {
+                (double3 truthHere, _) = above == 2_000.0
+                                             ? (truth, 0.0)
+                                             : Arrive(new Ramp(gradient), 0.0001, resample: false, above);
+
+                (double3 held, _) = Arrive(new Ramp(gradient), frame, resample: false, above);
+                (double3 reread, double altitude) = Arrive(new Ramp(gradient), frame, resample: true, above);
+
+                worstHeld = Math.Max(worstHeld, Vec.Len(held - truthHere));
+                worstReread = Math.Max(worstReread, Vec.Len(reread - truthHere));
+
+                Assert.True(Math.Abs(altitude) < 0.5,
+                            $"re-reading the ground at a {frame * 1000:F0} ms frame, the round stopped "
+                            + $"{altitude:+0.0;-0.0} m off the surface under it");
+            }
+        }
+
+        Assert.True(worstHeld > 10.0,
+                    $"holding the frame's sample the round stopped at most {worstHeld:F1} m from where "
+                    + "it meets the ground, so this geometry does not reproduce the fault");
+        Assert.True(worstReread < 1.0,
+                    $"re-reading the ground the round still stopped {worstReread:F1} m from where it "
+                    + "meets it");
+    }
+
+    /// <summary>
+    /// Each re-read is a lookup at a position, measured against a body sampled at the frame's end and
+    /// moving at ~30 km/s. So it has to be back-dated to its own sub-step exactly as the frame's first
+    /// sample is, or it reads the slope hundreds of metres from where the round is.
+    /// </summary>
+    [Fact]
+    public void AReReadIsTakenAtItsOwnSubStepsInstant()
+    {
+        double3 moving = Vec.Unit(new double3(1, 1, 0)) * 29_800.0;
+        const double frame = 0.023;
+
+        (double3 still, _) = Arrive(new Ramp(-0.30), frame, resample: true);
+        (double3 carried, double altitude) =
+            Arrive(new Ramp(-0.30, moving, frame), frame, resample: true, bodyVelocity: moving);
+
+        Assert.True(Math.Abs(altitude) < 0.5,
+                    $"on a body doing 29.8 km/s the round stopped {altitude:+0.0;-0.0} m off the "
+                    + "surface; the re-read is not at its own instant");
+        Assert.True(Vec.Len(carried - still) < 0.5,
+                    $"the same arrival stopped {Vec.Len(carried - still):F1} m apart on a moving and a "
+                    + "still body");
+    }
 }

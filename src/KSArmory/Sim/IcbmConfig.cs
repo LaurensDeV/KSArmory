@@ -414,6 +414,23 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool AimThresholdTracksTheMiss;
 
+    /// <summary>
+    /// Let a released warhead re-read the ground under each sub-step as it meets it, rather than
+    /// holding the frame's first sample.
+    ///
+    /// <para><b>The walk from the release probe is the round stopping on ground it has already
+    /// left.</b> <see cref="Slug"/> samples the ground once a frame and holds it as a sphere, while a
+    /// reentry vehicle covers 40-90 m of ground track in that frame, so on a slope it stops on the
+    /// wrong height. Over ~870 traced warheads on seven nights the walk is that stop error times
+    /// <c>cot(gamma)</c> at R² 0.86-0.92, and flights whose error happened to be under a metre walked
+    /// a median 2 m against 7 overall. <c>docs/ACCURACY-PLAN.md</c> 3cr.</para>
+    ///
+    /// <para><b>Off, and off is what ships</b>, until it has been flown. It costs a terrain lookup
+    /// per sub-step within <see cref="Slug.GroundResampleBandMetres"/> of the ground — a few dozen
+    /// a warhead.</para>
+    /// </summary>
+    public bool ResampleGroundAtImpact;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

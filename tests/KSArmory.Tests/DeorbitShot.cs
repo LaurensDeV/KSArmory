@@ -277,11 +277,11 @@ internal static class DeorbitShot
     /// is differenced against its baseline, so a baseline that is wrong misprices every other term
     /// rather than only its own.</para>
     ///
-    /// <para><b>Two of these price something the game cannot do at all</b> and are still emulated
-    /// by slicing, because there is no lookup to attach: <see cref="Slug"/> takes the air's own
-    /// motion as one value per frame and samples the ground once before its sub-step loop. They
-    /// are worth -2 m and 0-22 m respectively, which is why nothing has ever been built to let the
-    /// game do them.</para>
+    /// <para><b>Two of these price something the game does not do by default</b> and are emulated
+    /// by slicing: <see cref="Slug"/> takes the air's own motion as one value per frame, and samples
+    /// the ground once before its sub-step loop unless <see cref="Slug.ResampleGroundNearImpact"/>
+    /// asks it to re-read it near the surface. On this rig's ~1% relief they are worth -2 m and
+    /// 0-22 m; on flown ground the second is the walk (<c>docs/ACCURACY-PLAN.md</c> 3cr).</para>
     /// </summary>
     public readonly record struct Refresh
     {
@@ -450,7 +450,9 @@ internal static class DeorbitShot
 
         if (ground is Relief relief)
         {
-            relief.HoldForTheFrame = !refresh.Ground;
+            // A round that re-reads the ground near impact asks per sub-step, and a held answer
+            // would hand it the frame's first one back and make the change invisible.
+            relief.HoldForTheFrame = !refresh.Ground && !round.ResampleGroundNearImpact;
             relief.BeginFrame();
         }
 

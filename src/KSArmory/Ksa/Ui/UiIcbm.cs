@@ -464,6 +464,17 @@ internal sealed partial class Ui
             : $"a cycle counts only if it closes {AimCorrection.ImprovedByMetres:F0} m, which no "
               + "cycle can at a ten-metre miss"));
 
+        bool resample = config.ResampleGroundAtImpact;
+        if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
+        {
+            config.ResampleGroundAtImpact = resample;
+        }
+
+        ImGui.TextDisabled("  " + (config.ResampleGroundAtImpact
+            ? $"within {Slug.GroundResampleBandMetres:F0} m of the ground every sub-step asks where it is"
+            : "a warhead stops on the ground it had under it at the top of the frame, which on a "
+              + "slope is tens of metres from where it meets it"));
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

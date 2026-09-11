@@ -6455,6 +6455,84 @@ leaves less converged — a common cause. Base's 110 m reverts would carry their
 * **The pre-release term is a bias of about 6 m and a dwell, not a stopping rule.** That is the
   next thing to attack before release.
 
+## 3cr. The walk is the round stopping on ground it has already left — read off the logs, 2026-09-11
+
+Four passes over logs already flown — the pre-release bias, the walk, the tail, and the backlog
+ranked — and two of them found the same thing independently.
+
+### The walk is the warhead's own stopping rule
+
+`Slug` samples the ground once a frame and holds it as a sphere, and a Mk 21 covers **40-90 m of
+ground track** in each of its last frames. On a slope it therefore stops on the height of ground it
+has already left, and nothing about the predictor, the height field or the clocks is involved:
+
+| measured over ~870 traced warheads on seven nights | |
+| --- | --- |
+| walk against the stop error × `cot γ`, no fitting | **R² 0.86-0.92 on every night**; Pearson 0.975 on `2026-09-11-band` |
+| walk against the trace's `held … off the true surface` | r −0.92 to −0.96; 305 of 315 walks over 10 m are opposite in sign |
+| the round's ground and the predictor's at the landing point | **+0.0 m apart on all 870** — `accurate`, resolution and the un-carry are cleared |
+| flights whose stop error happened to fall under a metre | median \|walk\| **2.0 m**, against 7.0 m over all |
+| seat 3 | holds +16 to +30 m every night, walks −28 to −64 m |
+
+`Slug.GroundSampledAtEcl`'s own doc already said this for 12,902 km at r = 0.99. **3bz, 3cb and 3cf
+put the lever in what the predictor samples; it is in what the round samples.** And 2b′ — "re-sample
+per sub-step, refuted headlessly, chaotic" — was measured on the rig's erosion fixture at 7-13°,
+where 3af found the hill-flip mechanism never fires on KSA's ground; this is 32° on the real field.
+
+### The change
+
+`IcbmConfig.ResampleGroundAtImpact`, off. Within `Slug.GroundResampleBandMetres` (200 m) of the
+held surface every sub-step reads the ground under its own end, back-dated to its own instant as the
+frame's first sample is, and the crossing is interpolated between the two real heights. Stamped on
+each warhead at release rather than on the munition, so it pairs within one world. About 25 lookups
+a warhead.
+
+Pinned headlessly: `ReReadingTheGroundStopsTheRoundOnASlopeWhereItMeetsIt` — on a 30% downhill and
+a 21% uphill at 16, 23 and 40 ms frames the held sphere stops more than 10 m from the crossing and
+the re-read inside a metre, and inside 0.5 m of the surface — and `AReReadIsTakenAtItsOwnSubStepsInstant`,
+where a body doing 29.8 km/s must land within 0.5 m of a still one. **Each fails against the fault
+it guards:** handing the re-read the raw position fails the second alone, and switching the re-read
+off fails all three.
+
+**One residual, inferred and left alone:** the engine's height query answers at the frame-end
+rotation phase while a sub-step is up to a frame earlier, which is `ωR·dt` ≈ 10 m of ground at 26.5°S
+on a 25 ms frame — a couple of metres of walk on seat 3's slope and nothing on the flat seats. The
+frame's first sample carries the same term today.
+
+### What it predicts, written down first
+
+1. **The arm's flights read `off its own surface` within ±0.5 m**, and `held` near zero.
+2. **The walk falls from a median 6.7 m to about 2 m**, the flown floor, and seat 3 from ~55 m to a
+   few.
+3. **The miss falls from ~14 m to 6-8 m** — the release probe's 6 m plus that floor — and the seat
+   gradient mostly goes with it, since the pre-release half correlates +0.12 with the ground.
+
+**What would refute it:** the stop error going to zero and the walk not moving; or the walk falling
+and the miss not, which would mean the release probe and the walk had been cancelling.
+
+### The second finding: the dwell is a race, not a hold
+
+`PostBoostAim` clears "a correction has been flown" on the frame the trim settles, but `Predict`
+runs before `DriveTrim` and only every 0.5 s — so the reading that follows finds the flag already
+spent and waits out `FlownWithinSeconds`, fifteen seconds. **95.2% of 757 later readings wait
+14-15.6 s** on `2026-09-11-band`, the last reading precedes release by 14.7 s, and
+`2026-09-10-feedforward` shows the same. That wait is 3co's dwell. Split by ending, `noimprov` stops
+on a reading it never corrects and lands −11.15 m (43 of 48 short), `payback` −4.40 m (63 of 65).
+
+Two readings this corrects: the trim's "2.6 m/s on release" is latched four seconds after the split
+and paid off within five — at the readings the trim owes 0.02 m/s — and 34b's +234 m cannot have come
+from aiming one pass late, which costs about 5 m, so its loss is more likely in the `departsIn`
+reuse (inferred). **Not built**: consume the flag only on a finite reading. Predicted −5.75 m to
+about −1 m downrange before release, and 1-2 m at the ground — the next thing after the walk.
+
+### Stale by the same pass
+
+* **3cd and 3ck's account of the arrival-angle null.** Steep fell on 29.8-30.2 ms frames against
+  base's 17.8-22.9, so its held error ran 1.2-1.9x larger — cancelling the 0.70x the angle should buy.
+  Item 32's confound, acting through this term. The null stands; its explanation does not.
+* **Item 8's 1.88x.** It assumed 78.7 ms frames; descent frames are now 18-30 ms, under the cap
+  `MinTargetFrameRate` sets, so it does not bind.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -6576,6 +6654,8 @@ what 20b is flying against.
 | ~~30~~ | ~~Fix the walk estimator~~ | **built 2026-09-09, unflown** | shot-flip null, `--levels-from`, centimetre logging. Cross-levelled the two nights read **0.87x and 0.88x** where in-sample they read 0.72x and 1.12x — **the nights never disagreed, the divisor did**. Still to do: trace more than round 1 |
 | **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
 | ~~34~~ | ~~Re-fly `AimThresholdTracksTheMiss` on the release endpoint~~ | **flown 2026-09-11, 20 blocks** | **0.78x [0.51, 1.11], shot-flip p=0.082 — UNRESOLVED, open; the landing 0.98x.** `noimprov` 42 to 6 of 80, and the short bias untouched, 71 and 74 of 80 short. Stays off. The revert at release is never flown (3cp), and the report's null was mis-built under `--levels-from` and read p=0.005 first — **3cq** |
+| **35** | **Re-read the ground as a warhead meets it** — `IcbmConfig.ResampleGroundAtImpact` | built 2026-09-11, unflown; a paired smoke shot, then a night on the walk and the miss | **3cr** — the walk is the round stopping on ground it has left: R² 0.86-0.92 on seven nights. Predicted walk 6.7 → ~2 m, miss ~14 → 6-8 m. The largest single term on this plan |
+| **36** | **Decide on the reading, not fifteen seconds after it** — the post-boost race | not built; headless first | **3cr** — `PostBoostAim` spends its flag on a frame with no reading, so 95% of later readings wait out the 15 s backstop. Predicted −5.75 → ~−1 m before release, 1-2 m at the ground. Next after 35 |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |

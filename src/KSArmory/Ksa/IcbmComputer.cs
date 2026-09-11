@@ -2017,6 +2017,14 @@ internal sealed class IcbmComputer
             }
 
             WarheadsAway++;
+
+            // On the round rather than the munition: the profile is one instance shared by every
+            // rocket in the world, and a paired night needs each rocket to fly its own setting.
+            if (weapon is IRoundsInFlight { Rounds: { Count: > 0 } flying } && flying[^1] is Slug released)
+            {
+                released.ResampleGroundNearImpact = Config.ResampleGroundAtImpact;
+            }
+
             ProbeRelease();
             BeginTrace(weapon);
         }
