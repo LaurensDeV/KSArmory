@@ -32,11 +32,12 @@ history, and two of its items have since been overturned.
    release moved **+8.3 m [+6.2, +10.5] on every shot**, −7.45 to +0.47 m, and the miss went
    **0.58x** — median rocket 12.5 to 6.5 m, 90th percentile 24 to 14.
 3. **What is left is the loop's own floor, and the walk (3ct).** A pass on a reading under 10 m
-   makes the next reading worse 52-86% of the time: the trim stops inside one frame of its jets,
-   and ~390 s of fall carries that to about 6 m. The flat 250 m `ImprovedByMetres` cannot see it
+   makes the next reading worse 52-86% of the time: the trim stops once each axis owes less than
+   0.02 m/s, and ~380 s of arc sensitivity carries that to 7-8 m. The flat 250 m `ImprovedByMetres` cannot see it
    either way — it ends rockets still converging and lets others trim past their best — and
    payback cannot either, pricing a 2 s pass at under a metre. And the walk is still one-signed:
-   −2 m, short on 149 of 160 flights, with the re-read on in both arms.
+   −2 m, short on 149 of 160 flights, with the re-read on in both arms. **3cu: the walk is the
+   warhead's own integrator (item 37), and the floor is the trim's settle band (38, 39).**
 4. **The release freeze is bookkeeping (3cp).** Its revert happens in the frame the warheads leave
    and nothing flies it — the revert's size predicts the release probe at +0.10 over 536 flights —
    which overturns D below. `AimThresholdTracksTheMiss` (item 34) flew 0.78x on the release probe,
@@ -6818,9 +6819,9 @@ reading with the next on the same rocket, 986 pairs over this night, `-band` and
 **The readings are measurements, not noise.** Consecutive live-state predictions under 30 m with no
 jet firing between them agree to 0.2 m median and 1.1 m at the 99th percentile (24,038 pairs
 tonight); across a firing they move 6.1 m median, 15.8 m at the 90th (280). So a pass on a small
-miss moves the rocket, and the move is as likely to be away. What sets its size: the trim stops with
-less than a frame of firing left — a median 0.021 m/s unflown, at ~0.55 m/s² on ~27 ms frames — and
-~390 s of fall carries one frame, ~0.015 m/s, to about 6 m. From 10-30 m the read arm's next pass
+miss moves the rocket, and the move is as likely to be away. What sets its size is the trim's settle band
+rather than its frame, as 3cu found: it stops once each axis owes less than 0.02 m/s — a median
+0.021 unflown — and ~380 s of arc sensitivity carries that to 7-8 m. From 10-30 m the read arm's next pass
 lands at 7.4 m against 9.0-9.6 for every arm that still had the dwell.
 
 **`ImprovedByMetres` fails it both ways.** Below 250 m no pass counts as an improvement, so the loop
@@ -6842,7 +6843,103 @@ arms. `WarheadTrace`'s clock term averages −0.6 ms, about −3 m, but is uncor
 rocket by rocket (r = −0.06 over 128 traced rounds, similar spreads) and reconciles its clocks only
 to a millisecond, so it is not the explanation.
 
-Both are candidates for item 37.
+3cu has what three investigations made of both.
+
+## 3cu. The walk is the warhead's own integrator, and the floor is the trim's band — 2026-09-11
+
+Three investigations over the night's logs and the code, one per term. The walk's cause is the
+smallest change and the surest, so it is item 37 and flies first; the floor's two answers are 38
+and 39.
+
+### The walk: a half-kick the round carries for the whole fall
+
+`Slug.Step` reads gravity and the air where a sub-step begins, kicks, and moves on the velocity the
+step ends with. That is leapfrog started with an extra half-kick: `a·h²/2` of position every step,
+summing to a velocity error of `a·h/2` held for the whole fall — 3.7 mm/s of gravity at the reentry
+vehicle's 1 ms sub-step.
+
+* **Flown shape.** Over the trace's re-fly lines on 240 re-reading rounds the walk grows linearly
+  with time from release — −0.18 m at 10-20% of the flight, −0.61 at 40-50%, −1.17 at 70-80%,
+  −1.74 at the end — smoothly and mostly in vacuum, with no step at release or in the air.
+* **Reproduced.** Twelve logged release states flown through a copy of the round against a
+  converged reference: −1.49 to −1.90 m, mean −1.76; with the predictor's own crossing bias added,
+  −1.94 against −2.08 flown. The cross component is the same term, +0.15 to +0.19 m against +0.19
+  flown: the round arrives ~0.4 ms early while the ground turns under it.
+* **Headless, against the exact answer.** `RoundIntegratorOrderTests` flies a flown release state
+  onto a point mass in vacuum, where the fall is a conic and `Kepler` says where it meets the
+  sphere. First order lands **1.986 m short**, and halving the sub-step moves it 0.993 m — linear in
+  the step. Second order lands 0.000 m from the conic and does not move with the step.
+* **Ruled out:** the ejection kick and the release epoch, since the walk's probe is flown from the
+  round's own state; gravity, one point mass on both sides; drag and density, both through
+  `Medium.Drag` with the predictor's RK4 exact; and `WarheadTrace`'s lag, which is bookkeeping —
+  the crossing sub-step counts whole in the round's age, and the score is on the world clock.
+
+**Built, off: `IcbmConfig.SecondOrderWarheads`**, stamped on each released round beside the ground
+re-read. `Slug.SecondOrder` reads gravity and density half a sub-step on and moves on the mean of
+the two velocities — drift, kick, drift — for the same lookups per sub-step.
+`ASecondOrderWarheadLandsWhereTheConicDoes` and `HalvingTheSubStepBarelyMovesASecondOrderWarhead`
+**both fail with the change disabled**; `AFirstOrderWarheadLandsMetresShortOfTheConic` and its
+halving companion pin the fault the fixture has to keep seeing.
+
+Two smaller terms were found beside it, and are item 40:
+
+* **The predictor's crossing tolerance, about +0.18 m long.** `ImpactPredictor` accepts the first
+  sample up to `CrossingToleranceMetres` deep; interpolating the crossing within its last step
+  removes it.
+* **The ground lookup's rotation phase, ±3 m by seat.** From the last re-fly, ~5.5 km up, to the
+  landing the step runs from −2.97 m on seat 5 to +3.02 on seat 6, and on every sloped seat it tracks
+  how long before the frame's end the crossing happened, |r| 0.84-0.98. `GroundTest` reads the
+  height at the frame-end rotation, while `Slug.TryRadiusUnder` back-dates only the translation.
+  Terrain rather than a global bias: it averages about −0.66 m over these eight seats.
+
+### What it predicts, written down before it flies
+
+1. **The walk from about −2.1 m to −0.3**, and the re-fly lines reading about zero all the way down,
+   which is the in-flight check on the mechanism.
+2. **Seats 1, 2 and 8 split short and long; 3, 4, 5 and 7 stay short, and 6 long** — the rotation
+   phase, which this does not touch.
+3. **The cross component from +0.19 m to about zero.**
+4. **The landing a metre or two better, and not expected to resolve.** The walk is one-signed and
+   the release is now centred, so they no longer cancel anywhere — but it is a 2 m term under 6.5.
+
+**What would refute it:** the walk not moving; or the landing walk moving while the re-fly lines
+still drift, which would mean something else changed.
+
+### The floor is the trim's settle band, and two ways past it
+
+**Not the frame.** `BusTrim` fires an axis only while its share of the velocity to gain exceeds
+`max(SettledMetresPerSecond, ½·a·step)`, and the 0.02 m/s constant bound on every one of 2,697 trim
+finishes over three nights: the simulation step at the trim is 16.4 ms median — eight rockets run
+the world at about 0.5x — so half a frame of jets is 0.005 m/s. The residual has the band's shape,
+median 0.021 and maximum 0.033 under a per-axis 0.02·√3, and falls as the step grows, which a
+frame-limited floor would not. The constant's own comment prices it at 68 m of miss, written when
+that was comfortably under the shot; at ~380 s of arc sensitivity it is 7-8 m, and it is the floor.
+Inside it the trim moves in whole frames: a firing between two readings under 10 m moves the
+reading 3.55 m median (204) against 0.10 m without (28,029), worse in 58%.
+
+* **38. Release on a reading inside the floor, and keep going while passes improve.** The floor
+  derived rather than typed: the trim's stop band times the arc's sensitivity, `AimAuthority.TryRate`
+  against the committed arrival — flown at 381 m per m/s, 0.95 of the time to impact — which gives
+  7.0-7.6 m per flight against an empirical 6.0 m median. With the tracking band beside it, so a
+  rocket still converging keeps going. Counterfactually over the read arm's 80 flights the release
+  reading goes from median 5.65 m to **4.9 m on flown readings alone**, a lower bound, and to 4.5 m
+  with the passes a converging rocket would have got, modelled: **0.80x on the release probe,
+  [0.63, 0.96] resampled**. That model, built on `-band`'s base arm, predicted its band arm at 0.80x
+  where it flew 0.83x. The landing about 0.9x, not expected to resolve.
+* **39. Lower the floor with KSA's pulse mode.** `FlightComputerManualThrustMode.Pulse` turns a
+  held translation into one pulse of the thruster's `MinimumPulseTime` at most every 0.15 s. The bus
+  declares 1 ms, so a pulse is 0.00056 m/s — 16x finer than a frame and 36x finer than the band. It
+  is a write the game makes for its own keyboard, through the public
+  `FlightComputer.SetManualThrustMode`, and it has to be made from the attitude prefix, because the
+  worker's results overwrite it. **The attitude hold survives it**: the pulse branch builds only the
+  translation command, and the tracking controller writes the rotation afterwards in either mode.
+  Predicted floor about 1 m, for about a second of pulses per axis per pass. `ICBM-GUIDANCE.md`
+  already names it as the lever. Not built first because it is an engine path this mod has never
+  driven, and the rig needs the pulse contract, a frame of command latency and 8/25 ms step jitter
+  before a headless test of it means anything.
+
+**They compose, and 38 first costs nothing**: its floor is computed from the band, so a pulse phase
+that shrinks the band shrinks the floor 38 releases on. 39 is the larger lever and the larger build.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -6967,6 +7064,10 @@ what 20b is flying against.
 | ~~34~~ | ~~Re-fly `AimThresholdTracksTheMiss` on the release endpoint~~ | **flown 2026-09-11, 20 blocks** | **0.78x [0.51, 1.11], shot-flip p=0.082 — UNRESOLVED, open; the landing 0.98x.** `noimprov` 42 to 6 of 80, and the short bias untouched, 71 and 74 of 80 short. Stays off. The revert at release is never flown (3cp), and the report's null was mis-built under `--levels-from` and read p=0.005 first — **3cq** |
 | ~~35~~ | ~~Re-read the ground as a warhead meets it~~ — `IcbmConfig.ResampleGroundAtImpact` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **walk 0.30x [0.26, 0.40], won 20 of 20; miss 0.60x [0.54, 0.79], won 16 of 20.** Every arm flight stopped within 0.1 m of its own surface, and the miss's p90 fell from 53 m to 23. **3cr, 3cs** |
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
+| **37** | **Integrate a warhead's fall to second order** — `IcbmConfig.SecondOrderWarheads` | **built, off** | **3cu** — the walk left after 35 is the round's own integrator: a half-kick of `a·h/2` held for the whole fall, **1.986 m short of the exact conic** headlessly and −2.1 m flown. Predicted −2.1 → −0.3 m |
+| **38** | **Release on a reading inside the trim's floor**, and keep going while passes improve | not started | **3cu** — the floor derived as the trim's band x the arc's sensitivity, 7.3 m. 0.86x on the release probe from flown readings alone, 0.80x with the passes modelled |
+| **39** | **Lower the floor with KSA's pulse mode** | not started | **3cu** — one 1 ms pulse is 36x finer than the band; predicted floor ~1 m. An engine path the mod has never driven |
+| **40** | **The predictor's crossing tolerance** (+0.18 m) **and the ground lookup's rotation phase** (±3 m by seat) | not started | **3cu** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |

@@ -466,6 +466,16 @@ internal sealed partial class Ui
             + "it is. Off: a warhead stops on the ground it had under it at the top of the frame, which "
             + "on a slope is tens of metres from where it meets it.");
 
+        bool secondOrder = config.SecondOrderWarheads;
+        if (ImGui.Checkbox("Warheads integrate their fall to second order", ref secondOrder))
+        {
+            config.SecondOrderWarheads = secondOrder;
+        }
+        Tip("On: each sub-step reads gravity half-way through it and moves on the mean of its two "
+            + "velocities. Off: it reads gravity where the step begins and moves on the velocity it "
+            + "ends with, which carries an extra half-step of gravity for the whole fall -- about 2 m "
+            + "short over six minutes.");
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

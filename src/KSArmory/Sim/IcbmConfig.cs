@@ -453,6 +453,20 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool ResampleGroundAtImpact = true;
 
+    /// <summary>
+    /// Let a released warhead integrate its fall to second order — <see cref="Slug.SecondOrder"/>.
+    ///
+    /// <para><b>The walk left after the ground re-read is the round's own integrator.</b> Reading
+    /// gravity where a sub-step begins and moving on the velocity it ends with is leapfrog with an
+    /// extra half-kick of <c>a·h/2</c>, 3.7 mm/s at the reentry vehicle's 1 ms sub-step, and a 380 s
+    /// fall at 32° carries it to about 1.8 m short. Flown, the walk is −2.1 m median, short on 149 of
+    /// 160 flights and growing smoothly with time from release; flying 12 logged release states
+    /// through both integrators reproduces −1.76 m. <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
+    ///
+    /// <para><b>Off until it has flown.</b> Predicted: the walk from about −2.1 m to −0.3.</para>
+    /// </summary>
+    public bool SecondOrderWarheads;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

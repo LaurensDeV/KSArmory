@@ -2024,6 +2024,7 @@ internal sealed class IcbmComputer
             if (weapon is IRoundsInFlight { Rounds: { Count: > 0 } flying } && flying[^1] is Slug released)
             {
                 released.ResampleGroundNearImpact = Config.ResampleGroundAtImpact;
+                released.SecondOrder = Config.SecondOrderWarheads;
             }
 
             ProbeRelease();

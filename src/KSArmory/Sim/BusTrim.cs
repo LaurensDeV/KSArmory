@@ -145,9 +145,10 @@ internal sealed class BusTrim
     /// <summary>
     /// Close enough to stop, in metres per second.
     ///
-    /// <para>Two centimetres a second is about 68 m of miss at this trajectory's radial
-    /// sensitivity, which is comfortably under the best a shot has flown without any of this. Below
-    /// it the residual stops being what the miss is made of and there is nothing to buy.</para>
+    /// <para><b>It is the floor under the post-boost correction.</b> It binds rather than the frame's
+    /// quantum — at a 16 ms step half a frame of jets is 0.005 m/s — and at ~380 m of miss per m/s it
+    /// is 7-8 m, so a correction pass on a reading inside that is as likely to make the shot worse.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
     /// </summary>
     public const double SettledMetresPerSecond = 0.02;
 

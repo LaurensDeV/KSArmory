@@ -236,6 +236,21 @@ internal sealed class Slug : IProjectile
     public bool ResampleGroundNearImpact { get; set; }
 
     /// <summary>
+    /// Integrate each sub-step to second order: drift half of it, read gravity and the air there,
+    /// kick, and drift the rest — rather than reading them where the step begins and moving on the
+    /// velocity it ends with.
+    ///
+    /// <para><b>The first-order step is leapfrog started with an extra half-kick.</b> Moving on the
+    /// velocity a sub-step ends with adds <c>a·h²/2</c> of position every step, which sums to a
+    /// velocity error of <c>a·h/2</c> held for the whole fall: 3.7 mm/s of gravity at the reentry
+    /// vehicle's 1 ms sub-step, and about 1.8 m short after a 380 s fall at 32°.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
+    ///
+    /// <para>The same lookups per sub-step either way; only where they are taken moves.</para>
+    /// </summary>
+    public bool SecondOrder { get; set; }
+
+    /// <summary>
     /// How far above the held surface the re-reading starts. It has to clear what the ground can do
     /// across one frame — a 30% slope over 90 m of track is 27 m — plus a sub-step's drop; anything
     /// more only buys lookups.
@@ -373,14 +388,19 @@ internal sealed class Slug : IProjectile
             // frame of the planet's ~30 km/s -- 0.9 km at normal speed and 3.9 km at eight times,
             // read as altitude, on air that falls off over 8 km. That makes the error grow with the
             // step and jump when the step changes, which is what a warp change does mid-flight.
-            double density = AirDensityAt?.Invoke(PositionEcl, elapsed - dt) ?? mediumDensityRatio;
+            // A second-order round reads both half a sub-step on, where its kick belongs.
+            double half = SecondOrder ? 0.5 * h : 0.0;
+            double3 readAt = PositionEcl + VelocityEcl * half;
+            double readWhen = elapsed + half - dt;
+
+            double density = AirDensityAt?.Invoke(readAt, readWhen) ?? mediumDensityRatio;
             if (!double.IsFinite(density) || density < 0.0) density = mediumDensityRatio;
             _lastDensity = density;
 
             // Incremented after the step, so the round's position and the back-dated target share
             // an instant. Splitting them across a sub-step costs ~142 m at 29.8 km/s.
             // Re-read per sub-step when the caller offers it, back-dated exactly as the air is.
-            double3 pull = GravityAt?.Invoke(PositionEcl, elapsed - dt) ?? gravity;
+            double3 pull = GravityAt?.Invoke(readAt, readWhen) ?? gravity;
             if (!Vec.IsFinite(pull)) pull = gravity;
 
             Step(h, elapsed, dt, target, pull, munition, density);
@@ -528,9 +548,12 @@ internal sealed class Slug : IProjectile
             }
         }
 
+        double3 velocityWas = VelocityEcl;
         VelocityEcl += accel * h;
 
-        double3 stepEcl = VelocityEcl * h;
+        // Second order moves on the mean of the two ends, which is the half-drift either side of the
+        // kick; first order on the velocity the step ends with.
+        double3 stepEcl = (SecondOrder ? (velocityWas + VelocityEcl) * 0.5 : VelocityEcl) * h;
         double3 before = PositionEcl;
         PositionEcl += stepEcl;
 
