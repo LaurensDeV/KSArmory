@@ -13,7 +13,7 @@
 > | `cot γ` is 4.37, or 8.03 at the 7.1° the tables price | **1.60** — every height-driven column below is ~5x what it should be |
 > | rung A (~80 m) and B (~30 m) are ahead | **both passed.** A lone rocket flies **10 m median, 30 m worst**, 20 of 20 (3bl) |
 > | the miss is `residual x arc sensitivity` | that is the **open-loop** shot. The flown loop realises **36 m per m/s against the arc's 884** (3x), and lands at 10-20 m while carrying 2.6 m/s owed |
-> | rung D needs a 1 ms sub-step and ground per sub-step | the sub-step **shipped** (`065907a`); ground-per-sub-step is **refuted** — chaotic, not convergent |
+> | rung D needs a 1 ms sub-step and ground per sub-step | the sub-step **shipped** (`065907a`). Ground per sub-step was refuted on the rig's erosion fixture and is **back**: near impact it takes the stop from metres off the true surface to 0.0 m and the walk to ~2 m in flight — plan 3cr, night pending |
 > | B1's item 3, the aim bias re-priced at a steeper arc | **refuted.** Every geometric sensitivity *falls* as the arc steepens (3bs) |
 > | B5, the tube cant | **dead** — the bus was straightened, all six axes read `(1,0,0)` |
 > | "a fifth of worlds do not get to fly the ladder" | that fifth is bound up with the **multi-rocket harness**, and N=1 against N=8 is p=0.145, not significant (3bn) |
@@ -25,8 +25,9 @@
 > by its own prediction on every flight** — against an observer exact to 0.46 m — and the landing
 > then correlates **+0.07** with that prediction and **+0.93 with the ground under that seat's
 > aimpoint**, measured on a different night. Seats are 12 km apart on a fixed aim point, so a seat
-> *is* a patch of ground. **The remaining miss is terrain the predictor does not resolve**, and no
-> further tuning of the correction loop can reach it.
+> *is* a patch of ground. **The remaining miss is that ground, read wrongly by the round rather than
+> by the predictor** — a warhead stops on the height it sampled at the top of its last frame, 40-90 m
+> of track back (plan 3cr) — and no further tuning of the correction loop can reach it.
 >
 > **And the arrival angle did not deliver (3cd, flown 2026-09-08).** The ladder in this file is
 > built on arrival angle as the lever. Flown at 41.7 deg against 32.0 at the target where terrain is
