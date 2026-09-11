@@ -426,11 +426,13 @@ internal sealed class IcbmConfig
     /// one-signed short bias before release, 71-74 of 80 flights short.
     /// <c>docs/ACCURACY-PLAN.md</c> 3cr.</para>
     ///
-    /// <para><b>Off until it has flown.</b> On, a frame with no reading asks for one and spends
-    /// nothing, so the pass is decided on the frame its reading arrives. Predicted: the bias at
-    /// release from about −6 m to −1.</para>
+    /// <para><b>On.</b> A frame with no reading asks for one and spends nothing, so the pass is
+    /// decided on the frame its reading arrives. Flown over 20 paired shots: the signed release
+    /// downrange moved +8.3 m [+6.2, +10.5] on every one, −7.45 m to +0.47, and the miss went
+    /// 0.58x [0.44, 1.08], the median rocket landing 12.5 m to 6.5. <c>docs/ACCURACY-PLAN.md</c>
+    /// 3ct.</para>
     /// </summary>
-    public bool DecideOnTheReading;
+    public bool DecideOnTheReading = true;
 
     /// <summary>
     /// Let a released warhead re-read the ground under each sub-step as it meets it, rather than

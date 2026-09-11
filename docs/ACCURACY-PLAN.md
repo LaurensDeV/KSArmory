@@ -10,11 +10,13 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 
 ## Where it stands after 2026-09-11 — read this first
 
-**The one-line version: the shot is 12 m median per rocket, down from 17, because the walk was the
-warhead stopping on stale ground and now it does not. What is left is mostly a 6-8 m bias made
-before release, which is a race with a known fix.**
+**The one-line version: the shot is 6.5 m median per rocket, down from 17 before either of the
+day's two fixes. The walk was the warhead stopping on stale ground (3cs), and the 7 m bias before
+release was the post-boost loop deciding each pass on a reading fifteen seconds old (3ct); both
+fixes ship on. What is left is the loop's own floor — it cannot trim below about 5 m and does not
+know it — and a walk still 2 m short.**
 
-The entries to read are **3cr**, **3cs**, **3cp** and **3cq**. The 2026-09-08 block below is
+The entries to read are **3ct**, **3cs**, **3cr** and **3cq**. The 2026-09-08 block below is
 history, and two of its items have since been overturned.
 
 1. **The walk is fixed and ships (3cr, 3cs).** A warhead stopped on the height it sampled at the top
@@ -23,20 +25,27 @@ history, and two of its items have since been overturned.
    miss **0.60x** — median miss 17 to 12 m, 90th percentile 53 to 23, worst 103 to 30, and seat 3's
    walk 52 m to 4. The seat gradient is gone. B below said the walk "follows the ground"; it
    followed the ground the round had *already left*.
-2. **The pre-release term is next, and it is a race (3cr, item 36).** `PostBoostAim` spends its
-   "correction flown" flag on a frame with no reading, so 95% of later readings wait out a 15 s
-   backstop and the warheads leave on a reading ~14.7 s old: a one-signed short bias, 71-74 of 80
-   flights short, and now three times the walk. 3cr writes out the build and the test. Predicted
-   −6 m to about −1 before release.
-3. **The release freeze is bookkeeping (3cp).** Its revert happens in the frame the warheads leave
+2. **The pre-release term was a race, and the fix ships (3cr, 3ct, item 36).** `PostBoostAim`
+   spent its "correction flown" flag on a frame with no reading, so each later reading waited out a
+   15 s backstop and the warheads left on one ~14.7 s old. `IcbmConfig.DecideOnTheReading`, now on
+   by default, decides each pass on the frame its reading arrives: over 20 paired blocks the signed
+   release moved **+8.3 m [+6.2, +10.5] on every shot**, −7.45 to +0.47 m, and the miss went
+   **0.58x** — median rocket 12.5 to 6.5 m, 90th percentile 24 to 14.
+3. **What is left is the loop's own floor, and the walk (3ct).** A pass on a reading under 10 m
+   makes the next reading worse 52-86% of the time: the trim stops inside one frame of its jets,
+   and ~390 s of fall carries that to about 6 m. The flat 250 m `ImprovedByMetres` cannot see it
+   either way — it ends rockets still converging and lets others trim past their best — and
+   payback cannot either, pricing a 2 s pass at under a metre. And the walk is still one-signed:
+   −2 m, short on 149 of 160 flights, with the re-read on in both arms.
+4. **The release freeze is bookkeeping (3cp).** Its revert happens in the frame the warheads leave
    and nothing flies it — the revert's size predicts the release probe at +0.10 over 536 flights —
    which overturns D below. `AimThresholdTracksTheMiss` (item 34) flew 0.78x on the release probe,
    unresolved and flat on the landing, and stays off (3cq).
-4. **The km-scale tail is fixed upstream (3cn, 3cr).** RocketWerkz revision 5429, unreleased as of
+5. **The km-scale tail is fixed upstream (3cn, 3cr).** RocketWerkz revision 5429, unreleased as of
    2026-09-11, applies the fictitious forces a `Ccf` bubble was stripping from a high bus. The
    mod-side workarounds 33f, 33g and 24 are held; `BLOCKED-ON-KSA.md` has the recheck for the build
    that carries it, and a way to reproduce the bubble on demand.
-5. **One instrument fault fixed.** `shot-report.py`'s shot-flip null refitted seat levels that
+6. **One instrument fault fixed.** `shot-report.py`'s shot-flip null refitted seat levels that
    `--levels-from` had borrowed, and read p=0.005 where the honest test says 0.082 (3cq). No earlier
    verdict changes. And 3cd/3ck's arrival-angle null had a confound — the steep arm fell on slower
    frames, so its stale-ground error was larger — which the re-read removes. Whether the angle buys
@@ -6753,6 +6762,88 @@ KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|rea
   getting worse, which would mean the dwell was cancelling something downstream.
 * **Watch:** the ending mix, and whether the read arm spends more trim.
 
+### Flown: the whole bias, on every shot — SHIPPED ON
+
+`~/shots/2026-09-11-read`, 20 blocks, 160 flights, build `df28e12`. All 20 shots PASS at 11.9
+minutes each, with no exception in any mod log, nor in KSA's own log from the last launch (the
+batch keeps no earlier copy).
+
+| | base | read |
+| --- | --- | --- |
+| signed release downrange, median | −7.45 m, 73 of 80 short | **+0.47 m, 38 of 80 short** |
+| release probe magnitude, median | 7.7 m | 4.3 m |
+| rocket landing, median / p90 / worst | 12.5 / 24 / 33 m | **6.5 / 14 / 29 m** |
+| rockets landing over 20 m | 15 of 80 | 4 of 80 |
+| walk, median | −1.9 m, 74 of 80 short | −2.2 m, 75 of 80 short |
+| payback cycle, median | 16.5 s | 2.0 s (one flight) |
+| ended on `noimprov` / payback / clock | 48 / 21 / 11 | 79 / 1 / 0 |
+| passes per flight, mean | 4.39 | 4.84 |
+
+* **Primary — the signed release downrange, seats levelled: read − base = +8.3 m [+6.2, +10.5]**,
+  higher on 8 of 8 seats (sign p = 0.008) and on **all 20 shots** (sign p < 0.0001). Predicted −6 m
+  to about −1; it went −7.45 to +0.47 — the whole bias rather than most of it.
+* **The landing, `--paired`: 0.58x [0.44, 1.08], won 13 of 20, shot-flip p = 0.001, RESOLVED**
+  (un-levelled 0.50x). Predicted 1-2 m and not expected to resolve; the median rocket moved 6 m.
+  The prediction treated the bias as one term among several of its size, and once 3cs had fixed the
+  walk it was the largest left. Base flew a normal night: `2026-09-11-ground`'s ground arm, the same
+  code, read −8.2 m and 11.5 m by shot median against −9.1 and 12 here.
+* **The release probe's magnitude, `--endpoint release`: 0.87x [0.57, 1.34], unresolved.** Per rocket
+  the median fell 7.7 → 4.3 m, but per shot the read arm's four rockets carry its tail — shot 16's
+  four all released 9-14 m long, on the stopping rule below — and the scatter did not move.
+* **Prediction 1 held**: the read arm's one payback line cycled in 2.0 s against 16.5, and nothing
+  reached `MaxSeconds`, where base had 11 clock endings. So did its predicted side-effect: 79 of 80
+  read flights ended on `noimprov`. Half a pass more per flight, and no flight reached the trim
+  budget.
+* **Prediction 3's other half held**: the walk is untouched.
+* **The landing's gain sits in the first ten shots**: per-shot median 0.54x with 8 won, against 0.91x
+  with 5 won in the last ten, while the signed release moved on every shot of both halves. Base's own
+  bias was smaller in the second half, −9.1 against −6.5 m by shot median, which leaves less to
+  remove, and past that what sets the read arm's landing is the stopping rule.
+
+Neither refutation happened: the bias moved, and the landing got better rather than worse.
+**`IcbmConfig.DecideOnTheReading` now defaults to true.**
+
+### What the night found past its question: the loop's floor, and a walk still one-signed
+
+**The post-boost loop has a floor, and none of its stopping rules knows it.** Pairing each pass's
+reading with the next on the same rocket, 986 pairs over this night, `-band` and `-ground`:
+
+| this pass's reading | next reading, median | next worse |
+| --- | --- | --- |
+| 100-300 m | 31-42 m | 0% |
+| 30-100 m | 12-15 m | 0-8% |
+| 10-30 m | 7-10 m | 10-23% |
+| under 10 m | 5-10 m | **52-86%** |
+
+**The readings are measurements, not noise.** Consecutive live-state predictions under 30 m with no
+jet firing between them agree to 0.2 m median and 1.1 m at the 99th percentile (24,038 pairs
+tonight); across a firing they move 6.1 m median, 15.8 m at the 90th (280). So a pass on a small
+miss moves the rocket, and the move is as likely to be away. What sets its size: the trim stops with
+less than a frame of firing left — a median 0.021 m/s unflown, at ~0.55 m/s² on ~27 ms frames — and
+~390 s of fall carries one frame, ~0.015 m/s, to about 6 m. From 10-30 m the read arm's next pass
+lands at 7.4 m against 9.0-9.6 for every arm that still had the dwell.
+
+**`ImprovedByMetres` fails it both ways.** Below 250 m no pass counts as an improvement, so the loop
+ends three passes later whatever they read. Some rockets are still converging when it does — shot 16
+seat 4 read 141 → 31 → 19 → 14 m and released 13.6 m long — and others have reached ~5 m and trimmed
+on it again: shot 13 seat 7, 4.5 → 8.0 → 8.5 m, released 8.4 m short; base seat 2 on the same shot,
+5.1 m, released 16.1 m short. Payback cannot catch either on the read arm, because a 2 s cycle prices
+another pass at under a metre.
+
+**Releasing on the first reading inside the floor** is worth counting before it is built. Over the
+read arm's 80 flights, releasing on the first pass reading under 7.5 m instead of trimming on it
+takes the reading each rocket leaves on from median 5.7 to 4.9 m, and from 12 to 6 flights over
+10 m — better on 26, worse on 12. Under 10 m it is a wash, 26 against 22. It is a floor on the gain
+rather than an estimate: a counterfactual can credit stopping sooner, never the passes a rocket
+still converging did not get.
+
+**The walk is still one-signed**: −1.9 and −2.2 m, 74 and 75 of 80 short, with the re-read on in both
+arms. `WarheadTrace`'s clock term averages −0.6 ms, about −3 m, but is uncorrelated with the walk
+rocket by rocket (r = −0.06 over 128 traced rounds, similar spreads) and reconciles its clocks only
+to a millisecond, so it is not the explanation.
+
+Both are candidates for item 37.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -6875,7 +6966,7 @@ what 20b is flying against.
 | **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
 | ~~34~~ | ~~Re-fly `AimThresholdTracksTheMiss` on the release endpoint~~ | **flown 2026-09-11, 20 blocks** | **0.78x [0.51, 1.11], shot-flip p=0.082 — UNRESOLVED, open; the landing 0.98x.** `noimprov` 42 to 6 of 80, and the short bias untouched, 71 and 74 of 80 short. Stays off. The revert at release is never flown (3cp), and the report's null was mis-built under `--levels-from` and read p=0.005 first — **3cq** |
 | ~~35~~ | ~~Re-read the ground as a warhead meets it~~ — `IcbmConfig.ResampleGroundAtImpact` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **walk 0.30x [0.26, 0.40], won 20 of 20; miss 0.60x [0.54, 0.79], won 16 of 20.** Every arm flight stopped within 0.1 m of its own surface, and the miss's p90 fell from 53 m to 23. **3cr, 3cs** |
-| **36** | **Decide on the reading, not fifteen seconds after it** — the post-boost race | **built, off**: `IcbmConfig.DecideOnTheReading`; flying | **3cr, 3ct** — `PostBoostAim` spends its flag on a frame with no reading, so 95% of later readings wait out the 15 s backstop, and the fallback restarts its own clock the same way. Predicted −5.75 → ~−1 m before release, 1-2 m at the ground. Next after 35 |
+| ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
@@ -6888,7 +6979,7 @@ what 20b is flying against.
 | ~~33g~~ | **Held — its cause is fixed upstream in KSA revision 5429 (3cr).** ~~Refuse a split debt the world caused~~ rather than spending 13 m/s of tank chasing it — a debt several times a decoupler's ~1.1 m/s arriving with off-gravity non-zero is not a shove | small | **3cn** — the warheads leave on that trajectory either way; the propellant should not |
 | **33c** | **Pre-register the 80 m release-probe rule**, dropping the SHOT and re-flying it | small | **3cl** — a clean empty band from 72 to 100 m over 672 flights, zero sound flights lost, and a flight-level drop is what manufactures a false RESOLVED |
 | **33d** | **Why seats 3, 5 and 7** carry every high plant reading on every arm | `--terrain`, no shots | **3cl** — the downrange slope at each aim point is the missing number, and it is not in any log |
-| **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
+| ~~30~~ | ~~The pre-release residual, ~7 m, does not follow the ground.~~ | **fixed by 36** | it was the post-boost race, not the ground: **−7.45 → +0.47 m**, won 20 of 20 — **3ct** |
 | **26a** | **Name the craft on the `aim:` line** so a bias can be paired with its own rocket's miss per cycle rather than only at release | done | 3by |
 | **5i** | **Read the same line on a flight that actually breaches the ceiling.** 3bu is the ordinary behaviour at 0.87 m/s; 2148 read 3.410 with refusals at 20-26. The failure is something on top | free on any night that breaches | 3bu |
 | ~~1a~~ | ~~Confirm 3z headlessly~~ | done | **refuted: 0.13 m over KSA's own erosion spectrum** — 3ab |
