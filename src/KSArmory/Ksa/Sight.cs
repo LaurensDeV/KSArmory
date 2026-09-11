@@ -210,7 +210,7 @@ internal static class Sight
         // Why the head is not on it, when it is not. The bracket alone says a contact is held,
         // never that anything is being done about it -- and a head resting with a contact tracked
         // draws exactly the picture of a camera that has stopped working.
-        OpticHold hold = OpticFollow.Why(OnAxis(battery, track), policy.Manual,
+        OpticHold hold = OpticFollow.Why(OnAxis(battery, track), policy.MouseAim, policy.Manual,
                                          battery.Designation.Kind != AimpointKind.None,
                                          policy.Tracking, settled);
 

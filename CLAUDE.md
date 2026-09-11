@@ -2004,9 +2004,15 @@ original fault by another route.
 brackets whatever its sensor holds, and only slews onto it if something told it to — so a head at
 rest with a contact tracked paints a bracket well off the boresight and reads, from the picture
 alone, as a camera that has stopped working. `Sim/OpticHold.cs` is the director's half of
-`FireHold`, and its ordering is not a preference: it mirrors `OpticalHead.AimFor`, which takes a
-hand-aimed head first, then a designation, then the tracking switch. All three can be true at
-once, so a reason read in any other order names a rung the head never reached.
+`FireHold`, and its ordering is not a preference: it mirrors `OpticalHead.AimPartFrame`, which
+takes the mouse first, then the sliders, then a designation, then the tracking switch. All of them
+can be true at once, so a reason read in any other order names a rung the head never reached.
+
+**The view's re-solve onto a settled head's target asks the same question, and does not ask it
+again.** `AimPartFrame` records the rung it took and `TryFollowedDrawnEcl` reads that, so the
+camera is only ever re-aimed at what the head was actually aimed at. A head held by the mouse is
+settled on wherever the operator left it; re-solving that onto the radar's contact snaps the
+picture away from a head that has not moved.
 
 **The sight magnifies by rewriting the field of view every frame, and it has to.** The player's own
 zoom keys route through `Camera.ChangeFieldOfView`, which clamps to 15°–120°, so one keypress

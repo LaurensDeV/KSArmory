@@ -36,17 +36,18 @@ internal static class OpticFollow
     /// The reason, or <see cref="OpticHold.None"/>.
     ///
     /// <para>The order is not a preference — it mirrors the precedence in
-    /// <c>OpticalHead.AimFor</c>, which takes a hand-aimed head first, then a designation, then
-    /// the tracking switch. A reason listed in any other order names a rung the head never
-    /// reached, which is worse than saying nothing.</para>
+    /// <c>OpticalHead.AimPartFrame</c>, which takes the mouse first, then the sliders, then a
+    /// designation, then the tracking switch. A reason listed in any other order names a rung the
+    /// head never reached, which is worse than saying nothing.</para>
     /// </summary>
     /// <param name="onAxis">The contact is within <see cref="OnAxisDeg"/> of where the head looks.</param>
     /// <param name="settled">The drive has stopped moving.</param>
-    public static OpticHold Why(bool onAxis, bool manual, bool designated, bool tracking,
-                                bool settled)
+    public static OpticHold Why(bool onAxis, bool mouseAim, bool manual, bool designated,
+                                bool tracking, bool settled)
     {
         if (onAxis) return OpticHold.None;
 
+        if (mouseAim) return new OpticHold("MOUSE AIM");
         if (manual) return new OpticHold("AIMED BY HAND");
         if (designated) return new OpticHold("WATCHING ELSEWHERE");
         if (!tracking) return new OpticHold("NOT TRACKING");

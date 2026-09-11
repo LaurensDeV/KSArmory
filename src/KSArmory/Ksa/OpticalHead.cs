@@ -360,16 +360,15 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             return false;
         }
 
-        // While the head is settled it is tracking, so the view is re-solved onto the target's own
-        // position at this instant rather than left along an axis turned to a frame ago. Same rule,
-        // and the same reason, as the launcher's head had. Skipping it leaves the whole frame-late
-        // term in, and that term scales with simulation speed.
+        // While the head is settled on what it follows, the view is re-solved onto that target's own
+        // position at this instant rather than left along an axis turned to a frame ago. Skipping it
+        // leaves the whole frame-late term in, and that term scales with simulation speed.
         //
-        // Against whatever the head is *following*, which is not always a radar lock. Asking for
-        // Radar.Locked skipped the re-solve for a contact that is tracked but not a threat -- the
-        // very case a director exists to watch -- and for every designation, since a designated
-        // hillside is not a track at all. Both were introduced the day the head learned to follow
-        // them, and both showed up as jitter under warp and nowhere else.
+        // Only onto what AimPartFrame actually aimed at, which _aimed records: a designation, or the
+        // set's pick with tracking on -- Watched, not Locked, because a contact tracked but not a
+        // threat is the very case a director exists to watch. A head held by the mouse or the
+        // sliders is settled on wherever the operator left it, and re-solving that onto the radar's
+        // contact snaps the picture away from a head that has not moved.
         if (!_drive.OnTarget) return true;
         if (!TryFollowedDrawnEcl(out double3 drawnEcl)) return true;
 
@@ -379,8 +378,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         return true;
     }
 
-    // Where the thing the head is following is *drawn*, now -- a designation first, then the set's
-    // own pick. False when it is following nothing resolvable.
+    // Where the thing the head is aimed at is *drawn*, now -- the designation or the set's own pick,
+    // whichever AimPartFrame took. False under the mouse or the sliders, and when it is following
+    // nothing resolvable.
     //
     // The drawn position rather than the simulated one, because this decides where a camera points
     // and the target is drawn at the former. The two differ by metres on a landed craft.
@@ -388,7 +388,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     {
         drawnEcl = Vec.Zero;
 
-        if (Designation.Kind != AimpointKind.None)
+        if (_aimed == Aimed.Designation)
         {
             if (Designation.NeedsResampling)
             {
@@ -405,10 +405,17 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             return false;
         }
 
-        return Radar.Watched is { } watched
+        return _aimed == Aimed.Track
+               && Radar.Watched is { } watched
                && watched.Contact.TryDrawEgo(out double3 ego)
                && KsaWorld.TryEgoToEcl(ego, out drawnEcl);
     }
+
+    // Which rung the last AimPartFrame took. The view re-solve reads it rather than choosing again,
+    // because two places deciding what the head follows can disagree -- see TryOpticViewEclAt.
+    private enum Aimed { Rest, Cursor, Hand, Designation, Track }
+
+    private Aimed _aimed;
 
     // Where the head is told to look, in the director's own part frame. Clamped to its travel
     // here rather than at the drive, so the drive's own settling is measured against a command it
@@ -417,6 +424,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     private double3 AimPartFrame()
     {
         double3 rest = OpticGeometry.RestAim(Profile, Mount);
+        _aimed = Aimed.Rest;
 
         // Mouse aim owns the head outright rather than being the first of several rungs: with it
         // on the operator is the sensor, so falling through to tracking -- or to the rest
@@ -424,6 +432,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // anything. Holding is where it already is, which is the drive's own direction.
         if (_policy.MouseAim)
         {
+            _aimed = Aimed.Cursor;
             return TryCursorAimPartFrame(out double3 cursorFrame)
                 ? OpticGeometry.ClampToTravel(Profile, Mount, cursorFrame)
                 : _drive.Direction;
@@ -431,6 +440,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         if (_policy.Manual)
         {
+            _aimed = Aimed.Hand;
             return OpticGeometry.ClampToTravel(Profile, Mount, ManualAim());
         }
 
@@ -441,7 +451,11 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // would be a click that silently does nothing.
         if (Designation.Kind != AimpointKind.None)
         {
-            if (TryDesignatedAim(platform, out double3 designated)) return designated;
+            if (TryDesignatedAim(platform, out double3 designated))
+            {
+                _aimed = Aimed.Designation;
+                return designated;
+            }
 
             // Gone. Dropped here rather than left to point at a hole, which would read as the head
             // sticking rather than as the target having left.
@@ -467,10 +481,14 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             targetEcl = drawn;
         }
 
-        return LauncherPart.TryDirectionToPartFrame(platform, Director, targetEcl - pivotEcl,
-                                                    out double3 partFrame)
-            ? OpticGeometry.ClampToTravel(Profile, Mount, partFrame)
-            : rest;
+        if (!LauncherPart.TryDirectionToPartFrame(platform, Director, targetEcl - pivotEcl,
+                                                  out double3 partFrame))
+        {
+            return rest;
+        }
+
+        _aimed = Aimed.Track;
+        return OpticGeometry.ClampToTravel(Profile, Mount, partFrame);
     }
 
     // Where the designation is now, in the head's part frame. False once it is gone.

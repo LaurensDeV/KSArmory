@@ -1222,12 +1222,16 @@ where it is now. One frame of the target's angular motion, times the simulation 
 the field at 1× for a 42 m/s target at 0.65 km, and 30% of it at 16×, which is what was seen.
 
 `LevelHorizonController.OnFrame` is the only mod code that runs *inside* that pass, so the pose is
-asked for again there through `IViewPose`. While the head is settled it is tracking, so the view
-is re-solved onto the target's own position at that instant; while it is still slewing the head's
-own axis is used, because a target sliding towards the middle is what slewing looks like.
+asked for again there through `IViewPose`. While the head is settled on what it follows — a
+designation, or the set's pick with tracking on — the view is re-solved onto the target's own
+position at that instant; while it is still slewing, or held by the mouse or the sliders, the
+head's own axis is used, because a target sliding towards the middle is what slewing looks like.
 
 - [x] Paused, at 1×, and at high warp: the cross stays on the target at all three. **Confirmed in
       flight** — both centring faults are closed.
+- [ ] **Mouse aim** with a contact tracked: drag the head off it and let the cursor come to rest
+      inside the ring. The picture stays where the head is rather than jumping back onto the
+      contact, and the contact's bracket reads `MOUSE AIM`.
 - [x] Start a chase transition **from 16×**. It flies at the player's own field, not down a
       three-degree straw, and the magnification comes back when the chase stands down.
       **Confirmed in flight.**
