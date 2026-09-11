@@ -401,17 +401,16 @@ internal sealed class IcbmConfig
     /// was calibrated and tightens as the shot improves. The floor is what the instrument can
     /// resolve rather than what is wanted.</para>
     ///
-    /// <para><b>Off, and off is what ships</b>, on 0.88x [0.84, 1.10] over 14 shots — the point
-    /// estimate favours it and the interval spans one. The Dead list's "<c>ImprovedByMetres</c>
-    /// 50/250/1000 identical" is not evidence against it: all three are far above the miss, so all
-    /// three stop the loop the same way.</para>
+    /// <para><b>Off, and off is what ships.</b> Flown twice and unresolved both times: 0.88x
+    /// [0.84, 1.10] on the miss over 14 shots, then 0.78x [0.51, 1.11] on the release probe over 20,
+    /// with the landing at 0.98x. It takes <c>noimprov</c> from 42 of 80 flights to 6 and leaves the
+    /// short bias at release where it was. <c>docs/ACCURACY-PLAN.md</c> 3cq.</para>
     ///
-    /// <para><b>The band is not only a stopping rule</b>, which is the thing worth knowing about it.
-    /// <see cref="AimCorrection.Freeze"/> reverts to the best-scoring aim at every release, so a
-    /// band that ratchets <c>_bestMiss</c> down also decides which aim ships. Flown: the flat band
-    /// discards up to <b>153 m</b> of the walking the loop did after its score went stale, where
-    /// this one discards about 2 m. Whether that is worth anything is what the interval above
-    /// leaves open. <c>docs/ACCURACY-PLAN.md</c> 3by.</para>
+    /// <para><b>Its only channel is that stopping rule.</b> <see cref="AimCorrection.Freeze"/>
+    /// reverts to the best-scoring aim at release, but in the frame the warheads leave, so the
+    /// revert moves none of them: the flat band's 110 m median revert predicts the release probe at
+    /// +0.10. What the band changes is how many passes the trim flies before release.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3cp.</para>
     /// </summary>
     public bool AimThresholdTracksTheMiss;
 

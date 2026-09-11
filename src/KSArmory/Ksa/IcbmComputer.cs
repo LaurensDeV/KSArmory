@@ -1522,18 +1522,10 @@ internal sealed class IcbmComputer
             // trim line, and this is neither a trim state nor one that repeats.
             Log.Info($"post-boost on {KsaWorld.DisplayName(Craft)}: {pass.Said}");
 
-            // Keep the best aim the passes found, not the last one they tried. AimCorrection reverts
-            // to its own best when *it* decides to stop -- but the sequencer above stops it for
-            // reasons the loop knows nothing about, and on those the bias is left wherever the final
-            // pass put it. The miss is not monotonic in the aim, so that is routinely worse: flown at
-            // 12,902 km, a run read 2.1 km at pass 2, 6.0 at pass 3, 4.5 at pass 4 and released on
-            // the 4.5. Freeze is the existing "stop and keep the best" and costs nothing when the
-            // loop had already settled.
-            //
-            // Said, because what it reverts is the largest decision nothing had ever written down:
-            // the bias the warheads actually leave on is this one, not the one the trace ends at,
-            // and at 250 m the score it reverts to goes stale while the loop walks on -- read
-            // 190 m of banked best against a 4 m landing. docs/ACCURACY-PLAN.md 3by.
+            // Stops the loop and reverts its bias to the best it scored, which moves no warhead: they
+            // leave in this same frame on the trajectory the last trim pass flew, so "shipping" below
+            // is the loop's bookkeeping, not the aim flown. Over 536 flights the size of the revert
+            // predicts the release probe at +0.10. docs/ACCURACY-PLAN.md 3cp.
             double3 walkedTo = _aim.BiasCci;
             _aim.Freeze();
             double reverted = Vec.Len(_aim.BiasCci - walkedTo);

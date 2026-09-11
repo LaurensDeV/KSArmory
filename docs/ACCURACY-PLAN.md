@@ -6318,9 +6318,9 @@ that reverted 150 m or more released inside 80 m. The terminator split of 3co sh
 once read as the magnitude the endpoint scores — `noimprov` 7.0 m, `clock` 6.0, `payback` 4.0, and
 payback is the selection effect of the refuted list. Its "three times worse" was signed medians.
 
-**Not yet corrected in `CLAUDE.md`, `IcbmConfig.AimThresholdTracksTheMiss` or `IcbmComputer.cs`.**
-Two of the three are under `src/`, and the night flies the source the smoke flew; all three should
-change together, with the night's numbers.
+**Corrected in `CLAUDE.md`, `IcbmConfig.AimThresholdTracksTheMiss` and `IcbmComputer.cs`** once the
+night had flown, so the night flew the source the smoke flew. Base's revert predicted its release
+probe at **+0.11** on that night too, out of sample — 3cq.
 
 It also leaves a real question the other way round: **at long range the revert would matter and is
 not flown.** The freeze's own comment cites 12,902 km, 2.1 km at pass 2 against 4.5 at pass 4 and a
@@ -6386,6 +6386,74 @@ buy nothing at this geometry, and the pre-release 7 m is not the loop stopping e
 * **No 80 m exclusion (33c) tonight.** It excludes on the endpoint itself, and this arm acts on that
   endpoint; after 33b the mode it was written for is gone (0 of 160). The primary is read
   unexcluded.
+
+## 3cq. Item 34 flown: 0.78x before release, unresolved, and the landing does not move — 2026-09-11
+
+`~/shots/2026-09-11-band`, 20 blocks as prepared in 3cp. All 20 PASS, 160 of 160 flights scored on
+the probe and the trace, no rotating-frame shot, no re-fly, no arm dropped, no `GAVE UP`, and no
+exception in any shot's log.
+
+| endpoint | band vs base | 97% interval | shot-flip p | verdict |
+| --- | --- | --- | --- | --- |
+| **release, levels from the null — declared** | **0.78x** | [0.51, 1.11] | **0.082** | **UNRESOLVED, open** |
+| release, levels from this night | 0.91x | [0.61, 1.01] | 0.292 | unresolved |
+| miss | 0.98x | [0.73, 1.10] | 0.792 | unresolved |
+| walk | 1.22x | [0.84, 1.49] | 0.086 | unresolved |
+
+**It landed where 3cp put it** — 0.70-0.90x, likeliest unresolved. The interval's lower end is 0.51,
+so by the protocol it is *open* rather than ruled out, and it does not close item 34.
+
+### The report first read it RESOLVED, and that was the report
+
+`_shot_flip_p` refitted the seat levels in every permutation, including when `--levels-from` had
+supplied them. So the observed ratio was built on the null night's divisor and tested against a null
+built on this night's own, which are tighter, and it read **p = 0.005** beside an interval spanning
+one. A borrowed divisor cannot move with this night's labels, so it is now held fixed:
+
+| night | old | fixed |
+| --- | --- | --- |
+| tonight, band | 0.005 RESOLVED | **0.082** |
+| release (3ck), steep | 0.258 | 0.745 |
+| null, levels from trimgate | 0.536 | 0.610 |
+| null, levels from release | 0.624 | 0.615 |
+
+Both flown nights read more significant than they were; identical code is unaffected, which is why a
+null night cannot show it. No verdict before tonight changes — 3ck was unresolved and still is.
+
+### What the setting did, flight by flight
+
+| | base | band |
+| --- | --- | --- |
+| ended on | `noimprov` 42, `clock` 16, `payback` 22 | `noimprov` **6**, `clock` 31, `payback` 43 |
+| revert at release, median | 109.8 m | **3.7 m** |
+| release probe, median / p75 / max | 7.0 / 12.0 / 27.0 m | 5.5 / **8.0** / 22.0 m |
+| signed downrange at release | −6.2 m, short on **71 of 80** | −5.3 m, short on **74 of 80** |
+| trim owed on release | 2.65 m/s | 2.60 m/s |
+| landed, median | 15.5 m | 12.0 m |
+
+3cp's mechanism predictions all held: `noimprov` 42 to 6, reverts to 3.7 m, base's revert predicting
+its probe at **+0.11** out of sample, and the miss at 0.98x.
+
+**The short bias is untouched.** 3co's one-signed term sits on both arms at the same size, 71 and 74
+flights of 80 short. What the extra passes trim is the scatter above it — p75 12 to 8 m — so the
+bias is not the loop stopping early, and 3co's pointer from the dead band to it does not hold. It
+is the dwell, which 34b attacked and got structurally wrong.
+
+**And the landing does not see it.** A metre and a half before release is under the walk's
+seat-driven ten, and the walk read 1.22x the other way. Band runs to the clock twice as often and so
+releases later, which is item 32's confound on the walk and the reason the release was the primary.
+
+**Band's revert does predict its probe, +0.51, and that is not the revert acting.** At 3.7 m it is
+the loop's last step since its best, so a flight still moving at release both reverts further and
+leaves less converged — a common cause. Base's 110 m reverts would carry their own size if flown.
+
+### Where it leaves the plan
+
+* **`AimThresholdTracksTheMiss` stays off.** Open on the release, flat on the landing — nothing a
+  player sees. Not worth a third night unless the bias is removed first and the scatter becomes the
+  term.
+* **The pre-release term is a bias of about 6 m and a dwell, not a stopping rule.** That is the
+  next thing to attack before release.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -6507,7 +6575,7 @@ what 20b is flying against.
 | **28** | ~~Make `WarheadTrace` cover the whole roster~~ | **mostly done** | **it was stranded, not sampled: 8 begun / 4 finished, now 7. Craft named; 3cd's 1.50x walk figure is void** — 3ce |
 | ~~30~~ | ~~Fix the walk estimator~~ | **built 2026-09-09, unflown** | shot-flip null, `--levels-from`, centimetre logging. Cross-levelled the two nights read **0.87x and 0.88x** where in-sample they read 0.72x and 1.12x — **the nights never disagreed, the divisor did**. Still to do: trace more than round 1 |
 | **30b** | **Trace more than round 1**, so the declared endpoint is not one warhead against a six-warhead mean | medium | **3ci** — the last of the estimator faults, and the one that needs a change to `WarheadTrace` rather than to the report |
-| **34** | **Re-fly `AimThresholdTracksTheMiss` on the release endpoint** — flown once, on the miss (3bx, 0.88x, aliased and pre-33b) | 20 blocks, ~5 h | **3cp** — flying 2026-09-11. Its revert at release is never flown, so the stopping rule is the only channel; predicted 0.70-0.90x, likeliest UNRESOLVED. 3co's "three times worse" is 7.0 against 6.0 m in magnitude |
+| ~~34~~ | ~~Re-fly `AimThresholdTracksTheMiss` on the release endpoint~~ | **flown 2026-09-11, 20 blocks** | **0.78x [0.51, 1.11], shot-flip p=0.082 — UNRESOLVED, open; the landing 0.98x.** `noimprov` 42 to 6 of 80, and the short bias untouched, 71 and 74 of 80 short. Stays off. The revert at release is never flown (3cp), and the report's null was mis-built under `--levels-from` and read p=0.005 first — **3cq** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |

@@ -1380,16 +1380,17 @@ the arrival: the aim it kept is then judged against a different trajectory, and 
 stopped for measures 15.86 km one cycle later. So `WorseBeforeStopping` is patient, bounded above by
 `IcbmProgram.LatchArrivalWithinSeconds`, past which the arrival commits whatever the aim is doing.
 
-**But "the best aim is kept either way" is only true above 250 m, and the shot is no longer there.**
-`AimCorrection` banks a new best only on beating the old by `ImprovedByMetres`, a flat 250 m, so
-once the best is 250 m or less improving on it would take a *negative* miss: **the ratchet is
-arithmetically dead**, and so is the `worse` arm that needs 250 m the other way. The aim that ships
-is then whichever was current when the miss first fell under 250 m, and every correction made after
-that is discarded by the terminal `Freeze()` — flown as reverts of 2.4, 27.4, 104.2 and **153.3 m**,
-against 2.0 to 4.8 m for a band that follows the miss. `AimRatchetTests` pins the arithmetic.
-`IcbmConfig.AimThresholdTracksTheMiss` is the way out and is **off and unflown** at 0.88x
-[0.84, 1.10]; `docs/ACCURACY-PLAN.md` 3ca has it, and 3bz has why it may not matter — the loop is
-already converging two orders of magnitude below what the ground contributes.
+**But "the best aim is kept either way" is only true above 250 m, and after cutoff it keeps
+nothing.** `AimCorrection` banks a new best only on beating the old by `ImprovedByMetres`, a flat
+250 m, so once the best is 250 m or less improving on it would take a *negative* miss: **the ratchet
+is arithmetically dead**, and so is the `worse` arm that needs 250 m the other way.
+`AimRatchetTests` pins the arithmetic. The terminal `Freeze()` then reverts the bias by 110 m on a
+median flight — **and the revert moves no warhead.** They leave in that same frame, on the trajectory
+the last trim pass flew, so over 536 flights the revert predicts the release probe at +0.10. What the
+dead band actually does is stop the post-cutoff loop early, on `PassesWithoutImprovement`.
+`IcbmConfig.AimThresholdTracksTheMiss` is the way out of that and is **off**: flown twice, 0.88x
+[0.84, 1.10] on the miss and then **0.78x [0.51, 1.11] on the release probe**, both unresolved, with
+the landing at 0.98x. `docs/ACCURACY-PLAN.md` 3cp and 3cq.
 
 **The miss is one product, and there is no floor under it.** Flown from the same cutoff position
 with the *exact* required velocity, the integrator lands on the target to under a metre — so the
