@@ -6559,9 +6559,16 @@ The rotating-frame tail of 3cn is **2.2% of flights and 98.7% of the summed land
 2026-09-07 (1,298 flights), and has occurred once in 77 shots since item 31. Every event reads a
 `Ccf` origin at 5 km led by a landed craft, and 33h's line names it: the **AA Defence Site** on 14 of
 20 shots of `2026-09-11-band` — which `BallisticScenario` moves to within 250 m of the aim point on
-every scripted shot. The harness plants the seed. No `IcbmConfig` switch closes the post-split mode;
-the levers are moving the scripted site off the aim, and the engine fix already reported upstream.
+every scripted shot. The harness plants the seed. No `IcbmConfig` switch closes the post-split mode.
 The other six name a spent bus 142-167 km up, which is unexplained.
+
+**And the engine has fixed it.** RocketWerkz's revision 5429, changelog 2026-09-10 23:58 and not
+released as of 2026-09-11: *"Fixed fictitious forces not being applied to a vehicle above the
+physics radius but in a CCF-based bubble led by another vehicle inside the radius."* That is the
+first of the three fixes `BLOCKED-ON-KSA.md` proposed, and it removes the 0.42 m/s² at its source.
+So **33f, 33g, 24 and moving the scripted site are held rather than built** — each is a workaround
+for a cause that is leaving. On the build that carries 5429, fly a night and read the off-gravity on
+any shot the frame gate flags: the frame will still read `Ccf`, and the push should be gone.
 
 ### The second finding: the dwell is a race, not a hold
 
@@ -6716,9 +6723,9 @@ what 20b is flying against.
 | ~~33~~ | ~~The intermittent 300 m release-probe miss~~ | **caused and fixed 2026-09-10, unflown** | the post-cutoff reading was taken off a correction still in flight, because `!TrimIsFiring` is not `_trim.Done`. Perfect separation both ways at `response ≥ 2.55` — **3cl** |
 | ~~33b~~ | ~~Fly the fix~~ | **flown 2026-09-10, confirmed** | **6 of 160 to 0 of 160**, max response 2.76 to 1.32, the upper mode gone from all 20 shots. Median unchanged at 6.0 m — a tail, not a rocket — **3cm** |
 | ~~33e~~ | ~~The trim gives up and the arm lands 4 km out~~ | **caused 2026-09-10** | a physics bubble spanning the near-surface radius: 0.42 m/s² of missing fictitious force, four craft measuring 0.428-0.447. **The engine's, not the mod's** — **3cn** |
-| **33f** | **Assert rails through the whole coast**, not only inside `QuietCoast`'s latch | one boolean, one night | **3cn** — the only candidate that addresses the cause, and **not built**: `TryAssertRails` is documented as valid only alongside a *released* attitude, and the coast holds one. The evidence cuts both ways — the engine's actuator flags read 0%, so nothing was undoing it — and 33h's diagnostic is what decides it |
+| ~~33f~~ | ~~Assert rails through the whole coast~~, not only inside `QuietCoast`'s latch | **held — the cause is fixed upstream in KSA revision 5429** (3cr) | **3cn** — the only candidate that addresses the cause, and **not built**: `TryAssertRails` is documented as valid only alongside a *released* attitude, and the coast holds one. The evidence cuts both ways — the engine's actuator flags read 0%, so nothing was undoing it — and 33h's diagnostic is what decides it |
 | ~~33h~~ | ~~Name the bubble leader, and keep probing after release~~ | **built 2026-09-10, unflown** | the leader is named and a spent bus is watched to re-entry. **3cn** — the merge seed was bracketed to ten seconds and unattributable because every bus in the window had gone silent |
-| **33g** | **Refuse a split debt the world caused** rather than spending 13 m/s of tank chasing it — a debt several times a decoupler's ~1.1 m/s arriving with off-gravity non-zero is not a shove | small | **3cn** — the warheads leave on that trajectory either way; the propellant should not |
+| ~~33g~~ | **Held — its cause is fixed upstream in KSA revision 5429 (3cr).** ~~Refuse a split debt the world caused~~ rather than spending 13 m/s of tank chasing it — a debt several times a decoupler's ~1.1 m/s arriving with off-gravity non-zero is not a shove | small | **3cn** — the warheads leave on that trajectory either way; the propellant should not |
 | **33c** | **Pre-register the 80 m release-probe rule**, dropping the SHOT and re-flying it | small | **3cl** — a clean empty band from 72 to 100 m over 672 flights, zero sound flights lost, and a flight-level drop is what manufactures a false RESOLVED |
 | **33d** | **Why seats 3, 5 and 7** carry every high plant reading on every arm | `--terrain`, no shots | **3cl** — the downrange slope at each aim point is the missing number, and it is not in any log |
 | **30** | **The pre-release residual, ~7 m, does not follow the ground.** A different term from the walk and nothing has attacked it | not started | 3cf |
@@ -6750,7 +6757,7 @@ what 20b is flying against.
 | **20c** | **Check the frame-time regime on the next divergent world** — free, already logged | 0 shots | 3bi: the two disagreeing worlds sit either side of the 24 ms boundary, 23.3 against 26.5 |
 | ~~19b~~ | ~~**Log which of `PhysicsBubble`'s conditions holds a bus off rails**~~ | done | **built and verified: on a healthy world 11 of 34 off-rails probes are `neither actuator flag`, and `FreefallNeedsFullPhysics` fits the 6% arithmetically** — 3bg |
 | **19c** | **Read `Cci`/`Ccf` on a divergent world.** The frame decides whether off rails is recoverable at all, and the diagnostic is built and public | free on the next divergent world | 3bv: `Ccf` closes the account, `Cci` refutes it |
-| **24** | **Force rails through the coast** — `Props.SetOnRails(true)`, public, makes the bubble irrelevant rather than escaping it. Only compatible with QuietCoast, and must be released before the deployment settles | build, then 14 paired | 3bv: this is QuietCoast's missing half |
+| ~~24~~ | **Held — the push it escapes is fixed upstream in KSA revision 5429 (3cr).** ~~Force rails through the coast~~ — `Props.SetOnRails(true)`, public, makes the bubble irrelevant rather than escaping it. Only compatible with QuietCoast, and must be released before the deployment settles | build, then 14 paired | 3bv: this is QuietCoast's missing half |
 | **8** | `minTargetFrameRate` — **16, not 10**, and flown as a paired arm on the miss rather than adopted on the throughput number | 14 paired shots | 1.88x throughput for 0.232 m/s of trim residual against today's 0.119; at 10 the step leaves `BusTrim.MaxFaithfulStep` — 4b |
 | ~~21~~ | ~~**Gate a rotation command's nozzle set to zero net force**~~ | done, and already green | **`checkring.py` has measured it since `333f7b0` and `check-all.sh` gates it: the shipped bus leaks 0.000 on all three axes, so the coast push is not the mod's own thrusters** — 4c |
 | **23** | **Make the ascent know how far the target is.** Every shot under ~800 km is identical because guidance takes over on dynamic pressure, by which point the stack has ~3 km/s and the shot needs less | 0 shots to reproduce | 3bk: a 100 km target is flown exactly as an 800 km one |

@@ -126,7 +126,8 @@ now stands: 16 of those 80 landed at **84 km**, all of them from the two worlds 
 > `ACCURACY-PLAN.md` 3cn has the cause — a physics bubble spanning the near-surface radius, which
 > takes the rotating frame from a landed member and strips the fictitious forces from a bus a
 > thousand kilometres up — and the detector that catches it 4 of 4 with no false positive in 114
-> sound shots. `docs/ACCURACY-PLAN.md` 3ar has the mechanism — the coast is integrated rather
+> sound shots. **RocketWerkz has fixed it in revision 5429**, not released as of 2026-09-11, so this
+> blocker lifts with the next KSA build rather than with anything built here. `docs/ACCURACY-PLAN.md` 3ar has the mechanism — the coast is integrated rather
 than propagated for 70% of its length in an affected world — and item 19 is the one thing left
 between here and a reliable rung B.
 

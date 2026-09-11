@@ -31,6 +31,12 @@ happen rather than a member that moved.
 - [x] **A hook between applying the vehicle solvers and snapshotting them** — delete `Ksa/AttitudeHook.cs`'s patch the day this exists
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 - [x] **`DistanceReference.IsValid()` stops requiring 100 km** — go back to `IsValid()` on the atmosphere and the ocean the day it does
+- [ ] **A high vehicle in a `Ccf` bubble led from inside the radius gets its fictitious forces** —
+  **fixed in RocketWerkz revision 5429**, which is newer than 2026.9.7.5402 and not released as of
+  2026-09-11. On the build that carries it, read the new condition in
+  `PhysicsStates.ComputeDerivatives`, then retire the frame gate: it drops and re-flies any shot
+  with a rotating-frame probe on an unsplit bus, and on a fixed build those shots are sound. Key it
+  on the off-gravity instead. See the entry below
 
 **Twelve of the thirteen rechecked against 2026.9.4.5400 and still blocked; partial damage is the
 one that moved** — KSA grew a real part-failure system, and the entry below says what it is and what
@@ -64,6 +70,12 @@ pass and a tone curve.
 ---
 
 ## A physics bubble that spans the near-surface radius strips a high vehicle's fictitious forces
+
+**Fixed upstream in revision 5429**, not released as of 2026-09-11 — *"Fixed fictitious forces not
+being applied to a vehicle above the physics radius but in a CCF-based bubble led by another vehicle
+inside the radius."* That is the first of the three fixes proposed below. The rails half is not
+mentioned: a rotating bubble may still have no path back to rails, which leaves such a vehicle
+integrated rather than propagated — correctly, now. Everything below describes 2026.9.7.5402.
 
 **What this costs:** roughly one shot in thirty loses every warhead it has, by 3 to 113 km. On the
 eight nights carrying the diagnostic, 3.0% of flights carry **99.1% of the total summed miss**. It is
