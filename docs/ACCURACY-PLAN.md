@@ -6510,6 +6510,59 @@ frame's first sample carries the same term today.
 **What would refute it:** the stop error going to zero and the walk not moving; or the walk falling
 and the miss not, which would mean the release probe and the walk had been cancelling.
 
+### Smoked with the paired spec
+
+`~/shots/2026-09-11-ground-smoke`, one block: PASS in 12 minutes, 48 of 48 warheads, the trace and
+every surface and sample line 8 of 8, nothing in either log.
+
+| arm | seats | walk, per flight | off its own surface |
+| --- | --- | --- | --- |
+| **ground** | 2, 4, 6, 8 | −1.6, −2.5, +2.7, −1.6 m — **median 2.0** | **+0.0, +0.0, −0.1, −0.0 m** |
+| base | 1, 3, 5, 7 | +5.5, −76.5, −34.2, −15.3 m | −4.7 to +32.9 m |
+
+One block cannot compare arms (3by), so each re-reading seat is set against its own ground instead.
+Seat 2 walked a median −7.2 m over the twenty flights of `2026-09-11-band` and was never better than
+−2.5; here it walked −1.6. Seats 4 and 6 came in at the bottom of their ranges, and seat 8 is flat.
+The mechanism is visible directly: the arm stops **0.0 m off the true surface**, against a 3.0 m
+median on both arms last night.
+
+The untreated arm shows the mechanism's other face. Seat 5 walked −34 m against a range of −8.8 to
+−4.9 last night, on 28 ms frames against about 20: a longer frame is a staler sample, and the
+re-read does not care how long the frame was.
+
+### The night, declared before it flew
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' KSARMORY_SCENARIO_TRACE=1 ./tools/shot-batch.sh \
+    --paired 'base|ground:ResampleGroundAtImpact=true' \
+    --aim 26.485S,68.148W --blocks 20 --out ~/shots/2026-09-11-ground
+./tools/shot-report.py ~/shots/2026-09-11-ground --paired --endpoint walk     # primary
+./tools/shot-report.py ~/shots/2026-09-11-ground --paired                     # the miss, beside it
+```
+
+**The walk is the primary**, because it is the term the change acts on (3cf); the miss is read beside
+it and is what ships. Seat levels in-sample, which is the report's default. Predicted:
+
+1. **The walk resolves at about 0.3x** — a median 6.5 m to about 2.
+2. **The miss at about 0.5x**, 14 m to 6-8, and likely resolved at twenty blocks.
+3. **Every flight on the arm stops within ±0.5 m of its own surface**, and seat 3 walks a few metres
+   instead of ~55.
+4. **The release probe does not move**, 0.95-1.05x. The change acts after release, so a moved
+   release would mean something else had.
+
+**Refuted by** a walk that resolves with a miss that does not, or an arm flight stopping metres off
+its own surface — a lookup or interpolation failure the rig did not reach.
+
+### The tail, and where its seed is
+
+The rotating-frame tail of 3cn is **2.2% of flights and 98.7% of the summed landed miss** since
+2026-09-07 (1,298 flights), and has occurred once in 77 shots since item 31. Every event reads a
+`Ccf` origin at 5 km led by a landed craft, and 33h's line names it: the **AA Defence Site** on 14 of
+20 shots of `2026-09-11-band` — which `BallisticScenario` moves to within 250 m of the aim point on
+every scripted shot. The harness plants the seed. No `IcbmConfig` switch closes the post-split mode;
+the levers are moving the scripted site off the aim, and the engine fix already reported upstream.
+The other six name a spent bus 142-167 km up, which is unexplained.
+
 ### The second finding: the dwell is a race, not a hold
 
 `PostBoostAim` clears "a correction has been flown" on the frame the trim settles, but `Predict`
