@@ -446,10 +446,12 @@ internal sealed class IcbmConfig
     /// On, the floor is <see cref="BusTrim.StopBand"/> over the arc's sensitivity, priced once a pass,
     /// and the band tracks the miss. <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
     ///
-    /// <para><b>Off until it has flown.</b> Predicted from the logs: the release probe 0.80x, and no
-    /// worse than 0.86x on flown readings alone.</para>
+    /// <para><b>On.</b> Flown over 20 paired shots: the release probe 0.72x [0.58, 0.88] and the
+    /// landing 0.61x [0.53, 0.74], each won on 17 of 20 shots, with the reading a rocket releases on
+    /// falling from 6.80 m to 4.95 and those releasing on one over 10 m from 16 of 80 to 1 — in four
+    /// passes rather than five. <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
     /// </summary>
-    public bool ReleaseInsideTheTrimFloor;
+    public bool ReleaseInsideTheTrimFloor = true;
 
     /// <summary>
     /// Whether the trim finishes its null with pulses rather than held frames — the engine's own

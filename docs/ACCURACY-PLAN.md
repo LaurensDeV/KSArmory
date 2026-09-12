@@ -10,11 +10,12 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 
 ## Where it stands after 2026-09-12 — read this first
 
-**The one-line version: the shot is 6.0 m median per rocket, down from 17 before three fixes that
-all ship on — the warhead stopping on stale ground (3cs), the post-boost loop deciding each pass on
-a reading fifteen seconds old (3ct), and the round's own first-order integrator (3cu). What is left
-is the loop's own floor: it cannot trim below about 5 m and does not know it, and every rocket that
-lands past 18 m released that far out.**
+**The one-line version: the shot is 5.0 m median per rocket, down from 17 before four fixes that all
+ship on — the warhead stopping on stale ground (3cs), the post-boost loop deciding each pass on a
+reading fifteen seconds old (3ct), the round's own first-order integrator (item 37), and the loop
+trimming on readings its own trim could not improve (item 38). What is left is the trim's settle
+band itself, which item 39 pulses past — built and off — and the per-seat rotation phase under the
+last few kilometres, item 40.**
 
 The entries to read are **3cu**, **3ct**, **3cs** and **3cr**. The 2026-09-08 block below is
 history, and two of its items have since been overturned.
@@ -31,13 +32,15 @@ history, and two of its items have since been overturned.
    by default, decides each pass on the frame its reading arrives: over 20 paired blocks the signed
    release moved **+8.3 m [+6.2, +10.5] on every shot**, −7.45 to +0.47 m, and the miss went
    **0.58x** — median rocket 12.5 to 6.5 m, 90th percentile 24 to 14.
-3. **What is left is the loop's own floor, and the walk (3ct).** A pass on a reading under 10 m
-   makes the next reading worse 52-86% of the time: the trim stops once each axis owes less than
-   0.02 m/s, and ~380 s of arc sensitivity carries that to 7-8 m. The flat 250 m `ImprovedByMetres` cannot see it
-   either way — it ends rockets still converging and lets others trim past their best — and
-   payback cannot either, pricing a 2 s pass at under a metre. **It is what the landing's tail is
-   made of: every rocket landing past 18 m released 15-18 m out.** Items 38 and 39 are the two ways
-   past it, and 38 is built and off (3cu).
+3. **The loop no longer trims past what it can resolve (item 38, 3cu).** A pass on a reading under
+   10 m made the next one worse 52-86% of the time, because the trim stops once each axis owes less
+   than 0.02 m/s and ~380 s of arc sensitivity carries that to 7-8 m — while the flat 250 m
+   `ImprovedByMetres` ended rockets still converging and let others trim past their best. Releasing
+   inside a floor derived from that band, with an improvement threshold that tracks the miss, flew
+   **0.72x on the release probe and 0.61x at the ground**, each on 17 of 20 shots, and ships on:
+   the reading a rocket releases on 6.80 → 4.95 m, and its landing 8.0 → 5.0. **What is left of the
+   floor is the band itself**, and item 39 is the way past it — pulsing the jets rather than holding
+   them, built and off, worth 0.0135 → 0.0013 m/s headlessly.
 4. **The walk's last 2 m was the round's own first-order integrator, and it ships fixed (item 37,
    3cu).** Reading gravity where a sub-step begins and moving on the velocity it ends with held an
    extra `a·h/2` for the whole fall: +1.73 m on 20 of 20 shots, its magnitude 0.37x, and the cross
@@ -7090,6 +7093,36 @@ Base is the shipped default: the reading race fixed (3ct) and the fall second or
 * **Watch:** passes per flight, 4 against 5 in the smoke, and any rise in `clock` or pass-limit
   endings — that would be the tracking band spending passes it cannot pay for.
 
+### Flown: the floor releases, and the landing goes with it — SHIPPED ON
+
+`~/shots/2026-09-12-floor`, 20 blocks, 160 flights, build `cd0e6f3`. All 20 PASS at 11.1 minutes
+each, with no exception in any mod log nor in KSA's own.
+
+| | base | floor |
+| --- | --- | --- |
+| ended on | `noimprov` 77, payback 3 | **`floor` 78**, `noimprov` 2 |
+| the reading it released on | 6.80 m median, 16 of 80 over 10 m | **4.95 m**, 1 of 80 |
+| release downrange, \|median\| | 5.45 m | **3.32 m** |
+| passes per flight | 5 | 4 |
+| rocket landing, median / p90 / worst | 8.0 / 13 / 27 m | **5.0 / 8 / 17 m** |
+
+* **Primary — the release probe's magnitude, seats levelled: 0.72x [0.58, 0.88]**, won 17 of 20,
+  shot-flip p = 0.014 — RESOLVED. Predicted 0.80x [0.63, 0.96]: inside the interval, and better than
+  the 0.86x lower bound the flown readings alone could promise.
+* **The landing: 0.61x [0.53, 0.74], won 17 of 20, p = 0.015 — RESOLVED**, where this entry predicted
+  about 0.9x and no resolution. Unlike 37's two metres, this term is what the landing's tail was made
+  of, so it is not lost under the scatter: rockets past 15 m fell from 4 of 80 to 1, and the worst
+  from 27 m to 17.
+* **The walk did not move**: 0.88x [0.79, 1.01], unresolved, on a term settled after release either
+  way.
+* **Two flights of 80 ended on `noimprov` rather than the floor** — the two whose reading never came
+  inside it. Nothing ended on the clock or the pass limit, which is what the tracking band spending
+  passes it cannot pay for would have looked like.
+* **It is cheaper as well as closer**: four passes rather than five, which is a pass of holding the
+  warheads not spent.
+
+**Shipped on**: `IcbmConfig.ReleaseInsideTheTrimFloor` now defaults to true.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -7214,7 +7247,7 @@ what 20b is flying against.
 | ~~35~~ | ~~Re-read the ground as a warhead meets it~~ — `IcbmConfig.ResampleGroundAtImpact` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **walk 0.30x [0.26, 0.40], won 20 of 20; miss 0.60x [0.54, 0.79], won 16 of 20.** Every arm flight stopped within 0.1 m of its own surface, and the miss's p90 fell from 53 m to 23. **3cr, 3cs** |
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | ~~37~~ | ~~Integrate a warhead's fall to second order~~ — `IcbmConfig.SecondOrderWarheads` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **signed walk +1.73 m [+1.54, +1.88], won 20 of 20 and 8 of 8 seats; its magnitude 0.37x [0.30, 0.44]; cross +0.19 → +0.03 m.** The walk was the round's own first-order step, 1.986 m short of the exact conic headlessly. The landing unmoved at 1.05x [0.94, 1.59], unresolved — 2 m one-signed under a ±5 m release scatter — **3cu** |
-| **38** | **Release on a reading inside the trim's floor**, and keep going while passes improve | **built, off; smoked, flying**: `IcbmConfig.ReleaseInsideTheTrimFloor` — every flight ended on the floor, priced at 7.9-8.1 m, releasing on a 3.15 m reading against base's 7.10 | **3cu** — the floor derived as the trim's band x the arc's sensitivity, 7.3 m. 0.86x on the release probe from flown readings alone, 0.80x with the passes modelled |
+| ~~38~~ | ~~Release on a reading inside the trim's floor~~, and keep going while passes improve — `IcbmConfig.ReleaseInsideTheTrimFloor` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **release probe 0.72x [0.58, 0.88] and the landing 0.61x [0.53, 0.74], each won on 17 of 20.** The reading released on 6.80 → 4.95 m, those over 10 m 16 → 1 of 80, in four passes rather than five. Predicted 0.80x on the probe — **3cu** |
 | **39** | **Lower the floor with KSA's pulse mode** — `IcbmConfig.PulseTrim` | **built, off; unflown** | **3cu** — one 1 ms pulse is 36x finer than the band. Headless: a null a hold leaves 0.0135 m/s off finishes at **0.0013**, about 5.4 m of miss becoming 0.5. One guard, the measurement skip, pinned by `BusTrimPulseTests` |
 | **40** | **The predictor's crossing tolerance** (+0.18 m) **and the ground lookup's rotation phase** (±3 m by seat) | not started | **3cu** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
