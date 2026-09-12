@@ -505,6 +505,16 @@ internal sealed partial class Ui
             + "ends with, which carries an extra half-step of gravity for the whole fall -- about 2 m "
             + "short over six minutes.");
 
+        bool ownEpoch = config.GroundQueryAtOwnEpoch;
+        if (ImGui.Checkbox("Warheads ask the ground at their own instant", ref ownEpoch))
+        {
+            config.GroundQueryAtOwnEpoch = ownEpoch;
+        }
+        Tip("On: a terrain query is walked forward by the ground's full velocity -- the body's travel "
+            + "and its spin at that radius -- so it lands where the engine's frame-end rotation will "
+            + "put it. Off: only the travel comes off, and the query reads ground that has turned "
+            + "under the round by a few metres.");
+
         bool quiet = config.QuietCoast;
         if (ImGui.Checkbox("Let go of the attitude while coasting", ref quiet))
         {

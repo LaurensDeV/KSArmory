@@ -31,11 +31,17 @@ namespace KSArmory;
 /// way. The radius keeps for the frame — it is a property of the ground — but the centre is a
 /// position on a body doing ~30 km/s, so holding it drifts against the round.
 /// </param>
+/// <param name="GroundQueryDriftAt">
+/// How far the ground <em>under a stated point</em> has moved by then — the centre's travel plus the
+/// body's spin at that radius. A terrain query is a direction in the frame the surface turns in, so
+/// it needs the spin term the centre does not; see <see cref="Slug.GroundQueryAtOwnEpoch"/>.
+/// </param>
 internal readonly record struct RoundFields(
     Func<double3, double, double3>? GravityAt,
     Func<double3, double, double>? AirDensityAt,
     IGroundTest? Ground,
     Func<double, double3>? GroundCentreDriftAt = null,
+    Func<double3, double, double3>? GroundQueryDriftAt = null,
     Func<double3, double3, Approach>? ApproachAt = null)
 {
     /// <summary>
@@ -89,6 +95,7 @@ internal static class RoundDriver
             slug.AirDensityAt = fields.AirDensityAt;
             slug.Ground = fields.Ground;
             slug.GroundCentreDriftAt = fields.GroundCentreDriftAt;
+            slug.GroundQueryDriftAt = fields.GroundQueryDriftAt;
             slug.ApproachAt = fields.ApproachAt;
         }
 

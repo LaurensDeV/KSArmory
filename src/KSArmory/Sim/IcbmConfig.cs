@@ -519,6 +519,21 @@ internal sealed class IcbmConfig
     /// </summary>
     public bool SecondOrderWarheads = true;
 
+    /// <summary>
+    /// Ask the ground where it was at the sub-step's own instant — <see cref="Slug.GroundQueryAtOwnEpoch"/>.
+    ///
+    /// <para>A terrain query is a direction, and the engine resolves it in the frame the surface
+    /// turns in at the <em>frame's end</em> rotation. The round back-dates only the body's
+    /// translation, so the spin in between is left in: ~416 m/s at this latitude times the crossing's
+    /// own distance into the frame, which the mod already prints and whose median is 11 ms.</para>
+    ///
+    /// <para><b>Off, and unflown.</b> Over 320 warheads the step from the last re-fly to the landing
+    /// is linear in that crossing time at R² 0.98 on the worst seat, every intercept ~0, the pooled
+    /// correlation only −0.14 — so it is per-seat signed rather than global, which is what a
+    /// gradient times a fixed displacement must be. <c>docs/ACCURACY-PLAN.md</c> 3cw.</para>
+    /// </summary>
+    public bool GroundQueryAtOwnEpoch;
+
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
 

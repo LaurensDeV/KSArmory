@@ -11,6 +11,14 @@ namespace KSArmory;
 /// refined with, so a bomb arrives on the surface the player is looking at rather than on the mean
 /// sphere — which over a pad or a hillside are hundreds of metres apart.</para>
 ///
+/// <para><b>Answered at the frame's end, in both of the body's motions.</b> The centre differenced
+/// out below is the celestial's end-of-frame sample, and <c>GetTerrainHeightFromDirCce</c> resolves
+/// the direction through <c>GetCcf2Cce()</c> — the end-of-frame <em>rotation</em>. A sub-step
+/// part-way through the frame therefore has to hand in a point walked forward by the ground's full
+/// velocity, spin included, which is <see cref="Slug.GroundQueryAtOwnEpoch"/>. There is no time
+/// argument here to do it with, and there deliberately is not: the sight and the camera ask this
+/// from places with no frame phase at all.</para>
+///
 /// <para>Terrain only, deliberately. A launch pad is 8 m of pedestal 40 m across and adding it here
 /// models it as an 8 m thicker planet everywhere; where a structure's surface is has no answer in
 /// this engine, and <c>docs/BLOCKED-ON-KSA.md</c> records why. A bomb dropped on a pad therefore

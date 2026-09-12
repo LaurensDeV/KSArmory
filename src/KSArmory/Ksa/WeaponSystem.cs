@@ -2430,6 +2430,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private Func<double, double3>? _groundDriftAt;
 
+    // The same back-dating for a terrain QUERY, which needs more than the centre does. GroundTest
+    // resolves a direction and the engine answers it through the frame's END rotation, so the
+    // body's spin between the sub-step and that instant is part of what has to come off -- ~400 m/s
+    // at mid latitudes, which is metres of ground within one frame. The centre is exempt because it
+    // sits on the spin axis, where rotation moves nothing.
+    //
+    // Read at the point being asked about rather than once per frame: the spin term is a cross
+    // product with the radius, so it belongs to the place, not to the body.
+    private double3 GroundQueryDriftIntoFrame(double3 positionEcl, double secondsIntoFrame)
+        => GroundVelocityAtRound(positionEcl) * secondsIntoFrame;
+
+    private Func<double3, double, double3>? _groundQueryDriftAt;
+
     private double3 BodyVelocityEcl()
     {
         try
@@ -2536,6 +2549,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                             _airDensityAt ??= AirDensityIntoFrame,
                                             GroundTest.Shared,
                                             _groundDriftAt ??= GroundCentreDriftIntoFrame,
+                                            _groundQueryDriftAt ??= GroundQueryDriftIntoFrame,
                                             _approachAt ??= ApproachAt));
 
 

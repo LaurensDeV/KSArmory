@@ -224,6 +224,40 @@ internal sealed class Slug : IProjectile
                : _groundCentre;
 
     /// <summary>
+    /// How far the ground <em>under a stated point</em> has moved by a stated time into the frame —
+    /// the body's own travel plus its spin at that radius — in <see cref="AirDensityAt"/>'s shape
+    /// and convention.
+    ///
+    /// <para>A different number from <see cref="GroundCentreDriftAt"/>, and deliberately so. The
+    /// centre sits on the spin axis, where rotation moves nothing; a terrain query is a
+    /// <em>direction</em> resolved in the frame the surface turns in, so the body's spin between the
+    /// sub-step and the frame's end is part of what has to come off.</para>
+    /// </summary>
+    public Func<double3, double, double3>? GroundQueryDriftAt { get; set; }
+
+    /// <summary>
+    /// Back-date a terrain query by the full ground velocity rather than by the body's centre alone.
+    ///
+    /// <para>The query is answered at the frame's end rotation, so a sub-step part-way through the
+    /// frame asks about ground that has since turned under the round — <c>|omega x r|</c> times the
+    /// crossing's distance into the frame, which at this latitude is 416 m/s against a median 11 ms.
+    /// It is per-seat signed rather than global, because what it costs is that displacement's own
+    /// height gradient. <c>docs/ACCURACY-PLAN.md</c> 3cw.</para>
+    ///
+    /// <para><b>Off</b>, and unflown. Needs <see cref="GroundQueryDriftAt"/> to do anything.</para>
+    /// </summary>
+    public bool GroundQueryAtOwnEpoch { get; set; }
+
+    // Where to ask the ground about a point the round is at a stated time into the frame. The query
+    // is a direction against a body sample one applied step newer, so the point is walked FORWARD by
+    // however far that ground has travelled in between -- seconds arrive negative, hence the
+    // subtraction.
+    private double3 GroundQueryAt(double3 positionEcl, double secondsIntoFrame)
+        => GroundQueryAtOwnEpoch && GroundQueryDriftAt is { } query
+               ? positionEcl - query(positionEcl, secondsIntoFrame)
+               : positionEcl - (GroundCentreDriftAt?.Invoke(secondsIntoFrame) ?? Vec.Zero);
+
+    /// <summary>
     /// Re-read the ground under every sub-step once the round is within
     /// <see cref="GroundResampleBandMetres"/> of the surface it holds, rather than stopping on the
     /// frame's first sample.
@@ -356,7 +390,7 @@ internal sealed class Slug : IProjectile
         //
         // Only the position moves. The centre out-param is back-dated separately through
         // GroundCentre, and shifting both would apply the correction twice.
-        double3 atOwnEpoch = PositionEcl - (GroundCentreDriftAt?.Invoke(-dt) ?? Vec.Zero);
+        double3 atOwnEpoch = GroundQueryAt(PositionEcl, -dt);
 
         _groundSampledAtEcl = atOwnEpoch;
         _groundSampledOverSeconds = dt;
@@ -618,8 +652,7 @@ internal sealed class Slug : IProjectile
                 if (reread)
                 {
                     _groundRadius = radiusWas + (radiusNow - radiusWas) * f;
-                    _groundSampledAtEcl = PositionEcl
-                                          - (GroundCentreDriftAt?.Invoke(DetonationElapsedInFrame) ?? Vec.Zero);
+                    _groundSampledAtEcl = GroundQueryAt(PositionEcl, DetonationElapsedInFrame);
                     _groundSampledOverSeconds = -DetonationElapsedInFrame;
                 }
 
@@ -639,7 +672,7 @@ internal sealed class Slug : IProjectile
         radius = double.NaN;
         if (Ground is not { } ground) return false;
 
-        double3 atOwnEpoch = positionEcl - (GroundCentreDriftAt?.Invoke(secondsIntoFrame) ?? Vec.Zero);
+        double3 atOwnEpoch = GroundQueryAt(positionEcl, secondsIntoFrame);
         return ground.TryGround(atOwnEpoch, out _, out radius) && double.IsFinite(radius) && radius > 0.0;
     }
 }

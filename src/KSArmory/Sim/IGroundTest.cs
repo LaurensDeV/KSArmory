@@ -21,9 +21,16 @@ namespace KSArmory;
 /// (<c>docs/ACCURACY-PLAN.md</c> 3cr). So a released warhead asks again under every sub-step near
 /// the surface — <see cref="Slug.ResampleGroundNearImpact"/> — which flown took its walk to 0.30x.</para>
 ///
-/// <para>Unlike <see cref="IHullTest"/> this takes an absolute position, and it is entitled to:
-/// terrain is a property of the world rather than of a separation between two things, so there is
-/// no pair of epochs to mismatch and nothing for the ecliptic carrier to leak through.</para>
+/// <para>Unlike <see cref="IHullTest"/> this takes an absolute position — and that does <b>not</b>
+/// make it epoch-free. An implementation has to turn the position into a direction against a body,
+/// and the body it names is sampled at the frame's end while the round is part-way through the
+/// frame. So there are two epochs to mismatch after all, and both of the body's motions leak: its
+/// travel, which <see cref="Slug.GroundCentreDriftAt"/> removes, and its <em>spin</em>, which turns
+/// the ground under the query and which only <see cref="Slug.GroundQueryAtOwnEpoch"/> removes.</para>
+///
+/// <para>The correction stays on the asking side for the same reason the others do: this interface
+/// has no time argument, and the sight and the camera ask it from places that have no frame phase.
+/// </para>
 /// </summary>
 internal interface IGroundTest
 {

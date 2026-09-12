@@ -2049,6 +2049,7 @@ internal sealed class IcbmComputer
             {
                 released.ResampleGroundNearImpact = Config.ResampleGroundAtImpact;
                 released.SecondOrder = Config.SecondOrderWarheads;
+                released.GroundQueryAtOwnEpoch = Config.GroundQueryAtOwnEpoch;
             }
 
             ProbeRelease();
