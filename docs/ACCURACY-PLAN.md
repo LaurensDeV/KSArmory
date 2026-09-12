@@ -7033,6 +7033,46 @@ reading 3.55 m median (204) against 0.10 m without (28,029), worse in 58%.
 **They compose, and 38 first costs nothing**: its floor is computed from the band, so a pulse phase
 that shrinks the band shrinks the floor 38 releases on. 39 is the larger lever and the larger build.
 
+### Item 38 smoked: every correction ended on the floor, and the readings halved
+
+`~/shots/2026-09-12-floor-smoke`, one block: PASS in 12 minutes, six of six arrived on every rocket,
+nothing in either log.
+
+| arm | seats | ended on | the reading it released on | release downrange | passes |
+| --- | --- | --- | --- | --- | --- |
+| **floor** | 2, 4, 6, 8 | `floor` x4 | **median 3.15 m**, none over 10 | +3.2, −1.9, +4.1, −1.4 m — \|median\| **2.58** | 4 |
+| base | 1, 3, 5, 7 | `noimprov` x4 | median 7.10 m, one over 10 | +6.5, +4.7, −12.0, −4.3 m — \|median\| 5.60 | 5 |
+
+**The floor prices itself at 7.9-8.1 m**, from `0.020 m/s x ~400 m per m/s`: the trim's settle band
+and the arc's own sensitivity, derived rather than typed. That is inside the 7.0-7.6 m predicted from
+the logs and within a metre of the empirical floor.
+
+One block cannot compare arms (3by). What it shows is the mechanism: the new ending on every flight
+of the arm, a floor priced off the arc, and no rocket releasing on a reading over 10 m where base
+still had one.
+
+### Item 38's night, declared before it flies
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|floor:ReleaseInsideTheTrimFloor=true' \
+    --aim 26.485S,68.148W --blocks 20 --out ~/shots/2026-09-12-floor    # about 4 hours
+```
+
+Base is the shipped default: the reading race fixed (3ct) and the fall second order (3cu).
+
+* **Primary: the release probe's magnitude**, `shot-report.py --paired --endpoint release`, per flight
+  and seat-levelled — the term is a scatter rather than a bias, so its size is the question.
+  Predicted **0.80x**, resampled [0.63, 0.96], and no worse than 0.86x on flown readings alone. The
+  instrument's null is last night's two arms, identical before release: 4.43 and 4.85 m.
+* **Beside it:** the landing, `--paired`, predicted about 0.9x and not expected to resolve; the
+  signed release downrange, which should not move, because the term is a scatter and not a bias; and
+  the ending mix, at least 90% `floor` against 99% `noimprov` on both arms last night.
+* **What would refute it:** floor endings dominating while the probe does not move; or the probe
+  moving while the reading each rocket releases on does not, which would be the fixture rather than
+  the change.
+* **Watch:** passes per flight, 4 against 5 in the smoke, and any rise in `clock` or pass-limit
+  endings — that would be the tracking band spending passes it cannot pay for.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -7157,7 +7197,7 @@ what 20b is flying against.
 | ~~35~~ | ~~Re-read the ground as a warhead meets it~~ — `IcbmConfig.ResampleGroundAtImpact` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **walk 0.30x [0.26, 0.40], won 20 of 20; miss 0.60x [0.54, 0.79], won 16 of 20.** Every arm flight stopped within 0.1 m of its own surface, and the miss's p90 fell from 53 m to 23. **3cr, 3cs** |
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | ~~37~~ | ~~Integrate a warhead's fall to second order~~ — `IcbmConfig.SecondOrderWarheads` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **signed walk +1.73 m [+1.54, +1.88], won 20 of 20 and 8 of 8 seats; its magnitude 0.37x [0.30, 0.44]; cross +0.19 → +0.03 m.** The walk was the round's own first-order step, 1.986 m short of the exact conic headlessly. The landing unmoved at 1.05x [0.94, 1.59], unresolved — 2 m one-signed under a ±5 m release scatter — **3cu** |
-| **38** | **Release on a reading inside the trim's floor**, and keep going while passes improve | **built, off**: `IcbmConfig.ReleaseInsideTheTrimFloor` | **3cu** — the floor derived as the trim's band x the arc's sensitivity, 7.3 m. 0.86x on the release probe from flown readings alone, 0.80x with the passes modelled |
+| **38** | **Release on a reading inside the trim's floor**, and keep going while passes improve | **built, off; smoked, flying**: `IcbmConfig.ReleaseInsideTheTrimFloor` — every flight ended on the floor, priced at 7.9-8.1 m, releasing on a 3.15 m reading against base's 7.10 | **3cu** — the floor derived as the trim's band x the arc's sensitivity, 7.3 m. 0.86x on the release probe from flown readings alone, 0.80x with the passes modelled |
 | **39** | **Lower the floor with KSA's pulse mode** | not started | **3cu** — one 1 ms pulse is 36x finer than the band; predicted floor ~1 m. An engine path the mod has never driven |
 | **40** | **The predictor's crossing tolerance** (+0.18 m) **and the ground lookup's rotation phase** (±3 m by seat) | not started | **3cu** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
