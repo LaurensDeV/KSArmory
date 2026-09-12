@@ -33,9 +33,11 @@ internal sealed class WarheadTrace
 {
     /// <summary>Everything the trace needs of the computer that owns it, gathered per frame.</summary>
     /// <param name="TrueAimCci">
-    /// The aim point in <em>this</em> frame's inertial coordinates. It is re-derived every frame
-    /// because a place on a turning planet moves through Cci, so pairing it with anything from
-    /// another frame reads the planet's own rotation as a miss.
+    /// The aim point in <em>this</em> frame's inertial coordinates, at the frame's <em>edge</em>. It
+    /// is re-derived every frame because a place on a turning planet moves through Cci, so pairing
+    /// it with anything from another frame reads the planet's own rotation as a miss — and a burst
+    /// is somewhere <em>inside</em> the frame, so that holds at sub-frame scale too. Carry it to the
+    /// instant it is being compared against.
     /// </param>
     /// <param name="TerrainRadiusAt">
     /// The surface the <em>prediction</em> stops on. Deliberately the computer's own delegate rather
@@ -375,9 +377,15 @@ internal sealed class WarheadTrace
 
             double3 atReleaseEpoch = setup.Body.UncarryCci(positionCci, atBurst);
 
+            // The aim is re-derived at the frame's edge while the burst is inside it, so pairing the
+            // two raw reads one sub-frame of the planet's own rotation as a miss -- 0.416 m/ms at
+            // this latitude, which is metres on a median frame and eight on a slow one.
+            // BallisticScenario.MissFromAim carries the same term for the same reason.
+            double3 aimAtBurst = setup.Body.CarryCci(setup.TrueAimCci, round.DetonationElapsedInFrame);
+
             Log.Info($"warhead trace on {setup.Craft}: {RoundLabel.For(round.Tube)} {Ended(round)}"
                      + $" at {LatLon(setup, positionCci)}"
-                     + $" | {Ground(setup, positionCci, setup.TrueAimCci):F2} m from the aim"
+                     + $" | {Ground(setup, positionCci, aimAtBurst):F2} m from the aim"
                      + Walk(setup, atReleaseEpoch)
                      + $" | flight {atBurst:F2}s by the world clock, {round.Age:F2}s by its own,"
                      + $" probe said {_probeSeconds:F2}s"

@@ -1016,9 +1016,15 @@ internal sealed class BallisticScenario
             double miss = MissFromAim(round);
             _group.Arrive(miss);
 
+            // Named, and in the unit that shows it. This is the only line carrying where each
+            // warhead of a group landed, so it is the only reading the spread within one group can
+            // come off -- and eight rockets write into one log, where an unnamed round belongs to
+            // none of them.
+            string whose = _computer is { } owner ? $" on {KsaWorld.DisplayName(owner.Craft)}" : "";
+
             _landed.Add(double.IsFinite(miss)
-                ? $"{what} down {miss / 1000.0:F2} km from the aim point after {round.Age:F0} s"
-                : $"{what} down after {round.Age:F0} s, and where could not be measured");
+                ? $"{what}{whose} down {Distance.Say(miss)} from the aim point after {round.Age:F0} s"
+                : $"{what}{whose} down after {round.Age:F0} s, and where could not be measured");
         }
         catch
         {
