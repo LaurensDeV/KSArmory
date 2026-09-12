@@ -312,6 +312,47 @@ advance, which for that night it was — `docs/MIRV-NEXT.md` item 8s set the ope
 more budget makes a *stopped* shot converge. What the night showed is that the pre-registered
 *statistic* was wrong for the pre-registered *question*, and those are separable.
 
+### A ratio needs a positive number, and the walk crosses zero
+
+`--endpoint walk` and `release` score a **magnitude**, because the whole pipeline is a median
+pairwise **log**-ratio and a ratio has no answer at or below zero. That costs a floor, and
+`WALK_FLOOR_M` is where it bites: on `2026-09-12-pulse2` **71 of 160 flights score the floor rather
+than their walk**, and seats 1, 2 and 8 are forced to a per-seat ratio of exactly 1.00. Simulated, a
+true 0.7x reads **0.84x** — about half the effect censored away. (`RELEASE_FLOOR_M` is a different
+and much smaller thing: the release probe genuinely prints whole metres, which costs 3 of 160.)
+
+**`--endpoint signed-walk` and `signed-cross` are the way out.** No `abs`, no floor, a **difference
+in metres** rather than a ratio, and the per-seat level subtracted rather than divided — the
+additive analogue, fitted as the **mean of the per-arm means** so the arm under test cannot set the
+level it is measured against. The shot-label flip stays the verdict and costs nothing: measured
+against pseudo-arms balanced on the real arm, where the truth is exactly zero, the signed forms
+false-positive at 3.5% and 2.0% against a nominal 2.9%.
+
+**But signed is a different question, and its trap is cancellation.** An arm that shrinks a walk
+*toward zero* lifts the negative seats and lowers the positive ones, so pooling them nets the two
+against each other. On `2026-09-09-walk3` seat 3 went −58 → −19 m and seat 6 +3 → +12: **+39 m and
++9 m of signed difference for one mechanism and its opposite**, which pool to far less than either.
+
+So the rule is about the *shape of the term*, not about which endpoint is newer:
+
+| the term is | read |
+| --- | --- |
+| one-signed across every seat | `signed-walk` pooled — it is exactly what that endpoint is for |
+| **per-seat signed** — a gradient times a displacement | **per seat.** The pooled signed figure under-reports it, and the ratio censors it |
+| a magnitude with no meaningful sign | `walk`, and check how many flights hit the floor |
+
+**And `signed-cross` is a control channel, not a null.** It is near zero for most arms and genuinely
+is not for some: `2026-09-12-order` resolves it at **−0.161 m [−0.170, −0.139], 0 of 20 shots
+positive**. A cross reading that moves is evidence about geometry, not proof of a mistake.
+
+There is deliberately **no signed `release`**: the `release probe:` line carries the components but
+no craft name, so under 3ce's rule one flight's number would be worn by all eight.
+
+**One incoherence to know about, and it predates the signed endpoints.** The verdict is read off the
+randomisation while the interval beside it comes from the sign test, so a night can print
+**RESOLVED with an interval spanning zero** — `2026-09-11-ground` reads `+2.103 m [−0.176, +3.039]`
+at shot-flip p=0.008. The ratio path has the same property. Read the flip.
+
 ## 2. The baseline
 
 **The baseline is an arm of the same batch, flown on the same schedule as every other arm.** It is

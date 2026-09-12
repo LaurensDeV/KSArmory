@@ -19,6 +19,11 @@ here. The three decisions worth knowing without reading it:
     with no interval, and the interval is what makes "unresolved" a finding rather than a shrug.
   * A comparison is only ever made against the BASELINE ARM FLOWN THE SAME NIGHT. Numbers from an
     earlier night are printed for drift and never entered into a test.
+
+`--endpoint signed-walk` and `signed-cross` are the same design with subtraction where the ratio
+endpoints divide, and they exist because a ratio cannot carry a sign: a term whose sign belongs to
+the seat is destroyed by the magnitude the ratio needs, and by the floor a positive denominator
+needs -- which is the score for 71 of 160 flights on 2026-09-12-pulse2.
 """
 
 import argparse
@@ -106,7 +111,11 @@ CUTOFF = re.compile(r"cutoff(?: on (?P<craft>.+?))?:\s*residual\s+(?P<residual>[
 TRIM = re.compile(r"owed\s+([-\d.]+)\s*m/s at the split,\s*([-\d.]+)\s*m/s on release")
 TRIM_GAVE_UP = re.compile(r"release summary on (?P<craft>.+?): .*?GAVE UP")
 OFFLINE = re.compile(r"warhead away from tube\s+(\d+),\s*([-\d.]+)\s*deg off the salvo's line")
-PROBE = re.compile(r"release probe:.*?([\d.]+)\s*km from the target,\s*(\d+)\s*s of flight")
+# The miss goes through `Distance.Say`, which drops to metres under a kilometre, and the seconds
+# are now behind the components it broke the miss into. A km-only pattern therefore matched 0 of 48
+# lines on 2026-09-12-pulse2 -- silently, because an unmatched column reads as an empty one rather
+# than as a broken pattern, and a night that shoots well is exactly the night it stops matching.
+PROBE = re.compile(r"release probe:.*?([\d.]+)\s*(km|m) from the target.*?(\d+)\s*s of flight")
 THROWN = re.compile(r"thrown\s+([-\d.]+)\s*deg from the platform's track")
 TRACEPROBE = re.compile(
     r"probe from the round's own state ->.*?([\d.]+)\s*s of flight,\s*([-\d.]+)\s*m from the aim,"
@@ -469,7 +478,8 @@ def read_shot(out_path, log_path, craft=None):
     shot.update(release_summary(log, craft))
 
     shot["offline"] = [v for _, v in _floats(OFFLINE, both, 2)]
-    shot["probe_km"] = [v for v, _ in _floats(PROBE, log, 2)]
+    shot["probe_km"] = [float(m.group(1)) * (1.0 if m.group(2) == "km" else 0.001)
+                        for m in PROBE.finditer(log)]
 
     # This flight's own release probe, not the shot's. The miss it reports is the PRE-RELEASE half
     # of the total -- what the shot is already wrong by before the warheads are let go -- and 3ci
@@ -871,10 +881,16 @@ def paired(root, shots, endpoint="miss", levels_from=None):
         sys.exit("no flight in this batch says which variant it flew")
 
     base = order[0]
-    label, unit, score = ENDPOINTS[endpoint]
+    label, unit, score, signed = ENDPOINTS[endpoint]
 
     print(f"== paired within {len(groups)} shot(s) in {root}")
     print(f"   scored on the {label} ({unit})")
+    if signed:
+        print("   a DIFFERENCE in metres, not a ratio: nothing is floored, the seat level is "
+              "subtracted")
+        print("      rather than divided out, and the test is whether the difference is zero -- "
+              "not")
+        print("      which arm is nearer the target, which a signed endpoint cannot say.")
     if slow:
         print(f"   {len(slow)} shot(s) excluded: a bus was integrated in a rotating frame before "
               "it released,")
@@ -950,7 +966,8 @@ def paired(root, shots, endpoint="miss", levels_from=None):
 
     _say_loop_left(shots, order)
 
-    levels, lopsided = _seat_levels(shots, score)
+    fit = _seat_offsets if signed else _seat_levels
+    levels, lopsided = fit(shots, score)
     borrowed = ""
 
     # Out of sample when asked for. The divisor is a property of the world -- seat 3 reads 76-108 m
@@ -961,7 +978,7 @@ def paired(root, shots, endpoint="miss", levels_from=None):
     # effect being chased, so which set is used has to be stated rather than assumed.
     if levels_from:
         other_root, other_shots = load(levels_from)
-        outside, _ = _seat_levels(other_shots, score)
+        outside, _ = fit(other_shots, score)
         missing = sorted(set(levels) - set(outside))
         if not outside:
             sys.exit(f"--levels-from {other_root}: no seat levels could be fitted there")
@@ -973,8 +990,10 @@ def paired(root, shots, endpoint="miss", levels_from=None):
 
     if levels:
         scale = 1000.0 if unit == "km" else 1.0
-        print(f"   seat levels divided out (arm-neutral{borrowed or ', from this night'}): "
-              + ", ".join(f"s{s + 1}={levels[s] * scale:.0f}m" for s in sorted(levels)))
+        each = ", ".join(f"s{s + 1}={levels[s] * scale:+.2f}m" if signed
+                         else f"s{s + 1}={levels[s] * scale:.0f}m" for s in sorted(levels))
+        print(f"   seat levels {'subtracted' if signed else 'divided'} out "
+              f"(arm-neutral{borrowed or ', from this night'}): " + each)
         if lopsided:
             print(f"   seats excluded for flying only one arm: "
                   + ", ".join(f"s{s + 1}" for s in lopsided))
@@ -996,23 +1015,25 @@ def paired(root, shots, endpoint="miss", levels_from=None):
 
             raw_a = statistics.median(got_a)
             raw_b = statistics.median(got_b)
-            if raw_a > 0 and raw_b > 0:
+            if signed:
+                raws.append(raw_b - raw_a)
+            elif raw_a > 0 and raw_b > 0:
                 raws.append(math.log(raw_b / raw_a))
 
             # The comparison is made on seat-levelled flights, so the two arms are not being
             # scored against different ground. Where no seat could be levelled this falls back to
             # the raw values, which is the pre-levelling instrument and is reported as such.
-            levelled_a = _levelled(per_arm[base], levels, score)
-            levelled_b = _levelled(per_arm[name], levels, score)
+            levelled_a = _levelled(per_arm[base], levels, score, signed)
+            levelled_b = _levelled(per_arm[name], levels, score, signed)
             if not levelled_a or not levelled_b:
                 continue
 
             a = statistics.median(levelled_a)
             b = statistics.median(levelled_b)
-            if a <= 0 or b <= 0:
+            if not signed and (a <= 0 or b <= 0):
                 continue
 
-            ratios.append(math.log(b / a))
+            ratios.append(b - a if signed else math.log(b / a))
             if b < a:
                 wins += 1
             elif b > a:
@@ -1027,7 +1048,12 @@ def paired(root, shots, endpoint="miss", levels_from=None):
         p = _sign_p(wins, losses)
         w = wilcoxon_p(ratios)
         flip = _shot_flip_p(shots, groups, base, name, score, point,
-                            levels if levels_from else None)
+                            levels if levels_from else None, signed)
+
+        # A signed endpoint has no better direction of its own, so the count beside the sign test
+        # is which way the difference fell rather than who won it. `_sign_p` is two-sided and
+        # symmetric in its arguments, so the p it returns is the same number either way.
+        pos = sum(1 for r in ratios if r > 0)
 
         # The rank test is the one to read, so read it. The sign test is kept beside it because it
         # assumes less and because every number in docs/MIRV-NEXT.md before 8af was scored on it --
@@ -1039,24 +1065,32 @@ def paired(root, shots, endpoint="miss", levels_from=None):
         # the levelling is doing more work than the arm.
         best = flip if not math.isnan(flip) else w
 
-        print(f"   {name} vs {base}: {math.exp(point):.2f}x"
-              f"   [{math.exp(lo):.2f}, {math.exp(hi):.2f}] at {int((1 - ALPHA) * 100)}%")
-        print(f"      won {wins} of {len(ratios)} paired shots, "
+        headline = (f"{point:+.3f} m   [{lo:+.3f}, {hi:+.3f}]" if signed
+                    else f"{math.exp(point):.2f}x   [{math.exp(lo):.2f}, {math.exp(hi):.2f}]")
+        print(f"   {name} vs {base}: {headline} at {int((1 - ALPHA) * 100)}%")
+        print(f"      {f'positive in {pos}' if signed else f'won {wins}'} "
+              f"of {len(ratios)} paired shots, "
               f"sign p={p:.3f}, signed-rank p={w:.3f}, "
               + (f"shot-flip p={flip:.3f}" if not math.isnan(flip) else "shot-flip n/a")
               + ("   RESOLVED" if best <= ALPHA else "   unresolved"))
         print("      per shot: "
-              + ", ".join(f"{math.exp(r):.2f}" for r in ratios))
+              + ", ".join(f"{r:+.3f}" if signed else f"{math.exp(r):.2f}" for r in ratios))
 
-        _say_graded(groups, base, name, levels, score, shots, unit)
+        # The scatter, in the endpoint's own units, because a signed difference is the one form in
+        # which it prices the next night: how many blocks a given effect costs goes as its square.
+        if signed and len(ratios) > 1:
+            print(f"      per-shot sd {statistics.stdev(ratios):.3f} m")
+
+        _say_graded(groups, base, name, levels, score, shots, unit, signed)
 
         # The un-levelled reading, for continuity with every night flown before levelling and so
         # that a large gap between the two is visible rather than silently absorbed. The levelled
         # line above is the one to read: this one has the roster's ground in it.
         if raws and levels:
             rp, rlo, rhi = _median_interval(raws)
-            print(f"      un-levelled: {math.exp(rp):.2f}x"
-                  f"   [{math.exp(rlo):.2f}, {math.exp(rhi):.2f}],"
+            shown = (f"{rp:+.3f} m   [{rlo:+.3f}, {rhi:+.3f}]" if signed
+                     else f"{math.exp(rp):.2f}x   [{math.exp(rlo):.2f}, {math.exp(rhi):.2f}]")
+            print(f"      un-levelled: {shown},"
                   f" signed-rank p={wilcoxon_p(raws):.3f}")
         print()
 
@@ -1143,19 +1177,57 @@ def _seat_levels(shots, score):
     return levels, sorted(lopsided)
 
 
-def _paired_ratios(groups, base, name, levels, score):
-    """The per-shot log ratios the verdict is computed from, for a given set of seat levels."""
+def _seat_offsets(shots, score):
+    """`_seat_levels` for a signed endpoint: what each seat is worth as metres to SUBTRACT.
+
+    Same argument, one operation different. A seat is a fixed point on the ground, and on a signed
+    walk it carries a fixed displacement with a sign of its own -- 2026-09-12-pulse2 reads s6 at
+    +3.49 m and s5 at -2.55 on every flight. Divided out those cancel to nothing useful; subtracted
+    they leave what the arm did.
+
+    The level is the MEAN OF THE PER-ARM MEANS, which is what makes it arm-neutral. Arms flip per
+    shot rather than alternating fixed, so a seat's two counts differ and pooling would let the arm
+    that flew it more often set the level -- putting the effect under test into the thing it is
+    measured against, which is the additive form of exactly what `_seat_levels` refuses. A seat that
+    flew only one arm has no such level and is excluded rather than normalised against itself.
+    """
+    per = defaultdict(lambda: defaultdict(list))
+    for r in shots:
+        if r.get("seat") is None or not r.get("within") or not usable(r):
+            continue
+        v = score(r)
+        if v is not None:
+            per[r["seat"]][r["within"]].append(v)
+
+    offsets, lopsided = {}, []
+    for seat, by_arm in per.items():
+        if len(by_arm) < 2:
+            lopsided.append(seat)
+            continue
+        offsets[seat] = statistics.fmean(statistics.fmean(v) for v in by_arm.values())
+
+    return offsets, sorted(lopsided)
+
+
+def _paired_ratios(groups, base, name, levels, score, signed=False):
+    """The per-shot statistics the verdict is computed from, for a given set of seat levels.
+
+    Log ratios for a ratio endpoint, metres of difference for a signed one. One function because
+    `_shot_flip_p` has to recompute whichever of them the observed statistic was built from.
+    """
     ratios = []
     for _, per_arm in sorted(groups.items()):
         if base not in per_arm or name not in per_arm:
             continue
-        levelled_a = _levelled(per_arm[base], levels, score)
-        levelled_b = _levelled(per_arm[name], levels, score)
+        levelled_a = _levelled(per_arm[base], levels, score, signed)
+        levelled_b = _levelled(per_arm[name], levels, score, signed)
         if not levelled_a or not levelled_b:
             continue
         a = statistics.median(levelled_a)
         b = statistics.median(levelled_b)
-        if a > 0 and b > 0:
+        if signed:
+            ratios.append(b - a)
+        elif a > 0 and b > 0:
             ratios.append(math.log(b / a))
     return ratios
 
@@ -1165,7 +1237,7 @@ def _paired_ratios(groups, base, name, levels, score):
 FLIP_DRAWS = 2000
 
 
-def _shot_flip_p(shots, groups, base, name, score, observed, fixed_levels=None):
+def _shot_flip_p(shots, groups, base, name, score, observed, fixed_levels=None, signed=False):
     """p from the one thing the design actually randomises: which parity of the roster is the arm.
 
     The signed-rank asks whether the per-shot log ratios are centred on zero, which assumes they
@@ -1186,6 +1258,19 @@ def _shot_flip_p(shots, groups, base, name, score, observed, fixed_levels=None):
 
     The same calibration says the estimator returns 0.45x to 2.37x on identical code at fourteen
     blocks. Read a verdict from it accordingly.
+
+    **A signed endpoint is the same test with subtraction in it.** Relabelling a shot negates that
+    shot's difference exactly as it inverts its ratio, and `_seat_offsets` fits its subtrahend from
+    the same flights, so the nuisance parameter is there too. Both level-fitters are symmetric in
+    the two arms, so relabelling every shot at once leaves the level untouched and negates the
+    statistic -- which is what makes the null exactly symmetric about zero and
+    `abs(median) >= abs(observed)` the two-sided rule rather than an approximation to one.
+
+    Calibrated the same way at twenty blocks, splitting one night's roster into two pseudo-arms
+    balanced on the real one so the truth is exactly zero: on 2026-09-12-pulse2 (600 splits) and
+    -order (400) the ratio walk reads 2.8% and 2.5% false RESOLVED, signed-walk 3.5% and 2.0%, and
+    signed-cross 3.5% and 3.8% -- against a nominal 2.9% with a standard error near 0.8%, and a
+    median p of 0.48-0.54. The signed form costs the test nothing.
     """
     flippable = [g for g, per_arm in groups.items() if base in per_arm and name in per_arm]
     if not flippable or not observed:
@@ -1207,13 +1292,14 @@ def _shot_flip_p(shots, groups, base, name, score, observed, fixed_levels=None):
                 r["within"] = name if r["within"] == base else base
 
         try:
-            levels = fixed_levels if fixed_levels is not None else _seat_levels(shots, score)[0]
+            fit = _seat_offsets if signed else _seat_levels
+            levels = fixed_levels if fixed_levels is not None else fit(shots, score)[0]
             swapped = defaultdict(lambda: defaultdict(list))
             for g, per_arm in groups.items():
                 for arm, rows in per_arm.items():
                     other = (name if arm == base else base) if g in set(flipped) else arm
                     swapped[g][other] = rows
-            ratios = _paired_ratios(swapped, base, name, levels, score)
+            ratios = _paired_ratios(swapped, base, name, levels, score, signed)
             if ratios and abs(_median_interval(ratios)[0]) >= abs(observed) - 1e-12:
                 hits += 1
         finally:
@@ -1241,7 +1327,7 @@ def _seat_relief(shots):
     return {seat: statistics.pstdev(h) for seat, h in per.items() if len(h) >= 3}
 
 
-def _say_graded(groups, base, name, levels, score, shots, unit):
+def _say_graded(groups, base, name, levels, score, shots, unit, signed=False):
     """Per seat: what the arm did to it, against how rough the ground under it is.
 
     **This is 3cc's strong test**, and it is the one that separates a terrain mechanism from a
@@ -1252,6 +1338,10 @@ def _say_graded(groups, base, name, levels, score, shots, unit):
 
     3cd ran this on the miss and read rho=+0.12, p=0.79. The miss is 70% walk, so that test was
     diluted twice over -- once by the endpoint and once by seat 3 carrying most of the signal.
+
+    On a signed endpoint the seat column is metres of difference, and the correlation is read the
+    same way with one substitution: a term that acts through the ground grows with the relief, so
+    the grading to look for is in the MAGNITUDE of the difference rather than in its sign.
     """
     relief = _seat_relief(shots)
     if not relief:
@@ -1270,32 +1360,43 @@ def _say_graded(groups, base, name, levels, score, shots, unit):
         if len(a) < 2 or len(b) < 2:
             continue
         ma, mb = statistics.median(a), statistics.median(b)
-        if ma <= 0:
+        if not signed and ma <= 0:
             continue
-        rows.append((seat, len(a), len(b), ma, mb, mb / ma, relief[seat]))
+        rows.append((seat, len(a), len(b), ma, mb, mb - ma if signed else mb / ma, relief[seat]))
 
     if len(rows) < 4:
         return
 
     print(f"   is the gain graded by the ground under the seat?  ({name} vs {base})")
     print(f"   {'seat':>6}{'n ' + base[:6]:>10}{'n ' + name[:6]:>10}"
-          f"{base[:6] + ' ' + unit:>12}{name[:6] + ' ' + unit:>12}{'ratio':>8}{'relief m':>10}")
-    for seat, na, nb, ma, mb, ratio, rms in rows:
-        print(f"   {seat + 1:>6}{na:>10}{nb:>10}{ma:>12.1f}{mb:>12.1f}{ratio:>8.2f}{rms:>10.1f}")
+          f"{base[:6] + ' ' + unit:>12}{name[:6] + ' ' + unit:>12}"
+          f"{'diff m' if signed else 'ratio':>8}{'relief m':>10}")
+    for seat, na, nb, ma, mb, effect, rms in rows:
+        print(f"   {seat + 1:>6}{na:>10}{nb:>10}{ma:>12.1f}{mb:>12.1f}{effect:>8.2f}{rms:>10.1f}")
 
-    rho, p = _spearman([r[6] for r in rows], [r[5] for r in rows])
+    # Signed differences straddle zero, so ranking them as they stand ranks the sign and says
+    # nothing about the mechanism. The magnitude is the comparable quantity, and it rises with the
+    # relief where a ratio falls -- hence the reversed sign in the verdict below.
+    against = [abs(r[5]) for r in rows] if signed else [r[5] for r in rows]
+    rho, p = _spearman([r[6] for r in rows], against)
     if math.isnan(rho):
         print()
         return
 
+    graded = rho > 0 if signed else rho < 0
     verdict = ("the roughest seats gained most -- the terrain mechanism"
-               if p <= 0.05 and rho < 0 else "no grading at this n")
-    print(f"   rank correlation relief vs ratio: rho={rho:+.2f}, p={p:.3f}   {verdict}")
+               if p <= 0.05 and graded else "no grading at this n")
+    what = "|diff|" if signed else "ratio"
+    print(f"   rank correlation relief vs {what}: rho={rho:+.2f}, p={p:.3f}   {verdict}")
     print()
 
 
-def _levelled(records, levels, score):
-    """One arm's flights in one shot, each divided by its own seat's level."""
+def _levelled(records, levels, score, signed=False):
+    """One arm's flights in one shot, each taken off its own seat's level.
+
+    Divided by it for a ratio endpoint, subtracted for a signed one -- the whole difference between
+    the two estimators, in one expression.
+    """
     out = []
     for r in records:
         v = score(r)
@@ -1307,7 +1408,7 @@ def _levelled(records, levels, score):
             # every shot's pair sits on the same ground already.
             out.append(v)
         elif seat in levels:
-            out.append(v / levels[seat])
+            out.append(v - levels[seat] if signed else v / levels[seat])
     return out
 
 
@@ -1608,11 +1709,17 @@ def load(root):
     return root, shots
 
 
-# The trace prints whole metres, so a zero means "under half a metre" rather than "exactly none".
-# A ratio needs a positive number and this is the smallest the instrument can distinguish.
+# A ratio needs a positive denominator and the walk crosses zero, so `walk` has to floor its
+# magnitude somewhere. This is censoring, not resolution -- the walk line has printed F2 metres
+# since 3ci -- and it is the expensive half of the endpoint: on 2026-09-12-pulse2 the score IS the
+# floor for 71 of 160 flights, which forces seats 1, 2 and 8 to a per-seat ratio of exactly 1.00
+# and attenuates a true 0.7x to 0.84. `signed-walk` is the way out; this is what the ratio costs.
 WALK_FLOOR_M = 0.5
 
 
+# The release probe prints F0 metres, so here a zero really does mean "under half a metre" rather
+# than "exactly none", and this is the smallest the instrument can distinguish. It censors 3 of 160
+# on the same night, because a pre-release miss is tens of metres where a walk is ones.
 RELEASE_FLOOR_M = 0.5
 
 
@@ -1656,14 +1763,58 @@ def _walk_score(shot):
     return max(statistics.median(abs(v) for v in shot["final_down"]), WALK_FLOOR_M)
 
 
-# What a paired comparison is scored on. The miss is the shipped endpoint and every night before
-# 2026-09-09 was read on it; the walk is 70% of it, is the only part the arrival angle acts on,
-# and scoring the total diluted a 0.71x effect to 0.80x on an interval that could not resolve it
-# (3cf). Both are per FLIGHT and both are levelled per seat.
+def _signed_walk_score(shot):
+    """The same walk, kept SIGNED and unfloored -- metres downrange, positive long.
+
+    The magnitude and the floor are what `walk` pays to be a ratio, and both destroy a per-seat
+    signed term: a height gradient times a fixed displacement has a sign that belongs to the seat,
+    and `abs` folds it away before the levelling can take it out. Levelled additively instead --
+    see `_seat_offsets` -- the sign survives and nothing is censored.
+
+    **Not a better `walk`, a different question.** An arm that shrinks the magnitude toward zero
+    lifts the negative seats and lowers the positive ones, and the two cancel here: on
+    2026-09-09-walk3 seat 3 went -58 m to -19 and seat 6 +3 to +12, which is +39 and +9 of signed
+    difference for one mechanism and its opposite. Ask `walk` about a magnitude; ask this about a
+    term that moves every seat the same way.
+
+    The attribution rule is `_walk_score`'s and for the same reason: an unattributed trace is every
+    rocket in the world wearing one number.
+    """
+    if not shot.get("final_down"):
+        return None
+    if shot.get("seat") is not None and not shot.get("trace_named"):
+        return None
+    return statistics.median(shot["final_down"])
+
+
+def _signed_cross_score(shot):
+    """The cross-track half of the same walk, signed. A near-null channel.
+
+    Nothing under test here acts across the track, so this is the control the downrange reading is
+    judged against: it reads 0.033 m of per-shot scatter on 2026-09-12-pulse2 against downrange's
+    0.534, so an arm that moves both is moving the instrument rather than the shot.
+    """
+    if not shot.get("final_cross"):
+        return None
+    if shot.get("seat") is not None and not shot.get("trace_named"):
+        return None
+    return statistics.median(shot["final_cross"])
+
+
+# What a paired comparison is scored on, and whether it is a RATIO or a signed difference in
+# metres. The miss is the shipped endpoint and every night before 2026-09-09 was read on it; the
+# walk is 70% of it, is the only part the arrival angle acts on, and scoring the total diluted a
+# 0.71x effect to 0.80x on an interval that could not resolve it (3cf). All are per FLIGHT and all
+# are levelled per seat -- by division for a ratio, by subtraction for a signed one.
+#
+# There is no signed `release`: the probe line carries components but no craft name, so a signed
+# reading of it would be one flight's number worn by all eight (3ce).
 ENDPOINTS = {
-    "miss": ("miss at the ground", "km", lambda s: s["mean"]),
-    "walk": ("downrange walk after release", "m", _walk_score),
-    "release": ("miss the shot already has at release", "m", _release_score),
+    "miss": ("miss at the ground", "km", lambda s: s["mean"], False),
+    "walk": ("downrange walk after release", "m", _walk_score, False),
+    "release": ("miss the shot already has at release", "m", _release_score, False),
+    "signed-walk": ("SIGNED downrange walk after release", "m", _signed_walk_score, True),
+    "signed-cross": ("SIGNED cross-track walk after release", "m", _signed_cross_score, True),
 }
 
 
@@ -2189,8 +2340,10 @@ def main():
     ap.add_argument("--paired", action="store_true",
                     help="compare the variants flown inside each shot -- see Sim/ShotArms.cs")
     ap.add_argument("--endpoint", choices=sorted(ENDPOINTS), default="miss",
-                    help="what --paired scores on: the miss at the ground, or the walk after "
-                         "release, which is the part of it the arrival angle acts on")
+                    help="what --paired scores on: the miss at the ground, the walk after "
+                         "release, which is the part of it the arrival angle acts on, or a "
+                         "signed-* difference in metres, which is the only form that can resolve "
+                         "a term whose sign belongs to the seat")
     ap.add_argument("--levels-from", metavar="DIR",
                     help="fit the seat levels from another night, so the divisor cannot absorb "
                          "any of the arm under test")
