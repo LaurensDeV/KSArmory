@@ -480,9 +480,12 @@ internal sealed class IcbmConfig
     /// 160 flights and growing smoothly with time from release; flying 12 logged release states
     /// through both integrators reproduces −1.76 m. <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
     ///
-    /// <para><b>Off until it has flown.</b> Predicted: the walk from about −2.1 m to −0.3.</para>
+    /// <para><b>On.</b> Flown over 20 paired shots: the signed walk moved +1.73 m [+1.54, +1.88] on
+    /// every one of them, its magnitude 0.37x [0.30, 0.44], and the cross +0.19 → +0.03 m. The
+    /// landing could not see it — 1.05x, unresolved — because a one-signed 2 m inside a ±5 m release
+    /// scatter is worth tenths of a metre of distance. <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
     /// </summary>
-    public bool SecondOrderWarheads;
+    public bool SecondOrderWarheads = true;
 
     /// <summary>Pointing error under which the coast hold lets go, in degrees.</summary>
     public double QuietCoastDeg = 0.5;
