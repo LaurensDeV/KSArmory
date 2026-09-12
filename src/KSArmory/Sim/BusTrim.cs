@@ -260,6 +260,39 @@ internal sealed class BusTrim
     public const double PulseFloorPulses = 3.0;
 
     /// <summary>
+    /// The largest error a pulse phase may be entered on, at the threshold a hold stops at.
+    ///
+    /// <para><b>It is the hold's own stop rule read as a length.</b> <see cref="Choose"/> refuses a
+    /// component already inside the band, so a hold finishes exactly when all three of the control
+    /// frame's components are inside it — and the longest vector in that cube is <c>√3</c> bands.
+    /// So the phase can never be refused an entry a hold could hand it, and can never end wider
+    /// than a hold-only trim's own worst residual.</para>
+    ///
+    /// <para><b>What it refuses is metres per second standing on an axis the loop cannot fire</b> —
+    /// withheld by the keep-out, or struck off. The largest <em>available</em> component is not the
+    /// largest error, and keying on it pulsed a bus's side jets with 2.54 m/s on its tail. Flown,
+    /// the two populations do not touch: 14,313 pulse commands reach 0.0340 m/s at most, and the
+    /// eight faulty nulls start at 0.105. <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
+    /// </summary>
+    public static double PulseEntry(double band) => Math.Sqrt(3.0) * band;
+
+    /// <summary>
+    /// How long one null may spend pulsing before it finishes as a hold would.
+    ///
+    /// <para>Taking <see cref="PulseEntry"/> — three components at the band — down to the pulse
+    /// floor is <c>3 x (band − floor) / (accel x pulse)</c> pulses at one per 0.15 s, which on the
+    /// shipped bus is 14.7 s. So a converging phase is never cut short.</para>
+    ///
+    /// <para><b>What it bounds is a phase chasing a reference that runs away from it.</b> Pulsing
+    /// is worth <c>accel x pulse / 0.15</c>, which is 0.0037 m/s² against a hold's 0.56 — so a
+    /// solution drifting at a hundredth of the bus's authority outruns the phase while
+    /// <see cref="Stalled"/> still reads progress. Flown, the spans are a median 6 s and 10 at the
+    /// ninth decile, with five nulls of 431 crawling 24 to 45 s — and not one of those five ever
+    /// pulsed outside the band, so this bounds a fault the entry cannot see.</para>
+    /// </summary>
+    public const double PulseSecondsPerNull = 20.0;
+
+    /// <summary>
     /// The whole budget. Past this the warheads go untrimmed.
     ///
     /// <para>Generous, because the release window is the real clock and the sequencer already
@@ -317,6 +350,9 @@ internal sealed class BusTrim
     // acceleration measured across one reads a fraction of the truth — and that reading sizes the
     // pulse floor, charges the budget, and decides whether a direction still moves the bus.
     private bool _pulsedLast;
+
+    // How long this null has spent pulsing, against PulseSecondsPerNull.
+    private double _pulsingFor;
 
     // Which way the chosen direction actually pushes, and what the vehicle was measured doing along
     // it. Kept because it is the only thing that separates a dead thruster from a live one losing a
@@ -419,6 +455,7 @@ internal sealed class BusTrim
         _firingFor = 0;
         _fire = TrimAxes.None;
         _pulsedLast = false;
+        _pulsingFor = 0.0;
         _dead = TrimAxes.None;
         _pushDirCci = Vec.Zero;
         _pushed = 0.0;
@@ -442,6 +479,8 @@ internal sealed class BusTrim
         _havePrev = false;
         _firingFor = 0;
         _fire = TrimAxes.None;
+        _pulsedLast = false;
+        _pulsingFor = 0.0;
         _dead = TrimAxes.None;
         _pushDirCci = Vec.Zero;
         _pushed = 0.0;
@@ -541,11 +580,23 @@ internal sealed class BusTrim
             return Finish(gaveUp: true, Left($"more than the {ceiling:F0} m/s this pass may spend"));
         }
 
-        TrimAxes pick = Choose(in now, toGainCci, stop, out double component, out bool withheld);
+        // Whether this null may work below the band at all. Both clauses are about the phase rather
+        // than about this frame: nothing inside PulseEntry is out of a pulse's reach, and past the
+        // bound the phase is no longer closing.
+        bool refine = fine > 0.0
+                      && _toGain <= PulseEntry(band)
+                      && _pulsingFor < PulseSecondsPerNull;
 
-        // Inside the band a held frame overshoots by more than it removes, so what is left of the
-        // component is pulsed off instead.
-        bool pulse = fine > 0.0 && pick != TrimAxes.None && component <= band;
+        // Chosen against the threshold the loop is actually working to, which is the whole of the
+        // flown fault. Offering up a sub-band crumb while the phase is refused reads as work: with
+        // the axis carrying the error withheld or struck off, that is a bus tapping its side jets
+        // with 2.54 m/s on its tail, and the interlock's own wait skipped over.
+        TrimAxes pick = Choose(in now, toGainCci, refine ? stop : band,
+                               out double component, out bool withheld);
+
+        // A component still outside the band is a hold's work: one frame of jets removes what a
+        // hundred pulses would.
+        bool pulse = refine && pick != TrimAxes.None && component <= band;
 
         // Held off by the interlock rather than out of work, and answered before the stall clock
         // for the same reason `MayFire` is: a trim that has not been allowed to push has neither
@@ -591,12 +642,14 @@ internal sealed class BusTrim
                                 Left($"nothing left aboard moves the bus (struck off: {Struck(_dead)})"));
         }
 
-        // Watched through the pulse phase as well. A pulse moves a component by a fraction of what
-        // the watch calls progress, so its clock does trip — but what it strikes a direction off for
-        // is reading no thrust along it, and while pulsing that reading is the hold phase's, frozen.
-        // So the axis reads alive and the watch only restarts. Skipping the measurement is what
-        // makes that true, and is the one guard here: with both, neither could be caught.
-        Watch(step, pick, component);
+        // Not while pulsing, and the frozen measurement does not cover for it. Resume clears
+        // _pushed and keeps _bestAccel, and a null that pulses from its first frame never measures
+        // again -- so Alive() reads every axis dead for the whole phase, and the first whose watch
+        // clock trips is struck off. A pulse moves a component by a thousandth of what the watch
+        // calls progress, which is what lets that clock trip on a healthy bus.
+        if (!pulse) Watch(step, pick, component);
+
+        if (pulse) _pulsingFor += step;
 
         _fire = pick;
         _firingFor++;

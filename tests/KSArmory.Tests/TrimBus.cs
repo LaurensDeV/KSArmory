@@ -30,6 +30,11 @@ internal sealed class TrimBus
     /// <summary>
     /// The engine's pulse contract: a commanded direction fires for one thruster
     /// <c>MinimumPulseTime</c> and no more often than this, however long the frame is.
+    ///
+    /// <para><b>The allowance is per vehicle, not per direction</b> — one clock, whichever way the
+    /// command points. So a phase that re-picks the largest axis every frame gets exactly as many
+    /// pulses as one that finishes an axis before starting the next, and the greedy order is free.
+    /// </para>
     /// </summary>
     public const double PulseEverySeconds = 0.15;
 

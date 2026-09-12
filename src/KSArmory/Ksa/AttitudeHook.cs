@@ -55,6 +55,17 @@ internal static class AttitudeHook
     // a worker's results are applied -- the same reason the attitude is written from this window.
     private static readonly HashSet<Vehicle> Pulsing = [];
 
+    // Every craft the mod has put in pulse mode and not yet handed back, whether or not it is
+    // pulsing this frame. The mode is a field on that same double-buffered computer, so what is not
+    // restated each frame keeps whatever it last had: writing it only while something is pulsing
+    // leaves the last one in pulse mode for good, and its next HOLD then delivers a millisecond a
+    // frame against metres per second. Flown as a tail frozen at 3.48 m/s across 12 s of holding,
+    // struck off as a dead thruster, and released 0.3-1.1 km out. docs/ACCURACY-PLAN.md 3cu.
+    private static readonly HashSet<Vehicle> Pulsed = [];
+
+    // Those owed one more Direct write, which has to happen in this window like every other one.
+    private static readonly HashSet<Vehicle> Restore = [];
+
     private static Harmony? _harmony;
     private static bool _complained;
 
@@ -165,8 +176,17 @@ internal static class AttitudeHook
     {
         if (!KsaWorld.IsAlive(craft)) return;
 
-        if (pulsing) Pulsing.Add(craft);
-        else Pulsing.Remove(craft);
+        if (pulsing)
+        {
+            Pulsing.Add(craft);
+            Pulsed.Add(craft);
+            Restore.Remove(craft);
+            return;
+        }
+
+        // Kept in Pulsed rather than dropped: the mode still has to be written back to Direct every
+        // frame, and a craft that has stopped pulsing is exactly the one that would otherwise keep it.
+        Pulsing.Remove(craft);
     }
 
     /// <summary>Stop pointing it, and stop quieting it. The vehicle is the player's again.</summary>
@@ -176,8 +196,11 @@ internal static class AttitudeHook
         Quieted.Remove(craft);
         Railed.Remove(craft);
 
-        // Left in pulse mode, the player's own translation keys would fire in millisecond taps.
-        if (Pulsing.Remove(craft)) VehicleCommand.SetPulseMode(craft, pulsing: false);
+        // Left in pulse mode, the player's own translation keys would fire in millisecond taps. The
+        // write is owed to the prefix rather than made here, because one made outside that window is
+        // copied over before anything reads it.
+        Pulsing.Remove(craft);
+        if (Pulsed.Remove(craft)) Restore.Add(craft);
     }
 
     // Runs inside KSA's frame loop, immediately before the flight computer is snapshotted for the
@@ -188,7 +211,14 @@ internal static class AttitudeHook
         {
             // Before everything else, and whatever else this craft is doing: the mode decides how a
             // translation command already standing is spent, and it is restated every frame.
-            if (Pulsing.Count > 0) VehicleCommand.SetPulseMode(__instance, Pulsing.Contains(__instance));
+            if (Pulsed.Contains(__instance))
+            {
+                VehicleCommand.SetPulseMode(__instance, Pulsing.Contains(__instance));
+            }
+            else if (Restore.Remove(__instance))
+            {
+                VehicleCommand.SetPulseMode(__instance, pulsing: false);
+            }
 
             if (Quieted.Contains(__instance))
             {
@@ -220,6 +250,8 @@ internal static class AttitudeHook
             Quieted.Remove(__instance);
             Railed.Remove(__instance);
             Pulsing.Remove(__instance);
+            Pulsed.Remove(__instance);
+            Restore.Remove(__instance);
 
             if (_complained) return;
             _complained = true;

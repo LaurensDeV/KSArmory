@@ -7172,6 +7172,89 @@ pulses alone.
   frame is charged a whole pulse where it delivers at most one per 0.15 s, and a night says whether
   that over-charge matters.
 
+### Flown: the primary won and the refutation fired — NOT SHIPPED
+
+`~/shots/2026-09-12-pulse`, 20 blocks, 160 flights, build `77db549`. All 20 PASS at 11.6 minutes
+each, no exception in any log.
+
+| | base | pulse |
+| --- | --- | --- |
+| its nulls finished at | 0.0210 m/s, worst 0.0320 | **0.0020 m/s**, worst 0.0030 |
+| floor priced | 7.60 m | **0.60 m** |
+| the reading it released on | median 4.75 m, mean 4.69, 2 of 80 over 10 m | median **1.30 m**, **mean 32.52**, 9 of 80 over 10 m |
+| release downrange, \|median\| | 3.23 m | **1.10 m** |
+| ended on | `floor` 75, `noimprov` 5 | payback 52, `floor` 17, **`clock` 5, trim 5**, `noimprov` 1 |
+
+* **Primary — the release probe's magnitude: 0.50x [0.36, 0.86]**, won 16 of 20, shot-flip
+  p = 0.023 — RESOLVED, against 0.40x predicted.
+* **The landing: 0.65x [0.53, 0.75]**, won 16 of 20, shot-flip p = 0.039 — just past the bar,
+  unresolved.
+* **The walk did not move**: 1.02x [0.88, 1.08], which is the null check this night had to pass.
+* **And the declared refutation fired.** `clock` and trim endings went from 0 of 80 to **10 of 80**,
+  three of them releasing with **0.3, 0.6 and 1.1 km** still on the aim after one pass. Two shots
+  landed 3.55x and 6.13x worse than base. A change that halves the median while breaking an eighth
+  of flights is not shippable: at this range a warhead at 1.3 m and one at 4.75 are both hits, and
+  one at 552 m is not.
+
+**Three faults, all in the phase rather than in the idea.**
+
+1. **It pulsed at the wrong quantity.** The decision was keyed on the largest *available* component,
+   which is not the largest error: the keep-out withholds the axis a separation error lies along, so
+   the loop pulsed at a 0.02 m/s side component with **2.541 m/s** standing on the withheld one,
+   until the clocks ran out. It now pulses only once the whole `_toGain` is inside the band.
+2. **The phase outlived the clocks that judge it.** It ran a median **54 s** a null, 90 at the ninth
+   decile and **152 at worst**, because the loop re-picks the largest axis every frame and crawls
+   three of them down a pulse at a time. `StallSeconds` and `DirectionStallSeconds` judge a working
+   loop by how fast a *hold* moves the number. Bounded now by `BusTrim.PulseSecondsPerNull`.
+3. **The watch gating was load-bearing after all.** It was deleted earlier the same day because its
+   mutation survived — and the mutation survived because the fixture always ran a hold phase first,
+   which leaves a healthy frozen thrust reading that covers for it. In flight a later pass starts
+   inside the band and pulses from the start: six live axes struck off as dead. Restored, with the
+   regime named in the comment.
+
+**What the night does establish**: the mechanism is real and large. Nulls finish eleven times closer,
+the floor follows them down 7.60 → 0.60 m, and on the flights where the phase behaves the reading
+released on is a quarter of base's. That is worth re-flying once the faults are fixed — the idea is
+not refuted, this build of it is.
+
+### The fourth fault, which is the one that cost the three worst flights
+
+Reading the trim's own faults back against the trace found a fifth thing wrong and a fourth cause:
+**the engine was left in pulse mode during a hold.** `AttitudeHook`'s prefix wrote the mode under
+`if (Pulsing.Count > 0)`, so the moment the last pulsing craft stopped the set emptied and *nothing*
+was written back to `Direct` — and `PulseMode(craft, false)` only left the set. The mode is a field
+on the same double-buffered flight computer the attitude is, so what is not restated each frame keeps
+what it had.
+
+A bus stuck that way executes its next **hold** as one millisecond a frame. That is exactly the trace
+of the three worst flights: the tail held continuously for ~12 s with the error frozen at **3.48 m/s**
+and no pulses interleaved, `_pushed` decaying to nothing, the axis struck off as a dead thruster, and
+a release 0.3-1.1 km out. None of the three trim-side fixes touches it, and the fixtures cannot see
+it — it lives entirely in the write.
+
+Every craft the mod has pulsed is now restated every frame until it is handed back, and a released
+craft is owed one more `Direct` write *in the same window* rather than one made outside it.
+
+**What the trim-side work settled**, with each fix pinned by a fixture that asserts its regime before
+its rule — the earlier ones were vacuous, since a fresh `BusTrim` has measured no thrust and so never
+pulsed at all:
+
+* **The entry is `√3 × band`**, not the band. `Choose` refuses a component already inside the band, so
+  a hold finishes exactly when all three control-frame components are inside it, and the longest
+  vector in that cube is `√3 × band`. The gate therefore cannot refuse an entry a hold can hand it.
+  Flown, the two populations do not touch: 14,313 pulse commands top out at 0.0340 m/s, the eight
+  faulty nulls start at 0.105, and `√3 × band` = 0.0346 falls in the empty gap. The `_toGain <= band`
+  I wrote first refused over half of all legitimate phases, which start at a median 0.021.
+* **`Choose` must work to whatever threshold the loop is on.** Offering a sub-band crumb while the
+  phase was refused is what skipped the interlock's own wait.
+* **The greedy re-pick stays.** The engine's pulse allowance is per *vehicle*, not per direction, so
+  finishing one axis first buys no pulses and only makes intermediate states worse in norm.
+* **The bound is in seconds**, because what it spends is holding the warheads and `HoldingCost` is
+  priced per second. A clean crossing is 14.7 s at worst; the flown crawlers ran 24-45 s; 20 s lies
+  between and cannot cut a converging phase short.
+* **The two trim faults are disjoint** — the 5 over-long nulls and the 8 over-band nulls share no
+  flight, so neither fix covers the other.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -7297,7 +7380,7 @@ what 20b is flying against.
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | ~~37~~ | ~~Integrate a warhead's fall to second order~~ — `IcbmConfig.SecondOrderWarheads` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **signed walk +1.73 m [+1.54, +1.88], won 20 of 20 and 8 of 8 seats; its magnitude 0.37x [0.30, 0.44]; cross +0.19 → +0.03 m.** The walk was the round's own first-order step, 1.986 m short of the exact conic headlessly. The landing unmoved at 1.05x [0.94, 1.59], unresolved — 2 m one-signed under a ±5 m release scatter — **3cu** |
 | ~~38~~ | ~~Release on a reading inside the trim's floor~~, and keep going while passes improve — `IcbmConfig.ReleaseInsideTheTrimFloor` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **release probe 0.72x [0.58, 0.88] and the landing 0.61x [0.53, 0.74], each won on 17 of 20.** The reading released on 6.80 → 4.95 m, those over 10 m 16 → 1 of 80, in four passes rather than five. Predicted 0.80x on the probe — **3cu** |
-| **39** | **Lower the floor with KSA's pulse mode** — `IcbmConfig.PulseTrim` | **built, off; smoked, flying** — in flight the nulls finish at **0.0020 m/s** against base's 0.0220, the release floor is priced at **0.60 m** against 7.60, and the reading released on is **1.20 m** against 5.25 | **3cu** — one 1 ms pulse is 36x finer than a frame of jets. No axis struck off and no stall across 1,476 pulses; payback takes over from the floor as the rule that stops the loop. One guard, the measurement skip, pinned by `BusTrimPulseTests` |
+| **39** | **Lower the floor with KSA's pulse mode** — `IcbmConfig.PulseTrim` | **flown 2026-09-12, 20 paired blocks — NOT SHIPPED, three faults fixed and to re-fly** | **3cu** — the primary won (release probe **0.50x [0.36, 0.86]**, 16 of 20, against 0.40x predicted) **and the declared refutation fired**: `clock` and trim endings 0 → **10 of 80**, three releasing 0.3-1.1 km out. The phase pulsed at a side component with 2.541 m/s on a withheld axis, ran a median 54 s against clocks that judge a hold, and struck six live axes off. Nulls do finish at 0.0020 m/s against 0.0210, so the idea stands |
 | **40** | **The predictor's crossing tolerance** (+0.18 m) **and the ground lookup's rotation phase** (±3 m by seat) | not started | **3cu** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
