@@ -1,6 +1,6 @@
 # Getting the warheads inside a metre
 
-> ## Read this before anything below — audited 2026-09-07
+> ## Read this before anything below — audited 2026-09-07, re-audited 2026-09-12
 >
 > **This file is now largely a record, and much of it is superseded.** `docs/ACCURACY-PLAN.md` is
 > the live document; its header and entries 3bb-3bv carry the current state. The reasoning here is
@@ -17,7 +17,20 @@
 > | B1's item 3, the aim bias re-priced at a steeper arc | **refuted.** Every geometric sensitivity *falls* as the arc steepens (3bs) |
 > | B5, the tube cant | **dead** — the bus was straightened, all six axes read `(1,0,0)` |
 > | "a fifth of worlds do not get to fly the ladder" | that fifth is bound up with the **multi-rocket harness**, and N=1 against N=8 is p=0.145, not significant (3bn) |
-> | §5: the ladder stops at rung C because wall clock cannot be bought | the CPU-bound measurement stands; **the inference does not** — see §4 and 4b of the plan |
+> | §5: the ladder stops at rung C because wall clock cannot be bought | the CPU-bound measurement stands; **the inference does not** — see §4 and 4b of the plan. **Dead outright since 2026-09-12**: the harness reports **>=0.97x real time at every sample**, at a 26.9 ms median frame, so there is nothing left to unclamp |
+>
+> **Re-audited 2026-09-12 (plan 3cx), and the framing itself is the correction.**
+>
+> | this file says | actually |
+> | --- | --- |
+> | the route to a metre **is** a ladder of arrival angles | **the ladder is priced for a deorbit**, where steeper is shorter and cheaper. This mod flies a **launch to a fixed target**, where steeper is **longer** — 969 s at 32° against 1,861 s at 51° — and the aim's cost in velocity **rises** with the angle. Every velocity-side column below runs backwards for the shot actually flown |
+> | rung C (~5 m) is ahead, blocked by a hard 5 m floor | **met at 2.5 m, at 32°** — a quarter of the angle the rung names. The floor was the trim's own settle band, and item 39 dissolved it: nulls finish at 0.0020 m/s and the priced floor fell **7.60 -> 0.60 m**, with nothing steepened |
+> | rung D's prerequisites are outstanding | **all three are met at 32°** |
+> | a steeper arrival is the dominant lever | **worth <=0.5 m.** Only the fall's 2.02 m carries `cot γ`; the release term scales the *wrong way*, so 60° is **worse** than 32°. Taking the fall to zero still leaves 2.0 m. It is affordable — the tanks reach 63.8-64.1°, 160 of 160 trims done — and still not worth buying |
+>
+> **So the angle stays parked**, and the plan's order is item 40 then 41. Measuring the angle would
+> take about six nights and might never resolve; item 40 attacks the same fall term for a code
+> change, no propellant and no reach.
 >
 > **And the largest correction of all, from 2026-09-07 (plan 3bz).** This file, and every rung in
 > it, treats the *guidance* as the thing standing between the shot and a metre. It is not. Traced
