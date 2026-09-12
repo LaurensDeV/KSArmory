@@ -13,11 +13,15 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 **The one-line version: the shot is 5.0 m median per rocket, down from 17 before four fixes that all
 ship on — the warhead stopping on stale ground (3cs), the post-boost loop deciding each pass on a
 reading fifteen seconds old (3ct), the round's own first-order integrator (item 37), and the loop
-trimming on readings its own trim could not improve (item 38). What is left is the trim's settle
-band itself, which item 39 pulses past — built and off — and the per-seat rotation phase under the
-last few kilometres, item 40.**
+trimming on readings its own trim could not improve (item 38). Of what is left, 3cv measured that
+only 0.78 m is bias and the rest is scatter: the release probe carries 4.09 m downrange and 2.98
+cross, the fall 2.02, and the six warheads of one rocket land 2.0 m apart from release probes 0.20 m
+apart. The floor under this configuration is 0.64 m, or ~1.2 m as the endpoint prints it.**
 
-The entries to read are **3cu**, **3ct**, **3cs** and **3cr**. The 2026-09-08 block below is
+The entries to read are **3cv** (where the metres are), **3cu** (items 37-39), **3cw** (item 40) and
+**3ct**. **The order to work in is 39 repaired and re-flown, then 40, then 41** — 3cv is why: item 40
+is worth nothing until the release scatter comes down, and item 41 cannot be ranked until the
+scenario stops printing the group's spread with a 10 m quantum. The 2026-09-08 block below is
 history, and two of its items have since been overturned.
 
 1. **The walk is fixed and ships (3cr, 3cs).** A warhead stopped on the height it sampled at the top
@@ -7255,6 +7259,109 @@ pulsed at all:
 * **The two trim faults are disjoint** — the 5 over-long nulls and the 8 over-band nulls share no
   flight, so neither fix covers the other.
 
+### What the repaired item 39 still has to answer, and the smoke that answers it
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|pulse:PulseTrim=true' \
+    --aim 26.485S,68.148W --blocks 1 --out ~/shots/<date>-pulse-smoke      # about 12 minutes
+```
+
+**The one thing no fixture can see is the write**, so the smoke is specifically for it: on the arm,
+every null that reports `trimming` must actually move the number. A held axis whose `toGain` sits
+frozen across seconds is the mode stuck in `Pulse`, and it is what the three worst flights were.
+Beside it: `clock` and trim endings back to zero, the per-null pulsing span under
+`BusTrim.PulseSecondsPerNull`, and the reading released on near the 1.30 m the refuted night already
+showed on its sound flights. `scratchpad/pulsecheck.py` and `floorcheck.py` read all of it.
+
+Only then the night, which should be scored on **the landing** with the release probe beside it: on
+the 74 sound flights of the refuted night the probe went 4.77 → 1.21 m (0.25x) and the landing
+5.0 → 3.0 m (0.60x), and `corr(reading released on, probe)` rose 0.567 → 0.886 — which is 3cu's own
+open question answered, the probe does follow the trim's residual down.
+
+## 3cv. Where the 5.0 m actually is, measured on the shipped configuration — 2026-09-12
+
+160 rockets of shipped code (the `floor` arm of `2026-09-12-floor` and the `base` arm of `-pulse`).
+Landing is the mean of six warheads from their own aims: **median 5.00 m**, mean 5.55, p90 9.0,
+worst 17.0.
+
+| term | rms | bias |
+| --- | --- | --- |
+| release probe, downrange | 4.09 m | +0.51 |
+| release probe, cross | 2.98 m | +0.58 |
+| the fall, downrange | 2.02 m | −0.40 |
+| the fall, cross | 0.11 m | +0.03 |
+| between the six warheads of one rocket | ~0.97 m | — |
+
+Combined rms 4.56 down and 2.98 cross predicts **E|·| ≈ 4.8 m** against 5.00 observed, so the
+decomposition closes.
+
+* **Bias is 0.78 m of the 5.00; the rest is scatter**, and per-seat bias adds only 1.07 m rms. This
+  is the arithmetic behind item 37 moving the landing not at all and item 38 nearly halving it, and
+  it is the rule to plan with: **a one-signed term inside a larger scatter is worth far less at the
+  ground than its own size.**
+* **The fall's error is made entirely in the last 5.4 km.** At the final re-fly it is
+  −0.023 ± 0.14 m; at the landing −0.398 ± 2.02. Per seat: s6 **+3.52**, s3 −2.35, s5 −2.25,
+  s4 −0.94, the rest ±0.2. That is item 40, confirmed on shipped code.
+* **A term nobody has attacked.** The six warheads of one rocket share an aim point and their release
+  probes differ by 0.20 m — and they land **2.0 m** apart, uncorrelated with the terrain (r +0.03).
+  It appears entirely during the fall. After item 39 it is co-dominant with the release.
+* **Ruled out**: frame time (r −0.002 per flight), arrival angle (+0.09), impact speed (+0.10), shot
+  number (rho +0.055), tube index (−0.038 ± 0.155 m).
+
+**Two endpoints do not close to better than ~2 m**, which bounds what any night can resolve: the
+release-probe line and the trace's own probe, taken ~2 ms apart on the same round, differ by a median
+|1.30| m (max 6.10), and |trace probe − landing| is 2.26 m against a 0.58 m walk.
+
+**The honest floor for this configuration is 0.64 m** — height quantum 0.478 ⊕ `CrossingToleranceMetres`
+0.400 ⊕ staircase 0.025 ⊕ ruler 0.134 — or **≈1.2 m** including the endpoint's own 1 m print quantum,
+consistent with `KINETIC-FLOOR.md`'s 0.32 m at a steeper rung. Items 39 and 40 together project to
+~1.1 m, so **this ladder reaches its floor**: below it needs the print widened, the crossing tolerance
+bisected finer, and a steeper arrival.
+
+## 3cw. Item 40 designed: the ground is asked at the frame's rotation — 2026-09-12
+
+`GroundTest.TryGround` builds its direction from the back-dated position and the frame-end centre and
+calls `GetTerrainHeightFromDirCce` (`Ksa/GroundTest.cs:91-94`), which the engine resolves through
+`GetCcf2Cce()` — the **frame's end** rotation. `Slug` back-dates only the translation
+(`Sim/Slug.cs:359,642`), because `WeaponSystem.GroundCentreDriftIntoFrame` is the body's *centre*
+velocity (`Ksa/WeaponSystem.cs:2428-2429`). The spin between the sub-step and the frame's end is never
+removed, and `Sim/IGroundTest.cs:24-26` asserts the opposite.
+
+**Flown, over 320 warheads on two nights.** The mod already prints the within-frame crossing time, as
+`ground sample: over a X ms frame` (median 11.20 ms, range 0.00-30.70). The step from the last re-fly
+to the landing, against it:
+
+| seat | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| mean step, m | +0.22 | −0.14 | −2.29 | −1.11 | −1.98 | **+2.95** | −0.82 | −0.38 |
+| m per ms | +0.033 | −0.001 | −0.171 | −0.082 | −0.152 | **+0.312** | −0.045 | −0.007 |
+| R² | 0.29 | 0.00 | 0.58 | **0.98** | 0.83 | 0.93 | 0.67 | 0.27 |
+
+Five things say it is the phase and not something else: **every intercept is ~0**, which a pure phase
+term must be; the pooled correlation is only **−0.14**, so it is per-seat rather than global; the
+coefficient is stable across nights *and arms* (seat 4: −0.082, −0.083, −0.082, −0.081); **seats 2 and
+8 are flat and show nothing**; and per-seat fitting cuts the scatter 1.83 → 0.48 m. The predicted
+coefficient, `∂h/∂east × v_ground × cot γ` = slope × 0.665 m/ms, implies gradients of 0.05-0.47.
+
+**The fix needs no new KSA binding.** The right back-date for a terrain *query* is the full ground
+velocity, and `KsaWorld.GroundVelocityAt` already adds `Cross(spin, fromCentre)`, is already used for
+airspeed, and is already in `docs/KSA-API-SURFACE.md`. Add a seam beside the existing one —
+`GroundQueryDriftAt` on `Slug`, used at the three *query* sites (`Slug.cs:359, 622, 642`) — and keep
+`GroundCentreDriftAt` for the centre, which sits on the axis and does not move under rotation. **Not**
+in `GroundTest`: `TryGround` has no time argument, and adding one changes `IGroundTest` for 13 test
+fakes plus the sight and the camera, none of which have a frame phase.
+
+**Its test** goes beside `GroundSampleEpochTests`, which pins the translation half: a recorder ground
+and a drift composed as `orbital + Cross(spin, offset)`, asserting the query point is
+`position + groundVelocity·Δt`. **Today it fails by `|ω×r|·Δt` = 416 m/s × 33 ms ≈ 13.7 m**, and on a
+ramp whose height follows longitude the stop height differs by about 4 m at a 0.3 gradient.
+
+**Score it per seat, never seat-levelled** — levelling is exactly what removes a per-seat-signed term
+— with the walk's magnitude beside it. The landing will not resolve: ~1.2 m under a ±5 m release
+scatter, the same arithmetic as 3cu's prediction 4. **Pin the sign headlessly before flying**, since
+the rotation sense backwards doubles the term instead of removing it. And it is worth **0.00 m today**
+and +0.59 m (0.66x) only after item 39, so it is second.
+
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
 `App.Run` computes `dtPlayer = min(elapsed, 1f / GameSettings.Current.Simulation.MinTargetFrameRate)`.
@@ -7380,8 +7487,9 @@ what 20b is flying against.
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | ~~37~~ | ~~Integrate a warhead's fall to second order~~ — `IcbmConfig.SecondOrderWarheads` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **signed walk +1.73 m [+1.54, +1.88], won 20 of 20 and 8 of 8 seats; its magnitude 0.37x [0.30, 0.44]; cross +0.19 → +0.03 m.** The walk was the round's own first-order step, 1.986 m short of the exact conic headlessly. The landing unmoved at 1.05x [0.94, 1.59], unresolved — 2 m one-signed under a ±5 m release scatter — **3cu** |
 | ~~38~~ | ~~Release on a reading inside the trim's floor~~, and keep going while passes improve — `IcbmConfig.ReleaseInsideTheTrimFloor` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **release probe 0.72x [0.58, 0.88] and the landing 0.61x [0.53, 0.74], each won on 17 of 20.** The reading released on 6.80 → 4.95 m, those over 10 m 16 → 1 of 80, in four passes rather than five. Predicted 0.80x on the probe — **3cu** |
-| **39** | **Lower the floor with KSA's pulse mode** — `IcbmConfig.PulseTrim` | **flown 2026-09-12, 20 paired blocks — NOT SHIPPED, three faults fixed and to re-fly** | **3cu** — the primary won (release probe **0.50x [0.36, 0.86]**, 16 of 20, against 0.40x predicted) **and the declared refutation fired**: `clock` and trim endings 0 → **10 of 80**, three releasing 0.3-1.1 km out. The phase pulsed at a side component with 2.541 m/s on a withheld axis, ran a median 54 s against clocks that judge a hold, and struck six live axes off. Nulls do finish at 0.0020 m/s against 0.0210, so the idea stands |
-| **40** | **The predictor's crossing tolerance** (+0.18 m) **and the ground lookup's rotation phase** (±3 m by seat) | not started | **3cu** |
+| **39** | **Lower the floor with KSA's pulse mode** — `IcbmConfig.PulseTrim` | **flown 2026-09-12, 20 paired blocks — NOT SHIPPED. Four causes found and fixed (`7569b0a`), unflown in that form: smoke it, then re-fly.** The fourth was the write — the jets left in pulse mode during a hold, which is what the three worst flights were | **3cu** — the primary won (release probe **0.50x [0.36, 0.86]**, 16 of 20, against 0.40x predicted) **and the declared refutation fired**: `clock` and trim endings 0 → **10 of 80**, three releasing 0.3-1.1 km out. The phase pulsed at a side component with 2.541 m/s on a withheld axis, ran a median 54 s against clocks that judge a hold, and struck six live axes off. Nulls do finish at 0.0020 m/s against 0.0210, so the idea stands |
+| **40** | **The ground lookup's rotation phase** (±3 m by seat) **and the predictor's crossing tolerance** (+0.18 m) | **designed, not built — 3cw.** Second, not first: worth **0.00 m today** and +0.59 m (0.66x) only once 39 lands, because the fall's error hides under the release scatter | **3cw, 3cv** — the terrain query is answered at the frame's rotation while only the translation is back-dated. `GroundQueryDriftAt` off `KsaWorld.GroundVelocityAt`, no new KSA binding; its test fails today by 13.7 m. Score **per seat**, never seat-levelled, and pin the sign headlessly first |
+| **41** | **The spread between the six warheads of one rocket** — 2.0 m at the ground from release probes 0.20 m apart | **new, blocked on the instrument** | **3cv** — it appears entirely during the fall and does not follow the terrain (r +0.03). Nothing can be ranked against it until `BallisticScenario.cs:1020` prints metres rather than km to two decimals (a 10 m quantum; 604 of 960 lines read `0.01 km`) and `WarheadTrace` covers past round 1 (item 30b) |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |
