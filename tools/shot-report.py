@@ -24,6 +24,10 @@ here. The three decisions worth knowing without reading it:
 endpoints divide, and they exist because a ratio cannot carry a sign: a term whose sign belongs to
 the seat is destroyed by the magnitude the ratio needs, and by the floor a positive denominator
 needs -- which is the score for 71 of 160 flights on 2026-09-12-pulse2.
+
+`--endpoint spread` is the odd one out: every other endpoint asks where a group went, and this asks
+how wide it is -- the one quantity the post-cutoff aim loop cannot reach, because it is over before
+the warheads separate.
 """
 
 import argparse
@@ -191,6 +195,15 @@ IMPACT = re.compile(
     r"landed at\s*(?P<lat>-?[\d.]+),\s*(?P<lon>-?[\d.]+)\s*\|\s*"
     r"[-\d.]+\s*m from the aim\s*\|\s*walk from the release probe\s+[-\d.]+\s*m\s*"
     r"\((?P<down>[-+\d.]+)\s*down,\s*(?P<cross>[-+\d.]+)\s*cross\)")
+
+# How far each warhead of one group stopped from the aim -- the only line carrying all six, and so
+# the only reading the spread WITHIN a group can come off. It goes through `Distance.Say`, so a
+# group that scatters past a kilometre prints km and is converted; the 0.1 m form is what makes the
+# quantity readable at all, the VERDICT line's own `spread` being 10 m-quantised on a 2 m number.
+GROUPIMPACT = re.compile(
+    r"round \d+(?: on (?P<craft>.+?))? down\s+(?P<miss>[\d.]+)\s*(?P<unit>km|m)"
+    r"\s*from the aim point after")
+
 # What ended the post-boost correction, which is the one thing that decides whether the aim loop
 # was allowed to finish. Every Finish() in Sim/PostBoostAim.cs, in the order it is tested, plus the
 # two numbers that say how near it got: the passes it ran and what the trim was still owed. A shot
@@ -430,6 +443,7 @@ def read_shot(out_path, log_path, craft=None):
             "arrival_ms": [], "trace_km": [], "walk_m": [], "walk_down": [], "walk_cross": [],
             "early_s": [], "final_down": [], "final_cross": [], "final_aim": [],
             "trace_named": False, "own_impacts": [], "bursts": 0,
+            "group_m": [], "group_named": False,
             "release_km": [], "probe_named": False,
             "band_deg": [], "impacts": [],
             "why": None, "passes": None, "owed": None, "why_named": False, "gave_up": False,
@@ -505,6 +519,10 @@ def read_shot(out_path, log_path, craft=None):
     # is not an arrival, and a silent drop is what let four of them leave one arm short.
     bursts, _ = _traces(FINAL_BURST, log, craft)
     shot["bursts"] = len(list(bursts))
+
+    group, shot["group_named"] = _traces(GROUPIMPACT, log, craft)
+    shot["group_m"] = [float(m.group("miss")) * (1000.0 if m.group("unit") == "km" else 1.0)
+                       for m in group]
 
     landings, shot["trace_named"] = _traces(FINAL_WALK, log, craft)
     for m in landings:
@@ -1723,6 +1741,13 @@ WALK_FLOOR_M = 0.5
 RELEASE_FLOOR_M = 0.5
 
 
+# The impact line prints F1 metres, so a group reading zero is one whose six warheads all fell in
+# one bin -- a spread under the print rather than none. A guard, not a cost: a spread cannot cross
+# zero the way a walk can, and the tightest group on 2026-09-12-query is 1.30 m -- thirteen times
+# this.
+SPREAD_FLOOR_M = 0.1
+
+
 def _release_score(shot):
     """What this flight is already wrong by BEFORE the warheads are let go, in metres.
 
@@ -1761,6 +1786,41 @@ def _walk_score(shot):
     if shot.get("seat") is not None and not shot.get("trace_named"):
         return None
     return max(statistics.median(abs(v) for v in shot["final_down"]), WALK_FLOOR_M)
+
+
+def _spread_score(shot):
+    """How far apart this rocket's six warheads landed, in metres, worst minus best.
+
+    **Max minus min, and measured rather than assumed.** Ranked on the null scatter of the paired
+    log ratio -- pseudo-arms that keep the design, so there are thousands of replicates where the
+    flown night has seven shots -- max-min reads 0.211, the group's own standard deviation 0.242, a
+    trimmed range 0.307 and a median absolute deviation 0.310. The two order statistics beat all
+    three estimators that use more of the group: at six warheads a range is an efficient spread
+    estimator and a MAD is barely defined. It is also the quantity `ShotGroup` already reports, so
+    no number in docs/ changes meaning.
+
+    Its one real exposure is the group SIZE: the expected range grows with n, so a night that mixed
+    five-warhead and six-warhead groups would read the mix rather than the spread. Every flight of
+    every night flown so far released six and `usable` already requires all of them to arrive.
+
+    **It is a spread of DISTANCES from the aim, a lower bound on the spread on the ground.** Six
+    warheads 2 m out in six directions read zero here. Nothing in the log carries their positions,
+    so this is the available reading rather than the ideal one, and it is what 3cv's 2.0 m was
+    measured as.
+
+    A flight is one rocket, so the group is already an aggregate and the endpoint must not aggregate
+    it again: this returns ONE number per flight, exactly as `miss` returns one mean per flight, and
+    the per-shot median across the arm's rockets happens once, above.
+
+    An unattributed line is refused for 3ce's reason, so a night flown before the line named its
+    craft scores nothing -- which is also the night whose print was 10 m-quantised on a 2 m
+    quantity, so nothing is lost that would have been worth reading.
+    """
+    if len(shot.get("group_m", ())) < 2:
+        return None
+    if shot.get("seat") is not None and not shot.get("group_named"):
+        return None
+    return max(max(shot["group_m"]) - min(shot["group_m"]), SPREAD_FLOOR_M)
 
 
 def _signed_walk_score(shot):
@@ -1808,11 +1868,16 @@ def _signed_cross_score(shot):
 # are levelled per seat -- by division for a ratio, by subtraction for a signed one.
 #
 # There is no signed `release`: the probe line carries components but no craft name, so a signed
-# reading of it would be one flight's number worn by all eight (3ce).
+# reading of it would be one flight's number worn by all eight (3ce). Nor a signed `spread`: a
+# spread is a magnitude with no direction to have a sign.
+#
+# `spread` is the one that is not about where a group went but about how wide it is -- the only
+# endpoint measuring something the aim correction cannot reach, because it is already over by then.
 ENDPOINTS = {
     "miss": ("miss at the ground", "km", lambda s: s["mean"], False),
     "walk": ("downrange walk after release", "m", _walk_score, False),
     "release": ("miss the shot already has at release", "m", _release_score, False),
+    "spread": ("spread within one rocket's group", "m", _spread_score, False),
     "signed-walk": ("SIGNED downrange walk after release", "m", _signed_walk_score, True),
     "signed-cross": ("SIGNED cross-track walk after release", "m", _signed_cross_score, True),
 }
@@ -2341,9 +2406,10 @@ def main():
                     help="compare the variants flown inside each shot -- see Sim/ShotArms.cs")
     ap.add_argument("--endpoint", choices=sorted(ENDPOINTS), default="miss",
                     help="what --paired scores on: the miss at the ground, the walk after "
-                         "release, which is the part of it the arrival angle acts on, or a "
+                         "release, which is the part of it the arrival angle acts on, a "
                          "signed-* difference in metres, which is the only form that can resolve "
-                         "a term whose sign belongs to the seat")
+                         "a term whose sign belongs to the seat, or the spread within one "
+                         "rocket's group, which is the only one the aim correction cannot reach")
     ap.add_argument("--levels-from", metavar="DIR",
                     help="fit the seat levels from another night, so the divisor cannot absorb "
                          "any of the arm under test")

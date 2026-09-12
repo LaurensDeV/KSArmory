@@ -23,9 +23,9 @@ declared endpoints do not close to better than ~2 m — which now matters, becau
 
 The entries to read are **3cv** (where the metres are), **3cu** (items 37-39, including the one that
 was refuted and repaired), **3cw** (item 40) and **3ct**. **The order to work in is now 40, then 41**
-— item 39 shipped, which is what makes 40 worth attacking at all, and item 41 cannot be ranked until
-the scenario stops printing the group's spread with a 10 m quantum. The 2026-09-08 block below is
-history, and two of its items have since been overturned.
+— item 39 shipped, which is what makes 40 worth attacking at all. Item 41 is rankable at last: the
+scenario prints the group in metres and names its craft (`a1a1ae5`), and `--endpoint spread` scores
+it. The 2026-09-08 block below is history, and two of its items have since been overturned.
 
 1. **The walk is fixed and ships (3cr, 3cs).** A warhead stopped on the height it sampled at the top
    of its last frame, 40-90 m of track back. `IcbmConfig.ResampleGroundAtImpact`, now on by
@@ -7536,12 +7536,15 @@ than the shot itself. Item 30b is therefore not cosmetic.
 Ranked, and **none of these change where a round lands except the last**:
 
 1. `WarheadTrace`'s aim instant — done, `a1a1ae5`.
-2. A signed metres-difference endpoint in `shot-report.py`, and a `spread` entry — **there is no
-   paired endpoint for item 41 at all**. This is what buys the 0.54 m.
-3. `WALK_FLOOR_M` — censors 44% for a reason that expired at 3ci.
+2. A signed metres-difference endpoint in `shot-report.py` — done, `71b1278` (`signed-walk`,
+   `signed-cross`) — **and a `spread` entry, which is what item 41 is ranked on.** Both built.
+3. `WALK_FLOOR_M` — kept, and correctly explained: a ratio needs a positive denominator and the walk
+   crosses zero, so the floor is what the *ratio* costs rather than a resolution limit. The signed
+   endpoints are the way out of the 44%, not a smaller floor.
 4. The landing line in metres, with the craft named — done, `a1a1ae5`. Unlocks item 41's statistic.
-5. `PROBE` in `shot-report.py` is **dead**: it expects `km from the target` and `Distance.Say` prints
-   metres, so it matches 0 of 48 and `probe_km` is silently `nan`.
+5. `PROBE` in `shot-report.py` was **dead** — `km from the target` against a `Distance.Say` that
+   prints metres, 0 of 48 matched and `probe_km` silently `nan`. Fixed; it reads both units and the
+   components the line now carries between the miss and the seconds.
 6. `CrossingToleranceMetres` **changes the shot** — the aim loop reads the same predictor, so
    removing its ~0.4 m long bias moves where rounds land. **Fly it; do not file it as instrumentation.**
 
@@ -7712,7 +7715,7 @@ what 20b is flying against.
 | ~~38~~ | ~~Release on a reading inside the trim's floor~~, and keep going while passes improve — `IcbmConfig.ReleaseInsideTheTrimFloor` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **release probe 0.72x [0.58, 0.88] and the landing 0.61x [0.53, 0.74], each won on 17 of 20.** The reading released on 6.80 → 4.95 m, those over 10 m 16 → 1 of 80, in four passes rather than five. Predicted 0.80x on the probe — **3cu** |
 | ~~39~~ | ~~Lower the floor with KSA's pulse mode~~ — `IcbmConfig.PulseTrim` | **flown twice 2026-09-12, 40 paired blocks — SHIPPED ON.** Refuted on the first build, four causes fixed (`7569b0a`), then **the landing 0.47x [0.41, 0.57] and the release probe 0.44x [0.26, 0.56], each won on 20 of 20**: the median rocket 6.0 → 2.5 m, the reading released on 4.75 → 0.90, and `clock`/trim endings 10 of 80 → **0 of 80**. Was: **NOT SHIPPED on the first build.** The fourth was the write — the jets left in pulse mode during a hold, which is what the three worst flights were. Smoked repaired: the frozen-hold tail is back to base's 7.3 s from 93.0, nulls finish at 0.0020 m/s, the reading released on is 0.75 m against base's 5.75, and no `clock` or trim endings | **3cu** — the primary won (release probe **0.50x [0.36, 0.86]**, 16 of 20, against 0.40x predicted) **and the declared refutation fired**: `clock` and trim endings 0 → **10 of 80**, three releasing 0.3-1.1 km out. The phase pulsed at a side component with 2.541 m/s on a withheld axis, ran a median 54 s against clocks that judge a hold, and struck six live axes off. Nulls do finish at 0.0020 m/s against 0.0210, so the idea stands |
 | **40** | **The ground lookup's rotation phase** (±3 m by seat) **and the predictor's crossing tolerance** (+0.18 m) | **built behind `IcbmConfig.GroundQueryAtOwnEpoch` (`3daa73b`), smoked, flying 2026-09-12** | **3cz, 3cw, 3cv** — the terrain query is answered at the frame's rotation while only the translation is back-dated. Sign pinned headlessly first: forward 0.00 m from the correct point, uncorrected 13.83, **reversed 27.67 — doubled**. Primary is the **per-seat signed walk**, never seat-levelled, +0.59 m predicted against a 0.361 m MDE; the landing will not resolve. The crossing tolerance is **not** instrumentation — it moves the aim loop, so it is a night of its own |
-| **41** | **The spread between the six warheads of one rocket** — 2.0 m at the ground from release probes 0.20 m apart | **unblocked on the print, still blocked on the endpoint** | **3cv, 3cy** — it appears entirely during the fall and does not follow the terrain (r +0.03). The landing line now prints metres and names its craft (`a1a1ae5`), so the dispersion is readable; what is still missing is a **paired `spread` endpoint** — `shot-report.py` has none, so item 41 cannot be ranked against anything yet. `WarheadTrace` still covers round 1 only (item 30b), and round 1 minus the group mean is +1.81 m median at sd 3.47 — larger than the shot |
+| **41** | **The spread between the six warheads of one rocket** — 2.0 m at the ground from release probes 0.20 m apart | **rankable: print and endpoint both unblocked, nothing built yet** | **3cv, 3cy** — it appears entirely during the fall and does not follow the terrain (r +0.03). The landing line prints metres and names its craft (`a1a1ae5`) and `shot-report.py --paired --endpoint spread` scores worst-minus-best per rocket, so it can be ranked at last: the null per-shot sd of the log ratio on `2026-09-12-query` is 0.211, an **MDE of ×1.15 at twenty blocks** [×1.08, ×1.19] against the audit's ×0.75 gate, with the seven flown blocks agreeing at ×1.14 and the 0.1 m print now worth 1.6% of the 2.50 m median spread rather than 16%. `WarheadTrace` still covers round 1 only (item 30b), and round 1 minus the group mean is +1.81 m median at sd 3.47 — larger than the shot |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
 | **32** | **Record the per-arm descent step**, or hold the world step for the whole flight | small | **3ci** — the arms never overlap in time and steep always falls in a faster-running world, which confounds *every* `ArrivalPreference` night ever flown, 3cd and 3ch included |

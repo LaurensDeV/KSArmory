@@ -340,13 +340,59 @@ So the rule is about the *shape of the term*, not about which endpoint is newer:
 | one-signed across every seat | `signed-walk` pooled — it is exactly what that endpoint is for |
 | **per-seat signed** — a gradient times a displacement | **per seat.** The pooled signed figure under-reports it, and the ratio censors it |
 | a magnitude with no meaningful sign | `walk`, and check how many flights hit the floor |
+| **how wide the group is**, rather than where it went | `spread` — the only endpoint the aim correction cannot reach, because it is over before the warheads separate |
 
 **And `signed-cross` is a control channel, not a null.** It is near zero for most arms and genuinely
 is not for some: `2026-09-12-order` resolves it at **−0.161 m [−0.170, −0.139], 0 of 20 shots
 positive**. A cross reading that moves is evidence about geometry, not proof of a mistake.
 
 There is deliberately **no signed `release`**: the `release probe:` line carries the components but
-no craft name, so under 3ce's rule one flight's number would be worn by all eight.
+no craft name, so under 3ce's rule one flight's number would be worn by all eight. Nor a signed
+`spread`, which is a magnitude with no direction to have a sign.
+
+### `--endpoint spread`: how far apart one rocket's six warheads land
+
+Everything above measures where a group *went*. This measures how *wide* it is — 2.0 m at the ground
+from release probes 0.20 m apart (3cv) — and it is the one quantity the post-cutoff aim loop cannot
+touch, because that loop is over before the warheads separate.
+
+**Worst minus best**, which is what `ShotGroup` already reports, so no number in `docs/` changes
+meaning. It is also the choice that measures best, which was not the expectation: on the null
+scatter of the paired log ratio it reads **0.211, against 0.242 for the group's own standard
+deviation, 0.307 for a trimmed range and 0.310 for a median absolute deviation** — the two order
+statistics beat all three estimators that use more of the group. At six warheads a range is an
+efficient spread estimator and a MAD is barely defined.
+
+**Ranked on the null rather than on the flown arm, and that part matters.** A per-shot sd from a
+handful of blocks cannot rank five statistics: on this very night it read **0.075 at six blocks and
+0.196 at seven** — a 2.6× move from one shot landing. The null has thousands of replicates from the
+same seven, by relabelling a **fixed 4/4 seat partition that cuts across parity** (so it is balanced
+on the real arm) with its labels flipped per shot exactly as `ShotArms` flips them. That keeps the
+design and removes only the arm. The five statistics' ranking is the same at six blocks, at seven,
+and on the null; only the magnitude moved.
+
+Three things to know before reading one:
+
+* **It is a spread of *distances from the aim*, not of positions.** Six warheads 2 m out in six
+  directions read zero. Nothing in the log carries their positions, so this is the available reading
+  rather than the ideal one.
+* **A range's expectation grows with the group size**, so a night mixing five- and six-warhead
+  groups would read the mix. Every flight of every night flown so far released six, and `usable`
+  already requires all of them to arrive.
+* **A night flown before `a1a1ae5` scores nothing**, deliberately. Those logs print the group in
+  kilometres to two decimals — a **10 m quantum on a 2 m quantity** — and do not name the craft, so
+  3ce's rule applies as well. Refusing is more honest than reporting the quantisation.
+
+**What it can resolve, re-measured at the 0.1 m print.** The audit put this at ×0.75 with n=20,
+against the old 1 m quantum. The null sd of 0.211 is an **MDE of ×1.15 at twenty blocks** (90% band
+[×1.08, ×1.19]), and the seven flown blocks agree at ×1.14. That is **far inside ×0.75: item 41 is
+flyable at twenty blocks with a wide margin**, and the margin is what makes the conclusion safe
+while the estimate is still moving.
+
+**The print is no longer a material term.** Rounding one warhead to 0.1 m contributes 0.029 m of
+standard deviation, and a max−min of two of them 0.041 m — **1.6% of the 2.50 m median spread**,
+where the old 1 m quantum contributed 0.41 m, or 16%. Re-scoring with every value dithered inside
+its own bin does not move the per-shot variance measurably at this n.
 
 **One incoherence to know about, and it predates the signed endpoints.** The verdict is read off the
 randomisation while the interval beside it comes from the sign test, so a night can print
