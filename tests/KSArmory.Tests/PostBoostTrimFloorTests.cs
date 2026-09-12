@@ -115,4 +115,18 @@ public class PostBoostTrimFloorTests
         Assert.Equal(BusTrim.SettledMetresPerSecond, BusTrim.StopBand(0.0, 0.1));
         Assert.Equal(BusTrim.SettledMetresPerSecond, BusTrim.StopBand(double.NaN, 0.1));
     }
+
+    /// <summary>
+    /// And a bus that pulses stops inside three pulses instead, which is what the release floor is
+    /// priced from — so the floor follows the phase down rather than letting go at what a hold could
+    /// manage. Pulses coarser than the band buy nothing and must not raise it.
+    /// </summary>
+    [Fact]
+    public void ThePulsingBandIsThreePulsesAndNeverWiderThanTheHoldsOwn()
+    {
+        Assert.Equal(3.0 * 0.56 * 0.001, BusTrim.StopBand(0.56, 0.017, 0.001), 12);
+        Assert.Equal(BusTrim.SettledMetresPerSecond, BusTrim.StopBand(0.56, 0.017, 0.0));
+        Assert.Equal(BusTrim.SettledMetresPerSecond, BusTrim.StopBand(0.56, 0.017, 0.5));
+        Assert.Equal(BusTrim.SettledMetresPerSecond, BusTrim.StopBand(0.0, 0.017, 0.001));
+    }
 }

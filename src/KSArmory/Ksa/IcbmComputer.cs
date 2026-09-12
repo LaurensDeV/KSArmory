@@ -2789,7 +2789,8 @@ internal sealed class IcbmComputer
 
         _trimFloorForPass = _postBoost.Cycles;
 
-        double band = BusTrim.StopBand(_trim.Acceleration, simStep);
+        double band = BusTrim.StopBand(_trim.Acceleration, simStep,
+                                       Config.PulseTrim ? Config.PulseSeconds : 0.0);
 
         _trimFloor = AimAuthority.TryRate(state.Body, state.PositionCci, _trueAimCci,
                                           Program.CommittedArrivalFromNow, out double perMetre)

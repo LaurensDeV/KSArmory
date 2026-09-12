@@ -181,6 +181,25 @@ internal sealed class BusTrim
                         : 0.0);
 
     /// <summary>
+    /// The same threshold for a bus that pulses, which stops inside <see cref="PulseFloorPulses"/>
+    /// pulses rather than inside a frame's worth.
+    ///
+    /// <para><b>This is where the two levers compose.</b> <see cref="PostBoostAim"/> prices the
+    /// reading it releases on off the same call, so a pulse phase that reaches past the band takes
+    /// the release floor down with it — otherwise the loop would let go at what a hold could manage
+    /// while the trim was capable of better. Pulses coarser than the band buy nothing and cannot
+    /// raise it.</para>
+    /// </summary>
+    public static double StopBand(double acceleration, double step, double pulseSeconds)
+    {
+        double band = StopBand(acceleration, step);
+
+        if (!(pulseSeconds > 0.0) || !double.IsFinite(pulseSeconds) || !(acceleration > 0.0)) return band;
+
+        return Math.Min(band, PulseFloorPulses * acceleration * pulseSeconds);
+    }
+
+    /// <summary>
     /// How long after arming before it may call itself finished.
     ///
     /// <para>The split is deferred through the engine's input buffer and the bus's orbit is
@@ -507,14 +526,11 @@ internal sealed class BusTrim
         // the loop hunts round it for as long as it is allowed to.
         double band = StopBand(_accel, step);
 
-        // What a pulse phase reaches past it. A pulse is the thruster's own minimum rather than a
-        // whole frame, so it stops about twelve times closer; zero for a bus that does not pulse,
-        // which leaves every threshold below exactly as it was.
-        double fine = now.PulseSeconds > 0.0 && _accel > 0.0
-                          ? PulseFloorPulses * _accel * now.PulseSeconds
-                          : 0.0;
-
-        double stop = fine > 0.0 ? Math.Min(band, fine) : band;
+        // What a pulse phase reaches past it, off the same call the release floor is priced from so
+        // the two cannot disagree. Equal to the band for a bus that does not pulse, which leaves
+        // every threshold below exactly as it was.
+        double stop = StopBand(_accel, step, now.PulseSeconds);
+        double fine = stop < band ? stop : 0.0;
 
         double ceiling = now.MaxMetresPerSecond > 0.0 && double.IsFinite(now.MaxMetresPerSecond)
                              ? Math.Max(now.MaxMetresPerSecond, MaxMetresPerSecond)
