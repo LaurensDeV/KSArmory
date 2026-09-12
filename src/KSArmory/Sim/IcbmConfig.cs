@@ -464,10 +464,13 @@ internal sealed class IcbmConfig
     /// times finer, so the phase stops inside <see cref="BusTrim.PulseFloorPulses"/> pulses — about
     /// 1 m. <c>docs/ACCURACY-PLAN.md</c> 3cu item 39.</para>
     ///
-    /// <para><b>Off until it has flown.</b> It costs about a second of pulsing per axis per pass, at
-    /// the holding rate roughly a metre of leverage.</para>
+    /// <para><b>On.</b> Flown over 20 paired shots after four faults were repaired: the landing
+    /// 0.47x [0.41, 0.57] and the release probe 0.44x [0.26, 0.56], each won on all 20, with the
+    /// median rocket landing 6.0 → 2.5 m and the reading it releases on 4.75 → 0.90. Nothing ended on
+    /// the clock and no trim gave up, against 10 of 80 on the build that was refuted.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
     /// </summary>
-    public bool PulseTrim;
+    public bool PulseTrim = true;
 
     /// <summary>
     /// How long one of this bus's thruster pulses lasts, in seconds.

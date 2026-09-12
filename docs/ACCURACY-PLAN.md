@@ -10,18 +10,21 @@ constant" to "there is a bug, and the engine has a lever nobody used".
 
 ## Where it stands after 2026-09-12 — read this first
 
-**The one-line version: the shot is 5.0 m median per rocket, down from 17 before four fixes that all
-ship on — the warhead stopping on stale ground (3cs), the post-boost loop deciding each pass on a
-reading fifteen seconds old (3ct), the round's own first-order integrator (item 37), and the loop
-trimming on readings its own trim could not improve (item 38). Of what is left, 3cv measured that
-only 0.78 m is bias and the rest is scatter: the release probe carries 4.09 m downrange and 2.98
-cross, the fall 2.02, and the six warheads of one rocket land 2.0 m apart from release probes 0.20 m
-apart. The floor under this configuration is 0.64 m, or ~1.2 m as the endpoint prints it.**
+**The one-line version: the shot is 2.5 m median per rocket, down from 17 before five fixes that all
+ship on** — the warhead stopping on stale ground (3cs), the post-boost loop deciding each pass on a
+reading fifteen seconds old (3ct), the round's own first-order integrator (item 37), the loop
+trimming on readings its own trim could not improve (item 38), and the trim finishing its null in
+pulses rather than whole frames (item 39, **0.47x at the ground on 20 of 20 shots**, which took it
+5.0 → 2.5). **Of what is left, 3cv measured only 0.78 m as bias and the rest as scatter** — the
+release probe carried 4.09 m rms downrange and 2.98 cross before item 39 halved it, the fall 2.02,
+and the six warheads of one rocket land 2.0 m apart from release probes 0.20 m apart. **The floor
+under this configuration is 0.64 m, or ~1.2 m as the endpoint prints it**, and two of the three
+declared endpoints do not close to better than ~2 m — which now matters, because the shot is 2.5.
 
-The entries to read are **3cv** (where the metres are), **3cu** (items 37-39), **3cw** (item 40) and
-**3ct**. **The order to work in is 39 repaired and re-flown, then 40, then 41** — 3cv is why: item 40
-is worth nothing until the release scatter comes down, and item 41 cannot be ranked until the
-scenario stops printing the group's spread with a 10 m quantum. The 2026-09-08 block below is
+The entries to read are **3cv** (where the metres are), **3cu** (items 37-39, including the one that
+was refuted and repaired), **3cw** (item 40) and **3ct**. **The order to work in is now 40, then 41**
+— item 39 shipped, which is what makes 40 worth attacking at all, and item 41 cannot be ranked until
+the scenario stops printing the group's spread with a 10 m quantum. The 2026-09-08 block below is
 history, and two of its items have since been overturned.
 
 1. **The walk is fixed and ships (3cr, 3cs).** A warhead stopped on the height it sampled at the top
@@ -7325,6 +7328,40 @@ KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|pul
   per-null pulsing span against the 20 s bound, and the trim spend — a pulsing frame is charged a
   whole pulse where the engine delivers at most one per 0.15 s.
 
+### Re-flown: every shot, both endpoints — SHIPPED ON
+
+`~/shots/2026-09-12-pulse2`, 20 blocks, 160 flights, build `89c8767`. All 20 PASS at 11.1 minutes
+each, no exception in any log nor in KSA's own.
+
+| | base | pulse |
+| --- | --- | --- |
+| rocket landing, median / p90 / worst | 6.0 / 10 / 14 m | **2.5 / 5 / 10 m** |
+| rockets landing past 10 m | 5 of 80 | **0 of 80** |
+| the reading it released on | 4.75 m, 2 of 80 over 10 m | **0.90 m, 0 of 80** |
+| release downrange, \|median\| | 2.62 m | **0.65 m** |
+| its nulls finished at | 0.0210 m/s | **0.0020 m/s** |
+| floor priced | 7.70 m | **0.60 m** |
+| ended on | `floor` 75, `noimprov` 5 | payback 53, `floor` 25, `noimprov` 2 |
+| worst frozen-hold run | 11.3 s | 11.8 s |
+
+* **Primary — the landing: 0.47x [0.41, 0.57], won 20 of 20**, shot-flip p = 0.001 — RESOLVED,
+  against 0.60x predicted.
+* **The release probe: 0.44x [0.26, 0.56], won 20 of 20**, p = 0.002 — RESOLVED. Predicted 0.25x, so
+  less of the gain showed there and more at the ground than expected.
+* **The walk did not move**: 0.98x [0.82, 1.05], the null check this had to pass.
+* **The refutation stayed silent, which is what the re-flight was for.** `clock` and trim give-up
+  endings: **0 of 80**, against 10 of 80 on the refuted build. The stuck-mode signature — a held run
+  with the figure frozen — tops out at 11.8 s against base's own 11.3, where the refuted arm reached
+  93.0.
+* **One prediction corrected rather than claimed.** `corr(reading released on, probe)` was predicted
+  to rise 0.567 → ~0.89; it reads **0.801 on base and 0.845 on the arm**. The rise is real but small,
+  because base's own correlation on *this* night was already 0.80 — the 0.567 belonged to the refuted
+  night's base arm. The mechanism stands; the quoted baseline did not.
+
+**Shipped on**: `IcbmConfig.PulseTrim` now defaults to true. The shot is **2.5 m median per rocket**,
+and by 3cv's decomposition what remains is mostly scatter — item 40 is now worth attacking, and item
+41's within-group spread is co-dominant with what is left of the release.
+
 ## 3cv. Where the 5.0 m actually is, measured on the shipped configuration — 2026-09-12
 
 160 rockets of shipped code (the `floor` arm of `2026-09-12-floor` and the `base` arm of `-pulse`).
@@ -7534,7 +7571,7 @@ what 20b is flying against.
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | ~~37~~ | ~~Integrate a warhead's fall to second order~~ — `IcbmConfig.SecondOrderWarheads` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **signed walk +1.73 m [+1.54, +1.88], won 20 of 20 and 8 of 8 seats; its magnitude 0.37x [0.30, 0.44]; cross +0.19 → +0.03 m.** The walk was the round's own first-order step, 1.986 m short of the exact conic headlessly. The landing unmoved at 1.05x [0.94, 1.59], unresolved — 2 m one-signed under a ±5 m release scatter — **3cu** |
 | ~~38~~ | ~~Release on a reading inside the trim's floor~~, and keep going while passes improve — `IcbmConfig.ReleaseInsideTheTrimFloor` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **release probe 0.72x [0.58, 0.88] and the landing 0.61x [0.53, 0.74], each won on 17 of 20.** The reading released on 6.80 → 4.95 m, those over 10 m 16 → 1 of 80, in four passes rather than five. Predicted 0.80x on the probe — **3cu** |
-| **39** | **Lower the floor with KSA's pulse mode** — `IcbmConfig.PulseTrim` | **flown 2026-09-12, 20 paired blocks — NOT SHIPPED. Four causes found and fixed (`7569b0a`); re-smoked clean and re-flying.** The fourth was the write — the jets left in pulse mode during a hold, which is what the three worst flights were. Smoked repaired: the frozen-hold tail is back to base's 7.3 s from 93.0, nulls finish at 0.0020 m/s, the reading released on is 0.75 m against base's 5.75, and no `clock` or trim endings | **3cu** — the primary won (release probe **0.50x [0.36, 0.86]**, 16 of 20, against 0.40x predicted) **and the declared refutation fired**: `clock` and trim endings 0 → **10 of 80**, three releasing 0.3-1.1 km out. The phase pulsed at a side component with 2.541 m/s on a withheld axis, ran a median 54 s against clocks that judge a hold, and struck six live axes off. Nulls do finish at 0.0020 m/s against 0.0210, so the idea stands |
+| ~~39~~ | ~~Lower the floor with KSA's pulse mode~~ — `IcbmConfig.PulseTrim` | **flown twice 2026-09-12, 40 paired blocks — SHIPPED ON.** Refuted on the first build, four causes fixed (`7569b0a`), then **the landing 0.47x [0.41, 0.57] and the release probe 0.44x [0.26, 0.56], each won on 20 of 20**: the median rocket 6.0 → 2.5 m, the reading released on 4.75 → 0.90, and `clock`/trim endings 10 of 80 → **0 of 80**. Was: **NOT SHIPPED on the first build.** The fourth was the write — the jets left in pulse mode during a hold, which is what the three worst flights were. Smoked repaired: the frozen-hold tail is back to base's 7.3 s from 93.0, nulls finish at 0.0020 m/s, the reading released on is 0.75 m against base's 5.75, and no `clock` or trim endings | **3cu** — the primary won (release probe **0.50x [0.36, 0.86]**, 16 of 20, against 0.40x predicted) **and the declared refutation fired**: `clock` and trim endings 0 → **10 of 80**, three releasing 0.3-1.1 km out. The phase pulsed at a side component with 2.541 m/s on a withheld axis, ran a median 54 s against clocks that judge a hold, and struck six live axes off. Nulls do finish at 0.0020 m/s against 0.0210, so the idea stands |
 | **40** | **The ground lookup's rotation phase** (±3 m by seat) **and the predictor's crossing tolerance** (+0.18 m) | **designed, not built — 3cw.** Second, not first: worth **0.00 m today** and +0.59 m (0.66x) only once 39 lands, because the fall's error hides under the release scatter | **3cw, 3cv** — the terrain query is answered at the frame's rotation while only the translation is back-dated. `GroundQueryDriftAt` off `KsaWorld.GroundVelocityAt`, no new KSA binding; its test fails today by 13.7 m. Score **per seat**, never seat-levelled, and pin the sign headlessly first |
 | **41** | **The spread between the six warheads of one rocket** — 2.0 m at the ground from release probes 0.20 m apart | **new, blocked on the instrument** | **3cv** — it appears entirely during the fall and does not follow the terrain (r +0.03). Nothing can be ranked against it until `BallisticScenario.cs:1020` prints metres rather than km to two decimals (a 10 m quantum; 604 of 960 lines read `0.01 km`) and `WarheadTrace` covers past round 1 (item 30b) |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
