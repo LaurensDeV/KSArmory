@@ -89,7 +89,18 @@ internal readonly record struct TrimSituation(
     /// them died on a fixed ceiling of ten while asking for 11.5 to 13.4. A constant cannot bound
     /// both, and the caller is the only thing that knows which is happening.</para>
     /// </summary>
-    double MaxMetresPerSecond = double.NaN);
+    double MaxMetresPerSecond = double.NaN,
+
+    /// <summary>
+    /// How long one of this bus's thruster pulses lasts, or zero for a bus that only holds its jets
+    /// on — <see cref="IcbmConfig.PulseTrim"/>.
+    ///
+    /// <para>A held key fires for whole frames, so the smallest correction a hold can make is
+    /// <c>acceleration x step</c> and the band below which it stops is half of that. A pulse is the
+    /// thruster's own <c>MinimumPulseTime</c>, a millisecond on the shipped bus, which is about
+    /// sixteen times finer — so the trim fires normally down to its band and pulses from there.</para>
+    /// </summary>
+    double PulseSeconds = 0.0);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -98,12 +109,18 @@ internal readonly record struct TrimSituation(
 /// kept: one frame of firing is <c>acceleration x step</c>, and a residual near that is a timing
 /// limit rather than a control error.
 /// </param>
+/// <param name="Pulse">
+/// Whether this frame's command is a pulse rather than a hold. What the caller does with it is put
+/// the vehicle in its engine's pulse mode for the frame; the directions are commanded the same way
+/// either way.
+/// </param>
 internal readonly record struct TrimCommand(
     TrimAxes Fire,
     bool Done,
     double ToGainMetresPerSecond,
     double Acceleration,
-    string Said);
+    string Said,
+    bool Pulse = false);
 
 /// <summary>
 /// The post-boost vehicle's own velocity trim: what its thrusters and its own tank are for.
@@ -215,6 +232,15 @@ internal sealed class BusTrim
     public const double ProgressMetresPerSecond = 0.01;
 
     /// <summary>
+    /// How many of the bus's own pulses wide the floor a pulse phase stops inside is.
+    ///
+    /// <para>Three, so it stops where one more pulse could overshoot rather than hunting around it.
+    /// On the shipped bus — a millisecond pulse at 0.56 m/s² — that is 0.0017 m/s against the
+    /// 0.02 m/s a hold stops inside. <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
+    /// </summary>
+    public const double PulseFloorPulses = 3.0;
+
+    /// <summary>
     /// The whole budget. Past this the warheads go untrimmed.
     ///
     /// <para>Generous, because the release window is the real clock and the sequencer already
@@ -267,6 +293,11 @@ internal sealed class BusTrim
     private int _firingFor;
     private TrimAxes _fire;
     private TrimAxes _dead;
+
+    // Whether the last command was a pulse. A pulse is a millisecond of thrust in a frame, so an
+    // acceleration measured across one reads a fraction of the truth — and that reading sizes the
+    // pulse floor, charges the budget, and decides whether a direction still moves the bus.
+    private bool _pulsedLast;
 
     // Which way the chosen direction actually pushes, and what the vehicle was measured doing along
     // it. Kept because it is the only thing that separates a dead thruster from a live one losing a
@@ -368,6 +399,7 @@ internal sealed class BusTrim
         _since = 0.0;
         _firingFor = 0;
         _fire = TrimAxes.None;
+        _pulsedLast = false;
         _dead = TrimAxes.None;
         _pushDirCci = Vec.Zero;
         _pushed = 0.0;
@@ -475,6 +507,15 @@ internal sealed class BusTrim
         // the loop hunts round it for as long as it is allowed to.
         double band = StopBand(_accel, step);
 
+        // What a pulse phase reaches past it. A pulse is the thruster's own minimum rather than a
+        // whole frame, so it stops about twelve times closer; zero for a bus that does not pulse,
+        // which leaves every threshold below exactly as it was.
+        double fine = now.PulseSeconds > 0.0 && _accel > 0.0
+                          ? PulseFloorPulses * _accel * now.PulseSeconds
+                          : 0.0;
+
+        double stop = fine > 0.0 ? Math.Min(band, fine) : band;
+
         double ceiling = now.MaxMetresPerSecond > 0.0 && double.IsFinite(now.MaxMetresPerSecond)
                              ? Math.Max(now.MaxMetresPerSecond, MaxMetresPerSecond)
                              : MaxMetresPerSecond;
@@ -484,7 +525,11 @@ internal sealed class BusTrim
             return Finish(gaveUp: true, Left($"more than the {ceiling:F0} m/s this pass may spend"));
         }
 
-        TrimAxes pick = Choose(in now, toGainCci, band, out double component, out bool withheld);
+        TrimAxes pick = Choose(in now, toGainCci, stop, out double component, out bool withheld);
+
+        // Inside the band a held frame overshoots by more than it removes, so what is left of the
+        // component is pulsed off instead.
+        bool pulse = fine > 0.0 && pick != TrimAxes.None && component <= band;
 
         // Held off by the interlock rather than out of work, and answered before the stall clock
         // for the same reason `MayFire` is: a trim that has not been allowed to push has neither
@@ -504,7 +549,12 @@ internal sealed class BusTrim
         // grows a fresh axial requirement every cycle, so the axial jets go on chasing it for as
         // long as they are allowed to. That burns the tank for nothing and leaves the shot no
         // better than when the last real progress was made.
-        if (Stalled(step)) return Finish(gaveUp: true, Left("the trim stopped closing"));
+        // A pulse moves the number by a fraction of what a frame does, so what a stall looks for has
+        // to be the phase's own scale. Against the standing one it would give up while working.
+        if (Stalled(step, pulse ? 0.25 * fine : ProgressMetresPerSecond))
+        {
+            return Finish(gaveUp: true, Left("the trim stopped closing"));
+        }
 
         // Finished when there is no direction left worth firing, which is the honest definition —
         // and it is per direction rather than on the total, because the total is spread over three
@@ -525,12 +575,21 @@ internal sealed class BusTrim
                                 Left($"nothing left aboard moves the bus (struck off: {Struck(_dead)})"));
         }
 
+        // Watched through the pulse phase as well. A pulse moves a component by a fraction of what
+        // the watch calls progress, so its clock does trip — but what it strikes a direction off for
+        // is reading no thrust along it, and while pulsing that reading is the hold phase's, frozen.
+        // So the axis reads alive and the watch only restarts. Skipping the measurement is what
+        // makes that true, and is the one guard here: with both, neither could be caught.
         Watch(step, pick, component);
 
         _fire = pick;
         _firingFor++;
 
-        return Command(pick, $"trimming {_toGain:F2} m/s on {Name(pick)}");
+        return Command(pick,
+                       pulse
+                           ? $"pulsing {_toGain:F3} m/s off {Name(pick)}"
+                           : $"trimming {_toGain:F2} m/s on {Name(pick)}",
+                       pulse);
     }
 
     // Which direction to push, out of the ones that have not been struck off. The largest remaining
@@ -610,9 +669,9 @@ internal sealed class BusTrim
     // Against the lowest ever reached rather than the last cycle's, because the number wanders: a
     // bang-bang loop overshoots by a quantum and comes back, so "worse than last time" is the
     // ordinary state of a loop that is working.
-    private bool Stalled(double step)
+    private bool Stalled(double step, double progress)
     {
-        if (_toGain <= _lowest - ProgressMetresPerSecond)
+        if (_toGain <= _lowest - progress)
         {
             _lowest = _toGain;
             _sinceProgress = 0.0;
@@ -745,7 +804,7 @@ internal sealed class BusTrim
             return;
         }
 
-        if (_havePrev && _fire != TrimAxes.None && _firingFor >= 2)
+        if (_havePrev && _fire != TrimAxes.None && _firingFor >= 2 && !_pulsedLast)
         {
             double3 gravity = now.Body.GravityCci(now.PositionCci);
             double3 proper = (now.VelocityCci - _velocityPrev) / step - gravity;
@@ -771,7 +830,9 @@ internal sealed class BusTrim
         // Charged across the interval the command was in force for, which is the one Measure
         // describes. Whether it was a good burn or a wasted one is not this loop's question: the
         // budget is what the tank has lost either way.
-        if (_fire != TrimAxes.None) _spent += _accel * step;
+        // A pulse burns its own length rather than the frame's, and is charged at one per frame,
+        // which is the most the engine can deliver and about seven times what it does.
+        if (_fire != TrimAxes.None) _spent += _accel * (_pulsedLast ? now.PulseSeconds : step);
 
         _velocityPrev = now.VelocityCci;
         _havePrev = true;
@@ -788,13 +849,14 @@ internal sealed class BusTrim
         return new TrimCommand(TrimAxes.None, Done: true, _toGain, _accel, said);
     }
 
-    private TrimCommand Command(TrimAxes fire, string said = "")
+    private TrimCommand Command(TrimAxes fire, string said = "", bool pulse = false)
     {
         if (fire == TrimAxes.None) _firingFor = 0;
         _fire = fire;
         _said = said;
+        _pulsedLast = pulse && fire != TrimAxes.None;
 
-        return new TrimCommand(fire, _done, _toGain, _accel, said);
+        return new TrimCommand(fire, _done, _toGain, _accel, said, _pulsedLast);
     }
 
     // Which directions were struck off, and it is the whole difference between a bus that cannot

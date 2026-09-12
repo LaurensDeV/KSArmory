@@ -27,7 +27,18 @@ internal sealed class TrimBus
     /// <summary>What the lateral jets can do. Zero is the layout the shipped bus has.</summary>
     public double LateralAcceleration;
 
-    public void Step(BallisticBody body, TrimAxes fire, double seconds)
+    /// <summary>
+    /// The engine's pulse contract: a commanded direction fires for one thruster
+    /// <c>MinimumPulseTime</c> and no more often than this, however long the frame is.
+    /// </summary>
+    public const double PulseEverySeconds = 0.15;
+
+    /// <summary>One pulse, the millisecond the engine floors a thruster's own minimum at.</summary>
+    public double PulseSeconds = 0.001;
+
+    private double _sincePulse = PulseEverySeconds;
+
+    public void Step(BallisticBody body, TrimAxes fire, double seconds, bool pulse = false)
     {
         double3 thrust = Push(fire, TrimAxes.Forward, NoseCci, AxialAcceleration)
                        + Push(fire, TrimAxes.Backward, -NoseCci, AxialAcceleration)
@@ -36,9 +47,24 @@ internal sealed class TrimBus
                        + Push(fire, TrimAxes.Down, DownCci, LateralAcceleration)
                        + Push(fire, TrimAxes.Up, -DownCci, LateralAcceleration);
 
+        // A held frame thrusts for the whole of it; a pulse for its own length, and only when the
+        // engine's 0.15 s has come round again.
+        double burning = seconds;
+
+        if (pulse)
+        {
+            _sincePulse += seconds;
+            burning = _sincePulse >= PulseEverySeconds ? PulseSeconds : 0.0;
+            if (burning > 0.0) _sincePulse = 0.0;
+        }
+        else
+        {
+            _sincePulse = PulseEverySeconds;
+        }
+
         double3 gravity = body.GravityCci(PositionCci);
 
-        VelocityCci += (gravity + thrust) * seconds;
+        VelocityCci += gravity * seconds + thrust * burning;
         PositionCci += VelocityCci * seconds;
     }
 

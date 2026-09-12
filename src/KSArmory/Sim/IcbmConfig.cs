@@ -452,6 +452,33 @@ internal sealed class IcbmConfig
     public bool ReleaseInsideTheTrimFloor;
 
     /// <summary>
+    /// Whether the trim finishes its null with pulses rather than held frames — the engine's own
+    /// <c>FlightComputerManualThrustMode.Pulse</c>.
+    ///
+    /// <para><b>A held key fires for whole frames, and that is what sets the floor.</b> The trim
+    /// stops inside <see cref="BusTrim.SettledMetresPerSecond"/> because a frame of jets at the step
+    /// the world runs is 0.009 m/s and firing one would overshoot; carried to the ground that band is
+    /// 7-8 m of miss. A pulse is the thruster's own <see cref="PulseSeconds"/> instead, about sixteen
+    /// times finer, so the phase stops inside <see cref="BusTrim.PulseFloorPulses"/> pulses — about
+    /// 1 m. <c>docs/ACCURACY-PLAN.md</c> 3cu item 39.</para>
+    ///
+    /// <para><b>Off until it has flown.</b> It costs about a second of pulsing per axis per pass, at
+    /// the holding rate roughly a metre of leverage.</para>
+    /// </summary>
+    public bool PulseTrim;
+
+    /// <summary>
+    /// How long one of this bus's thruster pulses lasts, in seconds.
+    ///
+    /// <para>The engine floors a thruster's <c>MinimumPulseTime</c> at a millisecond and the shipped
+    /// bus declares exactly that, so this is the floor rather than a preference. It is typed rather
+    /// than read off the craft, which is the one thing here that is not measured: reading it would
+    /// mean walking a vehicle's thruster modules, and a bus with coarser jets wants its own number.
+    /// Too small only stalls the phase out; too large stops it early.</para>
+    /// </summary>
+    public double PulseSeconds = 0.001;
+
+    /// <summary>
     /// Let a released warhead re-read the ground under each sub-step as it meets it, rather than
     /// holding the frame's first sample.
     ///

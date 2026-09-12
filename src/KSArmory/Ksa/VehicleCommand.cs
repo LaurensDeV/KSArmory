@@ -214,6 +214,30 @@ internal static class VehicleCommand
                                   default);
     }
 
+    /// <summary>
+    /// Put the vehicle's manual thrust in pulse mode, or back to direct.
+    ///
+    /// <para>KSA's own: a held translation key in <c>Pulse</c> becomes one pulse of each thruster's
+    /// <c>MinimumPulseTime</c>, at most every 0.15 s, instead of thrust for the whole frame. It is
+    /// the same field the keyboard's <c>ToggleManualThrustMode</c> writes, assigned rather than
+    /// toggled so the mod cannot end up holding the opposite of what it asked for.</para>
+    ///
+    /// <para><b>The attitude hold survives it.</b> The pulse branch builds only the translation
+    /// command; the tracking controller writes the rotation afterwards in either mode.</para>
+    ///
+    /// <para>Written from <see cref="AttitudeHook"/>'s window like the attitude, because applying a
+    /// worker's results copies the whole flight computer over the top of anything written outside
+    /// it.</para>
+    /// </summary>
+    public static void SetPulseMode(Vehicle craft, bool pulsing)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        craft.FlightComputer.SetManualThrustMode(pulsing
+                                                     ? FlightComputerManualThrustMode.Pulse
+                                                     : FlightComputerManualThrustMode.Direct);
+    }
+
     /// <summary>Fire the next stage, which is how an engine is lit as well as how one is dropped.</summary>
     public static void Stage(Vehicle craft)
     {

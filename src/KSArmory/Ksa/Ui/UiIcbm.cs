@@ -467,6 +467,25 @@ internal sealed partial class Ui
             + "trims on readings the trim cannot improve, and stops three passes after the last 250 m "
             + "improvement whatever they read.");
 
+        bool pulsing = config.PulseTrim;
+        if (ImGui.Checkbox("Finish the trim in pulses", ref pulsing))
+        {
+            config.PulseTrim = pulsing;
+        }
+        Tip($"On: inside its settle band the trim taps the jets for {config.PulseSeconds * 1000.0:F0} ms "
+            + "at a time -- the engine's own pulse mode -- instead of firing them for whole frames, "
+            + "which is what sets the floor under the correction. Off: a held frame is the smallest "
+            + "correction it can make.");
+
+        float pulseMs = (float)(config.PulseSeconds * 1000.0);
+        if (ImGui.SliderFloat("Pulse length (ms)", ref pulseMs, 1.0f, 50.0f))
+        {
+            config.PulseSeconds = Math.Max(0.001, pulseMs / 1000.0);
+        }
+        Tip("How long one tap lasts. The engine floors a thruster's own minimum at a millisecond, "
+            + "which is what the shipped bus declares; a bus with coarser jets wants its own number, "
+            + "and one set too short stalls the phase rather than misfiring it.");
+
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
         {

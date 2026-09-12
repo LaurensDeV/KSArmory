@@ -7026,9 +7026,26 @@ reading 3.55 m median (204) against 0.10 m without (28,029), worse in 58%.
   worker's results overwrite it. **The attitude hold survives it**: the pulse branch builds only the
   translation command, and the tracking controller writes the rotation afterwards in either mode.
   Predicted floor about 1 m, for about a second of pulses per axis per pass. `ICBM-GUIDANCE.md`
-  already names it as the lever. Not built first because it is an engine path this mod has never
-  driven, and the rig needs the pulse contract, a frame of command latency and 8/25 ms step jitter
-  before a headless test of it means anything.
+  already names it as the lever.
+
+  **Built, off: `IcbmConfig.PulseTrim`**, with `PulseSeconds` at the engine's own millisecond floor.
+  `BusTrim` fires normally down to its band and pulses from there to a floor
+  `BusTrim.PulseFloorPulses` wide; `VehicleCommand.SetPulseMode` writes the engine's mode from
+  `AttitudeHook`'s window, because applying a worker's results copies the whole flight computer over
+  anything written outside it. Headless, on the rig carrying the engine's contract — one pulse of the
+  thruster's own minimum, no oftener than 0.15 s — a null a hold leaves **0.0135 m/s** off finishes at
+  **0.0013**, which at ~400 m per m/s is 5.4 m of miss becoming 0.5.
+
+  **One guard, and it took three mutations to find which.** Skipping the measurement while pulsing
+  and holding the dead-thruster watch off during it are each sufficient alone, so with both in place
+  no mutation of either could be caught — the tests passed with either one disabled and only failed
+  with both. The measurement skip is the one kept, because that reading also sizes the pulse floor
+  and charges the budget; the watch now runs throughout and reads the axis alive off the frozen
+  measurement. `BusTrimPulseTests` fails without it, on weak jets where the phase outlasts
+  `DirectionStallSeconds`: the trim strikes the tail off at 5.1 s and gives up with 0.0117 m/s left.
+
+  **Unflown**, and what a night has to answer is whether the release probe follows the residual down:
+  the trim is not the only thing between it and the ground.
 
 **They compose, and 38 first costs nothing**: its floor is computed from the band, so a pulse phase
 that shrinks the band shrinks the floor 38 releases on. 39 is the larger lever and the larger build.
@@ -7198,7 +7215,7 @@ what 20b is flying against.
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | ~~37~~ | ~~Integrate a warhead's fall to second order~~ — `IcbmConfig.SecondOrderWarheads` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **signed walk +1.73 m [+1.54, +1.88], won 20 of 20 and 8 of 8 seats; its magnitude 0.37x [0.30, 0.44]; cross +0.19 → +0.03 m.** The walk was the round's own first-order step, 1.986 m short of the exact conic headlessly. The landing unmoved at 1.05x [0.94, 1.59], unresolved — 2 m one-signed under a ±5 m release scatter — **3cu** |
 | **38** | **Release on a reading inside the trim's floor**, and keep going while passes improve | **built, off; smoked, flying**: `IcbmConfig.ReleaseInsideTheTrimFloor` — every flight ended on the floor, priced at 7.9-8.1 m, releasing on a 3.15 m reading against base's 7.10 | **3cu** — the floor derived as the trim's band x the arc's sensitivity, 7.3 m. 0.86x on the release probe from flown readings alone, 0.80x with the passes modelled |
-| **39** | **Lower the floor with KSA's pulse mode** | not started | **3cu** — one 1 ms pulse is 36x finer than the band; predicted floor ~1 m. An engine path the mod has never driven |
+| **39** | **Lower the floor with KSA's pulse mode** — `IcbmConfig.PulseTrim` | **built, off; unflown** | **3cu** — one 1 ms pulse is 36x finer than the band. Headless: a null a hold leaves 0.0135 m/s off finishes at **0.0013**, about 5.4 m of miss becoming 0.5. One guard, the measurement skip, pinned by `BusTrimPulseTests` |
 | **40** | **The predictor's crossing tolerance** (+0.18 m) **and the ground lookup's rotation phase** (±3 m by seat) | not started | **3cu** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |

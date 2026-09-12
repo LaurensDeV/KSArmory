@@ -50,6 +50,11 @@ internal static class AttitudeHook
     // a write the next sub-step undoes.
     private static readonly HashSet<Vehicle> Railed = [];
 
+    // Craft whose manual thrust is in the engine's pulse mode this frame. Held here rather than
+    // written where the trim decides it, because the flight computer is copied over wholesale when
+    // a worker's results are applied -- the same reason the attitude is written from this window.
+    private static readonly HashSet<Vehicle> Pulsing = [];
+
     private static Harmony? _harmony;
     private static bool _complained;
 
@@ -149,12 +154,30 @@ internal static class AttitudeHook
         Railed.Add(craft);
     }
 
+    /// <summary>
+    /// Fire this craft's translation in pulses this frame, or hold it directly.
+    ///
+    /// <para>Stated every frame like the aim, because it is the same field on the same double-buffered
+    /// flight computer: what is not restated is copied back to <c>Direct</c> by the next worker's
+    /// results.</para>
+    /// </summary>
+    public static void PulseMode(Vehicle craft, bool pulsing)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+
+        if (pulsing) Pulsing.Add(craft);
+        else Pulsing.Remove(craft);
+    }
+
     /// <summary>Stop pointing it, and stop quieting it. The vehicle is the player's again.</summary>
     public static void Release(Vehicle craft)
     {
         Wanted.Remove(craft);
         Quieted.Remove(craft);
         Railed.Remove(craft);
+
+        // Left in pulse mode, the player's own translation keys would fire in millisecond taps.
+        if (Pulsing.Remove(craft)) VehicleCommand.SetPulseMode(craft, pulsing: false);
     }
 
     // Runs inside KSA's frame loop, immediately before the flight computer is snapshotted for the
@@ -163,6 +186,10 @@ internal static class AttitudeHook
     {
         try
         {
+            // Before everything else, and whatever else this craft is doing: the mode decides how a
+            // translation command already standing is spent, and it is restated every frame.
+            if (Pulsing.Count > 0) VehicleCommand.SetPulseMode(__instance, Pulsing.Contains(__instance));
+
             if (Quieted.Contains(__instance))
             {
                 VehicleCommand.ReleaseAttitude(__instance);
@@ -192,6 +219,7 @@ internal static class AttitudeHook
             Wanted.Remove(__instance);
             Quieted.Remove(__instance);
             Railed.Remove(__instance);
+            Pulsing.Remove(__instance);
 
             if (_complained) return;
             _complained = true;

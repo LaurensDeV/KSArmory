@@ -451,6 +451,7 @@ internal sealed class IcbmComputer
         // flags are held keys, so a stood-down computer that leaves one down hands the player a bus
         // translating on its own with nothing on screen saying why.
         VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+        AttitudeHook.PulseMode(Craft, pulsing: false);
 
         Program.Reset();
         _releasedTheArrival = false;
@@ -1005,6 +1006,7 @@ internal sealed class IcbmComputer
         // trim can already have commanded the half being left behind - and a thruster flag is a
         // held key, so nothing would ever let go of it again.
         VehicleCommand.DriveTranslation(left, TrimAxes.None);
+        AttitudeHook.PulseMode(left, pulsing: false);
 
         Craft = craft;
 
@@ -1332,7 +1334,11 @@ internal sealed class IcbmComputer
         // manoeuvre the clearance had just refused on safety grounds.
         if (!Config.TrimBeforeRelease || !Command.ReadyToDeploy || SalvoFinished)
         {
-            if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+            if (_trim.Firing != TrimAxes.None)
+            {
+                VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+                AttitudeHook.PulseMode(Craft, pulsing: false);
+            }
             return;
         }
 
@@ -1389,7 +1395,11 @@ internal sealed class IcbmComputer
         if (plan.Abandon)
         {
             _trimAbandoned = true;
-            if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+            if (_trim.Firing != TrimAxes.None)
+            {
+                VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+                AttitudeHook.PulseMode(Craft, pulsing: false);
+            }
             Say(clearance.Said, "");
             return;
         }
@@ -1446,8 +1456,13 @@ internal sealed class IcbmComputer
             state.Body, state.PositionCci, state.VelocityCci,
             Program.ReferencePositionCci, referenceVelocity, Program.SecondsSinceReference,
             nose, right, down, _mayTrim, budget, _keepOutTowardCci,
-            plan.CeilingMetresPerSecond));
+            plan.CeilingMetresPerSecond,
+            Config.PulseTrim ? Config.PulseSeconds : 0.0));
 
+        // The mode goes through the attitude window for the same reason the aim does: applying a
+        // worker's results copies the whole flight computer over anything written outside it. The
+        // directions are commanded the same way either way.
+        AttitudeHook.PulseMode(Craft, trim.Pulse);
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
 
         // The post-boost passes. With the thrusters quiet and the nose steady the correction gets a
