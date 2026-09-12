@@ -7050,8 +7050,11 @@ reading 3.55 m median (204) against 0.10 m without (28,029), worse in 58%.
   **Unflown**, and what a night has to answer is whether the release probe follows the residual down:
   the trim is not the only thing between it and the ground.
 
-**They compose, and 38 first costs nothing**: its floor is computed from the band, so a pulse phase
-that shrinks the band shrinks the floor 38 releases on. 39 is the larger lever and the larger build.
+**They compose, and 38 first costs nothing** — but only once the floor is priced off the threshold
+the trim actually stops at. Built, that was the hold band alone, so a loop whose trim could null to
+0.0013 m/s would still let go at a reading worth 0.02: `BusTrim.StopBand` now takes the pulse length
+and returns the smaller of the two, and `IcbmComputer` prices the release floor off that same call.
+39 is the larger lever and the larger build.
 
 ### Item 38 smoked: every correction ended on the floor, and the readings halved
 
@@ -7122,6 +7125,52 @@ each, with no exception in any mod log nor in KSA's own.
   warheads not spent.
 
 **Shipped on**: `IcbmConfig.ReleaseInsideTheTrimFloor` now defaults to true.
+
+### Item 39 smoked: the null eleven times closer, and the floor down with it
+
+`~/shots/2026-09-12-pulse-smoke`, one block: PASS in 11 minutes, six of six arrived on every rocket,
+nothing in either log.
+
+| arm | seats | its nulls finished at | floor priced | the reading it released on | ended on |
+| --- | --- | --- | --- | --- | --- |
+| **pulse** | 2, 4, 6, 8 | **0.0020 m/s**, worst 0.0030 | **0.60 m** | **median 1.20 m** | payback x3, `floor` x1 |
+| base | 1, 3, 5, 7 | 0.0220 m/s, worst 0.0300 | 7.60 m | median 5.25 m | `floor` x4 |
+
+738 pulsing frames on the arm and none on base, 1,476 pulse commands chipping 0.016-0.020 m/s off an
+axis at a time, and **no axis struck off, no stall and no give-up** — which is what the rig could not
+prove, since a phase there never meets a real thruster.
+
+**The binding rule changes, and that is the design rather than a surprise.** With the floor at 0.6 m
+three of the four pulse rockets stopped on payback instead: 1 m out against the 1-3 m another pass
+would have cost (5.7-11.3 s x 0.26-0.30 m/s). Below about a metre, holding the warheads costs more
+than a correction can win, which is `HoldingCost` doing the job it exists for.
+
+One block cannot compare arms (3by). The pulse rockets landed 2, 2, 4 and 2 m against base's 4, 6, 2
+and 9, on different seats of one world.
+
+### Item 39's night, declared before it flies
+
+```bash
+KSARMORY_SCENARIO_SAVE='SOLVER SCALE 8' ./tools/shot-batch.sh --paired 'base|pulse:PulseTrim=true' \
+    --aim 26.485S,68.148W --blocks 20 --out ~/shots/2026-09-12-pulse    # about 4 hours
+```
+
+Base is the shipped default, which now includes item 38's release floor — so this measures the
+pulses alone.
+
+* **Primary: the release probe's magnitude**, `shot-report.py --paired --endpoint release`, per
+  flight and seat-levelled: the term is a scatter, so its size is the question. **Predicted about
+  0.4x**, from a reading released on falling ~5 m to ~1.2 and a base whose own probe reads 3.32 m.
+  What bounds it from below is no longer the trim but whatever the aim correction and the prediction
+  leave.
+* **Beside it:** the landing, `--paired`, predicted about 0.7x; the walk, which must not move; and
+  the ending mix, where payback should take over from `floor` on most flights.
+* **What would refute it:** the residual falling while the probe does not, which would put the limit
+  somewhere between the trim and the ground rather than in the trim; or `clock` and pass-limit
+  endings rising, which is the pulse phase spending time it cannot pay for.
+* **Watch:** passes per flight, the seconds from split to release, and the trim spend — a pulsing
+  frame is charged a whole pulse where it delivers at most one per 0.15 s, and a night says whether
+  that over-charge matters.
 
 ## 4. Throughput is a setting, and the ladder's gate was mis-read
 
@@ -7248,7 +7297,7 @@ what 20b is flying against.
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | ~~37~~ | ~~Integrate a warhead's fall to second order~~ — `IcbmConfig.SecondOrderWarheads` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **signed walk +1.73 m [+1.54, +1.88], won 20 of 20 and 8 of 8 seats; its magnitude 0.37x [0.30, 0.44]; cross +0.19 → +0.03 m.** The walk was the round's own first-order step, 1.986 m short of the exact conic headlessly. The landing unmoved at 1.05x [0.94, 1.59], unresolved — 2 m one-signed under a ±5 m release scatter — **3cu** |
 | ~~38~~ | ~~Release on a reading inside the trim's floor~~, and keep going while passes improve — `IcbmConfig.ReleaseInsideTheTrimFloor` | **flown 2026-09-12, 20 paired blocks — SHIPPED ON** | **release probe 0.72x [0.58, 0.88] and the landing 0.61x [0.53, 0.74], each won on 17 of 20.** The reading released on 6.80 → 4.95 m, those over 10 m 16 → 1 of 80, in four passes rather than five. Predicted 0.80x on the probe — **3cu** |
-| **39** | **Lower the floor with KSA's pulse mode** — `IcbmConfig.PulseTrim` | **built, off; unflown** | **3cu** — one 1 ms pulse is 36x finer than the band. Headless: a null a hold leaves 0.0135 m/s off finishes at **0.0013**, about 5.4 m of miss becoming 0.5. One guard, the measurement skip, pinned by `BusTrimPulseTests` |
+| **39** | **Lower the floor with KSA's pulse mode** — `IcbmConfig.PulseTrim` | **built, off; smoked, flying** — in flight the nulls finish at **0.0020 m/s** against base's 0.0220, the release floor is priced at **0.60 m** against 7.60, and the reading released on is **1.20 m** against 5.25 | **3cu** — one 1 ms pulse is 36x finer than a frame of jets. No axis struck off and no stall across 1,476 pulses; payback takes over from the floor as the rule that stops the loop. One guard, the measurement skip, pinned by `BusTrimPulseTests` |
 | **40** | **The predictor's crossing tolerance** (+0.18 m) **and the ground lookup's rotation phase** (±3 m by seat) | not started | **3cu** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |
 | ~~31~~ | ~~Stop stage disposal shedding debris~~ | **built 2026-09-09, unflown** | `KsaWorld.Remove` → `Universe.DestroyVehicle`, which sheds nothing where `DestroyVehicleFromEvent` sheds twelve. **3ci/3bv** — inference, not measurement: it removes the only discriminator, but nothing yet proves it breaks the chain |
