@@ -36,6 +36,15 @@ namespace KSArmory;
 /// Whether a frame with no reading leaves the flown correction for the reading that follows —
 /// <see cref="IcbmConfig.DecideOnTheReading"/>.
 /// </param>
+/// <param name="ReleaseInsideTheTrimFloor">
+/// Whether a reading inside <paramref name="TrimFloorMetres"/> is released on rather than trimmed on,
+/// with the improvement band tracking the miss so a pass still closing at the metre scale keeps
+/// going — <see cref="IcbmConfig.ReleaseInsideTheTrimFloor"/>.
+/// </param>
+/// <param name="TrimFloorMetres">
+/// The smallest miss the trim can resolve: <see cref="BusTrim.StopBand"/> carried to the ground at
+/// the arc's sensitivity. NaN when it could not be priced, which releases nothing on it.
+/// </param>
 internal readonly record struct PostBoostSituation(
     bool TrimSettled,
     double3 ReleaseDirectionCci,
@@ -45,7 +54,9 @@ internal readonly record struct PostBoostSituation(
     bool TrimGaveUp = false,
     double HoldingCostMetresPerSecond = 0.0,
     bool ThresholdTracksTheMiss = false,
-    bool DecideOnTheReading = false);
+    bool DecideOnTheReading = false,
+    bool ReleaseInsideTheTrimFloor = false,
+    double TrimFloorMetres = double.NaN);
 
 /// <summary>
 /// Correcting the aim after the engines have stopped, with the trim as the actuator.
@@ -375,11 +386,24 @@ internal sealed class PostBoostAim
             return Finish($"aim settled {now.PredictedMissMetres / 1000.0:F1} km out");
         }
 
+        // Inside what the trim can resolve a pass is a fresh draw rather than a correction: from under
+        // 10 m the next reading was worse 52-86% of the time over three nights, while the reading
+        // itself is good to 0.2 m. docs/ACCURACY-PLAN.md 3cu.
+        if (now.ReleaseInsideTheTrimFloor && double.IsFinite(now.TrimFloorMetres)
+            && now.PredictedMissMetres <= now.TrimFloorMetres)
+        {
+            return Finish($"{now.PredictedMissMetres:F0} m out, inside the {now.TrimFloorMetres:F0} m "
+                          + "the trim can resolve");
+        }
+
         // A pass that cannot beat the best any pass has managed is a pass that bought nothing, and
         // enough of those in a row is a correction that has finished whatever its readings say.
         // Same band as the aim loop's, and for the same reason -- an absolute threshold
         // stops a metre-scale shot on its first evaluation. docs/ACCURACY-PLAN.md 3bw.
-        double band = AimCorrection.ImprovementThreshold(_bestMiss, now.ThresholdTracksTheMiss);
+        // The floor brings the tracking band with it: a floor to release inside is no use to a loop
+        // the flat band stops at 14 m while every pass is still closing.
+        double band = AimCorrection.ImprovementThreshold(
+            _bestMiss, now.ThresholdTracksTheMiss || now.ReleaseInsideTheTrimFloor);
 
         if (now.PredictedMissMetres < _bestMiss - band)
         {

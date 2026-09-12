@@ -6969,6 +6969,14 @@ reading 3.55 m median (204) against 0.10 m without (28,029), worse in 58%.
   with the passes a converging rocket would have got, modelled: **0.80x on the release probe,
   [0.63, 0.96] resampled**. That model, built on `-band`'s base arm, predicted its band arm at 0.80x
   where it flew 0.83x. The landing about 0.9x, not expected to resolve.
+
+  **Built, off: `IcbmConfig.ReleaseInsideTheTrimFloor`.** `BusTrim.StopBand` is now one expression
+  the trim and the sequencer share rather than two; `IcbmComputer` prices the floor once a pass off
+  it and `AimAuthority.TryRate` against the committed arrival, NaN when the arc will not price;
+  `PostBoostAim` releases inside it and takes the tracking band with it, because a floor to release
+  inside is no use to a loop the flat band stops at 14 m. `PostBoostTrimFloorTests` pins both
+  halves: disabling the release fails two of them, and disabling the band fails the one that walks a
+  rocket 141 → 31 → 19 → 14 → 9 → 6 m.
 * **39. Lower the floor with KSA's pulse mode.** `FlightComputerManualThrustMode.Pulse` turns a
   held translation into one pulse of the thruster's `MinimumPulseTime` at most every 0.15 s. The bus
   declares 1 ms, so a pulse is 0.00056 m/s — 16x finer than a frame and 36x finer than the band. It
@@ -7108,7 +7116,7 @@ what 20b is flying against.
 | ~~35~~ | ~~Re-read the ground as a warhead meets it~~ — `IcbmConfig.ResampleGroundAtImpact` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **walk 0.30x [0.26, 0.40], won 20 of 20; miss 0.60x [0.54, 0.79], won 16 of 20.** Every arm flight stopped within 0.1 m of its own surface, and the miss's p90 fell from 53 m to 23. **3cr, 3cs** |
 | ~~36~~ | ~~Decide on the reading, not fifteen seconds after it~~ — `IcbmConfig.DecideOnTheReading` | **flown 2026-09-11, 20 paired blocks — SHIPPED ON** | **signed release +8.3 m [+6.2, +10.5], won 20 of 20: −7.45 → +0.47 m, short 73 → 38 of 80. Miss 0.58x [0.44, 1.08], won 13 of 20, shot-flip p=0.001.** Rocket landing median 12.5 → 6.5 m, p90 24 → 14. 79 of 80 flights now end on `noimprov`, which is the next term — **3cr, 3ct** |
 | **37** | **Integrate a warhead's fall to second order** — `IcbmConfig.SecondOrderWarheads` | **built, off; smoked, flying** — the re-fly walk flat at zero against −2.05 m on base | **3cu** — the walk left after 35 is the round's own integrator: a half-kick of `a·h/2` held for the whole fall, **1.986 m short of the exact conic** headlessly and −2.1 m flown. Predicted −2.1 → −0.3 m |
-| **38** | **Release on a reading inside the trim's floor**, and keep going while passes improve | not started | **3cu** — the floor derived as the trim's band x the arc's sensitivity, 7.3 m. 0.86x on the release probe from flown readings alone, 0.80x with the passes modelled |
+| **38** | **Release on a reading inside the trim's floor**, and keep going while passes improve | **built, off**: `IcbmConfig.ReleaseInsideTheTrimFloor` | **3cu** — the floor derived as the trim's band x the arc's sensitivity, 7.3 m. 0.86x on the release probe from flown readings alone, 0.80x with the passes modelled |
 | **39** | **Lower the floor with KSA's pulse mode** | not started | **3cu** — one 1 ms pulse is 36x finer than the band; predicted floor ~1 m. An engine path the mod has never driven |
 | **40** | **The predictor's crossing tolerance** (+0.18 m) **and the ground lookup's rotation phase** (±3 m by seat) | not started | **3cu** |
 | ~~34b~~ | ~~Feed the hold forward~~ | **flown and lost 2026-09-10** | **+234 m against a 7 m term** — 30x out of scale. The mechanism stands; a blanket offset on every cycle does not, because the release happens when the loop stops rather than a fixed dwell later. **3co** |

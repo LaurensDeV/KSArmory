@@ -73,6 +73,8 @@ internal sealed class IcbmComputer
     private double _freshMiss = double.NaN;
     private double _holdingCost = double.NaN;
     private int _holdingCostForPass = -1;
+    private double _trimFloor = double.NaN;
+    private int _trimFloorForPass = -1;
     private bool _resumedForCoast;
     private bool _trimAbandoned;
     private double _departsIn;
@@ -386,6 +388,8 @@ internal sealed class IcbmComputer
         _freshMiss = double.NaN;
         _holdingCost = double.NaN;
         _holdingCostForPass = -1;
+        _trimFloor = double.NaN;
+        _trimFloorForPass = -1;
         _resumedForCoast = false;
         _trimAbandoned = false;
         _trimShape = "";
@@ -457,6 +461,8 @@ internal sealed class IcbmComputer
         _freshMiss = double.NaN;
         _holdingCost = double.NaN;
         _holdingCostForPass = -1;
+        _trimFloor = double.NaN;
+        _trimFloorForPass = -1;
         _resumedForCoast = false;
         _trimAbandoned = false;
         _trimShape = "";
@@ -1464,6 +1470,7 @@ internal sealed class IcbmComputer
         int passesBefore = _postBoost.Cycles;
 
         MeasureHoldingCost();
+        MeasureTrimFloor(simStep, in state);
 
         PostBoostAim.Decision pass = _postBoost.Update(simStep, new PostBoostSituation(
             TrimSettled: _trim.Done,
@@ -1476,7 +1483,9 @@ internal sealed class IcbmComputer
                                             ? _holdingCost
                                             : Config.HoldingCostMetresPerSecond,
             ThresholdTracksTheMiss: Config.AimThresholdTracksTheMiss,
-            DecideOnTheReading: Config.DecideOnTheReading));
+            DecideOnTheReading: Config.DecideOnTheReading,
+            ReleaseInsideTheTrimFloor: Config.ReleaseInsideTheTrimFloor,
+            TrimFloorMetres: _trimFloor));
 
         if (pass.MayMeasure) _measureDue = true;
 
@@ -2755,6 +2764,30 @@ internal sealed class IcbmComputer
     // The fallback when the tubes cannot be resolved: the munition's ejection speed along the
     // direction the vehicle was told to hold. Wrong by however far the vehicle settled off that
     // command, which is why it is second choice rather than the rule.
+    // What the trim can resolve, carried to the ground: its stop band over what a metre of aim costs
+    // it on this arc. Once a pass, like the holding cost, and NaN when the arc will not price, which
+    // releases nothing on it. docs/ACCURACY-PLAN.md 3cu.
+    private void MeasureTrimFloor(double simStep, in IcbmState state)
+    {
+        if (!Config.ReleaseInsideTheTrimFloor) { _trimFloor = double.NaN; return; }
+        if (_postBoost.Cycles == _trimFloorForPass) return;
+
+        _trimFloorForPass = _postBoost.Cycles;
+
+        double band = BusTrim.StopBand(_trim.Acceleration, simStep);
+
+        _trimFloor = AimAuthority.TryRate(state.Body, state.PositionCci, _trueAimCci,
+                                          Program.CommittedArrivalFromNow, out double perMetre)
+                     && perMetre > 0.0
+                         ? band / perMetre
+                         : double.NaN;
+
+        Log.Debug($"trim floor on {KsaWorld.DisplayName(Craft)}: "
+                  + (double.IsFinite(_trimFloor)
+                         ? $"{_trimFloor:F1} m ({band:F3} m/s x {1.0 / perMetre:F0} m per m/s)"
+                         : "the arc would not price"));
+    }
+
     // Once a pass rather than once a solve: it is four impact predictions, the solve runs several
     // times a second, and the answer is a property of the trajectory, which moves over minutes.
     // A refusal leaves the previous measurement standing.

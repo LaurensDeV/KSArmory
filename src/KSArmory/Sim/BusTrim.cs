@@ -153,6 +153,17 @@ internal sealed class BusTrim
     public const double SettledMetresPerSecond = 0.02;
 
     /// <summary>
+    /// What a direction must still owe to be worth firing, at a measured acceleration and step.
+    /// <see cref="PostBoostAim"/> prices its floor off the same expression, so the two cannot
+    /// disagree about what the trim can resolve.
+    /// </summary>
+    public static double StopBand(double acceleration, double step)
+        => Math.Max(SettledMetresPerSecond,
+                    acceleration > 0.0 && double.IsFinite(acceleration) && step > 0.0 && double.IsFinite(step)
+                        ? 0.5 * acceleration * step
+                        : 0.0);
+
+    /// <summary>
     /// How long after arming before it may call itself finished.
     ///
     /// <para>The split is deferred through the engine's input buffer and the bus's orbit is
@@ -462,8 +473,7 @@ internal sealed class BusTrim
         // The same rule the main burn cuts off on: stop when less than one more frame of firing
         // would remove. A threshold below what a frame adds is a threshold nothing can reach, and
         // the loop hunts round it for as long as it is allowed to.
-        double quantum = _accel > 0.0 ? 0.5 * _accel * step : 0.0;
-        double band = Math.Max(SettledMetresPerSecond, quantum);
+        double band = StopBand(_accel, step);
 
         double ceiling = now.MaxMetresPerSecond > 0.0 && double.IsFinite(now.MaxMetresPerSecond)
                              ? Math.Max(now.MaxMetresPerSecond, MaxMetresPerSecond)

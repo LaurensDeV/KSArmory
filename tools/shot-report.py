@@ -203,6 +203,7 @@ WHY = [
     ("noimprov", re.compile(r"^\d+ passes without beating")),
     ("cycles",   re.compile(r"^released after \d+ corrections")),
     ("payback",  re.compile(r"^[\d.]+ m out, under the ")),
+    ("floor",    re.compile(r"^[\d.]+ m out, inside the ")),
 ]
 
 ABANDONED = re.compile(r"still [\d.]+ m from the spent stack after [\d.]+ s")

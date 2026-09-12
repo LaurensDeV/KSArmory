@@ -457,6 +457,16 @@ internal sealed partial class Ui
             + "the trim settles on spends the flight before its reading arrives, so each later reading "
             + $"waits {PostBoostAim.FlownWithinSeconds:F0} s and the warheads leave on one that old.");
 
+        bool inside = config.ReleaseInsideTheTrimFloor;
+        if (ImGui.Checkbox("Release inside the trim's floor", ref inside))
+        {
+            config.ReleaseInsideTheTrimFloor = inside;
+        }
+        Tip("On: a reading inside what the trim can resolve -- its settle band carried to the ground -- "
+            + "is released on, and a pass still closing at the metre scale keeps going. Off: the loop "
+            + "trims on readings the trim cannot improve, and stops three passes after the last 250 m "
+            + "improvement whatever they read.");
+
         bool resample = config.ResampleGroundAtImpact;
         if (ImGui.Checkbox("Warheads re-read the ground as they meet it", ref resample))
         {

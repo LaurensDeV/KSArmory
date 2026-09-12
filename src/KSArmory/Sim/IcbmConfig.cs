@@ -435,6 +435,23 @@ internal sealed class IcbmConfig
     public bool DecideOnTheReading = true;
 
     /// <summary>
+    /// Whether the post-boost loop releases on a reading inside what the trim can resolve, rather
+    /// than trimming on it again.
+    ///
+    /// <para><b>The floor is the trim's settle band, carried to the ground.</b> The trim stops once
+    /// each axis owes less than <see cref="BusTrim.SettledMetresPerSecond"/>, and at ~380 m of miss per
+    /// m/s that is 7-8 m. A pass on a reading inside it is a fresh draw — worse 52-86% of the time
+    /// over three nights, against a reading good to 0.2 m — and the flat 250 m improvement band then
+    /// ends the loop three passes later whatever they read, sometimes on a rocket still converging.
+    /// On, the floor is <see cref="BusTrim.StopBand"/> over the arc's sensitivity, priced once a pass,
+    /// and the band tracks the miss. <c>docs/ACCURACY-PLAN.md</c> 3cu.</para>
+    ///
+    /// <para><b>Off until it has flown.</b> Predicted from the logs: the release probe 0.80x, and no
+    /// worse than 0.86x on flown readings alone.</para>
+    /// </summary>
+    public bool ReleaseInsideTheTrimFloor;
+
+    /// <summary>
     /// Let a released warhead re-read the ground under each sub-step as it meets it, rather than
     /// holding the frame's first sample.
     ///
