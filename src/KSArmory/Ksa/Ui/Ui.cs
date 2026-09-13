@@ -490,7 +490,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         Tip((chasing ? "Chasing. " : "Not chasing. ")
             + "Rides the camera behind a round this craft fires, while it is the craft you are "
             + "flying or the one whose window is open, and hands the view back on its own: after "
-            + "the burst, or about two seconds after the round has nothing left to arrive at.");
+            + "the burst, or about two seconds after the round has nothing left to arrive at. "
+            + "Right-drag looks around the round and the wheel moves in or out; let go and the view "
+            + "eases back behind it.");
     }
 
     // A click opens the menu, because it is the control a new player tries first and creating the

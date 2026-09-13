@@ -1330,6 +1330,15 @@ the same band section 7.1b needs — fly one engagement and check both.
       the burst, and then leaves the view over it where it can be orbited, rather than off in space.
       The fireball and the cloud still appear, with no `no burst ... no celestial to hang it on`
       warning.
+- [ ] Right-drag while a chase rides a bomb. The camera swings round it the way the orbit camera
+      does — drag down to look from above — with the bomb staying where it was on screen and the
+      cursor hidden while dragging. Let go: it stays a moment, then eases back behind the bomb in
+      about a second. The wheel moves in and out and eases back the same way.
+- [ ] End a drag with the cursor over the panel. The view still eases back rather than staying
+      turned. End one over a craft: no part window opens. A plain right-click on a part, with no
+      drag, still opens its window.
+- [ ] Drag the view under a bomb falling onto a designated point. The eye stops short of the
+      ground rather than going into it.
 - [ ] A chased round that expires while still closing hands the view straight back, logging
       `chase: the round expired, nothing to hold on`, rather than holding three seconds on nothing.
 - [x] Switch vessels with `[` or `]` while a chase rides a round, and again while it holds on the

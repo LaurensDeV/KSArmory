@@ -1,3 +1,4 @@
+using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
 
@@ -119,8 +120,20 @@ internal sealed class ChaseCamera : IViewPose
     // How long the round being ridden has had nothing to arrive at. See Sim/ChaseInterest.cs.
     private readonly ChaseInterest _interest = new();
 
+    // The player looking around the round, eased back behind it when let go. See Sim/ChaseOrbit.cs.
+    private readonly ChaseOrbit _orbit = new();
+
+    // How high the round is over the ground it is falling onto, when that is known, so a view turned
+    // underneath it stops short of the ground. NaN with no ground to measure against.
+    private double _heightOverAim = double.NaN;
+
+    private const double EyeClearance = 3.0;
+
     /// <summary>The round being chased, or null.</summary>
     public IProjectile? Round => _round;
+
+    /// <summary>The player's look around the round being ridden; null while nothing is.</summary>
+    public ChaseOrbit? Orbit => _saved.Valid && _round is not null ? _orbit : null;
 
     /// <summary>
     /// The system whose round the view is riding or holding on, or null. The frame hook prefers it
@@ -216,6 +229,8 @@ internal sealed class ChaseCamera : IViewPose
         _interest.Reset();
         _poseLift = Vec.Zero;
         _lastEyeDirection = Vec.Zero;
+        _orbit.Reset();
+        _heightOverAim = double.NaN;
     }
 
     // Only once the view has been handed back: while it is still ours the followable is what the
@@ -416,6 +431,13 @@ internal sealed class ChaseCamera : IViewPose
         _poseFovDeg = Field(unzoomedFovDeg);
         _freezeTransition = freezeTransition;
 
+        // Player time, because it answers the mouse. The button is read here as well as by the
+        // controller, which never hears a release made over a panel.
+        _orbit.Advance(dtPlayer, ImGui.IsMouseDown(ImGuiMouseButton.Right));
+        _heightOverAim = round.Munition.HitsTerrain && _aimFromRound is { } groundAim
+                             ? -Vec.Dot(groundAim, _poseUp)
+                             : double.NaN;
+
         // Closing in as it arrives, which is what conveys the speed. A store the ground stops counts
         // down its fall rather than its line of sight -- see ChaseInterest.TimeToFall.
         double toGo = round.Munition.HitsTerrain && aim is { } below
@@ -475,9 +497,13 @@ internal sealed class ChaseCamera : IViewPose
 
         ProbeBlend(battery, round, eye, up, dtSim);
 
-        _holdOffset = eye;
-        _holdForward = forward;
-        _holdUp = up;
+        // The chase's own pose above, and only now where the player has turned it: the carried lift
+        // and the swing warning belong to that pose, and a drag is neither.
+        LookAround(eye, forward, up, out double3 viewEye, out double3 viewForward, out double3 viewUp);
+
+        _holdOffset = viewEye;
+        _holdForward = viewForward;
+        _holdUp = viewUp;
 
         // A refused write must not leave the view held: the player would be stranded wherever the
         // last good frame put them.
@@ -485,7 +511,20 @@ internal sealed class ChaseCamera : IViewPose
         // Handing `this` over as the pose source is what puts the answer in phase with the frame,
         // and it is also what carries the chase through a hidden UI: the write below lands in the
         // engine's own pass either way, where a write made from a hook that was skipped does not.
-        if (!KsaWorld.TryLookFromMainViewport(eye, forward, up, _poseFovDeg, this)) Release();
+        if (!KsaWorld.TryLookFromMainViewport(viewEye, viewForward, viewUp, _poseFovDeg, this)) Release();
+    }
+
+    // Where the player has turned the view round the round, from the chase's own pose. Under the
+    // round only as far as the ground it is falling onto allows, and never further under it than
+    // the chase's own pose already put the eye.
+    private void LookAround(double3 eye, double3 forward, double3 up,
+                            out double3 viewEye, out double3 viewForward, out double3 viewUp)
+    {
+        double lowest = double.IsFinite(_heightOverAim) ? -(_heightOverAim - EyeClearance) : 0.0;
+        lowest = Math.Min(lowest, Vec.Dot(eye, _poseUp));
+
+        ChaseView.Orbit(eye, forward, up, _poseUp, _orbit.Yaw, _orbit.Pitch, _orbit.Zoom, lowest, _poseUp,
+                        out viewEye, out viewForward, out viewUp);
     }
 
     /// <summary>
@@ -516,7 +555,10 @@ internal sealed class ChaseCamera : IViewPose
             return Vec.Len2(forwardEcl) > 0.5;
         }
 
-        return TryPoseFor(round, out offsetFromFollowed, out forwardEcl, out upEcl, out _);
+        if (!TryPoseFor(round, out double3 eye, out double3 forward, out double3 up, out _)) return false;
+
+        LookAround(eye, forward, up, out offsetFromFollowed, out forwardEcl, out upEcl);
+        return true;
     }
 
     // The pose, from state Apply has already settled. Pure but for finishing an unusable

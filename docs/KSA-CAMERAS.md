@@ -467,6 +467,14 @@ the intended mode for a mod-driven camera.
 All input handlers return false (`:120-138`), so `Fixed` swallows nothing; `GetCursorMode()` falls
 through to the base `Normal` (`Controller.cs:74-77`).
 
+Every one of them is virtual on `Controller` (`Controller.cs:22-92`), so a subclass can take input
+back. `Ksa/LevelHorizonController.cs` does for the chase: `OnMouseButton`, `OnCursorPos`, `OnScroll`,
+`IsMouseDrag` and `GetCursorMode`. What that has to respect: `Program.OnMouseButton` returns before
+any controller while ImGui wants the mouse (`Program.cs:1972`), so a release over a panel never
+arrives; `OnScroll` is gated the same way (`:2071`) and `OnCursorPos` is not (`:2063`); and
+`Vehicle.OnMouseButton` asks the active controller's `IsMouseDrag()` before a right-release opens the
+highlighted part's window (`Vehicle.cs:3637-3646`).
+
 There is **no `Program.GetFixedController()`** — `Program` exposes accessors only for Orbit, Fly and Map
 (`Program.cs:614-627`). Reach it as `viewport.FixedController` (`Viewport.cs:54`), which is the pattern
 `DockingPort` uses.

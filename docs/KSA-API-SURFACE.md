@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-174 types and 509 members across 7 assemblies.
+179 types and 516 members across 7 assemblies.
 
 ## Brutal.Concurrency
 
@@ -27,6 +27,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Numerics.byte4
 
 - `void .ctor(byte, byte, byte, byte)`
+
+### Brutal.Numerics.double2
+
+- `double X`
+- `double Y`
 
 ### Brutal.Numerics.double3
 
@@ -105,11 +110,27 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ## Brutal.Glfw
 
+### Brutal.GlfwApi.GlfwButtonAction
+
+*referenced as a type only*
+
+### Brutal.GlfwApi.GlfwCursorMode
+
+*referenced as a type only*
+
 ### Brutal.GlfwApi.GlfwKeyAction
 
 *referenced as a type only*
 
 ### Brutal.GlfwApi.GlfwModifier
+
+*referenced as a type only*
+
+### Brutal.GlfwApi.GlfwMouseButton
+
+*referenced as a type only*
+
+### Brutal.GlfwApi.GlfwWindow
 
 *referenced as a type only*
 
@@ -429,7 +450,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Controller
 
+- `Brutal.GlfwApi.GlfwCursorMode GetCursorMode()`
 - `KSA.Camera Camera`
+- `bool IsMouseDrag()`
+- `bool OnCursorPos(Brutal.GlfwApi.GlfwWindow, Brutal.Numerics.double2)`
+- `bool OnMouseButton(Brutal.GlfwApi.GlfwWindow, Brutal.GlfwApi.GlfwMouseButton, Brutal.GlfwApi.GlfwButtonAction, Brutal.GlfwApi.GlfwModifier)`
+- `bool OnScroll(Brutal.GlfwApi.GlfwWindow, Brutal.Numerics.double2)`
 
 ### KSA.CrewDisposition
 

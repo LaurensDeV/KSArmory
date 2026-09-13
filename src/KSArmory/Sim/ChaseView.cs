@@ -128,6 +128,84 @@ public static class ChaseView
     }
 
     /// <summary>
+    /// The pose turned round the round by the player, and moved in or out along the line from it.
+    ///
+    /// <para>The whole rig turns — eye, view and up together — so the round stays exactly where it
+    /// was in the picture and the view's roll is carried rather than re-derived. With nothing to
+    /// apply it is the pose handed in to the bit, which is what lets a view the player has let go of
+    /// settle onto the chase's own.</para>
+    /// </summary>
+    /// <param name="eyeFromRound">The eye, as a separation from the round.</param>
+    /// <param name="localUp">What the yaw turns about, as KSA's orbit camera turns about the vertical.</param>
+    /// <param name="yaw">See <see cref="ChaseOrbit.Yaw"/>.</param>
+    /// <param name="pitch">See <see cref="ChaseOrbit.Pitch"/>; positive raises the eye.</param>
+    /// <param name="lowestEye">
+    /// How far along <paramref name="localUp"/> the eye may sit from the round, negative being below
+    /// it. The pitch gives way to it and the yaw does not, so a view turned into the ground stops at
+    /// the ground rather than refusing the turn.
+    /// </param>
+    public static void Orbit(double3 eyeFromRound, double3 forward, double3 up, double3 localUp,
+                             double yaw, double pitch, double zoom, double lowestEye,
+                             double3 engineAxisEcl,
+                             out double3 eyeEcl, out double3 forwardEcl, out double3 upEcl)
+    {
+        eyeEcl = eyeFromRound;
+        forwardEcl = forward;
+        upEcl = up;
+
+        if (yaw == 0.0 && pitch == 0.0 && zoom == 1.0) return;
+        if (!Vec.IsFinite(eyeFromRound) || !Vec.IsFinite(forward) || !Vec.IsFinite(up)) return;
+        if (!double.IsFinite(yaw) || !double.IsFinite(pitch) || !(zoom > 0.0) || !double.IsFinite(zoom)) return;
+
+        double3 vertical = Vec.Unit(localUp);
+        if (Vec.Len2(vertical) < 0.5) return;
+
+        // Square to the view and its own up, which has a length however steeply the view looks
+        // down; a right taken off the vertical has none when a round falls straight onto its target.
+        double3 right = Vec.Unit(Vec.Cross(up, forward));
+        if (Vec.Len2(right) < 0.5) right = AnyPerpendicular(forward);
+
+        double3 eye = Turned(pitch, out double3 turnedForward, out double3 turnedUp);
+
+        if (Vec.Dot(eye, vertical) < lowestEye)
+        {
+            double allowed = 0.0;
+            double refused = 1.0;
+
+            // Nothing below the floor is used, and the full turn was: find how much of the pitch the
+            // floor leaves. Falls back to none of it, which is the yaw and zoom alone.
+            for (int i = 0; i < 24; i++)
+            {
+                double mid = 0.5 * (allowed + refused);
+                if (Vec.Dot(Turned(pitch * mid, out _, out _), vertical) >= lowestEye) allowed = mid;
+                else refused = mid;
+            }
+
+            eye = Turned(pitch * allowed, out turnedForward, out turnedUp);
+        }
+
+        forwardEcl = LeanOffAxis(Vec.Unit(turnedForward), engineAxisEcl);
+        upEcl = turnedUp;
+        eyeEcl = eye;
+
+        if (Vec.IsFinite(eyeEcl) && Vec.IsFinite(forwardEcl) && Vec.IsFinite(upEcl)) return;
+
+        eyeEcl = eyeFromRound;
+        forwardEcl = forward;
+        upEcl = up;
+
+        double3 Turned(double withPitch, out double3 f, out double3 u)
+        {
+            doubleQuat q = doubleQuat.CreateFromAxisAngle(vertical, yaw)
+                           * doubleQuat.CreateFromAxisAngle(right, withPitch);
+
+            f = q * forward;
+            u = q * up;
+            return (q * eyeFromRound) * zoom;
+        }
+    }
+
+    /// <summary>
     /// Tilts a view direction away from the axis the engine's camera cannot cross.
     ///
     /// <para>KSA's fixed camera builds its basis by crossing the view with that axis and

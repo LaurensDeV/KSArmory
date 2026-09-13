@@ -150,7 +150,9 @@ internal sealed partial class Ui
         // A view control, so it sits with the weapon whose rounds it would ride.
         ImGui.Checkbox("Chase this launcher's rounds", ref _policy.ChaseRounds);
         Tip("Rides the camera behind a round this launcher fires, and hands the view back on its own: "
-            + "after the burst, or about two seconds after the round has nothing left to arrive at.");
+            + "after the burst, or about two seconds after the round has nothing left to arrive at. "
+            + "Right-drag looks around the round and the wheel moves in or out; let go and the view "
+            + "eases back behind it.");
 
         // Only where it answers the right question. A guided round goes where it is steered, so a
         // ballistic pipper over one is a ring in the wrong place with nothing to say so.

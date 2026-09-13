@@ -376,6 +376,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/FrameBudget.cs` | **what this mod costs the frame, split by what costs it** — the other side of `SolverLoad`'s subtraction, because three suspects eliminated one at a time is not the same as measuring the whole |
 | `Sim/SolverLoad.cs` | whether the engine is keeping up, and what more work in the world costs — **the instrument both throughput levers are priced with**, because neither several rockets nor several game instances has ever been measured |
 | `Sim/ChaseView.cs` | where to put a camera riding behind a round |
+| `Sim/ChaseOrbit.cs` | the player looking around a chased round with KSA's own orbit drag and wheel — **eased back behind the round when let go** |
 | `Sim/ChaseInterest.cs` | whether a chased round is still going anywhere — **a round with nothing to arrive at can only run out of flight**, and riding it there is watching a despawn |
 | `Sim/ViewClaim.cs` | who may hold the player's main view, and what that means for the loser |
 | `Sim/OrbitAim.cs` | the orbit-camera angles that would point the view at something |
@@ -476,7 +477,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 509 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 516 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1062,7 +1063,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 174 types this mod actually uses.
+defining the 179 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -2328,6 +2329,15 @@ false — so both reflexes are dead and only KSA's **View** menu sets a mode out
 says so beside the control, and **off** is the mod's own route back. `docs/KSA-CAMERAS.md` has the
 evidence. This is why the chase camera releasing itself matters: it holds for seconds, where the
 sight holds until told otherwise.
+
+**The chase can still be looked around, and that is the one input a borrowed view takes.**
+`LevelHorizonController` overrides the controller's own input handlers rather than polling ImGui, so
+a drag works with the UI hidden, and while the chase rides a round it takes the right-button drag and
+the wheel as KSA's orbit camera would — `Sim/ChaseOrbit.cs`. The whole rig turns about the round, so
+the round stays where it was in the picture, and letting go eases the view back behind it. Two
+things about it are load-bearing: `IsMouseDrag` is what the engine asks before a right-release opens
+the window of the part under the cursor, and the button is read again each frame because the engine
+drops a release made over a panel.
 
 **A camera move that tracks a round runs on simulated time too.** The rule in *Fire control runs
 on simulated time* is not only about fire control: the chase transition advances on the step, so

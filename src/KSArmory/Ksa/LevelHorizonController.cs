@@ -1,3 +1,4 @@
+using Brutal.GlfwApi;
 using Brutal.Numerics;
 using KSA;
 
@@ -68,6 +69,50 @@ internal sealed class LevelHorizonController(Camera camera) : FixedController(ca
 
     // How fast a levelled picture rights itself (rad/s). See the correction in OnFrame.
     private const double LevelRateRad = Math.PI;
+
+    // Asked of the pose source rather than held here, so only a borrower that lets its view be
+    // looked around takes the right button and the wheel from the engine.
+    private ChaseOrbit? Orbit => Pose?.Orbit;
+
+    public override bool OnMouseButton(GlfwWindow window, GlfwMouseButton button, GlfwButtonAction action,
+                                       GlfwModifier mods)
+    {
+        if (Orbit is not { } orbit || button != GlfwMouseButton.Number2)
+        {
+            return base.OnMouseButton(window, button, action, mods);
+        }
+
+        // The modifiers KSA's orbit camera starts a drag on, so a chord it leaves alone stays alone.
+        if (action == GlfwButtonAction.Press && (mods == 0 || (mods & GlfwModifier.Shift) != 0)) orbit.Press();
+        else if (action == GlfwButtonAction.Release) orbit.Release();
+
+        return true;
+    }
+
+    public override bool OnCursorPos(GlfwWindow window, double2 pos)
+    {
+        if (Orbit is not { } orbit) return base.OnCursorPos(window, pos);
+
+        orbit.Move(pos.X, pos.Y);
+        return orbit.Dragging;
+    }
+
+    public override bool OnScroll(GlfwWindow window, double2 offset)
+    {
+        if (Orbit is not { } orbit) return base.OnScroll(window, offset);
+
+        orbit.Scroll(offset.Y);
+        return true;
+    }
+
+    // Load-bearing: the engine asks the active controller this before a right-release opens the
+    // window of whatever part is under the cursor, so a drag ending over a craft opens nothing.
+    public override bool IsMouseDrag() => Orbit?.Dragging == true || base.IsMouseDrag();
+
+    // Hidden and unbounded while dragging, as the orbit camera's is, so a drag does not stop at the
+    // edge of the screen.
+    public override GlfwCursorMode GetCursorMode()
+        => Orbit?.Dragging == true ? GlfwCursorMode.Disabled : base.GetCursorMode();
 
     public override void OnFrame(IViewport inViewport, double inDeltaTime)
     {
@@ -237,4 +282,10 @@ internal interface IViewPose
     /// </param>
     bool TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
                  out double3 upEcl, out double fovDeg);
+
+    /// <summary>
+    /// The player looking around this view, or null for a view that is not looked around. Non-null
+    /// is what hands the right button and the wheel to it rather than to the engine.
+    /// </summary>
+    ChaseOrbit? Orbit { get; }
 }

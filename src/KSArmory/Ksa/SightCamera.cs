@@ -35,6 +35,9 @@ internal sealed class SightCamera : IViewPose
     // system's own settings.
     private double _magnification = 1.0;
 
+    /// <summary>Null: the sight looks where its head points, and the mouse aims the head.</summary>
+    public ChaseOrbit? Orbit => null;
+
 
     /// <summary>
     /// Where the view goes, asked from inside the engine's own frame pass.
